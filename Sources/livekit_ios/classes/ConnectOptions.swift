@@ -11,6 +11,9 @@ typealias ConnectOptionsBuilderBlock = (inout ConnectOptionsBuilder) -> Void
 
 struct ConnectOptions {
     private var builder: ConnectOptionsBuilder
+    var config: ConnectOptionsBuilder {
+        return builder
+    }
     
     init(token accessToken: String, block: ConnectOptionsBuilderBlock?) {
         builder = ConnectOptionsBuilder(accessToken)
@@ -23,6 +26,9 @@ struct ConnectOptions {
 struct ConnectOptionsBuilder {
     private(set) var accessToken: String
     var roomName: String = ""
+    var host: String = ""
+    var isSecure: Bool = false
+    var port: UInt8 = 80
     
     init(_ accessToken: String) {
         self.accessToken = accessToken
