@@ -21,7 +21,9 @@ let package = Package(
         // Targets can depend on other targets in this package, and on products in packages this package depends on.
         .target(
             name: "LiveKit",
-            dependencies: ["WebRTC", "Starscream", "SwiftProtobuf"]),
+            dependencies: ["WebRTC", "Starscream", "SwiftProtobuf"],
+            path: "Sources"
+        ),
         .testTarget(
             name: "LiveKitTests",
             dependencies: ["LiveKit"]),
