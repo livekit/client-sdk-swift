@@ -1,7 +1,7 @@
 import XCTest
 
-import livekit_iosTests
+import LiveKitTests
 
 var tests = [XCTestCaseEntry]()
-tests += livekit_iosTests.allTests()
+tests += LiveKitTests.allTests()
 XCTMain(tests)

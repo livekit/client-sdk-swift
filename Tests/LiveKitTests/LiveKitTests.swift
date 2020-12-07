@@ -1,10 +1,10 @@
 import XCTest
-@testable import livekit_ios
+@testable import LiveKit
 
 struct RoomDelegateMock: RoomDelegate {
 }
 
-final class livekit_iosTests: XCTestCase {
+final class LiveKitTests: XCTestCase {
     func testConnect() {
         // This is an example of a functional test case.
         // Use XCTAssert and related functions to verify your tests produce the correct
