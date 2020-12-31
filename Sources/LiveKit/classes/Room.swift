@@ -8,6 +8,7 @@
 import Foundation
 import WebRTC
 import Promises
+import Starscream
 
 enum RoomError: Error {
     case missingRoomId(String)
@@ -168,7 +169,15 @@ extension Room: RTCEngineDelegate {
         }
     }
     
-    func didDisconnect(error: Error?) {
+    func didDisconnect(reason: String, code: UInt16) {
+        var error: Error?
+        if code != CloseCode.normal.rawValue {
+            error = RTCClientError.socketError(reason, code)
+        }
         delegate?.didDisconnect(room: self, error: error)
+    }
+    
+    func didFailToConnect(error: Error) {
+        delegate?.didFailToConnect(room: self, error: error)
     }
 }

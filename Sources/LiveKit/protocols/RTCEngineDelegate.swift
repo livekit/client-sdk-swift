@@ -13,5 +13,6 @@ protocol RTCEngineDelegate {
     func didAddTrack(track: RTCMediaStreamTrack, streams: [RTCMediaStream])
     func didAddDataChannel(channel: RTCDataChannel)
     func didUpdateParticipants(updates: [Livekit_ParticipantInfo])
-    func didDisconnect(error: Error?)
+    func didDisconnect(reason: String, code: UInt16)
+    func didFailToConnect(error: Error)
 }

@@ -13,6 +13,8 @@ import Promises
 enum RTCClientError: Error {
     case invalidRTCSdpType
     case socketNotConnected
+    case socketError(String, UInt16)
+    case socketDisconnected
 }
 
 class RTCClient {
@@ -152,12 +154,10 @@ extension RTCClient: WebSocketDelegate {
         case .error(let error):
             isConnected = false
             print("Websocket error: \(error!)")
-        case .disconnected(let reason, _):
+        case .disconnected(let reason, let code):
             isConnected = false
             print("Websocket connection closed: \(reason)")
-            if let d = delegate {
-                d.onClose(reason: reason)
-            }
+            delegate?.onClose(reason: reason, code: code)
         case .cancelled:
             isConnected = false
         default:

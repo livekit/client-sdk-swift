@@ -147,14 +147,14 @@ extension RTCEngine: RTCClientDelegate {
         delegate?.didUpdateParticipants(updates: updates)
     }
     
-    func onClose(reason: String) {
+    func onClose(reason: String, code: UInt16) {
         print("Received close event: \(reason)")
-        delegate?.didDisconnect(error: nil)
+        delegate?.didDisconnect(reason: reason, code: code)
     }
     
     func onError(error: Error) {
         print("Error: \(error)")
-        delegate?.didDisconnect(error: error)
+        delegate?.didFailToConnect(error: error)
     }
 }
 

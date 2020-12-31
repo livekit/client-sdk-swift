@@ -14,6 +14,6 @@ protocol RTCClientDelegate {
     func onTrickle(candidate: RTCIceCandidate)
     func onNegotiate(sessionDescription: RTCSessionDescription)
     func onParticipantUpdate(updates: [Livekit_ParticipantInfo])
-    func onClose(reason: String)
+    func onClose(reason: String, code: UInt16)
     func onError(error: Error)
 }
