@@ -146,8 +146,13 @@ extension Room: RTCEngineDelegate {
             var participant = remoteParticipants.first(where: { $0.sid == participantInfo.sid })
             switch participantInfo.state {
             case .disconnected:
+                guard participant != nil else {
+                    break
+                }
                 do {
                     try participant?.unpublishTracks()
+                    remoteParticipants.remove(participant!)
+                    delegate?.participantDidDisconnect(room: self, participant: participant!)
                 } catch {
                     print(error)
                 }
@@ -157,6 +162,7 @@ extension Room: RTCEngineDelegate {
                 } else {
                     participant = RemoteParticipant(info: participantInfo)
                     remoteParticipants.insert(participant!)
+                    delegate?.participantDidConnect(room: self, participant: participant!)
                 }
             }
         }
