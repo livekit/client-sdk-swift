@@ -150,6 +150,15 @@ struct Livekit_SignalResponse {
     set {message = .update(newValue)}
   }
 
+  /// sent to the participant when their track has been published
+  var trackPublished: Livekit_TrackInfo {
+    get {
+      if case .trackPublished(let v)? = message {return v}
+      return Livekit_TrackInfo()
+    }
+    set {message = .trackPublished(newValue)}
+  }
+
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   enum OneOf_Message: Equatable {
@@ -163,6 +172,8 @@ struct Livekit_SignalResponse {
     case trickle(Livekit_Trickle)
     /// sent when participants in the room has changed
     case update(Livekit_ParticipantUpdate)
+    /// sent to the participant when their track has been published
+    case trackPublished(Livekit_TrackInfo)
 
   #if !swift(>=4.1)
     static func ==(lhs: Livekit_SignalResponse.OneOf_Message, rhs: Livekit_SignalResponse.OneOf_Message) -> Bool {
@@ -188,6 +199,10 @@ struct Livekit_SignalResponse {
       }()
       case (.update, .update): return {
         guard case .update(let l) = lhs, case .update(let r) = rhs else { preconditionFailure() }
+        return l == r
+      }()
+      case (.trackPublished, .trackPublished): return {
+        guard case .trackPublished(let l) = lhs, case .trackPublished(let r) = rhs else { preconditionFailure() }
         return l == r
       }()
       default: return false
@@ -372,6 +387,7 @@ extension Livekit_SignalResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageI
     3: .same(proto: "negotiate"),
     4: .same(proto: "trickle"),
     5: .same(proto: "update"),
+    6: .same(proto: "trackPublished"),
   ]
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -425,6 +441,15 @@ extension Livekit_SignalResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageI
         try decoder.decodeSingularMessageField(value: &v)
         if let v = v {self.message = .update(v)}
       }()
+      case 6: try {
+        var v: Livekit_TrackInfo?
+        if let current = self.message {
+          try decoder.handleConflictingOneOf()
+          if case .trackPublished(let m) = current {v = m}
+        }
+        try decoder.decodeSingularMessageField(value: &v)
+        if let v = v {self.message = .trackPublished(v)}
+      }()
       default: break
       }
     }
@@ -454,6 +479,10 @@ extension Livekit_SignalResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageI
     case .update?: try {
       guard case .update(let v)? = self.message else { preconditionFailure() }
       try visitor.visitSingularMessageField(value: v, fieldNumber: 5)
+    }()
+    case .trackPublished?: try {
+      guard case .trackPublished(let v)? = self.message else { preconditionFailure() }
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 6)
     }()
     case nil: break
     }

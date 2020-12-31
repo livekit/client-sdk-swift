@@ -69,13 +69,13 @@ struct Livekit_Room {
 
   var sid: String = String()
 
+  var name: String = String()
+
   var emptyTimeout: UInt32 = 0
 
   var maxParticipants: UInt32 = 0
 
   var creationTime: Int64 = 0
-
-  var token: String = String()
 
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
@@ -89,11 +89,11 @@ struct Livekit_RoomInfo {
 
   var sid: String = String()
 
+  var name: String = String()
+
   var nodeIp: String = String()
 
   var creationTime: Int64 = 0
-
-  var token: String = String()
 
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
@@ -118,7 +118,7 @@ struct Livekit_ParticipantInfo {
   enum State: SwiftProtobuf.Enum {
     typealias RawValue = Int
 
-    /// websocket connected, but not offered yet
+    /// websocket' connected, but not offered yet
     case joining // = 0
 
     /// server received client offer
@@ -235,16 +235,54 @@ extension Livekit_TrackInfo.TypeEnum: CaseIterable {
 
 #endif  // swift(>=4.2)
 
-struct Livekit_DataChannel {
+struct Livekit_DataMessage {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
 
-  var sessionID: String = String()
+  var value: Livekit_DataMessage.OneOf_Value? = nil
 
-  var payload: Data = Data()
+  var text: String {
+    get {
+      if case .text(let v)? = value {return v}
+      return String()
+    }
+    set {value = .text(newValue)}
+  }
+
+  var binary: Data {
+    get {
+      if case .binary(let v)? = value {return v}
+      return Data()
+    }
+    set {value = .binary(newValue)}
+  }
 
   var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  enum OneOf_Value: Equatable {
+    case text(String)
+    case binary(Data)
+
+  #if !swift(>=4.1)
+    static func ==(lhs: Livekit_DataMessage.OneOf_Value, rhs: Livekit_DataMessage.OneOf_Value) -> Bool {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch (lhs, rhs) {
+      case (.text, .text): return {
+        guard case .text(let l) = lhs, case .text(let r) = rhs else { preconditionFailure() }
+        return l == r
+      }()
+      case (.binary, .binary): return {
+        guard case .binary(let l) = lhs, case .binary(let r) = rhs else { preconditionFailure() }
+        return l == r
+      }()
+      default: return false
+      }
+    }
+  #endif
+  }
 
   init() {}
 }
@@ -345,10 +383,10 @@ extension Livekit_Room: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementat
   static let protoMessageName: String = _protobuf_package + ".Room"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     1: .same(proto: "sid"),
-    2: .standard(proto: "empty_timeout"),
-    3: .standard(proto: "max_participants"),
-    4: .standard(proto: "creation_time"),
-    5: .same(proto: "token"),
+    2: .same(proto: "name"),
+    3: .standard(proto: "empty_timeout"),
+    4: .standard(proto: "max_participants"),
+    5: .standard(proto: "creation_time"),
   ]
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -358,10 +396,10 @@ extension Livekit_Room: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementat
       // enabled. https://github.com/apple/swift-protobuf/issues/1034
       switch fieldNumber {
       case 1: try { try decoder.decodeSingularStringField(value: &self.sid) }()
-      case 2: try { try decoder.decodeSingularUInt32Field(value: &self.emptyTimeout) }()
-      case 3: try { try decoder.decodeSingularUInt32Field(value: &self.maxParticipants) }()
-      case 4: try { try decoder.decodeSingularInt64Field(value: &self.creationTime) }()
-      case 5: try { try decoder.decodeSingularStringField(value: &self.token) }()
+      case 2: try { try decoder.decodeSingularStringField(value: &self.name) }()
+      case 3: try { try decoder.decodeSingularUInt32Field(value: &self.emptyTimeout) }()
+      case 4: try { try decoder.decodeSingularUInt32Field(value: &self.maxParticipants) }()
+      case 5: try { try decoder.decodeSingularInt64Field(value: &self.creationTime) }()
       default: break
       }
     }
@@ -371,27 +409,27 @@ extension Livekit_Room: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementat
     if !self.sid.isEmpty {
       try visitor.visitSingularStringField(value: self.sid, fieldNumber: 1)
     }
+    if !self.name.isEmpty {
+      try visitor.visitSingularStringField(value: self.name, fieldNumber: 2)
+    }
     if self.emptyTimeout != 0 {
-      try visitor.visitSingularUInt32Field(value: self.emptyTimeout, fieldNumber: 2)
+      try visitor.visitSingularUInt32Field(value: self.emptyTimeout, fieldNumber: 3)
     }
     if self.maxParticipants != 0 {
-      try visitor.visitSingularUInt32Field(value: self.maxParticipants, fieldNumber: 3)
+      try visitor.visitSingularUInt32Field(value: self.maxParticipants, fieldNumber: 4)
     }
     if self.creationTime != 0 {
-      try visitor.visitSingularInt64Field(value: self.creationTime, fieldNumber: 4)
-    }
-    if !self.token.isEmpty {
-      try visitor.visitSingularStringField(value: self.token, fieldNumber: 5)
+      try visitor.visitSingularInt64Field(value: self.creationTime, fieldNumber: 5)
     }
     try unknownFields.traverse(visitor: &visitor)
   }
 
   static func ==(lhs: Livekit_Room, rhs: Livekit_Room) -> Bool {
     if lhs.sid != rhs.sid {return false}
+    if lhs.name != rhs.name {return false}
     if lhs.emptyTimeout != rhs.emptyTimeout {return false}
     if lhs.maxParticipants != rhs.maxParticipants {return false}
     if lhs.creationTime != rhs.creationTime {return false}
-    if lhs.token != rhs.token {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
@@ -401,9 +439,9 @@ extension Livekit_RoomInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImpleme
   static let protoMessageName: String = _protobuf_package + ".RoomInfo"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     1: .same(proto: "sid"),
-    2: .standard(proto: "node_ip"),
-    3: .standard(proto: "creation_time"),
-    4: .same(proto: "token"),
+    2: .same(proto: "name"),
+    3: .standard(proto: "node_ip"),
+    4: .standard(proto: "creation_time"),
   ]
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -413,9 +451,9 @@ extension Livekit_RoomInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImpleme
       // enabled. https://github.com/apple/swift-protobuf/issues/1034
       switch fieldNumber {
       case 1: try { try decoder.decodeSingularStringField(value: &self.sid) }()
-      case 2: try { try decoder.decodeSingularStringField(value: &self.nodeIp) }()
-      case 3: try { try decoder.decodeSingularInt64Field(value: &self.creationTime) }()
-      case 4: try { try decoder.decodeSingularStringField(value: &self.token) }()
+      case 2: try { try decoder.decodeSingularStringField(value: &self.name) }()
+      case 3: try { try decoder.decodeSingularStringField(value: &self.nodeIp) }()
+      case 4: try { try decoder.decodeSingularInt64Field(value: &self.creationTime) }()
       default: break
       }
     }
@@ -425,23 +463,23 @@ extension Livekit_RoomInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImpleme
     if !self.sid.isEmpty {
       try visitor.visitSingularStringField(value: self.sid, fieldNumber: 1)
     }
+    if !self.name.isEmpty {
+      try visitor.visitSingularStringField(value: self.name, fieldNumber: 2)
+    }
     if !self.nodeIp.isEmpty {
-      try visitor.visitSingularStringField(value: self.nodeIp, fieldNumber: 2)
+      try visitor.visitSingularStringField(value: self.nodeIp, fieldNumber: 3)
     }
     if self.creationTime != 0 {
-      try visitor.visitSingularInt64Field(value: self.creationTime, fieldNumber: 3)
-    }
-    if !self.token.isEmpty {
-      try visitor.visitSingularStringField(value: self.token, fieldNumber: 4)
+      try visitor.visitSingularInt64Field(value: self.creationTime, fieldNumber: 4)
     }
     try unknownFields.traverse(visitor: &visitor)
   }
 
   static func ==(lhs: Livekit_RoomInfo, rhs: Livekit_RoomInfo) -> Bool {
     if lhs.sid != rhs.sid {return false}
+    if lhs.name != rhs.name {return false}
     if lhs.nodeIp != rhs.nodeIp {return false}
     if lhs.creationTime != rhs.creationTime {return false}
-    if lhs.token != rhs.token {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
@@ -558,11 +596,11 @@ extension Livekit_TrackInfo.TypeEnum: SwiftProtobuf._ProtoNameProviding {
   ]
 }
 
-extension Livekit_DataChannel: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
-  static let protoMessageName: String = _protobuf_package + ".DataChannel"
+extension Livekit_DataMessage: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  static let protoMessageName: String = _protobuf_package + ".DataMessage"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
-    1: .standard(proto: "session_id"),
-    2: .same(proto: "payload"),
+    1: .same(proto: "text"),
+    2: .same(proto: "binary"),
   ]
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -571,26 +609,43 @@ extension Livekit_DataChannel: SwiftProtobuf.Message, SwiftProtobuf._MessageImpl
       // allocates stack space for every case branch when no optimizations are
       // enabled. https://github.com/apple/swift-protobuf/issues/1034
       switch fieldNumber {
-      case 1: try { try decoder.decodeSingularStringField(value: &self.sessionID) }()
-      case 2: try { try decoder.decodeSingularBytesField(value: &self.payload) }()
+      case 1: try {
+        if self.value != nil {try decoder.handleConflictingOneOf()}
+        var v: String?
+        try decoder.decodeSingularStringField(value: &v)
+        if let v = v {self.value = .text(v)}
+      }()
+      case 2: try {
+        if self.value != nil {try decoder.handleConflictingOneOf()}
+        var v: Data?
+        try decoder.decodeSingularBytesField(value: &v)
+        if let v = v {self.value = .binary(v)}
+      }()
       default: break
       }
     }
   }
 
   func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
-    if !self.sessionID.isEmpty {
-      try visitor.visitSingularStringField(value: self.sessionID, fieldNumber: 1)
-    }
-    if !self.payload.isEmpty {
-      try visitor.visitSingularBytesField(value: self.payload, fieldNumber: 2)
+    // The use of inline closures is to circumvent an issue where the compiler
+    // allocates stack space for every case branch when no optimizations are
+    // enabled. https://github.com/apple/swift-protobuf/issues/1034
+    switch self.value {
+    case .text?: try {
+      guard case .text(let v)? = self.value else { preconditionFailure() }
+      try visitor.visitSingularStringField(value: v, fieldNumber: 1)
+    }()
+    case .binary?: try {
+      guard case .binary(let v)? = self.value else { preconditionFailure() }
+      try visitor.visitSingularBytesField(value: v, fieldNumber: 2)
+    }()
+    case nil: break
     }
     try unknownFields.traverse(visitor: &visitor)
   }
 
-  static func ==(lhs: Livekit_DataChannel, rhs: Livekit_DataChannel) -> Bool {
-    if lhs.sessionID != rhs.sessionID {return false}
-    if lhs.payload != rhs.payload {return false}
+  static func ==(lhs: Livekit_DataMessage, rhs: Livekit_DataMessage) -> Bool {
+    if lhs.value != rhs.value {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }

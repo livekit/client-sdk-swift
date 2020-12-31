@@ -7,6 +7,6 @@
 
 import Foundation
 
-class LocalTrack {
+public class LocalAudioTrack: AudioTrack {
     
 }

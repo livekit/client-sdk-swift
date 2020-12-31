@@ -7,15 +7,15 @@
 
 import Foundation
 
-typealias ConnectOptionsBuilderBlock = (inout ConnectOptionsBuilder) -> Void
+public typealias ConnectOptionsBuilderBlock = (inout ConnectOptionsBuilder) -> Void
 
-struct ConnectOptions {
+public struct ConnectOptions {
     private var builder: ConnectOptionsBuilder
     var config: ConnectOptionsBuilder {
         return builder
     }
     
-    init(token accessToken: String, block: ConnectOptionsBuilderBlock?) {
+    public init(token accessToken: String, block: ConnectOptionsBuilderBlock?) {
         builder = ConnectOptionsBuilder(accessToken)
         if let builderBlock = block {
             builderBlock(&builder)
@@ -23,12 +23,15 @@ struct ConnectOptions {
     }
 }
 
-struct ConnectOptionsBuilder {
+public struct ConnectOptionsBuilder {
     private(set) var accessToken: String
-    var roomName: String = ""
-    var host: String = ""
-    var isSecure: Bool = false
-    var port: UInt8 = 80
+    public var roomName: String?
+    public var roomId: String?
+    public var host: String = "localhost"
+    public var isSecure: Bool = false
+    public var rtcPort: UInt32 = 80
+    public var httpPort: UInt32 = 80
+    public var rpcPrefix: String = "/twirp"
     
     init(_ accessToken: String) {
         self.accessToken = accessToken

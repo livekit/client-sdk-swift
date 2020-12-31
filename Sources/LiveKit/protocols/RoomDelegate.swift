@@ -7,8 +7,9 @@
 
 import Foundation
 
-protocol RoomDelegate {
+public protocol RoomDelegate {
     func didConnect(room: Room)
+    func didDisconnect(room: Room, error: Error?)
     func didFailToConnect(room: Room, error: Error)
     func isReconnecting(room: Room, error: Error)
     func didReconnect(room: Room)
@@ -17,34 +18,4 @@ protocol RoomDelegate {
     func didStartRecording(room: Room)
     func didStopRecording(room: Room)
     func dominantSpeakerDidChange(room: Room, participant: Participant)
-}
-
-extension RoomDelegate {
-    func didConnect(room: Room) {
-        return
-    }
-    func didFailToConnect(room: Room, error: Error) {
-        return
-    }
-    func isReconnecting(room: Room, error: Error) {
-        return
-    }
-    func didReconnect(room: Room) {
-        return
-    }
-    func participantDidConnect(room: Room, participant: Participant) {
-        return
-    }
-    func participantDidDisconnect(room: Room, participant: Participant) {
-        return
-    }
-    func didStartRecording(room: Room) {
-        return
-    }
-    func didStopRecording(room: Room) {
-        return
-    }
-    func dominantSpeakerDidChange(room: Room, participant: Participant) {
-        return
-    }
 }

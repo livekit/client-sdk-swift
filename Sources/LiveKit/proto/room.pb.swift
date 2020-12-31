@@ -25,6 +25,8 @@ struct Livekit_CreateRoomRequest {
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
 
+  var name: String = String()
+
   /// number of seconds the room should cleanup after being empty
   var emptyTimeout: UInt32 = 0
 
@@ -40,7 +42,7 @@ struct Livekit_GetRoomRequest {
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
 
-  var roomID: String = String()
+  var room: String = String()
 
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
@@ -52,7 +54,7 @@ struct Livekit_DeleteRoomRequest {
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
 
-  var roomID: String = String()
+  var room: String = String()
 
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
@@ -76,8 +78,9 @@ fileprivate let _protobuf_package = "livekit"
 extension Livekit_CreateRoomRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".CreateRoomRequest"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
-    1: .standard(proto: "empty_timeout"),
-    2: .standard(proto: "max_participants"),
+    1: .same(proto: "name"),
+    2: .standard(proto: "empty_timeout"),
+    3: .standard(proto: "max_participants"),
   ]
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -86,24 +89,29 @@ extension Livekit_CreateRoomRequest: SwiftProtobuf.Message, SwiftProtobuf._Messa
       // allocates stack space for every case branch when no optimizations are
       // enabled. https://github.com/apple/swift-protobuf/issues/1034
       switch fieldNumber {
-      case 1: try { try decoder.decodeSingularUInt32Field(value: &self.emptyTimeout) }()
-      case 2: try { try decoder.decodeSingularUInt32Field(value: &self.maxParticipants) }()
+      case 1: try { try decoder.decodeSingularStringField(value: &self.name) }()
+      case 2: try { try decoder.decodeSingularUInt32Field(value: &self.emptyTimeout) }()
+      case 3: try { try decoder.decodeSingularUInt32Field(value: &self.maxParticipants) }()
       default: break
       }
     }
   }
 
   func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    if !self.name.isEmpty {
+      try visitor.visitSingularStringField(value: self.name, fieldNumber: 1)
+    }
     if self.emptyTimeout != 0 {
-      try visitor.visitSingularUInt32Field(value: self.emptyTimeout, fieldNumber: 1)
+      try visitor.visitSingularUInt32Field(value: self.emptyTimeout, fieldNumber: 2)
     }
     if self.maxParticipants != 0 {
-      try visitor.visitSingularUInt32Field(value: self.maxParticipants, fieldNumber: 2)
+      try visitor.visitSingularUInt32Field(value: self.maxParticipants, fieldNumber: 3)
     }
     try unknownFields.traverse(visitor: &visitor)
   }
 
   static func ==(lhs: Livekit_CreateRoomRequest, rhs: Livekit_CreateRoomRequest) -> Bool {
+    if lhs.name != rhs.name {return false}
     if lhs.emptyTimeout != rhs.emptyTimeout {return false}
     if lhs.maxParticipants != rhs.maxParticipants {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
@@ -114,7 +122,7 @@ extension Livekit_CreateRoomRequest: SwiftProtobuf.Message, SwiftProtobuf._Messa
 extension Livekit_GetRoomRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".GetRoomRequest"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
-    1: .standard(proto: "room_id"),
+    1: .same(proto: "room"),
   ]
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -123,21 +131,21 @@ extension Livekit_GetRoomRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageI
       // allocates stack space for every case branch when no optimizations are
       // enabled. https://github.com/apple/swift-protobuf/issues/1034
       switch fieldNumber {
-      case 1: try { try decoder.decodeSingularStringField(value: &self.roomID) }()
+      case 1: try { try decoder.decodeSingularStringField(value: &self.room) }()
       default: break
       }
     }
   }
 
   func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
-    if !self.roomID.isEmpty {
-      try visitor.visitSingularStringField(value: self.roomID, fieldNumber: 1)
+    if !self.room.isEmpty {
+      try visitor.visitSingularStringField(value: self.room, fieldNumber: 1)
     }
     try unknownFields.traverse(visitor: &visitor)
   }
 
   static func ==(lhs: Livekit_GetRoomRequest, rhs: Livekit_GetRoomRequest) -> Bool {
-    if lhs.roomID != rhs.roomID {return false}
+    if lhs.room != rhs.room {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
@@ -146,7 +154,7 @@ extension Livekit_GetRoomRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageI
 extension Livekit_DeleteRoomRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".DeleteRoomRequest"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
-    1: .standard(proto: "room_id"),
+    1: .same(proto: "room"),
   ]
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -155,21 +163,21 @@ extension Livekit_DeleteRoomRequest: SwiftProtobuf.Message, SwiftProtobuf._Messa
       // allocates stack space for every case branch when no optimizations are
       // enabled. https://github.com/apple/swift-protobuf/issues/1034
       switch fieldNumber {
-      case 1: try { try decoder.decodeSingularStringField(value: &self.roomID) }()
+      case 1: try { try decoder.decodeSingularStringField(value: &self.room) }()
       default: break
       }
     }
   }
 
   func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
-    if !self.roomID.isEmpty {
-      try visitor.visitSingularStringField(value: self.roomID, fieldNumber: 1)
+    if !self.room.isEmpty {
+      try visitor.visitSingularStringField(value: self.room, fieldNumber: 1)
     }
     try unknownFields.traverse(visitor: &visitor)
   }
 
   static func ==(lhs: Livekit_DeleteRoomRequest, rhs: Livekit_DeleteRoomRequest) -> Bool {
-    if lhs.roomID != rhs.roomID {return false}
+    if lhs.room != rhs.room {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
