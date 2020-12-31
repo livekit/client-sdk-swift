@@ -13,6 +13,9 @@ enum TrackError: Error {
 }
 
 public class Track {
+    public enum Priority {
+        case standard, high, low
+    }
     public typealias Sid = String
     public internal(set) var sid: Track.Sid
     

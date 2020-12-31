@@ -20,7 +20,7 @@ public class Room {
     private var _name: String?
     public var name: String? {
         get {
-            return _name == nil ? sid : _name!
+            _name == nil ? sid : _name!
         }
         set(newName) {
             _name = newName

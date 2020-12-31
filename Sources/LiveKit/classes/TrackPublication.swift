@@ -11,11 +11,9 @@ public class TrackPublication {
     public internal(set) var track: Track?
     public private(set) var trackSid: Track.Sid
     public private(set) var trackName: String
-//    public internal(set) var trackEnabled: Bool {
-//        get {
-//            return track != nil
-//        }
-//    }
+    public var trackEnabled: Bool {
+        track != nil
+    }
     
     required init(info: Livekit_TrackInfo, track: Track? = nil) {
         trackSid = info.sid

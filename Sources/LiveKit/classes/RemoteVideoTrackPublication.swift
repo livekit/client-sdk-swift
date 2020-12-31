@@ -8,9 +8,5 @@
 import Foundation
 
 public class RemoteVideoTrackPublication: RemoteTrackPublication {
-    public var videoTrack: VideoTrack? {
-        get {
-            return track as? VideoTrack
-        }
-    }
+    public var videoTrack: VideoTrack? { track as? VideoTrack }
 }

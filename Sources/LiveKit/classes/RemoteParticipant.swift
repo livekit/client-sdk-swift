@@ -10,9 +10,9 @@ import WebRTC
 
 public class RemoteParticipant: Participant {
     
-    public var remoteAudioTracks: [TrackPublication] { get { return audioTracks } }
-    public var remoteVideoTracks: [TrackPublication] { get { return videoTracks } }
-    public var remoteDataTracks: [TrackPublication] { get { return dataTracks } }
+    public var remoteAudioTracks: [TrackPublication] { audioTracks }
+    public var remoteVideoTracks: [TrackPublication] { videoTracks }
+    public var remoteDataTracks: [TrackPublication] { dataTracks }
     
     public var delegate: RemoteParticipantDelegate?
         

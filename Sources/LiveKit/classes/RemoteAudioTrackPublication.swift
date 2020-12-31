@@ -9,8 +9,6 @@ import Foundation
 
 public class RemoteAudioTrackPublication: RemoteTrackPublication, AudioTrackPublication {
     public var audioTrack: AudioTrack? {
-        get {
-            return track as? AudioTrack
-        }
+        track as? AudioTrack
     }
 }

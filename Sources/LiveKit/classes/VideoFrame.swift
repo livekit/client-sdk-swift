@@ -14,14 +14,10 @@ public class VideoFrame {
     public private(set) var imageBuffer: CVImageBuffer
     public private(set) var orientation: VideoOrientation
     public var width: Int {
-        get {
-            return Int(CVImageBufferGetDisplaySize(imageBuffer).width)
-        }
+        Int(CVImageBufferGetDisplaySize(imageBuffer).width)
     }
     public var height: Int {
-        get {
-            return Int(CVImageBufferGetDisplaySize(imageBuffer).height)
-        }
+        Int(CVImageBufferGetDisplaySize(imageBuffer).height)
     }
     
     private static let defaultTimeScale: Int32 = 600

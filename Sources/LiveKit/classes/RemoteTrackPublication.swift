@@ -9,17 +9,7 @@ import Foundation
 
 public class RemoteTrackPublication: TrackPublication {
     
-    public var remoteTrack: Track? {
-        get {
-            return track
-        }
-    }
-    
-    public var trackSubscribed: Bool {
-        get {
-            return track != nil
-        }
-    }
-    
-//    public private(set) publishPriority: TrackPriority
+    public var remoteTrack: Track? { track }
+    public var trackSubscribed: Bool { track != nil }
+    public private(set) var publishPriority: Track.Priority = .standard
 }

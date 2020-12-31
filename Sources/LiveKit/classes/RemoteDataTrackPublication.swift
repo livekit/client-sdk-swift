@@ -9,8 +9,6 @@ import Foundation
 
 public class RemoteDataTrackPublication: RemoteTrackPublication, DataTrackPublication {
     public var dataTrack: DataTrack? {
-        get {
-            return track as? DataTrack
-        }
+        return track as? DataTrack
     }
 }
