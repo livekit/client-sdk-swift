@@ -186,6 +186,8 @@ struct Livekit_TrackInfo {
 
   var name: String = String()
 
+  var muted: Bool = false
+
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   enum TypeEnum: SwiftProtobuf.Enum {
@@ -550,6 +552,7 @@ extension Livekit_TrackInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImplem
     1: .same(proto: "sid"),
     2: .same(proto: "type"),
     3: .same(proto: "name"),
+    4: .same(proto: "muted"),
   ]
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -561,6 +564,7 @@ extension Livekit_TrackInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImplem
       case 1: try { try decoder.decodeSingularStringField(value: &self.sid) }()
       case 2: try { try decoder.decodeSingularEnumField(value: &self.type) }()
       case 3: try { try decoder.decodeSingularStringField(value: &self.name) }()
+      case 4: try { try decoder.decodeSingularBoolField(value: &self.muted) }()
       default: break
       }
     }
@@ -576,6 +580,9 @@ extension Livekit_TrackInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImplem
     if !self.name.isEmpty {
       try visitor.visitSingularStringField(value: self.name, fieldNumber: 3)
     }
+    if self.muted != false {
+      try visitor.visitSingularBoolField(value: self.muted, fieldNumber: 4)
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -583,6 +590,7 @@ extension Livekit_TrackInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImplem
     if lhs.sid != rhs.sid {return false}
     if lhs.type != rhs.type {return false}
     if lhs.name != rhs.name {return false}
+    if lhs.muted != rhs.muted {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }

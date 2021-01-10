@@ -16,36 +16,48 @@ class RTCEngine: NSObject {
     private var iceConnected: Bool = false
     
     private var pendingCandidates: [RTCIceCandidate] = []
+    private var mediaConstraints = RTCMediaConstraints(mandatoryConstraints: nil, optionalConstraints: nil)
     
     var delegate: RTCEngineDelegate?
     
     private static let factory: RTCPeerConnectionFactory = {
-        RTCInitializeSSL()
-        let videoEncoderFactory = RTCDefaultVideoEncoderFactory()
-        let videoDecoderFactory = RTCDefaultVideoDecoderFactory()
-        return RTCPeerConnectionFactory(encoderFactory: videoEncoderFactory, decoderFactory: videoDecoderFactory)
+        RTCInitializeSSL() 
+        var encoderFactory = RTCDefaultVideoEncoderFactory()
+        var decoderFactory = RTCDefaultVideoDecoderFactory()
+        if TARGET_OS_SIMULATOR != 0 {
+            encoderFactory = RTCSimluatorVideoEncoderFactory()
+            decoderFactory = RTCSimulatorVideoDecoderFactory()
+        }
+        return RTCPeerConnectionFactory(encoderFactory: encoderFactory, decoderFactory: decoderFactory)
     }()
     
+    /*
     private static let mediaConstraints: RTCMediaConstraints = {
-        return RTCMediaConstraints(mandatoryConstraints: nil,
-                                   optionalConstraints: ["DtlsSrtpKeyAgreement":kRTCMediaConstraintsValueTrue])
+        let constraints = [
+            kRTCMediaConstraintsOfferToReceiveAudio: kRTCMediaConstraintsValueTrue,
+            kRTCMediaConstraintsOfferToReceiveVideo: kRTCMediaConstraintsValueTrue
+        ]
+        return RTCMediaConstraints(mandatoryConstraints: nil, optionalConstraints: nil)
     }()
+    */
     
     private static let privateDataChannelLabel = "_private"
     
     init(client: RTCClient) {
         self.client = client
         super.init()
-        
         client.delegate = self
         
         let config = RTCConfiguration()
-        config.iceServers = [RTCIceServer(urlStrings: [RTCClient.DefaultSTUNServerHost])]
+        config.iceServers = [RTCIceServer(urlStrings: RTCClient.defaultIceServers)]
         // Unified plan is more superior than planB
         config.sdpSemantics = .unifiedPlan
         // gatherContinually will let WebRTC to listen to any network changes and send any new candidates to the other client
         config.continualGatheringPolicy = .gatherContinually
-        peerConnection = RTCEngine.factory.peerConnection(with: config, constraints: RTCEngine.mediaConstraints, delegate: self)
+        
+        let constraints = RTCMediaConstraints(mandatoryConstraints: nil,
+                                              optionalConstraints: ["DtlsSrtpKeyAgreement": kRTCMediaConstraintsValueTrue])
+        peerConnection = RTCEngine.factory.peerConnection(with: config, constraints: constraints, delegate: self)
         
         /* always have a blank data channel, to ensure there isn't an empty ice-ufrag */
         peerConnection?.dataChannel(forLabel: RTCEngine.privateDataChannelLabel, configuration: RTCDataChannelConfiguration())
@@ -65,7 +77,7 @@ class RTCEngine: NSObject {
     
     func createOffer() -> Promise<RTCSessionDescription> {
         let promise = Promise<RTCSessionDescription>.pending()
-        peerConnection?.offer(for: RTCEngine.mediaConstraints, completionHandler: { (sdp, error) in
+        peerConnection?.offer(for: mediaConstraints, completionHandler: { (sdp, error) in
             guard error == nil else {
                 print("Error creating offer: \(error!)")
                 promise.reject(error!)
@@ -97,7 +109,7 @@ class RTCEngine: NSObject {
 extension RTCEngine: RTCClientDelegate {
     func onJoin(info: Livekit_JoinResponse) {
         delegate?.didJoin(response: info)
-        peerConnection?.offer(for: RTCEngine.mediaConstraints, completionHandler: { (sdp, error) in
+        peerConnection?.offer(for: mediaConstraints, completionHandler: { (sdp, error) in
             guard error == nil else {
                 print("Error: \(error!)")
                 return
@@ -115,10 +127,10 @@ extension RTCEngine: RTCClientDelegate {
     func onAnswer(sessionDescription: RTCSessionDescription) {
         peerConnection!.setRemoteDescription(sessionDescription) { error in
             guard error == nil else {
-                print("Error setting remote description: \(error!)")
+                print("Answer: Error setting remote description: \(error!)")
                 return
             }
-            
+            self.onRTCConnected()
         }
     }
     
@@ -129,15 +141,25 @@ extension RTCEngine: RTCClientDelegate {
     
     func onNegotiate(sessionDescription: RTCSessionDescription) {
         print("Received negotiate: \(sessionDescription)")
-        peerConnection?.setRemoteDescription(sessionDescription)
+        peerConnection?.setRemoteDescription(sessionDescription, completionHandler: { error in
+            guard error == nil else {
+                print("Negotiate: Error setting remote description: \(error!)")
+                return
+            }
+        })
         if sessionDescription.type == .offer {
-            peerConnection?.answer(for: RTCEngine.mediaConstraints, completionHandler: { (sdp, error) in
+            peerConnection?.answer(for: mediaConstraints, completionHandler: { (sdp, error) in
                 guard error == nil else {
                     print("Error sending answer: \(error!)")
                     return
                 }
-                self.peerConnection?.setLocalDescription(sdp!)
-                self.client.sendNegotiate(sdp: sdp!)
+                self.peerConnection?.setLocalDescription(sdp!, completionHandler: { error in
+                    guard error == nil else {
+                        print("Error setting local sdp during negotation")
+                        return
+                    }
+                    self.client.sendNegotiate(sdp: sdp!)
+                })
             })
         }
     }

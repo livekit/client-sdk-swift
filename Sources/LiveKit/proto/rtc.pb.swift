@@ -51,12 +51,12 @@ struct Livekit_SignalRequest {
     set {message = .trickle(newValue)}
   }
 
-  var control: Livekit_MediaControl {
+  var mute: Livekit_MuteTrack {
     get {
-      if case .control(let v)? = message {return v}
-      return Livekit_MediaControl()
+      if case .mute(let v)? = message {return v}
+      return Livekit_MuteTrack()
     }
-    set {message = .control(newValue)}
+    set {message = .mute(newValue)}
   }
 
   var unknownFields = SwiftProtobuf.UnknownStorage()
@@ -65,7 +65,7 @@ struct Livekit_SignalRequest {
     case offer(Livekit_SessionDescription)
     case negotiate(Livekit_SessionDescription)
     case trickle(Livekit_Trickle)
-    case control(Livekit_MediaControl)
+    case mute(Livekit_MuteTrack)
 
   #if !swift(>=4.1)
     static func ==(lhs: Livekit_SignalRequest.OneOf_Message, rhs: Livekit_SignalRequest.OneOf_Message) -> Bool {
@@ -85,8 +85,8 @@ struct Livekit_SignalRequest {
         guard case .trickle(let l) = lhs, case .trickle(let r) = rhs else { preconditionFailure() }
         return l == r
       }()
-      case (.control, .control): return {
-        guard case .control(let l) = lhs, case .control(let r) = rhs else { preconditionFailure() }
+      case (.mute, .mute): return {
+        guard case .mute(let l) = lhs, case .mute(let r) = rhs else { preconditionFailure() }
         return l == r
       }()
       default: return false
@@ -246,6 +246,15 @@ struct Livekit_JoinResponse {
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
 
+  var room: Livekit_RoomInfo {
+    get {return _room ?? Livekit_RoomInfo()}
+    set {_room = newValue}
+  }
+  /// Returns true if `room` has been explicitly set.
+  var hasRoom: Bool {return self._room != nil}
+  /// Clears the value of `room`. Subsequent reads from it will return its default value.
+  mutating func clearRoom() {self._room = nil}
+
   var participant: Livekit_ParticipantInfo {
     get {return _participant ?? Livekit_ParticipantInfo()}
     set {_participant = newValue}
@@ -261,13 +270,18 @@ struct Livekit_JoinResponse {
 
   init() {}
 
+  fileprivate var _room: Livekit_RoomInfo? = nil
   fileprivate var _participant: Livekit_ParticipantInfo? = nil
 }
 
-struct Livekit_MediaControl {
+struct Livekit_MuteTrack {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
+
+  var trackSid: String = String()
+
+  var muted: Bool = false
 
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
@@ -296,7 +310,7 @@ extension Livekit_SignalRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageIm
     1: .same(proto: "offer"),
     2: .same(proto: "negotiate"),
     3: .same(proto: "trickle"),
-    4: .same(proto: "control"),
+    4: .same(proto: "mute"),
   ]
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -333,13 +347,13 @@ extension Livekit_SignalRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageIm
         if let v = v {self.message = .trickle(v)}
       }()
       case 4: try {
-        var v: Livekit_MediaControl?
+        var v: Livekit_MuteTrack?
         if let current = self.message {
           try decoder.handleConflictingOneOf()
-          if case .control(let m) = current {v = m}
+          if case .mute(let m) = current {v = m}
         }
         try decoder.decodeSingularMessageField(value: &v)
-        if let v = v {self.message = .control(v)}
+        if let v = v {self.message = .mute(v)}
       }()
       default: break
       }
@@ -363,8 +377,8 @@ extension Livekit_SignalRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageIm
       guard case .trickle(let v)? = self.message else { preconditionFailure() }
       try visitor.visitSingularMessageField(value: v, fieldNumber: 3)
     }()
-    case .control?: try {
-      guard case .control(let v)? = self.message else { preconditionFailure() }
+    case .mute?: try {
+      guard case .mute(let v)? = self.message else { preconditionFailure() }
       try visitor.visitSingularMessageField(value: v, fieldNumber: 4)
     }()
     case nil: break
@@ -569,8 +583,9 @@ extension Livekit_SessionDescription: SwiftProtobuf.Message, SwiftProtobuf._Mess
 extension Livekit_JoinResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".JoinResponse"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
-    1: .same(proto: "participant"),
-    2: .standard(proto: "other_participants"),
+    1: .same(proto: "room"),
+    2: .same(proto: "participant"),
+    3: .standard(proto: "other_participants"),
   ]
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -579,24 +594,29 @@ extension Livekit_JoinResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageImp
       // allocates stack space for every case branch when no optimizations are
       // enabled. https://github.com/apple/swift-protobuf/issues/1034
       switch fieldNumber {
-      case 1: try { try decoder.decodeSingularMessageField(value: &self._participant) }()
-      case 2: try { try decoder.decodeRepeatedMessageField(value: &self.otherParticipants) }()
+      case 1: try { try decoder.decodeSingularMessageField(value: &self._room) }()
+      case 2: try { try decoder.decodeSingularMessageField(value: &self._participant) }()
+      case 3: try { try decoder.decodeRepeatedMessageField(value: &self.otherParticipants) }()
       default: break
       }
     }
   }
 
   func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
-    if let v = self._participant {
+    if let v = self._room {
       try visitor.visitSingularMessageField(value: v, fieldNumber: 1)
     }
+    if let v = self._participant {
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 2)
+    }
     if !self.otherParticipants.isEmpty {
-      try visitor.visitRepeatedMessageField(value: self.otherParticipants, fieldNumber: 2)
+      try visitor.visitRepeatedMessageField(value: self.otherParticipants, fieldNumber: 3)
     }
     try unknownFields.traverse(visitor: &visitor)
   }
 
   static func ==(lhs: Livekit_JoinResponse, rhs: Livekit_JoinResponse) -> Bool {
+    if lhs._room != rhs._room {return false}
     if lhs._participant != rhs._participant {return false}
     if lhs.otherParticipants != rhs.otherParticipants {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
@@ -604,20 +624,39 @@ extension Livekit_JoinResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageImp
   }
 }
 
-extension Livekit_MediaControl: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
-  static let protoMessageName: String = _protobuf_package + ".MediaControl"
-  static let _protobuf_nameMap = SwiftProtobuf._NameMap()
+extension Livekit_MuteTrack: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  static let protoMessageName: String = _protobuf_package + ".MuteTrack"
+  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
+    1: .standard(proto: "track_sid"),
+    2: .same(proto: "muted"),
+  ]
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
-    while let _ = try decoder.nextFieldNumber() {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularStringField(value: &self.trackSid) }()
+      case 2: try { try decoder.decodeSingularBoolField(value: &self.muted) }()
+      default: break
+      }
     }
   }
 
   func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    if !self.trackSid.isEmpty {
+      try visitor.visitSingularStringField(value: self.trackSid, fieldNumber: 1)
+    }
+    if self.muted != false {
+      try visitor.visitSingularBoolField(value: self.muted, fieldNumber: 2)
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
-  static func ==(lhs: Livekit_MediaControl, rhs: Livekit_MediaControl) -> Bool {
+  static func ==(lhs: Livekit_MuteTrack, rhs: Livekit_MuteTrack) -> Bool {
+    if lhs.trackSid != rhs.trackSid {return false}
+    if lhs.muted != rhs.muted {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }

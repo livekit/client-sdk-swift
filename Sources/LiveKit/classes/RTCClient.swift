@@ -18,7 +18,11 @@ enum RTCClientError: Error {
 }
 
 class RTCClient {
-    static let DefaultSTUNServerHost: String = "stun:stun.l.google.com:19302"
+    static let defaultIceServers = ["stun:stun.l.google.com:19302",
+                                    "stun:stun1.l.google.com:19302",
+                                    "stun:stun2.l.google.com:19302",
+                                    "stun:stun3.l.google.com:19302",
+                                    "stun:stun4.l.google.com:19302"]
     
     private(set) var isConnected: Bool = false
     private var socket: WebSocket?
@@ -61,7 +65,7 @@ class RTCClient {
         let port = options.config.rtcPort
         let token = options.config.accessToken
         
-        let wsUrlString = "\(transportProtocol)://\(host):\(port)/rtc?room_id=\(roomId)&token=\(token)"
+        let wsUrlString = "\(transportProtocol)://\(host):\(port)/rtc?access_token=\(token)"
         var request = URLRequest(url: URL(string: wsUrlString)!)
         request.timeoutInterval = 5
         
@@ -141,7 +145,12 @@ extension RTCClient: WebSocketDelegate {
         switch event {
         case .text(let string):
             let jsonData = string.data(using: .utf8)
-            let sigResp = try? Livekit_SignalResponse(jsonUTF8Data: jsonData!)
+            var sigResp: Livekit_SignalResponse?
+            do {
+                sigResp = try Livekit_SignalResponse(jsonUTF8Data: jsonData!)
+            } catch {
+                print("Error decoding signal response: \(error)")
+            }
             if let sigMsg = sigResp, let msg = sigMsg.message {
                 switch msg {
                 case .join(let joinMsg):

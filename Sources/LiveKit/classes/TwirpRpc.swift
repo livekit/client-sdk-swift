@@ -45,6 +45,7 @@ struct TwirpRpc {
                 promise.fulfill(result)
             } catch {
                 print("Error: \(error)")
+                print("Server response data: \(String(data: data!, encoding: .utf8))")
             }
         }
         task.resume()

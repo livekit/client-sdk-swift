@@ -47,7 +47,7 @@ public class RemoteParticipant: Participant {
                 case .video:
                     publication = RemoteVideoTrackPublication(info: trackInfo)
                 case .data:
-                    break
+                    publication = RemoteDataTrackPublication(info: trackInfo)
                 default:
                     throw TrackError.invalidTrackType("Error: Invalid track type")
                 }
@@ -74,9 +74,9 @@ public class RemoteParticipant: Participant {
         
         switch rtcTrack.kind {
         case "audio":
-            track = RemoteAudioTrack(sid: sid, rtcTrack: rtcTrack)
+            track = RemoteAudioTrack(sid: sid, rtcTrack: rtcTrack as! RTCAudioTrack)
         case "video":
-            track = RemoteVideoTrack(sid: sid, rtcTrack: rtcTrack)
+            track = RemoteVideoTrack(sid: sid, rtcTrack: rtcTrack as! RTCVideoTrack)
         default:
             throw TrackError.invalidTrackType("Error: Invalid track type")
         }
@@ -99,6 +99,15 @@ public class RemoteParticipant: Participant {
             if info != nil {
                 try sendTrackPublishedEvent(publication: publication!)
             }
+        }
+        
+        switch publication {
+        case is RemoteAudioTrackPublication:
+            delegate?.didSubscribe(audioTrack: publication as! RemoteAudioTrackPublication, participant: self)
+        case is RemoteVideoTrackPublication:
+            delegate?.didSubscribe(videoTrack: publication as! RemoteVideoTrackPublication, participant: self)
+        default:
+            throw TrackError.invalidTrackType("Error: Invalid track type")
         }
     }
     

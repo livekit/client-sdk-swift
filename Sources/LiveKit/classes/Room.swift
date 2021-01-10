@@ -60,19 +60,25 @@ public class Room {
         let promise = Promise<Room>.pending()
         var roomRequest = Livekit_GetRoomRequest()
         roomRequest.room = options.config.roomId!
-        TwirpRpc.request(
-            connectOptions: options,
-            service: "RoomService",
-            method: "GetRoom",
-            data: roomRequest,
-            to: Livekit_RoomInfo.self).then { roomInfo in
-                let room = Room(options: options)
-                room.sid = roomInfo.sid
-                promise.fulfill(room)
-            }.catch { error in
-                print("Error: \(error)")
-                promise.reject(error)
-            }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5, execute: {
+            let room = Room(options: options)
+            // for now
+            room.sid = options.config.roomId
+            promise.fulfill(room)
+        })
+//        TwirpRpc.request(
+//            connectOptions: options,
+//            service: "RoomService",
+//            method: "GetRoom",
+//            data: roomRequest,
+//            to: Livekit_RoomInfo.self).then { roomInfo in
+//                let room = Room(options: options)
+//                room.sid = roomInfo.sid
+//                promise.fulfill(room)
+//            }.catch { error in
+//                print("Error: \(error)")
+//                promise.reject(error)
+//            }
         return promise
     }
     
@@ -97,6 +103,7 @@ public class Room {
 
 extension Room: RTCEngineDelegate {
     func didJoin(response: Livekit_JoinResponse) {
+        print("engine delegate --- did join")
         state = .connected
         if response.hasParticipant {
             localParticipant = LocalParticipant(fromInfo: response.participant)
@@ -111,6 +118,7 @@ extension Room: RTCEngineDelegate {
     }
     
     func didAddTrack(track: RTCMediaStreamTrack, streams: [RTCMediaStream]) {
+        print("engine delegate --- did add media track")
         var participantSid: Participant.Sid, trackSid: Track.Sid
         (participantSid, trackSid) = track.unpackedTrackId
         
@@ -127,6 +135,7 @@ extension Room: RTCEngineDelegate {
     }
     
     func didAddDataChannel(channel: RTCDataChannel) {
+        print("engine delegate --- did add data channel")
         var participantSid: Participant.Sid, trackSid: Track.Sid, name: String
         (participantSid, trackSid, name) = channel.unpackedTrackLabel
         
@@ -143,6 +152,7 @@ extension Room: RTCEngineDelegate {
     }
     
     func didUpdateParticipants(updates: [Livekit_ParticipantInfo]) {
+        print("engine delegate --- did update participants")
         for participantInfo in updates {
             var participant = remoteParticipants.first(where: { $0.sid == participantInfo.sid })
             switch participantInfo.state {

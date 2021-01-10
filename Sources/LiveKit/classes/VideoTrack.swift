@@ -10,18 +10,18 @@ import WebRTC
 
 public class VideoTrack: Track {
     public internal(set) var renderers: [VideoRenderer] = []
-    public internal(set) var rtcTrack: RTCMediaStreamTrack
+    public internal(set) var rtcTrack: RTCVideoTrack
     
-    init(sid: Track.Sid, rtcTrack: RTCMediaStreamTrack) {
+    init(sid: Track.Sid, rtcTrack: RTCVideoTrack) {
         self.rtcTrack = rtcTrack
         super.init(sid: sid)
     }
     
-    public func addRenderer(_ renderer: VideoRenderer) {
-        renderers.append(renderer)
+    public func addRenderer(_ renderer: RTCVideoRenderer) {
+        //renderers.append(renderer)
     }
     
-    public func removeRenderer(_ renderer: VideoRenderer) {
+    public func removeRenderer(_ renderer: RTCVideoRenderer) {
         
     }
 }

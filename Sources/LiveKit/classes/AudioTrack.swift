@@ -10,9 +10,9 @@ import WebRTC
 
 public class AudioTrack: Track {
     public private(set) var sinks: [AudioSink]?
-    public internal(set) var rtcTrack: RTCMediaStreamTrack
+    public internal(set) var rtcTrack: RTCAudioTrack
     
-    init(sid: Track.Sid, rtcTrack: RTCMediaStreamTrack) {
+    init(sid: Track.Sid, rtcTrack: RTCAudioTrack) {
         self.rtcTrack = rtcTrack
         super.init(sid: sid)
     }
