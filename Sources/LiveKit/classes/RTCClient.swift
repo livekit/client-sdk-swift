@@ -65,7 +65,7 @@ class RTCClient {
         let port = options.config.rtcPort
         let token = options.config.accessToken
         
-        let wsUrlString = "\(transportProtocol)://\(host):\(port)/rtc?access_token=\(token)"
+        let wsUrlString = "\(transportProtocol)://\(host)/rtc?access_token=\(token)"
         var request = URLRequest(url: URL(string: wsUrlString)!)
         request.timeoutInterval = 5
         

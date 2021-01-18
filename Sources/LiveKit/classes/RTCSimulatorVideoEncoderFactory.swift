@@ -8,7 +8,7 @@
 import Foundation
 import WebRTC
 
-class RTCSimluatorVideoEncoderFactory: RTCDefaultVideoEncoderFactory {
+class RTCSimulatorVideoEncoderFactory: RTCDefaultVideoEncoderFactory {
     override init() {
         super.init()
     }

@@ -12,6 +12,7 @@ import Promises
 class RTCEngine: NSObject {
     private var peerConnection: RTCPeerConnection?
     private var client: RTCClient
+    private var audioSession = RTCAudioSession.sharedInstance()
     private var rtcConnected: Bool = false
     private var iceConnected: Bool = false
     
@@ -24,10 +25,12 @@ class RTCEngine: NSObject {
         RTCInitializeSSL() 
         var encoderFactory = RTCDefaultVideoEncoderFactory()
         var decoderFactory = RTCDefaultVideoDecoderFactory()
-        if TARGET_OS_SIMULATOR != 0 {
-            encoderFactory = RTCSimluatorVideoEncoderFactory()
-            decoderFactory = RTCSimulatorVideoDecoderFactory()
-        }
+//        let codec = RTCVideoCodecInfo.init(name: kRTCVideoCodecVp8Name)
+//        decoderFactory.preferredCodec = codec
+//        if TARGET_OS_SIMULATOR != 0 {
+//            encoderFactory = RTCSimulatorVideoEncoderFactory()
+//            decoderFactory = RTCSimulatorVideoDecoderFactory()
+//        }
         return RTCPeerConnectionFactory(encoderFactory: encoderFactory, decoderFactory: decoderFactory)
     }()
     
@@ -61,6 +64,19 @@ class RTCEngine: NSObject {
         
         /* always have a blank data channel, to ensure there isn't an empty ice-ufrag */
         peerConnection?.dataChannel(forLabel: RTCEngine.privateDataChannelLabel, configuration: RTCDataChannelConfiguration())
+        
+        configureAudio()
+    }
+    
+    func configureAudio() {
+        audioSession.lockForConfiguration()
+        do {
+            try audioSession.setCategory(AVAudioSession.Category.playAndRecord.rawValue, with: .mixWithOthers)
+            try audioSession.setMode(AVAudioSession.Mode.voiceChat.rawValue)
+        } catch {
+            print("engine -- Error occurred configuring audio session: \(error)")
+        }
+        audioSession.unlockForConfiguration()
     }
     
     func join(roomId: String, options: ConnectOptions) {
@@ -225,6 +241,19 @@ extension RTCEngine: RTCPeerConnectionDelegate {
     func peerConnection(_ peerConnection: RTCPeerConnection, didAdd rtpReceiver: RTCRtpReceiver, streams mediaStreams: [RTCMediaStream]) {
         if let track = rtpReceiver.track {
             delegate?.didAddTrack(track: track, streams: mediaStreams)
+        }
+    }
+    
+    func peerConnection(_ peerConnection: RTCPeerConnection, didStartReceivingOn transceiver: RTCRtpTransceiver) {
+        switch transceiver.mediaType {
+        case .video:
+            print("engine --- started receiving video")
+        case .audio:
+            print("engine --- started receiving audio")
+        case .data:
+            print("engine --- started receiving data")
+        default:
+            break
         }
     }
 }

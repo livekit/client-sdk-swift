@@ -9,7 +9,7 @@ import Foundation
 import WebRTC
 
 public class VideoTrack: Track {
-    public internal(set) var renderers: [VideoRenderer] = []
+    //public internal(set) var renderers: [VideoRenderer] = []
     public internal(set) var rtcTrack: RTCVideoTrack
     
     init(sid: Track.Sid, rtcTrack: RTCVideoTrack) {
@@ -18,7 +18,7 @@ public class VideoTrack: Track {
     }
     
     public func addRenderer(_ renderer: RTCVideoRenderer) {
-        //renderers.append(renderer)
+        rtcTrack.add(renderer)
     }
     
     public func removeRenderer(_ renderer: RTCVideoRenderer) {
