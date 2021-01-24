@@ -10,6 +10,7 @@ import WebRTC
 
 enum TrackError: Error {
     case invalidTrackType(String)
+    case duplicateTrack(String)
 }
 
 public class Track {

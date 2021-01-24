@@ -66,6 +66,7 @@ class RTCClient {
         let token = options.config.accessToken
         
         let wsUrlString = "\(transportProtocol)://\(host)/rtc?access_token=\(token)"
+        print("rtc client --- connecting to: \(wsUrlString)")
         var request = URLRequest(url: URL(string: wsUrlString)!)
         request.timeoutInterval = 5
         
@@ -74,37 +75,61 @@ class RTCClient {
         socket!.connect()
     }
     
-    func close() {
-        isConnected = false
-        socket?.disconnect()
-    }
-    
-    func sendOffer(sdp: RTCSessionDescription) {
-        let sessionDescription = try! RTCClient.toProtoSessionDescription(sdp: sdp)
-        print("Sending offer: \(sessionDescription)")
+    func sendOffer(offer: RTCSessionDescription) {
+        let sessionDescription = try! RTCClient.toProtoSessionDescription(sdp: offer)
+        print("rtc client --- sending offer: \(sessionDescription)")
         var req = Livekit_SignalRequest()
         req.offer = sessionDescription
         try! sendRequest(req: req)
     }
     
-    func sendNegotiate(sdp: RTCSessionDescription) {
-        let sessionDescription = try! RTCClient.toProtoSessionDescription(sdp: sdp)
-        print("Sending negotiate: \(sessionDescription)")
+    func sendAnswer(answer: RTCSessionDescription) {
+        let sessionDescription = try! RTCClient.toProtoSessionDescription(sdp: answer)
+        print("rtc client --- sending answer: \(sessionDescription)")
         var req = Livekit_SignalRequest()
-        req.negotiate = sessionDescription
-
+        req.answer = sessionDescription
+        try! sendRequest(req: req)
+    }
+    
+    func sendMuteTrack(trackSid: String, muted: Bool) {
+        print("rtc client --- sending mute")
+        var muteReq = Livekit_MuteTrackRequest()
+        muteReq.sid = trackSid
+        muteReq.muted = muted
+        
+        var req = Livekit_SignalRequest()
+        req.mute = muteReq
+        try! sendRequest(req: req)
+    }
+    
+    func sendAddTrack(cid: String, name: String, type: Livekit_TrackType) {
+        print("rtc client --- sending add track")
+        var addTrackReq = Livekit_AddTrackRequest()
+        addTrackReq.cid = cid
+        addTrackReq.name = name
+        addTrackReq.type = type
+        
+        var req = Livekit_SignalRequest()
+        req.addTrack = addTrackReq
+        try! sendRequest(req: req)
+    }
+    
+    func sendNegotiate() {
+        print("rtc client --- sending negotiate")
+        var req = Livekit_SignalRequest()
+        req.negotiate = Livekit_NegotiationRequest()
         try! sendRequest(req: req)
     }
     
     func sendCandidate(candidate: RTCIceCandidate) {
-        print("Sending ice candidate: \(candidate)")
+        print("rtc client --- sending ice candidate: \(candidate)")
         let iceCandidate = IceCandidate(sdp: candidate.sdp, sdpMLineIndex: candidate.sdpMLineIndex, sdpMid: candidate.sdpMid)
         let candidateData = try! JSONEncoder().encode(iceCandidate)
-        var trickle = Livekit_Trickle()
+        var trickle = Livekit_TrickleRequest()
         trickle.candidateInit = String(data: candidateData, encoding: .utf8)!
+        
         var req = Livekit_SignalRequest()
         req.trickle = trickle
-        
         try! sendRequest(req: req)
     }
     
@@ -116,6 +141,7 @@ class RTCClient {
             let msg = try req.jsonString()
             socket?.write(string: msg)
         } catch {
+            print("rtc client --- error sending request \(error)")
             throw error
         }
     }
@@ -125,16 +151,26 @@ class RTCClient {
         case .answer(let sd):
             let sdp = try! RTCClient.fromProtoSessionDescription(sd: sd)
             delegate?.onAnswer(sessionDescription: sdp)
-        case .negotiate(let sd):
+            
+        case .offer(let sd):
             let sdp = try! RTCClient.fromProtoSessionDescription(sd: sd)
-            delegate?.onNegotiate(sessionDescription: sdp)
+            delegate?.onOffer(sessionDescription: sdp)
+        
         case .trickle(let trickle):
             let iceCandidate: IceCandidate = try! JSONDecoder().decode(IceCandidate.self, from: trickle.candidateInit.data(using: .utf8)!)
             delegate?.onTrickle(candidate: RTCIceCandidate(sdp: iceCandidate.sdp, sdpMLineIndex: iceCandidate.sdpMLineIndex, sdpMid: iceCandidate.sdpMid))
+        
         case .update(let update):
             delegate?.onParticipantUpdate(updates: update.participants)
+            
+        case .trackPublished(let trackPublished):
+            delegate?.onLocalTrackPublished(trackPublished: trackPublished)
+            
+        case .negotiate:
+            delegate?.onNegotiateRequested()
+        
         default:
-            break
+            print("rtc client --- unsupported signal response type")
         }
     }
 }
@@ -149,7 +185,7 @@ extension RTCClient: WebSocketDelegate {
             do {
                 sigResp = try Livekit_SignalResponse(jsonUTF8Data: jsonData!)
             } catch {
-                print("Error decoding signal response: \(error)")
+                print("rtc client --- error decoding signal response: \(error)")
             }
             if let sigMsg = sigResp, let msg = sigMsg.message {
                 switch msg {
@@ -160,15 +196,20 @@ extension RTCClient: WebSocketDelegate {
                     handleSignalResponse(msg: msg)
                 }
             }
+            
         case .error(let error):
             isConnected = false
-            print("Websocket error: \(error!)")
+            print("rtc client --- websocket error: \(error!)")
+            
         case .disconnected(let reason, let code):
             isConnected = false
-            print("Websocket connection closed: \(reason)")
+            print("rtc client --- websocket connection closed: \(reason)")
             delegate?.onClose(reason: reason, code: code)
+            
         case .cancelled:
+            print("rtc client --- socket canceled")
             isConnected = false
+            
         default:
             break
         }

@@ -20,48 +20,50 @@ fileprivate struct _GeneratedWithProtocGenSwiftVersion: SwiftProtobuf.ProtobufAP
   typealias Version = _2
 }
 
-struct Livekit_Node {
-  // SwiftProtobuf.Message conformance is added in an extension below. See the
-  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
-  // methods supported on all messages.
+enum Livekit_TrackType: SwiftProtobuf.Enum {
+  typealias RawValue = Int
+  case audio // = 0
+  case video // = 1
+  case data // = 2
+  case UNRECOGNIZED(Int)
 
-  var id: String = String()
-
-  var ip: String = String()
-
-  var rtcPort: UInt32 = 0
-
-  var stats: Livekit_NodeStats {
-    get {return _stats ?? Livekit_NodeStats()}
-    set {_stats = newValue}
+  init() {
+    self = .audio
   }
-  /// Returns true if `stats` has been explicitly set.
-  var hasStats: Bool {return self._stats != nil}
-  /// Clears the value of `stats`. Subsequent reads from it will return its default value.
-  mutating func clearStats() {self._stats = nil}
 
-  var unknownFields = SwiftProtobuf.UnknownStorage()
+  init?(rawValue: Int) {
+    switch rawValue {
+    case 0: self = .audio
+    case 1: self = .video
+    case 2: self = .data
+    default: self = .UNRECOGNIZED(rawValue)
+    }
+  }
 
-  init() {}
+  var rawValue: Int {
+    switch self {
+    case .audio: return 0
+    case .video: return 1
+    case .data: return 2
+    case .UNRECOGNIZED(let i): return i
+    }
+  }
 
-  fileprivate var _stats: Livekit_NodeStats? = nil
 }
 
-struct Livekit_NodeStats {
-  // SwiftProtobuf.Message conformance is added in an extension below. See the
-  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
-  // methods supported on all messages.
+#if swift(>=4.2)
 
-  var numRooms: Int32 = 0
-
-  var numClients: Int32 = 0
-
-  var unknownFields = SwiftProtobuf.UnknownStorage()
-
-  init() {}
+extension Livekit_TrackType: CaseIterable {
+  // The compiler won't synthesize support with the UNRECOGNIZED case.
+  static var allCases: [Livekit_TrackType] = [
+    .audio,
+    .video,
+    .data,
+  ]
 }
 
-/// internal type, for serialization with proto
+#endif  // swift(>=4.2)
+
 struct Livekit_Room {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
@@ -74,24 +76,6 @@ struct Livekit_Room {
   var emptyTimeout: UInt32 = 0
 
   var maxParticipants: UInt32 = 0
-
-  var creationTime: Int64 = 0
-
-  var unknownFields = SwiftProtobuf.UnknownStorage()
-
-  init() {}
-}
-
-struct Livekit_RoomInfo {
-  // SwiftProtobuf.Message conformance is added in an extension below. See the
-  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
-  // methods supported on all messages.
-
-  var sid: String = String()
-
-  var name: String = String()
-
-  var nodeIp: String = String()
 
   var creationTime: Int64 = 0
 
@@ -174,7 +158,6 @@ extension Livekit_ParticipantInfo.State: CaseIterable {
 
 #endif  // swift(>=4.2)
 
-/// describing
 struct Livekit_TrackInfo {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
@@ -182,7 +165,7 @@ struct Livekit_TrackInfo {
 
   var sid: String = String()
 
-  var type: Livekit_TrackInfo.TypeEnum = .audio
+  var type: Livekit_TrackType = .audio
 
   var name: String = String()
 
@@ -190,52 +173,8 @@ struct Livekit_TrackInfo {
 
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
-  enum TypeEnum: SwiftProtobuf.Enum {
-    typealias RawValue = Int
-    case audio // = 0
-    case video // = 1
-    case data // = 2
-    case UNRECOGNIZED(Int)
-
-    init() {
-      self = .audio
-    }
-
-    init?(rawValue: Int) {
-      switch rawValue {
-      case 0: self = .audio
-      case 1: self = .video
-      case 2: self = .data
-      default: self = .UNRECOGNIZED(rawValue)
-      }
-    }
-
-    var rawValue: Int {
-      switch self {
-      case .audio: return 0
-      case .video: return 1
-      case .data: return 2
-      case .UNRECOGNIZED(let i): return i
-      }
-    }
-
-  }
-
   init() {}
 }
-
-#if swift(>=4.2)
-
-extension Livekit_TrackInfo.TypeEnum: CaseIterable {
-  // The compiler won't synthesize support with the UNRECOGNIZED case.
-  static var allCases: [Livekit_TrackInfo.TypeEnum] = [
-    .audio,
-    .video,
-    .data,
-  ]
-}
-
-#endif  // swift(>=4.2)
 
 struct Livekit_DataMessage {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
@@ -293,92 +232,12 @@ struct Livekit_DataMessage {
 
 fileprivate let _protobuf_package = "livekit"
 
-extension Livekit_Node: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
-  static let protoMessageName: String = _protobuf_package + ".Node"
+extension Livekit_TrackType: SwiftProtobuf._ProtoNameProviding {
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
-    1: .same(proto: "id"),
-    2: .same(proto: "ip"),
-    3: .standard(proto: "rtc_port"),
-    4: .same(proto: "stats"),
+    0: .same(proto: "AUDIO"),
+    1: .same(proto: "VIDEO"),
+    2: .same(proto: "DATA"),
   ]
-
-  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
-    while let fieldNumber = try decoder.nextFieldNumber() {
-      // The use of inline closures is to circumvent an issue where the compiler
-      // allocates stack space for every case branch when no optimizations are
-      // enabled. https://github.com/apple/swift-protobuf/issues/1034
-      switch fieldNumber {
-      case 1: try { try decoder.decodeSingularStringField(value: &self.id) }()
-      case 2: try { try decoder.decodeSingularStringField(value: &self.ip) }()
-      case 3: try { try decoder.decodeSingularUInt32Field(value: &self.rtcPort) }()
-      case 4: try { try decoder.decodeSingularMessageField(value: &self._stats) }()
-      default: break
-      }
-    }
-  }
-
-  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
-    if !self.id.isEmpty {
-      try visitor.visitSingularStringField(value: self.id, fieldNumber: 1)
-    }
-    if !self.ip.isEmpty {
-      try visitor.visitSingularStringField(value: self.ip, fieldNumber: 2)
-    }
-    if self.rtcPort != 0 {
-      try visitor.visitSingularUInt32Field(value: self.rtcPort, fieldNumber: 3)
-    }
-    if let v = self._stats {
-      try visitor.visitSingularMessageField(value: v, fieldNumber: 4)
-    }
-    try unknownFields.traverse(visitor: &visitor)
-  }
-
-  static func ==(lhs: Livekit_Node, rhs: Livekit_Node) -> Bool {
-    if lhs.id != rhs.id {return false}
-    if lhs.ip != rhs.ip {return false}
-    if lhs.rtcPort != rhs.rtcPort {return false}
-    if lhs._stats != rhs._stats {return false}
-    if lhs.unknownFields != rhs.unknownFields {return false}
-    return true
-  }
-}
-
-extension Livekit_NodeStats: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
-  static let protoMessageName: String = _protobuf_package + ".NodeStats"
-  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
-    1: .standard(proto: "num_rooms"),
-    2: .standard(proto: "num_clients"),
-  ]
-
-  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
-    while let fieldNumber = try decoder.nextFieldNumber() {
-      // The use of inline closures is to circumvent an issue where the compiler
-      // allocates stack space for every case branch when no optimizations are
-      // enabled. https://github.com/apple/swift-protobuf/issues/1034
-      switch fieldNumber {
-      case 1: try { try decoder.decodeSingularInt32Field(value: &self.numRooms) }()
-      case 2: try { try decoder.decodeSingularInt32Field(value: &self.numClients) }()
-      default: break
-      }
-    }
-  }
-
-  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
-    if self.numRooms != 0 {
-      try visitor.visitSingularInt32Field(value: self.numRooms, fieldNumber: 1)
-    }
-    if self.numClients != 0 {
-      try visitor.visitSingularInt32Field(value: self.numClients, fieldNumber: 2)
-    }
-    try unknownFields.traverse(visitor: &visitor)
-  }
-
-  static func ==(lhs: Livekit_NodeStats, rhs: Livekit_NodeStats) -> Bool {
-    if lhs.numRooms != rhs.numRooms {return false}
-    if lhs.numClients != rhs.numClients {return false}
-    if lhs.unknownFields != rhs.unknownFields {return false}
-    return true
-  }
 }
 
 extension Livekit_Room: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
@@ -431,56 +290,6 @@ extension Livekit_Room: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementat
     if lhs.name != rhs.name {return false}
     if lhs.emptyTimeout != rhs.emptyTimeout {return false}
     if lhs.maxParticipants != rhs.maxParticipants {return false}
-    if lhs.creationTime != rhs.creationTime {return false}
-    if lhs.unknownFields != rhs.unknownFields {return false}
-    return true
-  }
-}
-
-extension Livekit_RoomInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
-  static let protoMessageName: String = _protobuf_package + ".RoomInfo"
-  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
-    1: .same(proto: "sid"),
-    2: .same(proto: "name"),
-    3: .standard(proto: "node_ip"),
-    4: .standard(proto: "creation_time"),
-  ]
-
-  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
-    while let fieldNumber = try decoder.nextFieldNumber() {
-      // The use of inline closures is to circumvent an issue where the compiler
-      // allocates stack space for every case branch when no optimizations are
-      // enabled. https://github.com/apple/swift-protobuf/issues/1034
-      switch fieldNumber {
-      case 1: try { try decoder.decodeSingularStringField(value: &self.sid) }()
-      case 2: try { try decoder.decodeSingularStringField(value: &self.name) }()
-      case 3: try { try decoder.decodeSingularStringField(value: &self.nodeIp) }()
-      case 4: try { try decoder.decodeSingularInt64Field(value: &self.creationTime) }()
-      default: break
-      }
-    }
-  }
-
-  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
-    if !self.sid.isEmpty {
-      try visitor.visitSingularStringField(value: self.sid, fieldNumber: 1)
-    }
-    if !self.name.isEmpty {
-      try visitor.visitSingularStringField(value: self.name, fieldNumber: 2)
-    }
-    if !self.nodeIp.isEmpty {
-      try visitor.visitSingularStringField(value: self.nodeIp, fieldNumber: 3)
-    }
-    if self.creationTime != 0 {
-      try visitor.visitSingularInt64Field(value: self.creationTime, fieldNumber: 4)
-    }
-    try unknownFields.traverse(visitor: &visitor)
-  }
-
-  static func ==(lhs: Livekit_RoomInfo, rhs: Livekit_RoomInfo) -> Bool {
-    if lhs.sid != rhs.sid {return false}
-    if lhs.name != rhs.name {return false}
-    if lhs.nodeIp != rhs.nodeIp {return false}
     if lhs.creationTime != rhs.creationTime {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
@@ -594,14 +403,6 @@ extension Livekit_TrackInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImplem
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
-}
-
-extension Livekit_TrackInfo.TypeEnum: SwiftProtobuf._ProtoNameProviding {
-  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
-    0: .same(proto: "AUDIO"),
-    1: .same(proto: "VIDEO"),
-    2: .same(proto: "DATA"),
-  ]
 }
 
 extension Livekit_DataMessage: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {

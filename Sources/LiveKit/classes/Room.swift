@@ -58,8 +58,8 @@ public class Room {
     
     static func join(options: ConnectOptions) -> Promise<Room> {
         let promise = Promise<Room>.pending()
-        var roomRequest = Livekit_GetRoomRequest()
-        roomRequest.room = options.config.roomId!
+//        var roomRequest = Livekit_Ro
+//        roomRequest.room = options.config.roomId!
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5, execute: {
             let room = Room(options: options)
             // for now
@@ -84,24 +84,28 @@ public class Room {
     
     static func create(options: ConnectOptions) -> Promise<Room> {
         let promise = Promise<Room>.pending()
-        TwirpRpc.request(
-            connectOptions: options,
-            service: "RoomService",
-            method: "CreateRoom",
-            data: Livekit_CreateRoomRequest(),
-            to: Livekit_RoomInfo.self).then { roomInfo in
-                let room = Room(options: options)
-                room.sid = roomInfo.sid
-                promise.fulfill(room)
-            }.catch { error in
-                print("Error: \(error)")
-                promise.reject(error)
-            }
+//        TwirpRpc.request(
+//            connectOptions: options,
+//            service: "RoomService",
+//            method: "CreateRoom",
+//            data: Livekit_CreateRoomRequest(),
+//            to: Livekit_RoomInfo.self).then { roomInfo in
+//                let room = Room(options: options)
+//                room.sid = roomInfo.sid
+//                promise.fulfill(room)
+//            }.catch { error in
+//                print("Error: \(error)")
+//                promise.reject(error)
+//            }
         return promise
     }
 }
 
 extension Room: RTCEngineDelegate {
+    func didPublishLocalTrack(cid: String, track: Livekit_TrackInfo) {
+        
+    }
+    
     func didJoin(response: Livekit_JoinResponse) {
         print("engine delegate --- did join")
         state = .connected
