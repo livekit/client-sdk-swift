@@ -27,7 +27,7 @@ struct Livekit_SignalRequest {
 
   var message: Livekit_SignalRequest.OneOf_Message? = nil
 
-  /// participant joining initially
+  /// participant joining initially, and during negotiations
   var offer: Livekit_SessionDescription {
     get {
       if case .offer(let v)? = message {return v}
@@ -81,7 +81,7 @@ struct Livekit_SignalRequest {
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   enum OneOf_Message: Equatable {
-    /// participant joining initially
+    /// participant joining initially, and during negotiations
     case offer(Livekit_SessionDescription)
     /// participant responding to server-issued offers
     case answer(Livekit_SessionDescription)
