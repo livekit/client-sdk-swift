@@ -7,6 +7,8 @@
 
 import Foundation
 
-public class LocalAudioTrackPublication {
-    
+public class LocalAudioTrackPublication: LocalTrackPublication, AudioTrackPublication {
+    public var audioTrack: AudioTrack? {
+        track as? AudioTrack
+    }
 }

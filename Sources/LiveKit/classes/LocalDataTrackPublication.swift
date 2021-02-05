@@ -7,6 +7,8 @@
 
 import Foundation
 
-public class LocalDataTrackPublication {
-    
+public class LocalDataTrackPublication: LocalTrackPublication, DataTrackPublication {
+    public var dataTrack: DataTrack? {
+        return track as? DataTrack
+    }
 }

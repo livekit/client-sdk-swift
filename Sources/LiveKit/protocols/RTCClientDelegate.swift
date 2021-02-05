@@ -8,7 +8,7 @@
 import Foundation
 import WebRTC
 
-protocol RTCClientDelegate {
+protocol RTCClientDelegate: AnyObject {
     func onJoin(info: Livekit_JoinResponse)
     func onAnswer(sessionDescription: RTCSessionDescription)
     func onOffer(sessionDescription: RTCSessionDescription)

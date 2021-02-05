@@ -8,13 +8,16 @@
 import Foundation
 import WebRTC
 
-public class VideoTrack: Track {
-    //public internal(set) var renderers: [VideoRenderer] = []
-    public internal(set) var rtcTrack: RTCVideoTrack
+public class VideoTrack: Track, MediaTrack {
+    var rtcTrack: RTCVideoTrack
+    var mediaTrack: RTCMediaStreamTrack {
+        get { rtcTrack }
+    }
     
-    init(sid: Track.Sid, rtcTrack: RTCVideoTrack) {
+    init(rtcTrack: RTCVideoTrack, name: String) {
         self.rtcTrack = rtcTrack
-        super.init(sid: sid)
+        let state = try! Track.stateFromRTCMediaTrackState(rtcState: rtcTrack.readyState)
+        super.init(enabled: rtcTrack.isEnabled, name: name, state: state)
     }
     
     public func addRenderer(_ renderer: RTCVideoRenderer) {
@@ -22,6 +25,6 @@ public class VideoTrack: Track {
     }
     
     public func removeRenderer(_ renderer: RTCVideoRenderer) {
-        
+        rtcTrack.remove(renderer)
     }
 }

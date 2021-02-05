@@ -8,7 +8,6 @@
 import Foundation
 
 public class RemoteTrackPublication: TrackPublication {
-    
     public var remoteTrack: Track? { track }
     public var trackSubscribed: Bool { track != nil }
     public private(set) var publishPriority: Track.Priority = .standard

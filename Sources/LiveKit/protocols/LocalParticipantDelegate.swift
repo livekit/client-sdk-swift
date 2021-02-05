@@ -7,12 +7,12 @@
 
 import Foundation
 
-public protocol LocalParticipantDelegate {
+public protocol LocalParticipantDelegate: AnyObject {
     func didPublishAudioTrack(track: LocalAudioTrack)
     func didFailToPublishAudioTrack(error: Error)
-//    func localParticipant:didPublishDataTrack
-//    func localParticipant:didFailToPublishDataTrack:withError
-//    func localParticipant:didPublishVideoTrack
-//    func localParticipant:didFailToPublishVideoTrack:withError
+    func didPublishVideoTrack(track: LocalVideoTrack)
+    func didFailToPublishVideoTrack(error: Error)
+    func didPublishDataTrack(track: LocalDataTrack)
+//    func didFailToPublishDataTrack(error: Error)
 //    func localParticipant:networkQualityLevelDidChange
 }

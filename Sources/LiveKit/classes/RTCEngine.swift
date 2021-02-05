@@ -10,27 +10,31 @@ import WebRTC
 import Promises
 
 class RTCEngine: NSObject {
-    private var peerConnection: RTCPeerConnection?
+    var peerConnection: RTCPeerConnection?
+    
     private var client: RTCClient
     private var audioSession = RTCAudioSession.sharedInstance()
     private var rtcConnected: Bool = false
     private var iceConnected: Bool = false
     
     private var pendingCandidates: [RTCIceCandidate] = []
+    private var pendingTrackResolvers: [Track.Cid: Promise<Livekit_TrackInfo>] = [:]
     
-    /*
-     let constraints = [
-         kRTCMediaConstraintsOfferToReceiveAudio: kRTCMediaConstraintsValueTrue,
-         kRTCMediaConstraintsOfferToReceiveVideo: kRTCMediaConstraintsValueTrue
-     ]
-    */
-    private var mediaConstraints = RTCMediaConstraints(mandatoryConstraints: nil,
+    static var offerConstraints = RTCMediaConstraints(mandatoryConstraints: [
+        kRTCMediaConstraintsOfferToReceiveAudio: kRTCMediaConstraintsValueTrue,
+        kRTCMediaConstraintsOfferToReceiveVideo: kRTCMediaConstraintsValueTrue
+    ], optionalConstraints: nil)
+    
+    static var mediaConstraints = RTCMediaConstraints(mandatoryConstraints: nil,
                                                        optionalConstraints: nil)
     
+    static var connConstraints = RTCMediaConstraints(mandatoryConstraints: nil,
+                                                      optionalConstraints: ["DtlsSrtpKeyAgreement": kRTCMediaConstraintsValueTrue])
     
-    var delegate: RTCEngineDelegate?
     
-    private static let factory: RTCPeerConnectionFactory = {
+    weak var delegate: RTCEngineDelegate?
+    
+    static let factory: RTCPeerConnectionFactory = {
         RTCInitializeSSL() 
         var encoderFactory = RTCDefaultVideoEncoderFactory()
         var decoderFactory = RTCDefaultVideoDecoderFactory()
@@ -57,13 +61,10 @@ class RTCEngine: NSObject {
         // gatherContinually will let WebRTC to listen to any network changes and send any new candidates to the other client
         config.continualGatheringPolicy = .gatherContinually
         
-        let constraints = RTCMediaConstraints(mandatoryConstraints: nil,
-                                              optionalConstraints: ["DtlsSrtpKeyAgreement": kRTCMediaConstraintsValueTrue])
-        peerConnection = RTCEngine.factory.peerConnection(with: config, constraints: constraints, delegate: self)
-        
+        peerConnection = RTCEngine.factory.peerConnection(with: config, constraints: RTCEngine.connConstraints, delegate: self)
         /* always have a blank data channel, to ensure there isn't an empty ice-ufrag */
         peerConnection?.dataChannel(forLabel: RTCEngine.privateDataChannelLabel, configuration: RTCDataChannelConfiguration())
-        
+
         configureAudio()
     }
     
@@ -84,7 +85,7 @@ class RTCEngine: NSObject {
     
     func createOffer() -> Promise<RTCSessionDescription> {
         let promise = Promise<RTCSessionDescription>.pending()
-        peerConnection?.offer(for: mediaConstraints, completionHandler: { (sdp, error) in
+        peerConnection?.offer(for: RTCEngine.offerConstraints, completionHandler: { (sdp, error) in
             guard error == nil else {
                 print("engine --- error creating offer: \(error!)")
                 promise.reject(error!)
@@ -95,8 +96,11 @@ class RTCEngine: NSObject {
         return promise
     }
     
-    func addTrack(cid: String, name: String, kind: Livekit_TrackType) throws {
-        self.client.sendAddTrack(cid: cid, name: name, type: kind)
+    func addTrack(cid: Track.Cid, name: String, kind: Livekit_TrackType) throws -> Promise<Livekit_TrackInfo> {
+        try self.client.sendAddTrack(cid: cid, name: name, type: kind)
+        let promise = Promise<Livekit_TrackInfo>.pending()
+        pendingTrackResolvers[cid] = promise
+        return promise
     }
     
     func updateMuteStatus(trackSid: String, muted: Bool) {
@@ -110,7 +114,7 @@ class RTCEngine: NSObject {
     
     private func negotiate() {
         print("engine --- starting to negotiate: \(String(describing: peerConnection?.signalingState))")
-        peerConnection?.offer(for: mediaConstraints, completionHandler: { (offer, error) in
+        peerConnection?.offer(for: RTCEngine.offerConstraints, completionHandler: { (offer, error) in
             guard error == nil else {
                 print("engine --- error creating offer: \(error!)")
                 return
@@ -142,7 +146,7 @@ class RTCEngine: NSObject {
 
 extension RTCEngine: RTCClientDelegate {
     func onJoin(info: Livekit_JoinResponse) {
-        peerConnection?.offer(for: mediaConstraints, completionHandler: { (sdp, error) in
+        peerConnection?.offer(for: RTCEngine.offerConstraints, completionHandler: { (sdp, error) in
             guard error == nil else {
                 print("engine --- error creating offer: \(error!)")
                 return
@@ -182,7 +186,7 @@ extension RTCEngine: RTCClientDelegate {
                 print("engine --- error setting remote description for offer: \(error!)")
                 return
             }
-            self.peerConnection?.answer(for: self.mediaConstraints, completionHandler: { (answer, error) in
+            self.peerConnection?.answer(for: RTCEngine.offerConstraints, completionHandler: { (answer, error) in
                 guard error == nil else {
                     print("engine --- error creating answer: \(error!)")
                     return
@@ -207,8 +211,13 @@ extension RTCEngine: RTCClientDelegate {
         delegate?.didUpdateParticipants(updates: updates)
     }
     
-    func onLocalTrackPublished(trackPublished: Livekit_TrackPublishedResponse) {
-        trackPublished
+    func onLocalTrackPublished(trackPublished res: Livekit_TrackPublishedResponse) {
+        guard let promise = pendingTrackResolvers.removeValue(forKey: res.cid) else {
+            print("engine --- missing track resolver for: \(res.cid)")
+            return
+        }
+        promise.fulfill(res.track)
+        delegate?.didPublishLocalTrack(cid: res.cid, track: res.track)
     }
     
     func onClose(reason: String, code: UInt16) {

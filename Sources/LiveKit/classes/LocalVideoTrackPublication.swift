@@ -6,3 +6,7 @@
 //
 
 import Foundation
+
+public class LocalVideoTrackPublication: LocalTrackPublication, VideoTrackPublication {
+    public var videoTrack: VideoTrack? { track as? VideoTrack }
+}

@@ -26,7 +26,7 @@ class RTCClient {
     
     private(set) var isConnected: Bool = false
     private var socket: WebSocket?
-    var delegate: RTCClientDelegate?
+    weak var delegate: RTCClientDelegate?
     
     static func fromProtoSessionDescription(sd: Livekit_SessionDescription) throws -> RTCSessionDescription {
         var rtcSdpType: RTCSdpType
@@ -60,10 +60,9 @@ class RTCClient {
     }
     
     func join(roomId: String, options: ConnectOptions) {
-        let transportProtocol = options.config.isSecure ? "wss" : "ws"
-        let host = options.config.host
-        let port = options.config.rtcPort
-        let token = options.config.accessToken
+        let transportProtocol = options.isSecure ? "wss" : "ws"
+        let host = options.host
+        let token = options.accessToken
         
         let wsUrlString = "\(transportProtocol)://\(host)/rtc?access_token=\(token)"
         print("rtc client --- connecting to: \(wsUrlString)")
@@ -102,16 +101,16 @@ class RTCClient {
         try! sendRequest(req: req)
     }
     
-    func sendAddTrack(cid: String, name: String, type: Livekit_TrackType) {
+    func sendAddTrack(cid: Track.Cid, name: String, type: Livekit_TrackType) throws {
         print("rtc client --- sending add track")
         var addTrackReq = Livekit_AddTrackRequest()
-        addTrackReq.cid = cid
+        addTrackReq.cid = cid as String
         addTrackReq.name = name
         addTrackReq.type = type
         
         var req = Livekit_SignalRequest()
         req.addTrack = addTrackReq
-        try! sendRequest(req: req)
+        try sendRequest(req: req)
     }
     
     func sendNegotiate() {

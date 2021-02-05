@@ -9,8 +9,9 @@ import Foundation
 
 public class TrackPublication {
     public internal(set) var track: Track?
+    public internal(set) var trackName: String
     public private(set) var trackSid: Track.Sid
-    public private(set) var trackName: String
+    
     public var trackEnabled: Bool {
         track != nil
     }

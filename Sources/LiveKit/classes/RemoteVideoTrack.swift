@@ -6,7 +6,22 @@
 //
 
 import Foundation
+import WebRTC
 
 public class RemoteVideoTrack: VideoTrack {
+    public internal(set) var sid: Track.Sid
+    public internal(set) var switchedOff: Bool
+    public internal(set) var priority: Track.Priority?
     
+    init(sid: Track.Sid,
+         switchedOff: Bool = false,
+         priority: Track.Priority? = nil,
+         rtcTrack: RTCVideoTrack,
+         name: String) {
+
+        self.sid = sid
+        self.switchedOff = switchedOff
+        self.priority = priority
+        super.init(rtcTrack: rtcTrack, name: name)
+    }
 }

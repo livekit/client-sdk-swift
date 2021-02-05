@@ -7,7 +7,7 @@
 
 import Foundation
 
-public protocol RemoteDataTrackDelegate {
+public protocol RemoteDataTrackDelegate: AnyObject {
     func didReceiveString(message: String, dataTrack: RemoteDataTrack)
     func didReceiveData(message: Data, dataTrack: RemoteDataTrack)
 }

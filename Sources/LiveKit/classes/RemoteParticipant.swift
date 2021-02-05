@@ -14,7 +14,7 @@ public class RemoteParticipant: Participant {
     public var remoteVideoTracks: [TrackPublication] { videoTracks }
     public var remoteDataTracks: [TrackPublication] { dataTracks }
     
-    public var delegate: RemoteParticipantDelegate?
+    public weak var delegate: RemoteParticipantDelegate?
         
     override var info: Livekit_ParticipantInfo? {
         didSet {
@@ -53,6 +53,9 @@ public class RemoteParticipant: Participant {
                 }
                 addTrack(publication: publication!)
                 newPublications.append(publication!)
+            } else {
+                publication?.trackName = trackInfo.name
+                publication?.track?.name = trackInfo.name
             }
             validTrackSids.insert(publication!.trackSid)
         }
@@ -74,14 +77,15 @@ public class RemoteParticipant: Participant {
         
         switch rtcTrack.kind {
         case "audio":
-            track = RemoteAudioTrack(sid: sid, rtcTrack: rtcTrack as! RTCAudioTrack)
+            track = RemoteAudioTrack(sid: sid, rtcTrack: rtcTrack as! RTCAudioTrack, name: "")
         case "video":
-            track = RemoteVideoTrack(sid: sid, rtcTrack: rtcTrack as! RTCVideoTrack)
+            track = RemoteVideoTrack(sid: sid, rtcTrack: rtcTrack as! RTCVideoTrack, name: "")
         default:
             throw TrackError.invalidTrackType("Error: Invalid track type")
         }
         
         if publication != nil {
+            track.name = publication!.trackName
             publication!.track = track
         } else {
             var trackInfo = Livekit_TrackInfo()
@@ -112,7 +116,7 @@ public class RemoteParticipant: Participant {
     }
     
     func addSubscribedDataTrack(rtcTrack: RTCDataChannel, sid: Track.Sid, name: String) throws {
-        let track = RemoteDataTrack(sid: sid, name: name, rtcTrack: rtcTrack)
+        let track = RemoteDataTrack(sid: sid, rtcTrack: rtcTrack, name: name)
         var publication = tracks.first(where: { $0.trackSid == sid })
         
         if publication != nil {

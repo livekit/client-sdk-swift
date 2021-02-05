@@ -8,13 +8,17 @@
 import Foundation
 import WebRTC
 
-public class AudioTrack: Track {
+public class AudioTrack: Track, MediaTrack {
     public private(set) var sinks: [AudioSink]?
-    public internal(set) var rtcTrack: RTCAudioTrack
+    var rtcTrack: RTCAudioTrack
+    var mediaTrack: RTCMediaStreamTrack {
+        get { rtcTrack }
+    }
     
-    init(sid: Track.Sid, rtcTrack: RTCAudioTrack) {
+    init(rtcTrack: RTCAudioTrack, name: String) {
         self.rtcTrack = rtcTrack
-        super.init(sid: sid)
+        let state = try! Track.stateFromRTCMediaTrackState(rtcState: rtcTrack.readyState)
+        super.init(enabled: rtcTrack.isEnabled, name: name, state: state)
     }
     
     public func addSink(_ sink: AudioSink) {
@@ -22,6 +26,8 @@ public class AudioTrack: Track {
     }
     
     public func removeSink(_ sink: AudioSink) {
-        
+        sinks?.removeAll(where: { s -> Bool in
+            (sink as AnyObject) === (s as AnyObject)
+        })
     }
 }

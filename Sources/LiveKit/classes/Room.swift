@@ -27,7 +27,7 @@ public class Room {
         }
     }
     
-    public var delegate: RoomDelegate?
+    public weak var delegate: RoomDelegate?
     
     public private(set) var sid: Room.Sid?
     public private(set) var state: RoomState = .disconnected
@@ -40,7 +40,8 @@ public class Room {
     private var joinPromise: Promise<Room>?
     
     init(options: ConnectOptions) {
-        _name = options.config.roomName
+        _name = options.roomName
+        sid = options.roomId
         connectOptions = options
         client = RTCClient()
         engine = RTCEngine(client: client)
@@ -55,50 +56,6 @@ public class Room {
         joinPromise = Promise<Room>.pending()
         return joinPromise!
     }
-    
-    static func join(options: ConnectOptions) -> Promise<Room> {
-        let promise = Promise<Room>.pending()
-//        var roomRequest = Livekit_Ro
-//        roomRequest.room = options.config.roomId!
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5, execute: {
-            let room = Room(options: options)
-            // for now
-            room.sid = options.config.roomId
-            promise.fulfill(room)
-        })
-//        TwirpRpc.request(
-//            connectOptions: options,
-//            service: "RoomService",
-//            method: "GetRoom",
-//            data: roomRequest,
-//            to: Livekit_RoomInfo.self).then { roomInfo in
-//                let room = Room(options: options)
-//                room.sid = roomInfo.sid
-//                promise.fulfill(room)
-//            }.catch { error in
-//                print("Error: \(error)")
-//                promise.reject(error)
-//            }
-        return promise
-    }
-    
-    static func create(options: ConnectOptions) -> Promise<Room> {
-        let promise = Promise<Room>.pending()
-//        TwirpRpc.request(
-//            connectOptions: options,
-//            service: "RoomService",
-//            method: "CreateRoom",
-//            data: Livekit_CreateRoomRequest(),
-//            to: Livekit_RoomInfo.self).then { roomInfo in
-//                let room = Room(options: options)
-//                room.sid = roomInfo.sid
-//                promise.fulfill(room)
-//            }.catch { error in
-//                print("Error: \(error)")
-//                promise.reject(error)
-//            }
-        return promise
-    }
 }
 
 extension Room: RTCEngineDelegate {
@@ -110,7 +67,7 @@ extension Room: RTCEngineDelegate {
         print("engine delegate --- did join")
         state = .connected
         if response.hasParticipant {
-            localParticipant = LocalParticipant(fromInfo: response.participant)
+            localParticipant = LocalParticipant(fromInfo: response.participant, engine: engine)
         }
         if !response.otherParticipants.isEmpty {
             for otherParticipant in response.otherParticipants {

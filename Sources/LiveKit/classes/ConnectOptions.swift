@@ -7,33 +7,26 @@
 
 import Foundation
 
-public typealias ConnectOptionsBuilderBlock = (inout ConnectOptionsBuilder) -> Void
+public typealias ConnectOptionsBuilderBlock = (inout ConnectOptions) -> Void
 
 public struct ConnectOptions {
-    private var builder: ConnectOptionsBuilder
-    var config: ConnectOptionsBuilder {
-        return builder
-    }
-    
-    public init(token accessToken: String, block: ConnectOptionsBuilderBlock?) {
-        builder = ConnectOptionsBuilder(accessToken)
-        if let builderBlock = block {
-            builderBlock(&builder)
-        }
-    }
-}
-
-public struct ConnectOptionsBuilder {
     private(set) var accessToken: String
+    
     public var roomName: String?
     public var roomId: String?
     public var host: String = "localhost"
     public var isSecure: Bool = false
-    public var rtcPort: UInt32 = 80
-    public var httpPort: UInt32 = 80
     public var rpcPrefix: String = "/twirp"
     
-    init(_ accessToken: String) {
+    init(token accessToken: String) {
         self.accessToken = accessToken
+    }
+    
+    public static func options(token accessToken: String, block: ConnectOptionsBuilderBlock?) -> ConnectOptions {
+        var options = ConnectOptions(token: accessToken)
+        if let builderBlock = block {
+            builderBlock(&options)
+        }
+        return options
     }
 }

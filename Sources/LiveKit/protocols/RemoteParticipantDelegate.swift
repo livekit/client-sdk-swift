@@ -7,7 +7,7 @@
 
 import Foundation
 
-public protocol RemoteParticipantDelegate {
+public protocol RemoteParticipantDelegate: AnyObject {
     func didPublish(audioTrack: RemoteAudioTrackPublication, participant: RemoteParticipant)
     func didUnpublish(audioTrack: RemoteAudioTrackPublication, participant: RemoteParticipant)
     func didPublish(videoTrack: RemoteVideoTrackPublication, participant: RemoteParticipant)

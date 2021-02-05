@@ -21,12 +21,11 @@ struct TwirpRpc {
         to: ResponseData.Type
     ) -> Promise<ResponseData>
     {
-        let transportProtocol = connectOptions.config.isSecure ? "https" : "http"
-        let host = connectOptions.config.host
-        let port = connectOptions.config.httpPort
-        let prefix = connectOptions.config.rpcPrefix
+        let transportProtocol = connectOptions.isSecure ? "https" : "http"
+        let host = connectOptions.host
+        let prefix = connectOptions.rpcPrefix
         
-        let urlString = "\(transportProtocol)://\(host):\(port)\(prefix)/\(TwirpRpc.pkg).\(service)/\(method)"
+        let urlString = "\(transportProtocol)://\(host)\(prefix)/\(TwirpRpc.pkg).\(service)/\(method)"
         let jsonData = try? data.jsonUTF8Data()
         
         var urlRequest = URLRequest(url: URL(string: urlString)!)

@@ -18,7 +18,7 @@ public class VideoView: UIView {
 //    public private(set) var hasVideoData: Bool = false
 //    public private(set) var mirror: Bool = false
 //    
-//    public private(set) var renderer: RTCVideoRenderer?
+    public private(set) var renderer: RTCVideoRenderer?
     
     required init?(coder decoder: NSCoder) {
         super.init(coder: decoder)
@@ -26,26 +26,24 @@ public class VideoView: UIView {
     
     public init(frame: CGRect, delegate: VideoViewDelegate? = nil, renderingType: VideoRenderingType? = .none) {
         super.init(frame: frame)
-        backgroundColor = .red
+        #if arch(arm64)
+            // Using metal (arm64 only)
+            switch renderingType {
+            case .metal:
+                let view = RTCMTLVideoView(frame: frame)
+                view.videoContentMode = .scaleAspectFill
+                renderer = view
+            case .opengles:
+                renderer = RTCEAGLVideoView(frame: frame)
+            default:
+                break
+            }
+        #else
+            renderer = RTCEAGLVideoView(frame: frame)
+        #endif
         
-//        #if arch(arm64)
-//            // Using metal (arm64 only)
-//            switch renderingType {
-//            case .metal:
-//                let view = RTCMTLVideoView(frame: frame)
-//                view.videoContentMode = .scaleAspectFill
-//                renderer = view
-//            case .opengles:
-//                renderer = RTCEAGLVideoView(frame: frame)
-//            default:
-//                break
-//            }
-//        #else
-//            renderer = RTCEAGLVideoView(frame: frame)
-//        #endif
+        addSubview(renderer as! UIView)
     }
-    
-    
 }
 
 extension VideoView: RTCVideoRenderer {
