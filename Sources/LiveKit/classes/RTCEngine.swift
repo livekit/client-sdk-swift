@@ -35,15 +35,9 @@ class RTCEngine: NSObject {
     weak var delegate: RTCEngineDelegate?
     
     static let factory: RTCPeerConnectionFactory = {
-        RTCInitializeSSL() 
+        RTCInitializeSSL()
         var encoderFactory = RTCDefaultVideoEncoderFactory()
         var decoderFactory = RTCDefaultVideoDecoderFactory()
-        /*
-            if TARGET_OS_SIMULATOR != 0 {
-                encoderFactory = RTCSimulatorVideoEncoderFactory()
-                decoderFactory = RTCSimulatorVideoDecoderFactory()
-            }
-        */
         return RTCPeerConnectionFactory(encoderFactory: encoderFactory, decoderFactory: decoderFactory)
     }()
     
@@ -60,7 +54,7 @@ class RTCEngine: NSObject {
         config.sdpSemantics = .unifiedPlan
         // gatherContinually will let WebRTC to listen to any network changes and send any new candidates to the other client
         config.continualGatheringPolicy = .gatherContinually
-        
+
         peerConnection = RTCEngine.factory.peerConnection(with: config, constraints: RTCEngine.connConstraints, delegate: self)
         /* always have a blank data channel, to ensure there isn't an empty ice-ufrag */
         peerConnection?.dataChannel(forLabel: RTCEngine.privateDataChannelLabel, configuration: RTCDataChannelConfiguration())
@@ -79,8 +73,8 @@ class RTCEngine: NSObject {
         audioSession.unlockForConfiguration()
     }
     
-    func join(roomId: String, options: ConnectOptions) {
-        let _ = client.join(roomId: roomId, options: options)
+    func join(options: ConnectOptions) {
+        client.join(options: options)
     }
     
     func createOffer() -> Promise<RTCSessionDescription> {

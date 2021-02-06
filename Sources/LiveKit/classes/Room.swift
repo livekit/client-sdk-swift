@@ -16,20 +16,11 @@ enum RoomError: Error {
 
 public class Room {
     public typealias Sid = String
-    
-    private var _name: String?
-    public var name: String? {
-        get {
-            _name == nil ? sid : _name!
-        }
-        set(newName) {
-            _name = newName
-        }
-    }
-    
+
     public weak var delegate: RoomDelegate?
     
     public private(set) var sid: Room.Sid?
+    public private(set) var name: String?
     public private(set) var state: RoomState = .disconnected
     public private(set) var localParticipant: LocalParticipant?
     public private(set) var remoteParticipants: Set<RemoteParticipant> = []
@@ -40,8 +31,6 @@ public class Room {
     private var joinPromise: Promise<Room>?
     
     init(options: ConnectOptions) {
-        _name = options.roomName
-        sid = options.roomId
         connectOptions = options
         client = RTCClient()
         engine = RTCEngine(client: client)
@@ -49,10 +38,7 @@ public class Room {
     }
     
     func connect() throws -> Promise<Room> {
-        guard let sid = sid else {
-            throw RoomError.missingRoomId("Can't connect to a room without value for SID")
-        }
-        engine.join(roomId: sid, options: connectOptions)
+        engine.join(options: connectOptions)
         joinPromise = Promise<Room>.pending()
         return joinPromise!
     }
@@ -66,6 +52,8 @@ extension Room: RTCEngineDelegate {
     func didJoin(response: Livekit_JoinResponse) {
         print("engine delegate --- did join")
         state = .connected
+        sid = response.room.sid
+        name = response.room.name
         if response.hasParticipant {
             localParticipant = LocalParticipant(fromInfo: response.participant, engine: engine)
         }

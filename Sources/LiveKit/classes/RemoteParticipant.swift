@@ -27,13 +27,13 @@ public class RemoteParticipant: Participant {
     }
     
     convenience init(info: Livekit_ParticipantInfo) {
-        self.init(sid: info.sid, name: info.name)
+        self.init(sid: info.sid, name: info.identity)
         self.info = info
     }
     
     func updateFromInfo() throws {
         sid = info!.sid
-        name = info!.name
+        name = info!.identity
         
         var validTrackSids = Set<String>()
         var newPublications: [TrackPublication] = []

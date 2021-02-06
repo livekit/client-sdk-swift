@@ -22,7 +22,7 @@ public class LocalParticipant: Participant {
     public weak var delegate: LocalParticipantDelegate?
     
     convenience init(fromInfo info: Livekit_ParticipantInfo, engine: RTCEngine) {
-        self.init(sid: info.sid, name: info.name)
+        self.init(sid: info.sid, name: info.identity)
         self.info = info
         self.engine = engine
     }

@@ -91,7 +91,7 @@ struct Livekit_ParticipantInfo {
 
   var sid: String = String()
 
-  var name: String = String()
+  var identity: String = String()
 
   var state: Livekit_ParticipantInfo.State = .joining
 
@@ -300,7 +300,7 @@ extension Livekit_ParticipantInfo: SwiftProtobuf.Message, SwiftProtobuf._Message
   static let protoMessageName: String = _protobuf_package + ".ParticipantInfo"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     1: .same(proto: "sid"),
-    2: .same(proto: "name"),
+    2: .same(proto: "identity"),
     3: .same(proto: "state"),
     4: .same(proto: "tracks"),
   ]
@@ -312,7 +312,7 @@ extension Livekit_ParticipantInfo: SwiftProtobuf.Message, SwiftProtobuf._Message
       // enabled. https://github.com/apple/swift-protobuf/issues/1034
       switch fieldNumber {
       case 1: try { try decoder.decodeSingularStringField(value: &self.sid) }()
-      case 2: try { try decoder.decodeSingularStringField(value: &self.name) }()
+      case 2: try { try decoder.decodeSingularStringField(value: &self.identity) }()
       case 3: try { try decoder.decodeSingularEnumField(value: &self.state) }()
       case 4: try { try decoder.decodeRepeatedMessageField(value: &self.tracks) }()
       default: break
@@ -324,8 +324,8 @@ extension Livekit_ParticipantInfo: SwiftProtobuf.Message, SwiftProtobuf._Message
     if !self.sid.isEmpty {
       try visitor.visitSingularStringField(value: self.sid, fieldNumber: 1)
     }
-    if !self.name.isEmpty {
-      try visitor.visitSingularStringField(value: self.name, fieldNumber: 2)
+    if !self.identity.isEmpty {
+      try visitor.visitSingularStringField(value: self.identity, fieldNumber: 2)
     }
     if self.state != .joining {
       try visitor.visitSingularEnumField(value: self.state, fieldNumber: 3)
@@ -338,7 +338,7 @@ extension Livekit_ParticipantInfo: SwiftProtobuf.Message, SwiftProtobuf._Message
 
   static func ==(lhs: Livekit_ParticipantInfo, rhs: Livekit_ParticipantInfo) -> Bool {
     if lhs.sid != rhs.sid {return false}
-    if lhs.name != rhs.name {return false}
+    if lhs.identity != rhs.identity {return false}
     if lhs.state != rhs.state {return false}
     if lhs.tracks != rhs.tracks {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}

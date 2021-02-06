@@ -59,7 +59,7 @@ class RTCClient {
         return sessionDescription
     }
     
-    func join(roomId: String, options: ConnectOptions) {
+    func join(options: ConnectOptions) {
         let transportProtocol = options.isSecure ? "wss" : "ws"
         let host = options.host
         let token = options.accessToken

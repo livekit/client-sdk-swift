@@ -32,6 +32,9 @@ struct Livekit_CreateRoomRequest {
 
   var maxParticipants: UInt32 = 0
 
+  /// override the node room is allocated to, for debugging
+  var nodeID: String = String()
+
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   init() {}
@@ -91,6 +94,7 @@ extension Livekit_CreateRoomRequest: SwiftProtobuf.Message, SwiftProtobuf._Messa
     1: .same(proto: "name"),
     2: .standard(proto: "empty_timeout"),
     3: .standard(proto: "max_participants"),
+    4: .standard(proto: "node_id"),
   ]
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -102,6 +106,7 @@ extension Livekit_CreateRoomRequest: SwiftProtobuf.Message, SwiftProtobuf._Messa
       case 1: try { try decoder.decodeSingularStringField(value: &self.name) }()
       case 2: try { try decoder.decodeSingularUInt32Field(value: &self.emptyTimeout) }()
       case 3: try { try decoder.decodeSingularUInt32Field(value: &self.maxParticipants) }()
+      case 4: try { try decoder.decodeSingularStringField(value: &self.nodeID) }()
       default: break
       }
     }
@@ -117,6 +122,9 @@ extension Livekit_CreateRoomRequest: SwiftProtobuf.Message, SwiftProtobuf._Messa
     if self.maxParticipants != 0 {
       try visitor.visitSingularUInt32Field(value: self.maxParticipants, fieldNumber: 3)
     }
+    if !self.nodeID.isEmpty {
+      try visitor.visitSingularStringField(value: self.nodeID, fieldNumber: 4)
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -124,6 +132,7 @@ extension Livekit_CreateRoomRequest: SwiftProtobuf.Message, SwiftProtobuf._Messa
     if lhs.name != rhs.name {return false}
     if lhs.emptyTimeout != rhs.emptyTimeout {return false}
     if lhs.maxParticipants != rhs.maxParticipants {return false}
+    if lhs.nodeID != rhs.nodeID {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
