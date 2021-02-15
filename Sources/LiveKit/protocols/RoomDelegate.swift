@@ -7,7 +7,7 @@
 
 import Foundation
 
-public protocol RoomDelegate: AnyObject {
+public protocol RoomDelegate {
     func didConnect(room: Room)
     func didDisconnect(room: Room, error: Error?)
     func participantDidConnect(room: Room, participant: Participant)

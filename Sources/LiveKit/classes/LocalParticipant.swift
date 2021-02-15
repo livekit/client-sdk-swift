@@ -27,7 +27,7 @@ public class LocalParticipant: Participant {
         self.engine = engine
     }
     
-    func publishAudioTrack(track: LocalAudioTrack,
+    public func publishAudioTrack(track: LocalAudioTrack,
                            options: LocalTrackPublicationOptions? = LocalTrackPublicationOptions.optionsWithPriority(.standard)) {
         if localAudioTrackPublications.first(where: { $0.track === track }) != nil {
             return
@@ -38,7 +38,7 @@ public class LocalParticipant: Participant {
             try engine?.addTrack(cid: cid, name: track.name, kind: .audio)
                 .then({ trackInfo in
                     let publication = LocalAudioTrackPublication(info: trackInfo, track: track)
-                    self.engine?.peerConnection?.add(track.rtcTrack, streamIds: [self.streamId])
+                    self.engine?.publisher.peerConnection.add(track.rtcTrack, streamIds: [self.streamId])
                     self.audioTracks.append(publication)
                     self.delegate?.didPublishAudioTrack(track: track)
                 })
@@ -47,11 +47,11 @@ public class LocalParticipant: Participant {
         }
     }
     
-    func publishAudioTrack(track: LocalAudioTrack) {
+    public func publishAudioTrack(track: LocalAudioTrack) {
         publishAudioTrack(track: track, options: nil)
     }
     
-    func publishVideoTrack(track: LocalVideoTrack,
+    public func publishVideoTrack(track: LocalVideoTrack,
                            options: LocalTrackPublicationOptions? = LocalTrackPublicationOptions.optionsWithPriority(.standard)) {
         if localVideoTrackPublications.first(where: { $0.track === track }) != nil {
             return
@@ -62,7 +62,7 @@ public class LocalParticipant: Participant {
             try engine?.addTrack(cid: cid, name: track.name, kind: .audio)
                 .then({ trackInfo in
                     let publication = LocalVideoTrackPublication(info: trackInfo, track: track)
-                    self.engine?.peerConnection?.add(track.rtcTrack, streamIds: [self.streamId])
+                    self.engine?.publisher.peerConnection.add(track.rtcTrack, streamIds: [self.streamId])
                     self.videoTracks.append(publication)
                     self.delegate?.didPublishVideoTrack(track: track)
                 })
@@ -71,11 +71,11 @@ public class LocalParticipant: Participant {
         }
     }
     
-    func publishVideoTrack(track: LocalVideoTrack) {
+    public func publishVideoTrack(track: LocalVideoTrack) {
         publishVideoTrack(track: track, options: nil)
     }
     
-    func publishDataTrack(track: LocalDataTrack,
+    public func publishDataTrack(track: LocalDataTrack,
                           options: LocalTrackPublicationOptions? = LocalTrackPublicationOptions.optionsWithPriority(.standard)) {
         if localDataTrackPublications.first(where: { $0.track === track }) != nil {
             return
@@ -92,7 +92,7 @@ public class LocalParticipant: Participant {
                     config.maxPacketLifeTime = track.options.maxPacketLifeTime
                     config.maxRetransmits = track.options.maxRetransmits
                     
-                    if let dataChannel = self.engine?.peerConnection?.dataChannel(forLabel: track.name, configuration: config) {
+                    if let dataChannel = self.engine?.publisher.peerConnection.dataChannel(forLabel: track.name, configuration: config) {
                         track.rtcTrack = dataChannel
                         self.dataTracks.append(publication)
                         self.delegate?.didPublishDataTrack(track: track)
@@ -106,19 +106,19 @@ public class LocalParticipant: Participant {
         }
     }
     
-    func publishDataTrack(track: LocalDataTrack) {
+    public func publishDataTrack(track: LocalDataTrack) {
         publishDataTrack(track: track, options: nil)
     }
     
-    func unpublishAudioTrack(track: LocalAudioTrack) {
-        unpublishMediaTrack(track: track, publications: audioTracks)
+    public func unpublishAudioTrack(track: LocalAudioTrack) {
+        unpublishMediaTrack(track: track, publications: &audioTracks)
     }
     
-    func unpublishVideoTrack(track: LocalVideoTrack) {
-        unpublishMediaTrack(track: track, publications: videoTracks)
+    public func unpublishVideoTrack(track: LocalVideoTrack) {
+        unpublishMediaTrack(track: track, publications: &videoTracks)
     }
     
-    func unpublishDataTrack(track: LocalDataTrack) {
+    public func unpublishDataTrack(track: LocalDataTrack) {
         guard let pubIndex = dataTracks.firstIndex(where: { $0.track === track })  else {
             print("local participant --- track was not published with name: \(track.name)")
             return
@@ -133,23 +133,23 @@ public class LocalParticipant: Participant {
         
     }
     
-    private func unpublishMediaTrack<T>(track: T, publications: [TrackPublication]) where T: Track, T: MediaTrack {
+    private func unpublishMediaTrack<T>(track: T, publications: inout [TrackPublication]) where T: Track, T: MediaTrack {
         guard let pubIndex = publications.firstIndex(where: { $0.track === track })  else {
             print("local participant --- track was not published with name: \(track.name)")
             return
         }
         
         track.mediaTrack.isEnabled = false
-        if let senders = engine?.peerConnection?.senders {
+        if let senders = engine?.publisher.peerConnection.senders {
             for sender in senders {
                 if let t = sender.track {
                     if t.isEqual(track.mediaTrack) {
-                        engine?.peerConnection?.removeTrack(sender)
+                        engine?.publisher.peerConnection.removeTrack(sender)
                     }
                 }
             }
         }
         
-        audioTracks.remove(at: pubIndex)
+        publications.remove(at: pubIndex)
     }
 }

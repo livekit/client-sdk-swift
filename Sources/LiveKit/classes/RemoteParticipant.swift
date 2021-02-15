@@ -14,7 +14,7 @@ public class RemoteParticipant: Participant {
     public var remoteVideoTracks: [TrackPublication] { videoTracks }
     public var remoteDataTracks: [TrackPublication] { dataTracks }
     
-    public weak var delegate: RemoteParticipantDelegate?
+    public var delegate: RemoteParticipantDelegate?
         
     override var info: Livekit_ParticipantInfo? {
         didSet {

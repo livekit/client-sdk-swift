@@ -9,30 +9,29 @@ import Foundation
 import WebRTC
 import Promises
 
-class RTCEngine: NSObject {
-    var peerConnection: RTCPeerConnection?
+class RTCEngine {
+    var publisher: PeerConnectionTransport
+    var subscriber: PeerConnectionTransport
+    var publisherDelegate: PublisherTransportDelegate
+    var subscriberDelegate: SubscriberTransportDelegate
+    var client: RTCClient
+    var rtcConnected: Bool = false
+    var iceConnected: Bool = false
+    var pendingCandidates: [RTCIceCandidate] = []
     
-    private var client: RTCClient
     private var audioSession = RTCAudioSession.sharedInstance()
-    private var rtcConnected: Bool = false
-    private var iceConnected: Bool = false
-    
-    private var pendingCandidates: [RTCIceCandidate] = []
     private var pendingTrackResolvers: [Track.Cid: Promise<Livekit_TrackInfo>] = [:]
     
     static var offerConstraints = RTCMediaConstraints(mandatoryConstraints: [
         kRTCMediaConstraintsOfferToReceiveAudio: kRTCMediaConstraintsValueTrue,
         kRTCMediaConstraintsOfferToReceiveVideo: kRTCMediaConstraintsValueTrue
     ], optionalConstraints: nil)
-    
+
     static var mediaConstraints = RTCMediaConstraints(mandatoryConstraints: nil,
                                                        optionalConstraints: nil)
-    
+
     static var connConstraints = RTCMediaConstraints(mandatoryConstraints: nil,
                                                       optionalConstraints: ["DtlsSrtpKeyAgreement": kRTCMediaConstraintsValueTrue])
-    
-    
-    weak var delegate: RTCEngineDelegate?
     
     static let factory: RTCPeerConnectionFactory = {
         RTCInitializeSSL()
@@ -42,22 +41,32 @@ class RTCEngine: NSObject {
     }()
     
     private static let privateDataChannelLabel = "_private"
+    var privateDataChannel: RTCDataChannel?
+    
+    weak var delegate: RTCEngineDelegate?
     
     init(client: RTCClient) {
-        self.client = client
-        super.init()
-        client.delegate = self
-        
         let config = RTCConfiguration()
         config.iceServers = [RTCIceServer(urlStrings: RTCClient.defaultIceServers)]
         // Unified plan is more superior than planB
         config.sdpSemantics = .unifiedPlan
         // gatherContinually will let WebRTC to listen to any network changes and send any new candidates to the other client
         config.continualGatheringPolicy = .gatherContinually
-
-        peerConnection = RTCEngine.factory.peerConnection(with: config, constraints: RTCEngine.connConstraints, delegate: self)
+        
+        publisherDelegate = PublisherTransportDelegate()
+        publisher = PeerConnectionTransport(config: config, delegate: publisherDelegate)
+        
+        subscriberDelegate = SubscriberTransportDelegate()
+        subscriber = PeerConnectionTransport(config: config, delegate: subscriberDelegate)
+        
+        self.client = client
+        publisherDelegate.engine = self
+        subscriberDelegate.engine = self
+        client.delegate = self
+        
         /* always have a blank data channel, to ensure there isn't an empty ice-ufrag */
-        peerConnection?.dataChannel(forLabel: RTCEngine.privateDataChannelLabel, configuration: RTCDataChannelConfiguration())
+        privateDataChannel = publisher.peerConnection.dataChannel(forLabel: RTCEngine.privateDataChannelLabel,
+                                                                  configuration: RTCDataChannelConfiguration())
 
         configureAudio()
     }
@@ -68,7 +77,7 @@ class RTCEngine: NSObject {
             try audioSession.setCategory(AVAudioSession.Category.playAndRecord.rawValue, with: .mixWithOthers)
             try audioSession.setMode(AVAudioSession.Mode.voiceChat.rawValue)
         } catch {
-            print("engine --- Error occurred configuring audio session: \(error)")
+            print("engine error --- configuring audio session: \(error)")
         }
         audioSession.unlockForConfiguration()
     }
@@ -77,23 +86,14 @@ class RTCEngine: NSObject {
         client.join(options: options)
     }
     
-    func createOffer() -> Promise<RTCSessionDescription> {
-        let promise = Promise<RTCSessionDescription>.pending()
-        peerConnection?.offer(for: RTCEngine.offerConstraints, completionHandler: { (sdp, error) in
-            guard error == nil else {
-                print("engine --- error creating offer: \(error!)")
-                promise.reject(error!)
-                return
-            }
-            promise.fulfill(sdp!)
-        })
-        return promise
-    }
-    
     func addTrack(cid: Track.Cid, name: String, kind: Livekit_TrackType) throws -> Promise<Livekit_TrackInfo> {
-        try self.client.sendAddTrack(cid: cid, name: name, type: kind)
+        if pendingTrackResolvers[cid] != nil {
+            throw TrackError.duplicateTrack("Track with the same ID (\(cid)) has already been published!")
+        }
+        
         let promise = Promise<Livekit_TrackInfo>.pending()
         pendingTrackResolvers[cid] = promise
+        try self.client.sendAddTrack(cid: cid, name: name, type: kind)
         return promise
     }
     
@@ -101,24 +101,29 @@ class RTCEngine: NSObject {
         self.client.sendMuteTrack(trackSid: trackSid, muted: muted)
     }
     
-    private func requestNegotiation() {
-        print("engine --- requesting negotiation...")
-        client.sendNegotiate()
+    func close() {
+        publisher.close()
+        subscriber.close()
+        client.close()
     }
     
-    private func negotiate() {
-        print("engine --- starting to negotiate: \(String(describing: peerConnection?.signalingState))")
-        peerConnection?.offer(for: RTCEngine.offerConstraints, completionHandler: { (offer, error) in
+    func negotiate() {
+        print("engine --- starting to negotiate: \(String(describing: publisher.peerConnection.signalingState))")
+        publisher.peerConnection.offer(for: RTCEngine.offerConstraints, completionHandler: { (offer, error) in
             guard error == nil else {
-                print("engine --- error creating offer: \(error!)")
+                print("engine error --- creating offer: \(error!)")
                 return
             }
-            self.peerConnection?.setLocalDescription(offer!, completionHandler: { error in
+            guard let sdp = offer else {
+                print("engine error --- offer is unexpectedly missing during negotiation!")
+                return
+            }
+            self.publisher.peerConnection.setLocalDescription(sdp, completionHandler: { error in
                 guard error == nil else {
-                    print("engine --- error setting local desc for offer: \(error!)")
+                    print("engine error --- setting local desc for offer: \(error!)")
                     return
                 }
-                self.client.sendOffer(offer: offer!)
+                self.client.sendOffer(offer: sdp)
             })
         })
     }
@@ -127,39 +132,39 @@ class RTCEngine: NSObject {
         print("engine --- RTC connected")
         rtcConnected = true
         pendingCandidates.forEach { (candidate) in
-            client.sendCandidate(candidate: candidate)
+            client.sendCandidate(candidate: candidate, target: .publisher)
         }
         pendingCandidates.removeAll()
-    }
-    
-    private func onICEConnected() {
-        print("engine --- ICE connected")
-        iceConnected = true
     }
 }
 
 extension RTCEngine: RTCClientDelegate {
     func onJoin(info: Livekit_JoinResponse) {
-        peerConnection?.offer(for: RTCEngine.offerConstraints, completionHandler: { (sdp, error) in
+        publisher.peerConnection.offer(for: RTCEngine.offerConstraints, completionHandler: { (sdp, error) in
             guard error == nil else {
                 print("engine --- error creating offer: \(error!)")
                 return
             }
-            self.peerConnection?.setLocalDescription(sdp!, completionHandler: { error in
+            guard let desc = sdp else {
+                print("engine error --- unexpectedly missing empty session from publisher offer")
+                return
+            }
+            self.publisher.peerConnection.setLocalDescription(desc, completionHandler: { error in
                 guard error == nil else {
                     print("engine --- error setting local description: \(error!)")
                     return
                 }
-                self.client.sendOffer(offer: sdp!)
+                self.client.sendOffer(offer: desc)
                 self.delegate?.didJoin(response: info)
             })
         })
     }
     
     func onAnswer(sessionDescription: RTCSessionDescription) {
-        peerConnection?.setRemoteDescription(sessionDescription) { error in
+        print("engine --- received server answer", sessionDescription.type, String(describing: publisher.peerConnection.signalingState))
+        publisher.peerConnection.setRemoteDescription(sessionDescription) { error in
             guard error == nil else {
-                print("engine --- error setting remote description for answer: \(error!)")
+                print("engine error --- setting remote description for answer: \(error!)")
                 return
             }
             if !self.rtcConnected {
@@ -168,36 +173,43 @@ extension RTCEngine: RTCClientDelegate {
         }
     }
     
-    func onTrickle(candidate: RTCIceCandidate) {
-        print("engine --- received ICE candidate from peer: \(candidate)")
-        peerConnection?.add(candidate)
+    func onTrickle(candidate: RTCIceCandidate, target: Livekit_SignalTarget) {
+        print("engine --- received ICE candidate from peer", candidate, target)
+        if target == .publisher {
+            publisher.addIceCandidate(candidate: candidate)
+        } else {
+            subscriber.addIceCandidate(candidate: candidate)
+        }
     }
     
     func onOffer(sessionDescription: RTCSessionDescription) {
-        print("engine --- received offer, signaling state: \(String(describing: peerConnection?.signalingState))")
-        peerConnection?.setRemoteDescription(sessionDescription, completionHandler: { error in
+        print("engine --- received server offer",
+              sessionDescription.type,
+              String(describing: subscriber.peerConnection.signalingState))
+        
+        subscriber.peerConnection.setRemoteDescription(sessionDescription, completionHandler: { error in
             guard error == nil else {
-                print("engine --- error setting remote description for offer: \(error!)")
+                print("engine error --- setting remote description for offer: \(error!)")
                 return
             }
-            self.peerConnection?.answer(for: RTCEngine.offerConstraints, completionHandler: { (answer, error) in
+            self.subscriber.peerConnection.answer(for: RTCEngine.offerConstraints, completionHandler: { (answer, error) in
                 guard error == nil else {
-                    print("engine --- error creating answer: \(error!)")
+                    print("engine error --- creating answer: \(error!)")
                     return
                 }
-                self.peerConnection?.setLocalDescription(answer!, completionHandler: { error in
+                guard let ans = answer else {
+                    print("engine error --- unexpectedly missing answer from offer")
+                    return
+                }
+                self.subscriber.peerConnection.setLocalDescription(ans, completionHandler: { error in
                     guard error == nil else {
-                        print("engine --- error setting local description for answer: \(error!)")
+                        print("engine error --- setting local description for answer: \(error!)")
                         return
                     }
-                    self.client.sendAnswer(answer: answer!)
+                    self.client.sendAnswer(answer: ans)
                 })
             })
         })
-    }
-    
-    func onNegotiateRequested() {
-        negotiate()
     }
     
     func onParticipantUpdate(updates: [Livekit_ParticipantInfo]) {
@@ -215,61 +227,12 @@ extension RTCEngine: RTCClientDelegate {
     }
     
     func onClose(reason: String, code: UInt16) {
-        print("engine --- received close event: \(reason)")
-        delegate?.didDisconnect(reason: reason, code: code)
+        print("engine --- received close event: \(reason) code: \(code)")
+        delegate?.didDisconnect(reason: reason)
     }
     
     func onError(error: Error) {
         print("engine --- client error: \(error)")
         delegate?.didFailToConnect(error: error)
     }
-}
-
-extension RTCEngine: RTCPeerConnectionDelegate {
-    func peerConnectionShouldNegotiate(_ peerConnection: RTCPeerConnection) {
-        guard rtcConnected else {
-            return
-        }
-        requestNegotiation()
-    }
-    
-    func peerConnection(_ peerConnection: RTCPeerConnection, didChange newState: RTCIceConnectionState) {
-        if peerConnection.iceConnectionState == .connected && !iceConnected {
-            self.onICEConnected()
-        }
-    }
-    
-    func peerConnection(_ peerConnection: RTCPeerConnection, didGenerate candidate: RTCIceCandidate) {
-        print("engine -- peerconn adding ICE candidate for peer: \(candidate)")
-        rtcConnected ? client.sendCandidate(candidate: candidate) : pendingCandidates.append(candidate)
-    }
-    
-    func peerConnection(_ peerConnection: RTCPeerConnection, didOpen dataChannel: RTCDataChannel) {
-        delegate?.didAddDataChannel(channel: dataChannel)
-    }
-    
-    func peerConnection(_ peerConnection: RTCPeerConnection, didAdd rtpReceiver: RTCRtpReceiver, streams mediaStreams: [RTCMediaStream]) {
-        if let track = rtpReceiver.track {
-            delegate?.didAddTrack(track: track, streams: mediaStreams)
-        }
-    }
-    
-    func peerConnection(_ peerConnection: RTCPeerConnection, didStartReceivingOn transceiver: RTCRtpTransceiver) {
-        switch transceiver.mediaType {
-        case .video:
-            print("engine --- peerconn started receiving video")
-        case .audio:
-            print("engine --- peerconn started receiving audio")
-        case .data:
-            print("engine --- peerconn started receiving data")
-        default:
-            break
-        }
-    }
-    
-    func peerConnection(_ peerConnection: RTCPeerConnection, didChange stateChanged: RTCSignalingState) {}
-    func peerConnection(_ peerConnection: RTCPeerConnection, didAdd stream: RTCMediaStream) {}
-    func peerConnection(_ peerConnection: RTCPeerConnection, didRemove stream: RTCMediaStream) {}
-    func peerConnection(_ peerConnection: RTCPeerConnection, didChange newState: RTCIceGatheringState) {}
-    func peerConnection(_ peerConnection: RTCPeerConnection, didRemove candidates: [RTCIceCandidate]) {}
 }

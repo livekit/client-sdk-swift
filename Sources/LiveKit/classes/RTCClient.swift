@@ -90,6 +90,19 @@ class RTCClient {
         try! sendRequest(req: req)
     }
     
+    func sendCandidate(candidate: RTCIceCandidate, target: Livekit_SignalTarget) {
+        print("rtc client --- sending ice candidate: \(candidate)")
+        let iceCandidate = IceCandidate(sdp: candidate.sdp, sdpMLineIndex: candidate.sdpMLineIndex, sdpMid: candidate.sdpMid)
+        let candidateData = try! JSONEncoder().encode(iceCandidate)
+        var trickle = Livekit_TrickleRequest()
+        trickle.candidateInit = String(data: candidateData, encoding: .utf8)!
+        trickle.target = target
+        
+        var req = Livekit_SignalRequest()
+        req.trickle = trickle
+        try! sendRequest(req: req)
+    }
+    
     func sendMuteTrack(trackSid: String, muted: Bool) {
         print("rtc client --- sending mute")
         var muteReq = Livekit_MuteTrackRequest()
@@ -113,25 +126,6 @@ class RTCClient {
         try sendRequest(req: req)
     }
     
-    func sendNegotiate() {
-        print("rtc client --- sending negotiate")
-        var req = Livekit_SignalRequest()
-        req.negotiate = Livekit_NegotiationRequest()
-        try! sendRequest(req: req)
-    }
-    
-    func sendCandidate(candidate: RTCIceCandidate) {
-        print("rtc client --- sending ice candidate: \(candidate)")
-        let iceCandidate = IceCandidate(sdp: candidate.sdp, sdpMLineIndex: candidate.sdpMLineIndex, sdpMid: candidate.sdpMid)
-        let candidateData = try! JSONEncoder().encode(iceCandidate)
-        var trickle = Livekit_TrickleRequest()
-        trickle.candidateInit = String(data: candidateData, encoding: .utf8)!
-        
-        var req = Livekit_SignalRequest()
-        req.trickle = trickle
-        try! sendRequest(req: req)
-    }
-    
     func sendRequest(req: Livekit_SignalRequest) throws {
         if !isConnected {
             throw RTCClientError.socketNotConnected
@@ -146,6 +140,10 @@ class RTCClient {
     }
     
     func handleSignalResponse(msg: Livekit_SignalResponse.OneOf_Message) {
+        guard isConnected else {
+            print("rtc client --- should never get in here when not connected", msg)
+            return
+        }
         switch msg {
         case .answer(let sd):
             let sdp = try! RTCClient.fromProtoSessionDescription(sd: sd)
@@ -157,20 +155,23 @@ class RTCClient {
         
         case .trickle(let trickle):
             let iceCandidate: IceCandidate = try! JSONDecoder().decode(IceCandidate.self, from: trickle.candidateInit.data(using: .utf8)!)
-            delegate?.onTrickle(candidate: RTCIceCandidate(sdp: iceCandidate.sdp, sdpMLineIndex: iceCandidate.sdpMLineIndex, sdpMid: iceCandidate.sdpMid))
+            let rtcCandidate = RTCIceCandidate(sdp: iceCandidate.sdp, sdpMLineIndex: iceCandidate.sdpMLineIndex, sdpMid: iceCandidate.sdpMid)
+            delegate?.onTrickle(candidate: rtcCandidate, target: trickle.target)
         
         case .update(let update):
             delegate?.onParticipantUpdate(updates: update.participants)
             
         case .trackPublished(let trackPublished):
             delegate?.onLocalTrackPublished(trackPublished: trackPublished)
-            
-        case .negotiate:
-            delegate?.onNegotiateRequested()
-        
+    
         default:
-            print("rtc client --- unsupported signal response type")
+            print("rtc client --- unsupported signal response type", msg)
         }
+    }
+    
+    func close() {
+        isConnected = false
+        socket?.disconnect()
     }
 }
 
@@ -188,7 +189,7 @@ extension RTCClient: WebSocketDelegate {
             }
             if let sigMsg = sigResp, let msg = sigMsg.message {
                 switch msg {
-                case .join(let joinMsg):
+                case .join(let joinMsg) where isConnected == false:
                     isConnected = true
                     delegate?.onJoin(info: joinMsg)
                 default:

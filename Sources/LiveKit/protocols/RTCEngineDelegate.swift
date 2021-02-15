@@ -14,6 +14,6 @@ protocol RTCEngineDelegate: AnyObject {
     func didPublishLocalTrack(cid: String, track: Livekit_TrackInfo)
     func didAddDataChannel(channel: RTCDataChannel)
     func didUpdateParticipants(updates: [Livekit_ParticipantInfo])
-    func didDisconnect(reason: String, code: UInt16)
+    func didDisconnect(reason: String)
     func didFailToConnect(error: Error)
 }

@@ -18,7 +18,7 @@ public class Track {
     public typealias Sid = String
     public typealias Cid = String
     
-    public static func stateFromRTCMediaTrackState(rtcState: RTCMediaStreamTrackState) throws -> Track.State {
+    static func stateFromRTCMediaTrackState(rtcState: RTCMediaStreamTrackState) throws -> Track.State {
         switch rtcState {
         case .ended:
             return .ended
@@ -29,7 +29,7 @@ public class Track {
         }
     }
     
-    public static func stateFromRTCDataChannelState(rtcState: RTCDataChannelState) throws -> Track.State {
+    static func stateFromRTCDataChannelState(rtcState: RTCDataChannelState) throws -> Track.State {
         switch rtcState {
         case .connecting, .open:
             return .live

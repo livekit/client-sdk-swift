@@ -17,7 +17,7 @@ enum RoomError: Error {
 public class Room {
     public typealias Sid = String
 
-    public weak var delegate: RoomDelegate?
+    public var delegate: RoomDelegate?
     
     public private(set) var sid: Room.Sid?
     public private(set) var name: String?
@@ -45,6 +45,10 @@ public class Room {
 }
 
 extension Room: RTCEngineDelegate {
+    func didDisconnect(reason: String) {
+        print("engine delegate --- did disconnect", reason)
+    }
+    
     func didPublishLocalTrack(cid: String, track: Livekit_TrackInfo) {
         
     }

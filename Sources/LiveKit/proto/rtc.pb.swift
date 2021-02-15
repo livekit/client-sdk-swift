@@ -20,6 +20,46 @@ fileprivate struct _GeneratedWithProtocGenSwiftVersion: SwiftProtobuf.ProtobufAP
   typealias Version = _2
 }
 
+enum Livekit_SignalTarget: SwiftProtobuf.Enum {
+  typealias RawValue = Int
+  case publisher // = 0
+  case subscriber // = 1
+  case UNRECOGNIZED(Int)
+
+  init() {
+    self = .publisher
+  }
+
+  init?(rawValue: Int) {
+    switch rawValue {
+    case 0: self = .publisher
+    case 1: self = .subscriber
+    default: self = .UNRECOGNIZED(rawValue)
+    }
+  }
+
+  var rawValue: Int {
+    switch self {
+    case .publisher: return 0
+    case .subscriber: return 1
+    case .UNRECOGNIZED(let i): return i
+    }
+  }
+
+}
+
+#if swift(>=4.2)
+
+extension Livekit_SignalTarget: CaseIterable {
+  // The compiler won't synthesize support with the UNRECOGNIZED case.
+  static var allCases: [Livekit_SignalTarget] = [
+    .publisher,
+    .subscriber,
+  ]
+}
+
+#endif  // swift(>=4.2)
+
 struct Livekit_SignalRequest {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
@@ -27,7 +67,7 @@ struct Livekit_SignalRequest {
 
   var message: Livekit_SignalRequest.OneOf_Message? = nil
 
-  /// participant joining initially, and during negotiations
+  /// initial join exchange, for publisher
   var offer: Livekit_SessionDescription {
     get {
       if case .offer(let v)? = message {return v}
@@ -36,7 +76,7 @@ struct Livekit_SignalRequest {
     set {message = .offer(newValue)}
   }
 
-  /// participant responding to server-issued offers
+  /// participant answering publisher offer
   var answer: Livekit_SessionDescription {
     get {
       if case .answer(let v)? = message {return v}
@@ -61,6 +101,7 @@ struct Livekit_SignalRequest {
     set {message = .addTrack(newValue)}
   }
 
+  /// mute the participant's own tracks
   var mute: Livekit_MuteTrackRequest {
     get {
       if case .mute(let v)? = message {return v}
@@ -69,27 +110,28 @@ struct Livekit_SignalRequest {
     set {message = .mute(newValue)}
   }
 
-  /// when client needs to negotiate
-  var negotiate: Livekit_NegotiationRequest {
+  /// mute a track client is subscribed to
+  var muteSubscribed: Livekit_MuteTrackRequest {
     get {
-      if case .negotiate(let v)? = message {return v}
-      return Livekit_NegotiationRequest()
+      if case .muteSubscribed(let v)? = message {return v}
+      return Livekit_MuteTrackRequest()
     }
-    set {message = .negotiate(newValue)}
+    set {message = .muteSubscribed(newValue)}
   }
 
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   enum OneOf_Message: Equatable {
-    /// participant joining initially, and during negotiations
+    /// initial join exchange, for publisher
     case offer(Livekit_SessionDescription)
-    /// participant responding to server-issued offers
+    /// participant answering publisher offer
     case answer(Livekit_SessionDescription)
     case trickle(Livekit_TrickleRequest)
     case addTrack(Livekit_AddTrackRequest)
+    /// mute the participant's own tracks
     case mute(Livekit_MuteTrackRequest)
-    /// when client needs to negotiate
-    case negotiate(Livekit_NegotiationRequest)
+    /// mute a track client is subscribed to
+    case muteSubscribed(Livekit_MuteTrackRequest)
 
   #if !swift(>=4.1)
     static func ==(lhs: Livekit_SignalRequest.OneOf_Message, rhs: Livekit_SignalRequest.OneOf_Message) -> Bool {
@@ -117,8 +159,8 @@ struct Livekit_SignalRequest {
         guard case .mute(let l) = lhs, case .mute(let r) = rhs else { preconditionFailure() }
         return l == r
       }()
-      case (.negotiate, .negotiate): return {
-        guard case .negotiate(let l) = lhs, case .negotiate(let r) = rhs else { preconditionFailure() }
+      case (.muteSubscribed, .muteSubscribed): return {
+        guard case .muteSubscribed(let l) = lhs, case .muteSubscribed(let r) = rhs else { preconditionFailure() }
         return l == r
       }()
       default: return false
@@ -146,7 +188,7 @@ struct Livekit_SignalResponse {
     set {message = .join(newValue)}
   }
 
-  /// sent when offer is answered
+  /// sent when server answers publisher
   var answer: Livekit_SessionDescription {
     get {
       if case .answer(let v)? = message {return v}
@@ -155,7 +197,7 @@ struct Livekit_SignalResponse {
     set {message = .answer(newValue)}
   }
 
-  /// sent when server needs to negotiate, always offer
+  /// sent when server is sending subscriber an offer
   var offer: Livekit_SessionDescription {
     get {
       if case .offer(let v)? = message {return v}
@@ -191,23 +233,14 @@ struct Livekit_SignalResponse {
     set {message = .trackPublished(newValue)}
   }
 
-  /// sent to participant when they should initiate negotiation
-  var negotiate: Livekit_NegotiationResponse {
-    get {
-      if case .negotiate(let v)? = message {return v}
-      return Livekit_NegotiationResponse()
-    }
-    set {message = .negotiate(newValue)}
-  }
-
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   enum OneOf_Message: Equatable {
     /// sent when join is accepted
     case join(Livekit_JoinResponse)
-    /// sent when offer is answered
+    /// sent when server answers publisher
     case answer(Livekit_SessionDescription)
-    /// sent when server needs to negotiate, always offer
+    /// sent when server is sending subscriber an offer
     case offer(Livekit_SessionDescription)
     /// sent when an ICE candidate is available
     case trickle(Livekit_TrickleRequest)
@@ -215,8 +248,6 @@ struct Livekit_SignalResponse {
     case update(Livekit_ParticipantUpdate)
     /// sent to the participant when their track has been published
     case trackPublished(Livekit_TrackPublishedResponse)
-    /// sent to participant when they should initiate negotiation
-    case negotiate(Livekit_NegotiationResponse)
 
   #if !swift(>=4.1)
     static func ==(lhs: Livekit_SignalResponse.OneOf_Message, rhs: Livekit_SignalResponse.OneOf_Message) -> Bool {
@@ -246,10 +277,6 @@ struct Livekit_SignalResponse {
       }()
       case (.trackPublished, .trackPublished): return {
         guard case .trackPublished(let l) = lhs, case .trackPublished(let r) = rhs else { preconditionFailure() }
-        return l == r
-      }()
-      case (.negotiate, .negotiate): return {
-        guard case .negotiate(let l) = lhs, case .negotiate(let r) = rhs else { preconditionFailure() }
         return l == r
       }()
       default: return false
@@ -284,6 +311,8 @@ struct Livekit_TrickleRequest {
   // methods supported on all messages.
 
   var candidateInit: String = String()
+
+  var target: Livekit_SignalTarget = .publisher
 
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
@@ -340,6 +369,8 @@ struct Livekit_JoinResponse {
 
   var otherParticipants: [Livekit_ParticipantInfo] = []
 
+  var serverVersion: String = String()
+
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   init() {}
@@ -369,17 +400,6 @@ struct Livekit_TrackPublishedResponse {
   init() {}
 
   fileprivate var _track: Livekit_TrackInfo? = nil
-}
-
-/// empty
-struct Livekit_NegotiationResponse {
-  // SwiftProtobuf.Message conformance is added in an extension below. See the
-  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
-  // methods supported on all messages.
-
-  var unknownFields = SwiftProtobuf.UnknownStorage()
-
-  init() {}
 }
 
 struct Livekit_SessionDescription {
@@ -413,6 +433,13 @@ struct Livekit_ParticipantUpdate {
 
 fileprivate let _protobuf_package = "livekit"
 
+extension Livekit_SignalTarget: SwiftProtobuf._ProtoNameProviding {
+  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
+    0: .same(proto: "PUBLISHER"),
+    1: .same(proto: "SUBSCRIBER"),
+  ]
+}
+
 extension Livekit_SignalRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".SignalRequest"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
@@ -421,7 +448,7 @@ extension Livekit_SignalRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageIm
     3: .same(proto: "trickle"),
     4: .standard(proto: "add_track"),
     5: .same(proto: "mute"),
-    7: .same(proto: "negotiate"),
+    6: .standard(proto: "mute_subscribed"),
   ]
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -475,14 +502,14 @@ extension Livekit_SignalRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageIm
         try decoder.decodeSingularMessageField(value: &v)
         if let v = v {self.message = .mute(v)}
       }()
-      case 7: try {
-        var v: Livekit_NegotiationRequest?
+      case 6: try {
+        var v: Livekit_MuteTrackRequest?
         if let current = self.message {
           try decoder.handleConflictingOneOf()
-          if case .negotiate(let m) = current {v = m}
+          if case .muteSubscribed(let m) = current {v = m}
         }
         try decoder.decodeSingularMessageField(value: &v)
-        if let v = v {self.message = .negotiate(v)}
+        if let v = v {self.message = .muteSubscribed(v)}
       }()
       default: break
       }
@@ -514,9 +541,9 @@ extension Livekit_SignalRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageIm
       guard case .mute(let v)? = self.message else { preconditionFailure() }
       try visitor.visitSingularMessageField(value: v, fieldNumber: 5)
     }()
-    case .negotiate?: try {
-      guard case .negotiate(let v)? = self.message else { preconditionFailure() }
-      try visitor.visitSingularMessageField(value: v, fieldNumber: 7)
+    case .muteSubscribed?: try {
+      guard case .muteSubscribed(let v)? = self.message else { preconditionFailure() }
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 6)
     }()
     case nil: break
     }
@@ -539,7 +566,6 @@ extension Livekit_SignalResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageI
     4: .same(proto: "trickle"),
     5: .same(proto: "update"),
     6: .standard(proto: "track_published"),
-    7: .same(proto: "negotiate"),
   ]
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -602,15 +628,6 @@ extension Livekit_SignalResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageI
         try decoder.decodeSingularMessageField(value: &v)
         if let v = v {self.message = .trackPublished(v)}
       }()
-      case 7: try {
-        var v: Livekit_NegotiationResponse?
-        if let current = self.message {
-          try decoder.handleConflictingOneOf()
-          if case .negotiate(let m) = current {v = m}
-        }
-        try decoder.decodeSingularMessageField(value: &v)
-        if let v = v {self.message = .negotiate(v)}
-      }()
       default: break
       }
     }
@@ -644,10 +661,6 @@ extension Livekit_SignalResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageI
     case .trackPublished?: try {
       guard case .trackPublished(let v)? = self.message else { preconditionFailure() }
       try visitor.visitSingularMessageField(value: v, fieldNumber: 6)
-    }()
-    case .negotiate?: try {
-      guard case .negotiate(let v)? = self.message else { preconditionFailure() }
-      try visitor.visitSingularMessageField(value: v, fieldNumber: 7)
     }()
     case nil: break
     }
@@ -709,6 +722,7 @@ extension Livekit_TrickleRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageI
   static let protoMessageName: String = _protobuf_package + ".TrickleRequest"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     1: .same(proto: "candidateInit"),
+    2: .same(proto: "target"),
   ]
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -718,6 +732,7 @@ extension Livekit_TrickleRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageI
       // enabled. https://github.com/apple/swift-protobuf/issues/1034
       switch fieldNumber {
       case 1: try { try decoder.decodeSingularStringField(value: &self.candidateInit) }()
+      case 2: try { try decoder.decodeSingularEnumField(value: &self.target) }()
       default: break
       }
     }
@@ -727,11 +742,15 @@ extension Livekit_TrickleRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageI
     if !self.candidateInit.isEmpty {
       try visitor.visitSingularStringField(value: self.candidateInit, fieldNumber: 1)
     }
+    if self.target != .publisher {
+      try visitor.visitSingularEnumField(value: self.target, fieldNumber: 2)
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
   static func ==(lhs: Livekit_TrickleRequest, rhs: Livekit_TrickleRequest) -> Bool {
     if lhs.candidateInit != rhs.candidateInit {return false}
+    if lhs.target != rhs.target {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
@@ -800,6 +819,7 @@ extension Livekit_JoinResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageImp
     1: .same(proto: "room"),
     2: .same(proto: "participant"),
     3: .standard(proto: "other_participants"),
+    4: .standard(proto: "server_version"),
   ]
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -811,6 +831,7 @@ extension Livekit_JoinResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageImp
       case 1: try { try decoder.decodeSingularMessageField(value: &self._room) }()
       case 2: try { try decoder.decodeSingularMessageField(value: &self._participant) }()
       case 3: try { try decoder.decodeRepeatedMessageField(value: &self.otherParticipants) }()
+      case 4: try { try decoder.decodeSingularStringField(value: &self.serverVersion) }()
       default: break
       }
     }
@@ -826,6 +847,9 @@ extension Livekit_JoinResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageImp
     if !self.otherParticipants.isEmpty {
       try visitor.visitRepeatedMessageField(value: self.otherParticipants, fieldNumber: 3)
     }
+    if !self.serverVersion.isEmpty {
+      try visitor.visitSingularStringField(value: self.serverVersion, fieldNumber: 4)
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -833,6 +857,7 @@ extension Livekit_JoinResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageImp
     if lhs._room != rhs._room {return false}
     if lhs._participant != rhs._participant {return false}
     if lhs.otherParticipants != rhs.otherParticipants {return false}
+    if lhs.serverVersion != rhs.serverVersion {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
@@ -871,25 +896,6 @@ extension Livekit_TrackPublishedResponse: SwiftProtobuf.Message, SwiftProtobuf._
   static func ==(lhs: Livekit_TrackPublishedResponse, rhs: Livekit_TrackPublishedResponse) -> Bool {
     if lhs.cid != rhs.cid {return false}
     if lhs._track != rhs._track {return false}
-    if lhs.unknownFields != rhs.unknownFields {return false}
-    return true
-  }
-}
-
-extension Livekit_NegotiationResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
-  static let protoMessageName: String = _protobuf_package + ".NegotiationResponse"
-  static let _protobuf_nameMap = SwiftProtobuf._NameMap()
-
-  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
-    while let _ = try decoder.nextFieldNumber() {
-    }
-  }
-
-  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
-    try unknownFields.traverse(visitor: &visitor)
-  }
-
-  static func ==(lhs: Livekit_NegotiationResponse, rhs: Livekit_NegotiationResponse) -> Bool {
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }

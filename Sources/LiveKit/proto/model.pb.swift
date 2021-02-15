@@ -97,6 +97,8 @@ struct Livekit_ParticipantInfo {
 
   var tracks: [Livekit_TrackInfo] = []
 
+  var metadata: String = String()
+
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   enum State: SwiftProtobuf.Enum {
@@ -303,6 +305,7 @@ extension Livekit_ParticipantInfo: SwiftProtobuf.Message, SwiftProtobuf._Message
     2: .same(proto: "identity"),
     3: .same(proto: "state"),
     4: .same(proto: "tracks"),
+    5: .same(proto: "metadata"),
   ]
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -315,6 +318,7 @@ extension Livekit_ParticipantInfo: SwiftProtobuf.Message, SwiftProtobuf._Message
       case 2: try { try decoder.decodeSingularStringField(value: &self.identity) }()
       case 3: try { try decoder.decodeSingularEnumField(value: &self.state) }()
       case 4: try { try decoder.decodeRepeatedMessageField(value: &self.tracks) }()
+      case 5: try { try decoder.decodeSingularStringField(value: &self.metadata) }()
       default: break
       }
     }
@@ -333,6 +337,9 @@ extension Livekit_ParticipantInfo: SwiftProtobuf.Message, SwiftProtobuf._Message
     if !self.tracks.isEmpty {
       try visitor.visitRepeatedMessageField(value: self.tracks, fieldNumber: 4)
     }
+    if !self.metadata.isEmpty {
+      try visitor.visitSingularStringField(value: self.metadata, fieldNumber: 5)
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -341,6 +348,7 @@ extension Livekit_ParticipantInfo: SwiftProtobuf.Message, SwiftProtobuf._Message
     if lhs.identity != rhs.identity {return false}
     if lhs.state != rhs.state {return false}
     if lhs.tracks != rhs.tracks {return false}
+    if lhs.metadata != rhs.metadata {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }

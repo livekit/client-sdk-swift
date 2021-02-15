@@ -11,59 +11,60 @@ import CoreMedia
 import WebRTC
 
 public class VideoView: UIView {
-//    public var delegate: VideoViewDelegate?
 //    public var viewShouldRotateContent: Bool = true
 //    public private(set) var dimensions: CMVideoDimensions?
 //    public private(set) var orientation: VideoOrientation?
 //    public private(set) var hasVideoData: Bool = false
 //    public private(set) var mirror: Bool = false
-//    
+    
+    var size: CGSize = .zero
     public private(set) var renderer: RTCVideoRenderer?
     
     required init?(coder decoder: NSCoder) {
         super.init(coder: decoder)
     }
     
-    public init(frame: CGRect, delegate: VideoViewDelegate? = nil, renderingType: VideoRenderingType? = .none) {
+    public override init(frame: CGRect) {
         super.init(frame: frame)
+        backgroundColor = .black
+        
         #if arch(arm64)
-            // Using metal (arm64 only)
-            switch renderingType {
-            case .metal:
-                let view = RTCMTLVideoView(frame: frame)
-                view.videoContentMode = .scaleAspectFill
-                renderer = view
-            case .opengles:
-                renderer = RTCEAGLVideoView(frame: frame)
-            default:
-                break
-            }
+            let view = RTCMTLVideoView(frame: frame)
+            view.videoContentMode = .scaleAspectFill
+            view.delegate = self
+            renderer = view
         #else
-            renderer = RTCEAGLVideoView(frame: frame)
+            let view = RTCEAGLVideoView(frame: frame)
+            view.delegate = self
+            renderer = view
         #endif
         
-        addSubview(renderer as! UIView)
+        let rendererView = renderer as! UIView
+        rendererView.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(rendererView)
+        
+        NSLayoutConstraint.activate([
+            rendererView.centerXAnchor.constraint(equalTo: centerXAnchor),
+            rendererView.centerYAnchor.constraint(equalTo: centerYAnchor),
+        ])
     }
 }
 
-extension VideoView: RTCVideoRenderer {
-    public func setSize(_ size: CGSize) {
-        print("video view --- set size called with size: \(size)")
+extension VideoView: RTCVideoViewDelegate {
+    public func videoView(_ videoView: RTCVideoRenderer, didChangeVideoSize size: CGSize) {
+        //let orientation = UIDevice.current.orientation
+        self.size = size
+        
+        UIView.animate(withDuration: 0.4) {
+            let defaultAspectRatio = CGSize(width: 4, height: 3)
+            let aspectRatio = size == .zero ? defaultAspectRatio : size
+            let videoFrame = AVMakeRect(aspectRatio: aspectRatio, insideRect: self.bounds)
+            
+            let rendererView = self.renderer as! UIView
+            rendererView.widthAnchor.constraint(equalToConstant: videoFrame.width).isActive = true
+            rendererView.heightAnchor.constraint(equalToConstant: videoFrame.height).isActive = true
+            
+            self.layoutIfNeeded()
+        }
     }
-    
-    public func renderFrame(_ frame: RTCVideoFrame?) {
-        print("video view --- received video frame")
-    }
-    
-//    public func renderFrame(_ frame: VideoFrame) {
-//
-//    }
-//
-//    public func updateVideo(size: CMVideoDimensions, orientation: VideoOrientation) {
-//
-//    }
-//
-//    public func invalidateRenderer() {
-//
-//    }
 }
