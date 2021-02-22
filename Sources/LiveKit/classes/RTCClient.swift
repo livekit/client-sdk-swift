@@ -163,6 +163,9 @@ class RTCClient {
             
         case .trackPublished(let trackPublished):
             delegate?.onLocalTrackPublished(trackPublished: trackPublished)
+            
+        case .speaker(let speakerUpdate):
+            delegate?.onActiveSpeakersChanged(speakers: speakerUpdate.speakers)
     
         default:
             print("rtc client --- unsupported signal response type", msg)

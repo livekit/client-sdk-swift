@@ -9,11 +9,8 @@ import Foundation
 import WebRTC
 
 public class LocalAudioTrack: AudioTrack {
+    public internal(set) var sid: Track.Sid?
     public private(set) var options: AudioOptions?
-    override public var enabled: Bool {
-        get { rtcTrack.isEnabled }
-        set { rtcTrack.isEnabled = newValue }
-    }
     
     private init(rtcTrack: RTCAudioTrack, options: AudioOptions? = nil, name: String) {
         self.options = options

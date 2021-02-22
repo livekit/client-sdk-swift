@@ -8,7 +8,7 @@
 import Foundation
 import WebRTC
 
-public class RemoteVideoTrack: VideoTrack {
+public class RemoteVideoTrack: VideoTrack, RemoteTrack {
     public internal(set) var sid: Track.Sid
     public internal(set) var switchedOff: Bool
     public internal(set) var priority: Track.Priority?

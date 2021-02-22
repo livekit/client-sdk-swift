@@ -8,9 +8,9 @@
 import Foundation
 import WebRTC
 
-public class RemoteDataTrack: DataTrack {
+public class RemoteDataTrack: DataTrack, RemoteTrack {
     public weak var delegate: RemoteDataTrackDelegate?
-    public private(set) var sid: Track.Sid
+    public internal(set) var sid: Track.Sid
     
     init(sid: Track.Sid, rtcTrack: RTCDataChannel, name: String) {
         self.sid = sid

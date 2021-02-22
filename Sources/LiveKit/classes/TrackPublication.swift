@@ -20,4 +20,9 @@ public class TrackPublication {
         trackSid = info.sid
         trackName = info.name
     }
+    
+    func updateFromInfo(info: Livekit_TrackInfo) {
+        trackSid = info.sid
+        trackName = info.name
+    }
 }

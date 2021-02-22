@@ -15,6 +15,7 @@ protocol RTCClientDelegate: AnyObject {
     func onTrickle(candidate: RTCIceCandidate, target: Livekit_SignalTarget)
     func onLocalTrackPublished(trackPublished: Livekit_TrackPublishedResponse)
     func onParticipantUpdate(updates: [Livekit_ParticipantInfo])
+    func onActiveSpeakersChanged(speakers: [Livekit_SpeakerInfo])
     func onClose(reason: String, code: UInt16)
     func onError(error: Error)
 }

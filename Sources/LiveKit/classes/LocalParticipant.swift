@@ -12,9 +12,9 @@ import WebRTC
 public class LocalParticipant: Participant {
     private var streamId = "stream"
     
-    public var localAudioTrackPublications: [TrackPublication] { audioTracks }
-    public var localVideoTrackPublications: [TrackPublication] { videoTracks }
-    public var localDataTrackPublications: [TrackPublication] { dataTracks }
+    public var localAudioTrackPublications: [TrackPublication] { Array(audioTracks.values) }
+    public var localVideoTrackPublications: [TrackPublication] { Array(videoTracks.values) }
+    public var localDataTrackPublications: [TrackPublication] { Array(dataTracks.values) }
     
     weak var engine: RTCEngine?
     
@@ -23,12 +23,12 @@ public class LocalParticipant: Participant {
     
     convenience init(fromInfo info: Livekit_ParticipantInfo, engine: RTCEngine) {
         self.init(sid: info.sid, name: info.identity)
-        self.info = info
+        self.metadata = info.metadata
         self.engine = engine
     }
     
     public func publishAudioTrack(track: LocalAudioTrack,
-                           options: LocalTrackPublicationOptions? = LocalTrackPublicationOptions.optionsWithPriority(.standard)) {
+                                  options: LocalTrackPublicationOptions? = LocalTrackPublicationOptions.optionsWithPriority(.standard)) {
         if localAudioTrackPublications.first(where: { $0.track === track }) != nil {
             return
         }
@@ -38,8 +38,9 @@ public class LocalParticipant: Participant {
             try engine?.addTrack(cid: cid, name: track.name, kind: .audio)
                 .then({ trackInfo in
                     let publication = LocalAudioTrackPublication(info: trackInfo, track: track)
+                    track.sid = trackInfo.sid
                     self.engine?.publisher.peerConnection.add(track.rtcTrack, streamIds: [self.streamId])
-                    self.audioTracks.append(publication)
+                    self.audioTracks[trackInfo.sid] = publication
                     self.delegate?.didPublishAudioTrack(track: track)
                 })
         } catch {
@@ -62,8 +63,9 @@ public class LocalParticipant: Participant {
             try engine?.addTrack(cid: cid, name: track.name, kind: .audio)
                 .then({ trackInfo in
                     let publication = LocalVideoTrackPublication(info: trackInfo, track: track)
+                    track.sid = trackInfo.sid
                     self.engine?.publisher.peerConnection.add(track.rtcTrack, streamIds: [self.streamId])
-                    self.videoTracks.append(publication)
+                    self.videoTracks[trackInfo.sid] = publication
                     self.delegate?.didPublishVideoTrack(track: track)
                 })
         } catch {
@@ -86,6 +88,7 @@ public class LocalParticipant: Participant {
             try engine?.addTrack(cid: cid, name: track.name, kind: .data)
                 .then({ trackInfo in
                     let publication = LocalDataTrackPublication(info: trackInfo, track: track)
+                    track.sid = trackInfo.sid
                     
                     let config = RTCDataChannelConfiguration()
                     config.isOrdered = track.options.ordered
@@ -94,11 +97,11 @@ public class LocalParticipant: Participant {
                     
                     if let dataChannel = self.engine?.publisher.peerConnection.dataChannel(forLabel: track.name, configuration: config) {
                         track.rtcTrack = dataChannel
-                        self.dataTracks.append(publication)
+                        self.dataTracks[trackInfo.sid] = publication
                         self.delegate?.didPublishDataTrack(track: track)
                     } else {
                         print("local participant --- error creating data channel with name: \(track.name)")
-                        self.unpublishDataTrack(track: track)
+                        try self.unpublishDataTrack(track: track)
                     }
                 })
         } catch {
@@ -110,32 +113,39 @@ public class LocalParticipant: Participant {
         publishDataTrack(track: track, options: nil)
     }
     
-    public func unpublishAudioTrack(track: LocalAudioTrack) {
-        unpublishMediaTrack(track: track, publications: &audioTracks)
+    public func unpublishAudioTrack(track: LocalAudioTrack) throws {
+        guard let sid = track.sid else {
+            throw TrackError.invalidTrackState("This track was never published.")
+        }
+        unpublishMediaTrack(track: track, sid: sid, publications: &audioTracks)
     }
     
-    public func unpublishVideoTrack(track: LocalVideoTrack) {
-        unpublishMediaTrack(track: track, publications: &videoTracks)
+    public func unpublishVideoTrack(track: LocalVideoTrack) throws {
+        guard let sid = track.sid else {
+            throw TrackError.invalidTrackState("This track was never published.")
+        }
+        unpublishMediaTrack(track: track, sid: sid, publications: &videoTracks)
     }
     
-    public func unpublishDataTrack(track: LocalDataTrack) {
-        guard let pubIndex = dataTracks.firstIndex(where: { $0.track === track })  else {
-            print("local participant --- track was not published with name: \(track.name)")
+    public func unpublishDataTrack(track: LocalDataTrack) throws {
+        guard let sid = track.sid else {
+            throw TrackError.invalidTrackState("This track was never published.")
+        }
+        guard let publication = dataTracks.removeValue(forKey: sid) as? LocalDataTrackPublication else {
+            print("local participant --- track was not published with sid: \(sid)")
             return
         }
-        
-        let publication = dataTracks[pubIndex] as! LocalDataTrackPublication
         publication.dataTrack?.rtcTrack?.close()
-        dataTracks.remove(at: pubIndex)
     }
     
     func setEncodingParameters(parameters: EncodingParameters) {
         
     }
     
-    private func unpublishMediaTrack<T>(track: T, publications: inout [TrackPublication]) where T: Track, T: MediaTrack {
-        guard let pubIndex = publications.firstIndex(where: { $0.track === track })  else {
-            print("local participant --- track was not published with name: \(track.name)")
+    private func unpublishMediaTrack<T>(track: T, sid: Track.Sid, publications: inout [Track.Sid : TrackPublication]) where T: Track, T: MediaTrack {
+        let publication = publications.removeValue(forKey: sid)
+        guard publication != nil else {
+            print("local participant --- track was not published with sid: \(sid)")
             return
         }
         
@@ -149,7 +159,5 @@ public class LocalParticipant: Participant {
                 }
             }
         }
-        
-        publications.remove(at: pubIndex)
     }
 }

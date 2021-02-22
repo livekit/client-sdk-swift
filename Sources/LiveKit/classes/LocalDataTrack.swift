@@ -9,6 +9,7 @@ import Foundation
 import WebRTC
 
 public class LocalDataTrack: DataTrack {
+    public internal(set) var sid: Track.Sid?
     var options: DataTrackOptions
     var cid: Track.Cid = UUID().uuidString
     

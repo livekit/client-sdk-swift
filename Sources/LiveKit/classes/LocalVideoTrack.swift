@@ -10,11 +10,8 @@ import AVFoundation
 import WebRTC
 
 public class LocalVideoTrack: VideoTrack {
+    public internal(set) var sid: Track.Sid?
     private var capturer: RTCVideoCapturer
-    override public var enabled: Bool {
-        get { rtcTrack.isEnabled }
-        set { rtcTrack.isEnabled = newValue }
-    }
     
     init(rtcTrack: RTCVideoTrack, capturer: RTCVideoCapturer, name: String) {
         self.capturer = capturer

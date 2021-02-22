@@ -139,6 +139,10 @@ class RTCEngine {
 }
 
 extension RTCEngine: RTCClientDelegate {
+    func onActiveSpeakersChanged(speakers: [Livekit_SpeakerInfo]) {
+        delegate?.didUpdateSpeakers(speakers: speakers)
+    }
+    
     func onJoin(info: Livekit_JoinResponse) {
         publisher.peerConnection.offer(for: RTCEngine.offerConstraints, completionHandler: { (sdp, error) in
             guard error == nil else {

@@ -14,11 +14,15 @@ public class AudioTrack: Track, MediaTrack {
     var mediaTrack: RTCMediaStreamTrack {
         get { rtcTrack }
     }
+    public var enabled: Bool {
+        get { rtcTrack.isEnabled }
+        set { rtcTrack.isEnabled = newValue }
+    }
     
     init(rtcTrack: RTCAudioTrack, name: String) {
         self.rtcTrack = rtcTrack
         let state = try! Track.stateFromRTCMediaTrackState(rtcState: rtcTrack.readyState)
-        super.init(enabled: rtcTrack.isEnabled, name: name, state: state)
+        super.init(name: name, state: state)
     }
     
     public func addSink(_ sink: AudioSink) {

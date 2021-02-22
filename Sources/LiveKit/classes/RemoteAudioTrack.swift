@@ -8,7 +8,7 @@
 import Foundation
 import WebRTC
 
-public class RemoteAudioTrack: AudioTrack {
+public class RemoteAudioTrack: AudioTrack, RemoteTrack {
     public internal(set) var sid: Track.Sid
     public internal(set) var playbackEnabled: Bool
 

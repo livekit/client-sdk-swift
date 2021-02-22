@@ -24,11 +24,10 @@ public class DataTrack: Track {
     init(rtcTrack: RTCDataChannel? = nil, name: String) {
         self.rtcTrack = rtcTrack
         var state: Track.State = .none
-        var enabled = false
+        
         if let t = rtcTrack {
             state = try! Track.stateFromRTCDataChannelState(rtcState: t.readyState)
-            enabled = true
         }
-        super.init(enabled: enabled, name: name, state: state)
+        super.init(name: name, state: state)
     }
 }

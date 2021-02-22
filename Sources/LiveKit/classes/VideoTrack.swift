@@ -13,11 +13,15 @@ public class VideoTrack: Track, MediaTrack {
     var mediaTrack: RTCMediaStreamTrack {
         get { rtcTrack }
     }
+    public var enabled: Bool {
+        get { rtcTrack.isEnabled }
+        set { rtcTrack.isEnabled = newValue }
+    }
     
     init(rtcTrack: RTCVideoTrack, name: String) {
         self.rtcTrack = rtcTrack
         let state = try! Track.stateFromRTCMediaTrackState(rtcState: rtcTrack.readyState)
-        super.init(enabled: rtcTrack.isEnabled, name: name, state: state)
+        super.init(name: name, state: state)
     }
     
     public func addRenderer(_ renderer: RTCVideoRenderer) {

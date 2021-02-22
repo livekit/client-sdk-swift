@@ -48,12 +48,10 @@ public class Track {
         case ended, live, none
     }
     
-    public internal(set) var enabled: Bool
     public internal(set) var name: String
     public internal(set) var state: Track.State
     
-    init(enabled: Bool, name: String, state: Track.State) {
-        self.enabled = enabled
+    init(name: String, state: Track.State) {
         self.name = name
         self.state = state
     }

@@ -6,8 +6,9 @@
 //
 
 import Foundation
+import WebRTC
 
-public protocol RemoteParticipantDelegate {
+public protocol RemoteParticipantDelegate: AnyObject {
     func didPublish(audioTrack: RemoteAudioTrackPublication, participant: RemoteParticipant)
     func didUnpublish(audioTrack: RemoteAudioTrackPublication, participant: RemoteParticipant)
     func didPublish(videoTrack: RemoteVideoTrackPublication, participant: RemoteParticipant)
@@ -21,16 +22,17 @@ public protocol RemoteParticipantDelegate {
     func didDisable(videoTrack: RemoteVideoTrackPublication, participant: RemoteParticipant)
     
     func didSubscribe(audioTrack: RemoteAudioTrackPublication, participant: RemoteParticipant)
-    func didFailToSubscribe(audioTrack: RemoteAudioTrackPublication, error: Error, participant: RemoteParticipant)
+    func didFailToSubscribe(audioTrack: RemoteAudioTrack, error: Error, participant: RemoteParticipant)
     func didUnsubscribe(audioTrack: RemoteAudioTrackPublication, participant: RemoteParticipant)
     
     func didSubscribe(videoTrack: RemoteVideoTrackPublication, participant: RemoteParticipant)
-    func didFailToSubscribe(videoTrack: RemoteVideoTrackPublication, error: Error, participant: RemoteParticipant)
+    func didFailToSubscribe(videoTrack: RemoteVideoTrack, error: Error, participant: RemoteParticipant)
     func didUnsubscribe(videoTrack: RemoteVideoTrackPublication, participant: RemoteParticipant)
     
-//    func didSubscribe(dataTrack: RemoteDataTrackPublication, participant: RemoteParticipant)
+    func didSubscribe(dataTrack: RemoteDataTrackPublication, participant: RemoteParticipant)
 //    func didFailToSubscribe(dataTrack: RemoteDataTrackPublication, error: Error, participant: RemoteParticipant)
-//    func didUnsubscribe(dataTrack: RemoteDataTrackPublication, participant: RemoteParticipant)
+    func didUnsubscribe(dataTrack: RemoteDataTrackPublication, participant: RemoteParticipant)
+    func didReceive(data: Data, dataTrack: RemoteDataTrackPublication, participant: RemoteParticipant)
     
 //    func networkQualityDidChange(networkQualityLevel: NetworkQualityLevel, participant: remoteParticipant)
     func switchedOffVideo(track: RemoteVideoTrack, participant: RemoteParticipant)

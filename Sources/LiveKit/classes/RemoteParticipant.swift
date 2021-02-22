@@ -10,36 +10,42 @@ import WebRTC
 
 public class RemoteParticipant: Participant {
     
-    public var remoteAudioTracks: [TrackPublication] { audioTracks }
-    public var remoteVideoTracks: [TrackPublication] { videoTracks }
-    public var remoteDataTracks: [TrackPublication] { dataTracks }
+    public var remoteAudioTracks: [TrackPublication] { Array(audioTracks.values) }
+    public var remoteVideoTracks: [TrackPublication] { Array(videoTracks.values) }
+    public var remoteDataTracks: [TrackPublication] { Array(dataTracks.values) }
     
-    public var delegate: RemoteParticipantDelegate?
+    public weak var delegate: RemoteParticipantDelegate?
         
-    override var info: Livekit_ParticipantInfo? {
-        didSet {
-            do {
-                try updateFromInfo()
-            } catch {
-                print(error)
-            }
+    var participantInfo: Livekit_ParticipantInfo?
+    
+    var hasInfo: Bool {
+        get {
+            return participantInfo != nil
         }
     }
     
     convenience init(info: Livekit_ParticipantInfo) {
         self.init(sid: info.sid, name: info.identity)
-        self.info = info
+        try? updateFromInfo(info: info)
     }
     
-    func updateFromInfo() throws {
-        sid = info!.sid
-        name = info!.identity
+    func getTrackPublication(_ sid: Track.Sid) -> RemoteTrackPublication? {
+        tracks[sid] as? RemoteTrackPublication
+    }
+    
+    func updateFromInfo(info: Livekit_ParticipantInfo) throws {
+        let alreadyHadInfo = hasInfo
         
-        var validTrackSids = Set<String>()
-        var newPublications: [TrackPublication] = []
+        sid = info.sid
+        name = info.identity
+        participantInfo = info
+        metadata = info.metadata
         
-        for trackInfo in info!.tracks {
-            var publication = tracks.first(where: { $0.trackSid == trackInfo.sid })
+        var validTrackPublications = [Track.Sid: RemoteTrackPublication]()
+        var newTrackPublications = [Track.Sid: RemoteTrackPublication]()
+        
+        for trackInfo in info.tracks {
+            var publication = getTrackPublication(trackInfo.sid)
             if publication == nil {
                 switch trackInfo.type {
                 case .audio:
@@ -51,29 +57,28 @@ public class RemoteParticipant: Participant {
                 default:
                     throw TrackError.invalidTrackType("Error: Invalid track type")
                 }
+                newTrackPublications[trackInfo.sid] = publication!
                 addTrack(publication: publication!)
-                newPublications.append(publication!)
             } else {
-                publication?.trackName = trackInfo.name
-                publication?.track?.name = trackInfo.name
+                publication!.updateFromInfo(info: trackInfo)
             }
-            validTrackSids.insert(publication!.trackSid)
+            validTrackPublications[trackInfo.sid] = publication!
         }
         
-        if info != nil {
-            for publication in newPublications {
+        if alreadyHadInfo {
+            for publication in newTrackPublications.values {
                 try sendTrackPublishedEvent(publication: publication)
             }
         }
         
-        for track in tracks where !validTrackSids.contains(track.trackSid) {
-            try unpublishTrack(publication: track)
+        for trackPublication in tracks.values where validTrackPublications[trackPublication.trackSid] == nil {
+            try unpublishTrack(sid: trackPublication.trackSid, sendUnpublish: true)
         }
     }
     
-    func addSubscribedMediaTrack(rtcTrack: RTCMediaStreamTrack, sid: Track.Sid) throws {
+    func addSubscribedMediaTrack(rtcTrack: RTCMediaStreamTrack, sid: Track.Sid, triesLeft: Int = 20) throws {
         var track: Track
-        var publication = tracks.first(where: { $0.trackSid == sid })
+        let publication = getTrackPublication(sid)
         
         switch rtcTrack.kind {
         case "audio":
@@ -84,26 +89,38 @@ public class RemoteParticipant: Participant {
             throw TrackError.invalidTrackType("Error: Invalid track type")
         }
         
-        if publication != nil {
-            track.name = publication!.trackName
-            publication!.track = track
-        } else {
-            var trackInfo = Livekit_TrackInfo()
-            trackInfo.sid = sid
+        guard publication != nil else {
+            if triesLeft == 0 {
+                print("remote participant \(String(describing: self.sid)) --- could not find published track with sid: ", sid)
+                switch rtcTrack.kind {
+                case "audio":
+                    delegate?.didFailToSubscribe(audioTrack: track as! RemoteAudioTrack,
+                                                 error: TrackError.invalidTrackState("Could not find published track with sid: \(sid)"),
+                                                 participant: self)
+                case "video":
+                    delegate?.didFailToSubscribe(videoTrack: track as! RemoteVideoTrack,
+                                                 error: TrackError.invalidTrackState("Could not find published track with sid: \(sid)"),
+                                                 participant: self)
+                default:
+                    break
+                }
+                return
+            }
             
-            switch rtcTrack.kind {
-            case "audio":
-                publication = RemoteAudioTrackPublication(info: trackInfo, track: track)
-            case "video":
-                publication = RemoteVideoTrackPublication(info: trackInfo, track: track)
-            default:
-                break
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                do {
+                    try self.addSubscribedMediaTrack(rtcTrack: rtcTrack, sid: sid, triesLeft: triesLeft - 1)
+                } catch {
+                    print("remote participant --- error: \(error)")
+                }
             }
-            addTrack(publication: publication!)
-            if info != nil {
-                try sendTrackPublishedEvent(publication: publication!)
-            }
+            return
         }
+        
+        publication!.track = track
+        track.name = publication!.trackName
+        var t = track as! RemoteTrack
+        t.sid = publication!.trackSid
         
         switch publication {
         case is RemoteAudioTrackPublication:
@@ -117,7 +134,7 @@ public class RemoteParticipant: Participant {
     
     func addSubscribedDataTrack(rtcTrack: RTCDataChannel, sid: Track.Sid, name: String) throws {
         let track = RemoteDataTrack(sid: sid, rtcTrack: rtcTrack, name: name)
-        var publication = tracks.first(where: { $0.trackSid == sid })
+        var publication = getTrackPublication(sid)
         
         if publication != nil {
             publication!.track = track
@@ -128,45 +145,64 @@ public class RemoteParticipant: Participant {
             trackInfo.type = .data
             publication = RemoteDataTrackPublication(info: trackInfo, track: track)
             addTrack(publication: publication!)
-            if info != nil {
+            if hasInfo {
                 try sendTrackPublishedEvent(publication: publication!)
             }
         }
+        
+        rtcTrack.delegate = self
+        delegate?.didSubscribe(dataTrack: publication! as! RemoteDataTrackPublication, participant: self)
     }
     
-    func addTrack(publication: TrackPublication) {
-        tracks.append(publication)
+    func unpublishTrack(sid: Track.Sid, sendUnpublish: Bool = false) throws {
+        guard let publication = tracks.removeValue(forKey: sid) else {
+            return
+        }
+        
         switch publication {
         case is RemoteAudioTrackPublication:
-            audioTracks.append(publication)
+            audioTracks.removeValue(forKey: sid)
         case is RemoteVideoTrackPublication:
-            videoTracks.append(publication)
+            videoTracks.removeValue(forKey: sid)
+        case is RemoteDataTrackPublication:
+            dataTracks.removeValue(forKey: sid)
         default:
-            break
+            throw TrackError.invalidTrackType("Error: Invalid track type")
+        }
+        
+        if publication.track != nil {
+            // FIX: need to stop the track somehow?
+            publication.track = nil
+            try sendTrackUnsubscribedEvent(publication: publication)
+        }
+        if (sendUnpublish) {
+            try sendTrackUnpublishedEvent(publication: publication)
         }
     }
     
-    func unpublishTrack(publication: TrackPublication, silent: Bool = true) throws {
-        tracks.removeAll(where: { $0.trackSid == publication.trackSid })
+    private func sendTrackUnsubscribedEvent(publication: TrackPublication) throws {
         switch publication {
         case is RemoteAudioTrackPublication:
-            audioTracks.removeAll(where: { $0.trackSid == publication.trackSid })
+            delegate?.didUnsubscribe(audioTrack: publication as! RemoteAudioTrackPublication, participant: self)
         case is RemoteVideoTrackPublication:
-            videoTracks.removeAll(where: { $0.trackSid == publication.trackSid })
+            delegate?.didUnsubscribe(videoTrack: publication as! RemoteVideoTrackPublication, participant: self)
+        case is RemoteDataTrackPublication:
+            delegate?.didUnsubscribe(dataTrack: publication as! RemoteDataTrackPublication, participant: self)
         default:
             throw TrackError.invalidTrackType("Error: Invalid track type")
         }
     }
     
-    func unpublishTrack(sid: Track.Sid, silent: Bool = true) throws {
-        if let publication = tracks.first(where: { $0.trackSid == sid }) {
-            try unpublishTrack(publication: publication, silent: silent)
-        }
-    }
-    
-    func unpublishTracks() throws {
-        for trackPublication in tracks {
-            try unpublishTrack(publication: trackPublication)
+    private func sendTrackUnpublishedEvent(publication: TrackPublication) throws {
+        switch publication {
+        case is RemoteAudioTrackPublication:
+            delegate?.didUnpublish(audioTrack: publication as! RemoteAudioTrackPublication, participant: self)
+        case is RemoteVideoTrackPublication:
+            delegate?.didUnpublish(videoTrack: publication as! RemoteVideoTrackPublication, participant: self)
+        case is RemoteDataTrackPublication:
+            delegate?.didUnpublish(dataTrack: publication as! RemoteDataTrackPublication, participant: self)
+        default:
+            throw TrackError.invalidTrackType("Error: Invalid track type")
         }
     }
     
@@ -181,5 +217,39 @@ public class RemoteParticipant: Participant {
         default:
             throw TrackError.invalidTrackType("Error: Invalid track type")
         }
+    }
+}
+
+extension RemoteParticipant: RTCDataChannelDelegate {
+    private func getPublicationForDataChannel(_ dataChannel: RTCDataChannel) -> RemoteDataTrackPublication? {
+        let publication = dataTracks.values.first { publication in
+            if let track = publication.track {
+                if let rtcTrack = track as? RemoteDataTrack {
+                    return dataChannel === rtcTrack
+                }
+            }
+            return false
+        }
+        return publication as? RemoteDataTrackPublication
+    }
+    
+    public func dataChannelDidChangeState(_ dataChannel: RTCDataChannel) {
+        if dataChannel.readyState == .closed {
+            let publication = getPublicationForDataChannel(dataChannel)
+            guard publication != nil else {
+                print("remote participant --- error on message receive: could not find publication for data channel")
+                return
+            }
+            delegate?.didUnsubscribe(dataTrack: publication!, participant: self)
+        }
+    }
+    
+    public func dataChannel(_ dataChannel: RTCDataChannel, didReceiveMessageWith buffer: RTCDataBuffer) {
+        let publication = getPublicationForDataChannel(dataChannel)
+        guard publication != nil else {
+            print("remote participant --- error on message receive: could not find publication for data channel")
+            return
+        }
+        delegate?.didReceive(data: buffer.data, dataTrack: publication!, participant: self)
     }
 }

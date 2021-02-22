@@ -17,5 +17,5 @@ public protocol RoomDelegate {
     func didReconnect(room: Room)
     func didStartRecording(room: Room)
     func didStopRecording(room: Room)
-    func dominantSpeakerDidChange(room: Room, participant: Participant)
+    func activeSpeakersDidChange(speakers: [Participant], room: Room)
 }
