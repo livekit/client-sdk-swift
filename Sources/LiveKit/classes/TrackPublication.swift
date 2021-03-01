@@ -19,6 +19,7 @@ public class TrackPublication {
     required init(info: Livekit_TrackInfo, track: Track? = nil) {
         trackSid = info.sid
         trackName = info.name
+        self.track = track
     }
     
     func updateFromInfo(info: Livekit_TrackInfo) {

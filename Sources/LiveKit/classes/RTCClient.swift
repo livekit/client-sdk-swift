@@ -76,7 +76,7 @@ class RTCClient {
     
     func sendOffer(offer: RTCSessionDescription) {
         let sessionDescription = try! RTCClient.toProtoSessionDescription(sdp: offer)
-        print("rtc client --- sending offer: \(sessionDescription)")
+        print("rtc client --- sending offer: \(offer)")
         var req = Livekit_SignalRequest()
         req.offer = sessionDescription
         try! sendRequest(req: req)

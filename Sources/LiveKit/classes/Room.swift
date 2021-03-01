@@ -42,7 +42,7 @@ public class Room {
     func connect() throws -> Promise<Room> {
         joinPromise = Promise<Room>.pending()
         
-        guard localParticipant != nil else {
+        guard localParticipant == nil else {
             print("Already connected to room: \(name!)")
             DispatchQueue.main.async {
                 self.joinPromise?.fulfill(self)

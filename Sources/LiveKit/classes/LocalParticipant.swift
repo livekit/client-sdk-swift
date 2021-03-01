@@ -27,34 +27,14 @@ public class LocalParticipant: Participant {
         self.engine = engine
     }
     
-    public func publishAudioTrack(track: LocalAudioTrack,
-                                  options: LocalTrackPublicationOptions? = LocalTrackPublicationOptions.optionsWithPriority(.standard)) {
-        if localAudioTrackPublications.first(where: { $0.track === track }) != nil {
-            return
-        }
-        
-        let cid = track.rtcTrack.trackId
-        do {
-            try engine?.addTrack(cid: cid, name: track.name, kind: .audio)
-                .then({ trackInfo in
-                    let publication = LocalAudioTrackPublication(info: trackInfo, track: track)
-                    track.sid = trackInfo.sid
-                    self.engine?.publisher.peerConnection.add(track.rtcTrack, streamIds: [self.streamId])
-                    self.audioTracks[trackInfo.sid] = publication
-                    self.delegate?.didPublishAudioTrack(track: track)
-                })
-        } catch {
-            print("local participant --- error occurred publishing audio track: \(error)")
-        }
-    }
-    
     public func publishAudioTrack(track: LocalAudioTrack) {
         publishAudioTrack(track: track, options: nil)
     }
     
-    public func publishVideoTrack(track: LocalVideoTrack,
-                           options: LocalTrackPublicationOptions? = LocalTrackPublicationOptions.optionsWithPriority(.standard)) {
-        if localVideoTrackPublications.first(where: { $0.track === track }) != nil {
+    public func publishAudioTrack(track: LocalAudioTrack,
+                                  options: LocalTrackPublicationOptions? = LocalTrackPublicationOptions.optionsWithPriority(.standard)) {
+        if localAudioTrackPublications.first(where: { $0.track === track }) != nil {
+            self.delegate?.didFailToPublishAudioTrack(error: TrackError.publishError("This track has already been published."))
             return
         }
         
@@ -62,19 +42,51 @@ public class LocalParticipant: Participant {
         do {
             try engine?.addTrack(cid: cid, name: track.name, kind: .audio)
                 .then({ trackInfo in
-                    let publication = LocalVideoTrackPublication(info: trackInfo, track: track)
+                    let sender = self.engine?.publisher.peerConnection.add(track.rtcTrack, streamIds: [self.streamId])
+                    if sender == nil {
+                        self.delegate?.didFailToPublishAudioTrack(error: TrackError.publishError("Nil sender returned from peer connection."))
+                        return
+                    }
+                    
+                    let publication = LocalAudioTrackPublication(info: trackInfo, track: track)
                     track.sid = trackInfo.sid
-                    self.engine?.publisher.peerConnection.add(track.rtcTrack, streamIds: [self.streamId])
-                    self.videoTracks[trackInfo.sid] = publication
-                    self.delegate?.didPublishVideoTrack(track: track)
+                    self.audioTracks[trackInfo.sid] = publication
+                    self.delegate?.didPublishAudioTrack(track: track)
                 })
         } catch {
-            print("local participant --- error occurred publishing audio track: \(error)")
+            self.delegate?.didFailToPublishAudioTrack(error: error)
         }
     }
     
     public func publishVideoTrack(track: LocalVideoTrack) {
         publishVideoTrack(track: track, options: nil)
+    }
+    
+    public func publishVideoTrack(track: LocalVideoTrack,
+                                  options: LocalTrackPublicationOptions? = LocalTrackPublicationOptions.optionsWithPriority(.standard)) {
+        if localVideoTrackPublications.first(where: { $0.track === track }) != nil {
+            self.delegate?.didFailToPublishVideoTrack(error: TrackError.publishError("This track has already been published."))
+            return
+        }
+        
+        let cid = track.rtcTrack.trackId
+        do {
+            try engine?.addTrack(cid: cid, name: track.name, kind: .video)
+                .then({ trackInfo in
+                    let sender = self.engine?.publisher.peerConnection.add(track.rtcTrack, streamIds: [self.streamId])
+                    if sender == nil {
+                        self.delegate?.didFailToPublishVideoTrack(error: TrackError.publishError("Nil sender returned from peer connection."))
+                        return
+                    }
+                    
+                    let publication = LocalVideoTrackPublication(info: trackInfo, track: track)
+                    track.sid = trackInfo.sid
+                    self.videoTracks[trackInfo.sid] = publication
+                    self.delegate?.didPublishVideoTrack(track: publication.track as! LocalVideoTrack)
+                })
+        } catch {
+            self.delegate?.didFailToPublishVideoTrack(error: error)
+        }
     }
     
     public func publishDataTrack(track: LocalDataTrack,
@@ -142,7 +154,9 @@ public class LocalParticipant: Participant {
         
     }
     
-    private func unpublishMediaTrack<T>(track: T, sid: Track.Sid, publications: inout [Track.Sid : TrackPublication]) where T: Track, T: MediaTrack {
+    private func unpublishMediaTrack<T>(track: T,
+                                        sid: Track.Sid,
+                                        publications: inout [Track.Sid : TrackPublication]) where T: Track, T: MediaTrack {
         let publication = publications.removeValue(forKey: sid)
         guard publication != nil else {
             print("local participant --- track was not published with sid: \(sid)")

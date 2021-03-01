@@ -222,6 +222,7 @@ extension RTCEngine: RTCClientDelegate {
     }
     
     func onLocalTrackPublished(trackPublished res: Livekit_TrackPublishedResponse) {
+        print("engine --- local track published: ", res.cid)
         guard let promise = pendingTrackResolvers.removeValue(forKey: res.cid) else {
             print("engine --- missing track resolver for: \(res.cid)")
             return

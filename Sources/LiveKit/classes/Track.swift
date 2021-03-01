@@ -12,6 +12,8 @@ enum TrackError: Error {
     case invalidTrackType(String)
     case duplicateTrack(String)
     case invalidTrackState(String)
+    case mediaError(String)
+    case publishError(String)
 }
 
 public class Track {
