@@ -33,8 +33,8 @@ class RTCEngine {
     private var pendingTrackResolvers: [Track.Cid: Promise<Livekit_TrackInfo>] = [:]
     
     static var offerConstraints = RTCMediaConstraints(mandatoryConstraints: [
-        kRTCMediaConstraintsOfferToReceiveAudio: kRTCMediaConstraintsValueTrue,
-        kRTCMediaConstraintsOfferToReceiveVideo: kRTCMediaConstraintsValueTrue
+        kRTCMediaConstraintsOfferToReceiveAudio: kRTCMediaConstraintsValueFalse,
+        kRTCMediaConstraintsOfferToReceiveVideo: kRTCMediaConstraintsValueFalse
     ], optionalConstraints: nil)
 
     static var mediaConstraints = RTCMediaConstraints(mandatoryConstraints: nil,

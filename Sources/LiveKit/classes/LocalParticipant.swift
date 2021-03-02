@@ -42,8 +42,12 @@ public class LocalParticipant: Participant {
         do {
             try engine?.addTrack(cid: cid, name: track.name, kind: .audio)
                 .then({ trackInfo in
-                    let sender = self.engine?.publisher.peerConnection.add(track.rtcTrack, streamIds: [self.streamId])
-                    if sender == nil {
+                    let transInit = RTCRtpTransceiverInit()
+                    transInit.direction = .sendOnly
+                    transInit.streamIds = [self.streamId]
+                    
+                    let transceiver = self.engine?.publisher.peerConnection.addTransceiver(with: track.rtcTrack, init: transInit)
+                    if transceiver == nil {
                         self.delegate?.didFailToPublishAudioTrack(error: TrackError.publishError("Nil sender returned from peer connection."))
                         return
                     }
@@ -73,8 +77,12 @@ public class LocalParticipant: Participant {
         do {
             try engine?.addTrack(cid: cid, name: track.name, kind: .video)
                 .then({ trackInfo in
-                    let sender = self.engine?.publisher.peerConnection.add(track.rtcTrack, streamIds: [self.streamId])
-                    if sender == nil {
+                    let transInit = RTCRtpTransceiverInit()
+                    transInit.direction = .sendOnly
+                    transInit.streamIds = [self.streamId]
+                    
+                    let transceiver = self.engine?.publisher.peerConnection.addTransceiver(with: track.rtcTrack, init: transInit)
+                    if transceiver == nil {
                         self.delegate?.didFailToPublishVideoTrack(error: TrackError.publishError("Nil sender returned from peer connection."))
                         return
                     }
