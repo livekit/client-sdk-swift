@@ -19,7 +19,6 @@ class RTCEngine {
     var rtcConnected: Bool = false
     var iceConnected: Bool = false
     
-    
     var pendingCandidates: [RTCIceCandidate] = []
     
     private var audioSession = RTCAudioSession.sharedInstance()
