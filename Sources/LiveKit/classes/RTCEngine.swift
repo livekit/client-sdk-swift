@@ -16,8 +16,16 @@ class RTCEngine {
     var subscriberDelegate: SubscriberTransportDelegate
     var client: RTCClient
     
+    var joinResponse: Livekit_JoinResponse?
     var rtcConnected: Bool = false
-    var iceConnected: Bool = false
+    var iceConnected: Bool = false {
+        didSet {
+            if iceConnected, let resp = joinResponse {
+                delegate?.didJoin(response: resp)
+                self.joinResponse = nil
+            }
+        }
+    }
     
     var pendingCandidates: [RTCIceCandidate] = []
     
@@ -146,6 +154,7 @@ extension RTCEngine: RTCClientDelegate {
     }
     
     func onJoin(info: Livekit_JoinResponse) {
+        joinResponse = info
         publisher.peerConnection.offer(for: RTCEngine.offerConstraints, completionHandler: { (sdp, error) in
             guard error == nil else {
                 print("engine --- error creating offer: \(error!)")
@@ -161,7 +170,6 @@ extension RTCEngine: RTCClientDelegate {
                     return
                 }
                 self.client.sendOffer(offer: desc)
-                self.delegate?.didJoin(response: info)
             })
         })
     }
