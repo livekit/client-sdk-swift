@@ -34,8 +34,10 @@ class PublisherTransportDelegate: PeerConnectionTransportDelegate, RTCPeerConnec
         }
         print("publisher transport delegate --- ice status: ", peerConnection.iceConnectionState.rawValue)
         if peerConnection.iceConnectionState == .connected && !eng.iceConnected {
+            print("publisher transport delegate --- ice connected")
             eng.iceConnected = true
         } else if peerConnection.iceConnectionState == .disconnected {
+            print("publisher transport delegate --- ice disconnected")
             eng.iceConnected = false
             eng.delegate?.didDisconnect(reason: "Peer connection disconnected")
         }
