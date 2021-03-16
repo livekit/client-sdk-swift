@@ -1,4 +1,4 @@
-PROTO_SOURCE=../livekit-server/proto
+PROTO_SOURCE=../protocol
 
 proto: protoc protoc-swift
 	protoc --swift_out=Sources/LiveKit/proto -I=${PROTO_SOURCE} ${PROTO_SOURCE}/model.proto ${PROTO_SOURCE}/rtc.proto

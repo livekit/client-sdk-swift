@@ -79,6 +79,8 @@ struct Livekit_Room {
 
   var creationTime: Int64 = 0
 
+  var turnPassword: String = String()
+
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   init() {}
@@ -250,6 +252,7 @@ extension Livekit_Room: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementat
     3: .standard(proto: "empty_timeout"),
     4: .standard(proto: "max_participants"),
     5: .standard(proto: "creation_time"),
+    6: .standard(proto: "turn_password"),
   ]
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -263,6 +266,7 @@ extension Livekit_Room: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementat
       case 3: try { try decoder.decodeSingularUInt32Field(value: &self.emptyTimeout) }()
       case 4: try { try decoder.decodeSingularUInt32Field(value: &self.maxParticipants) }()
       case 5: try { try decoder.decodeSingularInt64Field(value: &self.creationTime) }()
+      case 6: try { try decoder.decodeSingularStringField(value: &self.turnPassword) }()
       default: break
       }
     }
@@ -284,6 +288,9 @@ extension Livekit_Room: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementat
     if self.creationTime != 0 {
       try visitor.visitSingularInt64Field(value: self.creationTime, fieldNumber: 5)
     }
+    if !self.turnPassword.isEmpty {
+      try visitor.visitSingularStringField(value: self.turnPassword, fieldNumber: 6)
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -293,6 +300,7 @@ extension Livekit_Room: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementat
     if lhs.emptyTimeout != rhs.emptyTimeout {return false}
     if lhs.maxParticipants != rhs.maxParticipants {return false}
     if lhs.creationTime != rhs.creationTime {return false}
+    if lhs.turnPassword != rhs.turnPassword {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
