@@ -130,8 +130,8 @@ extension Room: RTCEngineDelegate {
         print("engine delegate --- did join, version: \(response.serverVersion)")
         
         if let sv = Semver(response.serverVersion) {
-            if !(sv.major >= 0 && sv.minor <= 5) {
-                print("engine delegate --- error: requires server >= 0.5.x")
+            if !(sv.major >= 0 && sv.minor <= 7) {
+                print("engine delegate --- error: requires server <= 0.7.x")
                 return
             }
         } else {
