@@ -68,6 +68,8 @@ class RTCClient {
         var request = URLRequest(url: URL(string: wsUrlString)!)
         request.timeoutInterval = 5
         
+        print("rtc client --- WS headers: \(request.allHTTPHeaderFields)")
+        
         socket = WebSocket(request: request)
         socket!.delegate = self
         socket!.connect()
