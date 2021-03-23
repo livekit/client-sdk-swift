@@ -11,12 +11,6 @@ import CoreMedia
 import WebRTC
 
 public class VideoView: UIView {
-//    public var viewShouldRotateContent: Bool = true
-//    public private(set) var dimensions: CMVideoDimensions?
-//    public private(set) var orientation: VideoOrientation?
-//    public private(set) var hasVideoData: Bool = false
-//    public private(set) var mirror: Bool = false
-    
     var size: CGSize = .zero
     public private(set) var renderer: RTCVideoRenderer?
     

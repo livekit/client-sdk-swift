@@ -60,11 +60,10 @@ class RTCClient {
     }
     
     func join(options: ConnectOptions) {
-        let transportProtocol = options.isSecure ? "wss" : "ws"
-        let host = options.host
+        let url = options.url
         let token = options.accessToken
         
-        let wsUrlString = "\(transportProtocol)://\(host)/rtc?access_token=\(token)"
+        let wsUrlString = "\(url)/rtc?access_token=\(token)"
         print("rtc client --- connecting to: \(wsUrlString)")
         var request = URLRequest(url: URL(string: wsUrlString)!)
         request.timeoutInterval = 5

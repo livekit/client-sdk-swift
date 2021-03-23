@@ -11,12 +11,7 @@ public typealias ConnectOptionsBuilderBlock = (inout ConnectOptions) -> Void
 
 public struct ConnectOptions {
     private(set) var accessToken: String
-    
-    public var roomName: String?
-    public var roomId: String?
-    public var host: String = "localhost"
-    public var isSecure: Bool = false
-    public var rpcPrefix: String = "/twirp"
+    public var url: String = "ws://localhost"
     
     init(token accessToken: String) {
         self.accessToken = accessToken
