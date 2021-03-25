@@ -79,6 +79,7 @@ public class Room {
             return participant
         }
         let participant = info != nil ? RemoteParticipant(info: info!) : RemoteParticipant(sid: sid, name: nil)
+        participant.room = self //wire up to room delegate calls
         remoteParticipants[sid] = participant
         return participant
     }
@@ -144,7 +145,7 @@ extension Room: RTCEngineDelegate {
         name = response.room.name
         
         if response.hasParticipant {
-            localParticipant = LocalParticipant(fromInfo: response.participant, engine: engine)
+            localParticipant = LocalParticipant(fromInfo: response.participant, engine: engine, room: self)
         }
         if !response.otherParticipants.isEmpty {
             for otherParticipant in response.otherParticipants {

@@ -17,14 +17,15 @@ public class LocalParticipant: Participant {
     public var localDataTrackPublications: [TrackPublication] { Array(dataTracks.values) }
     
     weak var engine: RTCEngine?
+    weak var room: Room?
     
 //    public private(set) var signalingRegion: String?
-    public weak var delegate: LocalParticipantDelegate?
     
-    convenience init(fromInfo info: Livekit_ParticipantInfo, engine: RTCEngine) {
+    convenience init(fromInfo info: Livekit_ParticipantInfo, engine: RTCEngine, room: Room) {
         self.init(sid: info.sid, name: info.identity)
         self.metadata = info.metadata
         self.engine = engine
+        self.room = room
     }
     
     public func publishAudioTrack(track: LocalAudioTrack) {
@@ -34,7 +35,8 @@ public class LocalParticipant: Participant {
     public func publishAudioTrack(track: LocalAudioTrack,
                                   options: LocalTrackPublicationOptions? = LocalTrackPublicationOptions.optionsWithPriority(.standard)) {
         if localAudioTrackPublications.first(where: { $0.track === track }) != nil {
-            self.delegate?.didFailToPublishAudioTrack(error: TrackError.publishError("This track has already been published."))
+            self.room?.delegate?.didFailToPublishLocalTrack(error: TrackError.publishError("This track has already been published."),
+                                                       track: track)
             return
         }
         
@@ -48,17 +50,18 @@ public class LocalParticipant: Participant {
                     
                     let transceiver = self.engine?.publisher.peerConnection.addTransceiver(with: track.rtcTrack, init: transInit)
                     if transceiver == nil {
-                        self.delegate?.didFailToPublishAudioTrack(error: TrackError.publishError("Nil sender returned from peer connection."))
+                        self.room?.delegate?.didFailToPublishLocalTrack(error: TrackError.publishError("Nil sender returned from peer connection."),
+                                                                   track: track)
                         return
                     }
                     
                     let publication = LocalAudioTrackPublication(info: trackInfo, track: track)
                     track.sid = trackInfo.sid
                     self.audioTracks[trackInfo.sid] = publication
-                    self.delegate?.didPublishAudioTrack(track: track)
+                    self.room?.delegate?.didPublishLocalTrack(track: track)
                 })
         } catch {
-            self.delegate?.didFailToPublishAudioTrack(error: error)
+            self.room?.delegate?.didFailToPublishLocalTrack(error: error, track: track)
         }
     }
     
@@ -69,7 +72,8 @@ public class LocalParticipant: Participant {
     public func publishVideoTrack(track: LocalVideoTrack,
                                   options: LocalTrackPublicationOptions? = LocalTrackPublicationOptions.optionsWithPriority(.standard)) {
         if localVideoTrackPublications.first(where: { $0.track === track }) != nil {
-            self.delegate?.didFailToPublishVideoTrack(error: TrackError.publishError("This track has already been published."))
+            self.room?.delegate?.didFailToPublishLocalTrack(error: TrackError.publishError("This track has already been published."),
+                                                       track: track)
             return
         }
         
@@ -83,17 +87,18 @@ public class LocalParticipant: Participant {
                     
                     let transceiver = self.engine?.publisher.peerConnection.addTransceiver(with: track.rtcTrack, init: transInit)
                     if transceiver == nil {
-                        self.delegate?.didFailToPublishVideoTrack(error: TrackError.publishError("Nil sender returned from peer connection."))
+                        self.room?.delegate?.didFailToPublishLocalTrack(error: TrackError.publishError("Nil sender returned from peer connection."),
+                                                                   track: track)
                         return
                     }
                     
                     let publication = LocalVideoTrackPublication(info: trackInfo, track: track)
                     track.sid = trackInfo.sid
                     self.videoTracks[trackInfo.sid] = publication
-                    self.delegate?.didPublishVideoTrack(track: publication.track as! LocalVideoTrack)
+                    self.room?.delegate?.didPublishLocalTrack(track: publication.track!)
                 })
         } catch {
-            self.delegate?.didFailToPublishVideoTrack(error: error)
+            self.room?.delegate?.didFailToPublishLocalTrack(error: error, track: track)
         }
     }
     
@@ -118,14 +123,14 @@ public class LocalParticipant: Participant {
                     if let dataChannel = self.engine?.publisher.peerConnection.dataChannel(forLabel: track.name, configuration: config) {
                         track.rtcTrack = dataChannel
                         self.dataTracks[trackInfo.sid] = publication
-                        self.delegate?.didPublishDataTrack(track: track)
+                        self.room?.delegate?.didPublishLocalTrack(track: track)
                     } else {
-                        print("local participant --- error creating data channel with name: \(track.name)")
                         try self.unpublishDataTrack(track: track)
+                        self.room?.delegate?.didFailToPublishLocalTrack(error: TrackError.publishError("Could not publish data track"), track: track)
                     }
                 })
         } catch {
-            print("local participant --- error occurred publishing data track: \(error)")
+            self.room?.delegate?.didFailToPublishLocalTrack(error: error, track: track)
         }
     }
     
