@@ -11,7 +11,6 @@ import CoreMedia
 import WebRTC
 
 public class LocalVideoTrack: VideoTrack {
-    public internal(set) var sid: Track.Sid?
     private var capturer: RTCCameraVideoCapturer
     private var source: RTCVideoSource
     

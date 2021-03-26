@@ -7,37 +7,62 @@
 
 import Foundation
 
-public class Participant: NSObject {
+public class Participant : NSObject {
     public typealias Sid = String
     
-    var metadata: String?
-    
-    public internal(set) var sid: Participant.Sid?
-    public internal(set) var name: String?
+    public internal(set) var sid: Participant.Sid
+    public internal(set) var identity: String?
     public internal(set) var audioLevel: Float = 0.0
+    public internal(set) var isSpeaking: Bool = false {
+        didSet {
+            if oldValue != isSpeaking {
+                delegate?.isSpeakingDidChange(participant: self)
+            }
+        }
+    }
+    public internal(set) var metadata: String? {
+        didSet {
+            if oldValue != metadata {
+                delegate?.metadataDidChange(participant: self)
+                room?.delegate?.metadataDidChange(participant: self)
+            }
+        }
+    }
     
-    var tracks = [Track.Sid: TrackPublication]()
-    public internal(set) var audioTracks = [Track.Sid: TrackPublication]()
-    public internal(set) var videoTracks = [Track.Sid: TrackPublication]()
-    public internal(set) var dataTracks = [Track.Sid: TrackPublication]()
+    var tracks = [String: TrackPublication]()
+    public internal(set) var audioTracks = [String: TrackPublication]()
+    public internal(set) var videoTracks = [String: TrackPublication]()
+    public internal(set) var dataTracks = [String: TrackPublication]()
     
-    init(sid: Participant.Sid, name: String?) {
+    var info: Livekit_ParticipantInfo?
+    
+    weak var room: Room?
+    public var delegate: ParticipantDelegate?
+    
+    init(sid: String) {
         self.sid = sid
-        self.name = name
     }
     
     func addTrack(publication: TrackPublication) {
-        tracks[publication.trackSid] = publication
-        switch publication {
-        case is RemoteAudioTrackPublication:
-            audioTracks[publication.trackSid] = publication
-        case is RemoteVideoTrackPublication:
-            videoTracks[publication.trackSid] = publication
-        case is RemoteDataTrackPublication:
-            dataTracks[publication.trackSid] = publication
+        tracks[publication.sid] = publication
+        switch publication.kind {
+        case .audio:
+            audioTracks[publication.sid] = publication
+        case .video:
+            videoTracks[publication.sid] = publication
+        case .data:
+            dataTracks[publication.sid] = publication
         default:
             break
         }
+        
+        publication.track?.sid = publication.sid
+    }
+    
+    func updateFromInfo(info: Livekit_ParticipantInfo) {
+        identity = info.identity
+        metadata = info.metadata
+        self.info = info
     }
     
     public override func isEqual(_ object: Any?) -> Bool {

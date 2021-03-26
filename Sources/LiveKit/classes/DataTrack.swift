@@ -9,25 +9,25 @@ import Foundation
 import WebRTC
 
 public class DataTrack: Track {
-    var rtcTrack: RTCDataChannel?
+    var dataChannel: RTCDataChannel?
     
     public var ordered: Bool? {
-        get { rtcTrack?.isOrdered }
+        get { dataChannel?.isOrdered }
     }
     public var maxPacketLifeTime: UInt16? {
-        get { rtcTrack?.maxPacketLifeTime }
+        get { dataChannel?.maxPacketLifeTime }
     }
     public var maxRetransmits: UInt16? {
-        get { rtcTrack?.maxRetransmits }
+        get { dataChannel?.maxRetransmits }
     }
     
-    init(rtcTrack: RTCDataChannel? = nil, name: String) {
-        self.rtcTrack = rtcTrack
-        var state: Track.State = .none
-        
-        if let t = rtcTrack {
-            state = try! Track.stateFromRTCDataChannelState(rtcState: t.readyState)
-        }
-        super.init(name: name, state: state)
+    init(name: String, dataChannel: RTCDataChannel?) {
+//        var state: Track.State = .none
+//
+//        if let t = rtcTrack {
+//            state = try! Track.stateFromRTCDataChannelState(rtcState: t.readyState)
+//        }
+        self.dataChannel = dataChannel
+        super.init(name: name, kind: .data)
     }
 }

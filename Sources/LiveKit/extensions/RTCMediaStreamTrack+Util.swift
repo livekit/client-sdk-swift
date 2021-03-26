@@ -9,7 +9,7 @@ import Foundation
 import WebRTC
 
 extension RTCMediaStreamTrack {
-    var unpackedTrackId: (Participant.Sid, Track.Sid) {
+    var unpackedTrackId: (Participant.Sid, String) {
         get {
             let parts = trackId.split(separator: Character("|"))
             guard parts.count >  1 else {
@@ -17,7 +17,7 @@ extension RTCMediaStreamTrack {
             }
             
             let trackIdIndex = trackId.index(trackId.startIndex, offsetBy: parts[0].count + 1)
-            return (Participant.Sid(parts[0]), Track.Sid(trackId[trackIdIndex...]))
+            return (Participant.Sid(parts[0]), String(trackId[trackIdIndex...]))
         }
     }
 }

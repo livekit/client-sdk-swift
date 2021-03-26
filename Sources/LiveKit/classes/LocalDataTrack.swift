@@ -9,13 +9,12 @@ import Foundation
 import WebRTC
 
 public class LocalDataTrack: DataTrack {
-    public internal(set) var sid: Track.Sid?
     var options: DataTrackOptions
-    var cid: Track.Cid = UUID().uuidString
+    var cid: String = UUID().uuidString
     
     init(options: DataTrackOptions) {
         self.options = options
-        super.init(name: options.name)
+        super.init(name: options.name, dataChannel: nil)
     }
     
     public func sendString(message: String) {
@@ -23,14 +22,13 @@ public class LocalDataTrack: DataTrack {
             print("local data track --- error sending message: \(message)")
             return
         }
-        if let track = rtcTrack {
+        if let track = dataChannel {
             track.sendData(RTCDataBuffer(data: data, isBinary: false))
         }
     }
     
     public func sendData(message: Data) {
-        
-        if let track = rtcTrack {
+        if let track = dataChannel {
             track.sendData(RTCDataBuffer(data: message, isBinary: true))
         }
     }

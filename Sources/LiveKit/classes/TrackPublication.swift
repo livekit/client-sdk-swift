@@ -9,21 +9,26 @@ import Foundation
 
 public class TrackPublication {
     public internal(set) var track: Track?
-    public internal(set) var trackName: String
-    public private(set) var trackSid: Track.Sid
+    public internal(set) var name: String
+    public private(set) var sid: String
+    public private(set) var kind: Track.Kind
+    public private(set) var muted: Bool
     
-    public var trackEnabled: Bool {
+    public var subscribed: Bool {
         track != nil
     }
     
-    required init(info: Livekit_TrackInfo, track: Track? = nil) {
-        trackSid = info.sid
-        trackName = info.name
+    init(info: Livekit_TrackInfo, track: Track? = nil) {
+        sid = info.sid
+        name = info.name
+        kind = Track.fromProtoKind(info.type)
+        muted = info.muted
         self.track = track
     }
     
     func updateFromInfo(info: Livekit_TrackInfo) {
-        trackSid = info.sid
-        trackName = info.name
+        // only muted and name can conceivably update
+        name = info.name
+        muted = info.muted
     }
 }

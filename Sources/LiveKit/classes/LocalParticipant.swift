@@ -17,174 +17,171 @@ public class LocalParticipant: Participant {
     public var localDataTrackPublications: [TrackPublication] { Array(dataTracks.values) }
     
     weak var engine: RTCEngine?
-    weak var room: Room?
     
 //    public private(set) var signalingRegion: String?
     
     convenience init(fromInfo info: Livekit_ParticipantInfo, engine: RTCEngine, room: Room) {
-        self.init(sid: info.sid, name: info.identity)
-        self.metadata = info.metadata
+        self.init(sid: info.sid)
+        updateFromInfo(info: info)
         self.engine = engine
         self.room = room
     }
     
-    public func publishAudioTrack(track: LocalAudioTrack) {
-        publishAudioTrack(track: track, options: nil)
+    public func publishAudioTrack(track: LocalAudioTrack) -> Promise<TrackPublication> {
+        return publishAudioTrack(track: track, options: nil)
     }
     
     public func publishAudioTrack(track: LocalAudioTrack,
-                                  options: LocalTrackPublicationOptions? = LocalTrackPublicationOptions.optionsWithPriority(.standard)) {
-        if localAudioTrackPublications.first(where: { $0.track === track }) != nil {
-            self.room?.delegate?.didFailToPublishLocalTrack(error: TrackError.publishError("This track has already been published."),
-                                                       track: track)
-            return
+                                  options: LocalTrackPublicationOptions?) -> Promise<TrackPublication> {
+        return Promise<TrackPublication> { fulfill, reject in
+            if self.localAudioTrackPublications.first(where: { $0.track === track }) != nil {
+                reject(TrackError.publishError("This track has already been published."))
+                return
+            }
+            
+            let cid = track.mediaTrack.trackId
+            do {
+                try self.engine?.addTrack(cid: cid, name: track.name, kind: .audio)
+                    .then({ trackInfo in
+                        let transInit = RTCRtpTransceiverInit()
+                        transInit.direction = .sendOnly
+                        transInit.streamIds = [self.streamId]
+                        
+                        let transceiver = self.engine?.publisher.peerConnection.addTransceiver(with: track.mediaTrack, init: transInit)
+                        if transceiver == nil {
+                            reject(TrackError.publishError("Nil sender returned from peer connection."))
+                            return
+                        }
+                        
+                        let publication = TrackPublication(info: trackInfo, track: track)
+                        self.addTrack(publication: publication)
+                        fulfill(publication)
+                    })
+            } catch {
+                reject(error)
+            }
         }
         
-        let cid = track.rtcTrack.trackId
-        do {
-            try engine?.addTrack(cid: cid, name: track.name, kind: .audio)
-                .then({ trackInfo in
-                    let transInit = RTCRtpTransceiverInit()
-                    transInit.direction = .sendOnly
-                    transInit.streamIds = [self.streamId]
-                    
-                    let transceiver = self.engine?.publisher.peerConnection.addTransceiver(with: track.rtcTrack, init: transInit)
-                    if transceiver == nil {
-                        self.room?.delegate?.didFailToPublishLocalTrack(error: TrackError.publishError("Nil sender returned from peer connection."),
-                                                                   track: track)
-                        return
-                    }
-                    
-                    let publication = LocalAudioTrackPublication(info: trackInfo, track: track)
-                    track.sid = trackInfo.sid
-                    self.audioTracks[trackInfo.sid] = publication
-                    self.room?.delegate?.didPublishLocalTrack(track: track)
-                })
-        } catch {
-            self.room?.delegate?.didFailToPublishLocalTrack(error: error, track: track)
-        }
+        
+        
     }
     
-    public func publishVideoTrack(track: LocalVideoTrack) {
-        publishVideoTrack(track: track, options: nil)
+    public func publishVideoTrack(track: LocalVideoTrack) -> Promise<TrackPublication> {
+        return publishVideoTrack(track: track, options: nil)
     }
     
     public func publishVideoTrack(track: LocalVideoTrack,
-                                  options: LocalTrackPublicationOptions? = LocalTrackPublicationOptions.optionsWithPriority(.standard)) {
-        if localVideoTrackPublications.first(where: { $0.track === track }) != nil {
-            self.room?.delegate?.didFailToPublishLocalTrack(error: TrackError.publishError("This track has already been published."),
-                                                       track: track)
-            return
+                                  options: LocalTrackPublicationOptions?) -> Promise<TrackPublication> {
+        return Promise<TrackPublication> { fulfill, reject in
+            if self.localVideoTrackPublications.first(where: { $0.track === track }) != nil {
+                reject(TrackError.publishError("This track has already been published."))
+                return
+            }
+            do {
+                let cid = track.mediaTrack.trackId
+                try self.engine?.addTrack(cid: cid, name: track.name, kind: .video)
+                    .then({ trackInfo in
+                        let transInit = RTCRtpTransceiverInit()
+                        transInit.direction = .sendOnly
+                        transInit.streamIds = [self.streamId]
+                        
+                        let transceiver = self.engine?.publisher.peerConnection.addTransceiver(with: track.mediaTrack, init: transInit)
+                        if transceiver == nil {
+                            reject(TrackError.publishError("Nil sender returned from peer connection."))
+                            return
+                        }
+                        
+                        let publication = TrackPublication(info: trackInfo, track: track)
+                        self.addTrack(publication: publication)
+                        fulfill(publication)
+                    })
+            } catch {
+                reject(error)
+            }
         }
-        
-        let cid = track.rtcTrack.trackId
-        do {
-            try engine?.addTrack(cid: cid, name: track.name, kind: .video)
-                .then({ trackInfo in
-                    let transInit = RTCRtpTransceiverInit()
-                    transInit.direction = .sendOnly
-                    transInit.streamIds = [self.streamId]
-                    
-                    let transceiver = self.engine?.publisher.peerConnection.addTransceiver(with: track.rtcTrack, init: transInit)
-                    if transceiver == nil {
-                        self.room?.delegate?.didFailToPublishLocalTrack(error: TrackError.publishError("Nil sender returned from peer connection."),
-                                                                   track: track)
-                        return
-                    }
-                    
-                    let publication = LocalVideoTrackPublication(info: trackInfo, track: track)
-                    track.sid = trackInfo.sid
-                    self.videoTracks[trackInfo.sid] = publication
-                    self.room?.delegate?.didPublishLocalTrack(track: publication.track!)
-                })
-        } catch {
-            self.room?.delegate?.didFailToPublishLocalTrack(error: error, track: track)
-        }
+    }
+    
+    public func publishDataTrack(track: LocalDataTrack) -> Promise<TrackPublication> {
+        return publishDataTrack(track: track, options: nil)
     }
     
     public func publishDataTrack(track: LocalDataTrack,
-                          options: LocalTrackPublicationOptions? = LocalTrackPublicationOptions.optionsWithPriority(.standard)) {
-        if localDataTrackPublications.first(where: { $0.track === track }) != nil {
-            return
+                                 options: LocalTrackPublicationOptions?) -> Promise<TrackPublication> {
+        return Promise<TrackPublication> { fulfill, reject in
+            if self.localDataTrackPublications.first(where: { $0.track === track }) != nil {
+                reject(TrackError.publishError("This track has already been published."))
+                return
+            }
+            do {
+                // data track cid isn't ready until peer connection creates it, so we'll use name
+                let cid = track.name
+                do {
+                    try self.engine?.addTrack(cid: cid, name: track.name, kind: .data)
+                        .then({ trackInfo in
+                            let publication = TrackPublication(info: trackInfo, track: track)
+                            track.sid = trackInfo.sid
+                            
+                            let config = RTCDataChannelConfiguration()
+                            config.isOrdered = track.options.ordered
+                            config.maxPacketLifeTime = track.options.maxPacketLifeTime
+                            config.maxRetransmits = track.options.maxRetransmits
+                            
+                            if let dataChannel = self.engine?.publisher.peerConnection.dataChannel(forLabel: track.name, configuration: config) {
+                                track.dataChannel = dataChannel
+                            } else {
+                                try self.unpublishTrack(track: track)
+                                reject(TrackError.publishError("Could not publish data track"))
+                            }
+                            
+                            publication.track = track
+                            self.addTrack(publication: publication)
+                            
+                            fulfill(publication)
+                        })
+                } catch {
+                    reject(error)
+                }
+            }
+        }
+    }
+    
+    public func unpublishTrack(track: Track) throws {
+        guard let sid = track.sid else {
+            throw TrackError.invalidTrackState("This track was never published.")
         }
         
-        let cid = track.cid
-        do {
-            try engine?.addTrack(cid: cid, name: track.name, kind: .data)
-                .then({ trackInfo in
-                    let publication = LocalDataTrackPublication(info: trackInfo, track: track)
-                    track.sid = trackInfo.sid
-                    
-                    let config = RTCDataChannelConfiguration()
-                    config.isOrdered = track.options.ordered
-                    config.maxPacketLifeTime = track.options.maxPacketLifeTime
-                    config.maxRetransmits = track.options.maxRetransmits
-                    
-                    if let dataChannel = self.engine?.publisher.peerConnection.dataChannel(forLabel: track.name, configuration: config) {
-                        track.rtcTrack = dataChannel
-                        self.dataTracks[trackInfo.sid] = publication
-                        self.room?.delegate?.didPublishLocalTrack(track: track)
-                    } else {
-                        try self.unpublishDataTrack(track: track)
-                        self.room?.delegate?.didFailToPublishLocalTrack(error: TrackError.publishError("Could not publish data track"), track: track)
-                    }
-                })
-        } catch {
-            self.room?.delegate?.didFailToPublishLocalTrack(error: error, track: track)
-        }
-    }
-    
-    public func publishDataTrack(track: LocalDataTrack) {
-        publishDataTrack(track: track, options: nil)
-    }
-    
-    public func unpublishAudioTrack(track: LocalAudioTrack) throws {
-        guard let sid = track.sid else {
-            throw TrackError.invalidTrackState("This track was never published.")
-        }
-        unpublishMediaTrack(track: track, sid: sid, publications: &audioTracks)
-    }
-    
-    public func unpublishVideoTrack(track: LocalVideoTrack) throws {
-        guard let sid = track.sid else {
-            throw TrackError.invalidTrackState("This track was never published.")
-        }
-        unpublishMediaTrack(track: track, sid: sid, publications: &videoTracks)
-    }
-    
-    public func unpublishDataTrack(track: LocalDataTrack) throws {
-        guard let sid = track.sid else {
-            throw TrackError.invalidTrackState("This track was never published.")
-        }
-        guard let publication = dataTracks.removeValue(forKey: sid) as? LocalDataTrackPublication else {
-            print("local participant --- track was not published with sid: \(sid)")
+        switch track.kind {
+        case .audio:
+            audioTracks.removeValue(forKey: sid)
+        case .video:
+            videoTracks.removeValue(forKey: sid)
+        case .data:
+            dataTracks.removeValue(forKey: sid)
+        default:
             return
         }
-        publication.dataTrack?.rtcTrack?.close()
-    }
-    
-    func setEncodingParameters(parameters: EncodingParameters) {
-        
-    }
-    
-    private func unpublishMediaTrack<T>(track: T,
-                                        sid: Track.Sid,
-                                        publications: inout [Track.Sid : TrackPublication]) where T: Track, T: MediaTrack {
-        let publication = publications.removeValue(forKey: sid)
+        let publication = tracks.removeValue(forKey: sid)
         guard publication != nil else {
             print("local participant --- track was not published with sid: \(sid)")
             return
         }
+        track.stop()
         
-        track.mediaTrack.isEnabled = false
-        if let senders = engine?.publisher.peerConnection.senders {
-            for sender in senders {
-                if let t = sender.track {
-                    if t.isEqual(track.mediaTrack) {
-                        engine?.publisher.peerConnection.removeTrack(sender)
+        let mediaTrack = track as? MediaTrack
+        if mediaTrack != nil {
+            if let senders = engine?.publisher.peerConnection.senders {
+                for sender in senders {
+                    if let t = sender.track {
+                        if t.isEqual(mediaTrack!.mediaTrack) {
+                            engine?.publisher.peerConnection.removeTrack(sender)
+                        }
                     }
                 }
             }
         }
+    }
+    
+    func setEncodingParameters(parameters: EncodingParameters) {
+        
     }
 }

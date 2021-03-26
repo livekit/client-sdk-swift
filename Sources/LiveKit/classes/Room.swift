@@ -65,11 +65,7 @@ public class Room {
             return
         }
         participant.tracks.values.forEach { publication in
-            do {
-                try participant.unpublishTrack(sid: publication.trackSid)
-            } catch {
-                print("room --- error unpublishing track (\(publication.trackSid)): \(error)")
-            }
+            participant.unpublishTrack(sid: publication.sid)
         }
         delegate?.participantDidDisconnect(room: self, participant: participant)
     }
@@ -78,7 +74,7 @@ public class Room {
         if let participant = remoteParticipants[sid] {
             return participant
         }
-        let participant = info != nil ? RemoteParticipant(info: info!) : RemoteParticipant(sid: sid, name: nil)
+        let participant = RemoteParticipant(sid: sid, info: info)
         participant.room = self //wire up to room delegate calls
         remoteParticipants[sid] = participant
         return participant
@@ -91,21 +87,25 @@ public class Room {
             seenSids[speaker.sid] = true
             if speaker.sid == localParticipant?.sid {
                 localParticipant?.audioLevel = speaker.level
+                localParticipant?.isSpeaking = true
                 activeSpeakers.append(localParticipant!)
             } else {
                 if let participant = remoteParticipants[speaker.sid] {
                     participant.audioLevel = speaker.level
+                    participant.isSpeaking = true
                     activeSpeakers.append(participant)
                 }
             }
         }
         
-        if seenSids[localParticipant!.sid!] == nil {
+        if seenSids[localParticipant!.sid] == nil {
             localParticipant?.audioLevel = 0.0
+            localParticipant?.isSpeaking = false
         }
         for participant in remoteParticipants.values {
-            if seenSids[participant.sid!] == nil {
+            if seenSids[participant.sid] == nil {
                 participant.audioLevel = 0.0
+                participant.isSpeaking = false
             }
         }
         self.activeSpeakers = activeSpeakers
@@ -153,8 +153,8 @@ extension Room: RTCEngineDelegate {
             }
         }
         
-        delegate?.didConnect(room: self)
         joinPromise?.fulfill(self)
+        delegate?.didConnect(room: self)
     }
     
     func didAddTrack(track: RTCMediaStreamTrack, streams: [RTCMediaStream]) {
@@ -176,7 +176,7 @@ extension Room: RTCEngineDelegate {
     
     func didAddDataChannel(channel: RTCDataChannel) {
         print("engine delegate --- did add data channel")
-        var participantSid: Participant.Sid, trackSid: Track.Sid, name: String
+        var participantSid: Participant.Sid, trackSid: String, name: String
         (participantSid, trackSid, name) = channel.unpackedTrackLabel
         
         let participant = getOrCreateRemoteParticipant(sid: participantSid)
@@ -198,11 +198,7 @@ extension Room: RTCEngineDelegate {
             } else if (isNewParticipant) {
                 delegate?.participantDidConnect(room: self, participant: participant)
             } else {
-                do {
-                    try participant.updateFromInfo(info: info)
-                } catch {
-                    print("engine delegate --- error updating participant (\(participant.sid!)) info")
-                }
+                participant.updateFromInfo(info: info)
             }
         }
     }

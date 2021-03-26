@@ -8,5 +8,5 @@
 import Foundation
 
 protocol RemoteTrack {
-    var sid: Track.Sid { get set }
+    var sid: String { get set }
 }

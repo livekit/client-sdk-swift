@@ -19,25 +19,25 @@ public protocol RoomDelegate {
     func didStopRecording(room: Room)
     func activeSpeakersDidChange(speakers: [Participant], room: Room)
     
-    /* Local Participant */
-    func didPublishLocalTrack(track: Track)
-    func didFailToPublishLocalTrack(error: Error, track: Track)
-//    func localParticipant:networkQualityLevelDidChange
-    
+    /* All Participants */
+    func metadataDidChange(participant: Participant)
+
     /* Remote Participant */
-    func didPublishRemoteTrack(publication: RemoteTrackPublication, participant: RemoteParticipant)
-    func didUnpublishRemoteTrack(publication: RemoteTrackPublication, particpant: RemoteParticipant)
+    func didPublishRemoteTrack(publication: TrackPublication, participant: RemoteParticipant)
+    func didUnpublishRemoteTrack(publication: TrackPublication, particpant: RemoteParticipant)
     
+    func didMute(publication: TrackPublication, participant: RemoteParticipant)
+    func didUnmute(publication: TrackPublication, participant: RemoteParticipant)
 //    func didEnable(audioTrack: RemoteAudioTrackPublication, participant: RemoteParticipant)
 //    func didDisable(audioTrack: RemoteAudioTrackPublication, participant: RemoteParticipant)
 //    func didEnable(videoTrack: RemoteVideoTrackPublication, participant: RemoteParticipant)
 //    func didDisable(videoTrack: RemoteVideoTrackPublication, participant: RemoteParticipant)
     
-    func didSubscribe(publication: RemoteTrackPublication, participant: RemoteParticipant)
-    func didFailToSubscribe(publication: RemoteTrackPublication, error: Error, participant: RemoteParticipant)
-    func didUnsubscribe(publication: RemoteTrackPublication, participant: RemoteParticipant)
+    func didSubscribe(track: Track, publication: TrackPublication, participant: RemoteParticipant)
+    func didFailToSubscribe(sid: String, error: Error, participant: RemoteParticipant)
+    func didUnsubscribe(track: Track, publication: TrackPublication, participant: RemoteParticipant)
 
-    func didReceive(data: Data, dataTrack: RemoteDataTrackPublication, participant: RemoteParticipant)
+    func didReceive(data: Data, dataTrack: TrackPublication, participant: RemoteParticipant)
     
 //    func switchedOffVideo(track: RemoteVideoTrack, participant: RemoteParticipant)
 //    func switchedOnVideo(track: RemoteVideoTrack, participant: RemoteParticipant)

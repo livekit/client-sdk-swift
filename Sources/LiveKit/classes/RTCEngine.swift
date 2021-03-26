@@ -30,7 +30,7 @@ class RTCEngine {
     var pendingCandidates: [RTCIceCandidate] = []
     
     private var audioSession = RTCAudioSession.sharedInstance()
-    private var pendingTrackResolvers: [Track.Cid: Promise<Livekit_TrackInfo>] = [:]
+    private var pendingTrackResolvers: [String: Promise<Livekit_TrackInfo>] = [:]
     
     static var offerConstraints = RTCMediaConstraints(mandatoryConstraints: [
         kRTCMediaConstraintsOfferToReceiveAudio: kRTCMediaConstraintsValueFalse,
@@ -96,7 +96,7 @@ class RTCEngine {
         client.join(options: options)
     }
     
-    func addTrack(cid: Track.Cid, name: String, kind: Livekit_TrackType) throws -> Promise<Livekit_TrackInfo> {
+    func addTrack(cid: String, name: String, kind: Livekit_TrackType) throws -> Promise<Livekit_TrackInfo> {
         if pendingTrackResolvers[cid] != nil {
             throw TrackError.duplicateTrack("Track with the same ID (\(cid)) has already been published!")
         }

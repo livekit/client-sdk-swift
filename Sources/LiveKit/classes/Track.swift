@@ -16,10 +16,7 @@ enum TrackError: Error {
     case publishError(String)
 }
 
-public class Track {
-    public typealias Sid = String
-    public typealias Cid = String
-    
+public class Track {    
     static func stateFromRTCMediaTrackState(rtcState: RTCMediaStreamTrackState) throws -> Track.State {
         switch rtcState {
         case .ended:
@@ -42,6 +39,19 @@ public class Track {
         }
     }
     
+    static func fromProtoKind(_ pkind: Livekit_TrackType) -> Track.Kind {
+        switch pkind {
+        case .audio:
+            return .audio
+        case .video:
+            return .video
+        case .data:
+            return .data
+        default:
+            return .none
+        }
+    }
+    
     public enum Priority {
         case standard, high, low
     }
@@ -50,11 +60,35 @@ public class Track {
         case ended, live, none
     }
     
+    public enum Kind {
+        case audio, video, data, none
+        
+        func toProto() -> Livekit_TrackType {
+            switch self {
+            case .audio:
+                return .audio
+            case .video:
+                return .video
+            case .data:
+                return .data
+            default:
+                return .UNRECOGNIZED(10)
+            }
+        }
+    }
+
     public internal(set) var name: String
     public internal(set) var state: Track.State
+    public internal(set) var sid: String?
+    public internal(set) var kind: Track.Kind
     
-    init(name: String, state: Track.State) {
+    init(name: String, kind: Kind) {
         self.name = name
-        self.state = state
+        self.kind = kind
+        self.state = .none
+    }
+    
+    public func stop() {
+        // do nothing
     }
 }

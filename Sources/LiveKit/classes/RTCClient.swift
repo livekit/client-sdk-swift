@@ -113,7 +113,7 @@ class RTCClient {
         try! sendRequest(req: req)
     }
     
-    func sendAddTrack(cid: Track.Cid, name: String, type: Livekit_TrackType) throws {
+    func sendAddTrack(cid: String, name: String, type: Livekit_TrackType) throws {
         print("rtc client --- sending add track")
         var addTrackReq = Livekit_AddTrackRequest()
         addTrackReq.cid = cid as String
