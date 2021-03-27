@@ -8,17 +8,48 @@
 import Foundation
 
 public class RemoteTrackPublication : TrackPublication {
-    // subscribe or unsubscribe from this track
-    func setSubscribed(_ subscribed: Bool) {
-        
+    var unsubscribed: Bool = false
+    var disabled: Bool = false
+    var videoQuality: VideoQuality = .high
+    
+    override public var subscribed: Bool {
+        get {
+            if unsubscribed {
+                return false
+            }
+            return super.subscribed
+        }
     }
     
-    // disable server from sending down data for this track
-    func setDisabled(_ disabled: Bool) {
-        
+    /// subscribe or unsubscribe from this track
+    public func setSubscribed(_ subscribed: Bool) {
+        unsubscribed = !subscribed
+        sendTrackSettings()
     }
     
-    // attempt to swith to a different quality. only available for video tracks
-    func setVideoQuality(_ quality: Livekit_VideoQuality) {
+    /// disable server from sending down data for this track
+    public func setEnabled(_ enabled: Bool) {
+        disabled = !disabled
+        sendTrackSettings()
+    }
+    
+    /// for tracks that support simulcasting, adjust subscribed quality
+    public func setVideoQuality(_ quality: VideoQuality) {
+        videoQuality = quality
+        sendTrackSettings()
+    }
+    
+    func sendTrackSettings() {
+        guard let client = self.participant?.room?.engine.client else {
+            return
+        }
+        
+        do {
+            try client.sendUpdateTrackSettings(sid: self.sid,
+                                               disabled: self.disabled,
+                                               videoQuality: self.videoQuality.toProto())
+        } catch {
+            // TODO: log error
+        }
     }
 }

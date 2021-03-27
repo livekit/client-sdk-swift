@@ -14,19 +14,19 @@ public class TrackPublication {
     public private(set) var kind: Track.Kind
     public internal(set) var muted: Bool
     
-    weak var engine: RTCEngine?
+    weak var participant: Participant?
     
     public var subscribed: Bool {
-        track != nil
+        get { return track != nil }
     }
     
-    init(info: Livekit_TrackInfo, track: Track? = nil, engine: RTCEngine? = nil) {
+    init(info: Livekit_TrackInfo, track: Track? = nil, participant: Participant? = nil) {
         sid = info.sid
         name = info.name
         kind = Track.fromProtoKind(info.type)
         muted = info.muted
         self.track = track
-        self.engine = engine
+        self.participant = participant
     }
     
     func updateFromInfo(info: Livekit_TrackInfo) {

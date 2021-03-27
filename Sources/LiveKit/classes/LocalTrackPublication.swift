@@ -8,8 +8,8 @@
 import Foundation
 
 public class LocalTrackPublication : TrackPublication {
-    
-    func setMuted(_ muted: Bool) {
+    /// Mute or unmute this track
+    public func setMuted(_ muted: Bool) {
         guard self.muted != muted else {
             return
         }
@@ -23,6 +23,18 @@ public class LocalTrackPublication : TrackPublication {
         self.muted = muted
         
         // send server flag
-        self.engine?.client.sendMuteTrack(trackSid: sid, muted: muted)
+        guard let participant = self.participant as? LocalParticipant else {
+            return
+        }
+        participant.room?.engine.client.sendMuteTrack(trackSid: sid, muted: muted)
+        
+        // trigger muted event
+        if muted {
+            participant.delegate?.didMute(publication: self, participant: participant)
+            participant.room?.delegate?.didMute(publication: self, participant: participant)
+        } else {
+            participant.delegate?.didUnmute(publication: self, participant: participant)
+            participant.room?.delegate?.didUnmute(publication: self, participant: participant)
+        }
     }
 }

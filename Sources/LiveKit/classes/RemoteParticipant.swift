@@ -31,8 +31,7 @@ public class RemoteParticipant: Participant {
         for trackInfo in info.tracks {
             var publication = getTrackPublication(sid: trackInfo.sid)
             if publication == nil {
-                publication = RemoteTrackPublication(info: trackInfo)
-                publication?.engine = self.room?.engine
+                publication = RemoteTrackPublication(info: trackInfo, participant: self)
                 newTrackPublications[trackInfo.sid] = publication
                 addTrack(publication: publication!)
             } else {
@@ -118,7 +117,7 @@ public class RemoteParticipant: Participant {
             trackInfo.sid = sid
             trackInfo.name = name
             trackInfo.type = .data
-            publication = RemoteTrackPublication(info: trackInfo, track: track)
+            publication = RemoteTrackPublication(info: trackInfo, track: track, participant: self)
             addTrack(publication: publication!)
         }
         

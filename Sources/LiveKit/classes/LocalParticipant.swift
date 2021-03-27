@@ -53,8 +53,7 @@ public class LocalParticipant: Participant {
                             return
                         }
                         
-                        let publication = LocalTrackPublication(info: trackInfo, track: track)
-                        publication.engine = self.engine
+                        let publication = LocalTrackPublication(info: trackInfo, track: track, participant: self)
                         self.addTrack(publication: publication)
                         fulfill(publication)
                     })
@@ -86,8 +85,7 @@ public class LocalParticipant: Participant {
                             return
                         }
                         
-                        let publication = LocalTrackPublication(info: trackInfo, track: track)
-                        publication.engine = self.engine
+                        let publication = LocalTrackPublication(info: trackInfo, track: track, participant: self)
                         self.addTrack(publication: publication)
                         fulfill(publication)
                     })
@@ -110,8 +108,7 @@ public class LocalParticipant: Participant {
                 do {
                     try self.engine?.addTrack(cid: cid, name: track.name, kind: .data)
                         .then({ trackInfo in
-                            let publication = LocalTrackPublication(info: trackInfo, track: track)
-                            publication.engine = self.engine
+                            let publication = LocalTrackPublication(info: trackInfo, track: track, participant: self)
                             track.sid = trackInfo.sid
                             
                             let config = RTCDataChannelConfiguration()
