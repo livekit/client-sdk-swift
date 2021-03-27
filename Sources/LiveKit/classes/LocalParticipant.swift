@@ -171,6 +171,21 @@ public class LocalParticipant: Participant {
         }
     }
     
+    override func updateFromInfo(info: Livekit_ParticipantInfo) {
+        super.updateFromInfo(info: info)
+
+        // detect tracks that have been muted remotely, and apply those changes
+        for trackInfo in info.tracks {
+            guard let publication = getTrackPublication(sid: trackInfo.sid) else {
+                // this is unexpected
+                continue
+            }
+            if trackInfo.muted != publication.muted {
+                publication.setMuted(trackInfo.muted)
+            }
+        }
+    }
+
     func setEncodingParameters(parameters: EncodingParameters) {
         
     }
