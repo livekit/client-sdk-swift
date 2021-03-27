@@ -558,7 +558,7 @@ struct Livekit_UpdateTrackSettings {
 
   var trackSids: [String] = []
 
-  var mute: Bool = false
+  var disabled: Bool = false
 
   var quality: Livekit_VideoQuality = .low
 
@@ -1291,7 +1291,7 @@ extension Livekit_UpdateTrackSettings: SwiftProtobuf.Message, SwiftProtobuf._Mes
   static let protoMessageName: String = _protobuf_package + ".UpdateTrackSettings"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     1: .standard(proto: "track_sids"),
-    3: .same(proto: "mute"),
+    3: .same(proto: "disabled"),
     4: .same(proto: "quality"),
   ]
 
@@ -1302,7 +1302,7 @@ extension Livekit_UpdateTrackSettings: SwiftProtobuf.Message, SwiftProtobuf._Mes
       // enabled. https://github.com/apple/swift-protobuf/issues/1034
       switch fieldNumber {
       case 1: try { try decoder.decodeRepeatedStringField(value: &self.trackSids) }()
-      case 3: try { try decoder.decodeSingularBoolField(value: &self.mute) }()
+      case 3: try { try decoder.decodeSingularBoolField(value: &self.disabled) }()
       case 4: try { try decoder.decodeSingularEnumField(value: &self.quality) }()
       default: break
       }
@@ -1313,8 +1313,8 @@ extension Livekit_UpdateTrackSettings: SwiftProtobuf.Message, SwiftProtobuf._Mes
     if !self.trackSids.isEmpty {
       try visitor.visitRepeatedStringField(value: self.trackSids, fieldNumber: 1)
     }
-    if self.mute != false {
-      try visitor.visitSingularBoolField(value: self.mute, fieldNumber: 3)
+    if self.disabled != false {
+      try visitor.visitSingularBoolField(value: self.disabled, fieldNumber: 3)
     }
     if self.quality != .low {
       try visitor.visitSingularEnumField(value: self.quality, fieldNumber: 4)
@@ -1324,7 +1324,7 @@ extension Livekit_UpdateTrackSettings: SwiftProtobuf.Message, SwiftProtobuf._Mes
 
   static func ==(lhs: Livekit_UpdateTrackSettings, rhs: Livekit_UpdateTrackSettings) -> Bool {
     if lhs.trackSids != rhs.trackSids {return false}
-    if lhs.mute != rhs.mute {return false}
+    if lhs.disabled != rhs.disabled {return false}
     if lhs.quality != rhs.quality {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true

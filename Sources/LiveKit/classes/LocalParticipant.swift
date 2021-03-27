@@ -27,13 +27,13 @@ public class LocalParticipant: Participant {
         self.room = room
     }
     
-    public func publishAudioTrack(track: LocalAudioTrack) -> Promise<TrackPublication> {
-        return publishAudioTrack(track: track, options: nil)
+    public func getTrackPublication(sid: String) -> LocalTrackPublication? {
+        return tracks[sid] as? LocalTrackPublication
     }
     
     public func publishAudioTrack(track: LocalAudioTrack,
-                                  options: LocalTrackPublicationOptions?) -> Promise<TrackPublication> {
-        return Promise<TrackPublication> { fulfill, reject in
+                                  options: LocalTrackPublicationOptions? = nil) -> Promise<LocalTrackPublication> {
+        return Promise<LocalTrackPublication> { fulfill, reject in
             if self.localAudioTrackPublications.first(where: { $0.track === track }) != nil {
                 reject(TrackError.publishError("This track has already been published."))
                 return
@@ -53,7 +53,8 @@ public class LocalParticipant: Participant {
                             return
                         }
                         
-                        let publication = TrackPublication(info: trackInfo, track: track)
+                        let publication = LocalTrackPublication(info: trackInfo, track: track)
+                        publication.engine = self.engine
                         self.addTrack(publication: publication)
                         fulfill(publication)
                     })
@@ -61,18 +62,12 @@ public class LocalParticipant: Participant {
                 reject(error)
             }
         }
-        
-        
-        
     }
     
-    public func publishVideoTrack(track: LocalVideoTrack) -> Promise<TrackPublication> {
-        return publishVideoTrack(track: track, options: nil)
-    }
     
     public func publishVideoTrack(track: LocalVideoTrack,
-                                  options: LocalTrackPublicationOptions?) -> Promise<TrackPublication> {
-        return Promise<TrackPublication> { fulfill, reject in
+                                  options: LocalTrackPublicationOptions? = nil) -> Promise<LocalTrackPublication> {
+        return Promise<LocalTrackPublication> { fulfill, reject in
             if self.localVideoTrackPublications.first(where: { $0.track === track }) != nil {
                 reject(TrackError.publishError("This track has already been published."))
                 return
@@ -91,7 +86,8 @@ public class LocalParticipant: Participant {
                             return
                         }
                         
-                        let publication = TrackPublication(info: trackInfo, track: track)
+                        let publication = LocalTrackPublication(info: trackInfo, track: track)
+                        publication.engine = self.engine
                         self.addTrack(publication: publication)
                         fulfill(publication)
                     })
@@ -101,13 +97,9 @@ public class LocalParticipant: Participant {
         }
     }
     
-    public func publishDataTrack(track: LocalDataTrack) -> Promise<TrackPublication> {
-        return publishDataTrack(track: track, options: nil)
-    }
-    
     public func publishDataTrack(track: LocalDataTrack,
-                                 options: LocalTrackPublicationOptions?) -> Promise<TrackPublication> {
-        return Promise<TrackPublication> { fulfill, reject in
+                                 options: LocalTrackPublicationOptions? = nil) -> Promise<LocalTrackPublication> {
+        return Promise<LocalTrackPublication> { fulfill, reject in
             if self.localDataTrackPublications.first(where: { $0.track === track }) != nil {
                 reject(TrackError.publishError("This track has already been published."))
                 return
@@ -118,7 +110,8 @@ public class LocalParticipant: Participant {
                 do {
                     try self.engine?.addTrack(cid: cid, name: track.name, kind: .data)
                         .then({ trackInfo in
-                            let publication = TrackPublication(info: trackInfo, track: track)
+                            let publication = LocalTrackPublication(info: trackInfo, track: track)
+                            publication.engine = self.engine
                             track.sid = trackInfo.sid
                             
                             let config = RTCDataChannelConfiguration()

@@ -28,14 +28,12 @@ public class Room {
     public private(set) var activeSpeakers: [Participant] = []
     
     private var connectOptions: ConnectOptions
-    private var client: RTCClient
-    private var engine: RTCEngine
+    internal var engine: RTCEngine
     private var joinPromise: Promise<Room>?
     
     init(options: ConnectOptions) {
         connectOptions = options
-        client = RTCClient()
-        engine = RTCEngine(client: client)
+        engine = RTCEngine(client: RTCClient())
         engine.delegate = self
     }
     
@@ -190,6 +188,10 @@ extension Room: RTCEngineDelegate {
     func didUpdateParticipants(updates: [Livekit_ParticipantInfo]) {
         print("engine delegate --- did update participants")
         for info in updates {
+            if info.sid == localParticipant?.sid {
+                localParticipant?.updateFromInfo(info: info)
+                continue
+            }
             let isNewParticipant = remoteParticipants[info.sid] == nil
             let participant = getOrCreateRemoteParticipant(sid: info.sid, info: info)
             

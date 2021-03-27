@@ -138,6 +138,18 @@ class RTCClient {
         }
     }
     
+    func sendUpdateTrackSettings(sid: String, disabled: Bool, videoQuality: Livekit_VideoQuality) throws {
+        print("rtc client --- sending update track settings")
+        var update = Livekit_UpdateTrackSettings()
+        update.trackSids = [sid]
+        update.disabled = disabled
+        update.quality = videoQuality
+        
+        var req = Livekit_SignalRequest()
+        req.trackSetting = update
+        try sendRequest(req: req)
+    }
+    
     func handleSignalResponse(msg: Livekit_SignalResponse.OneOf_Message) {
         guard isConnected else {
             print("rtc client --- should never get in here when not connected", msg)

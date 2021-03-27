@@ -9,10 +9,7 @@ import Foundation
 import WebRTC
 
 public class RemoteParticipant: Participant {
-    public var remoteAudioTracks: [TrackPublication] { Array(audioTracks.values) }
-    public var remoteVideoTracks: [TrackPublication] { Array(videoTracks.values) }
-    public var remoteDataTracks: [TrackPublication] { Array(dataTracks.values) }
-    
+
     init(sid: String, info: Livekit_ParticipantInfo?) {
         super.init(sid: sid)
         if info != nil {
@@ -20,17 +17,22 @@ public class RemoteParticipant: Participant {
         }
     }
     
+    public func getTrackPublication(sid: String) -> RemoteTrackPublication? {
+        return tracks[sid] as? RemoteTrackPublication
+    }
+    
     override func updateFromInfo(info: Livekit_ParticipantInfo) {
         let hadInfo = self.info != nil
         super.updateFromInfo(info: info)
         
-        var validTrackPublications = [String: TrackPublication]()
-        var newTrackPublications = [String: TrackPublication]()
+        var validTrackPublications = [String: RemoteTrackPublication]()
+        var newTrackPublications = [String: RemoteTrackPublication]()
         
         for trackInfo in info.tracks {
-            var publication = tracks[trackInfo.sid]
+            var publication = getTrackPublication(sid: trackInfo.sid)
             if publication == nil {
-                publication = TrackPublication(info: trackInfo)
+                publication = RemoteTrackPublication(info: trackInfo)
+                publication?.engine = self.room?.engine
                 newTrackPublications[trackInfo.sid] = publication
                 addTrack(publication: publication!)
             } else {
@@ -64,7 +66,7 @@ public class RemoteParticipant: Participant {
     
     func addSubscribedMediaTrack(rtcTrack: RTCMediaStreamTrack, sid: String, triesLeft: Int = 20) throws {
         var track: Track
-        let publication = tracks[sid]
+        let publication = getTrackPublication(sid: sid)
         
         guard publication != nil else {
             if triesLeft == 0 {
@@ -107,7 +109,7 @@ public class RemoteParticipant: Participant {
     
     func addSubscribedDataTrack(rtcTrack: RTCDataChannel, sid: String, name: String) throws {
         let track = DataTrack(name: name, dataChannel: rtcTrack)
-        var publication = tracks[sid]
+        var publication = getTrackPublication(sid: sid)
         
         if publication != nil {
             publication!.track = track
@@ -116,7 +118,7 @@ public class RemoteParticipant: Participant {
             trackInfo.sid = sid
             trackInfo.name = name
             trackInfo.type = .data
-            publication = TrackPublication(info: trackInfo, track: track)
+            publication = RemoteTrackPublication(info: trackInfo, track: track)
             addTrack(publication: publication!)
         }
         
@@ -128,7 +130,7 @@ public class RemoteParticipant: Participant {
     }
     
     func unpublishTrack(sid: String, sendUnpublish: Bool = false) {
-        guard let publication = tracks.removeValue(forKey: sid) else {
+        guard let publication = tracks.removeValue(forKey: sid) as? RemoteTrackPublication else {
             return
         }
         
@@ -162,14 +164,14 @@ public class RemoteParticipant: Participant {
         }
     }
     
-    private func sendTrackPublishedEvent(publication: TrackPublication) {
+    private func sendTrackPublishedEvent(publication: RemoteTrackPublication) {
         delegate?.didPublishRemoteTrack(publication: publication, participant: self)
         room?.delegate?.didPublishRemoteTrack(publication: publication, participant: self)
     }
 }
 
 extension RemoteParticipant: RTCDataChannelDelegate {
-    private func getPublicationForDataChannel(_ dataChannel: RTCDataChannel) -> TrackPublication? {
+    private func getPublicationForDataChannel(_ dataChannel: RTCDataChannel) -> RemoteTrackPublication? {
         let publication = dataTracks.values.first { publication in
             if let track = publication.track {
                 if let dataTrack = track as? DataTrack {
@@ -178,7 +180,7 @@ extension RemoteParticipant: RTCDataChannelDelegate {
             }
             return false
         }
-        return publication
+        return publication as? RemoteTrackPublication
     }
     
     public func dataChannelDidChangeState(_ dataChannel: RTCDataChannel) {

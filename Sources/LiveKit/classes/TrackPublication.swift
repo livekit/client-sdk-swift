@@ -12,18 +12,21 @@ public class TrackPublication {
     public internal(set) var name: String
     public private(set) var sid: String
     public private(set) var kind: Track.Kind
-    public private(set) var muted: Bool
+    public internal(set) var muted: Bool
+    
+    weak var engine: RTCEngine?
     
     public var subscribed: Bool {
         track != nil
     }
     
-    init(info: Livekit_TrackInfo, track: Track? = nil) {
+    init(info: Livekit_TrackInfo, track: Track? = nil, engine: RTCEngine? = nil) {
         sid = info.sid
         name = info.name
         kind = Track.fromProtoKind(info.type)
         muted = info.muted
         self.track = track
+        self.engine = engine
     }
     
     func updateFromInfo(info: Livekit_TrackInfo) {
@@ -31,4 +34,5 @@ public class TrackPublication {
         name = info.name
         muted = info.muted
     }
+
 }
