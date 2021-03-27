@@ -39,7 +39,7 @@ public class Participant : NSObject {
     weak var room: Room?
     public var delegate: ParticipantDelegate?
     
-    init(sid: String) {
+    public init(sid: String) {
         self.sid = sid
     }
     
