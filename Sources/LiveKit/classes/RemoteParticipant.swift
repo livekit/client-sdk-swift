@@ -35,18 +35,7 @@ public class RemoteParticipant: Participant {
                 newTrackPublications[trackInfo.sid] = publication
                 addTrack(publication: publication!)
             } else {
-                // detect muted updates
-                let wasMuted = publication!.muted
                 publication!.updateFromInfo(info: trackInfo)
-                if publication!.muted != wasMuted {
-                    if publication!.muted {
-                        delegate?.didMute(publication: publication!, participant: self)
-                        room?.delegate?.didMute(publication: publication!, participant: self)
-                    } else {
-                        delegate?.didUnmute(publication: publication!, participant: self)
-                        room?.delegate?.didUnmute(publication: publication!, participant: self)
-                    }
-                }
             }
             validTrackPublications[trackInfo.sid] = publication!
         }

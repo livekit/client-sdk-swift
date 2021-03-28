@@ -8,7 +8,10 @@
 import Foundation
 
 public class LocalTrackPublication : TrackPublication {
+    
     /// Mute or unmute this track
+    ///
+    /// Muting the track would stop audio or video from being transmitted to the server, and notify other participants in the room.
     public func setMuted(_ muted: Bool) {
         guard self.muted != muted else {
             return

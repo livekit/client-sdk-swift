@@ -17,13 +17,13 @@ public protocol ParticipantDelegate {
     
     /// The participant was muted.
     ///
-    /// For the local participant, the callback will be called if setMute was called on the local participant,
+    /// For the local participant, the callback will be called if setMute was called on LocalTrackPublication,
     /// or if the server has requested the participant to be muted
     func didMute(publication: TrackPublication, participant: Participant)
     
     /// The participant was unmuted.
     ///
-    /// For the local participant, the callback will be called if setMute was called on the local participant,
+    /// For the local participant, the callback will be called if setMute was called on LocalTrackPublication,
     /// or if the server has requested the participant to be unmuted
     func didUnmute(publication: TrackPublication, participant: Participant)
     

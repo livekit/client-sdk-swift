@@ -34,5 +34,4 @@ public class TrackPublication {
         name = info.name
         muted = info.muted
     }
-
 }

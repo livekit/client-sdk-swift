@@ -12,6 +12,24 @@ public class RemoteTrackPublication : TrackPublication {
     var disabled: Bool = false
     var videoQuality: VideoQuality = .high
     
+    override public internal(set) var muted: Bool {
+        didSet {
+            if muted == oldValue {
+                return
+            }
+            guard let participant = self.participant else {
+                return
+            }
+            if muted {
+                participant.delegate?.didMute(publication: self, participant: participant)
+                participant.room?.delegate?.didMute(publication: self, participant: participant)
+            } else {
+                participant.delegate?.didUnmute(publication: self, participant: participant)
+                participant.room?.delegate?.didUnmute(publication: self, participant: participant)
+            }
+        }
+    }
+    
     override public var subscribed: Bool {
         get {
             if unsubscribed {
