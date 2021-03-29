@@ -44,4 +44,3 @@ class SubscriberTransportDelegate: PeerConnectionTransportDelegate, RTCPeerConne
     func peerConnection(_ peerConnection: RTCPeerConnection, didChange newState: RTCIceGatheringState) {}
     func peerConnection(_ peerConnection: RTCPeerConnection, didRemove candidates: [RTCIceCandidate]) {}
 }
-

@@ -27,10 +27,10 @@ class PeerConnectionTransport {
         }
     }
     
-    func setRemoteDescription(sessionDescription: RTCSessionDescription) {
-        peerConnection.setRemoteDescription(sessionDescription) { error in
-            guard error == nil else {
-                print("peer connection transport --- error setting remote description: \(error!)")
+    func setRemoteDescription(_ sdp: RTCSessionDescription, completionHandler: ((Error?) -> Void)? = nil) {
+        peerConnection.setRemoteDescription(sdp) { error in
+            if error != nil {
+                completionHandler?(error)
                 return
             }
             
@@ -38,6 +38,7 @@ class PeerConnectionTransport {
                 self.peerConnection.add(pendingCandidate)
             }
             self.pendingCandidates.removeAll()
+            completionHandler?(nil)
         }
     }
     

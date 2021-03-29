@@ -20,9 +20,17 @@ class RTCEngine {
     var rtcConnected: Bool = false
     var iceConnected: Bool = false {
         didSet {
-            if iceConnected, let resp = joinResponse {
+            if oldValue == iceConnected {
+                return
+            }
+            if iceConnected {
+                guard let resp = joinResponse else {
+                    return
+                }
                 delegate?.didJoin(response: resp)
                 self.joinResponse = nil
+            } else {
+                delegate?.didDisconnect(reason: "Peer connection disconnected")
             }
         }
     }
@@ -155,6 +163,9 @@ extension RTCEngine: RTCClientDelegate {
     
     func onJoin(info: Livekit_JoinResponse) {
         joinResponse = info
+        
+        // create publisher and subscribers
+        
         publisher.peerConnection.offer(for: RTCEngine.offerConstraints, completionHandler: { (sdp, error) in
             guard error == nil else {
                 print("engine --- error creating offer: \(error!)")
@@ -176,7 +187,7 @@ extension RTCEngine: RTCClientDelegate {
     
     func onAnswer(sessionDescription: RTCSessionDescription) {
         print("engine --- received server answer", sessionDescription.type, String(describing: publisher.peerConnection.signalingState))
-        publisher.peerConnection.setRemoteDescription(sessionDescription) { error in
+        publisher.setRemoteDescription(sessionDescription) { error in
             guard error == nil else {
                 print("engine error --- setting remote description for answer: \(error!)")
                 return
@@ -201,7 +212,7 @@ extension RTCEngine: RTCClientDelegate {
               sessionDescription.type,
               String(describing: subscriber.peerConnection.signalingState))
         
-        subscriber.peerConnection.setRemoteDescription(sessionDescription, completionHandler: { error in
+        subscriber.setRemoteDescription(sessionDescription, completionHandler: { error in
             guard error == nil else {
                 print("engine error --- setting remote description for offer: \(error!)")
                 return

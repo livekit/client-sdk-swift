@@ -10,15 +10,7 @@ import WebRTC
 
 class PublisherTransportDelegate: PeerConnectionTransportDelegate, RTCPeerConnectionDelegate {
     func peerConnection(_ peerConnection: RTCPeerConnection, didGenerate candidate: RTCIceCandidate) {
-        guard let eng = engine else {
-            return
-        }
-        
-        if eng.rtcConnected {
-            eng.client.sendCandidate(candidate: candidate, target: .publisher)
-        } else {
-            eng.pendingCandidates.append(candidate)
-        }
+        engine?.client.sendCandidate(candidate: candidate, target: .publisher)
     }
     
     func peerConnectionShouldNegotiate(_ peerConnection: RTCPeerConnection) {
@@ -33,13 +25,12 @@ class PublisherTransportDelegate: PeerConnectionTransportDelegate, RTCPeerConnec
             return
         }
         print("publisher transport delegate --- ice status: ", peerConnection.iceConnectionState.rawValue)
-        if peerConnection.iceConnectionState == .connected && !eng.iceConnected {
+        if peerConnection.iceConnectionState == .connected {
             print("publisher transport delegate --- ice connected")
             eng.iceConnected = true
         } else if peerConnection.iceConnectionState == .disconnected {
             print("publisher transport delegate --- ice disconnected")
             eng.iceConnected = false
-            eng.delegate?.didDisconnect(reason: "Peer connection disconnected")
         }
     }
     
