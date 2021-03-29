@@ -26,12 +26,14 @@ class RTCEngine {
                 return
             }
             if iceConnected {
+                logger.info("publisher ICE connected")
                 guard let resp = joinResponse else {
                     return
                 }
                 delegate?.didJoin(response: resp)
                 self.joinResponse = nil
             } else {
+                logger.info("publisher ICE disconnected")
                 delegate?.didDisconnect()
             }
         }
