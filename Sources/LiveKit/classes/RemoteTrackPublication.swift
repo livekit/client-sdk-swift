@@ -46,13 +46,9 @@ public class RemoteTrackPublication : TrackPublication {
             return
         }
         
-        do {
-            try client.sendUpdateSubscription(sid: sid,
-                                              subscribed: !unsubscribed,
-                                              videoQuality: videoQuality.toProto())
-        } catch {
-            // TODO: log error
-        }
+        client.sendUpdateSubscription(sid: sid,
+                                      subscribed: !unsubscribed,
+                                      videoQuality: videoQuality.toProto())
     }
     
     /// disable server from sending down data for this track
@@ -77,12 +73,8 @@ public class RemoteTrackPublication : TrackPublication {
             return
         }
         
-        do {
-            try client.sendUpdateTrackSettings(sid: self.sid,
-                                               disabled: self.disabled,
-                                               videoQuality: self.videoQuality.toProto())
-        } catch {
-            // TODO: log error
-        }
+        client.sendUpdateTrackSettings(sid: self.sid,
+                                       disabled: self.disabled,
+                                       videoQuality: self.videoQuality.toProto())
     }
 }

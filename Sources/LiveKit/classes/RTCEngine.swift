@@ -9,6 +9,8 @@ import Foundation
 import WebRTC
 import Promises
 
+let maxWSRetries = 5
+
 class RTCEngine {
     var publisher: PeerConnectionTransport?
     var subscriber: PeerConnectionTransport?
@@ -30,14 +32,13 @@ class RTCEngine {
                 delegate?.didJoin(response: resp)
                 self.joinResponse = nil
             } else {
-                delegate?.didDisconnect(reason: "Peer connection disconnected")
+                delegate?.didDisconnect()
             }
         }
     }
-    
-    var pendingCandidates: [RTCIceCandidate] = []
-    
-    private var audioSession = RTCAudioSession.sharedInstance()
+    var wsRetries: Int = 0
+    var wsReconnectTask: DispatchWorkItem?
+        
     private var pendingTrackResolvers: [String: Promise<Livekit_TrackInfo>] = [:]
     
     static var offerConstraints = RTCMediaConstraints(mandatoryConstraints: [
@@ -78,23 +79,19 @@ class RTCEngine {
         publisherDelegate.engine = self
         subscriberDelegate.engine = self
         client.delegate = self
-        
-        configureAudio()
-    }
-    
-    func configureAudio() {
-        audioSession.lockForConfiguration()
-        do {
-            try audioSession.setCategory(AVAudioSession.Category.playAndRecord.rawValue, with: .mixWithOthers)
-            try audioSession.setMode(AVAudioSession.Mode.voiceChat.rawValue)
-        } catch {
-            print("engine error --- configuring audio session: \(error)")
-        }
-        audioSession.unlockForConfiguration()
     }
     
     func join(options: ConnectOptions) {
         client.join(options: options)
+        wsReconnectTask = DispatchWorkItem {
+            guard self.iceConnected else {
+                return
+            }
+            logger.info("reconnecting to signal connection, attempt \(self.wsRetries)")
+            var reconnectOptions = options
+            reconnectOptions.reconnect = true
+            self.client.join(options: reconnectOptions)
+        }
     }
     
     func addTrack(cid: String, name: String, kind: Livekit_TrackType) throws -> Promise<Livekit_TrackInfo> {
@@ -104,7 +101,7 @@ class RTCEngine {
         
         let promise = Promise<Livekit_TrackInfo>.pending()
         pendingTrackResolvers[cid] = promise
-        try self.client.sendAddTrack(cid: cid, name: name, type: kind)
+        self.client.sendAddTrack(cid: cid, name: name, type: kind)
         return promise
     }
     
@@ -119,19 +116,18 @@ class RTCEngine {
     }
     
     func negotiate() {
-        print("engine --- starting to negotiate")
         publisher?.peerConnection.offer(for: RTCEngine.offerConstraints, completionHandler: { (offer, error) in
             guard error == nil else {
-                print("engine error --- creating offer: \(error!)")
+                logger.error("could not create offer: \(error!)")
                 return
             }
             guard let sdp = offer else {
-                print("engine error --- offer is unexpectedly missing during negotiation!")
+                logger.error("offer is unexpectedly missing during negotiation")
                 return
             }
             self.publisher?.peerConnection.setLocalDescription(sdp, completionHandler: { error in
                 guard error == nil else {
-                    print("engine error --- setting local desc for offer: \(error!)")
+                    logger.error("error setting local description: \(error!)")
                     return
                 }
                 self.client.sendOffer(offer: sdp)
@@ -140,18 +136,35 @@ class RTCEngine {
     }
     
     private func onRTCConnected() {
-        print("engine --- RTC connected")
         rtcConnected = true
-        pendingCandidates.forEach { (candidate) in
-            client.sendCandidate(candidate: candidate, target: .publisher)
+    }
+    
+    private func handleSignalDisconnect() {
+        if wsRetries >= maxWSRetries {
+            logger.error("could not connect to signal after \(wsRetries) attempts, giving up")
+            close()
+            delegate?.didDisconnect()
+            return
         }
-        pendingCandidates.removeAll()
+        
+        if iceConnected && wsReconnectTask != nil {
+            let delay = Double(wsRetries^2) * 0.5
+            wsRetries += 1
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: wsReconnectTask!)
+        } else {
+            delegate?.didDisconnect()
+        }
     }
 }
 
 extension RTCEngine: RTCClientDelegate {
     func onActiveSpeakersChanged(speakers: [Livekit_SpeakerInfo]) {
         delegate?.didUpdateSpeakers(speakers: speakers)
+    }
+    
+    func onReconnect() {
+        wsRetries = 0
+        return
     }
     
     func onJoin(info: Livekit_JoinResponse) {
@@ -188,16 +201,16 @@ extension RTCEngine: RTCClientDelegate {
         
         publisher!.peerConnection.offer(for: RTCEngine.offerConstraints, completionHandler: { (sdp, error) in
             guard error == nil else {
-                print("engine --- error creating offer: \(error!)")
+                logger.error("could not create publisher offer: \(error!)")
                 return
             }
             guard let desc = sdp else {
-                print("engine error --- unexpectedly missing empty session from publisher offer")
+                logger.error("could not find sdp in publisher offer")
                 return
             }
             self.publisher!.peerConnection.setLocalDescription(desc, completionHandler: { error in
                 guard error == nil else {
-                    print("engine --- error setting local description: \(error!)")
+                    logger.error("error setting local description: \(error!)")
                     return
                 }
                 self.client.sendOffer(offer: desc)
@@ -209,10 +222,9 @@ extension RTCEngine: RTCClientDelegate {
         guard let publisher = self.publisher else {
             return
         }
-        print("engine --- received server answer", sessionDescription.type, String(describing: publisher.peerConnection.signalingState))
         publisher.setRemoteDescription(sessionDescription) { error in
             guard error == nil else {
-                print("engine error --- setting remote description for answer: \(error!)")
+                logger.error("error setting remote description for answer: \(error!)")
                 return
             }
             if !self.rtcConnected {
@@ -222,7 +234,6 @@ extension RTCEngine: RTCClientDelegate {
     }
     
     func onTrickle(candidate: RTCIceCandidate, target: Livekit_SignalTarget) {
-        print("engine --- received ICE candidate from peer", candidate, target)
         if target == .publisher {
             publisher?.addIceCandidate(candidate: candidate)
         } else {
@@ -234,27 +245,24 @@ extension RTCEngine: RTCClientDelegate {
         guard let subscriber = self.subscriber else {
             return
         }
-        print("engine --- received server offer",
-              sessionDescription.type,
-              String(describing: subscriber.peerConnection.signalingState))
         
         subscriber.setRemoteDescription(sessionDescription, completionHandler: { error in
             guard error == nil else {
-                print("engine error --- setting remote description for offer: \(error!)")
+                logger.error("error setting subscriber remote description for offer: \(error!)")
                 return
             }
             subscriber.peerConnection.answer(for: RTCEngine.offerConstraints, completionHandler: { (answer, error) in
                 guard error == nil else {
-                    print("engine error --- creating answer: \(error!)")
+                    logger.error("error answering subscriber: \(error!)")
                     return
                 }
                 guard let ans = answer else {
-                    print("engine error --- unexpectedly missing answer from offer")
+                    logger.error("unexpectedly missing answer for subscriber")
                     return
                 }
                 subscriber.peerConnection.setLocalDescription(ans, completionHandler: { error in
                     guard error == nil else {
-                        print("engine error --- setting local description for answer: \(error!)")
+                        logger.error("error setting subscriber local description for answer: \(error!)")
                         return
                     }
                     self.client.sendAnswer(answer: ans)
@@ -264,27 +272,25 @@ extension RTCEngine: RTCClientDelegate {
     }
     
     func onParticipantUpdate(updates: [Livekit_ParticipantInfo]) {
-        print("engine --- received participant update")
         delegate?.didUpdateParticipants(updates: updates)
     }
     
-    func onLocalTrackPublished(trackPublished res: Livekit_TrackPublishedResponse) {
-        print("engine --- local track published: ", res.cid)
-        guard let promise = pendingTrackResolvers.removeValue(forKey: res.cid) else {
-            print("engine --- missing track resolver for: \(res.cid)")
+    func onLocalTrackPublished(trackPublished: Livekit_TrackPublishedResponse) {
+        logger.debug("received track published confirmation for: \(trackPublished.track.sid)")
+        guard let promise = pendingTrackResolvers.removeValue(forKey: trackPublished.cid) else {
+            logger.error("missing track resolver for: \(trackPublished.cid)")
             return
         }
-        promise.fulfill(res.track)
-        delegate?.didPublishLocalTrack(cid: res.cid, track: res.track)
+        promise.fulfill(trackPublished.track)
     }
     
     func onClose(reason: String, code: UInt16) {
-        print("engine --- received close event: \(reason) code: \(code)")
-        delegate?.didDisconnect(reason: reason)
+        logger.debug("signal connection closed with code: \(code), reason: \(reason)")
+        handleSignalDisconnect()
     }
     
     func onError(error: Error) {
-        print("engine --- client error: \(error)")
+        logger.debug("signal connection error: \(error)")
         delegate?.didFailToConnect(error: error)
     }
 }

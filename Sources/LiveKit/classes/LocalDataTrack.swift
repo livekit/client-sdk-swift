@@ -19,7 +19,7 @@ public class LocalDataTrack: DataTrack {
     
     public func sendString(message: String) {
         guard let data = message.data(using: .utf8) else {
-            print("local data track --- error sending message: \(message)")
+            logger.error("error converting to UTF8: \(message)")
             return
         }
         if let track = dataChannel {

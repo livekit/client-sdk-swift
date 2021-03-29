@@ -20,16 +20,7 @@ class SubscriberTransportDelegate: PeerConnectionTransportDelegate, RTCPeerConne
     }
     
     func peerConnection(_ peerConnection: RTCPeerConnection, didStartReceivingOn transceiver: RTCRtpTransceiver) {
-        switch transceiver.mediaType {
-        case .video:
-            print("subscriber transport --- peerconn started receiving video")
-        case .audio:
-            print("subscriber transport --- peerconn started receiving audio")
-        case .data:
-            print("subscriber transport --- peerconn started receiving data")
-        default:
-            break
-        }
+        // do nothing
     }
     
     func peerConnection(_ peerConnection: RTCPeerConnection, didOpen dataChannel: RTCDataChannel) {

@@ -24,12 +24,12 @@ class PublisherTransportDelegate: PeerConnectionTransportDelegate, RTCPeerConnec
         guard let eng = engine else {
             return
         }
-        print("publisher transport delegate --- ice status: ", peerConnection.iceConnectionState.rawValue)
+        logger.debug("publisher ICE status: \(peerConnection.iceConnectionState)")
         if peerConnection.iceConnectionState == .connected {
-            print("publisher transport delegate --- ice connected")
+            logger.debug("publisher ICE connected")
             eng.iceConnected = true
         } else if peerConnection.iceConnectionState == .disconnected {
-            print("publisher transport delegate --- ice disconnected")
+            logger.debug("publisher ICE disconnected")
             eng.iceConnected = false
         }
     }

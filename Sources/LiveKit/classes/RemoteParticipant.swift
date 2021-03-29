@@ -52,28 +52,25 @@ public class RemoteParticipant: Participant {
         }
     }
     
-    func addSubscribedMediaTrack(rtcTrack: RTCMediaStreamTrack, sid: String, triesLeft: Int = 20) throws {
+    func addSubscribedMediaTrack(rtcTrack: RTCMediaStreamTrack, sid: String, triesLeft: Int = 20) {
         var track: Track
         let publication = getTrackPublication(sid: sid)
         
         guard publication != nil else {
             if triesLeft == 0 {
-                print("remote participant \(String(describing: self.sid)) --- could not find published track with sid: ", sid)
+                logger.error("could not subscribe to mediaTrack \(sid), unable to locate track publication")
+                let err = TrackError.invalidTrackState("Could not find published track with sid: \(sid)")
                 delegate?.didFailToSubscribe(sid: sid,
-                                             error: TrackError.invalidTrackState("Could not find published track with sid: \(sid)"),
+                                             error: err,
                                              participant: self)
                 self.room?.delegate?.didFailToSubscribe(sid: sid,
-                                                        error: TrackError.invalidTrackState("Could not find published track with sid: \(sid)"),
+                                                        error: err,
                                                         participant: self)
                 return
             }
             
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-                do {
-                    try self.addSubscribedMediaTrack(rtcTrack: rtcTrack, sid: sid, triesLeft: triesLeft - 1)
-                } catch {
-                    print("remote participant --- error: \(error)")
-                }
+                self.addSubscribedMediaTrack(rtcTrack: rtcTrack, sid: sid, triesLeft: triesLeft - 1)
             }
             return
         }
@@ -84,7 +81,14 @@ public class RemoteParticipant: Participant {
         case "video":
             track = VideoTrack(rtcTrack: rtcTrack as! RTCVideoTrack, name: publication!.name)
         default:
-            throw TrackError.invalidTrackType("Error: Invalid track type")
+            let err = TrackError.invalidTrackType("unsupported type: \(rtcTrack.kind.description)")
+            delegate?.didFailToSubscribe(sid: sid,
+                                         error: err,
+                                         participant: self)
+            room?.delegate?.didFailToSubscribe(sid: sid,
+                                               error: err,
+                                               participant: self)
+            return
         }
         
         publication!.track = track
@@ -95,7 +99,7 @@ public class RemoteParticipant: Participant {
         room?.delegate?.didSubscribe(track: track, publication: publication!, participant: self)
     }
     
-    func addSubscribedDataTrack(rtcTrack: RTCDataChannel, sid: String, name: String) throws {
+    func addSubscribedDataTrack(rtcTrack: RTCDataChannel, sid: String, name: String) {
         let track = DataTrack(name: name, dataChannel: rtcTrack)
         var publication = getTrackPublication(sid: sid)
         
@@ -175,7 +179,7 @@ extension RemoteParticipant: RTCDataChannelDelegate {
         if dataChannel.readyState == .closed {
             let publication = getPublicationForDataChannel(dataChannel)
             guard publication != nil else {
-                print("remote participant --- error on message receive: could not find publication for data channel")
+                logger.error("could not find publication for data channel")
                 return
             }
             delegate?.didUnsubscribe(track: publication!.track!, publication: publication!, participant: self)
@@ -186,7 +190,7 @@ extension RemoteParticipant: RTCDataChannelDelegate {
     public func dataChannel(_ dataChannel: RTCDataChannel, didReceiveMessageWith buffer: RTCDataBuffer) {
         let publication = getPublicationForDataChannel(dataChannel)
         guard publication != nil else {
-            print("remote participant --- error on message receive: could not find publication for data channel")
+            logger.error("could not find publication for data channel")
             return
         }
         delegate?.didReceive(data: buffer.data, dataTrack: publication!, participant: self)

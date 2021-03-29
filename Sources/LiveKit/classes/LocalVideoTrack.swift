@@ -22,22 +22,25 @@ public class LocalVideoTrack: VideoTrack {
         super.init(rtcTrack: rtcTrack, name: name)
     }
     
-    public static func track(enabled: Bool, name: String) throws -> LocalVideoTrack {
-        #if TARGET_OS_SIMULATOR
-            throw TrackError.mediaError("No video capture devices available.")
-        #endif
-        
+    public static func createTrack(name: String, options: VideoTrackOptions = VideoTrackOptions()) throws -> LocalVideoTrack {
         let source = RTCEngine.factory.videoSource()
         let capturer = RTCCameraVideoCapturer(delegate: source)
+        let possibleDevice = RTCCameraVideoCapturer.captureDevices().first { $0.position == options.position }
         
-        let device = RTCCameraVideoCapturer.captureDevices().first { $0.position == .front }
-        let formats = RTCCameraVideoCapturer.supportedFormats(for: device!)
+        guard let device = possibleDevice else {
+            throw TrackError.mediaError("No \(options.position) video capture devices available.")
+        }
+        let formats = RTCCameraVideoCapturer.supportedFormats(for: device)
         var targetWidth: Int, targetHeight: Int
         (targetWidth, targetHeight) = defaultVideoResolutions[0]
         
         var currentDiff = Int.max;
         var selectedFormat: AVCaptureDevice.Format = formats[0]
         for format in formats {
+            if options.captureFormat == format {
+                selectedFormat = format
+                break
+            }
             let dimension = CMVideoFormatDescriptionGetDimensions(format.formatDescription);
             let diff = abs(targetWidth - Int(dimension.width)) + abs(targetHeight - Int(dimension.height));
             if (diff < currentDiff) {
@@ -46,20 +49,26 @@ public class LocalVideoTrack: VideoTrack {
             }
         }
         
-        var fps: Float64 = 0
+        var fps: Float64 = options.maxFps
         for fpsRange in selectedFormat.videoSupportedFrameRateRanges {
-            fps = fmax(fps, fpsRange.maxFrameRate)
+            fps = fmin(fps, fpsRange.maxFrameRate)
         }
         
-        if device != nil {
-            print("local track --- starting capture with: \(device!)", "format: \(selectedFormat)", "fps: \(fps)")
-            capturer.startCapture(with: device!, format: selectedFormat, fps: Int(fps))
-        } else {
-            throw TrackError.mediaError("Front-facing camera not available on this device.")
-        }
+        logger.info("starting capture with \(device), format: \(selectedFormat), fps: \(fps)")
+        capturer.startCapture(with: device, format: selectedFormat, fps: Int(fps))
 
         let track = RTCEngine.factory.videoTrack(with: source, trackId: UUID().uuidString)
-        track.isEnabled = enabled
+        track.isEnabled = true
         return LocalVideoTrack(rtcTrack: track, capturer: capturer, source: source, name: name)
+    }
+}
+
+public struct VideoTrackOptions {
+    public var position: AVCaptureDevice.Position = .front
+    public var maxFps: Float64 = 30
+    public var captureFormat: AVCaptureDevice.Format?
+    
+    public init() {
+        
     }
 }

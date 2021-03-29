@@ -11,17 +11,11 @@ public typealias ConnectOptionsBuilderBlock = (inout ConnectOptions) -> Void
 
 public struct ConnectOptions {
     private(set) var accessToken: String
-    public var url: String = "ws://localhost"
+    public var url: String
+    var reconnect: Bool?
     
-    init(token accessToken: String) {
+    public init(url: String, token accessToken: String) {
+        self.url = url
         self.accessToken = accessToken
-    }
-    
-    public static func options(token accessToken: String, block: ConnectOptionsBuilderBlock?) -> ConnectOptions {
-        var options = ConnectOptions(token: accessToken)
-        if let builderBlock = block {
-            builderBlock(&options)
-        }
-        return options
     }
 }

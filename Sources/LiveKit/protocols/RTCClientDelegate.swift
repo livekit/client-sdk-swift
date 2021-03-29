@@ -10,6 +10,7 @@ import WebRTC
 
 protocol RTCClientDelegate: AnyObject {
     func onJoin(info: Livekit_JoinResponse)
+    func onReconnect()
     func onAnswer(sessionDescription: RTCSessionDescription)
     func onOffer(sessionDescription: RTCSessionDescription)
     func onTrickle(candidate: RTCIceCandidate, target: Livekit_SignalTarget)

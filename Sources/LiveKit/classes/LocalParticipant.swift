@@ -152,8 +152,7 @@ public class LocalParticipant: Participant {
         }
         let publication = tracks.removeValue(forKey: sid)
         guard publication != nil else {
-            print("local participant --- track was not published with sid: \(sid)")
-            return
+            throw TrackError.unpublishError("could not find published track for \(sid)")
         }
         track.stop()
         
