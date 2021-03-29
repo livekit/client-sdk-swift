@@ -208,7 +208,6 @@ extension RTCClient: WebSocketDelegate {
         switch event {
         case .text(let string):
             let jsonData = string.data(using: .utf8)
-            var sigResp: Livekit_SignalResponse?
             do {
                 sigResp = try Livekit_SignalResponse(jsonUTF8Data: jsonData!)
             } catch {
