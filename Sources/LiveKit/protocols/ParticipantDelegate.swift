@@ -54,3 +54,16 @@ public protocol ParticipantDelegate {
     /// Data was received on a data track
     func didReceive(data: Data, dataTrack: RemoteTrackPublication, participant: RemoteParticipant)
 }
+
+public extension ParticipantDelegate {
+    func metadataDidChange(participant: Participant) {}
+    func isSpeakingDidChange(participant: Participant) {}
+    func didMute(publication: TrackPublication, participant: Participant) {}
+    func didUnmute(publication: TrackPublication, participant: Participant)  {}
+    func didPublishRemoteTrack(publication: RemoteTrackPublication, participant: RemoteParticipant) {}
+    func didUnpublishRemoteTrack(publication: RemoteTrackPublication, particpant: RemoteParticipant) {}
+    func didSubscribe(track: Track, publication: RemoteTrackPublication, participant: RemoteParticipant) {}
+    func didFailToSubscribe(sid: String, error: Error, participant: RemoteParticipant) {}
+    func didUnsubscribe(track: Track, publication: RemoteTrackPublication, participant: RemoteParticipant) {}
+    func didReceive(data: Data, dataTrack: RemoteTrackPublication, participant: RemoteParticipant) {}
+}

@@ -92,3 +92,20 @@ public protocol RoomDelegate {
 //    func didChangePublishPriority(audioTrack: RemoteAudioTrackPublication, priority: PublishPriority, participant: RemoteParticipant)
 //    func didChangePublishPriority(dataTrack: RemoteDataTrackPublication, priority: PublishPriority, participant: RemoteParticipant)
 }
+
+public extension RoomDelegate {
+    func participantDidConnect(room: Room, participant: RemoteParticipant) {}
+    func participantDidDisconnect(room: Room, participant: RemoteParticipant) {}
+    func isReconnecting(room: Room, error: Error) {}
+    func didReconnect(room: Room) {}
+    func activeSpeakersDidChange(speakers: [Participant], room: Room) {}
+    func metadataDidChange(participant: Participant) {}
+    func didMute(publication: TrackPublication, participant: Participant) {}
+    func didUnmute(publication: TrackPublication, participant: Participant) {}
+    func didPublishRemoteTrack(publication: RemoteTrackPublication, participant: RemoteParticipant) {}
+    func didUnpublishRemoteTrack(publication: RemoteTrackPublication, particpant: RemoteParticipant) {}
+    func didSubscribe(track: Track, publication: RemoteTrackPublication, participant: RemoteParticipant) {}
+    func didFailToSubscribe(sid: String, error: Error, participant: RemoteParticipant) {}
+    func didUnsubscribe(track: Track, publication: RemoteTrackPublication, participant: RemoteParticipant) {}
+    func didReceive(data: Data, dataTrack: RemoteTrackPublication, participant: RemoteParticipant) {}
+}
