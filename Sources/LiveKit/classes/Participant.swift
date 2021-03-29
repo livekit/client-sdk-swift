@@ -28,8 +28,9 @@ public class Participant : NSObject {
             }
         }
     }
+    public private(set) var joinedAt: Date?
     
-    var tracks = [String: TrackPublication]()
+    public internal(set) var tracks = [String: TrackPublication]()
     public internal(set) var audioTracks = [String: TrackPublication]()
     public internal(set) var videoTracks = [String: TrackPublication]()
     public internal(set) var dataTracks = [String: TrackPublication]()
@@ -62,6 +63,7 @@ public class Participant : NSObject {
     func updateFromInfo(info: Livekit_ParticipantInfo) {
         identity = info.identity
         metadata = info.metadata
+        joinedAt = Date(timeIntervalSince1970: TimeInterval(info.joinedAt))
         self.info = info
     }
     

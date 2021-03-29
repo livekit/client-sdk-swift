@@ -101,6 +101,9 @@ struct Livekit_ParticipantInfo {
 
   var metadata: String = String()
 
+  /// timestamp when participant joined room
+  var joinedAt: Int64 = 0
+
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   enum State: SwiftProtobuf.Enum {
@@ -314,6 +317,7 @@ extension Livekit_ParticipantInfo: SwiftProtobuf.Message, SwiftProtobuf._Message
     3: .same(proto: "state"),
     4: .same(proto: "tracks"),
     5: .same(proto: "metadata"),
+    6: .standard(proto: "joined_at"),
   ]
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -327,6 +331,7 @@ extension Livekit_ParticipantInfo: SwiftProtobuf.Message, SwiftProtobuf._Message
       case 3: try { try decoder.decodeSingularEnumField(value: &self.state) }()
       case 4: try { try decoder.decodeRepeatedMessageField(value: &self.tracks) }()
       case 5: try { try decoder.decodeSingularStringField(value: &self.metadata) }()
+      case 6: try { try decoder.decodeSingularInt64Field(value: &self.joinedAt) }()
       default: break
       }
     }
@@ -348,6 +353,9 @@ extension Livekit_ParticipantInfo: SwiftProtobuf.Message, SwiftProtobuf._Message
     if !self.metadata.isEmpty {
       try visitor.visitSingularStringField(value: self.metadata, fieldNumber: 5)
     }
+    if self.joinedAt != 0 {
+      try visitor.visitSingularInt64Field(value: self.joinedAt, fieldNumber: 6)
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -357,6 +365,7 @@ extension Livekit_ParticipantInfo: SwiftProtobuf.Message, SwiftProtobuf._Message
     if lhs.state != rhs.state {return false}
     if lhs.tracks != rhs.tracks {return false}
     if lhs.metadata != rhs.metadata {return false}
+    if lhs.joinedAt != rhs.joinedAt {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }

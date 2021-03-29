@@ -130,8 +130,8 @@ class RTCClient {
             throw RTCClientError.socketNotConnected
         }
         do {
-            let msg = try req.jsonString()
-            socket?.write(string: msg)
+            let msg = try req.serializedData()
+            socket?.write(data: msg)
         } catch {
             print("rtc client --- error sending request \(error)")
             throw error
@@ -204,6 +204,7 @@ class RTCClient {
 extension RTCClient: WebSocketDelegate {
     
     func didReceive(event: WebSocketEvent, client: WebSocket) {
+        var sigResp: Livekit_SignalResponse?
         switch event {
         case .text(let string):
             let jsonData = string.data(using: .utf8)
@@ -212,32 +213,46 @@ extension RTCClient: WebSocketDelegate {
                 sigResp = try Livekit_SignalResponse(jsonUTF8Data: jsonData!)
             } catch {
                 print("rtc client --- error decoding signal response: \(error)")
+                return
             }
-            if let sigMsg = sigResp, let msg = sigMsg.message {
-                switch msg {
-                case .join(let joinMsg) where isConnected == false:
-                    isConnected = true
-                    delegate?.onJoin(info: joinMsg)
-                default:
-                    handleSignalResponse(msg: msg)
-                }
+            
+        
+        case .binary(let data):
+            do {
+                sigResp = try Livekit_SignalResponse(contiguousBytes: data)
+            } catch {
+                print("rtc client --- error decoding signal response: \(error)")
+                return
             }
             
         case .error(let error):
             isConnected = false
             print("rtc client --- websocket error: \(error!)")
+            return
             
         case .disconnected(let reason, let code):
             isConnected = false
             print("rtc client --- websocket connection closed: \(reason)")
             delegate?.onClose(reason: reason, code: code)
+            return
             
         case .cancelled:
             print("rtc client --- socket canceled")
             isConnected = false
+            return
             
         default:
             break
+        }
+        
+        if let sigMsg = sigResp, let msg = sigMsg.message {
+            switch msg {
+            case .join(let joinMsg) where isConnected == false:
+                isConnected = true
+                delegate?.onJoin(info: joinMsg)
+            default:
+                handleSignalResponse(msg: msg)
+            }
         }
     }
     
