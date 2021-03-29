@@ -47,7 +47,7 @@ public class LocalParticipant: Participant {
                         transInit.direction = .sendOnly
                         transInit.streamIds = [self.streamId]
                         
-                        let transceiver = self.engine?.publisher.peerConnection.addTransceiver(with: track.mediaTrack, init: transInit)
+                        let transceiver = self.engine?.publisher?.peerConnection.addTransceiver(with: track.mediaTrack, init: transInit)
                         if transceiver == nil {
                             reject(TrackError.publishError("Nil sender returned from peer connection."))
                             return
@@ -79,7 +79,7 @@ public class LocalParticipant: Participant {
                         transInit.direction = .sendOnly
                         transInit.streamIds = [self.streamId]
                         
-                        let transceiver = self.engine?.publisher.peerConnection.addTransceiver(with: track.mediaTrack, init: transInit)
+                        let transceiver = self.engine?.publisher?.peerConnection.addTransceiver(with: track.mediaTrack, init: transInit)
                         if transceiver == nil {
                             reject(TrackError.publishError("Nil sender returned from peer connection."))
                             return
@@ -116,7 +116,7 @@ public class LocalParticipant: Participant {
                             config.maxPacketLifeTime = track.options.maxPacketLifeTime
                             config.maxRetransmits = track.options.maxRetransmits
                             
-                            if let dataChannel = self.engine?.publisher.peerConnection.dataChannel(forLabel: track.name, configuration: config) {
+                            if let dataChannel = self.engine?.publisher?.peerConnection.dataChannel(forLabel: track.name, configuration: config) {
                                 track.dataChannel = dataChannel
                             } else {
                                 try self.unpublishTrack(track: track)
@@ -157,14 +157,16 @@ public class LocalParticipant: Participant {
         }
         track.stop()
         
+        guard let pc = self.engine?.publisher?.peerConnection else {
+            return
+        }
+        
         let mediaTrack = track as? MediaTrack
         if mediaTrack != nil {
-            if let senders = engine?.publisher.peerConnection.senders {
-                for sender in senders {
-                    if let t = sender.track {
-                        if t.isEqual(mediaTrack!.mediaTrack) {
-                            engine?.publisher.peerConnection.removeTrack(sender)
-                        }
+            for sender in pc.senders {
+                if let t = sender.track {
+                    if t.isEqual(mediaTrack!.mediaTrack) {
+                        pc.removeTrack(sender)
                     }
                 }
             }

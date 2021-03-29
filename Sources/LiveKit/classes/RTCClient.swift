@@ -18,12 +18,6 @@ enum RTCClientError: Error {
 }
 
 class RTCClient {
-    static let defaultIceServers = ["stun:stun.l.google.com:19302",
-                                    "stun:stun1.l.google.com:19302",
-                                    "stun:stun2.l.google.com:19302",
-                                    "stun:stun3.l.google.com:19302",
-                                    "stun:stun4.l.google.com:19302"]
-    
     private(set) var isConnected: Bool = false
     private var socket: WebSocket?
     weak var delegate: RTCClientDelegate?

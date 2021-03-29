@@ -10,8 +10,8 @@ import WebRTC
 import Promises
 
 class RTCEngine {
-    var publisher: PeerConnectionTransport
-    var subscriber: PeerConnectionTransport
+    var publisher: PeerConnectionTransport?
+    var subscriber: PeerConnectionTransport?
     var publisherDelegate: PublisherTransportDelegate
     var subscriberDelegate: SubscriberTransportDelegate
     var client: RTCClient
@@ -58,34 +58,27 @@ class RTCEngine {
         return RTCPeerConnectionFactory(encoderFactory: encoderFactory, decoderFactory: decoderFactory)
     }()
     
+    static let defaultIceServers = ["stun:stun.l.google.com:19302",
+                                    "stun:stun1.l.google.com:19302",
+                                    "stun:stun2.l.google.com:19302",
+                                    "stun:stun3.l.google.com:19302",
+                                    "stun:stun4.l.google.com:19302"]
+    
+    
     private static let privateDataChannelLabel = "_private"
     var privateDataChannel: RTCDataChannel?
     
     weak var delegate: RTCEngineDelegate?
     
     init(client: RTCClient) {
-        let config = RTCConfiguration()
-        config.iceServers = [RTCIceServer(urlStrings: RTCClient.defaultIceServers)]
-        // Unified plan is more superior than planB
-        config.sdpSemantics = .unifiedPlan
-        // gatherContinually will let WebRTC to listen to any network changes and send any new candidates to the other client
-        config.continualGatheringPolicy = .gatherContinually
-        
-        publisherDelegate = PublisherTransportDelegate()
-        publisher = PeerConnectionTransport(config: config, delegate: publisherDelegate)
-        
-        subscriberDelegate = SubscriberTransportDelegate()
-        subscriber = PeerConnectionTransport(config: config, delegate: subscriberDelegate)
-        
         self.client = client
+        publisherDelegate = PublisherTransportDelegate()
+        subscriberDelegate = SubscriberTransportDelegate()
+        
         publisherDelegate.engine = self
         subscriberDelegate.engine = self
         client.delegate = self
         
-        /* always have a blank data channel, to ensure there isn't an empty ice-ufrag */
-        privateDataChannel = publisher.peerConnection.dataChannel(forLabel: RTCEngine.privateDataChannelLabel,
-                                                                  configuration: RTCDataChannelConfiguration())
-
         configureAudio()
     }
     
@@ -120,14 +113,14 @@ class RTCEngine {
     }
     
     func close() {
-        publisher.close()
-        subscriber.close()
+        publisher?.close()
+        subscriber?.close()
         client.close()
     }
     
     func negotiate() {
-        print("engine --- starting to negotiate: \(String(describing: publisher.peerConnection.signalingState))")
-        publisher.peerConnection.offer(for: RTCEngine.offerConstraints, completionHandler: { (offer, error) in
+        print("engine --- starting to negotiate")
+        publisher?.peerConnection.offer(for: RTCEngine.offerConstraints, completionHandler: { (offer, error) in
             guard error == nil else {
                 print("engine error --- creating offer: \(error!)")
                 return
@@ -136,7 +129,7 @@ class RTCEngine {
                 print("engine error --- offer is unexpectedly missing during negotiation!")
                 return
             }
-            self.publisher.peerConnection.setLocalDescription(sdp, completionHandler: { error in
+            self.publisher?.peerConnection.setLocalDescription(sdp, completionHandler: { error in
                 guard error == nil else {
                     print("engine error --- setting local desc for offer: \(error!)")
                     return
@@ -165,8 +158,35 @@ extension RTCEngine: RTCClientDelegate {
         joinResponse = info
         
         // create publisher and subscribers
+        let config = RTCConfiguration()
+        config.iceServers = []
+        for s in info.iceServers {
+            var username: String?
+            var credential: String?
+            if s.username != "" {
+                username = s.username
+            }
+            if s.credential != "" {
+                credential = s.credential
+            }
+            config.iceServers.append(RTCIceServer(urlStrings: s.urls, username: username, credential: credential))
+        }
         
-        publisher.peerConnection.offer(for: RTCEngine.offerConstraints, completionHandler: { (sdp, error) in
+        if config.iceServers.count == 0 {
+            config.iceServers = [RTCIceServer(urlStrings: RTCEngine.defaultIceServers)]
+        }
+
+        config.sdpSemantics = .unifiedPlan
+        config.continualGatheringPolicy = .gatherContinually
+        
+        publisher = PeerConnectionTransport(config: config, delegate: publisherDelegate)
+        subscriber = PeerConnectionTransport(config: config, delegate: subscriberDelegate)
+        
+        /* always have a blank data channel, to ensure there isn't an empty ice-ufrag */
+        privateDataChannel = publisher!.peerConnection.dataChannel(forLabel: RTCEngine.privateDataChannelLabel,
+                                                                   configuration: RTCDataChannelConfiguration())
+        
+        publisher!.peerConnection.offer(for: RTCEngine.offerConstraints, completionHandler: { (sdp, error) in
             guard error == nil else {
                 print("engine --- error creating offer: \(error!)")
                 return
@@ -175,7 +195,7 @@ extension RTCEngine: RTCClientDelegate {
                 print("engine error --- unexpectedly missing empty session from publisher offer")
                 return
             }
-            self.publisher.peerConnection.setLocalDescription(desc, completionHandler: { error in
+            self.publisher!.peerConnection.setLocalDescription(desc, completionHandler: { error in
                 guard error == nil else {
                     print("engine --- error setting local description: \(error!)")
                     return
@@ -186,6 +206,9 @@ extension RTCEngine: RTCClientDelegate {
     }
     
     func onAnswer(sessionDescription: RTCSessionDescription) {
+        guard let publisher = self.publisher else {
+            return
+        }
         print("engine --- received server answer", sessionDescription.type, String(describing: publisher.peerConnection.signalingState))
         publisher.setRemoteDescription(sessionDescription) { error in
             guard error == nil else {
@@ -201,13 +224,16 @@ extension RTCEngine: RTCClientDelegate {
     func onTrickle(candidate: RTCIceCandidate, target: Livekit_SignalTarget) {
         print("engine --- received ICE candidate from peer", candidate, target)
         if target == .publisher {
-            publisher.addIceCandidate(candidate: candidate)
+            publisher?.addIceCandidate(candidate: candidate)
         } else {
-            subscriber.addIceCandidate(candidate: candidate)
+            subscriber?.addIceCandidate(candidate: candidate)
         }
     }
     
     func onOffer(sessionDescription: RTCSessionDescription) {
+        guard let subscriber = self.subscriber else {
+            return
+        }
         print("engine --- received server offer",
               sessionDescription.type,
               String(describing: subscriber.peerConnection.signalingState))
@@ -217,7 +243,7 @@ extension RTCEngine: RTCClientDelegate {
                 print("engine error --- setting remote description for offer: \(error!)")
                 return
             }
-            self.subscriber.peerConnection.answer(for: RTCEngine.offerConstraints, completionHandler: { (answer, error) in
+            subscriber.peerConnection.answer(for: RTCEngine.offerConstraints, completionHandler: { (answer, error) in
                 guard error == nil else {
                     print("engine error --- creating answer: \(error!)")
                     return
@@ -226,7 +252,7 @@ extension RTCEngine: RTCClientDelegate {
                     print("engine error --- unexpectedly missing answer from offer")
                     return
                 }
-                self.subscriber.peerConnection.setLocalDescription(ans, completionHandler: { error in
+                subscriber.peerConnection.setLocalDescription(ans, completionHandler: { error in
                     guard error == nil else {
                         print("engine error --- setting local description for answer: \(error!)")
                         return
