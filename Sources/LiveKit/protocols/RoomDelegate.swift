@@ -7,6 +7,9 @@
 
 import Foundation
 
+/// RoomDelegate receives room events as well as participant events.
+///
+/// The only two required delegates are `participantDidConnect` and `participantDidDisconnect`
 public protocol RoomDelegate {
     /// Successfully connected to the room
     func didConnect(room: Room)
