@@ -43,7 +43,7 @@ public class Room {
         engine.join(options: connectOptions)
     }
     
-    func disconnect() {
+    public func disconnect() {
         engine.close()
         handleDisconnect()
     }
