@@ -86,7 +86,8 @@ public class LocalParticipant: Participant {
                         let transInit = RTCRtpTransceiverInit()
                         transInit.direction = .sendOnly
                         transInit.streamIds = [self.streamId]
-                        transInit.sendEncodings = track.getVideoEncodings(publishOptions.encoding, simulcast: publishOptions.simulcast)
+                        let encodings = track.getVideoEncodings(publishOptions.encoding, simulcast: publishOptions.simulcast)
+                        transInit.sendEncodings = encodings
                         
                         let transceiver = self.engine?.publisher?.peerConnection.addTransceiver(with: track.mediaTrack, init: transInit)
                         if transceiver == nil {

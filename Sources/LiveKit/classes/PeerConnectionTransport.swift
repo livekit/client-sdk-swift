@@ -14,9 +14,11 @@ class PeerConnectionTransport {
     var pendingCandidates: [RTCIceCandidate] = []
     
     init(config: RTCConfiguration, delegate: RTCPeerConnectionDelegate) {
-        peerConnection = RTCEngine.factory.peerConnection(with: config,
-                                                          constraints: RTCEngine.connConstraints,
-                                                          delegate: delegate)
+        let pc = RTCEngine.factory.peerConnection(with: config,
+                                                  constraints: RTCEngine.connConstraints,
+                                                  delegate: delegate)
+        // this must succeed
+        peerConnection = pc!
     }
     
     func addIceCandidate(candidate: RTCIceCandidate) {

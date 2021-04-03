@@ -108,22 +108,23 @@ public class LocalVideoTrack: VideoTrack {
             rtcEncodings.append(baseParams!)
         }
         
-        if simulcast {
-            let halfParams = VideoPreset.getRTPEncodingParams(
-                inputWidth: self.width,
-                inputHeight: self.height,
-                rid: "h")
-            if halfParams == nil {
-                rtcEncodings.append(halfParams!)
-            }
-            let quarterParams = VideoPreset.getRTPEncodingParams(
-                inputWidth: self.width,
-                inputHeight: self.height,
-                rid: "q")
-            if quarterParams == nil {
-                rtcEncodings.append(halfParams!)
-            }
-        }
+        // not currently supported, fails to encode frame
+//        if simulcast {
+//            let halfParams = VideoPreset.getRTPEncodingParams(
+//                inputWidth: self.width,
+//                inputHeight: self.height,
+//                rid: "h")
+//            if halfParams != nil {
+//                rtcEncodings.append(halfParams!)
+//            }
+//            let quarterParams = VideoPreset.getRTPEncodingParams(
+//                inputWidth: self.width,
+//                inputHeight: self.height,
+//                rid: "q")
+//            if quarterParams != nil {
+//                rtcEncodings.append(halfParams!)
+//            }
+//        }
         
         return rtcEncodings
     }
@@ -212,11 +213,15 @@ public struct VideoPreset {
         
         var selectedEncoding: VideoEncoding;
         
+        if targetWidth < simulcastMinWidth {
+            return nil
+        }
+        
         // unless it's original, find the best resolution
         if scaleDownFactor != 1.0 || encoding == nil {
             let preset = getPresetForDimension(width: targetWidth, height: targetHeight)
             targetWidth = preset.capture.width
-            scaleDownFactor = Double(targetWidth) / Double(inputWidth)
+            scaleDownFactor = Double(inputWidth) / Double(targetWidth)
             targetHeight = Int(Double(inputHeight) / scaleDownFactor)
             
             selectedEncoding = preset.encoding
@@ -224,16 +229,20 @@ public struct VideoPreset {
             selectedEncoding = encoding!
         }
         
-        if targetWidth < simulcastMinWidth {
-            return nil
-        }
-        
         let params = RTCRtpEncodingParameters()
         params.isActive = true
-        params.maxBitrateBps = NSNumber(value: selectedEncoding.maxBitrate)
-        params.maxFramerate = NSNumber(value: selectedEncoding.maxFps)
         params.rid = rid
         params.scaleResolutionDownBy = NSNumber(value: scaleDownFactor)
+        params.maxFramerate = NSNumber(value: selectedEncoding.maxFps)
+        params.maxBitrateBps = NSNumber(value: selectedEncoding.maxBitrate)
+        // only set on the full track
+        if scaleDownFactor == 1.0 {
+            params.networkPriority = .high
+            params.bitratePriority = 4.0
+        } else {
+            params.networkPriority = .low
+            params.bitratePriority = 1.0
+        }
         return params
     }
 }
