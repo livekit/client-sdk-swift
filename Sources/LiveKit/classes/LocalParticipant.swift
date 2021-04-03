@@ -32,7 +32,7 @@ public class LocalParticipant: Participant {
     }
     
     public func publishAudioTrack(track: LocalAudioTrack,
-                                  options: LocalTrackPublicationOptions? = nil) -> Promise<LocalTrackPublication> {
+                                  options: LocalAudioTrackPublishOptions? = nil) -> Promise<LocalTrackPublication> {
         return Promise<LocalTrackPublication> { fulfill, reject in
             if self.localAudioTrackPublications.first(where: { $0.track === track }) != nil {
                 reject(TrackError.publishError("This track has already been published."))
@@ -65,12 +65,20 @@ public class LocalParticipant: Participant {
     
     
     public func publishVideoTrack(track: LocalVideoTrack,
-                                  options: LocalTrackPublicationOptions? = nil) -> Promise<LocalTrackPublication> {
+                                  options: LocalVideoTrackPublishOptions? = nil) -> Promise<LocalTrackPublication> {
         return Promise<LocalTrackPublication> { fulfill, reject in
             if self.localVideoTrackPublications.first(where: { $0.track === track }) != nil {
                 reject(TrackError.publishError("This track has already been published."))
                 return
             }
+            
+            let publishOptions: LocalVideoTrackPublishOptions
+            if options == nil {
+                publishOptions = LocalVideoTrackPublishOptions()
+            } else {
+                publishOptions = options!
+            }
+            
             do {
                 let cid = track.mediaTrack.trackId
                 try self.engine?.addTrack(cid: cid, name: track.name, kind: .video)
@@ -78,6 +86,7 @@ public class LocalParticipant: Participant {
                         let transInit = RTCRtpTransceiverInit()
                         transInit.direction = .sendOnly
                         transInit.streamIds = [self.streamId]
+                        transInit.sendEncodings = track.getVideoEncodings(publishOptions.encoding, simulcast: publishOptions.simulcast)
                         
                         let transceiver = self.engine?.publisher?.peerConnection.addTransceiver(with: track.mediaTrack, init: transInit)
                         if transceiver == nil {
@@ -95,8 +104,7 @@ public class LocalParticipant: Participant {
         }
     }
     
-    public func publishDataTrack(track: LocalDataTrack,
-                                 options: LocalTrackPublicationOptions? = nil) -> Promise<LocalTrackPublication> {
+    public func publishDataTrack(track: LocalDataTrack) -> Promise<LocalTrackPublication> {
         return Promise<LocalTrackPublication> { fulfill, reject in
             if self.localDataTrackPublications.first(where: { $0.track === track }) != nil {
                 reject(TrackError.publishError("This track has already been published."))
