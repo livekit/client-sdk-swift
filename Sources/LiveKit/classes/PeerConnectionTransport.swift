@@ -23,7 +23,11 @@ class PeerConnectionTransport {
     
     func addIceCandidate(candidate: RTCIceCandidate) {
         if peerConnection.remoteDescription != nil {
-            peerConnection.add(candidate)
+            peerConnection.add(candidate) { (error: Error?) -> Void in
+                if error != nil {
+                    logger.error("could not add ICE candidate: \(error!)")
+                }
+            }
         } else {
             pendingCandidates.append(candidate)
         }
@@ -37,7 +41,9 @@ class PeerConnectionTransport {
             }
             
             for pendingCandidate in self.pendingCandidates {
-                self.peerConnection.add(pendingCandidate)
+                self.peerConnection.add(pendingCandidate) { (error: Error?) -> Void in
+                    completionHandler?(error)
+                }
             }
             self.pendingCandidates.removeAll()
             completionHandler?(nil)

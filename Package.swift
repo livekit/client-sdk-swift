@@ -16,10 +16,10 @@ let package = Package(
     ],
     dependencies: [
         .package(name: "WebRTC", url: "https://github.com/livekit/WebRTC-swift.git", .upToNextMajor(from: "1.1.33621")),
-        .package(url: "https://github.com/daltoniam/Starscream.git", from: "4.0.0"),
-        .package(name: "SwiftProtobuf", url: "https://github.com/apple/swift-protobuf.git", from: "1.6.0"),
-        .package(name: "Promises", url: "https://github.com/google/promises.git", from: "1.2.0"),
-        .package(url: "https://github.com/apple/swift-log.git", from: "1.0.0"),
+        .package(url: "https://github.com/daltoniam/Starscream.git", .upToNextMajor(from: "4.0.0")),
+        .package(name: "SwiftProtobuf", url: "https://github.com/apple/swift-protobuf.git", .upToNextMajor(from: "1.15.0")),
+        .package(name: "Promises", url: "https://github.com/google/promises.git", .upToNextMajor(from: "1.2.12")),
+        .package(url: "https://github.com/apple/swift-log.git", .upToNextMajor(from: "1.4.2")),
     ],
     targets: [
         .target(

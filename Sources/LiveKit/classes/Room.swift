@@ -120,7 +120,6 @@ extension Room: RTCEngineDelegate {
     func didJoin(response: Livekit_JoinResponse) {
         logger.info("connected to room, server version: \(response.serverVersion)")
         
-        state = .connected
         sid = response.room.sid
         name = response.room.name
         
@@ -132,7 +131,10 @@ extension Room: RTCEngineDelegate {
                 let _ = getOrCreateRemoteParticipant(sid: otherParticipant.sid, info: otherParticipant)
             }
         }
-        
+    }
+    
+    func ICEDidConnect() {
+        state = .connected
         delegate?.didConnect(room: self)
     }
     

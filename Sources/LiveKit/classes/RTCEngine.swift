@@ -18,7 +18,6 @@ class RTCEngine {
     var subscriberDelegate: SubscriberTransportDelegate
     var client: RTCClient
     
-    var joinResponse: Livekit_JoinResponse?
     var rtcConnected: Bool = false
     var iceConnected: Bool = false {
         didSet {
@@ -27,11 +26,7 @@ class RTCEngine {
             }
             if iceConnected {
                 logger.info("publisher ICE connected")
-                guard let resp = joinResponse else {
-                    return
-                }
-                delegate?.didJoin(response: resp)
-                self.joinResponse = nil
+                delegate?.ICEDidConnect()
             } else {
                 logger.info("publisher ICE disconnected")
                 delegate?.didDisconnect()
@@ -170,8 +165,6 @@ extension RTCEngine: RTCClientDelegate {
     }
     
     func onJoin(info: Livekit_JoinResponse) {
-        joinResponse = info
-        
         // create publisher and subscribers
         let config = RTCConfiguration()
         config.iceServers = []
@@ -218,6 +211,8 @@ extension RTCEngine: RTCClientDelegate {
                 self.client.sendOffer(offer: desc)
             })
         })
+        
+        delegate?.didJoin(response: info)
     }
     
     func onAnswer(sessionDescription: RTCSessionDescription) {
