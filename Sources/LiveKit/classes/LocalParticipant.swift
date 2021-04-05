@@ -78,7 +78,7 @@ public class LocalParticipant: Participant {
             logger.warning("upgrading audio session to playAndRecord")
             var opts = audioSession.categoryOptions
             opts.insert(.defaultToSpeaker)
-            try LiveKit.configureAudioSession(category: desiredCategory, mode: AVAudioSession.Mode.voiceChat, options: opts)
+            try LiveKit.configureAudioSession(category: desiredCategory, mode: AVAudioSession.Mode.voiceChat)
         }
     }
     
