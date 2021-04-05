@@ -160,6 +160,7 @@ extension RTCEngine: RTCClientDelegate {
     }
     
     func onReconnect() {
+        logger.info("reconnect success")
         wsRetries = 0
         return
     }
@@ -178,6 +179,7 @@ extension RTCEngine: RTCClientDelegate {
                 credential = s.credential
             }
             config.iceServers.append(RTCIceServer(urlStrings: s.urls, username: username, credential: credential))
+            logger.debug("ICE servers: \(s.urls)")
         }
         
         if config.iceServers.count == 0 {

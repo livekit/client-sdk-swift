@@ -23,14 +23,34 @@ public struct LiveKit {
         return room
     }
     
-    public static func configureAudioSession(category: AVAudioSession.Category = .playAndRecord,
-                                      mode: AVAudioSession.Mode = .voiceChat,
-                                      options: AVAudioSession.CategoryOptions = .mixWithOthers) throws {
+    /// configures the current audio session.
+    ///
+    /// by default, LiveKit configures to .playback which doesn't require microphone permissions until when the user publishes their first track
+    public static func configureAudioSession(category: AVAudioSession.Category = .playback,
+                                      mode: AVAudioSession.Mode = .moviePlayback,
+                                      options: AVAudioSession.CategoryOptions = .defaultToSpeaker,
+                                      policy: AVAudioSession.RouteSharingPolicy = .longFormAudio) throws {
+        
+        // validate policy
+        var validPolicy = policy
+        if category == AVAudioSession.Category.playAndRecord {
+            if validPolicy == .longFormAudio {
+                validPolicy = .default
+            }
+        }
+        
+        // validate options
+        var validOptions = options
+        if category != .playAndRecord && validOptions.contains(.defaultToSpeaker) {
+            validOptions.remove(.defaultToSpeaker)
+        }
+        // WebRTC will initialize it according to what they need, so we have to change the default template
+        let audioConfig = RTCAudioSessionConfiguration.webRTC()
+        audioConfig.category = category.rawValue
+        audioConfig.mode = mode.rawValue
+        audioConfig.categoryOptions = validOptions
+        let audioSession = AVAudioSession.sharedInstance()
+        try audioSession.setCategory(category, mode: mode, policy: validPolicy, options: validOptions)
         audioConfigured = true
-        let audioSession = RTCAudioSession.sharedInstance()
-        audioSession.lockForConfiguration()
-        defer { audioSession.unlockForConfiguration() }
-        try audioSession.setCategory(category.rawValue, with: options)
-        try audioSession.setMode(mode.rawValue)
     }
 }

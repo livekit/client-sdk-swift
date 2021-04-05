@@ -39,6 +39,13 @@ public class LocalParticipant: Participant {
                 return
             }
             
+            do {
+                try self.ensureAudioCategory()
+            } catch {
+                reject(error)
+                return
+            }
+            
             let cid = track.mediaTrack.trackId
             do {
                 try self.engine?.addTrack(cid: cid, name: track.name, kind: .audio)
@@ -63,6 +70,17 @@ public class LocalParticipant: Participant {
         }
     }
     
+    // if audio session has not been initialized for recording, do so now
+    private func ensureAudioCategory() throws {
+        let audioSession = RTCAudioSession.sharedInstance()
+        let desiredCategory = AVAudioSession.Category.playAndRecord
+        if !LiveKit.audioConfigured || audioSession.category != desiredCategory.rawValue {
+            logger.warning("upgrading audio session to playAndRecord")
+            var opts = audioSession.categoryOptions
+            opts.insert(.defaultToSpeaker)
+            try LiveKit.configureAudioSession(category: desiredCategory, mode: AVAudioSession.Mode.voiceChat, options: opts)
+        }
+    }
     
     public func publishVideoTrack(track: LocalVideoTrack,
                                   options: LocalVideoTrackPublishOptions? = nil) -> Promise<LocalTrackPublication> {
