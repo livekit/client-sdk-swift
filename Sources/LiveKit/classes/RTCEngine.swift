@@ -29,6 +29,7 @@ class RTCEngine {
                 delegate?.ICEDidConnect()
             } else {
                 logger.info("publisher ICE disconnected")
+                close()
                 delegate?.didDisconnect()
             }
         }

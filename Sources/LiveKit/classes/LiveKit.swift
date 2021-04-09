@@ -62,6 +62,12 @@ public struct LiveKit {
         audioConfig.categoryOptions = validOptions
         let audioSession = AVAudioSession.sharedInstance()
         try audioSession.setCategory(category, mode: mode, policy: validPolicy, options: validOptions)
+        try audioSession.setActive(true)
         audioConfigured = true
+    }
+
+    public static func releaseAudioSession() throws {
+        try AVAudioSession.sharedInstance().setActive(false)
+        audioConfigured = false
     }
 }

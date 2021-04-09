@@ -102,6 +102,30 @@ public class Room {
     
     private func handleDisconnect() {
         state = .disconnected
+        // stop any tracks && release audio session
+        for participant in remoteParticipants.values {
+            for publication in participant.tracks.values {
+                guard let track = publication.track else {
+                    continue
+                }
+                track.stop()
+            }
+        }
+        let localP = localParticipant
+        if localP != nil {
+            for publication in localP!.tracks.values {
+                guard let track = publication.track else {
+                    continue
+                }
+                track.stop()
+            }
+        }
+
+        do {
+            try LiveKit.releaseAudioSession()
+        } catch {
+            logger.error("could not release audio session: \(error)")
+        }
         remoteParticipants.removeAll()
         activeSpeakers.removeAll()
         delegate?.didDisconnect(room: self, error: nil)
