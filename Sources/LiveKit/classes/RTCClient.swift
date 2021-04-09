@@ -155,6 +155,12 @@ class RTCClient {
         sendRequest(req: req)
     }
     
+    func sendLeave() {
+        var req = Livekit_SignalRequest()
+        req.leave = Livekit_LeaveRequest()
+        sendRequest(req: req)
+    }
+
     func handleSignalResponse(msg: Livekit_SignalResponse.OneOf_Message) {
         guard isConnected else {
             return

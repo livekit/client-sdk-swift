@@ -172,6 +172,15 @@ struct Livekit_SignalRequest {
     set {message = .trackSetting(newValue)}
   }
 
+  /// Immediately terminate session
+  var leave: Livekit_LeaveRequest {
+    get {
+      if case .leave(let v)? = message {return v}
+      return Livekit_LeaveRequest()
+    }
+    set {message = .leave(newValue)}
+  }
+
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   enum OneOf_Message: Equatable {
@@ -187,6 +196,8 @@ struct Livekit_SignalRequest {
     case subscription(Livekit_UpdateSubscription)
     /// Update settings of subscribed tracks
     case trackSetting(Livekit_UpdateTrackSettings)
+    /// Immediately terminate session
+    case leave(Livekit_LeaveRequest)
 
   #if !swift(>=4.1)
     static func ==(lhs: Livekit_SignalRequest.OneOf_Message, rhs: Livekit_SignalRequest.OneOf_Message) -> Bool {
@@ -220,6 +231,10 @@ struct Livekit_SignalRequest {
       }()
       case (.trackSetting, .trackSetting): return {
         guard case .trackSetting(let l) = lhs, case .trackSetting(let r) = rhs else { preconditionFailure() }
+        return l == r
+      }()
+      case (.leave, .leave): return {
+        guard case .leave(let l) = lhs, case .leave(let r) = rhs else { preconditionFailure() }
         return l == r
       }()
       default: return false
@@ -567,6 +582,17 @@ struct Livekit_UpdateTrackSettings {
   init() {}
 }
 
+/// empty
+struct Livekit_LeaveRequest {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  init() {}
+}
+
 struct Livekit_ICEServer {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
@@ -612,6 +638,7 @@ extension Livekit_SignalRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageIm
     5: .same(proto: "mute"),
     6: .same(proto: "subscription"),
     7: .standard(proto: "track_setting"),
+    8: .same(proto: "leave"),
   ]
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -683,6 +710,15 @@ extension Livekit_SignalRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageIm
         try decoder.decodeSingularMessageField(value: &v)
         if let v = v {self.message = .trackSetting(v)}
       }()
+      case 8: try {
+        var v: Livekit_LeaveRequest?
+        if let current = self.message {
+          try decoder.handleConflictingOneOf()
+          if case .leave(let m) = current {v = m}
+        }
+        try decoder.decodeSingularMessageField(value: &v)
+        if let v = v {self.message = .leave(v)}
+      }()
       default: break
       }
     }
@@ -720,6 +756,10 @@ extension Livekit_SignalRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageIm
     case .trackSetting?: try {
       guard case .trackSetting(let v)? = self.message else { preconditionFailure() }
       try visitor.visitSingularMessageField(value: v, fieldNumber: 7)
+    }()
+    case .leave?: try {
+      guard case .leave(let v)? = self.message else { preconditionFailure() }
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 8)
     }()
     case nil: break
     }
@@ -1326,6 +1366,25 @@ extension Livekit_UpdateTrackSettings: SwiftProtobuf.Message, SwiftProtobuf._Mes
     if lhs.trackSids != rhs.trackSids {return false}
     if lhs.disabled != rhs.disabled {return false}
     if lhs.quality != rhs.quality {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+extension Livekit_LeaveRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  static let protoMessageName: String = _protobuf_package + ".LeaveRequest"
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap()
+
+  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let _ = try decoder.nextFieldNumber() {
+    }
+  }
+
+  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  static func ==(lhs: Livekit_LeaveRequest, rhs: Livekit_LeaveRequest) -> Bool {
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }

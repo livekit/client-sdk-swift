@@ -44,6 +44,7 @@ public class Room {
     }
     
     public func disconnect() {
+        engine.client.sendLeave()
         engine.close()
         handleDisconnect()
     }
