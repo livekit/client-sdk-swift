@@ -44,7 +44,7 @@ public struct LiveKit {
         if options != nil {
             validOptions = options!
         } else if category == .playAndRecord {
-            validOptions = [.allowBluetooth, .allowBluetoothA2DP, .allowAirPlay]
+            validOptions = [.allowBluetooth, .allowBluetoothA2DP, .allowAirPlay, .defaultToSpeaker]
         } else {
             validOptions = []
         }
