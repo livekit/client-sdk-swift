@@ -9,10 +9,13 @@ import Foundation
 import WebRTC
 import Promises
 import Starscream
+import Network
 
 enum RoomError: Error {
     case missingRoomId(String)
 }
+
+let networkChangeIgnoreInterval = 15.0
 
 public class Room {
     public typealias Sid = String
@@ -27,11 +30,40 @@ public class Room {
     public private(set) var activeSpeakers: [Participant] = []
     
     private var connectOptions: ConnectOptions
+    private let monitor: NWPathMonitor
+    private let monitorQueue: DispatchQueue
+    private var prevPath: NWPath?
+    private var lastPathUpdate: TimeInterval = 0
     internal var engine: RTCEngine
     
     init(options: ConnectOptions) {
         connectOptions = options
+
+        monitor = NWPathMonitor()
+        monitorQueue = DispatchQueue(label: "networkMonitor", qos: .background)
         engine = RTCEngine(client: RTCClient())
+
+        monitor.pathUpdateHandler = { path in
+            if self.prevPath == nil || path.status != .satisfied {
+                self.prevPath = path
+                return
+            }
+
+            let currTime = Date().timeIntervalSince1970
+            // ICE restarts are expensive, skip frequent changes
+            if currTime - self.lastPathUpdate < networkChangeIgnoreInterval {
+                logger.debug("skipping duplicate network update")
+                return
+            }
+            // trigger reconnect
+            if self.state == .connected {
+                logger.info("network path changed, starting engine reconnect")
+                self.engine.reconnect()
+            }
+            self.prevPath = path
+            self.lastPathUpdate = currTime
+        }
+
         engine.delegate = self
     }
     
@@ -40,6 +72,7 @@ public class Room {
             return
         }
         
+        monitor.start(queue: monitorQueue)
         engine.join(options: connectOptions)
     }
     
@@ -129,6 +162,7 @@ public class Room {
         }
         remoteParticipants.removeAll()
         activeSpeakers.removeAll()
+        self.monitor.cancel()
         delegate?.didDisconnect(room: self, error: nil)
     }
 }

@@ -111,6 +111,7 @@ class RTCEngine {
         publisher?.close()
         subscriber?.close()
         client.close()
+        rtcConnected = false
     }
     
     func negotiate() {
@@ -133,6 +134,23 @@ class RTCEngine {
         })
     }
     
+    func reconnect() {
+        if wsRetries >= maxWSRetries {
+            logger.error("could not connect to signal after \(wsRetries) attempts, giving up")
+            close()
+            delegate?.didDisconnect()
+            return
+        }
+        
+        if iceConnected && wsReconnectTask != nil {
+            var delay = Double(wsRetries^2) * 0.5
+            if delay > 5 {
+                delay = 5
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: wsReconnectTask!)
+        }
+    }
+    
     private func onRTCConnected() {
         rtcConnected = true
     }
@@ -144,14 +162,8 @@ class RTCEngine {
             delegate?.didDisconnect()
             return
         }
-        
-        if iceConnected && wsReconnectTask != nil {
-            let delay = Double(wsRetries^2) * 0.5
-            wsRetries += 1
-            DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: wsReconnectTask!)
-        } else {
-            delegate?.didDisconnect()
-        }
+        wsRetries += 1
+        reconnect()
     }
 }
 
@@ -161,8 +173,16 @@ extension RTCEngine: RTCClientDelegate {
     }
     
     func onReconnect() {
-        logger.info("reconnect success")
+        logger.info("reconnect success, restarting ICE")
         wsRetries = 0
+        
+        // trigger ICE restart
+        self.publisher?.peerConnection.restartIce()
+        if let sub = self.subscriber {
+            if sub.peerConnection.connectionState == .connected {
+                sub.peerConnection.restartIce()
+            }
+        }
         return
     }
     
@@ -189,6 +209,9 @@ extension RTCEngine: RTCClientDelegate {
 
         config.sdpSemantics = .unifiedPlan
         config.continualGatheringPolicy = .gatherContinually
+        config.candidateNetworkPolicy = .all
+        config.tcpCandidatePolicy = .enabled
+        config.iceTransportPolicy = .all
         
         publisher = PeerConnectionTransport(config: config, delegate: publisherDelegate)
         subscriber = PeerConnectionTransport(config: config, delegate: subscriberDelegate)
@@ -222,6 +245,7 @@ extension RTCEngine: RTCClientDelegate {
         guard let publisher = self.publisher else {
             return
         }
+        logger.debug("handling server answer")
         publisher.setRemoteDescription(sessionDescription) { error in
             guard error == nil else {
                 logger.error("error setting remote description for answer: \(error!)")
@@ -230,6 +254,7 @@ extension RTCEngine: RTCClientDelegate {
             if !self.rtcConnected {
                 self.onRTCConnected()
             }
+            logger.debug("successfully set remote desc")
         }
     }
     
@@ -246,6 +271,7 @@ extension RTCEngine: RTCClientDelegate {
             return
         }
         
+        logger.debug("handling server offer")
         subscriber.setRemoteDescription(sessionDescription, completionHandler: { error in
             guard error == nil else {
                 logger.error("error setting subscriber remote description for offer: \(error!)")
@@ -265,6 +291,7 @@ extension RTCEngine: RTCClientDelegate {
                         logger.error("error setting subscriber local description for answer: \(error!)")
                         return
                     }
+                    logger.debug("sending client answer")
                     self.client.sendAnswer(answer: ans)
                 })
             })

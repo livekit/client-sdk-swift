@@ -61,6 +61,7 @@ class RTCClient {
         var wsUrlString = "\(url)/rtc?access_token=\(token)"
         if options.reconnect != nil && options.reconnect! {
             wsUrlString += "&reconnect=1"
+            reconnecting = true
         }
         logger.debug("connecting to url: \(wsUrlString)")
         var request = URLRequest(url: URL(string: wsUrlString)!)
@@ -241,6 +242,8 @@ extension RTCClient: WebSocketDelegate {
         case .connected:
             if reconnecting {
                 isConnected = true
+                reconnecting = false
+                delegate?.onReconnect()
             }
             return
             
