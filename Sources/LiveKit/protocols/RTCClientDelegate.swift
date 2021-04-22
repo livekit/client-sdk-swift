@@ -18,5 +18,6 @@ protocol RTCClientDelegate: AnyObject {
     func onParticipantUpdate(updates: [Livekit_ParticipantInfo])
     func onActiveSpeakersChanged(speakers: [Livekit_SpeakerInfo])
     func onClose(reason: String, code: UInt16)
+    func onLeave()
     func onError(error: Error)
 }

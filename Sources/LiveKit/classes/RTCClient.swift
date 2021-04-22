@@ -189,6 +189,9 @@ class RTCClient {
         case .speaker(let speakerUpdate):
             delegate?.onActiveSpeakersChanged(speakers: speakerUpdate.speakers)
     
+        case .leave:
+            delegate?.onLeave()
+
         default:
             logger.warning("unsupported signal response type: \(msg)")
         }

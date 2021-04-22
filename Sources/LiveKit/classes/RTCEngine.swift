@@ -156,12 +156,6 @@ class RTCEngine {
     }
     
     private func handleSignalDisconnect() {
-        if wsRetries >= maxWSRetries {
-            logger.error("could not connect to signal after \(wsRetries) attempts, giving up")
-            close()
-            delegate?.didDisconnect()
-            return
-        }
         wsRetries += 1
         reconnect()
     }
@@ -311,6 +305,11 @@ extension RTCEngine: RTCClientDelegate {
         promise.fulfill(trackPublished.track)
     }
     
+    func onLeave() {
+        close()
+        delegate?.didDisconnect()
+    }
+
     func onClose(reason: String, code: UInt16) {
         logger.debug("signal connection closed with code: \(code), reason: \(reason)")
         handleSignalDisconnect()

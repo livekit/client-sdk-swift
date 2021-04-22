@@ -316,6 +316,15 @@ struct Livekit_SignalResponse {
     set {message = .speaker(newValue)}
   }
 
+  /// Immediately terminate session
+  var leave: Livekit_LeaveRequest {
+    get {
+      if case .leave(let v)? = message {return v}
+      return Livekit_LeaveRequest()
+    }
+    set {message = .leave(newValue)}
+  }
+
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   enum OneOf_Message: Equatable {
@@ -333,6 +342,8 @@ struct Livekit_SignalResponse {
     case trackPublished(Livekit_TrackPublishedResponse)
     /// list of active speakers
     case speaker(Livekit_ActiveSpeakerUpdate)
+    /// Immediately terminate session
+    case leave(Livekit_LeaveRequest)
 
   #if !swift(>=4.1)
     static func ==(lhs: Livekit_SignalResponse.OneOf_Message, rhs: Livekit_SignalResponse.OneOf_Message) -> Bool {
@@ -366,6 +377,10 @@ struct Livekit_SignalResponse {
       }()
       case (.speaker, .speaker): return {
         guard case .speaker(let l) = lhs, case .speaker(let r) = rhs else { preconditionFailure() }
+        return l == r
+      }()
+      case (.leave, .leave): return {
+        guard case .leave(let l) = lhs, case .leave(let r) = rhs else { preconditionFailure() }
         return l == r
       }()
       default: return false
@@ -783,6 +798,7 @@ extension Livekit_SignalResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageI
     5: .same(proto: "update"),
     6: .standard(proto: "track_published"),
     7: .same(proto: "speaker"),
+    8: .same(proto: "leave"),
   ]
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -854,6 +870,15 @@ extension Livekit_SignalResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageI
         try decoder.decodeSingularMessageField(value: &v)
         if let v = v {self.message = .speaker(v)}
       }()
+      case 8: try {
+        var v: Livekit_LeaveRequest?
+        if let current = self.message {
+          try decoder.handleConflictingOneOf()
+          if case .leave(let m) = current {v = m}
+        }
+        try decoder.decodeSingularMessageField(value: &v)
+        if let v = v {self.message = .leave(v)}
+      }()
       default: break
       }
     }
@@ -891,6 +916,10 @@ extension Livekit_SignalResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageI
     case .speaker?: try {
       guard case .speaker(let v)? = self.message else { preconditionFailure() }
       try visitor.visitSingularMessageField(value: v, fieldNumber: 7)
+    }()
+    case .leave?: try {
+      guard case .leave(let v)? = self.message else { preconditionFailure() }
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 8)
     }()
     case nil: break
     }
