@@ -26,10 +26,15 @@ public struct LiveKit {
     /// configures the current audio session.
     ///
     /// by default, LiveKit configures to .playback which doesn't require microphone permissions until when the user publishes their first track
-    public static func configureAudioSession(category: AVAudioSession.Category = .playback,
-                                             mode: AVAudioSession.Mode = .spokenAudio,
-                                             policy: AVAudioSession.RouteSharingPolicy = .longFormAudio,
+    public static func configureAudioSession(category: AVAudioSession.Category = .playAndRecord,
+                                             mode: AVAudioSession.Mode = .voiceChat,
+                                             policy: AVAudioSession.RouteSharingPolicy = .default,
                                              options: AVAudioSession.CategoryOptions? = nil) throws {
+    // for now, use playAndRecord since WebRTC does not support this yet.
+//    public static func configureAudioSession(category: AVAudioSession.Category = .playback,
+//                                             mode: AVAudioSession.Mode = .videoChat,
+//                                             policy: AVAudioSession.RouteSharingPolicy = .longFormAudio,
+//                                             options: AVAudioSession.CategoryOptions? = nil) throws {
         
         // validate policy
         var validPolicy = policy
