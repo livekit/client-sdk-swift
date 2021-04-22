@@ -27,9 +27,9 @@ public struct LiveKit {
     ///
     /// by default, LiveKit configures to .playback which doesn't require microphone permissions until when the user publishes their first track
     public static func configureAudioSession(category: AVAudioSession.Category = .playback,
-                                      mode: AVAudioSession.Mode = .moviePlayback,
-                                      policy: AVAudioSession.RouteSharingPolicy = .longFormAudio,
-                                      options: AVAudioSession.CategoryOptions? = nil) throws {
+                                             mode: AVAudioSession.Mode = .spokenAudio,
+                                             policy: AVAudioSession.RouteSharingPolicy = .longFormAudio,
+                                             options: AVAudioSession.CategoryOptions? = nil) throws {
         
         // validate policy
         var validPolicy = policy
