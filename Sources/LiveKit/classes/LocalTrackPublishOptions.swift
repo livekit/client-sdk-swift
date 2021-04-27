@@ -35,3 +35,8 @@ public struct VideoEncoding {
         self.maxFps = maxFps
     }
 }
+
+public enum DataPublishOption: Int {
+    case reliable = 0
+    case lossy = 1
+}

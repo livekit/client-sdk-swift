@@ -56,8 +56,8 @@ public protocol ParticipantDelegate {
     /// Clients should listen to this event and handle cleanup
     func didUnsubscribe(track: Track, publication: RemoteTrackPublication, participant: RemoteParticipant)
 
-    /// Data was received on a data track
-    func didReceive(data: Data, dataTrack: RemoteTrackPublication, participant: RemoteParticipant)
+    /// Data was received from a RemoteParticipant
+    func didReceive(data: Data, participant: RemoteParticipant)
 }
 
 public extension ParticipantDelegate {
@@ -70,5 +70,5 @@ public extension ParticipantDelegate {
     func didSubscribe(track _: Track, publication _: RemoteTrackPublication, participant _: RemoteParticipant) {}
     func didFailToSubscribe(sid _: String, error _: Error, participant _: RemoteParticipant) {}
     func didUnsubscribe(track _: Track, publication _: RemoteTrackPublication, participant _: RemoteParticipant) {}
-    func didReceive(data _: Data, dataTrack _: RemoteTrackPublication, participant _: RemoteParticipant) {}
+    func didReceive(data _: Data, participant _: RemoteParticipant) {}
 }

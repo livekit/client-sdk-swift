@@ -65,11 +65,6 @@ public protocol RoomDelegate {
     /// A RemoteParticipant has unpublished a track
     func didUnpublishRemoteTrack(publication: RemoteTrackPublication, particpant: RemoteParticipant)
 
-//    func didEnable(audioTrack: RemoteAudioTrackPublication, participant: RemoteParticipant)
-//    func didDisable(audioTrack: RemoteAudioTrackPublication, participant: RemoteParticipant)
-//    func didEnable(videoTrack: RemoteVideoTrackPublication, participant: RemoteParticipant)
-//    func didDisable(videoTrack: RemoteVideoTrackPublication, participant: RemoteParticipant)
-
     /// The LocalParticipant has subscribed to a new track.
     ///
     /// This event will always fire as long as new tracks are ready for use.
@@ -85,15 +80,8 @@ public protocol RoomDelegate {
     /// Clients should listen to this event and handle cleanup
     func didUnsubscribe(track: Track, publication: RemoteTrackPublication, participant: RemoteParticipant)
 
-    /// Data was received on a data track
-    func didReceive(data: Data, dataTrack: RemoteTrackPublication, participant: RemoteParticipant)
-
-//    func switchedOffVideo(track: RemoteVideoTrack, participant: RemoteParticipant)
-//    func switchedOnVideo(track: RemoteVideoTrack, participant: RemoteParticipant)
-//    func networkQualityDidChange(networkQualityLevel: NetworkQualityLevel, participant: remoteParticipant)
-//    func didChangePublishPriority(videoTrack: RemoteVideoTrackPublication, priority: PublishPriority, participant: RemoteParticipant)
-//    func didChangePublishPriority(audioTrack: RemoteAudioTrackPublication, priority: PublishPriority, participant: RemoteParticipant)
-//    func didChangePublishPriority(dataTrack: RemoteDataTrackPublication, priority: PublishPriority, participant: RemoteParticipant)
+    /// Data was received from a RemoteParticipant
+    func didReceive(data: Data, participant: RemoteParticipant)
 }
 
 public extension RoomDelegate {
@@ -110,5 +98,5 @@ public extension RoomDelegate {
     func didSubscribe(track _: Track, publication _: RemoteTrackPublication, participant _: RemoteParticipant) {}
     func didFailToSubscribe(sid _: String, error _: Error, participant _: RemoteParticipant) {}
     func didUnsubscribe(track _: Track, publication _: RemoteTrackPublication, participant _: RemoteParticipant) {}
-    func didReceive(data _: Data, dataTrack _: RemoteTrackPublication, participant _: RemoteParticipant) {}
+    func didReceive(data _: Data, participant _: RemoteParticipant) {}
 }

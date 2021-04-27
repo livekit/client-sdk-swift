@@ -14,11 +14,7 @@ public class LocalParticipant: Participant {
 
     public var localAudioTrackPublications: [TrackPublication] { Array(audioTracks.values) }
     public var localVideoTrackPublications: [TrackPublication] { Array(videoTracks.values) }
-    public var localDataTrackPublications: [TrackPublication] { Array(dataTracks.values) }
-
     weak var engine: RTCEngine?
-
-//    public private(set) var signalingRegion: String?
 
     convenience init(fromInfo info: Livekit_ParticipantInfo, engine: RTCEngine, room: Room) {
         self.init(sid: info.sid)
@@ -31,6 +27,7 @@ public class LocalParticipant: Participant {
         return tracks[sid] as? LocalTrackPublication
     }
 
+    /// publish a new audio track to the Room
     public func publishAudioTrack(track: LocalAudioTrack,
                                   options _: LocalAudioTrackPublishOptions? = nil) -> Promise<LocalTrackPublication>
     {
@@ -71,18 +68,7 @@ public class LocalParticipant: Participant {
         }
     }
 
-    // if audio session has not been initialized for recording, do so now
-    private func ensureAudioCategory() throws {
-        let audioSession = RTCAudioSession.sharedInstance()
-        let desiredCategory = AVAudioSession.Category.playAndRecord
-        if !LiveKit.audioConfigured || audioSession.category != desiredCategory.rawValue {
-            logger.warning("upgrading audio session to playAndRecord")
-            var opts = audioSession.categoryOptions
-            opts.insert(.defaultToSpeaker)
-            try LiveKit.configureAudioSession(category: desiredCategory, mode: AVAudioSession.Mode.voiceChat)
-        }
-    }
-
+    /// publish a new video track to the Room
     public func publishVideoTrack(track: LocalVideoTrack,
                                   options: LocalVideoTrackPublishOptions? = nil) -> Promise<LocalTrackPublication>
     {
@@ -125,45 +111,8 @@ public class LocalParticipant: Participant {
         }
     }
 
-    public func publishDataTrack(track: LocalDataTrack) -> Promise<LocalTrackPublication> {
-        return Promise<LocalTrackPublication> { fulfill, reject in
-            if self.localDataTrackPublications.first(where: { $0.track === track }) != nil {
-                reject(TrackError.publishError("This track has already been published."))
-                return
-            }
-            do {
-                // data track cid isn't ready until peer connection creates it, so we'll use name
-                let cid = track.name
-                do {
-                    try self.engine?.addTrack(cid: cid, name: track.name, kind: .data)
-                        .then { trackInfo in
-                            let publication = LocalTrackPublication(info: trackInfo, track: track, participant: self)
-                            track.sid = trackInfo.sid
-
-                            let config = RTCDataChannelConfiguration()
-                            config.isOrdered = track.options.ordered
-                            config.maxPacketLifeTime = track.options.maxPacketLifeTime
-                            config.maxRetransmits = track.options.maxRetransmits
-
-                            if let dataChannel = self.engine?.publisher?.peerConnection.dataChannel(forLabel: track.name, configuration: config) {
-                                track.dataChannel = dataChannel
-                            } else {
-                                try self.unpublishTrack(track: track)
-                                reject(TrackError.publishError("Could not publish data track"))
-                            }
-
-                            publication.track = track
-                            self.addTrack(publication: publication)
-
-                            fulfill(publication)
-                        }
-                } catch {
-                    reject(error)
-                }
-            }
-        }
-    }
-
+    /// unpublish an existing published track
+    /// this will also stop the track
     public func unpublishTrack(track: Track) throws {
         guard let sid = track.sid else {
             throw TrackError.invalidTrackState("This track was never published.")
@@ -174,8 +123,6 @@ public class LocalParticipant: Participant {
             audioTracks.removeValue(forKey: sid)
         case .video:
             videoTracks.removeValue(forKey: sid)
-        case .data:
-            dataTracks.removeValue(forKey: sid)
         default:
             return
         }
@@ -189,16 +136,43 @@ public class LocalParticipant: Participant {
             return
         }
 
-        let mediaTrack = track as? MediaTrack
-        if mediaTrack != nil {
-            for sender in pc.senders {
-                if let t = sender.track {
-                    if t.isEqual(mediaTrack!.mediaTrack) {
-                        pc.removeTrack(sender)
-                    }
+        for sender in pc.senders {
+            if let t = sender.track {
+                if t.isEqual(track.mediaTrack) {
+                    pc.removeTrack(sender)
                 }
             }
         }
+    }
+
+    /// publish data to the other participants in the room
+    ///
+    /// Data is forwarded to each participant in the room.
+    /// For data that you need delivery guarantee (such as chat messages), use Reliable.
+    /// For data that should arrive as quickly as possible, but you are ok with dropped packets, use Lossy.
+    public func publishData(data: Data, option: DataPublishOption) throws {
+        if data.count > maxDataPacketSize {
+            throw TrackError.publishError("could not publish data more than \(maxDataPacketSize)")
+        }
+
+        let kind = Livekit_DataPacket.Kind(rawValue: option.rawValue)
+        var channel: RTCDataChannel? = engine?.reliableDC
+        if kind == .lossy {
+            channel = engine?.lossyDC
+        }
+
+        if channel == nil || channel?.readyState != .open {
+            throw TrackError.publishError("cannot publish data as data channel is not open")
+        }
+
+        var dataPacket = Livekit_DataPacket()
+        var userPacket = Livekit_UserPacket()
+        userPacket.payload = data
+        userPacket.participantSid = sid
+        dataPacket.user = userPacket
+
+        let buffer = try RTCDataBuffer(data: dataPacket.serializedData(), isBinary: true)
+        channel?.sendData(buffer)
     }
 
     override func updateFromInfo(info: Livekit_ParticipantInfo) {
@@ -217,4 +191,16 @@ public class LocalParticipant: Participant {
     }
 
     func setEncodingParameters(parameters _: EncodingParameters) {}
+
+    // if audio session has not been initialized for recording, do so now
+    private func ensureAudioCategory() throws {
+        let audioSession = RTCAudioSession.sharedInstance()
+        let desiredCategory = AVAudioSession.Category.playAndRecord
+        if !LiveKit.audioConfigured || audioSession.category != desiredCategory.rawValue {
+            logger.warning("upgrading audio session to playAndRecord")
+            var opts = audioSession.categoryOptions
+            opts.insert(.defaultToSpeaker)
+            try LiveKit.configureAudioSession(category: desiredCategory, mode: AVAudioSession.Mode.voiceChat)
+        }
+    }
 }

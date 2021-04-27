@@ -98,28 +98,6 @@ public class RemoteParticipant: Participant {
         room?.delegate?.didSubscribe(track: track, publication: publication!, participant: self)
     }
 
-    func addSubscribedDataTrack(rtcTrack: RTCDataChannel, sid: String, name: String) {
-        let track = DataTrack(name: name, dataChannel: rtcTrack)
-        var publication = getTrackPublication(sid: sid)
-
-        if publication != nil {
-            publication!.track = track
-        } else {
-            var trackInfo = Livekit_TrackInfo()
-            trackInfo.sid = sid
-            trackInfo.name = name
-            trackInfo.type = .data
-            publication = RemoteTrackPublication(info: trackInfo, track: track, participant: self)
-            addTrack(publication: publication!)
-        }
-
-        rtcTrack.delegate = self
-        track.sid = publication!.sid
-
-        delegate?.didSubscribe(track: track, publication: publication!, participant: self)
-        room?.delegate?.didSubscribe(track: track, publication: publication!, participant: self)
-    }
-
     func unpublishTrack(sid: String, sendUnpublish: Bool = false) {
         guard let publication = tracks.removeValue(forKey: sid) as? RemoteTrackPublication else {
             return
@@ -130,8 +108,6 @@ public class RemoteParticipant: Participant {
             audioTracks.removeValue(forKey: sid)
         case .video:
             videoTracks.removeValue(forKey: sid)
-        case .data:
-            dataTracks.removeValue(forKey: sid)
         default:
             // ignore
             return
@@ -158,41 +134,5 @@ public class RemoteParticipant: Participant {
     private func sendTrackPublishedEvent(publication: RemoteTrackPublication) {
         delegate?.didPublishRemoteTrack(publication: publication, participant: self)
         room?.delegate?.didPublishRemoteTrack(publication: publication, participant: self)
-    }
-}
-
-extension RemoteParticipant: RTCDataChannelDelegate {
-    private func getPublicationForDataChannel(_ dataChannel: RTCDataChannel) -> RemoteTrackPublication? {
-        let publication = dataTracks.values.first { publication in
-            if let track = publication.track {
-                if let dataTrack = track as? DataTrack {
-                    return dataChannel === dataTrack.dataChannel
-                }
-            }
-            return false
-        }
-        return publication as? RemoteTrackPublication
-    }
-
-    public func dataChannelDidChangeState(_ dataChannel: RTCDataChannel) {
-        if dataChannel.readyState == .closed {
-            let publication = getPublicationForDataChannel(dataChannel)
-            guard publication != nil else {
-                logger.error("could not find publication for data channel")
-                return
-            }
-            delegate?.didUnsubscribe(track: publication!.track!, publication: publication!, participant: self)
-            room?.delegate?.didUnsubscribe(track: publication!.track!, publication: publication!, participant: self)
-        }
-    }
-
-    public func dataChannel(_ dataChannel: RTCDataChannel, didReceiveMessageWith buffer: RTCDataBuffer) {
-        let publication = getPublicationForDataChannel(dataChannel)
-        guard publication != nil else {
-            logger.error("could not find publication for data channel")
-            return
-        }
-        delegate?.didReceive(data: buffer.data, dataTrack: publication!, participant: self)
-        room?.delegate?.didReceive(data: buffer.data, dataTrack: publication!, participant: self)
     }
 }

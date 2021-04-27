@@ -10,13 +10,39 @@ import Promises
 import WebRTC
 
 let maxWSRetries = 5
+let reliableDataChannelLabel = "_reliable"
+let lossyDataChannelLabel = "_lossy"
+let maxDataPacketSize = 15000
 
-class RTCEngine {
+class RTCEngine: NSObject {
+    static var offerConstraints = RTCMediaConstraints(mandatoryConstraints: [
+        kRTCMediaConstraintsOfferToReceiveAudio: kRTCMediaConstraintsValueFalse,
+        kRTCMediaConstraintsOfferToReceiveVideo: kRTCMediaConstraintsValueFalse,
+    ], optionalConstraints: nil)
+
+    static var mediaConstraints = RTCMediaConstraints(mandatoryConstraints: nil,
+                                                      optionalConstraints: nil)
+
+    static var connConstraints = RTCMediaConstraints(mandatoryConstraints: nil,
+                                                     optionalConstraints: ["DtlsSrtpKeyAgreement": kRTCMediaConstraintsValueTrue])
+
+    static let factory: RTCPeerConnectionFactory = {
+        RTCInitializeSSL()
+        var encoderFactory = RTCDefaultVideoEncoderFactory()
+        var decoderFactory = RTCDefaultVideoDecoderFactory()
+        return RTCPeerConnectionFactory(encoderFactory: encoderFactory, decoderFactory: decoderFactory)
+    }()
+
+    static let defaultIceServers = ["stun:stun.l.google.com:19302",
+                                    "stun:stun1.l.google.com:19302"]
+
     var publisher: PeerConnectionTransport?
     var subscriber: PeerConnectionTransport?
     var publisherDelegate: PublisherTransportDelegate
     var subscriberDelegate: SubscriberTransportDelegate
     var client: RTCClient
+    var reliableDC: RTCDataChannel?
+    var lossyDC: RTCDataChannel?
 
     var rtcConnected: Bool = false
     var iceConnected: Bool = false {
@@ -40,39 +66,13 @@ class RTCEngine {
 
     private var pendingTrackResolvers: [String: Promise<Livekit_TrackInfo>] = [:]
 
-    static var offerConstraints = RTCMediaConstraints(mandatoryConstraints: [
-        kRTCMediaConstraintsOfferToReceiveAudio: kRTCMediaConstraintsValueFalse,
-        kRTCMediaConstraintsOfferToReceiveVideo: kRTCMediaConstraintsValueFalse,
-    ], optionalConstraints: nil)
-
-    static var mediaConstraints = RTCMediaConstraints(mandatoryConstraints: nil,
-                                                      optionalConstraints: nil)
-
-    static var connConstraints = RTCMediaConstraints(mandatoryConstraints: nil,
-                                                     optionalConstraints: ["DtlsSrtpKeyAgreement": kRTCMediaConstraintsValueTrue])
-
-    static let factory: RTCPeerConnectionFactory = {
-        RTCInitializeSSL()
-        var encoderFactory = RTCDefaultVideoEncoderFactory()
-        var decoderFactory = RTCDefaultVideoDecoderFactory()
-        return RTCPeerConnectionFactory(encoderFactory: encoderFactory, decoderFactory: decoderFactory)
-    }()
-
-    static let defaultIceServers = ["stun:stun.l.google.com:19302",
-                                    "stun:stun1.l.google.com:19302",
-                                    "stun:stun2.l.google.com:19302",
-                                    "stun:stun3.l.google.com:19302",
-                                    "stun:stun4.l.google.com:19302"]
-
-    private static let privateDataChannelLabel = "_private"
-    var privateDataChannel: RTCDataChannel?
-
     weak var delegate: RTCEngineDelegate?
 
     init(client: RTCClient) {
         self.client = client
         publisherDelegate = PublisherTransportDelegate()
         subscriberDelegate = SubscriberTransportDelegate()
+        super.init()
 
         publisherDelegate.engine = self
         subscriberDelegate.engine = self
@@ -209,9 +209,17 @@ extension RTCEngine: RTCClientDelegate {
         publisher = PeerConnectionTransport(config: config, delegate: publisherDelegate)
         subscriber = PeerConnectionTransport(config: config, delegate: subscriberDelegate)
 
-        /* always have a blank data channel, to ensure there isn't an empty ice-ufrag */
-        privateDataChannel = publisher!.peerConnection.dataChannel(forLabel: RTCEngine.privateDataChannelLabel,
-                                                                   configuration: RTCDataChannelConfiguration())
+        let reliableConfig = RTCDataChannelConfiguration()
+        reliableConfig.isOrdered = true
+        reliableDC = publisher!.peerConnection.dataChannel(forLabel: reliableDataChannelLabel,
+                                                           configuration: reliableConfig)
+        reliableDC?.delegate = self
+        let lossyConfig = RTCDataChannelConfiguration()
+        lossyConfig.isOrdered = true
+        lossyConfig.maxRetransmits = 1
+        lossyDC = publisher!.peerConnection.dataChannel(forLabel: lossyDataChannelLabel,
+                                                        configuration: lossyConfig)
+        lossyDC?.delegate = self
 
         publisher!.peerConnection.offer(for: RTCEngine.offerConstraints, completionHandler: { sdp, error in
             guard error == nil else {
@@ -317,5 +325,30 @@ extension RTCEngine: RTCClientDelegate {
     func onError(error: Error) {
         logger.debug("signal connection error: \(error)")
         delegate?.didFailToConnect(error: error)
+    }
+}
+
+extension RTCEngine: RTCDataChannelDelegate {
+    func dataChannelDidChangeState(_: RTCDataChannel) {
+        // do nothing
+    }
+
+    func dataChannel(_: RTCDataChannel, didReceiveMessageWith buffer: RTCDataBuffer) {
+        let dataPacket: Livekit_DataPacket
+        do {
+            dataPacket = try Livekit_DataPacket(contiguousBytes: buffer.data)
+        } catch {
+            logger.error("could not decode data message \(error)")
+            return
+        }
+
+        switch dataPacket.value {
+        case let .speaker(update):
+            delegate?.didUpdateSpeakers(speakers: update.speakers)
+        case let .user(userPacket):
+            delegate?.didReceive(packet: userPacket, kind: dataPacket.kind)
+        default:
+            return
+        }
     }
 }

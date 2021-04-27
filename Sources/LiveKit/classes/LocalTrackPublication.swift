@@ -17,7 +17,7 @@ public class LocalTrackPublication: TrackPublication {
         }
 
         // mute the tracks and stop sending data
-        guard let mediaTrack = track as? MediaTrack else {
+        guard let mediaTrack = track else {
             return
         }
 

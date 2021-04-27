@@ -181,6 +181,7 @@ struct Livekit_TrackInfo {
     init() {}
 }
 
+/// old DataTrack message
 struct Livekit_DataMessage {
     // SwiftProtobuf.Message conformance is added in an extension below. See the
     // `Message` and `Message+*Additions` files in the SwiftProtobuf library for

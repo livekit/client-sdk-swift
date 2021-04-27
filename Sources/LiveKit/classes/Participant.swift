@@ -35,7 +35,6 @@ public class Participant: NSObject {
     public internal(set) var tracks = [String: TrackPublication]()
     public internal(set) var audioTracks = [String: TrackPublication]()
     public internal(set) var videoTracks = [String: TrackPublication]()
-    public internal(set) var dataTracks = [String: TrackPublication]()
 
     var info: Livekit_ParticipantInfo?
 
@@ -53,8 +52,6 @@ public class Participant: NSObject {
             audioTracks[publication.sid] = publication
         case .video:
             videoTracks[publication.sid] = publication
-        case .data:
-            dataTracks[publication.sid] = publication
         default:
             break
         }

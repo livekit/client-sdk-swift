@@ -18,51 +18,19 @@ enum TrackError: Error {
 }
 
 public class Track {
-    static func stateFromRTCMediaTrackState(rtcState: RTCMediaStreamTrackState) throws -> Track.State {
-        switch rtcState {
-        case .ended:
-            return .ended
-        case .live:
-            return .live
-        @unknown default:
-            throw TrackError.invalidTrackState("Unknown RTCMediaStreamTrackState: \(rtcState)")
-        }
-    }
-
-    static func stateFromRTCDataChannelState(rtcState: RTCDataChannelState) throws -> Track.State {
-        switch rtcState {
-        case .connecting, .open:
-            return .live
-        case .closing, .closed:
-            return .ended
-        @unknown default:
-            throw TrackError.invalidTrackState("Unknown RTCDataChannelState: \(rtcState)")
-        }
-    }
-
     static func fromProtoKind(_ pkind: Livekit_TrackType) -> Track.Kind {
         switch pkind {
         case .audio:
             return .audio
         case .video:
             return .video
-        case .data:
-            return .data
         default:
             return .none
         }
     }
 
-    public enum Priority {
-        case standard, high, low
-    }
-
-    public enum State {
-        case ended, live, none
-    }
-
     public enum Kind {
-        case audio, video, data, none
+        case audio, video, none
 
         func toProto() -> Livekit_TrackType {
             switch self {
@@ -70,8 +38,6 @@ public class Track {
                 return .audio
             case .video:
                 return .video
-            case .data:
-                return .data
             default:
                 return .UNRECOGNIZED(10)
             }
@@ -79,17 +45,17 @@ public class Track {
     }
 
     public internal(set) var name: String
-    public internal(set) var state: Track.State
     public internal(set) var sid: String?
     public internal(set) var kind: Track.Kind
+    public internal(set) var mediaTrack: RTCMediaStreamTrack
 
-    init(name: String, kind: Kind) {
+    init(name: String, kind: Kind, track: RTCMediaStreamTrack) {
         self.name = name
         self.kind = kind
-        state = .none
+        mediaTrack = track
     }
 
     public func stop() {
-        // do nothing
+        mediaTrack.isEnabled = false
     }
 }

@@ -7,8 +7,6 @@
 
 import Foundation
 
-public typealias ConnectOptionsBuilderBlock = (inout ConnectOptions) -> Void
-
 public struct ConnectOptions {
     private(set) var accessToken: String
     public var url: String

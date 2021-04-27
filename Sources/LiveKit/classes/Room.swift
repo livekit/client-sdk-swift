@@ -15,6 +15,8 @@ enum RoomError: Error {
     case missingRoomId(String)
 }
 
+// network path discovery updates multiple times, causing us to disconnect again
+// using a timer interval to ignore changes that are happening too close to each other
 let networkChangeIgnoreInterval = 15.0
 
 public class Room {
@@ -203,21 +205,16 @@ extension Room: RTCEngineDelegate {
             return
         }
 
-        let participantSid = streams[0].streamId
-        let trackSid = track.trackId
+        let unpacked = unPackStreamId(streams[0].streamId)
+        let participantSid = unpacked.participantId
+        var trackSid = unpacked.trackId
+        if trackSid == "" {
+            trackSid = track.trackId
+        }
         let participant = getOrCreateRemoteParticipant(sid: participantSid)
 
         logger.debug("added media track from: \(participantSid), sid: \(trackSid)")
         participant.addSubscribedMediaTrack(rtcTrack: track, sid: trackSid)
-    }
-
-    func didAddDataChannel(channel: RTCDataChannel) {
-        var participantSid: Participant.Sid, trackSid: String, name: String
-        (participantSid, trackSid, name) = channel.unpackedTrackLabel
-
-        logger.debug("added data track from: \(participantSid), sid: \(trackSid)")
-        let participant = getOrCreateRemoteParticipant(sid: participantSid)
-        participant.addSubscribedDataTrack(rtcTrack: channel, sid: trackSid, name: name)
     }
 
     func didUpdateParticipants(updates: [Livekit_ParticipantInfo]) {
@@ -239,6 +236,16 @@ extension Room: RTCEngineDelegate {
         }
     }
 
+    func didReceive(packet: Livekit_UserPacket, kind _: Livekit_DataPacket.Kind) {
+        guard let participant = remoteParticipants[packet.participantSid] else {
+            logger.warning("could not find participant for data packet: \(packet.participantSid)")
+            return
+        }
+
+        delegate?.didReceive(data: packet.payload, participant: participant)
+        participant.delegate?.didReceive(data: packet.payload, participant: participant)
+    }
+
     func didDisconnect(reason: String, code: UInt16) {
         var error: Error?
         if code != CloseCode.normal.rawValue {
@@ -250,4 +257,12 @@ extension Room: RTCEngineDelegate {
     func didFailToConnect(error: Error) {
         delegate?.didFailToConnect(room: self, error: error)
     }
+}
+
+func unPackStreamId(_ streamId: String) -> (participantId: String, trackId: String) {
+    let parts = streamId.split(separator: "|")
+    if parts.count == 2 {
+        return (String(parts[0]), String(parts[1]))
+    }
+    return (streamId, "")
 }

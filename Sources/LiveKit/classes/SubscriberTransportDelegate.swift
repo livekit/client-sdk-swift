@@ -23,10 +23,7 @@ class SubscriberTransportDelegate: PeerConnectionTransportDelegate, RTCPeerConne
         // do nothing
     }
 
-    func peerConnection(_: RTCPeerConnection, didOpen dataChannel: RTCDataChannel) {
-        engine?.delegate?.didAddDataChannel(channel: dataChannel)
-    }
-
+    func peerConnection(_: RTCPeerConnection, didOpen _: RTCDataChannel) {}
     func peerConnection(_: RTCPeerConnection, didChange _: RTCSignalingState) {}
     func peerConnection(_: RTCPeerConnection, didAdd _: RTCMediaStream) {}
     func peerConnection(_: RTCPeerConnection, didRemove _: RTCMediaStream) {}

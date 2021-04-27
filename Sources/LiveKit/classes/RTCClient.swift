@@ -17,6 +17,8 @@ enum RTCClientError: Error {
     case socketDisconnected
 }
 
+let PROTOCOL_VERSION = 2
+
 class RTCClient {
     private(set) var isConnected: Bool = false
     private var socket: WebSocket?
@@ -58,7 +60,7 @@ class RTCClient {
         let url = options.url
         let token = options.accessToken
 
-        var wsUrlString = "\(url)/rtc?access_token=\(token)"
+        var wsUrlString = "\(url)/rtc?access_token=\(token)&protocol=\(PROTOCOL_VERSION)"
         if options.reconnect != nil, options.reconnect! {
             wsUrlString += "&reconnect=1"
             reconnecting = true

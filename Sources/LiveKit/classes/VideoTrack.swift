@@ -8,14 +8,13 @@
 import Foundation
 import WebRTC
 
-public class VideoTrack: MediaTrack {
+public class VideoTrack: Track {
     var videoTrack: RTCVideoTrack {
         get { return mediaTrack as! RTCVideoTrack }
         set { mediaTrack = newValue }
     }
 
     init(rtcTrack: RTCVideoTrack, name: String) {
-//        let state = try! Track.stateFromRTCMediaTrackState(rtcState: rtcTrack.readyState)
         super.init(name: name, kind: .video, track: rtcTrack)
     }
 

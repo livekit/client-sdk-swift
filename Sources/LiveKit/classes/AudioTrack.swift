@@ -8,7 +8,7 @@
 import Foundation
 import WebRTC
 
-public class AudioTrack: MediaTrack {
+public class AudioTrack: Track {
     public private(set) var sinks: [AudioSink]?
     var audioTrack: RTCAudioTrack {
         get { return mediaTrack as! RTCAudioTrack }
@@ -16,7 +16,6 @@ public class AudioTrack: MediaTrack {
     }
 
     init(rtcTrack: RTCAudioTrack, name: String) {
-//        let state = try! Track.stateFromRTCMediaTrackState(rtcState: rtcTrack.readyState)
         super.init(name: name, kind: .audio, track: rtcTrack)
     }
 
