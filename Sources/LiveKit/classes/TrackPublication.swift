@@ -1,6 +1,6 @@
 //
 //  File.swift
-//  
+//
 //
 //  Created by Russell D'Sa on 12/15/20.
 //
@@ -13,13 +13,11 @@ public class TrackPublication {
     public private(set) var sid: String
     public private(set) var kind: Track.Kind
     public internal(set) var muted: Bool
-    
+
     weak var participant: Participant?
-    
-    public var subscribed: Bool {
-        get { return track != nil }
-    }
-    
+
+    public var subscribed: Bool { return track != nil }
+
     init(info: Livekit_TrackInfo, track: Track? = nil, participant: Participant? = nil) {
         sid = info.sid
         name = info.name
@@ -28,7 +26,7 @@ public class TrackPublication {
         self.track = track
         self.participant = participant
     }
-    
+
     func updateFromInfo(info: Livekit_TrackInfo) {
         // only muted and name can conceivably update
         name = info.name

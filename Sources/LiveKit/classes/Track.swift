@@ -1,6 +1,6 @@
 //
 //  File.swift
-//  
+//
 //
 //  Created by Russell D'Sa on 12/15/20.
 //
@@ -17,7 +17,7 @@ enum TrackError: Error {
     case unpublishError(String)
 }
 
-public class Track {    
+public class Track {
     static func stateFromRTCMediaTrackState(rtcState: RTCMediaStreamTrackState) throws -> Track.State {
         switch rtcState {
         case .ended:
@@ -28,7 +28,7 @@ public class Track {
             throw TrackError.invalidTrackState("Unknown RTCMediaStreamTrackState: \(rtcState)")
         }
     }
-    
+
     static func stateFromRTCDataChannelState(rtcState: RTCDataChannelState) throws -> Track.State {
         switch rtcState {
         case .connecting, .open:
@@ -39,7 +39,7 @@ public class Track {
             throw TrackError.invalidTrackState("Unknown RTCDataChannelState: \(rtcState)")
         }
     }
-    
+
     static func fromProtoKind(_ pkind: Livekit_TrackType) -> Track.Kind {
         switch pkind {
         case .audio:
@@ -52,18 +52,18 @@ public class Track {
             return .none
         }
     }
-    
+
     public enum Priority {
         case standard, high, low
     }
-    
+
     public enum State {
         case ended, live, none
     }
-    
+
     public enum Kind {
         case audio, video, data, none
-        
+
         func toProto() -> Livekit_TrackType {
             switch self {
             case .audio:
@@ -82,13 +82,13 @@ public class Track {
     public internal(set) var state: Track.State
     public internal(set) var sid: String?
     public internal(set) var kind: Track.Kind
-    
+
     init(name: String, kind: Kind) {
         self.name = name
         self.kind = kind
-        self.state = .none
+        state = .none
     }
-    
+
     public func stop() {
         // do nothing
     }

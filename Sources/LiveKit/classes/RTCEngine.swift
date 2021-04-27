@@ -1,13 +1,13 @@
 //
 //  File.swift
-//  
+//
 //
 //  Created by Russell D'Sa on 12/4/20.
 //
 
 import Foundation
-import WebRTC
 import Promises
+import WebRTC
 
 let maxWSRetries = 5
 
@@ -17,7 +17,7 @@ class RTCEngine {
     var publisherDelegate: PublisherTransportDelegate
     var subscriberDelegate: SubscriberTransportDelegate
     var client: RTCClient
-    
+
     var rtcConnected: Bool = false
     var iceConnected: Bool = false {
         didSet {
@@ -34,51 +34,51 @@ class RTCEngine {
             }
         }
     }
+
     var wsRetries: Int = 0
     var wsReconnectTask: DispatchWorkItem?
-        
+
     private var pendingTrackResolvers: [String: Promise<Livekit_TrackInfo>] = [:]
-    
+
     static var offerConstraints = RTCMediaConstraints(mandatoryConstraints: [
         kRTCMediaConstraintsOfferToReceiveAudio: kRTCMediaConstraintsValueFalse,
-        kRTCMediaConstraintsOfferToReceiveVideo: kRTCMediaConstraintsValueFalse
+        kRTCMediaConstraintsOfferToReceiveVideo: kRTCMediaConstraintsValueFalse,
     ], optionalConstraints: nil)
 
     static var mediaConstraints = RTCMediaConstraints(mandatoryConstraints: nil,
-                                                       optionalConstraints: nil)
+                                                      optionalConstraints: nil)
 
     static var connConstraints = RTCMediaConstraints(mandatoryConstraints: nil,
-                                                      optionalConstraints: ["DtlsSrtpKeyAgreement": kRTCMediaConstraintsValueTrue])
-    
+                                                     optionalConstraints: ["DtlsSrtpKeyAgreement": kRTCMediaConstraintsValueTrue])
+
     static let factory: RTCPeerConnectionFactory = {
         RTCInitializeSSL()
         var encoderFactory = RTCDefaultVideoEncoderFactory()
         var decoderFactory = RTCDefaultVideoDecoderFactory()
         return RTCPeerConnectionFactory(encoderFactory: encoderFactory, decoderFactory: decoderFactory)
     }()
-    
+
     static let defaultIceServers = ["stun:stun.l.google.com:19302",
                                     "stun:stun1.l.google.com:19302",
                                     "stun:stun2.l.google.com:19302",
                                     "stun:stun3.l.google.com:19302",
                                     "stun:stun4.l.google.com:19302"]
-    
-    
+
     private static let privateDataChannelLabel = "_private"
     var privateDataChannel: RTCDataChannel?
-    
+
     weak var delegate: RTCEngineDelegate?
-    
+
     init(client: RTCClient) {
         self.client = client
         publisherDelegate = PublisherTransportDelegate()
         subscriberDelegate = SubscriberTransportDelegate()
-        
+
         publisherDelegate.engine = self
         subscriberDelegate.engine = self
         client.delegate = self
     }
-    
+
     func join(options: ConnectOptions) {
         client.join(options: options)
         wsReconnectTask = DispatchWorkItem {
@@ -91,31 +91,31 @@ class RTCEngine {
             self.client.join(options: reconnectOptions)
         }
     }
-    
+
     func addTrack(cid: String, name: String, kind: Livekit_TrackType) throws -> Promise<Livekit_TrackInfo> {
         if pendingTrackResolvers[cid] != nil {
             throw TrackError.duplicateTrack("Track with the same ID (\(cid)) has already been published!")
         }
-        
+
         let promise = Promise<Livekit_TrackInfo>.pending()
         pendingTrackResolvers[cid] = promise
-        self.client.sendAddTrack(cid: cid, name: name, type: kind)
+        client.sendAddTrack(cid: cid, name: name, type: kind)
         return promise
     }
-    
+
     func updateMuteStatus(trackSid: String, muted: Bool) {
-        self.client.sendMuteTrack(trackSid: trackSid, muted: muted)
+        client.sendMuteTrack(trackSid: trackSid, muted: muted)
     }
-    
+
     func close() {
         publisher?.close()
         subscriber?.close()
         client.close()
         rtcConnected = false
     }
-    
+
     func negotiate() {
-        publisher?.peerConnection.offer(for: RTCEngine.offerConstraints, completionHandler: { (offer, error) in
+        publisher?.peerConnection.offer(for: RTCEngine.offerConstraints, completionHandler: { offer, error in
             guard error == nil else {
                 logger.error("could not create offer: \(error!)")
                 return
@@ -133,7 +133,7 @@ class RTCEngine {
             })
         })
     }
-    
+
     func reconnect() {
         if wsRetries >= maxWSRetries {
             logger.error("could not connect to signal after \(wsRetries) attempts, giving up")
@@ -141,20 +141,20 @@ class RTCEngine {
             delegate?.didDisconnect()
             return
         }
-        
-        if iceConnected && wsReconnectTask != nil {
-            var delay = Double(wsRetries^2) * 0.5
+
+        if iceConnected, wsReconnectTask != nil {
+            var delay = Double(wsRetries ^ 2) * 0.5
             if delay > 5 {
                 delay = 5
             }
             DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: wsReconnectTask!)
         }
     }
-    
+
     private func onRTCConnected() {
         rtcConnected = true
     }
-    
+
     private func handleSignalDisconnect() {
         wsRetries += 1
         reconnect()
@@ -165,21 +165,20 @@ extension RTCEngine: RTCClientDelegate {
     func onActiveSpeakersChanged(speakers: [Livekit_SpeakerInfo]) {
         delegate?.didUpdateSpeakers(speakers: speakers)
     }
-    
+
     func onReconnect() {
         logger.info("reconnect success, restarting ICE")
         wsRetries = 0
-        
+
         // trigger ICE restart
-        self.publisher?.peerConnection.restartIce()
-        if let sub = self.subscriber {
+        publisher?.peerConnection.restartIce()
+        if let sub = subscriber {
             if sub.peerConnection.connectionState == .connected {
                 sub.peerConnection.restartIce()
             }
         }
-        return
     }
-    
+
     func onJoin(info: Livekit_JoinResponse) {
         // create publisher and subscribers
         let config = RTCConfiguration()
@@ -196,7 +195,7 @@ extension RTCEngine: RTCClientDelegate {
             config.iceServers.append(RTCIceServer(urlStrings: s.urls, username: username, credential: credential))
             logger.debug("ICE servers: \(s.urls)")
         }
-        
+
         if config.iceServers.count == 0 {
             config.iceServers = [RTCIceServer(urlStrings: RTCEngine.defaultIceServers)]
         }
@@ -206,15 +205,15 @@ extension RTCEngine: RTCClientDelegate {
         config.candidateNetworkPolicy = .all
         config.tcpCandidatePolicy = .enabled
         config.iceTransportPolicy = .all
-        
+
         publisher = PeerConnectionTransport(config: config, delegate: publisherDelegate)
         subscriber = PeerConnectionTransport(config: config, delegate: subscriberDelegate)
-        
+
         /* always have a blank data channel, to ensure there isn't an empty ice-ufrag */
         privateDataChannel = publisher!.peerConnection.dataChannel(forLabel: RTCEngine.privateDataChannelLabel,
                                                                    configuration: RTCDataChannelConfiguration())
-        
-        publisher!.peerConnection.offer(for: RTCEngine.offerConstraints, completionHandler: { (sdp, error) in
+
+        publisher!.peerConnection.offer(for: RTCEngine.offerConstraints, completionHandler: { sdp, error in
             guard error == nil else {
                 logger.error("could not create publisher offer: \(error!)")
                 return
@@ -231,10 +230,10 @@ extension RTCEngine: RTCClientDelegate {
                 self.client.sendOffer(offer: desc)
             })
         })
-        
+
         delegate?.didJoin(response: info)
     }
-    
+
     func onAnswer(sessionDescription: RTCSessionDescription) {
         guard let publisher = self.publisher else {
             return
@@ -251,7 +250,7 @@ extension RTCEngine: RTCClientDelegate {
             logger.debug("successfully set remote desc")
         }
     }
-    
+
     func onTrickle(candidate: RTCIceCandidate, target: Livekit_SignalTarget) {
         if target == .publisher {
             publisher?.addIceCandidate(candidate: candidate)
@@ -259,19 +258,19 @@ extension RTCEngine: RTCClientDelegate {
             subscriber?.addIceCandidate(candidate: candidate)
         }
     }
-    
+
     func onOffer(sessionDescription: RTCSessionDescription) {
         guard let subscriber = self.subscriber else {
             return
         }
-        
+
         logger.debug("handling server offer")
         subscriber.setRemoteDescription(sessionDescription, completionHandler: { error in
             guard error == nil else {
                 logger.error("error setting subscriber remote description for offer: \(error!)")
                 return
             }
-            subscriber.peerConnection.answer(for: RTCEngine.offerConstraints, completionHandler: { (answer, error) in
+            subscriber.peerConnection.answer(for: RTCEngine.offerConstraints, completionHandler: { answer, error in
                 guard error == nil else {
                     logger.error("error answering subscriber: \(error!)")
                     return
@@ -291,11 +290,11 @@ extension RTCEngine: RTCClientDelegate {
             })
         })
     }
-    
+
     func onParticipantUpdate(updates: [Livekit_ParticipantInfo]) {
         delegate?.didUpdateParticipants(updates: updates)
     }
-    
+
     func onLocalTrackPublished(trackPublished: Livekit_TrackPublishedResponse) {
         logger.debug("received track published confirmation for: \(trackPublished.track.sid)")
         guard let promise = pendingTrackResolvers.removeValue(forKey: trackPublished.cid) else {
@@ -304,7 +303,7 @@ extension RTCEngine: RTCClientDelegate {
         }
         promise.fulfill(trackPublished.track)
     }
-    
+
     func onLeave() {
         close()
         delegate?.didDisconnect()
@@ -314,7 +313,7 @@ extension RTCEngine: RTCClientDelegate {
         logger.debug("signal connection closed with code: \(code), reason: \(reason)")
         handleSignalDisconnect()
     }
-    
+
     func onError(error: Error) {
         logger.debug("signal connection error: \(error)")
         delegate?.didFailToConnect(error: error)

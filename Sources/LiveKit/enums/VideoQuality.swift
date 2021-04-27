@@ -1,6 +1,6 @@
 //
 //  File.swift
-//  
+//
 //
 //  Created by David Zhao on 3/26/21.
 //
@@ -11,7 +11,7 @@ public enum VideoQuality {
     case low
     case medium
     case high
-    
+
     internal func toProto() -> Livekit_VideoQuality {
         switch self {
         case .low:

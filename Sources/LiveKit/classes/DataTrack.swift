@@ -1,6 +1,6 @@
 //
 //  File.swift
-//  
+//
 //
 //  Created by Russell D'Sa on 12/30/20.
 //
@@ -10,17 +10,13 @@ import WebRTC
 
 public class DataTrack: Track {
     var dataChannel: RTCDataChannel?
-    
-    public var ordered: Bool? {
-        get { dataChannel?.isOrdered }
-    }
-    public var maxPacketLifeTime: UInt16? {
-        get { dataChannel?.maxPacketLifeTime }
-    }
-    public var maxRetransmits: UInt16? {
-        get { dataChannel?.maxRetransmits }
-    }
-    
+
+    public var ordered: Bool? { dataChannel?.isOrdered }
+
+    public var maxPacketLifeTime: UInt16? { dataChannel?.maxPacketLifeTime }
+
+    public var maxRetransmits: UInt16? { dataChannel?.maxRetransmits }
+
     init(name: String, dataChannel: RTCDataChannel?) {
 //        var state: Track.State = .none
 //

@@ -1,14 +1,14 @@
 import Foundation
-import Promises
 import Logging
+import Promises
 import WebRTC
 
 let logger = Logger(label: "io.livekit.ios")
 
-public struct LiveKit {
+public enum LiveKit {
     static let queue = DispatchQueue(label: "lk_queue")
     static var audioConfigured: Bool = false
-    
+
     public static func connect(options: ConnectOptions, delegate: RoomDelegate? = nil) -> Room {
         if !audioConfigured {
             do {
@@ -22,20 +22,21 @@ public struct LiveKit {
         room.connect()
         return room
     }
-    
+
     /// configures the current audio session.
     ///
     /// by default, LiveKit configures to .playback which doesn't require microphone permissions until when the user publishes their first track
     public static func configureAudioSession(category: AVAudioSession.Category = .playAndRecord,
                                              mode: AVAudioSession.Mode = .voiceChat,
                                              policy: AVAudioSession.RouteSharingPolicy = .default,
-                                             options: AVAudioSession.CategoryOptions? = nil) throws {
-    // for now, use playAndRecord since WebRTC does not support this yet.
+                                             options: AVAudioSession.CategoryOptions? = nil) throws
+    {
+        // for now, use playAndRecord since WebRTC does not support this yet.
 //    public static func configureAudioSession(category: AVAudioSession.Category = .playback,
 //                                             mode: AVAudioSession.Mode = .videoChat,
 //                                             policy: AVAudioSession.RouteSharingPolicy = .longFormAudio,
 //                                             options: AVAudioSession.CategoryOptions? = nil) throws {
-        
+
         // validate policy
         var validPolicy = policy
         if category == .playAndRecord {
@@ -43,7 +44,7 @@ public struct LiveKit {
                 validPolicy = .default
             }
         }
-        
+
         // validate options
         var validOptions: AVAudioSession.CategoryOptions
         if options != nil {
@@ -53,13 +54,13 @@ public struct LiveKit {
         } else {
             validOptions = []
         }
-        
+
         if category != .playAndRecord {
             validOptions.remove(.defaultToSpeaker)
             validOptions.remove(.allowBluetooth)
             validOptions.remove(.allowAirPlay)
         }
-        
+
         // WebRTC will initialize it according to what they need, so we have to change the default template
         let audioConfig = RTCAudioSessionConfiguration.webRTC()
         audioConfig.category = category.rawValue
