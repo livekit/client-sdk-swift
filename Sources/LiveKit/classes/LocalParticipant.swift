@@ -148,7 +148,7 @@ public class LocalParticipant: Participant {
     /// publish data to the other participants in the room
     ///
     /// Data is forwarded to each participant in the room. Each payload must not exceed 15k.
-    /// 
+    ///
     /// For data that you need delivery guarantee (such as chat messages), use Reliable.
     /// For data that should arrive as quickly as possible, but you are ok with dropped packets, use Lossy.
     public func publishData(data: Data, reliability: DataPublishReliability) throws {

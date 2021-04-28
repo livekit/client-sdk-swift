@@ -51,8 +51,10 @@ public class Room {
                 return
             }
 
+            // In iOS 14.4, this update is sent multiple times during a connection change
+            // ICE restarts are expensive and error prone (due to renegotiation)
+            // We'll ignore frequent updates
             let currTime = Date().timeIntervalSince1970
-            // ICE restarts are expensive, skip frequent changes
             if currTime - self.lastPathUpdate < networkChangeIgnoreInterval {
                 logger.debug("skipping duplicate network update")
                 return
@@ -60,7 +62,7 @@ public class Room {
             // trigger reconnect
             if self.state == .connected {
                 logger.info("network path changed, starting engine reconnect")
-                self.engine.reconnect()
+                self.reconnect()
             }
             self.prevPath = path
             self.lastPathUpdate = currTime
@@ -74,14 +76,25 @@ public class Room {
             return
         }
 
+        state = .connecting
         monitor.start(queue: monitorQueue)
         engine.join(options: connectOptions)
     }
 
     public func disconnect() {
+        state = .disconnected
         engine.client.sendLeave()
         engine.close()
         handleDisconnect()
+    }
+
+    func reconnect() {
+        if state == .reconnecting {
+            return
+        }
+        state = .reconnecting
+        engine.reconnect()
+        delegate?.isReconnecting(room: self)
     }
 
     private func handleParticipantDisconnect(sid: Participant.Sid, participant: RemoteParticipant) {
@@ -197,6 +210,11 @@ extension Room: RTCEngineDelegate {
     func ICEDidConnect() {
         state = .connected
         delegate?.didConnect(room: self)
+    }
+
+    func ICEDidReconnect() {
+        state = .connected
+        delegate?.didReconnect(room: self)
     }
 
     func didAddTrack(track: RTCMediaStreamTrack, streams: [RTCMediaStream]) {

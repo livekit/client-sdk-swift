@@ -26,9 +26,9 @@ class PublisherTransportDelegate: PeerConnectionTransportDelegate, RTCPeerConnec
         }
         logger.debug("publisher ICE status: \(peerConnection.iceConnectionState.rawValue)")
         if peerConnection.iceConnectionState == .connected {
-            eng.iceConnected = true
+            eng.iceState = .connected
         } else if peerConnection.iceConnectionState == .failed {
-            eng.iceConnected = false
+            eng.iceState = .disconnected
         }
     }
 

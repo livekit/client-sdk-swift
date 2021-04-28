@@ -27,10 +27,11 @@ public protocol RoomDelegate {
     /// When a RemoteParticipant leaves after the local participant has joined.
     func participantDidDisconnect(room: Room, participant: RemoteParticipant)
 
-    // TODO:
-    func isReconnecting(room: Room, error: Error)
+    /// When a network change has been detected and LiveKit attempts to reconnect to the room
+    /// When reconnect attempts succeed, the room state will be kept, including tracks that are subscribed/published
+    func isReconnecting(room: Room)
 
-    // TODO:
+    /// When a reconnect attempt had been successful
     func didReconnect(room: Room)
 
     /// Active speakers changed.
@@ -87,7 +88,7 @@ public protocol RoomDelegate {
 public extension RoomDelegate {
     func participantDidConnect(room _: Room, participant _: RemoteParticipant) {}
     func participantDidDisconnect(room _: Room, participant _: RemoteParticipant) {}
-    func isReconnecting(room _: Room, error _: Error) {}
+    func isReconnecting(room _: Room) {}
     func didReconnect(room _: Room) {}
     func activeSpeakersDidChange(speakers _: [Participant], room _: Room) {}
     func metadataDidChange(participant _: Participant) {}

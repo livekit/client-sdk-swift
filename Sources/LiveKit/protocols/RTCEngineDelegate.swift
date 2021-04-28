@@ -11,6 +11,7 @@ import WebRTC
 protocol RTCEngineDelegate: AnyObject {
     func didJoin(response: Livekit_JoinResponse)
     func ICEDidConnect()
+    func ICEDidReconnect()
     func didAddTrack(track: RTCMediaStreamTrack, streams: [RTCMediaStream])
     func didUpdateParticipants(updates: [Livekit_ParticipantInfo])
     func didUpdateSpeakers(speakers: [Livekit_SpeakerInfo])

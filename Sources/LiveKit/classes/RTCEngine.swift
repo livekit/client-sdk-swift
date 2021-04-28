@@ -14,6 +14,12 @@ let reliableDataChannelLabel = "_reliable"
 let lossyDataChannelLabel = "_lossy"
 let maxDataPacketSize = 15000
 
+enum ICEState {
+    case disconnected
+    case connected
+    case reconnecting
+}
+
 class RTCEngine: NSObject {
     static var offerConstraints = RTCMediaConstraints(mandatoryConstraints: [
         kRTCMediaConstraintsOfferToReceiveAudio: kRTCMediaConstraintsValueFalse,
@@ -45,18 +51,26 @@ class RTCEngine: NSObject {
     var lossyDC: RTCDataChannel?
 
     var rtcConnected: Bool = false
-    var iceConnected: Bool = false {
+    var iceState: ICEState = .disconnected {
         didSet {
-            if oldValue == iceConnected {
+            if oldValue == iceState {
                 return
             }
-            if iceConnected {
-                logger.info("publisher ICE connected")
-                delegate?.ICEDidConnect()
-            } else {
+            switch iceState {
+            case .connected:
+                if oldValue == .disconnected {
+                    logger.debug("publisher ICE connected")
+                    delegate?.ICEDidConnect()
+                } else if oldValue == .reconnecting {
+                    logger.debug("publisher ICE reconnected")
+                    delegate?.ICEDidReconnect()
+                }
+            case .disconnected:
                 logger.info("publisher ICE disconnected")
                 close()
                 delegate?.didDisconnect()
+            default:
+                break
             }
         }
     }
@@ -82,7 +96,7 @@ class RTCEngine: NSObject {
     func join(options: ConnectOptions) {
         client.join(options: options)
         wsReconnectTask = DispatchWorkItem {
-            guard self.iceConnected else {
+            guard self.iceState != .disconnected else {
                 return
             }
             logger.info("reconnecting to signal connection, attempt \(self.wsRetries)")
@@ -142,7 +156,7 @@ class RTCEngine: NSObject {
             return
         }
 
-        if iceConnected, wsReconnectTask != nil {
+        if iceState != .disconnected, wsReconnectTask != nil {
             var delay = Double(wsRetries ^ 2) * 0.5
             if delay > 5 {
                 delay = 5
@@ -171,12 +185,8 @@ extension RTCEngine: RTCClientDelegate {
         wsRetries = 0
 
         // trigger ICE restart
+        iceState = .reconnecting
         publisher?.peerConnection.restartIce()
-        if let sub = subscriber {
-            if sub.peerConnection.connectionState == .connected {
-                sub.peerConnection.restartIce()
-            }
-        }
     }
 
     func onJoin(info: Livekit_JoinResponse) {
@@ -256,6 +266,12 @@ extension RTCEngine: RTCClientDelegate {
                 self.onRTCConnected()
             }
             logger.debug("successfully set remote desc")
+
+            // when reconnecting, PeerConnection does not always recognize it's disconnected
+            // as a workaround, we'll set it to be reconnected here
+            if self.iceState == .reconnecting {
+                self.iceState = .connected
+            }
         }
     }
 
