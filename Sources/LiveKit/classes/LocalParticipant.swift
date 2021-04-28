@@ -147,15 +147,16 @@ public class LocalParticipant: Participant {
 
     /// publish data to the other participants in the room
     ///
-    /// Data is forwarded to each participant in the room.
+    /// Data is forwarded to each participant in the room. Each payload must not exceed 15k.
+    /// 
     /// For data that you need delivery guarantee (such as chat messages), use Reliable.
     /// For data that should arrive as quickly as possible, but you are ok with dropped packets, use Lossy.
-    public func publishData(data: Data, option: DataPublishOption) throws {
+    public func publishData(data: Data, reliability: DataPublishReliability) throws {
         if data.count > maxDataPacketSize {
             throw TrackError.publishError("could not publish data more than \(maxDataPacketSize)")
         }
 
-        let kind = Livekit_DataPacket.Kind(rawValue: option.rawValue)
+        let kind = Livekit_DataPacket.Kind(rawValue: reliability.rawValue)
         var channel: RTCDataChannel? = engine?.reliableDC
         if kind == .lossy {
             channel = engine?.lossyDC
