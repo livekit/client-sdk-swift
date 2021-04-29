@@ -82,7 +82,6 @@ public class Room {
     }
 
     public func disconnect() {
-        state = .disconnected
         engine.client.sendLeave()
         engine.close()
         handleDisconnect()
@@ -179,6 +178,8 @@ public class Room {
         activeSpeakers.removeAll()
         monitor.cancel()
         delegate?.didDisconnect(room: self, error: nil)
+        // should be the only call from delegate, room is done
+        delegate = nil
     }
 }
 
