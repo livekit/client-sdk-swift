@@ -12,27 +12,33 @@ import WebRTC
 
 public class VideoView: UIView {
     var size: CGSize = .zero
-    public private(set) var renderer: RTCVideoRenderer?
+    public private(set) var renderer: RTCVideoRenderer
 
     required init?(coder decoder: NSCoder) {
+        #if arch(arm64)
+            let view = RTCMTLVideoView()
+            view.videoContentMode = .scaleAspectFill
+            renderer = view
+        #else
+            let view = RTCEAGLVideoView()
+            renderer = view
+        #endif
         super.init(coder: decoder)
     }
 
     override public init(frame: CGRect) {
-        super.init(frame: frame)
-        backgroundColor = .black
-
         #if arch(arm64)
             let view = RTCMTLVideoView(frame: frame)
             view.videoContentMode = .scaleAspectFill
-            view.delegate = self
             renderer = view
         #else
             let view = RTCEAGLVideoView(frame: frame)
-            view.delegate = self
             renderer = view
         #endif
 
+        super.init(frame: frame)
+        backgroundColor = .black
+        view.delegate = self
         let rendererView = renderer as! UIView
         rendererView.translatesAutoresizingMaskIntoConstraints = false
         addSubview(rendererView)
