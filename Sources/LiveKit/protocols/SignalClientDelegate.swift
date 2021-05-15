@@ -8,7 +8,7 @@
 import Foundation
 import WebRTC
 
-protocol RTCClientDelegate: AnyObject {
+protocol SignalClientDelegate: AnyObject {
     func onJoin(info: Livekit_JoinResponse)
     func onReconnect()
     func onAnswer(sessionDescription: RTCSessionDescription)

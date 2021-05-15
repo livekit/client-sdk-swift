@@ -42,7 +42,7 @@ public class Room {
 
         monitor = NWPathMonitor()
         monitorQueue = DispatchQueue(label: "networkMonitor", qos: .background)
-        engine = RTCEngine(client: RTCClient())
+        engine = RTCEngine(client: SignalClient())
 
         monitor.pathUpdateHandler = { path in
             if self.prevPath == nil || path.status != .satisfied {

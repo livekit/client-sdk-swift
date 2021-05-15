@@ -18,9 +18,9 @@ enum RTCClientError: Error {
 
 let PROTOCOL_VERSION = 2
 
-class RTCClient : NSObject {
+class SignalClient : NSObject {
     private(set) var isConnected: Bool = false
-    weak var delegate: RTCClientDelegate?
+    weak var delegate: SignalClientDelegate?
     private var reconnecting: Bool = false
     private var urlSession: URLSession?
     private var webSocket: URLSessionWebSocketTask?
@@ -82,14 +82,14 @@ class RTCClient : NSObject {
 
     func sendOffer(offer: RTCSessionDescription) {
         logger.debug("sending offer")
-        let sessionDescription = try! RTCClient.toProtoSessionDescription(sdp: offer)
+        let sessionDescription = try! SignalClient.toProtoSessionDescription(sdp: offer)
         var req = Livekit_SignalRequest()
         req.offer = sessionDescription
         sendRequest(req: req)
     }
 
     func sendAnswer(answer: RTCSessionDescription) {
-        let sessionDescription = try! RTCClient.toProtoSessionDescription(sdp: answer)
+        let sessionDescription = try! SignalClient.toProtoSessionDescription(sdp: answer)
         var req = Livekit_SignalRequest()
         req.answer = sessionDescription
         sendRequest(req: req)
@@ -192,11 +192,11 @@ class RTCClient : NSObject {
         }
         switch msg {
         case let .answer(sd):
-            let sdp = try! RTCClient.fromProtoSessionDescription(sd: sd)
+            let sdp = try! SignalClient.fromProtoSessionDescription(sd: sd)
             delegate?.onAnswer(sessionDescription: sdp)
 
         case let .offer(sd):
-            let sdp = try! RTCClient.fromProtoSessionDescription(sd: sd)
+            let sdp = try! SignalClient.fromProtoSessionDescription(sd: sd)
             delegate?.onOffer(sessionDescription: sdp)
 
         case let .trickle(trickle):
@@ -274,7 +274,7 @@ class RTCClient : NSObject {
 
 }
 
-extension RTCClient: URLSessionWebSocketDelegate {
+extension SignalClient: URLSessionWebSocketDelegate {
     func urlSession(_ session: URLSession, webSocketTask: URLSessionWebSocketTask, didOpenWithProtocol protocol: String?) {
         guard webSocketTask == webSocket else {
             return

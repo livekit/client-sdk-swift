@@ -46,7 +46,7 @@ class RTCEngine: NSObject {
     var subscriber: PeerConnectionTransport?
     var publisherDelegate: PublisherTransportDelegate
     var subscriberDelegate: SubscriberTransportDelegate
-    var client: RTCClient
+    var client: SignalClient
     var reliableDC: RTCDataChannel?
     var lossyDC: RTCDataChannel?
 
@@ -81,7 +81,7 @@ class RTCEngine: NSObject {
 
     weak var delegate: RTCEngineDelegate?
 
-    init(client: RTCClient) {
+    init(client: SignalClient) {
         self.client = client
         publisherDelegate = PublisherTransportDelegate()
         subscriberDelegate = SubscriberTransportDelegate()
@@ -178,7 +178,7 @@ class RTCEngine: NSObject {
     }
 }
 
-extension RTCEngine: RTCClientDelegate {
+extension RTCEngine: SignalClientDelegate {
     func onActiveSpeakersChanged(speakers: [Livekit_SpeakerInfo]) {
         delegate?.didUpdateSpeakers(speakers: speakers)
     }
