@@ -14,7 +14,7 @@ class PublisherTransportDelegate: PeerConnectionTransportDelegate, RTCPeerConnec
     }
 
     func peerConnectionShouldNegotiate(_: RTCPeerConnection) {
-        guard engine != nil, engine!.rtcConnected else {
+        guard engine != nil, engine?.publisher?.peerConnection.remoteDescription != nil else {
             return
         }
         engine?.negotiate()

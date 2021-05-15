@@ -50,7 +50,6 @@ class RTCEngine: NSObject {
     var reliableDC: RTCDataChannel?
     var lossyDC: RTCDataChannel?
 
-    var rtcConnected: Bool = false
     var iceState: ICEState = .disconnected {
         didSet {
             if oldValue == iceState {
@@ -125,11 +124,19 @@ class RTCEngine: NSObject {
         publisher?.close()
         subscriber?.close()
         client.close()
-        rtcConnected = false
     }
 
     func negotiate() {
-        publisher?.peerConnection.offer(for: RTCEngine.offerConstraints, completionHandler: { offer, error in
+        var constraints = [
+            kRTCMediaConstraintsOfferToReceiveAudio: kRTCMediaConstraintsValueFalse,
+            kRTCMediaConstraintsOfferToReceiveVideo: kRTCMediaConstraintsValueFalse,
+        ]
+        if iceState == .reconnecting {
+            constraints[kRTCMediaConstraintsIceRestart] = kRTCMediaConstraintsValueTrue
+        }
+        let mediaConstraints = RTCMediaConstraints(mandatoryConstraints: constraints, optionalConstraints: nil)
+        
+        publisher?.peerConnection.offer(for: mediaConstraints, completionHandler: { offer, error in
             guard error == nil else {
                 logger.error("could not create offer: \(error!)")
                 return
@@ -165,10 +172,6 @@ class RTCEngine: NSObject {
         }
     }
 
-    private func onRTCConnected() {
-        rtcConnected = true
-    }
-
     private func handleSignalDisconnect() {
         wsRetries += 1
         reconnect()
@@ -181,12 +184,31 @@ extension RTCEngine: RTCClientDelegate {
     }
 
     func onReconnect() {
-        logger.info("reconnect success, restarting ICE")
+        logger.info("signal reconnect success")
         wsRetries = 0
+        
+        guard let publisher = self.publisher else {
+            return
+        }
 
         // trigger ICE restart
         iceState = .reconnecting
-        publisher?.peerConnection.restartIce()
+        // if publisher is waiting for an answer from right now, it most likely got lost, we'll
+        // reset signal state to allow it to continue
+        if let desc = publisher.peerConnection.remoteDescription,
+           publisher.peerConnection.signalingState == .haveLocalOffer {
+            logger.debug("have local offer but recovering to restart ICE")
+            publisher.setRemoteDescription(desc) { error in
+                if error != nil {
+                    logger.error("could not set restart ICE: \(error!)")
+                    return
+                }
+                publisher.peerConnection.restartIce()
+            }
+        } else {
+            logger.debug("restarting ICE")
+            publisher.peerConnection.restartIce()
+        }
     }
 
     func onJoin(info: Livekit_JoinResponse) {
@@ -231,24 +253,7 @@ extension RTCEngine: RTCClientDelegate {
                                                         configuration: lossyConfig)
         lossyDC?.delegate = self
 
-        publisher!.peerConnection.offer(for: RTCEngine.offerConstraints, completionHandler: { sdp, error in
-            guard error == nil else {
-                logger.error("could not create publisher offer: \(error!)")
-                return
-            }
-            guard let desc = sdp else {
-                logger.error("could not find sdp in publisher offer")
-                return
-            }
-            self.publisher!.peerConnection.setLocalDescription(desc, completionHandler: { error in
-                guard error == nil else {
-                    logger.error("error setting local description: \(error!)")
-                    return
-                }
-                self.client.sendOffer(offer: desc)
-            })
-        })
-
+        negotiate()
         delegate?.didJoin(response: info)
     }
 
@@ -261,9 +266,6 @@ extension RTCEngine: RTCClientDelegate {
             guard error == nil else {
                 logger.error("error setting remote description for answer: \(error!)")
                 return
-            }
-            if !self.rtcConnected {
-                self.onRTCConnected()
             }
             logger.debug("successfully set remote desc")
 
@@ -294,7 +296,10 @@ extension RTCEngine: RTCClientDelegate {
                 logger.error("error setting subscriber remote description for offer: \(error!)")
                 return
             }
-            subscriber.peerConnection.answer(for: RTCEngine.offerConstraints, completionHandler: { answer, error in
+            let constraints: Dictionary<String, String> = [:]
+            let mediaConstraints = RTCMediaConstraints(mandatoryConstraints: constraints,
+                                                       optionalConstraints: nil)
+            subscriber.peerConnection.answer(for: mediaConstraints, completionHandler: { answer, error in
                 guard error == nil else {
                     logger.error("error answering subscriber: \(error!)")
                     return

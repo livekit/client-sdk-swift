@@ -8,7 +8,6 @@
 import Foundation
 import Network
 import Promises
-import Starscream
 import WebRTC
 
 enum RoomError: Error {
@@ -17,7 +16,7 @@ enum RoomError: Error {
 
 // network path discovery updates multiple times, causing us to disconnect again
 // using a timer interval to ignore changes that are happening too close to each other
-let networkChangeIgnoreInterval = 15.0
+let networkChangeIgnoreInterval = 8.0
 
 public class Room {
     public typealias Sid = String
@@ -266,11 +265,7 @@ extension Room: RTCEngineDelegate {
     }
 
     func didDisconnect(reason: String, code: UInt16) {
-        var error: Error?
-        if code != CloseCode.normal.rawValue {
-            error = RTCClientError.socketError(reason, code)
-        }
-        delegate?.didDisconnect(room: self, error: error)
+        delegate?.didDisconnect(room: self, error: nil)
     }
 
     func didFailToConnect(error: Error) {

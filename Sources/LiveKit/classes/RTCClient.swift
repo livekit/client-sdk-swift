@@ -7,7 +7,6 @@
 
 import Foundation
 import Promises
-import Starscream
 import WebRTC
 
 enum RTCClientError: Error {
@@ -19,11 +18,12 @@ enum RTCClientError: Error {
 
 let PROTOCOL_VERSION = 2
 
-class RTCClient {
+class RTCClient : NSObject {
     private(set) var isConnected: Bool = false
-    private var socket: WebSocket?
     weak var delegate: RTCClientDelegate?
     private var reconnecting: Bool = false
+    private var urlSession: URLSession?
+    private var webSocket: URLSessionWebSocketTask?
 
     static func fromProtoSessionDescription(sd: Livekit_SessionDescription) throws -> RTCSessionDescription {
         var rtcSdpType: RTCSdpType
@@ -55,6 +55,11 @@ class RTCClient {
         }
         return sessionDescription
     }
+    
+    override init() {
+        super.init()
+        urlSession = URLSession(configuration: .default, delegate: self, delegateQueue: OperationQueue())
+    }
 
     func join(options: ConnectOptions) {
         let url = options.url
@@ -65,13 +70,14 @@ class RTCClient {
             wsUrlString += "&reconnect=1"
             reconnecting = true
         }
+        
+        let existing = webSocket
+        
         logger.debug("connecting to url: \(wsUrlString)")
-        var request = URLRequest(url: URL(string: wsUrlString)!)
-        request.timeoutInterval = 5
+        webSocket = urlSession!.webSocketTask(with: URL(string: wsUrlString)!)
+        webSocket?.resume()
 
-        socket = WebSocket(request: request)
-        socket!.delegate = self
-        socket!.connect()
+        existing?.cancel()
     }
 
     func sendOffer(offer: RTCSessionDescription) {
@@ -83,7 +89,6 @@ class RTCClient {
     }
 
     func sendAnswer(answer: RTCSessionDescription) {
-        logger.debug("sending answer")
         let sessionDescription = try! RTCClient.toProtoSessionDescription(sdp: answer)
         var req = Livekit_SignalRequest()
         req.answer = sessionDescription
@@ -130,9 +135,14 @@ class RTCClient {
         }
         do {
             let msg = try req.serializedData()
-            socket?.write(data: msg)
+            let message = URLSessionWebSocketTask.Message.data(msg)
+            webSocket?.send(message) { error in
+                if let error = error {
+                    logger.error("could not send message: \(error)")
+                }
+            }
         } catch {
-            logger.error("error sending signal message: \(error)")
+            logger.error("could not serialize data: \(error)")
         }
     }
 
@@ -163,8 +173,20 @@ class RTCClient {
         req.leave = Livekit_LeaveRequest()
         sendRequest(req: req)
     }
+    
+    func close() {
+        isConnected = false
+        webSocket?.cancel()
+        webSocket = nil
+    }
+    
+    // handle errors after already connected
+    private func handleError(_ reason: String) {
+        delegate?.onClose(reason: reason, code: 0)
+        close()
+    }
 
-    func handleSignalResponse(msg: Livekit_SignalResponse.OneOf_Message) {
+    private func handleSignalResponse(msg: Livekit_SignalResponse.OneOf_Message) {
         guard isConnected else {
             return
         }
@@ -198,70 +220,94 @@ class RTCClient {
             logger.warning("unsupported signal response type: \(msg)")
         }
     }
-
-    func close() {
-        isConnected = false
-        socket?.disconnect()
+    
+    private func receiveNext() {
+        guard let webSocket = webSocket else {
+            return
+        }
+        webSocket.receive(completionHandler: handleWebsocketMessage)
     }
+    
+    private func handleWebsocketMessage(result: Result<URLSessionWebSocketTask.Message, Error>) {
+        switch result {
+        case .failure(let error):
+            // cancel connection on failure
+            logger.error("could not receive websocket: \(error)")
+            handleError(error.localizedDescription)
+        case .success(let msg):
+            var sigResp: Livekit_SignalResponse? = nil
+            switch msg {
+            case .data(let data):
+                do {
+                    sigResp = try Livekit_SignalResponse(contiguousBytes: data)
+                } catch {
+                    logger.error("could not decode protobuf message: \(error)")
+                    handleError(error.localizedDescription)
+                }
+            case .string(let text):
+                do {
+                    sigResp = try Livekit_SignalResponse(jsonString: text)
+                } catch {
+                    logger.error("could not decode JSON message: \(error)")
+                    handleError(error.localizedDescription)
+                }
+            default:
+                return
+            }
+            
+            if let sigResp = sigResp, let msg = sigResp.message {
+                switch msg {
+                case let .join(joinMsg) where isConnected == false:
+                    isConnected = true
+                    delegate?.onJoin(info: joinMsg)
+                default:
+                    handleSignalResponse(msg: msg)
+                }
+            }
+            
+            // queue up the next read
+            DispatchQueue.global(qos: .background).async {
+                self.receiveNext()
+            }
+        }
+    }
+
 }
 
-extension RTCClient: WebSocketDelegate {
-    func didReceive(event: WebSocketEvent, client _: WebSocket) {
-        var sigResp: Livekit_SignalResponse?
-        switch event {
-        case let .text(string):
-            let jsonData = string.data(using: .utf8)
-            do {
-                sigResp = try Livekit_SignalResponse(jsonUTF8Data: jsonData!)
-            } catch {
-                logger.error("error decoding JSON signal response: \(error)")
-                return
-            }
-
-        case let .binary(data):
-            do {
-                sigResp = try Livekit_SignalResponse(contiguousBytes: data)
-            } catch {
-                logger.error("error decoding Proto signal response: \(error)")
-                return
-            }
-
-        case let .error(error):
-            logger.warning("websocket error: \(String(describing: error))")
-            isConnected = false
-            delegate?.onClose(reason: "error", code: 0)
-            return
-
-        case let .disconnected(reason, code):
-            logger.debug("websocket disconnected: \(reason)")
-            isConnected = false
-            delegate?.onClose(reason: reason, code: code)
-            return
-
-        case .cancelled:
-            isConnected = false
-            return
-
-        case .connected:
-            if reconnecting {
-                isConnected = true
-                reconnecting = false
-                delegate?.onReconnect()
-            }
-            return
-
-        default:
+extension RTCClient: URLSessionWebSocketDelegate {
+    func urlSession(_ session: URLSession, webSocketTask: URLSessionWebSocketTask, didOpenWithProtocol protocol: String?) {
+        guard webSocketTask == webSocket else {
             return
         }
-
-        if let sigMsg = sigResp, let msg = sigMsg.message {
-            switch msg {
-            case let .join(joinMsg) where isConnected == false:
-                isConnected = true
-                delegate?.onJoin(info: joinMsg)
-            default:
-                handleSignalResponse(msg: msg)
-            }
+        if reconnecting {
+            isConnected = true
+            reconnecting = false
+            delegate?.onReconnect()
         }
+        
+        receiveNext()
+    }
+       
+    func urlSession(_ session: URLSession, webSocketTask: URLSessionWebSocketTask, didCloseWith closeCode: URLSessionWebSocketTask.CloseCode, reason: Data?) {
+        guard webSocketTask == webSocket else {
+            return
+        }
+        logger.debug("websocket disconnected")
+        isConnected = false
+        delegate?.onClose(reason: "", code: UInt16(closeCode.rawValue))
+    }
+    
+    func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
+        guard task == webSocket else {
+            return
+        }
+        
+        var realError: Error
+        if error != nil {
+            realError = error!
+        } else {
+            realError = RTCClientError.socketError("could not connect", 0)
+        }
+        delegate?.onError(error: realError)
     }
 }

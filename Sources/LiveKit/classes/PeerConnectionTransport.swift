@@ -41,8 +41,8 @@ class PeerConnectionTransport {
             }
 
             for pendingCandidate in self.pendingCandidates {
-                self.peerConnection.add(pendingCandidate) { (error: Error?) -> Void in
-                    completionHandler?(error)
+                // ignore errors here
+                self.peerConnection.add(pendingCandidate) { _ in
                 }
             }
             self.pendingCandidates.removeAll()
