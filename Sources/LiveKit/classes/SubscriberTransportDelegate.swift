@@ -10,6 +10,7 @@ import WebRTC
 
 class SubscriberTransportDelegate: PeerConnectionTransportDelegate, RTCPeerConnectionDelegate {
     func peerConnection(_: RTCPeerConnection, didGenerate candidate: RTCIceCandidate) {
+        logger.debug("sending subscriber candidate: \(candidate.sdp)")
         engine?.client.sendCandidate(candidate: candidate, target: .subscriber)
     }
 

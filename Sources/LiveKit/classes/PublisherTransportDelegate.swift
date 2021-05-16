@@ -10,6 +10,7 @@ import WebRTC
 
 class PublisherTransportDelegate: PeerConnectionTransportDelegate, RTCPeerConnectionDelegate {
     func peerConnection(_: RTCPeerConnection, didGenerate candidate: RTCIceCandidate) {
+        logger.debug("sending publisher candidate: \(candidate.sdp)")
         engine?.client.sendCandidate(candidate: candidate, target: .publisher)
     }
 

@@ -235,11 +235,12 @@ extension RTCEngine: SignalClientDelegate {
         config.sdpSemantics = .unifiedPlan
         config.continualGatheringPolicy = .gatherContinually
         config.candidateNetworkPolicy = .all
+        config.disableIPV6 = true
         config.tcpCandidatePolicy = .enabled
         config.iceTransportPolicy = .all
 
-        publisher = PeerConnectionTransport(config: config, delegate: publisherDelegate)
-        subscriber = PeerConnectionTransport(config: config, delegate: subscriberDelegate)
+        publisher = PeerConnectionTransport(config: config, target: .publisher, delegate: publisherDelegate)
+        subscriber = PeerConnectionTransport(config: config, target: .subscriber, delegate: subscriberDelegate)
 
         let reliableConfig = RTCDataChannelConfiguration()
         reliableConfig.isOrdered = true
