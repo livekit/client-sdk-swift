@@ -66,6 +66,13 @@ class SignalClient : NSObject {
         let token = options.accessToken
 
         var wsUrlString = "\(url)/rtc?access_token=\(token)&protocol=\(PROTOCOL_VERSION)"
+        wsUrlString += "&auto_subscribe="
+        if options.autoSubscribe {
+            wsUrlString += "1"
+        } else {
+            wsUrlString += "0"
+        }
+
         if options.reconnect != nil, options.reconnect! {
             wsUrlString += "&reconnect=1"
             reconnecting = true

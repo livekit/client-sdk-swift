@@ -8,12 +8,14 @@
 import Foundation
 
 public struct ConnectOptions {
-    private(set) var accessToken: String
+    public var accessToken: String
     public var url: String
-    var reconnect: Bool?
+    public var autoSubscribe: Bool
+    internal var reconnect: Bool?
 
-    public init(url: String, token accessToken: String) {
+    public init(url: String, token: String, autoSubscribe: Bool = true) {
         self.url = url
-        self.accessToken = accessToken
+        self.accessToken = token
+        self.autoSubscribe = autoSubscribe
     }
 }
