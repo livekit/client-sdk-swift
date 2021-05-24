@@ -8,7 +8,8 @@
 import Foundation
 
 public class RemoteTrackPublication: TrackPublication {
-    var unsubscribed: Bool = true
+    // have we explicitly unsubscribed
+    var unsubscribed: Bool = false
     var disabled: Bool = false
     var videoQuality: VideoQuality = .high
 
@@ -34,6 +35,7 @@ public class RemoteTrackPublication: TrackPublication {
         if unsubscribed {
             return false
         }
+        // unless explicitly unsubscribed, defer to parent logic
         return super.subscribed
     }
 
