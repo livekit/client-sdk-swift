@@ -18,8 +18,6 @@ public class LocalVideoTrack: VideoTrack {
     public let width: Int
     public let height: Int
 
-    private static var defaultVideoResolutions = [(640, 480), (960, 540), (1280, 720)]
-
     init(rtcTrack: RTCVideoTrack,
          capturer: RTCCameraVideoCapturer,
          source: RTCVideoSource,
@@ -43,8 +41,7 @@ public class LocalVideoTrack: VideoTrack {
             throw TrackError.mediaError("No \(options.position) video capture devices available.")
         }
         let formats = RTCCameraVideoCapturer.supportedFormats(for: device)
-        var targetWidth: Int, targetHeight: Int
-        (targetWidth, targetHeight) = defaultVideoResolutions[0]
+        let (targetWidth, targetHeight) = (options.captureParameter.width, options.captureParameter.height)
 
         var currentDiff = Int.max
         var selectedFormat: AVCaptureDevice.Format = formats[0]
@@ -63,14 +60,12 @@ public class LocalVideoTrack: VideoTrack {
             }
         }
 
-        guard selectedDimension != nil else {
+        guard let selectedDimension = selectedDimension else {
             throw TrackError.mediaError("could not get dimensions")
         }
 
-        var fps = Double(30)
-        if let capture = options.captureParameter {
-            fps = capture.maxFrameRate
-        }
+        let fps = options.captureParameter.maxFrameRate
+
         // discover FPS limits
         var minFps = Double(60)
         var maxFps = Double(0)
@@ -92,8 +87,8 @@ public class LocalVideoTrack: VideoTrack {
             capturer: capturer,
             source: source,
             name: name,
-            width: Int(selectedDimension!.width),
-            height: Int(selectedDimension!.height)
+            width: Int(selectedDimension.width),
+            height: Int(selectedDimension.height)
         )
     }
 
@@ -135,7 +130,7 @@ public class LocalVideoTrack: VideoTrack {
 public struct LocalVideoTrackOptions {
     public var position: AVCaptureDevice.Position = .front
     public var captureFormat: AVCaptureDevice.Format?
-    public var captureParameter: VideoCaptureParameter?
+    public var captureParameter: VideoCaptureParameter = VideoPreset.qhd.capture
 
     public init() {}
 }
