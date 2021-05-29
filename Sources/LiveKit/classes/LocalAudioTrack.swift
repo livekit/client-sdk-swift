@@ -30,13 +30,13 @@ public class LocalAudioTrack: AudioTrack {
 
 // placeholder so far
 public struct LocalAudioTrackOptions {
-    var noiseSuppression: Bool = true
-    var echoCancellation: Bool = true
-    var audoGainControl: Bool = true
-    var typingNoiseDetection: Bool = false
-    var highpassFilter: Bool = false
-    var experimentalNoiseSuppression: Bool = false
-    var experimentalAutoGainControl: Bool = false
+    public var noiseSuppression: Bool = true
+    public var echoCancellation: Bool = true
+    public var audoGainControl: Bool = true
+    public var typingNoiseDetection: Bool = false
+    public var highpassFilter: Bool = false
+    public var experimentalNoiseSuppression: Bool = false
+    public var experimentalAutoGainControl: Bool = false
 
     public init() {}
 }
