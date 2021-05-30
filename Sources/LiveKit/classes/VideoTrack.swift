@@ -9,9 +9,8 @@ import Foundation
 import WebRTC
 
 public class VideoTrack: Track {
-    var videoTrack: RTCVideoTrack {
+    public var videoTrack: RTCVideoTrack {
         get { return mediaTrack as! RTCVideoTrack }
-        set { mediaTrack = newValue }
     }
 
     init(rtcTrack: RTCVideoTrack, name: String) {

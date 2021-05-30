@@ -11,8 +11,8 @@ import WebRTC
 public class RemoteParticipant: Participant {
     init(sid: String, info: Livekit_ParticipantInfo?) {
         super.init(sid: sid)
-        if info != nil {
-            updateFromInfo(info: info!)
+        if let info = info {
+            updateFromInfo(info: info)
         }
     }
 
@@ -53,9 +53,8 @@ public class RemoteParticipant: Participant {
 
     func addSubscribedMediaTrack(rtcTrack: RTCMediaStreamTrack, sid: String, triesLeft: Int = 20) {
         var track: Track
-        let publication = getTrackPublication(sid: sid)
-
-        guard publication != nil else {
+        
+        guard let publication = getTrackPublication(sid: sid) else {
             if triesLeft == 0 {
                 logger.error("could not subscribe to mediaTrack \(sid), unable to locate track publication")
                 let err = TrackError.invalidTrackState("Could not find published track with sid: \(sid)")
@@ -76,9 +75,9 @@ public class RemoteParticipant: Participant {
 
         switch rtcTrack.kind {
         case "audio":
-            track = AudioTrack(rtcTrack: rtcTrack as! RTCAudioTrack, name: publication!.name)
+            track = AudioTrack(rtcTrack: rtcTrack as! RTCAudioTrack, name: publication.name)
         case "video":
-            track = VideoTrack(rtcTrack: rtcTrack as! RTCVideoTrack, name: publication!.name)
+            track = VideoTrack(rtcTrack: rtcTrack as! RTCVideoTrack, name: publication.name)
         default:
             let err = TrackError.invalidTrackType("unsupported type: \(rtcTrack.kind.description)")
             delegate?.didFailToSubscribe(sid: sid,
@@ -90,12 +89,12 @@ public class RemoteParticipant: Participant {
             return
         }
 
-        publication!.track = track
-        track.sid = publication!.sid
-        addTrack(publication: publication!)
+        publication.track = track
+        track.sid = publication.sid
+        addTrack(publication: publication)
 
-        delegate?.didSubscribe(track: track, publication: publication!, participant: self)
-        room?.delegate?.didSubscribe(track: track, publication: publication!, participant: self)
+        delegate?.didSubscribe(track: track, publication: publication, participant: self)
+        room?.delegate?.didSubscribe(track: track, publication: publication, participant: self)
     }
 
     func unpublishTrack(sid: String, sendUnpublish: Bool = false) {
@@ -113,8 +112,7 @@ public class RemoteParticipant: Participant {
             return
         }
 
-        if publication.track != nil {
-            let track = publication.track!
+        if let track = publication.track {
             track.stop()
             delegate?.didUnsubscribe(track: track,
                                      publication: publication,

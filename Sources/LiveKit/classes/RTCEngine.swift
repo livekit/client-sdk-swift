@@ -137,8 +137,8 @@ class RTCEngine: NSObject {
         let mediaConstraints = RTCMediaConstraints(mandatoryConstraints: constraints, optionalConstraints: nil)
         
         publisher?.peerConnection.offer(for: mediaConstraints, completionHandler: { offer, error in
-            guard error == nil else {
-                logger.error("could not create offer: \(error!)")
+            if let error = error {
+                logger.error("could not create offer: \(error)")
                 return
             }
             guard let sdp = offer else {
@@ -146,11 +146,11 @@ class RTCEngine: NSObject {
                 return
             }
             self.publisher?.peerConnection.setLocalDescription(sdp, completionHandler: { error in
-                guard error == nil else {
-                    logger.error("error setting local description: \(error!)")
+                if let error = error {
+                    logger.error("error setting local description: \(error)")
                     return
                 }
-                self.client.sendOffer(offer: sdp)
+                try? self.client.sendOffer(offer: sdp)
             })
         })
     }
@@ -163,12 +163,12 @@ class RTCEngine: NSObject {
             return
         }
 
-        if iceState != .disconnected, wsReconnectTask != nil {
+        if let reconnectTask = wsReconnectTask, iceState != .disconnected {
             var delay = Double(wsRetries ^ 2) * 0.5
             if delay > 5 {
                 delay = 5
             }
-            DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: wsReconnectTask!)
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: reconnectTask)
         }
     }
 
@@ -199,8 +199,8 @@ extension RTCEngine: SignalClientDelegate {
            publisher.peerConnection.signalingState == .haveLocalOffer {
             logger.debug("have local offer but recovering to restart ICE")
             publisher.setRemoteDescription(desc) { error in
-                if error != nil {
-                    logger.error("could not set restart ICE: \(error!)")
+                if let error = error {
+                    logger.error("could not set restart ICE: \(error)")
                     return
                 }
                 publisher.peerConnection.restartIce()
@@ -239,19 +239,19 @@ extension RTCEngine: SignalClientDelegate {
         config.tcpCandidatePolicy = .enabled
         config.iceTransportPolicy = .all
 
-        publisher = PeerConnectionTransport(config: config, target: .publisher, delegate: publisherDelegate)
-        subscriber = PeerConnectionTransport(config: config, target: .subscriber, delegate: subscriberDelegate)
+        let pub = PeerConnectionTransport(config: config, target: .publisher, delegate: publisherDelegate)
+        publisher = pub
+        let sub = PeerConnectionTransport(config: config, target: .subscriber, delegate: subscriberDelegate)
+        subscriber = sub
 
         let reliableConfig = RTCDataChannelConfiguration()
         reliableConfig.isOrdered = true
-        reliableDC = publisher!.peerConnection.dataChannel(forLabel: reliableDataChannelLabel,
-                                                           configuration: reliableConfig)
+        reliableDC = pub.peerConnection.dataChannel(forLabel: reliableDataChannelLabel, configuration: reliableConfig)
         reliableDC?.delegate = self
         let lossyConfig = RTCDataChannelConfiguration()
         lossyConfig.isOrdered = true
         lossyConfig.maxRetransmits = 1
-        lossyDC = publisher!.peerConnection.dataChannel(forLabel: lossyDataChannelLabel,
-                                                        configuration: lossyConfig)
+        lossyDC = pub.peerConnection.dataChannel(forLabel: lossyDataChannelLabel, configuration: lossyConfig)
         lossyDC?.delegate = self
 
         negotiate()
@@ -264,8 +264,8 @@ extension RTCEngine: SignalClientDelegate {
         }
         logger.debug("handling server answer")
         publisher.setRemoteDescription(sessionDescription) { error in
-            guard error == nil else {
-                logger.error("error setting remote description for answer: \(error!)")
+            if let error = error {
+                logger.error("error setting remote description for answer: \(error)")
                 return
             }
             logger.debug("successfully set remote desc")
@@ -293,16 +293,16 @@ extension RTCEngine: SignalClientDelegate {
 
         logger.debug("handling server offer")
         subscriber.setRemoteDescription(sessionDescription, completionHandler: { error in
-            guard error == nil else {
-                logger.error("error setting subscriber remote description for offer: \(error!)")
+            if let error = error {
+                logger.error("error setting subscriber remote description for offer: \(error)")
                 return
             }
             let constraints: Dictionary<String, String> = [:]
             let mediaConstraints = RTCMediaConstraints(mandatoryConstraints: constraints,
                                                        optionalConstraints: nil)
             subscriber.peerConnection.answer(for: mediaConstraints, completionHandler: { answer, error in
-                guard error == nil else {
-                    logger.error("error answering subscriber: \(error!)")
+                if let error = error {
+                    logger.error("error answering subscriber: \(error)")
                     return
                 }
                 guard let ans = answer else {
@@ -310,12 +310,12 @@ extension RTCEngine: SignalClientDelegate {
                     return
                 }
                 subscriber.peerConnection.setLocalDescription(ans, completionHandler: { error in
-                    guard error == nil else {
-                        logger.error("error setting subscriber local description for answer: \(error!)")
+                    if let error = error {
+                        logger.error("error setting subscriber local description for answer: \(error)")
                         return
                     }
                     logger.debug("sending client answer")
-                    self.client.sendAnswer(answer: ans)
+                    try? self.client.sendAnswer(answer: ans)
                 })
             })
         })

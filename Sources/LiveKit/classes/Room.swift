@@ -12,6 +12,8 @@ import WebRTC
 
 enum RoomError: Error {
     case missingRoomId(String)
+    case invalidURL(String)
+    case protocolError(String)
 }
 
 // network path discovery updates multiple times, causing us to disconnect again
@@ -133,9 +135,9 @@ public class Room {
             }
         }
 
-        if seenSids[localParticipant!.sid] == nil {
-            localParticipant?.audioLevel = 0.0
-            localParticipant?.isSpeaking = false
+        if let localParticipant = localParticipant, seenSids[localParticipant.sid] == nil {
+            localParticipant.audioLevel = 0.0
+            localParticipant.isSpeaking = false
         }
         for participant in remoteParticipants.values {
             if seenSids[participant.sid] == nil {
@@ -158,9 +160,8 @@ public class Room {
                 track.stop()
             }
         }
-        let localP = localParticipant
-        if localP != nil {
-            for publication in localP!.tracks.values {
+        if let localParticipant = localParticipant {
+            for publication in localParticipant.tracks.values {
                 guard let track = publication.track else {
                     continue
                 }

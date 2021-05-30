@@ -10,9 +10,8 @@ import WebRTC
 
 public class AudioTrack: Track {
     public private(set) var sinks: [AudioSink]?
-    var audioTrack: RTCAudioTrack {
+    public var audioTrack: RTCAudioTrack {
         get { return mediaTrack as! RTCAudioTrack }
-        set { mediaTrack = newValue }
     }
 
     init(rtcTrack: RTCAudioTrack, name: String) {

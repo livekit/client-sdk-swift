@@ -73,7 +73,7 @@ class SignalClient : NSObject {
             wsUrlString += "0"
         }
 
-        if options.reconnect != nil, options.reconnect! {
+        if let reconnect = options.reconnect, reconnect {
             wsUrlString += "&reconnect=1"
             reconnecting = true
         }
@@ -81,30 +81,34 @@ class SignalClient : NSObject {
         let existing = webSocket
         
         logger.debug("connecting to url: \(wsUrlString)")
-        webSocket = urlSession!.webSocketTask(with: URL(string: wsUrlString)!)
+        guard let parsedUrl = URL(string: wsUrlString) else {
+            delegate?.onError(error: RoomError.invalidURL("invalid URL: \(url)"))
+            return
+        }
+        webSocket = urlSession!.webSocketTask(with: parsedUrl)
         webSocket?.resume()
 
         existing?.cancel()
     }
 
-    func sendOffer(offer: RTCSessionDescription) {
+    func sendOffer(offer: RTCSessionDescription) throws {
         logger.debug("sending offer")
-        let sessionDescription = try! SignalClient.toProtoSessionDescription(sdp: offer)
+        let sessionDescription = try SignalClient.toProtoSessionDescription(sdp: offer)
         var req = Livekit_SignalRequest()
         req.offer = sessionDescription
         sendRequest(req: req)
     }
 
-    func sendAnswer(answer: RTCSessionDescription) {
-        let sessionDescription = try! SignalClient.toProtoSessionDescription(sdp: answer)
+    func sendAnswer(answer: RTCSessionDescription) throws {
+        let sessionDescription = try SignalClient.toProtoSessionDescription(sdp: answer)
         var req = Livekit_SignalRequest()
         req.answer = sessionDescription
         sendRequest(req: req)
     }
 
-    func sendCandidate(candidate: RTCIceCandidate, target: Livekit_SignalTarget) {
+    func sendCandidate(candidate: RTCIceCandidate, target: Livekit_SignalTarget) throws {
         let iceCandidate = IceCandidate(sdp: candidate.sdp, sdpMLineIndex: candidate.sdpMLineIndex, sdpMid: candidate.sdpMid)
-        let candidateData = try! JSONEncoder().encode(iceCandidate)
+        let candidateData = try JSONEncoder().encode(iceCandidate)
         var trickle = Livekit_TrickleRequest()
         trickle.candidateInit = String(data: candidateData, encoding: .utf8)!
         trickle.target = target
@@ -127,7 +131,7 @@ class SignalClient : NSObject {
 
     func sendAddTrack(cid: String, name: String, type: Livekit_TrackType) {
         var addTrackReq = Livekit_AddTrackRequest()
-        addTrackReq.cid = cid as String
+        addTrackReq.cid = cid
         addTrackReq.name = name
         addTrackReq.type = type
 
@@ -197,34 +201,42 @@ class SignalClient : NSObject {
         guard isConnected else {
             return
         }
-        switch msg {
-        case let .answer(sd):
-            let sdp = try! SignalClient.fromProtoSessionDescription(sd: sd)
-            delegate?.onAnswer(sessionDescription: sdp)
+        
+        do {
+            switch msg {
+            case let .answer(sd):
+                let sdp = try SignalClient.fromProtoSessionDescription(sd: sd)
+                delegate?.onAnswer(sessionDescription: sdp)
 
-        case let .offer(sd):
-            let sdp = try! SignalClient.fromProtoSessionDescription(sd: sd)
-            delegate?.onOffer(sessionDescription: sdp)
+            case let .offer(sd):
+                let sdp = try SignalClient.fromProtoSessionDescription(sd: sd)
+                delegate?.onOffer(sessionDescription: sdp)
 
-        case let .trickle(trickle):
-            let iceCandidate: IceCandidate = try! JSONDecoder().decode(IceCandidate.self, from: trickle.candidateInit.data(using: .utf8)!)
-            let rtcCandidate = RTCIceCandidate(sdp: iceCandidate.sdp, sdpMLineIndex: iceCandidate.sdpMLineIndex, sdpMid: iceCandidate.sdpMid)
-            delegate?.onTrickle(candidate: rtcCandidate, target: trickle.target)
+            case let .trickle(trickle):
+                guard let data = trickle.candidateInit.data(using: .utf8) else {
+                    throw RoomError.protocolError("could not decode candidate init")
+                }
+                let iceCandidate: IceCandidate = try JSONDecoder().decode(IceCandidate.self, from: data)
+                let rtcCandidate = RTCIceCandidate(sdp: iceCandidate.sdp, sdpMLineIndex: iceCandidate.sdpMLineIndex, sdpMid: iceCandidate.sdpMid)
+                delegate?.onTrickle(candidate: rtcCandidate, target: trickle.target)
 
-        case let .update(update):
-            delegate?.onParticipantUpdate(updates: update.participants)
+            case let .update(update):
+                delegate?.onParticipantUpdate(updates: update.participants)
 
-        case let .trackPublished(trackPublished):
-            delegate?.onLocalTrackPublished(trackPublished: trackPublished)
+            case let .trackPublished(trackPublished):
+                delegate?.onLocalTrackPublished(trackPublished: trackPublished)
 
-        case let .speaker(speakerUpdate):
-            delegate?.onActiveSpeakersChanged(speakers: speakerUpdate.speakers)
+            case let .speaker(speakerUpdate):
+                delegate?.onActiveSpeakersChanged(speakers: speakerUpdate.speakers)
 
-        case .leave:
-            delegate?.onLeave()
+            case .leave:
+                delegate?.onLeave()
 
-        default:
-            logger.warning("unsupported signal response type: \(msg)")
+            default:
+                logger.warning("unsupported signal response type: \(msg)")
+            }
+        } catch {
+            logger.error("could not handle signal response: \(error)")
         }
     }
     
