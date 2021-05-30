@@ -33,8 +33,8 @@ public struct LocalAudioTrackOptions {
     public var noiseSuppression: Bool = true
     public var echoCancellation: Bool = true
     public var audoGainControl: Bool = true
-    public var typingNoiseDetection: Bool = false
-    public var highpassFilter: Bool = false
+    public var typingNoiseDetection: Bool = true
+    public var highpassFilter: Bool = true
     public var experimentalNoiseSuppression: Bool = false
     public var experimentalAutoGainControl: Bool = false
 
