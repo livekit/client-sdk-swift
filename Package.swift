@@ -16,7 +16,7 @@ let package = Package(
         ),
     ],
     dependencies: [
-        .package(name: "WebRTC", url: "https://github.com/livekit/WebRTC-swift.git", .exact("1.1.33620")),
+        .package(name: "WebRTC", url: "https://github.com/livekit/WebRTC-swift.git", .exact("1.91.0")),
         .package(name: "SwiftProtobuf", url: "https://github.com/apple/swift-protobuf.git", .upToNextMajor(from: "1.15.0")),
         .package(name: "Promises", url: "https://github.com/google/promises.git", .upToNextMajor(from: "1.2.12")),
         .package(url: "https://github.com/apple/swift-log.git", .upToNextMajor(from: "1.4.2")),
