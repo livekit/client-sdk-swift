@@ -67,7 +67,7 @@ public class RemoteParticipant: Participant {
                 return
             }
 
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+            DispatchQueue.global(qos: .background).asyncAfter(deadline: .now() + 0.15) {
                 self.addSubscribedMediaTrack(rtcTrack: rtcTrack, sid: sid, triesLeft: triesLeft - 1)
             }
             return

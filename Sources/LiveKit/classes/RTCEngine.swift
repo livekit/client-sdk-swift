@@ -168,7 +168,7 @@ class RTCEngine: NSObject {
             if delay > 5 {
                 delay = 5
             }
-            DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: reconnectTask)
+            DispatchQueue.global(qos: .background).asyncAfter(deadline: .now() + delay, execute: reconnectTask)
         }
     }
 

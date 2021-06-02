@@ -73,6 +73,7 @@ public class Room {
     }
 
     func connect() {
+        logger.info("connecting to room")
         guard localParticipant == nil else {
             return
         }
@@ -150,6 +151,11 @@ public class Room {
     }
 
     private func handleDisconnect() {
+        if state == .disconnected {
+            // only allow cleanup to be completed once
+            return
+        }
+        logger.info("disconnected from room: \(self.name ?? "")")
         state = .disconnected
         // stop any tracks && release audio session
         for participant in remoteParticipants.values {
@@ -169,11 +175,6 @@ public class Room {
             }
         }
 
-        do {
-            try LiveKit.releaseAudioSession()
-        } catch {
-            logger.error("could not release audio session: \(error)")
-        }
         remoteParticipants.removeAll()
         activeSpeakers.removeAll()
         monitor.cancel()
@@ -223,7 +224,7 @@ extension Room: RTCEngineDelegate {
             logger.error("received onTrack with no streams!")
             return
         }
-
+        
         let unpacked = unPackStreamId(streams[0].streamId)
         let participantSid = unpacked.participantId
         var trackSid = unpacked.trackId
@@ -231,9 +232,18 @@ extension Room: RTCEngineDelegate {
             trackSid = track.trackId
         }
         let participant = getOrCreateRemoteParticipant(sid: participantSid)
-
+        
         logger.debug("added media track from: \(participantSid), sid: \(trackSid)")
-        participant.addSubscribedMediaTrack(rtcTrack: track, sid: trackSid)
+    
+        DispatchQueue.global(qos: .background).async {
+            // ensure audio session is configured
+            if track.kind == "audio" {
+                if !LiveKit.audioConfigured {
+                    LiveKit.configureAudioSession()
+                }
+            }
+            participant.addSubscribedMediaTrack(rtcTrack: track, sid: trackSid)
+        }
     }
 
     func didUpdateParticipants(updates: [Livekit_ParticipantInfo]) {

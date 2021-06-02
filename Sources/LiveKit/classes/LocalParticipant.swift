@@ -195,13 +195,13 @@ public class LocalParticipant: Participant {
 
     // if audio session has not been initialized for recording, do so now
     private func ensureAudioCategory() throws {
-        let audioSession = RTCAudioSession.sharedInstance()
+        let audioSession = AVAudioSession.sharedInstance()
         let desiredCategory = AVAudioSession.Category.playAndRecord
-        if !LiveKit.audioConfigured || audioSession.category != desiredCategory.rawValue {
+        if !LiveKit.audioConfigured || audioSession.category != desiredCategory {
             logger.warning("upgrading audio session to playAndRecord")
             var opts = audioSession.categoryOptions
             opts.insert(.defaultToSpeaker)
-            try LiveKit.configureAudioSession(category: desiredCategory, mode: .voiceChat)
+            LiveKit.configureAudioSession(category: desiredCategory, mode: .videoChat)
         }
     }
 }
