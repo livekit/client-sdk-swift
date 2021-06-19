@@ -15,8 +15,7 @@ let simulcastMinWidth = 200
 public class LocalVideoTrack: VideoTrack {
     private var capturer: RTCCameraVideoCapturer
     private var source: RTCVideoSource
-    public let width: Int
-    public let height: Int
+    public var dimensions: Track.Dimensions
 
     init(rtcTrack: RTCVideoTrack,
          capturer: RTCCameraVideoCapturer,
@@ -27,8 +26,7 @@ public class LocalVideoTrack: VideoTrack {
     {
         self.capturer = capturer
         self.source = source
-        self.width = width
-        self.height = height
+        self.dimensions = Dimensions(width: width, height: height)
         super.init(rtcTrack: rtcTrack, name: name)
     }
 
@@ -95,8 +93,8 @@ public class LocalVideoTrack: VideoTrack {
     func getVideoEncodings(_ baseEncoding: VideoEncoding?, simulcast: Bool) -> [RTCRtpEncodingParameters] {
         var rtcEncodings: [RTCRtpEncodingParameters] = []
         let baseParams = VideoPreset.getRTPEncodingParams(
-            inputWidth: width,
-            inputHeight: height,
+            inputWidth: dimensions.width,
+            inputHeight: dimensions.height,
             rid: simulcast ? "f" : nil,
             encoding: baseEncoding
         )

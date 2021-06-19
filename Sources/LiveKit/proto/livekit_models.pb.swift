@@ -178,6 +178,16 @@ struct Livekit_TrackInfo {
 
   var muted: Bool = false
 
+  /// original width of video (unset for audio)
+  /// clients may receive a lower resolution version with simulcast
+  var width: UInt32 = 0
+
+  /// original height of video (unset for audio)
+  var height: UInt32 = 0
+
+  /// true if track is simulcasted
+  var simulcast: Bool = false
+
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   init() {}
@@ -388,6 +398,9 @@ extension Livekit_TrackInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImplem
     2: .same(proto: "type"),
     3: .same(proto: "name"),
     4: .same(proto: "muted"),
+    5: .same(proto: "width"),
+    6: .same(proto: "height"),
+    7: .same(proto: "simulcast"),
   ]
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -400,6 +413,9 @@ extension Livekit_TrackInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImplem
       case 2: try { try decoder.decodeSingularEnumField(value: &self.type) }()
       case 3: try { try decoder.decodeSingularStringField(value: &self.name) }()
       case 4: try { try decoder.decodeSingularBoolField(value: &self.muted) }()
+      case 5: try { try decoder.decodeSingularUInt32Field(value: &self.width) }()
+      case 6: try { try decoder.decodeSingularUInt32Field(value: &self.height) }()
+      case 7: try { try decoder.decodeSingularBoolField(value: &self.simulcast) }()
       default: break
       }
     }
@@ -418,6 +434,15 @@ extension Livekit_TrackInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImplem
     if self.muted != false {
       try visitor.visitSingularBoolField(value: self.muted, fieldNumber: 4)
     }
+    if self.width != 0 {
+      try visitor.visitSingularUInt32Field(value: self.width, fieldNumber: 5)
+    }
+    if self.height != 0 {
+      try visitor.visitSingularUInt32Field(value: self.height, fieldNumber: 6)
+    }
+    if self.simulcast != false {
+      try visitor.visitSingularBoolField(value: self.simulcast, fieldNumber: 7)
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -426,6 +451,9 @@ extension Livekit_TrackInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImplem
     if lhs.type != rhs.type {return false}
     if lhs.name != rhs.name {return false}
     if lhs.muted != rhs.muted {return false}
+    if lhs.width != rhs.width {return false}
+    if lhs.height != rhs.height {return false}
+    if lhs.simulcast != rhs.simulcast {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }

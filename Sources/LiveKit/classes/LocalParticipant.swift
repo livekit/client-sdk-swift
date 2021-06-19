@@ -87,7 +87,7 @@ public class LocalParticipant: Participant {
 
             do {
                 let cid = track.mediaTrack.trackId
-                try self.engine?.addTrack(cid: cid, name: track.name, kind: .video)
+                try self.engine?.addTrack(cid: cid, name: track.name, kind: .video, dimensions: track.dimensions)
                     .then { trackInfo in
                         let transInit = RTCRtpTransceiverInit()
                         transInit.direction = .sendOnly

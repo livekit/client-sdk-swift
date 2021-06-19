@@ -404,6 +404,10 @@ struct Livekit_AddTrackRequest {
 
   var type: Livekit_TrackType = .audio
 
+  var width: UInt32 = 0
+
+  var height: UInt32 = 0
+
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   init() {}
@@ -1117,6 +1121,8 @@ extension Livekit_AddTrackRequest: SwiftProtobuf.Message, SwiftProtobuf._Message
     1: .same(proto: "cid"),
     2: .same(proto: "name"),
     3: .same(proto: "type"),
+    4: .same(proto: "width"),
+    5: .same(proto: "height"),
   ]
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -1128,6 +1134,8 @@ extension Livekit_AddTrackRequest: SwiftProtobuf.Message, SwiftProtobuf._Message
       case 1: try { try decoder.decodeSingularStringField(value: &self.cid) }()
       case 2: try { try decoder.decodeSingularStringField(value: &self.name) }()
       case 3: try { try decoder.decodeSingularEnumField(value: &self.type) }()
+      case 4: try { try decoder.decodeSingularUInt32Field(value: &self.width) }()
+      case 5: try { try decoder.decodeSingularUInt32Field(value: &self.height) }()
       default: break
       }
     }
@@ -1143,6 +1151,12 @@ extension Livekit_AddTrackRequest: SwiftProtobuf.Message, SwiftProtobuf._Message
     if self.type != .audio {
       try visitor.visitSingularEnumField(value: self.type, fieldNumber: 3)
     }
+    if self.width != 0 {
+      try visitor.visitSingularUInt32Field(value: self.width, fieldNumber: 4)
+    }
+    if self.height != 0 {
+      try visitor.visitSingularUInt32Field(value: self.height, fieldNumber: 5)
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -1150,6 +1164,8 @@ extension Livekit_AddTrackRequest: SwiftProtobuf.Message, SwiftProtobuf._Message
     if lhs.cid != rhs.cid {return false}
     if lhs.name != rhs.name {return false}
     if lhs.type != rhs.type {return false}
+    if lhs.width != rhs.width {return false}
+    if lhs.height != rhs.height {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }

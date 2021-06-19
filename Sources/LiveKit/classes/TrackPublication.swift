@@ -14,6 +14,12 @@ public class TrackPublication {
     public private(set) var kind: Track.Kind
     public internal(set) var muted: Bool
 
+    /// video-only
+    public internal(set) var dimensions: Track.Dimensions?
+
+    /// video-only
+    public internal(set) var simulcasted: Bool = false
+
     weak var participant: Participant?
 
     public var subscribed: Bool { return track != nil }
@@ -25,11 +31,16 @@ public class TrackPublication {
         muted = info.muted
         self.track = track
         self.participant = participant
+        updateFromInfo(info: info)
     }
 
     func updateFromInfo(info: Livekit_TrackInfo) {
         // only muted and name can conceivably update
         name = info.name
         muted = info.muted
+        simulcasted = info.simulcast
+        if info.type == .video {
+            dimensions = Track.Dimensions(width: Int(info.width), height: Int(info.height))
+        }
     }
 }

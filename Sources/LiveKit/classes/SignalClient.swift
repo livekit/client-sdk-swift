@@ -129,14 +129,23 @@ class SignalClient : NSObject {
         sendRequest(req: req)
     }
 
-    func sendAddTrack(cid: String, name: String, type: Livekit_TrackType) {
-        var addTrackReq = Livekit_AddTrackRequest()
+    func sendAddTrack(cid: String, name: String, type: Livekit_TrackType, dimensions: Track.Dimensions? = nil) {
+        var addTrackReq = Livekit_AddTrackRequest.with {
+            $0.cid = cid
+            $0.name = name
+            $0.type = type
+            if let dims = dimensions {
+                $0.width = UInt32(dims.width)
+                $0.height = UInt32(dims.height)
+            }
+        }
         addTrackReq.cid = cid
         addTrackReq.name = name
         addTrackReq.type = type
 
         var req = Livekit_SignalRequest()
         req.addTrack = addTrackReq
+
         sendRequest(req: req)
     }
 
