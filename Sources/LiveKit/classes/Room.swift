@@ -18,7 +18,7 @@ enum RoomError: Error {
 
 // network path discovery updates multiple times, causing us to disconnect again
 // using a timer interval to ignore changes that are happening too close to each other
-let networkChangeIgnoreInterval = 8.0
+let networkChangeIgnoreInterval = 3.0
 
 public class Room {
     public typealias Sid = String
@@ -47,6 +47,7 @@ public class Room {
         engine = RTCEngine(client: SignalClient())
 
         monitor.pathUpdateHandler = { path in
+            logger.debug("network path update: \(path.availableInterfaces), \(path.status)")
             if self.prevPath == nil || path.status != .satisfied {
                 self.prevPath = path
                 return
@@ -61,7 +62,7 @@ public class Room {
                 return
             }
             // trigger reconnect
-            if self.state == .connected {
+            if self.state != .disconnected {
                 logger.info("network path changed, starting engine reconnect")
                 self.reconnect()
             }
@@ -90,7 +91,7 @@ public class Room {
     }
 
     func reconnect() {
-        if state == .reconnecting {
+        if state != .connected && state != .reconnecting {
             return
         }
         state = .reconnecting

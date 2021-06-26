@@ -21,11 +21,11 @@ class PublisherTransportDelegate: PeerConnectionTransportDelegate, RTCPeerConnec
         engine?.negotiate()
     }
 
-    func peerConnection(_ peerConnection: RTCPeerConnection, didChange _: RTCIceConnectionState) {
+    func peerConnection(_ peerConnection: RTCPeerConnection, didChange state: RTCIceConnectionState) {
         guard let eng = engine else {
             return
         }
-        logger.debug("publisher ICE status: \(peerConnection.iceConnectionState.rawValue)")
+        logger.debug("publisher ICE status: \(state.rawValue)")
         if peerConnection.iceConnectionState == .connected {
             eng.iceState = .connected
         } else if peerConnection.iceConnectionState == .failed {

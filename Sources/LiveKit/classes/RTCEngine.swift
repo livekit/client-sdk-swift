@@ -190,6 +190,8 @@ extension RTCEngine: SignalClientDelegate {
         guard let publisher = self.publisher else {
             return
         }
+        
+        subscriber?.prepareForIceRestart()
 
         // trigger ICE restart
         iceState = .reconnecting
@@ -204,10 +206,12 @@ extension RTCEngine: SignalClientDelegate {
                     return
                 }
                 publisher.peerConnection.restartIce()
+                publisher.prepareForIceRestart()
             }
         } else {
             logger.debug("restarting ICE")
             publisher.peerConnection.restartIce()
+            publisher.prepareForIceRestart()
         }
     }
 
@@ -236,7 +240,8 @@ extension RTCEngine: SignalClientDelegate {
         config.continualGatheringPolicy = .gatherContinually
         config.candidateNetworkPolicy = .all
         config.disableIPV6 = true
-        config.tcpCandidatePolicy = .enabled
+        // don't send TCP candidates, they are passive and only server should be sending
+        config.tcpCandidatePolicy = .disabled
         config.iceTransportPolicy = .all
 
         let pub = PeerConnectionTransport(config: config, target: .publisher, delegate: publisherDelegate)

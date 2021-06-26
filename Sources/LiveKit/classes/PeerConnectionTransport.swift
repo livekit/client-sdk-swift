@@ -13,6 +13,7 @@ class PeerConnectionTransport {
     var peerConnection: RTCPeerConnection
     var pendingCandidates: [RTCIceCandidate] = []
     let target: Livekit_SignalTarget
+    var restartingIce: Bool = false
 
     init(config: RTCConfiguration, target: Livekit_SignalTarget, delegate: RTCPeerConnectionDelegate) {
         let pc = RTCEngine.factory.peerConnection(with: config,
@@ -24,7 +25,7 @@ class PeerConnectionTransport {
     }
 
     func addIceCandidate(candidate: RTCIceCandidate) {
-        if peerConnection.remoteDescription != nil {
+        if peerConnection.remoteDescription != nil && !restartingIce {
             peerConnection.add(candidate) { (error: Error?) -> Void in
                 if error != nil {
                     logger.error("could not add ICE candidate: \(error!)")
@@ -33,6 +34,7 @@ class PeerConnectionTransport {
                 }
             }
         } else {
+            logger.debug("queuing ICE candidate: \(candidate.sdp)")
             pendingCandidates.append(candidate)
         }
     }
@@ -50,7 +52,12 @@ class PeerConnectionTransport {
                 }
             }
             self.pendingCandidates.removeAll()
+            self.restartingIce = false
         }
+    }
+
+    func prepareForIceRestart() {
+        restartingIce = true
     }
 
     func close() {
