@@ -181,7 +181,6 @@ class SignalClient : NSObject {
         var sub = Livekit_UpdateSubscription()
         sub.trackSids = [sid]
         sub.subscribe = subscribed
-        sub.quality = videoQuality
 
         var req = Livekit_SignalRequest()
         req.subscription = sub

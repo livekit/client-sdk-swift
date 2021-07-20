@@ -81,6 +81,22 @@ struct Livekit_Room {
 
   var turnPassword: String = String()
 
+  var enabledCodecs: [Livekit_Codec] = []
+
+  var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  init() {}
+}
+
+struct Livekit_Codec {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  var mime: String = String()
+
+  var fmtpLine: String = String()
+
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   init() {}
@@ -267,6 +283,7 @@ extension Livekit_Room: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementat
     4: .standard(proto: "max_participants"),
     5: .standard(proto: "creation_time"),
     6: .standard(proto: "turn_password"),
+    7: .standard(proto: "enabled_codecs"),
   ]
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -281,6 +298,7 @@ extension Livekit_Room: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementat
       case 4: try { try decoder.decodeSingularUInt32Field(value: &self.maxParticipants) }()
       case 5: try { try decoder.decodeSingularInt64Field(value: &self.creationTime) }()
       case 6: try { try decoder.decodeSingularStringField(value: &self.turnPassword) }()
+      case 7: try { try decoder.decodeRepeatedMessageField(value: &self.enabledCodecs) }()
       default: break
       }
     }
@@ -305,6 +323,9 @@ extension Livekit_Room: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementat
     if !self.turnPassword.isEmpty {
       try visitor.visitSingularStringField(value: self.turnPassword, fieldNumber: 6)
     }
+    if !self.enabledCodecs.isEmpty {
+      try visitor.visitRepeatedMessageField(value: self.enabledCodecs, fieldNumber: 7)
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -315,6 +336,45 @@ extension Livekit_Room: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementat
     if lhs.maxParticipants != rhs.maxParticipants {return false}
     if lhs.creationTime != rhs.creationTime {return false}
     if lhs.turnPassword != rhs.turnPassword {return false}
+    if lhs.enabledCodecs != rhs.enabledCodecs {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+extension Livekit_Codec: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  static let protoMessageName: String = _protobuf_package + ".Codec"
+  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
+    1: .same(proto: "mime"),
+    2: .standard(proto: "fmtp_line"),
+  ]
+
+  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularStringField(value: &self.mime) }()
+      case 2: try { try decoder.decodeSingularStringField(value: &self.fmtpLine) }()
+      default: break
+      }
+    }
+  }
+
+  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    if !self.mime.isEmpty {
+      try visitor.visitSingularStringField(value: self.mime, fieldNumber: 1)
+    }
+    if !self.fmtpLine.isEmpty {
+      try visitor.visitSingularStringField(value: self.fmtpLine, fieldNumber: 2)
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  static func ==(lhs: Livekit_Codec, rhs: Livekit_Codec) -> Bool {
+    if lhs.mime != rhs.mime {return false}
+    if lhs.fmtpLine != rhs.fmtpLine {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
