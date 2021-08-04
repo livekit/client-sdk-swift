@@ -120,6 +120,9 @@ struct Livekit_ParticipantInfo {
   /// timestamp when participant joined room
   var joinedAt: Int64 = 0
 
+  /// hidden participant (used for recording)
+  var hidden: Bool = false
+
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   enum State: SwiftProtobuf.Enum {
@@ -262,6 +265,114 @@ struct Livekit_DataMessage {
   init() {}
 }
 
+struct Livekit_RecordingInput {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  /// either url or template required
+  var url: String = String()
+
+  var template: Livekit_RecordingTemplate {
+    get {return _template ?? Livekit_RecordingTemplate()}
+    set {_template = newValue}
+  }
+  /// Returns true if `template` has been explicitly set.
+  var hasTemplate: Bool {return self._template != nil}
+  /// Clears the value of `template`. Subsequent reads from it will return its default value.
+  mutating func clearTemplate() {self._template = nil}
+
+  var width: Int32 = 0
+
+  var height: Int32 = 0
+
+  var depth: Int32 = 0
+
+  var framerate: Int32 = 0
+
+  var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  init() {}
+
+  fileprivate var _template: Livekit_RecordingTemplate? = nil
+}
+
+struct Livekit_RecordingTemplate {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  var type: String = String()
+
+  var wsURL: String = String()
+
+  /// either token or room name required
+  var token: String = String()
+
+  var roomName: String = String()
+
+  var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  init() {}
+}
+
+struct Livekit_RecordingOutput {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  /// either file, rtmp, or s3 required
+  var file: String = String()
+
+  var rtmp: String = String()
+
+  var s3: Livekit_RecordingS3Output {
+    get {return _s3 ?? Livekit_RecordingS3Output()}
+    set {_s3 = newValue}
+  }
+  /// Returns true if `s3` has been explicitly set.
+  var hasS3: Bool {return self._s3 != nil}
+  /// Clears the value of `s3`. Subsequent reads from it will return its default value.
+  mutating func clearS3() {self._s3 = nil}
+
+  var width: Int32 = 0
+
+  var height: Int32 = 0
+
+  var audioBitrate: String = String()
+
+  var audioFrequency: String = String()
+
+  var videoBitrate: String = String()
+
+  var videoBuffer: String = String()
+
+  var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  init() {}
+
+  fileprivate var _s3: Livekit_RecordingS3Output? = nil
+}
+
+struct Livekit_RecordingS3Output {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  var bucket: String = String()
+
+  var key: String = String()
+
+  /// optional
+  var accessKey: String = String()
+
+  var secret: String = String()
+
+  var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  init() {}
+}
+
 // MARK: - Code below here is support for the SwiftProtobuf runtime.
 
 fileprivate let _protobuf_package = "livekit"
@@ -389,6 +500,7 @@ extension Livekit_ParticipantInfo: SwiftProtobuf.Message, SwiftProtobuf._Message
     4: .same(proto: "tracks"),
     5: .same(proto: "metadata"),
     6: .standard(proto: "joined_at"),
+    7: .same(proto: "hidden"),
   ]
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -403,6 +515,7 @@ extension Livekit_ParticipantInfo: SwiftProtobuf.Message, SwiftProtobuf._Message
       case 4: try { try decoder.decodeRepeatedMessageField(value: &self.tracks) }()
       case 5: try { try decoder.decodeSingularStringField(value: &self.metadata) }()
       case 6: try { try decoder.decodeSingularInt64Field(value: &self.joinedAt) }()
+      case 7: try { try decoder.decodeSingularBoolField(value: &self.hidden) }()
       default: break
       }
     }
@@ -427,6 +540,9 @@ extension Livekit_ParticipantInfo: SwiftProtobuf.Message, SwiftProtobuf._Message
     if self.joinedAt != 0 {
       try visitor.visitSingularInt64Field(value: self.joinedAt, fieldNumber: 6)
     }
+    if self.hidden != false {
+      try visitor.visitSingularBoolField(value: self.hidden, fieldNumber: 7)
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -437,6 +553,7 @@ extension Livekit_ParticipantInfo: SwiftProtobuf.Message, SwiftProtobuf._Message
     if lhs.tracks != rhs.tracks {return false}
     if lhs.metadata != rhs.metadata {return false}
     if lhs.joinedAt != rhs.joinedAt {return false}
+    if lhs.hidden != rhs.hidden {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
@@ -573,6 +690,248 @@ extension Livekit_DataMessage: SwiftProtobuf.Message, SwiftProtobuf._MessageImpl
 
   static func ==(lhs: Livekit_DataMessage, rhs: Livekit_DataMessage) -> Bool {
     if lhs.value != rhs.value {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+extension Livekit_RecordingInput: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  static let protoMessageName: String = _protobuf_package + ".RecordingInput"
+  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
+    1: .same(proto: "url"),
+    2: .same(proto: "template"),
+    3: .same(proto: "width"),
+    4: .same(proto: "height"),
+    5: .same(proto: "depth"),
+    6: .same(proto: "framerate"),
+  ]
+
+  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularStringField(value: &self.url) }()
+      case 2: try { try decoder.decodeSingularMessageField(value: &self._template) }()
+      case 3: try { try decoder.decodeSingularInt32Field(value: &self.width) }()
+      case 4: try { try decoder.decodeSingularInt32Field(value: &self.height) }()
+      case 5: try { try decoder.decodeSingularInt32Field(value: &self.depth) }()
+      case 6: try { try decoder.decodeSingularInt32Field(value: &self.framerate) }()
+      default: break
+      }
+    }
+  }
+
+  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    if !self.url.isEmpty {
+      try visitor.visitSingularStringField(value: self.url, fieldNumber: 1)
+    }
+    if let v = self._template {
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 2)
+    }
+    if self.width != 0 {
+      try visitor.visitSingularInt32Field(value: self.width, fieldNumber: 3)
+    }
+    if self.height != 0 {
+      try visitor.visitSingularInt32Field(value: self.height, fieldNumber: 4)
+    }
+    if self.depth != 0 {
+      try visitor.visitSingularInt32Field(value: self.depth, fieldNumber: 5)
+    }
+    if self.framerate != 0 {
+      try visitor.visitSingularInt32Field(value: self.framerate, fieldNumber: 6)
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  static func ==(lhs: Livekit_RecordingInput, rhs: Livekit_RecordingInput) -> Bool {
+    if lhs.url != rhs.url {return false}
+    if lhs._template != rhs._template {return false}
+    if lhs.width != rhs.width {return false}
+    if lhs.height != rhs.height {return false}
+    if lhs.depth != rhs.depth {return false}
+    if lhs.framerate != rhs.framerate {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+extension Livekit_RecordingTemplate: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  static let protoMessageName: String = _protobuf_package + ".RecordingTemplate"
+  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
+    1: .same(proto: "type"),
+    2: .standard(proto: "ws_url"),
+    3: .same(proto: "token"),
+    4: .standard(proto: "room_name"),
+  ]
+
+  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularStringField(value: &self.type) }()
+      case 2: try { try decoder.decodeSingularStringField(value: &self.wsURL) }()
+      case 3: try { try decoder.decodeSingularStringField(value: &self.token) }()
+      case 4: try { try decoder.decodeSingularStringField(value: &self.roomName) }()
+      default: break
+      }
+    }
+  }
+
+  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    if !self.type.isEmpty {
+      try visitor.visitSingularStringField(value: self.type, fieldNumber: 1)
+    }
+    if !self.wsURL.isEmpty {
+      try visitor.visitSingularStringField(value: self.wsURL, fieldNumber: 2)
+    }
+    if !self.token.isEmpty {
+      try visitor.visitSingularStringField(value: self.token, fieldNumber: 3)
+    }
+    if !self.roomName.isEmpty {
+      try visitor.visitSingularStringField(value: self.roomName, fieldNumber: 4)
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  static func ==(lhs: Livekit_RecordingTemplate, rhs: Livekit_RecordingTemplate) -> Bool {
+    if lhs.type != rhs.type {return false}
+    if lhs.wsURL != rhs.wsURL {return false}
+    if lhs.token != rhs.token {return false}
+    if lhs.roomName != rhs.roomName {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+extension Livekit_RecordingOutput: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  static let protoMessageName: String = _protobuf_package + ".RecordingOutput"
+  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
+    1: .same(proto: "file"),
+    2: .same(proto: "rtmp"),
+    3: .same(proto: "s3"),
+    4: .same(proto: "width"),
+    5: .same(proto: "height"),
+    6: .standard(proto: "audio_bitrate"),
+    7: .standard(proto: "audio_frequency"),
+    8: .standard(proto: "video_bitrate"),
+    9: .standard(proto: "video_buffer"),
+  ]
+
+  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularStringField(value: &self.file) }()
+      case 2: try { try decoder.decodeSingularStringField(value: &self.rtmp) }()
+      case 3: try { try decoder.decodeSingularMessageField(value: &self._s3) }()
+      case 4: try { try decoder.decodeSingularInt32Field(value: &self.width) }()
+      case 5: try { try decoder.decodeSingularInt32Field(value: &self.height) }()
+      case 6: try { try decoder.decodeSingularStringField(value: &self.audioBitrate) }()
+      case 7: try { try decoder.decodeSingularStringField(value: &self.audioFrequency) }()
+      case 8: try { try decoder.decodeSingularStringField(value: &self.videoBitrate) }()
+      case 9: try { try decoder.decodeSingularStringField(value: &self.videoBuffer) }()
+      default: break
+      }
+    }
+  }
+
+  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    if !self.file.isEmpty {
+      try visitor.visitSingularStringField(value: self.file, fieldNumber: 1)
+    }
+    if !self.rtmp.isEmpty {
+      try visitor.visitSingularStringField(value: self.rtmp, fieldNumber: 2)
+    }
+    if let v = self._s3 {
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 3)
+    }
+    if self.width != 0 {
+      try visitor.visitSingularInt32Field(value: self.width, fieldNumber: 4)
+    }
+    if self.height != 0 {
+      try visitor.visitSingularInt32Field(value: self.height, fieldNumber: 5)
+    }
+    if !self.audioBitrate.isEmpty {
+      try visitor.visitSingularStringField(value: self.audioBitrate, fieldNumber: 6)
+    }
+    if !self.audioFrequency.isEmpty {
+      try visitor.visitSingularStringField(value: self.audioFrequency, fieldNumber: 7)
+    }
+    if !self.videoBitrate.isEmpty {
+      try visitor.visitSingularStringField(value: self.videoBitrate, fieldNumber: 8)
+    }
+    if !self.videoBuffer.isEmpty {
+      try visitor.visitSingularStringField(value: self.videoBuffer, fieldNumber: 9)
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  static func ==(lhs: Livekit_RecordingOutput, rhs: Livekit_RecordingOutput) -> Bool {
+    if lhs.file != rhs.file {return false}
+    if lhs.rtmp != rhs.rtmp {return false}
+    if lhs._s3 != rhs._s3 {return false}
+    if lhs.width != rhs.width {return false}
+    if lhs.height != rhs.height {return false}
+    if lhs.audioBitrate != rhs.audioBitrate {return false}
+    if lhs.audioFrequency != rhs.audioFrequency {return false}
+    if lhs.videoBitrate != rhs.videoBitrate {return false}
+    if lhs.videoBuffer != rhs.videoBuffer {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+extension Livekit_RecordingS3Output: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  static let protoMessageName: String = _protobuf_package + ".RecordingS3Output"
+  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
+    1: .same(proto: "bucket"),
+    2: .same(proto: "key"),
+    3: .standard(proto: "access_key"),
+    4: .same(proto: "secret"),
+  ]
+
+  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularStringField(value: &self.bucket) }()
+      case 2: try { try decoder.decodeSingularStringField(value: &self.key) }()
+      case 3: try { try decoder.decodeSingularStringField(value: &self.accessKey) }()
+      case 4: try { try decoder.decodeSingularStringField(value: &self.secret) }()
+      default: break
+      }
+    }
+  }
+
+  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    if !self.bucket.isEmpty {
+      try visitor.visitSingularStringField(value: self.bucket, fieldNumber: 1)
+    }
+    if !self.key.isEmpty {
+      try visitor.visitSingularStringField(value: self.key, fieldNumber: 2)
+    }
+    if !self.accessKey.isEmpty {
+      try visitor.visitSingularStringField(value: self.accessKey, fieldNumber: 3)
+    }
+    if !self.secret.isEmpty {
+      try visitor.visitSingularStringField(value: self.secret, fieldNumber: 4)
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  static func ==(lhs: Livekit_RecordingS3Output, rhs: Livekit_RecordingS3Output) -> Bool {
+    if lhs.bucket != rhs.bucket {return false}
+    if lhs.key != rhs.key {return false}
+    if lhs.accessKey != rhs.accessKey {return false}
+    if lhs.secret != rhs.secret {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }

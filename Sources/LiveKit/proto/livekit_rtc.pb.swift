@@ -476,35 +476,43 @@ struct Livekit_JoinResponse {
   // methods supported on all messages.
 
   var room: Livekit_Room {
-    get {return _room ?? Livekit_Room()}
-    set {_room = newValue}
+    get {return _storage._room ?? Livekit_Room()}
+    set {_uniqueStorage()._room = newValue}
   }
   /// Returns true if `room` has been explicitly set.
-  var hasRoom: Bool {return self._room != nil}
+  var hasRoom: Bool {return _storage._room != nil}
   /// Clears the value of `room`. Subsequent reads from it will return its default value.
-  mutating func clearRoom() {self._room = nil}
+  mutating func clearRoom() {_uniqueStorage()._room = nil}
 
   var participant: Livekit_ParticipantInfo {
-    get {return _participant ?? Livekit_ParticipantInfo()}
-    set {_participant = newValue}
+    get {return _storage._participant ?? Livekit_ParticipantInfo()}
+    set {_uniqueStorage()._participant = newValue}
   }
   /// Returns true if `participant` has been explicitly set.
-  var hasParticipant: Bool {return self._participant != nil}
+  var hasParticipant: Bool {return _storage._participant != nil}
   /// Clears the value of `participant`. Subsequent reads from it will return its default value.
-  mutating func clearParticipant() {self._participant = nil}
+  mutating func clearParticipant() {_uniqueStorage()._participant = nil}
 
-  var otherParticipants: [Livekit_ParticipantInfo] = []
+  var otherParticipants: [Livekit_ParticipantInfo] {
+    get {return _storage._otherParticipants}
+    set {_uniqueStorage()._otherParticipants = newValue}
+  }
 
-  var serverVersion: String = String()
+  var serverVersion: String {
+    get {return _storage._serverVersion}
+    set {_uniqueStorage()._serverVersion = newValue}
+  }
 
-  var iceServers: [Livekit_ICEServer] = []
+  var iceServers: [Livekit_ICEServer] {
+    get {return _storage._iceServers}
+    set {_uniqueStorage()._iceServers = newValue}
+  }
 
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   init() {}
 
-  fileprivate var _room: Livekit_Room? = nil
-  fileprivate var _participant: Livekit_ParticipantInfo? = nil
+  fileprivate var _storage = _StorageClass.defaultInstance
 }
 
 struct Livekit_TrackPublishedResponse {
@@ -1332,47 +1340,87 @@ extension Livekit_JoinResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageImp
     5: .standard(proto: "ice_servers"),
   ]
 
+  fileprivate class _StorageClass {
+    var _room: Livekit_Room? = nil
+    var _participant: Livekit_ParticipantInfo? = nil
+    var _otherParticipants: [Livekit_ParticipantInfo] = []
+    var _serverVersion: String = String()
+    var _iceServers: [Livekit_ICEServer] = []
+
+    static let defaultInstance = _StorageClass()
+
+    private init() {}
+
+    init(copying source: _StorageClass) {
+      _room = source._room
+      _participant = source._participant
+      _otherParticipants = source._otherParticipants
+      _serverVersion = source._serverVersion
+      _iceServers = source._iceServers
+    }
+  }
+
+  fileprivate mutating func _uniqueStorage() -> _StorageClass {
+    if !isKnownUniquelyReferenced(&_storage) {
+      _storage = _StorageClass(copying: _storage)
+    }
+    return _storage
+  }
+
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
-    while let fieldNumber = try decoder.nextFieldNumber() {
-      // The use of inline closures is to circumvent an issue where the compiler
-      // allocates stack space for every case branch when no optimizations are
-      // enabled. https://github.com/apple/swift-protobuf/issues/1034
-      switch fieldNumber {
-      case 1: try { try decoder.decodeSingularMessageField(value: &self._room) }()
-      case 2: try { try decoder.decodeSingularMessageField(value: &self._participant) }()
-      case 3: try { try decoder.decodeRepeatedMessageField(value: &self.otherParticipants) }()
-      case 4: try { try decoder.decodeSingularStringField(value: &self.serverVersion) }()
-      case 5: try { try decoder.decodeRepeatedMessageField(value: &self.iceServers) }()
-      default: break
+    _ = _uniqueStorage()
+    try withExtendedLifetime(_storage) { (_storage: _StorageClass) in
+      while let fieldNumber = try decoder.nextFieldNumber() {
+        // The use of inline closures is to circumvent an issue where the compiler
+        // allocates stack space for every case branch when no optimizations are
+        // enabled. https://github.com/apple/swift-protobuf/issues/1034
+        switch fieldNumber {
+        case 1: try { try decoder.decodeSingularMessageField(value: &_storage._room) }()
+        case 2: try { try decoder.decodeSingularMessageField(value: &_storage._participant) }()
+        case 3: try { try decoder.decodeRepeatedMessageField(value: &_storage._otherParticipants) }()
+        case 4: try { try decoder.decodeSingularStringField(value: &_storage._serverVersion) }()
+        case 5: try { try decoder.decodeRepeatedMessageField(value: &_storage._iceServers) }()
+        default: break
+        }
       }
     }
   }
 
   func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
-    if let v = self._room {
-      try visitor.visitSingularMessageField(value: v, fieldNumber: 1)
-    }
-    if let v = self._participant {
-      try visitor.visitSingularMessageField(value: v, fieldNumber: 2)
-    }
-    if !self.otherParticipants.isEmpty {
-      try visitor.visitRepeatedMessageField(value: self.otherParticipants, fieldNumber: 3)
-    }
-    if !self.serverVersion.isEmpty {
-      try visitor.visitSingularStringField(value: self.serverVersion, fieldNumber: 4)
-    }
-    if !self.iceServers.isEmpty {
-      try visitor.visitRepeatedMessageField(value: self.iceServers, fieldNumber: 5)
+    try withExtendedLifetime(_storage) { (_storage: _StorageClass) in
+      if let v = _storage._room {
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 1)
+      }
+      if let v = _storage._participant {
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 2)
+      }
+      if !_storage._otherParticipants.isEmpty {
+        try visitor.visitRepeatedMessageField(value: _storage._otherParticipants, fieldNumber: 3)
+      }
+      if !_storage._serverVersion.isEmpty {
+        try visitor.visitSingularStringField(value: _storage._serverVersion, fieldNumber: 4)
+      }
+      if !_storage._iceServers.isEmpty {
+        try visitor.visitRepeatedMessageField(value: _storage._iceServers, fieldNumber: 5)
+      }
     }
     try unknownFields.traverse(visitor: &visitor)
   }
 
   static func ==(lhs: Livekit_JoinResponse, rhs: Livekit_JoinResponse) -> Bool {
-    if lhs._room != rhs._room {return false}
-    if lhs._participant != rhs._participant {return false}
-    if lhs.otherParticipants != rhs.otherParticipants {return false}
-    if lhs.serverVersion != rhs.serverVersion {return false}
-    if lhs.iceServers != rhs.iceServers {return false}
+    if lhs._storage !== rhs._storage {
+      let storagesAreEqual: Bool = withExtendedLifetime((lhs._storage, rhs._storage)) { (_args: (_StorageClass, _StorageClass)) in
+        let _storage = _args.0
+        let rhs_storage = _args.1
+        if _storage._room != rhs_storage._room {return false}
+        if _storage._participant != rhs_storage._participant {return false}
+        if _storage._otherParticipants != rhs_storage._otherParticipants {return false}
+        if _storage._serverVersion != rhs_storage._serverVersion {return false}
+        if _storage._iceServers != rhs_storage._iceServers {return false}
+        return true
+      }
+      if !storagesAreEqual {return false}
+    }
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
