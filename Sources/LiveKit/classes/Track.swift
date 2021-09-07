@@ -53,6 +53,10 @@ public class Track {
     public internal(set) var sid: String?
     public internal(set) var kind: Track.Kind
     public internal(set) var mediaTrack: RTCMediaStreamTrack
+    public internal(set) var transceiver: RTCRtpTransceiver?
+    public var sender: RTCRtpSender? {
+        return transceiver?.sender
+    }
 
     init(name: String, kind: Kind, track: RTCMediaStreamTrack) {
         self.name = name
