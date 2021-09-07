@@ -30,7 +30,7 @@ public class LocalVideoTrack: VideoTrack {
         super.init(rtcTrack: rtcTrack, name: name)
     }
 
-    public static func createCapturer(options: LocalVideoTrackOptions = LocalVideoTrackOptions()) throws -> (rtcTrack: RTCVideoTrack, capturer: RTCCameraVideoCapturer, source: RTCVideoSource, selectedDimensions: CMVideoDimensions) {
+    private static func createCapturer(options: LocalVideoTrackOptions = LocalVideoTrackOptions()) throws -> (rtcTrack: RTCVideoTrack, capturer: RTCCameraVideoCapturer, source: RTCVideoSource, selectedDimensions: CMVideoDimensions) {
 
         let source = RTCEngine.factory.videoSource()
         let capturer = RTCCameraVideoCapturer(delegate: source)
@@ -132,7 +132,7 @@ public class LocalVideoTrack: VideoTrack {
         return rtcEncodings
     }
 
-    func restartTrack(options: LocalVideoTrackOptions = LocalVideoTrackOptions()) throws {
+    public func restartTrack(options: LocalVideoTrackOptions = LocalVideoTrackOptions()) throws {
         //
         let result = try LocalVideoTrack.createCapturer(options: options)
         //
@@ -145,7 +145,7 @@ public class LocalVideoTrack: VideoTrack {
         //
         // TODO: Stop previous mediaTrack
         // ...
-        // mediaTrack.isEnabled = false
+        mediaTrack.isEnabled = false
         mediaTrack = result.rtcTrack
 
         // Set the new track
