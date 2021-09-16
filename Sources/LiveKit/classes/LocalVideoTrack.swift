@@ -111,40 +111,38 @@ public class LocalVideoTrack: VideoTrack {
             rtcEncodings.append(baseParams!)
         }
 
-        // not currently supported, fails to encode frame
-        //        if simulcast {
-        //            let halfParams = VideoPreset.getRTPEncodingParams(
-        //                inputWidth: self.width,
-        //                inputHeight: self.height,
-        //                rid: "h")
-        //            if halfParams != nil {
-        //                rtcEncodings.append(halfParams!)
-        //            }
-        //            let quarterParams = VideoPreset.getRTPEncodingParams(
-        //                inputWidth: self.width,
-        //                inputHeight: self.height,
-        //                rid: "q")
-        //            if quarterParams != nil {
-        //                rtcEncodings.append(halfParams!)
-        //            }
-        //        }
+// not currently supported, fails to encode frame
+//        if simulcast {
+//            let halfParams = VideoPreset.getRTPEncodingParams(
+//                inputWidth: self.width,
+//                inputHeight: self.height,
+//                rid: "h")
+//            if halfParams != nil {
+//                rtcEncodings.append(halfParams!)
+//            }
+//            let quarterParams = VideoPreset.getRTPEncodingParams(
+//                inputWidth: self.width,
+//                inputHeight: self.height,
+//                rid: "q")
+//            if quarterParams != nil {
+//                rtcEncodings.append(halfParams!)
+//            }
+//        }
 
         return rtcEncodings
     }
 
     public func restartTrack(options: LocalVideoTrackOptions = LocalVideoTrackOptions()) throws {
-        //
+
         let result = try LocalVideoTrack.createCapturer(options: options)
-        //
-        // TODO: Stop previous capturer
-        // ...
+
+        // Stop previous capturer
         capturer.stopCapture()
         capturer = result.capturer
 
         source = result.source
-        //
+
         // TODO: Stop previous mediaTrack
-        // ...
         mediaTrack.isEnabled = false
         mediaTrack = result.rtcTrack
 
