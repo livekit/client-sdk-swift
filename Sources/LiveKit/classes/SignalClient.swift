@@ -237,6 +237,9 @@ class SignalClient : NSObject {
             case let .speaker(speakerUpdate):
                 delegate?.onActiveSpeakersChanged(speakers: speakerUpdate.speakers)
 
+            case let .mute(mute):
+                delegate?.onRemoteMuteChanged(trackSid: mute.sid, muted: mute.muted)
+
             case .leave:
                 delegate?.onLeave()
 

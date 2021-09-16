@@ -339,6 +339,10 @@ extension RTCEngine: SignalClientDelegate {
         promise.fulfill(trackPublished.track)
     }
 
+    func onRemoteMuteChanged(trackSid: String, muted: Bool) {
+        delegate?.didRemoteMuteChange(trackSid: trackSid, muted: muted)
+    }
+
     func onLeave() {
         close()
         delegate?.didDisconnect()

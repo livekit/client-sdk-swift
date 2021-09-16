@@ -19,5 +19,6 @@ protocol SignalClientDelegate: AnyObject {
     func onActiveSpeakersChanged(speakers: [Livekit_SpeakerInfo])
     func onClose(reason: String, code: UInt16)
     func onLeave()
+    func onRemoteMuteChanged(trackSid: String, muted: Bool)
     func onError(error: Error)
 }
