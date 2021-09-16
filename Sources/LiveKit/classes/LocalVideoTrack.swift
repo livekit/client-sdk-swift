@@ -30,7 +30,8 @@ public class LocalVideoTrack: VideoTrack {
         super.init(rtcTrack: rtcTrack, name: name)
     }
 
-    public static func createTrack(name: String, options: LocalVideoTrackOptions = LocalVideoTrackOptions()) throws -> LocalVideoTrack {
+    private static func createCapturer(options: LocalVideoTrackOptions = LocalVideoTrackOptions()) throws -> (rtcTrack: RTCVideoTrack, capturer: RTCCameraVideoCapturer, source: RTCVideoSource, selectedDimensions: CMVideoDimensions) {
+
         let source = RTCEngine.factory.videoSource()
         let capturer = RTCCameraVideoCapturer(delegate: source)
         let possibleDevice = RTCCameraVideoCapturer.captureDevices().first { $0.position == options.position }
@@ -78,15 +79,22 @@ public class LocalVideoTrack: VideoTrack {
         logger.info("starting capture with \(device), format: \(selectedFormat), fps: \(fps)")
         capturer.startCapture(with: device, format: selectedFormat, fps: Int(fps))
 
-        let track = RTCEngine.factory.videoTrack(with: source, trackId: UUID().uuidString)
-        track.isEnabled = true
+        let rtcTrack = RTCEngine.factory.videoTrack(with: source, trackId: UUID().uuidString)
+        rtcTrack.isEnabled = true
+
+        return (rtcTrack, capturer, source, selectedDimension)
+    }
+
+    public static func createTrack(name: String, options: LocalVideoTrackOptions = LocalVideoTrackOptions()) throws -> LocalVideoTrack {
+
+        let result = try createCapturer(options: options)
         return LocalVideoTrack(
-            rtcTrack: track,
-            capturer: capturer,
-            source: source,
+            rtcTrack: result.rtcTrack,
+            capturer: result.capturer,
+            source: result.source,
             name: name,
-            width: Int(selectedDimension.width),
-            height: Int(selectedDimension.height)
+            width: Int(result.selectedDimensions.width),
+            height: Int(result.selectedDimensions.height)
         )
     }
 
@@ -103,7 +111,7 @@ public class LocalVideoTrack: VideoTrack {
             rtcEncodings.append(baseParams!)
         }
 
-        // not currently supported, fails to encode frame
+// not currently supported, fails to encode frame
 //        if simulcast {
 //            let halfParams = VideoPreset.getRTPEncodingParams(
 //                inputWidth: self.width,
@@ -122,6 +130,24 @@ public class LocalVideoTrack: VideoTrack {
 //        }
 
         return rtcEncodings
+    }
+
+    public func restartTrack(options: LocalVideoTrackOptions = LocalVideoTrackOptions()) throws {
+
+        let result = try LocalVideoTrack.createCapturer(options: options)
+
+        // Stop previous capturer
+        capturer.stopCapture()
+        capturer = result.capturer
+
+        source = result.source
+
+        // TODO: Stop previous mediaTrack
+        mediaTrack.isEnabled = false
+        mediaTrack = result.rtcTrack
+
+        // Set the new track
+        sender?.track = result.rtcTrack
     }
 }
 

@@ -95,8 +95,8 @@ public class LocalParticipant: Participant {
                         let encodings = track.getVideoEncodings(publishOptions.encoding, simulcast: publishOptions.simulcast)
                         transInit.sendEncodings = encodings
 
-                        let transceiver = self.engine?.publisher?.peerConnection.addTransceiver(with: track.mediaTrack, init: transInit)
-                        if transceiver == nil {
+                        track.transceiver = self.engine?.publisher?.peerConnection.addTransceiver(with: track.mediaTrack, init: transInit)
+                        if track.transceiver == nil {
                             reject(TrackError.publishError("Nil sender returned from peer connection."))
                             return
                         }
