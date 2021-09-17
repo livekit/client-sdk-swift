@@ -117,7 +117,7 @@ struct Livekit_ParticipantInfo {
 
   var metadata: String = String()
 
-  /// timestamp when participant joined room
+  /// timestamp when participant joined room, in seconds
   var joinedAt: Int64 = 0
 
   /// hidden participant (used for recording)
@@ -212,48 +212,50 @@ struct Livekit_TrackInfo {
   init() {}
 }
 
-/// old DataTrack message
-struct Livekit_DataMessage {
+/// new DataPacket API
+struct Livekit_DataPacket {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
 
-  var value: Livekit_DataMessage.OneOf_Value? = nil
+  var kind: Livekit_DataPacket.Kind = .reliable
 
-  var text: String {
+  var value: Livekit_DataPacket.OneOf_Value? = nil
+
+  var user: Livekit_UserPacket {
     get {
-      if case .text(let v)? = value {return v}
-      return String()
+      if case .user(let v)? = value {return v}
+      return Livekit_UserPacket()
     }
-    set {value = .text(newValue)}
+    set {value = .user(newValue)}
   }
 
-  var binary: Data {
+  var speaker: Livekit_ActiveSpeakerUpdate {
     get {
-      if case .binary(let v)? = value {return v}
-      return Data()
+      if case .speaker(let v)? = value {return v}
+      return Livekit_ActiveSpeakerUpdate()
     }
-    set {value = .binary(newValue)}
+    set {value = .speaker(newValue)}
   }
 
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   enum OneOf_Value: Equatable {
-    case text(String)
-    case binary(Data)
+    case user(Livekit_UserPacket)
+    case speaker(Livekit_ActiveSpeakerUpdate)
 
   #if !swift(>=4.1)
-    static func ==(lhs: Livekit_DataMessage.OneOf_Value, rhs: Livekit_DataMessage.OneOf_Value) -> Bool {
+    static func ==(lhs: Livekit_DataPacket.OneOf_Value, rhs: Livekit_DataPacket.OneOf_Value) -> Bool {
       // The use of inline closures is to circumvent an issue where the compiler
       // allocates stack space for every case branch when no optimizations are
       // enabled. https://github.com/apple/swift-protobuf/issues/1034
       switch (lhs, rhs) {
-      case (.text, .text): return {
-        guard case .text(let l) = lhs, case .text(let r) = rhs else { preconditionFailure() }
+      case (.user, .user): return {
+        guard case .user(let l) = lhs, case .user(let r) = rhs else { preconditionFailure() }
         return l == r
       }()
-      case (.binary, .binary): return {
-        guard case .binary(let l) = lhs, case .binary(let r) = rhs else { preconditionFailure() }
+      case (.speaker, .speaker): return {
+        guard case .speaker(let l) = lhs, case .speaker(let r) = rhs else { preconditionFailure() }
         return l == r
       }()
       default: return false
@@ -262,111 +264,92 @@ struct Livekit_DataMessage {
   #endif
   }
 
-  init() {}
-}
+  enum Kind: SwiftProtobuf.Enum {
+    typealias RawValue = Int
+    case reliable // = 0
+    case lossy // = 1
+    case UNRECOGNIZED(Int)
 
-struct Livekit_RecordingInput {
-  // SwiftProtobuf.Message conformance is added in an extension below. See the
-  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
-  // methods supported on all messages.
+    init() {
+      self = .reliable
+    }
 
-  /// either url or template required
-  var url: String = String()
+    init?(rawValue: Int) {
+      switch rawValue {
+      case 0: self = .reliable
+      case 1: self = .lossy
+      default: self = .UNRECOGNIZED(rawValue)
+      }
+    }
 
-  var template: Livekit_RecordingTemplate {
-    get {return _template ?? Livekit_RecordingTemplate()}
-    set {_template = newValue}
+    var rawValue: Int {
+      switch self {
+      case .reliable: return 0
+      case .lossy: return 1
+      case .UNRECOGNIZED(let i): return i
+      }
+    }
+
   }
-  /// Returns true if `template` has been explicitly set.
-  var hasTemplate: Bool {return self._template != nil}
-  /// Clears the value of `template`. Subsequent reads from it will return its default value.
-  mutating func clearTemplate() {self._template = nil}
-
-  var width: Int32 = 0
-
-  var height: Int32 = 0
-
-  var depth: Int32 = 0
-
-  var framerate: Int32 = 0
-
-  var unknownFields = SwiftProtobuf.UnknownStorage()
 
   init() {}
-
-  fileprivate var _template: Livekit_RecordingTemplate? = nil
 }
 
-struct Livekit_RecordingTemplate {
+#if swift(>=4.2)
+
+extension Livekit_DataPacket.Kind: CaseIterable {
+  // The compiler won't synthesize support with the UNRECOGNIZED case.
+  static var allCases: [Livekit_DataPacket.Kind] = [
+    .reliable,
+    .lossy,
+  ]
+}
+
+#endif  // swift(>=4.2)
+
+struct Livekit_ActiveSpeakerUpdate {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
 
-  var type: String = String()
-
-  var wsURL: String = String()
-
-  /// either token or room name required
-  var token: String = String()
-
-  var roomName: String = String()
+  var speakers: [Livekit_SpeakerInfo] = []
 
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   init() {}
 }
 
-struct Livekit_RecordingOutput {
+struct Livekit_SpeakerInfo {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
 
-  /// either file, rtmp, or s3 required
-  var file: String = String()
+  var sid: String = String()
 
-  var rtmp: String = String()
+  /// audio level, 0-1.0, 1 is loudest
+  var level: Float = 0
 
-  var s3: Livekit_RecordingS3Output {
-    get {return _s3 ?? Livekit_RecordingS3Output()}
-    set {_s3 = newValue}
-  }
-  /// Returns true if `s3` has been explicitly set.
-  var hasS3: Bool {return self._s3 != nil}
-  /// Clears the value of `s3`. Subsequent reads from it will return its default value.
-  mutating func clearS3() {self._s3 = nil}
-
-  var width: Int32 = 0
-
-  var height: Int32 = 0
-
-  var audioBitrate: String = String()
-
-  var audioFrequency: String = String()
-
-  var videoBitrate: String = String()
-
-  var videoBuffer: String = String()
+  /// true if speaker is currently active
+  var active: Bool = false
 
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   init() {}
-
-  fileprivate var _s3: Livekit_RecordingS3Output? = nil
 }
 
-struct Livekit_RecordingS3Output {
+struct Livekit_UserPacket {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
 
-  var bucket: String = String()
+  /// participant ID of user that sent the message
+  var participantSid: String = String()
 
-  var key: String = String()
+  /// user defined payload
+  var payload: Data = Data()
 
-  /// optional
-  var accessKey: String = String()
-
-  var secret: String = String()
+  /// the ID of the participants who will receive the message (the message will be sent to all the people in the room if this variable is empty)
+  var destinationSids: [String] = []
 
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
@@ -636,11 +619,12 @@ extension Livekit_TrackInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImplem
   }
 }
 
-extension Livekit_DataMessage: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
-  static let protoMessageName: String = _protobuf_package + ".DataMessage"
+extension Livekit_DataPacket: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  static let protoMessageName: String = _protobuf_package + ".DataPacket"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
-    1: .same(proto: "text"),
-    2: .same(proto: "binary"),
+    1: .same(proto: "kind"),
+    2: .same(proto: "user"),
+    3: .same(proto: "speaker"),
   ]
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -649,20 +633,31 @@ extension Livekit_DataMessage: SwiftProtobuf.Message, SwiftProtobuf._MessageImpl
       // allocates stack space for every case branch when no optimizations are
       // enabled. https://github.com/apple/swift-protobuf/issues/1034
       switch fieldNumber {
-      case 1: try {
-        var v: String?
-        try decoder.decodeSingularStringField(value: &v)
+      case 1: try { try decoder.decodeSingularEnumField(value: &self.kind) }()
+      case 2: try {
+        var v: Livekit_UserPacket?
+        var hadOneofValue = false
+        if let current = self.value {
+          hadOneofValue = true
+          if case .user(let m) = current {v = m}
+        }
+        try decoder.decodeSingularMessageField(value: &v)
         if let v = v {
-          if self.value != nil {try decoder.handleConflictingOneOf()}
-          self.value = .text(v)
+          if hadOneofValue {try decoder.handleConflictingOneOf()}
+          self.value = .user(v)
         }
       }()
-      case 2: try {
-        var v: Data?
-        try decoder.decodeSingularBytesField(value: &v)
+      case 3: try {
+        var v: Livekit_ActiveSpeakerUpdate?
+        var hadOneofValue = false
+        if let current = self.value {
+          hadOneofValue = true
+          if case .speaker(let m) = current {v = m}
+        }
+        try decoder.decodeSingularMessageField(value: &v)
         if let v = v {
-          if self.value != nil {try decoder.handleConflictingOneOf()}
-          self.value = .binary(v)
+          if hadOneofValue {try decoder.handleConflictingOneOf()}
+          self.value = .speaker(v)
         }
       }()
       default: break
@@ -671,39 +666,45 @@ extension Livekit_DataMessage: SwiftProtobuf.Message, SwiftProtobuf._MessageImpl
   }
 
   func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    if self.kind != .reliable {
+      try visitor.visitSingularEnumField(value: self.kind, fieldNumber: 1)
+    }
     // The use of inline closures is to circumvent an issue where the compiler
     // allocates stack space for every case branch when no optimizations are
     // enabled. https://github.com/apple/swift-protobuf/issues/1034
     switch self.value {
-    case .text?: try {
-      guard case .text(let v)? = self.value else { preconditionFailure() }
-      try visitor.visitSingularStringField(value: v, fieldNumber: 1)
+    case .user?: try {
+      guard case .user(let v)? = self.value else { preconditionFailure() }
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 2)
     }()
-    case .binary?: try {
-      guard case .binary(let v)? = self.value else { preconditionFailure() }
-      try visitor.visitSingularBytesField(value: v, fieldNumber: 2)
+    case .speaker?: try {
+      guard case .speaker(let v)? = self.value else { preconditionFailure() }
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 3)
     }()
     case nil: break
     }
     try unknownFields.traverse(visitor: &visitor)
   }
 
-  static func ==(lhs: Livekit_DataMessage, rhs: Livekit_DataMessage) -> Bool {
+  static func ==(lhs: Livekit_DataPacket, rhs: Livekit_DataPacket) -> Bool {
+    if lhs.kind != rhs.kind {return false}
     if lhs.value != rhs.value {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
 }
 
-extension Livekit_RecordingInput: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
-  static let protoMessageName: String = _protobuf_package + ".RecordingInput"
+extension Livekit_DataPacket.Kind: SwiftProtobuf._ProtoNameProviding {
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
-    1: .same(proto: "url"),
-    2: .same(proto: "template"),
-    3: .same(proto: "width"),
-    4: .same(proto: "height"),
-    5: .same(proto: "depth"),
-    6: .same(proto: "framerate"),
+    0: .same(proto: "RELIABLE"),
+    1: .same(proto: "LOSSY"),
+  ]
+}
+
+extension Livekit_ActiveSpeakerUpdate: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  static let protoMessageName: String = _protobuf_package + ".ActiveSpeakerUpdate"
+  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
+    1: .same(proto: "speakers"),
   ]
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -712,58 +713,32 @@ extension Livekit_RecordingInput: SwiftProtobuf.Message, SwiftProtobuf._MessageI
       // allocates stack space for every case branch when no optimizations are
       // enabled. https://github.com/apple/swift-protobuf/issues/1034
       switch fieldNumber {
-      case 1: try { try decoder.decodeSingularStringField(value: &self.url) }()
-      case 2: try { try decoder.decodeSingularMessageField(value: &self._template) }()
-      case 3: try { try decoder.decodeSingularInt32Field(value: &self.width) }()
-      case 4: try { try decoder.decodeSingularInt32Field(value: &self.height) }()
-      case 5: try { try decoder.decodeSingularInt32Field(value: &self.depth) }()
-      case 6: try { try decoder.decodeSingularInt32Field(value: &self.framerate) }()
+      case 1: try { try decoder.decodeRepeatedMessageField(value: &self.speakers) }()
       default: break
       }
     }
   }
 
   func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
-    if !self.url.isEmpty {
-      try visitor.visitSingularStringField(value: self.url, fieldNumber: 1)
-    }
-    if let v = self._template {
-      try visitor.visitSingularMessageField(value: v, fieldNumber: 2)
-    }
-    if self.width != 0 {
-      try visitor.visitSingularInt32Field(value: self.width, fieldNumber: 3)
-    }
-    if self.height != 0 {
-      try visitor.visitSingularInt32Field(value: self.height, fieldNumber: 4)
-    }
-    if self.depth != 0 {
-      try visitor.visitSingularInt32Field(value: self.depth, fieldNumber: 5)
-    }
-    if self.framerate != 0 {
-      try visitor.visitSingularInt32Field(value: self.framerate, fieldNumber: 6)
+    if !self.speakers.isEmpty {
+      try visitor.visitRepeatedMessageField(value: self.speakers, fieldNumber: 1)
     }
     try unknownFields.traverse(visitor: &visitor)
   }
 
-  static func ==(lhs: Livekit_RecordingInput, rhs: Livekit_RecordingInput) -> Bool {
-    if lhs.url != rhs.url {return false}
-    if lhs._template != rhs._template {return false}
-    if lhs.width != rhs.width {return false}
-    if lhs.height != rhs.height {return false}
-    if lhs.depth != rhs.depth {return false}
-    if lhs.framerate != rhs.framerate {return false}
+  static func ==(lhs: Livekit_ActiveSpeakerUpdate, rhs: Livekit_ActiveSpeakerUpdate) -> Bool {
+    if lhs.speakers != rhs.speakers {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
 }
 
-extension Livekit_RecordingTemplate: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
-  static let protoMessageName: String = _protobuf_package + ".RecordingTemplate"
+extension Livekit_SpeakerInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  static let protoMessageName: String = _protobuf_package + ".SpeakerInfo"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
-    1: .same(proto: "type"),
-    2: .standard(proto: "ws_url"),
-    3: .same(proto: "token"),
-    4: .standard(proto: "room_name"),
+    1: .same(proto: "sid"),
+    2: .same(proto: "level"),
+    3: .same(proto: "active"),
   ]
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -772,53 +747,42 @@ extension Livekit_RecordingTemplate: SwiftProtobuf.Message, SwiftProtobuf._Messa
       // allocates stack space for every case branch when no optimizations are
       // enabled. https://github.com/apple/swift-protobuf/issues/1034
       switch fieldNumber {
-      case 1: try { try decoder.decodeSingularStringField(value: &self.type) }()
-      case 2: try { try decoder.decodeSingularStringField(value: &self.wsURL) }()
-      case 3: try { try decoder.decodeSingularStringField(value: &self.token) }()
-      case 4: try { try decoder.decodeSingularStringField(value: &self.roomName) }()
+      case 1: try { try decoder.decodeSingularStringField(value: &self.sid) }()
+      case 2: try { try decoder.decodeSingularFloatField(value: &self.level) }()
+      case 3: try { try decoder.decodeSingularBoolField(value: &self.active) }()
       default: break
       }
     }
   }
 
   func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
-    if !self.type.isEmpty {
-      try visitor.visitSingularStringField(value: self.type, fieldNumber: 1)
+    if !self.sid.isEmpty {
+      try visitor.visitSingularStringField(value: self.sid, fieldNumber: 1)
     }
-    if !self.wsURL.isEmpty {
-      try visitor.visitSingularStringField(value: self.wsURL, fieldNumber: 2)
+    if self.level != 0 {
+      try visitor.visitSingularFloatField(value: self.level, fieldNumber: 2)
     }
-    if !self.token.isEmpty {
-      try visitor.visitSingularStringField(value: self.token, fieldNumber: 3)
-    }
-    if !self.roomName.isEmpty {
-      try visitor.visitSingularStringField(value: self.roomName, fieldNumber: 4)
+    if self.active != false {
+      try visitor.visitSingularBoolField(value: self.active, fieldNumber: 3)
     }
     try unknownFields.traverse(visitor: &visitor)
   }
 
-  static func ==(lhs: Livekit_RecordingTemplate, rhs: Livekit_RecordingTemplate) -> Bool {
-    if lhs.type != rhs.type {return false}
-    if lhs.wsURL != rhs.wsURL {return false}
-    if lhs.token != rhs.token {return false}
-    if lhs.roomName != rhs.roomName {return false}
+  static func ==(lhs: Livekit_SpeakerInfo, rhs: Livekit_SpeakerInfo) -> Bool {
+    if lhs.sid != rhs.sid {return false}
+    if lhs.level != rhs.level {return false}
+    if lhs.active != rhs.active {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
 }
 
-extension Livekit_RecordingOutput: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
-  static let protoMessageName: String = _protobuf_package + ".RecordingOutput"
+extension Livekit_UserPacket: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  static let protoMessageName: String = _protobuf_package + ".UserPacket"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
-    1: .same(proto: "file"),
-    2: .same(proto: "rtmp"),
-    3: .same(proto: "s3"),
-    4: .same(proto: "width"),
-    5: .same(proto: "height"),
-    6: .standard(proto: "audio_bitrate"),
-    7: .standard(proto: "audio_frequency"),
-    8: .standard(proto: "video_bitrate"),
-    9: .standard(proto: "video_buffer"),
+    1: .standard(proto: "participant_sid"),
+    2: .same(proto: "payload"),
+    3: .standard(proto: "destination_sids"),
   ]
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -827,111 +791,31 @@ extension Livekit_RecordingOutput: SwiftProtobuf.Message, SwiftProtobuf._Message
       // allocates stack space for every case branch when no optimizations are
       // enabled. https://github.com/apple/swift-protobuf/issues/1034
       switch fieldNumber {
-      case 1: try { try decoder.decodeSingularStringField(value: &self.file) }()
-      case 2: try { try decoder.decodeSingularStringField(value: &self.rtmp) }()
-      case 3: try { try decoder.decodeSingularMessageField(value: &self._s3) }()
-      case 4: try { try decoder.decodeSingularInt32Field(value: &self.width) }()
-      case 5: try { try decoder.decodeSingularInt32Field(value: &self.height) }()
-      case 6: try { try decoder.decodeSingularStringField(value: &self.audioBitrate) }()
-      case 7: try { try decoder.decodeSingularStringField(value: &self.audioFrequency) }()
-      case 8: try { try decoder.decodeSingularStringField(value: &self.videoBitrate) }()
-      case 9: try { try decoder.decodeSingularStringField(value: &self.videoBuffer) }()
+      case 1: try { try decoder.decodeSingularStringField(value: &self.participantSid) }()
+      case 2: try { try decoder.decodeSingularBytesField(value: &self.payload) }()
+      case 3: try { try decoder.decodeRepeatedStringField(value: &self.destinationSids) }()
       default: break
       }
     }
   }
 
   func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
-    if !self.file.isEmpty {
-      try visitor.visitSingularStringField(value: self.file, fieldNumber: 1)
+    if !self.participantSid.isEmpty {
+      try visitor.visitSingularStringField(value: self.participantSid, fieldNumber: 1)
     }
-    if !self.rtmp.isEmpty {
-      try visitor.visitSingularStringField(value: self.rtmp, fieldNumber: 2)
+    if !self.payload.isEmpty {
+      try visitor.visitSingularBytesField(value: self.payload, fieldNumber: 2)
     }
-    if let v = self._s3 {
-      try visitor.visitSingularMessageField(value: v, fieldNumber: 3)
-    }
-    if self.width != 0 {
-      try visitor.visitSingularInt32Field(value: self.width, fieldNumber: 4)
-    }
-    if self.height != 0 {
-      try visitor.visitSingularInt32Field(value: self.height, fieldNumber: 5)
-    }
-    if !self.audioBitrate.isEmpty {
-      try visitor.visitSingularStringField(value: self.audioBitrate, fieldNumber: 6)
-    }
-    if !self.audioFrequency.isEmpty {
-      try visitor.visitSingularStringField(value: self.audioFrequency, fieldNumber: 7)
-    }
-    if !self.videoBitrate.isEmpty {
-      try visitor.visitSingularStringField(value: self.videoBitrate, fieldNumber: 8)
-    }
-    if !self.videoBuffer.isEmpty {
-      try visitor.visitSingularStringField(value: self.videoBuffer, fieldNumber: 9)
+    if !self.destinationSids.isEmpty {
+      try visitor.visitRepeatedStringField(value: self.destinationSids, fieldNumber: 3)
     }
     try unknownFields.traverse(visitor: &visitor)
   }
 
-  static func ==(lhs: Livekit_RecordingOutput, rhs: Livekit_RecordingOutput) -> Bool {
-    if lhs.file != rhs.file {return false}
-    if lhs.rtmp != rhs.rtmp {return false}
-    if lhs._s3 != rhs._s3 {return false}
-    if lhs.width != rhs.width {return false}
-    if lhs.height != rhs.height {return false}
-    if lhs.audioBitrate != rhs.audioBitrate {return false}
-    if lhs.audioFrequency != rhs.audioFrequency {return false}
-    if lhs.videoBitrate != rhs.videoBitrate {return false}
-    if lhs.videoBuffer != rhs.videoBuffer {return false}
-    if lhs.unknownFields != rhs.unknownFields {return false}
-    return true
-  }
-}
-
-extension Livekit_RecordingS3Output: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
-  static let protoMessageName: String = _protobuf_package + ".RecordingS3Output"
-  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
-    1: .same(proto: "bucket"),
-    2: .same(proto: "key"),
-    3: .standard(proto: "access_key"),
-    4: .same(proto: "secret"),
-  ]
-
-  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
-    while let fieldNumber = try decoder.nextFieldNumber() {
-      // The use of inline closures is to circumvent an issue where the compiler
-      // allocates stack space for every case branch when no optimizations are
-      // enabled. https://github.com/apple/swift-protobuf/issues/1034
-      switch fieldNumber {
-      case 1: try { try decoder.decodeSingularStringField(value: &self.bucket) }()
-      case 2: try { try decoder.decodeSingularStringField(value: &self.key) }()
-      case 3: try { try decoder.decodeSingularStringField(value: &self.accessKey) }()
-      case 4: try { try decoder.decodeSingularStringField(value: &self.secret) }()
-      default: break
-      }
-    }
-  }
-
-  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
-    if !self.bucket.isEmpty {
-      try visitor.visitSingularStringField(value: self.bucket, fieldNumber: 1)
-    }
-    if !self.key.isEmpty {
-      try visitor.visitSingularStringField(value: self.key, fieldNumber: 2)
-    }
-    if !self.accessKey.isEmpty {
-      try visitor.visitSingularStringField(value: self.accessKey, fieldNumber: 3)
-    }
-    if !self.secret.isEmpty {
-      try visitor.visitSingularStringField(value: self.secret, fieldNumber: 4)
-    }
-    try unknownFields.traverse(visitor: &visitor)
-  }
-
-  static func ==(lhs: Livekit_RecordingS3Output, rhs: Livekit_RecordingS3Output) -> Bool {
-    if lhs.bucket != rhs.bucket {return false}
-    if lhs.key != rhs.key {return false}
-    if lhs.accessKey != rhs.accessKey {return false}
-    if lhs.secret != rhs.secret {return false}
+  static func ==(lhs: Livekit_UserPacket, rhs: Livekit_UserPacket) -> Bool {
+    if lhs.participantSid != rhs.participantSid {return false}
+    if lhs.payload != rhs.payload {return false}
+    if lhs.destinationSids != rhs.destinationSids {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }

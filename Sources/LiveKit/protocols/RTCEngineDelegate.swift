@@ -18,4 +18,5 @@ protocol RTCEngineDelegate: AnyObject {
     func didDisconnect()
     func didFailToConnect(error: Error)
     func didReceive(packet: Livekit_UserPacket, kind: Livekit_DataPacket.Kind)
+    func remoteMuteDidChange(trackSid: String, muted: Bool)
 }
