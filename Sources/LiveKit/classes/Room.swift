@@ -276,7 +276,7 @@ extension Room: RTCEngineDelegate {
         participant.delegate?.didReceive(data: packet.payload, participant: participant)
     }
 
-    func didRemoteMuteChange(trackSid: String, muted: Bool) {
+    func remoteMuteDidChange(trackSid: String, muted: Bool) {
         if let track = localParticipant?.tracks[trackSid] as? LocalTrackPublication {
             track.setMuted(muted)
         }
