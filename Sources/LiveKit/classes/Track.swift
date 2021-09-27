@@ -44,11 +44,6 @@ public class Track {
         }
     }
 
-    public struct Dimensions {
-        public var width: Int
-        public var height: Int
-    }
-
     public internal(set) var name: String
     public internal(set) var sid: String?
     public internal(set) var kind: Track.Kind

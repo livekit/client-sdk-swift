@@ -12,10 +12,133 @@ import WebRTC
 
 let simulcastMinWidth = 200
 
+class Utils {
+
+    public static func computeEncodings(
+        dimensions: Dimensions?,
+        publishOptions: LocalVideoTrackPublishOptions?
+    ) -> [RTCRtpEncodingParameters]? {
+
+        let publishOptions = publishOptions ?? LocalVideoTrackPublishOptions()
+
+        var encoding = publishOptions.encoding
+
+        guard let dimensions = dimensions, (publishOptions.simulcast || encoding != nil) else {
+            return nil
+        }
+
+        let presets = dimensions.computeSuggestedPresets()
+
+        if (encoding == nil) {
+            let p = dimensions.computeSuggestedPreset(presets: presets)
+            encoding = p.encoding
+        }
+
+        guard let encoding = encoding else {
+            return nil
+        }
+
+        if (!publishOptions.simulcast) {
+            // not using simulcast
+            return [encoding.toRTCRtpEncoding()]
+        }
+
+        // simulcast
+        let midPreset = presets[1];
+        let lowPreset = presets[0];
+
+        var result: [RTCRtpEncodingParameters] = []
+
+        result.append(encoding.toRTCRtpEncoding(rid: "f"))
+
+        if (dimensions.width >= 960) {
+            result.append(contentsOf: [
+                midPreset.encoding.toRTCRtpEncoding(
+                    rid: "h",
+                    scaleDownBy: 2),
+                lowPreset.encoding.toRTCRtpEncoding(
+                    rid: "q",
+                    scaleDownBy: 4)
+            ])
+        } else {
+            result.append(lowPreset.encoding.toRTCRtpEncoding(
+                rid: "h",
+                scaleDownBy: 2
+                )
+            )
+        }
+
+        return result
+    }
+
+
+    //    func getVideoEncodings(_ baseEncoding: VideoEncoding?, simulcast: Bool) -> [RTCRtpEncodingParameters] {
+    //        var rtcEncodings: [RTCRtpEncodingParameters] = []
+    ////        let baseParams = VideoPreset.getRTPEncodingParams(
+    ////            inputWidth: dimensions.width,
+    ////            inputHeight: dimensions.height,
+    ////            rid: simulcast ? "f" : nil,
+    ////            encoding: baseEncoding
+    ////        )
+    ////
+    ////        if baseParams != nil {
+    ////            rtcEncodings.append(baseParams!)
+    ////        }
+    //
+    ////        if simulcast {
+    ////            let halfParams = VideoPreset.getRTPEncodingParams(
+    ////                inputWidth: dimensions.width,
+    ////                inputHeight: dimensions.height,
+    ////                rid: "h")
+    ////            if halfParams != nil {
+    ////                rtcEncodings.append(halfParams!)
+    ////            }
+    ////            let quarterParams = VideoPreset.getRTPEncodingParams(
+    ////                inputWidth: dimensions.width,
+    ////                inputHeight: dimensions.height,
+    ////                rid: "q")
+    ////            if quarterParams != nil {
+    ////                rtcEncodings.append(quarterParams!)
+    ////            }
+    ////        }
+    ////        {
+    //        let p1 = RTCRtpEncodingParameters()
+    //        p1.isActive = true
+    //        p1.rid = "f"
+    //        p1.scaleResolutionDownBy = NSNumber(value :1)// NSNumber(value: scaleDownFactor)
+    //        p1.maxFramerate = NSNumber(value: 15) //NSNumber(value: selectedEncoding.maxFps)
+    //        p1.maxBitrateBps = NSNumber(value: 500 * 1024) //NSNumber(value: selectedEncoding.maxBitrate)
+    //        rtcEncodings.append(p1)
+    //
+    //        let p2 = RTCRtpEncodingParameters()
+    //        p2.isActive = true
+    //        p2.rid = "h"
+    //        p2.scaleResolutionDownBy = NSNumber(value :2)// NSNumber(value: scaleDownFactor)
+    //        p2.maxFramerate = NSNumber(value: 15) //NSNumber(value: selectedEncoding.maxFps)
+    //        p2.maxBitrateBps = NSNumber(value: 500 * 1024) //NSNumber(value: selectedEncoding.maxBitrate)
+    //        rtcEncodings.append(p2)
+    //
+    //
+    //        let p3 = RTCRtpEncodingParameters()
+    //        p3.isActive = true
+    //        p3.rid = "q"
+    //        p3.scaleResolutionDownBy = NSNumber(value :4)// NSNumber(value: scaleDownFactor)
+    //        p3.maxFramerate = NSNumber(value: 15) //NSNumber(value: selectedEncoding.maxFps)
+    //        p3.maxBitrateBps = NSNumber(value: 500 * 1024) //NSNumber(value: selectedEncoding.maxBitrate)
+    //        rtcEncodings.append(p3)
+    //
+    //
+    ////        }
+    //
+    //        return rtcEncodings
+    //    }
+
+}
+
 public class LocalVideoTrack: VideoTrack {
     private var capturer: RTCCameraVideoCapturer
     private var source: RTCVideoSource
-    public var dimensions: Track.Dimensions
+    public let dimensions: Dimensions
 
     init(rtcTrack: RTCVideoTrack,
          capturer: RTCCameraVideoCapturer,
@@ -30,60 +153,64 @@ public class LocalVideoTrack: VideoTrack {
         super.init(rtcTrack: rtcTrack, name: name)
     }
 
-    private static func createCapturer(options: LocalVideoTrackOptions = LocalVideoTrackOptions()) throws -> (rtcTrack: RTCVideoTrack, capturer: RTCCameraVideoCapturer, source: RTCVideoSource, selectedDimensions: CMVideoDimensions) {
+    private static func createCapturer(options: LocalVideoTrackOptions = LocalVideoTrackOptions()) throws -> (
+        rtcTrack: RTCVideoTrack,
+        capturer: RTCCameraVideoCapturer,
+        source: RTCVideoSource,
+        selectedDimensions: CMVideoDimensions) {
 
-        let source = RTCEngine.factory.videoSource()
-        let capturer = RTCCameraVideoCapturer(delegate: source)
-        let possibleDevice = RTCCameraVideoCapturer.captureDevices().first { $0.position == options.position }
+            let source = RTCEngine.factory.videoSource()
+            let capturer = RTCCameraVideoCapturer(delegate: source)
+            let possibleDevice = RTCCameraVideoCapturer.captureDevices().first { $0.position == options.position }
 
-        guard let device = possibleDevice else {
-            throw TrackError.mediaError("No \(options.position) video capture devices available.")
-        }
-        let formats = RTCCameraVideoCapturer.supportedFormats(for: device)
-        let (targetWidth, targetHeight) = (options.captureParameter.width, options.captureParameter.height)
-
-        var currentDiff = Int.max
-        var selectedFormat: AVCaptureDevice.Format = formats[0]
-        var selectedDimension: CMVideoDimensions?
-        for format in formats {
-            if options.captureFormat == format {
-                selectedFormat = format
-                break
+            guard let device = possibleDevice else {
+                throw TrackError.mediaError("No \(options.position) video capture devices available.")
             }
-            let dimension = CMVideoFormatDescriptionGetDimensions(format.formatDescription)
-            let diff = abs(targetWidth - Int(dimension.width)) + abs(targetHeight - Int(dimension.height))
-            if diff < currentDiff {
-                selectedFormat = format
-                currentDiff = diff
-                selectedDimension = dimension
+            let formats = RTCCameraVideoCapturer.supportedFormats(for: device)
+            let (targetWidth, targetHeight) = (options.captureParameter.width, options.captureParameter.height)
+
+            var currentDiff = Int.max
+            var selectedFormat: AVCaptureDevice.Format = formats[0]
+            var selectedDimension: CMVideoDimensions?
+            for format in formats {
+                if options.captureFormat == format {
+                    selectedFormat = format
+                    break
+                }
+                let dimension = CMVideoFormatDescriptionGetDimensions(format.formatDescription)
+                let diff = abs(targetWidth - Int(dimension.width)) + abs(targetHeight - Int(dimension.height))
+                if diff < currentDiff {
+                    selectedFormat = format
+                    currentDiff = diff
+                    selectedDimension = dimension
+                }
             }
+
+            guard let selectedDimension = selectedDimension else {
+                throw TrackError.mediaError("could not get dimensions")
+            }
+
+            let fps = options.captureParameter.maxFrameRate
+
+            // discover FPS limits
+            var minFps = Double(60)
+            var maxFps = Double(0)
+            for fpsRange in selectedFormat.videoSupportedFrameRateRanges {
+                minFps = min(minFps, fpsRange.minFrameRate)
+                maxFps = max(maxFps, fpsRange.maxFrameRate)
+            }
+            if fps < minFps || fps > maxFps {
+                throw TrackError.mediaError("requested framerate is unsupported (\(minFps)-\(maxFps))")
+            }
+
+            logger.info("starting capture with \(device), format: \(selectedFormat), fps: \(fps)")
+            capturer.startCapture(with: device, format: selectedFormat, fps: Int(fps))
+
+            let rtcTrack = RTCEngine.factory.videoTrack(with: source, trackId: UUID().uuidString)
+            rtcTrack.isEnabled = true
+
+            return (rtcTrack, capturer, source, selectedDimension)
         }
-
-        guard let selectedDimension = selectedDimension else {
-            throw TrackError.mediaError("could not get dimensions")
-        }
-
-        let fps = options.captureParameter.maxFrameRate
-
-        // discover FPS limits
-        var minFps = Double(60)
-        var maxFps = Double(0)
-        for fpsRange in selectedFormat.videoSupportedFrameRateRanges {
-            minFps = min(minFps, fpsRange.minFrameRate)
-            maxFps = max(maxFps, fpsRange.maxFrameRate)
-        }
-        if fps < minFps || fps > maxFps {
-            throw TrackError.mediaError("requested framerate is unsupported (\(minFps)-\(maxFps))")
-        }
-
-        logger.info("starting capture with \(device), format: \(selectedFormat), fps: \(fps)")
-        capturer.startCapture(with: device, format: selectedFormat, fps: Int(fps))
-
-        let rtcTrack = RTCEngine.factory.videoTrack(with: source, trackId: UUID().uuidString)
-        rtcTrack.isEnabled = true
-
-        return (rtcTrack, capturer, source, selectedDimension)
-    }
 
     public static func createTrack(name: String, options: LocalVideoTrackOptions = LocalVideoTrackOptions()) throws -> LocalVideoTrack {
 
@@ -96,40 +223,6 @@ public class LocalVideoTrack: VideoTrack {
             width: Int(result.selectedDimensions.width),
             height: Int(result.selectedDimensions.height)
         )
-    }
-
-    func getVideoEncodings(_ baseEncoding: VideoEncoding?, simulcast: Bool) -> [RTCRtpEncodingParameters] {
-        var rtcEncodings: [RTCRtpEncodingParameters] = []
-        let baseParams = VideoPreset.getRTPEncodingParams(
-            inputWidth: dimensions.width,
-            inputHeight: dimensions.height,
-            rid: simulcast ? "f" : nil,
-            encoding: baseEncoding
-        )
-
-        if baseParams != nil {
-            rtcEncodings.append(baseParams!)
-        }
-
-// not currently supported, fails to encode frame
-//        if simulcast {
-//            let halfParams = VideoPreset.getRTPEncodingParams(
-//                inputWidth: self.width,
-//                inputHeight: self.height,
-//                rid: "h")
-//            if halfParams != nil {
-//                rtcEncodings.append(halfParams!)
-//            }
-//            let quarterParams = VideoPreset.getRTPEncodingParams(
-//                inputWidth: self.width,
-//                inputHeight: self.height,
-//                rid: "q")
-//            if quarterParams != nil {
-//                rtcEncodings.append(halfParams!)
-//            }
-//        }
-
-        return rtcEncodings
     }
 
     public func restartTrack(options: LocalVideoTrackOptions = LocalVideoTrackOptions()) throws {
@@ -154,7 +247,7 @@ public class LocalVideoTrack: VideoTrack {
 public struct LocalVideoTrackOptions {
     public var position: AVCaptureDevice.Position = .front
     public var captureFormat: AVCaptureDevice.Format?
-    public var captureParameter: VideoCaptureParameter = VideoPreset.qhd.capture
+    public var captureParameter: VideoCaptureParameter = VideoParameters.presetQHD169.capture
 
     public init() {}
 }
@@ -172,33 +265,116 @@ public struct VideoCaptureParameter {
     }
 }
 
-public struct VideoPreset {
-    // 4:3 aspect ratio
+extension VideoEncoding {
 
-    // 16:9 aspect ratio
-    public static let qvga = VideoPreset(
-        capture: VideoCaptureParameter(width: 320, height: 180, maxFps: 15),
+    func toRTCRtpEncoding(
+        rid: String? = nil,
+        scaleDownBy: Double = 1
+    ) -> RTCRtpEncodingParameters {
+
+        let result = RTCRtpEncodingParameters()
+        result.isActive = true
+
+        if let rid = rid {
+            result.rid = rid
+        }
+
+        // int
+        result.numTemporalLayers = NSNumber(value: 1)
+        // double
+        result.scaleResolutionDownBy = NSNumber(value: scaleDownBy)
+        // int
+        result.maxFramerate = NSNumber(value: maxFps)
+        // int
+        result.maxBitrateBps = NSNumber(value: maxBitrate) // 500 * 1024
+
+        // only set on the full track
+        if scaleDownBy == 1 {
+            result.networkPriority = .high
+            result.bitratePriority = 4.0
+        } else {
+            result.networkPriority = .low
+            result.bitratePriority = 1.0
+        }
+
+        return result
+    }
+}
+
+extension Dimensions {
+
+    func computeSuggestedPresets() -> [VideoParameters] {
+        let aspect = Double(width) / Double(height)
+        if abs(aspect - Dimensions.aspectRatio169) < abs(aspect - Dimensions.aspectRatio43) {
+            return VideoParameters.presets169
+        }
+        return VideoParameters.presets43;
+    }
+
+    func computeSuggestedPreset(presets: [VideoParameters]) -> VideoParameters {
+        assert(!presets.isEmpty)
+        var result = presets[0]
+        for p in presets {
+            if width >= p.capture.width, height >= p.capture.height {
+                result = p
+            }
+        }
+        return result
+    }
+}
+
+public struct VideoParameters {
+
+    // 4:3 aspect ratio
+    public static let presetQVGA43 = VideoParameters(
+        capture: VideoCaptureParameter(width: 240, height: 180, maxFps: 15),
         encoding: VideoEncoding(maxBitrate: 100_000, maxFps: 15)
     )
-    public static let vga = VideoPreset(
+    public static let presetVGA43 = VideoParameters(
+        capture: VideoCaptureParameter(width: 480, height: 360, maxFps: 30),
+        encoding: VideoEncoding(maxBitrate: 320_000, maxFps: 30)
+    )
+    public static let presetQHD43 = VideoParameters(
+        capture: VideoCaptureParameter(width: 720, height: 540, maxFps: 30),
+        encoding: VideoEncoding(maxBitrate: 640_000, maxFps: 30)
+    )
+    public static let presetHD43 = VideoParameters(
+        capture: VideoCaptureParameter(width: 960, height: 720, maxFps: 30),
+        encoding: VideoEncoding(maxBitrate: 2_000_000, maxFps: 30)
+    )
+    public static let presetFHD43 = VideoParameters(
+        capture: VideoCaptureParameter(width: 1440, height: 1080, maxFps: 30),
+        encoding: VideoEncoding(maxBitrate: 3_200_000, maxFps: 30)
+    )
+
+    // 16:9 aspect ratio
+    public static let presetQVGA169 = VideoParameters(
+        capture: VideoCaptureParameter(width: 320, height: 180, maxFps: 15),
+        encoding: VideoEncoding(maxBitrate: 125_000, maxFps: 15)
+    )
+    public static let presetVGA169 = VideoParameters(
         capture: VideoCaptureParameter(width: 640, height: 360, maxFps: 30),
         encoding: VideoEncoding(maxBitrate: 400_000, maxFps: 30)
     )
-    public static let qhd = VideoPreset(
+    public static let presetQHD169 = VideoParameters(
         capture: VideoCaptureParameter(width: 960, height: 540, maxFps: 30),
-        encoding: VideoEncoding(maxBitrate: 700_000, maxFps: 30)
+        encoding: VideoEncoding(maxBitrate: 800_000, maxFps: 30)
     )
-    public static let hd = VideoPreset(
+    public static let presetHD169 = VideoParameters(
         capture: VideoCaptureParameter(width: 1280, height: 720, maxFps: 30),
-        encoding: VideoEncoding(maxBitrate: 2_000_000, maxFps: 30)
+        encoding: VideoEncoding(maxBitrate: 2_500_000, maxFps: 30)
     )
-    public static let fhd = VideoPreset(
+    public static let presetFHD169 = VideoParameters(
         capture: VideoCaptureParameter(width: 1920, height: 1080, maxFps: 30),
         encoding: VideoEncoding(maxBitrate: 4_000_000, maxFps: 30)
     )
 
-    public static let presets = [
-        qvga, vga, qhd, hd, fhd,
+    public static let presets43 = [
+        presetQVGA43, presetVGA43, presetQHD43, presetHD43, presetFHD43,
+    ]
+
+    public static let presets169 = [
+        presetQVGA169, presetVGA169, presetQHD169, presetHD169, presetFHD169,
     ]
 
     public let capture: VideoCaptureParameter
@@ -209,9 +385,9 @@ public struct VideoPreset {
         self.encoding = encoding
     }
 
-    static func getPresetForDimension(width: Int, height: Int) -> VideoPreset {
-        var preset = presets[0]
-        for p in presets {
+    static func getPresetForDimension(width: Int, height: Int) -> VideoParameters {
+        var preset = presets169[0]
+        for p in presets169 {
             if width >= p.capture.width, height >= p.capture.height {
                 preset = p
             }

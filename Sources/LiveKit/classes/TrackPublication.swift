@@ -15,7 +15,7 @@ public class TrackPublication {
     public internal(set) var muted: Bool
 
     /// video-only
-    public internal(set) var dimensions: Track.Dimensions?
+    public internal(set) var dimensions: Dimensions?
 
     /// video-only
     public internal(set) var simulcasted: Bool = false
@@ -40,7 +40,7 @@ public class TrackPublication {
         muted = info.muted
         simulcasted = info.simulcast
         if info.type == .video {
-            dimensions = Track.Dimensions(width: Int(info.width), height: Int(info.height))
+            dimensions = Dimensions(width: Int(info.width), height: Int(info.height))
         }
     }
 }

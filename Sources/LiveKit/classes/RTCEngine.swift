@@ -34,9 +34,10 @@ class RTCEngine: NSObject {
 
     static let factory: RTCPeerConnectionFactory = {
         RTCInitializeSSL()
-        var encoderFactory = RTCDefaultVideoEncoderFactory()
-        var decoderFactory = RTCDefaultVideoDecoderFactory()
-        return RTCPeerConnectionFactory(encoderFactory: encoderFactory, decoderFactory: decoderFactory)
+        let encoderFactory = RTCDefaultVideoEncoderFactory()
+        let decoderFactory = RTCDefaultVideoDecoderFactory()
+        let simulcastFactory = RTCVideoEncoderFactorySimulcast(primary: encoderFactory, fallback: encoderFactory)
+        return RTCPeerConnectionFactory(encoderFactory: simulcastFactory, decoderFactory: decoderFactory)
     }()
 
     static let defaultIceServers = ["stun:stun.l.google.com:19302",
@@ -90,7 +91,23 @@ class RTCEngine: NSObject {
         publisherDelegate.engine = self
         subscriberDelegate.engine = self
         client.delegate = self
+
+//        Timer.scheduledTimer(timeInterval: 1.0, target: self, selector: #selector(self.getStatsTimer), userInfo: nil, repeats: true)
     }
+
+    @objc func getStatsTimer() {
+        print("getting stats...")
+        print("------------------------------------------------------------")
+        publisher?.peerConnection.stats(for: nil, statsOutputLevel: .standard, completionHandler: { result in
+            let types = result.map{ $0.type }
+            print(types)
+//            let v = rep.filter { $0.type == "ssrc" }
+            for entry in result {
+                print(entry.values)
+            }
+        })
+    }
+
 
     func join(options: ConnectOptions) {
         client.join(options: options)
@@ -105,7 +122,7 @@ class RTCEngine: NSObject {
         }
     }
 
-    func addTrack(cid: String, name: String, kind: Livekit_TrackType, dimensions: Track.Dimensions? = nil) throws -> Promise<Livekit_TrackInfo> {
+    func addTrack(cid: String, name: String, kind: Livekit_TrackType, dimensions: Dimensions? = nil) throws -> Promise<Livekit_TrackInfo> {
         if pendingTrackResolvers[cid] != nil {
             throw TrackError.duplicateTrack("Track with the same ID (\(cid)) has already been published!")
         }
