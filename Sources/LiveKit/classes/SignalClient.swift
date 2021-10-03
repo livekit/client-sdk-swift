@@ -129,7 +129,7 @@ class SignalClient : NSObject {
         sendRequest(req: req)
     }
 
-    func sendAddTrack(cid: String, name: String, type: Livekit_TrackType, dimensions: Track.Dimensions? = nil) {
+    func sendAddTrack(cid: String, name: String, type: Livekit_TrackType, dimensions: Dimensions? = nil) {
         var addTrackReq = Livekit_AddTrackRequest.with {
             $0.cid = cid
             $0.name = name
