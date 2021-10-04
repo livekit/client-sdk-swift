@@ -289,7 +289,7 @@ class SignalClient : NSObject {
                 switch msg {
                 case let .join(joinMsg) where isConnected == false:
                     isConnected = true
-                    delegate?.onJoin(info: joinMsg)
+                    delegate?.onJoin(joinResponse: joinMsg)
                 default:
                     handleSignalResponse(msg: msg)
                 }

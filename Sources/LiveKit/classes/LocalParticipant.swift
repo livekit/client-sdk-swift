@@ -52,7 +52,7 @@ public class LocalParticipant: Participant {
                         transInit.direction = .sendOnly
                         transInit.streamIds = [self.streamId]
 
-                        let transceiver = self.engine?.publisher?.peerConnection.addTransceiver(with: track.mediaTrack, init: transInit)
+                        let transceiver = self.engine?.publisher?.pc.addTransceiver(with: track.mediaTrack, init: transInit)
                         if transceiver == nil {
                             reject(TrackError.publishError("Nil sender returned from peer connection."))
                             return
@@ -98,7 +98,7 @@ public class LocalParticipant: Participant {
                             transInit.sendEncodings = encodings
                         }
 
-                        track.transceiver = self.engine?.publisher?.peerConnection.addTransceiver(with: track.mediaTrack, init: transInit)
+                        track.transceiver = self.engine?.publisher?.pc.addTransceiver(with: track.mediaTrack, init: transInit)
                         if track.transceiver == nil {
                             reject(TrackError.publishError("Nil sender returned from peer connection."))
                             return
@@ -135,7 +135,7 @@ public class LocalParticipant: Participant {
         }
         track.stop()
 
-        guard let pc = engine?.publisher?.peerConnection else {
+        guard let pc = engine?.publisher?.pc else {
             return
         }
 

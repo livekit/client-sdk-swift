@@ -14,6 +14,23 @@ let reliableDataChannelLabel = "_reliable"
 let lossyDataChannelLabel = "_lossy"
 let maxDataPacketSize = 15000
 
+extension RTCConfiguration {
+
+    static func liveKitDefault() -> RTCConfiguration {
+
+        let result = RTCConfiguration()
+        result.sdpSemantics = .unifiedPlan
+        result.continualGatheringPolicy = .gatherContinually
+        result.candidateNetworkPolicy = .all
+        result.disableIPV6 = true
+        // don't send TCP candidates, they are passive and only server should be sending
+        result.tcpCandidatePolicy = .disabled
+        result.iceTransportPolicy = .all
+
+        return result
+    }
+}
+
 enum ICEState {
     case disconnected
     case connected
@@ -43,8 +60,8 @@ class RTCEngine: NSObject {
     static let defaultIceServers = ["stun:stun.l.google.com:19302",
                                     "stun:stun1.l.google.com:19302"]
 
-    var publisher: PeerConnectionTransport?
-    var subscriber: PeerConnectionTransport?
+    var publisher: PCTransport?
+    var subscriber: PCTransport?
     var publisherDelegate: PublisherTransportDelegate
     var subscriberDelegate: SubscriberTransportDelegate
     var client: SignalClient
@@ -98,7 +115,7 @@ class RTCEngine: NSObject {
     @objc func getStatsTimer() {
         print("getting stats...")
         print("------------------------------------------------------------")
-        publisher?.peerConnection.stats(for: nil, statsOutputLevel: .standard, completionHandler: { result in
+        publisher?.pc.stats(for: nil, statsOutputLevel: .standard, completionHandler: { result in
             let types = result.map{ $0.type }
             print(types)
 //            let v = rep.filter { $0.type == "ssrc" }
@@ -153,7 +170,7 @@ class RTCEngine: NSObject {
         }
         let mediaConstraints = RTCMediaConstraints(mandatoryConstraints: constraints, optionalConstraints: nil)
         
-        publisher?.peerConnection.offer(for: mediaConstraints, completionHandler: { offer, error in
+        publisher?.pc.offer(for: mediaConstraints, completionHandler: { offer, error in
             if let error = error {
                 logger.error("could not create offer: \(error)")
                 return
@@ -162,7 +179,7 @@ class RTCEngine: NSObject {
                 logger.error("offer is unexpectedly missing during negotiation")
                 return
             }
-            self.publisher?.peerConnection.setLocalDescription(sdp, completionHandler: { error in
+            self.publisher?.pc.setLocalDescription(sdp, completionHandler: { error in
                 if let error = error {
                     logger.error("error setting local description: \(error)")
                     return
@@ -214,29 +231,31 @@ extension RTCEngine: SignalClientDelegate {
         iceState = .reconnecting
         // if publisher is waiting for an answer from right now, it most likely got lost, we'll
         // reset signal state to allow it to continue
-        if let desc = publisher.peerConnection.remoteDescription,
-           publisher.peerConnection.signalingState == .haveLocalOffer {
+        if let desc = publisher.pc.remoteDescription,
+           publisher.pc.signalingState == .haveLocalOffer {
             logger.debug("have local offer but recovering to restart ICE")
             publisher.setRemoteDescription(desc) { error in
                 if let error = error {
                     logger.error("could not set restart ICE: \(error)")
                     return
                 }
-                publisher.peerConnection.restartIce()
+                publisher.pc.restartIce()
                 publisher.prepareForIceRestart()
             }
         } else {
             logger.debug("restarting ICE")
-            publisher.peerConnection.restartIce()
+            publisher.pc.restartIce()
             publisher.prepareForIceRestart()
         }
     }
 
-    func onJoin(info: Livekit_JoinResponse) {
+    func onJoin(joinResponse: Livekit_JoinResponse) {
+
         // create publisher and subscribers
-        let config = RTCConfiguration()
+        let config = RTCConfiguration.liveKitDefault()
+
         config.iceServers = []
-        for s in info.iceServers {
+        for s in joinResponse.iceServers {
             var username: String?
             var credential: String?
             if s.username != "" {
@@ -253,31 +272,28 @@ extension RTCEngine: SignalClientDelegate {
             config.iceServers = [RTCIceServer(urlStrings: RTCEngine.defaultIceServers)]
         }
 
-        config.sdpSemantics = .unifiedPlan
-        config.continualGatheringPolicy = .gatherContinually
-        config.candidateNetworkPolicy = .all
-        config.disableIPV6 = true
-        // don't send TCP candidates, they are passive and only server should be sending
-        config.tcpCandidatePolicy = .disabled
-        config.iceTransportPolicy = .all
+        do {
+            let pub = try PCTransport(config: config, target: .publisher, delegate: publisherDelegate)
+            let sub = try PCTransport(config: config, target: .subscriber, delegate: subscriberDelegate)
+            publisher = pub
+            subscriber = sub
 
-        let pub = PeerConnectionTransport(config: config, target: .publisher, delegate: publisherDelegate)
-        publisher = pub
-        let sub = PeerConnectionTransport(config: config, target: .subscriber, delegate: subscriberDelegate)
-        subscriber = sub
+            let reliableConfig = RTCDataChannelConfiguration()
+            reliableConfig.isOrdered = true
+            reliableDC = pub.pc.dataChannel(forLabel: reliableDataChannelLabel, configuration: reliableConfig)
+            reliableDC?.delegate = self
+            let lossyConfig = RTCDataChannelConfiguration()
+            lossyConfig.isOrdered = true
+            lossyConfig.maxRetransmits = 1
+            lossyDC = pub.pc.dataChannel(forLabel: lossyDataChannelLabel, configuration: lossyConfig)
+            lossyDC?.delegate = self
 
-        let reliableConfig = RTCDataChannelConfiguration()
-        reliableConfig.isOrdered = true
-        reliableDC = pub.peerConnection.dataChannel(forLabel: reliableDataChannelLabel, configuration: reliableConfig)
-        reliableDC?.delegate = self
-        let lossyConfig = RTCDataChannelConfiguration()
-        lossyConfig.isOrdered = true
-        lossyConfig.maxRetransmits = 1
-        lossyDC = pub.peerConnection.dataChannel(forLabel: lossyDataChannelLabel, configuration: lossyConfig)
-        lossyDC?.delegate = self
+        } catch {
+            //
+        }
 
         negotiate()
-        delegate?.didJoin(response: info)
+        delegate?.didJoin(response: joinResponse)
     }
 
     func onAnswer(sessionDescription: RTCSessionDescription) {
@@ -322,7 +338,7 @@ extension RTCEngine: SignalClientDelegate {
             let constraints: Dictionary<String, String> = [:]
             let mediaConstraints = RTCMediaConstraints(mandatoryConstraints: constraints,
                                                        optionalConstraints: nil)
-            subscriber.peerConnection.answer(for: mediaConstraints, completionHandler: { answer, error in
+            subscriber.pc.answer(for: mediaConstraints, completionHandler: { answer, error in
                 if let error = error {
                     logger.error("error answering subscriber: \(error)")
                     return
@@ -331,7 +347,7 @@ extension RTCEngine: SignalClientDelegate {
                     logger.error("unexpectedly missing answer for subscriber")
                     return
                 }
-                subscriber.peerConnection.setLocalDescription(ans, completionHandler: { error in
+                subscriber.pc.setLocalDescription(ans, completionHandler: { error in
                     if let error = error {
                         logger.error("error setting subscriber local description for answer: \(error)")
                         return

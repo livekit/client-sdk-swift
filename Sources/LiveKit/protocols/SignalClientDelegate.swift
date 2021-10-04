@@ -9,7 +9,7 @@ import Foundation
 import WebRTC
 
 protocol SignalClientDelegate: AnyObject {
-    func onJoin(info: Livekit_JoinResponse)
+    func onJoin(joinResponse: Livekit_JoinResponse)
     func onReconnect()
     func onAnswer(sessionDescription: RTCSessionDescription)
     func onOffer(sessionDescription: RTCSessionDescription)
