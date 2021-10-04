@@ -234,11 +234,7 @@ extension RTCEngine: SignalClientDelegate {
         if let desc = publisher.pc.remoteDescription,
            publisher.pc.signalingState == .haveLocalOffer {
             logger.debug("have local offer but recovering to restart ICE")
-            publisher.setRemoteDescription(desc) { error in
-                if let error = error {
-                    logger.error("could not set restart ICE: \(error)")
-                    return
-                }
+            publisher.setRemoteDescription(desc).then {
                 publisher.pc.restartIce()
                 publisher.prepareForIceRestart()
             }
@@ -301,11 +297,11 @@ extension RTCEngine: SignalClientDelegate {
             return
         }
         logger.debug("handling server answer")
-        publisher.setRemoteDescription(sessionDescription) { error in
-            if let error = error {
-                logger.error("error setting remote description for answer: \(error)")
-                return
-            }
+        publisher.setRemoteDescription(sessionDescription).then {
+//            if let error = error {
+//                logger.error("error setting remote description for answer: \(error)")
+//                return
+//            }
             logger.debug("successfully set remote desc")
 
             // when reconnecting, PeerConnection does not always recognize it's disconnected
@@ -318,9 +314,9 @@ extension RTCEngine: SignalClientDelegate {
 
     func onTrickle(candidate: RTCIceCandidate, target: Livekit_SignalTarget) {
         if target == .publisher {
-            publisher?.addIceCandidate(candidate: candidate)
+            publisher?.addIceCandidate(candidate)
         } else {
-            subscriber?.addIceCandidate(candidate: candidate)
+            subscriber?.addIceCandidate(candidate)
         }
     }
 
@@ -330,11 +326,11 @@ extension RTCEngine: SignalClientDelegate {
         }
 
         logger.debug("handling server offer")
-        subscriber.setRemoteDescription(sessionDescription, completionHandler: { error in
-            if let error = error {
-                logger.error("error setting subscriber remote description for offer: \(error)")
-                return
-            }
+        subscriber.setRemoteDescription(sessionDescription).then {
+//            if let error = error {
+//                logger.error("error setting subscriber remote description for offer: \(error)")
+//                return
+//            }
             let constraints: Dictionary<String, String> = [:]
             let mediaConstraints = RTCMediaConstraints(mandatoryConstraints: constraints,
                                                        optionalConstraints: nil)
@@ -356,7 +352,7 @@ extension RTCEngine: SignalClientDelegate {
                     try? self.client.sendAnswer(answer: ans)
                 })
             })
-        })
+        }
     }
 
     func onParticipantUpdate(updates: [Livekit_ParticipantInfo]) {

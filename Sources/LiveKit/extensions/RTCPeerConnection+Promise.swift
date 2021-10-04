@@ -55,9 +55,9 @@ extension RTCPeerConnection {
         }
     }
 
-    func promiseSetLocalDescription(sdp: RTCSessionDescription) -> Promise<Bool> {
+    func promiseSetLocalDescription(sdp: RTCSessionDescription) -> Promise<Void> {
 
-        return Promise<Bool> { complete, fail in
+        return Promise<Void> { complete, fail in
 
             self.setLocalDescription(sdp) { error in
 
@@ -66,15 +66,15 @@ extension RTCPeerConnection {
                     return
                 }
 
-                complete(true)
+                complete(())
             }
         }
     }
 
 
-    func promiseSetRemoteDescription(sdp: RTCSessionDescription) -> Promise<Bool> {
+    func promiseSetRemoteDescription(_ sdp: RTCSessionDescription) -> Promise<Void> {
 
-        return Promise<Bool> { complete, fail in
+        return Promise<Void> { complete, fail in
 
             self.setRemoteDescription(sdp) { error in
 
@@ -83,23 +83,24 @@ extension RTCPeerConnection {
                     return
                 }
 
-                complete(true)
+                complete(())
             }
         }
     }
 
-    func promiseAdd(iceCandidate: RTCIceCandidate) -> Promise<Bool> {
+    @discardableResult
+    func promiseAddIceCandidate(_ candidate: RTCIceCandidate) -> Promise<Void> {
 
-        return Promise<Bool> { complete, fail in
+        return Promise<Void> { complete, fail in
 
-            self.add(iceCandidate) { error in
+            self.add(candidate) { error in
 
                 guard error == nil else {
                     fail(LiveKitError.webRTC("failed to add ice candidate", error))
                     return
                 }
 
-                complete(true)
+                complete(())
             }
         }
     }

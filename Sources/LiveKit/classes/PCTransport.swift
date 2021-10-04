@@ -8,7 +8,6 @@
 import Foundation
 import Promises
 import WebRTC
-import CoreMedia
 
 typealias PCTransportOnOffer = (RTCSessionDescription) -> Void
 
@@ -35,43 +34,53 @@ class PCTransport {
         self.pc = pc
     }
 
-    func addIceCandidate(candidate: RTCIceCandidate) {
-        if pc.remoteDescription != nil && !restartingIce {
-            pc.add(candidate) { (error: Error?) -> Void in
-                if error != nil {
-                    logger.error("could not add ICE candidate: \(error!)")
-                } else {
+    @discardableResult
+    public func addIceCandidate(_ candidate: RTCIceCandidate) -> Promise<Void> {
+
+        return Promise<Void> { complete, fail in
+
+            if self.pc.remoteDescription != nil && !self.restartingIce {
+
+                self.pc.promiseAddIceCandidate(candidate).then {
                     logger.debug("added ICE candidate for \(self.target.rawValue)")
+                    complete(())
+                }.catch { error in
+                    logger.error("could not add ICE candidate: \(error)")
+                    fail(error)
                 }
+
+            } else {
+                logger.debug("queuing ICE candidate: \(candidate.sdp)")
+                self.pendingCandidates.append(candidate)
+                complete(())
             }
-        } else {
-            logger.debug("queuing ICE candidate: \(candidate.sdp)")
-            pendingCandidates.append(candidate)
         }
     }
 
-    func setRemoteDescription(_ sdp: RTCSessionDescription, completionHandler: ((Error?) -> Void)? = nil) {
-        pc.setRemoteDescription(sdp) { error in
-            if error != nil {
-                logger.error("setRemoteDescription failed: \(error!)")
-                completionHandler?(error)
-                return
-            }
+    public func setRemoteDescription(_ sdp: RTCSessionDescription) -> Promise<Void> {
 
-            for pendingCandidate in self.pendingCandidates {
-                // ignore errors here
-                self.pc.add(pendingCandidate) { _ in
+        return Promise<Void> { complete, fail in
+
+            self.pc.promiseSetRemoteDescription(sdp).then {
+
+                for candidate in self.pendingCandidates {
+                    // ignore errors here
+                    self.pc.promiseAddIceCandidate(candidate)
                 }
-            }
-            self.pendingCandidates.removeAll()
-            self.restartingIce = false
 
-            completionHandler?(nil)
+                self.pendingCandidates.removeAll()
+                self.restartingIce = false
 
-            if (self.renegotiate) {
-                self.renegotiate = false
-                try? self.createAndSendOffer()
+                if (self.renegotiate) {
+                    self.renegotiate = false
+                    try? self.createAndSendOffer()
+                }
+
+            }.catch { error in
+                logger.error("setRemoteDescription failed: \(error)")
+                fail(error)
             }
+
         }
     }
 
