@@ -9,7 +9,9 @@ import Foundation
 
 enum LiveKitError: Error {
 
-    case webRTC(String? = nil)
+    // WebRTC lib returned error
+    case webRTC(String?, Error? = nil)
+    case invalidState(String? = nil)
 
     var localizedDescription: String {
         switch self {

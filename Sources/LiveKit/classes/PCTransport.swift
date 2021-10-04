@@ -12,32 +12,6 @@ import CoreMedia
 
 typealias PCTransportOnOffer = (RTCSessionDescription) -> Void
 
-// Promise version
-//extension RTCPeerConnection {
-//
-//    // create offer
-//    func promiseOffer(for constraints: RTCMediaConstraints) -> Promise<RTCSessionDescription> {
-//        //
-//        Promise<RTCSessionDescription> { f, r in
-//            //
-//            self.offer(for: constraints) { sd, error in
-//
-//                if error != nil {
-//                    r(error!)
-//                    return
-//                }
-//
-//                guard let sd = sd else {
-//                    r(LiveKitError.webRTC())
-//                    return
-//                }
-//
-//                f(sd)
-//            }
-//        }
-//    }
-//}
-
 class PCTransport {
     let target: Livekit_SignalTarget
     let pc: RTCPeerConnection
@@ -54,8 +28,7 @@ class PCTransport {
                                                   constraints: RTCEngine.connConstraints,
                                                   delegate: delegate)
         guard let pc = pc else {
-            logger.critical("failed to create peerConnection")
-            throw LiveKitError.webRTC()
+            throw LiveKitError.webRTC("failed to create peerConnection")
         }
 
         self.target = target
