@@ -322,15 +322,6 @@ struct Livekit_SignalResponse {
     set {message = .trackPublished(newValue)}
   }
 
-  /// list of active speakers
-  var speaker: Livekit_ActiveSpeakerUpdate {
-    get {
-      if case .speaker(let v)? = message {return v}
-      return Livekit_ActiveSpeakerUpdate()
-    }
-    set {message = .speaker(newValue)}
-  }
-
   /// Immediately terminate session
   var leave: Livekit_LeaveRequest {
     get {
@@ -349,6 +340,24 @@ struct Livekit_SignalResponse {
     set {message = .mute(newValue)}
   }
 
+  /// indicates changes to speaker status, including when they've gone to not speaking
+  var speakersChanged: Livekit_SpeakersChanged {
+    get {
+      if case .speakersChanged(let v)? = message {return v}
+      return Livekit_SpeakersChanged()
+    }
+    set {message = .speakersChanged(newValue)}
+  }
+
+  /// sent when metadata of the room has changed
+  var roomUpdate: Livekit_RoomUpdate {
+    get {
+      if case .roomUpdate(let v)? = message {return v}
+      return Livekit_RoomUpdate()
+    }
+    set {message = .roomUpdate(newValue)}
+  }
+
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   enum OneOf_Message: Equatable {
@@ -364,12 +373,14 @@ struct Livekit_SignalResponse {
     case update(Livekit_ParticipantUpdate)
     /// sent to the participant when their track has been published
     case trackPublished(Livekit_TrackPublishedResponse)
-    /// list of active speakers
-    case speaker(Livekit_ActiveSpeakerUpdate)
     /// Immediately terminate session
     case leave(Livekit_LeaveRequest)
     /// server initiated mute
     case mute(Livekit_MuteTrackRequest)
+    /// indicates changes to speaker status, including when they've gone to not speaking
+    case speakersChanged(Livekit_SpeakersChanged)
+    /// sent when metadata of the room has changed
+    case roomUpdate(Livekit_RoomUpdate)
 
   #if !swift(>=4.1)
     static func ==(lhs: Livekit_SignalResponse.OneOf_Message, rhs: Livekit_SignalResponse.OneOf_Message) -> Bool {
@@ -401,16 +412,20 @@ struct Livekit_SignalResponse {
         guard case .trackPublished(let l) = lhs, case .trackPublished(let r) = rhs else { preconditionFailure() }
         return l == r
       }()
-      case (.speaker, .speaker): return {
-        guard case .speaker(let l) = lhs, case .speaker(let r) = rhs else { preconditionFailure() }
-        return l == r
-      }()
       case (.leave, .leave): return {
         guard case .leave(let l) = lhs, case .leave(let r) = rhs else { preconditionFailure() }
         return l == r
       }()
       case (.mute, .mute): return {
         guard case .mute(let l) = lhs, case .mute(let r) = rhs else { preconditionFailure() }
+        return l == r
+      }()
+      case (.speakersChanged, .speakersChanged): return {
+        guard case .speakersChanged(let l) = lhs, case .speakersChanged(let r) = rhs else { preconditionFailure() }
+        return l == r
+      }()
+      case (.roomUpdate, .roomUpdate): return {
+        guard case .roomUpdate(let l) = lhs, case .roomUpdate(let r) = rhs else { preconditionFailure() }
         return l == r
       }()
       default: return false
@@ -649,6 +664,39 @@ struct Livekit_ICEServer {
   init() {}
 }
 
+struct Livekit_SpeakersChanged {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  var speakers: [Livekit_SpeakerInfo] = []
+
+  var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  init() {}
+}
+
+struct Livekit_RoomUpdate {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  var room: Livekit_Room {
+    get {return _room ?? Livekit_Room()}
+    set {_room = newValue}
+  }
+  /// Returns true if `room` has been explicitly set.
+  var hasRoom: Bool {return self._room != nil}
+  /// Clears the value of `room`. Subsequent reads from it will return its default value.
+  mutating func clearRoom() {self._room = nil}
+
+  var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  init() {}
+
+  fileprivate var _room: Livekit_Room? = nil
+}
+
 // MARK: - Code below here is support for the SwiftProtobuf runtime.
 
 fileprivate let _protobuf_package = "livekit"
@@ -812,8 +860,9 @@ extension Livekit_SignalRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageIm
 
   func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
     // The use of inline closures is to circumvent an issue where the compiler
-    // allocates stack space for every case branch when no optimizations are
-    // enabled. https://github.com/apple/swift-protobuf/issues/1034
+    // allocates stack space for every if/case branch local when no optimizations
+    // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+    // https://github.com/apple/swift-protobuf/issues/1182
     switch self.message {
     case .offer?: try {
       guard case .offer(let v)? = self.message else { preconditionFailure() }
@@ -872,9 +921,10 @@ extension Livekit_SignalResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageI
     4: .same(proto: "trickle"),
     5: .same(proto: "update"),
     6: .standard(proto: "track_published"),
-    7: .same(proto: "speaker"),
     8: .same(proto: "leave"),
     9: .same(proto: "mute"),
+    10: .standard(proto: "speakers_changed"),
+    11: .standard(proto: "room_update"),
   ]
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -961,19 +1011,6 @@ extension Livekit_SignalResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageI
           self.message = .trackPublished(v)
         }
       }()
-      case 7: try {
-        var v: Livekit_ActiveSpeakerUpdate?
-        var hadOneofValue = false
-        if let current = self.message {
-          hadOneofValue = true
-          if case .speaker(let m) = current {v = m}
-        }
-        try decoder.decodeSingularMessageField(value: &v)
-        if let v = v {
-          if hadOneofValue {try decoder.handleConflictingOneOf()}
-          self.message = .speaker(v)
-        }
-      }()
       case 8: try {
         var v: Livekit_LeaveRequest?
         var hadOneofValue = false
@@ -1000,6 +1037,32 @@ extension Livekit_SignalResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageI
           self.message = .mute(v)
         }
       }()
+      case 10: try {
+        var v: Livekit_SpeakersChanged?
+        var hadOneofValue = false
+        if let current = self.message {
+          hadOneofValue = true
+          if case .speakersChanged(let m) = current {v = m}
+        }
+        try decoder.decodeSingularMessageField(value: &v)
+        if let v = v {
+          if hadOneofValue {try decoder.handleConflictingOneOf()}
+          self.message = .speakersChanged(v)
+        }
+      }()
+      case 11: try {
+        var v: Livekit_RoomUpdate?
+        var hadOneofValue = false
+        if let current = self.message {
+          hadOneofValue = true
+          if case .roomUpdate(let m) = current {v = m}
+        }
+        try decoder.decodeSingularMessageField(value: &v)
+        if let v = v {
+          if hadOneofValue {try decoder.handleConflictingOneOf()}
+          self.message = .roomUpdate(v)
+        }
+      }()
       default: break
       }
     }
@@ -1007,8 +1070,9 @@ extension Livekit_SignalResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageI
 
   func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
     // The use of inline closures is to circumvent an issue where the compiler
-    // allocates stack space for every case branch when no optimizations are
-    // enabled. https://github.com/apple/swift-protobuf/issues/1034
+    // allocates stack space for every if/case branch local when no optimizations
+    // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+    // https://github.com/apple/swift-protobuf/issues/1182
     switch self.message {
     case .join?: try {
       guard case .join(let v)? = self.message else { preconditionFailure() }
@@ -1034,10 +1098,6 @@ extension Livekit_SignalResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageI
       guard case .trackPublished(let v)? = self.message else { preconditionFailure() }
       try visitor.visitSingularMessageField(value: v, fieldNumber: 6)
     }()
-    case .speaker?: try {
-      guard case .speaker(let v)? = self.message else { preconditionFailure() }
-      try visitor.visitSingularMessageField(value: v, fieldNumber: 7)
-    }()
     case .leave?: try {
       guard case .leave(let v)? = self.message else { preconditionFailure() }
       try visitor.visitSingularMessageField(value: v, fieldNumber: 8)
@@ -1045,6 +1105,14 @@ extension Livekit_SignalResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageI
     case .mute?: try {
       guard case .mute(let v)? = self.message else { preconditionFailure() }
       try visitor.visitSingularMessageField(value: v, fieldNumber: 9)
+    }()
+    case .speakersChanged?: try {
+      guard case .speakersChanged(let v)? = self.message else { preconditionFailure() }
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 10)
+    }()
+    case .roomUpdate?: try {
+      guard case .roomUpdate(let v)? = self.message else { preconditionFailure() }
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 11)
     }()
     case nil: break
     }
@@ -1296,12 +1364,16 @@ extension Livekit_JoinResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageImp
 
   func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
     try withExtendedLifetime(_storage) { (_storage: _StorageClass) in
-      if let v = _storage._room {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every if/case branch local when no optimizations
+      // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+      // https://github.com/apple/swift-protobuf/issues/1182
+      try { if let v = _storage._room {
         try visitor.visitSingularMessageField(value: v, fieldNumber: 1)
-      }
-      if let v = _storage._participant {
+      } }()
+      try { if let v = _storage._participant {
         try visitor.visitSingularMessageField(value: v, fieldNumber: 2)
-      }
+      } }()
       if !_storage._otherParticipants.isEmpty {
         try visitor.visitRepeatedMessageField(value: _storage._otherParticipants, fieldNumber: 3)
       }
@@ -1359,12 +1431,16 @@ extension Livekit_TrackPublishedResponse: SwiftProtobuf.Message, SwiftProtobuf._
   }
 
   func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    // The use of inline closures is to circumvent an issue where the compiler
+    // allocates stack space for every if/case branch local when no optimizations
+    // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+    // https://github.com/apple/swift-protobuf/issues/1182
     if !self.cid.isEmpty {
       try visitor.visitSingularStringField(value: self.cid, fieldNumber: 1)
     }
-    if let v = self._track {
+    try { if let v = self._track {
       try visitor.visitSingularMessageField(value: v, fieldNumber: 2)
-    }
+    } }()
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -1599,6 +1675,74 @@ extension Livekit_ICEServer: SwiftProtobuf.Message, SwiftProtobuf._MessageImplem
     if lhs.urls != rhs.urls {return false}
     if lhs.username != rhs.username {return false}
     if lhs.credential != rhs.credential {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+extension Livekit_SpeakersChanged: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  static let protoMessageName: String = _protobuf_package + ".SpeakersChanged"
+  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
+    1: .same(proto: "speakers"),
+  ]
+
+  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeRepeatedMessageField(value: &self.speakers) }()
+      default: break
+      }
+    }
+  }
+
+  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    if !self.speakers.isEmpty {
+      try visitor.visitRepeatedMessageField(value: self.speakers, fieldNumber: 1)
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  static func ==(lhs: Livekit_SpeakersChanged, rhs: Livekit_SpeakersChanged) -> Bool {
+    if lhs.speakers != rhs.speakers {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+extension Livekit_RoomUpdate: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  static let protoMessageName: String = _protobuf_package + ".RoomUpdate"
+  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
+    1: .same(proto: "room"),
+  ]
+
+  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularMessageField(value: &self._room) }()
+      default: break
+      }
+    }
+  }
+
+  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    // The use of inline closures is to circumvent an issue where the compiler
+    // allocates stack space for every if/case branch local when no optimizations
+    // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+    // https://github.com/apple/swift-protobuf/issues/1182
+    try { if let v = self._room {
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 1)
+    } }()
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  static func ==(lhs: Livekit_RoomUpdate, rhs: Livekit_RoomUpdate) -> Bool {
+    if lhs._room != rhs._room {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }

@@ -83,6 +83,10 @@ struct Livekit_Room {
 
   var enabledCodecs: [Livekit_Codec] = []
 
+  var metadata: String = String()
+
+  var numParticipants: UInt32 = 0
+
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   init() {}
@@ -356,6 +360,24 @@ struct Livekit_UserPacket {
   init() {}
 }
 
+struct Livekit_RecordingResult {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  var id: String = String()
+
+  var error: String = String()
+
+  var duration: Int64 = 0
+
+  var location: String = String()
+
+  var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  init() {}
+}
+
 // MARK: - Code below here is support for the SwiftProtobuf runtime.
 
 fileprivate let _protobuf_package = "livekit"
@@ -378,6 +400,8 @@ extension Livekit_Room: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementat
     5: .standard(proto: "creation_time"),
     6: .standard(proto: "turn_password"),
     7: .standard(proto: "enabled_codecs"),
+    8: .same(proto: "metadata"),
+    9: .standard(proto: "num_participants"),
   ]
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -393,6 +417,8 @@ extension Livekit_Room: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementat
       case 5: try { try decoder.decodeSingularInt64Field(value: &self.creationTime) }()
       case 6: try { try decoder.decodeSingularStringField(value: &self.turnPassword) }()
       case 7: try { try decoder.decodeRepeatedMessageField(value: &self.enabledCodecs) }()
+      case 8: try { try decoder.decodeSingularStringField(value: &self.metadata) }()
+      case 9: try { try decoder.decodeSingularUInt32Field(value: &self.numParticipants) }()
       default: break
       }
     }
@@ -420,6 +446,12 @@ extension Livekit_Room: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementat
     if !self.enabledCodecs.isEmpty {
       try visitor.visitRepeatedMessageField(value: self.enabledCodecs, fieldNumber: 7)
     }
+    if !self.metadata.isEmpty {
+      try visitor.visitSingularStringField(value: self.metadata, fieldNumber: 8)
+    }
+    if self.numParticipants != 0 {
+      try visitor.visitSingularUInt32Field(value: self.numParticipants, fieldNumber: 9)
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -431,6 +463,8 @@ extension Livekit_Room: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementat
     if lhs.creationTime != rhs.creationTime {return false}
     if lhs.turnPassword != rhs.turnPassword {return false}
     if lhs.enabledCodecs != rhs.enabledCodecs {return false}
+    if lhs.metadata != rhs.metadata {return false}
+    if lhs.numParticipants != rhs.numParticipants {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
@@ -666,12 +700,13 @@ extension Livekit_DataPacket: SwiftProtobuf.Message, SwiftProtobuf._MessageImple
   }
 
   func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    // The use of inline closures is to circumvent an issue where the compiler
+    // allocates stack space for every if/case branch local when no optimizations
+    // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+    // https://github.com/apple/swift-protobuf/issues/1182
     if self.kind != .reliable {
       try visitor.visitSingularEnumField(value: self.kind, fieldNumber: 1)
     }
-    // The use of inline closures is to circumvent an issue where the compiler
-    // allocates stack space for every case branch when no optimizations are
-    // enabled. https://github.com/apple/swift-protobuf/issues/1034
     switch self.value {
     case .user?: try {
       guard case .user(let v)? = self.value else { preconditionFailure() }
@@ -816,6 +851,56 @@ extension Livekit_UserPacket: SwiftProtobuf.Message, SwiftProtobuf._MessageImple
     if lhs.participantSid != rhs.participantSid {return false}
     if lhs.payload != rhs.payload {return false}
     if lhs.destinationSids != rhs.destinationSids {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+extension Livekit_RecordingResult: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  static let protoMessageName: String = _protobuf_package + ".RecordingResult"
+  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
+    1: .same(proto: "id"),
+    2: .same(proto: "error"),
+    3: .same(proto: "duration"),
+    4: .same(proto: "location"),
+  ]
+
+  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularStringField(value: &self.id) }()
+      case 2: try { try decoder.decodeSingularStringField(value: &self.error) }()
+      case 3: try { try decoder.decodeSingularInt64Field(value: &self.duration) }()
+      case 4: try { try decoder.decodeSingularStringField(value: &self.location) }()
+      default: break
+      }
+    }
+  }
+
+  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    if !self.id.isEmpty {
+      try visitor.visitSingularStringField(value: self.id, fieldNumber: 1)
+    }
+    if !self.error.isEmpty {
+      try visitor.visitSingularStringField(value: self.error, fieldNumber: 2)
+    }
+    if self.duration != 0 {
+      try visitor.visitSingularInt64Field(value: self.duration, fieldNumber: 3)
+    }
+    if !self.location.isEmpty {
+      try visitor.visitSingularStringField(value: self.location, fieldNumber: 4)
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  static func ==(lhs: Livekit_RecordingResult, rhs: Livekit_RecordingResult) -> Bool {
+    if lhs.id != rhs.id {return false}
+    if lhs.error != rhs.error {return false}
+    if lhs.duration != rhs.duration {return false}
+    if lhs.location != rhs.location {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
