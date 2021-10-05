@@ -8,10 +8,12 @@
 import Foundation
 import Promises
 import WebRTC
+import SwiftProtobuf
 
 typealias PCTransportOnOffer = (RTCSessionDescription) -> Void
 
 class PCTransport {
+    
     let target: Livekit_SignalTarget
     let pc: RTCPeerConnection
     private var pendingCandidates: [RTCIceCandidate] = []
@@ -27,66 +29,48 @@ class PCTransport {
                                                   constraints: RTCEngine.connConstraints,
                                                   delegate: delegate)
         guard let pc = pc else {
-            throw LiveKitError.webRTC("failed to create peerConnection")
+            throw EngineError.webRTC("failed to create peerConnection")
         }
 
         self.target = target
         self.pc = pc
     }
 
-    @discardableResult
     public func addIceCandidate(_ candidate: RTCIceCandidate) -> Promise<Void> {
 
-        return Promise<Void> { complete, fail in
+        if pc.remoteDescription != nil && !restartingIce {
+            return pc.addAsync(candidate)
+        }
 
-            if self.pc.remoteDescription != nil && !self.restartingIce {
+        pendingCandidates.append(candidate)
 
-                self.pc.promiseAddIceCandidate(candidate).then {
-                    logger.debug("added ICE candidate for \(self.target.rawValue)")
-                    complete(())
-                }.catch { error in
-                    logger.error("could not add ICE candidate: \(error)")
-                    fail(error)
-                }
+        return Promise(())
+    }
 
-            } else {
-                logger.debug("queuing ICE candidate: \(candidate.sdp)")
-                self.pendingCandidates.append(candidate)
-                complete(())
+    public func setRemoteDescription(_ sd: RTCSessionDescription) -> Promise<Void> {
+
+        self.pc.setRemoteDescriptionAsync(sd).then {
+            // add all pending IceCandidates
+            all(self.pendingCandidates.map { self.pc.addAsync($0) })
+        }.then { _ in
+
+            self.pendingCandidates.removeAll()
+            self.restartingIce = false
+
+            if (self.renegotiate) {
+                self.renegotiate = false
+                return self.createAndSendOffer()
             }
+
+            return Promise(())
         }
     }
 
-    public func setRemoteDescription(_ sdp: RTCSessionDescription) -> Promise<Void> {
+    @discardableResult
+    func createAndSendOffer(constraints: [String: String]? = nil) -> Promise<Void> {
 
-        return Promise<Void> { complete, fail in
-
-            self.pc.promiseSetRemoteDescription(sdp).then {
-
-                for candidate in self.pendingCandidates {
-                    // ignore errors here
-                    self.pc.promiseAddIceCandidate(candidate)
-                }
-
-                self.pendingCandidates.removeAll()
-                self.restartingIce = false
-
-                if (self.renegotiate) {
-                    self.renegotiate = false
-                    try? self.createAndSendOffer()
-                }
-
-            }.catch { error in
-                logger.error("setRemoteDescription failed: \(error)")
-                fail(error)
-            }
-
-        }
-    }
-
-    func createAndSendOffer(constraints: [String: String]? = nil) throws {
         guard let onOffer = onOffer else {
-            return
+            return Promise(())
         }
 
         let isIceRestart = constraints?[kRTCMediaConstraintsIceRestart] == kRTCMediaConstraintsValueTrue
@@ -96,45 +80,30 @@ class PCTransport {
             restartingIce = true
         }
 
-        if (pc.signalingState == .haveLocalOffer) {
-            //
-            let currentSD = pc.remoteDescription
-            if isIceRestart, let currentSD = currentSD {
+        if pc.signalingState == .haveLocalOffer, !(isIceRestart && pc.remoteDescription != nil) {
+            renegotiate = true
+            return Promise(())
+        }
 
-                pc.setRemoteDescription(currentSD) { error in
-                    guard error != nil else {
-                        logger.error("setRemoteDescription failed: \(error!)")
-                        return
-                    }
+        let mediaConstraints = RTCMediaConstraints(mandatoryConstraints: constraints,
+                                                   optionalConstraints: nil)
 
-                    let constraints = RTCMediaConstraints(mandatoryConstraints: constraints,
-                                                          optionalConstraints: nil)
-
-                    self.pc.offer(for: constraints) { sd, error in
-                        guard error != nil else {
-                            logger.error("createOffer failed: \(error!)")
-                            return
-                        }
-
-                        guard let sd = sd else {
-                            return
-                        }
-
-                        self.pc.setLocalDescription(sd) { error in
-                            guard error != nil else {
-                                logger.error("setLocalDescription failed: \(error!)")
-                                return
-                            }
-
-                            onOffer(sd)
-                        }
-                    }
+        // actually negotiate
+        func negotiateSequence() -> Promise<Void> {
+            pc.offerAsync(for: mediaConstraints).then { sd in
+                self.pc.setLocalDescriptionAsync(sd).then {
+                    onOffer(sd)
                 }
-            } else {
-                renegotiate = true
             }
         }
 
+        if pc.signalingState == .haveLocalOffer, isIceRestart, let sd = pc.remoteDescription {
+            pc.setRemoteDescriptionAsync(sd).then {
+                negotiateSequence()
+            }
+        }
+
+        return negotiateSequence()
     }
 
     func prepareForIceRestart() {

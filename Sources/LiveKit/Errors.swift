@@ -7,11 +7,11 @@
 
 import Foundation
 
-protocol LKError: Error {
+protocol LiveKitError: Error {
     //
 }
 
-enum EngineError: LKError {
+enum EngineError: LiveKitError {
 
     // WebRTC lib returned error
     case webRTC(String?, Error? = nil)
@@ -25,7 +25,7 @@ enum EngineError: LKError {
 }
 
 
-enum SignalClientError: LKError {
+enum SignalClientError: LiveKitError {
 
     case invalidRTCSdpType
     case socketNotConnected
