@@ -14,23 +14,6 @@ let reliableDataChannelLabel = "_reliable"
 let lossyDataChannelLabel = "_lossy"
 let maxDataPacketSize = 15000
 
-extension RTCConfiguration {
-
-    static func liveKitDefault() -> RTCConfiguration {
-
-        let result = RTCConfiguration()
-        result.sdpSemantics = .unifiedPlan
-        result.continualGatheringPolicy = .gatherContinually
-        result.candidateNetworkPolicy = .all
-        result.disableIPV6 = true
-        // don't send TCP candidates, they are passive and only server should be sending
-        result.tcpCandidatePolicy = .disabled
-        result.iceTransportPolicy = .all
-
-        return result
-    }
-}
-
 enum ICEState {
     case disconnected
     case connected
@@ -313,10 +296,12 @@ extension RTCEngine: SignalClientDelegate {
     }
 
     func onTrickle(candidate: RTCIceCandidate, target: Livekit_SignalTarget) {
-        if target == .publisher {
-            publisher?.addIceCandidate(candidate)
-        } else {
-            subscriber?.addIceCandidate(candidate)
+
+        let transport = target == .publisher ? publisher : subscriber
+        let result = transport?.addIceCandidate(candidate)
+
+        result?.then {
+            logger.debug("did add ICE candidate")
         }
     }
 

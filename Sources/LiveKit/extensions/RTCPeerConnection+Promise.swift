@@ -13,19 +13,19 @@ import Promises
 
 extension RTCPeerConnection {
 
-    func promiseCreateOffer(for constraints: RTCMediaConstraints) -> Promise<RTCSessionDescription> {
+    func offerAsync(for constraints: RTCMediaConstraints) -> Promise<RTCSessionDescription> {
 
         return Promise<RTCSessionDescription> { complete, fail in
 
             self.offer(for: constraints) { sd, error in
 
                 guard error == nil else {
-                    fail(LiveKitError.webRTC("failed to create offer", error))
+                    fail(EngineError.webRTC("failed to create offer", error))
                     return
                 }
 
                 guard let sd = sd else {
-                    fail(LiveKitError.webRTC("session description is null"))
+                    fail(EngineError.webRTC("session description is null"))
                     return
                 }
 
@@ -34,19 +34,19 @@ extension RTCPeerConnection {
         }
     }
 
-    func promiseCreateAnswer(for constraints: RTCMediaConstraints) -> Promise<RTCSessionDescription> {
+    func answerAsync(for constraints: RTCMediaConstraints) -> Promise<RTCSessionDescription> {
 
         return Promise<RTCSessionDescription> { complete, fail in
 
             self.answer(for: constraints) { sd, error in
 
                 guard error == nil else {
-                    fail(LiveKitError.webRTC("failed to create offer", error))
+                    fail(EngineError.webRTC("failed to create offer", error))
                     return
                 }
 
                 guard let sd = sd else {
-                    fail(LiveKitError.webRTC("session description is null"))
+                    fail(EngineError.webRTC("session description is null"))
                     return
                 }
 
@@ -55,14 +55,14 @@ extension RTCPeerConnection {
         }
     }
 
-    func promiseSetLocalDescription(sdp: RTCSessionDescription) -> Promise<Void> {
+    func setLocalDescriptionAsync(_ sd: RTCSessionDescription) -> Promise<Void> {
 
         return Promise<Void> { complete, fail in
 
-            self.setLocalDescription(sdp) { error in
+            self.setLocalDescription(sd) { error in
 
                 guard error == nil else {
-                    fail(LiveKitError.webRTC("failed to set local description", error))
+                    fail(EngineError.webRTC("failed to set local description", error))
                     return
                 }
 
@@ -72,14 +72,14 @@ extension RTCPeerConnection {
     }
 
 
-    func promiseSetRemoteDescription(_ sdp: RTCSessionDescription) -> Promise<Void> {
+    func setRemoteDescriptionAsync(_ sd: RTCSessionDescription) -> Promise<Void> {
 
         return Promise<Void> { complete, fail in
 
-            self.setRemoteDescription(sdp) { error in
+            self.setRemoteDescription(sd) { error in
 
                 guard error == nil else {
-                    fail(LiveKitError.webRTC("failed to set remote description", error))
+                    fail(EngineError.webRTC("failed to set remote description", error))
                     return
                 }
 
@@ -89,14 +89,14 @@ extension RTCPeerConnection {
     }
 
     @discardableResult
-    func promiseAddIceCandidate(_ candidate: RTCIceCandidate) -> Promise<Void> {
+    func addAsync(_ candidate: RTCIceCandidate) -> Promise<Void> {
 
         return Promise<Void> { complete, fail in
 
             self.add(candidate) { error in
 
                 guard error == nil else {
-                    fail(LiveKitError.webRTC("failed to add ice candidate", error))
+                    fail(EngineError.webRTC("failed to add ice candidate", error))
                     return
                 }
 

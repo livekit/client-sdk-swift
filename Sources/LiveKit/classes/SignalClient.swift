@@ -9,12 +9,6 @@ import Foundation
 import Promises
 import WebRTC
 
-enum RTCClientError: Error {
-    case invalidRTCSdpType
-    case socketNotConnected
-    case socketError(String, UInt16)
-    case socketDisconnected
-}
 
 let PROTOCOL_VERSION = 2
 
@@ -25,37 +19,6 @@ class SignalClient : NSObject {
     private var urlSession: URLSession?
     private var webSocket: URLSessionWebSocketTask?
 
-    static func fromProtoSessionDescription(sd: Livekit_SessionDescription) throws -> RTCSessionDescription {
-        var rtcSdpType: RTCSdpType
-        switch sd.type {
-        case "answer":
-            rtcSdpType = .answer
-        case "offer":
-            rtcSdpType = .offer
-        case "pranswer":
-            rtcSdpType = .prAnswer
-        default:
-            throw RTCClientError.invalidRTCSdpType
-        }
-        return RTCSessionDescription(type: rtcSdpType, sdp: sd.sdp)
-    }
-
-    static func toProtoSessionDescription(sdp: RTCSessionDescription) throws -> Livekit_SessionDescription {
-        var sessionDescription = Livekit_SessionDescription()
-        sessionDescription.sdp = sdp.sdp
-        switch sdp.type {
-        case .answer:
-            sessionDescription.type = "answer"
-        case .offer:
-            sessionDescription.type = "offer"
-        case .prAnswer:
-            sessionDescription.type = "pranswer"
-        default:
-            throw RTCClientError.invalidRTCSdpType
-        }
-        return sessionDescription
-    }
-    
     override init() {
         super.init()
         urlSession = URLSession(configuration: .default, delegate: self, delegateQueue: OperationQueue())
@@ -93,16 +56,16 @@ class SignalClient : NSObject {
 
     func sendOffer(offer: RTCSessionDescription) throws {
         logger.debug("sending offer")
-        let sessionDescription = try SignalClient.toProtoSessionDescription(sdp: offer)
+        let lk_sd = try offer.toPBType()
         var req = Livekit_SignalRequest()
-        req.offer = sessionDescription
+        req.offer = lk_sd
         sendRequest(req: req)
     }
 
     func sendAnswer(answer: RTCSessionDescription) throws {
-        let sessionDescription = try SignalClient.toProtoSessionDescription(sdp: answer)
+        let lk_sd = try answer.toPBType()
         var req = Livekit_SignalRequest()
-        req.answer = sessionDescription
+        req.answer = lk_sd
         sendRequest(req: req)
     }
 
@@ -212,13 +175,13 @@ class SignalClient : NSObject {
         
         do {
             switch msg {
-            case let .answer(sd):
-                let sdp = try SignalClient.fromProtoSessionDescription(sd: sd)
-                delegate?.onAnswer(sessionDescription: sdp)
+            case let .answer(lk_sd):
+                let rtc_sd = try lk_sd.toRTCType()
+                delegate?.onAnswer(sessionDescription: rtc_sd)
 
-            case let .offer(sd):
-                let sdp = try SignalClient.fromProtoSessionDescription(sd: sd)
-                delegate?.onOffer(sessionDescription: sdp)
+            case let .offer(lk_sd):
+                let rtc_sd = try lk_sd.toRTCType()
+                delegate?.onOffer(sessionDescription: rtc_sd)
 
             case let .trickle(trickle):
                 guard let data = trickle.candidateInit.data(using: .utf8) else {
@@ -234,8 +197,8 @@ class SignalClient : NSObject {
             case let .trackPublished(trackPublished):
                 delegate?.onLocalTrackPublished(trackPublished: trackPublished)
 
-            case let .speaker(speakerUpdate):
-                delegate?.onActiveSpeakersChanged(speakers: speakerUpdate.speakers)
+            case let .speakersChanged(speakers):
+                delegate?.onActiveSpeakersChanged(speakers: speakers.speakers)
 
             case let .mute(mute):
                 delegate?.onRemoteMuteChanged(trackSid: mute.sid, muted: mute.muted)
@@ -336,7 +299,7 @@ extension SignalClient: URLSessionWebSocketDelegate {
         if error != nil {
             realError = error!
         } else {
-            realError = RTCClientError.socketError("could not connect", 0)
+            realError = SignalClientError.socketError("could not connect", 0)
         }
         delegate?.onError(error: realError)
     }
