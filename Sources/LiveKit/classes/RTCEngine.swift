@@ -43,8 +43,17 @@ class RTCEngine: NSObject {
     static let defaultIceServers = ["stun:stun.l.google.com:19302",
                                     "stun:stun1.l.google.com:19302"]
 
-    var publisher: PCTransport?
-    var subscriber: PCTransport?
+    // read-only
+    private(set) var publisher: PCTransport?
+    private(set) var subscriber: PCTransport?
+    private(set) var subscriberPrimary: Bool = false
+    private(set) var hasPublished: Bool = false
+
+    // computed
+    var primary: PCTransport? {
+        subscriberPrimary ? subscriber : publisher
+    }
+
     var publisherDelegate: PublisherTransportDelegate
     var subscriberDelegate: SubscriberTransportDelegate
     var client: SignalClient
@@ -82,31 +91,31 @@ class RTCEngine: NSObject {
 
     weak var delegate: RTCEngineDelegate?
 
-    init(client: SignalClient) {
-        self.client = client
+    init(client: SignalClient? = nil) {
+
+        self.client = client ?? SignalClient()
+
         publisherDelegate = PublisherTransportDelegate()
         subscriberDelegate = SubscriberTransportDelegate()
         super.init()
 
         publisherDelegate.engine = self
         subscriberDelegate.engine = self
-        client.delegate = self
-
-//        Timer.scheduledTimer(timeInterval: 1.0, target: self, selector: #selector(self.getStatsTimer), userInfo: nil, repeats: true)
+        self.client.delegate = self
     }
 
-    @objc func getStatsTimer() {
-        print("getting stats...")
-        print("------------------------------------------------------------")
-        publisher?.pc.stats(for: nil, statsOutputLevel: .standard, completionHandler: { result in
-            let types = result.map{ $0.type }
-            print(types)
-//            let v = rep.filter { $0.type == "ssrc" }
-            for entry in result {
-                print(entry.values)
-            }
-        })
-    }
+//    @objc func getStatsTimer() {
+//        print("getting stats...")
+//        print("------------------------------------------------------------")
+//        publisher?.pc.stats(for: nil, statsOutputLevel: .standard, completionHandler: { result in
+//            let types = result.map{ $0.type }
+//            print(types)
+////            let v = rep.filter { $0.type == "ssrc" }
+//            for entry in result {
+//                print(entry.values)
+//            }
+//        })
+//    }
 
 
     func join(options: ConnectOptions) {
@@ -144,32 +153,41 @@ class RTCEngine: NSObject {
     }
 
     func negotiate() {
-        var constraints = [
-            kRTCMediaConstraintsOfferToReceiveAudio: kRTCMediaConstraintsValueFalse,
-            kRTCMediaConstraintsOfferToReceiveVideo: kRTCMediaConstraintsValueFalse,
-        ]
-        if iceState == .reconnecting {
-            constraints[kRTCMediaConstraintsIceRestart] = kRTCMediaConstraintsValueTrue
+
+        guard let publisher = publisher else {
+            logger.debug("negotiate() publisher is nil")
+            return
         }
-        let mediaConstraints = RTCMediaConstraints(mandatoryConstraints: constraints, optionalConstraints: nil)
-        
-        publisher?.pc.offer(for: mediaConstraints, completionHandler: { offer, error in
-            if let error = error {
-                logger.error("could not create offer: \(error)")
-                return
-            }
-            guard let sdp = offer else {
-                logger.error("offer is unexpectedly missing during negotiation")
-                return
-            }
-            self.publisher?.pc.setLocalDescription(sdp, completionHandler: { error in
-                if let error = error {
-                    logger.error("error setting local description: \(error)")
-                    return
-                }
-                try? self.client.sendOffer(offer: sdp)
-            })
-        })
+
+        hasPublished = true
+        publisher.negotiate()
+
+//        var constraints = [
+//            kRTCMediaConstraintsOfferToReceiveAudio: kRTCMediaConstraintsValueFalse,
+//            kRTCMediaConstraintsOfferToReceiveVideo: kRTCMediaConstraintsValueFalse,
+//        ]
+//        if iceState == .reconnecting {
+//            constraints[kRTCMediaConstraintsIceRestart] = kRTCMediaConstraintsValueTrue
+//        }
+//        let mediaConstraints = RTCMediaConstraints(mandatoryConstraints: constraints, optionalConstraints: nil)
+//
+//        publisher?.pc.offer(for: mediaConstraints, completionHandler: { offer, error in
+//            if let error = error {
+//                logger.error("could not create offer: \(error)")
+//                return
+//            }
+//            guard let sdp = offer else {
+//                logger.error("offer is unexpectedly missing during negotiation")
+//                return
+//            }
+//            self.publisher?.pc.setLocalDescription(sdp, completionHandler: { error in
+//                if let error = error {
+//                    logger.error("error setting local description: \(error)")
+//                    return
+//                }
+//                try? self.client.sendOffer(offer: sdp)
+//            })
+//        })
     }
 
     func reconnect() {
@@ -196,11 +214,12 @@ class RTCEngine: NSObject {
 }
 
 extension RTCEngine: SignalClientDelegate {
-    func onActiveSpeakersChanged(speakers: [Livekit_SpeakerInfo]) {
+
+    func onSignalActiveSpeakersChanged(speakers: [Livekit_SpeakerInfo]) {
         delegate?.didUpdateSpeakers(speakers: speakers)
     }
 
-    func onReconnect() {
+    func onSignalReconnect() {
         logger.info("signal reconnect success")
         wsRetries = 0
         
@@ -228,7 +247,15 @@ extension RTCEngine: SignalClientDelegate {
         }
     }
 
-    func onJoin(joinResponse: Livekit_JoinResponse) {
+    func onSignalJoin(joinResponse: Livekit_JoinResponse) {
+
+        guard subscriber == nil, publisher == nil else {
+            logger.debug("onJoin() already configured")
+            return
+        }
+
+        // protocol v3
+        subscriberPrimary = joinResponse.subscriberPrimary
 
         // create publisher and subscribers
         let config = RTCConfiguration.liveKitDefault()
@@ -252,30 +279,35 @@ extension RTCEngine: SignalClientDelegate {
         }
 
         do {
-            let pub = try PCTransport(config: config, target: .publisher, delegate: publisherDelegate)
-            let sub = try PCTransport(config: config, target: .subscriber, delegate: subscriberDelegate)
-            publisher = pub
-            subscriber = sub
+            publisher = try PCTransport(config: config, target: .publisher, delegate: publisherDelegate)
+            subscriber = try PCTransport(config: config, target: .subscriber, delegate: subscriberDelegate)
+//            publisher = pub
+//            subscriber = sub
 
             let reliableConfig = RTCDataChannelConfiguration()
             reliableConfig.isOrdered = true
-            reliableDC = pub.pc.dataChannel(forLabel: reliableDataChannelLabel, configuration: reliableConfig)
+            reliableDC = publisher?.pc.dataChannel(forLabel: reliableDataChannelLabel, configuration: reliableConfig)
             reliableDC?.delegate = self
+
             let lossyConfig = RTCDataChannelConfiguration()
             lossyConfig.isOrdered = true
             lossyConfig.maxRetransmits = 1
-            lossyDC = pub.pc.dataChannel(forLabel: lossyDataChannelLabel, configuration: lossyConfig)
+            lossyDC = publisher?.pc.dataChannel(forLabel: lossyDataChannelLabel, configuration: lossyConfig)
             lossyDC?.delegate = self
 
         } catch {
             //
         }
 
-        negotiate()
+        if (subscriberPrimary) {
+            // lazy negotiation for protocol v3
+            negotiate()
+        }
+
         delegate?.didJoin(response: joinResponse)
     }
 
-    func onAnswer(sessionDescription: RTCSessionDescription) {
+    func onSignalAnswer(sessionDescription: RTCSessionDescription) {
         guard let publisher = self.publisher else {
             return
         }
@@ -295,7 +327,7 @@ extension RTCEngine: SignalClientDelegate {
         }
     }
 
-    func onTrickle(candidate: RTCIceCandidate, target: Livekit_SignalTarget) {
+    func onSignalTrickle(candidate: RTCIceCandidate, target: Livekit_SignalTarget) {
 
         let transport = target == .publisher ? publisher : subscriber
         let result = transport?.addIceCandidate(candidate)
@@ -305,7 +337,7 @@ extension RTCEngine: SignalClientDelegate {
         }
     }
 
-    func onOffer(sessionDescription: RTCSessionDescription) {
+    func onSignalOffer(sessionDescription: RTCSessionDescription) {
         guard let subscriber = self.subscriber else {
             return
         }
@@ -340,11 +372,11 @@ extension RTCEngine: SignalClientDelegate {
         }
     }
 
-    func onParticipantUpdate(updates: [Livekit_ParticipantInfo]) {
+    func onSignalParticipantUpdate(updates: [Livekit_ParticipantInfo]) {
         delegate?.didUpdateParticipants(updates: updates)
     }
 
-    func onLocalTrackPublished(trackPublished: Livekit_TrackPublishedResponse) {
+    func onSignalLocalTrackPublished(trackPublished: Livekit_TrackPublishedResponse) {
         logger.debug("received track published confirmation for: \(trackPublished.track.sid)")
         guard let promise = pendingTrackResolvers.removeValue(forKey: trackPublished.cid) else {
             logger.error("missing track resolver for: \(trackPublished.cid)")
@@ -353,21 +385,21 @@ extension RTCEngine: SignalClientDelegate {
         promise.fulfill(trackPublished.track)
     }
 
-    func onRemoteMuteChanged(trackSid: String, muted: Bool) {
+    func onSignalRemoteMuteChanged(trackSid: String, muted: Bool) {
         delegate?.remoteMuteDidChange(trackSid: trackSid, muted: muted)
     }
 
-    func onLeave() {
+    func onSignalLeave() {
         close()
         delegate?.didDisconnect()
     }
 
-    func onClose(reason: String, code: UInt16) {
+    func onSignalClose(reason: String, code: UInt16) {
         logger.debug("signal connection closed with code: \(code), reason: \(reason)")
         handleSignalDisconnect()
     }
 
-    func onError(error: Error) {
+    func onSignalError(error: Error) {
         logger.debug("signal connection error: \(error)")
         delegate?.didFailToConnect(error: error)
     }

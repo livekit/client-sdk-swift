@@ -53,6 +53,7 @@ public class Room {
                 return
             }
 
+            // TODO: Use debounce fnc instead
             // In iOS 14.4, this update is sent multiple times during a connection change
             // ICE restarts are expensive and error prone (due to renegotiation)
             // We'll ignore frequent updates
