@@ -36,6 +36,10 @@ class PCTransport {
         self.pc = pc
     }
 
+    deinit {
+        //
+    }
+
     public func addIceCandidate(_ candidate: RTCIceCandidate) -> Promise<Void> {
 
         if pc.remoteDescription != nil && !restartingIce {
@@ -90,6 +94,7 @@ class PCTransport {
 
         // actually negotiate
         func negotiateSequence() -> Promise<Void> {
+            //
             pc.offerAsync(for: mediaConstraints).then { sd in
                 self.pc.setLocalDescriptionAsync(sd).then {
                     onOffer(sd)
@@ -111,7 +116,13 @@ class PCTransport {
     }
 
     func close() {
+        // remove all senders
+        for sender in pc.senders {
+            pc.removeTrack(sender)
+        }
+
         pc.close()
     }
 
 }
+
