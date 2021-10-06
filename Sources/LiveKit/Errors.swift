@@ -12,7 +12,15 @@ protocol LiveKitError: Error {
 }
 
 enum InternalError: LiveKitError {
-    case parse
+    case parse(String? = nil)
+    case convert(String? = nil)
+
+    var localizedDescription: String {
+        switch self {
+        case .parse(let message): return "Error.Parse \(String(describing: message))"
+        case .convert(let message): return "Error.Convert \(String(describing: message))"
+        }
+    }
 }
 
 enum EngineError: LiveKitError {
@@ -21,11 +29,7 @@ enum EngineError: LiveKitError {
     case webRTC(String?, Error? = nil)
     case invalidState(String? = nil)
 
-//    var localizedDescription: String {
-//        switch self {
-//        default: return "Unknown Error"
-//        }
-//    }
+
 }
 
 

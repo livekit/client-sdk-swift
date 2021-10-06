@@ -119,15 +119,15 @@ class RTCEngine: NSObject {
 
 
     func join(options: ConnectOptions) {
-        client.join(options: options)
+        try? client.join(options: options)
         wsReconnectTask = DispatchWorkItem {
             guard self.iceState != .disconnected else {
                 return
             }
             logger.info("reconnecting to signal connection, attempt \(self.wsRetries)")
-            var reconnectOptions = options
-            reconnectOptions.reconnect = true
-            self.client.join(options: reconnectOptions)
+//            var reconnectOptions = options
+//            reconnectOptions.reconnect = true
+            try? self.client.join(options: options, reconnect: true)
         }
     }
 

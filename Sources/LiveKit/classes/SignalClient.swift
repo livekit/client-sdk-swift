@@ -9,9 +9,6 @@ import Foundation
 import Promises
 import WebRTC
 
-
-let PROTOCOL_VERSION = 2
-
 class SignalClient : NSObject {
 
     weak var delegate: SignalClientDelegate?
@@ -19,108 +16,42 @@ class SignalClient : NSObject {
     private(set) var isConnected: Bool = false
     private(set) var reconnecting: Bool = false
 
-    private var urlSession: URLSession?
+    private lazy var urlSession = URLSession(configuration: .default,
+                                             delegate: self,
+                                             delegateQueue: OperationQueue())
+
     private var webSocket: URLSessionWebSocketTask?
 
-    override init() {
-        super.init()
-        urlSession = URLSession(configuration: .default, delegate: self, delegateQueue: OperationQueue())
+    deinit {
+        urlSession.invalidateAndCancel()
     }
 
-    func join(options: ConnectOptions) {
-        let url = options.url
-        let token = options.accessToken
+    func join(options: ConnectOptions, reconnect: Bool = false) throws {
 
-        var wsUrlString = "\(url)/rtc?access_token=\(token)&protocol=\(PROTOCOL_VERSION)"
-        wsUrlString += "&auto_subscribe="
-        if options.autoSubscribe {
-            wsUrlString += "1"
-        } else {
-            wsUrlString += "0"
+        do {
+            let rtcUrl = try options.buildUrl(reconnect: reconnect)
+            reconnecting = reconnect
+
+            logger.debug("connecting to url: \(rtcUrl)")
+
+            webSocket?.cancel()
+            webSocket = urlSession.webSocketTask(with: rtcUrl)
+            webSocket?.resume()
+
+        } catch let error {
+            delegate?.onSignalError(error: error)
+            throw error
         }
-
-        if let reconnect = options.reconnect, reconnect {
-            wsUrlString += "&reconnect=1"
-            reconnecting = true
-        }
-        
-        let existing = webSocket
-        
-        logger.debug("connecting to url: \(wsUrlString)")
-        guard let parsedUrl = URL(string: wsUrlString) else {
-            delegate?.onSignalError(error: RoomError.invalidURL("invalid URL: \(url)"))
-            return
-        }
-        webSocket = urlSession!.webSocketTask(with: parsedUrl)
-        webSocket?.resume()
-
-        existing?.cancel()
     }
 
-    func sendOffer(offer: RTCSessionDescription) throws {
-        logger.debug("sending offer")
-        let lk_sd = try offer.toPBType()
-        var req = Livekit_SignalRequest()
-        req.offer = lk_sd
-        sendRequest(req: req)
-    }
-
-    func sendAnswer(answer: RTCSessionDescription) throws {
-        let lk_sd = try answer.toPBType()
-        var req = Livekit_SignalRequest()
-        req.answer = lk_sd
-        sendRequest(req: req)
-    }
-
-    func sendCandidate(candidate: RTCIceCandidate, target: Livekit_SignalTarget) throws {
-        let iceCandidate = IceCandidate(sdp: candidate.sdp, sdpMLineIndex: candidate.sdpMLineIndex, sdpMid: candidate.sdpMid)
-        let candidateData = try JSONEncoder().encode(iceCandidate)
-        var trickle = Livekit_TrickleRequest()
-        trickle.candidateInit = String(data: candidateData, encoding: .utf8)!
-        trickle.target = target
-
-        var req = Livekit_SignalRequest()
-        req.trickle = trickle
-        sendRequest(req: req)
-    }
-
-    func sendMuteTrack(trackSid: String, muted: Bool) {
-        logger.debug("sending mute for \(trackSid), muted: \(muted)")
-        var muteReq = Livekit_MuteTrackRequest()
-        muteReq.sid = trackSid
-        muteReq.muted = muted
-
-        var req = Livekit_SignalRequest()
-        req.mute = muteReq
-        sendRequest(req: req)
-    }
-
-    func sendAddTrack(cid: String, name: String, type: Livekit_TrackType, dimensions: Dimensions? = nil) {
-        var addTrackReq = Livekit_AddTrackRequest.with {
-            $0.cid = cid
-            $0.name = name
-            $0.type = type
-            if let dims = dimensions {
-                $0.width = UInt32(dims.width)
-                $0.height = UInt32(dims.height)
-            }
-        }
-        addTrackReq.cid = cid
-        addTrackReq.name = name
-        addTrackReq.type = type
-
-        var req = Livekit_SignalRequest()
-        req.addTrack = addTrackReq
-
-        sendRequest(req: req)
-    }
-
-    func sendRequest(req: Livekit_SignalRequest) {
+    private func sendRequest(_ request: Livekit_SignalRequest) {
         if !isConnected {
             logger.error("could not send message, not connected")
+            return
         }
+
         do {
-            let msg = try req.serializedData()
+            let msg = try request.serializedData()
             let message = URLSessionWebSocketTask.Message.data(msg)
             webSocket?.send(message) { error in
                 if let error = error {
@@ -132,33 +63,6 @@ class SignalClient : NSObject {
         }
     }
 
-    func sendUpdateTrackSettings(sid: String, disabled: Bool, videoQuality: Livekit_VideoQuality) {
-        var update = Livekit_UpdateTrackSettings()
-        update.trackSids = [sid]
-        update.disabled = disabled
-        update.quality = videoQuality
-
-        var req = Livekit_SignalRequest()
-        req.trackSetting = update
-        sendRequest(req: req)
-    }
-
-    func sendUpdateSubscription(sid: String, subscribed: Bool, videoQuality: Livekit_VideoQuality) {
-        var sub = Livekit_UpdateSubscription()
-        sub.trackSids = [sid]
-        sub.subscribe = subscribed
-
-        var req = Livekit_SignalRequest()
-        req.subscription = sub
-        sendRequest(req: req)
-    }
-
-    func sendLeave() {
-        var req = Livekit_SignalRequest()
-        req.leave = Livekit_LeaveRequest()
-        sendRequest(req: req)
-    }
-    
     func close() {
         isConnected = false
         webSocket?.cancel()
@@ -178,20 +82,14 @@ class SignalClient : NSObject {
         
         do {
             switch msg {
-            case let .answer(lk_sd):
-                let rtc_sd = try lk_sd.toRTCType()
-                delegate?.onSignalAnswer(sessionDescription: rtc_sd)
+            case let .answer(sd):
+                delegate?.onSignalAnswer(sessionDescription: try sd.toRTCType())
 
-            case let .offer(lk_sd):
-                let rtc_sd = try lk_sd.toRTCType()
-                delegate?.onSignalOffer(sessionDescription: rtc_sd)
+            case let .offer(sd):
+                delegate?.onSignalOffer(sessionDescription: try sd.toRTCType())
 
             case let .trickle(trickle):
-                guard let data = trickle.candidateInit.data(using: .utf8) else {
-                    throw RoomError.protocolError("could not decode candidate init")
-                }
-                let iceCandidate: IceCandidate = try JSONDecoder().decode(IceCandidate.self, from: data)
-                let rtcCandidate = RTCIceCandidate(sdp: iceCandidate.sdp, sdpMLineIndex: iceCandidate.sdpMLineIndex, sdpMid: iceCandidate.sdpMid)
+                let rtcCandidate = try RTCIceCandidate(fromJsonString: trickle.candidateInit)
                 delegate?.onSignalTrickle(candidate: rtcCandidate, target: trickle.target)
 
             case let .update(update):
@@ -270,6 +168,114 @@ class SignalClient : NSObject {
 
 }
 
+//MARK: - Send methods
+extension SignalClient {
+
+    func sendOffer(offer: RTCSessionDescription) throws {
+        logger.debug("Sending offer")
+
+        let r = try Livekit_SignalRequest.with {
+            $0.offer = try offer.toPBType()
+        }
+
+        sendRequest(r)
+    }
+
+    func sendAnswer(answer: RTCSessionDescription) throws {
+        logger.debug("Sending answer")
+
+        let r = try Livekit_SignalRequest.with {
+            $0.answer = try answer.toPBType()
+        }
+
+        sendRequest(r)
+    }
+
+    func sendCandidate(candidate: RTCIceCandidate, target: Livekit_SignalTarget) throws {
+        logger.debug("Sending ICE candidate")
+
+        let r = try Livekit_SignalRequest.with {
+            $0.trickle = try Livekit_TrickleRequest.with {
+                $0.target = target
+                $0.candidateInit = try candidate.toLKType().toJsonString()
+            }
+        }
+
+        sendRequest(r)
+    }
+
+    func sendMuteTrack(trackSid: String, muted: Bool) {
+        logger.debug("Sending mute for \(trackSid), muted: \(muted)")
+
+        let r = Livekit_SignalRequest.with {
+            $0.mute = Livekit_MuteTrackRequest.with {
+                $0.sid = trackSid
+                $0.muted = muted
+            }
+        }
+
+        sendRequest(r)
+    }
+
+    func sendAddTrack(cid: String, name: String, type: Livekit_TrackType,
+                      dimensions: Dimensions? = nil) {
+        logger.debug("Sending add track request")
+
+        let r = Livekit_SignalRequest.with {
+            $0.addTrack = Livekit_AddTrackRequest.with {
+                $0.cid = cid
+                $0.name = name
+                $0.type = type
+                if let dimensions = dimensions {
+                    $0.width = UInt32(dimensions.width)
+                    $0.height = UInt32(dimensions.height)
+                }
+            }
+        }
+
+        sendRequest(r)
+    }
+
+    func sendUpdateTrackSettings(sid: String, disabled: Bool, videoQuality: Livekit_VideoQuality) {
+        logger.debug("Sending update track settings")
+
+        let r = Livekit_SignalRequest.with {
+            $0.trackSetting = Livekit_UpdateTrackSettings.with {
+                $0.trackSids = [sid]
+                $0.disabled = disabled
+                $0.quality = videoQuality
+            }
+        }
+
+
+        sendRequest(r)
+    }
+
+    func sendUpdateSubscription(sid: String, subscribed: Bool, videoQuality: Livekit_VideoQuality) {
+        logger.debug("Sending update subscription")
+
+        let r = Livekit_SignalRequest.with {
+            $0.subscription = Livekit_UpdateSubscription.with {
+                $0.trackSids = [sid]
+                $0.subscribe = subscribed
+            }
+        }
+
+        sendRequest(r)
+    }
+
+    func sendLeave() {
+        logger.debug("Sending leave")
+
+        let r = Livekit_SignalRequest.with {
+            $0.leave = Livekit_LeaveRequest()
+        }
+
+        sendRequest(r)
+    }
+}
+
+// MARK: - URLSessionWebSocketDelegate
 extension SignalClient: URLSessionWebSocketDelegate {
     func urlSession(_ session: URLSession, webSocketTask: URLSessionWebSocketTask, didOpenWithProtocol protocol: String?) {
         guard webSocketTask == webSocket else {
@@ -283,7 +289,7 @@ extension SignalClient: URLSessionWebSocketDelegate {
         
         receiveNext()
     }
-       
+
     func urlSession(_ session: URLSession, webSocketTask: URLSessionWebSocketTask, didCloseWith closeCode: URLSessionWebSocketTask.CloseCode, reason: Data?) {
         guard webSocketTask == webSocket else {
             return

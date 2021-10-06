@@ -17,30 +17,27 @@ extension URL {
     }
 }
 
-class Utils {
+extension ConnectOptions {
 
-    static func buildUri(
-        urlString: String,
-        token: String,
+    func buildUrl(
         reconnect: Bool = false,
-        autosubscribe: Bool = true,
         validate: Bool = false,
         forceSecure: Bool = false
     ) throws -> URL {
 
-        let url = URL(string: urlString)
+        let parsedUrl = URL(string: url)
 
-        guard let url = url else {
-            throw InternalError.parse
+        guard let parsedUrl = parsedUrl else {
+            throw InternalError.parse("Failed to parse url")
         }
 
-        let components = URLComponents(url: url, resolvingAgainstBaseURL: false)
+        let components = URLComponents(url: parsedUrl, resolvingAgainstBaseURL: false)
 
         guard var components = components else {
-            throw InternalError.parse
+            throw InternalError.parse("Failed to parse url components")
         }
 
-        let useSecure = url.isSecure || forceSecure
+        let useSecure = parsedUrl.isSecure || forceSecure
         let httpScheme = useSecure ? "https" : "http"
         let wsScheme = useSecure ? "wss" : "ws"
 
@@ -48,8 +45,8 @@ class Utils {
         components.path = validate ? "validate" : "rtc"
 
         var query = [
-            URLQueryItem(name: "access_token", value: token),
-            URLQueryItem(name: "protocol", value: "3"),
+            URLQueryItem(name: "access_token", value: accessToken),
+            URLQueryItem(name: "protocol", value: protocolVersion.description),
             URLQueryItem(name: "sdk", value: "ios"),
             URLQueryItem(name: "version", value: "0.5"),
         ]
@@ -59,18 +56,23 @@ class Utils {
         }
 
         // auto subscribe
-        if autosubscribe {
+        if autoSubscribe {
             query.append(URLQueryItem(name: "auto_subscribe", value: "1"))
         }
 
         components.queryItems = query
 
         guard let builtUrl = components.url else {
-            throw InternalError.parse
+            throw InternalError.convert("Failed to convert url")
         }
 
         return builtUrl
     }
+
+}
+
+class Utils {
+
 
     static func createDebounceFunc(wait: TimeInterval,
                                    onCreateCancelFunc: DebouncOnCreateCancelFunc? = nil,
