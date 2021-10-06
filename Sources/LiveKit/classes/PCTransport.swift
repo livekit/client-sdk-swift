@@ -21,6 +21,14 @@ class PCTransport {
     var renegotiate: Bool = false
     var onOffer: PCTransportOnOffer?
 
+    // keep reference to cancel later
+    private var cancelDebounce: DebounceCancelFunc?
+
+    // create debounce func
+    lazy var negotiate = Utils.createDebounceFunc(wait: 0.1, onCreateCancelFunc: { self.cancelDebounce = $0 }) {
+        self.createAndSendOffer()
+    }
+
     init(config: RTCConfiguration,
          target: Livekit_SignalTarget,
          delegate: RTCPeerConnectionDelegate) throws {
@@ -71,7 +79,7 @@ class PCTransport {
     }
 
     @discardableResult
-    func createAndSendOffer(constraints: [String: String]? = nil) -> Promise<Void> {
+    func createAndSendOffer(_ constraints: [String: String]? = nil) -> Promise<Void> {
 
         guard let onOffer = onOffer else {
             return Promise(())
@@ -116,6 +124,9 @@ class PCTransport {
     }
 
     func close() {
+        // prevent debounced negotiate firing
+        cancelDebounce?()
+
         // remove all senders
         for sender in pc.senders {
             pc.removeTrack(sender)

@@ -25,7 +25,7 @@ class Utils {
 
             // cancel func is not created until debounce fnc is actually called
             cancelFunc = {
-                print("[DEBOUNCE] Cancelling previous work")
+                print("[DEBOUNCE] Cancelling previous fnc")
                 work.cancel()
             }
 
