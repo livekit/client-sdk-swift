@@ -11,6 +11,10 @@ protocol LiveKitError: Error {
     //
 }
 
+enum InternalError: LiveKitError {
+    case parse
+}
+
 enum EngineError: LiveKitError {
 
     // WebRTC lib returned error

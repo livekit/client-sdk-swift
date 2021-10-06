@@ -11,7 +11,66 @@ typealias DebounceCancelFunc = () -> Void
 typealias DebouncFunc = () -> Void
 typealias DebouncOnCreateCancelFunc = (@escaping DebounceCancelFunc) -> Void
 
+extension URL {
+    var isSecure: Bool {
+        scheme == "https" || scheme == "wss"
+    }
+}
+
 class Utils {
+
+    static func buildUri(
+        urlString: String,
+        token: String,
+        reconnect: Bool = false,
+        autosubscribe: Bool = true,
+        validate: Bool = false,
+        forceSecure: Bool = false
+    ) throws -> URL {
+
+        let url = URL(string: urlString)
+
+        guard let url = url else {
+            throw InternalError.parse
+        }
+
+        let components = URLComponents(url: url, resolvingAgainstBaseURL: false)
+
+        guard var components = components else {
+            throw InternalError.parse
+        }
+
+        let useSecure = url.isSecure || forceSecure
+        let httpScheme = useSecure ? "https" : "http"
+        let wsScheme = useSecure ? "wss" : "ws"
+
+        components.scheme = validate ? httpScheme : wsScheme
+        components.path = validate ? "validate" : "rtc"
+
+        var query = [
+            URLQueryItem(name: "access_token", value: token),
+            URLQueryItem(name: "protocol", value: "3"),
+            URLQueryItem(name: "sdk", value: "ios"),
+            URLQueryItem(name: "version", value: "0.5"),
+        ]
+
+        if reconnect {
+            query.append(URLQueryItem(name: "reconnect", value: "1"))
+        }
+
+        // auto subscribe
+        if autosubscribe {
+            query.append(URLQueryItem(name: "auto_subscribe", value: "1"))
+        }
+
+        components.queryItems = query
+
+        guard let builtUrl = components.url else {
+            throw InternalError.parse
+        }
+
+        return builtUrl
+    }
 
     static func createDebounceFunc(wait: TimeInterval,
                                    onCreateCancelFunc: DebouncOnCreateCancelFunc? = nil,
