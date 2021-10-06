@@ -13,11 +13,13 @@ import Promises
 
 extension RTCPeerConnection {
 
-    func offerAsync(for constraints: RTCMediaConstraints) -> Promise<RTCSessionDescription> {
+    func offerAsync(for constraints: [String: String]? = nil) -> Promise<RTCSessionDescription> {
+
+        let mediaConstraints = RTCMediaConstraints(mandatoryConstraints: constraints, optionalConstraints: nil)
 
         return Promise<RTCSessionDescription> { complete, fail in
 
-            self.offer(for: constraints) { sd, error in
+            self.offer(for: mediaConstraints) { sd, error in
 
                 guard error == nil else {
                     fail(EngineError.webRTC("failed to create offer", error))
@@ -34,11 +36,13 @@ extension RTCPeerConnection {
         }
     }
 
-    func answerAsync(for constraints: RTCMediaConstraints) -> Promise<RTCSessionDescription> {
+    func answerAsync(for constraints: [String: String]? = nil) -> Promise<RTCSessionDescription> {
+
+        let mediaConstraints = RTCMediaConstraints(mandatoryConstraints: constraints, optionalConstraints: nil)
 
         return Promise<RTCSessionDescription> { complete, fail in
 
-            self.answer(for: constraints) { sd, error in
+            self.answer(for: mediaConstraints) { sd, error in
 
                 guard error == nil else {
                     fail(EngineError.webRTC("failed to create offer", error))

@@ -25,9 +25,11 @@ class PCTransport {
     private var cancelDebounce: DebounceCancelFunc?
 
     // create debounce func
-    lazy var negotiate = Utils.createDebounceFunc(wait: 0.1, onCreateCancelFunc: { self.cancelDebounce = $0 }) {
-        self.createAndSendOffer()
-    }
+    lazy var negotiate = Utils.createDebounceFunc(wait: 0.1, onCreateCancelFunc: { [weak self] cancelFnc in
+        self?.cancelDebounce = cancelFnc
+    }, fnc: { [weak self] in
+        self?.createAndSendOffer()
+    })
 
     init(config: RTCConfiguration,
          target: Livekit_SignalTarget,
@@ -97,13 +99,10 @@ class PCTransport {
             return Promise(())
         }
 
-        let mediaConstraints = RTCMediaConstraints(mandatoryConstraints: constraints,
-                                                   optionalConstraints: nil)
-
         // actually negotiate
         func negotiateSequence() -> Promise<Void> {
             //
-            pc.offerAsync(for: mediaConstraints).then { sd in
+            pc.offerAsync(for: constraints).then { sd in
                 self.pc.setLocalDescriptionAsync(sd).then {
                     onOffer(sd)
                 }
