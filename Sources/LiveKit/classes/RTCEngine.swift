@@ -21,6 +21,7 @@ enum ICEState {
 }
 
 class RTCEngine: NSObject {
+
     static var offerConstraints = RTCMediaConstraints(mandatoryConstraints: [
         kRTCMediaConstraintsOfferToReceiveAudio: kRTCMediaConstraintsValueFalse,
         kRTCMediaConstraintsOfferToReceiveVideo: kRTCMediaConstraintsValueFalse,
@@ -54,8 +55,6 @@ class RTCEngine: NSObject {
         subscriberPrimary ? subscriber : publisher
     }
 
-    var publisherDelegate: PublisherTransportDelegate
-    var subscriberDelegate: SubscriberTransportDelegate
     var client: SignalClient
     var reliableDC: RTCDataChannel?
     var lossyDC: RTCDataChannel?
@@ -91,31 +90,65 @@ class RTCEngine: NSObject {
 
     weak var delegate: RTCEngineDelegate?
 
+    private var listenTokens: [NSObjectProtocol] = []
+
     init(client: SignalClient? = nil) {
-
         self.client = client ?? SignalClient()
-
-        publisherDelegate = PublisherTransportDelegate()
-        subscriberDelegate = SubscriberTransportDelegate()
         super.init()
-
-        publisherDelegate.engine = self
-        subscriberDelegate.engine = self
         self.client.delegate = self
+
+        logger.debug("RTCEngine init")
+        setUpListeners()
     }
 
-//    @objc func getStatsTimer() {
-//        print("getting stats...")
-//        print("------------------------------------------------------------")
-//        publisher?.pc.stats(for: nil, statsOutputLevel: .standard, completionHandler: { result in
-//            let types = result.map{ $0.type }
-//            print(types)
-////            let v = rep.filter { $0.type == "ssrc" }
-//            for entry in result {
-//                print(entry.values)
-//            }
-//        })
-//    }
+    deinit {
+        logger.debug("RTCEngine deinit")
+
+        for token in listenTokens {
+            NotificationCenter.liveKit.removeObserver(token)
+        }
+    }
+
+    private func setUpListeners() {
+
+        let l1 = NotificationCenter.liveKit.listen(for: IceCandidateEvent.self) { [weak self] event in
+            logger.debug("[Event] \(event)")
+            try? self?.client.sendCandidate(candidate: event.iceCandidate, target: event.target)
+        }
+
+        let l2 = NotificationCenter.liveKit.listen(for: IceStateUpdatedEvent.self) { [weak self] event in
+            logger.debug("[Event] \(event)")
+            if event.primary {
+                if event.iceState == .connected {
+                    self?.iceState = .connected
+                } else if event.iceState == .failed {
+                    self?.iceState = .disconnected
+                }
+            }
+        }
+
+        let l3 = NotificationCenter.liveKit.listen(for: ReceivedTrackEvent.self) { [weak self] event in
+            logger.debug("[Event] \(event)")
+            if event.target == .subscriber {
+                self?.delegate?.didAddTrack(track: event.track, streams: event.streams)
+            }
+        }
+
+        listenTokens += [l1, l2, l3]
+    }
+
+    //    @objc func getStatsTimer() {
+    //        print("getting stats...")
+    //        print("------------------------------------------------------------")
+    //        publisher?.pc.stats(for: nil, statsOutputLevel: .standard, completionHandler: { result in
+    //            let types = result.map{ $0.type }
+    //            print(types)
+    ////            let v = rep.filter { $0.type == "ssrc" }
+    //            for entry in result {
+    //                print(entry.values)
+    //            }
+    //        })
+    //    }
 
 
     func join(options: ConnectOptions) {
@@ -125,8 +158,8 @@ class RTCEngine: NSObject {
                 return
             }
             logger.info("reconnecting to signal connection, attempt \(self.wsRetries)")
-//            var reconnectOptions = options
-//            reconnectOptions.reconnect = true
+            //            var reconnectOptions = options
+            //            reconnectOptions.reconnect = true
             try? self.client.join(options: options, reconnect: true)
         }
     }
@@ -162,32 +195,32 @@ class RTCEngine: NSObject {
         hasPublished = true
         publisher.negotiate()
 
-//        var constraints = [
-//            kRTCMediaConstraintsOfferToReceiveAudio: kRTCMediaConstraintsValueFalse,
-//            kRTCMediaConstraintsOfferToReceiveVideo: kRTCMediaConstraintsValueFalse,
-//        ]
-//        if iceState == .reconnecting {
-//            constraints[kRTCMediaConstraintsIceRestart] = kRTCMediaConstraintsValueTrue
-//        }
-//        let mediaConstraints = RTCMediaConstraints(mandatoryConstraints: constraints, optionalConstraints: nil)
-//
-//        publisher?.pc.offer(for: mediaConstraints, completionHandler: { offer, error in
-//            if let error = error {
-//                logger.error("could not create offer: \(error)")
-//                return
-//            }
-//            guard let sdp = offer else {
-//                logger.error("offer is unexpectedly missing during negotiation")
-//                return
-//            }
-//            self.publisher?.pc.setLocalDescription(sdp, completionHandler: { error in
-//                if let error = error {
-//                    logger.error("error setting local description: \(error)")
-//                    return
-//                }
-//                try? self.client.sendOffer(offer: sdp)
-//            })
-//        })
+        //        var constraints = [
+        //            kRTCMediaConstraintsOfferToReceiveAudio: kRTCMediaConstraintsValueFalse,
+        //            kRTCMediaConstraintsOfferToReceiveVideo: kRTCMediaConstraintsValueFalse,
+        //        ]
+        //        if iceState == .reconnecting {
+        //            constraints[kRTCMediaConstraintsIceRestart] = kRTCMediaConstraintsValueTrue
+        //        }
+        //        let mediaConstraints = RTCMediaConstraints(mandatoryConstraints: constraints, optionalConstraints: nil)
+        //
+        //        publisher?.pc.offer(for: mediaConstraints, completionHandler: { offer, error in
+        //            if let error = error {
+        //                logger.error("could not create offer: \(error)")
+        //                return
+        //            }
+        //            guard let sdp = offer else {
+        //                logger.error("offer is unexpectedly missing during negotiation")
+        //                return
+        //            }
+        //            self.publisher?.pc.setLocalDescription(sdp, completionHandler: { error in
+        //                if let error = error {
+        //                    logger.error("error setting local description: \(error)")
+        //                    return
+        //                }
+        //                try? self.client.sendOffer(offer: sdp)
+        //            })
+        //        })
     }
 
     func reconnect() {
@@ -210,6 +243,44 @@ class RTCEngine: NSObject {
     private func handleSignalDisconnect() {
         wsRetries += 1
         reconnect()
+    }
+
+    func sendDataPacket(packet: Livekit_DataPacket) -> Promise<Void> {
+
+        guard let data = try? packet.serializedData() else {
+            return Promise(InternalError.parse())
+        }
+
+        func send() -> Promise<Void>{
+
+            Promise<Void>{ complete, fail in
+                let rtcData = RTCDataBuffer(data: data, isBinary: true)
+                let dc = packet.kind == .lossy ? self.lossyDC : self.reliableDC
+                if let dc = dc {
+                    // TODO: Check return value
+                    dc.sendData(rtcData)
+                }
+                complete(())
+            }
+        }
+
+        return ensurePublisherConnected().then { _ in send() }
+    }
+
+    private func ensurePublisherConnected () -> Promise<IceStateUpdatedEvent> {
+
+        guard subscriberPrimary,
+              let publisher = publisher,
+              publisher.pc.iceConnectionState == .connected else {
+                  return Promise(EngineError.invalidState("publisher is nil"))
+              }
+
+        negotiate()
+
+        // wait to connect...
+        return NotificationCenter.liveKit.wait(for: IceStateUpdatedEvent.self,
+                                                  timeout: 3,
+                                                  filter: { $0.target == .publisher && $0.iceState == .connected })
     }
 }
 
@@ -262,10 +333,13 @@ extension RTCEngine: SignalClientDelegate {
         config.update(iceServers: joinResponse.iceServers)
 
         do {
-            publisher = try PCTransport(config: config, target: .publisher, delegate: publisherDelegate)
-            subscriber = try PCTransport(config: config, target: .subscriber, delegate: subscriberDelegate)
-//            publisher = pub
-//            subscriber = sub
+            subscriber = try PCTransport(config: config,
+                                         target: .subscriber,
+                                         primary: subscriberPrimary)
+
+            publisher = try PCTransport(config: config,
+                                        target: .publisher,
+                                        primary: !subscriberPrimary)
 
             let reliableConfig = RTCDataChannelConfiguration()
             reliableConfig.isOrdered = true
@@ -296,10 +370,10 @@ extension RTCEngine: SignalClientDelegate {
         }
         logger.debug("handling server answer")
         publisher.setRemoteDescription(sessionDescription).then {
-//            if let error = error {
-//                logger.error("error setting remote description for answer: \(error)")
-//                return
-//            }
+            //            if let error = error {
+            //                logger.error("error setting remote description for answer: \(error)")
+            //                return
+            //            }
             logger.debug("successfully set remote desc")
 
             // when reconnecting, PeerConnection does not always recognize it's disconnected
@@ -327,10 +401,10 @@ extension RTCEngine: SignalClientDelegate {
 
         logger.debug("handling server offer")
         subscriber.setRemoteDescription(sessionDescription).then {
-//            if let error = error {
-//                logger.error("error setting subscriber remote description for offer: \(error)")
-//                return
-//            }
+            //            if let error = error {
+            //                logger.error("error setting subscriber remote description for offer: \(error)")
+            //                return
+            //            }
             let constraints: Dictionary<String, String> = [:]
             let mediaConstraints = RTCMediaConstraints(mandatoryConstraints: constraints,
                                                        optionalConstraints: nil)

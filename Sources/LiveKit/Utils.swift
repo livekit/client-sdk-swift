@@ -7,9 +7,9 @@
 
 import WebRTC
 
-typealias DebounceCancelFunc = () -> Void
+//typealias DebounceCancelFunc = () -> Void
 typealias DebouncFunc = () -> Void
-typealias DebouncOnCreateCancelFunc = (@escaping DebounceCancelFunc) -> Void
+//typealias DebouncOnCreateCancelFunc = (DispatchWorkItem) -> Void
 
 extension URL {
     var isSecure: Bool {
@@ -42,7 +42,7 @@ extension ConnectOptions {
         let wsScheme = useSecure ? "wss" : "ws"
 
         components.scheme = validate ? httpScheme : wsScheme
-        components.path = validate ? "validate" : "rtc"
+        components.path = validate ? "/validate" : "/rtc"
 
         var query = [
             URLQueryItem(name: "access_token", value: accessToken),
@@ -55,7 +55,6 @@ extension ConnectOptions {
             query.append(URLQueryItem(name: "reconnect", value: "1"))
         }
 
-        // auto subscribe
         if autoSubscribe {
             query.append(URLQueryItem(name: "auto_subscribe", value: "1"))
         }
@@ -63,7 +62,7 @@ extension ConnectOptions {
         components.queryItems = query
 
         guard let builtUrl = components.url else {
-            throw InternalError.convert("Failed to convert url")
+            throw InternalError.convert("Failed to convert components to url \(components)")
         }
 
         return builtUrl
@@ -73,27 +72,15 @@ extension ConnectOptions {
 
 class Utils {
 
-
     static func createDebounceFunc(wait: TimeInterval,
-                                   onCreateCancelFunc: DebouncOnCreateCancelFunc? = nil,
+                                   onDidCreateWork: ((DispatchWorkItem) -> Void)? = nil,
                                    fnc: @escaping @convention(block) () -> Void) -> DebouncFunc {
-
-        var cancelFunc: DebounceCancelFunc? = nil
-
+        var work: DispatchWorkItem? = nil
         return {
-            cancelFunc?()
-            let work = DispatchWorkItem() { fnc() }
-
-            // cancel func is not created until debounce fnc is actually called
-            cancelFunc = {
-                print("[DEBOUNCE] Cancelling previous fnc")
-                work.cancel()
-            }
-
-            // report back the created cancel func
-            onCreateCancelFunc?(cancelFunc!)
-
-            DispatchQueue.main.asyncAfter(deadline: .now() + wait, execute: work)
+            work?.cancel()
+            work = DispatchWorkItem() { fnc() }
+            onDidCreateWork?(work!)
+            DispatchQueue.main.asyncAfter(deadline: .now() + wait, execute: work!)
         }
     }
 

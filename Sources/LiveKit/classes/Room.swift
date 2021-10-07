@@ -33,7 +33,7 @@ public class Room {
     public private(set) var activeSpeakers: [Participant] = []
 
     private var connectOptions: ConnectOptions
-    private let monitor: NWPathMonitor
+//    private let monitor: NWPathMonitor
     private let monitorQueue: DispatchQueue
     private var prevPath: NWPath?
     private var lastPathUpdate: TimeInterval = 0
@@ -42,34 +42,34 @@ public class Room {
     init(options: ConnectOptions) {
         connectOptions = options
 
-        monitor = NWPathMonitor()
+//        monitor = NWPathMonitor()
         monitorQueue = DispatchQueue(label: "networkMonitor", qos: .background)
         engine = RTCEngine(client: SignalClient())
 
-        monitor.pathUpdateHandler = { path in
-            logger.debug("network path update: \(path.availableInterfaces), \(path.status)")
-            if self.prevPath == nil || path.status != .satisfied {
-                self.prevPath = path
-                return
-            }
-
-            // TODO: Use debounce fnc instead
-            // In iOS 14.4, this update is sent multiple times during a connection change
-            // ICE restarts are expensive and error prone (due to renegotiation)
-            // We'll ignore frequent updates
-            let currTime = Date().timeIntervalSince1970
-            if currTime - self.lastPathUpdate < networkChangeIgnoreInterval {
-                logger.debug("skipping duplicate network update")
-                return
-            }
-            // trigger reconnect
-            if self.state != .disconnected {
-                logger.info("network path changed, starting engine reconnect")
-                self.reconnect()
-            }
-            self.prevPath = path
-            self.lastPathUpdate = currTime
-        }
+//        monitor.pathUpdateHandler = { path in
+//            logger.debug("network path update: \(path.availableInterfaces), \(path.status)")
+//            if self.prevPath == nil || path.status != .satisfied {
+//                self.prevPath = path
+//                return
+//            }
+//
+//            // TODO: Use debounce fnc instead
+//            // In iOS 14.4, this update is sent multiple times during a connection change
+//            // ICE restarts are expensive and error prone (due to renegotiation)
+//            // We'll ignore frequent updates
+//            let currTime = Date().timeIntervalSince1970
+//            if currTime - self.lastPathUpdate < networkChangeIgnoreInterval {
+//                logger.debug("skipping duplicate network update")
+//                return
+//            }
+//            // trigger reconnect
+//            if self.state != .disconnected {
+//                logger.info("network path changed, starting engine reconnect")
+//                self.reconnect()
+//            }
+//            self.prevPath = path
+//            self.lastPathUpdate = currTime
+//        }
 
         engine.delegate = self
     }
@@ -81,7 +81,7 @@ public class Room {
         }
 
         state = .connecting
-        monitor.start(queue: monitorQueue)
+//        monitor.start(queue: monitorQueue)
         engine.join(options: connectOptions)
     }
 
@@ -179,7 +179,7 @@ public class Room {
 
         remoteParticipants.removeAll()
         activeSpeakers.removeAll()
-        monitor.cancel()
+//        monitor.cancel()
         delegate?.didDisconnect(room: self, error: nil)
         // should be the only call from delegate, room is done
         delegate = nil

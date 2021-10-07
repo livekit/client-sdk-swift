@@ -14,11 +14,13 @@ protocol LiveKitError: Error {
 enum InternalError: LiveKitError {
     case parse(String? = nil)
     case convert(String? = nil)
+    case timeout(String? = nil)
 
     var localizedDescription: String {
         switch self {
         case .parse(let message): return "Error.Parse \(String(describing: message))"
         case .convert(let message): return "Error.Convert \(String(describing: message))"
+        case .timeout(let message): return "Error.Timeout \(String(describing: message))"
         }
     }
 }
