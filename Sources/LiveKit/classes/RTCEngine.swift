@@ -259,24 +259,7 @@ extension RTCEngine: SignalClientDelegate {
 
         // create publisher and subscribers
         let config = RTCConfiguration.liveKitDefault()
-
-        config.iceServers = []
-        for s in joinResponse.iceServers {
-            var username: String?
-            var credential: String?
-            if s.username != "" {
-                username = s.username
-            }
-            if s.credential != "" {
-                credential = s.credential
-            }
-            config.iceServers.append(RTCIceServer(urlStrings: s.urls, username: username, credential: credential))
-            logger.debug("ICE servers: \(s.urls)")
-        }
-
-        if config.iceServers.count == 0 {
-            config.iceServers = [RTCIceServer(urlStrings: RTCEngine.defaultIceServers)]
-        }
+        config.update(iceServers: joinResponse.iceServers)
 
         do {
             publisher = try PCTransport(config: config, target: .publisher, delegate: publisherDelegate)
@@ -406,6 +389,7 @@ extension RTCEngine: SignalClientDelegate {
 }
 
 extension RTCEngine: RTCDataChannelDelegate {
+
     func dataChannelDidChangeState(_: RTCDataChannel) {
         // do nothing
     }

@@ -8,6 +8,7 @@
 import Foundation
 
 struct EncodingParameters {
+
     public private(set) var maxAudioBitrate: UInt
     public private(set) var maxVideoBitrate: UInt
 

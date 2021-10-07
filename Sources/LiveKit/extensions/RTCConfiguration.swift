@@ -22,4 +22,14 @@ extension RTCConfiguration {
 
         return result
     }
+
+    func update(iceServers: [Livekit_ICEServer]) {
+
+        let rtcIceServers = iceServers.map { $0.toRTCType() }
+
+        self.iceServers = rtcIceServers.isEmpty
+        ? [RTCIceServer(urlStrings: RTCEngine.defaultIceServers)]
+        : rtcIceServers
+
+    }
 }

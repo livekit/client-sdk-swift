@@ -18,6 +18,7 @@ public struct ConnectOptions {
                 token: String,
                 autoSubscribe: Bool = true,
                 protocolVersion: ProtocolVersion = .v3) {
+
         self.accessToken = token
         self.url = url
         self.autoSubscribe = autoSubscribe
