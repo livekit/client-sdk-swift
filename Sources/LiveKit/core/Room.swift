@@ -1,8 +1,6 @@
 //
-//  File.swift
-//
-//
-//  Created by Russell D'Sa on 11/7/20.
+// LiveKit
+// https://livekit.io
 //
 
 import Foundation
@@ -79,7 +77,7 @@ public class Room {
     }
 
     public func disconnect() {
-        engine.client.sendLeave()
+        engine.signalClient.sendLeave()
         engine.close()
         handleDisconnect()
     }

@@ -6,7 +6,7 @@ import WebRTC
 let logger = Logger(label: "io.livekit.ios")
 
 public class LiveKit {
-    var x: Room?
+
     static let queue = DispatchQueue(label: "lk_queue")
     static var audioConfigured: Bool = false
 

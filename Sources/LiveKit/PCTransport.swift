@@ -37,7 +37,7 @@ class PCTransport: NSObject {
 
         // try create peerConnection
         let pc = RTCEngine.factory.peerConnection(with: config,
-                                                  constraints: RTCEngine.connConstraints,
+                                                  constraints: RTCMediaConstraints.defaultPCConstraints,
                                                   delegate: nil)
         guard let pc = pc else {
             throw EngineError.webRTC("failed to create peerConnection")
@@ -69,7 +69,6 @@ class PCTransport: NSObject {
     public func setRemoteDescription(_ sd: RTCSessionDescription) -> Promise<Void> {
 
         self.pc.setRemoteDescriptionAsync(sd).then {
-            // add all pending IceCandidates
             all(self.pendingCandidates.map { self.pc.addAsync($0) })
         }.then { _ in
 
@@ -104,19 +103,18 @@ class PCTransport: NSObject {
             return Promise(())
         }
 
+        if pc.signalingState == .haveLocalOffer, isIceRestart, let sd = pc.remoteDescription {
+            return pc.setRemoteDescriptionAsync(sd).then {
+                negotiateSequence()
+            }
+        }
+
         // actually negotiate
         func negotiateSequence() -> Promise<Void> {
-            //
             pc.offerAsync(for: constraints).then { sd in
                 self.pc.setLocalDescriptionAsync(sd).then {
                     onOffer(sd)
                 }
-            }
-        }
-
-        if pc.signalingState == .haveLocalOffer, isIceRestart, let sd = pc.remoteDescription {
-            pc.setRemoteDescriptionAsync(sd).then {
-                negotiateSequence()
             }
         }
 

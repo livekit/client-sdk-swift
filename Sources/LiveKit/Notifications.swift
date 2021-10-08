@@ -14,23 +14,6 @@ import Promises
 // Type-safe
 //
 
-//protocol Observer {
-//    //
-//}
-//
-//class Observable<X: AnyObject> where X : Observer {
-//
-//    let listeners = NSHashTable<X>.weakObjects()
-//
-//    func addObserver(_ observer: X) {
-//        listeners.add(observer)
-//    }
-//
-//    func removeObserver(_ observer: X) {
-//        listeners.remove(observer)
-//    }
-//}
-
 typealias EventFilter<E: Event> = (E) -> Bool
 
 extension NotificationCenter {

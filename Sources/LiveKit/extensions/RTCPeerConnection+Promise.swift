@@ -15,7 +15,8 @@ extension RTCPeerConnection {
 
     func offerAsync(for constraints: [String: String]? = nil) -> Promise<RTCSessionDescription> {
 
-        let mediaConstraints = RTCMediaConstraints(mandatoryConstraints: constraints, optionalConstraints: nil)
+        let mediaConstraints = RTCMediaConstraints(mandatoryConstraints: constraints,
+                                                   optionalConstraints: nil)
 
         return Promise<RTCSessionDescription> { complete, fail in
             self.offer(for: mediaConstraints) { sd, error in
@@ -34,7 +35,8 @@ extension RTCPeerConnection {
 
     func answerAsync(for constraints: [String: String]? = nil) -> Promise<RTCSessionDescription> {
 
-        let mediaConstraints = RTCMediaConstraints(mandatoryConstraints: constraints, optionalConstraints: nil)
+        let mediaConstraints = RTCMediaConstraints(mandatoryConstraints: constraints,
+                                                   optionalConstraints: nil)
 
         return Promise<RTCSessionDescription> { complete, fail in
             self.answer(for: mediaConstraints) { sd, error in
@@ -53,7 +55,7 @@ extension RTCPeerConnection {
 
     func setLocalDescriptionAsync(_ sd: RTCSessionDescription) -> Promise<Void> {
 
-        return Promise<Void> { complete, fail in
+        Promise<Void> { complete, fail in
             self.setLocalDescription(sd) { error in
                 guard error == nil else {
                     fail(EngineError.webRTC("failed to set local description", error))
@@ -67,7 +69,7 @@ extension RTCPeerConnection {
 
     func setRemoteDescriptionAsync(_ sd: RTCSessionDescription) -> Promise<Void> {
 
-        return Promise<Void> { complete, fail in
+        Promise<Void> { complete, fail in
             self.setRemoteDescription(sd) { error in
                 guard error == nil else {
                     fail(EngineError.webRTC("failed to set remote description", error))
@@ -80,7 +82,8 @@ extension RTCPeerConnection {
 
     @discardableResult
     func addAsync(_ candidate: RTCIceCandidate) -> Promise<Void> {
-        return Promise<Void> { complete, fail in
+
+        Promise<Void> { complete, fail in
             self.add(candidate) { error in
                 guard error == nil else {
                     fail(EngineError.webRTC("failed to add ice candidate", error))

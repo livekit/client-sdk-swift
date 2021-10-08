@@ -1,8 +1,6 @@
 //
-//  File.swift
-//
-//
-//  Created by Russell D'Sa on 12/4/20.
+// LiveKit
+// https://livekit.io
 //
 
 import Foundation
@@ -14,27 +12,17 @@ let maxDataPacketSize = 15000
 
 class RTCEngine: NSObject {
 
-    static var offerConstraints = RTCMediaConstraints(mandatoryConstraints: [
-        kRTCMediaConstraintsOfferToReceiveAudio: kRTCMediaConstraintsValueFalse,
-        kRTCMediaConstraintsOfferToReceiveVideo: kRTCMediaConstraintsValueFalse,
-    ], optionalConstraints: nil)
-
-    static var mediaConstraints = RTCMediaConstraints(mandatoryConstraints: nil,
-                                                      optionalConstraints: nil)
-
-    static var connConstraints = RTCMediaConstraints(mandatoryConstraints: nil,
-                                                     optionalConstraints: ["DtlsSrtpKeyAgreement": kRTCMediaConstraintsValueTrue])
-
     static let factory: RTCPeerConnectionFactory = {
         RTCInitializeSSL()
         let encoderFactory = RTCDefaultVideoEncoderFactory()
         let decoderFactory = RTCDefaultVideoDecoderFactory()
-        let simulcastFactory = RTCVideoEncoderFactorySimulcast(primary: encoderFactory, fallback: encoderFactory)
-        return RTCPeerConnectionFactory(encoderFactory: simulcastFactory, decoderFactory: decoderFactory)
+        let simulcastFactory = RTCVideoEncoderFactorySimulcast(primary: encoderFactory,
+                                                               fallback: encoderFactory)
+        return RTCPeerConnectionFactory(encoderFactory: simulcastFactory,
+                                        decoderFactory: decoderFactory)
     }()
 
-    static let defaultIceServers = ["stun:stun.l.google.com:19302",
-                                    "stun:stun1.l.google.com:19302"]
+    let signalClient: SignalClient
 
     // read-only
     private(set) var publisher: PCTransport?
@@ -43,13 +31,12 @@ class RTCEngine: NSObject {
     private(set) var hasPublished: Bool = false
 
     // computed
-    var primary: PCTransport? {
+    private var primary: PCTransport? {
         subscriberPrimary ? subscriber : publisher
     }
 
-    var client: SignalClient
-    var reliableDC: RTCDataChannel?
-    var lossyDC: RTCDataChannel?
+    private(set) var reliableDC: RTCDataChannel?
+    private(set) var lossyDC: RTCDataChannel?
 
     var iceState: ConnectionState = .disconnected {
         didSet {
@@ -85,9 +72,9 @@ class RTCEngine: NSObject {
     private var listenTokens: [NSObjectProtocol] = []
 
     init(client: SignalClient? = nil) {
-        self.client = client ?? SignalClient()
+        self.signalClient = client ?? SignalClient()
         super.init()
-        self.client.delegate = self
+        self.signalClient.delegate = self
 
         logger.debug("RTCEngine init")
         setUpListeners()
@@ -105,7 +92,7 @@ class RTCEngine: NSObject {
 
         let l1 = NotificationCenter.liveKit.listen(for: IceCandidateEvent.self) { [weak self] event in
             logger.debug("[Event] \(event)")
-            try? self?.client.sendCandidate(candidate: event.iceCandidate, target: event.target)
+            try? self?.signalClient.sendCandidate(candidate: event.iceCandidate, target: event.target)
         }
 
         let l2 = NotificationCenter.liveKit.listen(for: IceStateUpdatedEvent.self) { [weak self] event in
@@ -136,19 +123,6 @@ class RTCEngine: NSObject {
         listenTokens += [l1, l2, l3, l4]
     }
 
-    //    @objc func getStatsTimer() {
-    //        print("getting stats...")
-    //        print("------------------------------------------------------------")
-    //        publisher?.pc.stats(for: nil, statsOutputLevel: .standard, completionHandler: { result in
-    //            let types = result.map{ $0.type }
-    //            print(types)
-    ////            let v = rep.filter { $0.type == "ssrc" }
-    //            for entry in result {
-    //                print(entry.values)
-    //            }
-    //        })
-    //    }
-
     private func onReceived(dataChannel: RTCDataChannel) {
 
         logger.debug("Server opened data channel \(dataChannel.label)")
@@ -166,15 +140,13 @@ class RTCEngine: NSObject {
 
 
     func join(options: ConnectOptions) {
-        try? client.join(options: options)
+        try? signalClient.join(options: options)
         wsReconnectTask = DispatchWorkItem {
             guard self.iceState != .disconnected else {
                 return
             }
             logger.info("reconnecting to signal connection, attempt \(self.wsRetries)")
-            //            var reconnectOptions = options
-            //            reconnectOptions.reconnect = true
-            try? self.client.join(options: options, reconnect: true)
+            try? self.signalClient.join(options: options, reconnect: true)
         }
     }
 
@@ -186,18 +158,18 @@ class RTCEngine: NSObject {
 
         let promise = Promise<Livekit_TrackInfo>.pending()
         pendingTrackResolvers[cid] = promise
-        client.sendAddTrack(cid: cid, name: name, type: kind, dimensions: dimensions)
+        signalClient.sendAddTrack(cid: cid, name: name, type: kind, dimensions: dimensions)
         return promise
     }
 
     func updateMuteStatus(trackSid: String, muted: Bool) {
-        client.sendMuteTrack(trackSid: trackSid, muted: muted)
+        signalClient.sendMuteTrack(trackSid: trackSid, muted: muted)
     }
 
     func close() {
         publisher?.close()
         subscriber?.close()
-        client.close()
+        signalClient.close()
     }
 
     func negotiate() {
@@ -209,33 +181,6 @@ class RTCEngine: NSObject {
 
         hasPublished = true
         publisher.negotiate()
-
-        //        var constraints = [
-        //            kRTCMediaConstraintsOfferToReceiveAudio: kRTCMediaConstraintsValueFalse,
-        //            kRTCMediaConstraintsOfferToReceiveVideo: kRTCMediaConstraintsValueFalse,
-        //        ]
-        //        if iceState == .reconnecting {
-        //            constraints[kRTCMediaConstraintsIceRestart] = kRTCMediaConstraintsValueTrue
-        //        }
-        //        let mediaConstraints = RTCMediaConstraints(mandatoryConstraints: constraints, optionalConstraints: nil)
-        //
-        //        publisher?.pc.offer(for: mediaConstraints, completionHandler: { offer, error in
-        //            if let error = error {
-        //                logger.error("could not create offer: \(error)")
-        //                return
-        //            }
-        //            guard let sdp = offer else {
-        //                logger.error("offer is unexpectedly missing during negotiation")
-        //                return
-        //            }
-        //            self.publisher?.pc.setLocalDescription(sdp, completionHandler: { error in
-        //                if let error = error {
-        //                    logger.error("error setting local description: \(error)")
-        //                    return
-        //                }
-        //                try? self.client.sendOffer(offer: sdp)
-        //            })
-        //        })
     }
 
     func reconnect() {
@@ -358,7 +303,7 @@ extension RTCEngine: SignalClientDelegate {
 
             publisher?.onOffer = { offer in
                 logger.debug("publisher onOffer")
-                try? self.client.sendOffer(offer: offer)
+                try? self.signalClient.sendOffer(offer: offer)
             }
 
             // data over pub channel for backwards compatibility
@@ -370,7 +315,7 @@ extension RTCEngine: SignalClientDelegate {
 
             let lossyConfig = RTCDataChannelConfiguration()
             lossyConfig.isOrdered = true
-            lossyConfig.maxRetransmits = 1
+            lossyConfig.maxRetransmits = 0
             lossyDC = publisher?.pc.dataChannel(forLabel: RTCDataChannel.labels.lossy,
                                                 configuration: lossyConfig)
             lossyDC?.delegate = self
@@ -446,7 +391,7 @@ extension RTCEngine: SignalClientDelegate {
                         return
                     }
                     logger.debug("sending client answer")
-                    try? self.client.sendAnswer(answer: ans)
+                    try? self.signalClient.sendAnswer(answer: ans)
                 })
             })
         }

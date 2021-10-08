@@ -1,8 +1,6 @@
 //
-//  File.swift
-//
-//
-//  Created by Russell D'Sa on 11/29/20.
+// LiveKit
+// https://livekit.io
 //
 
 import Foundation
@@ -13,8 +11,7 @@ class SignalClient : NSObject {
 
     weak var delegate: SignalClientDelegate?
 
-    private(set) var isConnected: Bool = false
-    private(set) var reconnecting: Bool = false
+    private(set) var connectionState: ConnectionState = .disconnected
 
     private lazy var urlSession = URLSession(configuration: .default,
                                              delegate: self,
@@ -29,15 +26,12 @@ class SignalClient : NSObject {
     func join(options: ConnectOptions, reconnect: Bool = false) throws {
 
         do {
-            let rtcUrl = try options.buildUrl(reconnect: reconnect)
-            reconnecting = reconnect
-
-            logger.debug("connecting to url: \(rtcUrl)")
-
             webSocket?.cancel()
+            let rtcUrl = try options.buildUrl(reconnect: reconnect)
+            logger.debug("connecting to url: \(rtcUrl)")
+            connectionState = reconnect ? .reconnecting : .connecting
             webSocket = urlSession.webSocketTask(with: rtcUrl)
-            webSocket?.resume()
-
+            webSocket!.resume()
         } catch let error {
             delegate?.onSignalError(error: error)
             throw error
@@ -45,7 +39,8 @@ class SignalClient : NSObject {
     }
 
     private func sendRequest(_ request: Livekit_SignalRequest) {
-        if !isConnected {
+
+        guard connectionState == .connected else {
             logger.error("could not send message, not connected")
             return
         }
@@ -64,7 +59,7 @@ class SignalClient : NSObject {
     }
 
     func close() {
-        isConnected = false
+        connectionState = .disconnected
         webSocket?.cancel()
         webSocket = nil
     }
@@ -76,7 +71,9 @@ class SignalClient : NSObject {
     }
 
     private func handleSignalResponse(msg: Livekit_SignalResponse.OneOf_Message) {
-        guard isConnected else {
+
+        guard connectionState == .connected else {
+            logger.error("not connected")
             return
         }
         
@@ -151,8 +148,8 @@ class SignalClient : NSObject {
             
             if let sigResp = sigResp, let msg = sigResp.message {
                 switch msg {
-                case let .join(joinMsg) where isConnected == false:
-                    isConnected = true
+                case .join(let joinMsg) where connectionState != .connected:
+                    connectionState = .connected
                     delegate?.onSignalJoin(joinResponse: joinMsg)
                 default:
                     handleSignalResponse(msg: msg)
@@ -277,29 +274,42 @@ extension SignalClient {
 
 // MARK: - URLSessionWebSocketDelegate
 extension SignalClient: URLSessionWebSocketDelegate {
-    func urlSession(_ session: URLSession, webSocketTask: URLSessionWebSocketTask, didOpenWithProtocol protocol: String?) {
+
+    func urlSession(_ session: URLSession,
+                    webSocketTask: URLSessionWebSocketTask,
+                    didOpenWithProtocol protocol: String?) {
+
         guard webSocketTask == webSocket else {
             return
         }
-        if reconnecting {
-            isConnected = true
-            reconnecting = false
+
+        if connectionState == .reconnecting {
             delegate?.onSignalReconnect()
         }
+
+        connectionState = .connected
         
         receiveNext()
     }
 
-    func urlSession(_ session: URLSession, webSocketTask: URLSessionWebSocketTask, didCloseWith closeCode: URLSessionWebSocketTask.CloseCode, reason: Data?) {
+    func urlSession(_ session: URLSession,
+                    webSocketTask: URLSessionWebSocketTask,
+                    didCloseWith closeCode: URLSessionWebSocketTask.CloseCode,
+                    reason: Data?) {
+
         guard webSocketTask == webSocket else {
             return
         }
+
         logger.debug("websocket disconnected")
-        isConnected = false
+        connectionState = .disconnected
         delegate?.onSignalClose(reason: "", code: UInt16(closeCode.rawValue))
     }
     
-    func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
+    func urlSession(_ session: URLSession,
+                    task: URLSessionTask,
+                    didCompleteWithError error: Error?) {
+
         guard task == webSocket else {
             return
         }

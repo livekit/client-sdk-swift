@@ -1,5 +1,6 @@
 //
-//
+// LiveKit
+// https://livekit.io
 //
 
 public enum VideoQuality {

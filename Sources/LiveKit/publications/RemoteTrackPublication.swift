@@ -42,7 +42,7 @@ public class RemoteTrackPublication: TrackPublication {
     /// subscribe or unsubscribe from this track
     public func setSubscribed(_ subscribed: Bool) {
         unsubscribed = !subscribed
-        guard let client = participant?.room?.engine.client else {
+        guard let client = participant?.room?.engine.signalClient else {
             return
         }
 
@@ -69,7 +69,7 @@ public class RemoteTrackPublication: TrackPublication {
     }
 
     func sendTrackSettings() {
-        guard let client = participant?.room?.engine.client else {
+        guard let client = participant?.room?.engine.signalClient else {
             return
         }
 

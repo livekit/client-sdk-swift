@@ -28,7 +28,7 @@ public class LocalTrackPublication: TrackPublication {
         guard let participant = self.participant as? LocalParticipant else {
             return
         }
-        participant.room?.engine.client.sendMuteTrack(trackSid: sid, muted: muted)
+        participant.room?.engine.signalClient.sendMuteTrack(trackSid: sid, muted: muted)
 
         // trigger muted event
         if muted {

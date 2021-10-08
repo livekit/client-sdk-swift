@@ -2,6 +2,9 @@ import WebRTC
 
 extension RTCConfiguration {
 
+    static let defaultIceServers = ["stun:stun.l.google.com:19302",
+                                    "stun:stun1.l.google.com:19302"]
+
     static func liveKitDefault() -> RTCConfiguration {
 
         let result = RTCConfiguration()
@@ -21,7 +24,7 @@ extension RTCConfiguration {
         let rtcIceServers = iceServers.map { $0.toRTCType() }
 
         self.iceServers = rtcIceServers.isEmpty
-        ? [RTCIceServer(urlStrings: RTCEngine.defaultIceServers)]
+        ? [RTCIceServer(urlStrings: RTCConfiguration.defaultIceServers)]
         : rtcIceServers
 
     }
