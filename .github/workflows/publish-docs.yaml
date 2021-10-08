@@ -26,8 +26,12 @@ jobs:
           format: html
           base-url: /client-sdk-ios
 
-      - name: Modify perms
-        run: chmod -R uog+rx Documentation
+      - name: get user
+        run: echo $USER
+
+      - name: ls
+        run: ls -l Documentation/
+
 
       - name: S3 Upload
         run: aws s3 sync Documentation/ s3://livekit-docs/client-sdk-ios/
