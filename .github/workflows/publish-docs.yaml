@@ -4,7 +4,7 @@ name: Publish Docs
 on:
   # Triggers the workflow on push or pull request events but only for the main branch
   push:
-    branches: [ main ]
+    branches: [ "main" ]
 
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
@@ -16,7 +16,7 @@ jobs:
     steps:
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - uses: actions/checkout@v2
-      
+
       - name: Generate Documentation
         uses: SwiftDocOrg/swift-doc@master
         with:
@@ -26,10 +26,20 @@ jobs:
           format: html
           base-url: /client-sdk-ios
 
-      - name: S3 Upload
-        uses: ItsKarma/aws-cli@v1.70.0
+      - name: Get Actions user id
+        id: get_uid
+        run: |
+          actions_user_id=`id -u $USER`
+          echo $actions_user_id
+          echo ::set-output name=uid::$actions_user_id
+
+      - name: Correct Ownership in GITHUB_WORKSPACE directory
+        uses: peter-murray/reset-workspace-ownership-action@v1
         with:
-          args: s3 cp Documentation/ s3://livekit-docs/client-sdk-ios --recursive
+          user_id: ${{ steps.get_uid.outputs.uid }}
+
+      - name: S3 Upload
+        run: aws s3 sync Documentation/ s3://livekit-docs/client-sdk-ios/
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.DOCS_DEPLOY_AWS_ACCESS_KEY }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.DOCS_DEPLOY_AWS_API_SECRET }}
