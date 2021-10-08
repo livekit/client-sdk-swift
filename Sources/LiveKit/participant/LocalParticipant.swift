@@ -29,41 +29,40 @@ public class LocalParticipant: Participant {
 
     /// publish a new audio track to the Room
     public func publishAudioTrack(track: LocalAudioTrack,
-                                  options _: LocalAudioTrackPublishOptions? = nil) -> Promise<LocalTrackPublication>
-    {
-        return Promise<LocalTrackPublication> { fulfill, reject in
-            if self.localAudioTrackPublications.first(where: { $0.track === track }) != nil {
-                reject(TrackError.publishError("This track has already been published."))
-                return
-            }
+                                  options _: LocalAudioTrackPublishOptions? = nil) -> Promise<LocalTrackPublication> {
 
-            do {
-                try self.ensureAudioCategory()
-            } catch {
-                reject(error)
-                return
-            }
+        guard let engine = engine else {
+            return Promise(EngineError.invalidState("engine is null"))
+        }
 
-            let cid = track.mediaTrack.trackId
-            do {
-                try self.engine?.addTrack(cid: cid, name: track.name, kind: .audio)
-                    .then { trackInfo in
-                        let transInit = RTCRtpTransceiverInit()
-                        transInit.direction = .sendOnly
-                        transInit.streamIds = [self.streamId]
+        if localAudioTrackPublications.first(where: { $0.track === track }) != nil {
+            return Promise(TrackError.publishError("This track has already been published."))
+        }
 
-                        let transceiver = self.engine?.publisher?.pc.addTransceiver(with: track.mediaTrack, init: transInit)
-                        if transceiver == nil {
-                            reject(TrackError.publishError("Nil sender returned from peer connection."))
-                            return
-                        }
+        do {
+            try self.ensureAudioCategory()
+        } catch {
+            return Promise(error)
+        }
 
-                        let publication = LocalTrackPublication(info: trackInfo, track: track, participant: self)
-                        self.addTrack(publication: publication)
-                        fulfill(publication)
-                    }
-            } catch {
-                reject(error)
+        let cid = track.mediaTrack.trackId
+        return engine.addTrack(cid: cid, name: track.name, kind: .audio).then { trackInfo in
+
+            Promise<LocalTrackPublication> { () -> LocalTrackPublication in
+                let transInit = RTCRtpTransceiverInit()
+                transInit.direction = .sendOnly
+                transInit.streamIds = [self.streamId]
+
+                let transceiver = self.engine?.publisher?.pc.addTransceiver(with: track.mediaTrack, init: transInit)
+                if transceiver == nil {
+                    throw TrackError.publishError("Nil sender returned from peer connection.")
+                }
+
+                engine.negotiate()
+
+                let publication = LocalTrackPublication(info: trackInfo, track: track, participant: self)
+                self.addTrack(publication: publication)
+                return publication
             }
         }
     }
