@@ -98,17 +98,8 @@ public class RemoteParticipant: Participant {
     }
 
     func unpublishTrack(sid: String, sendUnpublish: Bool = false) {
-        guard let publication = tracks.removeValue(forKey: sid) as? RemoteTrackPublication else {
-            return
-        }
 
-        switch publication.kind {
-        case .audio:
-            audioTracks.removeValue(forKey: sid)
-        case .video:
-            videoTracks.removeValue(forKey: sid)
-        default:
-            // ignore
+        guard let publication = tracks.removeValue(forKey: sid) as? RemoteTrackPublication else {
             return
         }
 

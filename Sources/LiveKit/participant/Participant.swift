@@ -33,8 +33,14 @@ public class Participant: NSObject {
     public private(set) var joinedAt: Date?
 
     public internal(set) var tracks = [String: TrackPublication]()
-    public internal(set) var audioTracks = [String: TrackPublication]()
-    public internal(set) var videoTracks = [String: TrackPublication]()
+
+    public var audioTracks: [String: TrackPublication] {
+        tracks.filter { $0.value.kind == .audio }
+    }
+
+    public var videoTracks: [String: TrackPublication] {
+        tracks.filter { $0.value.kind == .video }
+    }
 
     var info: Livekit_ParticipantInfo?
 
@@ -47,15 +53,6 @@ public class Participant: NSObject {
 
     func addTrack(publication: TrackPublication) {
         tracks[publication.sid] = publication
-        switch publication.kind {
-        case .audio:
-            audioTracks[publication.sid] = publication
-        case .video:
-            videoTracks[publication.sid] = publication
-        default:
-            break
-        }
-
         publication.track?.sid = publication.sid
     }
 

@@ -164,9 +164,10 @@ class RTCEngine: NSObject {
         }
     }
 
-    func addTrack(cid: String, name: String, kind: Livekit_TrackType, dimensions: Dimensions? = nil) throws -> Promise<Livekit_TrackInfo> {
+    func addTrack(cid: String, name: String, kind: Livekit_TrackType, dimensions: Dimensions? = nil) -> Promise<Livekit_TrackInfo> {
+
         if pendingTrackResolvers[cid] != nil {
-            throw TrackError.duplicateTrack("Track with the same ID (\(cid)) has already been published!")
+            return Promise(TrackError.duplicateTrack("Track with the same ID (\(cid)) has already been published!"))
         }
 
         let promise = Promise<Livekit_TrackInfo>.pending()
