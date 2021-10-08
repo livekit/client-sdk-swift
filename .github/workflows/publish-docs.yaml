@@ -26,12 +26,17 @@ jobs:
           format: html
           base-url: /client-sdk-ios
 
-      - name: get user
-        run: echo $USER
+      - name: Get Actions user id
+        id: get_uid
+        run: |
+          actions_user_id=`id -u $USER`
+          echo $actions_user_id
+          echo ::set-output name=uid::$actions_user_id
 
-      - name: ls
-        run: ls -l Documentation/
-
+      - name: Correct Ownership in GITHUB_WORKSPACE directory
+        uses: peter-murray/reset-workspace-ownership-action@v1
+        with:
+          user_id: ${{ steps.get_uid.outputs.uid }}
 
       - name: S3 Upload
         run: aws s3 sync Documentation/ s3://livekit-docs/client-sdk-ios/
