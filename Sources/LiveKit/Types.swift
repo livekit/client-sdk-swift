@@ -5,6 +5,15 @@
 //  Created by Hiroshi Horie on 2021/09/27.
 //
 
+public typealias Sid = String
+
+public enum ConnectionState {
+    case connecting
+    case connected
+    case disconnected
+    case reconnecting
+}
+
 public struct Dimensions {
     public static let aspectRatio169 = 16.0 / 9.0
     public static let aspectRatio43 = 4.0 / 3.0

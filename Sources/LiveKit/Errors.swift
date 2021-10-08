@@ -5,10 +5,12 @@
 //  Created by Hiroshi Horie on 2021/10/04.
 //
 
-import Foundation
+protocol LiveKitError: Error {}
 
-protocol LiveKitError: Error {
-    //
+enum RoomError: LiveKitError {
+    case missingRoomId(String)
+    case invalidURL(String)
+    case protocolError(String)
 }
 
 enum InternalError: LiveKitError {
@@ -26,17 +28,22 @@ enum InternalError: LiveKitError {
 }
 
 enum EngineError: LiveKitError {
-
     // WebRTC lib returned error
     case webRTC(String?, Error? = nil)
     case invalidState(String? = nil)
-
-
 }
 
 
-enum SignalClientError: LiveKitError {
+enum TrackError: LiveKitError {
+    case invalidTrackType(String)
+    case duplicateTrack(String)
+    case invalidTrackState(String)
+    case mediaError(String)
+    case publishError(String)
+    case unpublishError(String)
+}
 
+enum SignalClientError: LiveKitError {
     case invalidRTCSdpType
     case socketNotConnected
     case socketError(String?, UInt16)

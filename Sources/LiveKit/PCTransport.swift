@@ -178,10 +178,16 @@ extension PCTransport: RTCPeerConnectionDelegate {
         NotificationCenter.liveKit.send(event: event)
     }
 
+    func peerConnection(_ peerConnection: RTCPeerConnection, didOpen dataChannel: RTCDataChannel) {
+
+        logger.debug("peerConnection received dataChannel: \(target)")
+        let event = DataChannelEvent(target: target, primary: primary, dataChannel: dataChannel)
+        NotificationCenter.liveKit.send(event: event)
+    }
+
     func peerConnection(_ peerConnection: RTCPeerConnection, didRemove stream: RTCMediaStream) {}
     func peerConnection(_ peerConnection: RTCPeerConnection, didChange stateChanged: RTCSignalingState) {}
     func peerConnection(_ peerConnection: RTCPeerConnection, didAdd stream: RTCMediaStream) {}
     func peerConnection(_ peerConnection: RTCPeerConnection, didChange newState: RTCIceGatheringState) {}
     func peerConnection(_ peerConnection: RTCPeerConnection, didRemove candidates: [RTCIceCandidate]) {}
-    func peerConnection(_ peerConnection: RTCPeerConnection, didOpen dataChannel: RTCDataChannel) {}
 }

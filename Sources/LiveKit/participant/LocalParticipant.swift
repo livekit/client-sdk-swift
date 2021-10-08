@@ -47,7 +47,7 @@ public class LocalParticipant: Participant {
 
         let cid = track.mediaTrack.trackId
         return engine.addTrack(cid: cid, name: track.name, kind: .audio).then { trackInfo in
-
+            
             Promise<LocalTrackPublication> { () -> LocalTrackPublication in
                 let transInit = RTCRtpTransceiverInit()
                 transInit.direction = .sendOnly

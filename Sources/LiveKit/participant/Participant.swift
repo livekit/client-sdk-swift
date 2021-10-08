@@ -8,9 +8,8 @@
 import Foundation
 
 public class Participant: NSObject {
-    public typealias Sid = String
 
-    public internal(set) var sid: Participant.Sid
+    public internal(set) var sid: Sid
     public internal(set) var identity: String?
     public internal(set) var audioLevel: Float = 0.0
     public internal(set) var isSpeaking: Bool = false {

@@ -48,7 +48,7 @@ public class RemoteTrackPublication: TrackPublication {
 
         client.sendUpdateSubscription(sid: sid,
                                       subscribed: !unsubscribed,
-                                      videoQuality: videoQuality.toProto())
+                                      videoQuality: videoQuality.toPBType())
     }
 
     /// disable server from sending down data for this track
@@ -75,6 +75,6 @@ public class RemoteTrackPublication: TrackPublication {
 
         client.sendUpdateTrackSettings(sid: sid,
                                        disabled: disabled,
-                                       videoQuality: videoQuality.toProto())
+                                       videoQuality: videoQuality.toPBType())
     }
 }

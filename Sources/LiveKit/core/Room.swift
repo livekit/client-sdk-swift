@@ -10,29 +10,22 @@ import Network
 import Promises
 import WebRTC
 
-enum RoomError: Error {
-    case missingRoomId(String)
-    case invalidURL(String)
-    case protocolError(String)
-}
-
 // network path discovery updates multiple times, causing us to disconnect again
 // using a timer interval to ignore changes that are happening too close to each other
 let networkChangeIgnoreInterval = 3.0
 
 public class Room {
-    public typealias Sid = String
 
     public var delegate: RoomDelegate?
 
-    public private(set) var sid: Room.Sid?
+    public private(set) var sid: Sid?
     public private(set) var name: String?
-    public private(set) var state: RoomState = .disconnected
+    public private(set) var state: ConnectionState = .disconnected
     public private(set) var localParticipant: LocalParticipant?
-    public private(set) var remoteParticipants = [Participant.Sid: RemoteParticipant]()
+    public private(set) var remoteParticipants = [Sid: RemoteParticipant]()
     public private(set) var activeSpeakers: [Participant] = []
 
-    private var connectOptions: ConnectOptions
+    public let connectOptions: ConnectOptions
 //    private let monitor: NWPathMonitor
     private let monitorQueue: DispatchQueue
     private var prevPath: NWPath?
@@ -40,7 +33,7 @@ public class Room {
     internal var engine: RTCEngine
 
     init(options: ConnectOptions) {
-        connectOptions = options
+        self.connectOptions = options
 
 //        monitor = NWPathMonitor()
         monitorQueue = DispatchQueue(label: "networkMonitor", qos: .background)
@@ -100,7 +93,7 @@ public class Room {
         delegate?.isReconnecting(room: self)
     }
 
-    private func handleParticipantDisconnect(sid: Participant.Sid, participant: RemoteParticipant) {
+    private func handleParticipantDisconnect(sid: Sid, participant: RemoteParticipant) {
         guard let participant = remoteParticipants.removeValue(forKey: sid) else {
             return
         }
@@ -110,7 +103,7 @@ public class Room {
         delegate?.participantDidDisconnect(room: self, participant: participant)
     }
 
-    private func getOrCreateRemoteParticipant(sid: Participant.Sid, info: Livekit_ParticipantInfo? = nil) -> RemoteParticipant {
+    private func getOrCreateRemoteParticipant(sid: Sid, info: Livekit_ParticipantInfo? = nil) -> RemoteParticipant {
         if let participant = remoteParticipants[sid] {
             return participant
         }
@@ -120,7 +113,29 @@ public class Room {
         return participant
     }
 
-    private func handleSpeakerUpdate(speakers: [Livekit_SpeakerInfo]) {
+    private func onSignalSpeakersUpdate(_ speakers: [Livekit_SpeakerInfo]) {
+        var lastSpeakers = activeSpeakers.reduce(into: [Sid: Participant]()) { $0[$1.sid] = $1 }
+        for speaker in speakers {
+            let p = speaker.sid == localParticipant?.sid ? localParticipant : remoteParticipants[speaker.sid]
+            guard let p = p else {
+                continue
+            }
+
+            p.audioLevel = speaker.level
+            p.isSpeaking = speaker.active
+            if speaker.active {
+                lastSpeakers[speaker.sid] = p
+            } else {
+                lastSpeakers.removeValue(forKey: speaker.sid)
+            }
+        }
+
+        let activeSpeakers = lastSpeakers.values.sorted(by: { $1.audioLevel > $0.audioLevel })
+        self.activeSpeakers = activeSpeakers
+        delegate?.activeSpeakersDidChange(speakers: activeSpeakers, room: self)
+    }
+
+    private func onEngineSpeakersUpdate(_ speakers: [Livekit_SpeakerInfo]) {
         var activeSpeakers: [Participant] = []
         var seenSids = [String: Bool]()
         for speaker in speakers {
@@ -187,8 +202,13 @@ public class Room {
 }
 
 extension Room: RTCEngineDelegate {
-    func didUpdateSpeakers(speakers: [Livekit_SpeakerInfo]) {
-        handleSpeakerUpdate(speakers: speakers)
+
+    func didUpdateSpeakersSignal(speakers: [Livekit_SpeakerInfo]) {
+        onSignalSpeakersUpdate(speakers)
+    }
+
+    func didUpdateSpeakersEngine(speakers: [Livekit_SpeakerInfo]) {
+        onEngineSpeakersUpdate(speakers)
     }
 
     func didDisconnect() {
@@ -267,14 +287,14 @@ extension Room: RTCEngineDelegate {
         }
     }
 
-    func didReceive(packet: Livekit_UserPacket, kind _: Livekit_DataPacket.Kind) {
-        guard let participant = remoteParticipants[packet.participantSid] else {
-            logger.warning("could not find participant for data packet: \(packet.participantSid)")
+    func didReceive(userPacket: Livekit_UserPacket, kind _: Livekit_DataPacket.Kind) {
+        guard let participant = remoteParticipants[userPacket.participantSid] else {
+            logger.warning("could not find participant for data packet: \(userPacket.participantSid)")
             return
         }
 
-        delegate?.didReceive(data: packet.payload, participant: participant)
-        participant.delegate?.didReceive(data: packet.payload, participant: participant)
+        delegate?.didReceive(data: userPacket.payload, participant: participant)
+        participant.delegate?.didReceive(data: userPacket.payload, participant: participant)
     }
 
     func remoteMuteDidChange(trackSid: String, muted: Bool) {

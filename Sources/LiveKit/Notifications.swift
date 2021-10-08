@@ -14,6 +14,23 @@ import Promises
 // Type-safe
 //
 
+//protocol Observer {
+//    //
+//}
+//
+//class Observable<X: AnyObject> where X : Observer {
+//
+//    let listeners = NSHashTable<X>.weakObjects()
+//
+//    func addObserver(_ observer: X) {
+//        listeners.add(observer)
+//    }
+//
+//    func removeObserver(_ observer: X) {
+//        listeners.remove(observer)
+//    }
+//}
+
 typealias EventFilter<E: Event> = (E) -> Bool
 
 extension NotificationCenter {
@@ -109,9 +126,16 @@ struct ShouldNegotiateEvent: Event {
 }
 
 struct ReceivedTrackEvent: Event {
-    static let name = Notification.Name("livekit.streams")
+    static let name = Notification.Name("livekit.receivedTrack")
     let target: Livekit_SignalTarget
     let primary: Bool
     let track: RTCMediaStreamTrack
     let streams: [RTCMediaStream]
+}
+
+struct DataChannelEvent: Event {
+    static let name = Notification.Name("livekit.dataChannel")
+    let target: Livekit_SignalTarget
+    let primary: Bool
+    let dataChannel: RTCDataChannel
 }

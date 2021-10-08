@@ -8,9 +8,10 @@
 import Foundation
 
 public class TrackPublication {
-    public internal(set) var track: Track?
+
     public internal(set) var name: String
-    public private(set) var sid: String
+    public private(set) var sid: Sid
+    public internal(set) var track: Track?
     public private(set) var kind: Track.Kind
     public internal(set) var muted: Bool
 
@@ -27,7 +28,7 @@ public class TrackPublication {
     init(info: Livekit_TrackInfo, track: Track? = nil, participant: Participant? = nil) {
         sid = info.sid
         name = info.name
-        kind = Track.fromProtoKind(info.type)
+        kind = info.type.toLKType()
         muted = info.muted
         self.track = track
         self.participant = participant

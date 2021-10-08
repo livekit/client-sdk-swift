@@ -10,15 +10,7 @@ import Promises
 import WebRTC
 
 let maxWSRetries = 5
-let reliableDataChannelLabel = "_reliable"
-let lossyDataChannelLabel = "_lossy"
 let maxDataPacketSize = 15000
-
-enum ICEState {
-    case disconnected
-    case connected
-    case reconnecting
-}
 
 class RTCEngine: NSObject {
 
@@ -59,7 +51,7 @@ class RTCEngine: NSObject {
     var reliableDC: RTCDataChannel?
     var lossyDC: RTCDataChannel?
 
-    var iceState: ICEState = .disconnected {
+    var iceState: ConnectionState = .disconnected {
         didSet {
             if oldValue == iceState {
                 return
@@ -134,7 +126,14 @@ class RTCEngine: NSObject {
             }
         }
 
-        listenTokens += [l1, l2, l3]
+        let l4 = NotificationCenter.liveKit.listen(for: DataChannelEvent.self) { event in
+            logger.debug("[Event] \(event)")
+            if self.subscriberPrimary, event.target == .subscriber {
+                self.onReceived(dataChannel: event.dataChannel)
+            }
+        }
+
+        listenTokens += [l1, l2, l3, l4]
     }
 
     //    @objc func getStatsTimer() {
@@ -149,6 +148,21 @@ class RTCEngine: NSObject {
     //            }
     //        })
     //    }
+
+    private func onReceived(dataChannel: RTCDataChannel) {
+
+        logger.debug("Server opened data channel \(dataChannel.label)")
+
+        switch dataChannel.label {
+        case RTCDataChannel.labels.reliable:
+            reliableDC = dataChannel
+            reliableDC?.delegate = self
+        case RTCDataChannel.labels.lossy:
+            lossyDC = dataChannel
+            lossyDC?.delegate = self
+        default: break
+        }
+    }
 
 
     func join(options: ConnectOptions) {
@@ -288,7 +302,7 @@ class RTCEngine: NSObject {
 extension RTCEngine: SignalClientDelegate {
 
     func onSignalActiveSpeakersChanged(speakers: [Livekit_SpeakerInfo]) {
-        delegate?.didUpdateSpeakers(speakers: speakers)
+        delegate?.didUpdateSpeakersSignal(speakers: speakers)
     }
 
     func onSignalReconnect() {
@@ -342,15 +356,23 @@ extension RTCEngine: SignalClientDelegate {
                                         target: .publisher,
                                         primary: !subscriberPrimary)
 
+            publisher?.onOffer = { offer in
+                logger.debug("publisher onOffer")
+                try? self.client.sendOffer(offer: offer)
+            }
+
+            // data over pub channel for backwards compatibility
             let reliableConfig = RTCDataChannelConfiguration()
             reliableConfig.isOrdered = true
-            reliableDC = publisher?.pc.dataChannel(forLabel: reliableDataChannelLabel, configuration: reliableConfig)
+            reliableDC = publisher?.pc.dataChannel(forLabel: RTCDataChannel.labels.reliable,
+                                                   configuration: reliableConfig)
             reliableDC?.delegate = self
 
             let lossyConfig = RTCDataChannelConfiguration()
             lossyConfig.isOrdered = true
             lossyConfig.maxRetransmits = 1
-            lossyDC = publisher?.pc.dataChannel(forLabel: lossyDataChannelLabel, configuration: lossyConfig)
+            lossyDC = publisher?.pc.dataChannel(forLabel: RTCDataChannel.labels.lossy,
+                                                configuration: lossyConfig)
             lossyDC?.delegate = self
 
         } catch {
@@ -465,24 +487,20 @@ extension RTCEngine: SignalClientDelegate {
 
 extension RTCEngine: RTCDataChannelDelegate {
 
-    func dataChannelDidChangeState(_: RTCDataChannel) {
-        // do nothing
-    }
+    func dataChannelDidChangeState(_: RTCDataChannel) {}
 
     func dataChannel(_: RTCDataChannel, didReceiveMessageWith buffer: RTCDataBuffer) {
-        let dataPacket: Livekit_DataPacket
-        do {
-            dataPacket = try Livekit_DataPacket(contiguousBytes: buffer.data)
-        } catch {
-            logger.error("could not decode data message \(error)")
+
+        guard let dataPacket = try? Livekit_DataPacket(contiguousBytes: buffer.data) else {
+            logger.error("could not decode data message")
             return
         }
 
         switch dataPacket.value {
-        case let .speaker(update):
-            delegate?.didUpdateSpeakers(speakers: update.speakers)
-        case let .user(userPacket):
-            delegate?.didReceive(packet: userPacket, kind: dataPacket.kind)
+        case .speaker(let update):
+            delegate?.didUpdateSpeakersEngine(speakers: update.speakers)
+        case .user(let userPacket):
+            delegate?.didReceive(userPacket: userPacket, kind: dataPacket.kind)
         default:
             return
         }

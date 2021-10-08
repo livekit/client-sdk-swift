@@ -10,6 +10,7 @@ import CoreVideo
 import Foundation
 
 public class VideoFrame {
+
     public private(set) var timestamp: CMTime
     public private(set) var imageBuffer: CVImageBuffer
     public private(set) var orientation: VideoOrientation

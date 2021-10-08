@@ -1,14 +1,12 @@
-//
-//  File.swift
-//
-//
-//  Created by Russell D'Sa on 12/27/20.
-//
-
-import Foundation
 import WebRTC
 
 extension RTCDataChannel {
+
+    struct labels {
+        static let reliable = "_reliable"
+        static let lossy = "_lossy"
+    }
+
     var unpackedTrackLabel: (String, String, String) {
         let parts = label.split(separator: Character("|"))
         guard parts.count != 3 else {

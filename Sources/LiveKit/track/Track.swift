@@ -8,44 +8,16 @@
 import Foundation
 import WebRTC
 
-enum TrackError: Error {
-    case invalidTrackType(String)
-    case duplicateTrack(String)
-    case invalidTrackState(String)
-    case mediaError(String)
-    case publishError(String)
-    case unpublishError(String)
-}
-
 public class Track {
-    static func fromProtoKind(_ pkind: Livekit_TrackType) -> Track.Kind {
-        switch pkind {
-        case .audio:
-            return .audio
-        case .video:
-            return .video
-        default:
-            return .none
-        }
-    }
 
     public enum Kind {
-        case audio, video, none
-
-        func toProto() -> Livekit_TrackType {
-            switch self {
-            case .audio:
-                return .audio
-            case .video:
-                return .video
-            default:
-                return .UNRECOGNIZED(10)
-            }
-        }
+        case audio
+        case video
+        case none
     }
 
     public internal(set) var name: String
-    public internal(set) var sid: String?
+    public internal(set) var sid: Sid?
     public internal(set) var kind: Track.Kind
     public internal(set) var mediaTrack: RTCMediaStreamTrack
     public internal(set) var transceiver: RTCRtpTransceiver?
