@@ -27,7 +27,7 @@ jobs:
           base-url: /client-sdk-ios
 
       - name: S3 Upload
-        run: aws s3 cp Documentation/ s3://livekit-docs/client-sdk-ios --recursive
+        run: aws s3 sync Documentation/ s3://livekit-docs/client-sdk-ios/
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.DOCS_DEPLOY_AWS_ACCESS_KEY }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.DOCS_DEPLOY_AWS_API_SECRET }}
