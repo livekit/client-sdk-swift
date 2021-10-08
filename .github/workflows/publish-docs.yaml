@@ -16,7 +16,7 @@ jobs:
     steps:
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - uses: actions/checkout@v2
-      
+
       - name: Generate Documentation
         uses: SwiftDocOrg/swift-doc@master
         with:
@@ -27,9 +27,7 @@ jobs:
           base-url: /client-sdk-ios
 
       - name: S3 Upload
-        uses: ItsKarma/aws-cli@v1.70.0
-        with:
-          args: s3 cp Documentation/ s3://livekit-docs/client-sdk-ios --recursive
+        run: aws s3 cp Documentation/ s3://livekit-docs/client-sdk-ios --recursive
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.DOCS_DEPLOY_AWS_ACCESS_KEY }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.DOCS_DEPLOY_AWS_API_SECRET }}
