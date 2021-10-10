@@ -1,8 +1,3 @@
-//
-// LiveKit
-// https://livekit.io
-//
-
 import Foundation
 import Network
 import Promises

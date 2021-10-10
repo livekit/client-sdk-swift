@@ -1,15 +1,7 @@
-//
-//  File.swift
-//  
-//
-//  Created by Hiroshi Horie on 2021/10/04.
-//
-
+import Foundation
 import WebRTC
 
-//typealias DebounceCancelFunc = () -> Void
 typealias DebouncFunc = () -> Void
-//typealias DebouncOnCreateCancelFunc = (DispatchWorkItem) -> Void
 
 extension URL {
     var isSecure: Bool {
@@ -73,14 +65,14 @@ extension ConnectOptions {
 class Utils {
 
     static func createDebounceFunc(wait: TimeInterval,
-                                   onDidCreateWork: ((DispatchWorkItem) -> Void)? = nil,
+                                   onCreateWorkItem: ((DispatchWorkItem) -> Void)? = nil,
                                    fnc: @escaping @convention(block) () -> Void) -> DebouncFunc {
-        var work: DispatchWorkItem? = nil
+        var workItem: DispatchWorkItem? = nil
         return {
-            work?.cancel()
-            work = DispatchWorkItem() { fnc() }
-            onDidCreateWork?(work!)
-            DispatchQueue.main.asyncAfter(deadline: .now() + wait, execute: work!)
+            workItem?.cancel()
+            workItem = DispatchWorkItem() { fnc() }
+            onCreateWorkItem?(workItem!)
+            DispatchQueue.main.asyncAfter(deadline: .now() + wait, execute: workItem!)
         }
     }
 

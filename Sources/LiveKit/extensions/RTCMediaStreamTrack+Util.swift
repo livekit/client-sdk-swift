@@ -1,10 +1,3 @@
-//
-//  File.swift
-//
-//
-//  Created by Russell D'Sa on 12/27/20.
-//
-
 import Foundation
 import WebRTC
 

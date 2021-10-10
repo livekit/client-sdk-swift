@@ -1,8 +1,3 @@
-//
-// LiveKit
-// https://livekit.io
-//
-
 import WebRTC
 
 extension Livekit_ICEServer {

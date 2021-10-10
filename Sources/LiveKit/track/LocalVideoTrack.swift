@@ -1,14 +1,7 @@
-//
-//  File.swift
-//
-//
-//  Created by Russell D'Sa on 12/10/20.
-//
-
-import AVFoundation
-import CoreMedia
 import Foundation
 import WebRTC
+import AVFoundation
+import CoreMedia
 
 let simulcastMinWidth = 200
 

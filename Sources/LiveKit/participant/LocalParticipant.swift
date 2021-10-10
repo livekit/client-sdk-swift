@@ -1,13 +1,5 @@
-//
-//  LocalParticipant.swift
-//
-//
-//  Created by Russell D'Sa on 12/9/20.
-//
-
-import Foundation
-import Promises
 import WebRTC
+import Promises
 
 public class LocalParticipant: Participant {
     private var streamId = "stream"

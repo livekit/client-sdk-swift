@@ -1,7 +1,4 @@
-//
-// LiveKit
-// https://livekit.io
-//
+import Foundation
 
 public enum VideoQuality {
     case low

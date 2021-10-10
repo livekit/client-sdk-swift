@@ -1,8 +1,6 @@
 //
-//  PeerConnectionTransport.swift
-//
-//
-//  Created by Russell D'Sa on 2/14/21.
+// LiveKit iOS SDK
+// https://livekit.io
 //
 
 import Foundation
@@ -12,9 +10,8 @@ import SwiftProtobuf
 
 typealias TransportOnOffer = (RTCSessionDescription) -> Void
 
-class Transport: NSObject, MulticastDelegate {
+internal class Transport: NSObject, MulticastDelegate {
 
-    // multicast delegate
     typealias DelegateType = TransportDelegate
     internal let delegates = NSHashTable<AnyObject>.weakObjects()
 
@@ -28,11 +25,11 @@ class Transport: NSObject, MulticastDelegate {
     var onOffer: TransportOnOffer?
 
     // keep reference to cancel later
-    private var cancelDebounce: DispatchWorkItem?
+    private var debounceWorkItem: DispatchWorkItem?
 
     // create debounce func
-    lazy var negotiate = Utils.createDebounceFunc(wait: 0.1, onDidCreateWork: { [weak self] cancelFnc in
-        self?.cancelDebounce = cancelFnc
+    lazy var negotiate = Utils.createDebounceFunc(wait: 0.1, onCreateWorkItem: { [weak self] workItem in
+        self?.debounceWorkItem = workItem
     }, fnc: { [weak self] in
         self?.createAndSendOffer()
     })
@@ -129,13 +126,9 @@ class Transport: NSObject, MulticastDelegate {
         return negotiateSequence()
     }
 
-    func prepareForIceRestart() {
-        restartingIce = true
-    }
-
     func close() {
         // prevent debounced negotiate firing
-        cancelDebounce?.cancel()
+        debounceWorkItem?.cancel()
 
         // remove all senders
         for sender in pc.senders {

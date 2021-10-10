@@ -1,4 +1,3 @@
-
 extension String {
 
     internal func unpack() -> (sid: Sid, trackId: String) {

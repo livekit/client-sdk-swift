@@ -1,9 +1,5 @@
-//
-//  File.swift
-//  
-//
-//  Created by Hiroshi Horie on 2021/09/27.
-//
+import Foundation
+import WebRTC
 
 public typealias Sid = String
 

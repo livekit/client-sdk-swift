@@ -1,10 +1,3 @@
-//
-//  File.swift
-//
-//
-//  Created by David Zhao on 3/25/21.
-//
-
 import Foundation
 
 /// delegate methods for a participant.

@@ -1,10 +1,3 @@
-//
-//  File.swift
-//
-//
-//  Created by David Zhao on 3/26/21.
-//
-
 import Foundation
 
 public class RemoteTrackPublication: TrackPublication {
