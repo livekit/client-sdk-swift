@@ -14,12 +14,14 @@ enum RoomError: LiveKitError {
 }
 
 enum InternalError: LiveKitError {
+    case state(String? = nil)
     case parse(String? = nil)
     case convert(String? = nil)
     case timeout(String? = nil)
 
     var localizedDescription: String {
         switch self {
+        case .state(let message): return "Error.State \(String(describing: message))"
         case .parse(let message): return "Error.Parse \(String(describing: message))"
         case .convert(let message): return "Error.Convert \(String(describing: message))"
         case .timeout(let message): return "Error.Timeout \(String(describing: message))"

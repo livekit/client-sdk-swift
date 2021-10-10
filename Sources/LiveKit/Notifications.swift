@@ -179,27 +179,79 @@ import Promises
 //
 
 
-protocol MultiDelegate {
+protocol MulticastDelegate {
     associatedtype DelegateType
     var delegates: NSHashTable<AnyObject> { get }
 }
 
-extension MultiDelegate {
+extension MulticastDelegate {
 
-    func addDelegate(_ d: DelegateType) {
-        delegates.add(d as AnyObject)
+    func add(delegate: DelegateType) {
+        delegates.add(delegate as AnyObject)
     }
 
-    func removeDelegate(_ d: DelegateType) {
-        delegates.remove(d as AnyObject)
+    func remove(delegate: DelegateType) {
+        delegates.remove(delegate as AnyObject)
     }
 
-    internal func notifyDelegates(_ fnc: (DelegateType) -> Void) {
-        for e in delegates.objectEnumerator() {
-            if let e = e as? DelegateType {
-                fnc(e)
-            }
+    internal func notify(_ fnc: (DelegateType) -> Void) {
+        for d in delegates.objectEnumerator() {
+            if let d = d as? DelegateType { fnc(d) }
         }
     }
 }
 
+extension Array where Element: MulticastDelegate {
+    //
+
+    func wait(timeout: TimeInterval,
+                  onTimeout: Error = InternalError.timeout(),
+                  builder: (@escaping () -> Void) -> Element.DelegateType
+    ) -> Promise<Void> {
+
+        //        let onDelegates = self.compactMap { $0 }
+        //        guard !onDelegates.isEmpty else {
+        //            return Promise(InternalError.state(""))
+        //        }
+
+        let promise = Promise<Void>.pending()
+        var timer: DispatchWorkItem?
+        var delegate: Element.DelegateType?
+
+        let fulfill = { [weak promise] in
+            // cancel timer
+            timer?.cancel()
+
+            // stop listening
+            for multicast in self {
+                multicast.remove(delegate: delegate!)
+            }
+
+            promise?.fulfill(())
+        }
+
+        let reject = { [weak promise] in
+            // stop listening
+            for multicast in self {
+                multicast.remove(delegate: delegate!)
+            }
+
+            promise?.reject(onTimeout)
+        }
+
+        delegate = builder(fulfill)
+
+
+        // start listening
+        for multicast in self {
+            multicast.add(delegate: delegate!)
+        }
+
+        // start timer
+        timer = DispatchWorkItem() { reject() }
+        DispatchQueue.main.asyncAfter(deadline: .now() + timeout,
+                                      execute: timer!)
+
+        return promise
+    }
+}

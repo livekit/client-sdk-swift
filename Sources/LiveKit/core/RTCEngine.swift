@@ -25,13 +25,13 @@ class RTCEngine: NSObject {
     let signalClient: SignalClient
 
     // read-only
-    private(set) var publisher: PCTransport?
-    private(set) var subscriber: PCTransport?
+    private(set) var publisher: Transport?
+    private(set) var subscriber: Transport?
     private(set) var subscriberPrimary: Bool = false
     private(set) var hasPublished: Bool = false
 
     // computed
-    private var primary: PCTransport? {
+    private var primary: Transport? {
         subscriberPrimary ? subscriber : publisher
     }
 
@@ -227,19 +227,28 @@ class RTCEngine: NSObject {
         return ensurePublisherConnected().then { _ in send() }
     }
 
-
-
     private func ensurePublisherConnected () -> Promise<Void> {
 
+        guard let publisher = publisher else {
+            return Promise(EngineError.invalidState("publisher is nil"))
+        }
+
         guard subscriberPrimary,
-              let publisher = publisher,
-              publisher.pc.iceConnectionState == .connected else {
-                  return Promise(EngineError.invalidState("publisher is nil"))
-              }
+              publisher.pc.iceConnectionState != .connected else {
+            // aleady connected
+            return Promise(())
+        }
 
         negotiate()
 
-        return Promise(())
+        return [publisher].wait(timeout: 3) { fulfill in
+            // temporary delegate
+            TransportDelegateClosure(onIceStateUpdated: { _, iceState in
+                if iceState == .connected {
+                    fulfill()
+                }
+            })
+        }
 
 //        // wait to connect...
 //        return NotificationCenter.liveKit.wait(for: IceStateUpdatedEvent.self,
@@ -297,12 +306,12 @@ extension RTCEngine: SignalClientDelegate {
         config.update(iceServers: joinResponse.iceServers)
 
         do {
-            subscriber = try PCTransport(config: config,
+            subscriber = try Transport(config: config,
                                          target: .subscriber,
                                          primary: subscriberPrimary,
                                          delegate: self)
 
-            publisher = try PCTransport(config: config,
+            publisher = try Transport(config: config,
                                         target: .publisher,
                                         primary: !subscriberPrimary,
                                         delegate: self)
@@ -458,14 +467,14 @@ extension RTCEngine: RTCDataChannelDelegate {
     }
 }
 
-extension RTCEngine: PCTransportDelegate {
+extension RTCEngine: TransportDelegate {
 
-    func transport(_ transport: PCTransport, didGenerate iceCandidate: RTCIceCandidate) {
+    func transport(_ transport: Transport, didGenerate iceCandidate: RTCIceCandidate) {
         logger.debug("[PCTransportDelegate] didGenerate iceCandidate")
         try? signalClient.sendCandidate(candidate: iceCandidate, target: transport.target)
     }
 
-    func transport(_ transport: PCTransport, didUpdate iceState: RTCIceConnectionState) {
+    func transport(_ transport: Transport, didUpdate iceState: RTCIceConnectionState) {
         logger.debug("[PCTransportDelegate] didUpdate iceState")
         if transport.primary {
             if iceState == .connected {
@@ -476,14 +485,14 @@ extension RTCEngine: PCTransportDelegate {
         }
     }
 
-    func transport(_ transport: PCTransport, didAdd track: RTCMediaStreamTrack, streams: [RTCMediaStream]) {
+    func transport(_ transport: Transport, didAdd track: RTCMediaStreamTrack, streams: [RTCMediaStream]) {
         logger.debug("[PCTransportDelegate] did add track")
         if transport.target == .subscriber {
             delegate?.didAddTrack(track: track, streams: streams)
         }
     }
 
-    func transport(_ transport: PCTransport, didOpen dataChannel: RTCDataChannel) {
+    func transport(_ transport: Transport, didOpen dataChannel: RTCDataChannel) {
         logger.debug("[PCTransportDelegate] did add track] did open datachannel")
         if subscriberPrimary, transport.target == .subscriber {
             onReceived(dataChannel: dataChannel)
