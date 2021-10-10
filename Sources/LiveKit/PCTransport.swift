@@ -12,8 +12,12 @@ import SwiftProtobuf
 
 typealias PCTransportOnOffer = (RTCSessionDescription) -> Void
 
-class PCTransport: NSObject {
-    
+class PCTransport: NSObject, MultiDelegate {
+
+    // multi-delegate
+    typealias DelegateType = PCTransportDelegate
+    internal let delegates = NSHashTable<AnyObject>.weakObjects()
+
     let target: Livekit_SignalTarget
     let primary: Bool
 
@@ -33,7 +37,10 @@ class PCTransport: NSObject {
         self?.createAndSendOffer()
     })
 
-    init(config: RTCConfiguration, target: Livekit_SignalTarget, primary: Bool) throws {
+    init(config: RTCConfiguration,
+         target: Livekit_SignalTarget,
+         primary: Bool,
+         delegate: PCTransportDelegate) throws {
 
         // try create peerConnection
         let pc = RTCEngine.factory.peerConnection(with: config,
@@ -49,6 +56,7 @@ class PCTransport: NSObject {
 
         super.init()
         pc.delegate = self
+        addDelegate(delegate)
     }
 
     deinit {
@@ -139,28 +147,68 @@ class PCTransport: NSObject {
 
 }
 
+
+internal protocol PCTransportDelegate {
+    func transport(_ transport: PCTransport, didUpdate iceState: RTCIceConnectionState)
+    func transport(_ transport: PCTransport, didGenerate iceCandidate: RTCIceCandidate)
+    func transportShouldNegotiate(_ transport: PCTransport)
+    func transport(_ transport: PCTransport, didOpen dataChannel: RTCDataChannel)
+    func transport(_ transport: PCTransport, didAdd track: RTCMediaStreamTrack, streams: [RTCMediaStream])
+}
+
+// optional
+extension PCTransportDelegate {
+    func transport(_ transport: PCTransport, didUpdate iceState: RTCIceConnectionState) {}
+    func transport(_ transport: PCTransport, didGenerate iceCandidate: RTCIceCandidate) {}
+    func transportShouldNegotiate(_ transport: PCTransport) {}
+    func transport(_ transport: PCTransport, didOpen dataChannel: RTCDataChannel) {}
+    func transport(_ transport: PCTransport, didAdd track: RTCMediaStreamTrack, streams: [RTCMediaStream]) {}
+}
+
+class PCTransportDelegateClosure: PCTransportDelegate {
+    typealias OnIceStateUpdated = (_ transport: PCTransport, _ iceState: RTCIceConnectionState) -> ()
+    let onIceStateUpdated: OnIceStateUpdated?
+
+    init(onIceStateUpdated: OnIceStateUpdated? = nil) {
+        self.onIceStateUpdated = onIceStateUpdated
+    }
+
+    func transport(_ transport: PCTransport, didUpdate iceState: RTCIceConnectionState) {
+        onIceStateUpdated?(transport, iceState)
+    }
+
+    // ...
+}
+
+
 extension PCTransport: RTCPeerConnectionDelegate {
 
     func peerConnection(_ peerConnection: RTCPeerConnection,
                         didChange iceState: RTCIceConnectionState) {
 
         logger.debug("peerConnection iceState didChange: \(iceState) \(target)")
-        let event = IceStateUpdatedEvent(target: target, primary: primary, iceState: iceState)
-        NotificationCenter.liveKit.send(event: event)
+//        let event = IceStateUpdatedEvent(target: target, primary: primary, iceState: iceState)
+//        NotificationCenter.liveKit.send(event: event)
+
+        notifyDelegates { $0.transport(self, didUpdate: iceState) }
     }
 
     func peerConnection(_ peerConnection: RTCPeerConnection,
                         didGenerate candidate: RTCIceCandidate) {
         
         logger.debug("peerConnection didGenerateCnadidate: \(candidate) \(target)")
-        let event = IceCandidateEvent(target: target, primary: primary, iceCandidate: candidate)
-        NotificationCenter.liveKit.send(event: event)
+//        let event = IceCandidateEvent(target: target, primary: primary, iceCandidate: candidate)
+//        NotificationCenter.liveKit.send(event: event)
+
+        notifyDelegates { $0.transport(self, didGenerate: candidate) }
     }
 
     func peerConnectionShouldNegotiate(_ peerConnection: RTCPeerConnection) {
         logger.debug("peerConnection shouldNegotiate: \(target)")
-        let event = ShouldNegotiateEvent(target: target, primary: primary)
-        NotificationCenter.liveKit.send(event: event)
+//        let event = ShouldNegotiateEvent(target: target, primary: primary)
+//        NotificationCenter.liveKit.send(event: event)
+
+        notifyDelegates { $0.transportShouldNegotiate(self) }
     }
 
     func peerConnection(_ peerConnection: RTCPeerConnection,
@@ -172,15 +220,19 @@ extension PCTransport: RTCPeerConnectionDelegate {
         }
 
         logger.debug("peerConnection received streams: \(target)")
-        let event = ReceivedTrackEvent(target: target, primary: primary, track: track, streams: mediaStreams)
-        NotificationCenter.liveKit.send(event: event)
+//        let event = ReceivedTrackEvent(target: target, primary: primary, track: track, streams: mediaStreams)
+//        NotificationCenter.liveKit.send(event: event)
+
+        notifyDelegates { $0.transport(self, didAdd: track, streams: mediaStreams) }
     }
 
     func peerConnection(_ peerConnection: RTCPeerConnection, didOpen dataChannel: RTCDataChannel) {
 
         logger.debug("peerConnection received dataChannel: \(target)")
-        let event = DataChannelEvent(target: target, primary: primary, dataChannel: dataChannel)
-        NotificationCenter.liveKit.send(event: event)
+//        let event = DataChannelEvent(target: target, primary: primary, dataChannel: dataChannel)
+//        NotificationCenter.liveKit.send(event: event)
+
+        notifyDelegates { $0.transport(self, didOpen: dataChannel) }
     }
 
     func peerConnection(_ peerConnection: RTCPeerConnection, didRemove stream: RTCMediaStream) {}

@@ -77,51 +77,51 @@ class RTCEngine: NSObject {
         self.signalClient.delegate = self
 
         logger.debug("RTCEngine init")
-        setUpListeners()
+//        setUpListeners()
     }
 
     deinit {
         logger.debug("RTCEngine deinit")
 
-        for token in listenTokens {
-            NotificationCenter.liveKit.removeObserver(token)
-        }
+//        for token in listenTokens {
+//            NotificationCenter.liveKit.removeObserver(token)
+//        }
     }
 
-    private func setUpListeners() {
+//    private func setUpListeners() {
 
-        let l1 = NotificationCenter.liveKit.listen(for: IceCandidateEvent.self) { [weak self] event in
-            logger.debug("[Event] \(event)")
-            try? self?.signalClient.sendCandidate(candidate: event.iceCandidate, target: event.target)
-        }
+//        let l1 = NotificationCenter.liveKit.listen(for: IceCandidateEvent.self) { [weak self] event in
+//            logger.debug("[Event] \(event)")
+//            try? self?.signalClient.sendCandidate(candidate: event.iceCandidate, target: event.target)
+//        }
+//
+//        let l2 = NotificationCenter.liveKit.listen(for: IceStateUpdatedEvent.self) { [weak self] event in
+//            logger.debug("[Event] \(event)")
+//            if event.primary {
+//                if event.iceState == .connected {
+//                    self?.iceState = .connected
+//                } else if event.iceState == .failed {
+//                    self?.iceState = .disconnected
+//                }
+//            }
+//        }
+//
+//        let l3 = NotificationCenter.liveKit.listen(for: ReceivedTrackEvent.self) { [weak self] event in
+//            logger.debug("[Event] \(event)")
+//            if event.target == .subscriber {
+//                self?.delegate?.didAddTrack(track: event.track, streams: event.streams)
+//            }
+//        }
+//
+//        let l4 = NotificationCenter.liveKit.listen(for: DataChannelEvent.self) { event in
+//            logger.debug("[Event] \(event)")
+//            if self.subscriberPrimary, event.target == .subscriber {
+//                self.onReceived(dataChannel: event.dataChannel)
+//            }
+//        }
 
-        let l2 = NotificationCenter.liveKit.listen(for: IceStateUpdatedEvent.self) { [weak self] event in
-            logger.debug("[Event] \(event)")
-            if event.primary {
-                if event.iceState == .connected {
-                    self?.iceState = .connected
-                } else if event.iceState == .failed {
-                    self?.iceState = .disconnected
-                }
-            }
-        }
-
-        let l3 = NotificationCenter.liveKit.listen(for: ReceivedTrackEvent.self) { [weak self] event in
-            logger.debug("[Event] \(event)")
-            if event.target == .subscriber {
-                self?.delegate?.didAddTrack(track: event.track, streams: event.streams)
-            }
-        }
-
-        let l4 = NotificationCenter.liveKit.listen(for: DataChannelEvent.self) { event in
-            logger.debug("[Event] \(event)")
-            if self.subscriberPrimary, event.target == .subscriber {
-                self.onReceived(dataChannel: event.dataChannel)
-            }
-        }
-
-        listenTokens += [l1, l2, l3, l4]
-    }
+//        listenTokens += [l1, l2, l3, l4]
+//    }
 
     private func onReceived(dataChannel: RTCDataChannel) {
 
@@ -227,7 +227,9 @@ class RTCEngine: NSObject {
         return ensurePublisherConnected().then { _ in send() }
     }
 
-    private func ensurePublisherConnected () -> Promise<IceStateUpdatedEvent> {
+
+
+    private func ensurePublisherConnected () -> Promise<Void> {
 
         guard subscriberPrimary,
               let publisher = publisher,
@@ -237,10 +239,12 @@ class RTCEngine: NSObject {
 
         negotiate()
 
-        // wait to connect...
-        return NotificationCenter.liveKit.wait(for: IceStateUpdatedEvent.self,
-                                                  timeout: 3,
-                                                  filter: { $0.target == .publisher && $0.iceState == .connected })
+        return Promise(())
+
+//        // wait to connect...
+//        return NotificationCenter.liveKit.wait(for: IceStateUpdatedEvent.self,
+//                                                  timeout: 3,
+//                                                  filter: { $0.target == .publisher && $0.iceState == .connected })
     }
 }
 
@@ -295,11 +299,13 @@ extension RTCEngine: SignalClientDelegate {
         do {
             subscriber = try PCTransport(config: config,
                                          target: .subscriber,
-                                         primary: subscriberPrimary)
+                                         primary: subscriberPrimary,
+                                         delegate: self)
 
             publisher = try PCTransport(config: config,
                                         target: .publisher,
-                                        primary: !subscriberPrimary)
+                                        primary: !subscriberPrimary,
+                                        delegate: self)
 
             publisher?.onOffer = { offer in
                 logger.debug("publisher onOffer")
@@ -448,6 +454,39 @@ extension RTCEngine: RTCDataChannelDelegate {
             delegate?.didReceive(userPacket: userPacket, kind: dataPacket.kind)
         default:
             return
+        }
+    }
+}
+
+extension RTCEngine: PCTransportDelegate {
+
+    func transport(_ transport: PCTransport, didGenerate iceCandidate: RTCIceCandidate) {
+        logger.debug("[PCTransportDelegate] didGenerate iceCandidate")
+        try? signalClient.sendCandidate(candidate: iceCandidate, target: transport.target)
+    }
+
+    func transport(_ transport: PCTransport, didUpdate iceState: RTCIceConnectionState) {
+        logger.debug("[PCTransportDelegate] didUpdate iceState")
+        if transport.primary {
+            if iceState == .connected {
+                self.iceState = .connected
+            } else if iceState == .failed {
+                self.iceState = .disconnected
+            }
+        }
+    }
+
+    func transport(_ transport: PCTransport, didAdd track: RTCMediaStreamTrack, streams: [RTCMediaStream]) {
+        logger.debug("[PCTransportDelegate] did add track")
+        if transport.target == .subscriber {
+            delegate?.didAddTrack(track: track, streams: streams)
+        }
+    }
+
+    func transport(_ transport: PCTransport, didOpen dataChannel: RTCDataChannel) {
+        logger.debug("[PCTransportDelegate] did add track] did open datachannel")
+        if subscriberPrimary, transport.target == .subscriber {
+            onReceived(dataChannel: dataChannel)
         }
     }
 }
