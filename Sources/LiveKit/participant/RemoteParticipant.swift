@@ -9,6 +9,7 @@ import Foundation
 import WebRTC
 
 public class RemoteParticipant: Participant {
+
     init(sid: String, info: Livekit_ParticipantInfo?) {
         super.init(sid: sid)
         if let info = info {

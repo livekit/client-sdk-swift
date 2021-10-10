@@ -5,10 +5,10 @@ import Promises
 let maxReconnectAttempts = 5
 let maxDataPacketSize = 15000
 
-class RTCEngine: NSObject, MulticastDelegate {
+class RTCEngine: MulticastDelegate<RTCEngineDelegate> {
 
-    typealias DelegateType = RTCEngineDelegate
-    internal let delegates = NSHashTable<AnyObject>.weakObjects()
+//    typealias DelegateType = RTCEngineDelegate
+//    internal let delegates = NSHashTable<AnyObject>.weakObjects()
 
     static let factory: RTCPeerConnectionFactory = {
         RTCInitializeSSL()
@@ -71,7 +71,7 @@ class RTCEngine: NSObject, MulticastDelegate {
 
     deinit {
         logger.debug("RTCEngine deinit")
-        signalClient.remove(delegate: self)
+//        signalClient.remove(delegate: self)
     }
 
 //    private func setUpListeners() {
@@ -120,7 +120,8 @@ class RTCEngine: NSObject, MulticastDelegate {
         case RTCDataChannel.labels.lossy:
             lossyDC = dataChannel
             lossyDC?.delegate = self
-        default: break
+        default:
+            logger.warning("Unknown data channel label \(dataChannel.label)")
         }
     }
 
@@ -144,11 +145,12 @@ class RTCEngine: NSObject, MulticastDelegate {
 
         signalClient.sendAddTrack(cid: cid, name: name, type: kind, dimensions: dimensions)
 
-        return [signalClient].wait(timeout: 3) { fulfill in
+        return signalClient.wait(timeout: 5) { fulfill in
             SignalClientDelegateClosures(didPublishLocalTrack: { response in
-                if response.cid == cid {
+                logger.debug("[SignalClientDelegateClosures] didPublishLocalTrack")
+//                if response.cid == cid {
                     fulfill(response.track)
-                }
+//                }
             })
         }
     }
@@ -234,7 +236,7 @@ class RTCEngine: NSObject, MulticastDelegate {
 
         negotiate()
 
-        return [publisher].wait(timeout: 3) { fulfill in
+        return publisher.wait(timeout: 3) { fulfill in
             // temporary delegate
             TransportDelegateClosures(onIceStateUpdated: { _, iceState in
                 if iceState == .connected {
@@ -420,14 +422,14 @@ extension RTCEngine: SignalClientDelegate {
         notify { $0.didUpdateParticipants(updates: participants) }
     }
 
-//    func signalDidPublish(localTrack: Livekit_TrackPublishedResponse) {
-//        logger.debug("received track published confirmation for: \(localTrack.track.sid)")
+    func signalDidPublish(localTrack: Livekit_TrackPublishedResponse) {
+        logger.debug("received track published confirmation for: \(localTrack.track.sid)")
 //        guard let promise = pendingTrackResolvers.removeValue(forKey: localTrack.cid) else {
 //            logger.error("missing track resolver for: \(localTrack.cid)")
 //            return
 //        }
 //        promise.fulfill(localTrack.track)
-//    }
+    }
 
     func signalDidUpdateRemoteMute(trackSid: String, muted: Bool) {
 //        delegate?.remoteMuteDidChange(trackSid: trackSid, muted: muted)

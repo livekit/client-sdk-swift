@@ -2,10 +2,9 @@ import Foundation
 import Promises
 import WebRTC
 
-internal class SignalClient : NSObject, MulticastDelegate {
+internal class SignalClient : MulticastDelegate<SignalClientDelegate> {
 
-    typealias DelegateType = SignalClientDelegate
-    internal let delegates = NSHashTable<AnyObject>.weakObjects()
+//    internal let delegates = MulticastDelegate<SignalClientDelegate>()
 
     // connection state of WebSocket
     private(set) var connectionState: ConnectionState = .disconnected

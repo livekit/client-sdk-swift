@@ -61,7 +61,9 @@ public class LocalParticipant: Participant {
 
     /// publish a new video track to the Room
     public func publishVideoTrack(track: LocalVideoTrack,
-                                  options: LocalVideoTrackPublishOptions? = nil) -> Promise<LocalTrackPublication> {
+                                options: LocalVideoTrackPublishOptions? = nil) -> Promise<LocalTrackPublication> {
+
+        logger.debug("[Publish] video")
 
         guard let engine = engine else {
             return Promise(EngineError.invalidState("engine is null"))

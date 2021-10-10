@@ -34,7 +34,17 @@ extension SignalClientDelegate {
 class SignalClientDelegateClosures: NSObject, SignalClientDelegate {
     typealias DidPublishLocalTrack = (Livekit_TrackPublishedResponse) -> Void
     let didPublishLocalTrack: DidPublishLocalTrack?
+
     init(didPublishLocalTrack: DidPublishLocalTrack?) {
+        logger.debug("[SignalClientDelegateClosures] init")
         self.didPublishLocalTrack = didPublishLocalTrack
+    }
+
+    deinit {
+        logger.debug("[SignalClientDelegateClosures] deinit")
+    }
+
+    func signalDidPublish(localTrack: Livekit_TrackPublishedResponse) {
+        didPublishLocalTrack?(localTrack)
     }
 }

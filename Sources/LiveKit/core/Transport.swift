@@ -10,10 +10,9 @@ import SwiftProtobuf
 
 typealias TransportOnOffer = (RTCSessionDescription) -> Void
 
-internal class Transport: NSObject, MulticastDelegate {
+internal class Transport: MulticastDelegate<TransportDelegate> {
 
-    typealias DelegateType = TransportDelegate
-    internal let delegates = NSHashTable<AnyObject>.weakObjects()
+//    internal let delegates = NSHashTable<AnyObject>.weakObjects()
 
     let target: Livekit_SignalTarget
     let primary: Bool
@@ -139,40 +138,6 @@ internal class Transport: NSObject, MulticastDelegate {
     }
 
 }
-
-
-internal protocol TransportDelegate {
-    func transport(_ transport: Transport, didUpdate iceState: RTCIceConnectionState)
-    func transport(_ transport: Transport, didGenerate iceCandidate: RTCIceCandidate)
-    func transportShouldNegotiate(_ transport: Transport)
-    func transport(_ transport: Transport, didOpen dataChannel: RTCDataChannel)
-    func transport(_ transport: Transport, didAdd track: RTCMediaStreamTrack, streams: [RTCMediaStream])
-}
-
-// optional
-extension TransportDelegate {
-    func transport(_ transport: Transport, didUpdate iceState: RTCIceConnectionState) {}
-    func transport(_ transport: Transport, didGenerate iceCandidate: RTCIceCandidate) {}
-    func transportShouldNegotiate(_ transport: Transport) {}
-    func transport(_ transport: Transport, didOpen dataChannel: RTCDataChannel) {}
-    func transport(_ transport: Transport, didAdd track: RTCMediaStreamTrack, streams: [RTCMediaStream]) {}
-}
-
-class TransportDelegateClosures: NSObject, TransportDelegate {
-    typealias OnIceStateUpdated = (_ transport: Transport, _ iceState: RTCIceConnectionState) -> ()
-    let onIceStateUpdated: OnIceStateUpdated?
-
-    init(onIceStateUpdated: OnIceStateUpdated? = nil) {
-        self.onIceStateUpdated = onIceStateUpdated
-    }
-
-    func transport(_ transport: Transport, didUpdate iceState: RTCIceConnectionState) {
-        onIceStateUpdated?(transport, iceState)
-    }
-
-    // ...
-}
-
 
 extension Transport: RTCPeerConnectionDelegate {
 

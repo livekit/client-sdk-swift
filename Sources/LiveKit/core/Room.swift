@@ -7,10 +7,10 @@ import WebRTC
 // using a timer interval to ignore changes that are happening too close to each other
 let networkChangeIgnoreInterval = 3.0
 
-public class Room: NSObject, MulticastDelegate {
+public class Room: MulticastDelegate<RoomDelegate> {
 
-    typealias DelegateType = RoomDelegate
-    internal let delegates = NSHashTable<AnyObject>.weakObjects()
+//    typealias DelegateType = RoomDelegate
+//    internal let delegates = NSHashTable<AnyObject>.weakObjects()
 
     public private(set) var sid: Sid?
     public private(set) var name: String?

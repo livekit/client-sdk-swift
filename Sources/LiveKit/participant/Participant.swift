@@ -1,10 +1,9 @@
 import Foundation
 import WebRTC
 
-public class Participant: NSObject, MulticastDelegate {
+public class Participant: MulticastDelegate<ParticipantDelegate> {
 
-    typealias DelegateType = ParticipantDelegate
-    internal let delegates = NSHashTable<AnyObject>.weakObjects()
+//    internal let delegates = MulticastDelegate<ParticipantDelegate>()
 
     public internal(set) var sid: Sid
     public internal(set) var identity: String?
