@@ -206,6 +206,8 @@ public class Room: NSObject, MulticastDelegate {
     }
 }
 
+// MARK: - RTCEngineDelegate
+
 extension Room: RTCEngineDelegate {
 
     func didUpdateSpeakersSignal(speakers: [Livekit_SpeakerInfo]) {
@@ -252,8 +254,8 @@ extension Room: RTCEngineDelegate {
             return
         }
         
-        let unpacked = unPackStreamId(streams[0].streamId)
-        let participantSid = unpacked.participantId
+        let unpacked = streams[0].streamId.unpack()
+        let participantSid = unpacked.sid
         var trackSid = unpacked.trackId
         if trackSid == "" {
             trackSid = track.trackId
@@ -315,12 +317,4 @@ extension Room: RTCEngineDelegate {
     func didFailToConnect(error: Error) {
         notify { $0.didFailToConnect(room: self, error: error) }
     }
-}
-
-func unPackStreamId(_ streamId: String) -> (participantId: String, trackId: String) {
-    let parts = streamId.split(separator: "|")
-    if parts.count == 2 {
-        return (String(parts[0]), String(parts[1]))
-    }
-    return (streamId, "")
 }
