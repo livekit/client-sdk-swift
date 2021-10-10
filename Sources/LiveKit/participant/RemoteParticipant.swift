@@ -58,12 +58,12 @@ public class RemoteParticipant: Participant {
             if triesLeft == 0 {
                 logger.error("could not subscribe to mediaTrack \(sid), unable to locate track publication")
                 let err = TrackError.invalidTrackState("Could not find published track with sid: \(sid)")
-                delegate?.didFailToSubscribe(sid: sid,
+                notify { $0.didFailToSubscribe(sid: sid,
                                              error: err,
-                                             participant: self)
-                room?.delegate?.didFailToSubscribe(sid: sid,
+                                               participant: self) }
+                room?.notify { $0.didFailToSubscribe(sid: sid,
                                                    error: err,
-                                                   participant: self)
+                                                     participant: self) }
                 return
             }
 
@@ -80,12 +80,12 @@ public class RemoteParticipant: Participant {
             track = VideoTrack(rtcTrack: rtcTrack as! RTCVideoTrack, name: publication.name)
         default:
             let err = TrackError.invalidTrackType("unsupported type: \(rtcTrack.kind.description)")
-            delegate?.didFailToSubscribe(sid: sid,
+            notify { $0.didFailToSubscribe(sid: sid,
                                          error: err,
-                                         participant: self)
-            room?.delegate?.didFailToSubscribe(sid: sid,
+                                           participant: self) }
+            room?.notify { $0.didFailToSubscribe(sid: sid,
                                                error: err,
-                                               participant: self)
+                                                 participant: self) }
             return
         }
 
@@ -93,8 +93,8 @@ public class RemoteParticipant: Participant {
         track.sid = publication.sid
         addTrack(publication: publication)
 
-        delegate?.didSubscribe(track: track, publication: publication, participant: self)
-        room?.delegate?.didSubscribe(track: track, publication: publication, participant: self)
+        notify { $0.didSubscribe(track: track, publication: publication, participant: self) }
+        room?.notify { $0.didSubscribe(track: track, publication: publication, participant: self) }
     }
 
     func unpublishTrack(sid: String, sendUnpublish: Bool = false) {
@@ -105,23 +105,23 @@ public class RemoteParticipant: Participant {
 
         if let track = publication.track {
             track.stop()
-            delegate?.didUnsubscribe(track: track,
+            notify { $0.didUnsubscribe(track: track,
                                      publication: publication,
-                                     participant: self)
-            room?.delegate?.didUnsubscribe(track: track,
+                                       participant: self) }
+            room?.notify { $0.didUnsubscribe(track: track,
                                            publication: publication,
-                                           participant: self)
+                                             participant: self) }
         }
         if sendUnpublish {
-            delegate?.didUnpublishRemoteTrack(publication: publication,
-                                              particpant: self)
-            room?.delegate?.didUnpublishRemoteTrack(publication: publication,
-                                                    particpant: self)
+            notify { $0.didUnpublishRemoteTrack(publication: publication,
+                                                particpant: self) }
+            room?.notify { $0.didUnpublishRemoteTrack(publication: publication,
+                                                      particpant: self) }
         }
     }
 
     private func sendTrackPublishedEvent(publication: RemoteTrackPublication) {
-        delegate?.didPublishRemoteTrack(publication: publication, participant: self)
-        room?.delegate?.didPublishRemoteTrack(publication: publication, participant: self)
+        notify { $0.didPublishRemoteTrack(publication: publication, participant: self) }
+        room?.notify { $0.didPublishRemoteTrack(publication: publication, participant: self) }
     }
 }

@@ -12,9 +12,10 @@ import WebRTC
 // using a timer interval to ignore changes that are happening too close to each other
 let networkChangeIgnoreInterval = 3.0
 
-public class Room {
+public class Room: NSObject, MulticastDelegate {
 
-    public var delegate: RoomDelegate?
+    typealias DelegateType = RoomDelegate
+    internal let delegates = NSHashTable<AnyObject>.weakObjects()
 
     public private(set) var sid: Sid?
     public private(set) var name: String?
@@ -30,7 +31,7 @@ public class Room {
     private var lastPathUpdate: TimeInterval = 0
     internal var engine: RTCEngine
 
-    init(options: ConnectOptions) {
+    init(options: ConnectOptions, delegate: RoomDelegate) {
         self.connectOptions = options
 
 //        monitor = NWPathMonitor()
@@ -61,8 +62,13 @@ public class Room {
 //            self.prevPath = path
 //            self.lastPathUpdate = currTime
 //        }
+        super.init()
+        engine.add(delegate: self)
+        add(delegate: delegate)
+    }
 
-        engine.delegate = self
+    deinit {
+        engine.remove(delegate: self)
     }
 
     func connect() {
@@ -88,7 +94,7 @@ public class Room {
         }
         state = .reconnecting
         engine.reconnect()
-        delegate?.isReconnecting(room: self)
+        notify { $0.isReconnecting(room: self) }
     }
 
     private func handleParticipantDisconnect(sid: Sid, participant: RemoteParticipant) {
@@ -98,7 +104,8 @@ public class Room {
         participant.tracks.values.forEach { publication in
             participant.unpublishTrack(sid: publication.sid)
         }
-        delegate?.participantDidDisconnect(room: self, participant: participant)
+
+        notify { $0.participantDidDisconnect(room: self, participant: participant) }
     }
 
     private func getOrCreateRemoteParticipant(sid: Sid, info: Livekit_ParticipantInfo? = nil) -> RemoteParticipant {
@@ -130,7 +137,7 @@ public class Room {
 
         let activeSpeakers = lastSpeakers.values.sorted(by: { $1.audioLevel > $0.audioLevel })
         self.activeSpeakers = activeSpeakers
-        delegate?.activeSpeakersDidChange(speakers: activeSpeakers, room: self)
+        notify { $0.activeSpeakersDidChange(speakers: activeSpeakers, room: self) }
     }
 
     private func onEngineSpeakersUpdate(_ speakers: [Livekit_SpeakerInfo]) {
@@ -162,7 +169,7 @@ public class Room {
             }
         }
         self.activeSpeakers = activeSpeakers
-        delegate?.activeSpeakersDidChange(speakers: activeSpeakers, room: self)
+        notify { $0.activeSpeakersDidChange(speakers: activeSpeakers, room: self) }
     }
 
     private func handleDisconnect() {
@@ -193,9 +200,9 @@ public class Room {
         remoteParticipants.removeAll()
         activeSpeakers.removeAll()
 //        monitor.cancel()
-        delegate?.didDisconnect(room: self, error: nil)
+        notify { $0.didDisconnect(room: self, error: nil) }
         // should be the only call from delegate, room is done
-        delegate = nil
+//        delegate = nil
     }
 }
 
@@ -231,12 +238,12 @@ extension Room: RTCEngineDelegate {
 
     func ICEDidConnect() {
         state = .connected
-        delegate?.didConnect(room: self)
+        notify { $0.didConnect(room: self) }
     }
 
     func ICEDidReconnect() {
         state = .connected
-        delegate?.didReconnect(room: self)
+        notify { $0.didReconnect(room: self) }
     }
 
     func didAddTrack(track: RTCMediaStreamTrack, streams: [RTCMediaStream]) {
@@ -278,7 +285,7 @@ extension Room: RTCEngineDelegate {
             if info.state == .disconnected {
                 handleParticipantDisconnect(sid: info.sid, participant: participant)
             } else if isNewParticipant {
-                delegate?.participantDidConnect(room: self, participant: participant)
+                notify { $0.participantDidConnect(room: self, participant: participant) }
             } else {
                 participant.updateFromInfo(info: info)
             }
@@ -291,8 +298,8 @@ extension Room: RTCEngineDelegate {
             return
         }
 
-        delegate?.didReceive(data: userPacket.payload, participant: participant)
-        participant.delegate?.didReceive(data: userPacket.payload, participant: participant)
+        notify { $0.didReceive(data: userPacket.payload, participant: participant) }
+        participant.notify { $0.didReceive(data: userPacket.payload, participant: participant) }
     }
 
     func remoteMuteDidChange(trackSid: String, muted: Bool) {
@@ -302,11 +309,11 @@ extension Room: RTCEngineDelegate {
     }
 
     func didDisconnect(reason: String, code: UInt16) {
-        delegate?.didDisconnect(room: self, error: nil)
+        notify { $0.didDisconnect(room: self, error: nil) }
     }
 
     func didFailToConnect(error: Error) {
-        delegate?.didFailToConnect(room: self, error: error)
+        notify { $0.didFailToConnect(room: self, error: error) }
     }
 }
 

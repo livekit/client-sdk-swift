@@ -7,10 +7,15 @@ import Foundation
 import Promises
 import WebRTC
 
-class SignalClient : NSObject {
+class SignalClient : NSObject, MulticastDelegate {
 
-    weak var delegate: SignalClientDelegate?
+//    weak var delegate: SignalClientDelegate?
 
+    // multicast delegate
+    typealias DelegateType = SignalClientDelegate
+    internal let delegates = NSHashTable<AnyObject>.weakObjects()
+
+    // connection state of WebSocket
     private(set) var connectionState: ConnectionState = .disconnected
 
     private lazy var urlSession = URLSession(configuration: .default,
@@ -33,7 +38,7 @@ class SignalClient : NSObject {
             webSocket = urlSession.webSocketTask(with: rtcUrl)
             webSocket!.resume()
         } catch let error {
-            delegate?.onSignalError(error: error)
+            notify { $0.onSignalError(error: error) }
             throw error
         }
     }
@@ -66,7 +71,7 @@ class SignalClient : NSObject {
     
     // handle errors after already connected
     private func handleError(_ reason: String) {
-        delegate?.onSignalClose(reason: reason, code: 0)
+        notify { $0.onSignalClose(reason: reason, code: 0) }
         close()
     }
 
@@ -79,30 +84,33 @@ class SignalClient : NSObject {
         
         do {
             switch msg {
+            case let .join(joinMsg) :
+                notify { $0.onSignalJoin(joinResponse: joinMsg) }
+
             case let .answer(sd):
-                delegate?.onSignalAnswer(sessionDescription: try sd.toRTCType())
+                try notify { $0.onSignalAnswer(sessionDescription: try sd.toRTCType()) }
 
             case let .offer(sd):
-                delegate?.onSignalOffer(sessionDescription: try sd.toRTCType())
+                try notify { $0.onSignalOffer(sessionDescription: try sd.toRTCType()) }
 
             case let .trickle(trickle):
                 let rtcCandidate = try RTCIceCandidate(fromJsonString: trickle.candidateInit)
-                delegate?.onSignalTrickle(candidate: rtcCandidate, target: trickle.target)
+                notify { $0.onSignalTrickle(candidate: rtcCandidate, target: trickle.target) }
 
             case let .update(update):
-                delegate?.onSignalParticipantUpdate(updates: update.participants)
+                notify { $0.onSignalParticipantUpdate(updates: update.participants) }
 
             case let .trackPublished(trackPublished):
-                delegate?.onSignalLocalTrackPublished(trackPublished: trackPublished)
+                notify { $0.onSignalLocalTrackPublished(trackPublished: trackPublished) }
 
             case let .speakersChanged(speakers):
-                delegate?.onSignalActiveSpeakersChanged(speakers: speakers.speakers)
+                notify { $0.onSignalActiveSpeakersChanged(speakers: speakers.speakers) }
 
             case let .mute(mute):
-                delegate?.onSignalRemoteMuteChanged(trackSid: mute.sid, muted: mute.muted)
+                notify { $0.onSignalRemoteMuteChanged(trackSid: mute.sid, muted: mute.muted) }
 
             case .leave:
-                delegate?.onSignalLeave()
+                notify { $0.onSignalLeave() }
 
             default:
                 logger.warning("unsupported signal response type: \(msg)")
@@ -147,13 +155,7 @@ class SignalClient : NSObject {
             }
             
             if let sigResp = sigResp, let msg = sigResp.message {
-                switch msg {
-                case .join(let joinMsg) where connectionState != .connected:
-                    connectionState = .connected
-                    delegate?.onSignalJoin(joinResponse: joinMsg)
-                default:
-                    handleSignalResponse(msg: msg)
-                }
+                handleSignalResponse(msg: msg)
             }
             
             // queue up the next read
@@ -284,7 +286,7 @@ extension SignalClient: URLSessionWebSocketDelegate {
         }
 
         if connectionState == .reconnecting {
-            delegate?.onSignalReconnect()
+            notify { $0.onSignalReconnect() }
         }
 
         connectionState = .connected
@@ -303,7 +305,7 @@ extension SignalClient: URLSessionWebSocketDelegate {
 
         logger.debug("websocket disconnected")
         connectionState = .disconnected
-        delegate?.onSignalClose(reason: "", code: UInt16(closeCode.rawValue))
+        notify { $0.onSignalClose(reason: "", code: UInt16(closeCode.rawValue)) }
     }
     
     func urlSession(_ session: URLSession,
@@ -320,6 +322,8 @@ extension SignalClient: URLSessionWebSocketDelegate {
         } else {
             realError = SignalClientError.socketError("could not connect", 0)
         }
-        delegate?.onSignalError(error: realError)
+
+        connectionState = .disconnected
+        notify { $0.onSignalError(error: realError) }
     }
 }

@@ -10,7 +10,10 @@ import WebRTC
 let maxWSRetries = 5
 let maxDataPacketSize = 15000
 
-class RTCEngine: NSObject {
+class RTCEngine: NSObject, MulticastDelegate {
+
+    typealias DelegateType = RTCEngineDelegate
+    internal let delegates = NSHashTable<AnyObject>.weakObjects()
 
     static let factory: RTCPeerConnectionFactory = {
         RTCInitializeSSL()
@@ -47,15 +50,18 @@ class RTCEngine: NSObject {
             case .connected:
                 if oldValue == .disconnected {
                     logger.debug("publisher ICE connected")
-                    delegate?.ICEDidConnect()
+                    notify { $0.ICEDidConnect() }
+//                    delegate?.ICEDidConnect()
                 } else if oldValue == .reconnecting {
                     logger.debug("publisher ICE reconnected")
-                    delegate?.ICEDidReconnect()
+//                    delegate?.ICEDidReconnect()
+                    notify { $0.ICEDidReconnect() }
                 }
             case .disconnected:
                 logger.info("publisher ICE disconnected")
                 close()
-                delegate?.didDisconnect()
+//                delegate?.didDisconnect()
+                notify { $0.didDisconnect() }
             default:
                 break
             }
@@ -67,14 +73,14 @@ class RTCEngine: NSObject {
 
     private var pendingTrackResolvers: [String: Promise<Livekit_TrackInfo>] = [:]
 
-    weak var delegate: RTCEngineDelegate?
+//    weak var delegate: RTCEngineDelegate?
 
     private var listenTokens: [NSObjectProtocol] = []
 
     init(client: SignalClient? = nil) {
         self.signalClient = client ?? SignalClient()
         super.init()
-        self.signalClient.delegate = self
+        self.signalClient.add(delegate: self)
 
         logger.debug("RTCEngine init")
 //        setUpListeners()
@@ -82,7 +88,7 @@ class RTCEngine: NSObject {
 
     deinit {
         logger.debug("RTCEngine deinit")
-
+        signalClient.remove(delegate: self)
 //        for token in listenTokens {
 //            NotificationCenter.liveKit.removeObserver(token)
 //        }
@@ -187,7 +193,8 @@ class RTCEngine: NSObject {
         if wsRetries >= maxWSRetries {
             logger.error("could not connect to signal after \(wsRetries) attempts, giving up")
             close()
-            delegate?.didDisconnect()
+//            delegate?.didDisconnect()
+            notify { $0.didDisconnect() }
             return
         }
 
@@ -260,7 +267,8 @@ class RTCEngine: NSObject {
 extension RTCEngine: SignalClientDelegate {
 
     func onSignalActiveSpeakersChanged(speakers: [Livekit_SpeakerInfo]) {
-        delegate?.didUpdateSpeakersSignal(speakers: speakers)
+//        delegate?.didUpdateSpeakersSignal(speakers: speakers)
+        notify { $0.didUpdateSpeakersSignal(speakers: speakers) }
     }
 
     func onSignalReconnect() {
@@ -344,7 +352,8 @@ extension RTCEngine: SignalClientDelegate {
             negotiate()
         }
 
-        delegate?.didJoin(response: joinResponse)
+//        delegate?.didJoin(response: joinResponse)
+        notify { $0.didJoin(response: joinResponse) }
     }
 
     func onSignalAnswer(sessionDescription: RTCSessionDescription) {
@@ -419,7 +428,8 @@ extension RTCEngine: SignalClientDelegate {
     }
 
     func onSignalParticipantUpdate(updates: [Livekit_ParticipantInfo]) {
-        delegate?.didUpdateParticipants(updates: updates)
+//        delegate?.didUpdateParticipants(updates: updates)
+        notify { $0.didUpdateParticipants(updates: updates) }
     }
 
     func onSignalLocalTrackPublished(trackPublished: Livekit_TrackPublishedResponse) {
@@ -432,12 +442,14 @@ extension RTCEngine: SignalClientDelegate {
     }
 
     func onSignalRemoteMuteChanged(trackSid: String, muted: Bool) {
-        delegate?.remoteMuteDidChange(trackSid: trackSid, muted: muted)
+//        delegate?.remoteMuteDidChange(trackSid: trackSid, muted: muted)
+        notify { $0.remoteMuteDidChange(trackSid: trackSid, muted: muted) }
     }
 
     func onSignalLeave() {
         close()
-        delegate?.didDisconnect()
+//        delegate?.didDisconnect()
+        notify { $0.didDisconnect() }
     }
 
     func onSignalClose(reason: String, code: UInt16) {
@@ -447,7 +459,8 @@ extension RTCEngine: SignalClientDelegate {
 
     func onSignalError(error: Error) {
         logger.debug("signal connection error: \(error)")
-        delegate?.didFailToConnect(error: error)
+//        delegate?.didFailToConnect(error: error)
+        notify { $0.didFailToConnect(error: error) }
     }
 }
 
@@ -464,9 +477,11 @@ extension RTCEngine: RTCDataChannelDelegate {
 
         switch dataPacket.value {
         case .speaker(let update):
-            delegate?.didUpdateSpeakersEngine(speakers: update.speakers)
+//            delegate?.didUpdateSpeakersEngine(speakers: update.speakers)
+            notify { $0.didUpdateSpeakersEngine(speakers: update.speakers) }
         case .user(let userPacket):
-            delegate?.didReceive(userPacket: userPacket, kind: dataPacket.kind)
+//            delegate?.didReceive(userPacket: userPacket, kind: dataPacket.kind)
+            notify { $0.didReceive(userPacket: userPacket, kind: dataPacket.kind) }
         default:
             return
         }
@@ -494,7 +509,8 @@ extension RTCEngine: TransportDelegate {
     func transport(_ transport: Transport, didAdd track: RTCMediaStreamTrack, streams: [RTCMediaStream]) {
         logger.debug("[PCTransportDelegate] did add track")
         if transport.target == .subscriber {
-            delegate?.didAddTrack(track: track, streams: streams)
+//            delegate?.didAddTrack(track: track, streams: streams)
+            notify { $0.didAddTrack(track: track, streams: streams) }
         }
     }
 

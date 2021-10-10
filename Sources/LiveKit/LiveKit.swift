@@ -10,9 +10,9 @@ public class LiveKit {
     static let queue = DispatchQueue(label: "lk_queue")
     static var audioConfigured: Bool = false
 
-    public static func connect(options: ConnectOptions, delegate: RoomDelegate? = nil) -> Room {
-        let room = Room(options: options)
-        room.delegate = delegate
+    public static func connect(options: ConnectOptions, delegate: RoomDelegate) -> Room {
+        let room = Room(options: options, delegate: delegate)
+//        room.delegate = delegate
         room.connect()
         return room
     }

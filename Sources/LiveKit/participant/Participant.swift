@@ -7,7 +7,10 @@
 
 import Foundation
 
-public class Participant: NSObject {
+public class Participant: NSObject, MulticastDelegate {
+
+    typealias DelegateType = ParticipantDelegate
+    internal let delegates = NSHashTable<AnyObject>.weakObjects()
 
     public internal(set) var sid: Sid
     public internal(set) var identity: String?
@@ -15,7 +18,7 @@ public class Participant: NSObject {
     public internal(set) var isSpeaking: Bool = false {
         didSet {
             if oldValue != isSpeaking {
-                delegate?.isSpeakingDidChange(participant: self)
+                notify { $0.isSpeakingDidChange(participant: self) }
             }
         }
     }
@@ -23,8 +26,8 @@ public class Participant: NSObject {
     public internal(set) var metadata: String? {
         didSet {
             if oldValue != metadata {
-                delegate?.metadataDidChange(participant: self)
-                room?.delegate?.metadataDidChange(participant: self)
+                notify { $0.metadataDidChange(participant: self) }
+                room?.notify { $0.metadataDidChange(participant: self) }
             }
         }
     }
@@ -44,7 +47,6 @@ public class Participant: NSObject {
     var info: Livekit_ParticipantInfo?
 
     weak var room: Room?
-    public var delegate: ParticipantDelegate?
 
     public init(sid: String) {
         self.sid = sid

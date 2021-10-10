@@ -14,7 +14,7 @@ typealias TransportOnOffer = (RTCSessionDescription) -> Void
 
 class Transport: NSObject, MulticastDelegate {
 
-    // multi-delegate
+    // multicast delegate
     typealias DelegateType = TransportDelegate
     internal let delegates = NSHashTable<AnyObject>.weakObjects()
 
@@ -165,7 +165,7 @@ extension TransportDelegate {
     func transport(_ transport: Transport, didAdd track: RTCMediaStreamTrack, streams: [RTCMediaStream]) {}
 }
 
-class TransportDelegateClosure: TransportDelegate {
+class TransportDelegateClosure: NSObject, TransportDelegate {
     typealias OnIceStateUpdated = (_ transport: Transport, _ iceState: RTCIceConnectionState) -> ()
     let onIceStateUpdated: OnIceStateUpdated?
 

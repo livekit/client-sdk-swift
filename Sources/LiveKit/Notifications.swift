@@ -187,16 +187,28 @@ protocol MulticastDelegate {
 extension MulticastDelegate {
 
     func add(delegate: DelegateType) {
+        guard let delegate = delegate as AnyObject? else {
+            logger.debug("delegate is not an AnyObject")
+            return
+        }
         delegates.add(delegate as AnyObject)
     }
 
     func remove(delegate: DelegateType) {
+        guard let delegate = delegate as AnyObject? else {
+            logger.debug("delegate is not an AnyObject")
+            return
+        }
         delegates.remove(delegate as AnyObject)
     }
 
-    internal func notify(_ fnc: (DelegateType) -> Void) {
+    internal func notify(_ fnc: (DelegateType) throws -> Void) rethrows {
         for d in delegates.objectEnumerator() {
-            if let d = d as? DelegateType { fnc(d) }
+            guard let d = d as? DelegateType else {
+                logger.debug("notify() delegate is not type of \(DelegateType.self)")
+                continue
+            }
+            try fnc(d)
         }
     }
 }

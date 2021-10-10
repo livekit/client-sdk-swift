@@ -22,11 +22,11 @@ public class RemoteTrackPublication: TrackPublication {
                 return
             }
             if muted {
-                participant.delegate?.didMute(publication: self, participant: participant)
-                participant.room?.delegate?.didMute(publication: self, participant: participant)
+                participant.notify { $0.didMute(publication: self, participant: participant) }
+                participant.room?.notify { $0.didMute(publication: self, participant: participant) }
             } else {
-                participant.delegate?.didUnmute(publication: self, participant: participant)
-                participant.room?.delegate?.didUnmute(publication: self, participant: participant)
+                participant.notify { $0.didUnmute(publication: self, participant: participant) }
+                participant.room?.notify { $0.didUnmute(publication: self, participant: participant) }
             }
         }
     }

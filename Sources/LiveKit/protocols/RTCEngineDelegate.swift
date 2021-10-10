@@ -8,7 +8,7 @@
 import Foundation
 import WebRTC
 
-protocol RTCEngineDelegate: AnyObject {
+protocol RTCEngineDelegate {
     func didJoin(response: Livekit_JoinResponse)
     func ICEDidConnect()
     func ICEDidReconnect()
