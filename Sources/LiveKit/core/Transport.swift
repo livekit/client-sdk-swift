@@ -158,7 +158,7 @@ extension TransportDelegate {
     func transport(_ transport: Transport, didAdd track: RTCMediaStreamTrack, streams: [RTCMediaStream]) {}
 }
 
-class TransportDelegateClosure: NSObject, TransportDelegate {
+class TransportDelegateClosures: NSObject, TransportDelegate {
     typealias OnIceStateUpdated = (_ transport: Transport, _ iceState: RTCIceConnectionState) -> ()
     let onIceStateUpdated: OnIceStateUpdated?
 

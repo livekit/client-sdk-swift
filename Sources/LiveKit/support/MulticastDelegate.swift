@@ -40,28 +40,30 @@ extension MulticastDelegate {
 
 extension Array where Element: MulticastDelegate {
 
-    func wait(timeout: TimeInterval,
+    func wait<T>(timeout: TimeInterval,
                   onTimeout: Error = InternalError.timeout(),
-                  builder: (@escaping () -> Void) -> Element.DelegateType) -> Promise<Void> {
+                  builder: (@escaping (T) -> Void) -> Element.DelegateType) -> Promise<T> {
 
-        let promise = Promise<Void>.pending()
+        let promise = Promise<T>.pending()
         var timer: DispatchWorkItem?
         var delegate: Element.DelegateType?
 
-        let fulfill = { [weak promise] in
+        let completeFnc: (T) -> Void = { [weak promise] value in
             // cancel timer
             timer?.cancel()
 
             // stop listening
+            logger.debug("[MulticastDelegate] removing temporary delegate")
             for multicast in self {
                 multicast.remove(delegate: delegate!)
             }
 
-            promise?.fulfill(())
+            promise?.fulfill(value)
         }
 
-        let reject = { [weak promise] in
+        let failFnc = { [weak promise] in
             // stop listening
+            logger.debug("[MulticastDelegate] removing temporary delegate")
             for multicast in self {
                 multicast.remove(delegate: delegate!)
             }
@@ -69,16 +71,16 @@ extension Array where Element: MulticastDelegate {
             promise?.reject(onTimeout)
         }
 
-        delegate = builder(fulfill)
+        delegate = builder(completeFnc)
 
-
+        logger.debug("[MulticastDelegate] adding temporary delegate")
         // start listening
         for multicast in self {
             multicast.add(delegate: delegate!)
         }
 
         // start timer
-        timer = DispatchWorkItem() { reject() }
+        timer = DispatchWorkItem() { failFnc() }
         DispatchQueue.main.asyncAfter(deadline: .now() + timeout,
                                       execute: timer!)
 

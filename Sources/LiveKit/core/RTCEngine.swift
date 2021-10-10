@@ -60,7 +60,7 @@ class RTCEngine: NSObject, MulticastDelegate {
     var reconnectAttempts: Int = 0
     var wsReconnectTask: DispatchWorkItem?
 
-    private var pendingTrackResolvers: [String: Promise<Livekit_TrackInfo>] = [:]
+//    private var pendingTrackResolvers: [String: Promise<Livekit_TrackInfo>] = [:]
 
     init(client: SignalClient? = nil) {
         self.signalClient = client ?? SignalClient()
@@ -135,16 +135,22 @@ class RTCEngine: NSObject, MulticastDelegate {
         }
     }
 
-    func addTrack(cid: String, name: String, kind: Livekit_TrackType, dimensions: Dimensions? = nil) -> Promise<Livekit_TrackInfo> {
+    func addTrack(cid: String,
+                  name: String,
+                  kind: Livekit_TrackType,
+                  dimensions: Dimensions? = nil) -> Promise<Livekit_TrackInfo> {
 
-        if pendingTrackResolvers[cid] != nil {
-            return Promise(TrackError.duplicateTrack("Track with the same ID (\(cid)) has already been published!"))
-        }
+        // TODO: Check if cid already published
 
-        let promise = Promise<Livekit_TrackInfo>.pending()
-        pendingTrackResolvers[cid] = promise
         signalClient.sendAddTrack(cid: cid, name: name, type: kind, dimensions: dimensions)
-        return promise
+
+        return [signalClient].wait(timeout: 3) { fulfill in
+            SignalClientDelegateClosures(didPublishLocalTrack: { response in
+                if response.cid == cid {
+                    fulfill(response.track)
+                }
+            })
+        }
     }
 
     func updateMuteStatus(trackSid: String, muted: Bool) {
@@ -230,9 +236,9 @@ class RTCEngine: NSObject, MulticastDelegate {
 
         return [publisher].wait(timeout: 3) { fulfill in
             // temporary delegate
-            TransportDelegateClosure(onIceStateUpdated: { _, iceState in
+            TransportDelegateClosures(onIceStateUpdated: { _, iceState in
                 if iceState == .connected {
-                    fulfill()
+                    fulfill(())
                 }
             })
         }
@@ -414,14 +420,14 @@ extension RTCEngine: SignalClientDelegate {
         notify { $0.didUpdateParticipants(updates: participants) }
     }
 
-    func signalDidPublish(localTrack: Livekit_TrackPublishedResponse) {
-        logger.debug("received track published confirmation for: \(localTrack.track.sid)")
-        guard let promise = pendingTrackResolvers.removeValue(forKey: localTrack.cid) else {
-            logger.error("missing track resolver for: \(localTrack.cid)")
-            return
-        }
-        promise.fulfill(localTrack.track)
-    }
+//    func signalDidPublish(localTrack: Livekit_TrackPublishedResponse) {
+//        logger.debug("received track published confirmation for: \(localTrack.track.sid)")
+//        guard let promise = pendingTrackResolvers.removeValue(forKey: localTrack.cid) else {
+//            logger.error("missing track resolver for: \(localTrack.cid)")
+//            return
+//        }
+//        promise.fulfill(localTrack.track)
+//    }
 
     func signalDidUpdateRemoteMute(trackSid: String, muted: Bool) {
 //        delegate?.remoteMuteDidChange(trackSid: trackSid, muted: muted)
