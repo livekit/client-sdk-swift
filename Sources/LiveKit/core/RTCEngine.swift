@@ -208,7 +208,7 @@ class RTCEngine: NSObject {
     func sendDataPacket(packet: Livekit_DataPacket) -> Promise<Void> {
 
         guard let data = try? packet.serializedData() else {
-            return Promise(InternalError.parse())
+            return Promise(InternalError.parse("Failed to serialize data packet"))
         }
 
         func send() -> Promise<Void>{
@@ -384,32 +384,38 @@ extension RTCEngine: SignalClientDelegate {
 
         logger.debug("handling server offer")
         subscriber.setRemoteDescription(sessionDescription).then {
+            subscriber.pc.createAnswerPromise()
+        }.then { answer in
+            subscriber.pc.setLocalDescriptionPromise(answer)
+        }.then { answer in
+            try? self.signalClient.sendAnswer(answer: answer)
+        }
             //            if let error = error {
             //                logger.error("error setting subscriber remote description for offer: \(error)")
             //                return
             //            }
-            let constraints: Dictionary<String, String> = [:]
-            let mediaConstraints = RTCMediaConstraints(mandatoryConstraints: constraints,
-                                                       optionalConstraints: nil)
-            subscriber.pc.answer(for: mediaConstraints, completionHandler: { answer, error in
-                if let error = error {
-                    logger.error("error answering subscriber: \(error)")
-                    return
-                }
-                guard let ans = answer else {
-                    logger.error("unexpectedly missing answer for subscriber")
-                    return
-                }
-                subscriber.pc.setLocalDescription(ans, completionHandler: { error in
-                    if let error = error {
-                        logger.error("error setting subscriber local description for answer: \(error)")
-                        return
-                    }
-                    logger.debug("sending client answer")
-                    try? self.signalClient.sendAnswer(answer: ans)
-                })
-            })
-        }
+//            let constraints: Dictionary<String, String> = [:]
+//            let mediaConstraints = RTCMediaConstraints(mandatoryConstraints: constraints,
+//                                                       optionalConstraints: nil)
+//            subscriber.pc.answer(for: mediaConstraints, completionHandler: { answer, error in
+//                if let error = error {
+//                    logger.error("error answering subscriber: \(error)")
+//                    return
+//                }
+//                guard let ans = answer else {
+//                    logger.error("unexpectedly missing answer for subscriber")
+//                    return
+//                }
+//                subscriber.pc.setLocalDescription(ans, completionHandler: { error in
+//                    if let error = error {
+//                        logger.error("error setting subscriber local description for answer: \(error)")
+//                        return
+//                    }
+//                    logger.debug("sending client answer")
+//                    try? self.signalClient.sendAnswer(answer: ans)
+//                })
+//            })
+//        }
     }
 
     func onSignalParticipantUpdate(updates: [Livekit_ParticipantInfo]) {

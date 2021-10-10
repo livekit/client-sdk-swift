@@ -66,7 +66,7 @@ class Transport: NSObject, MulticastDelegate {
     public func addIceCandidate(_ candidate: RTCIceCandidate) -> Promise<Void> {
 
         if pc.remoteDescription != nil && !restartingIce {
-            return pc.addAsync(candidate)
+            return pc.addIceCandidatePromise(candidate)
         }
 
         pendingCandidates.append(candidate)
@@ -76,8 +76,8 @@ class Transport: NSObject, MulticastDelegate {
 
     public func setRemoteDescription(_ sd: RTCSessionDescription) -> Promise<Void> {
 
-        self.pc.setRemoteDescriptionAsync(sd).then {
-            all(self.pendingCandidates.map { self.pc.addAsync($0) })
+        self.pc.setRemoteDescriptionPromise(sd).then { _ in
+            all(self.pendingCandidates.map { self.pc.addIceCandidatePromise($0) })
         }.then { _ in
 
             self.pendingCandidates.removeAll()
@@ -112,17 +112,17 @@ class Transport: NSObject, MulticastDelegate {
         }
 
         if pc.signalingState == .haveLocalOffer, isIceRestart, let sd = pc.remoteDescription {
-            return pc.setRemoteDescriptionAsync(sd).then {
+            return pc.setRemoteDescriptionPromise(sd).then { _ in
                 negotiateSequence()
             }
         }
 
         // actually negotiate
         func negotiateSequence() -> Promise<Void> {
-            pc.offerAsync(for: constraints).then { sd in
-                self.pc.setLocalDescriptionAsync(sd).then {
-                    onOffer(sd)
-                }
+            pc.createOfferPromise(for: constraints).then { offer in
+                self.pc.setLocalDescriptionPromise(offer)
+            }.then { offer in
+                onOffer(offer)
             }
         }
 

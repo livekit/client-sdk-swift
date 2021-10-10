@@ -13,7 +13,7 @@ import Promises
 
 extension RTCPeerConnection {
 
-    func offerAsync(for constraints: [String: String]? = nil) -> Promise<RTCSessionDescription> {
+    func createOfferPromise(for constraints: [String: String]? = nil) -> Promise<RTCSessionDescription> {
 
         let mediaConstraints = RTCMediaConstraints(mandatoryConstraints: constraints,
                                                    optionalConstraints: nil)
@@ -33,7 +33,7 @@ extension RTCPeerConnection {
         }
     }
 
-    func answerAsync(for constraints: [String: String]? = nil) -> Promise<RTCSessionDescription> {
+    func createAnswerPromise(for constraints: [String: String]? = nil) -> Promise<RTCSessionDescription> {
 
         let mediaConstraints = RTCMediaConstraints(mandatoryConstraints: constraints,
                                                    optionalConstraints: nil)
@@ -53,35 +53,35 @@ extension RTCPeerConnection {
         }
     }
 
-    func setLocalDescriptionAsync(_ sd: RTCSessionDescription) -> Promise<Void> {
+    func setLocalDescriptionPromise(_ sd: RTCSessionDescription) -> Promise<RTCSessionDescription> {
 
-        Promise<Void> { complete, fail in
+        Promise<RTCSessionDescription> { complete, fail in
             self.setLocalDescription(sd) { error in
                 guard error == nil else {
                     fail(EngineError.webRTC("failed to set local description", error))
                     return
                 }
-                complete(())
+                complete(sd)
             }
         }
     }
 
 
-    func setRemoteDescriptionAsync(_ sd: RTCSessionDescription) -> Promise<Void> {
+    func setRemoteDescriptionPromise(_ sd: RTCSessionDescription) -> Promise<RTCSessionDescription> {
 
-        Promise<Void> { complete, fail in
+        Promise<RTCSessionDescription> { complete, fail in
             self.setRemoteDescription(sd) { error in
                 guard error == nil else {
                     fail(EngineError.webRTC("failed to set remote description", error))
                     return
                 }
-                complete(())
+                complete(sd)
             }
         }
     }
 
     @discardableResult
-    func addAsync(_ candidate: RTCIceCandidate) -> Promise<Void> {
+    func addIceCandidatePromise(_ candidate: RTCIceCandidate) -> Promise<Void> {
 
         Promise<Void> { complete, fail in
             self.add(candidate) { error in

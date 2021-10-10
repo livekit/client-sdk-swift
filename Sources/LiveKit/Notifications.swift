@@ -202,12 +202,10 @@ extension MulticastDelegate {
 }
 
 extension Array where Element: MulticastDelegate {
-    //
 
     func wait(timeout: TimeInterval,
                   onTimeout: Error = InternalError.timeout(),
-                  builder: (@escaping () -> Void) -> Element.DelegateType
-    ) -> Promise<Void> {
+                  builder: (@escaping () -> Void) -> Element.DelegateType) -> Promise<Void> {
 
         //        let onDelegates = self.compactMap { $0 }
         //        guard !onDelegates.isEmpty else {
