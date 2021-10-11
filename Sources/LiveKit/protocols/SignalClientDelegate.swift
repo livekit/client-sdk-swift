@@ -58,4 +58,6 @@ class SignalClientDelegateClosures: NSObject, SignalClientDelegate {
     func signalDidPublish(localTrack: Livekit_TrackPublishedResponse) {
         didPublishLocalTrack?(localTrack)
     }
+
+    // ...
 }

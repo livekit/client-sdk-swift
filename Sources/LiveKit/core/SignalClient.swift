@@ -26,7 +26,7 @@ internal class SignalClient : MulticastDelegate<SignalClientDelegate> {
             self.webSocket?.cancel()
             self.webSocket = self.urlSession.webSocketTask(with: rtcUrl)
             self.webSocket!.resume()
-            self.connectionState = reconnect ? .reconnecting : .connecting
+            self.connectionState = .connecting(reconnecting: reconnect)
         }.then {
             self.waitForSignalClientConnect()
 
@@ -47,7 +47,7 @@ internal class SignalClient : MulticastDelegate<SignalClientDelegate> {
 
     private func sendRequest(_ request: Livekit_SignalRequest) {
 
-        guard connectionState == .connected else {
+        guard case .connected = connectionState else {
             logger.error("could not send message, not connected")
             return
         }
@@ -79,7 +79,7 @@ internal class SignalClient : MulticastDelegate<SignalClientDelegate> {
 
     private func handleSignalResponse(msg: Livekit_SignalResponse.OneOf_Message) {
 
-        guard connectionState == .connected else {
+        guard case .connected = connectionState else {
             logger.error("not connected")
             return
         }
@@ -312,7 +312,11 @@ extension SignalClient: URLSessionWebSocketDelegate {
             return
         }
 
-        let isReconnect = connectionState == .reconnecting
+        var isReconnect = false
+        if case .connecting(let reconnecting) = connectionState, reconnecting {
+            isReconnect = true
+        }
+
         notify { $0.signalDidConnect(isReconnect: isReconnect) }
         connectionState = .connected
         receiveNext()

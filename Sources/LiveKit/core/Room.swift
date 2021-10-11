@@ -14,7 +14,6 @@ public class Room: MulticastDelegate<RoomDelegate> {
 
     public private(set) var sid: Sid?
     public private(set) var name: String?
-    public private(set) var state: ConnectionState = .disconnected
     public private(set) var localParticipant: LocalParticipant?
     public private(set) var remoteParticipants = [Sid: RemoteParticipant]()
     public private(set) var activeSpeakers: [Participant] = []
@@ -25,6 +24,9 @@ public class Room: MulticastDelegate<RoomDelegate> {
     private var prevPath: NWPath?
     private var lastPathUpdate: TimeInterval = 0
     internal let engine: RTCEngine
+    public var state: ConnectionState {
+        engine.connectionState
+    }
 
     init(connectOptions: ConnectOptions, delegate: RoomDelegate) {
 
@@ -68,15 +70,16 @@ public class Room: MulticastDelegate<RoomDelegate> {
         engine.remove(delegate: self)
     }
 
-    func connect() {
+    @discardableResult
+    func connect() -> Promise<Void> {
         logger.info("connecting to room")
         guard localParticipant == nil else {
-            return
+            return Promise(EngineError.invalidState("localParticipant is not nil"))
         }
-
-        state = .connecting
+        
+//        state = .connecting(reconnecting: false)
 //        monitor.start(queue: monitorQueue)
-        engine.join()
+        return engine.connect()
     }
 
     public func disconnect() {
@@ -85,14 +88,14 @@ public class Room: MulticastDelegate<RoomDelegate> {
         handleDisconnect()
     }
 
-    func reconnect(connectOptions: ConnectOptions? = nil) {
-        if state != .connected && state != .reconnecting {
-            return
-        }
-        state = .reconnecting
-        engine.reconnect(connectOptions: connectOptions)
-        notify { $0.isReconnecting(room: self) }
-    }
+//    func reconnect(connectOptions: ConnectOptions? = nil) {
+//        if state != .connected && state != .reconnecting {
+//            return
+//        }
+//        state = .connecting(reconnecting: true)
+//        engine.reconnect(connectOptions: connectOptions)
+//        notify { $0.isReconnecting(room: self) }
+//    }
 
     private func handleParticipantDisconnect(sid: Sid, participant: RemoteParticipant) {
         guard let participant = remoteParticipants.removeValue(forKey: sid) else {
@@ -175,7 +178,7 @@ public class Room: MulticastDelegate<RoomDelegate> {
             return
         }
         logger.info("disconnected from room: \(self.name ?? "")")
-        state = .disconnected
+//        state = .disconnected
         // stop any tracks && release audio session
         for participant in remoteParticipants.values {
             for publication in participant.tracks.values {
@@ -207,45 +210,43 @@ public class Room: MulticastDelegate<RoomDelegate> {
 
 extension Room: RTCEngineDelegate {
 
-    func didUpdateSpeakersSignal(speakers: [Livekit_SpeakerInfo]) {
+    func engine(_ engine: RTCEngine, didUpdateSignal speakers: [Livekit_SpeakerInfo]) {
         onSignalSpeakersUpdate(speakers)
     }
 
-    func didUpdateSpeakersEngine(speakers: [Livekit_SpeakerInfo]) {
+    func engine(_ engine: RTCEngine, didUpdateEngine speakers: [Livekit_SpeakerInfo]) {
         onEngineSpeakersUpdate(speakers)
     }
 
-    func didDisconnect() {
+    func engineDidDisconnect(_ engine: RTCEngine) {
         handleDisconnect()
     }
+    
+    func engine(_ engine: RTCEngine, didReceive joinResponse: Livekit_JoinResponse) {
+        logger.info("connected to room, server version: \(joinResponse.serverVersion)")
 
-    func didJoin(response: Livekit_JoinResponse) {
-        logger.info("connected to room, server version: \(response.serverVersion)")
+        sid = joinResponse.room.sid
+        name = joinResponse.room.name
 
-        sid = response.room.sid
-        name = response.room.name
-
-        if response.hasParticipant {
-            localParticipant = LocalParticipant(fromInfo: response.participant, engine: engine, room: self)
+        if joinResponse.hasParticipant {
+            localParticipant = LocalParticipant(fromInfo: joinResponse.participant, engine: engine, room: self)
         }
-        if !response.otherParticipants.isEmpty {
-            for otherParticipant in response.otherParticipants {
+        if !joinResponse.otherParticipants.isEmpty {
+            for otherParticipant in joinResponse.otherParticipants {
                 _ = getOrCreateRemoteParticipant(sid: otherParticipant.sid, info: otherParticipant)
             }
         }
     }
 
-    func ICEDidConnect() {
-        state = .connected
+    func engineDidConnect(_ engine: RTCEngine) {
         notify { $0.didConnect(room: self) }
     }
 
-    func ICEDidReconnect() {
-        state = .connected
+    func engineDidReconnect(_ engine: RTCEngine) {
         notify { $0.didReconnect(room: self) }
     }
 
-    func didAddTrack(track: RTCMediaStreamTrack, streams: [RTCMediaStream]) {
+    func engine(_ engine: RTCEngine, didAdd track: RTCMediaStreamTrack, streams: [RTCMediaStream]) {
         guard streams.count > 0 else {
             logger.error("received onTrack with no streams!")
             return
@@ -272,8 +273,8 @@ extension Room: RTCEngineDelegate {
         }
     }
 
-    func didUpdateParticipants(updates: [Livekit_ParticipantInfo]) {
-        for info in updates {
+    func engine(_ engine: RTCEngine, didUpdate participants: [Livekit_ParticipantInfo]) {
+        for info in participants {
             if info.sid == localParticipant?.sid {
                 localParticipant?.updateFromInfo(info: info)
                 continue
@@ -291,7 +292,7 @@ extension Room: RTCEngineDelegate {
         }
     }
 
-    func didReceive(userPacket: Livekit_UserPacket, kind _: Livekit_DataPacket.Kind) {
+    func engine(_ engine: RTCEngine, didReceive userPacket: Livekit_UserPacket) {
         guard let participant = remoteParticipants[userPacket.participantSid] else {
             logger.warning("could not find participant for data packet: \(userPacket.participantSid)")
             return
@@ -301,7 +302,7 @@ extension Room: RTCEngineDelegate {
         participant.notify { $0.didReceive(data: userPacket.payload, participant: participant) }
     }
 
-    func remoteMuteDidChange(trackSid: String, muted: Bool) {
+    func engine(_ engine: RTCEngine, didUpdateRemoteMute trackSid: String, muted: Bool) {
         if let track = localParticipant?.tracks[trackSid] as? LocalTrackPublication {
             track.setMuted(muted)
         }
