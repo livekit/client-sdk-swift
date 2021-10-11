@@ -11,7 +11,7 @@ protocol SignalClientDelegate: AnyObject {
     func signalDidUpdate(speakers: [Livekit_SpeakerInfo])
     func signalDidClose(reason: String, code: UInt16)
     func signalDidUpdateRemoteMute(trackSid: String, muted: Bool)
-    func signalDidReconnect()
+    func signalDidConnect(isReconnect: Bool)
     func signalDidLeave()
     func signalError(error: Error)
 }
@@ -26,7 +26,7 @@ extension SignalClientDelegate {
     func signalDidUpdate(speakers: [Livekit_SpeakerInfo]) {}
     func signalDidClose(reason: String, code: UInt16) {}
     func signalDidUpdateRemoteMute(trackSid: String, muted: Bool) {}
-    func signalDidReconnect() {}
+    func signalDidConnect(isReconnect: Bool) {}
     func signalDidLeave() {}
     func signalError(error: Error) {}
 }

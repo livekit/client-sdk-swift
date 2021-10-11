@@ -11,8 +11,7 @@ public class LiveKit {
     static var audioConfigured: Bool = false
 
     public static func connect(options: ConnectOptions, delegate: RoomDelegate) -> Room {
-        let room = Room(options: options, delegate: delegate)
-//        room.delegate = delegate
+        let room = Room(connectOptions: options, delegate: delegate)
         room.connect()
         return room
     }

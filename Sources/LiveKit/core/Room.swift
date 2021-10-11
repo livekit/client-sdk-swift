@@ -19,19 +19,21 @@ public class Room: MulticastDelegate<RoomDelegate> {
     public private(set) var remoteParticipants = [Sid: RemoteParticipant]()
     public private(set) var activeSpeakers: [Participant] = []
 
-    public let connectOptions: ConnectOptions
+//    private var connectOptions: ConnectOptions
 //    private let monitor: NWPathMonitor
     private let monitorQueue: DispatchQueue
     private var prevPath: NWPath?
     private var lastPathUpdate: TimeInterval = 0
-    internal var engine: RTCEngine
+    internal let engine: RTCEngine
 
-    init(options: ConnectOptions, delegate: RoomDelegate) {
-        self.connectOptions = options
+    init(connectOptions: ConnectOptions, delegate: RoomDelegate) {
+
+//        self.connectOptions = connectOptions
 
 //        monitor = NWPathMonitor()
         monitorQueue = DispatchQueue(label: "networkMonitor", qos: .background)
-        engine = RTCEngine(client: SignalClient())
+
+        engine = RTCEngine(connectOptions: connectOptions)
 
 //        monitor.pathUpdateHandler = { path in
 //            logger.debug("network path update: \(path.availableInterfaces), \(path.status)")
@@ -74,7 +76,7 @@ public class Room: MulticastDelegate<RoomDelegate> {
 
         state = .connecting
 //        monitor.start(queue: monitorQueue)
-        engine.join(options: connectOptions)
+        engine.join()
     }
 
     public func disconnect() {
@@ -83,12 +85,12 @@ public class Room: MulticastDelegate<RoomDelegate> {
         handleDisconnect()
     }
 
-    func reconnect() {
+    func reconnect(connectOptions: ConnectOptions? = nil) {
         if state != .connected && state != .reconnecting {
             return
         }
         state = .reconnecting
-        engine.reconnect()
+        engine.reconnect(connectOptions: connectOptions)
         notify { $0.isReconnecting(room: self) }
     }
 

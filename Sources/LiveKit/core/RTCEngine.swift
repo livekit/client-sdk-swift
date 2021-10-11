@@ -33,12 +33,14 @@ class RTCEngine: MulticastDelegate<RTCEngineDelegate> {
     private(set) var reliableDC: RTCDataChannel?
     private(set) var lossyDC: RTCDataChannel?
 
-    var iceState: ConnectionState = .disconnected {
+    private var connectOptions: ConnectOptions
+
+    var connectionState: ConnectionState = .disconnected {
         didSet {
-            if oldValue == iceState {
+            if oldValue == connectionState {
                 return
             }
-            switch iceState {
+            switch connectionState {
             case .connected:
                 if oldValue == .disconnected {
                     logger.debug("publisher ICE connected")
@@ -62,16 +64,19 @@ class RTCEngine: MulticastDelegate<RTCEngineDelegate> {
 
 //    private var pendingTrackResolvers: [String: Promise<Livekit_TrackInfo>] = [:]
 
-    init(client: SignalClient? = nil) {
-        self.signalClient = client ?? SignalClient()
+    init(connectOptions: ConnectOptions,
+         signalClient: SignalClient = SignalClient()) {
+        self.connectOptions = connectOptions
+        self.signalClient = signalClient
         super.init()
+
         signalClient.add(delegate: self)
         logger.debug("RTCEngine init")
     }
 
     deinit {
         logger.debug("RTCEngine deinit")
-//        signalClient.remove(delegate: self)
+        signalClient.remove(delegate: self)
     }
 
 //    private func setUpListeners() {
@@ -124,16 +129,22 @@ class RTCEngine: MulticastDelegate<RTCEngineDelegate> {
             logger.warning("Unknown data channel label \(dataChannel.label)")
         }
     }
+    
+    func join(connectOptions: ConnectOptions? = nil) {
 
-    func join(options: ConnectOptions) {
-        try? signalClient.connect(options: options)
-        wsReconnectTask = DispatchWorkItem {
-            guard self.iceState != .disconnected else {
-                return
-            }
-            logger.info("reconnecting to signal connection, attempt \(self.reconnectAttempts)")
-            try? self.signalClient.connect(options: options, reconnect: true)
+        if let connectOptions = connectOptions {
+            // set new connect options, if any
+            self.connectOptions = connectOptions
         }
+
+        try? signalClient.connect(options: self.connectOptions)
+//        wsReconnectTask = DispatchWorkItem {
+//            guard self.connectionState != .disconnected else {
+//                return
+//            }
+//            logger.info("reconnecting to signal connection, attempt \(self.reconnectAttempts)")
+//            try? self.signalClient.connect(options: options, reconnect: true)
+//        }
     }
 
     func addTrack(cid: String,
@@ -148,9 +159,9 @@ class RTCEngine: MulticastDelegate<RTCEngineDelegate> {
         return signalClient.wait(timeout: 5) { fulfill in
             SignalClientDelegateClosures(didPublishLocalTrack: { response in
                 logger.debug("[SignalClientDelegateClosures] didPublishLocalTrack")
-//                if response.cid == cid {
+                if response.cid == cid {
                     fulfill(response.track)
-//                }
+                }
             })
         }
     }
@@ -176,28 +187,49 @@ class RTCEngine: MulticastDelegate<RTCEngineDelegate> {
         publisher.negotiate()
     }
 
-    func reconnect() {
+    func reconnect(connectOptions: ConnectOptions? = nil) {
 
-        if reconnectAttempts >= maxReconnectAttempts {
-            logger.error("could not connect to signal after \(reconnectAttempts) attempts, giving up")
-            close()
-//            delegate?.didDisconnect()
-            notify { $0.didDisconnect() }
+        if let connectOptions = connectOptions {
+            // set new connect options, if any
+            self.connectOptions = connectOptions
+        }
+
+        guard connectionState != .disconnected else {
+            logger.debug("reconnect() already disconnected")
             return
         }
 
-        if let reconnectTask = wsReconnectTask, iceState != .disconnected {
-            var delay = Double(reconnectAttempts ^ 2) * 0.5
-            if delay > 5 {
-                delay = 5
-            }
-            DispatchQueue.global(qos: .background).asyncAfter(deadline: .now() + delay, execute: reconnectTask)
+        logger.debug("reconnecting to signal connection, attempt', reconnectAttempts")
+
+        if reconnectAttempts == 0 {
+            connectionState = .reconnecting
+//            notify { $0.Reconnecting() }
         }
+        reconnectAttempts += 1
+
+        try? signalClient.connect(options: self.connectOptions, reconnect: true)
+
+//
+//        if reconnectAttempts >= maxReconnectAttempts {
+//            logger.error("could not connect to signal after \(reconnectAttempts) attempts, giving up")
+//            close()
+////            delegate?.didDisconnect()
+//            notify { $0.didDisconnect() }
+//            return
+//        }
+//
+//        if let reconnectTask = wsReconnectTask, connectionState != .disconnected {
+//            var delay = Double(reconnectAttempts ^ 2) * 0.5
+//            if delay > 5 {
+//                delay = 5
+//            }
+//            DispatchQueue.global(qos: .background).asyncAfter(deadline: .now() + delay, execute: reconnectTask)
+//        }
     }
 
     private func handleSignalDisconnect() {
         reconnectAttempts += 1
-        reconnect()
+        reconnect(connectOptions: connectOptions)
     }
 
     func sendDataPacket(packet: Livekit_DataPacket) -> Promise<Void> {
@@ -259,7 +291,7 @@ extension RTCEngine: SignalClientDelegate {
         notify { $0.didUpdateSpeakersSignal(speakers: speakers) }
     }
 
-    func signalDidReconnect() {
+    func signalDidConnect() {
         logger.info("signal reconnect success")
         reconnectAttempts = 0
         
@@ -270,7 +302,7 @@ extension RTCEngine: SignalClientDelegate {
 //        subscriber?.prepareForIceRestart()
 
         // trigger ICE restart
-        iceState = .reconnecting
+        connectionState = .reconnecting
         // if publisher is waiting for an answer from right now, it most likely got lost, we'll
         // reset signal state to allow it to continue
         if let desc = publisher.pc.remoteDescription,
@@ -360,8 +392,8 @@ extension RTCEngine: SignalClientDelegate {
 
             // when reconnecting, PeerConnection does not always recognize it's disconnected
             // as a workaround, we'll set it to be reconnected here
-            if self.iceState == .reconnecting {
-                self.iceState = .connected
+            if self.connectionState == .reconnecting {
+                self.connectionState = .connected
             }
         }
     }
@@ -489,9 +521,9 @@ extension RTCEngine: TransportDelegate {
         logger.debug("[PCTransportDelegate] didUpdate iceState")
         if transport.primary {
             if iceState == .connected {
-                self.iceState = .connected
+                self.connectionState = .connected
             } else if iceState == .failed {
-                self.iceState = .disconnected
+                self.connectionState = .disconnected
             }
         }
     }

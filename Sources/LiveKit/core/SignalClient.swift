@@ -4,8 +4,6 @@ import WebRTC
 
 internal class SignalClient : MulticastDelegate<SignalClientDelegate> {
 
-//    internal let delegates = MulticastDelegate<SignalClientDelegate>()
-
     // connection state of WebSocket
     private(set) var connectionState: ConnectionState = .disconnected
 
@@ -114,6 +112,7 @@ internal class SignalClient : MulticastDelegate<SignalClientDelegate> {
     
     private func receiveNext() {
         guard let webSocket = webSocket else {
+            logger.debug("webSocket is nil")
             return
         }
         webSocket.receive(completionHandler: handleWebsocketMessage)
@@ -126,18 +125,18 @@ internal class SignalClient : MulticastDelegate<SignalClientDelegate> {
             logger.error("could not receive websocket: \(error)")
             handleError(error.localizedDescription)
         case .success(let msg):
-            var sigResp: Livekit_SignalResponse? = nil
+            var response: Livekit_SignalResponse? = nil
             switch msg {
             case .data(let data):
                 do {
-                    sigResp = try Livekit_SignalResponse(contiguousBytes: data)
+                    response = try Livekit_SignalResponse(contiguousBytes: data)
                 } catch {
                     logger.error("could not decode protobuf message: \(error)")
                     handleError(error.localizedDescription)
                 }
             case .string(let text):
                 do {
-                    sigResp = try Livekit_SignalResponse(jsonString: text)
+                    response = try Livekit_SignalResponse(jsonString: text)
                 } catch {
                     logger.error("could not decode JSON message: \(error)")
                     handleError(error.localizedDescription)
@@ -146,7 +145,7 @@ internal class SignalClient : MulticastDelegate<SignalClientDelegate> {
                 return
             }
             
-            if let sigResp = sigResp, let msg = sigResp.message {
+            if let sigResp = response, let msg = sigResp.message {
                 handleSignalResponse(msg: msg)
             }
             
@@ -279,12 +278,9 @@ extension SignalClient: URLSessionWebSocketDelegate {
             return
         }
 
-        if connectionState == .reconnecting {
-            notify { $0.signalDidReconnect() }
-        }
-
+        let isReconnect = connectionState == .reconnecting
+        notify { $0.signalDidConnect(isReconnect: isReconnect) }
         connectionState = .connected
-        
         receiveNext()
     }
 
