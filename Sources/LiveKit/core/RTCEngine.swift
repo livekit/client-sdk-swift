@@ -130,14 +130,14 @@ class RTCEngine: MulticastDelegate<RTCEngineDelegate> {
         }
     }
     
-    func join(connectOptions: ConnectOptions? = nil) {
+    func join(connectOptions: ConnectOptions? = nil) -> Promise<Void> {
 
         if let connectOptions = connectOptions {
             // set new connect options, if any
             self.connectOptions = connectOptions
         }
 
-        try? signalClient.connect(options: self.connectOptions)
+        return signalClient.connect(options: self.connectOptions)
 //        wsReconnectTask = DispatchWorkItem {
 //            guard self.connectionState != .disconnected else {
 //                return
@@ -156,14 +156,16 @@ class RTCEngine: MulticastDelegate<RTCEngineDelegate> {
 
         signalClient.sendAddTrack(cid: cid, name: name, type: kind, dimensions: dimensions)
 
-        return signalClient.wait(timeout: 5) { fulfill in
-            SignalClientDelegateClosures(didPublishLocalTrack: { response in
-                logger.debug("[SignalClientDelegateClosures] didPublishLocalTrack")
-                if response.cid == cid {
-                    fulfill(response.track)
-                }
-            })
-        }
+        return waitForPublishTrack(cid: cid)
+
+//        return signalClient.wait(timeout: 5) { fulfill in
+//            SignalClientDelegateClosures(didPublishLocalTrack: { response in
+//                logger.debug("[SignalClientDelegateClosures] didPublishLocalTrack")
+//                if response.cid == cid {
+//                    fulfill(response.track)
+//                }
+//            })
+//        }
     }
 
     func updateMuteStatus(trackSid: String, muted: Bool) {
@@ -187,7 +189,7 @@ class RTCEngine: MulticastDelegate<RTCEngineDelegate> {
         publisher.negotiate()
     }
 
-    func reconnect(connectOptions: ConnectOptions? = nil) {
+    func reconnect(connectOptions: ConnectOptions? = nil) -> Promise<Void> {
 
         if let connectOptions = connectOptions {
             // set new connect options, if any
@@ -196,8 +198,13 @@ class RTCEngine: MulticastDelegate<RTCEngineDelegate> {
 
         guard connectionState != .disconnected else {
             logger.debug("reconnect() already disconnected")
-            return
+            return Promise(EngineError.invalidState("already disconnected"))
         }
+
+        guard let subscriber = subscriber, let publisher = publisher else {
+            return Promise(EngineError.invalidState("publisher or subscriber is null"))
+        }
+
 
         logger.debug("reconnecting to signal connection, attempt', reconnectAttempts")
 
@@ -207,8 +214,18 @@ class RTCEngine: MulticastDelegate<RTCEngineDelegate> {
         }
         reconnectAttempts += 1
 
-        try? signalClient.connect(options: self.connectOptions, reconnect: true)
+        return signalClient.connect(options: self.connectOptions, reconnect: true).then { () -> Promise<Void> in
+            subscriber.restartingIce = true
+            if self.hasPublished {
+                return publisher.createAndSendOffer()
+            }
+            // no-op if not published
+            return Promise(())
+        }.then {
+            self.waitForIceConnect(transport: self.primary)
+        }
 
+//        return p
 //
 //        if reconnectAttempts >= maxReconnectAttempts {
 //            logger.error("could not connect to signal after \(reconnectAttempts) attempts, giving up")
@@ -260,27 +277,73 @@ class RTCEngine: MulticastDelegate<RTCEngineDelegate> {
             return Promise(EngineError.invalidState("publisher is nil"))
         }
 
-        guard subscriberPrimary,
-              publisher.pc.iceConnectionState != .connected else {
-            // aleady connected
+        guard subscriberPrimary, publisher.pc.iceConnectionState != .connected else {
+            // aleady connected, no-op
             return Promise(())
         }
 
         negotiate()
 
-        return publisher.wait(timeout: 3) { fulfill in
-            // temporary delegate
-            TransportDelegateClosures(onIceStateUpdated: { _, iceState in
-                if iceState == .connected {
-                    fulfill(())
-                }
-            })
-        }
+        return waitForIceConnect(transport: publisher)
+
+//        return publisher.wait(timeout: 3) { fulfill in
+//            // temporary delegate
+//            TransportDelegateClosures(onIceStateUpdated: { _, iceState in
+//                if iceState == .connected {
+//                    fulfill(())
+//                }
+//            })
+//        }
 
 //        // wait to connect...
 //        return NotificationCenter.liveKit.wait(for: IceStateUpdatedEvent.self,
 //                                                  timeout: 3,
 //                                                  filter: { $0.target == .publisher && $0.iceState == .connected })
+    }
+}
+
+// MARK: - Wait extension
+
+extension RTCEngine {
+
+    func waitForIceConnect(transport: Transport?) -> Promise<Void> {
+
+        guard let transport = transport else {
+            return Promise(EngineError.invalidState("transport is nil"))
+        }
+
+        return Promise<Void> { fulfill, reject in
+            // create temporary delegate
+            var delegate: TransportDelegateClosures?
+            delegate = TransportDelegateClosures(onIceStateUpdated: { _, iceState in
+                if iceState == .connected {
+                    fulfill(())
+                    delegate = nil
+                }
+            })
+            transport.add(delegate: delegate!)
+        }
+        // convert to timed-promise
+        .timeout(5)
+    }
+
+    func waitForPublishTrack(cid: String) -> Promise<Livekit_TrackInfo> {
+
+        return Promise<Livekit_TrackInfo> { fulfill, reject in
+           // create temporary delegate
+           var delegate: SignalClientDelegateClosures?
+           delegate = SignalClientDelegateClosures(didPublishLocalTrack: { response in
+               logger.debug("[SignalClientDelegateClosures] didPublishLocalTrack")
+               if response.cid == cid {
+                   // complete when track info received
+                   fulfill(response.track)
+                   delegate = nil
+               }
+           })
+           self.signalClient.add(delegate: delegate!)
+       }
+       // convert to timed-promise
+       .timeout(5)
     }
 }
 

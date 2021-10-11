@@ -19,7 +19,7 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
 
     let pc: RTCPeerConnection
     private var pendingCandidates: [RTCIceCandidate] = []
-    private(set) var restartingIce: Bool = false
+    internal var restartingIce: Bool = false
     var renegotiate: Bool = false
     var onOffer: TransportOnOffer?
 

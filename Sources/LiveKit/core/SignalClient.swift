@@ -17,20 +17,32 @@ internal class SignalClient : MulticastDelegate<SignalClientDelegate> {
         urlSession.invalidateAndCancel()
     }
 
-    func connect(options: ConnectOptions, reconnect: Bool = false) throws {
+    func connect(options: ConnectOptions, reconnect: Bool = false) -> Promise<Void> {
 
-        do {
-            webSocket?.cancel()
+        Promise<Void> { () -> Void in
             let rtcUrl = try options.buildUrl(reconnect: reconnect)
-            logger.debug("connecting to url: \(rtcUrl)")
-            connectionState = reconnect ? .reconnecting : .connecting
-            webSocket = urlSession.webSocketTask(with: rtcUrl)
-            webSocket!.resume()
+            logger.debug("connecting with url: \(rtcUrl)")
 
-        } catch let error {
-            notify { $0.signalError(error: error) }
-            throw error
+            self.webSocket?.cancel()
+            self.webSocket = self.urlSession.webSocketTask(with: rtcUrl)
+            self.webSocket!.resume()
+            self.connectionState = reconnect ? .reconnecting : .connecting
+        }.then {
+            self.waitForSignalClientConnect()
+
+//            self.wait(timeout: 3) { fulfil in
+//                SignalClientDelegateClosures(didConnect: { isReconnect in
+//                    fulfil(())
+//                })
+//            }
         }
+//        do {
+
+
+//        } catch let error {
+//            notify { $0.signalError(error: error) }
+//            throw error
+//        }
     }
 
     private func sendRequest(_ request: Livekit_SignalRequest) {
@@ -156,6 +168,28 @@ internal class SignalClient : MulticastDelegate<SignalClientDelegate> {
         }
     }
 
+}
+
+// MARK: Wait extension
+
+extension SignalClient {
+
+    func waitForSignalClientConnect() -> Promise<Void> {
+
+        return Promise<Void> { fulfill, reject in
+            // create temporary delegate
+            var delegate: SignalClientDelegateClosures?
+            delegate = SignalClientDelegateClosures(didConnect: { isReconnect in
+                // wait until connected
+                fulfill(())
+                delegate = nil
+            })
+            // not required to clean up since weak reference
+            self.add(delegate: delegate!)
+        }
+        // convert to a timed-promise
+        .timeout(3)
+    }
 }
 
 //MARK: - Send methods
