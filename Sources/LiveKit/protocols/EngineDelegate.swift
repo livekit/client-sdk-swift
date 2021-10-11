@@ -1,7 +1,7 @@
 import Foundation
 import WebRTC
 
-protocol EngineDelegate {
+internal protocol EngineDelegate {
     func engine(_ engine: Engine, didReceive joinResponse: Livekit_JoinResponse)
     func engine(_ engine: Engine, didUpdate participants: [Livekit_ParticipantInfo])
     func engine(_ engine: Engine, didUpdateEngine speakers: [Livekit_SpeakerInfo])

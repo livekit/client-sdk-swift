@@ -20,7 +20,7 @@ public class Participant: MulticastDelegate<ParticipantDelegate> {
         didSet {
             if oldValue != metadata {
                 notify { $0.participant(self, didUpdate: self.metadata) }
-                room?.notify { $0.room(self.room!, participantDidUpdate: self, metadata: self.metadata) }
+                room?.notify { $0.room(self.room!, participant: self, didUpdate: self.metadata) }
             }
         }
     }

@@ -1,9 +1,14 @@
 import Foundation
 
+public protocol RoomDelegateDeprecated {
+    @available(*, deprecated, message: "Please use the new delegate instead")
+    func didPublishRemoteTrack(publication: RemoteTrackPublication, participant: RemoteParticipant)
+}
+
 /// RoomDelegate receives room events as well as participant events.
 ///
 /// The only two required delegates are `participantDidConnect` and `participantDidDisconnect`
-public protocol RoomDelegate {
+public protocol RoomDelegate: RoomDelegateDeprecated {
     /// Successfully connected to the room
     func room(_ room: Room, didConnect isReconnect: Bool)
 
@@ -35,7 +40,7 @@ public protocol RoomDelegate {
     /* All Participants */
 
     /// Participant's metadata has been changed
-    func room(_ room: Room, participantDidUpdate participant: Participant, metadata: String?)
+    func room(_ room: Room, participant: Participant, didUpdate metadata: String?)
 
     /// The participant was muted.
     ///
@@ -48,14 +53,14 @@ public protocol RoomDelegate {
     /// For the local participant, the callback will be called if setMute was called on the local participant,
     /// or if the server has requested the participant to be unmuted
 //    func didUnmute(publication: TrackPublication, participant: Participant)
-    func room(_ room: Room, participantDidUpdate participant: Participant, track: TrackPublication, muted: Bool)
+    func room(_ room: Room, participant: Participant, track: TrackPublication, didUpdate muted: Bool)
 
     /* Remote Participant */
 
     /// When a new track is published to room after the local participant has joined.
     ///
     /// It will not fire for tracks that are already published
-    func didPublishRemoteTrack(publication: RemoteTrackPublication, participant: RemoteParticipant)
+    func room(_ room: Room, participant: RemoteParticipant, didPublishRemoteTrack: RemoteTrackPublication)
 
     /// A RemoteParticipant has unpublished a track
     func didUnpublishRemoteTrack(publication: RemoteTrackPublication, particpant: RemoteParticipant)
@@ -84,17 +89,14 @@ public extension RoomDelegate {
     func room(_ room: Room, didFailToConnect error: Error) {}
     func room(_ room: Room, didDisconnect error: Error?) {}
     func roomIsReconnecting(_ room: Room) {}
+    func room(_ room: Room, didUpdate speakers: [Participant]) {}
     func room(_ room: Room, participantDidConnect participant: RemoteParticipant) {}
     func room(_ room: Room, participantDidDisconnect participant: RemoteParticipant) {}
+    func room(_ room: Room, participant: Participant, didUpdate metadata: String?) {}
+    func room(_ room: Room, participant: Participant, track: TrackPublication, didUpdate muted: Bool) {}
+    func room(_ room: Room, participant: RemoteParticipant, didPublishRemoteTrack: RemoteTrackPublication) {}
 
-//    func didReconnect(room _: Room) {}
-    func room(_ room: Room, didUpdate speakers: [Participant]) {}
-    func room(_ room: Room, participantDidUpdate participant: Participant, metadata: String?) {}
-
-//    func didMute(publication _: TrackPublication, participant _: Participant) {}
-//    func didUnmute(publication _: TrackPublication, participant _: Participant) {}
-    func room(_ room: Room, participantDidUpdate participant: Participant, track: TrackPublication, muted: Bool) {}
-
+    // deprecated
     func didPublishRemoteTrack(publication _: RemoteTrackPublication, participant _: RemoteParticipant) {}
     func didUnpublishRemoteTrack(publication _: RemoteTrackPublication, particpant _: RemoteParticipant) {}
     func didSubscribe(track _: Track, publication _: RemoteTrackPublication, participant _: RemoteParticipant) {}
