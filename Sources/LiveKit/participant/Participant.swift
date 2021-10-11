@@ -11,7 +11,7 @@ public class Participant: MulticastDelegate<ParticipantDelegate> {
     public internal(set) var isSpeaking: Bool = false {
         didSet {
             if oldValue != isSpeaking {
-                notify { $0.isSpeakingDidChange(participant: self) }
+                notify { $0.participant(self, didUpdate: self.isSpeaking) }
             }
         }
     }
@@ -19,8 +19,8 @@ public class Participant: MulticastDelegate<ParticipantDelegate> {
     public internal(set) var metadata: String? {
         didSet {
             if oldValue != metadata {
-                notify { $0.metadataDidChange(participant: self) }
-                room?.notify { $0.metadataDidChange(participant: self) }
+                notify { $0.participant(self, didUpdate: self.metadata) }
+                room?.notify { $0.room(self.room!, participantDidUpdate: self, metadata: self.metadata) }
             }
         }
     }

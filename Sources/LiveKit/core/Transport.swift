@@ -39,7 +39,7 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
          delegate: TransportDelegate) throws {
 
         // try create peerConnection
-        let pc = RTCEngine.factory.peerConnection(with: config,
+        let pc = Engine.factory.peerConnection(with: config,
                                                   constraints: RTCMediaConstraints.defaultPCConstraints,
                                                   delegate: nil)
         guard let pc = pc else {

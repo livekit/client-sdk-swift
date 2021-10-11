@@ -14,13 +14,13 @@ public class RemoteTrackPublication: TrackPublication {
             guard let participant = self.participant else {
                 return
             }
-            if muted {
-                participant.notify { $0.didMute(publication: self, participant: participant) }
-                participant.room?.notify { $0.didMute(publication: self, participant: participant) }
-            } else {
-                participant.notify { $0.didUnmute(publication: self, participant: participant) }
-                participant.room?.notify { $0.didUnmute(publication: self, participant: participant) }
-            }
+//            if muted {
+            participant.notify { $0.participant(participant, didUpdate: self.muted, trackPublication: self) }
+            participant.room?.notify { $0.room(participant.room!, participantDidUpdate: participant, track: self, muted: self.muted) }
+//            } else {
+//                participant.notify { $0.participant(participant, didUpdate: self.muted, trackPublication: self) }
+//                participant.room?.notify { $0.didUnmute(publication: self, participant: participant) }
+//            }
         }
     }
 

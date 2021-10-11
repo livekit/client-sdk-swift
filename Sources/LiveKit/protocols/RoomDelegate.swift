@@ -5,49 +5,50 @@ import Foundation
 /// The only two required delegates are `participantDidConnect` and `participantDidDisconnect`
 public protocol RoomDelegate {
     /// Successfully connected to the room
-    func didConnect(room: Room)
+    func room(_ room: Room, didConnect isReconnect: Bool)
 
     /// Could not connect to the room
-    func didFailToConnect(room: Room, error: Error)
+    func room(_ room: Room, didFailToConnect error: Error)
 
     /// Client disconnected from the room unexpectedly
-    func didDisconnect(room: Room, error: Error?)
-
-    /// When a RemoteParticipant joins after the local participant.
-    /// It will not emit events for participants that are already in the room
-    func participantDidConnect(room: Room, participant: RemoteParticipant)
-
-    /// When a RemoteParticipant leaves after the local participant has joined.
-    func participantDidDisconnect(room: Room, participant: RemoteParticipant)
+    func room(_ room: Room, didDisconnect error: Error?)
 
     /// When a network change has been detected and LiveKit attempts to reconnect to the room
     /// When reconnect attempts succeed, the room state will be kept, including tracks that are subscribed/published
-    func isReconnecting(room: Room)
+    func roomIsReconnecting(_ room: Room)
+
+    /// When a RemoteParticipant joins after the local participant.
+    /// It will not emit events for participants that are already in the room
+    func room(_ room: Room, participantDidConnect participant: RemoteParticipant)
+
+    /// When a RemoteParticipant leaves after the local participant has joined.
+    func room(_ room: Room, participantDidDisconnect participant: RemoteParticipant)
 
     /// When a reconnect attempt had been successful
-    func didReconnect(room: Room)
+//    func didReconnect(room: Room)
 
     /// Active speakers changed.
     ///
     /// List of speakers are ordered by their audio level. loudest speakers first. This will include the LocalParticipant too.
-    func activeSpeakersDidChange(speakers: [Participant], room: Room)
+    func room(_ room: Room, didUpdate speakers: [Participant])
 
     /* All Participants */
 
     /// Participant's metadata has been changed
-    func metadataDidChange(participant: Participant)
+    func room(_ room: Room, participantDidUpdate participant: Participant, metadata: String?)
 
     /// The participant was muted.
     ///
     /// For the local participant, the callback will be called if setMute was called on the local participant,
     /// or if the server has requested the participant to be muted
-    func didMute(publication: TrackPublication, participant: Participant)
+//    func didMute(publication: TrackPublication, participant: Participant)
 
     /// The participant was unmuted.
     ///
     /// For the local participant, the callback will be called if setMute was called on the local participant,
     /// or if the server has requested the participant to be unmuted
-    func didUnmute(publication: TrackPublication, participant: Participant)
+//    func didUnmute(publication: TrackPublication, participant: Participant)
+    func room(_ room: Room, participantDidUpdate participant: Participant, track: TrackPublication, muted: Bool)
 
     /* Remote Participant */
 
@@ -79,14 +80,21 @@ public protocol RoomDelegate {
 }
 
 public extension RoomDelegate {
-    func participantDidConnect(room _: Room, participant _: RemoteParticipant) {}
-    func participantDidDisconnect(room _: Room, participant _: RemoteParticipant) {}
-    func isReconnecting(room _: Room) {}
-    func didReconnect(room _: Room) {}
-    func activeSpeakersDidChange(speakers _: [Participant], room _: Room) {}
-    func metadataDidChange(participant _: Participant) {}
-    func didMute(publication _: TrackPublication, participant _: Participant) {}
-    func didUnmute(publication _: TrackPublication, participant _: Participant) {}
+    func room(_ room: Room, didConnect isReconnect: Bool) {}
+    func room(_ room: Room, didFailToConnect error: Error) {}
+    func room(_ room: Room, didDisconnect error: Error?) {}
+    func roomIsReconnecting(_ room: Room) {}
+    func room(_ room: Room, participantDidConnect participant: RemoteParticipant) {}
+    func room(_ room: Room, participantDidDisconnect participant: RemoteParticipant) {}
+
+//    func didReconnect(room _: Room) {}
+    func room(_ room: Room, didUpdate speakers: [Participant]) {}
+    func room(_ room: Room, participantDidUpdate participant: Participant, metadata: String?) {}
+
+//    func didMute(publication _: TrackPublication, participant _: Participant) {}
+//    func didUnmute(publication _: TrackPublication, participant _: Participant) {}
+    func room(_ room: Room, participantDidUpdate participant: Participant, track: TrackPublication, muted: Bool) {}
+
     func didPublishRemoteTrack(publication _: RemoteTrackPublication, participant _: RemoteParticipant) {}
     func didUnpublishRemoteTrack(publication _: RemoteTrackPublication, particpant _: RemoteParticipant) {}
     func didSubscribe(track _: Track, publication _: RemoteTrackPublication, participant _: RemoteParticipant) {}

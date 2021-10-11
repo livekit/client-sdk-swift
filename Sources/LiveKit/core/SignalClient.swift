@@ -73,7 +73,7 @@ internal class SignalClient : MulticastDelegate<SignalClientDelegate> {
     
     // handle errors after already connected
     private func handleError(_ reason: String) {
-        notify { $0.signalDidClose(reason: reason, code: 0) }
+        notify { $0.signalClient(self, didClose: reason, code: 0) }
         close()
     }
 
@@ -86,33 +86,33 @@ internal class SignalClient : MulticastDelegate<SignalClientDelegate> {
         
         do {
             switch msg {
-            case let .join(joinMsg) :
-                notify { $0.signalDidReceive(joinResponse: joinMsg) }
+            case let .join(joinResponse) :
+                notify { $0.signalClient(self, didReceive: joinResponse) }
 
             case let .answer(sd):
-                try notify { $0.signalDidReceive(answer: try sd.toRTCType()) }
+                try notify { $0.signalClient(self, didReceiveAnswer: try sd.toRTCType()) }
 
             case let .offer(sd):
-                try notify { $0.signalDidReceive(offer: try sd.toRTCType()) }
+                try notify { $0.signalClient(self, didReceiveOffer: try sd.toRTCType()) }
 
             case let .trickle(trickle):
                 let rtcCandidate = try RTCIceCandidate(fromJsonString: trickle.candidateInit)
-                notify { $0.signalDidReceive(iceCandidate: rtcCandidate, target: trickle.target) }
+                notify { $0.signalClient(self, didReceive: rtcCandidate, target: trickle.target) }
 
             case let .update(update):
-                notify { $0.signalDidUpdate(participants: update.participants) }
+                notify { $0.signalClient(self, didUpdate: update.participants) }
 
             case let .trackPublished(trackPublished):
-                notify { $0.signalDidPublish(localTrack: trackPublished) }
+                notify { $0.signalClient(self, didPublish: trackPublished) }
 
             case let .speakersChanged(speakers):
-                notify { $0.signalDidUpdate(speakers: speakers.speakers) }
+                notify { $0.signalClient(self, didUpdate: speakers.speakers) }
 
             case let .mute(mute):
-                notify { $0.signalDidUpdateRemoteMute(trackSid: mute.sid, muted: mute.muted) }
+                notify { $0.signalClient(self, didUpdateRemoteMute: mute.sid, muted: mute.muted) }
 
             case .leave:
-                notify { $0.signalDidLeave() }
+                notify { $0.signalClientDidLeave(self) }
 
             default:
                 logger.warning("unsupported signal response type: \(msg)")
@@ -179,7 +179,7 @@ extension SignalClient {
         return Promise<Void> { fulfill, reject in
             // create temporary delegate
             var delegate: SignalClientDelegateClosures?
-            delegate = SignalClientDelegateClosures(didConnect: { isReconnect in
+            delegate = SignalClientDelegateClosures(didConnect: { _, isReconnect in
                 // wait until connected
                 fulfill(())
                 delegate = nil
@@ -317,7 +317,7 @@ extension SignalClient: URLSessionWebSocketDelegate {
             isReconnect = true
         }
 
-        notify { $0.signalDidConnect(isReconnect: isReconnect) }
+        notify { $0.signalClient(self, didConnect: isReconnect) }
         connectionState = .connected
         receiveNext()
     }
@@ -333,8 +333,7 @@ extension SignalClient: URLSessionWebSocketDelegate {
 
         logger.debug("websocket disconnected")
         connectionState = .disconnected
-        notify { $0.signalDidClose(reason: "",
-                                   code: UInt16(closeCode.rawValue)) }
+        notify { $0.signalClient(self, didClose: "", code: UInt16(closeCode.rawValue)) }
     }
     
     func urlSession(_ session: URLSession,
@@ -353,6 +352,6 @@ extension SignalClient: URLSessionWebSocketDelegate {
         }
 
         connectionState = .disconnected
-        notify { $0.signalError(error: realError) }
+        notify { $0.signalClient(self, didFailConnection: realError) }
     }
 }

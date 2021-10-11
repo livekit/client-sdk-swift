@@ -23,7 +23,7 @@ public class Room: MulticastDelegate<RoomDelegate> {
     private let monitorQueue: DispatchQueue
     private var prevPath: NWPath?
     private var lastPathUpdate: TimeInterval = 0
-    internal let engine: RTCEngine
+    internal let engine: Engine
     public var state: ConnectionState {
         engine.connectionState
     }
@@ -35,7 +35,7 @@ public class Room: MulticastDelegate<RoomDelegate> {
 //        monitor = NWPathMonitor()
         monitorQueue = DispatchQueue(label: "networkMonitor", qos: .background)
 
-        engine = RTCEngine(connectOptions: connectOptions)
+        engine = Engine(connectOptions: connectOptions)
 
 //        monitor.pathUpdateHandler = { path in
 //            logger.debug("network path update: \(path.availableInterfaces), \(path.status)")
@@ -105,7 +105,7 @@ public class Room: MulticastDelegate<RoomDelegate> {
             participant.unpublishTrack(sid: publication.sid)
         }
 
-        notify { $0.participantDidDisconnect(room: self, participant: participant) }
+        notify { $0.room(self, participantDidDisconnect: participant) }
     }
 
     private func getOrCreateRemoteParticipant(sid: Sid, info: Livekit_ParticipantInfo? = nil) -> RemoteParticipant {
@@ -137,7 +137,7 @@ public class Room: MulticastDelegate<RoomDelegate> {
 
         let activeSpeakers = lastSpeakers.values.sorted(by: { $1.audioLevel > $0.audioLevel })
         self.activeSpeakers = activeSpeakers
-        notify { $0.activeSpeakersDidChange(speakers: activeSpeakers, room: self) }
+        notify { $0.room(self, didUpdate: activeSpeakers)}
     }
 
     private func onEngineSpeakersUpdate(_ speakers: [Livekit_SpeakerInfo]) {
@@ -169,7 +169,7 @@ public class Room: MulticastDelegate<RoomDelegate> {
             }
         }
         self.activeSpeakers = activeSpeakers
-        notify { $0.activeSpeakersDidChange(speakers: activeSpeakers, room: self) }
+        notify { $0.room(self, didUpdate: activeSpeakers) }
     }
 
     private func handleDisconnect() {
@@ -200,7 +200,7 @@ public class Room: MulticastDelegate<RoomDelegate> {
         remoteParticipants.removeAll()
         activeSpeakers.removeAll()
 //        monitor.cancel()
-        notify { $0.didDisconnect(room: self, error: nil) }
+        notify { $0.room(self, didDisconnect: nil) }
         // should be the only call from delegate, room is done
 //        delegate = nil
     }
@@ -208,21 +208,21 @@ public class Room: MulticastDelegate<RoomDelegate> {
 
 // MARK: - RTCEngineDelegate
 
-extension Room: RTCEngineDelegate {
+extension Room: EngineDelegate {
 
-    func engine(_ engine: RTCEngine, didUpdateSignal speakers: [Livekit_SpeakerInfo]) {
+    func engine(_ engine: Engine, didUpdateSignal speakers: [Livekit_SpeakerInfo]) {
         onSignalSpeakersUpdate(speakers)
     }
 
-    func engine(_ engine: RTCEngine, didUpdateEngine speakers: [Livekit_SpeakerInfo]) {
+    func engine(_ engine: Engine, didUpdateEngine speakers: [Livekit_SpeakerInfo]) {
         onEngineSpeakersUpdate(speakers)
     }
 
-    func engineDidDisconnect(_ engine: RTCEngine) {
+    func engineDidDisconnect(_ engine: Engine) {
         handleDisconnect()
     }
     
-    func engine(_ engine: RTCEngine, didReceive joinResponse: Livekit_JoinResponse) {
+    func engine(_ engine: Engine, didReceive joinResponse: Livekit_JoinResponse) {
         logger.info("connected to room, server version: \(joinResponse.serverVersion)")
 
         sid = joinResponse.room.sid
@@ -238,15 +238,15 @@ extension Room: RTCEngineDelegate {
         }
     }
 
-    func engineDidConnect(_ engine: RTCEngine) {
-        notify { $0.didConnect(room: self) }
+    func engine(_ engine: Engine, didConnect isReconnect: Bool) {
+        notify { $0.room(self, didConnect: isReconnect) }
     }
 
-    func engineDidReconnect(_ engine: RTCEngine) {
-        notify { $0.didReconnect(room: self) }
-    }
+//    func engineDidReconnect(_ engine: Engine) {
+//        notify { $0.didReconnect(room: self) }
+//    }
 
-    func engine(_ engine: RTCEngine, didAdd track: RTCMediaStreamTrack, streams: [RTCMediaStream]) {
+    func engine(_ engine: Engine, didAdd track: RTCMediaStreamTrack, streams: [RTCMediaStream]) {
         guard streams.count > 0 else {
             logger.error("received onTrack with no streams!")
             return
@@ -273,7 +273,7 @@ extension Room: RTCEngineDelegate {
         }
     }
 
-    func engine(_ engine: RTCEngine, didUpdate participants: [Livekit_ParticipantInfo]) {
+    func engine(_ engine: Engine, didUpdate participants: [Livekit_ParticipantInfo]) {
         for info in participants {
             if info.sid == localParticipant?.sid {
                 localParticipant?.updateFromInfo(info: info)
@@ -285,34 +285,34 @@ extension Room: RTCEngineDelegate {
             if info.state == .disconnected {
                 handleParticipantDisconnect(sid: info.sid, participant: participant)
             } else if isNewParticipant {
-                notify { $0.participantDidConnect(room: self, participant: participant) }
+                notify { $0.room(self, participantDidConnect: participant) }
             } else {
                 participant.updateFromInfo(info: info)
             }
         }
     }
 
-    func engine(_ engine: RTCEngine, didReceive userPacket: Livekit_UserPacket) {
+    func engine(_ engine: Engine, didReceive userPacket: Livekit_UserPacket) {
         guard let participant = remoteParticipants[userPacket.participantSid] else {
             logger.warning("could not find participant for data packet: \(userPacket.participantSid)")
             return
         }
 
         notify { $0.didReceive(data: userPacket.payload, participant: participant) }
-        participant.notify { $0.didReceive(data: userPacket.payload, participant: participant) }
+        participant.notify { $0.participant(participant, didReceive: userPacket.payload) }
     }
 
-    func engine(_ engine: RTCEngine, didUpdateRemoteMute trackSid: String, muted: Bool) {
+    func engine(_ engine: Engine, didUpdateRemoteMute trackSid: String, muted: Bool) {
         if let track = localParticipant?.tracks[trackSid] as? LocalTrackPublication {
             track.setMuted(muted)
         }
     }
 
     func didDisconnect(reason: String, code: UInt16) {
-        notify { $0.didDisconnect(room: self, error: nil) }
+        notify { $0.room(self, didDisconnect: nil) }
     }
 
-    func didFailToConnect(error: Error) {
-        notify { $0.didFailToConnect(room: self, error: error) }
+    func engine(_ engine: Engine, didFailConnection error: Error) {
+        notify { $0.room(self, didFailToConnect: error) }
     }
 }

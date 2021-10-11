@@ -5,7 +5,7 @@ import Promises
 let maxReconnectAttempts = 5
 let maxDataPacketSize = 15000
 
-class RTCEngine: MulticastDelegate<RTCEngineDelegate> {
+class Engine: MulticastDelegate<EngineDelegate> {
 
 //    typealias DelegateType = RTCEngineDelegate
 //    internal let delegates = NSHashTable<AnyObject>.weakObjects()
@@ -42,13 +42,21 @@ class RTCEngine: MulticastDelegate<RTCEngineDelegate> {
             }
             switch connectionState {
             case .connected:
-                if oldValue == .disconnected {
-                    logger.debug("publisher ICE connected")
-                    notify { $0.engineDidConnect(self) }
-                } else if oldValue == .connecting(reconnecting: true) {
-                    logger.debug("publisher ICE reconnected")
-                    notify { $0.engineDidReconnect(self) }
+
+                var isReconnect = false
+                if case .connecting(reconnecting: true) = oldValue {
+                    isReconnect = true
                 }
+
+                notify { $0.engine(self, didConnect: isReconnect) }
+
+//                if oldValue == .disconnected {
+//                    logger.debug("publisher ICE connected")
+//                    notify { $0.engineDidConnect(self) }
+//                } else if oldValue == .connecting(reconnecting: true) {
+//                    logger.debug("publisher ICE reconnected")
+//                    notify { $0.engineDidReconnect(self) }
+//                }
             case .disconnected:
                 logger.info("publisher ICE disconnected")
                 close()
@@ -309,7 +317,7 @@ class RTCEngine: MulticastDelegate<RTCEngineDelegate> {
 
 // MARK: - Wait extension
 
-extension RTCEngine {
+extension Engine {
 
     func waitForIceConnect(transport: Transport?) -> Promise<Void> {
 
@@ -337,7 +345,7 @@ extension RTCEngine {
         return Promise<Livekit_TrackInfo> { fulfill, reject in
            // create temporary delegate
            var delegate: SignalClientDelegateClosures?
-           delegate = SignalClientDelegateClosures(didPublishLocalTrack: { response in
+           delegate = SignalClientDelegateClosures(didPublishLocalTrack: { _, response in
                logger.debug("[SignalClientDelegateClosures] didPublishLocalTrack")
                if response.cid == cid {
                    // complete when track info received
@@ -352,14 +360,14 @@ extension RTCEngine {
     }
 }
 
-extension RTCEngine: SignalClientDelegate {
+extension Engine: SignalClientDelegate {
 
-    func signalDidUpdate(speakers: [Livekit_SpeakerInfo]) {
+    func signalClient(_ signalClient: SignalClient, didUpdate speakers: [Livekit_SpeakerInfo]) {
 //        delegate?.didUpdateSpeakersSignal(speakers: speakers)
         notify { $0.engine(self, didUpdateSignal: speakers) }
     }
 
-    func signalDidConnect(isReconnect: Bool) {
+    func signalClient(_ signalClient: SignalClient, didConnect isReconnect: Bool) {
         logger.info("signalClient did connect")
         reconnectAttempts = 0
 
@@ -388,7 +396,7 @@ extension RTCEngine: SignalClientDelegate {
 //        }
     }
 
-    func signalDidReceive(joinResponse: Livekit_JoinResponse) {
+    func signalClient(_ signalClient: SignalClient, didReceive joinResponse: Livekit_JoinResponse) {
 
         guard subscriber == nil, publisher == nil else {
             logger.debug("onJoin() already configured")
@@ -445,7 +453,8 @@ extension RTCEngine: SignalClientDelegate {
         notify { $0.engine(self, didReceive: joinResponse) }
     }
 
-    func signalDidReceive(answer: RTCSessionDescription) {
+
+    func signalClient(_ signalClient: SignalClient, didReceiveAnswer answer: RTCSessionDescription) {
 
         guard let publisher = self.publisher else {
             return
@@ -467,7 +476,7 @@ extension RTCEngine: SignalClientDelegate {
         }
     }
 
-    func signalDidReceive(iceCandidate: RTCIceCandidate, target: Livekit_SignalTarget) {
+    func signalClient(_ signalClient: SignalClient, didReceive iceCandidate: RTCIceCandidate, target: Livekit_SignalTarget) {
 
         let transport = target == .publisher ? publisher : subscriber
         let result = transport?.addIceCandidate(iceCandidate)
@@ -477,7 +486,8 @@ extension RTCEngine: SignalClientDelegate {
         }
     }
 
-    func signalDidReceive(offer: RTCSessionDescription) {
+    func signalClient(_ signalClient: SignalClient, didReceiveOffer offer: RTCSessionDescription) {
+
         guard let subscriber = self.subscriber else {
             return
         }
@@ -518,12 +528,13 @@ extension RTCEngine: SignalClientDelegate {
 //        }
     }
 
-    func signalDidUpdate(participants: [Livekit_ParticipantInfo]) {
+    func signalClient(_ signalClient: SignalClient, didUpdate participants: [Livekit_ParticipantInfo]) {
 //        delegate?.didUpdateParticipants(updates: updates)
         notify { $0.engine(self, didUpdate: participants) }
     }
 
-    func signalDidPublish(localTrack: Livekit_TrackPublishedResponse) {
+    func signalClient(_ signalClient: SignalClient, didPublish localTrack: Livekit_TrackPublishedResponse) {
+
         logger.debug("received track published confirmation for: \(localTrack.track.sid)")
 //        guard let promise = pendingTrackResolvers.removeValue(forKey: localTrack.cid) else {
 //            logger.error("missing track resolver for: \(localTrack.cid)")
@@ -532,30 +543,30 @@ extension RTCEngine: SignalClientDelegate {
 //        promise.fulfill(localTrack.track)
     }
 
-    func signalDidUpdateRemoteMute(trackSid: String, muted: Bool) {
+    func signalClient(_ signalClient: SignalClient, didUpdateRemoteMute trackSid: String, muted: Bool) {
 //        delegate?.remoteMuteDidChange(trackSid: trackSid, muted: muted)
         notify { $0.engine(self, didUpdateRemoteMute: trackSid, muted: muted) }
     }
 
-    func signalDidLeave() {
+    func signalClientDidLeave(_ signaClient: SignalClient) {
         close()
 //        delegate?.didDisconnect()
-        notify { $0.engineDidConnect(self) }
+        notify { $0.engineDidDisconnect(self) }
     }
 
-    func signalDidClose(reason: String, code: UInt16) {
+    func signalClient(_ signalClient: SignalClient, didClose reason: String, code: UInt16) {
         logger.debug("signal connection closed with code: \(code), reason: \(reason)")
         handleSignalDisconnect()
     }
 
-    func signalError(error: Error) {
+    func signalClient(_ signalClient: SignalClient, didFailConnection error: Error) {
         logger.debug("signal connection error: \(error)")
 //        delegate?.didFailToConnect(error: error)
-        notify { $0.didFailToConnect(error: error) }
+        notify { $0.engine(self, didFailConnection: error) }
     }
 }
 
-extension RTCEngine: RTCDataChannelDelegate {
+extension Engine: RTCDataChannelDelegate {
 
     func dataChannelDidChangeState(_: RTCDataChannel) {}
 
@@ -579,7 +590,7 @@ extension RTCEngine: RTCDataChannelDelegate {
     }
 }
 
-extension RTCEngine: TransportDelegate {
+extension Engine: TransportDelegate {
 
     func transport(_ transport: Transport, didGenerate iceCandidate: RTCIceCandidate) {
         logger.debug("[PCTransportDelegate] didGenerate iceCandidate")

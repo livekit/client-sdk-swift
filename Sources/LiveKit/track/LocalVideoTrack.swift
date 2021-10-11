@@ -29,7 +29,7 @@ public class LocalVideoTrack: VideoTrack {
         source: RTCVideoSource,
         selectedDimensions: CMVideoDimensions) {
 
-            let source = RTCEngine.factory.videoSource()
+            let source = Engine.factory.videoSource()
             let capturer = RTCCameraVideoCapturer(delegate: source)
             let possibleDevice = RTCCameraVideoCapturer.captureDevices().first { $0.position == options.position }
 
@@ -76,7 +76,7 @@ public class LocalVideoTrack: VideoTrack {
             logger.info("starting capture with \(device), format: \(selectedFormat), fps: \(fps)")
             capturer.startCapture(with: device, format: selectedFormat, fps: Int(fps))
 
-            let rtcTrack = RTCEngine.factory.videoTrack(with: source, trackId: UUID().uuidString)
+            let rtcTrack = Engine.factory.videoTrack(with: source, trackId: UUID().uuidString)
             rtcTrack.isEnabled = true
 
             return (rtcTrack, capturer, source, selectedDimension)
