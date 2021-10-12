@@ -24,10 +24,10 @@ public protocol RoomDelegate {
 
     /// When a RemoteParticipant joins after the local participant.
     /// It will not emit events for participants that are already in the room
-    func room(_ room: Room, participantDidConnect participant: RemoteParticipant)
+    func room(_ room: Room, participantDidJoin participant: RemoteParticipant)
 
     /// When a RemoteParticipant leaves after the local participant has joined.
-    func room(_ room: Room, participantDidDisconnect participant: RemoteParticipant)
+    func room(_ room: Room, participantDidLeave participant: RemoteParticipant)
 
     /// When a reconnect attempt had been successful
 //    func didReconnect(room: Room)
@@ -94,8 +94,8 @@ public extension RoomDelegate {
     func room(_ room: Room, didDisconnect error: Error?) {}
     func room(_ room: Room, didUpdate connectionState: ConnectionState) {}
     func room(_ room: Room, didUpdate speakers: [Participant]) {}
-    func room(_ room: Room, participantDidConnect participant: RemoteParticipant) {}
-    func room(_ room: Room, participantDidDisconnect participant: RemoteParticipant) {}
+    func room(_ room: Room, participantDidJoin participant: RemoteParticipant) {}
+    func room(_ room: Room, participantDidLeave participant: RemoteParticipant) {}
     func room(_ room: Room, participant: Participant, didUpdate metadata: String?) {}
     func room(_ room: Room, participant: Participant, didUpdate track: TrackPublication, muted: Bool) {}
     func room(_ room: Room, participant: RemoteParticipant, didPublish remoteTrack: RemoteTrackPublication) {}

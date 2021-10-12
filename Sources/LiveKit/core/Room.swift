@@ -105,7 +105,7 @@ public class Room: MulticastDelegate<RoomDelegate> {
             participant.unpublishTrack(sid: publication.sid)
         }
 
-        notify { $0.room(self, participantDidDisconnect: participant) }
+        notify { $0.room(self, participantDidLeave: participant) }
     }
 
     private func getOrCreateRemoteParticipant(sid: Sid, info: Livekit_ParticipantInfo? = nil) -> RemoteParticipant {
@@ -289,7 +289,7 @@ extension Room: EngineDelegate {
             if info.state == .disconnected {
                 handleParticipantDisconnect(sid: info.sid, participant: participant)
             } else if isNewParticipant {
-                notify { $0.room(self, participantDidConnect: participant) }
+                notify { $0.room(self, participantDidJoin: participant) }
             } else {
                 participant.updateFromInfo(info: info)
             }
