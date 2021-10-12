@@ -7,4 +7,3 @@ public enum DataPublishReliability: Int {
     case reliable = 0
     case lossy = 1
 }
-

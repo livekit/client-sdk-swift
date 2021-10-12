@@ -2,7 +2,7 @@ import Foundation
 import Promises
 import WebRTC
 
-internal class SignalClient : MulticastDelegate<SignalClientDelegate> {
+internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
 
     // connection state of WebSocket
     private(set) var connectionState: ConnectionState = .disconnected()
@@ -57,7 +57,7 @@ internal class SignalClient : MulticastDelegate<SignalClientDelegate> {
         webSocket?.cancel()
         webSocket = nil
     }
-    
+
     // handle errors after already connected
     private func handleError(_ reason: String) {
         notify { $0.signalClient(self, didClose: reason, code: 0) }
@@ -70,7 +70,7 @@ internal class SignalClient : MulticastDelegate<SignalClientDelegate> {
             logger.error("not connected")
             return
         }
-        
+
         do {
             switch msg {
             case let .join(joinResponse) :
@@ -108,7 +108,7 @@ internal class SignalClient : MulticastDelegate<SignalClientDelegate> {
             logger.error("could not handle signal response: \(error)")
         }
     }
-    
+
     private func receiveNext() {
         guard let webSocket = webSocket else {
             logger.debug("webSocket is nil")
@@ -116,7 +116,7 @@ internal class SignalClient : MulticastDelegate<SignalClientDelegate> {
         }
         webSocket.receive(completionHandler: handleWebsocketMessage)
     }
-    
+
     private func handleWebsocketMessage(result: Result<URLSessionWebSocketTask.Message, Error>) {
         switch result {
         case .failure(let error):
@@ -124,7 +124,7 @@ internal class SignalClient : MulticastDelegate<SignalClientDelegate> {
             logger.error("could not receive websocket: \(error)")
             handleError(error.localizedDescription)
         case .success(let msg):
-            var response: Livekit_SignalResponse? = nil
+            var response: Livekit_SignalResponse?
             switch msg {
             case .data(let data):
                 do {
@@ -143,11 +143,11 @@ internal class SignalClient : MulticastDelegate<SignalClientDelegate> {
             default:
                 return
             }
-            
+
             if let sigResp = response, let msg = sigResp.message {
                 handleSignalResponse(msg: msg)
             }
-            
+
             // queue up the next read
             DispatchQueue.global(qos: .background).async {
                 self.receiveNext()
@@ -163,10 +163,10 @@ extension SignalClient {
 
     func waitForConnect() -> Promise<Void> {
 
-        return Promise<Void> { fulfill, reject in
+        return Promise<Void> { fulfill, _ in
             // create temporary delegate
             var delegate: SignalClientDelegateClosures?
-            delegate = SignalClientDelegateClosures(didConnect: { _, isReconnect in
+            delegate = SignalClientDelegateClosures(didConnect: { _, _ in
                 // wait until connected
                 fulfill(())
                 delegate = nil
@@ -179,7 +179,7 @@ extension SignalClient {
     }
 }
 
-//MARK: - Send methods
+// MARK: - Send methods
 
 extension SignalClient {
 
@@ -259,7 +259,6 @@ extension SignalClient {
             }
         }
 
-
         sendRequest(r)
     }
 
@@ -322,7 +321,7 @@ extension SignalClient: URLSessionWebSocketDelegate {
         connectionState = .disconnected()
         notify { $0.signalClient(self, didClose: "", code: UInt16(closeCode.rawValue)) }
     }
-    
+
     func urlSession(_ session: URLSession,
                     task: URLSessionTask,
                     didCompleteWithError error: Error?) {
@@ -330,7 +329,7 @@ extension SignalClient: URLSessionWebSocketDelegate {
         guard task == webSocket else {
             return
         }
-        
+
         var realError: Error
         if error != nil {
             realError = error!

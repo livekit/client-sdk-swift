@@ -48,11 +48,11 @@ public struct VideoParameters {
     )
 
     public static let presets43 = [
-        presetQVGA43, presetVGA43, presetQHD43, presetHD43, presetFHD43,
+        presetQVGA43, presetVGA43, presetQHD43, presetHD43, presetFHD43
     ]
 
     public static let presets169 = [
-        presetQVGA169, presetVGA169, presetQHD169, presetHD169, presetFHD169,
+        presetQVGA169, presetVGA169, presetQHD169, presetHD169, presetFHD169
     ]
 
     public let dimensions: Dimensions
@@ -63,59 +63,59 @@ public struct VideoParameters {
         self.encoding = encoding
     }
 
-//    static func getPresetForDimension(width: Int, height: Int) -> VideoParameters {
-//        var preset = presets169[0]
-//        for p in presets169 {
-//            if width >= p.capture.width, height >= p.capture.height {
-//                preset = p
-//            }
-//        }
-//        return preset
-//    }
+    //    static func getPresetForDimension(width: Int, height: Int) -> VideoParameters {
+    //        var preset = presets169[0]
+    //        for p in presets169 {
+    //            if width >= p.capture.width, height >= p.capture.height {
+    //                preset = p
+    //            }
+    //        }
+    //        return preset
+    //    }
 
-//    /// creates encoding parameters that best match input width/height
-//    static func getRTPEncodingParams(inputWidth: Int, inputHeight: Int, rid: String?, encoding: VideoEncoding? = nil) -> RTCRtpEncodingParameters? {
-//        var scaleDownFactor = 1.0
-//        if rid == "h" {
-//            scaleDownFactor = 2.0
-//        } else if rid == "q" {
-//            scaleDownFactor = 4.0
-//        }
-//        var targetWidth = Int(Double(inputWidth) / scaleDownFactor)
-//        var targetHeight = Int(Double(inputHeight) / scaleDownFactor)
-//
-//        var selectedEncoding: VideoEncoding
-//
-//        if targetWidth < simulcastMinWidth {
-//            return nil
-//        }
-//
-//        // unless it's original, find the best resolution
-//        if scaleDownFactor != 1.0 || encoding == nil {
-//            let preset = getPresetForDimension(width: targetWidth, height: targetHeight)
-//            targetWidth = preset.capture.width
-//            scaleDownFactor = Double(inputWidth) / Double(targetWidth)
-//            targetHeight = Int(Double(inputHeight) / scaleDownFactor)
-//
-//            selectedEncoding = preset.encoding
-//        } else {
-//            selectedEncoding = encoding!
-//        }
-//
-//        let params = RTCRtpEncodingParameters()
-//        params.isActive = true
-//        params.rid = rid
-//        params.scaleResolutionDownBy = NSNumber(value: scaleDownFactor)
-//        params.maxFramerate = NSNumber(value: selectedEncoding.maxFps)
-//        params.maxBitrateBps = NSNumber(value: selectedEncoding.maxBitrate)
-//        // only set on the full track
-//        if scaleDownFactor == 1.0 {
-//            params.networkPriority = .high
-//            params.bitratePriority = 4.0
-//        } else {
-//            params.networkPriority = .low
-//            params.bitratePriority = 1.0
-//        }
-//        return params
-//    }
+    //    /// creates encoding parameters that best match input width/height
+    //    static func getRTPEncodingParams(inputWidth: Int, inputHeight: Int, rid: String?, encoding: VideoEncoding? = nil) -> RTCRtpEncodingParameters? {
+    //        var scaleDownFactor = 1.0
+    //        if rid == "h" {
+    //            scaleDownFactor = 2.0
+    //        } else if rid == "q" {
+    //            scaleDownFactor = 4.0
+    //        }
+    //        var targetWidth = Int(Double(inputWidth) / scaleDownFactor)
+    //        var targetHeight = Int(Double(inputHeight) / scaleDownFactor)
+    //
+    //        var selectedEncoding: VideoEncoding
+    //
+    //        if targetWidth < simulcastMinWidth {
+    //            return nil
+    //        }
+    //
+    //        // unless it's original, find the best resolution
+    //        if scaleDownFactor != 1.0 || encoding == nil {
+    //            let preset = getPresetForDimension(width: targetWidth, height: targetHeight)
+    //            targetWidth = preset.capture.width
+    //            scaleDownFactor = Double(inputWidth) / Double(targetWidth)
+    //            targetHeight = Int(Double(inputHeight) / scaleDownFactor)
+    //
+    //            selectedEncoding = preset.encoding
+    //        } else {
+    //            selectedEncoding = encoding!
+    //        }
+    //
+    //        let params = RTCRtpEncodingParameters()
+    //        params.isActive = true
+    //        params.rid = rid
+    //        params.scaleResolutionDownBy = NSNumber(value: scaleDownFactor)
+    //        params.maxFramerate = NSNumber(value: selectedEncoding.maxFps)
+    //        params.maxBitrateBps = NSNumber(value: selectedEncoding.maxBitrate)
+    //        // only set on the full track
+    //        if scaleDownFactor == 1.0 {
+    //            params.networkPriority = .high
+    //            params.bitratePriority = 4.0
+    //        } else {
+    //            params.networkPriority = .low
+    //            params.bitratePriority = 1.0
+    //        }
+    //        return params
+    //    }
 }

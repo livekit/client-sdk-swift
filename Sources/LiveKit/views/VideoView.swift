@@ -9,24 +9,24 @@ public class VideoView: UIView {
 
     required init?(coder decoder: NSCoder) {
         #if arch(arm64)
-            let view = RTCMTLVideoView()
-            view.videoContentMode = .scaleAspectFill
-            renderer = view
+        let view = RTCMTLVideoView()
+        view.videoContentMode = .scaleAspectFill
+        renderer = view
         #else
-            let view = RTCEAGLVideoView()
-            renderer = view
+        let view = RTCEAGLVideoView()
+        renderer = view
         #endif
         super.init(coder: decoder)
     }
 
     override public init(frame: CGRect) {
         #if arch(arm64)
-            let view = RTCMTLVideoView(frame: frame)
-            view.videoContentMode = .scaleAspectFill
-            renderer = view
+        let view = RTCMTLVideoView(frame: frame)
+        view.videoContentMode = .scaleAspectFill
+        renderer = view
         #else
-            let view = RTCEAGLVideoView(frame: frame)
-            renderer = view
+        let view = RTCEAGLVideoView(frame: frame)
+        renderer = view
         #endif
 
         super.init(frame: frame)
@@ -38,7 +38,7 @@ public class VideoView: UIView {
 
         NSLayoutConstraint.activate([
             rendererView.centerXAnchor.constraint(equalTo: centerXAnchor),
-            rendererView.centerYAnchor.constraint(equalTo: centerYAnchor),
+            rendererView.centerYAnchor.constraint(equalTo: centerYAnchor)
         ])
     }
 }

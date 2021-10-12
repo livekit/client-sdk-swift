@@ -45,50 +45,50 @@ public class MulticastDelegate<T>: NSObject {
         }
     }
 
-//    internal func wait<V>(timeout: TimeInterval,
-//                  onTimeout: Error = InternalError.timeout(),
-//                  builder: (@escaping (V) -> Void) -> T) -> Promise<V> {
-//
-//        let promise = Promise<V>.pending()
-//        var timer: DispatchWorkItem?
-//        var delegate: T?
-//
-//        let completeFnc: (V) -> Void = { value in
-//            // cancel timer
-//            timer?.cancel()
-//            promise.fulfill(value)
-//            // stop listening
-//            DispatchQueue.main.async {
-//                self.remove(delegate: delegate!)
-//            }
-//        }
-//
-//        let failFnc = {
-//            promise.reject(onTimeout)
-//            // stop listening
-//            DispatchQueue.main.async {
-//                self.remove(delegate: delegate!)
-//            }
-//        }
-//
-//        delegate = builder(completeFnc)
-//        add(delegate: delegate!)
-//
-//        // start timer
-//        logger.debug("[MulticastDelegate] started timer")
-//        timer = DispatchWorkItem() { failFnc() }
-//        DispatchQueue.main.asyncAfter(deadline: .now() + timeout, execute: timer!)
-//
-//        return promise
-//    }
+    //    internal func wait<V>(timeout: TimeInterval,
+    //                  onTimeout: Error = InternalError.timeout(),
+    //                  builder: (@escaping (V) -> Void) -> T) -> Promise<V> {
+    //
+    //        let promise = Promise<V>.pending()
+    //        var timer: DispatchWorkItem?
+    //        var delegate: T?
+    //
+    //        let completeFnc: (V) -> Void = { value in
+    //            // cancel timer
+    //            timer?.cancel()
+    //            promise.fulfill(value)
+    //            // stop listening
+    //            DispatchQueue.main.async {
+    //                self.remove(delegate: delegate!)
+    //            }
+    //        }
+    //
+    //        let failFnc = {
+    //            promise.reject(onTimeout)
+    //            // stop listening
+    //            DispatchQueue.main.async {
+    //                self.remove(delegate: delegate!)
+    //            }
+    //        }
+    //
+    //        delegate = builder(completeFnc)
+    //        add(delegate: delegate!)
+    //
+    //        // start timer
+    //        logger.debug("[MulticastDelegate] started timer")
+    //        timer = DispatchWorkItem() { failFnc() }
+    //        DispatchQueue.main.asyncAfter(deadline: .now() + timeout, execute: timer!)
+    //
+    //        return promise
+    //    }
 }
 
-//protocol MulticastDelegate {
+// protocol MulticastDelegate {
 //    associatedtype DelegateType
 //    var delegates: NSHashTable<AnyObject> { get }
-//}
+// }
 //
-//extension MulticastDelegate {
+// extension MulticastDelegate {
 //
 //    func add(delegate: DelegateType) {
 //
@@ -121,11 +121,9 @@ public class MulticastDelegate<T>: NSObject {
 //            try fnc(d)
 //        }
 //    }
-//}
+// }
 
-
-
-//extension Array where Element == MulticastDelegate<Any> {
+// extension Array where Element == MulticastDelegate<Any> {
 //
 //    func wait<T>(timeout: TimeInterval,
 //                  onTimeout: Error = InternalError.timeout(),
@@ -175,4 +173,4 @@ public class MulticastDelegate<T>: NSObject {
 //
 //        return promise
 //    }
-//}
+// }

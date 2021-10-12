@@ -49,7 +49,7 @@ extension ConnectOptions {
             URLQueryItem(name: "access_token", value: accessToken),
             URLQueryItem(name: "protocol", value: protocolVersion.description),
             URLQueryItem(name: "sdk", value: "ios"),
-            URLQueryItem(name: "version", value: "0.5"),
+            URLQueryItem(name: "version", value: "0.5")
         ]
 
         if reconnect {

@@ -59,7 +59,6 @@ extension RTCPeerConnection {
         }
     }
 
-
     func setRemoteDescriptionPromise(_ sd: RTCSessionDescription) -> Promise<RTCSessionDescription> {
 
         Promise<RTCSessionDescription> { complete, fail in

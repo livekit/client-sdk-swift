@@ -86,7 +86,7 @@ class Engine: MulticastDelegate<EngineDelegate> {
             logger.warning("Unknown data channel label \(dataChannel.label)")
         }
     }
-    
+
     func connect(connectOptions: ConnectOptions? = nil) -> Promise<Void> {
 
         if let connectOptions = connectOptions {
@@ -169,23 +169,23 @@ class Engine: MulticastDelegate<EngineDelegate> {
             self.waitForIceConnect(transport: self.primary)
         }
 
-//        return p
-//
-//        if reconnectAttempts >= maxReconnectAttempts {
-//            logger.error("could not connect to signal after \(reconnectAttempts) attempts, giving up")
-//            close()
-////            delegate?.didDisconnect()
-//            notify { $0.didDisconnect() }
-//            return
-//        }
-//
-//        if let reconnectTask = wsReconnectTask, connectionState != .disconnected {
-//            var delay = Double(reconnectAttempts ^ 2) * 0.5
-//            if delay > 5 {
-//                delay = 5
-//            }
-//            DispatchQueue.global(qos: .background).asyncAfter(deadline: .now() + delay, execute: reconnectTask)
-//        }
+        //        return p
+        //
+        //        if reconnectAttempts >= maxReconnectAttempts {
+        //            logger.error("could not connect to signal after \(reconnectAttempts) attempts, giving up")
+        //            close()
+        ////            delegate?.didDisconnect()
+        //            notify { $0.didDisconnect() }
+        //            return
+        //        }
+        //
+        //        if let reconnectTask = wsReconnectTask, connectionState != .disconnected {
+        //            var delay = Double(reconnectAttempts ^ 2) * 0.5
+        //            if delay > 5 {
+        //                delay = 5
+        //            }
+        //            DispatchQueue.global(qos: .background).asyncAfter(deadline: .now() + delay, execute: reconnectTask)
+        //        }
     }
 
     private func handleSignalDisconnect() {
@@ -199,9 +199,9 @@ class Engine: MulticastDelegate<EngineDelegate> {
             return Promise(InternalError.parse("Failed to serialize data packet"))
         }
 
-        func send() -> Promise<Void>{
+        func send() -> Promise<Void> {
 
-            Promise<Void>{ complete, fail in
+            Promise<Void> { complete, _ in
                 let rtcData = RTCDataBuffer(data: data, isBinary: true)
                 let dc = packet.kind == .lossy ? self.lossyDC : self.reliableDC
                 if let dc = dc {
@@ -244,7 +244,7 @@ extension Engine {
             return Promise(EngineError.invalidState("transport is nil"))
         }
 
-        return Promise<Void> { fulfill, reject in
+        return Promise<Void> { fulfill, _ in
             // create temporary delegate
             var delegate: TransportDelegateClosures?
             delegate = TransportDelegateClosures(onIceStateUpdated: { _, iceState in
@@ -261,28 +261,28 @@ extension Engine {
 
     func waitForPublishTrack(cid: String) -> Promise<Livekit_TrackInfo> {
 
-        return Promise<Livekit_TrackInfo> { fulfill, reject in
-           // create temporary delegate
-           var delegate: SignalClientDelegateClosures?
-           delegate = SignalClientDelegateClosures(didPublishLocalTrack: { _, response in
-               logger.debug("[SignalClientDelegateClosures] didPublishLocalTrack")
-               if response.cid == cid {
-                   // complete when track info received
-                   fulfill(response.track)
-                   delegate = nil
-               }
-           })
-           self.signalClient.add(delegate: delegate!)
-       }
-       // convert to timed-promise
-       .timeout(5)
+        return Promise<Livekit_TrackInfo> { fulfill, _ in
+            // create temporary delegate
+            var delegate: SignalClientDelegateClosures?
+            delegate = SignalClientDelegateClosures(didPublishLocalTrack: { _, response in
+                logger.debug("[SignalClientDelegateClosures] didPublishLocalTrack")
+                if response.cid == cid {
+                    // complete when track info received
+                    fulfill(response.track)
+                    delegate = nil
+                }
+            })
+            self.signalClient.add(delegate: delegate!)
+        }
+        // convert to timed-promise
+        .timeout(5)
     }
 }
 
 extension Engine: SignalClientDelegate {
 
     func signalClient(_ signalClient: SignalClient, didUpdate speakers: [Livekit_SpeakerInfo]) {
-//        delegate?.didUpdateSpeakersSignal(speakers: speakers)
+        //        delegate?.didUpdateSpeakersSignal(speakers: speakers)
         notify { $0.engine(self, didUpdateSignal: speakers) }
     }
 
@@ -290,29 +290,28 @@ extension Engine: SignalClientDelegate {
         logger.info("signalClient did connect")
         reconnectAttempts = 0
 
-//        guard let publisher = self.publisher else {
-//            return
-//        }
-        
-//        subscriber?.prepareForIceRestart()
+        //        guard let publisher = self.publisher else {
+        //            return
+        //        }
+
+        //        subscriber?.prepareForIceRestart()
 
         // trigger ICE restart
 
-
         // if publisher is waiting for an answer from right now, it most likely got lost, we'll
         // reset signal state to allow it to continue
-//        if let desc = publisher.pc.remoteDescription,
-//           publisher.pc.signalingState == .haveLocalOffer {
-//            logger.debug("have local offer but recovering to restart ICE")
-//            publisher.setRemoteDescription(desc).then {
-//                publisher.pc.restartIce()
-////                publisher.prepareForIceRestart()
-//            }
-//        } else {
-//            logger.debug("restarting ICE")
-//            publisher.pc.restartIce()
-////            /publisher.prepareForIceRestart()
-//        }
+        //        if let desc = publisher.pc.remoteDescription,
+        //           publisher.pc.signalingState == .haveLocalOffer {
+        //            logger.debug("have local offer but recovering to restart ICE")
+        //            publisher.setRemoteDescription(desc).then {
+        //                publisher.pc.restartIce()
+        ////                publisher.prepareForIceRestart()
+        //            }
+        //        } else {
+        //            logger.debug("restarting ICE")
+        //            publisher.pc.restartIce()
+        ////            /publisher.prepareForIceRestart()
+        //        }
     }
 
     func signalClient(_ signalClient: SignalClient, didReceive joinResponse: Livekit_JoinResponse) {
@@ -331,14 +330,14 @@ extension Engine: SignalClientDelegate {
 
         do {
             subscriber = try Transport(config: config,
-                                         target: .subscriber,
-                                         primary: subscriberPrimary,
-                                         delegate: self)
+                                       target: .subscriber,
+                                       primary: subscriberPrimary,
+                                       delegate: self)
 
             publisher = try Transport(config: config,
-                                        target: .publisher,
-                                        primary: !subscriberPrimary,
-                                        delegate: self)
+                                      target: .publisher,
+                                      primary: !subscriberPrimary,
+                                      delegate: self)
 
             publisher?.onOffer = { offer in
                 logger.debug("publisher onOffer")
@@ -363,7 +362,7 @@ extension Engine: SignalClientDelegate {
             //
         }
 
-        if (subscriberPrimary) {
+        if subscriberPrimary {
             // lazy negotiation for protocol v3
             publisherShouldNegotiate()
         }

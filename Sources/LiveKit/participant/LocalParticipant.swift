@@ -40,7 +40,7 @@ public class LocalParticipant: Participant {
 
         let cid = track.mediaTrack.trackId
         return engine.addTrack(cid: cid, name: track.name, kind: .audio).then { trackInfo in
-            
+
             Promise<LocalTrackPublication> { () -> LocalTrackPublication in
                 let transInit = RTCRtpTransceiverInit()
                 transInit.direction = .sendOnly
@@ -62,7 +62,7 @@ public class LocalParticipant: Participant {
 
     /// publish a new video track to the Room
     public func publishVideoTrack(track: LocalVideoTrack,
-                                options: LocalVideoTrackPublishOptions? = nil) -> Promise<LocalTrackPublication> {
+                                  options: LocalVideoTrackPublishOptions? = nil) -> Promise<LocalTrackPublication> {
 
         logger.debug("[Publish] video")
 
@@ -82,29 +82,29 @@ public class LocalParticipant: Participant {
                                kind: .video,
                                dimensions: track.dimensions) .then { trackInfo in
 
-            Promise<LocalTrackPublication> { () -> LocalTrackPublication in
-                let transInit = RTCRtpTransceiverInit()
-                transInit.direction = .sendOnly
-                transInit.streamIds = [self.streamId]
+                                Promise<LocalTrackPublication> { () -> LocalTrackPublication in
+                                    let transInit = RTCRtpTransceiverInit()
+                                    transInit.direction = .sendOnly
+                                    transInit.streamIds = [self.streamId]
 
-                if let encodings = Utils.computeEncodings(dimensions: track.dimensions, publishOptions: publishOptions) {
-                    print("using encodings %@", encodings)
-                    transInit.sendEncodings = encodings
-                }
+                                    if let encodings = Utils.computeEncodings(dimensions: track.dimensions, publishOptions: publishOptions) {
+                                        print("using encodings %@", encodings)
+                                        transInit.sendEncodings = encodings
+                                    }
 
-                track.transceiver = self.engine?.publisher?.pc.addTransceiver(with: track.mediaTrack, init: transInit)
-                if track.transceiver == nil {
-                    throw TrackError.publishError("Nil sender returned from peer connection.")
-                }
+                                    track.transceiver = self.engine?.publisher?.pc.addTransceiver(with: track.mediaTrack, init: transInit)
+                                    if track.transceiver == nil {
+                                        throw TrackError.publishError("Nil sender returned from peer connection.")
+                                    }
 
-                engine.publisherShouldNegotiate()
+                                    engine.publisherShouldNegotiate()
 
-                let publication = LocalTrackPublication(info: trackInfo, track: track, participant: self)
-                self.addTrack(publication: publication)
-                return publication
+                                    let publication = LocalTrackPublication(info: trackInfo, track: track, participant: self)
+                                    self.addTrack(publication: publication)
+                                    return publication
 
-            }
-        }
+                                }
+                               }
     }
 
     /// unpublish an existing published track
@@ -187,7 +187,7 @@ public class LocalParticipant: Participant {
         }
     }
 
-//    func setEncodingParameters(parameters _: EncodingParameters) {}
+    //    func setEncodingParameters(parameters _: EncodingParameters) {}
 
     // if audio session has not been initialized for recording, do so now
     private func ensureAudioCategory() throws {

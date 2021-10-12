@@ -24,7 +24,7 @@ extension RTCConfiguration {
         let rtcIceServers = iceServers.map { $0.toRTCType() }
 
         self.iceServers = rtcIceServers.isEmpty
-        ? [RTCIceServer(urlStrings: RTCConfiguration.defaultIceServers)]
-        : rtcIceServers
+            ? [RTCIceServer(urlStrings: RTCConfiguration.defaultIceServers)]
+            : rtcIceServers
     }
 }

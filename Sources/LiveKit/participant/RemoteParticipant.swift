@@ -47,7 +47,7 @@ public class RemoteParticipant: Participant {
 
     func addSubscribedMediaTrack(rtcTrack: RTCMediaStreamTrack, sid: String, triesLeft: Int = 20) {
         var track: Track
-        
+
         guard let publication = getTrackPublication(sid: sid) else {
             if triesLeft == 0 {
                 logger.error("could not subscribe to mediaTrack \(sid), unable to locate track publication")

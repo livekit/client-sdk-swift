@@ -7,7 +7,7 @@ internal protocol TransportDelegate {
     func transport(_ transport: Transport, didOpen dataChannel: RTCDataChannel)
     func transport(_ transport: Transport, didAdd track: RTCMediaStreamTrack, streams: [RTCMediaStream])
     func transportShouldNegotiate(_ transport: Transport)
-   }
+}
 
 // optional
 extension TransportDelegate {
@@ -20,7 +20,7 @@ extension TransportDelegate {
 
 class TransportDelegateClosures: NSObject, TransportDelegate {
 
-    typealias OnIceStateUpdated = (_ transport: Transport, _ iceState: RTCIceConnectionState) -> ()
+    typealias OnIceStateUpdated = (_ transport: Transport, _ iceState: RTCIceConnectionState) -> Void
     let onIceStateUpdated: OnIceStateUpdated?
 
     init(onIceStateUpdated: OnIceStateUpdated? = nil) {

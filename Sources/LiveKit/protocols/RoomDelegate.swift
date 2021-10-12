@@ -25,7 +25,7 @@ public protocol RoomDelegate {
     func room(_ room: Room, participantDidLeave participant: RemoteParticipant)
 
     /// When a reconnect attempt had been successful
-//    func didReconnect(room: Room)
+    //    func didReconnect(room: Room)
 
     /// Active speakers changed.
     ///
@@ -41,13 +41,13 @@ public protocol RoomDelegate {
     ///
     /// For the local participant, the callback will be called if setMute was called on the local participant,
     /// or if the server has requested the participant to be muted
-//    func didMute(publication: TrackPublication, participant: Participant)
+    //    func didMute(publication: TrackPublication, participant: Participant)
 
     /// The participant was unmuted.
     ///
     /// For the local participant, the callback will be called if setMute was called on the local participant,
     /// or if the server has requested the participant to be unmuted
-//    func didUnmute(publication: TrackPublication, participant: Participant)
+    //    func didUnmute(publication: TrackPublication, participant: Participant)
     func room(_ room: Room, participant: Participant, didUpdate track: TrackPublication, muted: Bool)
 
     /* Remote Participant */
@@ -58,25 +58,25 @@ public protocol RoomDelegate {
     func room(_ room: Room, participant: RemoteParticipant, didPublish remoteTrack: RemoteTrackPublication)
 
     /// A RemoteParticipant has unpublished a track
-//    func didUnpublishRemoteTrack(publication: RemoteTrackPublication, particpant: RemoteParticipant)
+    //    func didUnpublishRemoteTrack(publication: RemoteTrackPublication, particpant: RemoteParticipant)
     func room(_ room: Room, participant: RemoteParticipant, didUnpublish remoteTrack: RemoteTrackPublication)
 
     /// The LocalParticipant has subscribed to a new track.
     ///
     /// This event will always fire as long as new tracks are ready for use.
-//    func didSubscribe(track: Track, publication: RemoteTrackPublication, participant: RemoteParticipant)
+    //    func didSubscribe(track: Track, publication: RemoteTrackPublication, participant: RemoteParticipant)
     func room(_ room: Room, participant: RemoteParticipant, didSubscribe trackPublication: RemoteTrackPublication, track: Track)
 
     /// Could not subscribe to a track.
     ///
     /// This is an error state, the subscription can be retried
-//    func didFailToSubscribe(sid: String, error: Error, participant: RemoteParticipant)
+    //    func didFailToSubscribe(sid: String, error: Error, participant: RemoteParticipant)
     func room(_ room: Room, participant: RemoteParticipant, didFailToSubscribe trackSid: String, error: Error)
 
     /// A subscribed track is no longer available.
     ///
     /// Clients should listen to this event and handle cleanup
-//    func didUnsubscribe(track: Track, publication: RemoteTrackPublication, participant: RemoteParticipant)
+    //    func didUnsubscribe(track: Track, publication: RemoteTrackPublication, participant: RemoteParticipant)
     func room(_ room: Room, participant: RemoteParticipant, didUnsubscribe trackPublication: RemoteTrackPublication)
 
     /// Data was received from a RemoteParticipant

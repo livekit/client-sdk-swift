@@ -9,8 +9,8 @@ let networkChangeIgnoreInterval = 3.0
 
 public class Room: MulticastDelegate<RoomDelegate> {
 
-//    typealias DelegateType = RoomDelegate
-//    internal let delegates = NSHashTable<AnyObject>.weakObjects()
+    //    typealias DelegateType = RoomDelegate
+    //    internal let delegates = NSHashTable<AnyObject>.weakObjects()
 
     public private(set) var sid: Sid?
     public private(set) var name: String?
@@ -18,8 +18,8 @@ public class Room: MulticastDelegate<RoomDelegate> {
     public private(set) var remoteParticipants = [Sid: RemoteParticipant]()
     public private(set) var activeSpeakers: [Participant] = []
 
-//    private var connectOptions: ConnectOptions
-//    private let monitor: NWPathMonitor
+    //    private var connectOptions: ConnectOptions
+    //    private let monitor: NWPathMonitor
     private let monitorQueue: DispatchQueue
     private var prevPath: NWPath?
     private var lastPathUpdate: TimeInterval = 0
@@ -30,37 +30,37 @@ public class Room: MulticastDelegate<RoomDelegate> {
 
     init(connectOptions: ConnectOptions, delegate: RoomDelegate) {
 
-//        self.connectOptions = connectOptions
+        //        self.connectOptions = connectOptions
 
-//        monitor = NWPathMonitor()
+        //        monitor = NWPathMonitor()
         monitorQueue = DispatchQueue(label: "networkMonitor", qos: .background)
 
         engine = Engine(connectOptions: connectOptions)
 
-//        monitor.pathUpdateHandler = { path in
-//            logger.debug("network path update: \(path.availableInterfaces), \(path.status)")
-//            if self.prevPath == nil || path.status != .satisfied {
-//                self.prevPath = path
-//                return
-//            }
-//
-//            // TODO: Use debounce fnc instead
-//            // In iOS 14.4, this update is sent multiple times during a connection change
-//            // ICE restarts are expensive and error prone (due to renegotiation)
-//            // We'll ignore frequent updates
-//            let currTime = Date().timeIntervalSince1970
-//            if currTime - self.lastPathUpdate < networkChangeIgnoreInterval {
-//                logger.debug("skipping duplicate network update")
-//                return
-//            }
-//            // trigger reconnect
-//            if self.state != .disconnected {
-//                logger.info("network path changed, starting engine reconnect")
-//                self.reconnect()
-//            }
-//            self.prevPath = path
-//            self.lastPathUpdate = currTime
-//        }
+        //        monitor.pathUpdateHandler = { path in
+        //            logger.debug("network path update: \(path.availableInterfaces), \(path.status)")
+        //            if self.prevPath == nil || path.status != .satisfied {
+        //                self.prevPath = path
+        //                return
+        //            }
+        //
+        //            // TODO: Use debounce fnc instead
+        //            // In iOS 14.4, this update is sent multiple times during a connection change
+        //            // ICE restarts are expensive and error prone (due to renegotiation)
+        //            // We'll ignore frequent updates
+        //            let currTime = Date().timeIntervalSince1970
+        //            if currTime - self.lastPathUpdate < networkChangeIgnoreInterval {
+        //                logger.debug("skipping duplicate network update")
+        //                return
+        //            }
+        //            // trigger reconnect
+        //            if self.state != .disconnected {
+        //                logger.info("network path changed, starting engine reconnect")
+        //                self.reconnect()
+        //            }
+        //            self.prevPath = path
+        //            self.lastPathUpdate = currTime
+        //        }
         super.init()
         engine.add(delegate: self)
         add(delegate: delegate)
@@ -76,9 +76,9 @@ public class Room: MulticastDelegate<RoomDelegate> {
         guard localParticipant == nil else {
             return Promise(EngineError.invalidState("localParticipant is not nil"))
         }
-        
-//        state = .connecting(reconnecting: false)
-//        monitor.start(queue: monitorQueue)
+
+        //        state = .connecting(reconnecting: false)
+        //        monitor.start(queue: monitorQueue)
         return engine.connect()
     }
 
@@ -88,14 +88,14 @@ public class Room: MulticastDelegate<RoomDelegate> {
         handleDisconnect()
     }
 
-//    func reconnect(connectOptions: ConnectOptions? = nil) {
-//        if state != .connected && state != .reconnecting {
-//            return
-//        }
-//        state = .connecting(reconnecting: true)
-//        engine.reconnect(connectOptions: connectOptions)
-//        notify { $0.isReconnecting(room: self) }
-//    }
+    //    func reconnect(connectOptions: ConnectOptions? = nil) {
+    //        if state != .connected && state != .reconnecting {
+    //            return
+    //        }
+    //        state = .connecting(reconnecting: true)
+    //        engine.reconnect(connectOptions: connectOptions)
+    //        notify { $0.isReconnecting(room: self) }
+    //    }
 
     private func handleParticipantDisconnect(sid: Sid, participant: RemoteParticipant) {
         guard let participant = remoteParticipants.removeValue(forKey: sid) else {
@@ -178,7 +178,7 @@ public class Room: MulticastDelegate<RoomDelegate> {
             return
         }
         logger.info("disconnected from room: \(self.name ?? "")")
-//        state = .disconnected
+        //        state = .disconnected
         // stop any tracks && release audio session
         for participant in remoteParticipants.values {
             for publication in participant.tracks.values {
@@ -199,10 +199,10 @@ public class Room: MulticastDelegate<RoomDelegate> {
 
         remoteParticipants.removeAll()
         activeSpeakers.removeAll()
-//        monitor.cancel()
+        //        monitor.cancel()
         notify { $0.room(self, didDisconnect: nil) }
         // should be the only call from delegate, room is done
-//        delegate = nil
+        //        delegate = nil
     }
 }
 
@@ -225,7 +225,7 @@ extension Room: EngineDelegate {
     func engineDidDisconnect(_ engine: Engine) {
         handleDisconnect()
     }
-    
+
     func engine(_ engine: Engine, didReceive joinResponse: Livekit_JoinResponse) {
         logger.info("connected to room, server version: \(joinResponse.serverVersion)")
 
@@ -246,16 +246,16 @@ extension Room: EngineDelegate {
         notify { $0.room(self, didConnect: isReconnect) }
     }
 
-//    func engineDidReconnect(_ engine: Engine) {
-//        notify { $0.didReconnect(room: self) }
-//    }
+    //    func engineDidReconnect(_ engine: Engine) {
+    //        notify { $0.didReconnect(room: self) }
+    //    }
 
     func engine(_ engine: Engine, didAdd track: RTCMediaStreamTrack, streams: [RTCMediaStream]) {
         guard streams.count > 0 else {
             logger.error("received onTrack with no streams!")
             return
         }
-        
+
         let unpacked = streams[0].streamId.unpack()
         let participantSid = unpacked.sid
         var trackSid = unpacked.trackId
@@ -263,9 +263,9 @@ extension Room: EngineDelegate {
             trackSid = track.trackId
         }
         let participant = getOrCreateRemoteParticipant(sid: participantSid)
-        
+
         logger.debug("added media track from: \(participantSid), sid: \(trackSid)")
-    
+
         DispatchQueue.global(qos: .background).async {
             // ensure audio session is configured
             if track.kind == "audio" {

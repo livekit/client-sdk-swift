@@ -31,7 +31,6 @@ enum EngineError: LiveKitError {
     case invalidState(String? = nil)
 }
 
-
 enum TrackError: LiveKitError {
     case invalidTrackType(String)
     case duplicateTrack(String)

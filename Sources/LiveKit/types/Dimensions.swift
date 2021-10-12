@@ -15,7 +15,7 @@ extension Dimensions {
         if abs(aspect - Dimensions.aspectRatio169) < abs(aspect - Dimensions.aspectRatio43) {
             return VideoParameters.presets169
         }
-        return VideoParameters.presets43;
+        return VideoParameters.presets43
     }
 
     func computeSuggestedPreset(in presets: [VideoParameters]) -> VideoParameters {

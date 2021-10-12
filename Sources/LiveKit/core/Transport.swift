@@ -33,8 +33,8 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
 
         // try create peerConnection
         let pc = Engine.factory.peerConnection(with: config,
-                                                  constraints: RTCMediaConstraints.defaultPCConstraints,
-                                                  delegate: nil)
+                                               constraints: RTCMediaConstraints.defaultPCConstraints,
+                                               delegate: nil)
         guard let pc = pc else {
             throw EngineError.webRTC("failed to create peerConnection")
         }
@@ -74,7 +74,7 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
             self.pendingCandidates.removeAll()
             self.restartingIce = false
 
-            if (self.renegotiate) {
+            if self.renegotiate {
                 self.renegotiate = false
                 return self.createAndSendOffer()
             }
@@ -92,7 +92,7 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
 
         let isIceRestart = constraints?[kRTCMediaConstraintsIceRestart] == kRTCMediaConstraintsValueTrue
 
-        if (isIceRestart) {
+        if isIceRestart {
             logger.debug("restarting ICE")
             restartingIce = true
         }
@@ -145,7 +145,7 @@ extension Transport: RTCPeerConnectionDelegate {
 
     func peerConnection(_ peerConnection: RTCPeerConnection,
                         didGenerate candidate: RTCIceCandidate) {
-        
+
         logger.debug("[RTCPeerConnectionDelegate] did generate ice candidates \(candidate) for \(target)")
         notify { $0.transport(self, didGenerate: candidate) }
     }

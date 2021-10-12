@@ -8,10 +8,10 @@ class Utils {
     static func createDebounceFunc(wait: TimeInterval,
                                    onCreateWorkItem: ((DispatchWorkItem) -> Void)? = nil,
                                    fnc: @escaping @convention(block) () -> Void) -> DebouncFunc {
-        var workItem: DispatchWorkItem? = nil
+        var workItem: DispatchWorkItem?
         return {
             workItem?.cancel()
-            workItem = DispatchWorkItem() { fnc() }
+            workItem = DispatchWorkItem { fnc() }
             onCreateWorkItem?(workItem!)
             DispatchQueue.main.asyncAfter(deadline: .now() + wait, execute: workItem!)
         }
@@ -32,7 +32,7 @@ class Utils {
 
         let presets = dimensions.computeSuggestedPresets()
 
-        if (encoding == nil) {
+        if encoding == nil {
             let preset = dimensions.computeSuggestedPreset(in: presets)
             encoding = preset.encoding
         }
@@ -41,20 +41,20 @@ class Utils {
             return nil
         }
 
-        if (!publishOptions.simulcast) {
+        if !publishOptions.simulcast {
             // not using simulcast
             return [encoding.toRTCRtpEncoding()]
         }
 
         // simulcast
-        let midPreset = presets[1];
-        let lowPreset = presets[0];
+        let midPreset = presets[1]
+        let lowPreset = presets[0]
 
         var result: [RTCRtpEncodingParameters] = []
 
         result.append(encoding.toRTCRtpEncoding(rid: "f"))
 
-        if (dimensions.width >= 960) {
+        if dimensions.width >= 960 {
             result.append(contentsOf: [
                 midPreset.encoding.toRTCRtpEncoding(rid: "h", scaleDownBy: 2),
                 lowPreset.encoding.toRTCRtpEncoding(rid: "q", scaleDownBy: 4)

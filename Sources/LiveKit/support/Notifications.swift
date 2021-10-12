@@ -1,22 +1,22 @@
 //
 //  File.swift
-//  
+//
 //
 //  Created by Hiroshi Horie on 2021/10/07.
 //
 //
-//import WebRTC
-//import UIKit
-//import Promises
+// import WebRTC
+// import UIKit
+// import Promises
 
 //
 // Used for internal notifications
 // Type-safe
 //
 
-//typealias EventFilter<E: Event> = (E) -> Bool
+// typealias EventFilter<E: Event> = (E) -> Bool
 //
-//extension NotificationCenter {
+// extension NotificationCenter {
 //
 //    internal static let liveKit = NotificationCenter()
 //    static let eventKey = "event"
@@ -66,9 +66,9 @@
 //    func send<E: Event>(event: E) {
 //        post(name: E.name, object: event, userInfo: [NotificationCenter.eventKey: event])
 //    }
-//}
+// }
 
-//class ListenToken {
+// class ListenToken {
 //    let token: NSObjectProtocol
 //    let center: NotificationCenter
 //
@@ -80,52 +80,50 @@
 //    deinit {
 //        center.removeObserver(token)
 //    }
-//}
+// }
 
-//protocol Event {
+// protocol Event {
 //    static var name: Notification.Name { get }
-//}
+// }
 
 // MARK: - Events
 
-//struct IceStateUpdatedEvent: Event {
+// struct IceStateUpdatedEvent: Event {
 //    static let name = Notification.Name("livekit.iceStateUpdated")
 //    let target: Livekit_SignalTarget
 //    let primary: Bool
 //    let iceState: RTCIceConnectionState
-//}
+// }
 //
-//struct IceCandidateEvent: Event {
+// struct IceCandidateEvent: Event {
 //    static let name = Notification.Name("livekit.iceCandidate")
 //    let target: Livekit_SignalTarget
 //    let primary: Bool
 //    let iceCandidate: RTCIceCandidate
-//}
+// }
 //
-//struct ShouldNegotiateEvent: Event {
+// struct ShouldNegotiateEvent: Event {
 //    static let name = Notification.Name("livekit.shouldNegotiate")
 //    let target: Livekit_SignalTarget
 //    let primary: Bool
-//}
+// }
 //
-//struct ReceivedTrackEvent: Event {
+// struct ReceivedTrackEvent: Event {
 //    static let name = Notification.Name("livekit.receivedTrack")
 //    let target: Livekit_SignalTarget
 //    let primary: Bool
 //    let track: RTCMediaStreamTrack
 //    let streams: [RTCMediaStream]
-//}
+// }
 //
-//struct DataChannelEvent: Event {
+// struct DataChannelEvent: Event {
 //    static let name = Notification.Name("livekit.dataChannel")
 //    let target: Livekit_SignalTarget
 //    let primary: Bool
 //    let dataChannel: RTCDataChannel
-//}
+// }
 
-
-
-//class WeakElement<T:  Hashable>: Hashable {
+// class WeakElement<T:  Hashable>: Hashable {
 //    // Keep weak element
 //    weak var e: AnyObject?
 //
@@ -142,12 +140,11 @@
 //    func hash(into hasher: inout Hasher) {
 //        hasher.combine(e)
 //    }
-//}
+// }
 //
-//private var set = Set<WeakElement<RTCEngineDelegate>>()
+// private var set = Set<WeakElement<RTCEngineDelegate>>()
 
-
-//class WeakSet<T: AnyObject & Hashable> {
+// class WeakSet<T: AnyObject & Hashable> {
 //
 //
 //
@@ -159,23 +156,20 @@
 //    public func remove(_ e: T) {
 //        set.remove(e as! WeakElement)
 //    }
-//}
+// }
 
-
-//func x2() {
+// func x2() {
 //    //
-//}
-//final class WeakServiceDelegate<T: AnyObject> {
+// }
+// final class WeakServiceDelegate<T: AnyObject> {
 //    private(set) weak var value: T?
 //    init(value: T?) {
 //        self.value = value
 //    }
-//}
+// }
 //
-//protocol SomeContainer: AnyObject { }
-//extension WeakReference: SomeContainer { }
+// protocol SomeContainer: AnyObject { }
+// extension WeakReference: SomeContainer { }
 //
-//private var observers = [SomeContainer]()
+// private var observers = [SomeContainer]()
 //
-
-
