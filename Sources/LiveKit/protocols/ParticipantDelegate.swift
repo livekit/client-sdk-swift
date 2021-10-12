@@ -17,7 +17,7 @@ public protocol ParticipantDelegate {
     ///
     /// For the local participant, the callback will be called if setMute was called on LocalTrackPublication,
     /// or if the server has requested the participant to be muted
-    func participant(_ participant: Participant, didUpdate muted: Bool, trackPublication: TrackPublication )
+    func participant(_ participant: Participant, didUpdate trackPublication: TrackPublication, muted: Bool)
 
     /// The participant was unmuted.
     ///
@@ -37,7 +37,7 @@ public protocol ParticipantDelegate {
     /// The LocalParticipant has subscribed to a new track.
     ///
     /// This event will always fire as long as new tracks are ready for use.
-    func participant(_ participant: RemoteParticipant, didSubscribe track: Track, publication: RemoteTrackPublication)
+    func participant(_ participant: RemoteParticipant, didSubscribe trackPublication: RemoteTrackPublication, track: Track)
 
     /// Could not subscribe to a track.
     ///
@@ -47,7 +47,7 @@ public protocol ParticipantDelegate {
     /// A subscribed track is no longer available.
     ///
     /// Clients should listen to this event and handle cleanup
-    func participant(_ participant: RemoteParticipant, didUnsubscribe track: Track, publication: RemoteTrackPublication)
+    func participant(_ participant: RemoteParticipant, didUnsubscribe trackPublication: RemoteTrackPublication, track: Track)
 
     /// Data was received from a RemoteParticipant
     func participant(_ participant: RemoteParticipant, didReceive data: Data)
@@ -56,11 +56,11 @@ public protocol ParticipantDelegate {
 public extension ParticipantDelegate {
     func participant(_ participant: Participant, didUpdate metadata: String?) {}
     func participant(_ participant: Participant, didUpdate speaking: Bool) {}
-    func participant(_ participant: Participant, didUpdate muted: Bool, trackPublication: TrackPublication) {}
-    func participant(_ participant: RemoteParticipant, didPublish remoteTrack: RemoteTrackPublication) {}
-    func participant(_ participant: RemoteParticipant, didUnpublish remoteTrack: RemoteTrackPublication) {}
-    func participant(_ participant: RemoteParticipant, didSubscribe track: Track, publication: RemoteTrackPublication) {}
+    func participant(_ participant: Participant, didUpdate trackPublication: TrackPublication, muted: Bool) {}
+    func participant(_ participant: RemoteParticipant, didPublish trackPublication: RemoteTrackPublication) {}
+    func participant(_ participant: RemoteParticipant, didUnpublish trackPublication: RemoteTrackPublication) {}
+    func participant(_ participant: RemoteParticipant, didSubscribe trackPublication: RemoteTrackPublication, track: Track) {}
+    func participant(_ participant: RemoteParticipant, didUnsubscribe trackPublication: RemoteTrackPublication, track: Track) {}
     func participant(_ participant: RemoteParticipant, didFailToSubscribe trackSid: String, error: Error) {}
-    func participant(_ participant: RemoteParticipant, didUnsubscribe track: Track, publication: RemoteTrackPublication) {}
     func participant(_ participant: RemoteParticipant, didReceive data: Data) {}
 }

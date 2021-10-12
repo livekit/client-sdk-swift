@@ -25,8 +25,8 @@ public class LocalTrackPublication: TrackPublication {
 
         // trigger muted event
 //        if muted {
-            participant.notify { $0.participant(participant, didUpdate: muted, trackPublication: self) }
-            participant.room?.notify { $0.room(participant.room!, participant: participant, didUpdate: self, muted: muted) }
+        participant.notify { $0.participant(participant, didUpdate: self, muted: muted) }
+        participant.room?.notify { $0.room(participant.room!, participant: participant, didUpdate: self, muted: muted) }
 //        } else {
 //            participant.notify { $0.participant(participant, didUpdate: muted, trackPublication: self) }
 //            participant.room?.notify { $0.room(participant.room!, participantDidUpdate: participant, track: self, muted: muted) }

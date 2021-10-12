@@ -90,7 +90,7 @@ public class RemoteParticipant: Participant {
         track.sid = publication.sid
         addTrack(publication: publication)
 
-        notify { $0.participant(self, didSubscribe: track, publication: publication) }
+        notify { $0.participant(self, didSubscribe: publication, track: track) }
 //        room?.notify { $0.didSubscribe(track: track, publication: publication, participant: self) }
         room?.notify { $0.room(self.room!, participant: self, didSubscribe: publication, track: track) }
     }
@@ -103,7 +103,7 @@ public class RemoteParticipant: Participant {
 
         if let track = publication.track {
             track.stop()
-            notify { $0.participant(self, didUnsubscribe: track, publication: publication) }
+            notify { $0.participant(self, didUnsubscribe: publication, track: track) }
 //            room?.notify { $0.didUnsubscribe(track: track,
 //                                           publication: publication,
 //                                             participant: self) }
