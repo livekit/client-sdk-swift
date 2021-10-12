@@ -5,7 +5,7 @@ import WebRTC
 internal class SignalClient : MulticastDelegate<SignalClientDelegate> {
 
     // connection state of WebSocket
-    private(set) var connectionState: ConnectionState = .disconnected
+    private(set) var connectionState: ConnectionState = .disconnected()
 
     private lazy var urlSession = URLSession(configuration: .default,
                                              delegate: self,
@@ -66,7 +66,7 @@ internal class SignalClient : MulticastDelegate<SignalClientDelegate> {
     }
 
     func close() {
-        connectionState = .disconnected
+        connectionState = .disconnected()
         webSocket?.cancel()
         webSocket = nil
     }
@@ -332,7 +332,7 @@ extension SignalClient: URLSessionWebSocketDelegate {
         }
 
         logger.debug("websocket disconnected")
-        connectionState = .disconnected
+        connectionState = .disconnected()
         notify { $0.signalClient(self, didClose: "", code: UInt16(closeCode.rawValue)) }
     }
     
@@ -351,7 +351,7 @@ extension SignalClient: URLSessionWebSocketDelegate {
             realError = SignalClientError.socketError("could not connect", 0)
         }
 
-        connectionState = .disconnected
+        connectionState = .disconnected(error)
         notify { $0.signalClient(self, didFailConnection: realError) }
     }
 }

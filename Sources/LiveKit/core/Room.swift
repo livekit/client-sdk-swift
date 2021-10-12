@@ -173,7 +173,7 @@ public class Room: MulticastDelegate<RoomDelegate> {
     }
 
     private func handleDisconnect() {
-        if state == .disconnected {
+        if state == .disconnected() {
             // only allow cleanup to be completed once
             return
         }
@@ -209,6 +209,10 @@ public class Room: MulticastDelegate<RoomDelegate> {
 // MARK: - RTCEngineDelegate
 
 extension Room: EngineDelegate {
+
+    func engine(_ engine: Engine, didUpdate connectionState: ConnectionState) {
+        //
+    }
 
     func engine(_ engine: Engine, didUpdateSignal speakers: [Livekit_SpeakerInfo]) {
         onSignalSpeakersUpdate(speakers)
@@ -298,7 +302,7 @@ extension Room: EngineDelegate {
             return
         }
 
-        notify { $0.didReceive(data: userPacket.payload, participant: participant) }
+        notify { $0.room(self, participant: participant, didReceive: userPacket.payload) }
         participant.notify { $0.participant(participant, didReceive: userPacket.payload) }
     }
 

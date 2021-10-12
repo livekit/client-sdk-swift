@@ -35,7 +35,7 @@ class Engine: MulticastDelegate<EngineDelegate> {
 
     private var connectOptions: ConnectOptions
 
-    var connectionState: ConnectionState = .disconnected {
+    var connectionState: ConnectionState = .disconnected() {
         didSet {
             if oldValue == connectionState {
                 return
@@ -209,7 +209,7 @@ class Engine: MulticastDelegate<EngineDelegate> {
             self.connectOptions = connectOptions
         }
 
-        guard connectionState != .disconnected else {
+        guard connectionState != .disconnected() else {
             logger.debug("reconnect() already disconnected")
             return Promise(EngineError.invalidState("already disconnected"))
         }
@@ -603,7 +603,7 @@ extension Engine: TransportDelegate {
             if iceState == .connected {
                 self.connectionState = .connected
             } else if iceState == .failed {
-                self.connectionState = .disconnected
+                self.connectionState = .disconnected()
             }
         }
     }

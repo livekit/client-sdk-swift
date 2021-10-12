@@ -60,7 +60,8 @@ public class RemoteParticipant: Participant {
                 logger.error("could not subscribe to mediaTrack \(sid), unable to locate track publication")
                 let err = TrackError.invalidTrackState("Could not find published track with sid: \(sid)")
                 notify { $0.participant(self, didFailToSubscribe: sid, error: err) }
-                room?.notify { $0.didFailToSubscribe(sid: sid, error: err, participant: self) }
+//                room?.notify { $0.didFailToSubscribe(sid: sid, error: err, participant: self) }
+                room?.notify { $0.room(self.room!, participant: self, didFailToSubscribe: sid, error: err) }
                 return
             }
 
@@ -78,9 +79,10 @@ public class RemoteParticipant: Participant {
         default:
             let err = TrackError.invalidTrackType("unsupported type: \(rtcTrack.kind.description)")
             notify { $0.participant(self, didFailToSubscribe: sid, error: err) }
-            room?.notify { $0.didFailToSubscribe(sid: sid,
-                                               error: err,
-                                                 participant: self) }
+//            room?.notify { $0.didFailToSubscribe(sid: sid,
+//                                               error: err,
+//                                                 participant: self) }
+            room?.notify { $0.room(self.room!, participant: self, didFailToSubscribe: sid, error: err) }
             return
         }
 
@@ -89,7 +91,8 @@ public class RemoteParticipant: Participant {
         addTrack(publication: publication)
 
         notify { $0.participant(self, didSubscribe: track, publication: publication) }
-        room?.notify { $0.didSubscribe(track: track, publication: publication, participant: self) }
+//        room?.notify { $0.didSubscribe(track: track, publication: publication, participant: self) }
+        room?.notify { $0.room(self.room!, participant: self, didSubscribe: publication, track: track) }
     }
 
     func unpublishTrack(sid: String, sendUnpublish: Bool = false) {
@@ -101,19 +104,19 @@ public class RemoteParticipant: Participant {
         if let track = publication.track {
             track.stop()
             notify { $0.participant(self, didUnsubscribe: track, publication: publication) }
-            room?.notify { $0.didUnsubscribe(track: track,
-                                           publication: publication,
-                                             participant: self) }
+//            room?.notify { $0.didUnsubscribe(track: track,
+//                                           publication: publication,
+//                                             participant: self) }
+            room?.notify { $0.room(self.room!, participant: self, didUnsubscribe: publication) }
         }
         if sendUnpublish {
             notify { $0.participant(self, didUnpublish: publication) }
-            room?.notify { $0.didUnpublishRemoteTrack(publication: publication,
-                                                      particpant: self) }
+            room?.notify { $0.room(self.room!, participant: self, didUnpublish: publication) }
         }
     }
 
     private func sendTrackPublishedEvent(publication: RemoteTrackPublication) {
         notify { $0.participant(self, didPublish: publication) }
-        room?.notify { $0.didPublishRemoteTrack(publication: publication, participant: self) }
+        room?.notify { $0.room(self.room!, participant: self, didPublish: publication) }
     }
 }
