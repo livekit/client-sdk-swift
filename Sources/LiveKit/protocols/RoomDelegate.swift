@@ -1,10 +1,5 @@
 import Foundation
 
-//public protocol RoomDelegateDeprecated {
-//    @available(*, deprecated, message: "Please use the new delegate instead")
-//    func didPublishRemoteTrack(publication: RemoteTrackPublication, participant: RemoteParticipant)
-//}
-
 /// RoomDelegate receives room events as well as participant events.
 ///
 /// The only two required delegates are `participantDidConnect` and `participantDidDisconnect`
@@ -104,12 +99,4 @@ public extension RoomDelegate {
     func room(_ room: Room, participant: RemoteParticipant, didUnsubscribe trackPublication: RemoteTrackPublication) {}
     func room(_ room: Room, participant: RemoteParticipant, didFailToSubscribe trackSid: String, error: Error) {}
     func room(_ room: Room, participant: RemoteParticipant, didReceive data: Data) {}
-
-    // deprecated
-//    func didPublishRemoteTrack(publication _: RemoteTrackPublication, participant _: RemoteParticipant) {}
-//    func didUnpublishRemoteTrack(publication _: RemoteTrackPublication, particpant _: RemoteParticipant) {}
-//    func didSubscribe(track _: Track, publication _: RemoteTrackPublication, participant _: RemoteParticipant) {}
-//    func didFailToSubscribe(sid _: String, error _: Error, participant _: RemoteParticipant) {}
-//    func didUnsubscribe(track _: Track, publication _: RemoteTrackPublication, participant _: RemoteParticipant) {}
-//    func didReceive(data _: Data, participant _: RemoteParticipant) {}
 }

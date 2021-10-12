@@ -12,6 +12,17 @@ struct IceCandidate: Codable {
     }
 }
 
+extension IceCandidate {
+
+    func toJsonString() throws -> String {
+        let data = try JSONEncoder().encode(self)
+        guard let string = String(data: data, encoding: .utf8) else {
+            throw InternalError.convert("Failed to convert Data to String")
+        }
+        return string
+    }
+}
+
 extension RTCIceCandidate {
 
     func toLKType() -> IceCandidate {
@@ -31,16 +42,5 @@ extension RTCIceCandidate {
         self.init(sdp: iceCandidate.sdp,
                   sdpMLineIndex: iceCandidate.sdpMLineIndex,
                   sdpMid: iceCandidate.sdpMid)
-    }
-}
-
-extension IceCandidate {
-
-    func toJsonString() throws -> String {
-        let data = try JSONEncoder().encode(self)
-        guard let string = String(data: data, encoding: .utf8) else {
-            throw InternalError.convert("Failed to convert Data to String")
-        }
-        return string
     }
 }

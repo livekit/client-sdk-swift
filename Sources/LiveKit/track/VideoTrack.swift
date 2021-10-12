@@ -2,6 +2,7 @@ import Foundation
 import WebRTC
 
 public class VideoTrack: Track {
+
     public var videoTrack: RTCVideoTrack {
         get { return mediaTrack as! RTCVideoTrack }
     }

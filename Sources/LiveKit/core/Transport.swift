@@ -1,8 +1,3 @@
-//
-// LiveKit iOS SDK
-// https://livekit.io
-//
-
 import Foundation
 import Promises
 import WebRTC
@@ -11,8 +6,6 @@ import SwiftProtobuf
 typealias TransportOnOffer = (RTCSessionDescription) -> Void
 
 internal class Transport: MulticastDelegate<TransportDelegate> {
-
-//    internal let delegates = NSHashTable<AnyObject>.weakObjects()
 
     let target: Livekit_SignalTarget
     let primary: Bool
@@ -59,6 +52,7 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
         //
     }
 
+    @discardableResult
     public func addIceCandidate(_ candidate: RTCIceCandidate) -> Promise<Void> {
 
         if pc.remoteDescription != nil && !restartingIce {
@@ -70,6 +64,7 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
         return Promise(())
     }
 
+    @discardableResult
     public func setRemoteDescription(_ sd: RTCSessionDescription) -> Promise<Void> {
 
         self.pc.setRemoteDescriptionPromise(sd).then { _ in
@@ -129,10 +124,10 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
         // prevent debounced negotiate firing
         debounceWorkItem?.cancel()
 
-        // remove all senders
-        for sender in pc.senders {
-            pc.removeTrack(sender)
-        }
+        // remove all senders, not required ?
+        // for sender in pc.senders {
+        //    pc.removeTrack(sender)
+        // }
 
         pc.close()
     }
@@ -144,28 +139,19 @@ extension Transport: RTCPeerConnectionDelegate {
     func peerConnection(_ peerConnection: RTCPeerConnection,
                         didChange iceState: RTCIceConnectionState) {
 
-        logger.debug("peerConnection iceState didChange: \(iceState) \(target)")
-//        let event = IceStateUpdatedEvent(target: target, primary: primary, iceState: iceState)
-//        NotificationCenter.liveKit.send(event: event)
-
+        logger.debug("[RTCPeerConnectionDelegate] did change ice state \(iceState) for \(target)")
         notify { $0.transport(self, didUpdate: iceState) }
     }
 
     func peerConnection(_ peerConnection: RTCPeerConnection,
                         didGenerate candidate: RTCIceCandidate) {
         
-        logger.debug("peerConnection didGenerateCnadidate: \(candidate) \(target)")
-//        let event = IceCandidateEvent(target: target, primary: primary, iceCandidate: candidate)
-//        NotificationCenter.liveKit.send(event: event)
-
+        logger.debug("[RTCPeerConnectionDelegate] did generate ice candidates \(candidate) for \(target)")
         notify { $0.transport(self, didGenerate: candidate) }
     }
 
     func peerConnectionShouldNegotiate(_ peerConnection: RTCPeerConnection) {
-        logger.debug("peerConnection shouldNegotiate: \(target)")
-//        let event = ShouldNegotiateEvent(target: target, primary: primary)
-//        NotificationCenter.liveKit.send(event: event)
-
+        logger.debug("[RTCPeerConnectionDelegate] shouldNegotiate for \(target)")
         notify { $0.transportShouldNegotiate(self) }
     }
 
@@ -174,22 +160,16 @@ extension Transport: RTCPeerConnectionDelegate {
                         streams mediaStreams: [RTCMediaStream]) {
 
         guard let track = rtpReceiver.track else {
+            logger.warning("[RTCPeerConnectionDelegate] track is empty for \(target)")
             return
         }
 
-        logger.debug("peerConnection received streams: \(target)")
-//        let event = ReceivedTrackEvent(target: target, primary: primary, track: track, streams: mediaStreams)
-//        NotificationCenter.liveKit.send(event: event)
-
+        logger.debug("[RTCPeerConnectionDelegate] Received streams for \(target)")
         notify { $0.transport(self, didAdd: track, streams: mediaStreams) }
     }
 
     func peerConnection(_ peerConnection: RTCPeerConnection, didOpen dataChannel: RTCDataChannel) {
-
-        logger.debug("peerConnection received dataChannel: \(target)")
-//        let event = DataChannelEvent(target: target, primary: primary, dataChannel: dataChannel)
-//        NotificationCenter.liveKit.send(event: event)
-
+        logger.debug("[RTCPeerConnectionDelegate] Received data channel \(dataChannel.label) for \(target)")
         notify { $0.transport(self, didOpen: dataChannel) }
     }
 

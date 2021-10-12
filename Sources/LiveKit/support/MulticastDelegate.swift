@@ -4,8 +4,6 @@ import Promises
 // simplify generic constraints but check type at add/remove
 public class MulticastDelegate<T>: NSObject {
 
-//    private let lock = NSRecursiveLock()
-//    private let queue = DispatchQueue(label: "multicastDelegate")
     private let set = NSHashTable<AnyObject>.weakObjects()
 
     func add(delegate: T) {
@@ -15,8 +13,6 @@ public class MulticastDelegate<T>: NSObject {
             return
         }
 
-//        lock.lock()
-//        defer { lock.unlock() }
         self.set.add(delegate)
         logger.debug("[\(self) MulticastDelegate] count updated: \(self.set.count)")
     }
@@ -29,8 +25,6 @@ public class MulticastDelegate<T>: NSObject {
             return
         }
 
-//        lock.lock()
-//        defer { lock.unlock() }
         self.set.remove(delegate)
         logger.debug("[\(self) MulticastDelegate] count updated: \(self.set.count)")
     }
@@ -38,22 +32,16 @@ public class MulticastDelegate<T>: NSObject {
     internal func notify(_ fnc: @escaping (T) throws -> Void) rethrows {
 
         guard set.count != 0 else {
+            logger.info("[MulticastDelegate] delegates are empty")
             return
         }
 
-//        lock.lock()
-//        defer { lock.unlock() }
-        
-        for d in self.set.objectEnumerator() {
-            guard let d = d as? T else {
+        for delegate in self.set.objectEnumerator() {
+            guard let delegate = delegate as? T else {
                 logger.debug("notify() delegate is not type of \(T.self)")
                 continue
             }
-//            do {
-                try fnc(d)
-//            } catch let error {
-//                logger.warning("notify did throw \(error)")
-//            }
+            try fnc(delegate)
         }
     }
 

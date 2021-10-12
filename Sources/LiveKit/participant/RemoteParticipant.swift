@@ -1,10 +1,3 @@
-//
-//  File.swift
-//
-//
-//  Created by Russell D'Sa on 12/9/20.
-//
-
 import Foundation
 import WebRTC
 
@@ -60,7 +53,6 @@ public class RemoteParticipant: Participant {
                 logger.error("could not subscribe to mediaTrack \(sid), unable to locate track publication")
                 let err = TrackError.invalidTrackState("Could not find published track with sid: \(sid)")
                 notify { $0.participant(self, didFailToSubscribe: sid, error: err) }
-//                room?.notify { $0.didFailToSubscribe(sid: sid, error: err, participant: self) }
                 room?.notify { $0.room(self.room!, participant: self, didFailToSubscribe: sid, error: err) }
                 return
             }
@@ -79,9 +71,6 @@ public class RemoteParticipant: Participant {
         default:
             let err = TrackError.invalidTrackType("unsupported type: \(rtcTrack.kind.description)")
             notify { $0.participant(self, didFailToSubscribe: sid, error: err) }
-//            room?.notify { $0.didFailToSubscribe(sid: sid,
-//                                               error: err,
-//                                                 participant: self) }
             room?.notify { $0.room(self.room!, participant: self, didFailToSubscribe: sid, error: err) }
             return
         }
@@ -91,7 +80,6 @@ public class RemoteParticipant: Participant {
         addTrack(publication: publication)
 
         notify { $0.participant(self, didSubscribe: publication, track: track) }
-//        room?.notify { $0.didSubscribe(track: track, publication: publication, participant: self) }
         room?.notify { $0.room(self.room!, participant: self, didSubscribe: publication, track: track) }
     }
 
@@ -104,9 +92,6 @@ public class RemoteParticipant: Participant {
         if let track = publication.track {
             track.stop()
             notify { $0.participant(self, didUnsubscribe: publication, track: track) }
-//            room?.notify { $0.didUnsubscribe(track: track,
-//                                           publication: publication,
-//                                             participant: self) }
             room?.notify { $0.room(self.room!, participant: self, didUnsubscribe: publication) }
         }
         if sendUnpublish {

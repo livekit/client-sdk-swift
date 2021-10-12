@@ -26,23 +26,10 @@ internal class SignalClient : MulticastDelegate<SignalClientDelegate> {
             self.webSocket?.cancel()
             self.webSocket = self.urlSession.webSocketTask(with: rtcUrl)
             self.webSocket!.resume()
-            self.connectionState = .connecting(reconnecting: reconnect)
+            self.connectionState = .connecting(isReconnecting: reconnect)
         }.then {
-            self.waitForSignalClientConnect()
-
-//            self.wait(timeout: 3) { fulfil in
-//                SignalClientDelegateClosures(didConnect: { isReconnect in
-//                    fulfil(())
-//                })
-//            }
+            self.waitForConnect()
         }
-//        do {
-
-
-//        } catch let error {
-//            notify { $0.signalError(error: error) }
-//            throw error
-//        }
     }
 
     private func sendRequest(_ request: Livekit_SignalRequest) {
@@ -174,7 +161,7 @@ internal class SignalClient : MulticastDelegate<SignalClientDelegate> {
 
 extension SignalClient {
 
-    func waitForSignalClientConnect() -> Promise<Void> {
+    func waitForConnect() -> Promise<Void> {
 
         return Promise<Void> { fulfill, reject in
             // create temporary delegate
@@ -197,7 +184,7 @@ extension SignalClient {
 extension SignalClient {
 
     func sendOffer(offer: RTCSessionDescription) throws {
-        logger.debug("Sending offer")
+        logger.debug("[SignalClient] Sending offer")
 
         let r = try Livekit_SignalRequest.with {
             $0.offer = try offer.toPBType()
@@ -207,7 +194,7 @@ extension SignalClient {
     }
 
     func sendAnswer(answer: RTCSessionDescription) throws {
-        logger.debug("Sending answer")
+        logger.debug("[SignalClient] Sending answer")
 
         let r = try Livekit_SignalRequest.with {
             $0.answer = try answer.toPBType()
@@ -217,7 +204,7 @@ extension SignalClient {
     }
 
     func sendCandidate(candidate: RTCIceCandidate, target: Livekit_SignalTarget) throws {
-        logger.debug("Sending ICE candidate")
+        logger.debug("[SignalClient] Sending ICE candidate")
 
         let r = try Livekit_SignalRequest.with {
             $0.trickle = try Livekit_TrickleRequest.with {
@@ -230,7 +217,7 @@ extension SignalClient {
     }
 
     func sendMuteTrack(trackSid: String, muted: Bool) {
-        logger.debug("Sending mute for \(trackSid), muted: \(muted)")
+        logger.debug("[SignalClient] Sending mute for \(trackSid), muted: \(muted)")
 
         let r = Livekit_SignalRequest.with {
             $0.mute = Livekit_MuteTrackRequest.with {
@@ -244,7 +231,7 @@ extension SignalClient {
 
     func sendAddTrack(cid: String, name: String, type: Livekit_TrackType,
                       dimensions: Dimensions? = nil) {
-        logger.debug("Sending add track request")
+        logger.debug("[SignalClient] Sending add track request")
 
         let r = Livekit_SignalRequest.with {
             $0.addTrack = Livekit_AddTrackRequest.with {
@@ -262,7 +249,7 @@ extension SignalClient {
     }
 
     func sendUpdateTrackSettings(sid: String, disabled: Bool, videoQuality: Livekit_VideoQuality) {
-        logger.debug("Sending update track settings")
+        logger.debug("[SignalClient] Sending update track settings")
 
         let r = Livekit_SignalRequest.with {
             $0.trackSetting = Livekit_UpdateTrackSettings.with {
@@ -277,7 +264,7 @@ extension SignalClient {
     }
 
     func sendUpdateSubscription(sid: String, subscribed: Bool, videoQuality: Livekit_VideoQuality) {
-        logger.debug("Sending update subscription")
+        logger.debug("[SignalClient] Sending update subscription")
 
         let r = Livekit_SignalRequest.with {
             $0.subscription = Livekit_UpdateSubscription.with {
@@ -290,7 +277,7 @@ extension SignalClient {
     }
 
     func sendLeave() {
-        logger.debug("Sending leave")
+        logger.debug("[SignalClient] Sending leave")
 
         let r = Livekit_SignalRequest.with {
             $0.leave = Livekit_LeaveRequest()

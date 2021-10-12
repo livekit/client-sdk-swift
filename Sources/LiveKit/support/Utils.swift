@@ -3,65 +3,6 @@ import WebRTC
 
 typealias DebouncFunc = () -> Void
 
-extension URL {
-    var isSecure: Bool {
-        scheme == "https" || scheme == "wss"
-    }
-}
-
-extension ConnectOptions {
-
-    func buildUrl(
-        reconnect: Bool = false,
-        validate: Bool = false,
-        forceSecure: Bool = false
-    ) throws -> URL {
-
-        let parsedUrl = URL(string: url)
-
-        guard let parsedUrl = parsedUrl else {
-            throw InternalError.parse("Failed to parse url")
-        }
-
-        let components = URLComponents(url: parsedUrl, resolvingAgainstBaseURL: false)
-
-        guard var components = components else {
-            throw InternalError.parse("Failed to parse url components")
-        }
-
-        let useSecure = parsedUrl.isSecure || forceSecure
-        let httpScheme = useSecure ? "https" : "http"
-        let wsScheme = useSecure ? "wss" : "ws"
-
-        components.scheme = validate ? httpScheme : wsScheme
-        components.path = validate ? "/validate" : "/rtc"
-
-        var query = [
-            URLQueryItem(name: "access_token", value: accessToken),
-            URLQueryItem(name: "protocol", value: protocolVersion.description),
-            URLQueryItem(name: "sdk", value: "ios"),
-            URLQueryItem(name: "version", value: "0.5"),
-        ]
-
-        if reconnect {
-            query.append(URLQueryItem(name: "reconnect", value: "1"))
-        }
-
-        if autoSubscribe {
-            query.append(URLQueryItem(name: "auto_subscribe", value: "1"))
-        }
-
-        components.queryItems = query
-
-        guard let builtUrl = components.url else {
-            throw InternalError.convert("Failed to convert components to url \(components)")
-        }
-
-        return builtUrl
-    }
-
-}
-
 class Utils {
 
     static func createDebounceFunc(wait: TimeInterval,
@@ -92,8 +33,8 @@ class Utils {
         let presets = dimensions.computeSuggestedPresets()
 
         if (encoding == nil) {
-            let p = dimensions.computeSuggestedPreset(presets: presets)
-            encoding = p.encoding
+            let preset = dimensions.computeSuggestedPreset(in: presets)
+            encoding = preset.encoding
         }
 
         guard let encoding = encoding else {
@@ -115,84 +56,13 @@ class Utils {
 
         if (dimensions.width >= 960) {
             result.append(contentsOf: [
-                midPreset.encoding.toRTCRtpEncoding(
-                    rid: "h",
-                    scaleDownBy: 2),
-                lowPreset.encoding.toRTCRtpEncoding(
-                    rid: "q",
-                    scaleDownBy: 4)
+                midPreset.encoding.toRTCRtpEncoding(rid: "h", scaleDownBy: 2),
+                lowPreset.encoding.toRTCRtpEncoding(rid: "q", scaleDownBy: 4)
             ])
         } else {
-            result.append(lowPreset.encoding.toRTCRtpEncoding(
-                rid: "h",
-                scaleDownBy: 2
-                )
-            )
+            result.append(lowPreset.encoding.toRTCRtpEncoding(rid: "h", scaleDownBy: 2))
         }
 
         return result
     }
-
-
-    //    func getVideoEncodings(_ baseEncoding: VideoEncoding?, simulcast: Bool) -> [RTCRtpEncodingParameters] {
-    //        var rtcEncodings: [RTCRtpEncodingParameters] = []
-    ////        let baseParams = VideoPreset.getRTPEncodingParams(
-    ////            inputWidth: dimensions.width,
-    ////            inputHeight: dimensions.height,
-    ////            rid: simulcast ? "f" : nil,
-    ////            encoding: baseEncoding
-    ////        )
-    ////
-    ////        if baseParams != nil {
-    ////            rtcEncodings.append(baseParams!)
-    ////        }
-    //
-    ////        if simulcast {
-    ////            let halfParams = VideoPreset.getRTPEncodingParams(
-    ////                inputWidth: dimensions.width,
-    ////                inputHeight: dimensions.height,
-    ////                rid: "h")
-    ////            if halfParams != nil {
-    ////                rtcEncodings.append(halfParams!)
-    ////            }
-    ////            let quarterParams = VideoPreset.getRTPEncodingParams(
-    ////                inputWidth: dimensions.width,
-    ////                inputHeight: dimensions.height,
-    ////                rid: "q")
-    ////            if quarterParams != nil {
-    ////                rtcEncodings.append(quarterParams!)
-    ////            }
-    ////        }
-    ////        {
-    //        let p1 = RTCRtpEncodingParameters()
-    //        p1.isActive = true
-    //        p1.rid = "f"
-    //        p1.scaleResolutionDownBy = NSNumber(value :1)// NSNumber(value: scaleDownFactor)
-    //        p1.maxFramerate = NSNumber(value: 15) //NSNumber(value: selectedEncoding.maxFps)
-    //        p1.maxBitrateBps = NSNumber(value: 500 * 1024) //NSNumber(value: selectedEncoding.maxBitrate)
-    //        rtcEncodings.append(p1)
-    //
-    //        let p2 = RTCRtpEncodingParameters()
-    //        p2.isActive = true
-    //        p2.rid = "h"
-    //        p2.scaleResolutionDownBy = NSNumber(value :2)// NSNumber(value: scaleDownFactor)
-    //        p2.maxFramerate = NSNumber(value: 15) //NSNumber(value: selectedEncoding.maxFps)
-    //        p2.maxBitrateBps = NSNumber(value: 500 * 1024) //NSNumber(value: selectedEncoding.maxBitrate)
-    //        rtcEncodings.append(p2)
-    //
-    //
-    //        let p3 = RTCRtpEncodingParameters()
-    //        p3.isActive = true
-    //        p3.rid = "q"
-    //        p3.scaleResolutionDownBy = NSNumber(value :4)// NSNumber(value: scaleDownFactor)
-    //        p3.maxFramerate = NSNumber(value: 15) //NSNumber(value: selectedEncoding.maxFps)
-    //        p3.maxBitrateBps = NSNumber(value: 500 * 1024) //NSNumber(value: selectedEncoding.maxBitrate)
-    //        rtcEncodings.append(p3)
-    //
-    //
-    ////        }
-    //
-    //        return rtcEncodings
-    //    }
-
 }

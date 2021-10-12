@@ -26,6 +26,5 @@ extension RTCConfiguration {
         self.iceServers = rtcIceServers.isEmpty
         ? [RTCIceServer(urlStrings: RTCConfiguration.defaultIceServers)]
         : rtcIceServers
-
     }
 }

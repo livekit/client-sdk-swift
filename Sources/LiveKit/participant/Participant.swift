@@ -3,8 +3,6 @@ import WebRTC
 
 public class Participant: MulticastDelegate<ParticipantDelegate> {
 
-//    internal let delegates = MulticastDelegate<ParticipantDelegate>()
-
     public internal(set) var sid: Sid
     public internal(set) var identity: String?
     public internal(set) var audioLevel: Float = 0.0
@@ -26,7 +24,6 @@ public class Participant: MulticastDelegate<ParticipantDelegate> {
     }
 
     public private(set) var joinedAt: Date?
-
     public internal(set) var tracks = [String: TrackPublication]()
 
     public var audioTracks: [String: TrackPublication] {

@@ -73,7 +73,6 @@ extension RTCPeerConnection {
         }
     }
 
-    @discardableResult
     func addIceCandidatePromise(_ candidate: RTCIceCandidate) -> Promise<Void> {
 
         Promise<Void> { complete, fail in

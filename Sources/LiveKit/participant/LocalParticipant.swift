@@ -2,6 +2,7 @@ import WebRTC
 import Promises
 
 public class LocalParticipant: Participant {
+
     private var streamId = "stream"
 
     public var localAudioTrackPublications: [TrackPublication] { Array(audioTracks.values) }
@@ -50,7 +51,7 @@ public class LocalParticipant: Participant {
                     throw TrackError.publishError("Nil sender returned from peer connection.")
                 }
 
-                engine.negotiate()
+                engine.publisherShouldNegotiate()
 
                 let publication = LocalTrackPublication(info: trackInfo, track: track, participant: self)
                 self.addTrack(publication: publication)
@@ -96,7 +97,7 @@ public class LocalParticipant: Participant {
                     throw TrackError.publishError("Nil sender returned from peer connection.")
                 }
 
-                engine.negotiate()
+                engine.publisherShouldNegotiate()
 
                 let publication = LocalTrackPublication(info: trackInfo, track: track, participant: self)
                 self.addTrack(publication: publication)
@@ -129,7 +130,7 @@ public class LocalParticipant: Participant {
             if let t = sender.track {
                 if t.isEqual(track.mediaTrack) {
                     pc.removeTrack(sender)
-                    engine?.negotiate()
+                    engine?.publisherShouldNegotiate()
                 }
             }
         }
@@ -186,7 +187,7 @@ public class LocalParticipant: Participant {
         }
     }
 
-    func setEncodingParameters(parameters _: EncodingParameters) {}
+//    func setEncodingParameters(parameters _: EncodingParameters) {}
 
     // if audio session has not been initialized for recording, do so now
     private func ensureAudioCategory() throws {
