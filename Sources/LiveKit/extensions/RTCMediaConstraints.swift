@@ -10,14 +10,6 @@ extension RTCMediaConstraints {
     //        ],
     //        optionalConstraints: nil
     //    )
-    //
-    //    static let defaultAnswerConstraints = RTCMediaConstraints(
-    //        mandatoryConstraints: [:],
-    //        optionalConstraints: nil
-    //    )
-
-    //    static let mediaConstraints = RTCMediaConstraints(mandatoryConstraints: nil,
-    //                                                      optionalConstraints: nil)
 
     static let defaultPCConstraints = RTCMediaConstraints(
         mandatoryConstraints: nil,
