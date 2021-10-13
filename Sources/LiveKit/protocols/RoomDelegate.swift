@@ -88,15 +88,15 @@ public extension RoomDelegate {
     func room(_ room: Room, didFailToConnect error: Error) {}
     func room(_ room: Room, didDisconnect error: Error?) {}
     func room(_ room: Room, didUpdate connectionState: ConnectionState) {}
-    func room(_ room: Room, didUpdate speakers: [Participant]) {}
     func room(_ room: Room, participantDidJoin participant: RemoteParticipant) {}
     func room(_ room: Room, participantDidLeave participant: RemoteParticipant) {}
+    func room(_ room: Room, didUpdate speakers: [Participant]) {}
     func room(_ room: Room, participant: Participant, didUpdate metadata: String?) {}
     func room(_ room: Room, participant: Participant, didUpdate track: TrackPublication, muted: Bool) {}
     func room(_ room: Room, participant: RemoteParticipant, didPublish remoteTrack: RemoteTrackPublication) {}
     func room(_ room: Room, participant: RemoteParticipant, didUnpublish remoteTrack: RemoteTrackPublication) {}
     func room(_ room: Room, participant: RemoteParticipant, didSubscribe trackPublication: RemoteTrackPublication, track: Track) {}
-    func room(_ room: Room, participant: RemoteParticipant, didUnsubscribe trackPublication: RemoteTrackPublication) {}
     func room(_ room: Room, participant: RemoteParticipant, didFailToSubscribe trackSid: String, error: Error) {}
+    func room(_ room: Room, participant: RemoteParticipant, didUnsubscribe trackPublication: RemoteTrackPublication) {}
     func room(_ room: Room, participant: RemoteParticipant, didReceive data: Data) {}
 }

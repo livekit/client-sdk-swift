@@ -30,29 +30,19 @@ class Engine: MulticastDelegate<EngineDelegate> {
     private(set) var reliableDC: RTCDataChannel?
     private(set) var lossyDC: RTCDataChannel?
 
-    private(set) var reconnectAttempts: Int = 0
-
     private var connectOptions: ConnectOptions
 
     var connectionState: ConnectionState = .disconnected() {
+        // automatically notify changes
         didSet {
-            if oldValue == connectionState {
-                return
-            }
+            logger.debug("connectionState updated \(oldValue) -> \(self.connectionState)")
+            guard oldValue != connectionState else { return }
             switch connectionState {
-            case .connected:
-                var isReconnect = false
-                if case .connecting(isReconnecting: true) = oldValue {
-                    isReconnect = true
-                }
-                notify { $0.engine(self, didConnect: isReconnect) }
-            case .disconnected:
-                logger.info("publisher ICE disconnected")
-                close()
-                notify { $0.engineDidDisconnect(self) }
-            default:
-                break
+            case .connected: notify { $0.engine(self, didConnect: oldValue.isReconnecting) }
+            case .disconnected: notify { $0.engineDidDisconnect(self) }
+            default: break
             }
+            notify { $0.engine(self, didUpdate: self.connectionState) }
         }
     }
 
@@ -89,16 +79,101 @@ class Engine: MulticastDelegate<EngineDelegate> {
 
     func connect(connectOptions: ConnectOptions? = nil) -> Promise<Void> {
 
+        guard connectionState != .connected else {
+            logger.debug("already connected")
+            return Promise(EngineError.invalidState("already connected"))
+        }
+
         if let connectOptions = connectOptions {
             // set new connect options, if any
             self.connectOptions = connectOptions
         }
 
-        return signalClient.connect(options: self.connectOptions).then {
-            self.waitForIceConnect(transport: self.primary)
+        let isReconnecting = connectionState.isReconnecting
+
+        // only for reconnect
+        func reconnectSequence() -> Promise<Void> {
+
+            return self.waitForIceConnect(transport: self.primary).then { () -> Promise<Void> in
+
+                self.subscriber?.restartingIce = true
+
+                // only if published, continue...
+                guard let publisher = self.publisher, self.hasPublished else {
+                    return Promise(())
+                }
+
+                return publisher.createAndSendOffer(iceRestart: true).then {
+                    self.waitForIceConnect(transport: publisher)
+                }
+            }
+        }
+
+        return signalClient.connect(options: self.connectOptions,
+                                    reconnect: isReconnecting).then { () -> Promise<Void> in
+
+            if isReconnecting {
+                return reconnectSequence()
+            }
+
+            return self.signalClient.waitReceiveJoinResponse().then { joinResponse in
+                self.configureTransports(joinResponse: joinResponse)
+            }.then {
+                self.waitForIceConnect(transport: self.primary)
+            }
+
         }.then {
+            logger.debug("connect success")
             self.connectionState = .connected
         }
+    }
+
+    @discardableResult
+    private func reconnect(connectOptions: ConnectOptions? = nil) -> Promise<Void> {
+
+        guard case .connected = connectionState else {
+            logger.debug("reconnect() must be called with connected state")
+            return Promise(EngineError.invalidState("reconnect called with invalid state"))
+        }
+
+        if let connectOptions = connectOptions {
+            // set new connect options, if any
+            self.connectOptions = connectOptions
+        }
+
+        guard subscriber != nil, publisher != nil else {
+            return Promise(EngineError.invalidState("publisher or subscriber is null"))
+        }
+
+        connectionState = .connecting(isReconnecting: true)
+
+        let delay: TimeInterval = 1
+        return retry(attempts: 5, delay: delay) { remainingAttempts, _ in
+            // the condition to retry
+            logger.debug("re-connecting in \(delay)second(s), \(remainingAttempts) remaining attempts...")
+            return true
+        } _: {
+            // if this promise succeeds the retry loop will exit
+            self.connect()
+        }.catch { error in
+            // finally disconnect if all attempts fail
+            self.disconnect()
+        }
+    }
+
+    func disconnect() {
+
+        guard .disconnected() != connectionState else {
+            logger.warning("close() already disconnected")
+            return
+        }
+
+        connectionState = .disconnected()
+        publisher?.close()
+        subscriber?.close()
+        signalClient.close()
+
+        notify { $0.engineDidDisconnect(self) }
     }
 
     func addTrack(cid: String,
@@ -117,12 +192,6 @@ class Engine: MulticastDelegate<EngineDelegate> {
         signalClient.sendMuteTrack(trackSid: trackSid, muted: muted)
     }
 
-    func close() {
-        publisher?.close()
-        subscriber?.close()
-        signalClient.close()
-    }
-
     internal func publisherShouldNegotiate() {
 
         guard let publisher = publisher else {
@@ -132,65 +201,6 @@ class Engine: MulticastDelegate<EngineDelegate> {
 
         hasPublished = true
         publisher.negotiate()
-    }
-
-    @discardableResult
-    func reconnect(connectOptions: ConnectOptions? = nil) -> Promise<Void> {
-
-        if let connectOptions = connectOptions {
-            // set new connect options, if any
-            self.connectOptions = connectOptions
-        }
-
-        guard connectionState != .disconnected() else {
-            logger.debug("reconnect() already disconnected")
-            return Promise(EngineError.invalidState("already disconnected"))
-        }
-
-        guard let subscriber = subscriber, let publisher = publisher else {
-            return Promise(EngineError.invalidState("publisher or subscriber is null"))
-        }
-
-        logger.debug("reconnecting to signal connection, attempt', reconnectAttempts")
-
-        if reconnectAttempts == 0 {
-            connectionState = .connecting(isReconnecting: true)
-        }
-        reconnectAttempts += 1
-
-        return signalClient.connect(options: self.connectOptions, reconnect: true).then { () -> Promise<Void> in
-            subscriber.restartingIce = true
-            if self.hasPublished {
-                return publisher.createAndSendOffer()
-            }
-            // no-op if not published
-            return Promise(())
-        }.then {
-            self.waitForIceConnect(transport: self.primary)
-        }
-
-        //        return p
-        //
-        //        if reconnectAttempts >= maxReconnectAttempts {
-        //            logger.error("could not connect to signal after \(reconnectAttempts) attempts, giving up")
-        //            close()
-        ////            delegate?.didDisconnect()
-        //            notify { $0.didDisconnect() }
-        //            return
-        //        }
-        //
-        //        if let reconnectTask = wsReconnectTask, connectionState != .disconnected {
-        //            var delay = Double(reconnectAttempts ^ 2) * 0.5
-        //            if delay > 5 {
-        //                delay = 5
-        //            }
-        //            DispatchQueue.global(qos: .background).asyncAfter(deadline: .now() + delay, execute: reconnectTask)
-        //        }
-    }
-
-    private func handleSignalDisconnect() {
-        reconnectAttempts += 1
-        reconnect(connectOptions: connectOptions)
     }
 
     func sendDataPacket(packet: Livekit_DataPacket) -> Promise<Void> {
@@ -238,10 +248,16 @@ class Engine: MulticastDelegate<EngineDelegate> {
 
 extension Engine {
 
-    func waitForIceConnect(transport: Transport?) -> Promise<Void> {
+    func waitForIceConnect(transport: Transport?, allowCurrentValue: Bool = true) -> Promise<Void> {
 
         guard let transport = transport else {
             return Promise(EngineError.invalidState("transport is nil"))
+        }
+
+        logger.debug("waiting for iceConnect on \(transport)")
+        if allowCurrentValue, transport.pc.iceConnectionState == .connected {
+            logger.debug("iceConnect already connected")
+            return Promise(())
         }
 
         return Promise<Void> { fulfill, _ in
@@ -281,45 +297,14 @@ extension Engine {
 
 extension Engine: SignalClientDelegate {
 
-    func signalClient(_ signalClient: SignalClient, didUpdate speakers: [Livekit_SpeakerInfo]) {
-        //        delegate?.didUpdateSpeakersSignal(speakers: speakers)
-        notify { $0.engine(self, didUpdateSignal: speakers) }
-    }
-
-    func signalClient(_ signalClient: SignalClient, didConnect isReconnect: Bool) {
-        logger.info("signalClient did connect")
-        reconnectAttempts = 0
-
-        //        guard let publisher = self.publisher else {
-        //            return
-        //        }
-
-        //        subscriber?.prepareForIceRestart()
-
-        // trigger ICE restart
-
-        // if publisher is waiting for an answer from right now, it most likely got lost, we'll
-        // reset signal state to allow it to continue
-        //        if let desc = publisher.pc.remoteDescription,
-        //           publisher.pc.signalingState == .haveLocalOffer {
-        //            logger.debug("have local offer but recovering to restart ICE")
-        //            publisher.setRemoteDescription(desc).then {
-        //                publisher.pc.restartIce()
-        ////                publisher.prepareForIceRestart()
-        //            }
-        //        } else {
-        //            logger.debug("restarting ICE")
-        //            publisher.pc.restartIce()
-        ////            /publisher.prepareForIceRestart()
-        //        }
-    }
-
-    func signalClient(_ signalClient: SignalClient, didReceive joinResponse: Livekit_JoinResponse) {
+    func configureTransports(joinResponse: Livekit_JoinResponse) {
 
         guard subscriber == nil, publisher == nil else {
-            logger.debug("onJoin() already configured")
+            logger.debug("transports already configured")
             return
         }
+
+        logger.debug("configuring transports...")
 
         // protocol v3
         subscriberPrimary = joinResponse.subscriberPrimary
@@ -362,11 +347,21 @@ extension Engine: SignalClientDelegate {
             //
         }
 
-        if subscriberPrimary {
+        if !subscriberPrimary {
             // lazy negotiation for protocol v3
             publisherShouldNegotiate()
         }
+    }
 
+    func signalClient(_ signalClient: SignalClient, didUpdate speakers: [Livekit_SpeakerInfo]) {
+        notify { $0.engine(self, didUpdateSignal: speakers) }
+    }
+
+    func signalClient(_ signalClient: SignalClient, didConnect isReconnect: Bool) {
+        //
+    }
+
+    func signalClient(_ signalClient: SignalClient, didReceive joinResponse: Livekit_JoinResponse) {
         notify { $0.engine(self, didReceive: joinResponse) }
     }
 
@@ -408,13 +403,12 @@ extension Engine: SignalClientDelegate {
     }
 
     func signalClientDidLeave(_ signaClient: SignalClient) {
-        close()
-        notify { $0.engineDidDisconnect(self) }
+//        disconnect()
     }
 
     func signalClient(_ signalClient: SignalClient, didClose reason: String, code: UInt16) {
         logger.debug("signal connection closed with code: \(code), reason: \(reason)")
-        handleSignalDisconnect()
+        reconnect()
     }
 
     func signalClient(_ signalClient: SignalClient, didFailConnection error: Error) {
@@ -423,12 +417,10 @@ extension Engine: SignalClientDelegate {
     }
 
     func signalClient(_ signalClient: SignalClient, didUpdateRemoteMute trackSid: String, muted: Bool) {
-        // relay
         notify { $0.engine(self, didUpdateRemoteMute: trackSid, muted: muted) }
     }
 
     func signalClient(_ signalClient: SignalClient, didUpdate participants: [Livekit_ParticipantInfo]) {
-        // relay
         notify { $0.engine(self, didUpdate: participants) }
     }
 }
@@ -464,10 +456,8 @@ extension Engine: TransportDelegate {
     func transport(_ transport: Transport, didUpdate iceState: RTCIceConnectionState) {
         logger.debug("[PCTransportDelegate] didUpdate iceState")
         if transport.primary {
-            if iceState == .connected {
-                self.connectionState = .connected
-            } else if iceState == .failed {
-                self.connectionState = .disconnected()
+            if iceState == .failed {
+                reconnect()
             }
         }
     }
@@ -485,4 +475,6 @@ extension Engine: TransportDelegate {
             onReceived(dataChannel: dataChannel)
         }
     }
+
+    func transportShouldNegotiate(_ transport: Transport) {}
 }

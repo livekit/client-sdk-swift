@@ -9,16 +9,12 @@ let networkChangeIgnoreInterval = 3.0
 
 public class Room: MulticastDelegate<RoomDelegate> {
 
-    //    typealias DelegateType = RoomDelegate
-    //    internal let delegates = NSHashTable<AnyObject>.weakObjects()
-
     public private(set) var sid: Sid?
     public private(set) var name: String?
     public private(set) var localParticipant: LocalParticipant?
     public private(set) var remoteParticipants = [Sid: RemoteParticipant]()
     public private(set) var activeSpeakers: [Participant] = []
 
-    //    private var connectOptions: ConnectOptions
     //    private let monitor: NWPathMonitor
     private let monitorQueue: DispatchQueue
     private var prevPath: NWPath?
@@ -29,8 +25,6 @@ public class Room: MulticastDelegate<RoomDelegate> {
     }
 
     init(connectOptions: ConnectOptions, delegate: RoomDelegate) {
-
-        //        self.connectOptions = connectOptions
 
         //        monitor = NWPathMonitor()
         monitorQueue = DispatchQueue(label: "networkMonitor", qos: .background)
@@ -77,14 +71,13 @@ public class Room: MulticastDelegate<RoomDelegate> {
             return Promise(EngineError.invalidState("localParticipant is not nil"))
         }
 
-        //        state = .connecting(reconnecting: false)
         //        monitor.start(queue: monitorQueue)
         return engine.connect()
     }
 
     public func disconnect() {
         engine.signalClient.sendLeave()
-        engine.close()
+        engine.disconnect()
         handleDisconnect()
     }
 
@@ -173,12 +166,7 @@ public class Room: MulticastDelegate<RoomDelegate> {
     }
 
     private func handleDisconnect() {
-        if state == .disconnected() {
-            // only allow cleanup to be completed once
-            return
-        }
         logger.info("disconnected from room: \(self.name ?? "")")
-        //        state = .disconnected
         // stop any tracks && release audio session
         for participant in remoteParticipants.values {
             for publication in participant.tracks.values {
@@ -201,18 +189,12 @@ public class Room: MulticastDelegate<RoomDelegate> {
         activeSpeakers.removeAll()
         //        monitor.cancel()
         notify { $0.room(self, didDisconnect: nil) }
-        // should be the only call from delegate, room is done
-        //        delegate = nil
     }
 }
 
 // MARK: - RTCEngineDelegate
 
 extension Room: EngineDelegate {
-
-    func engine(_ engine: Engine, didUpdate connectionState: ConnectionState) {
-        //
-    }
 
     func engine(_ engine: Engine, didUpdateSignal speakers: [Livekit_SpeakerInfo]) {
         onSignalSpeakersUpdate(speakers)
@@ -222,8 +204,16 @@ extension Room: EngineDelegate {
         onEngineSpeakersUpdate(speakers)
     }
 
+    func engine(_ engine: Engine, didConnect isReconnect: Bool) {
+        notify { $0.room(self, didConnect: isReconnect) }
+    }
+
     func engineDidDisconnect(_ engine: Engine) {
         handleDisconnect()
+    }
+
+    func engine(_ engine: Engine, didUpdate connectionState: ConnectionState) {
+        notify { $0.room(self, didUpdate: connectionState) }
     }
 
     func engine(_ engine: Engine, didReceive joinResponse: Livekit_JoinResponse) {
@@ -241,14 +231,6 @@ extension Room: EngineDelegate {
             }
         }
     }
-
-    func engine(_ engine: Engine, didConnect isReconnect: Bool) {
-        notify { $0.room(self, didConnect: isReconnect) }
-    }
-
-    //    func engineDidReconnect(_ engine: Engine) {
-    //        notify { $0.didReconnect(room: self) }
-    //    }
 
     func engine(_ engine: Engine, didAdd track: RTCMediaStreamTrack, streams: [RTCMediaStream]) {
         guard streams.count > 0 else {

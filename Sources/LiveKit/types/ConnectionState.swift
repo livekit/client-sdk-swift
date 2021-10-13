@@ -10,10 +10,15 @@ extension ConnectionState: Equatable {
 
     public static func ==(lhs: ConnectionState, rhs: ConnectionState) -> Bool {
         switch (lhs, rhs) {
-        case (let .connecting(a1), let .connecting(a2)): return a1 == a2
+        case (let .connecting(r1), let .connecting(r2)): return r1 == r2
         case (.disconnected, .disconnected): return true
         case (.connected, .connected): return true
         default: return false
         }
+    }
+
+    public var isReconnecting: Bool {
+        if case .connecting(isReconnecting: true) = self { return true }
+        return false
     }
 }

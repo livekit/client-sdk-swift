@@ -10,13 +10,13 @@ internal protocol TransportDelegate {
 }
 
 // optional
-extension TransportDelegate {
-    func transport(_ transport: Transport, didUpdate iceState: RTCIceConnectionState) {}
-    func transport(_ transport: Transport, didGenerate iceCandidate: RTCIceCandidate) {}
-    func transport(_ transport: Transport, didOpen dataChannel: RTCDataChannel) {}
-    func transport(_ transport: Transport, didAdd track: RTCMediaStreamTrack, streams: [RTCMediaStream]) {}
-    func transportShouldNegotiate(_ transport: Transport) {}
-}
+// extension TransportDelegate {
+//    func transport(_ transport: Transport, didUpdate iceState: RTCIceConnectionState) {}
+//    func transport(_ transport: Transport, didGenerate iceCandidate: RTCIceCandidate) {}
+//    func transport(_ transport: Transport, didOpen dataChannel: RTCDataChannel) {}
+//    func transport(_ transport: Transport, didAdd track: RTCMediaStreamTrack, streams: [RTCMediaStream]) {}
+//    func transportShouldNegotiate(_ transport: Transport) {}
+// }
 
 class TransportDelegateClosures: NSObject, TransportDelegate {
 
@@ -31,5 +31,8 @@ class TransportDelegateClosures: NSObject, TransportDelegate {
         onIceStateUpdated?(transport, iceState)
     }
 
-    // ...
+    func transport(_ transport: Transport, didGenerate iceCandidate: RTCIceCandidate) {}
+    func transport(_ transport: Transport, didOpen dataChannel: RTCDataChannel) {}
+    func transport(_ transport: Transport, didAdd track: RTCMediaStreamTrack, streams: [RTCMediaStream]) {}
+    func transportShouldNegotiate(_ transport: Transport) {}
 }

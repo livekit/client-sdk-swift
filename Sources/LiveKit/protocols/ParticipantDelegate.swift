@@ -60,7 +60,7 @@ public extension ParticipantDelegate {
     func participant(_ participant: RemoteParticipant, didPublish trackPublication: RemoteTrackPublication) {}
     func participant(_ participant: RemoteParticipant, didUnpublish trackPublication: RemoteTrackPublication) {}
     func participant(_ participant: RemoteParticipant, didSubscribe trackPublication: RemoteTrackPublication, track: Track) {}
-    func participant(_ participant: RemoteParticipant, didUnsubscribe trackPublication: RemoteTrackPublication, track: Track) {}
     func participant(_ participant: RemoteParticipant, didFailToSubscribe trackSid: String, error: Error) {}
+    func participant(_ participant: RemoteParticipant, didUnsubscribe trackPublication: RemoteTrackPublication, track: Track) {}
     func participant(_ participant: RemoteParticipant, didReceive data: Data) {}
 }

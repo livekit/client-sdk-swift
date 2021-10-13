@@ -4,6 +4,7 @@ import Promises
 // simplify generic constraints but check type at add/remove
 public class MulticastDelegate<T>: NSObject {
 
+    private let lock = NSLock()
     private let set = NSHashTable<AnyObject>.weakObjects()
 
     func add(delegate: T) {
@@ -12,6 +13,9 @@ public class MulticastDelegate<T>: NSObject {
             logger.debug("delegate is not an AnyObject")
             return
         }
+
+        lock.lock()
+        defer { lock.unlock() }
 
         self.set.add(delegate)
         logger.debug("[\(self) MulticastDelegate] count updated: \(self.set.count)")
@@ -25,6 +29,9 @@ public class MulticastDelegate<T>: NSObject {
             return
         }
 
+        lock.lock()
+        defer { lock.unlock() }
+
         self.set.remove(delegate)
         logger.debug("[\(self) MulticastDelegate] count updated: \(self.set.count)")
     }
@@ -32,9 +39,11 @@ public class MulticastDelegate<T>: NSObject {
     internal func notify(_ fnc: @escaping (T) throws -> Void) rethrows {
 
         guard set.count != 0 else {
-            logger.info("[MulticastDelegate] delegates are empty")
             return
         }
+
+        lock.lock()
+        defer { lock.unlock() }
 
         for delegate in self.set.objectEnumerator() {
             guard let delegate = delegate as? T else {

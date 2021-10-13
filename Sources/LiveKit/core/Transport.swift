@@ -84,25 +84,26 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
     }
 
     @discardableResult
-    func createAndSendOffer(_ constraints: [String: String]? = nil) -> Promise<Void> {
+    func createAndSendOffer(iceRestart: Bool = false) -> Promise<Void> {
 
         guard let onOffer = onOffer else {
+            logger.warning("createAndSendOffer() onOffer is nil")
             return Promise(())
         }
 
-        let isIceRestart = constraints?[kRTCMediaConstraintsIceRestart] == kRTCMediaConstraintsValueTrue
-
-        if isIceRestart {
-            logger.debug("restarting ICE")
+        var constraints = [String: String]()
+        if iceRestart {
+            logger.debug("[Transport] createAndSendOffer() Restarting ICE...")
+            constraints[kRTCMediaConstraintsIceRestart] = kRTCMediaConstraintsValueTrue
             restartingIce = true
         }
 
-        if pc.signalingState == .haveLocalOffer, !(isIceRestart && pc.remoteDescription != nil) {
+        if pc.signalingState == .haveLocalOffer, !(iceRestart && pc.remoteDescription != nil) {
             renegotiate = true
             return Promise(())
         }
 
-        if pc.signalingState == .haveLocalOffer, isIceRestart, let sd = pc.remoteDescription {
+        if pc.signalingState == .haveLocalOffer, iceRestart, let sd = pc.remoteDescription {
             return pc.setRemoteDescriptionPromise(sd).then { _ in
                 negotiateSequence()
             }
@@ -134,12 +135,29 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
 
 }
 
+extension RTCIceConnectionState {
+
+    func toString() -> String {
+        switch self {
+        case .new: return "new"
+        case .checking: return "checking"
+        case .connected: return "connected"
+        case .completed: return "completed"
+        case .failed: return "failed"
+        case .disconnected: return "disconnected"
+        case .closed: return "closed"
+        case .count: return  "count"
+        @unknown default: return "unknown"
+        }
+    }
+}
+
 extension Transport: RTCPeerConnectionDelegate {
 
     func peerConnection(_ peerConnection: RTCPeerConnection,
                         didChange iceState: RTCIceConnectionState) {
 
-        logger.debug("[RTCPeerConnectionDelegate] did change ice state \(iceState) for \(target)")
+        logger.debug("[RTCPeerConnectionDelegate] did change ice state \(iceState.toString()) for \(target)")
         notify { $0.transport(self, didUpdate: iceState) }
     }
 
