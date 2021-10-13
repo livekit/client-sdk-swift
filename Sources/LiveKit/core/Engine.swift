@@ -112,20 +112,20 @@ class Engine: MulticastDelegate<EngineDelegate> {
         return signalClient.connect(options: self.connectOptions,
                                     reconnect: isReconnecting).then { () -> Promise<Void> in
 
-            if isReconnecting {
-                return reconnectSequence()
-            }
+                                        if isReconnecting {
+                                            return reconnectSequence()
+                                        }
 
-            return self.signalClient.waitReceiveJoinResponse().then { joinResponse in
-                self.configureTransports(joinResponse: joinResponse)
-            }.then {
-                self.waitForIceConnect(transport: self.primary)
-            }
+                                        return self.signalClient.waitReceiveJoinResponse().then { joinResponse in
+                                            self.configureTransports(joinResponse: joinResponse)
+                                        }.then {
+                                            self.waitForIceConnect(transport: self.primary)
+                                        }
 
-        }.then {
-            logger.debug("connect success")
-            self.connectionState = .connected
-        }
+                                    }.then {
+                                        logger.debug("connect success")
+                                        self.connectionState = .connected
+                                    }
     }
 
     @discardableResult
@@ -155,7 +155,7 @@ class Engine: MulticastDelegate<EngineDelegate> {
         } _: {
             // if this promise succeeds the retry loop will exit
             self.connect()
-        }.catch { error in
+        }.catch { _ in
             // finally disconnect if all attempts fail
             self.disconnect()
         }
@@ -403,7 +403,7 @@ extension Engine: SignalClientDelegate {
     }
 
     func signalClientDidLeave(_ signaClient: SignalClient) {
-//        disconnect()
+        disconnect()
     }
 
     func signalClient(_ signalClient: SignalClient, didClose reason: String, code: UInt16) {
