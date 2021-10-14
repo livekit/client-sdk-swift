@@ -15,8 +15,13 @@ public class AudioTrack: Track {
         get { return mediaTrack as! RTCAudioTrack }
     }
 
-    private static var localTracksCount = 0
-    private static var remoteTracksCount = 0
+    private static var localTracksCount = 0 {
+        didSet { recomputeTracksState() }
+    }
+
+    private static var remoteTracksCount = 0 {
+        didSet { recomputeTracksState() }
+    }
 
     internal static var tracksState: TracksState = .none {
         didSet {
@@ -51,7 +56,6 @@ public class AudioTrack: Track {
         } else {
             AudioTrack.remoteTracksCount += delta
         }
-        AudioTrack.computeTracksState()
     }
 }
 
@@ -59,7 +63,7 @@ public class AudioTrack: Track {
 
 extension AudioTrack {
 
-    internal static func computeTracksState() {
+    internal static func recomputeTracksState() {
         if localTracksCount > 0 && remoteTracksCount == 0 {
             tracksState = .localOnly
         } else if localTracksCount == 0 && remoteTracksCount > 0 {
