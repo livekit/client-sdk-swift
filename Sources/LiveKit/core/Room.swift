@@ -248,15 +248,7 @@ extension Room: EngineDelegate {
 
         logger.debug("added media track from: \(participantSid), sid: \(trackSid)")
 
-        DispatchQueue.global(qos: .background).async {
-            // ensure audio session is configured
-            //            if track.kind == "audio" {
-            //                if !LiveKit.audioConfigured {
-            //                    LiveKit.configureAudioSession()
-            //                }
-            //            }
-            participant.addSubscribedMediaTrack(rtcTrack: track, sid: trackSid)
-        }
+        participant.addSubscribedMediaTrack(rtcTrack: track, sid: trackSid)
     }
 
     func engine(_ engine: Engine, didUpdate participants: [Livekit_ParticipantInfo]) {
