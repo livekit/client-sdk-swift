@@ -32,16 +32,13 @@ public class LocalParticipant: Participant {
             return Promise(TrackError.publishError("This track has already been published."))
         }
 
-        do {
-            try self.ensureAudioCategory()
-        } catch {
-            return Promise(error)
-        }
-
         let cid = track.mediaTrack.trackId
         return engine.addTrack(cid: cid, name: track.name, kind: .audio).then { trackInfo in
 
             Promise<LocalTrackPublication> { () -> LocalTrackPublication in
+
+                track.start()
+
                 let transInit = RTCRtpTransceiverInit()
                 transInit.direction = .sendOnly
                 transInit.streamIds = [self.streamId]
@@ -83,6 +80,9 @@ public class LocalParticipant: Participant {
                                dimensions: track.dimensions) .then { trackInfo in
 
                                 Promise<LocalTrackPublication> { () -> LocalTrackPublication in
+
+                                    track.start()
+
                                     let transInit = RTCRtpTransceiverInit()
                                     transInit.direction = .sendOnly
                                     transInit.streamIds = [self.streamId]
@@ -190,14 +190,14 @@ public class LocalParticipant: Participant {
     //    func setEncodingParameters(parameters _: EncodingParameters) {}
 
     // if audio session has not been initialized for recording, do so now
-    private func ensureAudioCategory() throws {
-        let audioSession = AVAudioSession.sharedInstance()
-        let desiredCategory = AVAudioSession.Category.playAndRecord
-        if !LiveKit.audioConfigured || audioSession.category != desiredCategory {
-            logger.warning("upgrading audio session to playAndRecord")
-            var opts = audioSession.categoryOptions
-            opts.insert(.defaultToSpeaker)
-            LiveKit.configureAudioSession(category: desiredCategory, mode: .videoChat)
-        }
-    }
+    //    private func ensureAudioCategory() throws {
+    //        let audioSession = AVAudioSession.sharedInstance()
+    //        let desiredCategory = AVAudioSession.Category.playAndRecord
+    //        if !LiveKit.audioConfigured || audioSession.category != desiredCategory {
+    //            logger.warning("upgrading audio session to playAndRecord")
+    //            var opts = audioSession.categoryOptions
+    //            opts.insert(.defaultToSpeaker)
+    //            LiveKit.configureAudioSession(category: desiredCategory, mode: .videoChat)
+    //        }
+    //    }
 }

@@ -250,11 +250,11 @@ extension Room: EngineDelegate {
 
         DispatchQueue.global(qos: .background).async {
             // ensure audio session is configured
-            if track.kind == "audio" {
-                if !LiveKit.audioConfigured {
-                    LiveKit.configureAudioSession()
-                }
-            }
+            //            if track.kind == "audio" {
+            //                if !LiveKit.audioConfigured {
+            //                    LiveKit.configureAudioSession()
+            //                }
+            //            }
             participant.addSubscribedMediaTrack(rtcTrack: track, sid: trackSid)
         }
     }

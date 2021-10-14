@@ -78,6 +78,7 @@ public class RemoteParticipant: Participant {
         publication.track = track
         track.sid = publication.sid
         addTrack(publication: publication)
+        track.start()
 
         notify { $0.participant(self, didSubscribe: publication, track: track) }
         room?.notify { $0.room(self.room!, participant: self, didSubscribe: publication, track: track) }
