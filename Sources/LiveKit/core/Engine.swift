@@ -89,43 +89,20 @@ class Engine: MulticastDelegate<EngineDelegate> {
             self.connectOptions = connectOptions
         }
 
-        let isReconnecting = connectionState.isReconnecting
-
-        // only for reconnect
-        func reconnectSequence() -> Promise<Void> {
-
-            return self.waitForIceConnect(transport: self.primary).then { () -> Promise<Void> in
-
-                self.subscriber?.restartingIce = true
-
-                // only if published, continue...
-                guard let publisher = self.publisher, self.hasPublished else {
-                    return Promise(())
-                }
-
-                return publisher.createAndSendOffer(iceRestart: true).then {
-                    self.waitForIceConnect(transport: publisher)
-                }
-            }
+        return signalClient.connect(options: self.connectOptions).then {
+            // wait for join response
+            self.signalClient.waitReceiveJoinResponse()
+        }.then { joinResponse in
+            // set up peer connections
+            self.configureTransports(joinResponse: joinResponse)
+        }.then {
+            // wait for peer connections to connect
+            self.waitForIceConnect(transport: self.primary)
+        }.then {
+            // connect sequence successful
+            logger.debug("connect sequence completed")
+            self.connectionState = .connected
         }
-
-        return signalClient.connect(options: self.connectOptions,
-                                    reconnect: isReconnecting).then { () -> Promise<Void> in
-
-                                        if isReconnecting {
-                                            return reconnectSequence()
-                                        }
-
-                                        return self.signalClient.waitReceiveJoinResponse().then { joinResponse in
-                                            self.configureTransports(joinResponse: joinResponse)
-                                        }.then {
-                                            self.waitForIceConnect(transport: self.primary)
-                                        }
-
-                                    }.then {
-                                        logger.debug("connect success")
-                                        self.connectionState = .connected
-                                    }
     }
 
     @discardableResult
@@ -147,14 +124,36 @@ class Engine: MulticastDelegate<EngineDelegate> {
 
         connectionState = .connecting(isReconnecting: true)
 
+        func reconnectSequence() -> Promise<Void> {
+
+            signalClient.connect(options: self.connectOptions, reconnect: true).then {
+                self.waitForIceConnect(transport: self.primary)
+            }.then { () -> Promise<Void> in
+                self.subscriber?.restartingIce = true
+
+                // only if published, continue...
+                guard let publisher = self.publisher, self.hasPublished else {
+                    return Promise(())
+                }
+
+                return publisher.createAndSendOffer(iceRestart: true).then {
+                    self.waitForIceConnect(transport: publisher)
+                }
+            }
+        }
+
         let delay: TimeInterval = 1
         return retry(attempts: 5, delay: delay) { remainingAttempts, _ in
-            // the condition to retry
             logger.debug("re-connecting in \(delay)second(s), \(remainingAttempts) remaining attempts...")
-            return true
+            // only retry if still reconnecting state (not disconnected)
+            return .connecting(isReconnecting: true) == self.connectionState
         } _: {
-            // if this promise succeeds the retry loop will exit
-            self.connect()
+            // try to re-connect
+            reconnectSequence()
+        }.then {
+            // re-connect sequence successful
+            logger.debug("re-connect sequence completed")
+            self.connectionState = .connected
         }.catch { _ in
             // finally disconnect if all attempts fail
             self.disconnect()
