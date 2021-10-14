@@ -76,6 +76,7 @@ extension AudioTrack {
         guard LiveKit.onConfigureAudioSession(tracksState, config) else {
             return
         }
+        logger.debug("configuring audio session category \(config.category), mode \(config.mode)")
         let audioSession = RTCAudioSession.sharedInstance()
         audioSession.lockForConfiguration()
         defer { audioSession.unlockForConfiguration() }
