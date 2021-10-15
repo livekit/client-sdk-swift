@@ -10,10 +10,9 @@ public class LiveKit {
     static let queue = DispatchQueue(label: "lk_queue")
     static var audioConfigured: Bool = false
 
-    public static func connect(options: ConnectOptions, delegate: RoomDelegate) -> Room {
+    public static func connect(options: ConnectOptions, delegate: RoomDelegate) -> Promise<Room> {
         let room = Room(connectOptions: options, delegate: delegate)
-        room.connect()
-        return room
+        return room.connect()
     }
 
     /// configures the current audio session.

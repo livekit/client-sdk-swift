@@ -65,14 +65,16 @@ public class Room: MulticastDelegate<RoomDelegate> {
     }
 
     @discardableResult
-    func connect() -> Promise<Void> {
+    func connect() -> Promise<Room> {
         logger.info("connecting to room")
         guard localParticipant == nil else {
             return Promise(EngineError.invalidState("localParticipant is not nil"))
         }
 
         //        monitor.start(queue: monitorQueue)
-        return engine.connect()
+        return engine.connect().then {
+            self
+        }
     }
 
     public func disconnect() {
