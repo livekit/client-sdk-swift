@@ -15,10 +15,9 @@ public class LiveKit {
     /// Called when audio session configuration is required
     public static var onConfigureAudioSession: ConfigureAudioSession = defaultAudioSessionConfigureFunc
 
-    public static func connect(options: ConnectOptions, delegate: RoomDelegate) -> Room {
+    public static func connect(options: ConnectOptions, delegate: RoomDelegate) -> Promise<Room> {
         let room = Room(connectOptions: options, delegate: delegate)
-        room.connect()
-        return room
+        return room.connect()
     }
 
     public static func defaultAudioSessionConfigureFunc(state: AudioTrack.TracksState,
