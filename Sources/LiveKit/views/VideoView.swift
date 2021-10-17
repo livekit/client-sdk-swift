@@ -1,6 +1,9 @@
 import Foundation
 import WebRTC
 import CoreMedia
+
+#if !os(macOS)
+
 import UIKit
 
 public class VideoView: UIView {
@@ -61,3 +64,5 @@ extension VideoView: RTCVideoViewDelegate {
         }
     }
 }
+
+#endif
