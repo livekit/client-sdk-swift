@@ -9,6 +9,11 @@ public class Track {
         case none
     }
 
+    public enum State {
+        case stopped
+        case started
+    }
+
     public internal(set) var name: String
     public internal(set) var sid: Sid?
     public internal(set) var kind: Track.Kind
@@ -18,13 +23,30 @@ public class Track {
         return transceiver?.sender
     }
 
+    public private(set) var state: State = .stopped {
+        didSet {
+            guard oldValue != state else { return }
+            stateUpdated()
+        }
+    }
+
     init(name: String, kind: Kind, track: RTCMediaStreamTrack) {
         self.name = name
         self.kind = kind
         mediaTrack = track
     }
 
-    public func stop() {
-        mediaTrack.isEnabled = false
+    internal func start() {
+        state = .started
+    }
+
+    internal func stop() {
+        state = .stopped
+    }
+
+    internal func stateUpdated() {
+        if .stopped == state {
+            mediaTrack.isEnabled = false
+        }
     }
 }
