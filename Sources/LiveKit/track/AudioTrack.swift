@@ -26,7 +26,8 @@ public class AudioTrack: Track {
     internal static var tracksState: TracksState = .none {
         didSet {
             guard oldValue != tracksState else { return }
-            AudioTrack.shouldConfigureAudioSession()
+            AudioTrack.shouldConfigureAudioSession(newState: tracksState,
+                                                   oldState: oldValue)
         }
     }
 
@@ -75,17 +76,28 @@ extension AudioTrack {
         }
     }
 
-    internal static func shouldConfigureAudioSession() {
-        let config = RTCAudioSessionConfiguration.webRTC()
-        guard LiveKit.onConfigureAudioSession(tracksState, config) else {
+    internal static func shouldConfigureAudioSession(newState: TracksState,
+                                                     oldState: TracksState) {
+
+        guard let configureFunc = LiveKit.onConfigureAudioSession else {
+            // call back is null, don't do anything...
             return
         }
-        logger.debug("configuring audio session category \(config.category), mode \(config.mode)")
+
+        let config = RTCAudioSessionConfiguration.webRTC()
+        let setActive = configureFunc(newState, oldState, config)
+
         let audioSession = RTCAudioSession.sharedInstance()
         audioSession.lockForConfiguration()
         defer { audioSession.unlockForConfiguration() }
         do {
-            try audioSession.setConfiguration(config, active: true)
+            if let setActive = setActive {
+                logger.debug("configuring audio session with category: \(config.category), mode: \(config.mode), setActive: \(setActive)")
+                try audioSession.setConfiguration(config, active: setActive)
+            } else {
+                logger.debug("configuring audio session with category: \(config.category), mode: \(config.mode)")
+                try audioSession.setConfiguration(config)
+            }
         } catch let error {
             logger.error("Failed to configure audio session \(error)")
         }
