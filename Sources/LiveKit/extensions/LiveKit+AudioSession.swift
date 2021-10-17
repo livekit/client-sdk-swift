@@ -21,7 +21,6 @@ extension LiveKit {
     ///
     public static var onShouldConfigureAudioSession: ShouldConfigureAudioSessionFunc = defaultShouldConfigureAudioSessionFunc
 
-
     /// Configure the `RTCAudioSession` of `WebRTC` framework.
     ///
     /// > Note: It is recommended to use `RTCAudioSessionConfiguration.webRTC()` to obtain an instance of `RTCAudioSessionConfiguration` instead of instantiating directly.
