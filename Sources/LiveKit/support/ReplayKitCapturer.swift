@@ -14,11 +14,11 @@ public class ReplayKitCapturer: RTCVideoCapturer {
     public func encodeSampleBuffer(_ sampleBuffer: CMSampleBuffer) {
 
         // check if buffer is ready
-//        guard CMSampleBufferGetNumSamples(buffer) == 1,
-//              CMSampleBufferIsValid(buffer),
-//              CMSampleBufferDataIsReady(buffer) else {
-//                return
-//            }
+        guard CMSampleBufferGetNumSamples(sampleBuffer) == 1,
+              CMSampleBufferIsValid(sampleBuffer),
+              CMSampleBufferDataIsReady(sampleBuffer) else {
+                return
+            }
 
         guard let sourcePixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else {
             return
@@ -32,7 +32,7 @@ public class ReplayKitCapturer: RTCVideoCapturer {
 
         let width = CVPixelBufferGetWidth(sourcePixelBuffer);
         let height = CVPixelBufferGetHeight(sourcePixelBuffer);
-//
+
         source.adaptOutputFormat(toWidth: Int32(width/2),
                                  height: Int32(height/2),
                                  fps: 15)
