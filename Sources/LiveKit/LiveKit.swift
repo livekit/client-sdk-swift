@@ -5,9 +5,6 @@ import WebRTC
 
 let logger = Logger(label: "io.livekit.ios")
 
-public typealias ConfigureAudioSession = (_ state: AudioTrack.TracksState,
-                                          _ config: RTCAudioSessionConfiguration) -> Bool
-
 public class LiveKit {
 
     static let queue = DispatchQueue(label: "lk_queue")
