@@ -11,41 +11,47 @@ public class ReplayKitCapturer: RTCVideoCapturer {
         super.init(delegate: source)
     }
 
-    public func encodeSampleBuffer(_ sampleBuffer: CMSampleBuffer) {
+    public func encodeSampleBuffer(_ buffer: CMSampleBuffer) {
+
+        guard let delegate = delegate else {
+            // if delegate is null, there's no reason to continue
+            return
+        }
 
         // check if buffer is ready
-        guard CMSampleBufferGetNumSamples(sampleBuffer) == 1,
-              CMSampleBufferIsValid(sampleBuffer),
-              CMSampleBufferDataIsReady(sampleBuffer) else {
-                return
-            }
-
-        guard let sourcePixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else {
+        guard CMSampleBufferGetNumSamples(buffer) == 1,
+              CMSampleBufferIsValid(buffer),
+              CMSampleBufferDataIsReady(buffer) else {
             return
         }
 
-        // The source only supports NV12 (full-range) buffers.
-        let pixelFormat = CVPixelBufferGetPixelFormatType(sourcePixelBuffer);
-        if (pixelFormat != kCVPixelFormatType_420YpCbCr8BiPlanarFullRange) {
+        guard let pixelBuffer = CMSampleBufferGetImageBuffer(buffer) else {
             return
         }
 
-        let width = CVPixelBufferGetWidth(sourcePixelBuffer);
-        let height = CVPixelBufferGetHeight(sourcePixelBuffer);
+        let pixelFormat = CVPixelBufferGetPixelFormatType(pixelBuffer)
+        if pixelFormat != kCVPixelFormatType_420YpCbCr8BiPlanarFullRange {
+            // The source only supports NV12 (full-range) buffers.
+            return
+        }
 
+        let width = CVPixelBufferGetWidth(pixelBuffer)
+        let height = CVPixelBufferGetHeight(pixelBuffer)
+
+        // TODO: improve, support rotation etc.
         source.adaptOutputFormat(toWidth: Int32(width/2),
                                  height: Int32(height/2),
                                  fps: 15)
 
-        let timestamp = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
-        let ts2 = Int64(CMTimeGetSeconds(timestamp) * Double(NSEC_PER_SEC))
+        let timeStamp = CMSampleBufferGetPresentationTimeStamp(buffer)
+        let timeStampNs = Int64(CMTimeGetSeconds(timeStamp) * Double(NSEC_PER_SEC))
 
-        let rtcBuffer = RTCCVPixelBuffer(pixelBuffer: sourcePixelBuffer)
+        let rtcBuffer = RTCCVPixelBuffer(pixelBuffer: pixelBuffer)
 
         let frame = RTCVideoFrame(buffer: rtcBuffer,
                                   rotation: ._0,
-                                  timeStampNs: ts2)
+                                  timeStampNs: timeStampNs)
 
-        delegate?.capturer(self, didCapture: frame)
+        delegate.capturer(self, didCapture: frame)
     }
 }
