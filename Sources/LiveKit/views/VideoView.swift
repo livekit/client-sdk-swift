@@ -35,17 +35,15 @@ public class VideoView: NativeView {
     }()
 
     required init?(coder decoder: NSCoder) {
-//        renderer = createRTCVideoView(delegate: self)
         super.init(coder: decoder)
     }
 
     override public init(frame: CGRect) {
-
         super.init(frame: frame)
 
 //        backgroundColor = .black
 //        view.delegate = self
-        let rendererView = self.renderer as! NativeView
+        let rendererView = renderer as! NativeView
         rendererView.translatesAutoresizingMaskIntoConstraints = false
         addSubview(rendererView)
 
