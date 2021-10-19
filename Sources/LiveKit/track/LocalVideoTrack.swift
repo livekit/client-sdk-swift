@@ -85,7 +85,7 @@ public class LocalVideoTrack: VideoTrack {
         let rtcTrack = Engine.factory.videoTrack(with: source, trackId: UUID().uuidString)
         rtcTrack.isEnabled = true
 
-            return (rtcTrack, capturer, source, selectedDimension.toLKType())
+        return (rtcTrack, capturer, source, selectedDimension.toLKType())
     }
 
     public static func createTrack(name: String,
