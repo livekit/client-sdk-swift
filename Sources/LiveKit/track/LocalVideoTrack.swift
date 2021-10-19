@@ -16,6 +16,8 @@ public class LocalVideoTrack: VideoTrack {
     public var source: RTCVideoSource
     public let dimensions: Dimensions
 
+    public typealias CreateCapturerResult = (capturer: ReplayKitCapturer, source: RTCVideoSource)
+
     init(rtcTrack: RTCVideoTrack,
          capturer: RTCVideoCapturer,
          source: RTCVideoSource,
@@ -88,19 +90,6 @@ public class LocalVideoTrack: VideoTrack {
         return (rtcTrack, capturer, source, selectedDimension.toLKType())
     }
 
-    public static func createTrack(name: String,
-                                   options: LocalVideoTrackOptions = LocalVideoTrackOptions()) throws -> LocalVideoTrack {
-
-        let result = try createCapturer(options: options)
-        return LocalVideoTrack(
-            rtcTrack: result.rtcTrack,
-            capturer: result.capturer,
-            source: result.source,
-            name: name,
-            dimensions: result.selectedDimensions
-        )
-    }
-
     public func restartTrack(options: LocalVideoTrackOptions = LocalVideoTrackOptions()) throws {
 
         let result = try LocalVideoTrack.createCapturer(options: options)
@@ -122,12 +111,16 @@ public class LocalVideoTrack: VideoTrack {
         sender?.track = result.rtcTrack
     }
 
-    public static func createReplayKitTrack(name: String,
-                                            options: LocalVideoTrackOptions = LocalVideoTrackOptions()) throws -> LocalVideoTrack {
-
+    public static func createReplayKitCapturer() -> CreateCapturerResult {
         let source = Engine.factory.videoSource()
-        let capturer = ReplayKitCapturer(source: source)
-        let rtcTrack = Engine.factory.videoTrack(with: source, trackId: UUID().uuidString)
+        return (capturer: ReplayKitCapturer(source: source),
+                source: source)
+    }
+
+    public static func createTrack(name: String,
+                                   createCapturerResult: CreateCapturerResult) -> LocalVideoTrack {
+
+        let rtcTrack = Engine.factory.videoTrack(with: createCapturerResult.source, trackId: UUID().uuidString)
         rtcTrack.isEnabled = true
 
         let videoSize = Dimensions(
@@ -137,11 +130,29 @@ public class LocalVideoTrack: VideoTrack {
 
         return LocalVideoTrack(
             rtcTrack: rtcTrack,
-            capturer: capturer,
-            source: source,
+            capturer: createCapturerResult.capturer,
+            source: createCapturerResult.source,
             name: name,
             dimensions: videoSize
         )
     }
 
+    // MARK: High level methods
+
+    public static func createReplayKitTrack(name: String) -> LocalVideoTrack {
+        return createTrack(name: name, createCapturerResult: createReplayKitCapturer())
+    }
+
+    public static func createCameraTrack(name: String,
+                                   options: LocalVideoTrackOptions = LocalVideoTrackOptions()) throws -> LocalVideoTrack {
+
+        let result = try createCapturer(options: options)
+        return LocalVideoTrack(
+            rtcTrack: result.rtcTrack,
+            capturer: result.capturer,
+            source: result.source,
+            name: name,
+            dimensions: result.selectedDimensions
+        )
+    }
 }
