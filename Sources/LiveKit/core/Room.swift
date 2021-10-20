@@ -24,7 +24,7 @@ public class Room: MulticastDelegate<RoomDelegate> {
         engine.connectionState
     }
 
-    init(connectOptions: ConnectOptions, delegate: RoomDelegate) {
+    init(connectOptions: ConnectOptions, delegate: RoomDelegate?) {
 
         //        monitor = NWPathMonitor()
         monitorQueue = DispatchQueue(label: "networkMonitor", qos: .background)
@@ -57,7 +57,10 @@ public class Room: MulticastDelegate<RoomDelegate> {
         //        }
         super.init()
         engine.add(delegate: self)
-        add(delegate: delegate)
+
+        if let delegate = delegate {
+            add(delegate: delegate)
+        }
     }
 
     deinit {
