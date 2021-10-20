@@ -19,18 +19,22 @@ internal protocol SignalClientDelegate {
 class SignalClientDelegateClosures: NSObject, SignalClientDelegate {
 
     typealias DidConnect = (SignalClient, Bool) -> Void
+    typealias DidFailConnection = (SignalClient, Error) -> Void
     typealias DidReceiveJoinResponse = (SignalClient, Livekit_JoinResponse) -> Void
     typealias DidPublishLocalTrack = (SignalClient, Livekit_TrackPublishedResponse) -> Void
 
     let didConnect: DidConnect?
+    let didFailConnection: DidFailConnection?
     let didReceiveJoinResponse: DidReceiveJoinResponse?
     let didPublishLocalTrack: DidPublishLocalTrack?
 
     init(didConnect: DidConnect? = nil,
+         didFailConnection: DidFailConnection? = nil,
          didReceiveJoinResponse: DidReceiveJoinResponse? = nil,
          didPublishLocalTrack: DidPublishLocalTrack? = nil) {
         logger.debug("[SignalClientDelegateClosures] init")
         self.didConnect = didConnect
+        self.didFailConnection = didFailConnection
         self.didReceiveJoinResponse = didReceiveJoinResponse
         self.didPublishLocalTrack = didPublishLocalTrack
     }
@@ -41,6 +45,10 @@ class SignalClientDelegateClosures: NSObject, SignalClientDelegate {
 
     func signalClient(_ signalClient: SignalClient, didConnect isReconnect: Bool) {
         didConnect?(signalClient, isReconnect)
+    }
+
+    func signalClient(_ signalClient: SignalClient, didFailConnection error: Error) {
+        didFailConnection?(signalClient, error)
     }
 
     func signalClient(_ signalClient: SignalClient, didReceive joinResponse: Livekit_JoinResponse) {
@@ -59,5 +67,4 @@ class SignalClientDelegateClosures: NSObject, SignalClientDelegate {
     func signalClient(_ signalClient: SignalClient, didClose reason: String, code: UInt16) {}
     func signalClient(_ signalClient: SignalClient, didUpdateRemoteMute trackSid: String, muted: Bool) {}
     func signalClientDidLeave(_ signaClient: SignalClient) {}
-    func signalClient(_ signalClient: SignalClient, didFailConnection error: Error) {}
 }
