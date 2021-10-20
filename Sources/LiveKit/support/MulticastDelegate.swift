@@ -7,7 +7,7 @@ public class MulticastDelegate<T>: NSObject {
     private let lock = NSLock()
     private let set = NSHashTable<AnyObject>.weakObjects()
 
-    func add(delegate: T) {
+    public func add(delegate: T) {
 
         guard let delegate = delegate as AnyObject? else {
             logger.debug("delegate is not an AnyObject")
@@ -22,7 +22,7 @@ public class MulticastDelegate<T>: NSObject {
     }
 
     // in most cases this is not required to be called since all delegates are weak
-    func remove(delegate: T) {
+    public func remove(delegate: T) {
 
         guard let delegate = delegate as AnyObject? else {
             logger.debug("delegate is not an AnyObject")
