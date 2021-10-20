@@ -89,6 +89,8 @@ class Engine: MulticastDelegate<EngineDelegate> {
             self.connectOptions = connectOptions
         }
 
+        self.connectionState = .connecting(isReconnecting: false)
+
         return signalClient.connect(options: self.connectOptions).then {
             // wait for join response
             self.signalClient.waitReceiveJoinResponse()
