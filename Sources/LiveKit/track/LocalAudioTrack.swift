@@ -20,9 +20,4 @@ public class LocalAudioTrack: AudioTrack {
         rtcTrack.isEnabled = true
         return LocalAudioTrack(rtcTrack: rtcTrack, name: name)
     }
-
-    public static func createReplayKitTrack() {
-//        let x: RTCAudioSource
-
-    }
 }
