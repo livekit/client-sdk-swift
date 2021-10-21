@@ -130,10 +130,14 @@ public class LocalVideoTrack: VideoTrack {
         let rtcTrack = Engine.factory.videoTrack(with: source, trackId: UUID().uuidString)
         rtcTrack.isEnabled = true
 
+#if !os(macOS)
         let videoSize = Dimensions(
             width: Int(UIScreen.main.bounds.size.width * UIScreen.main.scale),
             height: Int(UIScreen.main.bounds.size.height * UIScreen.main.scale)
         )
+#else
+        let videoSize = Dimensions(width: 0, height: 0)
+#endif
 
         return LocalVideoTrack(
             rtcTrack: rtcTrack,
