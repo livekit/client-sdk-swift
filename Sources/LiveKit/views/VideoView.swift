@@ -4,6 +4,7 @@ import CoreMedia
 
 #if !os(macOS)
 import UIKit
+import SwiftUI
 public typealias NativeViewType = UIView
 #else
 // macOS
@@ -12,7 +13,7 @@ public typealias NativeViewType = NSView
 
 public class VideoView: NativeViewType {
 
-    public private(set) lazy var renderer: RTCVideoRenderer = {
+    public private(set) lazy var rendererView: RTCVideoRenderer = {
         #if arch(arm64)
 
         #if !os(macOS)
@@ -28,6 +29,7 @@ public class VideoView: NativeViewType {
         #else
         // intel
         let view = RTCEAGLVideoView()
+        view.contentMode = .scaleAspectFill
         view.delegate = self
         #endif
         return view
@@ -41,27 +43,21 @@ public class VideoView: NativeViewType {
         super.init(frame: frame)
 
 #if !os(macOS)
-        backgroundColor = .black
+        layer.backgroundColor = UIColor.black.cgColor
+#else
+        layer?.backgroundColor = NSColor.black.cgColor
 #endif
 
-        //        view.delegate = self
-        let rendererView = renderer as! NativeViewType
-//        rendererView.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(rendererView)
+        if let rendererView = rendererView as? NativeViewType {
+            addSubview(rendererView)
+        }
         layoutRenderView()
-
-#if !os(macOS)
-//        rendererView.backgroundColor = .red
-#endif
-
-//        NSLayoutConstraint.activate([
-//            rendererView.centerXAnchor.constraint(equalTo: centerXAnchor),
-//            rendererView.centerYAnchor.constraint(equalTo: centerYAnchor)
-//        ])
     }
 
     private func layoutRenderView() {
-        (renderer as! NativeViewType).frame = self.bounds
+        if let rendererView = rendererView as? NativeViewType {
+            rendererView.frame = self.bounds
+        }
     }
 
 #if !os(macOS)
