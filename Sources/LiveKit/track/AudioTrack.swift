@@ -26,7 +26,9 @@ public class AudioTrack: Track {
     internal static var tracksState: TracksState = .none {
         didSet {
             guard oldValue != tracksState else { return }
+#if !os(macOS)
             LiveKit.onShouldConfigureAudioSession(tracksState, oldValue)
+#endif
         }
     }
 

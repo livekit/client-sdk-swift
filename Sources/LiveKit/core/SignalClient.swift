@@ -163,12 +163,15 @@ extension SignalClient {
 
     func waitForWebSocketConnected() -> Promise<Void> {
 
-        return Promise<Void> { fulfill, _ in
+        return Promise<Void> { fulfill, reject in
             // create temporary delegate
             var delegate: SignalClientDelegateClosures?
             delegate = SignalClientDelegateClosures(didConnect: { _, _ in
                 // wait until connected
                 fulfill(())
+                delegate = nil
+            }, didFailConnection: { _, error in
+                reject(error)
                 delegate = nil
             })
             // not required to clean up since weak reference
