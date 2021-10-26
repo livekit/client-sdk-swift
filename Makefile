@@ -1,7 +1,7 @@
 PROTO_SOURCE=../protocol
 
 proto: protoc protoc-swift
-	protoc --swift_out=Sources/LiveKit/proto -I=${PROTO_SOURCE} \
+	protoc --swift_out=Sources/LiveKit/protos -I=${PROTO_SOURCE} \
 		${PROTO_SOURCE}/livekit_models.proto \
 		${PROTO_SOURCE}/livekit_rtc.proto
 
