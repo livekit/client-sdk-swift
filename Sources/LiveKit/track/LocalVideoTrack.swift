@@ -148,4 +148,13 @@ public class LocalVideoTrack: VideoTrack {
         )
     }
 
+    override func start() {
+        super.start()
+        //
+    }
+
+    override func stop() {
+        super.stop()
+        //
+    }
 }
