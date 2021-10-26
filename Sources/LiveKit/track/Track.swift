@@ -44,6 +44,15 @@ public class Track {
         state = .stopped
     }
 
+
+    internal func enable() {
+        mediaTrack.isEnabled = true
+    }
+
+    internal func disable() {
+        mediaTrack.isEnabled = false
+    }
+
     internal func stateUpdated() {
         if .stopped == state {
             mediaTrack.isEnabled = false

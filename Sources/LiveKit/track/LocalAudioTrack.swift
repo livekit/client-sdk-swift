@@ -20,4 +20,14 @@ public class LocalAudioTrack: AudioTrack {
         rtcTrack.isEnabled = true
         return LocalAudioTrack(rtcTrack: rtcTrack, name: name)
     }
+
+    override func start() {
+        super.start()
+        //
+    }
+
+    override func stop() {
+        super.stop()
+        //
+    }
 }

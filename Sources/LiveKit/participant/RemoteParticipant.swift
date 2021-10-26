@@ -65,9 +65,9 @@ public class RemoteParticipant: Participant {
 
         switch rtcTrack.kind {
         case "audio":
-            track = AudioTrack(rtcTrack: rtcTrack as! RTCAudioTrack, name: publication.name)
+            track = RemoteAudioTrack(rtcTrack: rtcTrack as! RTCAudioTrack, name: publication.name)
         case "video":
-            track = VideoTrack(rtcTrack: rtcTrack as! RTCVideoTrack, name: publication.name)
+            track = RemoteVideoTrack(rtcTrack: rtcTrack as! RTCVideoTrack, name: publication.name)
         default:
             let err = TrackError.invalidTrackType("unsupported type: \(rtcTrack.kind.description)")
             notify { $0.participant(self, didFailToSubscribe: sid, error: err) }
