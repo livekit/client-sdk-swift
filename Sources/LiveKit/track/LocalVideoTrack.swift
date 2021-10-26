@@ -155,6 +155,8 @@ public class LocalVideoTrack: VideoTrack {
 
     override func stop() {
         super.stop()
-        //
+        if let capturer = capturer as? RTCCameraVideoCapturer {
+            capturer.stopCapture()
+        }
     }
 }
