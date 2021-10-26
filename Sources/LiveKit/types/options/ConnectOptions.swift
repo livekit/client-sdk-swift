@@ -9,7 +9,7 @@ public struct ConnectOptions: Equatable {
     public init(url: String,
                 token: String,
                 autoSubscribe: Bool = true,
-                protocolVersion: ProtocolVersion = .v3) {
+                protocolVersion: ProtocolVersion = .v4) {
 
         self.accessToken = token
         self.url = url
