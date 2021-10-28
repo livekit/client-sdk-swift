@@ -4,73 +4,55 @@ import CoreMedia
 
 #if !os(macOS)
 import UIKit
-import SwiftUI
-public typealias NativeViewType = UIView
 #else
-// macOS
-public typealias NativeViewType = NSView
+import AppKit
 #endif
 
-public class VideoView: NativeViewType {
+public class VideoView: NativeView {
 
     public private(set) lazy var rendererView: RTCVideoRenderer = {
-        #if arch(arm64)
-
-        #if !os(macOS)
-        let view = RTCMTLVideoView()
-        view.videoContentMode = .scaleAspectFill
-        view.delegate = self
-        #else
-        // macOS
-        let view = RTCMTLNSVideoView()
-        view.delegate = self
-        #endif
-
-        #else
-        // intel
-        let view = RTCEAGLVideoView()
-        view.contentMode = .scaleAspectFill
-        view.delegate = self
-        #endif
-        return view
+        VideoView.createNativeRendererView(delegate: self)
     }()
 
-    required init?(coder decoder: NSCoder) {
-        super.init(coder: decoder)
-    }
-
-    override public init(frame: CGRect) {
-        super.init(frame: frame)
-
-#if !os(macOS)
-        layer.backgroundColor = UIColor.black.cgColor
-#else
-        layer?.backgroundColor = NSColor.black.cgColor
-#endif
-
+    override func shouldPrepare() {
+        super.shouldPrepare()
         if let rendererView = rendererView as? NativeViewType {
             addSubview(rendererView)
         }
-        layoutRenderView()
+        shouldLayout()
     }
 
-    private func layoutRenderView() {
+    override func shouldLayout() {
+        super.shouldLayout()
         if let rendererView = rendererView as? NativeViewType {
             rendererView.frame = self.bounds
         }
     }
 
-#if !os(macOS)
-    public override func layoutSubviews() {
-        super.layoutSubviews()
-        layoutRenderView()
+    static func createNativeRendererView(delegate: RTCVideoViewDelegate) -> RTCVideoRenderer {
+
+        #if arch(arm64)
+
+            #if !os(macOS)
+            // iOS
+            let view = RTCMTLVideoView()
+            view.videoContentMode = .scaleAspectFill
+            view.delegate = delegate
+            #else
+            // macOS
+            let view = RTCMTLNSVideoView()
+            view.delegate = delegate
+            #endif
+
+        #else
+            // x64
+            let view = RTCEAGLVideoView()
+            view.contentMode = .scaleAspectFill
+            view.delegate = delegate
+        #endif
+
+        return view
     }
-#else
-    public override func layout() {
-        super.layout()
-        layoutRenderView()
-    }
-#endif
 }
 
 extension VideoView: RTCVideoViewDelegate {
