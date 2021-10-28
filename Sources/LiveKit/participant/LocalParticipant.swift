@@ -145,6 +145,7 @@ public class LocalParticipant: Participant {
             return notifyDidUnpublish()
         }
 
+        // wait for track to stop
         return track.stop().then { () -> Void in
 
             if let pc = self.engine?.publisher?.pc,
