@@ -48,18 +48,18 @@ public protocol RoomDelegate {
     /// For the local participant, the callback will be called if setMute was called on the local participant,
     /// or if the server has requested the participant to be unmuted
     //    func didUnmute(publication: TrackPublication, participant: Participant)
-    func room(_ room: Room, participant: Participant, didUpdate track: TrackPublication, muted: Bool)
+    func room(_ room: Room, participant: Participant, didUpdate trackPublication: TrackPublication, muted: Bool)
 
     /* Remote Participant */
 
     /// When a new track is published to room after the local participant has joined.
     ///
     /// It will not fire for tracks that are already published
-    func room(_ room: Room, participant: RemoteParticipant, didPublish remoteTrack: RemoteTrackPublication)
+    func room(_ room: Room, participant: RemoteParticipant, didPublish trackPublication: RemoteTrackPublication)
 
     /// A RemoteParticipant has unpublished a track
     //    func didUnpublishRemoteTrack(publication: RemoteTrackPublication, particpant: RemoteParticipant)
-    func room(_ room: Room, participant: RemoteParticipant, didUnpublish remoteTrack: RemoteTrackPublication)
+    func room(_ room: Room, participant: RemoteParticipant, didUnpublish trackPublication: RemoteTrackPublication)
 
     /// The LocalParticipant has subscribed to a new track.
     ///
@@ -83,10 +83,10 @@ public protocol RoomDelegate {
     func room(_ room: Room, participant: RemoteParticipant, didReceive data: Data)
 
     /// A ``LocalParticipant`` has published a ``LocalTrackPublication``
-    func room(_ room: Room, localParticipant: LocalParticipant, didPublish remoteTrack: LocalTrackPublication)
+    func room(_ room: Room, localParticipant: LocalParticipant, didPublish trackPublication: LocalTrackPublication)
 
     /// A ``RemoteParticipant`` has unpublished a ``RemoteTrackPublication``
-    func room(_ room: Room, localParticipant: LocalParticipant, didUnpublish remoteTrack: LocalTrackPublication)
+    func room(_ room: Room, localParticipant: LocalParticipant, didUnpublish trackPublication: LocalTrackPublication)
 }
 
 public extension RoomDelegate {
@@ -98,14 +98,14 @@ public extension RoomDelegate {
     func room(_ room: Room, participantDidLeave participant: RemoteParticipant) {}
     func room(_ room: Room, didUpdate speakers: [Participant]) {}
     func room(_ room: Room, participant: Participant, didUpdate metadata: String?) {}
-    func room(_ room: Room, participant: Participant, didUpdate track: TrackPublication, muted: Bool) {}
-    func room(_ room: Room, participant: RemoteParticipant, didPublish remoteTrack: RemoteTrackPublication) {}
-    func room(_ room: Room, participant: RemoteParticipant, didUnpublish remoteTrack: RemoteTrackPublication) {}
+    func room(_ room: Room, participant: Participant, didUpdate trackPublication: TrackPublication, muted: Bool) {}
+    func room(_ room: Room, participant: RemoteParticipant, didPublish trackPublication: RemoteTrackPublication) {}
+    func room(_ room: Room, participant: RemoteParticipant, didUnpublish trackPublication: RemoteTrackPublication) {}
     func room(_ room: Room, participant: RemoteParticipant, didSubscribe trackPublication: RemoteTrackPublication, track: Track) {}
     func room(_ room: Room, participant: RemoteParticipant, didFailToSubscribe trackSid: String, error: Error) {}
     func room(_ room: Room, participant: RemoteParticipant, didUnsubscribe trackPublication: RemoteTrackPublication) {}
     func room(_ room: Room, participant: RemoteParticipant, didReceive data: Data) {}
 
-    func room(_ room: Room, localParticipant: LocalParticipant, didPublish remoteTrack: LocalTrackPublication) {}
-    func room(_ room: Room, localParticipant: LocalParticipant, didUnpublish remoteTrack: LocalTrackPublication) {}
+    func room(_ room: Room, localParticipant: LocalParticipant, didPublish trackPublication: LocalTrackPublication) {}
+    func room(_ room: Room, localParticipant: LocalParticipant, didUnpublish trackPublication: LocalTrackPublication) {}
 }
