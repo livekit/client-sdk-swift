@@ -92,11 +92,10 @@ public class RemoteParticipant: Participant {
 
         func notifyUnpublish() -> Promise<Void> {
             Promise<Void> {
-                if shouldNotify {
-                    // notify unpublish
-                    self.notify { $0.participant(self, didUnpublish: publication) }
-                    self.room?.notify { $0.room(self.room!, participant: self, didUnpublish: publication) }
-                }
+                guard shouldNotify else { return }
+                // notify unpublish
+                self.notify { $0.participant(self, didUnpublish: publication) }
+                self.room?.notify { $0.room(self.room!, participant: self, didUnpublish: publication) }
             }
         }
 
@@ -110,11 +109,10 @@ public class RemoteParticipant: Participant {
         }
 
         return track.stop().then { _ in
-            if shouldNotify {
-                // notify unsubscribe
-                self.notify { $0.participant(self, didUnsubscribe: publication, track: track) }
-                self.room?.notify { $0.room(self.room!, participant: self, didUnsubscribe: publication) }
-            }
+            guard shouldNotify else { return }
+            // notify unsubscribe
+            self.notify { $0.participant(self, didUnsubscribe: publication, track: track) }
+            self.room?.notify { $0.room(self.room!, participant: self, didUnsubscribe: publication) }
         }.then {
             notifyUnpublish()
         }
