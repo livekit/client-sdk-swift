@@ -109,14 +109,13 @@ public class LocalParticipant: Participant {
 
     /// unpublish an existing published track
     /// this will also stop the track
-    public func unpublishTrack(track: Track) throws {
+    public func unpublish(track: Track?) throws {
 
-        guard let sid = track.sid else {
+        guard let sid = track?.sid else {
             throw TrackError.invalidTrackState("This track was never published.")
         }
 
-        let publication = tracks.removeValue(forKey: sid)
-        guard publication != nil else {
+        guard let track = tracks.removeValue(forKey: sid)?.track else {
             throw TrackError.unpublishError("could not find published track for \(sid)")
         }
 

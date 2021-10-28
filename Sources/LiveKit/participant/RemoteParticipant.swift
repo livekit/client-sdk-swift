@@ -41,7 +41,7 @@ public class RemoteParticipant: Participant {
         }
 
         for publication in tracks.values where validTrackPublications[publication.sid] == nil {
-            unpublishTrack(sid: publication.sid, sendUnpublish: true)
+            unpublish(track: publication.track, sendUnpublish: true)
         }
     }
 
@@ -84,7 +84,11 @@ public class RemoteParticipant: Participant {
         room?.notify { $0.room(self.room!, participant: self, didSubscribe: publication, track: track) }
     }
 
-    func unpublishTrack(sid: String, sendUnpublish: Bool = false) {
+    func unpublish(track: Track?, sendUnpublish: Bool = false) {
+
+        guard let sid = track?.sid else {
+            return
+        }
 
         guard let publication = tracks.removeValue(forKey: sid) as? RemoteTrackPublication else {
             return
