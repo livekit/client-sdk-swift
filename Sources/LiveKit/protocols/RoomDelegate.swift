@@ -81,6 +81,12 @@ public protocol RoomDelegate {
 
     /// Data was received from a RemoteParticipant
     func room(_ room: Room, participant: RemoteParticipant, didReceive data: Data)
+
+    /// A ``LocalParticipant`` has published a ``LocalTrackPublication``
+    func room(_ room: Room, localParticipant: LocalParticipant, didPublish remoteTrack: LocalTrackPublication)
+
+    /// A ``RemoteParticipant`` has unpublished a ``RemoteTrackPublication``
+    func room(_ room: Room, localParticipant: LocalParticipant, didUnpublish remoteTrack: LocalTrackPublication)
 }
 
 public extension RoomDelegate {
@@ -99,4 +105,7 @@ public extension RoomDelegate {
     func room(_ room: Room, participant: RemoteParticipant, didFailToSubscribe trackSid: String, error: Error) {}
     func room(_ room: Room, participant: RemoteParticipant, didUnsubscribe trackPublication: RemoteTrackPublication) {}
     func room(_ room: Room, participant: RemoteParticipant, didReceive data: Data) {}
+
+    func room(_ room: Room, localParticipant: LocalParticipant, didPublish remoteTrack: LocalTrackPublication) {}
+    func room(_ room: Room, localParticipant: LocalParticipant, didUnpublish remoteTrack: LocalTrackPublication) {}
 }

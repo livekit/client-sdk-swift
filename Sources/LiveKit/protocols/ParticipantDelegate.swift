@@ -25,7 +25,6 @@ public protocol ParticipantDelegate {
     /// or if the server has requested the participant to be unmuted
     // func didUnmute(publication: TrackPublication, participant: Participant)
 
-    // remote participants
     /// When a new track is published to room after the local participant has joined.
     ///
     /// It will not fire for tracks that are already published
@@ -33,6 +32,12 @@ public protocol ParticipantDelegate {
 
     /// A RemoteParticipant has unpublished a track
     func participant(_ participant: RemoteParticipant, didUnpublish trackPublication: RemoteTrackPublication)
+
+    /// A ``LocalParticipant`` has published a track
+    func localParticipant(_ participant: LocalParticipant, didPublish trackPublication: LocalTrackPublication)
+
+    /// A ``LocalParticipant`` has unpublished a track
+    func localParticipant(_ participant: LocalParticipant, didUnpublish trackPublication: LocalTrackPublication)
 
     /// The LocalParticipant has subscribed to a new track.
     ///
@@ -63,4 +68,6 @@ public extension ParticipantDelegate {
     func participant(_ participant: RemoteParticipant, didFailToSubscribe trackSid: String, error: Error) {}
     func participant(_ participant: RemoteParticipant, didUnsubscribe trackPublication: RemoteTrackPublication, track: Track) {}
     func participant(_ participant: RemoteParticipant, didReceive data: Data) {}
+    func localParticipant(_ participant: LocalParticipant, didPublish trackPublication: LocalTrackPublication) {}
+    func localParticipant(_ participant: LocalParticipant, didUnpublish trackPublication: LocalTrackPublication) {}
 }
