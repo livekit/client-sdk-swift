@@ -1,11 +1,19 @@
 import Foundation
 
+
+extension TrackPublication: Equatable {
+    // objects are considered equal if sids are the same
+    public static func == (lhs: TrackPublication, rhs: TrackPublication) -> Bool {
+        lhs.sid == rhs.sid
+    }
+}
+
 public class TrackPublication {
 
+    public let sid: Sid
+    public let kind: Track.Kind
     public internal(set) var name: String
-    public private(set) var sid: Sid
     public internal(set) var track: Track?
-    public private(set) var kind: Track.Kind
     public internal(set) var muted: Bool
 
     /// video-only
