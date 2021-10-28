@@ -1,63 +1,65 @@
 import Foundation
 
-/// delegate methods for a participant.
+/// Delegate methods for a participant.
 ///
-/// You can set `Participant.delegate` on each participant. All delegate methods are optional
-/// To ensure each participant's delegate is registered, you can look through `Room.localParticipant` and `Room.remoteParticipants` on connect
-/// and register it on new participants inside `RoomDelegate.participantDidConnect`
+/// Since ``Participant`` inherits from ``MulticastDelegate``,
+/// you can call `add(delegate:)` on ``Participant`` to add as many delegates as you need.
+/// All delegate methods are optional.
+///
+/// To ensure each participant's delegate is registered, you can look through ``Room/localParticipant`` and ``Room/remoteParticipants`` on connect
+/// and register it on new participants inside ``RoomDelegate/room(_:participantDidJoin:)-9bkm4``
 public protocol ParticipantDelegate {
-    // all participants
-    /// Participant's metadata has been changed
+
+    /// A ``Participant``'s metadata has updated.
+    /// `participant` Can be a ``LocalParticipant`` or a ``RemoteParticipant``.
     func participant(_ participant: Participant, didUpdate metadata: String?)
 
-    /// The isSpeaking status of the participant has changed
+    /// The isSpeaking status of a ``Participant`` has changed.
+    /// `participant` Can be a ``LocalParticipant`` or a ``RemoteParticipant``.
     func participant(_ participant: Participant, didUpdate speaking: Bool)
 
-    /// The participant was muted.
+    /// The ``Participant``'s `muted` state has updated.
     ///
-    /// For the local participant, the callback will be called if setMute was called on LocalTrackPublication,
-    /// or if the server has requested the participant to be muted
+    /// For the ``LocalParticipant``, the delegate method will be called if setMute was called on ``LocalTrackPublication``,
+    /// or if the server has requested the participant to be muted.
+    ///
+    /// `participant` Can be a ``LocalParticipant`` or a ``RemoteParticipant``.
     func participant(_ participant: Participant, didUpdate trackPublication: TrackPublication, muted: Bool)
 
-    /// The participant was unmuted.
+    /// When a new ``RemoteTrackPublication`` is published to ``Room`` after the ``LocalParticipant`` has joined.
     ///
-    /// For the local participant, the callback will be called if setMute was called on LocalTrackPublication,
-    /// or if the server has requested the participant to be unmuted
-    // func didUnmute(publication: TrackPublication, participant: Participant)
-
-    /// When a new track is published to room after the local participant has joined.
-    ///
-    /// It will not fire for tracks that are already published
+    /// This delegate method will not be called for tracks that are already published.
     func participant(_ participant: RemoteParticipant, didPublish trackPublication: RemoteTrackPublication)
 
-    /// A RemoteParticipant has unpublished a track
+    /// The ``RemoteParticipant`` has unpublished a ``RemoteTrackPublication``.
     func participant(_ participant: RemoteParticipant, didUnpublish trackPublication: RemoteTrackPublication)
 
-    /// A ``LocalParticipant`` has published a track
+    /// The ``LocalParticipant`` has published a ``LocalTrackPublication``.
     func localParticipant(_ participant: LocalParticipant, didPublish trackPublication: LocalTrackPublication)
 
-    /// A ``LocalParticipant`` has unpublished a track
+    /// The ``LocalParticipant`` has unpublished a ``LocalTrackPublication``.
     func localParticipant(_ participant: LocalParticipant, didUnpublish trackPublication: LocalTrackPublication)
 
-    /// The LocalParticipant has subscribed to a new track.
+    /// The ``LocalParticipant`` has subscribed to a new ``RemoteTrackPublication``.
     ///
     /// This event will always fire as long as new tracks are ready for use.
     func participant(_ participant: RemoteParticipant, didSubscribe trackPublication: RemoteTrackPublication, track: Track)
 
     /// Could not subscribe to a track.
     ///
-    /// This is an error state, the subscription can be retried
+    /// This is an error state, the subscription can be retried.
     func participant(_ participant: RemoteParticipant, didFailToSubscribe trackSid: String, error: Error)
 
-    /// A subscribed track is no longer available.
+    /// Unsubscribed from a ``RemoteTrackPublication`` and  is no longer available.
     ///
-    /// Clients should listen to this event and handle cleanup
+    /// Clients should listen to this event and handle cleanup.
     func participant(_ participant: RemoteParticipant, didUnsubscribe trackPublication: RemoteTrackPublication, track: Track)
 
-    /// Data was received from a RemoteParticipant
+    /// Data was received from a ``RemoteParticipant``.
     func participant(_ participant: RemoteParticipant, didReceive data: Data)
 }
 
+/// Default implementation for ``ParticipantDelegate``
 public extension ParticipantDelegate {
     func participant(_ participant: Participant, didUpdate metadata: String?) {}
     func participant(_ participant: Participant, didUpdate speaking: Bool) {}

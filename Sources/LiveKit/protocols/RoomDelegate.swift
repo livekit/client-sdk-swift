@@ -1,94 +1,65 @@
 import Foundation
 
-/// RoomDelegate receives room events as well as participant events.
-///
-/// The only two required delegates are `participantDidConnect` and `participantDidDisconnect`
+/// ``RoomDelegate`` receives room events as well as ``Participant`` events.
 public protocol RoomDelegate {
-    /// Successfully connected to the room
+    /// Successfully connected to the room.
     func room(_ room: Room, didConnect isReconnect: Bool)
 
-    /// Could not connect to the room
+    /// Could not connect to the room.
     func room(_ room: Room, didFailToConnect error: Error)
 
-    /// Client disconnected from the room unexpectedly
+    /// Client disconnected from the room unexpectedly.
     func room(_ room: Room, didDisconnect error: Error?)
 
-    /// When a network change has been detected and LiveKit attempts to reconnect to the room
-    /// When reconnect attempts succeed, the room state will be kept, including tracks that are subscribed/published
+    /// When a network change has been detected and LiveKit attempts to reconnect to the room.
+    /// When reconnect attempts succeed, the room state will be kept, including tracks that are subscribed/published.
     func room(_ room: Room, didUpdate connectionState: ConnectionState)
 
-    /// When a RemoteParticipant joins after the local participant.
-    /// It will not emit events for participants that are already in the room
+    /// When a ``RemoteParticipant`` joins after the ``LocalParticipant``.
+    /// It will not emit events for participants that are already in the room.
     func room(_ room: Room, participantDidJoin participant: RemoteParticipant)
 
-    /// When a RemoteParticipant leaves after the local participant has joined.
+    /// When a ``RemoteParticipant`` leaves after the ``LocalParticipant`` has joined.
     func room(_ room: Room, participantDidLeave participant: RemoteParticipant)
-
-    /// When a reconnect attempt had been successful
-    //    func didReconnect(room: Room)
 
     /// Active speakers changed.
     ///
-    /// List of speakers are ordered by their audio level. loudest speakers first. This will include the LocalParticipant too.
+    /// List of speakers are ordered by their ``Participant/audioLevel``, loudest speakers first.
+    /// This will include the ``LocalParticipant`` too.
     func room(_ room: Room, didUpdate speakers: [Participant])
 
-    /* All Participants */
-
-    /// Participant's metadata has been changed
+    /// Same with ``ParticipantDelegate/participant(_:didUpdate:)-46iut``.
     func room(_ room: Room, participant: Participant, didUpdate metadata: String?)
 
-    /// The participant was muted.
-    ///
-    /// For the local participant, the callback will be called if setMute was called on the local participant,
-    /// or if the server has requested the participant to be muted
-    //    func didMute(publication: TrackPublication, participant: Participant)
-
-    /// The participant was unmuted.
-    ///
-    /// For the local participant, the callback will be called if setMute was called on the local participant,
-    /// or if the server has requested the participant to be unmuted
-    //    func didUnmute(publication: TrackPublication, participant: Participant)
+    /// Same with ``ParticipantDelegate/participant(_:didUpdate:)-84m89``.
     func room(_ room: Room, participant: Participant, didUpdate trackPublication: TrackPublication, muted: Bool)
 
-    /* Remote Participant */
-
-    /// When a new track is published to room after the local participant has joined.
-    ///
-    /// It will not fire for tracks that are already published
+    /// Same with ``ParticipantDelegate/participant(_:didPublish:)-60en3``.
     func room(_ room: Room, participant: RemoteParticipant, didPublish trackPublication: RemoteTrackPublication)
 
-    /// A RemoteParticipant has unpublished a track
-    //    func didUnpublishRemoteTrack(publication: RemoteTrackPublication, particpant: RemoteParticipant)
+    /// Same with ``ParticipantDelegate/participant(_:didUnpublish:)-3bkga``.
     func room(_ room: Room, participant: RemoteParticipant, didUnpublish trackPublication: RemoteTrackPublication)
 
-    /// The LocalParticipant has subscribed to a new track.
-    ///
-    /// This event will always fire as long as new tracks are ready for use.
-    //    func didSubscribe(track: Track, publication: RemoteTrackPublication, participant: RemoteParticipant)
+    /// Same with ``ParticipantDelegate/participant(_:didSubscribe:track:)-7mngl``.
     func room(_ room: Room, participant: RemoteParticipant, didSubscribe trackPublication: RemoteTrackPublication, track: Track)
 
-    /// Could not subscribe to a track.
-    ///
-    /// This is an error state, the subscription can be retried
-    //    func didFailToSubscribe(sid: String, error: Error, participant: RemoteParticipant)
+    /// Same with ``ParticipantDelegate/participant(_:didFailToSubscribe:error:)-10pn4``.
     func room(_ room: Room, participant: RemoteParticipant, didFailToSubscribe trackSid: String, error: Error)
 
-    /// A subscribed track is no longer available.
-    ///
-    /// Clients should listen to this event and handle cleanup
-    //    func didUnsubscribe(track: Track, publication: RemoteTrackPublication, participant: RemoteParticipant)
+    /// Same with ``ParticipantDelegate/participant(_:didUnsubscribe:track:)-3ksvp``.
     func room(_ room: Room, participant: RemoteParticipant, didUnsubscribe trackPublication: RemoteTrackPublication)
 
-    /// Data was received from a RemoteParticipant
+    /// Same with ``ParticipantDelegate/participant(_:didReceive:)-2t55a``
     func room(_ room: Room, participant: RemoteParticipant, didReceive data: Data)
 
-    /// A ``LocalParticipant`` has published a ``LocalTrackPublication``
+    /// Same with ``ParticipantDelegate/localParticipant(_:didPublish:)-90j2m``.
     func room(_ room: Room, localParticipant: LocalParticipant, didPublish trackPublication: LocalTrackPublication)
 
-    /// A ``RemoteParticipant`` has unpublished a ``RemoteTrackPublication``
+    /// Same with ``ParticipantDelegate/participant(_:didUnpublish:)-3bkga``.
     func room(_ room: Room, localParticipant: LocalParticipant, didUnpublish trackPublication: LocalTrackPublication)
 }
 
+/// Default implementation for ``RoomDelegate``
 public extension RoomDelegate {
     func room(_ room: Room, didConnect isReconnect: Bool) {}
     func room(_ room: Room, didFailToConnect error: Error) {}
@@ -105,7 +76,6 @@ public extension RoomDelegate {
     func room(_ room: Room, participant: RemoteParticipant, didFailToSubscribe trackSid: String, error: Error) {}
     func room(_ room: Room, participant: RemoteParticipant, didUnsubscribe trackPublication: RemoteTrackPublication) {}
     func room(_ room: Room, participant: RemoteParticipant, didReceive data: Data) {}
-
     func room(_ room: Room, localParticipant: LocalParticipant, didPublish trackPublication: LocalTrackPublication) {}
     func room(_ room: Room, localParticipant: LocalParticipant, didUnpublish trackPublication: LocalTrackPublication) {}
 }
