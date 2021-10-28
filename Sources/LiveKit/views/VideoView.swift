@@ -14,6 +14,16 @@ public class VideoView: NativeView {
         VideoView.createNativeRendererView(delegate: self)
     }()
 
+    /// Calls addRenderer and/or removeRenderer internally for convenience.
+    public var track: VideoTrack? {
+        didSet {
+            if let oldValue = oldValue {
+                oldValue.removeRenderer(rendererView)
+            }
+            track?.addRenderer(rendererView)
+        }
+    }
+
     override func shouldPrepare() {
         super.shouldPrepare()
         if let rendererView = rendererView as? NativeViewType {
