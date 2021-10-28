@@ -1,7 +1,5 @@
-import Foundation
 import WebRTC
-import AVFoundation
-import CoreMedia
+import Promises
 
 extension CMVideoDimensions {
 
@@ -148,15 +146,17 @@ public class LocalVideoTrack: VideoTrack {
         )
     }
 
-    override func start() {
-        super.start()
-        //
-    }
-
-    override func stop() {
-        super.stop()
-        if let capturer = capturer as? RTCCameraVideoCapturer {
-            capturer.stopCapture()
+    override func stop() -> Promise<Void> {
+        Promise<Void> { resolve, reject in
+            // if the capturer is a RTCCameraVideoCapturer,
+            // wait for it to fully stop.
+            if let capturer = self.capturer as? RTCCameraVideoCapturer {
+                capturer.stopCapture { resolve(()) }
+            } else {
+                resolve(())
+            }
+        }.then {
+            super.stop()
         }
     }
 }

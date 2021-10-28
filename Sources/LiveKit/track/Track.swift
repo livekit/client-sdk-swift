@@ -1,5 +1,5 @@
-import Foundation
 import WebRTC
+import Promises
 
 public class Track {
 
@@ -36,12 +36,16 @@ public class Track {
         mediaTrack = track
     }
 
-    internal func start() {
-        state = .started
+    internal func start() -> Promise<Void> {
+        Promise<Void> {
+            self.state = .started
+        }
     }
 
-    internal func stop() {
-        state = .stopped
+    internal func stop() -> Promise<Void> {
+        Promise<Void> {
+            self.state = .stopped
+        }
     }
 
 
