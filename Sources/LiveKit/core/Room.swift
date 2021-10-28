@@ -100,7 +100,9 @@ public class Room: MulticastDelegate<RoomDelegate> {
             return
         }
         participant.tracks.values.forEach { publication in
-            participant.unpublish(track: publication.track)
+            if let publication = publication as? RemoteTrackPublication {
+                participant.unpublish(publication: publication)
+            }
         }
 
         notify { $0.room(self, participantDidLeave: participant) }

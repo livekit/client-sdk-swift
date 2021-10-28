@@ -1,5 +1,6 @@
 import Foundation
 import WebRTC
+import Promises
 
 public class RemoteParticipant: Participant {
 
@@ -84,29 +85,35 @@ public class RemoteParticipant: Participant {
         room?.notify { $0.room(self.room!, participant: self, didSubscribe: publication, track: track) }
     }
 
-    func unpublish(track: Track?, sendUnpublish: Bool = false) {
+    func unpublish(publication: RemoteTrackPublication, shouldNotify: Bool = true) -> Promise<Void> {
 
-        guard let sid = track?.sid else {
-            return
+        func notifyUnpublish() -> Promise<Void> {
+            Promise<Void> {
+                if shouldNotify {
+                    // notify unpublish
+                    self.notify { $0.participant(self, didUnpublish: publication) }
+                    self.room?.notify { $0.room(self.room!, participant: self, didUnpublish: publication) }
+                }
+            }
         }
 
-        guard let publication = tracks.removeValue(forKey: sid) as? RemoteTrackPublication else {
-            return
+        // remove the publication
+        tracks.removeValue(forKey: publication.sid)
+
+        // continue if the publication has a track
+        guard let track = publication.track else {
+            // if track is nil, only notify unpublish
+            return notifyUnpublish()
         }
 
-        if let track = publication.track {
-            track.stop()
-            notify { $0.participant(self, didUnsubscribe: publication, track: track) }
-            room?.notify { $0.room(self.room!, participant: self, didUnsubscribe: publication) }
+        return track.stop().then { _ in
+            if shouldNotify {
+                // notify unsubscribe
+                self.notify { $0.participant(self, didUnsubscribe: publication, track: track) }
+                self.room?.notify { $0.room(self.room!, participant: self, didUnsubscribe: publication) }
+            }
+        }.then {
+            notifyUnpublish()
         }
-        if sendUnpublish {
-            notify { $0.participant(self, didUnpublish: publication) }
-            room?.notify { $0.room(self.room!, participant: self, didUnpublish: publication) }
-        }
-    }
-
-    private func sendTrackPublishedEvent(publication: RemoteTrackPublication) {
-        notify { $0.participant(self, didPublish: publication) }
-        room?.notify { $0.room(self.room!, participant: self, didPublish: publication) }
     }
 }

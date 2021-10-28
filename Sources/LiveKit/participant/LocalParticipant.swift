@@ -109,29 +109,35 @@ public class LocalParticipant: Participant {
 
     /// unpublish an existing published track
     /// this will also stop the track
-    public func unpublish(track: Track?) throws {
+    public func unpublish(publication: LocalTrackPublication, shouldNotify: Bool = true) -> Promise<Void> {
 
-        guard let sid = track?.sid else {
-            throw TrackError.invalidTrackState("This track was never published.")
-        }
-
-        guard let track = tracks.removeValue(forKey: sid)?.track else {
-            throw TrackError.unpublishError("could not find published track for \(sid)")
-        }
-
-        track.stop()
-
-        guard let pc = engine?.publisher?.pc else {
-            return
-        }
-
-        for sender in pc.senders {
-            if let t = sender.track {
-                if t.isEqual(track.mediaTrack) {
-                    pc.removeTrack(sender)
-                    engine?.publisherShouldNegotiate()
-                }
+        func notifyDidUnpublish() -> Promise<Void> {
+            Promise<Void> {
+                guard shouldNotify else { return }
+                // notify unpublish
+                self.notify { $0.localParticipant(self, didUnpublish: publication) }
+                self.room?.notify { $0.room(self.room!, localParticipant: self, didUnpublish: publication) }
             }
+        }
+
+        // remove the publication
+        tracks.removeValue(forKey: publication.sid)
+
+        // if track is nil, only notify unpublish and return
+        guard let track = publication.track else {
+            return notifyDidUnpublish()
+        }
+
+        return track.stop().then { () -> Void in
+
+            if let pc = self.engine?.publisher?.pc,
+               let sender = track.sender {
+                pc.removeTrack(sender)
+                self.engine?.publisherShouldNegotiate()
+            }
+
+        }.then {
+            notifyDidUnpublish()
         }
     }
 
