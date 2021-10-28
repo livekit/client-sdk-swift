@@ -52,6 +52,11 @@ public class LocalParticipant: Participant {
 
                 let publication = LocalTrackPublication(info: trackInfo, track: track, participant: self)
                 self.addTrack(publication: publication)
+
+                // notify didPublish
+                self.notify { $0.localParticipant(self, didPublish: publication) }
+                self.room?.notify { $0.room(self.room!, localParticipant: self, didPublish: publication) }
+
                 return publication
             }
         }
@@ -101,8 +106,12 @@ public class LocalParticipant: Participant {
 
                                     let publication = LocalTrackPublication(info: trackInfo, track: track, participant: self)
                                     self.addTrack(publication: publication)
-                                    return publication
 
+                                    // notify didPublish
+                                    self.notify { $0.localParticipant(self, didPublish: publication) }
+                                    self.room?.notify { $0.room(self.room!, localParticipant: self, didPublish: publication) }
+
+                                    return publication
                                 }
                                }
     }

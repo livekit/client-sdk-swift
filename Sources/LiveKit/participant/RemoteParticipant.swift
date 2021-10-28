@@ -37,12 +37,15 @@ public class RemoteParticipant: Participant {
         if hadInfo {
             // ensure we are updating only tracks published since joining
             for publication in newTrackPublications.values {
-                sendTrackPublishedEvent(publication: publication)
+                notify { $0.participant(self, didPublish: publication) }
+                room?.notify { $0.room(self.room!, participant: self, didPublish: publication) }
             }
         }
 
         for publication in tracks.values where validTrackPublications[publication.sid] == nil {
-            unpublish(track: publication.track, sendUnpublish: true)
+            if let publication = publication as? RemoteTrackPublication {
+                unpublish(publication: publication, shouldNotify: true)
+            }
         }
     }
 
