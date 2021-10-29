@@ -1,6 +1,5 @@
 import Foundation
 import WebRTC
-import CoreMedia
 
 #if !os(macOS)
 import UIKit
@@ -41,24 +40,35 @@ public class VideoView: NativeView {
 
     static func createNativeRendererView(delegate: RTCVideoViewDelegate) -> RTCVideoRenderer {
 
-        #if arch(arm64)
+        #if !os(macOS)
+        // iOS --------------------
 
-            #if !os(macOS)
-            // iOS
-            let view = RTCMTLVideoView()
-            view.videoContentMode = .scaleAspectFill
-            view.delegate = delegate
-            #else
-            // macOS
-            let view = RTCMTLNSVideoView()
-            view.delegate = delegate
-            #endif
+        #if targetEnvironment(simulator)
+        print("Using RTCEAGLVideoView for VideoView's Renderer")
+        let view = RTCEAGLVideoView()
+        view.contentMode = .scaleAspectFit
+        view.delegate = delegate
+        #else
+        print("Using RTCMTLVideoView for VideoView's Renderer")
+        let view = RTCMTLVideoView()
+        view.videoContentMode = .scaleAspectFit
+        view.delegate = delegate
+        #endif
 
         #else
-            // x64
-            let view = RTCEAGLVideoView()
-            view.contentMode = .scaleAspectFill
-            view.delegate = delegate
+        // macOS --------------------
+        let view: RTCVideoRenderer
+        if RTCMTLNSVideoView.isMetalAvailable() {
+        print("Using RTCMTLNSVideoView for VideoView's Renderer")
+            let mtlView = RTCMTLNSVideoView()
+            mtlView.delegate = delegate
+            view = mtlView
+        } else {
+            print("Using RTCNSGLVideoView for VideoView's Renderer")
+            let glView = RTCNSGLVideoView()
+            glView.delegate = delegate
+            view = glView
+        }
         #endif
 
         return view
