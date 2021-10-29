@@ -234,7 +234,7 @@ class Engine: MulticastDelegate<EngineDelegate> {
             return Promise(EngineError.invalidState("publisher is nil"))
         }
 
-        guard subscriberPrimary, publisher.pc.iceConnectionState != .connected else {
+        guard subscriberPrimary, !publisher.pc.iceConnectionState.isConnected else {
             // aleady connected, no-op
             return Promise(())
         }
@@ -256,7 +256,7 @@ extension Engine {
         }
 
         logger.debug("waiting for iceConnect on \(transport)")
-        if allowCurrentValue, transport.pc.iceConnectionState == .connected {
+        if allowCurrentValue, transport.pc.iceConnectionState.isConnected {
             logger.debug("iceConnect already connected")
             return Promise(())
         }
@@ -265,7 +265,7 @@ extension Engine {
             // create temporary delegate
             var delegate: TransportDelegateClosures?
             delegate = TransportDelegateClosures(onIceStateUpdated: { _, iceState in
-                if iceState == .connected {
+                if iceState.isConnected {
                     fulfill(())
                     delegate = nil
                 }

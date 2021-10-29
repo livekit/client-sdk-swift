@@ -150,6 +150,10 @@ extension RTCIceConnectionState {
         @unknown default: return "unknown"
         }
     }
+
+    var isConnected: Bool {
+        .completed == self || .connected == self
+    }
 }
 
 extension Transport: RTCPeerConnectionDelegate {
