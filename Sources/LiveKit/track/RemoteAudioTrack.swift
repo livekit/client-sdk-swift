@@ -3,6 +3,7 @@ import Promises
 
 class RemoteAudioTrack: AudioTrack {
 
+    @discardableResult
     override func start() -> Promise<Void> {
         // enable first then,
         // mark started by calling super
@@ -13,7 +14,8 @@ class RemoteAudioTrack: AudioTrack {
         }
     }
 
-    override func stop() -> Promise<Void> {
+    @discardableResult
+    override public func stop() -> Promise<Void> {
         // disable first then,
         // mark stopped by calling super
         Promise<Void> {

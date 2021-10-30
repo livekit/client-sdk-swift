@@ -142,6 +142,7 @@ public class LocalVideoTrack: VideoTrack {
         )
     }
 
+    @discardableResult
     public override func stop() -> Promise<Void> {
         Promise<Void> { resolve, reject in
             // if the capturer is a RTCCameraVideoCapturer,

@@ -36,12 +36,14 @@ public class Track {
         mediaTrack = track
     }
 
+    @discardableResult
     internal func start() -> Promise<Void> {
         Promise<Void> {
             self.state = .started
         }
     }
 
+    @discardableResult
     public func stop() -> Promise<Void> {
         Promise<Void> {
             self.state = .stopped
