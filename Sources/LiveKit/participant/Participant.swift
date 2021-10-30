@@ -3,7 +3,7 @@ import WebRTC
 
 public class Participant: MulticastDelegate<ParticipantDelegate> {
 
-    public internal(set) var sid: Sid
+    public let sid: Sid
     public internal(set) var identity: String?
     public internal(set) var audioLevel: Float = 0.0
     public internal(set) var isSpeaking: Bool = false {
@@ -53,12 +53,23 @@ public class Participant: MulticastDelegate<ParticipantDelegate> {
         joinedAt = Date(timeIntervalSince1970: TimeInterval(info.joinedAt))
         self.info = info
     }
+}
 
-    override public func isEqual(_ object: Any?) -> Bool {
-        if let other = object as? Participant {
-            return sid == other.sid
-        } else {
+
+// MARK: - Equality
+
+extension Participant {
+
+    public override var hash: Int {
+        var hasher = Hasher()
+        hasher.combine(sid)
+        return hasher.finalize()
+    }
+
+    public override func isEqual(_ object: Any?) -> Bool {
+        guard let other = object as? Participant else {
             return false
         }
+        return sid == other.sid
     }
 }
