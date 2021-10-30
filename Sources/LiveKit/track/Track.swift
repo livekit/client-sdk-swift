@@ -42,7 +42,7 @@ public class Track {
         }
     }
 
-    internal func stop() -> Promise<Void> {
+    public func stop() -> Promise<Void> {
         Promise<Void> {
             self.state = .stopped
         }
