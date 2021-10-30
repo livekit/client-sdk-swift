@@ -30,7 +30,7 @@ class Engine: MulticastDelegate<EngineDelegate> {
     private(set) var reliableDC: RTCDataChannel?
     private(set) var lossyDC: RTCDataChannel?
 
-    private var connectOptions: ConnectOptions
+    internal var connectOptions: ConnectOptions
 
     var connectionState: ConnectionState = .disconnected() {
         // automatically notify changes

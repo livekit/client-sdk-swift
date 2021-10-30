@@ -1,19 +1,26 @@
 import Foundation
 
-public struct ConnectOptions: Equatable {
+public struct ConnectOptions {
     public var accessToken: String
     public var url: String
     public var autoSubscribe: Bool
     public var protocolVersion: ProtocolVersion
 
+    public var defaultVideoPublishOptions: LocalVideoTrackPublishOptions
+    public var defaultAudioPublishOptions: LocalAudioTrackPublishOptions
+
     public init(url: String,
                 token: String,
                 autoSubscribe: Bool = true,
+                defaultVideoPublishOptions: LocalVideoTrackPublishOptions = LocalVideoTrackPublishOptions(),
+                defaultAudioPublishOptions: LocalAudioTrackPublishOptions = LocalAudioTrackPublishOptions(),
                 protocolVersion: ProtocolVersion = .v4) {
 
         self.accessToken = token
         self.url = url
         self.autoSubscribe = autoSubscribe
+        self.defaultVideoPublishOptions = defaultVideoPublishOptions
+        self.defaultAudioPublishOptions = defaultAudioPublishOptions
         self.protocolVersion = protocolVersion
     }
 }
