@@ -1,6 +1,5 @@
 import Foundation
 
-
 extension TrackPublication: Equatable {
     // objects are considered equal if sids are the same
     public static func == (lhs: TrackPublication, rhs: TrackPublication) -> Bool {

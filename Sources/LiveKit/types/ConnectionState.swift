@@ -17,11 +17,11 @@ extension ConnectionState: Equatable {
         }
     }
 
-//    /// true when connecting or re-connecting
-//    public var isConnecting: Bool {
-//        if case .connecting = self { return true }
-//        return false
-//    }
+    //    /// true when connecting or re-connecting
+    //    public var isConnecting: Bool {
+    //        if case .connecting = self { return true }
+    //        return false
+    //    }
 
     /// true only when is re-connecting
     public var isReconnecting: Bool {

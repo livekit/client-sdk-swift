@@ -14,31 +14,31 @@ public class NativeView: NativeViewType {
 
     override init(frame: CGRect) {
         super.init(frame: frame)
-        
-#if !os(macOS)
-        layer.backgroundColor = UIColor.black.cgColor
-#else
-        layer?.backgroundColor = NSColor.black.cgColor
-#endif
 
-        shouldPrepare();
+        #if !os(macOS)
+        layer.backgroundColor = UIColor.black.cgColor
+        #else
+        layer?.backgroundColor = NSColor.black.cgColor
+        #endif
+
+        shouldPrepare()
     }
 
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
 
-#if !os(macOS)
+    #if !os(macOS)
     public override func layoutSubviews() {
         super.layoutSubviews()
         shouldLayout()
     }
-#else
+    #else
     public override func layout() {
         super.layout()
         shouldLayout()
     }
-#endif
+    #endif
 
     func shouldPrepare() {
         //

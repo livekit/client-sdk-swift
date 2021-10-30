@@ -55,7 +55,6 @@ public class Participant: MulticastDelegate<ParticipantDelegate> {
     }
 }
 
-
 // MARK: - Equality
 
 extension Participant {

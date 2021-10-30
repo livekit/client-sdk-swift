@@ -124,14 +124,14 @@ public class LocalVideoTrack: VideoTrack {
         let rtcTrack = Engine.factory.videoTrack(with: createCapturerResult.source, trackId: UUID().uuidString)
         rtcTrack.isEnabled = true
 
-#if !os(macOS)
+        #if !os(macOS)
         let videoSize = Dimensions(
             width: Int(UIScreen.main.bounds.size.width * UIScreen.main.scale),
             height: Int(UIScreen.main.bounds.size.height * UIScreen.main.scale)
         )
-#else
+        #else
         let videoSize = Dimensions(width: 0, height: 0)
-#endif
+        #endif
 
         return LocalVideoTrack(
             rtcTrack: rtcTrack,
@@ -144,7 +144,7 @@ public class LocalVideoTrack: VideoTrack {
 
     @discardableResult
     public override func stop() -> Promise<Void> {
-        Promise<Void> { resolve, reject in
+        Promise<Void> { resolve, _ in
             // if the capturer is a RTCCameraVideoCapturer,
             // wait for it to fully stop.
             if let capturer = self.capturer as? RTCCameraVideoCapturer {
@@ -163,7 +163,7 @@ public class LocalVideoTrack: VideoTrack {
     }
 
     public static func createCameraTrack(name: String,
-                                   options: LocalVideoTrackOptions = LocalVideoTrackOptions()) throws -> LocalVideoTrack {
+                                         options: LocalVideoTrackOptions = LocalVideoTrackOptions()) throws -> LocalVideoTrack {
 
         let result = try createCapturer(options: options)
         return LocalVideoTrack(

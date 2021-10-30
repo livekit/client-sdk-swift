@@ -22,7 +22,7 @@ public class LocalParticipant: Participant {
 
     /// publish a new audio track to the Room
     public func publishAudioTrack(track: LocalAudioTrack,
-                                  options : LocalAudioTrackPublishOptions? = nil) -> Promise<LocalTrackPublication> {
+                                  options: LocalAudioTrackPublishOptions? = nil) -> Promise<LocalTrackPublication> {
 
         guard let engine = engine else {
             return Promise(EngineError.invalidState("engine is null"))
@@ -121,7 +121,7 @@ public class LocalParticipant: Participant {
     public func unpublishAll(shouldNotify: Bool = true) -> Promise<[Void]> {
         // build a list of promises
         let promises = tracks.values.compactMap { $0 as? LocalTrackPublication }
-            .map{ unpublish(publication: $0, shouldNotify: shouldNotify) }
+            .map { unpublish(publication: $0, shouldNotify: shouldNotify) }
         // combine promises to wait all to complete
         return all(promises)
     }

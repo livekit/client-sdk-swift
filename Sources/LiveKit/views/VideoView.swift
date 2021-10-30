@@ -59,7 +59,7 @@ public class VideoView: NativeView {
         // macOS --------------------
         let view: RTCVideoRenderer
         if RTCMTLNSVideoView.isMetalAvailable() {
-        print("Using RTCMTLNSVideoView for VideoView's Renderer")
+            print("Using RTCMTLNSVideoView for VideoView's Renderer")
             let mtlView = RTCMTLNSVideoView()
             mtlView.delegate = delegate
             view = mtlView
@@ -78,23 +78,23 @@ public class VideoView: NativeView {
 extension VideoView: RTCVideoViewDelegate {
 
     public func videoView(_: RTCVideoRenderer, didChangeVideoSize size: CGSize) {
-//        // let orientation = UIDevice.current.orientation
-//        self.size = size
-//
-////        UIView.animate(withDuration: 0.4) {
-//            let defaultAspectRatio = CGSize(width: 4, height: 3)
-//            let aspectRatio = size == .zero ? defaultAspectRatio : size
-//            let videoFrame = AVMakeRect(aspectRatio: aspectRatio, insideRect: self.bounds)
-//
-//            let rendererView = self.renderer as! NativeView
-//            rendererView.widthAnchor.constraint(equalToConstant: videoFrame.width).isActive = true
-//            rendererView.heightAnchor.constraint(equalToConstant: videoFrame.height).isActive = true
-//
-//#if !os(macOS)
-//        self.layoutIfNeeded()
-//#else
-//        self.layoutSubtreeIfNeeded()
-//#endif
-//
+        //        // let orientation = UIDevice.current.orientation
+        //        self.size = size
+        //
+        ////        UIView.animate(withDuration: 0.4) {
+        //            let defaultAspectRatio = CGSize(width: 4, height: 3)
+        //            let aspectRatio = size == .zero ? defaultAspectRatio : size
+        //            let videoFrame = AVMakeRect(aspectRatio: aspectRatio, insideRect: self.bounds)
+        //
+        //            let rendererView = self.renderer as! NativeView
+        //            rendererView.widthAnchor.constraint(equalToConstant: videoFrame.width).isActive = true
+        //            rendererView.heightAnchor.constraint(equalToConstant: videoFrame.height).isActive = true
+        //
+        // #if !os(macOS)
+        //        self.layoutIfNeeded()
+        // #else
+        //        self.layoutSubtreeIfNeeded()
+        // #endif
+        //
     }
 }

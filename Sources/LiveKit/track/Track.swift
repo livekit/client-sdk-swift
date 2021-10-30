@@ -50,7 +50,6 @@ public class Track {
         }
     }
 
-
     internal func enable() {
         mediaTrack.isEnabled = true
     }

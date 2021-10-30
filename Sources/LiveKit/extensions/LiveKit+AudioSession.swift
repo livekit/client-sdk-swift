@@ -9,7 +9,7 @@ public typealias ShouldConfigureAudioSessionFunc = (_ newState: AudioTrack.Track
 
 extension LiveKit {
 
-#if !os(macOS)
+    #if !os(macOS)
     /// Called when audio session configuration is suggested by the SDK.
     ///
     /// By default, ``defaultShouldConfigureAudioSessionFunc(newState:oldState:)`` is used and this
@@ -80,5 +80,5 @@ extension LiveKit {
 
         configureAudioSession(config, setActive: setActive)
     }
-#endif
+    #endif
 }
