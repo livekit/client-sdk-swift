@@ -36,7 +36,10 @@ public class LocalVideoTrack: VideoTrack {
 
         let source = Engine.factory.videoSource()
         let capturer = RTCCameraVideoCapturer(delegate: source)
-        let possibleDevice = RTCCameraVideoCapturer.captureDevices().first { $0.position == options.position }
+        let possibleDevice = RTCCameraVideoCapturer.captureDevices().first {
+            // TODO: FaceTime Camera for macOS uses .unspecified
+            $0.position == options.position || $0.position == .unspecified
+        }
 
         guard let device = possibleDevice else {
             throw TrackError.mediaError("No \(options.position) video capture devices available.")
@@ -151,6 +154,7 @@ public class LocalVideoTrack: VideoTrack {
         }.then {
             super.stop()
         }
+    }
     // MARK: High level methods
 
     public static func createReplayKitTrack(name: String) -> LocalVideoTrack {
