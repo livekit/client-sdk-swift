@@ -13,14 +13,16 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
 
     private var webSocket: URLSessionWebSocketTask?
 
-    deinit {
-        urlSession.invalidateAndCancel()
-    }
-
-    func connect(options: ConnectOptions, reconnect: Bool = false) -> Promise<Void> {
+    func connect(_ url: String,
+                 _ token: String,
+                 options: ConnectOptions? = nil,
+                 reconnect: Bool = false) -> Promise<Void> {
 
         Promise<Void> { () -> Void in
-            let rtcUrl = try options.buildUrl(reconnect: reconnect)
+            let rtcUrl = try Utils.buildUrl(url,
+                                            token,
+                                            options: options ,
+                                            reconnect: reconnect)
             logger.debug("connecting with url: \(rtcUrl)")
 
             self.webSocket?.cancel()
@@ -53,9 +55,10 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
     }
 
     func close() {
-        connectionState = .disconnected()
+        urlSession.invalidateAndCancel()
         webSocket?.cancel()
         webSocket = nil
+        connectionState = .disconnected()
     }
 
     // handle errors after already connected

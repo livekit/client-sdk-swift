@@ -16,20 +16,24 @@ public class Room: MulticastDelegate<RoomDelegate> {
     public private(set) var activeSpeakers: [Participant] = []
 
     //    private let monitor: NWPathMonitor
-    private let monitorQueue: DispatchQueue
+    //    private let monitorQueue: DispatchQueue
     private var prevPath: NWPath?
     private var lastPathUpdate: TimeInterval = 0
-    internal let engine: Engine
+    internal lazy var engine = Engine(delegate: self)
     public var state: ConnectionState {
         engine.connectionState
     }
 
-    init(connectOptions: ConnectOptions, delegate: RoomDelegate?) {
+    init(delegate: RoomDelegate? = nil) {
 
-        //        monitor = NWPathMonitor()
-        monitorQueue = DispatchQueue(label: "networkMonitor", qos: .background)
+        super.init()
 
-        engine = Engine(connectOptions: connectOptions)
+        if let delegate = delegate {
+            add(delegate: delegate)
+        }
+
+        // monitor = NWPathMonitor()
+        //        monitorQueue = DispatchQueue(label: "networkMonitor", qos: .background)
 
         //        monitor.pathUpdateHandler = { path in
         //            logger.debug("network path update: \(path.availableInterfaces), \(path.status)")
@@ -55,29 +59,29 @@ public class Room: MulticastDelegate<RoomDelegate> {
         //            self.prevPath = path
         //            self.lastPathUpdate = currTime
         //        }
-        super.init()
-        engine.add(delegate: self)
 
-        if let delegate = delegate {
-            add(delegate: delegate)
-        }
     }
 
     deinit {
-        engine.remove(delegate: self)
+        // not really required to remove delegate since it's weak
+        // engine.remove(delegate: self)
     }
 
     @discardableResult
-    func connect() -> Promise<Room> {
+    func connect(_ url: String,
+                 _ token: String,
+                 options: ConnectOptions) -> Promise<Room> {
         logger.info("connecting to room")
         guard localParticipant == nil else {
             return Promise(EngineError.invalidState("localParticipant is not nil"))
         }
 
-        //        monitor.start(queue: monitorQueue)
-        return engine.connect().then {
-            self
-        }
+        // monitor.start(queue: monitorQueue)
+        return engine.connect(url,
+                              token,
+                              options: options).then {
+                                self
+                              }
     }
 
     public func disconnect() {

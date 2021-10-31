@@ -22,13 +22,13 @@ public class LocalParticipant: Participant {
 
     /// publish a new audio track to the Room
     public func publishAudioTrack(track: LocalAudioTrack,
-                                  options: LocalAudioTrackPublishOptions? = nil) -> Promise<LocalTrackPublication> {
+                                  publishOptions: LocalAudioTrackPublishOptions? = nil) -> Promise<LocalTrackPublication> {
 
         guard let engine = engine else {
             return Promise(EngineError.invalidState("engine is null"))
         }
 
-        let options = options ?? engine.connectOptions.defaultAudioPublishOptions
+        let publishOptions = publishOptions ?? engine.options?.defaultAudioPublishOptions
 
         if localAudioTrackPublications.first(where: { $0.track === track }) != nil {
             return Promise(TrackError.publishError("This track has already been published."))
@@ -66,7 +66,7 @@ public class LocalParticipant: Participant {
 
     /// publish a new video track to the Room
     public func publishVideoTrack(track: LocalVideoTrack,
-                                  options: LocalVideoTrackPublishOptions? = nil) -> Promise<LocalTrackPublication> {
+                                  publishOptions: LocalVideoTrackPublishOptions? = nil) -> Promise<LocalTrackPublication> {
 
         logger.debug("[Publish] video")
 
@@ -74,7 +74,7 @@ public class LocalParticipant: Participant {
             return Promise(EngineError.invalidState("engine is null"))
         }
 
-        let options = options ?? engine.connectOptions.defaultVideoPublishOptions
+        let publishOptions = publishOptions ?? engine.options?.defaultVideoPublishOptions
 
         if localVideoTrackPublications.first(where: { $0.track === track }) != nil {
             return Promise(TrackError.publishError("This track has already been published."))
@@ -94,7 +94,8 @@ public class LocalParticipant: Participant {
                                     transInit.direction = .sendOnly
                                     transInit.streamIds = [self.streamId]
 
-                                    if let encodings = Utils.computeEncodings(dimensions: track.dimensions, publishOptions: options) {
+                                    if let encodings = Utils.computeEncodings(dimensions: track.dimensions,
+                                                                              publishOptions: publishOptions) {
                                         print("using encodings %@", encodings)
                                         transInit.sendEncodings = encodings
                                     }

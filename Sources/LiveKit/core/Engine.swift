@@ -30,13 +30,15 @@ class Engine: MulticastDelegate<EngineDelegate> {
     private(set) var reliableDC: RTCDataChannel?
     private(set) var lossyDC: RTCDataChannel?
 
-    internal var connectOptions: ConnectOptions
+    internal var url: String?
+    internal var token: String?
+    internal var options: ConnectOptions?
 
     var connectionState: ConnectionState = .disconnected() {
         // automatically notify changes
         didSet {
-            logger.debug("connectionState updated \(oldValue) -> \(self.connectionState)")
             guard oldValue != connectionState else { return }
+            logger.debug("connectionState updated \(oldValue) -> \(self.connectionState)")
             switch connectionState {
             case .connected: notify { $0.engine(self, didConnect: oldValue.isReconnecting) }
             case .disconnected: notify { $0.engineDidDisconnect(self) }
@@ -46,11 +48,14 @@ class Engine: MulticastDelegate<EngineDelegate> {
         }
     }
 
-    init(connectOptions: ConnectOptions,
+    init(delegate: EngineDelegate? = nil,
          signalClient: SignalClient = SignalClient()) {
-        self.connectOptions = connectOptions
         self.signalClient = signalClient
         super.init()
+
+        if let delegate = delegate {
+            add(delegate: delegate)
+        }
 
         signalClient.add(delegate: self)
         logger.debug("RTCEngine init")
@@ -58,7 +63,7 @@ class Engine: MulticastDelegate<EngineDelegate> {
 
     deinit {
         logger.debug("RTCEngine deinit")
-        signalClient.remove(delegate: self)
+        // signalClient.remove(delegate: self)
     }
 
     private func onReceived(dataChannel: RTCDataChannel) {
@@ -77,21 +82,18 @@ class Engine: MulticastDelegate<EngineDelegate> {
         }
     }
 
-    func connect(connectOptions: ConnectOptions? = nil) -> Promise<Void> {
+    func connect(_ url: String,
+                 _ token: String,
+                 options: ConnectOptions? = nil) -> Promise<Void> {
 
         guard connectionState != .connected else {
             logger.debug("already connected")
             return Promise(EngineError.invalidState("already connected"))
         }
 
-        if let connectOptions = connectOptions {
-            // set new connect options, if any
-            self.connectOptions = connectOptions
-        }
-
         self.connectionState = .connecting(isReconnecting: false)
 
-        return signalClient.connect(options: self.connectOptions).then {
+        return signalClient.connect(url, token, options: options).then {
             // wait for join response
             self.signalClient.waitReceiveJoinResponse()
         }.then { joinResponse in
@@ -103,21 +105,28 @@ class Engine: MulticastDelegate<EngineDelegate> {
         }.then {
             // connect sequence successful
             logger.debug("connect sequence completed")
+
+            // update internal vars (only if connect succeeded)
+            self.url = url
+            self.token = token
+            self.options = options
+
             self.connectionState = .connected
         }
     }
 
     @discardableResult
-    private func reconnect(connectOptions: ConnectOptions? = nil) -> Promise<Void> {
+    private func reconnect() -> Promise<Void> {
+
+        guard let url = url,
+              let token = token else {
+            logger.debug("reconnect() must be called with connected state")
+            return Promise(EngineError.invalidState("reconnect() called with no url or token"))
+        }
 
         guard case .connected = connectionState else {
             logger.debug("reconnect() must be called with connected state")
-            return Promise(EngineError.invalidState("reconnect called with invalid state"))
-        }
-
-        if let connectOptions = connectOptions {
-            // set new connect options, if any
-            self.connectOptions = connectOptions
+            return Promise(EngineError.invalidState("reconnect() called with invalid state"))
         }
 
         guard subscriber != nil, publisher != nil else {
@@ -128,7 +137,7 @@ class Engine: MulticastDelegate<EngineDelegate> {
 
         func reconnectSequence() -> Promise<Void> {
 
-            signalClient.connect(options: self.connectOptions, reconnect: true).then {
+            signalClient.connect(url, token, options: self.options, reconnect: true).then {
                 self.waitForIceConnect(transport: self.primary)
             }.then { () -> Promise<Void> in
                 self.subscriber?.restartingIce = true
@@ -168,6 +177,10 @@ class Engine: MulticastDelegate<EngineDelegate> {
             logger.warning("close() already disconnected")
             return
         }
+
+        url = nil
+        token = nil
+        options = nil
 
         connectionState = .disconnected()
         publisher?.close()
@@ -349,7 +362,7 @@ extension Engine: SignalClientDelegate {
         }
 
         if !subscriberPrimary {
-            // lazy negotiation for protocol v3
+            // lazy negotiation for protocol v3+
             publisherShouldNegotiate()
         }
     }

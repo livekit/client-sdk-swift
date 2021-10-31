@@ -19,8 +19,13 @@ public class LiveKit {
 
     static let queue = DispatchQueue(label: "lk_queue")
 
-    public static func connect(options: ConnectOptions, delegate: RoomDelegate? = nil) -> Promise<Room> {
-        let room = Room(connectOptions: options, delegate: delegate)
-        return room.connect()
+    public static func connect(
+        _ url: String,
+        _ token: String,
+        options: ConnectOptions,
+        delegate: RoomDelegate? = nil) -> Promise<Room> {
+
+        let room = Room(delegate: delegate)
+        return room.connect(url, token, options: options)
     }
 }
