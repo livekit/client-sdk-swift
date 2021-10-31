@@ -32,18 +32,33 @@ class Utils {
 
         let components = URLComponents(url: parsedUrl, resolvingAgainstBaseURL: false)
 
-        guard var components = components else {
+        guard var builder = components else {
             throw InternalError.parse("Failed to parse url components")
         }
 
         let useSecure = parsedUrl.isSecure || forceSecure
         let httpScheme = useSecure ? "https" : "http"
         let wsScheme = useSecure ? "wss" : "ws"
+        let lastPathSegment = validate ? "validate" : "rtc"
 
-        components.scheme = validate ? httpScheme : wsScheme
-        components.path = validate ? "/validate" : "/rtc"
+        var pathSegments = parsedUrl.pathComponents
+        // strip empty & slashes
+        pathSegments.removeAll(where: { $0.isEmpty || $0 == "/" })
 
-        var query = [
+        // if already ending with `rtc` or `validate`
+        // and is not a dir, remove it
+        if !parsedUrl.hasDirectoryPath
+            && !pathSegments.isEmpty
+            && ["rtc", "validate"].contains(pathSegments.last!) {
+            pathSegments.removeLast()
+        }
+        // add the correct segment
+        pathSegments.append(lastPathSegment)
+
+        builder.scheme = validate ? httpScheme : wsScheme
+        builder.path = "/" + pathSegments.joined(separator: "/")
+
+        var queryItems = [
             URLQueryItem(name: "access_token", value: token),
             URLQueryItem(name: "protocol", value: options.protocolVersion.description),
             URLQueryItem(name: "sdk", value: "ios"),
@@ -51,17 +66,17 @@ class Utils {
         ]
 
         if reconnect {
-            query.append(URLQueryItem(name: "reconnect", value: "1"))
+            queryItems.append(URLQueryItem(name: "reconnect", value: "1"))
         }
 
         if options.autoSubscribe {
-            query.append(URLQueryItem(name: "auto_subscribe", value: "1"))
+            queryItems.append(URLQueryItem(name: "auto_subscribe", value: "1"))
         }
 
-        components.queryItems = query
+        builder.queryItems = queryItems
 
-        guard let builtUrl = components.url else {
-            throw InternalError.convert("Failed to convert components to url \(components)")
+        guard let builtUrl = builder.url else {
+            throw InternalError.convert("Failed to convert components to url \(builder)")
         }
 
         return builtUrl
