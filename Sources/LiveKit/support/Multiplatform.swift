@@ -14,13 +14,6 @@ public class NativeView: NativeViewType {
 
     override init(frame: CGRect) {
         super.init(frame: frame)
-
-        #if !os(macOS)
-        layer.backgroundColor = UIColor.black.cgColor
-        #else
-        layer?.backgroundColor = NSColor.black.cgColor
-        #endif
-
         shouldPrepare()
     }
 
