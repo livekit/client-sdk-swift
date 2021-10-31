@@ -5,6 +5,13 @@ typealias DebouncFunc = () -> Void
 
 class Utils {
 
+    internal static func buildErrorDescription(_ key: String, _ message: String? = nil) -> String {
+        if let message = message {
+            return "\(key) (\(message))"
+        }
+        return key
+    }
+
     internal static func buildUrl(
         _ url: String,
         _ token: String,

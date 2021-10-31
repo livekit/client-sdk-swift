@@ -9,26 +9,33 @@ enum RoomError: LiveKitError {
     case protocolError(String)
 }
 
-enum InternalError: LiveKitError {
+enum InternalError: LiveKitError & LocalizedError {
     case state(String? = nil)
     case parse(String? = nil)
     case convert(String? = nil)
     case timeout(String? = nil)
 
-    var localizedDescription: String {
+    var errorDescription: String? {
         switch self {
-        case .state(let message): return "Error.State \(String(describing: message))"
-        case .parse(let message): return "Error.Parse \(String(describing: message))"
-        case .convert(let message): return "Error.Convert \(String(describing: message))"
-        case .timeout(let message): return "Error.Timeout \(String(describing: message))"
+        case .state(let message): return Utils.buildErrorDescription("InternalError.State", message)
+        case .parse(let message): return Utils.buildErrorDescription("InternalError.Parse", message)
+        case .convert(let message): return Utils.buildErrorDescription("InternalError.Convert", message)
+        case .timeout(let message): return Utils.buildErrorDescription("InternalError.Timeout", message)
         }
     }
 }
 
-enum EngineError: LiveKitError {
+enum EngineError: LiveKitError & LocalizedError {
     // WebRTC lib returned error
     case webRTC(String?, Error? = nil)
     case invalidState(String? = nil)
+
+    var errorDescription: String? {
+        switch self {
+        case .webRTC(let message, _): return Utils.buildErrorDescription("EngineError.webRTC", message)
+        case .invalidState(let message): return Utils.buildErrorDescription("EngineError.state", message)
+        }
+    }
 }
 
 enum TrackError: LiveKitError {
