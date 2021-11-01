@@ -28,13 +28,24 @@ public class LocalVideoTrack: VideoTrack {
         super.init(rtcTrack: rtcTrack, name: name)
     }
 
-    private static func createCapturer(options: LocalVideoTrackOptions = LocalVideoTrackOptions()) throws -> (
-        rtcTrack: RTCVideoTrack,
-        capturer: RTCCameraVideoCapturer,
-        source: RTCVideoSource,
-        selectedDimensions: Dimensions) {
+    private static func createCapturer(options: LocalVideoTrackOptions = LocalVideoTrackOptions(),
+                                       interceptor: VideoCaptureInterceptor? = nil) throws -> (
+                                        rtcTrack: RTCVideoTrack,
+                                        capturer: RTCCameraVideoCapturer,
+                                        source: RTCVideoSource,
+                                        selectedDimensions: Dimensions) {
 
-        let source = Engine.factory.videoSource()
+        let source: RTCVideoCapturerDelegate
+        let output: RTCVideoSource
+        if let interceptor = interceptor {
+            source = interceptor
+            output = interceptor.output
+        } else {
+            let videoSource = Engine.factory.videoSource()
+            source = videoSource
+            output = videoSource
+        }
+
         let capturer = RTCCameraVideoCapturer(delegate: source)
         let possibleDevice = RTCCameraVideoCapturer.captureDevices().first {
             // TODO: FaceTime Camera for macOS uses .unspecified
@@ -85,10 +96,10 @@ public class LocalVideoTrack: VideoTrack {
         logger.info("starting capture with \(device), format: \(selectedFormat), fps: \(fps)")
         capturer.startCapture(with: device, format: selectedFormat, fps: Int(fps))
 
-        let rtcTrack = Engine.factory.videoTrack(with: source, trackId: UUID().uuidString)
+        let rtcTrack = Engine.factory.videoTrack(with: output, trackId: UUID().uuidString)
         rtcTrack.isEnabled = true
 
-        return (rtcTrack, capturer, source, selectedDimension.toLKType())
+        return (rtcTrack, capturer, output, selectedDimension.toLKType())
     }
 
     public func restartTrack(options: LocalVideoTrackOptions = LocalVideoTrackOptions()) throws {
@@ -163,9 +174,10 @@ public class LocalVideoTrack: VideoTrack {
     }
 
     public static func createCameraTrack(name: String,
-                                         options: LocalVideoTrackOptions = LocalVideoTrackOptions()) throws -> LocalVideoTrack {
+                                         options: LocalVideoTrackOptions = LocalVideoTrackOptions(),
+                                         interceptor: VideoCaptureInterceptor? = nil) throws -> LocalVideoTrack {
 
-        let result = try createCapturer(options: options)
+        let result = try createCapturer(options: options, interceptor: interceptor)
         return LocalVideoTrack(
             rtcTrack: result.rtcTrack,
             capturer: result.capturer,
