@@ -255,18 +255,14 @@ extension SignalClient {
     }
 
     func sendAddTrack(cid: String, name: String, type: Livekit_TrackType,
-                      dimensions: Dimensions? = nil) {
+                      _ populator: (inout Livekit_AddTrackRequest) -> ()) {
         logger.debug("[SignalClient] Sending add track request")
-
         let r = Livekit_SignalRequest.with {
             $0.addTrack = Livekit_AddTrackRequest.with {
+                populator(&$0)
                 $0.cid = cid
                 $0.name = name
                 $0.type = type
-                if let dimensions = dimensions {
-                    $0.width = UInt32(dimensions.width)
-                    $0.height = UInt32(dimensions.height)
-                }
             }
         }
 

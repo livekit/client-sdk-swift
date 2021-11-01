@@ -14,8 +14,11 @@ public struct LocalVideoTrackPublishOptions {
 public struct LocalAudioTrackPublishOptions {
     public var name: String?
     public var bitrate: Int?
+    public var dtx: Bool
 
-    public init() {}
+    public init(dtx: Bool = true) {
+        self.dtx = dtx
+    }
 }
 
 public struct LocalDataTrackPublishOptions {
