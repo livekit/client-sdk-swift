@@ -2,7 +2,7 @@ import WebRTC
 
 extension CVPixelBuffer {
 
-    func toRTCVideoFrame(timeStampNs: Int64) -> RTCVideoFrame {
+    public func toRTCVideoFrame(timeStampNs: Int64) -> RTCVideoFrame {
         let pixelBuffer = RTCCVPixelBuffer(pixelBuffer: self)
         return RTCVideoFrame(buffer: pixelBuffer,
                              rotation: ._0,
