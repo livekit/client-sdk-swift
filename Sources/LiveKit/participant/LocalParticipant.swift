@@ -35,30 +35,32 @@ public class LocalParticipant: Participant {
         }
 
         let cid = track.mediaTrack.trackId
-        return engine.addTrack(cid: cid, name: track.name, kind: .audio).then { trackInfo in
-
+        return engine.addTrack(cid: cid, name: track.name, kind: .audio) {
+            $0.disableDtx = !(publishOptions?.dtx ?? true)
+        }.then { trackInfo in
+            
             Promise<LocalTrackPublication> { () -> LocalTrackPublication in
-
+                
                 track.start()
-
+                
                 let transInit = RTCRtpTransceiverInit()
                 transInit.direction = .sendOnly
                 transInit.streamIds = [self.streamId]
-
+                
                 let transceiver = self.engine?.publisher?.pc.addTransceiver(with: track.mediaTrack, init: transInit)
                 if transceiver == nil {
                     throw TrackError.publishError("Nil sender returned from peer connection.")
                 }
-
+                
                 engine.publisherShouldNegotiate()
-
+                
                 let publication = LocalTrackPublication(info: trackInfo, track: track, participant: self)
                 self.addTrack(publication: publication)
-
+                
                 // notify didPublish
                 self.notify { $0.localParticipant(self, didPublish: publication) }
                 self.room?.notify { $0.room(self.room!, localParticipant: self, didPublish: publication) }
-
+                
                 return publication
             }
         }
@@ -83,40 +85,42 @@ public class LocalParticipant: Participant {
         let cid = track.mediaTrack.trackId
         return engine.addTrack(cid: cid,
                                name: track.name,
-                               kind: .video,
-                               dimensions: track.dimensions) .then { trackInfo in
-
-                                Promise<LocalTrackPublication> { () -> LocalTrackPublication in
-
-                                    track.start()
-
-                                    let transInit = RTCRtpTransceiverInit()
-                                    transInit.direction = .sendOnly
-                                    transInit.streamIds = [self.streamId]
-
-                                    if let encodings = Utils.computeEncodings(dimensions: track.dimensions,
-                                                                              publishOptions: publishOptions) {
-                                        print("using encodings %@", encodings)
-                                        transInit.sendEncodings = encodings
-                                    }
-
-                                    track.transceiver = self.engine?.publisher?.pc.addTransceiver(with: track.mediaTrack, init: transInit)
-                                    if track.transceiver == nil {
-                                        throw TrackError.publishError("Nil sender returned from peer connection.")
-                                    }
-
-                                    engine.publisherShouldNegotiate()
-
-                                    let publication = LocalTrackPublication(info: trackInfo, track: track, participant: self)
-                                    self.addTrack(publication: publication)
-
-                                    // notify didPublish
-                                    self.notify { $0.localParticipant(self, didPublish: publication) }
-                                    self.room?.notify { $0.room(self.room!, localParticipant: self, didPublish: publication) }
-
-                                    return publication
-                                }
-                               }
+                               kind: .video) {
+            $0.width = UInt32(track.dimensions.width)
+            $0.height = UInt32(track.dimensions.height)
+        }.then { trackInfo in
+            
+            Promise<LocalTrackPublication> { () -> LocalTrackPublication in
+                
+                track.start()
+                
+                let transInit = RTCRtpTransceiverInit()
+                transInit.direction = .sendOnly
+                transInit.streamIds = [self.streamId]
+                
+                if let encodings = Utils.computeEncodings(dimensions: track.dimensions,
+                                                          publishOptions: publishOptions) {
+                    print("using encodings %@", encodings)
+                    transInit.sendEncodings = encodings
+                }
+                
+                track.transceiver = self.engine?.publisher?.pc.addTransceiver(with: track.mediaTrack, init: transInit)
+                if track.transceiver == nil {
+                    throw TrackError.publishError("Nil sender returned from peer connection.")
+                }
+                
+                engine.publisherShouldNegotiate()
+                
+                let publication = LocalTrackPublication(info: trackInfo, track: track, participant: self)
+                self.addTrack(publication: publication)
+                
+                // notify didPublish
+                self.notify { $0.localParticipant(self, didPublish: publication) }
+                self.room?.notify { $0.room(self.room!, localParticipant: self, didPublish: publication) }
+                
+                return publication
+            }
+        }
     }
 
     public func unpublishAll(shouldNotify: Bool = true) -> Promise<[Void]> {
