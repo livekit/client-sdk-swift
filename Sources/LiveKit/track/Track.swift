@@ -1,7 +1,7 @@
 import WebRTC
 import Promises
 
-public class Track {
+public class Track: MulticastDelegate<TrackDelegate> {
 
     public enum Kind {
         case audio

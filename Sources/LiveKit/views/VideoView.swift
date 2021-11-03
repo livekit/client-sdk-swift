@@ -26,10 +26,24 @@ public class VideoView: NativeView {
         }
     }
 
-    var videoSize: CGSize
+    /// Size of the actual video, this will change when the publisher
+    /// changes dimensions of the video such as rotating etc.
+    public private(set) var videoSize: CGSize
+
+    /// Size of this view (used to notify delegates)
+    internal var viewSize: CGSize {
+        didSet {
+            guard oldValue != viewSize else { return }
+            print("viewSize did update: \(viewSize)")
+            track?.notify { $0.track(self.track!, videoView: self, didUpdate: self.viewSize) } 
+        }
+    }
 
     override init(frame: CGRect) {
-        self.videoSize = frame.size
+        // videoSize is initially .zero since at this point
+        // no frames are rendered.
+        self.videoSize = .zero
+        self.viewSize = frame.size
         super.init(frame: frame)
     }
 
@@ -61,9 +75,10 @@ public class VideoView: NativeView {
 
     override func shouldLayout() {
         super.shouldLayout()
+        self.viewSize = frame.size
+
         guard let rendererView = rendererView as? NativeViewType else { return }
 
-        let viewSize = bounds.size
         guard videoSize.width != 0.0 || videoSize.height != 0.0 else {
             rendererView.isHidden = true
             return
