@@ -18,7 +18,11 @@ public class VideoView: NativeView {
 
     public var mode: Mode = .fill {
         didSet {
+            #if !os(macOS)
+            setNeedsLayout()
+            #else
             needsLayout = true
+            #endif
         }
     }
 
