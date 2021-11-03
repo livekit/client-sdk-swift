@@ -11,14 +11,14 @@ typealias NativeRect = NSRect
 
 public class VideoView: NativeView {
 
-    enum Mode {
+    public enum Mode {
         case fit
         case fill
     }
 
-    var mode: Mode = .fill {
+    public var mode: Mode = .fill {
         didSet {
-            shouldLayout()
+            needsLayout = true
         }
     }
 
