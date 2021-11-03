@@ -34,8 +34,8 @@ public class VideoView: NativeView {
     internal var viewSize: CGSize {
         didSet {
             guard oldValue != viewSize else { return }
-            print("viewSize did update: \(viewSize)")
-            track?.notify { $0.track(self.track!, videoView: self, didUpdate: self.viewSize) } 
+            print("viewSize did update: \(viewSize) notifying: \(String(describing: track))")
+            track?.notify { $0.track(self.track!, videoView: self, didUpdate: self.viewSize) }
         }
     }
 
@@ -60,8 +60,10 @@ public class VideoView: NativeView {
         didSet {
             if let oldValue = oldValue {
                 oldValue.removeRenderer(rendererView)
+                oldValue.notify { $0.track(oldValue, didDetach: self) }
             }
             track?.addRenderer(rendererView)
+            track?.notify { $0.track(self.track!, didAttach: self) }
         }
     }
 

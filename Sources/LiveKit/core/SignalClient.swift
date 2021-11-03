@@ -269,21 +269,25 @@ extension SignalClient {
         sendRequest(r)
     }
 
-    func sendUpdateTrackSettings(sid: String, disabled: Bool, videoQuality: Livekit_VideoQuality) {
+    func sendUpdateTrackSettings(sid: String,
+                                 disabled: Bool,
+                                 width: Int = 0,
+                                 height: Int = 0) {
         logger.debug("[SignalClient] Sending update track settings")
 
         let r = Livekit_SignalRequest.with {
             $0.trackSetting = Livekit_UpdateTrackSettings.with {
                 $0.trackSids = [sid]
                 $0.disabled = disabled
-                $0.quality = videoQuality
+                $0.width = 0
+                $0.height = 0
             }
         }
 
         sendRequest(r)
     }
 
-    func sendUpdateSubscription(sid: String, subscribed: Bool, videoQuality: Livekit_VideoQuality) {
+    func sendUpdateSubscription(sid: String, subscribed: Bool) {
         logger.debug("[SignalClient] Sending update subscription")
 
         let r = Livekit_SignalRequest.with {
