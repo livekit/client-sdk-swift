@@ -8,18 +8,17 @@ public class Participant: MulticastDelegate<ParticipantDelegate> {
     public internal(set) var audioLevel: Float = 0.0
     public internal(set) var isSpeaking: Bool = false {
         didSet {
-            if oldValue != isSpeaking {
-                notify { $0.participant(self, didUpdate: self.isSpeaking) }
-            }
+            guard oldValue != isSpeaking else { return }
+            notify { $0.participant(self, didUpdate: self.isSpeaking) }
+            // relavent event for Room doesn't exist yet...
         }
     }
 
     public internal(set) var metadata: String? {
         didSet {
-            if oldValue != metadata {
-                notify { $0.participant(self, didUpdate: self.metadata) }
-                room?.notify { $0.room(self.room!, participant: self, didUpdate: self.metadata) }
-            }
+            guard oldValue != metadata else { return }
+            notify { $0.participant(self, didUpdate: self.metadata) }
+            room?.notify { $0.room(self.room!, participant: self, didUpdate: self.metadata) }
         }
     }
 
