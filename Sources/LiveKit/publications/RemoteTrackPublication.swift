@@ -116,33 +116,32 @@ extension RemoteTrackPublication: TrackDelegate {
                                                                     size: size)
         shouldRecomputeVisibilities?()
     }
-    
+
     public func track(_ track: VideoTrack,
                       didDetach videoView: VideoView) {
 
         videoViewVisibilities.removeValue(forKey: videoView.hash)
         shouldRecomputeVisibilities?()
     }
-    
+
     private func hasVisibleVideoViews() -> Bool {
         // not visible if no entry
         if videoViewVisibilities.isEmpty { return false }
         // at least 1 entry should be visible
         return videoViewVisibilities.values.first(where: { $0.visible }) != nil
     }
-    
+
     private func largestVideoViewSize() -> CGSize? {
-        
+
         func maxCGSize(_ s1: CGSize, _ s2: CGSize) -> CGSize {
             CGSize(width: max(s1.width, s2.width),
                    height: max(s1.height, s2.height))
         }
 
-        return videoViewVisibilities.values.map({ $0.size }).reduce(into: nil as CGSize?,
-                                                                    { result, element in
+        return videoViewVisibilities.values.map({ $0.size }).reduce(into: nil as CGSize?, { result, element in
             guard let unwrappedResult = result else {
-                 result = element
-                 return
+                result = element
+                return
             }
             result = maxCGSize(unwrappedResult, element)
         })

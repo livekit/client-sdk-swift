@@ -116,7 +116,7 @@ public class Room: MulticastDelegate<RoomDelegate> {
         if let participant = remoteParticipants[sid] {
             return participant
         }
-        let participant = RemoteParticipant(sid: sid, info: info)
+        let participant = RemoteParticipant(sid: sid, info: info, room: self)
         participant.room = self // wire up to room delegate calls
         remoteParticipants[sid] = participant
         return participant
@@ -176,6 +176,20 @@ public class Room: MulticastDelegate<RoomDelegate> {
         notify { $0.room(self, didUpdate: activeSpeakers) }
     }
 
+    private func onConnectionQualityUpdate(_ connectionQuality: [Livekit_ConnectionQualityInfo]) {
+
+        for entry in connectionQuality {
+            if let localParticipant = localParticipant,
+               entry.participantSid == localParticipant.sid {
+                // update for LocalParticipant
+                localParticipant.connectionQuality = entry.quality.toLKType()
+            } else if let participant = remoteParticipants[entry.participantSid] {
+                // udpate for RemoteParticipant
+                participant.connectionQuality = entry.quality.toLKType()
+            }
+        }
+    }
+
     private func handleDisconnect() {
         logger.info("disconnected from room: \(self.name ?? "")")
         // stop any tracks && release audio session
@@ -207,6 +221,10 @@ public class Room: MulticastDelegate<RoomDelegate> {
 
 extension Room: EngineDelegate {
 
+    func engine(_ engine: Engine, didUpdate connectionQuality: [Livekit_ConnectionQualityInfo]) {
+        onConnectionQualityUpdate(connectionQuality)
+    }
+
     func engine(_ engine: Engine, didUpdateSignal speakers: [Livekit_SpeakerInfo]) {
         onSignalSpeakersUpdate(speakers)
     }
@@ -234,7 +252,7 @@ extension Room: EngineDelegate {
         name = joinResponse.room.name
 
         if joinResponse.hasParticipant {
-            localParticipant = LocalParticipant(fromInfo: joinResponse.participant, engine: engine, room: self)
+            localParticipant = LocalParticipant(fromInfo: joinResponse.participant, room: self)
         }
         if !joinResponse.otherParticipants.isEmpty {
             for otherParticipant in joinResponse.otherParticipants {

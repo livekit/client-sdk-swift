@@ -371,6 +371,10 @@ extension Engine: SignalClientDelegate {
         notify { $0.engine(self, didUpdateSignal: speakers) }
     }
 
+    func signalClient(_ signalClient: SignalClient, didUpdate connectionQuality: [Livekit_ConnectionQualityInfo]) {
+        notify { $0.engine(self, didUpdate: connectionQuality)}
+    }
+
     func signalClient(_ signalClient: SignalClient, didConnect isReconnect: Bool) {
         //
     }

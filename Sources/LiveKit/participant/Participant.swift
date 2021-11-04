@@ -23,6 +23,14 @@ public class Participant: MulticastDelegate<ParticipantDelegate> {
         }
     }
 
+    public internal(set) var connectionQuality: ConnectionQuality = .unknown {
+        didSet {
+            guard oldValue != connectionQuality else { return }
+            notify { $0.participant(self, didUpdate: self.connectionQuality) }
+            room?.notify { $0.room(self.room!, participant: self, didUpdate: self.connectionQuality) }
+        }
+    }
+
     public private(set) var joinedAt: Date?
     public internal(set) var tracks = [String: TrackPublication]()
 
@@ -36,6 +44,7 @@ public class Participant: MulticastDelegate<ParticipantDelegate> {
 
     var info: Livekit_ParticipantInfo?
 
+    // reference to the Room this Participant belongs to
     weak var room: Room?
 
     public init(sid: String) {
