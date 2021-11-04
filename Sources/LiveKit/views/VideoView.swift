@@ -28,7 +28,17 @@ public class VideoView: NativeView {
 
     /// Size of the actual video, this will change when the publisher
     /// changes dimensions of the video such as rotating etc.
-    public private(set) var videoSize: CGSize
+    public private(set) var dimensions: Dimensions? {
+        didSet {
+            guard oldValue != dimensions else { return }
+            // force layout
+            shouldLayout()
+
+            if let dimensions = dimensions {
+                track?.notify { $0.track(self.track!, videoView: self, didUpdate: dimensions) }
+            }
+        }
+    }
 
     /// Size of this view (used to notify delegates)
     internal var viewSize: CGSize {
@@ -42,7 +52,7 @@ public class VideoView: NativeView {
     override init(frame: CGRect) {
         // videoSize is initially .zero since at this point
         // no frames are rendered.
-        self.videoSize = .zero
+//        self.dimensions = .zero
         self.viewSize = frame.size
         super.init(frame: frame)
     }
@@ -81,7 +91,7 @@ public class VideoView: NativeView {
 
         guard let rendererView = rendererView as? NativeViewType else { return }
 
-        guard videoSize.width != 0.0 || videoSize.height != 0.0 else {
+        guard let dimensions = dimensions else {
             rendererView.isHidden = true
             return
         }
@@ -91,13 +101,13 @@ public class VideoView: NativeView {
             let width, height: CGFloat
             var xDiff: CGFloat = 0.0
             var yDiff: CGFloat = 0.0
-            if videoSize.width > videoSize.height {
-                let ratio = videoSize.width / videoSize.height
+            if dimensions.width > dimensions.height {
+                let ratio = CGFloat(dimensions.width) / CGFloat(dimensions.height)
                 width = viewSize.height * ratio
                 height = viewSize.height
                 xDiff = (width - height) / 2
             } else {
-                let ratio = videoSize.height / videoSize.width
+                let ratio = CGFloat(dimensions.height) / CGFloat(dimensions.width)
                 width = viewSize.width
                 height = viewSize.width * ratio
                 yDiff = (height - width) / 2
@@ -159,7 +169,15 @@ extension VideoView: RTCVideoViewDelegate {
 
     public func videoView(_: RTCVideoRenderer, didChangeVideoSize size: CGSize) {
         print("VideoView.didChangeVideoSize \(size)")
-        self.videoSize = size
-        shouldLayout()
+        
+        guard let width = Int(exactly: size.width),
+              let height = Int(exactly: size.height) else {
+              // CGSize is used by WebRTC but this should always be an integer
+                  print("Warning: size width/height is not an integer")
+                return
+        }
+        
+        self.dimensions = Dimensions(width: width,
+                                     height: height)
     }
 }
