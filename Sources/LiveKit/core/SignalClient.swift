@@ -255,7 +255,7 @@ extension SignalClient {
     }
 
     func sendAddTrack(cid: String, name: String, type: Livekit_TrackType,
-                      _ populator: (inout Livekit_AddTrackRequest) -> ()) {
+                      _ populator: (inout Livekit_AddTrackRequest) -> Void) {
         logger.debug("[SignalClient] Sending add track request")
         let r = Livekit_SignalRequest.with {
             $0.addTrack = Livekit_AddTrackRequest.with {

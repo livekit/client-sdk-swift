@@ -193,7 +193,7 @@ class Engine: MulticastDelegate<EngineDelegate> {
     func addTrack(cid: String,
                   name: String,
                   kind: Livekit_TrackType,
-                  _ populator: (inout Livekit_AddTrackRequest) -> ()) -> Promise<Livekit_TrackInfo> {
+                  _ populator: (inout Livekit_AddTrackRequest) -> Void) -> Promise<Livekit_TrackInfo> {
 
         // TODO: Check if cid already published
 
