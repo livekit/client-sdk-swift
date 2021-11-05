@@ -138,12 +138,12 @@ extension RemoteTrackPublication: TrackDelegate {
         }
 
         return videoViewVisibilities.values.map({ $0.size }).reduce(into: nil as CGSize?, { result, element in
-            guard let unwrappedResult = result else {
-                result = element
-                return
-            }
-            result = maxCGSize(unwrappedResult, element)
-        })
+                                                                        guard let unwrappedResult = result else {
+                                                                            result = element
+                                                                            return
+                                                                        }
+                                                                        result = maxCGSize(unwrappedResult, element)
+                                                                    })
     }
 
     private func recomputeVideoViewVisibilities() {
