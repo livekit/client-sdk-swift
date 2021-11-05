@@ -9,9 +9,10 @@ internal protocol SignalClientDelegate {
     func signalClient(_ signalClient: SignalClient, didPublish localTrack: Livekit_TrackPublishedResponse)
     func signalClient(_ signalClient: SignalClient, didUpdate participants: [Livekit_ParticipantInfo])
     func signalClient(_ signalClient: SignalClient, didUpdate speakers: [Livekit_SpeakerInfo])
-    func signalClient(_ signalClient: SignalClient, didClose reason: String, code: UInt16)
+    func signalClient(_ signalClient: SignalClient, didUpdate connectionQuality: [Livekit_ConnectionQualityInfo])
     func signalClient(_ signalClient: SignalClient, didUpdateRemoteMute trackSid: String, muted: Bool)
     func signalClientDidLeave(_ signaClient: SignalClient)
+    func signalClient(_ signalClient: SignalClient, didClose reason: String, code: UInt16)
     func signalClient(_ signalClient: SignalClient, didConnect isReconnect: Bool)
     func signalClient(_ signalClient: SignalClient, didFailConnection error: Error)
 }
@@ -64,6 +65,7 @@ class SignalClientDelegateClosures: NSObject, SignalClientDelegate {
     func signalClient(_ signalClient: SignalClient, didReceive iceCandidate: RTCIceCandidate, target: Livekit_SignalTarget) {}
     func signalClient(_ signalClient: SignalClient, didUpdate participants: [Livekit_ParticipantInfo]) {}
     func signalClient(_ signalClient: SignalClient, didUpdate speakers: [Livekit_SpeakerInfo]) {}
+    func signalClient(_ signalClient: SignalClient, didUpdate connectionQuality: [Livekit_ConnectionQualityInfo]) {}
     func signalClient(_ signalClient: SignalClient, didClose reason: String, code: UInt16) {}
     func signalClient(_ signalClient: SignalClient, didUpdateRemoteMute trackSid: String, muted: Bool) {}
     func signalClientDidLeave(_ signaClient: SignalClient) {}

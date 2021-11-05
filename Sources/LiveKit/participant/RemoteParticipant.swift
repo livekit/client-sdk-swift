@@ -4,8 +4,9 @@ import Promises
 
 public class RemoteParticipant: Participant {
 
-    init(sid: String, info: Livekit_ParticipantInfo?) {
+    init(sid: String, info: Livekit_ParticipantInfo?, room: Room) {
         super.init(sid: sid)
+        self.room = room
         if let info = info {
             updateFromInfo(info: info)
         }

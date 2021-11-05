@@ -18,6 +18,10 @@ public protocol ParticipantDelegate {
     /// `participant` Can be a ``LocalParticipant`` or a ``RemoteParticipant``.
     func participant(_ participant: Participant, didUpdate speaking: Bool)
 
+    /// The connection quality of a ``Participant`` has updated.
+    /// `participant` Can be a ``LocalParticipant`` or a ``RemoteParticipant``.
+    func participant(_ participant: Participant, didUpdate connectionQuality: ConnectionQuality)
+
     /// The ``Participant``'s `muted` state has updated.
     ///
     /// For the ``LocalParticipant``, the delegate method will be called if setMute was called on ``LocalTrackPublication``,
@@ -63,6 +67,7 @@ public protocol ParticipantDelegate {
 public extension ParticipantDelegate {
     func participant(_ participant: Participant, didUpdate metadata: String?) {}
     func participant(_ participant: Participant, didUpdate speaking: Bool) {}
+    func participant(_ participant: Participant, didUpdate connectionQuality: ConnectionQuality) {}
     func participant(_ participant: Participant, didUpdate trackPublication: TrackPublication, muted: Bool) {}
     func participant(_ participant: RemoteParticipant, didPublish trackPublication: RemoteTrackPublication) {}
     func participant(_ participant: RemoteParticipant, didUnpublish trackPublication: RemoteTrackPublication) {}

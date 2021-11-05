@@ -98,6 +98,9 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
             case let .speakersChanged(speakers):
                 notify { $0.signalClient(self, didUpdate: speakers.speakers) }
 
+            case let .connectionQuality(quality):
+                notify { $0.signalClient(self, didUpdate: quality.updates) }
+
             case let .mute(mute):
                 notify { $0.signalClient(self, didUpdateRemoteMute: mute.sid, muted: mute.muted) }
 

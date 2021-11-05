@@ -10,7 +10,7 @@ public struct ConnectOptions {
     public init(autoSubscribe: Bool = true,
                 defaultVideoPublishOptions: LocalVideoTrackPublishOptions = LocalVideoTrackPublishOptions(),
                 defaultAudioPublishOptions: LocalAudioTrackPublishOptions = LocalAudioTrackPublishOptions(),
-                protocolVersion: ProtocolVersion = .v4) {
+                protocolVersion: ProtocolVersion = .v5) {
 
         self.autoSubscribe = autoSubscribe
         self.defaultVideoPublishOptions = defaultVideoPublishOptions

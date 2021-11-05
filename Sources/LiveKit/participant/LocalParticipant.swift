@@ -7,13 +7,11 @@ public class LocalParticipant: Participant {
 
     public var localAudioTrackPublications: [TrackPublication] { Array(audioTracks.values) }
     public var localVideoTrackPublications: [TrackPublication] { Array(videoTracks.values) }
-    weak var engine: Engine?
 
-    convenience init(fromInfo info: Livekit_ParticipantInfo, engine: Engine, room: Room) {
+    convenience init(fromInfo info: Livekit_ParticipantInfo, room: Room) {
         self.init(sid: info.sid)
-        updateFromInfo(info: info)
-        self.engine = engine
         self.room = room
+        updateFromInfo(info: info)
     }
 
     public func getTrackPublication(sid: String) -> LocalTrackPublication? {
@@ -24,7 +22,7 @@ public class LocalParticipant: Participant {
     public func publishAudioTrack(track: LocalAudioTrack,
                                   publishOptions: LocalAudioTrackPublishOptions? = nil) -> Promise<LocalTrackPublication> {
 
-        guard let engine = engine else {
+        guard let engine = room?.engine else {
             return Promise(EngineError.invalidState("engine is null"))
         }
 
@@ -47,7 +45,7 @@ public class LocalParticipant: Participant {
                 transInit.direction = .sendOnly
                 transInit.streamIds = [self.streamId]
 
-                let transceiver = self.engine?.publisher?.pc.addTransceiver(with: track.mediaTrack, init: transInit)
+                let transceiver = self.room?.engine.publisher?.pc.addTransceiver(with: track.mediaTrack, init: transInit)
                 if transceiver == nil {
                     throw TrackError.publishError("Nil sender returned from peer connection.")
                 }
@@ -72,7 +70,7 @@ public class LocalParticipant: Participant {
 
         logger.debug("[Publish] video")
 
-        guard let engine = engine else {
+        guard let engine = room?.engine else {
             return Promise(EngineError.invalidState("engine is null"))
         }
 
@@ -104,7 +102,7 @@ public class LocalParticipant: Participant {
                     transInit.sendEncodings = encodings
                 }
 
-                track.transceiver = self.engine?.publisher?.pc.addTransceiver(with: track.mediaTrack, init: transInit)
+                track.transceiver = self.room?.engine.publisher?.pc.addTransceiver(with: track.mediaTrack, init: transInit)
                 if track.transceiver == nil {
                     throw TrackError.publishError("Nil sender returned from peer connection.")
                 }
@@ -155,10 +153,10 @@ public class LocalParticipant: Participant {
         // wait for track to stop
         return track.stop().then { () -> Void in
 
-            if let pc = self.engine?.publisher?.pc,
+            if let pc = self.room?.engine.publisher?.pc,
                let sender = track.sender {
                 pc.removeTrack(sender)
-                self.engine?.publisherShouldNegotiate()
+                self.room?.engine.publisherShouldNegotiate()
             }
 
         }.then {
@@ -182,9 +180,9 @@ public class LocalParticipant: Participant {
         }
 
         let kind = Livekit_DataPacket.Kind(rawValue: reliability.rawValue)
-        var channel: RTCDataChannel? = engine?.reliableDC
+        var channel: RTCDataChannel? = room?.engine.reliableDC
         if kind == .lossy {
-            channel = engine?.lossyDC
+            channel = room?.engine.lossyDC
         }
 
         if channel == nil || channel?.readyState != .open {
