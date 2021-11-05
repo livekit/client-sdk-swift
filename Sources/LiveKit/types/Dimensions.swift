@@ -8,6 +8,14 @@ public struct Dimensions {
     public let height: Int
 }
 
+extension Dimensions: Equatable {
+
+    public static func == (lhs: Dimensions, rhs: Dimensions) -> Bool {
+        lhs.width == rhs.width &&
+            lhs.height == rhs.height
+    }
+}
+
 extension Dimensions {
 
     func computeSuggestedPresets() -> [VideoParameters] {
