@@ -4,7 +4,7 @@ import Foundation
 import UIKit
 #endif
 
-// Currenlty used for internal purposes
+// Currently used for internal purposes
 public protocol TrackDelegate {
     /// Dimensions of the video track has changed
     func track(_ track: VideoTrack, videoView: VideoView, didUpdate dimensions: Dimensions)
