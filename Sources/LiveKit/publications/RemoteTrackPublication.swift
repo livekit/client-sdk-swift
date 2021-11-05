@@ -97,7 +97,6 @@ public class RemoteTrackPublication: TrackPublication {
     /// this is useful when the participant is off screen, you may disable streaming down their video to reduce bandwidth requirements
     public func setEnabled(_ enabled: Bool) {
         self.enabled = enabled
-        //        sendTrackSettings()
         guard let client = participant?.room?.engine.signalClient else { return }
         client.sendUpdateTrackSettings(sid: sid,
                                        disabled: enabled)

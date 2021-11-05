@@ -279,8 +279,8 @@ extension SignalClient {
             $0.trackSetting = Livekit_UpdateTrackSettings.with {
                 $0.trackSids = [sid]
                 $0.disabled = disabled
-                $0.width = 0
-                $0.height = 0
+                $0.width = width
+                $0.height = height
             }
         }
 
