@@ -12,7 +12,7 @@ extension Dimensions: Equatable {
 
     public static func == (lhs: Dimensions, rhs: Dimensions) -> Bool {
         lhs.width == rhs.width &&
-        lhs.height == rhs.height
+            lhs.height == rhs.height
     }
 }
 
