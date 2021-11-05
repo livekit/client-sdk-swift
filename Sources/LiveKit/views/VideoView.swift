@@ -50,9 +50,6 @@ public class VideoView: NativeView {
     }
 
     override init(frame: CGRect) {
-        // videoSize is initially .zero since at this point
-        // no frames are rendered.
-        //        self.dimensions = .zero
         self.viewSize = frame.size
         super.init(frame: frame)
     }
