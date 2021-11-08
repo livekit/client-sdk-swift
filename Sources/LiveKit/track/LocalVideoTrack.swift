@@ -11,28 +11,29 @@ extension CMVideoDimensions {
 public class LocalVideoTrack: VideoTrack {
 
     public var capturer: RTCVideoCapturer
-    public var source: RTCVideoSource
+    public var videoSource: RTCVideoSource
     public let dimensions: Dimensions
 
     public typealias CreateCapturerResult = (capturer: ReplayKitCapturer, source: RTCVideoSource)
 
     init(rtcTrack: RTCVideoTrack,
          capturer: RTCVideoCapturer,
-         source: RTCVideoSource,
+         videoSource: RTCVideoSource,
          name: String,
+         source: Track.Source,
          dimensions: Dimensions) {
 
         self.capturer = capturer
-        self.source = source
+        self.videoSource = videoSource
         self.dimensions = dimensions
-        super.init(rtcTrack: rtcTrack, name: name)
+        super.init(rtcTrack: rtcTrack, name: name, source: source)
     }
 
     private static func createCapturer(options: LocalVideoTrackOptions = LocalVideoTrackOptions(),
                                        interceptor: VideoCaptureInterceptor? = nil) throws -> (
                                         rtcTrack: RTCVideoTrack,
                                         capturer: RTCCameraVideoCapturer,
-                                        source: RTCVideoSource,
+                                        videoSource: RTCVideoSource,
                                         selectedDimensions: Dimensions) {
 
         let source: RTCVideoCapturerDelegate
@@ -113,7 +114,7 @@ public class LocalVideoTrack: VideoTrack {
 
         capturer = result.capturer
 
-        source = result.source
+        videoSource = result.videoSource
 
         // TODO: Stop previous mediaTrack
         mediaTrack.isEnabled = false
@@ -147,8 +148,9 @@ public class LocalVideoTrack: VideoTrack {
         return LocalVideoTrack(
             rtcTrack: rtcTrack,
             capturer: createCapturerResult.capturer,
-            source: createCapturerResult.source,
+            videoSource: createCapturerResult.source,
             name: name,
+            source: .camera,
             dimensions: videoSize
         )
     }
@@ -181,8 +183,9 @@ public class LocalVideoTrack: VideoTrack {
         return LocalVideoTrack(
             rtcTrack: result.rtcTrack,
             capturer: result.capturer,
-            source: result.source,
+            videoSource: result.videoSource,
             name: name,
+            source: .camera,
             dimensions: result.selectedDimensions
         )
     }

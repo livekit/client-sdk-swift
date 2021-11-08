@@ -11,6 +11,7 @@ public class TrackPublication {
 
     public let sid: Sid
     public let kind: Track.Kind
+    public let source: Track.Source
     public internal(set) var name: String
     public internal(set) var track: Track?
     public internal(set) var muted: Bool
@@ -29,6 +30,7 @@ public class TrackPublication {
         sid = info.sid
         name = info.name
         kind = info.type.toLKType()
+        source = info.source.toLKType()
         muted = info.muted
         self.track = track
         self.participant = participant

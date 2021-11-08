@@ -7,8 +7,8 @@ public class VideoTrack: Track {
         get { return mediaTrack as! RTCVideoTrack }
     }
 
-    init(rtcTrack: RTCVideoTrack, name: String) {
-        super.init(name: name, kind: .video, track: rtcTrack)
+    init(rtcTrack: RTCVideoTrack, name: String, source: Track.Source) {
+        super.init(name: name, kind: .video, source: source, track: rtcTrack)
     }
 
     public func addRenderer(_ renderer: RTCVideoRenderer) {

@@ -18,6 +18,6 @@ public class LocalAudioTrack: AudioTrack {
         let audioSource = Engine.factory.audioSource(with: audioConstraints)
         let rtcTrack = Engine.factory.audioTrack(with: audioSource, trackId: UUID().uuidString)
         rtcTrack.isEnabled = true
-        return LocalAudioTrack(rtcTrack: rtcTrack, name: name)
+        return LocalAudioTrack(rtcTrack: rtcTrack, name: name, source: .microphone)
     }
 }
