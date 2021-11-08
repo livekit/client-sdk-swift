@@ -222,36 +222,36 @@ public class LocalParticipant: Participant {
 
 extension LocalParticipant {
 
-    func setCamera(enabled: Bool) -> Promise<Void> {
+    public func setCamera(enabled: Bool) -> Promise<LocalTrackPublication?> {
         return set(source: .camera, enabled: enabled)
     }
 
-    func isCameraEnabled() -> Bool {
+    public func isCameraEnabled() -> Bool {
         !(getTrack(source: .camera)?.muted ?? true)
     }
 
-    func setMicrophone(enabled: Bool) -> Promise<Void> {
+    public func setMicrophone(enabled: Bool) -> Promise<LocalTrackPublication?> {
         return set(source: .microphone, enabled: enabled)
     }
 
-    func isMicrophoneEnabled() -> Bool {
+    public func isMicrophoneEnabled() -> Bool {
         !(getTrack(source: .microphone)?.muted ?? true)
     }
 
-    func set(source: Track.Source, enabled: Bool) -> Promise<Void> {
+    public func set(source: Track.Source, enabled: Bool) -> Promise<LocalTrackPublication?> {
         let publication = getTrack(source: source)
         if let publication = publication as? LocalTrackPublication {
             // publication already exists
             if enabled {
                 publication.muted = false
-                return Promise(())
+                return Promise(publication)
             } else {
                 if source == .screenShare {
                     // screenshare cannot be muted
-                    return unpublish(publication: publication)
+                    return unpublish(publication: publication).then { _ in return Promise(nil) }
                 } else {
                     publication.muted = true
-                    return Promise(())
+                    return Promise(nil)
                 }
             }
         } else if enabled {
@@ -259,14 +259,14 @@ extension LocalParticipant {
             do {
                 if source == .camera {
                     let localTrack = try LocalVideoTrack.createCameraTrack(name: "camera")
-                    return publishVideoTrack(track: localTrack).then { _ in return () }
+                    return publishVideoTrack(track: localTrack).then { publication in return publication }
                 }
             } catch let error {
                 return Promise(error)
             }
             if source == .microphone {
                 let localTrack = LocalAudioTrack.createTrack(name: "")
-                return publishAudioTrack(track: localTrack).then { _ in return () }
+                return publishAudioTrack(track: localTrack).then { publication in return publication }
             }
             // TODO: Screen share
         }
