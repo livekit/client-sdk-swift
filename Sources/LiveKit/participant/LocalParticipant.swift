@@ -210,7 +210,7 @@ public class LocalParticipant: Participant {
                 continue
             }
             if trackInfo.muted != publication.muted {
-                publication.setMuted(trackInfo.muted)
+                publication.muted = trackInfo.muted
             }
         }
     }
