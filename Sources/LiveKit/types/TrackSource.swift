@@ -1,6 +1,5 @@
-
 extension Livekit_TrackSource {
-    
+
     func toLKType() -> Track.Source {
         switch self {
         case .camera: return .camera
@@ -12,7 +11,7 @@ extension Livekit_TrackSource {
 }
 
 extension Track.Source {
-    
+
     func toPBType() -> Livekit_TrackSource {
         switch self {
         case .camera: return .camera

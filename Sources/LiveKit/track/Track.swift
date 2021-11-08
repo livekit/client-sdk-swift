@@ -3,6 +3,8 @@ import Promises
 
 public class Track: MulticastDelegate<TrackDelegate> {
 
+    public static let screenShareName = "screen"
+
     public enum Kind {
         case audio
         case video

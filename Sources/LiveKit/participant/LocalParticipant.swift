@@ -217,3 +217,60 @@ public class LocalParticipant: Participant {
 
     //    func setEncodingParameters(parameters _: EncodingParameters) {}
 }
+
+// MARK: - Simplified API
+
+extension LocalParticipant {
+
+    func setCamera(enabled: Bool) -> Promise<Void> {
+        return set(source: .camera, enabled: enabled)
+    }
+
+    func isCameraEnabled() -> Bool {
+        !(getTrack(source: .camera)?.muted ?? true)
+    }
+
+    func setMicrophone(enabled: Bool) -> Promise<Void> {
+        return set(source: .microphone, enabled: enabled)
+    }
+
+    func isMicrophoneEnabled() -> Bool {
+        !(getTrack(source: .microphone)?.muted ?? true)
+    }
+
+    func set(source: Track.Source, enabled: Bool) -> Promise<Void> {
+        let publication = getTrack(source: source)
+        if let publication = publication as? LocalTrackPublication {
+            // publication already exists
+            if enabled {
+                publication.muted = false
+                return Promise(())
+            } else {
+                if source == .screenShare {
+                    // screenshare cannot be muted
+                    return unpublish(publication: publication)
+                } else {
+                    publication.muted = true
+                    return Promise(())
+                }
+            }
+        } else if enabled {
+            // try to create a new track
+            do {
+                if source == .camera {
+                    let localTrack = try LocalVideoTrack.createCameraTrack(name: "camera")
+                    return publishVideoTrack(track: localTrack).then { _ in return () }
+                }
+            } catch let error {
+                return Promise(error)
+            }
+            if source == .microphone {
+                let localTrack = LocalAudioTrack.createTrack(name: "")
+                return publishAudioTrack(track: localTrack).then { _ in return () }
+            }
+            // TODO: Screen share
+        }
+
+        return Promise(EngineError.invalidState())
+    }
+}
