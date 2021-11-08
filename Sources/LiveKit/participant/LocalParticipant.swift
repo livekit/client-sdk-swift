@@ -227,7 +227,7 @@ extension LocalParticipant {
     }
 
     public func isCameraEnabled() -> Bool {
-        !(getTrack(source: .camera)?.muted ?? true)
+        !(getTrackPublication(source: .camera)?.muted ?? true)
     }
 
     public func setMicrophone(enabled: Bool) -> Promise<LocalTrackPublication?> {
@@ -235,11 +235,11 @@ extension LocalParticipant {
     }
 
     public func isMicrophoneEnabled() -> Bool {
-        !(getTrack(source: .microphone)?.muted ?? true)
+        !(getTrackPublication(source: .microphone)?.muted ?? true)
     }
 
     public func set(source: Track.Source, enabled: Bool) -> Promise<LocalTrackPublication?> {
-        let publication = getTrack(source: source)
+        let publication = getTrackPublication(source: source)
         if let publication = publication as? LocalTrackPublication {
             // publication already exists
             if enabled {

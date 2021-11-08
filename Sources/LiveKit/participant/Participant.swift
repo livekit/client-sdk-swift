@@ -67,11 +67,12 @@ public class Participant: MulticastDelegate<ParticipantDelegate> {
 
 extension Participant {
 
-    func getTrack(name: String) -> TrackPublication? {
+    func getTrackPublication(name: String) -> TrackPublication? {
         tracks.values.first(where: { $0.name == name })
     }
 
-    func getTrack(source: Track.Source) -> TrackPublication? {
+    /// find the first publication matching `source` or any compatible.
+    func getTrackPublication(source: Track.Source) -> TrackPublication? {
         // if source is unknown return nil
         guard source != .unknown else { return nil }
         // try to find a Publication with matching source
