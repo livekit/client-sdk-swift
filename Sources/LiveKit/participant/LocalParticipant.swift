@@ -238,7 +238,7 @@ extension LocalParticipant {
                 publication.muted = false
                 return Promise(publication)
             } else {
-                if source == .screenShare {
+                if source == .screenShareVideo {
                     // screenshare cannot be muted
                     return unpublish(publication: publication).then { _ in return Promise(nil) }
                 } else {

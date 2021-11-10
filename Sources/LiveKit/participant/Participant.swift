@@ -91,7 +91,8 @@ extension Participant {
         if let result = tracks.values.filter({ $0.source == .unknown }).first(where: {
             (source == .microphone && $0.kind == .audio) ||
                 (source == .camera && $0.kind == .video && $0.name != Track.screenShareName) ||
-                (source == .screenShare && $0.kind == .video && $0.name == Track.screenShareName)
+                (source == .screenShareVideo && $0.kind == .video && $0.name == Track.screenShareName) ||
+                (source == .screenShareAudio && $0.kind == .audio && $0.name == Track.screenShareName)
         }) {
             return result
         }

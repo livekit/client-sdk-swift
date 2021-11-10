@@ -4,7 +4,8 @@ extension Livekit_TrackSource {
         switch self {
         case .camera: return .camera
         case .microphone: return .microphone
-        case .screenShare: return .screenShare
+        case .screenShare: return .screenShareVideo
+        case .screenShareAudio: return .screenShareAudio
         default: return .unknown
         }
     }
@@ -16,7 +17,8 @@ extension Track.Source {
         switch self {
         case .camera: return .camera
         case .microphone: return .microphone
-        case .screenShare: return .screenShare
+        case .screenShareVideo: return .screenShare
+        case .screenShareAudio: return .screenShareAudio
         default: return .unknown
         }
     }

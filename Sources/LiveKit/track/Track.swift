@@ -20,7 +20,8 @@ public class Track: MulticastDelegate<TrackDelegate> {
         case unknown
         case camera
         case microphone
-        case screenShare
+        case screenShareVideo
+        case screenShareAudio
     }
 
     public let kind: Track.Kind
