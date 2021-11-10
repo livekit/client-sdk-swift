@@ -3,7 +3,7 @@ import Promises
 
 public class Track: MulticastDelegate<TrackDelegate> {
 
-    public static let screenShareName = "screen"
+    public static let screenShareName = "screenshare"
 
     public enum Kind {
         case audio
