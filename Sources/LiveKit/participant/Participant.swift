@@ -63,6 +63,44 @@ public class Participant: MulticastDelegate<ParticipantDelegate> {
     }
 }
 
+// MARK: - Simplified API
+
+extension Participant {
+
+    public func isCameraEnabled() -> Bool {
+        !(getTrackPublication(source: .camera)?.muted ?? true)
+    }
+
+    public func isMicrophoneEnabled() -> Bool {
+        !(getTrackPublication(source: .microphone)?.muted ?? true)
+    }
+
+    func getTrackPublication(name: String) -> TrackPublication? {
+        tracks.values.first(where: { $0.name == name })
+    }
+
+    /// find the first publication matching `source` or any compatible.
+    func getTrackPublication(source: Track.Source) -> TrackPublication? {
+        // if source is unknown return nil
+        guard source != .unknown else { return nil }
+        // try to find a Publication with matching source
+        if let result = tracks.values.first(where: { $0.source == source }) {
+            return result
+        }
+        // try to find a compatible Publication
+        if let result = tracks.values.filter({ $0.source == .unknown }).first(where: {
+            (source == .microphone && $0.kind == .audio) ||
+                (source == .camera && $0.kind == .video && $0.name != Track.screenShareName) ||
+                (source == .screenShareVideo && $0.kind == .video && $0.name == Track.screenShareName) ||
+                (source == .screenShareAudio && $0.kind == .audio && $0.name == Track.screenShareName)
+        }) {
+            return result
+        }
+
+        return nil
+    }
+}
+
 // MARK: - Equality
 
 extension Participant {

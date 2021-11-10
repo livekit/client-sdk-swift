@@ -70,6 +70,7 @@ enum Livekit_TrackSource: SwiftProtobuf.Enum {
     case camera // = 1
     case microphone // = 2
     case screenShare // = 3
+    case screenShareAudio // = 4
     case UNRECOGNIZED(Int)
 
     init() {
@@ -82,6 +83,7 @@ enum Livekit_TrackSource: SwiftProtobuf.Enum {
         case 1: self = .camera
         case 2: self = .microphone
         case 3: self = .screenShare
+        case 4: self = .screenShareAudio
         default: self = .UNRECOGNIZED(rawValue)
         }
     }
@@ -92,6 +94,7 @@ enum Livekit_TrackSource: SwiftProtobuf.Enum {
         case .camera: return 1
         case .microphone: return 2
         case .screenShare: return 3
+        case .screenShareAudio: return 4
         case .UNRECOGNIZED(let i): return i
         }
     }
@@ -106,7 +109,8 @@ extension Livekit_TrackSource: CaseIterable {
         .unknown,
         .camera,
         .microphone,
-        .screenShare
+        .screenShare,
+        .screenShareAudio
     ]
 }
 
@@ -475,7 +479,8 @@ extension Livekit_TrackSource: SwiftProtobuf._ProtoNameProviding {
         0: .same(proto: "UNKNOWN"),
         1: .same(proto: "CAMERA"),
         2: .same(proto: "MICROPHONE"),
-        3: .same(proto: "SCREEN_SHARE")
+        3: .same(proto: "SCREEN_SHARE"),
+        4: .same(proto: "SCREEN_SHARE_AUDIO")
     ]
 }
 

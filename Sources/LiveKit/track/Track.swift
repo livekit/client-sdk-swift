@@ -3,6 +3,8 @@ import Promises
 
 public class Track: MulticastDelegate<TrackDelegate> {
 
+    public static let screenShareName = "screenshare"
+
     public enum Kind {
         case audio
         case video
@@ -14,9 +16,18 @@ public class Track: MulticastDelegate<TrackDelegate> {
         case started
     }
 
+    public enum Source {
+        case unknown
+        case camera
+        case microphone
+        case screenShareVideo
+        case screenShareAudio
+    }
+
+    public let kind: Track.Kind
+    public let source: Track.Source
     public internal(set) var name: String
     public internal(set) var sid: Sid?
-    public internal(set) var kind: Track.Kind
     public internal(set) var mediaTrack: RTCMediaStreamTrack
     public internal(set) var transceiver: RTCRtpTransceiver?
     public var sender: RTCRtpSender? {
@@ -30,9 +41,10 @@ public class Track: MulticastDelegate<TrackDelegate> {
         }
     }
 
-    init(name: String, kind: Kind, track: RTCMediaStreamTrack) {
+    init(name: String, kind: Kind, source: Source, track: RTCMediaStreamTrack) {
         self.name = name
         self.kind = kind
+        self.source = source
         mediaTrack = track
     }
 

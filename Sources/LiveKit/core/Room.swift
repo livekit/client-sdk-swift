@@ -311,7 +311,7 @@ extension Room: EngineDelegate {
 
     func engine(_ engine: Engine, didUpdateRemoteMute trackSid: String, muted: Bool) {
         if let track = localParticipant?.tracks[trackSid] as? LocalTrackPublication {
-            track.setMuted(muted)
+            track.muted = muted
         }
     }
 

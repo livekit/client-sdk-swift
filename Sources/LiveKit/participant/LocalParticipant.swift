@@ -210,10 +210,59 @@ public class LocalParticipant: Participant {
                 continue
             }
             if trackInfo.muted != publication.muted {
-                publication.setMuted(trackInfo.muted)
+                publication.muted = trackInfo.muted
             }
         }
     }
 
     //    func setEncodingParameters(parameters _: EncodingParameters) {}
+}
+
+// MARK: - Simplified API
+
+extension LocalParticipant {
+
+    public func setCamera(enabled: Bool) -> Promise<LocalTrackPublication?> {
+        return set(source: .camera, enabled: enabled)
+    }
+
+    public func setMicrophone(enabled: Bool) -> Promise<LocalTrackPublication?> {
+        return set(source: .microphone, enabled: enabled)
+    }
+
+    public func set(source: Track.Source, enabled: Bool) -> Promise<LocalTrackPublication?> {
+        let publication = getTrackPublication(source: source)
+        if let publication = publication as? LocalTrackPublication {
+            // publication already exists
+            if enabled {
+                publication.muted = false
+                return Promise(publication)
+            } else {
+                if source == .screenShareVideo {
+                    // screenshare cannot be muted
+                    return unpublish(publication: publication).then { _ in return Promise(nil) }
+                } else {
+                    publication.muted = true
+                    return Promise(nil)
+                }
+            }
+        } else if enabled {
+            // try to create a new track
+            do {
+                if source == .camera {
+                    let localTrack = try LocalVideoTrack.createCameraTrack(name: "camera")
+                    return publishVideoTrack(track: localTrack).then { publication in return publication }
+                }
+            } catch let error {
+                return Promise(error)
+            }
+            if source == .microphone {
+                let localTrack = LocalAudioTrack.createTrack(name: "")
+                return publishAudioTrack(track: localTrack).then { publication in return publication }
+            }
+            // TODO: Screen share
+        }
+
+        return Promise(EngineError.invalidState())
+    }
 }

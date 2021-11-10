@@ -32,8 +32,8 @@ public class AudioTrack: Track {
         }
     }
 
-    init(rtcTrack: RTCAudioTrack, name: String) {
-        super.init(name: name, kind: .audio, track: rtcTrack)
+    init(rtcTrack: RTCAudioTrack, name: String, source: Track.Source) {
+        super.init(name: name, kind: .audio, source: source, track: rtcTrack)
     }
 
     // MARK: - Public Methods
