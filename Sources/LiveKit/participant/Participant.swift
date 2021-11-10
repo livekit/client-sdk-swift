@@ -67,6 +67,14 @@ public class Participant: MulticastDelegate<ParticipantDelegate> {
 
 extension Participant {
 
+    public func isCameraEnabled() -> Bool {
+        !(getTrackPublication(source: .camera)?.muted ?? true)
+    }
+
+    public func isMicrophoneEnabled() -> Bool {
+        !(getTrackPublication(source: .microphone)?.muted ?? true)
+    }
+
     func getTrackPublication(name: String) -> TrackPublication? {
         tracks.values.first(where: { $0.name == name })
     }

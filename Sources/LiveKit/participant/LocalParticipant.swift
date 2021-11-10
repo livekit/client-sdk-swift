@@ -226,16 +226,8 @@ extension LocalParticipant {
         return set(source: .camera, enabled: enabled)
     }
 
-    public func isCameraEnabled() -> Bool {
-        !(getTrackPublication(source: .camera)?.muted ?? true)
-    }
-
     public func setMicrophone(enabled: Bool) -> Promise<LocalTrackPublication?> {
         return set(source: .microphone, enabled: enabled)
-    }
-
-    public func isMicrophoneEnabled() -> Bool {
-        !(getTrackPublication(source: .microphone)?.muted ?? true)
     }
 
     public func set(source: Track.Source, enabled: Bool) -> Promise<LocalTrackPublication?> {
