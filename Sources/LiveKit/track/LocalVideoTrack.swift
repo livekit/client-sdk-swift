@@ -137,7 +137,7 @@ public class LocalVideoTrack: VideoTrack {
         rtcTrack.isEnabled = true
 
         #if !os(macOS)
-        let dimensions = Dimensions(
+        let videoSize = Dimensions(
             width: Int(UIScreen.main.bounds.size.width * UIScreen.main.scale),
             height: Int(UIScreen.main.bounds.size.height * UIScreen.main.scale)
         )
