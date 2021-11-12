@@ -33,6 +33,14 @@ public class NativeView: NativeViewType {
     }
     #endif
 
+    func markNeedsLayout() {
+        #if !os(macOS)
+        setNeedsLayout()
+        #else
+        needsLayout = true
+        #endif
+    }
+
     func shouldPrepare() {
         //
     }

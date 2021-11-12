@@ -18,11 +18,7 @@ public class VideoView: NativeView {
 
     public var mode: Mode = .fill {
         didSet {
-            #if !os(macOS)
-            setNeedsLayout()
-            #else
-            needsLayout = true
-            #endif
+            markNeedsLayout()
         }
     }
 
@@ -32,8 +28,7 @@ public class VideoView: NativeView {
         didSet {
             guard oldValue != dimensions else { return }
             // force layout
-            shouldLayout()
-
+            markNeedsLayout()
             if let dimensions = dimensions {
                 track?.notify { $0.track(self.track!, videoView: self, didUpdate: dimensions) }
             }
@@ -174,7 +169,9 @@ extension VideoView: RTCVideoViewDelegate {
             return
         }
 
-        self.dimensions = Dimensions(width: width,
-                                     height: height)
+        DispatchQueue.main.async {
+            self.dimensions = Dimensions(width: width,
+                                         height: height)
+        }
     }
 }
