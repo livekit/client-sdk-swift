@@ -222,15 +222,15 @@ public class LocalParticipant: Participant {
 
 extension LocalParticipant {
 
-    public func setCamera(enabled: Bool) -> Promise<LocalTrackPublication?> {
-        return set(source: .camera, enabled: enabled)
+    public func setCamera(enabled: Bool, interceptor: VideoCaptureInterceptor? = nil) -> Promise<LocalTrackPublication?> {
+        return set(source: .camera, enabled: enabled, interceptor: interceptor)
     }
 
     public func setMicrophone(enabled: Bool) -> Promise<LocalTrackPublication?> {
         return set(source: .microphone, enabled: enabled)
     }
 
-    public func set(source: Track.Source, enabled: Bool) -> Promise<LocalTrackPublication?> {
+    public func set(source: Track.Source, enabled: Bool, interceptor: VideoCaptureInterceptor? = nil) -> Promise<LocalTrackPublication?> {
         let publication = getTrackPublication(source: source)
         if let publication = publication as? LocalTrackPublication {
             // publication already exists
@@ -250,7 +250,7 @@ extension LocalParticipant {
             // try to create a new track
             do {
                 if source == .camera {
-                    let localTrack = try LocalVideoTrack.createCameraTrack(name: "camera")
+                    let localTrack = try LocalVideoTrack.createCameraTrack(name: "camera", interceptor: interceptor)
                     return publishVideoTrack(track: localTrack).then { publication in return publication }
                 }
             } catch let error {
