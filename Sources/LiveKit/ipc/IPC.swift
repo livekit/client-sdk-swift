@@ -1,6 +1,6 @@
 import Foundation
 
-extension CFMessagePort {
+internal extension CFMessagePort {
 
     private static var selfObjectHandle: UInt8 = 1
 
@@ -17,7 +17,12 @@ extension CFMessagePort {
     }
 }
 
-/// Simple class for inter-process-communication
+public typealias IPCOnReceivedData = (_ server: IPCServer,
+                                      _ messageId: Int32,
+                                      _ data: Data) -> Void
+
+/// Simple class for inter-process-communication which can be used for
+/// communication between app and extension.
 public class IPC {
     internal var port: CFMessagePort?
     public internal(set) var connected: Bool = false
@@ -40,7 +45,12 @@ public class IPCServer: IPC {
     public internal(set) var runLoop: CFRunLoop
     public internal(set) var runLoopSource: CFRunLoopSource?
 
-    public init(runLoop: CFRunLoop = CFRunLoopGetMain()) {
+    /// any time data is received this callback will be called
+    public var onReceivedData: IPCOnReceivedData?
+
+    public init(onReceivedData: IPCOnReceivedData? = nil,
+                runLoop: CFRunLoop = CFRunLoopGetMain()) {
+        self.onReceivedData = onReceivedData
         self.runLoop = runLoop
         super.init()
     }
@@ -67,9 +77,9 @@ public class IPCServer: IPC {
                                                              data: CFData?,
                                                              _: UnsafeMutableRawPointer?) -> Unmanaged<CFData>? in
                                             // restore `self` from pointer
-                                            guard let selfObj = port?.associatedSelf() else { return nil }
-                                            print("IPCServer: Received message self:\(selfObj) id:\(id) data:\(data)")
-
+                                            guard let selfObj = port?.associatedSelf() as? IPCServer,
+                                                  let data = data as Data? else { return nil }
+                                            selfObj.onReceivedData?(selfObj, id, data)
                                             return nil
                                         },
                                         nil,
@@ -126,12 +136,12 @@ public class IPCClient: IPC {
     }
 
     @discardableResult
-    public func send(id: Int32, data: Data) -> Bool {
+    public func send(_ data: Data, messageId: Int32 = 0) -> Bool {
 
         guard let port = port else { return false }
 
         let result = CFMessagePortSendRequest(port,
-                                              id,
+                                              messageId,
                                               data as CFData,
                                               0.0,
                                               0.0,
