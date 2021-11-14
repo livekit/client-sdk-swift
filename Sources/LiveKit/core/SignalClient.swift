@@ -26,7 +26,10 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
             logger.debug("connecting with url: \(rtcUrl)")
 
             self.webSocket?.cancel()
-            self.webSocket = self.urlSession.webSocketTask(with: rtcUrl)
+
+            var request = URLRequest(url: rtcUrl)
+            request.networkServiceType = .voip
+            self.webSocket = self.urlSession.webSocketTask(with: request)
             self.webSocket!.resume() // Unexpectedly found nil while unwrapping an Optional values
             self.connectionState = .connecting(isReconnecting: reconnect)
         }.then {
