@@ -11,7 +11,7 @@ message IPCMessage {
     oneof type {
       Video video = 3;
       AudioApp audioApp = 4;
-      AudioApp audioMic = 5;
+      AudioMic audioMic = 5;
     }
 
     message Video {

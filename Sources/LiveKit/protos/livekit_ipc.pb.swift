@@ -82,10 +82,10 @@ public struct IPCMessage {
             set {type = .audioApp(newValue)}
         }
 
-        public var audioMic: IPCMessage.Buffer.AudioApp {
+        public var audioMic: IPCMessage.Buffer.AudioMic {
             get {
                 if case .audioMic(let v)? = type {return v}
-                return IPCMessage.Buffer.AudioApp()
+                return IPCMessage.Buffer.AudioMic()
             }
             set {type = .audioMic(newValue)}
         }
@@ -95,7 +95,7 @@ public struct IPCMessage {
         public enum OneOf_Type: Equatable {
             case video(IPCMessage.Buffer.Video)
             case audioApp(IPCMessage.Buffer.AudioApp)
-            case audioMic(IPCMessage.Buffer.AudioApp)
+            case audioMic(IPCMessage.Buffer.AudioMic)
 
             #if !swift(>=4.1)
             public static func ==(lhs: IPCMessage.Buffer.OneOf_Type, rhs: IPCMessage.Buffer.OneOf_Type) -> Bool {
@@ -259,7 +259,7 @@ extension IPCMessage.Buffer: SwiftProtobuf.Message, SwiftProtobuf._MessageImplem
                 }
             }()
             case 5: try {
-                var v: IPCMessage.Buffer.AudioApp?
+                var v: IPCMessage.Buffer.AudioMic?
                 var hadOneofValue = false
                 if let current = self.type {
                     hadOneofValue = true
