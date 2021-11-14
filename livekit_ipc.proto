@@ -1,0 +1,26 @@
+syntax = "proto3";
+
+message IPCMessage {
+  oneof type {
+    Buffer buffer = 1;
+  }
+
+  message Buffer {
+    uint64 timestampNs = 1;
+    bytes buffer = 2;
+    oneof type {
+      Video video = 3;
+      AudioApp audioApp = 4;
+      AudioApp audioMic = 5;
+    }
+
+    message Video {
+      uint32 format = 1; // pixel format
+      uint32 width = 2;
+      uint32 height = 3;
+    }
+  
+    message AudioApp {}
+    message AudioMic {}
+  }
+}
