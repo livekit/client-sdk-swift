@@ -11,7 +11,7 @@ public class ReplayKitCapturer: RTCVideoCapturer {
         super.init(delegate: source)
     }
 
-    public func capture(pixelBuffer: CVPixelBuffer, timeStampNs: Int64) {
+    public func capture(pixelBuffer: CVPixelBuffer, timeStampNs: UInt64) {
 
         guard let delegate = delegate else {
             // if delegate is null, there's no reason to continue
@@ -36,7 +36,7 @@ public class ReplayKitCapturer: RTCVideoCapturer {
 
         let frame = RTCVideoFrame(buffer: rtcBuffer,
                                   rotation: ._0,
-                                  timeStampNs: timeStampNs)
+                                  timeStampNs: Int64(timeStampNs))
 
         delegate.capturer(self, didCapture: frame)
     }
@@ -55,7 +55,7 @@ public class ReplayKitCapturer: RTCVideoCapturer {
         }
 
         let timeStamp = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
-        let timeStampNs = Int64(CMTimeGetSeconds(timeStamp) * Double(NSEC_PER_SEC))
+        let timeStampNs = UInt64(CMTimeGetSeconds(timeStamp) * Double(NSEC_PER_SEC))
 
         capture(pixelBuffer: pixelBuffer, timeStampNs: timeStampNs)
     }
