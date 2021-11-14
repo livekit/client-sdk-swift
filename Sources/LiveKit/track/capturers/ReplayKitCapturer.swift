@@ -11,21 +11,10 @@ public class ReplayKitCapturer: RTCVideoCapturer {
         super.init(delegate: source)
     }
 
-    public func encodeSampleBuffer(_ buffer: CMSampleBuffer) {
+    public func capture(pixelBuffer: CVPixelBuffer, timeStampNs: Int64) {
 
         guard let delegate = delegate else {
             // if delegate is null, there's no reason to continue
-            return
-        }
-
-        // check if buffer is ready
-        guard CMSampleBufferGetNumSamples(buffer) == 1,
-              CMSampleBufferIsValid(buffer),
-              CMSampleBufferDataIsReady(buffer) else {
-            return
-        }
-
-        guard let pixelBuffer = CMSampleBufferGetImageBuffer(buffer) else {
             return
         }
 
@@ -43,9 +32,6 @@ public class ReplayKitCapturer: RTCVideoCapturer {
                                  height: Int32(height/2),
                                  fps: 15)
 
-        let timeStamp = CMSampleBufferGetPresentationTimeStamp(buffer)
-        let timeStampNs = Int64(CMTimeGetSeconds(timeStamp) * Double(NSEC_PER_SEC))
-
         let rtcBuffer = RTCCVPixelBuffer(pixelBuffer: pixelBuffer)
 
         let frame = RTCVideoFrame(buffer: rtcBuffer,
@@ -53,5 +39,24 @@ public class ReplayKitCapturer: RTCVideoCapturer {
                                   timeStampNs: timeStampNs)
 
         delegate.capturer(self, didCapture: frame)
+    }
+
+    public func capture(sampleBuffer: CMSampleBuffer) {
+
+        // check if buffer is ready
+        guard CMSampleBufferGetNumSamples(sampleBuffer) == 1,
+              CMSampleBufferIsValid(sampleBuffer),
+              CMSampleBufferDataIsReady(sampleBuffer) else {
+            return
+        }
+
+        guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else {
+            return
+        }
+
+        let timeStamp = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
+        let timeStampNs = Int64(CMTimeGetSeconds(timeStamp) * Double(NSEC_PER_SEC))
+
+        capture(pixelBuffer: pixelBuffer, timeStampNs: timeStampNs)
     }
 }
