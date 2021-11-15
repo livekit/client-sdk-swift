@@ -11,11 +11,11 @@ public class VideoCaptureInterceptor: NSObject, RTCVideoCapturerDelegate {
     public init(_ interceptFunc: @escaping InterceptFunc) {
         self.interceptFunc = interceptFunc
         super.init()
-        print("VideoCaptureInterceptor.init()")
+        logger.debug("VideoCaptureInterceptor.init()")
     }
 
     deinit {
-        print("VideoCaptureInterceptor.deinit()")
+        logger.debug("VideoCaptureInterceptor.deinit()")
     }
 
     public func capturer(_ capturer: RTCVideoCapturer, didCapture frame: RTCVideoFrame) {

@@ -33,7 +33,7 @@ public class IPC {
     }
 
     internal func cleanUp() {
-        print("\(self) cleanUp")
+        logger.debug("\(self) cleanUp")
         connected = false
         self.port = nil
     }
@@ -67,7 +67,7 @@ public class IPCServer: IPC {
 
         guard port == nil else {
             // port already exists
-            print("port is not nil")
+            logger.debug("port is not nil")
             return false
         }
 

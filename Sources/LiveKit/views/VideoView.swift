@@ -124,12 +124,12 @@ public class VideoView: NativeView {
         // iOS --------------------
 
         #if targetEnvironment(simulator)
-        print("Using RTCEAGLVideoView for VideoView's Renderer")
+        logger.debug("Using RTCEAGLVideoView for VideoView's Renderer")
         let view = RTCEAGLVideoView()
         view.contentMode = .scaleAspectFit
         view.delegate = delegate
         #else
-        print("Using RTCMTLVideoView for VideoView's Renderer")
+        logger.debug("Using RTCMTLVideoView for VideoView's Renderer")
         let view = RTCMTLVideoView()
         // use .fit here to match macOS behavior and
         // manually calculate .fill if necessary
@@ -142,12 +142,12 @@ public class VideoView: NativeView {
         // macOS --------------------
         let view: RTCVideoRenderer
         if RTCMTLNSVideoView.isMetalAvailable() {
-            print("Using RTCMTLNSVideoView for VideoView's Renderer")
+            logger.debug("Using RTCMTLNSVideoView for VideoView's Renderer")
             let mtlView = RTCMTLNSVideoView()
             mtlView.delegate = delegate
             view = mtlView
         } else {
-            print("Using RTCNSGLVideoView for VideoView's Renderer")
+            logger.debug("Using RTCNSGLVideoView for VideoView's Renderer")
             let glView = RTCNSGLVideoView()
             glView.delegate = delegate
             view = glView
@@ -161,12 +161,12 @@ public class VideoView: NativeView {
 extension VideoView: RTCVideoViewDelegate {
 
     public func videoView(_: RTCVideoRenderer, didChangeVideoSize size: CGSize) {
-        print("VideoView.didChangeVideoSize \(size)")
+        logger.debug("VideoView: didChangeVideoSize \(size)")
 
         guard let width = Int32(exactly: size.width),
               let height = Int32(exactly: size.height) else {
             // CGSize is used by WebRTC but this should always be an integer
-            print("Warning: size width/height is not an integer")
+            logger.warning("VideoView: size width/height is not an integer")
             return
         }
 

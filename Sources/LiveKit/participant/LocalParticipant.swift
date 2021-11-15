@@ -98,7 +98,7 @@ public class LocalParticipant: Participant {
 
                 if let encodings = Utils.computeEncodings(dimensions: track.dimensions,
                                                           publishOptions: publishOptions) {
-                    print("using encodings %@", encodings)
+                    logger.debug("using encodings \(encodings)")
                     transInit.sendEncodings = encodings
                 }
 
