@@ -118,6 +118,14 @@ extension RemoteTrackPublication: TrackDelegate {
     }
 
     public func track(_ track: VideoTrack,
+                      didAttach videoView: VideoView) {
+        
+        videoViewVisibilities[videoView.hash] = VideoViewVisibility(visible: true,
+                                                                    size: videoView.viewSize)
+        shouldRecomputeVisibilities?()
+    }
+
+    public func track(_ track: VideoTrack,
                       didDetach videoView: VideoView) {
 
         videoViewVisibilities.removeValue(forKey: videoView.hash)
