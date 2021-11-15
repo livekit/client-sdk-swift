@@ -280,7 +280,7 @@ extension SignalClient {
     }
 
     func sendUpdateTrackSettings(sid: String,
-                                 disabled: Bool,
+                                 enabled: Bool,
                                  width: Int = 0,
                                  height: Int = 0) {
         logger.debug("[SignalClient] Sending update track settings")
@@ -288,7 +288,7 @@ extension SignalClient {
         let r = Livekit_SignalRequest.with {
             $0.trackSetting = Livekit_UpdateTrackSettings.with {
                 $0.trackSids = [sid]
-                $0.disabled = disabled
+                $0.disabled = !enabled
                 $0.width = UInt32(width) // unlikely to overflow
                 $0.height = UInt32(height) // unlikely to overflow
             }

@@ -19,14 +19,16 @@ public class VideoCaptureInterceptor: NSObject, RTCVideoCapturerDelegate {
     }
 
     public func capturer(_ capturer: RTCVideoCapturer, didCapture frame: RTCVideoFrame) {
-
+        
         // create capture func to pass to intercept func
         let captureFunc = { [weak self, weak capturer] (frame: RTCVideoFrame) -> Void in
             guard let self = self,
                   let capturer = capturer else {
                 return
             }
-
+            
+            // TODO: provide access to adaptOutputFormat
+            // self.output.adaptOutputFormat(toWidth: 100, height: 100, fps: 15)
             self.output.capturer(capturer, didCapture: frame)
         }
 

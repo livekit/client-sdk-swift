@@ -6,6 +6,38 @@ struct VideoViewVisibility {
     let size: CGSize
 }
 
+struct VideoTrackSettings {
+    let enabled: Bool
+    let size: CGSize
+}
+
+extension VideoTrackSettings: Equatable {
+    
+    static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.enabled == rhs.enabled &&
+        lhs.size == rhs.size
+    }
+}
+
+extension Sequence where Element == VideoViewVisibility {
+    
+    func largestVideoViewSize() -> CGSize? {
+        
+        func maxCGSize(_ s1: CGSize, _ s2: CGSize) -> CGSize {
+            CGSize(width: Swift.max(s1.width, s2.width),
+                   height: Swift.max(s1.height, s2.height))
+        }
+
+        return map({ $0.size }).reduce(into: nil as CGSize?, { previous, current in
+            guard let unwrappedPrevious = previous else {
+                previous = current
+                return
+            }
+            previous = maxCGSize(unwrappedPrevious, current)
+        })
+    }
+}
+
 public class RemoteTrackPublication: TrackPublication {
     // have we explicitly unsubscribed
     var unsubscribed: Bool = false
@@ -14,6 +46,7 @@ public class RemoteTrackPublication: TrackPublication {
     private var videoViewVisibilities = [Int: VideoViewVisibility]()
     private weak var pendingDebounceFunc: DispatchWorkItem?
     private var shouldRecomputeVisibilities: DebouncFunc?
+    private var lastSentVideoTrackSettings: VideoTrackSettings?
 
     public override var track: Track? {
         didSet {
@@ -100,7 +133,7 @@ public class RemoteTrackPublication: TrackPublication {
         self.enabled = enabled
         guard let client = participant?.room?.engine.signalClient else { return }
         client.sendUpdateTrackSettings(sid: sid,
-                                       disabled: enabled)
+                                       enabled: enabled)
     }
 }
 
@@ -139,42 +172,31 @@ extension RemoteTrackPublication: TrackDelegate {
         return videoViewVisibilities.values.first(where: { $0.visible }) != nil
     }
 
-    private func largestVideoViewSize() -> CGSize? {
-
-        func maxCGSize(_ s1: CGSize, _ s2: CGSize) -> CGSize {
-            CGSize(width: max(s1.width, s2.width),
-                   height: max(s1.height, s2.height))
-        }
-
-        return videoViewVisibilities.values.map({ $0.size }).reduce(into: nil as CGSize?, { result, element in
-            guard let unwrappedResult = result else {
-                result = element
-                return
-            }
-            result = maxCGSize(unwrappedResult, element)
-        })
-    }
-
     private func recomputeVideoViewVisibilities() {
+        
+        func send(_ settings: VideoTrackSettings) {
+            guard let client = participant?.room?.engine.signalClient else { return }
+            print("sendUpdateTrackSettings enabled: \(settings.enabled), viewSize: \(settings.size)")
+            client.sendUpdateTrackSettings(sid: sid,
+                                           enabled: settings.enabled,
+                                           width: Int(ceil(settings.size.width)),
+                                           height: Int(ceil(settings.size.height)))
+        }
 
         // set internal enabled var
-        self.enabled = hasVisibleVideoViews()
+        enabled = hasVisibleVideoViews()
+        var size: CGSize = .zero
 
-        var width: Int = 0,
-            height: Int = 0
-
-        if enabled, let maxSize = largestVideoViewSize() {
-            print("Max size is \(maxSize)")
-            width = Int(ceil(maxSize.width))
-            height = Int(ceil(maxSize.height))
+        // compute the largest video view size
+        if enabled, let maxSize = videoViewVisibilities.values.largestVideoViewSize() {
+            size = maxSize
         }
 
-        guard let client = participant?.room?.engine.signalClient else { return }
-        client.sendUpdateTrackSettings(sid: sid,
-                                       disabled: !enabled,
-                                       width: width,
-                                       height: height)
-
-        print("sendUpdateTrackSettings enabled: \(enabled), dimensions: \(width)x\(height)")
+        let videoSettings = VideoTrackSettings(enabled: enabled, size: size)
+        // only send if different from previously sent settings
+        if videoSettings != lastSentVideoTrackSettings {
+            lastSentVideoTrackSettings = videoSettings
+            send(videoSettings)
+        }
     }
 }

@@ -6,11 +6,13 @@ import UIKit
 
 // Currently used for internal purposes
 public protocol TrackDelegate {
-    /// Dimensions of the video track has changed
+    /// Dimensions of the video track has updated
     func track(_ track: VideoTrack, videoView: VideoView, didUpdate dimensions: Dimensions)
-    /// Dimensions of the VideoView has changed
+    /// Dimensions of the VideoView has updated
     func track(_ track: VideoTrack, videoView: VideoView, didUpdate size: CGSize)
+    /// A ``VideoView`` was attached to the ``VideoTrack``
     func track(_ track: VideoTrack, didAttach videoView: VideoView)
+    /// A ``VideoView`` was detached from the ``VideoTrack``
     func track(_ track: VideoTrack, didDetach videoView: VideoView)
 }
 

@@ -29,17 +29,18 @@ public class VideoView: NativeView {
             guard oldValue != dimensions else { return }
             // force layout
             markNeedsLayout()
-            if let dimensions = dimensions {
-                track?.notify { $0.track(self.track!, videoView: self, didUpdate: dimensions) }
-            }
+            // notify dimensions update
+            guard let dimensions = dimensions else { return }
+            track?.notify { $0.track(self.track!, videoView: self, didUpdate: dimensions) }
         }
     }
 
     /// Size of this view (used to notify delegates)
-    internal var viewSize: CGSize {
+    /// usually should be equal to `frame.size`
+    public private(set) var viewSize: CGSize {
         didSet {
             guard oldValue != viewSize else { return }
-            print("viewSize did update: \(viewSize) notifying: \(String(describing: track))")
+            // notify viewSize update
             track?.notify { $0.track(self.track!, videoView: self, didUpdate: self.viewSize) }
         }
     }
