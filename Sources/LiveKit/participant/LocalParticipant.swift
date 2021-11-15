@@ -246,15 +246,9 @@ extension LocalParticipant {
                 track.start()
                 return Promise(publication)
             } else {
-                //                if source == .screenShareVideo {
-                //                    // screenshare cannot be muted
-                //                    return unpublish(publication: publication).then { _ in return Promise(nil) }
-                //                } else {
                 publication.muted = true
                 track.stop()
                 return Promise(nil)
-                //                }
-                //                return track.
             }
         } else if enabled {
             // try to create a new track
