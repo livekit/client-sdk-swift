@@ -10,11 +10,12 @@ extension CMVideoDimensions {
 
 public class LocalVideoTrack: VideoTrack {
 
-    public var capturer: RTCVideoCapturer
-    public var videoSource: RTCVideoSource
+    public internal(set) var capturer: RTCVideoCapturer
+    public internal(set) var videoSource: RTCVideoSource
+    // used to calculate RTCRtpEncoding
     public let dimensions: Dimensions
 
-    public typealias CreateCapturerResult = (capturer: ReplayKitCapturer, source: RTCVideoSource)
+    public typealias CreateCapturerResult = (capturer: RTCVideoCapturer, source: RTCVideoSource)
 
     init(rtcTrack: RTCVideoTrack,
          capturer: RTCVideoCapturer,
@@ -29,12 +30,12 @@ public class LocalVideoTrack: VideoTrack {
         super.init(rtcTrack: rtcTrack, name: name, source: source)
     }
 
-    private static func createCapturer(options: LocalVideoTrackOptions = LocalVideoTrackOptions(),
-                                       interceptor: VideoCaptureInterceptor? = nil) throws -> (
-                                        rtcTrack: RTCVideoTrack,
-                                        capturer: RTCCameraVideoCapturer,
-                                        videoSource: RTCVideoSource,
-                                        selectedDimensions: Dimensions) {
+    private static func createCameraCapturer(options: LocalVideoTrackOptions = LocalVideoTrackOptions(),
+                                             interceptor: VideoCaptureInterceptor? = nil) throws -> (
+                                                rtcTrack: RTCVideoTrack,
+                                                capturer: RTCCameraVideoCapturer,
+                                                videoSource: RTCVideoSource,
+                                                selectedDimensions: Dimensions) {
 
         let source: RTCVideoCapturerDelegate
         let output: RTCVideoSource
@@ -105,7 +106,7 @@ public class LocalVideoTrack: VideoTrack {
 
     public func restartTrack(options: LocalVideoTrackOptions = LocalVideoTrackOptions()) throws {
 
-        let result = try LocalVideoTrack.createCapturer(options: options)
+        let result = try LocalVideoTrack.createCameraCapturer(options: options)
 
         // Stop previous capturer
         if let capturer = capturer as? RTCCameraVideoCapturer {
@@ -124,25 +125,25 @@ public class LocalVideoTrack: VideoTrack {
         sender?.track = result.rtcTrack
     }
 
-    public static func createReplayKitCapturer() -> CreateCapturerResult {
+    private static func createBufferCapturer() -> CreateCapturerResult {
         let source = Engine.factory.videoSource()
-        return (capturer: ReplayKitCapturer(source: source),
+        return (capturer: VideoBufferCapturer(source: source),
                 source: source)
     }
 
-    public static func createTrack(name: String,
+    private static func createTrack(name: String,
                                    createCapturerResult: CreateCapturerResult) -> LocalVideoTrack {
 
         let rtcTrack = Engine.factory.videoTrack(with: createCapturerResult.source, trackId: UUID().uuidString)
         rtcTrack.isEnabled = true
 
         #if !os(macOS)
-        let videoSize = Dimensions(
+        let dimensions = Dimensions(
             width: Int(UIScreen.main.bounds.size.width * UIScreen.main.scale),
             height: Int(UIScreen.main.bounds.size.height * UIScreen.main.scale)
         )
         #else
-        let videoSize = Dimensions(width: 0, height: 0)
+        let dimensions = Dimensions(width: 0, height: 0)
         #endif
 
         return LocalVideoTrack(
@@ -151,7 +152,7 @@ public class LocalVideoTrack: VideoTrack {
             videoSource: createCapturerResult.source,
             name: name,
             source: .camera,
-            dimensions: videoSize
+            dimensions: dimensions
         )
     }
 
@@ -171,15 +172,15 @@ public class LocalVideoTrack: VideoTrack {
     }
     // MARK: High level methods
 
-    public static func createReplayKitTrack(name: String) -> LocalVideoTrack {
-        return createTrack(name: name, createCapturerResult: createReplayKitCapturer())
+    public static func createBufferCaptureTrack(name: String) -> LocalVideoTrack {
+        return createTrack(name: name, createCapturerResult: createBufferCapturer())
     }
 
     public static func createCameraTrack(name: String,
                                          options: LocalVideoTrackOptions = LocalVideoTrackOptions(),
                                          interceptor: VideoCaptureInterceptor? = nil) throws -> LocalVideoTrack {
 
-        let result = try createCapturer(options: options, interceptor: interceptor)
+        let result = try createCameraCapturer(options: options, interceptor: interceptor)
         return LocalVideoTrack(
             rtcTrack: result.rtcTrack,
             capturer: result.capturer,

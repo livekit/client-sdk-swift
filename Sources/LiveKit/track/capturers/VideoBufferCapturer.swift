@@ -2,7 +2,7 @@ import WebRTC
 import ReplayKit
 import Dispatch
 
-public class ReplayKitCapturer: RTCVideoCapturer {
+public class VideoBufferCapturer: RTCVideoCapturer {
 
     let source: RTCVideoSource
 
