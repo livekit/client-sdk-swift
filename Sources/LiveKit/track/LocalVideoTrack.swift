@@ -10,7 +10,7 @@ public protocol CaptureControllable {
 public typealias VideoCapturer = RTCVideoCapturer & CaptureControllable
 
 class BufferCapturer: VideoCapturer {
-    
+
     func startCapture() -> Promise<Void> {
         // nothing to do for now
         Promise(())
@@ -65,7 +65,7 @@ public class CameraCapturer: RTCCameraVideoCapturer, CaptureControllable {
     public static func canTogglePosition() -> Bool {
         let devices = RTCCameraVideoCapturer.captureDevices()
         return devices.contains(where: { $0.position == .front }) &&
-        devices.contains(where: { $0.position == .back })
+            devices.contains(where: { $0.position == .back })
     }
 
     var options: LocalVideoTrackOptions
@@ -102,7 +102,7 @@ public class CameraCapturer: RTCCameraVideoCapturer, CaptureControllable {
             self.startCapture()
         }
     }
-    
+
     public func startCapture() -> Promise<Void> {
         let devices = RTCCameraVideoCapturer.captureDevices()
         // TODO: FaceTime Camera for macOS uses .unspecified, fall back to first device
@@ -111,7 +111,7 @@ public class CameraCapturer: RTCCameraVideoCapturer, CaptureControllable {
         guard let device = device else {
             return Promise(TrackError.mediaError("No camera video capture devices available."))
         }
-        
+
         let formats = RTCCameraVideoCapturer.supportedFormats(for: device)
         let (targetWidth, targetHeight) = (options.captureParameter.dimensions.width,
                                            options.captureParameter.dimensions.height)
@@ -160,10 +160,10 @@ public class CameraCapturer: RTCCameraVideoCapturer, CaptureControllable {
                     reject(error)
                     return
                 }
-                
+
                 // update internal vars
                 self.device = device
-                
+
                 // successfully started
                 resolve(())
             }
@@ -175,7 +175,7 @@ public class CameraCapturer: RTCCameraVideoCapturer, CaptureControllable {
             self.stopCapture {
                 // update internal vars
                 self.device = nil
-                
+
                 // successfully stopped
                 resolve(())
             }
@@ -282,7 +282,7 @@ public class LocalVideoTrack: VideoTrack {
             source: .screenShareVideo
         )
     }
-    
+
     /// Creates a track that can directly capture `CVPixelBuffer` or `CMSampleBuffer` for convienience
     public static func createBufferTrack(name: String = Track.screenShareName,
                                          source: VideoTrack.Source = .screenShareVideo) -> LocalVideoTrack {
