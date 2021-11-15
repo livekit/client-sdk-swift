@@ -1,43 +1,6 @@
 import Foundation
 import CoreGraphics
 
-struct VideoViewVisibility {
-    let visible: Bool
-    let size: CGSize
-}
-
-struct VideoTrackSettings {
-    let enabled: Bool
-    let size: CGSize
-}
-
-extension VideoTrackSettings: Equatable {
-    
-    static func == (lhs: Self, rhs: Self) -> Bool {
-        lhs.enabled == rhs.enabled &&
-        lhs.size == rhs.size
-    }
-}
-
-extension Sequence where Element == VideoViewVisibility {
-    
-    func largestVideoViewSize() -> CGSize? {
-        
-        func maxCGSize(_ s1: CGSize, _ s2: CGSize) -> CGSize {
-            CGSize(width: Swift.max(s1.width, s2.width),
-                   height: Swift.max(s1.height, s2.height))
-        }
-
-        return map({ $0.size }).reduce(into: nil as CGSize?, { previous, current in
-            guard let unwrappedPrevious = previous else {
-                previous = current
-                return
-            }
-            previous = maxCGSize(unwrappedPrevious, current)
-        })
-    }
-}
-
 public class RemoteTrackPublication: TrackPublication {
     // have we explicitly unsubscribed
     var unsubscribed: Bool = false
@@ -45,7 +8,7 @@ public class RemoteTrackPublication: TrackPublication {
 
     private var videoViewVisibilities = [Int: VideoViewVisibility]()
     private weak var pendingDebounceFunc: DispatchWorkItem?
-    private var shouldRecomputeVisibilities: DebouncFunc?
+    private var debouncedRecomputeVideoViewVisibilities: DebouncFunc?
     private var lastSentVideoTrackSettings: VideoTrackSettings?
 
     public override var track: Track? {
@@ -73,15 +36,15 @@ public class RemoteTrackPublication: TrackPublication {
         // listen for visibility updates
         track?.add(delegate: self)
 
-        shouldRecomputeVisibilities = Utils.createDebounceFunc(wait: 2,
-                                                               onCreateWorkItem: { [weak self] in
-                                                                self?.pendingDebounceFunc = $0
-                                                               }) { [weak self] in
+        debouncedRecomputeVideoViewVisibilities = Utils.createDebounceFunc(wait: 2,
+                                                                           onCreateWorkItem: { [weak self] in
+                                                                            self?.pendingDebounceFunc = $0
+                                                                           }) { [weak self] in
             self?.recomputeVideoViewVisibilities()
         }
 
         // initial trigger
-        shouldRecomputeVisibilities?()
+        shouldComputeVideoViewVisibilities()
     }
 
     deinit {
@@ -147,22 +110,22 @@ extension RemoteTrackPublication: TrackDelegate {
 
         videoViewVisibilities[videoView.hash] = VideoViewVisibility(visible: true,
                                                                     size: size)
-        shouldRecomputeVisibilities?()
+        shouldComputeVideoViewVisibilities()
     }
 
     public func track(_ track: VideoTrack,
                       didAttach videoView: VideoView) {
-        
+
         videoViewVisibilities[videoView.hash] = VideoViewVisibility(visible: true,
                                                                     size: videoView.viewSize)
-        shouldRecomputeVisibilities?()
+        shouldComputeVideoViewVisibilities()
     }
 
     public func track(_ track: VideoTrack,
                       didDetach videoView: VideoView) {
 
         videoViewVisibilities.removeValue(forKey: videoView.hash)
-        shouldRecomputeVisibilities?()
+        shouldComputeVideoViewVisibilities()
     }
 
     private func hasVisibleVideoViews() -> Bool {
@@ -172,11 +135,25 @@ extension RemoteTrackPublication: TrackDelegate {
         return videoViewVisibilities.values.first(where: { $0.visible }) != nil
     }
 
+    private func shouldComputeVideoViewVisibilities() {
+        // decide whether to debounce or immediately compute video view visibilities
+        if let settings = lastSentVideoTrackSettings,
+           settings.enabled == false,
+           hasVisibleVideoViews() {
+            // immediately compute (quick enable)
+            logger.debug("Attempting quick enable (no deboucne)")
+            pendingDebounceFunc?.cancel()
+            recomputeVideoViewVisibilities()
+        } else {
+            debouncedRecomputeVideoViewVisibilities?()
+        }
+    }
+
     private func recomputeVideoViewVisibilities() {
-        
+
         func send(_ settings: VideoTrackSettings) {
             guard let client = participant?.room?.engine.signalClient else { return }
-            print("sendUpdateTrackSettings enabled: \(settings.enabled), viewSize: \(settings.size)")
+            logger.debug("sendUpdateTrackSettings enabled: \(settings.enabled), viewSize: \(settings.size)")
             client.sendUpdateTrackSettings(sid: sid,
                                            enabled: settings.enabled,
                                            width: Int(ceil(settings.size.width)),
@@ -198,5 +175,46 @@ extension RemoteTrackPublication: TrackDelegate {
             lastSentVideoTrackSettings = videoSettings
             send(videoSettings)
         }
+    }
+}
+
+// MARK: - Video Optimization related structs
+
+struct VideoViewVisibility {
+    let visible: Bool
+    let size: CGSize
+}
+
+struct VideoTrackSettings {
+    let enabled: Bool
+    let size: CGSize
+}
+
+// MARK: - Video Optimization related extensions
+
+extension VideoTrackSettings: Equatable {
+
+    static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.enabled == rhs.enabled &&
+            lhs.size == rhs.size
+    }
+}
+
+extension Sequence where Element == VideoViewVisibility {
+
+    func largestVideoViewSize() -> CGSize? {
+
+        func maxCGSize(_ s1: CGSize, _ s2: CGSize) -> CGSize {
+            CGSize(width: Swift.max(s1.width, s2.width),
+                   height: Swift.max(s1.height, s2.height))
+        }
+
+        return map({ $0.size }).reduce(into: nil as CGSize?, { previous, current in
+            guard let unwrappedPrevious = previous else {
+                previous = current
+                return
+            }
+            previous = maxCGSize(unwrappedPrevious, current)
+        })
     }
 }
