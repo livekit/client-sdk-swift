@@ -27,15 +27,6 @@ extension RTCVideoCapturerDelegate {
             return
         }
 
-        //        let width = CVPixelBufferGetWidth(pixelBuffer)
-        //        let height = CVPixelBufferGetHeight(pixelBuffer)
-
-        // TODO: improve, support rotation etc.
-        //
-        //        source.adaptOutputFormat(toWidth: Int32(width/2),
-        //                                 height: Int32(height/2),
-        //                                 fps: 15)
-
         let rtcBuffer = RTCCVPixelBuffer(pixelBuffer: pixelBuffer)
 
         let frame = RTCVideoFrame(buffer: rtcBuffer,
