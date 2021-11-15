@@ -15,7 +15,9 @@ public class LocalVideoTrack: VideoTrack {
     // used to calculate RTCRtpEncoding
     public let dimensions: Dimensions
 
-    public typealias CreateCapturerResult = (capturer: RTCVideoCapturer, source: RTCVideoSource)
+    public typealias CreateCapturerResult = (capturer: RTCVideoCapturer,
+                                             source: RTCVideoSource,
+                                             dimensions: Dimensions)
 
     init(rtcTrack: RTCVideoTrack,
          capturer: RTCVideoCapturer,
@@ -31,11 +33,7 @@ public class LocalVideoTrack: VideoTrack {
     }
 
     private static func createCameraCapturer(options: LocalVideoTrackOptions = LocalVideoTrackOptions(),
-                                             interceptor: VideoCaptureInterceptor? = nil) throws -> (
-                                                rtcTrack: RTCVideoTrack,
-                                                capturer: RTCCameraVideoCapturer,
-                                                videoSource: RTCVideoSource,
-                                                selectedDimensions: Dimensions) {
+                                             interceptor: VideoCaptureInterceptor? = nil) throws -> CreateCapturerResult {
 
         let source: RTCVideoCapturerDelegate
         let output: RTCVideoSource
@@ -98,10 +96,7 @@ public class LocalVideoTrack: VideoTrack {
         logger.info("starting capture with \(device), format: \(selectedFormat), fps: \(fps)")
         capturer.startCapture(with: device, format: selectedFormat, fps: Int(fps))
 
-        let rtcTrack = Engine.factory.videoTrack(with: output, trackId: UUID().uuidString)
-        rtcTrack.isEnabled = true
-
-        return (rtcTrack, capturer, output, selectedDimension.toLKType())
+        return (capturer, output, selectedDimension.toLKType())
     }
 
     public func restartTrack(options: LocalVideoTrackOptions = LocalVideoTrackOptions()) throws {
@@ -113,29 +108,23 @@ public class LocalVideoTrack: VideoTrack {
             capturer.stopCapture()
         }
 
-        capturer = result.capturer
+        self.capturer = result.capturer
+        self.videoSource = result.source
 
-        videoSource = result.videoSource
+        // create a new RTCVideoTrack
+        let rtcTrack = Engine.factory.videoTrack(with: result.source, trackId: UUID().uuidString)
+        rtcTrack.isEnabled = true
 
         // TODO: Stop previous mediaTrack
         mediaTrack.isEnabled = false
-        mediaTrack = result.rtcTrack
+        mediaTrack = rtcTrack
 
         // Set the new track
-        sender?.track = result.rtcTrack
+        sender?.track = rtcTrack
     }
 
     private static func createBufferCapturer() -> CreateCapturerResult {
         let source = Engine.factory.videoSource()
-        return (capturer: VideoBufferCapturer(source: source),
-                source: source)
-    }
-
-    private static func createTrack(name: String,
-                                   createCapturerResult: CreateCapturerResult) -> LocalVideoTrack {
-
-        let rtcTrack = Engine.factory.videoTrack(with: createCapturerResult.source, trackId: UUID().uuidString)
-        rtcTrack.isEnabled = true
 
         #if !os(macOS)
         let dimensions = Dimensions(
@@ -146,13 +135,24 @@ public class LocalVideoTrack: VideoTrack {
         let dimensions = Dimensions(width: 0, height: 0)
         #endif
 
+        return (capturer: VideoBufferCapturer(source: source),
+                source: source,
+                dimensions: dimensions)
+    }
+
+    private static func createTrack(name: String,
+                                    createCapturerResult: CreateCapturerResult) -> LocalVideoTrack {
+
+        let rtcTrack = Engine.factory.videoTrack(with: createCapturerResult.source, trackId: UUID().uuidString)
+        rtcTrack.isEnabled = true
+
         return LocalVideoTrack(
             rtcTrack: rtcTrack,
             capturer: createCapturerResult.capturer,
             videoSource: createCapturerResult.source,
             name: name,
             source: .camera,
-            dimensions: dimensions
+            dimensions: createCapturerResult.dimensions
         )
     }
 
@@ -170,24 +170,17 @@ public class LocalVideoTrack: VideoTrack {
             super.stop()
         }
     }
-    // MARK: High level methods
 
-    public static func createBufferCaptureTrack(name: String) -> LocalVideoTrack {
-        return createTrack(name: name, createCapturerResult: createBufferCapturer())
+    // MARK: - High level methods
+
+    public static func createBufferTrack(name: String) -> LocalVideoTrack {
+        createTrack(name: name,
+                    createCapturerResult: createBufferCapturer())
     }
 
-    public static func createCameraTrack(name: String,
-                                         options: LocalVideoTrackOptions = LocalVideoTrackOptions(),
+    public static func createCameraTrack(options: LocalVideoTrackOptions = LocalVideoTrackOptions(),
                                          interceptor: VideoCaptureInterceptor? = nil) throws -> LocalVideoTrack {
-
-        let result = try createCameraCapturer(options: options, interceptor: interceptor)
-        return LocalVideoTrack(
-            rtcTrack: result.rtcTrack,
-            capturer: result.capturer,
-            videoSource: result.videoSource,
-            name: name,
-            source: .camera,
-            dimensions: result.selectedDimensions
-        )
+        createTrack(name: Track.cameraName,
+                    createCapturerResult: try createCameraCapturer(options: options, interceptor: interceptor))
     }
 }

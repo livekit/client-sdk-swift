@@ -250,7 +250,7 @@ extension LocalParticipant {
             // try to create a new track
             do {
                 if source == .camera {
-                    let localTrack = try LocalVideoTrack.createCameraTrack(name: "camera", interceptor: interceptor)
+                    let localTrack = try LocalVideoTrack.createCameraTrack(interceptor: interceptor)
                     return publishVideoTrack(track: localTrack).then { publication in return publication }
                 }
             } catch let error {

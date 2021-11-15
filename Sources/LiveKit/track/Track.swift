@@ -3,6 +3,7 @@ import Promises
 
 public class Track: MulticastDelegate<TrackDelegate> {
 
+    public static let cameraName = "camera"
     public static let screenShareName = "screenshare"
 
     public enum Kind {
