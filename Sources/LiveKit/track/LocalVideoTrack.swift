@@ -94,8 +94,13 @@ public class CameraCapturer: RTCCameraVideoCapturer, CaptureControllable {
             return Promise(TrackError.invalidTrackState("Camera position unknown"))
         }
 
+        return setCameraPosition(position == .front ? .back : .front)
+    }
+    
+    public func setCameraPosition(_ position: AVCaptureDevice.Position) -> Promise<Void> {
+        
         // update options to use new position
-        options.position = position == .front ? .back : .front
+        options.position = position
 
         // restart capturer
         return stopCapture().then {
