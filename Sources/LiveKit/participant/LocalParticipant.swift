@@ -259,11 +259,19 @@ extension LocalParticipant {
                 let localTrack = LocalAudioTrack.createTrack(name: "")
                 return publishAudioTrack(track: localTrack).then { publication in return publication }
             } else if source == .screenShareVideo {
+
+                var localTrack: LocalVideoTrack?
+
+                #if !os(macOS)
                 if #available(macOS 11.0, *) {
-                    let localTrack = LocalVideoTrack.createInAppScreenShareTrack()
+                    localTrack = LocalVideoTrack.createInAppScreenShareTrack()
+                }
+                #else
+                localTrack = LocalVideoTrack.createDesktopScreenShareTrack()
+
+                #endif
+                if let localTrack = localTrack {
                     return publishVideoTrack(track: localTrack).then { publication in return publication }
-                } else {
-                    // Fallback on earlier versions
                 }
             }
             // TODO: Screen share

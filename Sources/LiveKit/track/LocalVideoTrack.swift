@@ -1,6 +1,7 @@
 import WebRTC
 import Promises
 import ReplayKit
+import Foundation
 
 public protocol CaptureControllable {
     func startCapture() -> Promise<Void>
@@ -25,6 +26,50 @@ class BufferCapturer: VideoCapturer {
         delegate?.capturer(self, didCapture: sampleBuffer)
     }
 }
+
+#if os(macOS)
+class DesktopScreenCapturer: VideoCapturer, AVCaptureVideoDataOutputSampleBufferDelegate {
+
+    let session: AVCaptureSession
+    let input: AVCaptureScreenInput?
+    let output: AVCaptureVideoDataOutput
+
+    override init(delegate: RTCVideoCapturerDelegate) {
+        session = AVCaptureSession()
+        input = AVCaptureScreenInput(displayID: CGMainDisplayID())
+        output = AVCaptureVideoDataOutput()
+        super.init(delegate: delegate)
+        output.setSampleBufferDelegate(self, queue: .main)
+
+        // add I/O
+        if let input = input {
+            session.addInput(input)
+        }
+        session.addOutput(output)
+    }
+
+    func startCapture() -> Promise<Void> {
+        return Promise { () -> Void in
+            self.session.startRunning()
+        }
+    }
+
+    func stopCapture() -> Promise<Void> {
+        return Promise { () -> Void in
+            self.session.stopRunning()
+        }
+    }
+
+    // MARK: - AVCaptureVideoDataOutputSampleBufferDelegate
+
+    func captureOutput(_ output: AVCaptureOutput, didOutput
+                        sampleBuffer: CMSampleBuffer,
+                       from connection: AVCaptureConnection) {
+        logger.debug("\(self) captured sample buffer")
+        self.delegate?.capturer(self, didCapture: sampleBuffer)
+    }
+}
+#endif
 
 @available(macOS 11.0, iOS 11.0, *)
 class InAppScreenCapturer: VideoCapturer {
@@ -96,9 +141,9 @@ public class CameraCapturer: RTCCameraVideoCapturer, CaptureControllable {
 
         return setCameraPosition(position == .front ? .back : .front)
     }
-    
+
     public func setCameraPosition(_ position: AVCaptureDevice.Position) -> Promise<Void> {
-        
+
         // update options to use new position
         options.position = position
 
@@ -287,6 +332,20 @@ public class LocalVideoTrack: VideoTrack {
             source: .screenShareVideo
         )
     }
+
+    /// Creates a track that captures the whole desktop screen
+    #if os(macOS)
+    public static func createDesktopScreenShareTrack() -> LocalVideoTrack {
+        let videoSource = Engine.factory.videoSource()
+        let capturer = DesktopScreenCapturer(delegate: videoSource)
+        return LocalVideoTrack(
+            capturer: capturer,
+            videoSource: videoSource,
+            name: Track.screenShareName,
+            source: .screenShareVideo
+        )
+    }
+    #endif
 
     /// Creates a track that can directly capture `CVPixelBuffer` or `CMSampleBuffer` for convienience
     public static func createBufferTrack(name: String = Track.screenShareName,
