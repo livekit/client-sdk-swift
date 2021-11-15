@@ -84,8 +84,10 @@ public class LocalParticipant: Participant {
         return engine.addTrack(cid: cid,
                                name: track.name,
                                kind: .video) {
-            $0.width = UInt32(track.dimensions.width)
-            $0.height = UInt32(track.dimensions.height)
+            if let dimensions = track.dimensions {
+                $0.width = UInt32(dimensions.width)
+                $0.height = UInt32(dimensions.height)
+            }
         }.then { trackInfo in
 
             Promise<LocalTrackPublication> { () -> LocalTrackPublication in
@@ -151,7 +153,7 @@ public class LocalParticipant: Participant {
         }
 
         // wait for track to stop
-        return track.stop().then { () -> Void in
+        return track.stop().always { () -> Void in
 
             if let pc = self.room?.engine.publisher?.pc,
                let sender = track.sender {
@@ -230,35 +232,45 @@ extension LocalParticipant {
         return set(source: .microphone, enabled: enabled)
     }
 
+    public func setScreen(enabled: Bool) -> Promise<LocalTrackPublication?> {
+        return set(source: .screenShareVideo, enabled: enabled)
+    }
+
     public func set(source: Track.Source, enabled: Bool, interceptor: VideoCaptureInterceptor? = nil) -> Promise<LocalTrackPublication?> {
         let publication = getTrackPublication(source: source)
-        if let publication = publication as? LocalTrackPublication {
+        if let publication = publication as? LocalTrackPublication,
+           let track = publication.track {
             // publication already exists
             if enabled {
                 publication.muted = false
+                track.start()
                 return Promise(publication)
             } else {
-                if source == .screenShareVideo {
-                    // screenshare cannot be muted
-                    return unpublish(publication: publication).then { _ in return Promise(nil) }
-                } else {
-                    publication.muted = true
-                    return Promise(nil)
-                }
+                //                if source == .screenShareVideo {
+                //                    // screenshare cannot be muted
+                //                    return unpublish(publication: publication).then { _ in return Promise(nil) }
+                //                } else {
+                publication.muted = true
+                track.stop()
+                return Promise(nil)
+                //                }
+                //                return track.
             }
         } else if enabled {
             // try to create a new track
-            do {
-                if source == .camera {
-                    let localTrack = try LocalVideoTrack.createCameraTrack(interceptor: interceptor)
-                    return publishVideoTrack(track: localTrack).then { publication in return publication }
-                }
-            } catch let error {
-                return Promise(error)
-            }
-            if source == .microphone {
+            if source == .camera {
+                let localTrack = LocalVideoTrack.createCameraTrack(interceptor: interceptor)
+                return publishVideoTrack(track: localTrack).then { publication in return publication }
+            } else if source == .microphone {
                 let localTrack = LocalAudioTrack.createTrack(name: "")
                 return publishAudioTrack(track: localTrack).then { publication in return publication }
+            } else if source == .screenShareVideo {
+                if #available(macOS 11.0, *) {
+                    let localTrack = LocalVideoTrack.createInAppScreenShareTrack()
+                    return publishVideoTrack(track: localTrack).then { publication in return publication }
+                } else {
+                    // Fallback on earlier versions
+                }
             }
             // TODO: Screen share
         }

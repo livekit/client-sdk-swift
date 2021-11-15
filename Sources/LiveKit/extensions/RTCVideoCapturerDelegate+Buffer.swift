@@ -1,22 +1,11 @@
 import WebRTC
-import ReplayKit
-import Dispatch
 
-public class VideoBufferCapturer: RTCVideoCapturer {
+extension RTCVideoCapturerDelegate {
 
-    let source: RTCVideoSource
-
-    public init(source: RTCVideoSource) {
-        self.source = source
-        super.init(delegate: source)
-    }
-
-    public func capture(pixelBuffer: CVPixelBuffer, timeStampNs: UInt64) {
-
-        guard let delegate = delegate else {
-            // if delegate is null, there's no reason to continue
-            return
-        }
+    /// capture a `CVPixelBuffer`
+    public func capturer(_ capturer: RTCVideoCapturer,
+                         didCapture pixelBuffer: CVPixelBuffer,
+                         timeStampNs: UInt64) {
 
         let pixelFormat = CVPixelBufferGetPixelFormatType(pixelBuffer)
         if pixelFormat != kCVPixelFormatType_420YpCbCr8BiPlanarFullRange {
@@ -24,13 +13,14 @@ public class VideoBufferCapturer: RTCVideoCapturer {
             return
         }
 
-        let width = CVPixelBufferGetWidth(pixelBuffer)
-        let height = CVPixelBufferGetHeight(pixelBuffer)
+        //        let width = CVPixelBufferGetWidth(pixelBuffer)
+        //        let height = CVPixelBufferGetHeight(pixelBuffer)
 
         // TODO: improve, support rotation etc.
-        source.adaptOutputFormat(toWidth: Int32(width/2),
-                                 height: Int32(height/2),
-                                 fps: 15)
+        //
+        //        source.adaptOutputFormat(toWidth: Int32(width/2),
+        //                                 height: Int32(height/2),
+        //                                 fps: 15)
 
         let rtcBuffer = RTCCVPixelBuffer(pixelBuffer: pixelBuffer)
 
@@ -38,10 +28,12 @@ public class VideoBufferCapturer: RTCVideoCapturer {
                                   rotation: ._0,
                                   timeStampNs: Int64(timeStampNs))
 
-        delegate.capturer(self, didCapture: frame)
+        self.capturer(capturer, didCapture: frame)
     }
 
-    public func capture(sampleBuffer: CMSampleBuffer) {
+    /// capture a `CMSampleBuffer`
+    public func capturer(_ capturer: RTCVideoCapturer,
+                         didCapture sampleBuffer: CMSampleBuffer) {
 
         // check if buffer is ready
         guard CMSampleBufferGetNumSamples(sampleBuffer) == 1,
@@ -57,6 +49,6 @@ public class VideoBufferCapturer: RTCVideoCapturer {
         let timeStamp = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
         let timeStampNs = UInt64(CMTimeGetSeconds(timeStamp) * Double(NSEC_PER_SEC))
 
-        capture(pixelBuffer: pixelBuffer, timeStampNs: timeStampNs)
+        self.capturer(capturer, didCapture: pixelBuffer, timeStampNs: timeStampNs)
     }
 }

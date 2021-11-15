@@ -5,21 +5,15 @@ class RemoteVideoTrack: VideoTrack {
 
     @discardableResult
     override func start() -> Promise<Void> {
-        // enable first then,
-        // mark started by calling super
-        Promise<Void> {
+        super.start().then {
             super.enable()
-        }.then {
-            super.start()
         }
     }
 
     @discardableResult
     override public func stop() -> Promise<Void> {
-        Promise<Void> {
+        super.stop().then {
             super.disable()
-        }.then {
-            super.stop()
         }
     }
 }
