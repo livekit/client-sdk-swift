@@ -1,13 +1,6 @@
 import WebRTC
 import Promises
 
-extension CMVideoDimensions {
-
-    func toLKType() -> Dimensions {
-        Dimensions(width: Int(width), height: Int(height))
-    }
-}
-
 public class LocalVideoTrack: VideoTrack {
 
     public internal(set) var capturer: RTCVideoCapturer
@@ -59,16 +52,16 @@ public class LocalVideoTrack: VideoTrack {
         let (targetWidth, targetHeight) = (options.captureParameter.dimensions.width,
                                            options.captureParameter.dimensions.height)
 
-        var currentDiff = Int.max
+        var currentDiff = Int32.max
         var selectedFormat: AVCaptureDevice.Format = formats[0]
-        var selectedDimension: CMVideoDimensions?
+        var selectedDimension: Dimensions?
         for format in formats {
             if options.captureFormat == format {
                 selectedFormat = format
                 break
             }
             let dimension = CMVideoFormatDescriptionGetDimensions(format.formatDescription)
-            let diff = abs(targetWidth - Int(dimension.width)) + abs(targetHeight - Int(dimension.height))
+            let diff = abs(targetWidth - dimension.width) + abs(targetHeight - dimension.height)
             if diff < currentDiff {
                 selectedFormat = format
                 currentDiff = diff
@@ -96,7 +89,7 @@ public class LocalVideoTrack: VideoTrack {
         logger.info("starting capture with \(device), format: \(selectedFormat), fps: \(fps)")
         capturer.startCapture(with: device, format: selectedFormat, fps: Int(fps))
 
-        return (capturer, output, selectedDimension.toLKType())
+        return (capturer, output, selectedDimension)
     }
 
     public func restartTrack(options: LocalVideoTrackOptions = LocalVideoTrackOptions()) throws {
@@ -128,8 +121,8 @@ public class LocalVideoTrack: VideoTrack {
 
         #if !os(macOS)
         let dimensions = Dimensions(
-            width: Int(UIScreen.main.bounds.size.width * UIScreen.main.scale),
-            height: Int(UIScreen.main.bounds.size.height * UIScreen.main.scale)
+            width: Int32(UIScreen.main.bounds.size.width * UIScreen.main.scale),
+            height: Int32(UIScreen.main.bounds.size.height * UIScreen.main.scale)
         )
         #else
         let dimensions = Dimensions(width: 0, height: 0)

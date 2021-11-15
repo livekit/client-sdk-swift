@@ -43,7 +43,8 @@ public class TrackPublication {
         muted = info.muted
         simulcasted = info.simulcast
         if info.type == .video {
-            dimensions = Dimensions(width: Int(info.width), height: Int(info.height))
+            dimensions = Dimensions(width: Int32(info.width),
+                                    height: Int32(info.height))
         }
     }
 }

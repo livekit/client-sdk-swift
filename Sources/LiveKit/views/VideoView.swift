@@ -162,8 +162,8 @@ extension VideoView: RTCVideoViewDelegate {
     public func videoView(_: RTCVideoRenderer, didChangeVideoSize size: CGSize) {
         print("VideoView.didChangeVideoSize \(size)")
 
-        guard let width = Int(exactly: size.width),
-              let height = Int(exactly: size.height) else {
+        guard let width = Int32(exactly: size.width),
+              let height = Int32(exactly: size.height) else {
             // CGSize is used by WebRTC but this should always be an integer
             print("Warning: size width/height is not an integer")
             return
