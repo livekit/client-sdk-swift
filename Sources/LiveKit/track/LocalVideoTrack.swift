@@ -38,6 +38,9 @@ class DesktopScreenCapturer: VideoCapturer, AVCaptureVideoDataOutputSampleBuffer
         session = AVCaptureSession()
         input = AVCaptureScreenInput(displayID: CGMainDisplayID())
         output = AVCaptureVideoDataOutput()
+        output.videoSettings = [
+            kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_420YpCbCr8BiPlanarFullRange
+        ]
         super.init(delegate: delegate)
         output.setSampleBufferDelegate(self, queue: .main)
 

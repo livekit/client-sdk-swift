@@ -24,6 +24,7 @@ extension RTCVideoCapturerDelegate {
         let pixelFormat = CVPixelBufferGetPixelFormatType(pixelBuffer)
         if pixelFormat != kCVPixelFormatType_420YpCbCr8BiPlanarFullRange {
             // The source only supports NV12 (full-range) buffers.
+            logger.warning("Failed to capture, pixel buffer format not supported \(pixelFormat)")
             return
         }
 
@@ -44,6 +45,7 @@ extension RTCVideoCapturerDelegate {
         guard CMSampleBufferGetNumSamples(sampleBuffer) == 1,
               CMSampleBufferIsValid(sampleBuffer),
               CMSampleBufferDataIsReady(sampleBuffer) else {
+            logger.warning("Failed to capture, buffer is not ready")
             return
         }
 
@@ -59,6 +61,7 @@ extension RTCVideoCapturerDelegate {
         }
 
         guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else {
+            logger.warning("Failed to capture, pixel buffer not found")
             return
         }
 
