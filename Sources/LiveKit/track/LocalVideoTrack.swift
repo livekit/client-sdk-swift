@@ -79,6 +79,7 @@ class InAppScreenCapturer: VideoCapturer {
 
     func startCapture() -> Promise<Void> {
         return Promise { resolve, reject in
+            // TODO: force pixel format kCVPixelFormatType_420YpCbCr8BiPlanarFullRange
             RPScreenRecorder.shared().startCapture { sampleBuffer, type, _ in
                 if type == .video {
                     self.delegate?.capturer(self, didCapture: sampleBuffer)
