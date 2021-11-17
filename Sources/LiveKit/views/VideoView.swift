@@ -91,25 +91,23 @@ public class VideoView: NativeView {
 
         if .fill == mode {
             // manual calculation for .fill
-            let width, height: CGFloat
-            var xDiff: CGFloat = 0.0
-            var yDiff: CGFloat = 0.0
-            if dimensions.width > dimensions.height {
-                let ratio = CGFloat(dimensions.width) / CGFloat(dimensions.height)
-                width = viewSize.height * ratio
-                height = viewSize.height
-                xDiff = (width - height) / 2
-            } else {
-                let ratio = CGFloat(dimensions.height) / CGFloat(dimensions.width)
-                width = viewSize.width
-                height = viewSize.width * ratio
-                yDiff = (height - width) / 2
+
+            var size = viewSize
+            let widthRatio = size.width / CGFloat(dimensions.width)
+            let heightRatio = size.height / CGFloat(dimensions.height)
+
+            if heightRatio > widthRatio {
+                size.width = size.height / CGFloat(dimensions.height) * CGFloat(dimensions.width)
+            } else if widthRatio > heightRatio {
+                size.height = size.width / CGFloat(dimensions.width) * CGFloat(dimensions.height)
             }
 
-            rendererView.frame = NativeRect(x: -xDiff,
-                                            y: -yDiff,
-                                            width: width,
-                                            height: height)
+            // center layout
+            rendererView.frame = CGRect(x: -((size.width - viewSize.width) / 2),
+                                        y: -((size.height - viewSize.height) / 2),
+                                        width: size.width,
+                                        height: size.height)
+
         } else {
             //
             rendererView.frame = bounds
