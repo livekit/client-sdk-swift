@@ -267,7 +267,7 @@ extension LocalParticipant {
                     localTrack = LocalVideoTrack.createInAppScreenShareTrack()
                 }
                 #else
-                localTrack = LocalVideoTrack.createDesktopScreenShareTrack()
+                localTrack = LocalVideoTrack.createDesktopTrack()
 
                 #endif
                 if let localTrack = localTrack {

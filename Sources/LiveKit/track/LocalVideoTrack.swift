@@ -19,7 +19,7 @@ public class LocalVideoTrack: VideoTrack {
     // depending on capturer type
     public internal(set) var dimensions: Dimensions?
 
-    init(capturer: VideoCapturer,
+    internal init(capturer: VideoCapturer,
          videoSource: RTCVideoSource,
          name: String,
          source: Track.Source,
@@ -70,70 +70,5 @@ public class LocalVideoTrack: VideoTrack {
         super.stop().then {
             self.capturer.stopCapture()
         }
-    }
-
-    // MARK: - High level methods
-
-    public static func createCameraTrack(options: LocalVideoTrackOptions = LocalVideoTrackOptions(),
-                                         interceptor: VideoCaptureInterceptor? = nil) -> LocalVideoTrack {
-        let source: RTCVideoCapturerDelegate
-        let output: RTCVideoSource
-        if let interceptor = interceptor {
-            source = interceptor
-            output = interceptor.output
-        } else {
-            let videoSource = Engine.factory.videoSource()
-            source = videoSource
-            output = videoSource
-        }
-
-        let capturer = CameraCapturer(delegate: source, options: options)
-
-        return LocalVideoTrack(
-            capturer: capturer,
-            videoSource: output,
-            name: Track.cameraName,
-            source: .camera
-        )
-    }
-
-    /// Creates a track that captures in-app screen only (due to limitation of ReplayKit)
-    @available(macOS 11.0, iOS 11.0, *)
-    public static func createInAppScreenShareTrack() -> LocalVideoTrack {
-        let videoSource = Engine.factory.videoSource()
-        let capturer = InAppScreenCapturer(delegate: videoSource)
-        return LocalVideoTrack(
-            capturer: capturer,
-            videoSource: videoSource,
-            name: Track.screenShareName,
-            source: .screenShareVideo
-        )
-    }
-
-    /// Creates a track that captures the whole desktop screen
-    #if os(macOS)
-    public static func createDesktopScreenShareTrack() -> LocalVideoTrack {
-        let videoSource = Engine.factory.videoSource()
-        let capturer = DesktopScreenCapturer(delegate: videoSource)
-        return LocalVideoTrack(
-            capturer: capturer,
-            videoSource: videoSource,
-            name: Track.screenShareName,
-            source: .screenShareVideo
-        )
-    }
-    #endif
-
-    /// Creates a track that can directly capture `CVPixelBuffer` or `CMSampleBuffer` for convienience
-    public static func createBufferTrack(name: String = Track.screenShareName,
-                                         source: VideoTrack.Source = .screenShareVideo) -> LocalVideoTrack {
-        let videoSource = Engine.factory.videoSource()
-        let capturer = BufferCapturer(delegate: videoSource)
-        return LocalVideoTrack(
-            capturer: capturer,
-            videoSource: videoSource,
-            name: name,
-            source: source
-        )
     }
 }

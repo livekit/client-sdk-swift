@@ -131,3 +131,29 @@ public class CameraCapturer: RTCCameraVideoCapturer, CaptureControllable {
         }
     }
 }
+
+extension LocalVideoTrack {
+    
+    public static func createCameraTrack(options: LocalVideoTrackOptions = LocalVideoTrackOptions(),
+                                         interceptor: VideoCaptureInterceptor? = nil) -> LocalVideoTrack {
+        let source: RTCVideoCapturerDelegate
+        let output: RTCVideoSource
+        if let interceptor = interceptor {
+            source = interceptor
+            output = interceptor.output
+        } else {
+            let videoSource = Engine.factory.videoSource()
+            source = videoSource
+            output = videoSource
+        }
+
+        let capturer = CameraCapturer(delegate: source, options: options)
+
+        return LocalVideoTrack(
+            capturer: capturer,
+            videoSource: output,
+            name: Track.cameraName,
+            source: .camera
+        )
+    }
+}

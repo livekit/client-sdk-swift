@@ -4,7 +4,13 @@ import ReplayKit
 import Promises
 
 #if os(macOS)
-class DesktopScreenCapturer: VideoCapturer, AVCaptureVideoDataOutputSampleBufferDelegate {
+
+/// Options for ``DesktopCapturer``
+struct DesktopCapturerOptions {
+    //
+}
+
+class DesktopCapturer: VideoCapturer, AVCaptureVideoDataOutputSampleBufferDelegate {
 
     let session: AVCaptureSession
     let input: AVCaptureScreenInput?
@@ -50,4 +56,19 @@ class DesktopScreenCapturer: VideoCapturer, AVCaptureVideoDataOutputSampleBuffer
         self.delegate?.capturer(self, didCapture: sampleBuffer)
     }
 }
+
+extension LocalVideoTrack {
+    /// Creates a track that captures the whole desktop screen
+    public static func createDesktopTrack() -> LocalVideoTrack {
+        let videoSource = Engine.factory.videoSource()
+        let capturer = DesktopCapturer(delegate: videoSource)
+        return LocalVideoTrack(
+            capturer: capturer,
+            videoSource: videoSource,
+            name: Track.screenShareName,
+            source: .screenShareVideo
+        )
+    }
+}
+
 #endif
