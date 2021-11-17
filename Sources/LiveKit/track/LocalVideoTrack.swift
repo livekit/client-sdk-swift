@@ -46,6 +46,8 @@ class DesktopScreenCapturer: VideoCapturer, AVCaptureVideoDataOutputSampleBuffer
 
         // add I/O
         if let input = input {
+            input.capturesCursor = true
+            input.capturesMouseClicks = true
             session.addInput(input)
         }
         session.addOutput(output)
