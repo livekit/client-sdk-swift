@@ -75,7 +75,7 @@ extension Participant {
         !(getTrackPublication(source: .microphone)?.muted ?? true)
     }
 
-    public func isScreenEnabled() -> Bool {
+    public func isScreenShareEnabled() -> Bool {
         !(getTrackPublication(source: .screenShareVideo)?.muted ?? true)
     }
 

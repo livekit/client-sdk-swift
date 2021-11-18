@@ -272,13 +272,13 @@ extension LocalParticipant {
                 var localTrack: LocalVideoTrack?
 
                 #if !os(macOS)
-                if #available(macOS 11.0, *) {
-                    localTrack = LocalVideoTrack.createInAppScreenShareTrack()
-                }
+                // iOS defaults to in-app screen share only since background screen share
+                // requires an broadcast extension (iOS limitation).
+                localTrack = LocalVideoTrack.createInAppScreenShareTrack()
                 #else
                 localTrack = LocalVideoTrack.createDesktopTrack()
-
                 #endif
+
                 if let localTrack = localTrack {
                     return publishVideoTrack(track: localTrack).then { publication in return publication }
                 }
