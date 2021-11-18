@@ -31,28 +31,13 @@ public class LocalVideoTrack: VideoTrack {
         }
     }
 
-    public func restartTrack(options: LocalVideoTrackOptions = LocalVideoTrackOptions()) {
-
-        //        let result = LocalVideoTrack.createCameraCapturer(options: options)
-        //
-        //        // Stop previous capturer
-        //        if let capturer = capturer as? RTCCameraVideoCapturer {
-        //            capturer.stopCapture()
-        //        }
-        //
-        //        //        self.capturer = result.capturer
-        //        self.videoSource = result.videoSource
-        //
-        //        // create a new RTCVideoTrack
-        //        let rtcTrack = Engine.factory.videoTrack(with: result.videoSource, trackId: UUID().uuidString)
-        //        rtcTrack.isEnabled = true
-        //
-        //        // TODO: Stop previous mediaTrack
-        //        mediaTrack.isEnabled = false
-        //        mediaTrack = rtcTrack
-        //
-        //        // Set the new track
-        //        sender?.track = rtcTrack
+    @available(*, deprecated, message: "Use CameraCapturer's methods instead to switch cameras")
+    public func restartTrack(options: LocalVideoTrackOptions = LocalVideoTrackOptions()) -> Promise<Void> {
+        guard let capturer = capturer as? CameraCapturer else {
+            return Promise(TrackError.invalidTrackState("Must be an CameraCapturer"))
+        }
+        capturer.options = options
+        return capturer.restartCapture()
     }
 
     public override func start() -> Promise<Void> {

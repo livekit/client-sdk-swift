@@ -22,9 +22,7 @@ public class CameraCapturer: VideoCapturer {
 
     /// current position of the device (read only)
     public var position: AVCaptureDevice.Position? {
-        get {
-            device?.position
-        }
+        get { device?.position }
     }
 
     init(delegate: RTCVideoCapturerDelegate,
@@ -50,9 +48,7 @@ public class CameraCapturer: VideoCapturer {
         options.position = position
 
         // restart capturer
-        return stopCapture().then {
-            self.startCapture()
-        }
+        return restartCapture()
     }
 
     public override func startCapture() -> Promise<Void> {

@@ -22,18 +22,18 @@ public class DesktopCapturer: VideoCapturer, AVCaptureVideoDataOutputSampleBuffe
 
     // gets a list of display IDs
     public static func displayIDs() -> [CGDirectDisplayID] {
-        var displayCount: UInt32 = 0;
-        var activeCount:UInt32 = 0
+        var displayCount: UInt32 = 0
+        var activeCount: UInt32 = 0
 
         guard CGGetActiveDisplayList(0, nil, &displayCount) == .success else {
             return []
         }
 
-        var displayIDList = Array<CGDirectDisplayID>(repeating: kCGNullDirectDisplay, count: Int(displayCount))
+        var displayIDList = [CGDirectDisplayID](repeating: kCGNullDirectDisplay, count: Int(displayCount))
         guard CGGetActiveDisplayList(displayCount, &(displayIDList), &activeCount) == .success else {
             return []
         }
-    
+
         return displayIDList
     }
 
@@ -56,7 +56,7 @@ public class DesktopCapturer: VideoCapturer, AVCaptureVideoDataOutputSampleBuffe
         session.addOutput(output)
     }
 
-    override func startCapture() -> Promise<Void> {
+    public override func startCapture() -> Promise<Void> {
         super.startCapture().then {
             self.dimensions = Dimensions(width: Int32(CGDisplayPixelsWide(self.displayId)),
                                          height: Int32(CGDisplayPixelsHigh(self.displayId)))
@@ -65,7 +65,7 @@ public class DesktopCapturer: VideoCapturer, AVCaptureVideoDataOutputSampleBuffe
         }
     }
 
-    override func stopCapture() -> Promise<Void> {
+    public override func stopCapture() -> Promise<Void> {
         super.stopCapture().then {
             self.session.stopRunning()
         }
@@ -74,8 +74,8 @@ public class DesktopCapturer: VideoCapturer, AVCaptureVideoDataOutputSampleBuffe
     // MARK: - AVCaptureVideoDataOutputSampleBufferDelegate
 
     public func captureOutput(_ output: AVCaptureOutput, didOutput
-                        sampleBuffer: CMSampleBuffer,
-                       from connection: AVCaptureConnection) {
+                                sampleBuffer: CMSampleBuffer,
+                              from connection: AVCaptureConnection) {
         logger.debug("\(self) captured sample buffer")
         delegate?.capturer(capturer, didCapture: sampleBuffer)
     }
