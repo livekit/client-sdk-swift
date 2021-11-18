@@ -10,7 +10,7 @@ struct DesktopCapturerOptions {
     //
 }
 
-class DesktopCapturer: VideoCapturer, AVCaptureVideoDataOutputSampleBufferDelegate {
+public class DesktopCapturer: VideoCapturer, AVCaptureVideoDataOutputSampleBufferDelegate {
 
     private let capturer = RTCVideoCapturer()
 
@@ -19,6 +19,23 @@ class DesktopCapturer: VideoCapturer, AVCaptureVideoDataOutputSampleBufferDelega
     private let session: AVCaptureSession
     private let input: AVCaptureScreenInput?
     private let output: AVCaptureVideoDataOutput
+
+    // gets a list of display IDs
+    public static func displayIDs() -> [CGDirectDisplayID] {
+        var displayCount: UInt32 = 0;
+        var activeCount:UInt32 = 0
+
+        guard CGGetActiveDisplayList(0, nil, &displayCount) == .success else {
+            return []
+        }
+
+        var displayIDList = Array<CGDirectDisplayID>(repeating: kCGNullDirectDisplay, count: Int(displayCount))
+        guard CGGetActiveDisplayList(displayCount, &(displayIDList), &activeCount) == .success else {
+            return []
+        }
+    
+        return displayIDList
+    }
 
     override init(delegate: RTCVideoCapturerDelegate) {
         session = AVCaptureSession()
@@ -56,7 +73,7 @@ class DesktopCapturer: VideoCapturer, AVCaptureVideoDataOutputSampleBufferDelega
 
     // MARK: - AVCaptureVideoDataOutputSampleBufferDelegate
 
-    func captureOutput(_ output: AVCaptureOutput, didOutput
+    public func captureOutput(_ output: AVCaptureOutput, didOutput
                         sampleBuffer: CMSampleBuffer,
                        from connection: AVCaptureConnection) {
         logger.debug("\(self) captured sample buffer")
