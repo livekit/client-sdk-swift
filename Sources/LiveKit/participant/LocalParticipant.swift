@@ -273,7 +273,7 @@ extension LocalParticipant {
 
                 #if !os(macOS)
                 // iOS defaults to in-app screen share only since background screen share
-                // requires an broadcast extension (iOS limitation).
+                // requires a broadcast extension (iOS limitation).
                 localTrack = LocalVideoTrack.createInAppScreenShareTrack()
                 #else
                 localTrack = LocalVideoTrack.createDesktopTrack()
@@ -283,7 +283,6 @@ extension LocalParticipant {
                     return publishVideoTrack(track: localTrack).then { publication in return publication }
                 }
             }
-            // TODO: Screen share
         }
 
         return Promise(EngineError.invalidState())
