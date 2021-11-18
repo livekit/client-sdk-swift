@@ -49,7 +49,7 @@ public class Track: MulticastDelegate<TrackDelegate> {
         mediaTrack = track
     }
 
-    // will fail if already started
+    // will fail if already started (to prevent duplicate code execution)
     internal func start() -> Promise<Void> {
         guard state != .started else {
             return Promise(TrackError.invalidTrackState("Already started"))
@@ -59,7 +59,7 @@ public class Track: MulticastDelegate<TrackDelegate> {
         return Promise(())
     }
 
-    // will fail if already stopped
+    // will fail if already stopped (to prevent duplicate code execution)
     public func stop() -> Promise<Void> {
         guard state != .stopped else {
             return Promise(TrackError.invalidTrackState("Already stopped"))

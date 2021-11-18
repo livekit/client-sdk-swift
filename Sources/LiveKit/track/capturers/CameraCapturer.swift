@@ -5,6 +5,21 @@ import ReplayKit
 
 public class CameraCapturer: RTCCameraVideoCapturer, CaptureControllable {
 
+    public func add(delegate: VideoCapturerDelegate) {
+        delegates.add(delegate: delegate)
+    }
+
+    public func remove(delegate: VideoCapturerDelegate) {
+        delegates.remove(delegate: delegate)
+    }
+
+    public internal(set) var dimensions: Dimensions? {
+        didSet {
+            guard oldValue != dimensions else { return }
+            delegates.notify { $0.capturer(self, didUpdate: self.dimensions) }
+        }
+    }
+
     /// checks whether both front and back capturing devices exist
     public static func canTogglePosition() -> Bool {
         let devices = RTCCameraVideoCapturer.captureDevices()
@@ -12,7 +27,8 @@ public class CameraCapturer: RTCCameraVideoCapturer, CaptureControllable {
             devices.contains(where: { $0.position == .back })
     }
 
-    var options: LocalVideoTrackOptions
+    public var options: LocalVideoTrackOptions
+    private let delegates = MulticastDelegate<VideoCapturerDelegate>()
 
     /// current device used for capturing
     public private(set) var device: AVCaptureDevice?
@@ -112,6 +128,7 @@ public class CameraCapturer: RTCCameraVideoCapturer, CaptureControllable {
 
                 // update internal vars
                 self.device = device
+                self.dimensions = selectedDimension
 
                 // successfully started
                 resolve(())
@@ -124,6 +141,7 @@ public class CameraCapturer: RTCCameraVideoCapturer, CaptureControllable {
             self.stopCapture {
                 // update internal vars
                 self.device = nil
+                self.dimensions = nil
 
                 // successfully stopped
                 resolve(())
@@ -133,7 +151,7 @@ public class CameraCapturer: RTCCameraVideoCapturer, CaptureControllable {
 }
 
 extension LocalVideoTrack {
-    
+
     public static func createCameraTrack(options: LocalVideoTrackOptions = LocalVideoTrackOptions(),
                                          interceptor: VideoCaptureInterceptor? = nil) -> LocalVideoTrack {
         let source: RTCVideoCapturerDelegate

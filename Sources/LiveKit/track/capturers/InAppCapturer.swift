@@ -5,6 +5,21 @@ import Promises
 @available(macOS 11.0, iOS 11.0, *)
 class InAppScreenCapturer: VideoCapturer {
 
+    func add(delegate: VideoCapturerDelegate) {
+        //
+    }
+
+    func remove(delegate: VideoCapturerDelegate) {
+        //
+    }
+
+    public var dimensions: Dimensions? {
+        get {
+            // TODO: Implement
+            return nil
+        }
+    }
+
     func startCapture() -> Promise<Void> {
         return Promise { resolve, reject in
             // TODO: force pixel format kCVPixelFormatType_420YpCbCr8BiPlanarFullRange

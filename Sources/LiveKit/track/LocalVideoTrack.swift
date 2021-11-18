@@ -4,8 +4,18 @@ import Promises
 import ReplayKit
 
 public protocol CaptureControllable {
+    // report dimensions of current frames being captured
+    // dimensions are used to calculate parameters for simulcast etc.
+    var dimensions: Dimensions? { get }
     func startCapture() -> Promise<Void>
     func stopCapture() -> Promise<Void>
+    // for delegate
+    func add(delegate: VideoCapturerDelegate)
+    func remove(delegate: VideoCapturerDelegate)
+}
+
+public protocol VideoCapturerDelegate {
+    func capturer(_ capturer: VideoCapturer, didUpdate dimensions: Dimensions?)
 }
 
 public typealias VideoCapturer = RTCVideoCapturer & CaptureControllable
@@ -15,23 +25,27 @@ public class LocalVideoTrack: VideoTrack {
     public internal(set) var capturer: VideoCapturer
     public internal(set) var videoSource: RTCVideoSource
 
-    // used to calculate RTCRtpEncoding, may not be always available
-    // depending on capturer type
-    public internal(set) var dimensions: Dimensions?
-
     internal init(capturer: VideoCapturer,
-         videoSource: RTCVideoSource,
-         name: String,
-         source: Track.Source,
-         dimensions: Dimensions? = nil) {
+                  videoSource: RTCVideoSource,
+                  name: String,
+                  source: Track.Source) {
 
         let rtcTrack = Engine.factory.videoTrack(with: videoSource, trackId: UUID().uuidString)
         rtcTrack.isEnabled = true
 
         self.capturer = capturer
         self.videoSource = videoSource
-        self.dimensions = dimensions
         super.init(rtcTrack: rtcTrack, name: name, source: source)
+
+        self.capturer.add(delegate: self)
+    }
+
+    public override var transceiver: RTCRtpTransceiver? {
+        didSet {
+            guard oldValue != transceiver,
+                  transceiver != nil else { return }
+            self.recomputeSenderParameters()
+        }
     }
 
     public func restartTrack(options: LocalVideoTrackOptions = LocalVideoTrackOptions()) {
@@ -58,17 +72,43 @@ public class LocalVideoTrack: VideoTrack {
         //        sender?.track = rtcTrack
     }
 
-    @discardableResult
     public override func start() -> Promise<Void> {
         super.start().then {
             self.capturer.startCapture()
         }
     }
 
-    @discardableResult
     public override func stop() -> Promise<Void> {
         super.stop().then {
             self.capturer.stopCapture()
         }
+    }
+}
+
+// MARK: - Re-compute sender parameters
+
+extension LocalVideoTrack: VideoCapturerDelegate {
+    // watch for dimension changes to re-compute sender parameters
+    public func capturer(_ capturer: VideoCapturer, didUpdate dimensions: Dimensions?) {
+        self.recomputeSenderParameters()
+    }
+
+    internal func recomputeSenderParameters() {
+        print("Should re-compute sender parameters")
+        guard let sender = transceiver?.sender else {return}
+
+        // get current parameters
+        let parameters = sender.parameters
+        print("re-compute: \(sender.parameters.encodings)")
+        
+        // TODO: Update parameters
+        
+        parameters.degradationPreference = NSNumber(value: RTCDegradationPreference.disabled.rawValue)
+        
+        // set the updated parameters
+        sender.parameters = parameters
+        
+        print("re-compute: \(sender.parameters.encodings)")
+
     }
 }

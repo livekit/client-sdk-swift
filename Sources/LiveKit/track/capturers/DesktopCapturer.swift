@@ -12,13 +12,32 @@ struct DesktopCapturerOptions {
 
 class DesktopCapturer: VideoCapturer, AVCaptureVideoDataOutputSampleBufferDelegate {
 
-    let session: AVCaptureSession
-    let input: AVCaptureScreenInput?
-    let output: AVCaptureVideoDataOutput
+    func add(delegate: VideoCapturerDelegate) {
+        delegates.add(delegate: delegate)
+    }
+
+    func remove(delegate: VideoCapturerDelegate) {
+        delegates.remove(delegate: delegate)
+    }
+
+    // currently, only main display
+    private let displayId = CGMainDisplayID()
+    private let session: AVCaptureSession
+    private let input: AVCaptureScreenInput?
+    private let output: AVCaptureVideoDataOutput
+    private let delegates = MulticastDelegate<VideoCapturerDelegate>()
+
+    public var dimensions: Dimensions? {
+        get {
+            Dimensions(width: Int32(CGDisplayPixelsWide(displayId)),
+                       height: Int32(CGDisplayPixelsHigh(displayId)))
+
+        }
+    }
 
     override init(delegate: RTCVideoCapturerDelegate) {
         session = AVCaptureSession()
-        input = AVCaptureScreenInput(displayID: CGMainDisplayID())
+        input = AVCaptureScreenInput(displayID: displayId)
         output = AVCaptureVideoDataOutput()
         output.videoSettings = [
             kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_420YpCbCr8BiPlanarFullRange

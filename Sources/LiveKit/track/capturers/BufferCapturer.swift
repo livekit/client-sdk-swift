@@ -4,6 +4,21 @@ import Promises
 
 class BufferCapturer: VideoCapturer {
 
+    func add(delegate: VideoCapturerDelegate) {
+        //
+    }
+
+    func remove(delegate: VideoCapturerDelegate) {
+        //
+    }
+
+    public var dimensions: Dimensions? {
+        get {
+            // TODO: Implement
+            return nil
+        }
+    }
+
     func startCapture() -> Promise<Void> {
         // nothing to do for now
         Promise(())
@@ -21,7 +36,7 @@ class BufferCapturer: VideoCapturer {
 }
 
 extension LocalVideoTrack {
-    
+
     /// Creates a track that can directly capture `CVPixelBuffer` or `CMSampleBuffer` for convienience
     public static func createBufferTrack(name: String = Track.screenShareName,
                                          source: VideoTrack.Source = .screenShareVideo) -> LocalVideoTrack {
