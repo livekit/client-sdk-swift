@@ -84,6 +84,7 @@ public class Room: MulticastDelegate<RoomDelegate> {
                               }
     }
 
+    @discardableResult
     public func disconnect() -> Promise<Void> {
         engine.signalClient.sendLeave()
         engine.disconnect()

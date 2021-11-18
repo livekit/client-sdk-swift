@@ -3,22 +3,9 @@ import WebRTC
 import Promises
 import ReplayKit
 
-public class CameraCapturer: RTCCameraVideoCapturer, CaptureControllable {
+public class CameraCapturer: VideoCapturer {
 
-    public func add(delegate: VideoCapturerDelegate) {
-        delegates.add(delegate: delegate)
-    }
-
-    public func remove(delegate: VideoCapturerDelegate) {
-        delegates.remove(delegate: delegate)
-    }
-
-    public internal(set) var dimensions: Dimensions? {
-        didSet {
-            guard oldValue != dimensions else { return }
-            delegates.notify { $0.capturer(self, didUpdate: self.dimensions) }
-        }
-    }
+    private lazy var capturer = RTCCameraVideoCapturer(delegate: delegate)
 
     /// checks whether both front and back capturing devices exist
     public static func canTogglePosition() -> Bool {
@@ -68,7 +55,7 @@ public class CameraCapturer: RTCCameraVideoCapturer, CaptureControllable {
         }
     }
 
-    public func startCapture() -> Promise<Void> {
+    public override func startCapture() -> Promise<Void> {
         let devices = RTCCameraVideoCapturer.captureDevices()
         // TODO: FaceTime Camera for macOS uses .unspecified, fall back to first device
         let device = devices.first { $0.position == options.position } ?? devices.first
@@ -117,34 +104,38 @@ public class CameraCapturer: RTCCameraVideoCapturer, CaptureControllable {
 
         logger.info("starting capture with \(device), format: \(selectedFormat), fps: \(fps)")
 
-        return Promise { resolve, reject in
+        return super.startCapture().then {
             // return promise that waits for capturer to start
-            self.startCapture(with: device, format: selectedFormat, fps: fps) { error in
-                if let error = error {
-                    logger.error("CameraCapturer failed to start \(error)")
-                    reject(error)
-                    return
+            Promise { resolve, reject in
+                self.capturer.startCapture(with: device, format: selectedFormat, fps: fps) { error in
+                    if let error = error {
+                        logger.error("CameraCapturer failed to start \(error)")
+                        reject(error)
+                        return
+                    }
+
+                    // update internal vars
+                    self.device = device
+                    self.dimensions = selectedDimension
+
+                    // successfully started
+                    resolve(())
                 }
-
-                // update internal vars
-                self.device = device
-                self.dimensions = selectedDimension
-
-                // successfully started
-                resolve(())
             }
         }
     }
 
-    public func stopCapture() -> Promise<Void> {
-        return Promise { resolve, _ in
-            self.stopCapture {
-                // update internal vars
-                self.device = nil
-                self.dimensions = nil
+    public override func stopCapture() -> Promise<Void> {
+        return super.stopCapture().then {
+            Promise { resolve, _ in
+                self.capturer.stopCapture {
+                    // update internal vars
+                    self.device = nil
+                    self.dimensions = nil
 
-                // successfully stopped
-                resolve(())
+                    // successfully stopped
+                    resolve(())
+                }
             }
         }
     }

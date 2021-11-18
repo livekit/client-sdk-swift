@@ -12,28 +12,13 @@ struct DesktopCapturerOptions {
 
 class DesktopCapturer: VideoCapturer, AVCaptureVideoDataOutputSampleBufferDelegate {
 
-    func add(delegate: VideoCapturerDelegate) {
-        delegates.add(delegate: delegate)
-    }
-
-    func remove(delegate: VideoCapturerDelegate) {
-        delegates.remove(delegate: delegate)
-    }
+    private let capturer = RTCVideoCapturer()
 
     // currently, only main display
     private let displayId = CGMainDisplayID()
     private let session: AVCaptureSession
     private let input: AVCaptureScreenInput?
     private let output: AVCaptureVideoDataOutput
-    private let delegates = MulticastDelegate<VideoCapturerDelegate>()
-
-    public var dimensions: Dimensions? {
-        get {
-            Dimensions(width: Int32(CGDisplayPixelsWide(displayId)),
-                       height: Int32(CGDisplayPixelsHigh(displayId)))
-
-        }
-    }
 
     override init(delegate: RTCVideoCapturerDelegate) {
         session = AVCaptureSession()
@@ -54,14 +39,17 @@ class DesktopCapturer: VideoCapturer, AVCaptureVideoDataOutputSampleBufferDelega
         session.addOutput(output)
     }
 
-    func startCapture() -> Promise<Void> {
-        return Promise { () -> Void in
+    override func startCapture() -> Promise<Void> {
+        super.startCapture().then {
+            self.dimensions = Dimensions(width: Int32(CGDisplayPixelsWide(self.displayId)),
+                                         height: Int32(CGDisplayPixelsHigh(self.displayId)))
+
             self.session.startRunning()
         }
     }
 
-    func stopCapture() -> Promise<Void> {
-        return Promise { () -> Void in
+    override func stopCapture() -> Promise<Void> {
+        super.stopCapture().then {
             self.session.stopRunning()
         }
     }
@@ -72,7 +60,7 @@ class DesktopCapturer: VideoCapturer, AVCaptureVideoDataOutputSampleBufferDelega
                         sampleBuffer: CMSampleBuffer,
                        from connection: AVCaptureConnection) {
         logger.debug("\(self) captured sample buffer")
-        self.delegate?.capturer(self, didCapture: sampleBuffer)
+        delegate.capturer(capturer, didCapture: sampleBuffer)
     }
 }
 

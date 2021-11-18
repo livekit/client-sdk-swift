@@ -4,34 +4,11 @@ import Promises
 
 class BufferCapturer: VideoCapturer {
 
-    func add(delegate: VideoCapturerDelegate) {
-        //
-    }
-
-    func remove(delegate: VideoCapturerDelegate) {
-        //
-    }
-
-    public var dimensions: Dimensions? {
-        get {
-            // TODO: Implement
-            return nil
-        }
-    }
-
-    func startCapture() -> Promise<Void> {
-        // nothing to do for now
-        Promise(())
-    }
-
-    func stopCapture() -> Promise<Void> {
-        // nothing to do for now
-        Promise(())
-    }
+    private let capturer = RTCVideoCapturer()
 
     // shortcut
     func capture(_ sampleBuffer: CMSampleBuffer) {
-        delegate?.capturer(self, didCapture: sampleBuffer)
+        delegate.capturer(capturer, didCapture: sampleBuffer)
     }
 }
 

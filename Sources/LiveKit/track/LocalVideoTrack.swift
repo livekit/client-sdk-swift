@@ -3,23 +3,6 @@ import WebRTC
 import Promises
 import ReplayKit
 
-public protocol CaptureControllable {
-    // report dimensions of current frames being captured
-    // dimensions are used to calculate parameters for simulcast etc.
-    var dimensions: Dimensions? { get }
-    func startCapture() -> Promise<Void>
-    func stopCapture() -> Promise<Void>
-    // for delegate
-    func add(delegate: VideoCapturerDelegate)
-    func remove(delegate: VideoCapturerDelegate)
-}
-
-public protocol VideoCapturerDelegate {
-    func capturer(_ capturer: VideoCapturer, didUpdate dimensions: Dimensions?)
-}
-
-public typealias VideoCapturer = RTCVideoCapturer & CaptureControllable
-
 public class LocalVideoTrack: VideoTrack {
 
     public internal(set) var capturer: VideoCapturer
