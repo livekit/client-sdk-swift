@@ -100,14 +100,14 @@ extension LocalVideoTrack: VideoCapturerDelegate {
         // get current parameters
         let parameters = sender.parameters
         print("re-compute: \(sender.parameters.encodings)")
-        
+
         // TODO: Update parameters
-        
+
         parameters.degradationPreference = NSNumber(value: RTCDegradationPreference.disabled.rawValue)
-        
+
         // set the updated parameters
         sender.parameters = parameters
-        
+
         print("re-compute: \(sender.parameters.encodings)")
 
     }

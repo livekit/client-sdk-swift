@@ -252,12 +252,10 @@ extension LocalParticipant {
             // publication already exists
             if enabled {
                 publication.muted = false
-                track.start()
-                return Promise(publication)
+                track.start().then { publication }
             } else {
                 publication.muted = true
-                track.stop()
-                return Promise(nil)
+                track.stop().then { () }
             }
         } else if enabled {
             // try to create a new track

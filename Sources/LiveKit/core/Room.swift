@@ -84,10 +84,10 @@ public class Room: MulticastDelegate<RoomDelegate> {
                               }
     }
 
-    public func disconnect() {
+    public func disconnect() -> Promise<Void> {
         engine.signalClient.sendLeave()
         engine.disconnect()
-        handleDisconnect()
+        return handleDisconnect()
     }
 
     //    func reconnect(connectOptions: ConnectOptions? = nil) {
@@ -99,17 +99,20 @@ public class Room: MulticastDelegate<RoomDelegate> {
     //        notify { $0.isReconnecting(room: self) }
     //    }
 
-    private func handleParticipantDisconnect(sid: Sid, participant: RemoteParticipant) {
+    private func handleParticipantDisconnect(sid: Sid, participant: RemoteParticipant) -> Promise<Void> {
+
         guard let participant = remoteParticipants.removeValue(forKey: sid) else {
-            return
-        }
-        participant.tracks.values.forEach { publication in
-            if let publication = publication as? RemoteTrackPublication {
-                participant.unpublish(publication: publication)
-            }
+            return Promise(EngineError.invalidState("Participant not found for \(sid)"))
         }
 
-        notify { $0.room(self, participantDidLeave: participant) }
+        // create array of unpublish promises
+        let promises = participant.tracks.values
+            .compactMap { $0 as? RemoteTrackPublication }
+            .map { participant.unpublish(publication: $0) }
+
+        return all(promises).then { (_) -> Void in
+            self.notify { $0.room(self, participantDidLeave: participant) }
+        }
     }
 
     private func getOrCreateRemoteParticipant(sid: Sid, info: Livekit_ParticipantInfo? = nil) -> RemoteParticipant {
@@ -190,30 +193,32 @@ public class Room: MulticastDelegate<RoomDelegate> {
         }
     }
 
-    private func handleDisconnect() {
+    private func handleDisconnect() -> Promise<Void> {
         logger.info("disconnected from room: \(self.name ?? "")")
         // stop any tracks && release audio session
+
+        var promises = [Promise<Void>]()
+
         for participant in remoteParticipants.values {
             for publication in participant.tracks.values {
-                guard let track = publication.track else {
-                    continue
-                }
-                track.stop()
-            }
-        }
-        if let localParticipant = localParticipant {
-            for publication in localParticipant.tracks.values {
-                guard let track = publication.track else {
-                    continue
-                }
-                track.stop()
+                guard let track = publication.track else { continue }
+                promises.append(track.stop())
             }
         }
 
-        remoteParticipants.removeAll()
-        activeSpeakers.removeAll()
-        //        monitor.cancel()
-        notify { $0.room(self, didDisconnect: nil) }
+        if let localParticipant = localParticipant {
+            for publication in localParticipant.tracks.values {
+                guard let track = publication.track else { continue }
+                promises.append(track.stop())
+            }
+        }
+
+        return all(promises).then { (_) -> Void in
+            self.remoteParticipants.removeAll()
+            self.activeSpeakers.removeAll()
+            //        monitor.cancel()
+            self.notify { $0.room(self, didDisconnect: nil) }
+        }
     }
 }
 
@@ -238,7 +243,7 @@ extension Room: EngineDelegate {
     }
 
     func engineDidDisconnect(_ engine: Engine) {
-        handleDisconnect()
+        _ = handleDisconnect()
     }
 
     func engine(_ engine: Engine, didUpdate connectionState: ConnectionState) {
@@ -277,7 +282,7 @@ extension Room: EngineDelegate {
 
         logger.debug("added media track from: \(participantSid), sid: \(trackSid)")
 
-        participant.addSubscribedMediaTrack(rtcTrack: track, sid: trackSid)
+        _ = participant.addSubscribedMediaTrack(rtcTrack: track, sid: trackSid)
     }
 
     func engine(_ engine: Engine, didUpdate participants: [Livekit_ParticipantInfo]) {
@@ -290,7 +295,7 @@ extension Room: EngineDelegate {
             let participant = getOrCreateRemoteParticipant(sid: info.sid, info: info)
 
             if info.state == .disconnected {
-                handleParticipantDisconnect(sid: info.sid, participant: participant)
+                _ = handleParticipantDisconnect(sid: info.sid, participant: participant)
             } else if isNewParticipant {
                 notify { $0.room(self, participantDidJoin: participant) }
             } else {
