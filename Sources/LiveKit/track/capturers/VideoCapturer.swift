@@ -18,7 +18,7 @@ public protocol VideoCapturerDelegate {
 // Intended to be a base class for video capturers
 public class VideoCapturer: MulticastDelegate<VideoCapturerDelegate>, VideoCapturerProtocol {
 
-    internal var delegate: RTCVideoCapturerDelegate
+    internal weak var delegate: RTCVideoCapturerDelegate?
 
     public internal(set) var dimensions: Dimensions? {
         didSet {

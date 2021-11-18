@@ -60,7 +60,7 @@ class DesktopCapturer: VideoCapturer, AVCaptureVideoDataOutputSampleBufferDelega
                         sampleBuffer: CMSampleBuffer,
                        from connection: AVCaptureConnection) {
         logger.debug("\(self) captured sample buffer")
-        delegate.capturer(capturer, didCapture: sampleBuffer)
+        delegate?.capturer(capturer, didCapture: sampleBuffer)
     }
 }
 

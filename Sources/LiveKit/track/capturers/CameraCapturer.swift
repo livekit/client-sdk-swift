@@ -5,7 +5,7 @@ import ReplayKit
 
 public class CameraCapturer: VideoCapturer {
 
-    private lazy var capturer = RTCCameraVideoCapturer(delegate: delegate)
+    private let capturer: RTCCameraVideoCapturer
 
     /// checks whether both front and back capturing devices exist
     public static func canTogglePosition() -> Bool {
@@ -29,7 +29,7 @@ public class CameraCapturer: VideoCapturer {
 
     init(delegate: RTCVideoCapturerDelegate,
          options: LocalVideoTrackOptions = LocalVideoTrackOptions()) {
-
+        self.capturer = RTCCameraVideoCapturer(delegate: delegate)
         self.options = options
         super.init(delegate: delegate)
     }

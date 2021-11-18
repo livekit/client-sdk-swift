@@ -14,7 +14,7 @@ class InAppScreenCapturer: VideoCapturer {
                 // TODO: force pixel format kCVPixelFormatType_420YpCbCr8BiPlanarFullRange
                 RPScreenRecorder.shared().startCapture { sampleBuffer, type, _ in
                     if type == .video {
-                        self.delegate.capturer(self.capturer, didCapture: sampleBuffer)
+                        self.delegate?.capturer(self.capturer, didCapture: sampleBuffer)
                     }
                 } completionHandler: { error in
                     if let error = error {
