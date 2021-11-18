@@ -283,7 +283,13 @@ extension Room: EngineDelegate {
 
         logger.debug("added media track from: \(participantSid), sid: \(trackSid)")
 
-        _ = participant.addSubscribedMediaTrack(rtcTrack: track, sid: trackSid)
+        _ = retry(attempts: 10, delay: 0.2) { _, error in
+            // if error is invalidTrackState, retry
+            guard case TrackError.invalidTrackState = error else { return false }
+            return true
+        } _: {
+            participant.addSubscribedMediaTrack(rtcTrack: track, sid: trackSid)
+        }
     }
 
     func engine(_ engine: Engine, didUpdate participants: [Livekit_ParticipantInfo]) {

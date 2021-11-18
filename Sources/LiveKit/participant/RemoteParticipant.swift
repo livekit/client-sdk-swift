@@ -61,8 +61,6 @@ public class RemoteParticipant: Participant {
             notify { $0.participant(self, didFailToSubscribe: sid, error: error) }
             room?.notify { $0.room(self.room!, participant: self, didFailToSubscribe: sid, error: error) }
             return Promise(error)
-
-            // TODO: Retry logic
         }
 
         switch rtcTrack.kind {
