@@ -43,29 +43,24 @@ public class RemoteParticipant: Participant {
             }
         }
 
-        for publication in tracks.values where validTrackPublications[publication.sid] == nil {
-            if let publication = publication as? RemoteTrackPublication {
-                unpublish(publication: publication, shouldNotify: true)
-            }
-        }
+        let unpublishPromises = tracks.values
+            .filter { validTrackPublications[$0.sid] == nil }
+            .compactMap { $0 as? RemoteTrackPublication }
+            .map { unpublish(publication: $0) }
+
+        // TODO: Return a promise
+        _ = all(unpublishPromises)
     }
 
-    func addSubscribedMediaTrack(rtcTrack: RTCMediaStreamTrack, sid: String, triesLeft: Int = 20) {
+    func addSubscribedMediaTrack(rtcTrack: RTCMediaStreamTrack, sid: String) -> Promise<Void> {
         var track: Track
 
         guard let publication = getTrackPublication(sid: sid) else {
-            if triesLeft == 0 {
-                logger.error("could not subscribe to mediaTrack \(sid), unable to locate track publication")
-                let err = TrackError.invalidTrackState("Could not find published track with sid: \(sid)")
-                notify { $0.participant(self, didFailToSubscribe: sid, error: err) }
-                room?.notify { $0.room(self.room!, participant: self, didFailToSubscribe: sid, error: err) }
-                return
-            }
-
-            DispatchQueue.global(qos: .background).asyncAfter(deadline: .now() + 0.15) {
-                self.addSubscribedMediaTrack(rtcTrack: rtcTrack, sid: sid, triesLeft: triesLeft - 1)
-            }
-            return
+            logger.error("Could not subscribe to mediaTrack \(sid), unable to locate track publication")
+            let error = TrackError.invalidTrackState("Could not find published track with sid: \(sid)")
+            notify { $0.participant(self, didFailToSubscribe: sid, error: error) }
+            room?.notify { $0.room(self.room!, participant: self, didFailToSubscribe: sid, error: error) }
+            return Promise(error)
         }
 
         switch rtcTrack.kind {
@@ -78,19 +73,19 @@ public class RemoteParticipant: Participant {
                                      name: publication.name,
                                      source: publication.source)
         default:
-            let err = TrackError.invalidTrackType("unsupported type: \(rtcTrack.kind.description)")
-            notify { $0.participant(self, didFailToSubscribe: sid, error: err) }
-            room?.notify { $0.room(self.room!, participant: self, didFailToSubscribe: sid, error: err) }
-            return
+            let error = TrackError.invalidTrackType("Unsupported type: \(rtcTrack.kind.description)")
+            notify { $0.participant(self, didFailToSubscribe: sid, error: error) }
+            room?.notify { $0.room(self.room!, participant: self, didFailToSubscribe: sid, error: error) }
+            return Promise(error)
         }
 
         publication.track = track
         track.sid = publication.sid
         addTrack(publication: publication)
-        track.start()
-
-        notify { $0.participant(self, didSubscribe: publication, track: track) }
-        room?.notify { $0.room(self.room!, participant: self, didSubscribe: publication, track: track) }
+        return track.start().then {
+            self.notify { $0.participant(self, didSubscribe: publication, track: track) }
+            self.room?.notify { $0.room(self.room!, participant: self, didSubscribe: publication, track: track) }
+        }
     }
 
     func unpublish(publication: RemoteTrackPublication, shouldNotify: Bool = true) -> Promise<Void> {
@@ -113,7 +108,7 @@ public class RemoteParticipant: Participant {
             return notifyUnpublish()
         }
 
-        return track.stop().then { _ in
+        return track.stop().always {
             guard shouldNotify else { return }
             // notify unsubscribe
             self.notify { $0.participant(self, didUnsubscribe: publication, track: track) }

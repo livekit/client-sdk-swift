@@ -1,179 +1,82 @@
+import Foundation
 import WebRTC
 import Promises
+import ReplayKit
 
 public class LocalVideoTrack: VideoTrack {
 
-    public internal(set) var capturer: RTCVideoCapturer
+    public internal(set) var capturer: VideoCapturer
     public internal(set) var videoSource: RTCVideoSource
-    // used to calculate RTCRtpEncoding
-    public let dimensions: Dimensions
 
-    public typealias CreateCapturerResult = (capturer: RTCVideoCapturer,
-                                             source: RTCVideoSource,
-                                             dimensions: Dimensions)
+    internal init(capturer: VideoCapturer,
+                  videoSource: RTCVideoSource,
+                  name: String,
+                  source: Track.Source) {
 
-    init(rtcTrack: RTCVideoTrack,
-         capturer: RTCVideoCapturer,
-         videoSource: RTCVideoSource,
-         name: String,
-         source: Track.Source,
-         dimensions: Dimensions) {
+        let rtcTrack = Engine.factory.videoTrack(with: videoSource, trackId: UUID().uuidString)
+        rtcTrack.isEnabled = true
 
         self.capturer = capturer
         self.videoSource = videoSource
-        self.dimensions = dimensions
         super.init(rtcTrack: rtcTrack, name: name, source: source)
+
+        self.capturer.add(delegate: self)
     }
 
-    private static func createCameraCapturer(options: LocalVideoTrackOptions = LocalVideoTrackOptions(),
-                                             interceptor: VideoCaptureInterceptor? = nil) throws -> CreateCapturerResult {
-
-        let source: RTCVideoCapturerDelegate
-        let output: RTCVideoSource
-        if let interceptor = interceptor {
-            source = interceptor
-            output = interceptor.output
-        } else {
-            let videoSource = Engine.factory.videoSource()
-            source = videoSource
-            output = videoSource
+    public override var transceiver: RTCRtpTransceiver? {
+        didSet {
+            guard oldValue != transceiver,
+                  transceiver != nil else { return }
+            self.recomputeSenderParameters()
         }
-
-        let capturer = RTCCameraVideoCapturer(delegate: source)
-        let possibleDevice = RTCCameraVideoCapturer.captureDevices().first {
-            // TODO: FaceTime Camera for macOS uses .unspecified
-            $0.position == options.position || $0.position == .unspecified
-        }
-
-        guard let device = possibleDevice else {
-            throw TrackError.mediaError("No \(options.position) video capture devices available.")
-        }
-        let formats = RTCCameraVideoCapturer.supportedFormats(for: device)
-        let (targetWidth, targetHeight) = (options.captureParameter.dimensions.width,
-                                           options.captureParameter.dimensions.height)
-
-        var currentDiff = Int32.max
-        var selectedFormat: AVCaptureDevice.Format = formats[0]
-        var selectedDimension: Dimensions?
-        for format in formats {
-            if options.captureFormat == format {
-                selectedFormat = format
-                break
-            }
-            let dimension = CMVideoFormatDescriptionGetDimensions(format.formatDescription)
-            let diff = abs(targetWidth - dimension.width) + abs(targetHeight - dimension.height)
-            if diff < currentDiff {
-                selectedFormat = format
-                currentDiff = diff
-                selectedDimension = dimension
-            }
-        }
-
-        guard let selectedDimension = selectedDimension else {
-            throw TrackError.mediaError("could not get dimensions")
-        }
-
-        let fps = options.captureParameter.encoding.maxFps
-
-        // discover FPS limits
-        var minFps = 60
-        var maxFps = 0
-        for fpsRange in selectedFormat.videoSupportedFrameRateRanges {
-            minFps = min(minFps, Int(fpsRange.minFrameRate))
-            maxFps = max(maxFps, Int(fpsRange.maxFrameRate))
-        }
-        if fps < minFps || fps > maxFps {
-            throw TrackError.mediaError("requested framerate is unsupported (\(minFps)-\(maxFps))")
-        }
-
-        logger.info("starting capture with \(device), format: \(selectedFormat), fps: \(fps)")
-        capturer.startCapture(with: device, format: selectedFormat, fps: Int(fps))
-
-        return (capturer, output, selectedDimension)
     }
 
-    public func restartTrack(options: LocalVideoTrackOptions = LocalVideoTrackOptions()) throws {
-
-        let result = try LocalVideoTrack.createCameraCapturer(options: options)
-
-        // Stop previous capturer
-        if let capturer = capturer as? RTCCameraVideoCapturer {
-            capturer.stopCapture()
+    @available(*, deprecated, message: "Use CameraCapturer's methods instead to switch cameras")
+    public func restartTrack(options: LocalVideoTrackOptions = LocalVideoTrackOptions()) -> Promise<Void> {
+        guard let capturer = capturer as? CameraCapturer else {
+            return Promise(TrackError.invalidTrackState("Must be an CameraCapturer"))
         }
-
-        self.capturer = result.capturer
-        self.videoSource = result.source
-
-        // create a new RTCVideoTrack
-        let rtcTrack = Engine.factory.videoTrack(with: result.source, trackId: UUID().uuidString)
-        rtcTrack.isEnabled = true
-
-        // TODO: Stop previous mediaTrack
-        mediaTrack.isEnabled = false
-        mediaTrack = rtcTrack
-
-        // Set the new track
-        sender?.track = rtcTrack
+        capturer.options = options
+        return capturer.restartCapture()
     }
 
-    private static func createBufferCapturer() -> CreateCapturerResult {
-        let source = Engine.factory.videoSource()
-
-        #if !os(macOS)
-        let dimensions = Dimensions(
-            width: Int32(UIScreen.main.bounds.size.width * UIScreen.main.scale),
-            height: Int32(UIScreen.main.bounds.size.height * UIScreen.main.scale)
-        )
-        #else
-        let dimensions = Dimensions(width: 0, height: 0)
-        #endif
-
-        return (capturer: VideoBufferCapturer(source: source),
-                source: source,
-                dimensions: dimensions)
+    public override func start() -> Promise<Void> {
+        super.start().then {
+            self.capturer.startCapture()
+        }
     }
 
-    private static func createTrack(name: String,
-                                    createCapturerResult: CreateCapturerResult) -> LocalVideoTrack {
-
-        let rtcTrack = Engine.factory.videoTrack(with: createCapturerResult.source, trackId: UUID().uuidString)
-        rtcTrack.isEnabled = true
-
-        return LocalVideoTrack(
-            rtcTrack: rtcTrack,
-            capturer: createCapturerResult.capturer,
-            videoSource: createCapturerResult.source,
-            name: name,
-            source: .camera,
-            dimensions: createCapturerResult.dimensions
-        )
-    }
-
-    @discardableResult
     public override func stop() -> Promise<Void> {
-        Promise<Void> { resolve, _ in
-            // if the capturer is a RTCCameraVideoCapturer,
-            // wait for it to fully stop.
-            if let capturer = self.capturer as? RTCCameraVideoCapturer {
-                capturer.stopCapture { resolve(()) }
-            } else {
-                resolve(())
-            }
-        }.then {
-            super.stop()
+        super.stop().then {
+            self.capturer.stopCapture()
         }
     }
+}
 
-    // MARK: - High level methods
+// MARK: - Re-compute sender parameters
 
-    public static func createBufferTrack(name: String) -> LocalVideoTrack {
-        createTrack(name: name,
-                    createCapturerResult: createBufferCapturer())
+extension LocalVideoTrack: VideoCapturerDelegate {
+    // watch for dimension changes to re-compute sender parameters
+    public func capturer(_ capturer: VideoCapturer, didUpdate dimensions: Dimensions?) {
+        self.recomputeSenderParameters()
     }
 
-    public static func createCameraTrack(options: LocalVideoTrackOptions = LocalVideoTrackOptions(),
-                                         interceptor: VideoCaptureInterceptor? = nil) throws -> LocalVideoTrack {
-        createTrack(name: Track.cameraName,
-                    createCapturerResult: try createCameraCapturer(options: options, interceptor: interceptor))
+    internal func recomputeSenderParameters() {
+        print("Should re-compute sender parameters")
+        guard let sender = transceiver?.sender else {return}
+
+        // get current parameters
+        let parameters = sender.parameters
+        print("re-compute: \(sender.parameters.encodings)")
+
+        // TODO: Update parameters
+
+        parameters.degradationPreference = NSNumber(value: RTCDegradationPreference.disabled.rawValue)
+
+        // set the updated parameters
+        sender.parameters = parameters
+
+        print("re-compute: \(sender.parameters.encodings)")
+
     }
 }

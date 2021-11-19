@@ -33,13 +33,18 @@ public class LocalParticipant: Participant {
         }
 
         let cid = track.mediaTrack.trackId
-        return engine.addTrack(cid: cid, name: track.name, kind: .audio) {
-            $0.disableDtx = !(publishOptions?.dtx ?? true)
-        }.then { trackInfo in
 
-            Promise<LocalTrackPublication> { () -> LocalTrackPublication in
-
-                track.start()
+        return track.start()
+            .recover { (error) -> Void in
+                logger.warning("Failed to start track with error \(error)")
+                // start() will fail if it's already started.
+                // but for this case we will allow it, throw for any other error.
+                guard case TrackError.invalidTrackState = error else { throw error }
+            }.then {
+                engine.addTrack(cid: cid, name: track.name, kind: .audio) {
+                    $0.disableDtx = !(publishOptions?.dtx ?? true)
+                }
+            }.then { (trackInfo) -> LocalTrackPublication in
 
                 let transInit = RTCRtpTransceiverInit()
                 transInit.direction = .sendOnly
@@ -61,14 +66,11 @@ public class LocalParticipant: Participant {
 
                 return publication
             }
-        }
     }
 
     /// publish a new video track to the Room
     public func publishVideoTrack(track: LocalVideoTrack,
                                   publishOptions: LocalVideoTrackPublishOptions? = nil) -> Promise<LocalTrackPublication> {
-
-        logger.debug("[Publish] video")
 
         guard let engine = room?.engine else {
             return Promise(EngineError.invalidState("engine is null"))
@@ -81,22 +83,32 @@ public class LocalParticipant: Participant {
         }
 
         let cid = track.mediaTrack.trackId
-        return engine.addTrack(cid: cid,
-                               name: track.name,
-                               kind: .video) {
-            $0.width = UInt32(track.dimensions.width)
-            $0.height = UInt32(track.dimensions.height)
-        }.then { trackInfo in
 
-            Promise<LocalTrackPublication> { () -> LocalTrackPublication in
-
-                track.start()
+        // try to start the track
+        return track.start()
+            .recover { (error) -> Void in
+                logger.warning("Failed to start track with error \(error)")
+                // start() will fail if it's already started.
+                // but for this case we will allow it, throw for any other error.
+                guard case TrackError.invalidTrackState = error else { throw error }
+            }.then {
+                // request a new track to the server
+                engine.addTrack(cid: cid,
+                                name: track.name,
+                                kind: .video) {
+                    // depending on the capturer, dimensions may not be available at this point
+                    if let dimensions = track.capturer.dimensions {
+                        $0.width = UInt32(dimensions.width)
+                        $0.height = UInt32(dimensions.height)
+                    }
+                }
+            }.then { (trackInfo) -> LocalTrackPublication in
 
                 let transInit = RTCRtpTransceiverInit()
                 transInit.direction = .sendOnly
                 transInit.streamIds = [self.streamId]
 
-                if let encodings = Utils.computeEncodings(dimensions: track.dimensions,
+                if let encodings = Utils.computeEncodings(dimensions: track.capturer.dimensions!,
                                                           publishOptions: publishOptions) {
                     logger.debug("using encodings \(encodings)")
                     transInit.sendEncodings = encodings
@@ -104,7 +116,7 @@ public class LocalParticipant: Participant {
 
                 track.transceiver = self.room?.engine.publisher?.pc.addTransceiver(with: track.mediaTrack, init: transInit)
                 if track.transceiver == nil {
-                    throw TrackError.publishError("Nil sender returned from peer connection.")
+                    throw TrackError.publishError("Failed to addTransceiver")
                 }
 
                 engine.publisherShouldNegotiate()
@@ -118,7 +130,6 @@ public class LocalParticipant: Participant {
 
                 return publication
             }
-        }
     }
 
     public func unpublishAll(shouldNotify: Bool = true) -> Promise<[Void]> {
@@ -151,7 +162,7 @@ public class LocalParticipant: Participant {
         }
 
         // wait for track to stop
-        return track.stop().then { () -> Void in
+        return track.stop().always { () -> Void in
 
             if let pc = self.room?.engine.publisher?.pc,
                let sender = track.sender {
@@ -230,37 +241,46 @@ extension LocalParticipant {
         return set(source: .microphone, enabled: enabled)
     }
 
+    public func setScreen(enabled: Bool) -> Promise<LocalTrackPublication?> {
+        return set(source: .screenShareVideo, enabled: enabled)
+    }
+
     public func set(source: Track.Source, enabled: Bool, interceptor: VideoCaptureInterceptor? = nil) -> Promise<LocalTrackPublication?> {
         let publication = getTrackPublication(source: source)
-        if let publication = publication as? LocalTrackPublication {
+        if let publication = publication as? LocalTrackPublication,
+           let track = publication.track {
             // publication already exists
             if enabled {
                 publication.muted = false
-                return Promise(publication)
+                track.start().then { publication }
             } else {
-                if source == .screenShareVideo {
-                    // screenshare cannot be muted
-                    return unpublish(publication: publication).then { _ in return Promise(nil) }
-                } else {
-                    publication.muted = true
-                    return Promise(nil)
-                }
+                publication.muted = true
+                track.stop().then { () }
             }
         } else if enabled {
             // try to create a new track
-            do {
-                if source == .camera {
-                    let localTrack = try LocalVideoTrack.createCameraTrack(interceptor: interceptor)
-                    return publishVideoTrack(track: localTrack).then { publication in return publication }
-                }
-            } catch let error {
-                return Promise(error)
-            }
-            if source == .microphone {
+            if source == .camera {
+                let localTrack = LocalVideoTrack.createCameraTrack(interceptor: interceptor)
+                return publishVideoTrack(track: localTrack).then { publication in return publication }
+            } else if source == .microphone {
                 let localTrack = LocalAudioTrack.createTrack(name: "")
                 return publishAudioTrack(track: localTrack).then { publication in return publication }
+            } else if source == .screenShareVideo {
+
+                var localTrack: LocalVideoTrack?
+
+                #if !os(macOS)
+                // iOS defaults to in-app screen share only since background screen share
+                // requires a broadcast extension (iOS limitation).
+                localTrack = LocalVideoTrack.createInAppScreenShareTrack()
+                #else
+                localTrack = LocalVideoTrack.createDesktopTrack()
+                #endif
+
+                if let localTrack = localTrack {
+                    return publishVideoTrack(track: localTrack).then { publication in return publication }
+                }
             }
-            // TODO: Screen share
         }
 
         return Promise(EngineError.invalidState())
