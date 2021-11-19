@@ -89,7 +89,7 @@ public class VideoView: NativeView {
             return
         }
 
-        if .fill == mode {
+        if case .fill = mode {
             // manual calculation for .fill
 
             var size = viewSize
