@@ -255,10 +255,10 @@ extension LocalParticipant {
             // publication already exists
             if enabled {
                 publication.muted = false
-                track.start().then { publication }
+                return track.start().then { publication }
             } else {
                 publication.muted = true
-                track.stop().then { () }
+                return track.stop().then { nil }
             }
         } else if enabled {
             // try to create a new track
