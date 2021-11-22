@@ -1,6 +1,32 @@
 import Foundation
 import WebRTC
 
+extension Collection where Element == VideoParameters {
+    
+    func suggestedPresetIndex(dimensions: Dimensions? = nil,
+                              videoEncoding: VideoEncoding? = nil) -> Int {
+        // self must at lease have 1 element
+        assert(!isEmpty)
+        // dimensions or videoEndocing is required
+        assert(dimensions != nil || videoEncoding != nil)
+
+        var result = 0
+        for preset in self {
+            if let dimensions = dimensions,
+               dimensions.width >= preset.dimensions.width,
+               dimensions.height >= preset.dimensions.height {
+                
+                result += 1
+            } else if let videoEncoding = videoEncoding,
+                      videoEncoding.maxBitrate >= preset.encoding.maxBitrate {
+                result += 1
+            }
+           
+        }
+        return result
+    }
+}
+
 public struct VideoParameters {
 
     // 4:3 aspect ratio

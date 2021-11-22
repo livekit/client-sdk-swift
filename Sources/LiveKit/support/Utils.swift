@@ -100,36 +100,13 @@ class Utils {
     ) -> [RTCRtpEncodingParameters]? {
 
         let publishOptions = publishOptions ?? LocalVideoTrackPublishOptions()
-//        var encoding = publishOptions.encoding
-
-        
-//        guard let dimensions = dimensions, (publishOptions.simulcast || encoding != nil) else {
-//            return nil
-//        }
-//
-//        let presets = dimensions.computeSuggestedPresets()
-
-//        if encoding == nil {
-//            let preset = dimensions.computeSuggestedPreset(in: presets)
-//            encoding = preset.encoding
-//        }
-//
-//        guard let encoding = encoding else {
-//            return nil
-//        }
-//
-//        if !publishOptions.simulcast {
-//            // not using simulcast
-//            return [encoding.toRTCRtpEncoding()]
-//        }
-//
-//        // simulcast
-//        let midPreset = presets[1]
-//        let lowPreset = presets[0]
 
         var encodingF: VideoEncoding? = nil
         var encodingH: VideoEncoding? = nil
         var encodingQ: VideoEncoding? = nil
+        
+        var activateH = true
+        var activateQ = true
         
         // only if dimensions are available, compute encodings
         if let dimensions = dimensions {
@@ -151,21 +128,27 @@ class Utils {
             if let e = presets[safe: presetIndexF - 2]?.encoding {
                 encodingQ = e
             }
+            
+            if max(dimensions.width, dimensions.height) < 960 {
+                // deactivate Q if dimensions are too small
+                activateQ = false
+            }
         }
 
-        var result: [RTCRtpEncodingParameters] = [
-            RTCRtpEncodingParameters(rid: "f", encoding: encodingF)
-        ]
+        var result: [RTCRtpEncodingParameters] = []
         
         if publishOptions.simulcast {
             // if simulcast is enabled, always add "h" and "q" encoding parameters
             // but keep it active = false if dimension is too small
-            let shouldActive = min((dimensions?.width ?? 0), (dimensions?.height ?? 0)) >= 960
             result += [
-                RTCRtpEncodingParameters(rid: "h", encoding: encodingH, scaleDown: 2, active: shouldActive),
-                RTCRtpEncodingParameters(rid: "q", encoding: encodingQ, scaleDown: 4, active: shouldActive),
+                RTCRtpEncodingParameters(rid: "q", encoding: encodingQ, scaleDown: 4, active: activateQ),
+                RTCRtpEncodingParameters(rid: "h", encoding: encodingH, scaleDown: 2, active: activateH),
             ]
         }
+
+        result += [
+            RTCRtpEncodingParameters(rid: "f", encoding: encodingF)
+        ]
 //
 //        result.append(encoding.toRTCRtpEncoding(rid: "f"))
 //
