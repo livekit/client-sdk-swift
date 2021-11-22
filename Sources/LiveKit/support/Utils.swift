@@ -104,8 +104,7 @@ class Utils {
         var encodingF: VideoEncoding? = nil
         var encodingH: VideoEncoding? = nil
         var encodingQ: VideoEncoding? = nil
-        
-        var activateH = true
+
         var activateQ = true
         
         // only if dimensions are available, compute encodings
@@ -139,7 +138,7 @@ class Utils {
         // but keep it active = false if dimension is too small
         return publishOptions.simulcast ? [
             RTCRtpEncodingParameters(rid: "q", encoding: encodingQ, scaleDown: 4, active: activateQ),
-            RTCRtpEncodingParameters(rid: "h", encoding: encodingH, scaleDown: 2, active: activateH),
+            RTCRtpEncodingParameters(rid: "h", encoding: encodingH, scaleDown: 2),
             RTCRtpEncodingParameters(rid: "f", encoding: encodingF)
         ] : [
             RTCRtpEncodingParameters(rid: "q", encoding: encodingF),
