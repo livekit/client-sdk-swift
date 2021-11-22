@@ -287,7 +287,7 @@ extension Engine {
             transport.add(delegate: delegate!)
         }
         // convert to timed-promise
-        .timeout(5)
+        .timeout(10)
     }
 
     func waitForPublishTrack(cid: String) -> Promise<Livekit_TrackInfo> {
@@ -306,7 +306,7 @@ extension Engine {
             self.signalClient.add(delegate: delegate!)
         }
         // convert to timed-promise
-        .timeout(5)
+        .timeout(10)
     }
 }
 
