@@ -141,7 +141,7 @@ class Utils {
             RTCRtpEncodingParameters(rid: "q", encoding: encodingQ, scaleDown: 4, active: activateQ),
             RTCRtpEncodingParameters(rid: "h", encoding: encodingH, scaleDown: 2, active: activateH),
             RTCRtpEncodingParameters(rid: "f", encoding: encodingF)
-        ] else [
+        ] : [
             RTCRtpEncodingParameters(rid: "q", encoding: encodingF),
         ]
     }
