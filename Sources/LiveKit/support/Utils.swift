@@ -135,22 +135,15 @@ class Utils {
             }
         }
 
-        var result: [RTCRtpEncodingParameters] = []
-        
-        if publishOptions.simulcast {
-            // if simulcast is enabled, always add "h" and "q" encoding parameters
-            // but keep it active = false if dimension is too small
-            result += [
-                RTCRtpEncodingParameters(rid: "q", encoding: encodingQ, scaleDown: 4, active: activateQ),
-                RTCRtpEncodingParameters(rid: "h", encoding: encodingH, scaleDown: 2, active: activateH),
-            ]
-        }
-
-        result += [
+        // if simulcast is enabled, always add "h" and "f" encoding parameters
+        // but keep it active = false if dimension is too small
+        return publishOptions.simulcast ? [
+            RTCRtpEncodingParameters(rid: "q", encoding: encodingQ, scaleDown: 4, active: activateQ),
+            RTCRtpEncodingParameters(rid: "h", encoding: encodingH, scaleDown: 2, active: activateH),
             RTCRtpEncodingParameters(rid: "f", encoding: encodingF)
+        ] else [
+            RTCRtpEncodingParameters(rid: "q", encoding: encodingF),
         ]
-
-        return result
     }
 }
 
