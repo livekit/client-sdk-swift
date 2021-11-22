@@ -62,21 +62,31 @@ extension LocalVideoTrack: VideoCapturerDelegate {
     }
 
     internal func recomputeSenderParameters() {
-        print("Should re-compute sender parameters")
+        logger.debug("Should re-compute sender parameters")
         guard let sender = transceiver?.sender else {return}
 
         // get current parameters
         let parameters = sender.parameters
-        print("re-compute: \(sender.parameters.encodings)")
 
-        // TODO: Update parameters
+        // re-compute encodings
+        let encodings = Utils.computeEncodings(dimensions: capturer.dimensions,
+                                               publishOptions: publishOptions)
 
-        parameters.degradationPreference = NSNumber(value: RTCDegradationPreference.disabled.rawValue)
+        for current in parameters.encodings {
+            if let new = encodings?.first(where: { $0.rid == current.rid }) {
+                // update parameters for matching rid
+                current.isActive = new.isActive
+                current.maxBitrateBps = new.maxBitrateBps
+                current.maxFramerate = new.maxFramerate
+            }
+        }
+
+        // TODO: Investigate if WebRTC iOS SDK actually uses this value
+        // parameters.degradationPreference = NSNumber(value: RTCDegradationPreference.disabled.rawValue)
 
         // set the updated parameters
         sender.parameters = parameters
 
-        print("re-compute: \(sender.parameters.encodings)")
-
+        logger.debug("Sender parameters updated: \(sender.parameters.encodings)")
     }
 }

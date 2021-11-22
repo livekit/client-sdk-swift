@@ -114,6 +114,9 @@ public class LocalParticipant: Participant {
                     transInit.sendEncodings = encodings
                 }
 
+                // store publishOptions used for this track
+                track.publishOptions = publishOptions
+
                 track.transceiver = self.room?.engine.publisher?.pc.addTransceiver(with: track.mediaTrack, init: transInit)
                 if track.transceiver == nil {
                     throw TrackError.publishError("Failed to addTransceiver")

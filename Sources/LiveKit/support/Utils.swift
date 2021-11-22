@@ -149,17 +149,6 @@ class Utils {
         result += [
             RTCRtpEncodingParameters(rid: "f", encoding: encodingF)
         ]
-//
-//        result.append(encoding.toRTCRtpEncoding(rid: "f"))
-//
-//        if dimensions.width >= 960 {
-//            result.append(contentsOf: [
-//                midPreset.encoding.toRTCRtpEncoding(rid: "h", scaleDownBy: 2),
-//                lowPreset.encoding.toRTCRtpEncoding(rid: "q", scaleDownBy: 4)
-//            ])
-//        } else {
-//            result.append(lowPreset.encoding.toRTCRtpEncoding(rid: "h", scaleDownBy: 2))
-//        }
 
         return result
     }

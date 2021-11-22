@@ -34,6 +34,8 @@ public class Track: MulticastDelegate<TrackDelegate> {
     public var sender: RTCRtpSender? {
         return transceiver?.sender
     }
+    /// ``publishOptions`` used for this track if already published.
+    public internal (set) var publishOptions: LocalVideoTrackPublishOptions?
 
     public private(set) var state: State = .stopped {
         didSet {
