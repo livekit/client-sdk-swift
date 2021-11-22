@@ -12,7 +12,7 @@ public struct VideoEncoding {
 }
 
 extension RTCRtpEncodingParameters {
-    
+
     convenience init(rid: String? = nil,
                      encoding: VideoEncoding? = nil,
                      scaleDown: Double = 1.0,

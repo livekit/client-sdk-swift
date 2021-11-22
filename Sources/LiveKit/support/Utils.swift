@@ -101,12 +101,12 @@ class Utils {
 
         let publishOptions = publishOptions ?? LocalVideoTrackPublishOptions()
 
-        var encodingF: VideoEncoding? = nil
-        var encodingH: VideoEncoding? = nil
-        var encodingQ: VideoEncoding? = nil
+        var encodingF: VideoEncoding?
+        var encodingH: VideoEncoding?
+        var encodingQ: VideoEncoding?
 
         var activateQ = true
-        
+
         // only if dimensions are available, compute encodings
         if let dimensions = dimensions {
             // find presets array 16:9 or 4:3, always small to large order
@@ -116,7 +116,7 @@ class Utils {
             encodingF = presets[presetIndexF].encoding
             encodingH = encodingF
             encodingQ = encodingF
-            
+
             // try to get a 1 step lower encoding preset
             if let e = presets[safe: presetIndexF - 1]?.encoding {
                 encodingH = e
@@ -127,7 +127,7 @@ class Utils {
             if let e = presets[safe: presetIndexF - 2]?.encoding {
                 encodingQ = e
             }
-            
+
             if max(dimensions.width, dimensions.height) < 960 {
                 // deactivate Q if dimensions are too small
                 activateQ = false
@@ -141,7 +141,7 @@ class Utils {
             RTCRtpEncodingParameters(rid: "h", encoding: encodingH, scaleDown: 2),
             RTCRtpEncodingParameters(rid: "f", encoding: encodingF)
         ] : [
-            RTCRtpEncodingParameters(rid: "q", encoding: encodingF),
+            RTCRtpEncodingParameters(rid: "q", encoding: encodingF)
         ]
     }
 }

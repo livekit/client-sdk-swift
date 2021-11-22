@@ -90,3 +90,12 @@ extension LocalVideoTrack: VideoCapturerDelegate {
         logger.debug("Sender parameters updated: \(sender.parameters.encodings)")
     }
 }
+
+extension RTCRtpEncodingParameters {
+    open override var description: String {
+        return "RTCRtpEncodingParameters(rid: \(rid ?? "-"), "
+            + "active: \(isActive),"
+            + "maxBitrateBps: \(maxBitrateBps ?? 0), "
+            + "maxFramerate: \(maxFramerate ?? 0))"
+    }
+}

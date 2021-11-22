@@ -51,5 +51,5 @@ extension Dimensions {
 }
 
 extension VideoEncoding {
-    
+
 }

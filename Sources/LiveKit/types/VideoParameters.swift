@@ -2,7 +2,7 @@ import Foundation
 import WebRTC
 
 extension Collection where Element == VideoParameters {
-    
+
     func suggestedPresetIndex(dimensions: Dimensions? = nil,
                               videoEncoding: VideoEncoding? = nil) -> Int {
         // self must at lease have 1 element
@@ -15,13 +15,13 @@ extension Collection where Element == VideoParameters {
             if let dimensions = dimensions,
                dimensions.width >= preset.dimensions.width,
                dimensions.height >= preset.dimensions.height {
-                
+
                 result += 1
             } else if let videoEncoding = videoEncoding,
                       videoEncoding.maxBitrate >= preset.encoding.maxBitrate {
                 result += 1
             }
-           
+
         }
         return result
     }

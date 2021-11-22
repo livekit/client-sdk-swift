@@ -112,6 +112,7 @@ public class CameraCapturer: VideoCapturer {
 
                     // update internal vars
                     self.device = device
+                    // this will trigger to re-compute encodings for sender parameters if dimensions have updated
                     self.dimensions = selectedDimension
 
                     // successfully started
