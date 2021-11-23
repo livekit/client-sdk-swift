@@ -15,9 +15,10 @@ message IPCMessage {
     }
 
     message Video {
-      uint32 format = 1; // pixel format
-      uint32 width = 2;
-      uint32 height = 3;
+      uint32 format = 1; // CVPixelBuffer's FormatType
+      uint32 rotation = 2; // RTCVideoRotation
+      uint32 width = 3;
+      uint32 height = 4;
     }
   
     message AudioApp {}

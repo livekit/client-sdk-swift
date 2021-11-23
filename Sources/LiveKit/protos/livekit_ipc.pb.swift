@@ -126,8 +126,11 @@ public struct IPCMessage {
             // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
             // methods supported on all messages.
 
-            /// pixel format
+            /// CVPixelBuffer's FormatType
             public var format: UInt32 = 0
+
+            /// RTCVideoRotation
+            public var rotation: UInt32 = 0
 
             public var width: UInt32 = 0
 
@@ -318,8 +321,9 @@ extension IPCMessage.Buffer.Video: SwiftProtobuf.Message, SwiftProtobuf._Message
     public static let protoMessageName: String = IPCMessage.Buffer.protoMessageName + ".Video"
     public static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
         1: .same(proto: "format"),
-        2: .same(proto: "width"),
-        3: .same(proto: "height")
+        2: .same(proto: "rotation"),
+        3: .same(proto: "width"),
+        4: .same(proto: "height")
     ]
 
     public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -329,8 +333,9 @@ extension IPCMessage.Buffer.Video: SwiftProtobuf.Message, SwiftProtobuf._Message
             // enabled. https://github.com/apple/swift-protobuf/issues/1034
             switch fieldNumber {
             case 1: try { try decoder.decodeSingularUInt32Field(value: &self.format) }()
-            case 2: try { try decoder.decodeSingularUInt32Field(value: &self.width) }()
-            case 3: try { try decoder.decodeSingularUInt32Field(value: &self.height) }()
+            case 2: try { try decoder.decodeSingularUInt32Field(value: &self.rotation) }()
+            case 3: try { try decoder.decodeSingularUInt32Field(value: &self.width) }()
+            case 4: try { try decoder.decodeSingularUInt32Field(value: &self.height) }()
             default: break
             }
         }
@@ -340,17 +345,21 @@ extension IPCMessage.Buffer.Video: SwiftProtobuf.Message, SwiftProtobuf._Message
         if self.format != 0 {
             try visitor.visitSingularUInt32Field(value: self.format, fieldNumber: 1)
         }
+        if self.rotation != 0 {
+            try visitor.visitSingularUInt32Field(value: self.rotation, fieldNumber: 2)
+        }
         if self.width != 0 {
-            try visitor.visitSingularUInt32Field(value: self.width, fieldNumber: 2)
+            try visitor.visitSingularUInt32Field(value: self.width, fieldNumber: 3)
         }
         if self.height != 0 {
-            try visitor.visitSingularUInt32Field(value: self.height, fieldNumber: 3)
+            try visitor.visitSingularUInt32Field(value: self.height, fieldNumber: 4)
         }
         try unknownFields.traverse(visitor: &visitor)
     }
 
     public static func ==(lhs: IPCMessage.Buffer.Video, rhs: IPCMessage.Buffer.Video) -> Bool {
         if lhs.format != rhs.format {return false}
+        if lhs.rotation != rhs.rotation {return false}
         if lhs.width != rhs.width {return false}
         if lhs.height != rhs.height {return false}
         if lhs.unknownFields != rhs.unknownFields {return false}

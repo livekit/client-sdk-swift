@@ -59,7 +59,7 @@ public class VideoCapturer: MulticastDelegate<VideoCapturerDelegate>, VideoCaptu
     }
 
     public func restartCapture() -> Promise<Void> {
-        stopCapture().recover { error in
+        stopCapture().recover { _ in
             logger.warning("Capturer was already stopped")
         }.then {
             self.startCapture()

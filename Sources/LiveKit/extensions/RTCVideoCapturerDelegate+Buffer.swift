@@ -3,7 +3,7 @@ import ReplayKit
 
 extension CGImagePropertyOrientation {
 
-    func toRTCRotation() -> RTCVideoRotation {
+    public func toRTCRotation() -> RTCVideoRotation {
         switch self {
         case .up, .upMirrored, .down, .downMirrored: return ._0
         case .left, .leftMirrored: return ._90

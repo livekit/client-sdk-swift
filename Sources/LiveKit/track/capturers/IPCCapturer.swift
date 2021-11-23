@@ -13,9 +13,9 @@ class IPCCapturer: VideoCapturer {
     init(delegate: RTCVideoCapturerDelegate, ipcName: String) {
         self.ipcName = ipcName
         super.init(delegate: delegate)
-        
-        ipcServer.onReceivedData = { _, messageId, data in
-            
+
+        ipcServer.onReceivedData = { _, _, data in
+
             guard let message = try? IPCMessage(serializedData: data) else {
                 logger.warning("Failed to decode ipc message")
                 return
@@ -30,23 +30,21 @@ class IPCCapturer: VideoCapturer {
                                                      height: Int(videoMessage.height),
                                                      pixelFormat: videoMessage.format)
 
-                // TODO: handle rotation
-                
                 delegate.capturer(self.capturer,
-                                   didCapture: pixelBuffer,
-                                   timeStampNs: bufferMessage.timestampNs,
-                                   rotation: ._0)
+                                  didCapture: pixelBuffer,
+                                  timeStampNs: bufferMessage.timestampNs,
+                                  rotation: RTCVideoRotation(rawValue: Int(videoMessage.rotation)) ?? ._0)
             }
         }
     }
-    
+
     override func startCapture() -> Promise<Void> {
         super.startCapture().then {
             // start listening for ipc messages
             self.ipcServer.listen(self.ipcName)
         }
     }
-    
+
     override func stopCapture() -> Promise<Void> {
         super.stopCapture().then {
             // stop listening for ipc messages
