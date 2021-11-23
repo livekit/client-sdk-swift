@@ -108,7 +108,7 @@ public class LocalParticipant: Participant {
                 transInit.direction = .sendOnly
                 transInit.streamIds = [self.streamId]
 
-                if let encodings = Utils.computeEncodings(dimensions: track.capturer.dimensions!,
+                if let encodings = Utils.computeEncodings(dimensions: track.capturer.dimensions,
                                                           publishOptions: publishOptions) {
                     logger.debug("using encodings \(encodings)")
                     transInit.sendEncodings = encodings
