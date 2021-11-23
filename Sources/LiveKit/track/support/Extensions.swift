@@ -1,4 +1,5 @@
 import WebRTC
+import ReplayKit
 
 extension CVPixelBuffer {
 
@@ -43,3 +44,21 @@ extension CIImage {
         return pixelBuffer
     }
 }
+
+#if os(iOS)
+@available(iOS 12, *)
+extension RPSystemBroadcastPickerView {
+
+    /// Convenience function to show broadcast extension picker
+    public static func show(for preferredExtension: String? = nil,
+                            showsMicrophoneButton: Bool = true) {
+        let view = RPSystemBroadcastPickerView()
+        view.preferredExtension = preferredExtension
+        view.showsMicrophoneButton = showsMicrophoneButton
+        let selector = NSSelectorFromString("buttonPressed:")
+        if view.responds(to: selector) {
+            view.perform(selector, with: nil)
+        }
+    }
+}
+#endif
