@@ -65,7 +65,7 @@ extension RTCVideoCapturerDelegate {
             logger.warning("Failed to capture, pixel buffer not found")
             return
         }
-        
+
         withPixelBuffer?(pixelBuffer)
 
         let timeStamp = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)

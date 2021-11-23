@@ -41,6 +41,7 @@ public class VideoCapturer: MulticastDelegate<VideoCapturerDelegate>, VideoCaptu
     // will fail if already started (to prevent duplicate code execution)
     public func startCapture() -> Promise<Void> {
         guard state != .started else {
+            logger.warning("Capturer already started")
             return Promise(TrackError.invalidTrackState("Already started"))
         }
 
@@ -51,6 +52,7 @@ public class VideoCapturer: MulticastDelegate<VideoCapturerDelegate>, VideoCaptu
     // will fail if already stopped (to prevent duplicate code execution)
     public func stopCapture() -> Promise<Void> {
         guard state != .stopped else {
+            logger.warning("Capturer already stopped")
             return Promise(TrackError.invalidTrackState("Already stopped"))
         }
 
@@ -59,7 +61,7 @@ public class VideoCapturer: MulticastDelegate<VideoCapturerDelegate>, VideoCaptu
     }
 
     public func restartCapture() -> Promise<Void> {
-        stopCapture().recover { error in
+        stopCapture().recover { _ in
             logger.warning("Capturer was already stopped")
         }.then {
             self.startCapture()
