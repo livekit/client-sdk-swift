@@ -76,6 +76,7 @@ extension LocalVideoTrack: VideoCapturerDelegate {
             if let new = encodings?.first(where: { $0.rid == current.rid }) {
                 // update parameters for matching rid
                 current.isActive = new.isActive
+                current.scaleResolutionDownBy = new.scaleResolutionDownBy
                 current.maxBitrateBps = new.maxBitrateBps
                 current.maxFramerate = new.maxFramerate
             }
