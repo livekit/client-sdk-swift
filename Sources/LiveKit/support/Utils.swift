@@ -129,7 +129,7 @@ class Utils {
             }
 
             if max(dimensions.width, dimensions.height) < 960 {
-                // deactivate Q if dimensions are too small
+                // deactivate F if dimensions are too small
                 activateF = false
             }
         }
@@ -137,8 +137,8 @@ class Utils {
         // if simulcast is enabled, always add "h" and "f" encoding parameters
         // but keep it active = false if dimension is too small
         return publishOptions.simulcast ? [
-            RTCRtpEncodingParameters(rid: "q", encoding: encodingQ, scaleDown: 4),
-            RTCRtpEncodingParameters(rid: "h", encoding: encodingH, scaleDown: 2),
+            RTCRtpEncodingParameters(rid: "q", encoding: encodingQ, scaleDown: activateF ? 4 : 2),
+            RTCRtpEncodingParameters(rid: "h", encoding: encodingH, scaleDown: activateF ? 2 : 1),
             RTCRtpEncodingParameters(rid: "f", encoding: encodingF, scaleDown: 1, active: activateF)
         ] : [
             RTCRtpEncodingParameters(rid: "q", encoding: encodingF)
