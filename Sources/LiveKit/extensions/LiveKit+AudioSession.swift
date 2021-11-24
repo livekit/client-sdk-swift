@@ -61,9 +61,11 @@ extension LiveKit {
         case .remoteOnly:
             config.category = AVAudioSession.Category.playback.rawValue
             config.mode = AVAudioSession.Mode.spokenAudio.rawValue
+            config.categoryOptions = AVAudioSession.CategoryOptions.duckOthers
         case .localOnly, .localAndRemote:
             config.category = AVAudioSession.Category.playAndRecord.rawValue
             config.mode = AVAudioSession.Mode.videoChat.rawValue
+            config.categoryOptions = AVAudioSession.CategoryOptions.duckOthers
         default:
             config.category = AVAudioSession.Category.soloAmbient.rawValue
             config.mode = AVAudioSession.Mode.default.rawValue
