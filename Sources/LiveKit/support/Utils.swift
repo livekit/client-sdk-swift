@@ -101,45 +101,67 @@ class Utils {
 
         let publishOptions = publishOptions ?? LocalVideoTrackPublishOptions()
 
-        var encoding = publishOptions.encoding
+        var encodingF: VideoEncoding?
+        var encodingH: VideoEncoding?
+        var encodingQ: VideoEncoding?
 
-        guard let dimensions = dimensions, (publishOptions.simulcast || encoding != nil) else {
-            return nil
+        var activateF = true
+
+        // only if dimensions are available, compute encodings
+        if let dimensions = dimensions {
+            // find presets array 16:9 or 4:3, always small to large order
+            let presets = dimensions.computeSuggestedPresets()
+            let presetIndexF = dimensions.computeSuggestedPresetIndex(in: presets)
+
+            encodingF = presets[presetIndexF].encoding
+            encodingH = encodingF
+            encodingQ = encodingF
+
+            // try to get a 1 step lower encoding preset
+            if let e = presets[safe: presetIndexF - 1]?.encoding {
+                encodingH = e
+                encodingQ = e
+            }
+
+            // try to get a 2 step lower encoding preset
+            if let e = presets[safe: presetIndexF - 2]?.encoding {
+                encodingQ = e
+            }
+
+            if max(dimensions.width, dimensions.height) < 960 {
+                // deactivate F if dimensions are too small
+                activateF = false
+            }
         }
 
-        let presets = dimensions.computeSuggestedPresets()
+        // if simulcast is enabled, always add "h" and "f" encoding parameters
+        // but keep it active = false if dimension is too small
+        return publishOptions.simulcast ? [
+            RTCRtpEncodingParameters(rid: "q", encoding: encodingQ, scaleDown: activateF ? 4 : 2),
+            RTCRtpEncodingParameters(rid: "h", encoding: encodingH, scaleDown: activateF ? 2 : 1),
+            RTCRtpEncodingParameters(rid: "f", encoding: encodingF, scaleDown: 1, active: activateF)
+        ] : [
+            RTCRtpEncodingParameters(rid: "q", encoding: encodingF)
+        ]
+    }
+}
 
-        if encoding == nil {
-            let preset = dimensions.computeSuggestedPreset(in: presets)
-            encoding = preset.encoding
+extension Collection {
+    /// Returns the element at the specified index if it is within bounds, otherwise nil.
+    subscript(safe index: Index) -> Element? {
+        return indices.contains(index) ? self[index] : nil
+    }
+}
+
+extension MutableCollection {
+    subscript(safe index: Index) -> Element? {
+        get {
+            return indices.contains(index) ? self[index] : nil
         }
-
-        guard let encoding = encoding else {
-            return nil
+        set(newValue) {
+            if let newValue = newValue, indices.contains(index) {
+                self[index] = newValue
+            }
         }
-
-        if !publishOptions.simulcast {
-            // not using simulcast
-            return [encoding.toRTCRtpEncoding()]
-        }
-
-        // simulcast
-        let midPreset = presets[1]
-        let lowPreset = presets[0]
-
-        var result: [RTCRtpEncodingParameters] = []
-
-        result.append(encoding.toRTCRtpEncoding(rid: "f"))
-
-        if dimensions.width >= 960 {
-            result.append(contentsOf: [
-                midPreset.encoding.toRTCRtpEncoding(rid: "h", scaleDownBy: 2),
-                lowPreset.encoding.toRTCRtpEncoding(rid: "q", scaleDownBy: 4)
-            ])
-        } else {
-            result.append(lowPreset.encoding.toRTCRtpEncoding(rid: "h", scaleDownBy: 2))
-        }
-
-        return result
     }
 }

@@ -37,4 +37,19 @@ extension Dimensions {
         }
         return result
     }
+
+    func computeSuggestedPresetIndex(in presets: [VideoParameters]) -> Int {
+        assert(!presets.isEmpty)
+        var result = 0
+        for preset in presets {
+            if width >= preset.dimensions.width, height >= preset.dimensions.height {
+                result += 1
+            }
+        }
+        return result
+    }
+}
+
+extension VideoEncoding {
+
 }

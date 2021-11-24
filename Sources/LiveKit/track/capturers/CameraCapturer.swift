@@ -44,6 +44,8 @@ public class CameraCapturer: VideoCapturer {
 
     public func setCameraPosition(_ position: AVCaptureDevice.Position) -> Promise<Void> {
 
+        logger.debug("setCameraPosition(position: \(position)")
+
         // update options to use new position
         options.position = position
 
@@ -52,12 +54,16 @@ public class CameraCapturer: VideoCapturer {
     }
 
     public override func startCapture() -> Promise<Void> {
+
+        logger.debug("CameraCapturer.startCapture()")
+
         let devices = RTCCameraVideoCapturer.captureDevices()
         // TODO: FaceTime Camera for macOS uses .unspecified, fall back to first device
         let device = devices.first { $0.position == options.position } ?? devices.first
 
         guard let device = device else {
-            return Promise(TrackError.mediaError("No camera video capture devices available."))
+            logger.error("No camera video capture devices available")
+            return Promise(TrackError.mediaError("No camera video capture devices available"))
         }
 
         let formats = RTCCameraVideoCapturer.supportedFormats(for: device)
@@ -82,6 +88,7 @@ public class CameraCapturer: VideoCapturer {
         }
 
         guard let selectedDimension = selectedDimension else {
+            logger.error("Could not get dimensions")
             return Promise(TrackError.mediaError("Could not get dimensions"))
         }
 
@@ -112,6 +119,7 @@ public class CameraCapturer: VideoCapturer {
 
                     // update internal vars
                     self.device = device
+                    // this will trigger to re-compute encodings for sender parameters if dimensions have updated
                     self.dimensions = selectedDimension
 
                     // successfully started
@@ -160,5 +168,16 @@ extension LocalVideoTrack {
             name: Track.cameraName,
             source: .camera
         )
+    }
+}
+
+extension AVCaptureDevice.Position: CustomStringConvertible {
+    public var description: String {
+        switch self {
+        case .front: return ".front"
+        case .back: return ".back"
+        case .unspecified: return ".unspecified"
+        default: return "unknown"
+        }
     }
 }

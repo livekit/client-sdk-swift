@@ -39,7 +39,8 @@ extension RTCVideoCapturerDelegate {
 
     /// capture a `CMSampleBuffer`
     public func capturer(_ capturer: RTCVideoCapturer,
-                         didCapture sampleBuffer: CMSampleBuffer) {
+                         didCapture sampleBuffer: CMSampleBuffer,
+                         withPixelBuffer: ((CVPixelBuffer) -> Void)? = nil) {
 
         // check if buffer is ready
         guard CMSampleBufferGetNumSamples(sampleBuffer) == 1,
@@ -65,6 +66,8 @@ extension RTCVideoCapturerDelegate {
             return
         }
 
+        withPixelBuffer?(pixelBuffer)
+
         let timeStamp = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
         let timeStampNs = UInt64(CMTimeGetSeconds(timeStamp) * Double(NSEC_PER_SEC))
 
@@ -72,5 +75,13 @@ extension RTCVideoCapturerDelegate {
                       didCapture: pixelBuffer,
                       timeStampNs: timeStampNs,
                       rotation: rotation ?? ._0)
+    }
+}
+
+extension CVPixelBuffer {
+
+    func toDimensions() -> Dimensions {
+        Dimensions(width: Int32(CVPixelBufferGetWidth(self)),
+                   height: Int32(CVPixelBufferGetHeight(self)))
     }
 }

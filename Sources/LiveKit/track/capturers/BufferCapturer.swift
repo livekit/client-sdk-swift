@@ -8,7 +8,10 @@ class BufferCapturer: VideoCapturer {
 
     // shortcut
     func capture(_ sampleBuffer: CMSampleBuffer) {
-        delegate?.capturer(capturer, didCapture: sampleBuffer)
+        delegate?.capturer(capturer, didCapture: sampleBuffer) { pixelBuffer in
+            // report dimensions update
+            self.dimensions = pixelBuffer.toDimensions()
+        }
     }
 }
 

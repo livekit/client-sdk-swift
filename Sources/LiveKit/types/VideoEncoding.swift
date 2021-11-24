@@ -11,6 +11,24 @@ public struct VideoEncoding {
     }
 }
 
+extension RTCRtpEncodingParameters {
+
+    convenience init(rid: String? = nil,
+                     encoding: VideoEncoding? = nil,
+                     scaleDown: Double = 1.0,
+                     active: Bool = true) {
+        self.init()
+        self.isActive = active
+        self.rid = rid
+        self.scaleResolutionDownBy = NSNumber(value: scaleDown)
+
+        if let encoding = encoding {
+            self.maxFramerate = NSNumber(value: encoding.maxFps)
+            self.maxBitrateBps = NSNumber(value: encoding.maxBitrate)
+        }
+    }
+}
+
 extension VideoEncoding {
 
     func toRTCRtpEncoding(
