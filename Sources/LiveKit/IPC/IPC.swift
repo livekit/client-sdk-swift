@@ -22,10 +22,16 @@ public typealias IPCOnReceivedData = (_ server: IPCServer,
                                       _ data: Data) -> Void
 
 /// Simple class for inter-process-communication which can be used for
-/// communication between app and extension.
+/// communication between app and extension. This is a base class,
+/// for more information see ``IPCServer``, ``IPCClient``.
+///
+/// `name` used between ``IPCServer`` and ``IPCClient`` must match to
+/// establish a connection. `name` must start with an App Group ID. ex. `group.yourapp.ipc-name`.
 public class IPC {
     internal var port: CFMessagePort?
     public internal(set) var connected: Bool = false
+
+    internal init () {}
 
     public func close() {
         guard let port = port else { return }
@@ -45,7 +51,7 @@ public class IPCServer: IPC {
     public internal(set) var runLoop: CFRunLoop
     public internal(set) var runLoopSource: CFRunLoopSource?
 
-    /// any time data is received this callback will be called
+    /// The callback will be called any time data is received.
     public var onReceivedData: IPCOnReceivedData?
 
     public init(onReceivedData: IPCOnReceivedData? = nil,
@@ -62,6 +68,9 @@ public class IPCServer: IPC {
         self.runLoopSource = nil
     }
 
+    /// Start listening for data sent from client.
+    /// - Parameter name: A unique name for this server, must start with AppGroup ID.
+    /// - Returns: `true` when successfully started listening.
     @discardableResult
     public func listen(_ name: String) -> Bool {
 
