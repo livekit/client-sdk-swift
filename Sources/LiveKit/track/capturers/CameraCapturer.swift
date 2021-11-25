@@ -87,7 +87,7 @@ public class CameraCapturer: VideoCapturer {
             }
         }
 
-        guard let selectedDimension = selectedDimension else {
+        guard selectedDimension != nil else {
             logger.error("Could not get dimensions")
             return Promise(TrackError.mediaError("Could not get dimensions"))
         }
