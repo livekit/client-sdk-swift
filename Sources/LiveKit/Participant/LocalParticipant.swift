@@ -277,7 +277,7 @@ extension LocalParticipant {
                 // requires a broadcast extension (iOS limitation).
                 localTrack = LocalVideoTrack.createInAppScreenShareTrack()
                 #else
-                localTrack = LocalVideoTrack.createDesktopTrack()
+                localTrack = LocalVideoTrack.createMacOSScreenShareTrack()
                 #endif
 
                 if let localTrack = localTrack {

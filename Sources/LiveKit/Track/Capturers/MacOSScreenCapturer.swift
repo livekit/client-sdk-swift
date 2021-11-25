@@ -5,17 +5,17 @@ import Promises
 
 #if os(macOS)
 
-/// Options for ``DesktopCapturer``
-struct DesktopCapturerOptions {
+/// Options for ``MacOSScreenCapturer``
+struct MacOSScreenCapturerOptions {
     //
 }
 
-public class DesktopCapturer: VideoCapturer, AVCaptureVideoDataOutputSampleBufferDelegate {
+public class MacOSScreenCapturer: VideoCapturer, AVCaptureVideoDataOutputSampleBufferDelegate {
 
     private let capturer = RTCVideoCapturer()
 
     // currently, only main display
-    private let displayId = CGMainDisplayID()
+    public let displayId: CGDirectDisplayID
     private let session: AVCaptureSession
     private let input: AVCaptureScreenInput?
     private let output: AVCaptureVideoDataOutput
@@ -37,7 +37,9 @@ public class DesktopCapturer: VideoCapturer, AVCaptureVideoDataOutputSampleBuffe
         return displayIDList
     }
 
-    override init(delegate: RTCVideoCapturerDelegate) {
+    init(delegate: RTCVideoCapturerDelegate, displayId: CGDirectDisplayID) {
+        self.displayId = displayId
+
         session = AVCaptureSession()
         input = AVCaptureScreenInput(displayID: displayId)
         output = AVCaptureVideoDataOutput()
@@ -83,9 +85,9 @@ public class DesktopCapturer: VideoCapturer, AVCaptureVideoDataOutputSampleBuffe
 
 extension LocalVideoTrack {
     /// Creates a track that captures the whole desktop screen
-    public static func createDesktopTrack() -> LocalVideoTrack {
+    public static func createMacOSScreenShareTrack(displayId: CGDirectDisplayID = CGMainDisplayID()) -> LocalVideoTrack {
         let videoSource = Engine.factory.videoSource()
-        let capturer = DesktopCapturer(delegate: videoSource)
+        let capturer = MacOSScreenCapturer(delegate: videoSource, displayId: displayId)
         return LocalVideoTrack(
             capturer: capturer,
             videoSource: videoSource,
