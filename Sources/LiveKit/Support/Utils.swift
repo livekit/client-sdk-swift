@@ -24,9 +24,7 @@ class Utils {
         // use default options if nil
         let options = options ?? ConnectOptions()
 
-        let parsedUrl = URL(string: url)
-
-        guard let parsedUrl = parsedUrl else {
+        guard let parsedUrl = URL(string: url) else {
             throw InternalError.parse("Failed to parse url")
         }
 

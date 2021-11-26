@@ -59,9 +59,8 @@ public class CameraCapturer: VideoCapturer {
 
         let devices = RTCCameraVideoCapturer.captureDevices()
         // TODO: FaceTime Camera for macOS uses .unspecified, fall back to first device
-        let device = devices.first { $0.position == options.position } ?? devices.first
 
-        guard let device = device else {
+        guard let device = devices.first(where: { $0.position == options.position }) ?? devices.first else {
             logger.error("No camera video capture devices available")
             return Promise(TrackError.mediaError("No camera video capture devices available"))
         }
