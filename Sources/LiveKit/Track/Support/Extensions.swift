@@ -45,6 +45,49 @@ extension CIImage {
     }
 }
 
+extension CGImage {
+
+    /// Convenience method to convert ``CGImage`` to ``CVPixelBuffer``
+    public func toPixelBuffer(pixelFormatType: OSType = kCVPixelFormatType_32ARGB,
+                              colorSpace: CGColorSpace = CGColorSpaceCreateDeviceRGB(),
+                              alphaInfo: CGImageAlphaInfo = .noneSkipFirst) -> CVPixelBuffer? {
+
+        var maybePixelBuffer: CVPixelBuffer?
+        let attrs = [kCVPixelBufferCGImageCompatibilityKey: kCFBooleanTrue,
+                     kCVPixelBufferCGBitmapContextCompatibilityKey: kCFBooleanTrue]
+        let status = CVPixelBufferCreate(kCFAllocatorDefault,
+                                         width,
+                                         height,
+                                         pixelFormatType,
+                                         attrs as CFDictionary,
+                                         &maybePixelBuffer)
+
+        guard status == kCVReturnSuccess, let pixelBuffer = maybePixelBuffer else {
+            return nil
+        }
+
+        let flags = CVPixelBufferLockFlags(rawValue: 0)
+        guard kCVReturnSuccess == CVPixelBufferLockBaseAddress(pixelBuffer, flags) else {
+            return nil
+        }
+        defer { CVPixelBufferUnlockBaseAddress(pixelBuffer, flags) }
+
+        guard let context = CGContext(data: CVPixelBufferGetBaseAddress(pixelBuffer),
+                                      width: width,
+                                      height: height,
+                                      bitsPerComponent: 8,
+                                      bytesPerRow: CVPixelBufferGetBytesPerRow(pixelBuffer),
+                                      space: colorSpace,
+                                      bitmapInfo: alphaInfo.rawValue)
+        else {
+            return nil
+        }
+
+        context.draw(self, in: CGRect(x: 0, y: 0, width: width, height: height))
+        return pixelBuffer
+    }
+}
+
 #if os(iOS)
 @available(iOS 12, *)
 extension RPSystemBroadcastPickerView {
