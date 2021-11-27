@@ -107,7 +107,9 @@ public class MacOSScreenCapturer: VideoCapturer {
 
         guard let image = CGWindowListCreateImage(CGRect.null,
                                                   .optionIncludingWindow,
-                                                  windowId, [.shouldBeOpaque, .nominalResolution ]),
+                                                  windowId, [.shouldBeOpaque,
+                                                             .nominalResolution,
+                                                             .boundsIgnoreFraming]),
               let pixelBuffer = image.toPixelBuffer() else { return }
 
         let systemTime = ProcessInfo.processInfo.systemUptime
