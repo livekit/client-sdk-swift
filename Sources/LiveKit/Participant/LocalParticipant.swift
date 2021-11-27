@@ -244,7 +244,7 @@ extension LocalParticipant {
         return set(source: .microphone, enabled: enabled)
     }
 
-    public func setScreen(enabled: Bool, source: ScreenShareSource? = nil) -> Promise<LocalTrackPublication?> {
+    public func setScreenShare(enabled: Bool, source: ScreenShareSource? = nil) -> Promise<LocalTrackPublication?> {
         return set(source: .screenShareVideo, enabled: enabled, screenShareSource: source)
     }
 
