@@ -32,6 +32,7 @@ public class CameraCapturer: VideoCapturer {
         super.init(delegate: delegate)
     }
 
+    @discardableResult
     public func toggleCameraPosition() -> Promise<Void> {
         // cannot toggle if current position is unknown
         guard position != .unspecified else {

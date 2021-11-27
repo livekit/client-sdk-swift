@@ -129,7 +129,7 @@ public class Room: MulticastDelegate<RoomDelegate> {
     private func onSignalSpeakersUpdate(_ speakers: [Livekit_SpeakerInfo]) {
         var lastSpeakers = activeSpeakers.reduce(into: [Sid: Participant]()) { $0[$1.sid] = $1 }
         for speaker in speakers {
-            
+
             guard let participant = speaker.sid == localParticipant?.sid ? localParticipant : remoteParticipants[speaker.sid] else {
                 continue
             }

@@ -22,7 +22,9 @@ extension RTCVideoCapturerDelegate {
                          rotation: RTCVideoRotation = ._0) {
 
         let pixelFormat = CVPixelBufferGetPixelFormatType(pixelBuffer)
-        if pixelFormat != kCVPixelFormatType_420YpCbCr8BiPlanarFullRange {
+        if pixelFormat != kCVPixelFormatType_420YpCbCr8BiPlanarFullRange &&
+            pixelFormat != kCVPixelFormatType_32BGRA &&
+            pixelFormat != kCVPixelFormatType_32ARGB {
             // The source only supports NV12 (full-range) buffers.
             logger.warning("Failed to capture, pixel buffer format not supported \(pixelFormat)")
             return
