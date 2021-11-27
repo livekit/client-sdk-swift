@@ -27,9 +27,8 @@ extension ScreenShareSource {
 extension MacOSScreenCapturer {
 
     public static func sources() -> [ScreenShareSource] {
-        let displayIDs = displayIDs().map { ScreenShareSource.display($0) }
-        let windowIDs = windowIDs().map { ScreenShareSource.window($0) }
-        return [displayIDs, windowIDs].flatMap { $0 }
+        return [displayIDs().map { ScreenShareSource.display($0) },
+                windowIDs().map { ScreenShareSource.window($0) }].flatMap { $0 }
     }
 
     // gets a list of window IDs
