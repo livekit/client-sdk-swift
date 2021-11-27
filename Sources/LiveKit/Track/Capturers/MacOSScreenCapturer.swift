@@ -6,8 +6,12 @@ import Promises
 #if os(macOS)
 
 /// Options for ``MacOSScreenCapturer``
-struct MacOSScreenCapturerOptions {
-    //
+public struct MacOSScreenCapturerOptions {
+    let fps: UInt
+    // let dropDuplicateFrames:
+    init(fps: UInt = 24) {
+        self.fps = fps
+    }
 }
 
 extension MacOSScreenCapturer.Source {
@@ -75,10 +79,9 @@ public class MacOSScreenCapturer: VideoCapturer {
         return session
     }()
 
-    private let timeInterval: TimeInterval = 1 / 30
-
     // used for window capture
     private lazy var timer: DispatchSourceTimer = {
+        let timeInterval: TimeInterval = 1 / Double(options.fps)
         let result = DispatchSource.makeTimerSource()
         result.schedule(deadline: .now() + timeInterval, repeating: timeInterval)
         result.setEventHandler(handler: { [weak self] in
@@ -86,9 +89,14 @@ public class MacOSScreenCapturer: VideoCapturer {
         })
         return result
     }()
+    
+    public let options: MacOSScreenCapturerOptions
 
-    init(delegate: RTCVideoCapturerDelegate, source: Source) {
+    init(delegate: RTCVideoCapturerDelegate,
+         source: Source,
+         options: MacOSScreenCapturerOptions = MacOSScreenCapturerOptions()) {
         self.source = source
+        self.options = options
         super.init(delegate: delegate)
     }
 
@@ -126,6 +134,7 @@ public class MacOSScreenCapturer: VideoCapturer {
                     throw TrackError.invalidTrackState("Failed to create screen input with displayID: \(displayID)")
                 }
 
+                input.minFrameDuration = CMTimeMake(value: 1, timescale: Int32(self.options.fps))
                 input.capturesCursor = true
                 input.capturesMouseClicks = true
                 self.session.addInput(input)
