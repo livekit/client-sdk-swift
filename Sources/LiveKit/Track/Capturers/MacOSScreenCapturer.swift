@@ -3,6 +3,12 @@ import WebRTC
 import ReplayKit
 import Promises
 
+// currently only used for macOS
+public enum ScreenShareSource {
+    case display(UInt32)
+    case window(UInt32)
+}
+
 #if os(macOS)
 
 /// Options for ``MacOSScreenCapturer``
@@ -14,15 +20,15 @@ public struct MacOSScreenCapturerOptions {
     }
 }
 
-extension MacOSScreenCapturer.Source {
-    public static let mainDisplay: MacOSScreenCapturer.Source = .display(CGMainDisplayID())
+extension ScreenShareSource {
+    public static let mainDisplay: ScreenShareSource = .display(CGMainDisplayID())
 }
 
 extension MacOSScreenCapturer {
 
-    public static func sources() -> [MacOSScreenCapturer.Source] {
-        let displayIDs = displayIDs().map { MacOSScreenCapturer.Source.display($0) }
-        let windowIDs = windowIDs().map { MacOSScreenCapturer.Source.window($0) }
+    public static func sources() -> [ScreenShareSource] {
+        let displayIDs = displayIDs().map { ScreenShareSource.display($0) }
+        let windowIDs = windowIDs().map { ScreenShareSource.window($0) }
         return [displayIDs, windowIDs].flatMap { $0 }
     }
 
@@ -57,15 +63,10 @@ extension MacOSScreenCapturer {
 
 public class MacOSScreenCapturer: VideoCapturer {
 
-    public enum Source {
-        case display(CGDirectDisplayID)
-        case window(CGWindowID)
-    }
-
     private let capturer = RTCVideoCapturer()
 
     // TODO: Make it possible to change dynamically
-    public let source: Source
+    public var source: ScreenShareSource
 
     // used for display capture
     private lazy var session: AVCaptureSession = {
@@ -89,11 +90,11 @@ public class MacOSScreenCapturer: VideoCapturer {
         })
         return result
     }()
-    
+
     public let options: MacOSScreenCapturerOptions
 
     init(delegate: RTCVideoCapturerDelegate,
-         source: Source,
+         source: ScreenShareSource,
          options: MacOSScreenCapturerOptions = MacOSScreenCapturerOptions()) {
         self.source = source
         self.options = options
@@ -114,6 +115,7 @@ public class MacOSScreenCapturer: VideoCapturer {
 
         print("did capture ts: \(timestampNs)")
         delegate?.capturer(capturer, didCapture: pixelBuffer, timeStampNs: timestampNs)
+        // report dimensions
         self.dimensions = Dimensions(width: Int32(image.width),
                                      height: Int32(image.height))
     }
@@ -141,6 +143,7 @@ public class MacOSScreenCapturer: VideoCapturer {
 
                 self.session.startRunning()
 
+                // report dimensions
                 self.dimensions = Dimensions(width: Int32(CGDisplayPixelsWide(displayID)),
                                              height: Int32(CGDisplayPixelsHigh(displayID)))
             } else if case .window = self.source {
@@ -175,7 +178,7 @@ extension MacOSScreenCapturer: AVCaptureVideoDataOutputSampleBufferDelegate {
 
 extension LocalVideoTrack {
     /// Creates a track that captures the whole desktop screen
-    public static func createMacOSScreenShareTrack(source: MacOSScreenCapturer.Source = .mainDisplay) -> LocalVideoTrack {
+    public static func createMacOSScreenShareTrack(source: ScreenShareSource = .mainDisplay) -> LocalVideoTrack {
         let videoSource = Engine.factory.videoSource()
         let capturer = MacOSScreenCapturer(delegate: videoSource, source: source)
         return LocalVideoTrack(

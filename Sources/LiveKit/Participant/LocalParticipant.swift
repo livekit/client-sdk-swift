@@ -244,17 +244,27 @@ extension LocalParticipant {
         return set(source: .microphone, enabled: enabled)
     }
 
-    public func setScreen(enabled: Bool) -> Promise<LocalTrackPublication?> {
-        return set(source: .screenShareVideo, enabled: enabled)
+    public func setScreen(enabled: Bool, source: ScreenShareSource? = nil) -> Promise<LocalTrackPublication?> {
+        return set(source: .screenShareVideo, enabled: enabled, screenShareSource: source)
     }
 
-    public func set(source: Track.Source, enabled: Bool, interceptor: VideoCaptureInterceptor? = nil) -> Promise<LocalTrackPublication?> {
+    public func set(source: Track.Source,
+                    enabled: Bool,
+                    screenShareSource: ScreenShareSource? = nil,
+                    interceptor: VideoCaptureInterceptor? = nil) -> Promise<LocalTrackPublication?> {
+
         let publication = getTrackPublication(source: source)
         if let publication = publication as? LocalTrackPublication,
            let track = publication.track {
             // publication already exists
             if enabled {
                 publication.muted = false
+                #if os(macOS)
+                if let videoTrack = track as? LocalVideoTrack,
+                   let capturer = videoTrack.capturer as? MacOSScreenCapturer {
+                    capturer.source = screenShareSource ?? .mainDisplay
+                }
+                #endif
                 return track.start().then { publication }
             } else {
                 publication.muted = true
@@ -272,12 +282,14 @@ extension LocalParticipant {
 
                 var localTrack: LocalVideoTrack?
 
-                #if !os(macOS)
+                #if os(iOS)
                 // iOS defaults to in-app screen share only since background screen share
                 // requires a broadcast extension (iOS limitation).
                 localTrack = LocalVideoTrack.createInAppScreenShareTrack()
-                #else
-                localTrack = LocalVideoTrack.createMacOSScreenShareTrack()
+                #endif
+
+                #if os(macOS)
+                localTrack = LocalVideoTrack.createMacOSScreenShareTrack(source: screenShareSource ?? .mainDisplay)
                 #endif
 
                 if let localTrack = localTrack {
