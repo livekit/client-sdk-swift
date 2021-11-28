@@ -35,31 +35,31 @@ public protocol RoomDelegate {
     func room(_ room: Room, participant: Participant, didUpdate connectionQuality: ConnectionQuality)
 
     /// Same with ``ParticipantDelegate/participant(_:didUpdate:)-84m89``.
-    func room(_ room: Room, participant: Participant, didUpdate trackPublication: TrackPublication, muted: Bool)
+    func room(_ room: Room, participant: Participant, didUpdate publication: TrackPublication, muted: Bool)
 
     /// Same with ``ParticipantDelegate/participant(_:didPublish:)-60en3``.
-    func room(_ room: Room, participant: RemoteParticipant, didPublish trackPublication: RemoteTrackPublication)
+    func room(_ room: Room, participant: RemoteParticipant, didPublish publication: RemoteTrackPublication)
 
     /// Same with ``ParticipantDelegate/participant(_:didUnpublish:)-3bkga``.
-    func room(_ room: Room, participant: RemoteParticipant, didUnpublish trackPublication: RemoteTrackPublication)
+    func room(_ room: Room, participant: RemoteParticipant, didUnpublish publication: RemoteTrackPublication)
 
     /// Same with ``ParticipantDelegate/participant(_:didSubscribe:track:)-7mngl``.
-    func room(_ room: Room, participant: RemoteParticipant, didSubscribe trackPublication: RemoteTrackPublication, track: Track)
+    func room(_ room: Room, participant: RemoteParticipant, didSubscribe publication: RemoteTrackPublication, track: Track)
 
     /// Same with ``ParticipantDelegate/participant(_:didFailToSubscribe:error:)-10pn4``.
     func room(_ room: Room, participant: RemoteParticipant, didFailToSubscribe trackSid: String, error: Error)
 
     /// Same with ``ParticipantDelegate/participant(_:didUnsubscribe:track:)-3ksvp``.
-    func room(_ room: Room, participant: RemoteParticipant, didUnsubscribe trackPublication: RemoteTrackPublication)
+    func room(_ room: Room, participant: RemoteParticipant, didUnsubscribe publication: RemoteTrackPublication)
 
     /// Same with ``ParticipantDelegate/participant(_:didReceive:)-2t55a``
     func room(_ room: Room, participant: RemoteParticipant, didReceive data: Data)
 
     /// Same with ``ParticipantDelegate/localParticipant(_:didPublish:)-90j2m``.
-    func room(_ room: Room, localParticipant: LocalParticipant, didPublish trackPublication: LocalTrackPublication)
+    func room(_ room: Room, localParticipant: LocalParticipant, didPublish publication: LocalTrackPublication)
 
     /// Same with ``ParticipantDelegate/participant(_:didUnpublish:)-3bkga``.
-    func room(_ room: Room, localParticipant: LocalParticipant, didUnpublish trackPublication: LocalTrackPublication)
+    func room(_ room: Room, localParticipant: LocalParticipant, didUnpublish publication: LocalTrackPublication)
 }
 
 /// Default implementation for ``RoomDelegate``
@@ -72,14 +72,14 @@ public extension RoomDelegate {
     func room(_ room: Room, participantDidLeave participant: RemoteParticipant) {}
     func room(_ room: Room, didUpdate speakers: [Participant]) {}
     func room(_ room: Room, participant: Participant, didUpdate metadata: String?) {}
-    func room(_ room: Room, participant: Participant, didUpdate trackPublication: TrackPublication, muted: Bool) {}
+    func room(_ room: Room, participant: Participant, didUpdate publication: TrackPublication, muted: Bool) {}
     func room(_ room: Room, participant: Participant, didUpdate connectionQuality: ConnectionQuality) {}
-    func room(_ room: Room, participant: RemoteParticipant, didPublish trackPublication: RemoteTrackPublication) {}
-    func room(_ room: Room, participant: RemoteParticipant, didUnpublish trackPublication: RemoteTrackPublication) {}
-    func room(_ room: Room, participant: RemoteParticipant, didSubscribe trackPublication: RemoteTrackPublication, track: Track) {}
+    func room(_ room: Room, participant: RemoteParticipant, didPublish publication: RemoteTrackPublication) {}
+    func room(_ room: Room, participant: RemoteParticipant, didUnpublish publication: RemoteTrackPublication) {}
+    func room(_ room: Room, participant: RemoteParticipant, didSubscribe publication: RemoteTrackPublication, track: Track) {}
     func room(_ room: Room, participant: RemoteParticipant, didFailToSubscribe trackSid: String, error: Error) {}
-    func room(_ room: Room, participant: RemoteParticipant, didUnsubscribe trackPublication: RemoteTrackPublication) {}
+    func room(_ room: Room, participant: RemoteParticipant, didUnsubscribe publication: RemoteTrackPublication) {}
     func room(_ room: Room, participant: RemoteParticipant, didReceive data: Data) {}
-    func room(_ room: Room, localParticipant: LocalParticipant, didPublish trackPublication: LocalTrackPublication) {}
-    func room(_ room: Room, localParticipant: LocalParticipant, didUnpublish trackPublication: LocalTrackPublication) {}
+    func room(_ room: Room, localParticipant: LocalParticipant, didPublish publication: LocalTrackPublication) {}
+    func room(_ room: Room, localParticipant: LocalParticipant, didUnpublish publication: LocalTrackPublication) {}
 }
