@@ -10,13 +10,23 @@ public struct LocalVideoTrackOptions {
 }
 
 public struct LocalAudioTrackOptions {
-    public var noiseSuppression: Bool = true
-    public var echoCancellation: Bool = true
-    public var audoGainControl: Bool = true
-    public var typingNoiseDetection: Bool = true
-    public var highpassFilter: Bool = true
+    public var echoCancellation: Bool
+    public var noiseSuppression: Bool
+    public var autoGainControl: Bool
+    public var typingNoiseDetection: Bool
+    public var highpassFilter: Bool
     public var experimentalNoiseSuppression: Bool = false
     public var experimentalAutoGainControl: Bool = false
 
-    public init() {}
+    public init(echoCancellation: Bool = true,
+                noiseSuppression: Bool = false,
+                autoGainControl: Bool = true,
+                typingNoiseDetection: Bool = true,
+                highpassFilter: Bool = true) {
+        self.echoCancellation = echoCancellation
+        self.noiseSuppression = noiseSuppression
+        self.autoGainControl = autoGainControl
+        self.typingNoiseDetection = typingNoiseDetection
+        self.highpassFilter = highpassFilter
+    }
 }

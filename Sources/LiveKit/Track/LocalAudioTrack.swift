@@ -3,10 +3,11 @@ import WebRTC
 
 public class LocalAudioTrack: AudioTrack {
 
-    public static func createTrack(name: String, options opts: LocalAudioTrackOptions = LocalAudioTrackOptions()) -> LocalAudioTrack {
+    public static func createTrack(name: String,
+                                   options opts: LocalAudioTrackOptions = LocalAudioTrackOptions()) -> LocalAudioTrack {
         let constraints: [String: String] = [
             "googEchoCancellation": opts.echoCancellation.toString(),
-            "googAutoGainControl": opts.audoGainControl.toString(),
+            "googAutoGainControl": opts.autoGainControl.toString(),
             "googNoiseSuppression": opts.noiseSuppression.toString(),
             "googTypingNoiseDetection": opts.typingNoiseDetection.toString(),
             "googHighpassFilter": opts.highpassFilter.toString(),
