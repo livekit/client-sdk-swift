@@ -4,15 +4,16 @@ import WebRTC
 public class LocalAudioTrack: AudioTrack {
 
     public static func createTrack(name: String,
-                                   options opts: LocalAudioTrackOptions = LocalAudioTrackOptions()) -> LocalAudioTrack {
+                                   options: LocalAudioTrackOptions = LocalAudioTrackOptions()) -> LocalAudioTrack {
+
         let constraints: [String: String] = [
-            "googEchoCancellation": opts.echoCancellation.toString(),
-            "googAutoGainControl": opts.autoGainControl.toString(),
-            "googNoiseSuppression": opts.noiseSuppression.toString(),
-            "googTypingNoiseDetection": opts.typingNoiseDetection.toString(),
-            "googHighpassFilter": opts.highpassFilter.toString(),
-            "googNoiseSuppression2": opts.experimentalNoiseSuppression.toString(),
-            "googAutoGainControl2": opts.experimentalAutoGainControl.toString()
+            "googEchoCancellation": options.echoCancellation.toString(),
+            "googAutoGainControl": options.autoGainControl.toString(),
+            "googNoiseSuppression": options.noiseSuppression.toString(),
+            "googTypingNoiseDetection": options.typingNoiseDetection.toString(),
+            "googHighpassFilter": options.highpassFilter.toString(),
+            "googNoiseSuppression2": options.experimentalNoiseSuppression.toString(),
+            "googAutoGainControl2": options.experimentalAutoGainControl.toString()
         ]
         let audioConstraints = RTCMediaConstraints(mandatoryConstraints: nil, optionalConstraints: constraints)
 
