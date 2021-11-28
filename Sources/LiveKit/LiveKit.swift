@@ -22,7 +22,7 @@ public class LiveKit {
     public static func connect(
         _ url: String,
         _ token: String,
-        options: ConnectOptions,
+        options: ConnectOptions? = nil,
         delegate: RoomDelegate? = nil) -> Promise<Room> {
 
         let room = Room(delegate: delegate)
