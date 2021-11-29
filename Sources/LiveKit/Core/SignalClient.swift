@@ -79,32 +79,32 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
 
         do {
             switch msg {
-            case let .join(joinResponse) :
+            case .join(let joinResponse) :
                 notify { $0.signalClient(self, didReceive: joinResponse) }
 
-            case let .answer(sd):
+            case .answer(let sd):
                 try notify { $0.signalClient(self, didReceiveAnswer: try sd.toRTCType()) }
 
-            case let .offer(sd):
+            case .offer(let sd):
                 try notify { $0.signalClient(self, didReceiveOffer: try sd.toRTCType()) }
 
-            case let .trickle(trickle):
+            case .trickle(let trickle):
                 let rtcCandidate = try RTCIceCandidate(fromJsonString: trickle.candidateInit)
                 notify { $0.signalClient(self, didReceive: rtcCandidate, target: trickle.target) }
 
-            case let .update(update):
+            case .update(let update):
                 notify { $0.signalClient(self, didUpdate: update.participants) }
 
-            case let .trackPublished(trackPublished):
+            case .trackPublished(let trackPublished):
                 notify { $0.signalClient(self, didPublish: trackPublished) }
 
-            case let .speakersChanged(speakers):
+            case .speakersChanged(let speakers):
                 notify { $0.signalClient(self, didUpdate: speakers.speakers) }
 
-            case let .connectionQuality(quality):
+            case .connectionQuality(let quality):
                 notify { $0.signalClient(self, didUpdate: quality.updates) }
 
-            case let .mute(mute):
+            case .mute(let mute):
                 notify { $0.signalClient(self, didUpdateRemoteMute: mute.sid, muted: mute.muted) }
 
             case .leave:
