@@ -31,15 +31,6 @@ public class LocalVideoTrack: VideoTrack {
         }
     }
 
-    @available(*, deprecated, message: "Use CameraCapturer's methods instead to switch cameras")
-    public func restartTrack(options: LocalVideoTrackOptions = LocalVideoTrackOptions()) -> Promise<Void> {
-        guard let capturer = capturer as? CameraCapturer else {
-            return Promise(TrackError.invalidTrackState("Must be an CameraCapturer"))
-        }
-        capturer.options = options
-        return capturer.restartCapture()
-    }
-
     public override func start() -> Promise<Void> {
         super.start().then {
             self.capturer.startCapture()
@@ -98,5 +89,19 @@ extension RTCRtpEncodingParameters {
             + "active: \(isActive),"
             + "maxBitrateBps: \(maxBitrateBps ?? 0), "
             + "maxFramerate: \(maxFramerate ?? 0))"
+    }
+}
+
+// MARK: - Deprecated methods
+
+extension LocalVideoTrack {
+    
+    @available(*, deprecated, message: "Use CameraCapturer's methods instead to switch cameras")
+    public func restartTrack(options: LocalVideoTrackOptions = LocalVideoTrackOptions()) -> Promise<Void> {
+        guard let capturer = capturer as? CameraCapturer else {
+            return Promise(TrackError.invalidTrackState("Must be an CameraCapturer"))
+        }
+        capturer.options = options
+        return capturer.restartCapture()
     }
 }
