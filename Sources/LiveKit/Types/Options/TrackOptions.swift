@@ -2,11 +2,17 @@ import Foundation
 import WebRTC
 
 public struct LocalVideoTrackOptions {
-    public var position: AVCaptureDevice.Position = .front
+    public var position: AVCaptureDevice.Position
     public var captureFormat: AVCaptureDevice.Format?
-    public var captureParameter = VideoParameters.presetQHD169
+    public var captureParameter: VideoParameters
 
-    public init() {}
+    public init(position: AVCaptureDevice.Position = .front,
+                captureFormat: AVCaptureDevice.Format? = nil,
+                captureParameter: VideoParameters = .presetQHD169) {
+        self.position = position
+        self.captureFormat = captureFormat
+        self.captureParameter = captureParameter
+    }
 }
 
 public struct LocalAudioTrackOptions {

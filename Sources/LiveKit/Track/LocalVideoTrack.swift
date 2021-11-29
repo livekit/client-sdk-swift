@@ -95,7 +95,7 @@ extension RTCRtpEncodingParameters {
 // MARK: - Deprecated methods
 
 extension LocalVideoTrack {
-    
+
     @available(*, deprecated, message: "Use CameraCapturer's methods instead to switch cameras")
     public func restartTrack(options: LocalVideoTrackOptions = LocalVideoTrackOptions()) -> Promise<Void> {
         guard let capturer = capturer as? CameraCapturer else {
