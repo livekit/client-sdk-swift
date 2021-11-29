@@ -110,6 +110,9 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
             case .leave:
                 notify { $0.signalClientDidLeave(self) }
 
+            case .streamedTracksUpdate(let updates):
+                notify { $0.signalClient(self, didUpdateStreamedTracks: updates.resumed, paused: updates.paused) }
+
             default:
                 logger.warning("unsupported signal response type: \(msg)")
             }

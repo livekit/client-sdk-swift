@@ -442,6 +442,10 @@ extension Engine: SignalClientDelegate {
     func signalClient(_ signalClient: SignalClient, didUpdate participants: [Livekit_ParticipantInfo]) {
         notify { $0.engine(self, didUpdate: participants) }
     }
+    
+    func signalClient(_ signalClient: SignalClient, didUpdateStreamedTracks resumed: [Livekit_StreamedTrack], paused: [Livekit_StreamedTrack]) {
+        //
+    }
 }
 
 extension Engine: RTCDataChannelDelegate {
