@@ -57,18 +57,18 @@ public struct SwiftUIVideoView: NativeViewRepresentable {
     #if !os(macOS)
     // iOS
 
-    func makeUIView(context: Context) -> VideoView {
+    public func makeUIView(context: Context) -> VideoView {
         let view = VideoView()
         updateUIView(view, context: context)
         return view
     }
 
-    func updateUIView(_ videoView: VideoView, context: Context) {
+    public func updateUIView(_ videoView: VideoView, context: Context) {
         videoView.track = track
         videoView.mode = mode
     }
 
-    static func dismantleUIView(_ videoView: VideoView, coordinator: ()) {
+    public static func dismantleUIView(_ videoView: VideoView, coordinator: ()) {
         videoView.track = nil
     }
     #else
