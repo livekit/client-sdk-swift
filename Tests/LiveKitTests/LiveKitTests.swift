@@ -8,13 +8,13 @@ final class LiveKitTests: XCTestCase {
         // results.
         /*
          let connectOptions =  ConnectOptions(token: "some-token") { builder in
-             builder.roomName = "my-room"
+         builder.roomName = "my-room"
          }
          */
         XCTAssertEqual(true, true)
     }
 
     static var allTests = [
-        ("testExample", testConnect),
+        ("testExample", testConnect)
     ]
 }
