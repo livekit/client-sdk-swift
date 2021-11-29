@@ -7,20 +7,21 @@ public class CameraCapturer: VideoCapturer {
 
     private let capturer: RTCCameraVideoCapturer
 
-    /// checks whether both front and back capturing devices exist
-    public static func canTogglePosition() -> Bool {
+    /// Checks whether both front and back capturing devices exist, and can be switched.
+    public static func canSwitchPosition() -> Bool {
         let devices = RTCCameraVideoCapturer.captureDevices()
         return devices.contains(where: { $0.position == .front }) &&
             devices.contains(where: { $0.position == .back })
     }
 
+    /// The ``LocalAudioTrackOptions`` used for this capturer.
+    /// It is possible to modify the options but `restartCapture` must be called.
     public var options: LocalVideoTrackOptions
-    private let delegates = MulticastDelegate<VideoCapturerDelegate>()
 
-    /// current device used for capturing
+    /// Current device used for capturing
     public private(set) var device: AVCaptureDevice?
 
-    /// current position of the device (read only)
+    /// Current position of the device
     public var position: AVCaptureDevice.Position? {
         get { device?.position }
     }
@@ -32,8 +33,9 @@ public class CameraCapturer: VideoCapturer {
         super.init(delegate: delegate)
     }
 
+    /// Switches the camera position between `.front` and `.back` if supported by the device.
     @discardableResult
-    public func toggleCameraPosition() -> Promise<Void> {
+    public func switchCameraPosition() -> Promise<Void> {
         // cannot toggle if current position is unknown
         guard position != .unspecified else {
             logger.warning("Failed to toggle camera position")
@@ -43,6 +45,7 @@ public class CameraCapturer: VideoCapturer {
         return setCameraPosition(position == .front ? .back : .front)
     }
 
+    /// Sets the camera's position to `.front` or `.back` when supported
     public func setCameraPosition(_ position: AVCaptureDevice.Position) -> Promise<Void> {
 
         logger.debug("setCameraPosition(position: \(position)")
