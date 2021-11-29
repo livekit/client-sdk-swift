@@ -68,9 +68,9 @@ extension ObservableParticipant {
 
 open class ObservableParticipant: ObservableObject {
 
-    let participant: Participant
+    public let participant: Participant
 
-    @Published private(set) var firstVideo: TrackPublication? {
+    @Published public private(set) var firstVideo: TrackPublication? {
         didSet {
             if let pub = firstVideo, !pub.muted, firstVideo?.track != nil {
                 firstVideoAvailable = true
@@ -82,7 +82,7 @@ open class ObservableParticipant: ObservableObject {
         }
     }
 
-    @Published private(set) var firstAudio: TrackPublication? {
+    @Published public private(set) var firstAudio: TrackPublication? {
         didSet {
             if let pub = firstAudio, !pub.muted, firstAudio?.track != nil {
                 firstAudioAvailable = true
