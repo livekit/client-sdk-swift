@@ -41,7 +41,11 @@ public class LocalParticipant: Participant {
                 // but for this case we will allow it, throw for any other error.
                 guard case TrackError.invalidTrackState = error else { throw error }
             }.then {
-                engine.addTrack(cid: cid, name: track.name, kind: .audio) {
+                // request a new track to the server
+                engine.addTrack(cid: cid,
+                                name: track.name,
+                                kind: .audio,
+                                source: track.source.toPBType()) {
                     $0.disableDtx = !(publishOptions?.dtx ?? true)
                 }
             }.then { (trackInfo) -> LocalTrackPublication in
@@ -95,7 +99,8 @@ public class LocalParticipant: Participant {
                 // request a new track to the server
                 engine.addTrack(cid: cid,
                                 name: track.name,
-                                kind: .video) {
+                                kind: .video,
+                                source: track.source.toPBType()) {
                     // depending on the capturer, dimensions may not be available at this point
                     if let dimensions = track.capturer.dimensions {
                         $0.width = UInt32(dimensions.width)
