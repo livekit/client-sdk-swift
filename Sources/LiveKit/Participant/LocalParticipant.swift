@@ -244,6 +244,13 @@ extension LocalParticipant {
         return set(source: .microphone, enabled: enabled)
     }
 
+    /// Enable or disable screen sharing. This has different behavior depending on the platform.
+    ///
+    /// For iOS, this will use ``InAppScreenCapturer`` to capture in-app screen only due to Apple's limitation.
+    /// If you would like to capture the screen when the app is in the background, you will need to create a "Broadcast Upload Extension".
+    /// For macOS, this will use ``MacOSScreenCapturer`` to capture the main screen.
+    ///
+    /// For advanced usage, you can create a relevant ``LocalVideoTrack`` and call ``LocalParticipant/publishVideoTrack(track:publishOptions:)``.
     public func setScreenShare(enabled: Bool) -> Promise<LocalTrackPublication?> {
         return set(source: .screenShareVideo, enabled: enabled)
     }

@@ -3,11 +3,11 @@ import ReplayKit
 import Promises
 
 @available(macOS 11.0, iOS 11.0, *)
-class InAppScreenCapturer: VideoCapturer {
+public class InAppScreenCapturer: VideoCapturer {
 
     private let capturer = RTCVideoCapturer()
 
-    override func startCapture() -> Promise<Void> {
+    public override func startCapture() -> Promise<Void> {
         return super.startCapture().then {
 
             Promise { resolve, reject in
@@ -30,7 +30,7 @@ class InAppScreenCapturer: VideoCapturer {
         }
     }
 
-    override func stopCapture() -> Promise<Void> {
+    public override func stopCapture() -> Promise<Void> {
         return super.stopCapture().then {
             Promise { resolve, reject in
                 RPScreenRecorder.shared().stopCapture { error in
