@@ -244,26 +244,17 @@ extension LocalParticipant {
         return set(source: .microphone, enabled: enabled)
     }
 
-    public func setScreenShare(enabled: Bool, source: ScreenShareSource? = nil) -> Promise<LocalTrackPublication?> {
-        return set(source: .screenShareVideo, enabled: enabled, screenShareSource: source)
+    public func setScreenShare(enabled: Bool) -> Promise<LocalTrackPublication?> {
+        return set(source: .screenShareVideo, enabled: enabled)
     }
 
-    public func set(source: Track.Source,
-                    enabled: Bool,
-                    screenShareSource: ScreenShareSource? = nil) -> Promise<LocalTrackPublication?> {
-
+    public func set(source: Track.Source, enabled: Bool) -> Promise<LocalTrackPublication?> {
         let publication = getTrackPublication(source: source)
         if let publication = publication as? LocalTrackPublication,
            let track = publication.track {
             // publication already exists
             if enabled {
                 publication.muted = false
-                #if os(macOS)
-                if let videoTrack = track as? LocalVideoTrack,
-                   let capturer = videoTrack.capturer as? MacOSScreenCapturer {
-                    capturer.source = screenShareSource ?? .mainDisplay
-                }
-                #endif
                 return track.start().then { publication }
             } else {
                 publication.muted = true
@@ -285,10 +276,8 @@ extension LocalParticipant {
                 // iOS defaults to in-app screen share only since background screen share
                 // requires a broadcast extension (iOS limitation).
                 localTrack = LocalVideoTrack.createInAppScreenShareTrack()
-                #endif
-
-                #if os(macOS)
-                localTrack = LocalVideoTrack.createMacOSScreenShareTrack(source: screenShareSource ?? .mainDisplay)
+                #elseif os(macOS)
+                localTrack = LocalVideoTrack.createMacOSScreenShareTrack()
                 #endif
 
                 if let localTrack = localTrack {
