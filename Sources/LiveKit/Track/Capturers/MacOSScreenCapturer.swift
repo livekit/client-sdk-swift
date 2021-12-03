@@ -102,7 +102,8 @@ public class MacOSScreenCapturer: VideoCapturer {
 
     private func onWindowCaptureTimer() {
 
-        guard case .window(let windowId) = source else { return }
+        guard case .started = self.state,
+              case .window(let windowId) = source else { return }
 
         guard let image = CGWindowListCreateImage(CGRect.null,
                                                   .optionIncludingWindow,
@@ -160,6 +161,17 @@ public class MacOSScreenCapturer: VideoCapturer {
                 self.session.stopRunning()
             } else if case .window = self.source {
                 self.timer.suspend()
+            }
+        }
+    }
+
+    deinit {
+        if case .window = source {
+            self.timer.cancel()
+            if case .stopped = state {
+                // If the timer is suspended, calling cancel without resuming
+                // triggers a crash. This is documented here https://forums.developer.apple.com/thread/15902
+                self.timer.resume()
             }
         }
     }
