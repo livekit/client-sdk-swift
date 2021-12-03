@@ -248,7 +248,9 @@ extension LocalParticipant {
     ///
     /// For iOS, this will use ``InAppScreenCapturer`` to capture in-app screen only due to Apple's limitation.
     /// If you would like to capture the screen when the app is in the background, you will need to create a "Broadcast Upload Extension".
-    /// For macOS, this will use ``MacOSScreenCapturer`` to capture the main screen.
+    ///
+    /// For macOS, this will use ``MacOSScreenCapturer`` to capture the main screen. ``MacOSScreenCapturer`` has the ability
+    /// to capture other screens and windows. See ``MacOSScreenCapturer`` for details.
     ///
     /// For advanced usage, you can create a relevant ``LocalVideoTrack`` and call ``LocalParticipant/publishVideoTrack(track:publishOptions:)``.
     public func setScreenShare(enabled: Bool) -> Promise<LocalTrackPublication?> {
