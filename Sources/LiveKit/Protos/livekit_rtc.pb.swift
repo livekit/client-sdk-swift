@@ -352,6 +352,15 @@ struct Livekit_SignalResponse {
         set {message = .connectionQuality(newValue)}
     }
 
+    /// when streamed tracks changed
+    var streamedTracksUpdate: Livekit_StreamedTracksUpdate {
+        get {
+            if case .streamedTracksUpdate(let v)? = message {return v}
+            return Livekit_StreamedTracksUpdate()
+        }
+        set {message = .streamedTracksUpdate(newValue)}
+    }
+
     var unknownFields = SwiftProtobuf.UnknownStorage()
 
     enum OneOf_Message: Equatable {
@@ -377,6 +386,8 @@ struct Livekit_SignalResponse {
         case roomUpdate(Livekit_RoomUpdate)
         /// when connection quality changed
         case connectionQuality(Livekit_ConnectionQualityUpdate)
+        /// when streamed tracks changed
+        case streamedTracksUpdate(Livekit_StreamedTracksUpdate)
 
         #if !swift(>=4.1)
         static func ==(lhs: Livekit_SignalResponse.OneOf_Message, rhs: Livekit_SignalResponse.OneOf_Message) -> Bool {
@@ -426,6 +437,10 @@ struct Livekit_SignalResponse {
             }()
             case (.connectionQuality, .connectionQuality): return {
                 guard case .connectionQuality(let l) = lhs, case .connectionQuality(let r) = rhs else { preconditionFailure() }
+                return l == r
+            }()
+            case (.streamedTracksUpdate, .streamedTracksUpdate): return {
+                guard case .streamedTracksUpdate(let l) = lhs, case .streamedTracksUpdate(let r) = rhs else { preconditionFailure() }
                 return l == r
             }()
             default: return false
@@ -729,6 +744,34 @@ struct Livekit_ConnectionQualityUpdate {
     init() {}
 }
 
+struct Livekit_StreamedTrack {
+    // SwiftProtobuf.Message conformance is added in an extension below. See the
+    // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+    // methods supported on all messages.
+
+    var participantSid: String = String()
+
+    var trackSid: String = String()
+
+    var unknownFields = SwiftProtobuf.UnknownStorage()
+
+    init() {}
+}
+
+struct Livekit_StreamedTracksUpdate {
+    // SwiftProtobuf.Message conformance is added in an extension below. See the
+    // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+    // methods supported on all messages.
+
+    var paused: [Livekit_StreamedTrack] = []
+
+    var resumed: [Livekit_StreamedTrack] = []
+
+    var unknownFields = SwiftProtobuf.UnknownStorage()
+
+    init() {}
+}
+
 // MARK: - Code below here is support for the SwiftProtobuf runtime.
 
 private let _protobuf_package = "livekit"
@@ -939,7 +982,8 @@ extension Livekit_SignalResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageI
         9: .same(proto: "mute"),
         10: .standard(proto: "speakers_changed"),
         11: .standard(proto: "room_update"),
-        12: .standard(proto: "connection_quality")
+        12: .standard(proto: "connection_quality"),
+        13: .standard(proto: "streamed_tracks_update")
     ]
 
     mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -1091,6 +1135,19 @@ extension Livekit_SignalResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageI
                     self.message = .connectionQuality(v)
                 }
             }()
+            case 13: try {
+                var v: Livekit_StreamedTracksUpdate?
+                var hadOneofValue = false
+                if let current = self.message {
+                    hadOneofValue = true
+                    if case .streamedTracksUpdate(let m) = current {v = m}
+                }
+                try decoder.decodeSingularMessageField(value: &v)
+                if let v = v {
+                    if hadOneofValue {try decoder.handleConflictingOneOf()}
+                    self.message = .streamedTracksUpdate(v)
+                }
+            }()
             default: break
             }
         }
@@ -1145,6 +1202,10 @@ extension Livekit_SignalResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageI
         case .connectionQuality?: try {
             guard case .connectionQuality(let v)? = self.message else { preconditionFailure() }
             try visitor.visitSingularMessageField(value: v, fieldNumber: 12)
+        }()
+        case .streamedTracksUpdate?: try {
+            guard case .streamedTracksUpdate(let v)? = self.message else { preconditionFailure() }
+            try visitor.visitSingularMessageField(value: v, fieldNumber: 13)
         }()
         case nil: break
         }
@@ -1839,6 +1900,82 @@ extension Livekit_ConnectionQualityUpdate: SwiftProtobuf.Message, SwiftProtobuf.
 
     static func ==(lhs: Livekit_ConnectionQualityUpdate, rhs: Livekit_ConnectionQualityUpdate) -> Bool {
         if lhs.updates != rhs.updates {return false}
+        if lhs.unknownFields != rhs.unknownFields {return false}
+        return true
+    }
+}
+
+extension Livekit_StreamedTrack: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+    static let protoMessageName: String = _protobuf_package + ".StreamedTrack"
+    static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
+        1: .standard(proto: "participant_sid"),
+        2: .standard(proto: "track_sid")
+    ]
+
+    mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+        while let fieldNumber = try decoder.nextFieldNumber() {
+            // The use of inline closures is to circumvent an issue where the compiler
+            // allocates stack space for every case branch when no optimizations are
+            // enabled. https://github.com/apple/swift-protobuf/issues/1034
+            switch fieldNumber {
+            case 1: try { try decoder.decodeSingularStringField(value: &self.participantSid) }()
+            case 2: try { try decoder.decodeSingularStringField(value: &self.trackSid) }()
+            default: break
+            }
+        }
+    }
+
+    func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+        if !self.participantSid.isEmpty {
+            try visitor.visitSingularStringField(value: self.participantSid, fieldNumber: 1)
+        }
+        if !self.trackSid.isEmpty {
+            try visitor.visitSingularStringField(value: self.trackSid, fieldNumber: 2)
+        }
+        try unknownFields.traverse(visitor: &visitor)
+    }
+
+    static func ==(lhs: Livekit_StreamedTrack, rhs: Livekit_StreamedTrack) -> Bool {
+        if lhs.participantSid != rhs.participantSid {return false}
+        if lhs.trackSid != rhs.trackSid {return false}
+        if lhs.unknownFields != rhs.unknownFields {return false}
+        return true
+    }
+}
+
+extension Livekit_StreamedTracksUpdate: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+    static let protoMessageName: String = _protobuf_package + ".StreamedTracksUpdate"
+    static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
+        1: .same(proto: "paused"),
+        2: .same(proto: "resumed")
+    ]
+
+    mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+        while let fieldNumber = try decoder.nextFieldNumber() {
+            // The use of inline closures is to circumvent an issue where the compiler
+            // allocates stack space for every case branch when no optimizations are
+            // enabled. https://github.com/apple/swift-protobuf/issues/1034
+            switch fieldNumber {
+            case 1: try { try decoder.decodeRepeatedMessageField(value: &self.paused) }()
+            case 2: try { try decoder.decodeRepeatedMessageField(value: &self.resumed) }()
+            default: break
+            }
+        }
+    }
+
+    func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+        if !self.paused.isEmpty {
+            try visitor.visitRepeatedMessageField(value: self.paused, fieldNumber: 1)
+        }
+        if !self.resumed.isEmpty {
+            try visitor.visitRepeatedMessageField(value: self.resumed, fieldNumber: 2)
+        }
+        try unknownFields.traverse(visitor: &visitor)
+    }
+
+    static func ==(lhs: Livekit_StreamedTracksUpdate, rhs: Livekit_StreamedTracksUpdate) -> Bool {
+        if lhs.paused != rhs.paused {return false}
+        if lhs.resumed != rhs.resumed {return false}
         if lhs.unknownFields != rhs.unknownFields {return false}
         return true
     }

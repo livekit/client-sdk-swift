@@ -114,7 +114,7 @@ public class MacOSScreenCapturer: VideoCapturer {
         let systemTime = ProcessInfo.processInfo.systemUptime
         let timestampNs = UInt64(systemTime * Double(NSEC_PER_SEC))
 
-        print("did capture ts: \(timestampNs)")
+        logger.debug("\(self) did capture timestampNS: \(timestampNs)")
         delegate?.capturer(capturer, didCapture: pixelBuffer, timeStampNs: timestampNs)
         // report dimensions
         self.dimensions = Dimensions(width: Int32(image.width),

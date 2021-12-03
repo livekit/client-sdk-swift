@@ -21,8 +21,8 @@ class IPCCapturer: VideoCapturer {
                 return
             }
 
-            if case let .buffer(bufferMessage) = message.type,
-               case let .video(videoMessage) = bufferMessage.type {
+            if case .buffer(let bufferMessage) = message.type,
+               case .video(let videoMessage) = bufferMessage.type {
 
                 // restore pixel buffer from data
                 let pixelBuffer = CVPixelBuffer.from(bufferMessage.buffer,
