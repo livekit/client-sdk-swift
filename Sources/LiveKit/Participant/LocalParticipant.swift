@@ -236,17 +236,12 @@ public class LocalParticipant: Participant {
 
 extension LocalParticipant {
 
-    public func setCamera(enabled: Bool,
-                          options: LocalVideoTrackOptions? = nil,
-                          interceptor: VideoCaptureInterceptor? = nil) -> Promise<LocalTrackPublication?> {
-
-        return set(source: .camera, enabled: enabled, videoTrackOptions: options, interceptor: interceptor)
+    public func setCamera(enabled: Bool) -> Promise<LocalTrackPublication?> {
+        return set(source: .camera, enabled: enabled)
     }
 
-    public func setMicrophone(enabled: Bool,
-                              options: LocalAudioTrackOptions? = nil) -> Promise<LocalTrackPublication?> {
-
-        return set(source: .microphone, enabled: enabled, audioTrackOptions: options)
+    public func setMicrophone(enabled: Bool) -> Promise<LocalTrackPublication?> {
+        return set(source: .microphone, enabled: enabled)
     }
 
     public func setScreenShare(enabled: Bool, source: ScreenShareSource? = nil) -> Promise<LocalTrackPublication?> {
@@ -255,10 +250,7 @@ extension LocalParticipant {
 
     public func set(source: Track.Source,
                     enabled: Bool,
-                    videoTrackOptions: LocalVideoTrackOptions? = nil,
-                    audioTrackOptions: LocalAudioTrackOptions? = nil,
-                    screenShareSource: ScreenShareSource? = nil,
-                    interceptor: VideoCaptureInterceptor? = nil) -> Promise<LocalTrackPublication?> {
+                    screenShareSource: ScreenShareSource? = nil) -> Promise<LocalTrackPublication?> {
 
         let publication = getTrackPublication(source: source)
         if let publication = publication as? LocalTrackPublication,
@@ -280,11 +272,10 @@ extension LocalParticipant {
         } else if enabled {
             // try to create a new track
             if source == .camera {
-                let localTrack = LocalVideoTrack.createCameraTrack(options: videoTrackOptions,
-                                                                   interceptor: interceptor)
+                let localTrack = LocalVideoTrack.createCameraTrack()
                 return publishVideoTrack(track: localTrack).then { publication in return publication }
             } else if source == .microphone {
-                let localTrack = LocalAudioTrack.createTrack(name: "", options: audioTrackOptions)
+                let localTrack = LocalAudioTrack.createTrack(name: "")
                 return publishAudioTrack(track: localTrack).then { publication in return publication }
             } else if source == .screenShareVideo {
 
