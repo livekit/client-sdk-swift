@@ -4,21 +4,39 @@ import Promises
 
 public class RemoteParticipant: Participant {
 
-    init(sid: String, info: Livekit_ParticipantInfo?, room: Room) {
-        super.init(sid: sid)
+    public let delegates = MulticastDelegate<ParticipantDelegate>()
+
+    public let sid: Sid
+    public internal(set) weak var room: Room?
+    public internal(set) var identity: String?
+
+    public internal(set) var audioLevel: Float = 0.0
+    public internal(set) var isSpeaking: Bool = false
+    public private(set) var metadata: String?
+    public private(set) var connectionQuality: ConnectionQuality = .unknown
+
+    public internal(set) var tracks = [String: RemoteTrackPublication]()
+
+    public var videoTracks: [RemoteTrackPublication] {
+        tracks.values.filter { $0.track?.kind == .video }
+    }
+
+    public var audiotracks: [RemoteTrackPublication] {
+        tracks.values.filter { $0.track?.kind == .audio }
+    }
+    
+    private var info: Livekit_ParticipantInfo?
+
+    init(fromInfo info: Livekit_ParticipantInfo, room: Room) {
+        self.sid = info.sid
         self.room = room
-        if let info = info {
-            updateFromInfo(info: info)
-        }
+        update(info: info)
     }
 
-    public func getTrackPublication(sid: String) -> RemoteTrackPublication? {
-        return tracks[sid] as? RemoteTrackPublication
-    }
-
-    override func updateFromInfo(info: Livekit_ParticipantInfo) {
+    func update(info: Livekit_ParticipantInfo) {
         let hadInfo = self.info != nil
-        super.updateFromInfo(info: info)
+        
+        update(commonInfo: info)
 
         var validTrackPublications = [String: RemoteTrackPublication]()
         var newTrackPublications = [String: RemoteTrackPublication]()

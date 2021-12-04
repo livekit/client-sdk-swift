@@ -1,65 +1,72 @@
 import Foundation
 import WebRTC
 
-public class Participant: MulticastDelegate<ParticipantDelegate> {
+public protocol Participant: MulticastDelegateCapable {
 
-    public let sid: Sid
-    public internal(set) var identity: String?
-    public internal(set) var audioLevel: Float = 0.0
-    public internal(set) var isSpeaking: Bool = false {
-        didSet {
-            guard oldValue != isSpeaking else { return }
-            notify { $0.participant(self, didUpdate: self.isSpeaking) }
-            // relavent event for Room doesn't exist yet...
-        }
+    associatedtype TrackPublicationType = TrackPublication
+
+    var sid: Sid { get }
+    var identity: String? { get }
+
+    var audioLevel: Float { get }
+    var isSpeaking: Bool { get }
+    var metadata: String? { get }
+    var connectionQuality: ConnectionQuality { get }
+
+    var tracks: [String: TrackPublicationType] { get }
+    var videoTracks: [TrackPublicationType] { get }
+    var audiotracks: [TrackPublicationType] { get }
+
+    var room: Room? { get }
+
+    //    public private(set) var joinedAt: Date?
+    //    public internal(set) var tracks = [String: TrackPublication]()
+    //
+//    var info: Livekit_ParticipantInfo? { get }
+}
+
+extension Participant {
+
+    public func getTrackPublication(sid: String) -> TrackPublicationType? {
+        return tracks[sid]
     }
 
-    public internal(set) var metadata: String? {
-        didSet {
-            guard oldValue != metadata else { return }
-            notify { $0.participant(self, didUpdate: self.metadata) }
-            room?.notify { $0.room(self.room!, participant: self, didUpdate: self.metadata) }
-        }
-    }
-
-    public internal(set) var connectionQuality: ConnectionQuality = .unknown {
-        didSet {
-            guard oldValue != connectionQuality else { return }
-            notify { $0.participant(self, didUpdate: self.connectionQuality) }
-            room?.notify { $0.room(self.room!, participant: self, didUpdate: self.connectionQuality) }
-        }
-    }
-
-    public private(set) var joinedAt: Date?
-    public internal(set) var tracks = [String: TrackPublication]()
-
-    public var audioTracks: [String: TrackPublication] {
-        tracks.filter { $0.value.kind == .audio }
-    }
-
-    public var videoTracks: [String: TrackPublication] {
-        tracks.filter { $0.value.kind == .video }
-    }
-
-    var info: Livekit_ParticipantInfo?
-
-    // reference to the Room this Participant belongs to
-    weak var room: Room?
-
-    public init(sid: String) {
-        self.sid = sid
-    }
-
-    func addTrack(publication: TrackPublication) {
+    public func addTrack(publication: TrackPublicationType) {
         tracks[publication.sid] = publication
         publication.track?.sid = publication.sid
     }
 
-    func updateFromInfo(info: Livekit_ParticipantInfo) {
+    internal func update(commonInfo: Livekit_ParticipantInfo) {
         identity = info.identity
         metadata = info.metadata
-        joinedAt = Date(timeIntervalSince1970: TimeInterval(info.joinedAt))
-        self.info = info
+        // joinedAt = Date(timeIntervalSince1970: TimeInterval(info.joinedAt))
+        // self.info = info
+    }
+    
+    internal func update(audioLevel: Float) {
+        guard self.audioLevel != audioLevel else { return }
+        self.audioLevel = audioLevel
+    }
+
+    internal func update(isSpeaking: Bool) {
+        guard self.isSpeaking != isSpeaking else { return }
+        self.isSpeaking = isSpeaking
+        notify { $0.participant(self, didUpdate: self.isSpeaking) }
+        // relavent event for Room doesn't exist yet...
+    }
+    
+    internal func update(metadata: String?) {
+        guard self.metadata != metadata else { return }
+        self.metadata = metadata
+        notify { $0.participant(self, didUpdate: self.metadata) }
+        room?.notify { $0.room(self.room!, participant: self, didUpdate: self.metadata) }
+    }
+    
+    internal func update(connectionQuality: ConnectionQuality) {
+        guard self.connectionQuality != connectionQuality else { return }
+        self.connectionQuality = connectionQuality
+        notify { $0.participant(self, didUpdate: self.connectionQuality) }
+        room?.notify { $0.room(self.room!, participant: self, didUpdate: self.connectionQuality) }
     }
 }
 
@@ -79,12 +86,12 @@ extension Participant {
         !(getTrackPublication(source: .screenShareVideo)?.muted ?? true)
     }
 
-    func getTrackPublication(name: String) -> TrackPublication? {
+    func getTrackPublication(name: String) -> TrackPublicationType? {
         tracks.values.first(where: { $0.name == name })
     }
 
     /// find the first publication matching `source` or any compatible.
-    func getTrackPublication(source: Track.Source) -> TrackPublication? {
+    func getTrackPublication(source: Track.Source) -> TrackPublicationType? {
         // if source is unknown return nil
         guard source != .unknown else { return nil }
         // try to find a Publication with matching source

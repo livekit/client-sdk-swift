@@ -26,16 +26,16 @@ public protocol RoomDelegate {
     ///
     /// List of speakers are ordered by their ``Participant/audioLevel``, loudest speakers first.
     /// This will include the ``LocalParticipant`` too.
-    func room(_ room: Room, didUpdate speakers: [Participant])
+    func room<T: Participant>(_ room: Room, didUpdate speakers: [T])
 
     /// Same with ``ParticipantDelegate/participant(_:didUpdate:)-46iut``.
-    func room(_ room: Room, participant: Participant, didUpdate metadata: String?)
+    func room<T: Participant>(_ room: Room, participant: T, didUpdate metadata: String?)
 
     /// Same with ``ParticipantDelegate/participant(_:didUpdate:)-7zxk1``.
-    func room(_ room: Room, participant: Participant, didUpdate connectionQuality: ConnectionQuality)
+    func room<T: Participant>(_ room: Room, participant: T, didUpdate connectionQuality: ConnectionQuality)
 
     /// Same with ``ParticipantDelegate/participant(_:didUpdate:)-84m89``.
-    func room(_ room: Room, participant: Participant, didUpdate publication: TrackPublication, muted: Bool)
+    func room<T: Participant>(_ room: Room, participant: T, didUpdate publication: TrackPublication, muted: Bool)
 
     /// Same with ``ParticipantDelegate/participant(_:didPublish:)-60en3``.
     func room(_ room: Room, participant: RemoteParticipant, didPublish publication: RemoteTrackPublication)
@@ -70,10 +70,10 @@ public extension RoomDelegate {
     func room(_ room: Room, didUpdate connectionState: ConnectionState) {}
     func room(_ room: Room, participantDidJoin participant: RemoteParticipant) {}
     func room(_ room: Room, participantDidLeave participant: RemoteParticipant) {}
-    func room(_ room: Room, didUpdate speakers: [Participant]) {}
-    func room(_ room: Room, participant: Participant, didUpdate metadata: String?) {}
-    func room(_ room: Room, participant: Participant, didUpdate publication: TrackPublication, muted: Bool) {}
-    func room(_ room: Room, participant: Participant, didUpdate connectionQuality: ConnectionQuality) {}
+    func room<T: Participant>(_ room: Room, didUpdate speakers: [T]) {}
+    func room<T: Participant>(_ room: Room, participant: T, didUpdate metadata: String?) {}
+    func room<T: Participant>(_ room: Room, participant: T, didUpdate publication: TrackPublication, muted: Bool) {}
+    func room<T: Participant>(_ room: Room, participant: T, didUpdate connectionQuality: ConnectionQuality) {}
     func room(_ room: Room, participant: RemoteParticipant, didPublish publication: RemoteTrackPublication) {}
     func room(_ room: Room, participant: RemoteParticipant, didUnpublish publication: RemoteTrackPublication) {}
     func room(_ room: Room, participant: RemoteParticipant, didSubscribe publication: RemoteTrackPublication, track: Track) {}

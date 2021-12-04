@@ -25,18 +25,18 @@ extension ObservableParticipant: ParticipantDelegate {
         recomputeFirstTracks()
     }
 
-    public func participant(_ participant: Participant,
-                            didUpdate trackPublication: TrackPublication, muted: Bool) {
+    public func participant<T: Participant>(_ participant: T,
+                                            didUpdate trackPublication: TrackPublication, muted: Bool) {
         recomputeFirstTracks()
     }
 
-    public func participant(_ participant: Participant, didUpdate speaking: Bool) {
+    public func participant<T: Participant>(_ participant: T, didUpdate speaking: Bool) {
         DispatchQueue.main.async {
             self.isSpeaking = speaking
         }
     }
 
-    public func participant(_ participant: Participant, didUpdate connectionQuality: ConnectionQuality) {
+    public func participant<T: Participant>(_ participant: T, didUpdate connectionQuality: ConnectionQuality) {
         DispatchQueue.main.async {
             self.connectionQuality = connectionQuality
         }
@@ -66,9 +66,9 @@ extension ObservableParticipant {
     }
 }
 
-open class ObservableParticipant: ObservableObject {
+open class ObservableParticipant<T: Participant>: ObservableObject {
 
-    public let participant: Participant
+    public let participant: T
 
     @Published public private(set) var firstCameraPublication: TrackPublication?
     @Published public private(set) var firstScreenSharePublication: TrackPublication?
@@ -104,7 +104,7 @@ open class ObservableParticipant: ObservableObject {
 
     @Published public private(set) var connectionQuality: ConnectionQuality = .unknown
 
-    public init(_ participant: Participant) {
+    public init(_ participant: T) {
         self.participant = participant
         participant.add(delegate: self)
         recomputeFirstTracks()
@@ -116,9 +116,9 @@ open class ObservableParticipant: ObservableObject {
 
     private func recomputeFirstTracks() {
         DispatchQueue.main.async {
-            self.firstCameraPublication = self.participant.videoTracks.values.first(where: { $0.source == .camera })
-            self.firstScreenSharePublication = self.participant.videoTracks.values.first(where: { $0.source == .screenShareVideo })
-            self.firstAudioPublication = self.participant.audioTracks.values.first
+            self.firstCameraPublication = self.participant.videoTracks.first(where: { $0.source == .camera })
+            self.firstScreenSharePublication = self.participant.videoTracks.first(where: { $0.source == .screenShareVideo })
+            self.firstAudioPublication = self.participant.audioTracks.first
         }
     }
 }

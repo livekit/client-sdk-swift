@@ -3,19 +3,33 @@ import Promises
 
 public class LocalParticipant: Participant {
 
-    private var streamId = "stream"
+    public let delegates = MulticastDelegate<ParticipantDelegate>()
 
-    public var localAudioTrackPublications: [TrackPublication] { Array(audioTracks.values) }
-    public var localVideoTrackPublications: [TrackPublication] { Array(videoTracks.values) }
+    public let sid: Sid
+    public internal(set) weak var room: Room?
+    public internal(set) var identity: String?
 
-    convenience init(fromInfo info: Livekit_ParticipantInfo, room: Room) {
-        self.init(sid: info.sid)
-        self.room = room
-        updateFromInfo(info: info)
+    public private(set) var audioLevel: Float = 0.0
+    public private(set) var isSpeaking: Bool = false
+    public private(set) var metadata: String?
+    public private(set) var connectionQuality: ConnectionQuality = .unknown
+
+    public internal(set) var tracks = [String: LocalTrackPublication]()
+
+    public var videoTracks: [LocalTrackPublication] {
+        tracks.values.filter { $0.track?.kind == .video }
     }
 
-    public func getTrackPublication(sid: String) -> LocalTrackPublication? {
-        return tracks[sid] as? LocalTrackPublication
+    public var audiotracks: [LocalTrackPublication] {
+        tracks.values.filter { $0.track?.kind == .audio }
+    }
+    
+    private var info: Livekit_ParticipantInfo?
+
+    init(fromInfo info: Livekit_ParticipantInfo, room: Room) {
+        self.sid = info.sid
+        self.room = room
+        update(commonInfo: info)
     }
 
     /// publish a new audio track to the Room
@@ -28,7 +42,7 @@ public class LocalParticipant: Participant {
 
         let publishOptions = publishOptions ?? engine.options?.defaultAudioPublishOptions
 
-        if localAudioTrackPublications.first(where: { $0.track === track }) != nil {
+        if audiotracks.first(where: { $0.track === track }) != nil {
             return Promise(TrackError.publishError("This track has already been published."))
         }
 
@@ -52,7 +66,6 @@ public class LocalParticipant: Participant {
 
                 let transInit = RTCRtpTransceiverInit()
                 transInit.direction = .sendOnly
-                transInit.streamIds = [self.streamId]
 
                 let transceiver = self.room?.engine.publisher?.pc.addTransceiver(with: track.mediaTrack, init: transInit)
                 if transceiver == nil {
@@ -82,7 +95,7 @@ public class LocalParticipant: Participant {
 
         let publishOptions = publishOptions ?? engine.options?.defaultVideoPublishOptions
 
-        if localVideoTrackPublications.first(where: { $0.track === track }) != nil {
+        if videoTracks.first(where: { $0.track === track }) != nil {
             return Promise(TrackError.publishError("This track has already been published."))
         }
 
@@ -111,7 +124,6 @@ public class LocalParticipant: Participant {
 
                 let transInit = RTCRtpTransceiverInit()
                 transInit.direction = .sendOnly
-                transInit.streamIds = [self.streamId]
 
                 if let encodings = Utils.computeEncodings(dimensions: track.capturer.dimensions,
                                                           publishOptions: publishOptions) {
@@ -142,8 +154,7 @@ public class LocalParticipant: Participant {
 
     public func unpublishAll(shouldNotify: Bool = true) -> Promise<[Void]> {
         // build a list of promises
-        let promises = tracks.values.compactMap { $0 as? LocalTrackPublication }
-            .map { unpublish(publication: $0, shouldNotify: shouldNotify) }
+        let promises = tracks.values.map { unpublish(publication: $0, shouldNotify: shouldNotify) }
         // combine promises to wait all to complete
         return all(promises)
     }
@@ -219,8 +230,9 @@ public class LocalParticipant: Participant {
         channel?.sendData(buffer)
     }
 
-    override func updateFromInfo(info: Livekit_ParticipantInfo) {
-        super.updateFromInfo(info: info)
+    func updateFromInfo(info: Livekit_ParticipantInfo) {
+
+        update(commonInfo: info)
 
         // detect tracks that have been muted remotely, and apply those changes
         for trackInfo in info.tracks {

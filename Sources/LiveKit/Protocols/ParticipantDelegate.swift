@@ -12,15 +12,15 @@ public protocol ParticipantDelegate {
 
     /// A ``Participant``'s metadata has updated.
     /// `participant` Can be a ``LocalParticipant`` or a ``RemoteParticipant``.
-    func participant(_ participant: Participant, didUpdate metadata: String?)
+    func participant<T: Participant>(_ participant: T, didUpdate metadata: String?)
 
     /// The isSpeaking status of a ``Participant`` has changed.
     /// `participant` Can be a ``LocalParticipant`` or a ``RemoteParticipant``.
-    func participant(_ participant: Participant, didUpdate speaking: Bool)
+    func participant<T: Participant>(_ participant: T, didUpdate speaking: Bool)
 
     /// The connection quality of a ``Participant`` has updated.
     /// `participant` Can be a ``LocalParticipant`` or a ``RemoteParticipant``.
-    func participant(_ participant: Participant, didUpdate connectionQuality: ConnectionQuality)
+    func participant<T: Participant>(_ participant: T, didUpdate connectionQuality: ConnectionQuality)
 
     /// The ``Participant``'s `muted` state has updated.
     ///
@@ -28,7 +28,7 @@ public protocol ParticipantDelegate {
     /// or if the server has requested the participant to be muted.
     ///
     /// `participant` Can be a ``LocalParticipant`` or a ``RemoteParticipant``.
-    func participant(_ participant: Participant, didUpdate publication: TrackPublication, muted: Bool)
+    func participant<T: Participant>(_ participant: T, didUpdate publication: TrackPublication, muted: Bool)
 
     /// When a new ``RemoteTrackPublication`` is published to ``Room`` after the ``LocalParticipant`` has joined.
     ///
@@ -65,10 +65,10 @@ public protocol ParticipantDelegate {
 
 /// Default implementation for ``ParticipantDelegate``
 public extension ParticipantDelegate {
-    func participant(_ participant: Participant, didUpdate metadata: String?) {}
-    func participant(_ participant: Participant, didUpdate speaking: Bool) {}
-    func participant(_ participant: Participant, didUpdate connectionQuality: ConnectionQuality) {}
-    func participant(_ participant: Participant, didUpdate publication: TrackPublication, muted: Bool) {}
+    func participant<T: Participant>(_ participant: T, didUpdate metadata: String?) {}
+    func participant<T: Participant>(_ participant: T, didUpdate speaking: Bool) {}
+    func participant<T: Participant>(_ participant: T, didUpdate connectionQuality: ConnectionQuality) {}
+    func participant<T: Participant>(_ participant: T, didUpdate publication: TrackPublication, muted: Bool) {}
     func participant(_ participant: RemoteParticipant, didPublish publication: RemoteTrackPublication) {}
     func participant(_ participant: RemoteParticipant, didUnpublish publication: RemoteTrackPublication) {}
     func participant(_ participant: RemoteParticipant, didSubscribe publication: RemoteTrackPublication, track: Track) {}

@@ -13,7 +13,7 @@ public class Room: MulticastDelegate<RoomDelegate> {
     public private(set) var name: String?
     public private(set) var localParticipant: LocalParticipant?
     public private(set) var remoteParticipants = [Sid: RemoteParticipant]()
-    public private(set) var activeSpeakers: [Participant] = []
+    //    public private(set) var activeSpeakers: [some Participant] = []
 
     //    private let monitor: NWPathMonitor
     //    private let monitorQueue: DispatchQueue
@@ -120,8 +120,7 @@ public class Room: MulticastDelegate<RoomDelegate> {
         if let participant = remoteParticipants[sid] {
             return participant
         }
-        let participant = RemoteParticipant(sid: sid, info: info, room: self)
-        participant.room = self // wire up to room delegate calls
+        let participant = RemoteParticipant(fromInfo: info, room: self)
         remoteParticipants[sid] = participant
         return participant
     }
@@ -153,27 +152,34 @@ public class Room: MulticastDelegate<RoomDelegate> {
         var seenSids = [String: Bool]()
         for speaker in speakers {
             seenSids[speaker.sid] = true
-            if speaker.sid == localParticipant?.sid {
-                localParticipant?.audioLevel = speaker.level
-                localParticipant?.isSpeaking = true
-                activeSpeakers.append(localParticipant!)
+            if let localParticipant = self.localParticipant,
+               speaker.sid == localParticipant.sid {
+                localParticipant.update(audioLevel: speaker.level)
+                localParticipant.update(isSpeaking: true)
+                activeSpeakers.append(localParticipant)
             } else {
                 if let participant = remoteParticipants[speaker.sid] {
-                    participant.audioLevel = speaker.level
-                    participant.isSpeaking = true
+//                    participant.audioLevel = speaker.level
+//                    participant.isSpeaking = true
+                    participant.update(audioLevel: speaker.level)
+                    participant.update(isSpeaking: true)
                     activeSpeakers.append(participant)
                 }
             }
         }
 
         if let localParticipant = localParticipant, seenSids[localParticipant.sid] == nil {
-            localParticipant.audioLevel = 0.0
-            localParticipant.isSpeaking = false
+//            localParticipant.audioLevel = 0.0
+//            localParticipant.isSpeaking = false
+            localParticipant.update(audioLevel: 0.0)
+            localParticipant.update(isSpeaking: false)
         }
         for participant in remoteParticipants.values {
             if seenSids[participant.sid] == nil {
-                participant.audioLevel = 0.0
-                participant.isSpeaking = false
+//                participant.audioLevel = 0.0
+//                participant.isSpeaking = false
+                participant.update(audioLevel: 0.0)
+                participant.update(isSpeaking: false)
             }
         }
         self.activeSpeakers = activeSpeakers
