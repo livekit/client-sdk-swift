@@ -9,10 +9,10 @@ public class LocalParticipant: Participant {
     public internal(set) weak var room: Room?
     public internal(set) var identity: String?
 
-    public private(set) var audioLevel: Float = 0.0
-    public private(set) var isSpeaking: Bool = false
-    public private(set) var metadata: String?
-    public private(set) var connectionQuality: ConnectionQuality = .unknown
+    public var audioLevel: Float = 0.0
+    public var isSpeaking: Bool = false
+    public var metadata: String?
+    public var connectionQuality: ConnectionQuality = .unknown
 
     public internal(set) var tracks = [String: LocalTrackPublication]()
 
@@ -23,7 +23,7 @@ public class LocalParticipant: Participant {
     public var audiotracks: [LocalTrackPublication] {
         tracks.values.filter { $0.track?.kind == .audio }
     }
-    
+
     private var info: Livekit_ParticipantInfo?
 
     init(fromInfo info: Livekit_ParticipantInfo, room: Room) {

@@ -1,50 +1,55 @@
 import Foundation
 
-extension TrackPublication: Equatable {
-    // objects are considered equal if sids are the same
-    public static func == (lhs: TrackPublication, rhs: TrackPublication) -> Bool {
-        lhs.sid == rhs.sid
-    }
+//extension TrackPublication: Equatable {
+//    // objects are considered equal if sids are the same
+//    public static func == (lhs: TrackPublication, rhs: TrackPublication) -> Bool {
+//        lhs.sid == rhs.sid
+//    }
+//}
+
+public protocol TrackPublication {
+
+    associatedtype ParticipantType = Participant
+
+    var sid: Sid { get }
+    var kind: Track.Kind { get}
+    var source: Track.Source { get }
+    var name: String { get }
+    var track: Track? { get }
+    var muted: Bool { get }
+
+    /// video-only
+//    public internal(set) var dimensions: Dimensions?
+
+    /// video-only
+//    public internal(set) var simulcasted: Bool = false
+
+    var participant: ParticipantType? { get }
+
+//    init(info: Livekit_TrackInfo, track: Track? = nil, participant: Participant? = nil) {
+//        sid = info.sid
+//        name = info.name
+//        kind = info.type.toLKType()
+//        source = info.source.toLKType()
+//        muted = info.muted
+//        self.track = track
+//        self.participant = participant
+//        update(from info: info)
+//    }
 }
 
-public class TrackPublication {
+extension TrackPublication {
 
-    public let sid: Sid
-    public let kind: Track.Kind
-    public let source: Track.Source
-    public internal(set) var name: String
-    public internal(set) var track: Track?
-    public internal(set) var muted: Bool
-
-    /// video-only
-    public internal(set) var dimensions: Dimensions?
-
-    /// video-only
-    public internal(set) var simulcasted: Bool = false
-
-    weak var participant: Participant?
-
-    public var subscribed: Bool { return track != nil }
-
-    init(info: Livekit_TrackInfo, track: Track? = nil, participant: Participant? = nil) {
-        sid = info.sid
-        name = info.name
-        kind = info.type.toLKType()
-        source = info.source.toLKType()
-        muted = info.muted
-        self.track = track
-        self.participant = participant
-        updateFromInfo(info: info)
-    }
-
-    func updateFromInfo(info: Livekit_TrackInfo) {
+    public var subscribed: Bool { track != nil }
+    
+    func update(from info: Livekit_TrackInfo) {
         // only muted and name can conceivably update
         name = info.name
         muted = info.muted
         simulcasted = info.simulcast
-        if info.type == .video {
-            dimensions = Dimensions(width: Int32(info.width),
-                                    height: Int32(info.height))
-        }
+//        if info.type == .video {
+//            dimensions = Dimensions(width: Int32(info.width),
+//                                    height: Int32(info.height))
+//        }
     }
 }

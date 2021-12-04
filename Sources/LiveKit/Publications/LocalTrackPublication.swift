@@ -1,6 +1,9 @@
 import Foundation
 
 public class LocalTrackPublication: TrackPublication {
+    
+    typealias ParticipantType = LocalParticipant
+
     /// Mute or unmute this track
     ///
     /// Muting the track would stop audio or video from being transmitted to the server, and notify other participants in the room.

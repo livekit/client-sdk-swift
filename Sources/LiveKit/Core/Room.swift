@@ -120,7 +120,7 @@ public class Room: MulticastDelegate<RoomDelegate> {
         if let participant = remoteParticipants[sid] {
             return participant
         }
-        let participant = RemoteParticipant(fromInfo: info, room: self)
+        let participant = RemoteParticipant(sid: sid, room: self, info: info)
         remoteParticipants[sid] = participant
         return participant
     }
@@ -159,8 +159,8 @@ public class Room: MulticastDelegate<RoomDelegate> {
                 activeSpeakers.append(localParticipant)
             } else {
                 if let participant = remoteParticipants[speaker.sid] {
-//                    participant.audioLevel = speaker.level
-//                    participant.isSpeaking = true
+                    //                    participant.audioLevel = speaker.level
+                    //                    participant.isSpeaking = true
                     participant.update(audioLevel: speaker.level)
                     participant.update(isSpeaking: true)
                     activeSpeakers.append(participant)
@@ -169,15 +169,15 @@ public class Room: MulticastDelegate<RoomDelegate> {
         }
 
         if let localParticipant = localParticipant, seenSids[localParticipant.sid] == nil {
-//            localParticipant.audioLevel = 0.0
-//            localParticipant.isSpeaking = false
+            //            localParticipant.audioLevel = 0.0
+            //            localParticipant.isSpeaking = false
             localParticipant.update(audioLevel: 0.0)
             localParticipant.update(isSpeaking: false)
         }
         for participant in remoteParticipants.values {
             if seenSids[participant.sid] == nil {
-//                participant.audioLevel = 0.0
-//                participant.isSpeaking = false
+                //                participant.audioLevel = 0.0
+                //                participant.isSpeaking = false
                 participant.update(audioLevel: 0.0)
                 participant.update(isSpeaking: false)
             }

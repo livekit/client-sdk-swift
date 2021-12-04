@@ -10,10 +10,10 @@ public class RemoteParticipant: Participant {
     public internal(set) weak var room: Room?
     public internal(set) var identity: String?
 
-    public internal(set) var audioLevel: Float = 0.0
-    public internal(set) var isSpeaking: Bool = false
-    public private(set) var metadata: String?
-    public private(set) var connectionQuality: ConnectionQuality = .unknown
+    public var audioLevel: Float = 0.0
+    public var isSpeaking: Bool = false
+    public var metadata: String?
+    public var connectionQuality: ConnectionQuality = .unknown
 
     public internal(set) var tracks = [String: RemoteTrackPublication]()
 
@@ -24,18 +24,20 @@ public class RemoteParticipant: Participant {
     public var audiotracks: [RemoteTrackPublication] {
         tracks.values.filter { $0.track?.kind == .audio }
     }
-    
+
     private var info: Livekit_ParticipantInfo?
 
-    init(fromInfo info: Livekit_ParticipantInfo, room: Room) {
-        self.sid = info.sid
+    init(sid: Sid, room: Room, info: Livekit_ParticipantInfo? = nil) {
+        self.sid = sid
         self.room = room
-        update(info: info)
+        if let info = info {
+            update(info: info)
+        }
     }
 
     func update(info: Livekit_ParticipantInfo) {
         let hadInfo = self.info != nil
-        
+
         update(commonInfo: info)
 
         var validTrackPublications = [String: RemoteTrackPublication]()

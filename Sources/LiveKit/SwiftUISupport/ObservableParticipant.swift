@@ -1,48 +1,6 @@
 import SwiftUI
 import WebRTC
 
-extension ObservableParticipant: ParticipantDelegate {
-
-    public func participant(_ participant: RemoteParticipant,
-                            didSubscribe trackPublication: RemoteTrackPublication,
-                            track: Track) {
-        recomputeFirstTracks()
-    }
-
-    public func participant(_ participant: RemoteParticipant,
-                            didUnsubscribe trackPublication: RemoteTrackPublication,
-                            track: Track) {
-        recomputeFirstTracks()
-    }
-
-    public func localParticipant(_ participant: LocalParticipant,
-                                 didPublish trackPublication: LocalTrackPublication) {
-        recomputeFirstTracks()
-    }
-
-    public func localParticipant(_ participant: LocalParticipant,
-                                 didUnpublish trackPublication: LocalTrackPublication) {
-        recomputeFirstTracks()
-    }
-
-    public func participant<T: Participant>(_ participant: T,
-                                            didUpdate trackPublication: TrackPublication, muted: Bool) {
-        recomputeFirstTracks()
-    }
-
-    public func participant<T: Participant>(_ participant: T, didUpdate speaking: Bool) {
-        DispatchQueue.main.async {
-            self.isSpeaking = speaking
-        }
-    }
-
-    public func participant<T: Participant>(_ participant: T, didUpdate connectionQuality: ConnectionQuality) {
-        DispatchQueue.main.async {
-            self.connectionQuality = connectionQuality
-        }
-    }
-}
-
 extension ObservableParticipant: Identifiable {
     public var id: String {
         participant.sid
@@ -119,6 +77,48 @@ open class ObservableParticipant<T: Participant>: ObservableObject {
             self.firstCameraPublication = self.participant.videoTracks.first(where: { $0.source == .camera })
             self.firstScreenSharePublication = self.participant.videoTracks.first(where: { $0.source == .screenShareVideo })
             self.firstAudioPublication = self.participant.audioTracks.first
+        }
+    }
+}
+
+extension ObservableParticipant: ParticipantDelegate {
+
+    public func participant(_ participant: RemoteParticipant,
+                            didSubscribe trackPublication: RemoteTrackPublication,
+                            track: Track) {
+        recomputeFirstTracks()
+    }
+
+    public func participant(_ participant: RemoteParticipant,
+                            didUnsubscribe trackPublication: RemoteTrackPublication,
+                            track: Track) {
+        recomputeFirstTracks()
+    }
+
+    public func localParticipant(_ participant: LocalParticipant,
+                                 didPublish trackPublication: LocalTrackPublication) {
+        recomputeFirstTracks()
+    }
+
+    public func localParticipant(_ participant: LocalParticipant,
+                                 didUnpublish trackPublication: LocalTrackPublication) {
+        recomputeFirstTracks()
+    }
+
+    public func participant<T: Participant>(_ participant: T,
+                                            didUpdate trackPublication: TrackPublication, muted: Bool) {
+        recomputeFirstTracks()
+    }
+
+    public func participant<T: Participant>(_ participant: T, didUpdate speaking: Bool) {
+        DispatchQueue.main.async {
+            self.isSpeaking = speaking
+        }
+    }
+
+    public func participant<T: Participant>(_ participant: T, didUpdate connectionQuality: ConnectionQuality) {
+        DispatchQueue.main.async {
+            self.connectionQuality = connectionQuality
         }
     }
 }

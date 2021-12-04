@@ -4,25 +4,21 @@ import WebRTC
 public protocol Participant: MulticastDelegateCapable {
 
     associatedtype TrackPublicationType = TrackPublication
+    typealias DelegateType = ParticipantDelegate
 
     var sid: Sid { get }
     var identity: String? { get }
 
-    var audioLevel: Float { get }
-    var isSpeaking: Bool { get }
-    var metadata: String? { get }
-    var connectionQuality: ConnectionQuality { get }
+    var audioLevel: Float { get set }
+    var isSpeaking: Bool { get set }
+    var metadata: String? { get set }
+    var connectionQuality: ConnectionQuality { get set }
 
     var tracks: [String: TrackPublicationType] { get }
     var videoTracks: [TrackPublicationType] { get }
     var audiotracks: [TrackPublicationType] { get }
 
     var room: Room? { get }
-
-    //    public private(set) var joinedAt: Date?
-    //    public internal(set) var tracks = [String: TrackPublication]()
-    //
-//    var info: Livekit_ParticipantInfo? { get }
 }
 
 extension Participant {
@@ -42,7 +38,7 @@ extension Participant {
         // joinedAt = Date(timeIntervalSince1970: TimeInterval(info.joinedAt))
         // self.info = info
     }
-    
+
     internal func update(audioLevel: Float) {
         guard self.audioLevel != audioLevel else { return }
         self.audioLevel = audioLevel
@@ -54,14 +50,14 @@ extension Participant {
         notify { $0.participant(self, didUpdate: self.isSpeaking) }
         // relavent event for Room doesn't exist yet...
     }
-    
+
     internal func update(metadata: String?) {
         guard self.metadata != metadata else { return }
         self.metadata = metadata
         notify { $0.participant(self, didUpdate: self.metadata) }
         room?.notify { $0.room(self.room!, participant: self, didUpdate: self.metadata) }
     }
-    
+
     internal func update(connectionQuality: ConnectionQuality) {
         guard self.connectionQuality != connectionQuality else { return }
         self.connectionQuality = connectionQuality

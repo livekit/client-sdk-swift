@@ -2,6 +2,9 @@ import Foundation
 import CoreGraphics
 
 public class RemoteTrackPublication: TrackPublication {
+        
+    typealias ParticipantType = RemoteParticipant
+
     // have we explicitly unsubscribed
     var unsubscribed: Bool = false
     var enabled: Bool = true
