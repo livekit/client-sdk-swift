@@ -61,3 +61,26 @@ public class MulticastDelegate<T>: NSObject {
         }
     }
 }
+
+public protocol MulticastDelegateCapable {
+    associatedtype DelegateType
+    var delegates: MulticastDelegate<DelegateType> { get }
+    func add(delegate: DelegateType)
+    func remove(delegate: DelegateType)
+    func notify(_ fnc: @escaping (DelegateType) throws -> Void) rethrows
+}
+
+extension MulticastDelegateCapable {
+
+    func add(delegate: DelegateType) {
+        delegates.add(delegate: delegate)
+    }
+
+    func remove(delegate: DelegateType) {
+        delegates.remove(delegate: delegate)
+    }
+
+    func notify(_ fnc: @escaping (DelegateType) throws -> Void) rethrows {
+        try delegates.notify(fnc)
+    }
+}
