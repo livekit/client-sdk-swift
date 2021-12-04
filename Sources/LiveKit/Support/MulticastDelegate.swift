@@ -72,15 +72,15 @@ public protocol MulticastDelegateCapable {
 
 extension MulticastDelegateCapable {
 
-    func add(delegate: DelegateType) {
+    public func add(delegate: DelegateType) {
         delegates.add(delegate: delegate)
     }
 
-    func remove(delegate: DelegateType) {
+    public func remove(delegate: DelegateType) {
         delegates.remove(delegate: delegate)
     }
 
-    func notify(_ fnc: @escaping (DelegateType) throws -> Void) rethrows {
+    public func notify(_ fnc: @escaping (DelegateType) throws -> Void) rethrows {
         try delegates.notify(fnc)
     }
 }
