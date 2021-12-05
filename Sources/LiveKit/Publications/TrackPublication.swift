@@ -14,9 +14,9 @@ public protocol TrackPublication {
     var sid: Sid { get }
     var kind: Track.Kind { get}
     var source: Track.Source { get }
-    var name: String { get }
+    var name: String { get set }
     var track: Track? { get }
-    var muted: Bool { get }
+    var muted: Bool { get set }
 
     /// video-only
 //    public internal(set) var dimensions: Dimensions?
@@ -46,7 +46,7 @@ extension TrackPublication {
         // only muted and name can conceivably update
         name = info.name
         muted = info.muted
-        simulcasted = info.simulcast
+//        simulcasted = info.simulcast
 //        if info.type == .video {
 //            dimensions = Dimensions(width: Int32(info.width),
 //                                    height: Int32(info.height))
