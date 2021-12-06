@@ -41,7 +41,11 @@ public class LocalParticipant: Participant {
                 // but for this case we will allow it, throw for any other error.
                 guard case TrackError.invalidTrackState = error else { throw error }
             }.then {
-                engine.addTrack(cid: cid, name: track.name, kind: .audio) {
+                // request a new track to the server
+                engine.addTrack(cid: cid,
+                                name: track.name,
+                                kind: .audio,
+                                source: track.source.toPBType()) {
                     $0.disableDtx = !(publishOptions?.dtx ?? true)
                 }
             }.then { (trackInfo) -> LocalTrackPublication in
@@ -95,7 +99,8 @@ public class LocalParticipant: Participant {
                 // request a new track to the server
                 engine.addTrack(cid: cid,
                                 name: track.name,
-                                kind: .video) {
+                                kind: .video,
+                                source: track.source.toPBType()) {
                     // depending on the capturer, dimensions may not be available at this point
                     if let dimensions = track.capturer.dimensions {
                         $0.width = UInt32(dimensions.width)
@@ -236,35 +241,34 @@ public class LocalParticipant: Participant {
 
 extension LocalParticipant {
 
-    public func setCamera(enabled: Bool, interceptor: VideoCaptureInterceptor? = nil) -> Promise<LocalTrackPublication?> {
-        return set(source: .camera, enabled: enabled, interceptor: interceptor)
+    public func setCamera(enabled: Bool) -> Promise<LocalTrackPublication?> {
+        return set(source: .camera, enabled: enabled)
     }
 
     public func setMicrophone(enabled: Bool) -> Promise<LocalTrackPublication?> {
         return set(source: .microphone, enabled: enabled)
     }
 
-    public func setScreenShare(enabled: Bool, source: ScreenShareSource? = nil) -> Promise<LocalTrackPublication?> {
-        return set(source: .screenShareVideo, enabled: enabled, screenShareSource: source)
+    /// Enable or disable screen sharing. This has different behavior depending on the platform.
+    ///
+    /// For iOS, this will use ``InAppScreenCapturer`` to capture in-app screen only due to Apple's limitation.
+    /// If you would like to capture the screen when the app is in the background, you will need to create a "Broadcast Upload Extension".
+    ///
+    /// For macOS, this will use ``MacOSScreenCapturer`` to capture the main screen. ``MacOSScreenCapturer`` has the ability
+    /// to capture other screens and windows. See ``MacOSScreenCapturer`` for details.
+    ///
+    /// For advanced usage, you can create a relevant ``LocalVideoTrack`` and call ``LocalParticipant/publishVideoTrack(track:publishOptions:)``.
+    public func setScreenShare(enabled: Bool) -> Promise<LocalTrackPublication?> {
+        return set(source: .screenShareVideo, enabled: enabled)
     }
 
-    public func set(source: Track.Source,
-                    enabled: Bool,
-                    screenShareSource: ScreenShareSource? = nil,
-                    interceptor: VideoCaptureInterceptor? = nil) -> Promise<LocalTrackPublication?> {
-
+    public func set(source: Track.Source, enabled: Bool) -> Promise<LocalTrackPublication?> {
         let publication = getTrackPublication(source: source)
         if let publication = publication as? LocalTrackPublication,
            let track = publication.track {
             // publication already exists
             if enabled {
                 publication.muted = false
-                #if os(macOS)
-                if let videoTrack = track as? LocalVideoTrack,
-                   let capturer = videoTrack.capturer as? MacOSScreenCapturer {
-                    capturer.source = screenShareSource ?? .mainDisplay
-                }
-                #endif
                 return track.start().then { publication }
             } else {
                 publication.muted = true
@@ -273,7 +277,7 @@ extension LocalParticipant {
         } else if enabled {
             // try to create a new track
             if source == .camera {
-                let localTrack = LocalVideoTrack.createCameraTrack(interceptor: interceptor)
+                let localTrack = LocalVideoTrack.createCameraTrack()
                 return publishVideoTrack(track: localTrack).then { publication in return publication }
             } else if source == .microphone {
                 let localTrack = LocalAudioTrack.createTrack(name: "")
@@ -286,10 +290,8 @@ extension LocalParticipant {
                 // iOS defaults to in-app screen share only since background screen share
                 // requires a broadcast extension (iOS limitation).
                 localTrack = LocalVideoTrack.createInAppScreenShareTrack()
-                #endif
-
-                #if os(macOS)
-                localTrack = LocalVideoTrack.createMacOSScreenShareTrack(source: screenShareSource ?? .mainDisplay)
+                #elseif os(macOS)
+                localTrack = LocalVideoTrack.createMacOSScreenShareTrack()
                 #endif
 
                 if let localTrack = localTrack {

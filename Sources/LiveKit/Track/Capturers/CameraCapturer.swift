@@ -27,9 +27,9 @@ public class CameraCapturer: VideoCapturer {
     }
 
     init(delegate: RTCVideoCapturerDelegate,
-         options: LocalVideoTrackOptions = LocalVideoTrackOptions()) {
+         options: LocalVideoTrackOptions? = nil) {
         self.capturer = RTCCameraVideoCapturer(delegate: delegate)
-        self.options = options
+        self.options = options ?? LocalVideoTrackOptions()
         super.init(delegate: delegate)
     }
 
@@ -150,7 +150,7 @@ public class CameraCapturer: VideoCapturer {
 
 extension LocalVideoTrack {
 
-    public static func createCameraTrack(options: LocalVideoTrackOptions = LocalVideoTrackOptions(),
+    public static func createCameraTrack(options: LocalVideoTrackOptions? = nil,
                                          interceptor: VideoCaptureInterceptor? = nil) -> LocalVideoTrack {
         let source: RTCVideoCapturerDelegate
         let output: RTCVideoSource

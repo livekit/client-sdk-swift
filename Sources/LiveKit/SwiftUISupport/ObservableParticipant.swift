@@ -70,35 +70,36 @@ open class ObservableParticipant: ObservableObject {
 
     public let participant: Participant
 
-    @Published public private(set) var firstVideo: TrackPublication? {
-        didSet {
-            if let pub = firstVideo, !pub.muted, firstVideo?.track != nil {
-                firstVideoAvailable = true
-            } else {
-                firstVideoAvailable = false
-            }
+    @Published public private(set) var firstCameraPublication: TrackPublication?
+    @Published public private(set) var firstScreenSharePublication: TrackPublication?
+    @Published public private(set) var firstAudioPublication: TrackPublication?
 
-            self.firstVideoTrack = firstVideo?.track as? VideoTrack
-        }
+    public var firstCameraVideoTrack: VideoTrack? {
+        guard let pub = firstCameraPublication, !pub.muted,
+              let track = pub.track else { return nil }
+        return track as? VideoTrack
     }
 
-    @Published public private(set) var firstAudio: TrackPublication? {
-        didSet {
-            if let pub = firstAudio, !pub.muted, firstAudio?.track != nil {
-                firstAudioAvailable = true
-            } else {
-                firstAudioAvailable = false
-            }
-
-            self.firstAudioTrack = firstAudio?.track as? AudioTrack
-        }
+    public var firstScreenShareVideoTrack: VideoTrack? {
+        guard let pub = firstScreenSharePublication, !pub.muted,
+              let track = pub.track else { return nil }
+        return track as? VideoTrack
     }
 
-    @Published public private(set) var firstVideoTrack: VideoTrack?
-    @Published public private(set) var firstAudioTrack: AudioTrack?
+    public var firstAudioTrack: AudioTrack? {
+        guard let pub = firstAudioPublication, !pub.muted,
+              let track = pub.track else { return nil }
+        return track as? AudioTrack
+    }
 
-    @Published public private(set) var firstVideoAvailable: Bool = false
-    @Published public private(set) var firstAudioAvailable: Bool = false
+    public var firstVideoAvailable: Bool {
+        firstCameraVideoTrack != nil
+    }
+
+    public var firstAudioAvailable: Bool {
+        firstAudioTrack != nil
+    }
+
     @Published public private(set) var isSpeaking: Bool = false
 
     @Published public private(set) var connectionQuality: ConnectionQuality = .unknown
@@ -115,8 +116,9 @@ open class ObservableParticipant: ObservableObject {
 
     private func recomputeFirstTracks() {
         DispatchQueue.main.async {
-            self.firstVideo = self.participant.videoTracks.values.first
-            self.firstAudio = self.participant.audioTracks.values.first
+            self.firstCameraPublication = self.participant.videoTracks.values.first(where: { $0.source == .camera })
+            self.firstScreenSharePublication = self.participant.videoTracks.values.first(where: { $0.source == .screenShareVideo })
+            self.firstAudioPublication = self.participant.audioTracks.values.first
         }
     }
 }
