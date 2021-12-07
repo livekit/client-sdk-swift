@@ -116,6 +116,50 @@ extension Livekit_TrackSource: CaseIterable {
 
 #endif  // swift(>=4.2)
 
+enum Livekit_VideoQuality: SwiftProtobuf.Enum {
+    typealias RawValue = Int
+    case low // = 0
+    case medium // = 1
+    case high // = 2
+    case UNRECOGNIZED(Int)
+
+    init() {
+        self = .low
+    }
+
+    init?(rawValue: Int) {
+        switch rawValue {
+        case 0: self = .low
+        case 1: self = .medium
+        case 2: self = .high
+        default: self = .UNRECOGNIZED(rawValue)
+        }
+    }
+
+    var rawValue: Int {
+        switch self {
+        case .low: return 0
+        case .medium: return 1
+        case .high: return 2
+        case .UNRECOGNIZED(let i): return i
+        }
+    }
+
+}
+
+#if swift(>=4.2)
+
+extension Livekit_VideoQuality: CaseIterable {
+    // The compiler won't synthesize support with the UNRECOGNIZED case.
+    static var allCases: [Livekit_VideoQuality] = [
+        .low,
+        .medium,
+        .high
+    ]
+}
+
+#endif  // swift(>=4.2)
+
 enum Livekit_ConnectionQuality: SwiftProtobuf.Enum {
     typealias RawValue = Int
     case poor // = 0
@@ -183,6 +227,8 @@ struct Livekit_Room {
 
     var numParticipants: UInt32 = 0
 
+    var activeRecording: Bool = false
+
     var unknownFields = SwiftProtobuf.UnknownStorage()
 
     init() {}
@@ -220,8 +266,9 @@ struct Livekit_ParticipantInfo {
     /// timestamp when participant joined room, in seconds
     var joinedAt: Int64 = 0
 
-    /// hidden participant (used for recording)
     var hidden: Bool = false
+
+    var recorder: Bool = false
 
     var unknownFields = SwiftProtobuf.UnknownStorage()
 
@@ -312,6 +359,29 @@ struct Livekit_TrackInfo {
 
     /// source of media
     var source: Livekit_TrackSource = .unknown
+
+    var layers: [Livekit_VideoLayer] = []
+
+    var unknownFields = SwiftProtobuf.UnknownStorage()
+
+    init() {}
+}
+
+/// provide information about available spatial layers
+struct Livekit_VideoLayer {
+    // SwiftProtobuf.Message conformance is added in an extension below. See the
+    // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+    // methods supported on all messages.
+
+    /// for tracks with a single layer, this should be HIGH
+    var quality: Livekit_VideoQuality = .low
+
+    var width: UInt32 = 0
+
+    var height: UInt32 = 0
+
+    /// target bitrate, server will measure actual
+    var bitrate: UInt32 = 0
 
     var unknownFields = SwiftProtobuf.UnknownStorage()
 
@@ -484,6 +554,14 @@ extension Livekit_TrackSource: SwiftProtobuf._ProtoNameProviding {
     ]
 }
 
+extension Livekit_VideoQuality: SwiftProtobuf._ProtoNameProviding {
+    static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
+        0: .same(proto: "LOW"),
+        1: .same(proto: "MEDIUM"),
+        2: .same(proto: "HIGH")
+    ]
+}
+
 extension Livekit_ConnectionQuality: SwiftProtobuf._ProtoNameProviding {
     static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
         0: .same(proto: "POOR"),
@@ -503,7 +581,8 @@ extension Livekit_Room: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementat
         6: .standard(proto: "turn_password"),
         7: .standard(proto: "enabled_codecs"),
         8: .same(proto: "metadata"),
-        9: .standard(proto: "num_participants")
+        9: .standard(proto: "num_participants"),
+        10: .standard(proto: "active_recording")
     ]
 
     mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -521,6 +600,7 @@ extension Livekit_Room: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementat
             case 7: try { try decoder.decodeRepeatedMessageField(value: &self.enabledCodecs) }()
             case 8: try { try decoder.decodeSingularStringField(value: &self.metadata) }()
             case 9: try { try decoder.decodeSingularUInt32Field(value: &self.numParticipants) }()
+            case 10: try { try decoder.decodeSingularBoolField(value: &self.activeRecording) }()
             default: break
             }
         }
@@ -554,6 +634,9 @@ extension Livekit_Room: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementat
         if self.numParticipants != 0 {
             try visitor.visitSingularUInt32Field(value: self.numParticipants, fieldNumber: 9)
         }
+        if self.activeRecording != false {
+            try visitor.visitSingularBoolField(value: self.activeRecording, fieldNumber: 10)
+        }
         try unknownFields.traverse(visitor: &visitor)
     }
 
@@ -567,6 +650,7 @@ extension Livekit_Room: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementat
         if lhs.enabledCodecs != rhs.enabledCodecs {return false}
         if lhs.metadata != rhs.metadata {return false}
         if lhs.numParticipants != rhs.numParticipants {return false}
+        if lhs.activeRecording != rhs.activeRecording {return false}
         if lhs.unknownFields != rhs.unknownFields {return false}
         return true
     }
@@ -619,7 +703,8 @@ extension Livekit_ParticipantInfo: SwiftProtobuf.Message, SwiftProtobuf._Message
         4: .same(proto: "tracks"),
         5: .same(proto: "metadata"),
         6: .standard(proto: "joined_at"),
-        7: .same(proto: "hidden")
+        7: .same(proto: "hidden"),
+        8: .same(proto: "recorder")
     ]
 
     mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -635,6 +720,7 @@ extension Livekit_ParticipantInfo: SwiftProtobuf.Message, SwiftProtobuf._Message
             case 5: try { try decoder.decodeSingularStringField(value: &self.metadata) }()
             case 6: try { try decoder.decodeSingularInt64Field(value: &self.joinedAt) }()
             case 7: try { try decoder.decodeSingularBoolField(value: &self.hidden) }()
+            case 8: try { try decoder.decodeSingularBoolField(value: &self.recorder) }()
             default: break
             }
         }
@@ -662,6 +748,9 @@ extension Livekit_ParticipantInfo: SwiftProtobuf.Message, SwiftProtobuf._Message
         if self.hidden != false {
             try visitor.visitSingularBoolField(value: self.hidden, fieldNumber: 7)
         }
+        if self.recorder != false {
+            try visitor.visitSingularBoolField(value: self.recorder, fieldNumber: 8)
+        }
         try unknownFields.traverse(visitor: &visitor)
     }
 
@@ -673,6 +762,7 @@ extension Livekit_ParticipantInfo: SwiftProtobuf.Message, SwiftProtobuf._Message
         if lhs.metadata != rhs.metadata {return false}
         if lhs.joinedAt != rhs.joinedAt {return false}
         if lhs.hidden != rhs.hidden {return false}
+        if lhs.recorder != rhs.recorder {return false}
         if lhs.unknownFields != rhs.unknownFields {return false}
         return true
     }
@@ -698,7 +788,8 @@ extension Livekit_TrackInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImplem
         6: .same(proto: "height"),
         7: .same(proto: "simulcast"),
         8: .standard(proto: "disable_dtx"),
-        9: .same(proto: "source")
+        9: .same(proto: "source"),
+        10: .same(proto: "layers")
     ]
 
     mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -716,6 +807,7 @@ extension Livekit_TrackInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImplem
             case 7: try { try decoder.decodeSingularBoolField(value: &self.simulcast) }()
             case 8: try { try decoder.decodeSingularBoolField(value: &self.disableDtx) }()
             case 9: try { try decoder.decodeSingularEnumField(value: &self.source) }()
+            case 10: try { try decoder.decodeRepeatedMessageField(value: &self.layers) }()
             default: break
             }
         }
@@ -749,6 +841,9 @@ extension Livekit_TrackInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImplem
         if self.source != .unknown {
             try visitor.visitSingularEnumField(value: self.source, fieldNumber: 9)
         }
+        if !self.layers.isEmpty {
+            try visitor.visitRepeatedMessageField(value: self.layers, fieldNumber: 10)
+        }
         try unknownFields.traverse(visitor: &visitor)
     }
 
@@ -762,6 +857,57 @@ extension Livekit_TrackInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImplem
         if lhs.simulcast != rhs.simulcast {return false}
         if lhs.disableDtx != rhs.disableDtx {return false}
         if lhs.source != rhs.source {return false}
+        if lhs.layers != rhs.layers {return false}
+        if lhs.unknownFields != rhs.unknownFields {return false}
+        return true
+    }
+}
+
+extension Livekit_VideoLayer: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+    static let protoMessageName: String = _protobuf_package + ".VideoLayer"
+    static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
+        1: .same(proto: "quality"),
+        2: .same(proto: "width"),
+        3: .same(proto: "height"),
+        4: .same(proto: "bitrate")
+    ]
+
+    mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+        while let fieldNumber = try decoder.nextFieldNumber() {
+            // The use of inline closures is to circumvent an issue where the compiler
+            // allocates stack space for every case branch when no optimizations are
+            // enabled. https://github.com/apple/swift-protobuf/issues/1034
+            switch fieldNumber {
+            case 1: try { try decoder.decodeSingularEnumField(value: &self.quality) }()
+            case 2: try { try decoder.decodeSingularUInt32Field(value: &self.width) }()
+            case 3: try { try decoder.decodeSingularUInt32Field(value: &self.height) }()
+            case 4: try { try decoder.decodeSingularUInt32Field(value: &self.bitrate) }()
+            default: break
+            }
+        }
+    }
+
+    func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+        if self.quality != .low {
+            try visitor.visitSingularEnumField(value: self.quality, fieldNumber: 1)
+        }
+        if self.width != 0 {
+            try visitor.visitSingularUInt32Field(value: self.width, fieldNumber: 2)
+        }
+        if self.height != 0 {
+            try visitor.visitSingularUInt32Field(value: self.height, fieldNumber: 3)
+        }
+        if self.bitrate != 0 {
+            try visitor.visitSingularUInt32Field(value: self.bitrate, fieldNumber: 4)
+        }
+        try unknownFields.traverse(visitor: &visitor)
+    }
+
+    static func ==(lhs: Livekit_VideoLayer, rhs: Livekit_VideoLayer) -> Bool {
+        if lhs.quality != rhs.quality {return false}
+        if lhs.width != rhs.width {return false}
+        if lhs.height != rhs.height {return false}
+        if lhs.bitrate != rhs.bitrate {return false}
         if lhs.unknownFields != rhs.unknownFields {return false}
         return true
     }
