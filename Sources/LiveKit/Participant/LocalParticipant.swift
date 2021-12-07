@@ -169,8 +169,18 @@ public class LocalParticipant: Participant {
             return notifyDidUnpublish()
         }
 
+        // build a conditional promise to stop track if required by option
+        func stopTrackIfRequired() -> Promise<Void> {
+            let options = room?.engine.options ?? ConnectOptions()
+            if options.stopLocalTrackOnUnpublish {
+                return track.stop()
+            }
+            // Do nothing
+            return Promise(())
+        }
+
         // wait for track to stop
-        return track.stop().always { () -> Void in
+        return stopTrackIfRequired().always { () -> Void in
 
             if let pc = self.room?.engine.publisher?.pc,
                let sender = track.sender {
