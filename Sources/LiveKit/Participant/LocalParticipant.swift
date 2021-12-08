@@ -287,10 +287,10 @@ extension LocalParticipant {
         } else if enabled {
             // try to create a new track
             if source == .camera {
-                let localTrack = LocalVideoTrack.createCameraTrack()
+                let localTrack = LocalVideoTrack.createCameraTrack(options: room?.roomOptions?.defaultVideoCaptureOptions)
                 return publishVideoTrack(track: localTrack).then { publication in return publication }
             } else if source == .microphone {
-                let localTrack = LocalAudioTrack.createTrack(name: "")
+                let localTrack = LocalAudioTrack.createTrack(name: "", options: room?.roomOptions?.defaultAudioCaptureOptions)
                 return publishAudioTrack(track: localTrack).then { publication in return publication }
             } else if source == .screenShareVideo {
 
