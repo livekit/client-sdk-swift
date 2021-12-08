@@ -328,16 +328,18 @@ extension Engine: SignalClientDelegate {
         subscriberPrimary = joinResponse.subscriberPrimary
 
         // create publisher and subscribers
-        let config = RTCConfiguration.liveKitDefault()
-        config.update(iceServers: joinResponse.iceServers)
+        let connectOptions = room?.connectOptions ?? ConnectOptions()
+
+        // update iceServers from joinResponse
+        connectOptions.rtcConfiguration.update(iceServers: joinResponse.iceServers)
 
         do {
-            subscriber = try Transport(config: config,
+            subscriber = try Transport(config: connectOptions.rtcConfiguration,
                                        target: .subscriber,
                                        primary: subscriberPrimary,
                                        delegate: self)
 
-            publisher = try Transport(config: config,
+            publisher = try Transport(config: connectOptions.rtcConfiguration,
                                       target: .publisher,
                                       primary: !subscriberPrimary,
                                       delegate: self)
