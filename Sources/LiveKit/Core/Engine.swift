@@ -17,6 +17,9 @@ class Engine: MulticastDelegate<EngineDelegate> {
                                         decoderFactory: decoderFactory)
     }()
 
+    // reference to Room
+    private(set) var room: Room?
+
     let signalClient: SignalClient
 
     private(set) var hasPublished: Bool = false
@@ -32,7 +35,6 @@ class Engine: MulticastDelegate<EngineDelegate> {
 
     internal var url: String?
     internal var token: String?
-    internal var options: ConnectOptions?
 
     var connectionState: ConnectionState = .disconnected() {
         // automatically notify changes
@@ -48,14 +50,13 @@ class Engine: MulticastDelegate<EngineDelegate> {
         }
     }
 
-    init(delegate: EngineDelegate? = nil,
+    init(room: Room,
          signalClient: SignalClient = SignalClient()) {
+        self.room = room
         self.signalClient = signalClient
         super.init()
 
-        if let delegate = delegate {
-            add(delegate: delegate)
-        }
+        add(delegate: room)
 
         signalClient.add(delegate: self)
         logger.debug("RTCEngine init")
@@ -83,8 +84,7 @@ class Engine: MulticastDelegate<EngineDelegate> {
     }
 
     func connect(_ url: String,
-                 _ token: String,
-                 options: ConnectOptions? = nil) -> Promise<Void> {
+                 _ token: String) -> Promise<Void> {
 
         guard connectionState != .connected else {
             logger.debug("already connected")
@@ -93,26 +93,27 @@ class Engine: MulticastDelegate<EngineDelegate> {
 
         self.connectionState = .connecting(isReconnecting: false)
 
-        return signalClient.connect(url, token, options: options).then {
-            // wait for join response
-            self.signalClient.waitReceiveJoinResponse()
-        }.then { joinResponse in
-            // set up peer connections
-            self.configureTransports(joinResponse: joinResponse)
-        }.then {
-            // wait for peer connections to connect
-            self.waitForIceConnect(transport: self.primary)
-        }.then {
-            // connect sequence successful
-            logger.debug("connect sequence completed")
+        return signalClient.connect(url,
+                                    token,
+                                    connectOptions: room?.connectOptions).then {
+                                        // wait for join response
+                                        self.signalClient.waitReceiveJoinResponse()
+                                    }.then { joinResponse in
+                                        // set up peer connections
+                                        self.configureTransports(joinResponse: joinResponse)
+                                    }.then {
+                                        // wait for peer connections to connect
+                                        self.waitForIceConnect(transport: self.primary)
+                                    }.then {
+                                        // connect sequence successful
+                                        logger.debug("connect sequence completed")
 
-            // update internal vars (only if connect succeeded)
-            self.url = url
-            self.token = token
-            self.options = options
+                                        // update internal vars (only if connect succeeded)
+                                        self.url = url
+                                        self.token = token
 
-            self.connectionState = .connected
-        }
+                                        self.connectionState = .connected
+                                    }
     }
 
     @discardableResult
@@ -137,20 +138,23 @@ class Engine: MulticastDelegate<EngineDelegate> {
 
         func reconnectSequence() -> Promise<Void> {
 
-            signalClient.connect(url, token, options: self.options, reconnect: true).then {
-                self.waitForIceConnect(transport: self.primary)
-            }.then { () -> Promise<Void> in
-                self.subscriber?.restartingIce = true
+            signalClient.connect(url,
+                                 token,
+                                 connectOptions: room?.connectOptions,
+                                 reconnect: true).then {
+                                    self.waitForIceConnect(transport: self.primary)
+                                 }.then { () -> Promise<Void> in
+                                    self.subscriber?.restartingIce = true
 
-                // only if published, continue...
-                guard let publisher = self.publisher, self.hasPublished else {
-                    return Promise(())
-                }
+                                    // only if published, continue...
+                                    guard let publisher = self.publisher, self.hasPublished else {
+                                        return Promise(())
+                                    }
 
-                return publisher.createAndSendOffer(iceRestart: true).then {
-                    self.waitForIceConnect(transport: publisher)
-                }
-            }
+                                    return publisher.createAndSendOffer(iceRestart: true).then {
+                                        self.waitForIceConnect(transport: publisher)
+                                    }
+                                 }
         }
 
         let delay: TimeInterval = 1
@@ -180,7 +184,6 @@ class Engine: MulticastDelegate<EngineDelegate> {
 
         url = nil
         token = nil
-        options = nil
 
         connectionState = .disconnected()
         publisher?.close()

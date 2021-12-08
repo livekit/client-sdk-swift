@@ -22,10 +22,14 @@ public class LiveKit {
     public static func connect(
         _ url: String,
         _ token: String,
-        options: ConnectOptions? = nil,
-        delegate: RoomDelegate? = nil) -> Promise<Room> {
+        delegate: RoomDelegate? = nil,
+        connectOptions: ConnectOptions? = nil,
+        roomOptions: RoomOptions? = nil) -> Promise<Room> {
 
-        let room = Room(delegate: delegate)
-        return room.connect(url, token, options: options)
+        let room = Room(delegate: delegate,
+                        connectOptions: connectOptions,
+                        roomOptions: roomOptions)
+
+        return room.connect(url, token)
     }
 }

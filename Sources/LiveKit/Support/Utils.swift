@@ -15,14 +15,14 @@ class Utils {
     internal static func buildUrl(
         _ url: String,
         _ token: String,
-        options: ConnectOptions? = nil,
+        connectOptions: ConnectOptions? = nil,
         reconnect: Bool = false,
         validate: Bool = false,
         forceSecure: Bool = false
     ) throws -> URL {
 
         // use default options if nil
-        let options = options ?? ConnectOptions()
+        let connectOptions = connectOptions ?? ConnectOptions()
 
         guard let parsedUrl = URL(string: url) else {
             throw InternalError.parse("Failed to parse url")
@@ -58,7 +58,7 @@ class Utils {
 
         var queryItems = [
             URLQueryItem(name: "access_token", value: token),
-            URLQueryItem(name: "protocol", value: options.protocolVersion.description),
+            URLQueryItem(name: "protocol", value: connectOptions.protocolVersion.description),
             URLQueryItem(name: "sdk", value: "ios"),
             URLQueryItem(name: "version", value: "0.5")
         ]
@@ -67,7 +67,7 @@ class Utils {
             queryItems.append(URLQueryItem(name: "reconnect", value: "1"))
         }
 
-        if options.autoSubscribe {
+        if connectOptions.autoSubscribe {
             queryItems.append(URLQueryItem(name: "auto_subscribe", value: "1"))
         }
 
@@ -94,10 +94,10 @@ class Utils {
 
     static func computeEncodings(
         dimensions: Dimensions?,
-        publishOptions: LocalVideoTrackPublishOptions?
+        publishOptions: VideoPublishOptions?
     ) -> [RTCRtpEncodingParameters]? {
 
-        let publishOptions = publishOptions ?? LocalVideoTrackPublishOptions()
+        let publishOptions = publishOptions ?? VideoPublishOptions()
 
         var encodingF: VideoEncoding?
         var encodingH: VideoEncoding?

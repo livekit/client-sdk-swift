@@ -4,9 +4,9 @@ import WebRTC
 public class LocalAudioTrack: AudioTrack {
 
     public static func createTrack(name: String,
-                                   options: LocalAudioTrackOptions? = nil) -> LocalAudioTrack {
+                                   options: AudioCaptureOptions? = nil) -> LocalAudioTrack {
 
-        let options = options ?? LocalAudioTrackOptions()
+        let options = options ?? AudioCaptureOptions()
 
         let constraints: [String: String] = [
             "googEchoCancellation": options.echoCancellation.toString(),

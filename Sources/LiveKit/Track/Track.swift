@@ -35,7 +35,7 @@ public class Track: MulticastDelegate<TrackDelegate> {
         return transceiver?.sender
     }
     /// ``publishOptions`` used for this track if already published.
-    public internal (set) var publishOptions: LocalVideoTrackPublishOptions?
+    public internal (set) var publishOptions: VideoPublishOptions?
 
     public private(set) var state: State = .stopped {
         didSet {

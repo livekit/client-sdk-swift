@@ -1,7 +1,7 @@
 import Foundation
 import WebRTC
 
-public struct LocalVideoTrackOptions {
+public struct VideoCaptureOptions {
     public var position: AVCaptureDevice.Position
     public var captureFormat: AVCaptureDevice.Format?
     public var captureParameter: VideoParameters
@@ -15,7 +15,7 @@ public struct LocalVideoTrackOptions {
     }
 }
 
-public struct LocalAudioTrackOptions {
+public struct AudioCaptureOptions {
     public var echoCancellation: Bool
     public var noiseSuppression: Bool
     public var autoGainControl: Bool
