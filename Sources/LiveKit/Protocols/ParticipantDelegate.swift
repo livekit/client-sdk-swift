@@ -30,7 +30,7 @@ public protocol ParticipantDelegate {
     /// `participant` Can be a ``LocalParticipant`` or a ``RemoteParticipant``.
     func participant(_ participant: Participant, didUpdate publication: TrackPublication, muted: Bool)
 
-    /// ``TrackPublication/streamState-swift.property`` has updated for the ``Participant``.
+    /// ``RemoteTrackPublication/streamState`` has updated for the ``RemoteParticipant``.
     func participant(_ participant: RemoteParticipant, didUpdate publication: RemoteTrackPublication, streamState: StreamState)
 
     /// When a new ``RemoteTrackPublication`` is published to ``Room`` after the ``LocalParticipant`` has joined.
