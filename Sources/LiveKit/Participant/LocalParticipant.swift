@@ -95,6 +95,7 @@ public class LocalParticipant: Participant {
     /// publish a new video track to the Room
     public func publishVideoTrack(track: LocalVideoTrack,
                                   publishOptions: VideoPublishOptions? = nil) -> Promise<LocalTrackPublication> {
+
         guard let engine = room?.engine else {
             return Promise(EngineError.invalidState("engine is null"))
         }
@@ -114,7 +115,9 @@ public class LocalParticipant: Participant {
                 // start() will fail if it's already started.
                 // but for this case we will allow it, throw for any other error.
                 guard case TrackError.invalidTrackState = error else { throw error }
-            }.then { engine.addTrack(cid: cid,
+            }.then {
+              // request a new track to the server
+              engine.addTrack(cid: cid,
                                 name: track.name,
                                 kind: .video,
                                 source: track.source.toPBType()) {
@@ -125,6 +128,7 @@ public class LocalParticipant: Participant {
                     }
                 }
             }.then { (trackInfo) -> LocalTrackPublication in
+
                 let transInit = RTCRtpTransceiverInit()
                 transInit.direction = .sendOnly
                 transInit.streamIds = [self.streamId]
