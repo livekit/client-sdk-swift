@@ -11,7 +11,14 @@ public class RemoteTrackPublication: TrackPublication {
     private var debouncedRecomputeVideoViewVisibilities: DebouncFunc?
     private var lastSentVideoTrackSettings: VideoTrackSettings?
 
-    public internal(set) var streamState: StreamState = .paused
+    public internal(set) var streamState: StreamState = .paused {
+        didSet {
+            guard oldValue != streamState else { return }
+            guard let participant = self.participant as? RemoteParticipant else { return }
+            participant.notify { $0.participant(participant, didUpdate: self, streamState: self.streamState) }
+            participant.room?.notify { $0.room(participant.room!, participant: participant, didUpdate: self, streamState: self.streamState) }
+        }
+    }
 
     public override var track: Track? {
         didSet {

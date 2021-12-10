@@ -348,11 +348,13 @@ extension Room: EngineDelegate {
 
     func engine(_ engine: Engine, didUpdate trackStates: [Livekit_StreamStateInfo]) {
 
-        for trackState in trackStates {
-            // Try to find participant
-            if let participant = remoteParticipants[trackState.participantSid] {
-                participant.update(state: trackState.state, forTrack: trackState.trackSid)
-            }
+        for update in trackStates {
+            // Try to find RemoteParticipant
+            guard let participant = remoteParticipants[update.participantSid] else { continue }
+            // Try to find RemoteTrackPublication
+            guard let trackPublication = participant.tracks[update.trackSid] as? RemoteTrackPublication else { continue }
+            // Update streamState (and notify)
+            trackPublication.streamState = update.state.toLKType()
         }
     }
 }
