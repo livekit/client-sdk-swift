@@ -61,16 +61,6 @@ public class Participant: MulticastDelegate<ParticipantDelegate> {
         joinedAt = Date(timeIntervalSince1970: TimeInterval(info.joinedAt))
         self.info = info
     }
-
-    internal func update(state: Livekit_StreamState, forTrack sid: String) {
-
-        if let trackPublication = tracks[sid] {
-            let lkStreamState = state.toLKType()
-            trackPublication.streamState = lkStreamState
-            notify { $0.participant(self, didUpdate: trackPublication, streamState: lkStreamState) }
-            room?.notify { $0.room(self.room!, participant: self, didUpdate: trackPublication, streamState: lkStreamState) }
-        }
-    }
 }
 
 // MARK: - Simplified API

@@ -350,15 +350,7 @@ extension Room: EngineDelegate {
 
         for trackState in trackStates {
             // Try to find participant
-            let participant: Participant?
-
-            if trackState.participantSid == localParticipant?.sid {
-                participant = localParticipant
-            } else {
-                participant = remoteParticipants[trackState.participantSid]
-            }
-
-            if let participant = participant {
+            if let participant = remoteParticipants[trackState.participantSid] {
                 participant.update(state: trackState.state, forTrack: trackState.trackSid)
             }
         }

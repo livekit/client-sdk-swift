@@ -11,6 +11,8 @@ public class RemoteTrackPublication: TrackPublication {
     private var debouncedRecomputeVideoViewVisibilities: DebouncFunc?
     private var lastSentVideoTrackSettings: VideoTrackSettings?
 
+    public internal(set) var streamState: StreamState = .paused
+
     public override var track: Track? {
         didSet {
             guard oldValue != track else { return }

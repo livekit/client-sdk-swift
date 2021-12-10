@@ -9,11 +9,6 @@ extension TrackPublication: Equatable {
 
 public class TrackPublication {
 
-    public enum StreamState {
-        case paused
-        case active
-    }
-
     public let sid: Sid
     public let kind: Track.Kind
     public let source: Track.Source
@@ -30,8 +25,6 @@ public class TrackPublication {
     weak var participant: Participant?
 
     public var subscribed: Bool { return track != nil }
-
-    public internal(set) var streamState: StreamState = .paused
 
     init(info: Livekit_TrackInfo, track: Track? = nil, participant: Participant? = nil) {
         sid = info.sid

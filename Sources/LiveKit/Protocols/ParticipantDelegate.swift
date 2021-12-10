@@ -31,7 +31,7 @@ public protocol ParticipantDelegate {
     func participant(_ participant: Participant, didUpdate publication: TrackPublication, muted: Bool)
 
     /// ``TrackPublication/streamState-swift.property`` has updated for the ``Participant``.
-    func participant(_ participant: Participant, didUpdate publication: TrackPublication, streamState: TrackPublication.StreamState)
+    func participant(_ participant: RemoteParticipant, didUpdate publication: RemoteTrackPublication, streamState: StreamState)
 
     /// When a new ``RemoteTrackPublication`` is published to ``Room`` after the ``LocalParticipant`` has joined.
     ///
@@ -72,7 +72,7 @@ public extension ParticipantDelegate {
     func participant(_ participant: Participant, didUpdate speaking: Bool) {}
     func participant(_ participant: Participant, didUpdate connectionQuality: ConnectionQuality) {}
     func participant(_ participant: Participant, didUpdate publication: TrackPublication, muted: Bool) {}
-    func participant(_ participant: Participant, didUpdate publication: TrackPublication, streamState: TrackPublication.StreamState) {}
+    func participant(_ participant: RemoteParticipant, didUpdate publication: RemoteTrackPublication, streamState: StreamState) {}
     func participant(_ participant: RemoteParticipant, didPublish publication: RemoteTrackPublication) {}
     func participant(_ participant: RemoteParticipant, didUnpublish publication: RemoteTrackPublication) {}
     func participant(_ participant: RemoteParticipant, didSubscribe publication: RemoteTrackPublication, track: Track) {}
