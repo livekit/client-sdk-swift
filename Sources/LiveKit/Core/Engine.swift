@@ -448,7 +448,7 @@ extension Engine: SignalClientDelegate {
         notify { $0.engine(self, didUpdate: participants) }
     }
     
-    func signalClient(_ signalClient: SignalClient, didUpdateStreamedTracks resumed: [Livekit_StreamedTrack], paused: [Livekit_StreamedTrack]) {
+    func signalClient(_ signalClient: SignalClient, didUpdate trackStates: [Livekit_StreamStateInfo]) {
         //
     }
 }
