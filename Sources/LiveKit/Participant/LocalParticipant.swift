@@ -1,6 +1,26 @@
 import WebRTC
 import Promises
 
+extension Livekit_TrackInfo {
+  init(orig: Livekit_TrackInfo) {
+    self.sid = orig.sid
+    self.type = orig.type
+    self.name = orig.name
+    self.muted = orig.muted
+    self.width = orig.width
+    self.height = orig.height
+    self.simulcast = orig.simulcast
+    self.disableDtx = orig.disableDtx
+    if (orig.name == "camera" && orig.source == .unknown) {
+      self.source  = .camera
+    } else {
+      self.source = orig.source
+    }
+    self.layers = orig.layers
+    self.unknownFields = orig.unknownFields
+  }
+}
+
 public class LocalParticipant: Participant {
 
     private var streamId = "stream"
@@ -75,7 +95,6 @@ public class LocalParticipant: Participant {
     /// publish a new video track to the Room
     public func publishVideoTrack(track: LocalVideoTrack,
                                   publishOptions: VideoPublishOptions? = nil) -> Promise<LocalTrackPublication> {
-
         guard let engine = room?.engine else {
             return Promise(EngineError.invalidState("engine is null"))
         }
@@ -95,9 +114,7 @@ public class LocalParticipant: Participant {
                 // start() will fail if it's already started.
                 // but for this case we will allow it, throw for any other error.
                 guard case TrackError.invalidTrackState = error else { throw error }
-            }.then {
-                // request a new track to the server
-                engine.addTrack(cid: cid,
+            }.then { engine.addTrack(cid: cid,
                                 name: track.name,
                                 kind: .video,
                                 source: track.source.toPBType()) {
@@ -108,7 +125,6 @@ public class LocalParticipant: Participant {
                     }
                 }
             }.then { (trackInfo) -> LocalTrackPublication in
-
                 let transInit = RTCRtpTransceiverInit()
                 transInit.direction = .sendOnly
                 transInit.streamIds = [self.streamId]
@@ -128,9 +144,11 @@ public class LocalParticipant: Participant {
                 }
 
                 engine.publisherShouldNegotiate()
-
-                let publication = LocalTrackPublication(info: trackInfo, track: track, participant: self)
-                self.addTrack(publication: publication)
+              // if (trackInfo.name == "camera") {
+              //   trackInfo.source = .camera
+              // }
+              let publication = LocalTrackPublication(info: Livekit_TrackInfo(orig: trackInfo), track: track, participant: self)
+              self.addTrack(publication: publication)
 
                 // notify didPublish
                 self.notify { $0.localParticipant(self, didPublish: publication) }
