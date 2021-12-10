@@ -117,4 +117,14 @@ public class RemoteParticipant: Participant {
             notifyUnpublish()
         }
     }
+
+    internal func update(state: Livekit_StreamState, forTrack sid: String) {
+
+        if let trackPublication = tracks[sid] as? RemoteTrackPublication {
+            let lkStreamState = state.toLKType()
+            trackPublication.streamState = lkStreamState
+            notify { $0.participant(self, didUpdate: trackPublication, streamState: lkStreamState) }
+            room?.notify { $0.room(self.room!, participant: self, didUpdate: trackPublication, streamState: lkStreamState) }
+        }
+    }
 }

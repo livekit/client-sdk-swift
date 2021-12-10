@@ -345,4 +345,14 @@ extension Room: EngineDelegate {
     func engine(_ engine: Engine, didFailConnection error: Error) {
         notify { $0.room(self, didFailToConnect: error) }
     }
+
+    func engine(_ engine: Engine, didUpdate trackStates: [Livekit_StreamStateInfo]) {
+
+        for trackState in trackStates {
+            // Try to find participant
+            if let participant = remoteParticipants[trackState.participantSid] {
+                participant.update(state: trackState.state, forTrack: trackState.trackSid)
+            }
+        }
+    }
 }

@@ -22,13 +22,16 @@ public protocol ParticipantDelegate {
     /// `participant` Can be a ``LocalParticipant`` or a ``RemoteParticipant``.
     func participant(_ participant: Participant, didUpdate connectionQuality: ConnectionQuality)
 
-    /// The ``Participant``'s `muted` state has updated.
+    /// `muted` state has updated for the ``Participant``'s ``TrackPublication``.
     ///
     /// For the ``LocalParticipant``, the delegate method will be called if setMute was called on ``LocalTrackPublication``,
     /// or if the server has requested the participant to be muted.
     ///
     /// `participant` Can be a ``LocalParticipant`` or a ``RemoteParticipant``.
     func participant(_ participant: Participant, didUpdate publication: TrackPublication, muted: Bool)
+
+    /// ``RemoteTrackPublication/streamState`` has updated for the ``RemoteParticipant``.
+    func participant(_ participant: RemoteParticipant, didUpdate publication: RemoteTrackPublication, streamState: StreamState)
 
     /// When a new ``RemoteTrackPublication`` is published to ``Room`` after the ``LocalParticipant`` has joined.
     ///
@@ -69,6 +72,7 @@ public extension ParticipantDelegate {
     func participant(_ participant: Participant, didUpdate speaking: Bool) {}
     func participant(_ participant: Participant, didUpdate connectionQuality: ConnectionQuality) {}
     func participant(_ participant: Participant, didUpdate publication: TrackPublication, muted: Bool) {}
+    func participant(_ participant: RemoteParticipant, didUpdate publication: RemoteTrackPublication, streamState: StreamState) {}
     func participant(_ participant: RemoteParticipant, didPublish publication: RemoteTrackPublication) {}
     func participant(_ participant: RemoteParticipant, didUnpublish publication: RemoteTrackPublication) {}
     func participant(_ participant: RemoteParticipant, didSubscribe publication: RemoteTrackPublication, track: Track) {}
