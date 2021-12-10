@@ -60,31 +60,28 @@ extension Livekit_SignalTarget: CaseIterable {
 
 #endif  // swift(>=4.2)
 
-enum Livekit_VideoQuality: SwiftProtobuf.Enum {
+enum Livekit_StreamState: SwiftProtobuf.Enum {
     typealias RawValue = Int
-    case low // = 0
-    case medium // = 1
-    case high // = 2
+    case active // = 0
+    case paused // = 1
     case UNRECOGNIZED(Int)
 
     init() {
-        self = .low
+        self = .active
     }
 
     init?(rawValue: Int) {
         switch rawValue {
-        case 0: self = .low
-        case 1: self = .medium
-        case 2: self = .high
+        case 0: self = .active
+        case 1: self = .paused
         default: self = .UNRECOGNIZED(rawValue)
         }
     }
 
     var rawValue: Int {
         switch self {
-        case .low: return 0
-        case .medium: return 1
-        case .high: return 2
+        case .active: return 0
+        case .paused: return 1
         case .UNRECOGNIZED(let i): return i
         }
     }
@@ -93,12 +90,11 @@ enum Livekit_VideoQuality: SwiftProtobuf.Enum {
 
 #if swift(>=4.2)
 
-extension Livekit_VideoQuality: CaseIterable {
+extension Livekit_StreamState: CaseIterable {
     // The compiler won't synthesize support with the UNRECOGNIZED case.
-    static var allCases: [Livekit_VideoQuality] = [
-        .low,
-        .medium,
-        .high
+    static var allCases: [Livekit_StreamState] = [
+        .active,
+        .paused
     ]
 }
 
@@ -181,6 +177,16 @@ struct Livekit_SignalRequest {
         set {message = .leave(newValue)}
     }
 
+    /// Set active published layers, deprecated in favor of automatic tracking
+    ///    SetSimulcastLayers simulcast = 9;
+    var updateLayers: Livekit_UpdateVideoLayers {
+        get {
+            if case .updateLayers(let v)? = message {return v}
+            return Livekit_UpdateVideoLayers()
+        }
+        set {message = .updateLayers(newValue)}
+    }
+
     var unknownFields = SwiftProtobuf.UnknownStorage()
 
     enum OneOf_Message: Equatable {
@@ -198,6 +204,9 @@ struct Livekit_SignalRequest {
         case trackSetting(Livekit_UpdateTrackSettings)
         /// Immediately terminate session
         case leave(Livekit_LeaveRequest)
+        /// Set active published layers, deprecated in favor of automatic tracking
+        ///    SetSimulcastLayers simulcast = 9;
+        case updateLayers(Livekit_UpdateVideoLayers)
 
         #if !swift(>=4.1)
         static func ==(lhs: Livekit_SignalRequest.OneOf_Message, rhs: Livekit_SignalRequest.OneOf_Message) -> Bool {
@@ -235,6 +244,10 @@ struct Livekit_SignalRequest {
             }()
             case (.leave, .leave): return {
                 guard case .leave(let l) = lhs, case .leave(let r) = rhs else { preconditionFailure() }
+                return l == r
+            }()
+            case (.updateLayers, .updateLayers): return {
+                guard case .updateLayers(let l) = lhs, case .updateLayers(let r) = rhs else { preconditionFailure() }
                 return l == r
             }()
             default: return false
@@ -352,13 +365,13 @@ struct Livekit_SignalResponse {
         set {message = .connectionQuality(newValue)}
     }
 
-    /// when streamed tracks changed
-    var streamedTracksUpdate: Livekit_StreamedTracksUpdate {
+    /// when streamed tracks state changed
+    var streamStateUpdate: Livekit_StreamStateUpdate {
         get {
-            if case .streamedTracksUpdate(let v)? = message {return v}
-            return Livekit_StreamedTracksUpdate()
+            if case .streamStateUpdate(let v)? = message {return v}
+            return Livekit_StreamStateUpdate()
         }
-        set {message = .streamedTracksUpdate(newValue)}
+        set {message = .streamStateUpdate(newValue)}
     }
 
     var unknownFields = SwiftProtobuf.UnknownStorage()
@@ -386,8 +399,8 @@ struct Livekit_SignalResponse {
         case roomUpdate(Livekit_RoomUpdate)
         /// when connection quality changed
         case connectionQuality(Livekit_ConnectionQualityUpdate)
-        /// when streamed tracks changed
-        case streamedTracksUpdate(Livekit_StreamedTracksUpdate)
+        /// when streamed tracks state changed
+        case streamStateUpdate(Livekit_StreamStateUpdate)
 
         #if !swift(>=4.1)
         static func ==(lhs: Livekit_SignalResponse.OneOf_Message, rhs: Livekit_SignalResponse.OneOf_Message) -> Bool {
@@ -439,8 +452,8 @@ struct Livekit_SignalResponse {
                 guard case .connectionQuality(let l) = lhs, case .connectionQuality(let r) = rhs else { preconditionFailure() }
                 return l == r
             }()
-            case (.streamedTracksUpdate, .streamedTracksUpdate): return {
-                guard case .streamedTracksUpdate(let l) = lhs, case .streamedTracksUpdate(let r) = rhs else { preconditionFailure() }
+            case (.streamStateUpdate, .streamStateUpdate): return {
+                guard case .streamStateUpdate(let l) = lhs, case .streamStateUpdate(let r) = rhs else { preconditionFailure() }
                 return l == r
             }()
             default: return false
@@ -464,6 +477,7 @@ struct Livekit_AddTrackRequest {
 
     var type: Livekit_TrackType = .audio
 
+    /// to be deprecated in favor of layers
     var width: UInt32 = 0
 
     var height: UInt32 = 0
@@ -475,6 +489,8 @@ struct Livekit_AddTrackRequest {
     var disableDtx: Bool = false
 
     var source: Livekit_TrackSource = .unknown
+
+    var layers: [Livekit_VideoLayer] = []
 
     var unknownFields = SwiftProtobuf.UnknownStorage()
 
@@ -669,6 +685,21 @@ struct Livekit_LeaveRequest {
     init() {}
 }
 
+/// message to indicate published video track dimensions are changing
+struct Livekit_UpdateVideoLayers {
+    // SwiftProtobuf.Message conformance is added in an extension below. See the
+    // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+    // methods supported on all messages.
+
+    var trackSid: String = String()
+
+    var layers: [Livekit_VideoLayer] = []
+
+    var unknownFields = SwiftProtobuf.UnknownStorage()
+
+    init() {}
+}
+
 struct Livekit_ICEServer {
     // SwiftProtobuf.Message conformance is added in an extension below. See the
     // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
@@ -744,7 +775,7 @@ struct Livekit_ConnectionQualityUpdate {
     init() {}
 }
 
-struct Livekit_StreamedTrack {
+struct Livekit_StreamStateInfo {
     // SwiftProtobuf.Message conformance is added in an extension below. See the
     // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
     // methods supported on all messages.
@@ -753,19 +784,19 @@ struct Livekit_StreamedTrack {
 
     var trackSid: String = String()
 
+    var state: Livekit_StreamState = .active
+
     var unknownFields = SwiftProtobuf.UnknownStorage()
 
     init() {}
 }
 
-struct Livekit_StreamedTracksUpdate {
+struct Livekit_StreamStateUpdate {
     // SwiftProtobuf.Message conformance is added in an extension below. See the
     // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
     // methods supported on all messages.
 
-    var paused: [Livekit_StreamedTrack] = []
-
-    var resumed: [Livekit_StreamedTrack] = []
+    var streamStates: [Livekit_StreamStateInfo] = []
 
     var unknownFields = SwiftProtobuf.UnknownStorage()
 
@@ -783,11 +814,10 @@ extension Livekit_SignalTarget: SwiftProtobuf._ProtoNameProviding {
     ]
 }
 
-extension Livekit_VideoQuality: SwiftProtobuf._ProtoNameProviding {
+extension Livekit_StreamState: SwiftProtobuf._ProtoNameProviding {
     static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
-        0: .same(proto: "LOW"),
-        1: .same(proto: "MEDIUM"),
-        2: .same(proto: "HIGH")
+        0: .same(proto: "ACTIVE"),
+        1: .same(proto: "PAUSED")
     ]
 }
 
@@ -801,7 +831,8 @@ extension Livekit_SignalRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageIm
         5: .same(proto: "mute"),
         6: .same(proto: "subscription"),
         7: .standard(proto: "track_setting"),
-        8: .same(proto: "leave")
+        8: .same(proto: "leave"),
+        10: .standard(proto: "update_layers")
     ]
 
     mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -914,6 +945,19 @@ extension Livekit_SignalRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageIm
                     self.message = .leave(v)
                 }
             }()
+            case 10: try {
+                var v: Livekit_UpdateVideoLayers?
+                var hadOneofValue = false
+                if let current = self.message {
+                    hadOneofValue = true
+                    if case .updateLayers(let m) = current {v = m}
+                }
+                try decoder.decodeSingularMessageField(value: &v)
+                if let v = v {
+                    if hadOneofValue {try decoder.handleConflictingOneOf()}
+                    self.message = .updateLayers(v)
+                }
+            }()
             default: break
             }
         }
@@ -957,6 +1001,10 @@ extension Livekit_SignalRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageIm
             guard case .leave(let v)? = self.message else { preconditionFailure() }
             try visitor.visitSingularMessageField(value: v, fieldNumber: 8)
         }()
+        case .updateLayers?: try {
+            guard case .updateLayers(let v)? = self.message else { preconditionFailure() }
+            try visitor.visitSingularMessageField(value: v, fieldNumber: 10)
+        }()
         case nil: break
         }
         try unknownFields.traverse(visitor: &visitor)
@@ -983,7 +1031,7 @@ extension Livekit_SignalResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageI
         10: .standard(proto: "speakers_changed"),
         11: .standard(proto: "room_update"),
         12: .standard(proto: "connection_quality"),
-        13: .standard(proto: "streamed_tracks_update")
+        13: .standard(proto: "stream_state_update")
     ]
 
     mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -1136,16 +1184,16 @@ extension Livekit_SignalResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageI
                 }
             }()
             case 13: try {
-                var v: Livekit_StreamedTracksUpdate?
+                var v: Livekit_StreamStateUpdate?
                 var hadOneofValue = false
                 if let current = self.message {
                     hadOneofValue = true
-                    if case .streamedTracksUpdate(let m) = current {v = m}
+                    if case .streamStateUpdate(let m) = current {v = m}
                 }
                 try decoder.decodeSingularMessageField(value: &v)
                 if let v = v {
                     if hadOneofValue {try decoder.handleConflictingOneOf()}
-                    self.message = .streamedTracksUpdate(v)
+                    self.message = .streamStateUpdate(v)
                 }
             }()
             default: break
@@ -1203,8 +1251,8 @@ extension Livekit_SignalResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageI
             guard case .connectionQuality(let v)? = self.message else { preconditionFailure() }
             try visitor.visitSingularMessageField(value: v, fieldNumber: 12)
         }()
-        case .streamedTracksUpdate?: try {
-            guard case .streamedTracksUpdate(let v)? = self.message else { preconditionFailure() }
+        case .streamStateUpdate?: try {
+            guard case .streamStateUpdate(let v)? = self.message else { preconditionFailure() }
             try visitor.visitSingularMessageField(value: v, fieldNumber: 13)
         }()
         case nil: break
@@ -1229,7 +1277,8 @@ extension Livekit_AddTrackRequest: SwiftProtobuf.Message, SwiftProtobuf._Message
         5: .same(proto: "height"),
         6: .same(proto: "muted"),
         7: .standard(proto: "disable_dtx"),
-        8: .same(proto: "source")
+        8: .same(proto: "source"),
+        9: .same(proto: "layers")
     ]
 
     mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -1246,6 +1295,7 @@ extension Livekit_AddTrackRequest: SwiftProtobuf.Message, SwiftProtobuf._Message
             case 6: try { try decoder.decodeSingularBoolField(value: &self.muted) }()
             case 7: try { try decoder.decodeSingularBoolField(value: &self.disableDtx) }()
             case 8: try { try decoder.decodeSingularEnumField(value: &self.source) }()
+            case 9: try { try decoder.decodeRepeatedMessageField(value: &self.layers) }()
             default: break
             }
         }
@@ -1276,6 +1326,9 @@ extension Livekit_AddTrackRequest: SwiftProtobuf.Message, SwiftProtobuf._Message
         if self.source != .unknown {
             try visitor.visitSingularEnumField(value: self.source, fieldNumber: 8)
         }
+        if !self.layers.isEmpty {
+            try visitor.visitRepeatedMessageField(value: self.layers, fieldNumber: 9)
+        }
         try unknownFields.traverse(visitor: &visitor)
     }
 
@@ -1288,6 +1341,7 @@ extension Livekit_AddTrackRequest: SwiftProtobuf.Message, SwiftProtobuf._Message
         if lhs.muted != rhs.muted {return false}
         if lhs.disableDtx != rhs.disableDtx {return false}
         if lhs.source != rhs.source {return false}
+        if lhs.layers != rhs.layers {return false}
         if lhs.unknownFields != rhs.unknownFields {return false}
         return true
     }
@@ -1723,6 +1777,44 @@ extension Livekit_LeaveRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImp
     }
 }
 
+extension Livekit_UpdateVideoLayers: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+    static let protoMessageName: String = _protobuf_package + ".UpdateVideoLayers"
+    static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
+        1: .standard(proto: "track_sid"),
+        2: .same(proto: "layers")
+    ]
+
+    mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+        while let fieldNumber = try decoder.nextFieldNumber() {
+            // The use of inline closures is to circumvent an issue where the compiler
+            // allocates stack space for every case branch when no optimizations are
+            // enabled. https://github.com/apple/swift-protobuf/issues/1034
+            switch fieldNumber {
+            case 1: try { try decoder.decodeSingularStringField(value: &self.trackSid) }()
+            case 2: try { try decoder.decodeRepeatedMessageField(value: &self.layers) }()
+            default: break
+            }
+        }
+    }
+
+    func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+        if !self.trackSid.isEmpty {
+            try visitor.visitSingularStringField(value: self.trackSid, fieldNumber: 1)
+        }
+        if !self.layers.isEmpty {
+            try visitor.visitRepeatedMessageField(value: self.layers, fieldNumber: 2)
+        }
+        try unknownFields.traverse(visitor: &visitor)
+    }
+
+    static func ==(lhs: Livekit_UpdateVideoLayers, rhs: Livekit_UpdateVideoLayers) -> Bool {
+        if lhs.trackSid != rhs.trackSid {return false}
+        if lhs.layers != rhs.layers {return false}
+        if lhs.unknownFields != rhs.unknownFields {return false}
+        return true
+    }
+}
+
 extension Livekit_ICEServer: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
     static let protoMessageName: String = _protobuf_package + ".ICEServer"
     static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
@@ -1905,11 +1997,12 @@ extension Livekit_ConnectionQualityUpdate: SwiftProtobuf.Message, SwiftProtobuf.
     }
 }
 
-extension Livekit_StreamedTrack: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
-    static let protoMessageName: String = _protobuf_package + ".StreamedTrack"
+extension Livekit_StreamStateInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+    static let protoMessageName: String = _protobuf_package + ".StreamStateInfo"
     static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
         1: .standard(proto: "participant_sid"),
-        2: .standard(proto: "track_sid")
+        2: .standard(proto: "track_sid"),
+        3: .same(proto: "state")
     ]
 
     mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -1920,6 +2013,7 @@ extension Livekit_StreamedTrack: SwiftProtobuf.Message, SwiftProtobuf._MessageIm
             switch fieldNumber {
             case 1: try { try decoder.decodeSingularStringField(value: &self.participantSid) }()
             case 2: try { try decoder.decodeSingularStringField(value: &self.trackSid) }()
+            case 3: try { try decoder.decodeSingularEnumField(value: &self.state) }()
             default: break
             }
         }
@@ -1932,22 +2026,25 @@ extension Livekit_StreamedTrack: SwiftProtobuf.Message, SwiftProtobuf._MessageIm
         if !self.trackSid.isEmpty {
             try visitor.visitSingularStringField(value: self.trackSid, fieldNumber: 2)
         }
+        if self.state != .active {
+            try visitor.visitSingularEnumField(value: self.state, fieldNumber: 3)
+        }
         try unknownFields.traverse(visitor: &visitor)
     }
 
-    static func ==(lhs: Livekit_StreamedTrack, rhs: Livekit_StreamedTrack) -> Bool {
+    static func ==(lhs: Livekit_StreamStateInfo, rhs: Livekit_StreamStateInfo) -> Bool {
         if lhs.participantSid != rhs.participantSid {return false}
         if lhs.trackSid != rhs.trackSid {return false}
+        if lhs.state != rhs.state {return false}
         if lhs.unknownFields != rhs.unknownFields {return false}
         return true
     }
 }
 
-extension Livekit_StreamedTracksUpdate: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
-    static let protoMessageName: String = _protobuf_package + ".StreamedTracksUpdate"
+extension Livekit_StreamStateUpdate: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+    static let protoMessageName: String = _protobuf_package + ".StreamStateUpdate"
     static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
-        1: .same(proto: "paused"),
-        2: .same(proto: "resumed")
+        1: .standard(proto: "stream_states")
     ]
 
     mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -1956,26 +2053,21 @@ extension Livekit_StreamedTracksUpdate: SwiftProtobuf.Message, SwiftProtobuf._Me
             // allocates stack space for every case branch when no optimizations are
             // enabled. https://github.com/apple/swift-protobuf/issues/1034
             switch fieldNumber {
-            case 1: try { try decoder.decodeRepeatedMessageField(value: &self.paused) }()
-            case 2: try { try decoder.decodeRepeatedMessageField(value: &self.resumed) }()
+            case 1: try { try decoder.decodeRepeatedMessageField(value: &self.streamStates) }()
             default: break
             }
         }
     }
 
     func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
-        if !self.paused.isEmpty {
-            try visitor.visitRepeatedMessageField(value: self.paused, fieldNumber: 1)
-        }
-        if !self.resumed.isEmpty {
-            try visitor.visitRepeatedMessageField(value: self.resumed, fieldNumber: 2)
+        if !self.streamStates.isEmpty {
+            try visitor.visitRepeatedMessageField(value: self.streamStates, fieldNumber: 1)
         }
         try unknownFields.traverse(visitor: &visitor)
     }
 
-    static func ==(lhs: Livekit_StreamedTracksUpdate, rhs: Livekit_StreamedTracksUpdate) -> Bool {
-        if lhs.paused != rhs.paused {return false}
-        if lhs.resumed != rhs.resumed {return false}
+    static func ==(lhs: Livekit_StreamStateUpdate, rhs: Livekit_StreamStateUpdate) -> Bool {
+        if lhs.streamStates != rhs.streamStates {return false}
         if lhs.unknownFields != rhs.unknownFields {return false}
         return true
     }

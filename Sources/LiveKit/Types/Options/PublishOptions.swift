@@ -1,6 +1,6 @@
 import Foundation
 
-public struct LocalVideoTrackPublishOptions {
+public struct VideoPublishOptions {
     public var encoding: VideoEncoding?
     /// true to enable simulcasting, publishes three tracks at different sizes
     public var simulcast: Bool
@@ -11,7 +11,7 @@ public struct LocalVideoTrackPublishOptions {
     }
 }
 
-public struct LocalAudioTrackPublishOptions {
+public struct AudioPublishOptions {
     public var name: String?
     public var bitrate: Int?
     public var dtx: Bool
@@ -21,6 +21,6 @@ public struct LocalAudioTrackPublishOptions {
     }
 }
 
-public struct LocalDataTrackPublishOptions {
+public struct DataPublishOptions {
     public var name: String?
 }

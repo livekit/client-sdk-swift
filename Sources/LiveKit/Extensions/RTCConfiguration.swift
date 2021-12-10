@@ -2,10 +2,10 @@ import WebRTC
 
 extension RTCConfiguration {
 
-    static let defaultIceServers = ["stun:stun.l.google.com:19302",
-                                    "stun:stun1.l.google.com:19302"]
+    public static let defaultIceServers = ["stun:stun.l.google.com:19302",
+                                           "stun:stun1.l.google.com:19302"]
 
-    static func liveKitDefault() -> RTCConfiguration {
+    public static func liveKitDefault() -> RTCConfiguration {
 
         let result = RTCConfiguration()
         result.sdpSemantics = .unifiedPlan
@@ -16,15 +16,19 @@ extension RTCConfiguration {
         result.tcpCandidatePolicy = .disabled
         result.iceTransportPolicy = .all
 
+        result.iceServers = [RTCIceServer(urlStrings: defaultIceServers)]
+
         return result
     }
 
-    func update(iceServers: [Livekit_ICEServer]) {
+    internal func update(iceServers: [Livekit_ICEServer]) {
 
+        // convert to a list of RTCIceServer
         let rtcIceServers = iceServers.map { $0.toRTCType() }
 
-        self.iceServers = rtcIceServers.isEmpty
-            ? [RTCIceServer(urlStrings: RTCConfiguration.defaultIceServers)]
-            : rtcIceServers
+        if !rtcIceServers.isEmpty {
+            // set new iceServers if not empty
+            self.iceServers = rtcIceServers
+        }
     }
 }

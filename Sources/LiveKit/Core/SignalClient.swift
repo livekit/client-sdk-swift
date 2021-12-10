@@ -15,13 +15,13 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
 
     func connect(_ url: String,
                  _ token: String,
-                 options: ConnectOptions? = nil,
+                 connectOptions: ConnectOptions? = nil,
                  reconnect: Bool = false) -> Promise<Void> {
 
         Promise<Void> { () -> Void in
             let rtcUrl = try Utils.buildUrl(url,
                                             token,
-                                            options: options ,
+                                            connectOptions: connectOptions,
                                             reconnect: reconnect)
             logger.debug("connecting with url: \(rtcUrl)")
 

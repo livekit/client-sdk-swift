@@ -16,7 +16,7 @@ public class CameraCapturer: VideoCapturer {
 
     /// The ``LocalAudioTrackOptions`` used for this capturer.
     /// It is possible to modify the options but `restartCapture` must be called.
-    public var options: LocalVideoTrackOptions
+    public var options: VideoCaptureOptions
 
     /// Current device used for capturing
     public private(set) var device: AVCaptureDevice?
@@ -27,9 +27,9 @@ public class CameraCapturer: VideoCapturer {
     }
 
     init(delegate: RTCVideoCapturerDelegate,
-         options: LocalVideoTrackOptions? = nil) {
+         options: VideoCaptureOptions? = nil) {
         self.capturer = RTCCameraVideoCapturer(delegate: delegate)
-        self.options = options ?? LocalVideoTrackOptions()
+        self.options = options ?? VideoCaptureOptions()
         super.init(delegate: delegate)
     }
 
@@ -150,7 +150,7 @@ public class CameraCapturer: VideoCapturer {
 
 extension LocalVideoTrack {
 
-    public static func createCameraTrack(options: LocalVideoTrackOptions? = nil,
+    public static func createCameraTrack(options: VideoCaptureOptions? = nil,
                                          interceptor: VideoCaptureInterceptor? = nil) -> LocalVideoTrack {
         let source: RTCVideoCapturerDelegate
         let output: RTCVideoSource

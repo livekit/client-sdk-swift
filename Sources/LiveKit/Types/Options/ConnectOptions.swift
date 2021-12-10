@@ -1,20 +1,17 @@
 import Foundation
+import WebRTC
 
 public struct ConnectOptions {
     public var autoSubscribe: Bool
+    public var rtcConfiguration: RTCConfiguration
     public var protocolVersion: ProtocolVersion
 
-    public var defaultVideoPublishOptions: LocalVideoTrackPublishOptions
-    public var defaultAudioPublishOptions: LocalAudioTrackPublishOptions
-
     public init(autoSubscribe: Bool = true,
-                defaultVideoPublishOptions: LocalVideoTrackPublishOptions = LocalVideoTrackPublishOptions(),
-                defaultAudioPublishOptions: LocalAudioTrackPublishOptions = LocalAudioTrackPublishOptions(),
+                rtcConfiguration: RTCConfiguration = .liveKitDefault(),
                 protocolVersion: ProtocolVersion = .v5) {
 
         self.autoSubscribe = autoSubscribe
-        self.defaultVideoPublishOptions = defaultVideoPublishOptions
-        self.defaultAudioPublishOptions = defaultAudioPublishOptions
+        self.rtcConfiguration = rtcConfiguration
         self.protocolVersion = protocolVersion
     }
 }

@@ -20,13 +20,13 @@ public class LocalParticipant: Participant {
 
     /// publish a new audio track to the Room
     public func publishAudioTrack(track: LocalAudioTrack,
-                                  publishOptions: LocalAudioTrackPublishOptions? = nil) -> Promise<LocalTrackPublication> {
+                                  publishOptions: AudioPublishOptions? = nil) -> Promise<LocalTrackPublication> {
 
         guard let engine = room?.engine else {
             return Promise(EngineError.invalidState("engine is null"))
         }
 
-        let publishOptions = publishOptions ?? engine.options?.defaultAudioPublishOptions
+        let publishOptions = publishOptions ?? room?.roomOptions?.defaultAudioPublishOptions
 
         if localAudioTrackPublications.first(where: { $0.track === track }) != nil {
             return Promise(TrackError.publishError("This track has already been published."))
@@ -74,13 +74,13 @@ public class LocalParticipant: Participant {
 
     /// publish a new video track to the Room
     public func publishVideoTrack(track: LocalVideoTrack,
-                                  publishOptions: LocalVideoTrackPublishOptions? = nil) -> Promise<LocalTrackPublication> {
+                                  publishOptions: VideoPublishOptions? = nil) -> Promise<LocalTrackPublication> {
 
         guard let engine = room?.engine else {
             return Promise(EngineError.invalidState("engine is null"))
         }
 
-        let publishOptions = publishOptions ?? engine.options?.defaultVideoPublishOptions
+        let publishOptions = publishOptions ?? room?.roomOptions?.defaultVideoPublishOptions
 
         if localVideoTrackPublications.first(where: { $0.track === track }) != nil {
             return Promise(TrackError.publishError("This track has already been published."))
@@ -169,8 +169,18 @@ public class LocalParticipant: Participant {
             return notifyDidUnpublish()
         }
 
+        // build a conditional promise to stop track if required by option
+        func stopTrackIfRequired() -> Promise<Void> {
+            let options = room?.roomOptions ?? RoomOptions()
+            if options.stopLocalTrackOnUnpublish {
+                return track.stop()
+            }
+            // Do nothing
+            return Promise(())
+        }
+
         // wait for track to stop
-        return track.stop().always { () -> Void in
+        return stopTrackIfRequired().always { () -> Void in
 
             if let pc = self.room?.engine.publisher?.pc,
                let sender = track.sender {
@@ -277,10 +287,10 @@ extension LocalParticipant {
         } else if enabled {
             // try to create a new track
             if source == .camera {
-                let localTrack = LocalVideoTrack.createCameraTrack()
+                let localTrack = LocalVideoTrack.createCameraTrack(options: room?.roomOptions?.defaultVideoCaptureOptions)
                 return publishVideoTrack(track: localTrack).then { publication in return publication }
             } else if source == .microphone {
-                let localTrack = LocalAudioTrack.createTrack(name: "")
+                let localTrack = LocalAudioTrack.createTrack(name: "", options: room?.roomOptions?.defaultAudioCaptureOptions)
                 return publishAudioTrack(track: localTrack).then { publication in return publication }
             } else if source == .screenShareVideo {
 
