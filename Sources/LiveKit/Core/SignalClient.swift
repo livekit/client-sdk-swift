@@ -7,9 +7,7 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
     // connection state of WebSocket
     private(set) var connectionState: ConnectionState = .disconnected()
 
-    private lazy var urlSession = URLSession(configuration: .default,
-                                             delegate: self,
-                                             delegateQueue: OperationQueue())
+    private var urlSession: URLSession?
 
     private var webSocket: URLSessionWebSocketTask?
 
@@ -26,10 +24,15 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
             logger.debug("connecting with url: \(rtcUrl)")
 
             self.webSocket?.cancel()
+            // recreate session as old session could be invalidated
+            let session = URLSession(configuration: .default,
+                                    delegate: self,
+                                    delegateQueue: OperationQueue())
 
             var request = URLRequest(url: rtcUrl)
             request.networkServiceType = .voip
-            self.webSocket = self.urlSession.webSocketTask(with: request)
+            self.webSocket = session.webSocketTask(with: request)
+            self.urlSession = session
             self.webSocket!.resume() // Unexpectedly found nil while unwrapping an Optional values
             self.connectionState = .connecting(isReconnecting: reconnect)
         }.then {
@@ -58,7 +61,8 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
     }
 
     func close() {
-        urlSession.invalidateAndCancel()
+        urlSession?.invalidateAndCancel()
+        urlSession = nil
         webSocket?.cancel()
         webSocket = nil
         connectionState = .disconnected()
