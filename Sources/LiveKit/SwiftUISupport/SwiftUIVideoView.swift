@@ -38,16 +38,20 @@ public struct SwiftUIVideoView: NativeViewRepresentable {
     /// Pass a ``VideoTrack`` of a ``Participant``.
     let track: VideoTrack
     let mode: VideoView.Mode
+    let mirrored: Bool
+
     @Binding var dimensions: Dimensions?
 
     let delegateReceiver: SwiftUIVideoViewDelegateReceiver
 
     public init(_ track: VideoTrack,
                 mode: VideoView.Mode = .fill,
+                mirrored: Bool = false,
                 dimensions: Binding<Dimensions?> = .constant(nil)) {
 
         self.track = track
         self.mode = mode
+        self.mirrored = mirrored
         self._dimensions = dimensions
 
         self.delegateReceiver = SwiftUIVideoViewDelegateReceiver(dimensions: dimensions)
@@ -66,6 +70,7 @@ public struct SwiftUIVideoView: NativeViewRepresentable {
     public func updateUIView(_ videoView: VideoView, context: Context) {
         videoView.track = track
         videoView.mode = mode
+        videoView.mirrored = mirrored
     }
 
     public static func dismantleUIView(_ videoView: VideoView, coordinator: ()) {
@@ -83,6 +88,7 @@ public struct SwiftUIVideoView: NativeViewRepresentable {
     public func updateNSView(_ videoView: VideoView, context: Context) {
         videoView.track = track
         videoView.mode = mode
+        videoView.mirrored = mirrored
     }
 
     public static func dismantleNSView(_ videoView: VideoView, coordinator: ()) {

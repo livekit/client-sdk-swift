@@ -22,6 +22,13 @@ public class VideoView: NativeView {
         }
     }
 
+    public var mirrored: Bool = false {
+        didSet {
+            guard oldValue != mirrored else { return }
+            update(mirrored: mirrored)
+        }
+    }
+
     /// Size of the actual video, this will change when the publisher
     /// changes dimensions of the video such as rotating etc.
     public private(set) var dimensions: Dimensions? {
@@ -114,6 +121,17 @@ public class VideoView: NativeView {
         }
 
         rendererView.isHidden = false
+    }
+
+    private static let mirrorTransform = CGAffineTransform(scaleX: -1.0, y: 1.0)
+
+    private func update(mirrored: Bool) {
+        #if os(iOS)
+        let layer = self.layer
+        #elseif os(macOS)
+        guard let layer = self.layer else { return }
+        #endif
+        layer.setAffineTransform(mirrored ? VideoView.mirrorTransform : .identity)
     }
 
     static func createNativeRendererView(delegate: RTCVideoViewDelegate) -> RTCVideoRenderer {

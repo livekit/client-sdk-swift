@@ -26,8 +26,8 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
             self.webSocket?.cancel()
             // recreate session as old session could be invalidated
             let session = URLSession(configuration: .default,
-                                    delegate: self,
-                                    delegateQueue: OperationQueue())
+                                     delegate: self,
+                                     delegateQueue: OperationQueue())
 
             var request = URLRequest(url: rtcUrl)
             request.networkServiceType = .voip
