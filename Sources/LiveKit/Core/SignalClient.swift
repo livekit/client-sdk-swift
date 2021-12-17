@@ -194,7 +194,7 @@ extension SignalClient {
             self.add(delegate: delegate!)
         }
         // convert to a timed-promise
-        .timeout(3)
+        .timeout(10)
     }
 
     func waitReceiveJoinResponse() -> Promise<Livekit_JoinResponse> {
@@ -213,7 +213,7 @@ extension SignalClient {
             self.add(delegate: delegate!)
         }
         // convert to a timed-promise
-        .timeout(3)
+        .timeout(10)
     }
 }
 
