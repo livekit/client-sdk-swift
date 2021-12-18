@@ -56,7 +56,8 @@ public protocol RoomDelegate {
     func room(_ room: Room, participant: RemoteParticipant, didUnsubscribe publication: RemoteTrackPublication)
 
     /// Same with ``ParticipantDelegate/participant(_:didReceive:)-2t55a``
-    func room(_ room: Room, participant: RemoteParticipant, didReceive data: Data)
+    /// participant could be nil if data was sent by server api.
+    func room(_ room: Room, participant: RemoteParticipant?, didReceive data: Data)
 
     /// Same with ``ParticipantDelegate/localParticipant(_:didPublish:)-90j2m``.
     func room(_ room: Room, localParticipant: LocalParticipant, didPublish publication: LocalTrackPublication)
@@ -83,7 +84,7 @@ public extension RoomDelegate {
     func room(_ room: Room, participant: RemoteParticipant, didSubscribe publication: RemoteTrackPublication, track: Track) {}
     func room(_ room: Room, participant: RemoteParticipant, didFailToSubscribe trackSid: String, error: Error) {}
     func room(_ room: Room, participant: RemoteParticipant, didUnsubscribe publication: RemoteTrackPublication) {}
-    func room(_ room: Room, participant: RemoteParticipant, didReceive data: Data) {}
+    func room(_ room: Room, participant: RemoteParticipant?, didReceive data: Data) {}
     func room(_ room: Room, localParticipant: LocalParticipant, didPublish publication: LocalTrackPublication) {}
     func room(_ room: Room, localParticipant: LocalParticipant, didUnpublish publication: LocalTrackPublication) {}
 }

@@ -323,13 +323,11 @@ extension Room: EngineDelegate {
     }
 
     func engine(_ engine: Engine, didReceive userPacket: Livekit_UserPacket) {
-        guard let participant = remoteParticipants[userPacket.participantSid] else {
-            logger.warning("could not find participant for data packet: \(userPacket.participantSid)")
-            return
-        }
+        // participant could be null if data broadcasted from server
+        let participant = remoteParticipants[userPacket.participantSid]
 
         notify { $0.room(self, participant: participant, didReceive: userPacket.payload) }
-        participant.notify { $0.participant(participant, didReceive: userPacket.payload) }
+        participant?.notify { $0.participant(participant!, didReceive: userPacket.payload) }
     }
 
     func engine(_ engine: Engine, didUpdateRemoteMute trackSid: String, muted: Bool) {
