@@ -203,33 +203,37 @@ public class LocalParticipant: Participant {
      For data that should arrive as quickly as possible, but you are ok with dropped packets, use Lossy.
      - Parameter destination: SIDs of the participants who will receive the message. If empty, deliver to everyone
      */
+    @discardableResult
     public func publishData(data: Data,
                             reliability: DataPublishReliability = .reliable,
-                            destination: [String] = []) throws {
+                            destination: [String] = []) -> Promise<Void> {
 
-        if data.count > maxDataPacketSize {
-            throw TrackError.publishError("could not publish data more than \(maxDataPacketSize)")
+        return Promise { () -> Void in
+
+            guard let channel = .reliable == reliability ? self.room?.engine.reliableDC : self.room?.engine.lossyDC else {
+                throw EngineError.invalidState("Data channel is nil")
+            }
+
+            guard channel.readyState == .open else {
+                throw TrackError.publishError("Data channel is not open")
+            }
+
+            if data.count > maxDataPacketSize {
+                throw TrackError.publishError("Data size exceeds the maximum allowed size(\(maxDataPacketSize))")
+            }
+
+            let packet = Livekit_DataPacket.with {
+                $0.kind = reliability.toLKType()
+                $0.user = Livekit_UserPacket.with {
+                    $0.destinationSids = destination
+                    $0.payload = data
+                    $0.participantSid = self.sid
+                }
+            }
+
+            let buffer = try RTCDataBuffer(data: packet.serializedData(), isBinary: true)
+            channel.sendData(buffer)
         }
-
-        let kind = Livekit_DataPacket.Kind(rawValue: reliability.rawValue)
-        var channel: RTCDataChannel? = room?.engine.reliableDC
-        if kind == .lossy {
-            channel = room?.engine.lossyDC
-        }
-
-        if channel == nil || channel?.readyState != .open {
-            throw TrackError.publishError("cannot publish data as data channel is not open")
-        }
-
-        var dataPacket = Livekit_DataPacket()
-        var userPacket = Livekit_UserPacket()
-        userPacket.destinationSids = destination
-        userPacket.payload = data
-        userPacket.participantSid = sid
-        dataPacket.user = userPacket
-
-        let buffer = try RTCDataBuffer(data: dataPacket.serializedData(), isBinary: true)
-        channel?.sendData(buffer)
     }
 
     override func updateFromInfo(info: Livekit_ParticipantInfo) {
