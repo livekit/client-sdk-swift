@@ -223,27 +223,25 @@ class Engine: MulticastDelegate<EngineDelegate> {
         publisher.negotiate()
     }
 
-    func sendDataPacket(packet: Livekit_DataPacket) -> Promise<Void> {
+    internal func send(userPacket: Livekit_UserPacket,
+                       reliability: DataPublishReliability = .reliable) -> Promise<Void> {
 
-        guard let data = try? packet.serializedData() else {
-            return Promise(InternalError.parse("Failed to serialize data packet"))
-        }
+        return ensurePublisherConnected().then { () -> Void in
 
-        func send() -> Promise<Void> {
-
-            Promise<Void> { complete, _ in
-                let rtcData = RTCDataBuffer(data: data, isBinary: true)
-                let dc = packet.kind == .lossy ? self.lossyDC : self.reliableDC
-                if let dc = dc {
-                    // TODO: Check return value
-                    dc.sendData(rtcData)
-                }
-                complete(())
+            let packet = Livekit_DataPacket.with {
+                $0.kind = reliability.toLKType()
+                $0.user = userPacket
             }
-        }
 
-        return ensurePublisherConnected().then {
-            send()
+            let rtcData = try RTCDataBuffer(data: packet.serializedData(), isBinary: true)
+
+            guard let channel = packet.kind == .lossy ? self.lossyDC : self.reliableDC else {
+                throw InternalError.state("Data channel is nil")
+            }
+
+            guard channel.sendData(rtcData) else {
+                throw EngineError.webRTC("DataChannel.sendData returned false")
+            }
         }
     }
 

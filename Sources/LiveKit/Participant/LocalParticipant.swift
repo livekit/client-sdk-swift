@@ -208,32 +208,18 @@ public class LocalParticipant: Participant {
                             reliability: DataPublishReliability = .reliable,
                             destination: [String] = []) -> Promise<Void> {
 
-        return Promise { () -> Void in
-
-            guard let channel = .reliable == reliability ? self.room?.engine.reliableDC : self.room?.engine.lossyDC else {
-                throw EngineError.invalidState("Data channel is nil")
-            }
-
-            guard channel.readyState == .open else {
-                throw TrackError.publishError("Data channel is not open")
-            }
-
-            if data.count > maxDataPacketSize {
-                throw TrackError.publishError("Data size exceeds the maximum allowed size(\(maxDataPacketSize))")
-            }
-
-            let packet = Livekit_DataPacket.with {
-                $0.kind = reliability.toLKType()
-                $0.user = Livekit_UserPacket.with {
-                    $0.destinationSids = destination
-                    $0.payload = data
-                    $0.participantSid = self.sid
-                }
-            }
-
-            let buffer = try RTCDataBuffer(data: packet.serializedData(), isBinary: true)
-            channel.sendData(buffer)
+        guard let engine = room?.engine else {
+            return Promise(EngineError.invalidState("Room is nil"))
         }
+
+        let userPacket = Livekit_UserPacket.with {
+            $0.destinationSids = destination
+            $0.payload = data
+            $0.participantSid = self.sid
+        }
+
+        return engine.send(userPacket: userPacket,
+                           reliability: reliability)
     }
 
     override func updateFromInfo(info: Livekit_ParticipantInfo) {
