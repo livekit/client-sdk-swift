@@ -32,6 +32,8 @@ class Engine: MulticastDelegate<EngineDelegate> {
 
     private(set) var reliableDC: RTCDataChannel?
     private(set) var lossyDC: RTCDataChannel?
+    private(set) var reliableDCSub: RTCDataChannel?
+    private(set) var lossyDCSub: RTCDataChannel?
 
     internal var url: String?
     internal var token: String?
@@ -73,11 +75,11 @@ class Engine: MulticastDelegate<EngineDelegate> {
 
         switch dataChannel.label {
         case RTCDataChannel.labels.reliable:
-            reliableDC = dataChannel
-            reliableDC?.delegate = self
+            reliableDCSub = dataChannel
+            reliableDCSub?.delegate = self
         case RTCDataChannel.labels.lossy:
-            lossyDC = dataChannel
-            lossyDC?.delegate = self
+            lossyDCSub = dataChannel
+            lossyDCSub?.delegate = self
         default:
             logger.warning("Unknown data channel label \(dataChannel.label)")
         }
