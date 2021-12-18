@@ -203,7 +203,10 @@ public class LocalParticipant: Participant {
      For data that should arrive as quickly as possible, but you are ok with dropped packets, use Lossy.
      - Parameter destination: SIDs of the participants who will receive the message. If empty, deliver to everyone
      */
-    public func publishData(data: Data, reliability: DataPublishReliability, destination: [String] = []) throws {
+    public func publishData(data: Data,
+                            reliability: DataPublishReliability = .reliable,
+                            destination: [String] = []) throws {
+
         if data.count > maxDataPacketSize {
             throw TrackError.publishError("could not publish data more than \(maxDataPacketSize)")
         }
