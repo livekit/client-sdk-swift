@@ -2,7 +2,7 @@ import SwiftUI
 import WebRTC
 import OrderedCollections
 
-open class ObservableRoom: ObservableObject {
+open class ObservableRoom: ObservableObject, RoomDelegate {
 
     public let room: Room
 
@@ -42,21 +42,21 @@ open class ObservableRoom: ObservableObject {
         room.remove(delegate: self)
     }
 
-}
-
-extension ObservableRoom: RoomDelegate {
-
-    public func room(_ room: Room,
-                     participantDidJoin participant: RemoteParticipant) {
+    open func room(_ room: Room,
+                   participantDidJoin participant: RemoteParticipant) {
         DispatchQueue.main.async {
             self.participants[participant.sid] = ObservableParticipant(participant)
         }
     }
 
-    public func room(_ room: Room,
-                     participantDidLeave participant: RemoteParticipant) {
+    open func room(_ room: Room,
+                   participantDidLeave participant: RemoteParticipant) {
         DispatchQueue.main.async {
             self.participants.removeValue(forKey: participant.sid)
         }
+    }
+
+    open func room(_ room: Room, participant: RemoteParticipant?, didReceive data: Data) {
+        //
     }
 }
