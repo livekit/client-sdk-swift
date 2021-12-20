@@ -6,18 +6,17 @@ open class ObservableRoom: ObservableObject, RoomDelegate {
 
     public let room: Room
 
-    @Published public private(set) var participants = OrderedDictionary<Sid, ObservableParticipant>() {
-        didSet {
-            allParticipants = participants
-            if let localParticipant = room.localParticipant {
-                allParticipants.updateValue(ObservableParticipant(localParticipant),
-                                            forKey: localParticipant.sid,
-                                            insertingAt: 0)
-            }
-        }
-    }
+    @Published public var participants = OrderedDictionary<Sid, ObservableParticipant>()
 
-    @Published public private(set) var allParticipants = OrderedDictionary<Sid, ObservableParticipant>()
+    public var allParticipants: OrderedDictionary<Sid, ObservableParticipant> {
+        var result = participants
+        if let localParticipant = room.localParticipant {
+            result.updateValue(ObservableParticipant(localParticipant),
+                                        forKey: localParticipant.sid,
+                                        insertingAt: 0)
+        }
+        return result
+    }
 
     @Published public var localVideo: LocalTrackPublication?
     @Published public var localAudio: LocalTrackPublication?
