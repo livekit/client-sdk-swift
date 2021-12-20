@@ -11,12 +11,18 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
 
     private var webSocket: URLSessionWebSocketTask?
 
+    private var latestJoinResponse: Livekit_JoinResponse?
+
     func connect(_ url: String,
                  _ token: String,
                  connectOptions: ConnectOptions? = nil,
                  reconnect: Bool = false) -> Promise<Void> {
 
-        Promise<Void> { () -> Void in
+        return Promise<Void> { () -> Void in
+
+            // Clear internal vars
+            self.latestJoinResponse = nil
+
             let rtcUrl = try Utils.buildUrl(url,
                                             token,
                                             connectOptions: connectOptions,
@@ -84,6 +90,7 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
         do {
             switch msg {
             case .join(let joinResponse) :
+                latestJoinResponse = joinResponse
                 notify { $0.signalClient(self, didReceive: joinResponse) }
 
             case .answer(let sd):
@@ -179,14 +186,24 @@ extension SignalClient {
 
     func waitForWebSocketConnected() -> Promise<Void> {
 
+        logger.debug("Waiting for WebSocket to connect...")
+
+        // If already connected, there is no need to wait.
+        if case .connected = connectionState {
+            logger.debug("Already connected.")
+            return Promise(())
+        }
+
         return Promise<Void> { fulfill, reject in
             // create temporary delegate
             var delegate: SignalClientDelegateClosures?
             delegate = SignalClientDelegateClosures(didConnect: { _, _ in
+                logger.debug("WebSocket didConnect")
                 // wait until connected
                 fulfill(())
                 delegate = nil
             }, didFailConnection: { _, error in
+                logger.debug("WebSocket didFailConnection")
                 reject(error)
                 delegate = nil
             })
@@ -199,7 +216,13 @@ extension SignalClient {
 
     func waitReceiveJoinResponse() -> Promise<Livekit_JoinResponse> {
 
-        logger.debug("waiting for join response...")
+        logger.debug("Waiting for join response...")
+
+        // If already received a join response, there is no need to wait.
+        if let joinResponse = latestJoinResponse {
+            logger.debug("Already received join response")
+            return Promise(joinResponse)
+        }
 
         return Promise<Livekit_JoinResponse> { fulfill, _ in
             // create temporary delegate
@@ -345,8 +368,8 @@ extension SignalClient: URLSessionWebSocketDelegate {
             isReconnect = true
         }
 
-        notify { $0.signalClient(self, didConnect: isReconnect) }
         connectionState = .connected
+        notify { $0.signalClient(self, didConnect: isReconnect) }
         receiveNext()
     }
 

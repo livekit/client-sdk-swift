@@ -12,8 +12,8 @@ open class ObservableRoom: ObservableObject, RoomDelegate {
         var result = participants
         if let localParticipant = room.localParticipant {
             result.updateValue(ObservableParticipant(localParticipant),
-                                        forKey: localParticipant.sid,
-                                        insertingAt: 0)
+                               forKey: localParticipant.sid,
+                               insertingAt: 0)
         }
         return result
     }

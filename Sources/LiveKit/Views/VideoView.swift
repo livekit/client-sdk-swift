@@ -186,7 +186,7 @@ extension VideoView: RTCVideoViewDelegate {
             logger.warning("VideoView: size width/height is not an integer")
             return
         }
-        
+
         guard width > 1, height > 1 else {
             // Handle known issue where the delegate (rarely) reports dimensions of 1x1
             // which causes [MTLTextureDescriptorInternal validateWithDevice] to crash.
