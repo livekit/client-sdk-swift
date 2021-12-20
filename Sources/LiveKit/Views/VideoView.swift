@@ -177,12 +177,20 @@ public class VideoView: NativeView {
 extension VideoView: RTCVideoViewDelegate {
 
     public func videoView(_: RTCVideoRenderer, didChangeVideoSize size: CGSize) {
+
         logger.debug("VideoView: didChangeVideoSize \(size)")
 
         guard let width = Int32(exactly: size.width),
               let height = Int32(exactly: size.height) else {
             // CGSize is used by WebRTC but this should always be an integer
             logger.warning("VideoView: size width/height is not an integer")
+            return
+        }
+        
+        guard width > 1, height > 1 else {
+            // Handle known issue where the delegate (rarely) reports dimensions of 1x1
+            // which causes [MTLTextureDescriptorInternal validateWithDevice] to crash.
+            logger.warning("VideoView: size is 1x1, ignoring...")
             return
         }
 
