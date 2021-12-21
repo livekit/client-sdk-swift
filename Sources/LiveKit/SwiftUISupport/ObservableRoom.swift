@@ -1,6 +1,7 @@
 import SwiftUI
 import WebRTC
 import OrderedCollections
+import Promises
 
 open class ObservableRoom: ObservableObject, RoomDelegate {
 
@@ -42,7 +43,20 @@ open class ObservableRoom: ObservableObject, RoomDelegate {
         room.remove(delegate: self)
     }
 
-    open func toggleCameraEnabled() {
+    @discardableResult
+    public func switchCameraPosition() -> Promise<Void> {
+
+        guard case .published(let publication) = self.cameraTrackState,
+              let track = publication.track as? LocalVideoTrack,
+              let cameraCapturer = track.capturer as? CameraCapturer else {
+            print("Track or CameraCapturer doesn't exist")
+            return Promise(TrackError.invalidTrackState("Track or a CameraCapturer doesn't exist"))
+        }
+
+        return cameraCapturer.switchCameraPosition()
+    }
+
+    public func toggleCameraEnabled() {
 
         guard let localParticipant = room.localParticipant else {
             // LocalParticipant should exist if alreadey connected to the room
@@ -72,7 +86,7 @@ open class ObservableRoom: ObservableObject, RoomDelegate {
         }
     }
 
-    open func toggleMicrophoneEnabled() {
+    public func toggleMicrophoneEnabled() {
 
         guard let localParticipant = room.localParticipant else {
             // LocalParticipant should exist if alreadey connected to the room
