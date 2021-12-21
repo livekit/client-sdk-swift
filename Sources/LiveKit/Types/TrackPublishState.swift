@@ -1,6 +1,6 @@
 /// A enum that represents the published state of a ``LocalTrackPublication``.
 public enum TrackPublishState {
-    /// Not yet been published or has been unpublished.
+    /// Not published yet, has been unpublished, or an error occured while publishing or un-publishing.
     /// `error` wil be non-nil if an error occurred while publishing.
     case notPublished(error: Error? = nil)
     /// In the process of publishing or unpublishing.
