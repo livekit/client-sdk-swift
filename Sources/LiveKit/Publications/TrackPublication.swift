@@ -1,4 +1,5 @@
 import Foundation
+import CoreGraphics
 
 extension TrackPublication: Equatable {
     // objects are considered equal if sids are the same
