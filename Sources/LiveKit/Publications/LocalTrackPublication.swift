@@ -1,28 +1,25 @@
 import Foundation
+import Promises
 
 public class LocalTrackPublication: TrackPublication {
-    /// Mute or unmute this track
-    ///
-    /// Muting the track would stop audio or video from being transmitted to the server, and notify other participants in the room.
-    public override var muted: Bool {
-        didSet {
-            guard oldValue != muted else { return }
 
-            // mute the tracks and stop sending data
-            guard let mediaTrack = track else { return }
+    @discardableResult
+    public func mute() -> Promise<Void> {
 
-            mediaTrack.mediaTrack.isEnabled = !muted
-
-            // send server flag
-            guard let participant = self.participant as? LocalParticipant else {
-                return
-            }
-
-            participant.notify { $0.participant(participant, didUpdate: self, muted: self.muted) }
-            if let room = participant.room {
-                room.engine.signalClient.sendMuteTrack(trackSid: sid, muted: muted)
-                room.notify { $0.room(participant.room!, participant: participant, didUpdate: self, muted: self.muted) }
-            }
+        guard let track = track as? LocalTrack else {
+            return Promise(InternalError.state("track is nil or not a LocalTrack"))
         }
+
+        return track.mute()
+    }
+
+    @discardableResult
+    public func unmute() -> Promise<Void> {
+
+        guard let track = track as? LocalTrack else {
+            return Promise(InternalError.state("track is nil or not a LocalTrack"))
+        }
+
+        return track.unmute()
     }
 }

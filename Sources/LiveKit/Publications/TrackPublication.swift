@@ -7,14 +7,25 @@ extension TrackPublication: Equatable {
     }
 }
 
-public class TrackPublication {
+public class TrackPublication: TrackDelegate {
 
     public let sid: Sid
     public let kind: Track.Kind
     public let source: Track.Source
     public internal(set) var name: String
-    public internal(set) var track: Track?
-    public internal(set) var muted: Bool
+    public internal(set) var track: Track? {
+        didSet {
+            guard oldValue != track else { return }
+
+            // listen for visibility updates
+            oldValue?.remove(delegate: self)
+            track?.add(delegate: self)
+        }
+    }
+
+    public var muted: Bool {
+        track?.muted ?? false
+    }
 
     /// video-only
     public internal(set) var dimensions: Dimensions?
@@ -31,20 +42,52 @@ public class TrackPublication {
         name = info.name
         kind = info.type.toLKType()
         source = info.source.toLKType()
-        muted = info.muted
         self.track = track
         self.participant = participant
         updateFromInfo(info: info)
+
+        // listen for events from Track
+        track?.add(delegate: self)
     }
 
-    func updateFromInfo(info: Livekit_TrackInfo) {
+    internal func updateFromInfo(info: Livekit_TrackInfo) {
         // only muted and name can conceivably update
         name = info.name
-        muted = info.muted
         simulcasted = info.simulcast
         if info.type == .video {
             dimensions = Dimensions(width: Int32(info.width),
                                     height: Int32(info.height))
         }
+    }
+
+    // MARK: - TrackDelegate
+
+    public func track(_ track: VideoTrack, videoView: VideoView, didUpdate size: CGSize) {
+        //
+    }
+
+    public func track(_ track: VideoTrack, didAttach videoView: VideoView) {
+        //
+    }
+
+    public func track(_ track: VideoTrack, didDetach videoView: VideoView) {
+        //
+    }
+
+    public func track(_ track: Track, didUpdate muted: Bool, shouldSendSignal: Bool) {
+        //
+        logger.debug("track didUpdate muted: \(muted) shouldSendSignal: \(shouldSendSignal)")
+
+        guard let participant = participant else {
+            logger.warning("Participant is nil")
+            return
+        }
+
+        if shouldSendSignal {
+            participant.room?.engine.signalClient.sendMuteTrack(trackSid: sid, muted: muted)
+        }
+
+        participant.notify { $0.participant(participant, didUpdate: self, muted: muted) }
+        participant.room?.notify { $0.room(participant.room!, participant: participant, didUpdate: self, muted: self.muted) }
     }
 }

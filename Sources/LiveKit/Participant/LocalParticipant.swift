@@ -221,23 +221,6 @@ public class LocalParticipant: Participant {
         return engine.send(userPacket: userPacket,
                            reliability: reliability)
     }
-
-    override func updateFromInfo(info: Livekit_ParticipantInfo) {
-        super.updateFromInfo(info: info)
-
-        // detect tracks that have been muted remotely, and apply those changes
-        for trackInfo in info.tracks {
-            guard let publication = getTrackPublication(sid: trackInfo.sid) else {
-                // this is unexpected
-                continue
-            }
-            if trackInfo.muted != publication.muted {
-                publication.muted = trackInfo.muted
-            }
-        }
-    }
-
-    //    func setEncodingParameters(parameters _: EncodingParameters) {}
 }
 
 // MARK: - Simplified API
@@ -267,15 +250,12 @@ extension LocalParticipant {
 
     public func set(source: Track.Source, enabled: Bool) -> Promise<LocalTrackPublication?> {
         let publication = getTrackPublication(source: source)
-        if let publication = publication as? LocalTrackPublication,
-           let track = publication.track {
+        if let publication = publication as? LocalTrackPublication {
             // publication already exists
             if enabled {
-                publication.muted = false
-                return track.start().then { publication }
+                return publication.unmute().then { publication }
             } else {
-                publication.muted = true
-                return track.stop().then { nil }
+                return publication.mute().then { nil }
             }
         } else if enabled {
             // try to create a new track

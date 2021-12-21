@@ -6,6 +6,8 @@ public class RemoteTrackPublication: TrackPublication {
     var unsubscribed: Bool = false
     var enabled: Bool = true
 
+    private var metadataMuted: Bool = false
+
     private var videoViewVisibilities = [Int: VideoViewVisibility]()
     private weak var pendingDebounceFunc: DispatchWorkItem?
     private var debouncedRecomputeVideoViewVisibilities: DebouncFunc?
@@ -20,7 +22,7 @@ public class RemoteTrackPublication: TrackPublication {
         }
     }
 
-    public override var track: Track? {
+    override public internal(set) var track: Track? {
         didSet {
             guard oldValue != track else { return }
 
@@ -28,9 +30,10 @@ public class RemoteTrackPublication: TrackPublication {
             pendingDebounceFunc?.cancel()
             videoViewVisibilities.removeAll()
 
-            // listen for visibility updates
-            oldValue?.remove(delegate: self)
-            track?.add(delegate: self)
+            // if new Track has been set to this RemoteTrackPublication,
+            // update the Track's muted state from the latest info.
+            track?.update(muted: metadataMuted,
+                          shouldNotify: false)
         }
     }
 
@@ -61,22 +64,10 @@ public class RemoteTrackPublication: TrackPublication {
         pendingDebounceFunc?.cancel()
     }
 
-    override public internal(set) var muted: Bool {
-        didSet {
-            if muted == oldValue {
-                return
-            }
-            guard let participant = self.participant else {
-                return
-            }
-            //            if muted {
-            participant.notify { $0.participant(participant, didUpdate: self, muted: self.muted) }
-            participant.room?.notify { $0.room(participant.room!, participant: participant, didUpdate: self, muted: self.muted) }
-            //            } else {
-            //                participant.notify { $0.participant(participant, didUpdate: self.muted, trackPublication: self) }
-            //                participant.room?.notify { $0.didUnmute(publication: self, participant: participant) }
-            //            }
-        }
+    override func updateFromInfo(info: Livekit_TrackInfo) {
+        super.updateFromInfo(info: info)
+        track?.update(muted: info.muted)
+        metadataMuted = info.muted
     }
 
     override public var subscribed: Bool {
@@ -107,35 +98,37 @@ public class RemoteTrackPublication: TrackPublication {
         client.sendUpdateTrackSettings(sid: sid,
                                        enabled: enabled)
     }
-}
 
-// MARK: - Video Optimizations
+    // MARK: - TrackDelegate
 
-extension RemoteTrackPublication: TrackDelegate {
-
-    public func track(_ track: VideoTrack,
-                      videoView: VideoView,
-                      didUpdate size: CGSize) {
+    override public func track(_ track: VideoTrack,
+                               videoView: VideoView,
+                               didUpdate size: CGSize) {
 
         videoViewVisibilities[videoView.hash] = VideoViewVisibility(visible: true,
                                                                     size: size)
         shouldComputeVideoViewVisibilities()
     }
 
-    public func track(_ track: VideoTrack,
-                      didAttach videoView: VideoView) {
+    override public func track(_ track: VideoTrack,
+                               didAttach videoView: VideoView) {
 
         videoViewVisibilities[videoView.hash] = VideoViewVisibility(visible: true,
                                                                     size: videoView.viewSize)
         shouldComputeVideoViewVisibilities()
     }
 
-    public func track(_ track: VideoTrack,
-                      didDetach videoView: VideoView) {
+    override public func track(_ track: VideoTrack,
+                               didDetach videoView: VideoView) {
 
         videoViewVisibilities.removeValue(forKey: videoView.hash)
         shouldComputeVideoViewVisibilities()
     }
+}
+
+// MARK: - Video Optimizations
+
+extension RemoteTrackPublication {
 
     private func hasVisibleVideoViews() -> Bool {
         // not visible if no entry
