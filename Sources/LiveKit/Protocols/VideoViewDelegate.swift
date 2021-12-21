@@ -1,7 +1,7 @@
 import CoreMedia
 import Foundation
 
-#if !os(macOS)
+#if os(iOS)
 public protocol VideoViewDelegate {
     func didReceiveData(view: VideoView)
     func dimensionsDidChange(dimensions: Dimensions, view: VideoView)

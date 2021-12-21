@@ -1,7 +1,7 @@
 import Foundation
 import WebRTC
 
-#if !os(macOS)
+#if os(iOS)
 typealias NativeRect = CGRect
 import UIKit
 #else
@@ -136,7 +136,7 @@ public class VideoView: NativeView {
 
     static func createNativeRendererView(delegate: RTCVideoViewDelegate) -> RTCVideoRenderer {
 
-        #if !os(macOS)
+        #if os(iOS)
         // iOS --------------------
 
         #if targetEnvironment(simulator)

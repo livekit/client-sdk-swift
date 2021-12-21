@@ -1,4 +1,4 @@
-#if !os(macOS)
+#if os(iOS)
 import UIKit
 public typealias NativeViewType = UIView
 #else
@@ -21,7 +21,7 @@ public class NativeView: NativeViewType {
         fatalError("init(coder:) has not been implemented")
     }
 
-    #if !os(macOS)
+    #if os(iOS)
     public override func layoutSubviews() {
         super.layoutSubviews()
         shouldLayout()
@@ -34,7 +34,7 @@ public class NativeView: NativeViewType {
     #endif
 
     func markNeedsLayout() {
-        #if !os(macOS)
+        #if os(iOS)
         setNeedsLayout()
         #else
         needsLayout = true

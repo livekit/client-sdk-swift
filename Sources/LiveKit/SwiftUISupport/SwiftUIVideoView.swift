@@ -1,6 +1,6 @@
 import SwiftUI
 
-#if !os(macOS)
+#if os(iOS)
 import UIKit
 public typealias NativeViewRepresentable = UIViewRepresentable
 #else
@@ -58,7 +58,7 @@ public struct SwiftUIVideoView: NativeViewRepresentable {
         self.track.add(delegate: delegateReceiver)
     }
 
-    #if !os(macOS)
+    #if os(iOS)
     // iOS
 
     public func makeUIView(context: Context) -> VideoView {
