@@ -5,8 +5,8 @@ import Promises
 
 // currently only used for macOS
 public enum ScreenShareSource {
-    case display(UInt32)
-    case window(UInt32)
+    case display(id: UInt32)
+    case window(id: UInt32)
 }
 
 #if os(macOS)
@@ -21,14 +21,14 @@ public struct MacOSScreenCapturerOptions {
 }
 
 extension ScreenShareSource {
-    public static let mainDisplay: ScreenShareSource = .display(CGMainDisplayID())
+    public static let mainDisplay: ScreenShareSource = .display(id: CGMainDisplayID())
 }
 
 extension MacOSScreenCapturer {
 
     public static func sources() -> [ScreenShareSource] {
-        return [displayIDs().map { ScreenShareSource.display($0) },
-                windowIDs().map { ScreenShareSource.window($0) }].flatMap { $0 }
+        return [displayIDs().map { ScreenShareSource.display(id: $0) },
+                windowIDs().map { ScreenShareSource.window(id: $0) }].flatMap { $0 }
     }
 
     // gets a list of window IDs
