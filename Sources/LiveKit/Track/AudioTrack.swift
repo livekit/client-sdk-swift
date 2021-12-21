@@ -10,7 +10,6 @@ public class AudioTrack: Track {
         case localAndRemote
     }
 
-    public private(set) var sinks: [AudioSink]?
     public var audioTrack: RTCAudioTrack {
         get { return mediaTrack as! RTCAudioTrack }
     }
@@ -34,18 +33,6 @@ public class AudioTrack: Track {
 
     init(rtcTrack: RTCAudioTrack, name: String, source: Track.Source) {
         super.init(name: name, kind: .audio, source: source, track: rtcTrack)
-    }
-
-    // MARK: - Public Methods
-
-    public func addSink(_ sink: AudioSink) {
-        sinks?.append(sink)
-    }
-
-    public func removeSink(_ sink: AudioSink) {
-        sinks?.removeAll(where: { s -> Bool in
-            (sink as AnyObject) === (s as AnyObject)
-        })
     }
 
     // MARK: - Internal Methods
