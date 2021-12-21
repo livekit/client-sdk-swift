@@ -195,10 +195,10 @@ extension LocalVideoTrack {
         let videoSource = Engine.factory.videoSource()
         let capturer = MacOSScreenCapturer(delegate: videoSource, source: source)
         return LocalVideoTrack(
-            capturer: capturer,
-            videoSource: videoSource,
             name: Track.screenShareName,
-            source: .screenShareVideo
+            source: .screenShareVideo,
+            capturer: capturer,
+            videoSource: videoSource
         )
     }
 }

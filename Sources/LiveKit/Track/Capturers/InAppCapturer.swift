@@ -53,10 +53,10 @@ extension LocalVideoTrack {
         let videoSource = Engine.factory.videoSource()
         let capturer = InAppScreenCapturer(delegate: videoSource)
         return LocalVideoTrack(
-            capturer: capturer,
-            videoSource: videoSource,
             name: Track.screenShareName,
-            source: .screenShareVideo
+            source: .screenShareVideo,
+            capturer: capturer,
+            videoSource: videoSource
         )
     }
 }

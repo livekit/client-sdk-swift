@@ -1,7 +1,6 @@
-import WebRTC
 import Promises
 
-class RemoteVideoTrack: VideoTrack {
+public class RemoteTrack: Track {
 
     @discardableResult
     override func start() -> Promise<Void> {

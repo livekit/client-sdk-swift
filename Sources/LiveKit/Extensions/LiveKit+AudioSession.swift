@@ -4,8 +4,8 @@ import WebRTC
 /// - Parameters:
 ///   - newState: The new state of audio tracks
 ///   - oldState: The previous state of audio tracks
-public typealias ShouldConfigureAudioSessionFunc = (_ newState: AudioTrack.TracksState,
-                                                    _ oldState: AudioTrack.TracksState) -> Void
+public typealias ShouldConfigureAudioSessionFunc = (_ newState: AudioManager.State,
+                                                    _ oldState: AudioManager.State) -> Void
 
 extension LiveKit {
 
@@ -52,8 +52,8 @@ extension LiveKit {
     }
 
     /// The default implementation when audio session configuration is requested by the SDK.
-    public static func defaultShouldConfigureAudioSessionFunc(newState: AudioTrack.TracksState,
-                                                              oldState: AudioTrack.TracksState) {
+    public static func defaultShouldConfigureAudioSessionFunc(newState: AudioManager.State,
+                                                              oldState: AudioManager.State) {
 
         let config = RTCAudioSessionConfiguration.webRTC()
 

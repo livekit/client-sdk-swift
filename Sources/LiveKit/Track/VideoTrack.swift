@@ -1,21 +1,18 @@
-import Foundation
 import WebRTC
 
-public class VideoTrack: Track {
+public protocol VideoTrack: Track {
 
-    public var videoTrack: RTCVideoTrack {
-        get { return mediaTrack as! RTCVideoTrack }
-    }
+}
 
-    init(rtcTrack: RTCVideoTrack, name: String, source: Track.Source) {
-        super.init(name: name, kind: .video, source: source, track: rtcTrack)
-    }
+extension VideoTrack {
 
     public func addRenderer(_ renderer: RTCVideoRenderer) {
+        guard let videoTrack = mediaTrack as? RTCVideoTrack else { return }
         videoTrack.add(renderer)
     }
 
     public func removeRenderer(_ renderer: RTCVideoRenderer) {
+        guard let videoTrack = mediaTrack as? RTCVideoTrack else { return }
         videoTrack.remove(renderer)
     }
 }

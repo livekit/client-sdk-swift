@@ -1,7 +1,18 @@
 import Foundation
 import WebRTC
+import Promises
 
-public class LocalAudioTrack: AudioTrack {
+public class LocalAudioTrack: LocalTrack, AudioTrack {
+
+    internal init(name: String,
+                  source: Track.Source,
+                  track: RTCMediaStreamTrack) {
+
+        super.init(name: name,
+                   kind: .audio,
+                   source: source,
+                   track: track)
+    }
 
     public static func createTrack(name: String,
                                    options: AudioCaptureOptions? = nil) -> LocalAudioTrack {
@@ -17,11 +28,30 @@ public class LocalAudioTrack: AudioTrack {
             "googNoiseSuppression2": options.experimentalNoiseSuppression.toString(),
             "googAutoGainControl2": options.experimentalAutoGainControl.toString()
         ]
-        let audioConstraints = RTCMediaConstraints(mandatoryConstraints: nil, optionalConstraints: constraints)
+
+        let audioConstraints = RTCMediaConstraints(mandatoryConstraints: nil,
+                                                   optionalConstraints: constraints)
 
         let audioSource = Engine.factory.audioSource(with: audioConstraints)
         let rtcTrack = Engine.factory.audioTrack(with: audioSource, trackId: UUID().uuidString)
         rtcTrack.isEnabled = true
-        return LocalAudioTrack(rtcTrack: rtcTrack, name: name, source: .microphone)
+
+        return LocalAudioTrack(name: name,
+                               source: .microphone,
+                               track: rtcTrack)
+    }
+
+    @discardableResult
+    override func start() -> Promise<Void> {
+        super.start().then {
+            AudioManager.shared.trackDidStart(.local)
+        }
+    }
+
+    @discardableResult
+    override public func stop() -> Promise<Void> {
+        super.stop().then {
+            AudioManager.shared.trackDidStop(.local)
+        }
     }
 }

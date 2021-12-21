@@ -166,10 +166,10 @@ extension LocalVideoTrack {
         let capturer = CameraCapturer(delegate: source, options: options)
 
         return LocalVideoTrack(
-            capturer: capturer,
-            videoSource: output,
             name: Track.cameraName,
-            source: .camera
+            source: .camera,
+            capturer: capturer,
+            videoSource: output
         )
     }
 }

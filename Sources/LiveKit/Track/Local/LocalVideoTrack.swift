@@ -3,22 +3,26 @@ import WebRTC
 import Promises
 import ReplayKit
 
-public class LocalVideoTrack: VideoTrack {
+public class LocalVideoTrack: LocalTrack, VideoTrack {
 
     public internal(set) var capturer: VideoCapturer
     public internal(set) var videoSource: RTCVideoSource
 
-    internal init(capturer: VideoCapturer,
-                  videoSource: RTCVideoSource,
-                  name: String,
-                  source: Track.Source) {
+    internal init(name: String,
+                  source: Track.Source,
+                  capturer: VideoCapturer,
+                  videoSource: RTCVideoSource) {
 
         let rtcTrack = Engine.factory.videoTrack(with: videoSource, trackId: UUID().uuidString)
         rtcTrack.isEnabled = true
 
         self.capturer = capturer
         self.videoSource = videoSource
-        super.init(rtcTrack: rtcTrack, name: name, source: source)
+
+        super.init(name: name,
+                   kind: .video,
+                   source: source,
+                   track: rtcTrack)
 
         self.capturer.add(delegate: self)
     }

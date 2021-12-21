@@ -61,10 +61,10 @@ extension LocalVideoTrack {
         let videoSource = Engine.factory.videoSource()
         let capturer = IPCCapturer(delegate: videoSource, ipcName: ipcName)
         return LocalVideoTrack(
-            capturer: capturer,
-            videoSource: videoSource,
             name: name,
-            source: source
+            source: source,
+            capturer: capturer,
+            videoSource: videoSource
         )
     }
 }

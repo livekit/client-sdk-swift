@@ -23,10 +23,10 @@ extension LocalVideoTrack {
         let videoSource = Engine.factory.videoSource()
         let capturer = BufferCapturer(delegate: videoSource)
         return LocalVideoTrack(
-            capturer: capturer,
-            videoSource: videoSource,
             name: name,
-            source: source
+            source: source,
+            capturer: capturer,
+            videoSource: videoSource
         )
     }
 }

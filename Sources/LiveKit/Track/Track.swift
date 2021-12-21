@@ -40,7 +40,7 @@ public class Track: MulticastDelegate<TrackDelegate> {
     public private(set) var state: State = .stopped {
         didSet {
             guard oldValue != state else { return }
-            stateUpdated()
+            didUpdateState()
         }
     }
 
@@ -79,9 +79,7 @@ public class Track: MulticastDelegate<TrackDelegate> {
         mediaTrack.isEnabled = false
     }
 
-    internal func stateUpdated() {
-        if .stopped == state {
-            mediaTrack.isEnabled = false
-        }
+    internal func didUpdateState() {
+        //
     }
 }
