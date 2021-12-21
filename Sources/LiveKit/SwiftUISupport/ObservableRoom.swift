@@ -18,9 +18,10 @@ open class ObservableRoom: ObservableObject, RoomDelegate {
         return result
     }
 
-    @Published public var localVideo: LocalTrackPublication?
-    @Published public var localAudio: LocalTrackPublication?
     @Published public var localScreen: LocalTrackPublication?
+
+    @Published public var cameraTrackState: TrackPublishState = .notPublished()
+    @Published public var microphoneTrackState: TrackPublishState = .notPublished()
 
     public init(_ room: Room) {
         self.room = room
@@ -39,6 +40,66 @@ open class ObservableRoom: ObservableObject, RoomDelegate {
     deinit {
         // cameraTrack?.stop()
         room.remove(delegate: self)
+    }
+
+    open func toggleCameraEnabled() {
+
+        guard let localParticipant = room.localParticipant else {
+            // LocalParticipant should exist if alreadey connected to the room
+            print("LocalParticipant doesn't exist")
+            return
+        }
+
+        let enabled = localParticipant.isCameraEnabled()
+
+        DispatchQueue.main.async {
+            self.cameraTrackState = .busy(isPublishing: !enabled)
+        }
+
+        localParticipant.setCamera(enabled: !enabled).then { publication in
+            DispatchQueue.main.async {
+                guard let publication = publication else {
+                    self.cameraTrackState = .notPublished()
+                    return
+                }
+
+                self.cameraTrackState = .published(publication)
+            }
+        }.catch { error in
+            DispatchQueue.main.async {
+                self.cameraTrackState = .notPublished(error: error)
+            }
+        }
+    }
+
+    open func toggleMicrophoneEnabled() {
+
+        guard let localParticipant = room.localParticipant else {
+            // LocalParticipant should exist if alreadey connected to the room
+            print("LocalParticipant doesn't exist")
+            return
+        }
+
+        let enabled = localParticipant.isMicrophoneEnabled()
+
+        DispatchQueue.main.async {
+            self.microphoneTrackState = .busy(isPublishing: !enabled)
+        }
+
+        localParticipant.setMicrophone(enabled: !enabled).then { publication in
+            DispatchQueue.main.async {
+                guard let publication = publication else {
+                    self.microphoneTrackState = .notPublished()
+                    return
+                }
+
+                self.microphoneTrackState = .published(publication)
+            }
+        }.catch { error in
+            DispatchQueue.main.async {
+                self.microphoneTrackState = .notPublished(error: error)
+            }
+        }
     }
 
     open func room(_ room: Room,
