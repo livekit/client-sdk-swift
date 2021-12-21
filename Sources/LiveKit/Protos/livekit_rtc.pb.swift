@@ -374,6 +374,15 @@ struct Livekit_SignalResponse {
         set {message = .streamStateUpdate(newValue)}
     }
 
+    /// when max subscribe quality changed
+    var subscribedQualityUpdate: Livekit_SubscribedQualityUpdate {
+        get {
+            if case .subscribedQualityUpdate(let v)? = message {return v}
+            return Livekit_SubscribedQualityUpdate()
+        }
+        set {message = .subscribedQualityUpdate(newValue)}
+    }
+
     var unknownFields = SwiftProtobuf.UnknownStorage()
 
     enum OneOf_Message: Equatable {
@@ -401,6 +410,8 @@ struct Livekit_SignalResponse {
         case connectionQuality(Livekit_ConnectionQualityUpdate)
         /// when streamed tracks state changed
         case streamStateUpdate(Livekit_StreamStateUpdate)
+        /// when max subscribe quality changed
+        case subscribedQualityUpdate(Livekit_SubscribedQualityUpdate)
 
         #if !swift(>=4.1)
         static func ==(lhs: Livekit_SignalResponse.OneOf_Message, rhs: Livekit_SignalResponse.OneOf_Message) -> Bool {
@@ -454,6 +465,10 @@ struct Livekit_SignalResponse {
             }()
             case (.streamStateUpdate, .streamStateUpdate): return {
                 guard case .streamStateUpdate(let l) = lhs, case .streamStateUpdate(let r) = rhs else { preconditionFailure() }
+                return l == r
+            }()
+            case (.subscribedQualityUpdate, .subscribedQualityUpdate): return {
+                guard case .subscribedQualityUpdate(let l) = lhs, case .subscribedQualityUpdate(let r) = rhs else { preconditionFailure() }
                 return l == r
             }()
             default: return false
@@ -758,6 +773,8 @@ struct Livekit_ConnectionQualityInfo {
 
     var quality: Livekit_ConnectionQuality = .poor
 
+    var score: Float = 0
+
     var unknownFields = SwiftProtobuf.UnknownStorage()
 
     init() {}
@@ -797,6 +814,34 @@ struct Livekit_StreamStateUpdate {
     // methods supported on all messages.
 
     var streamStates: [Livekit_StreamStateInfo] = []
+
+    var unknownFields = SwiftProtobuf.UnknownStorage()
+
+    init() {}
+}
+
+struct Livekit_SubscribedQuality {
+    // SwiftProtobuf.Message conformance is added in an extension below. See the
+    // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+    // methods supported on all messages.
+
+    var quality: Livekit_VideoQuality = .low
+
+    var enabled: Bool = false
+
+    var unknownFields = SwiftProtobuf.UnknownStorage()
+
+    init() {}
+}
+
+struct Livekit_SubscribedQualityUpdate {
+    // SwiftProtobuf.Message conformance is added in an extension below. See the
+    // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+    // methods supported on all messages.
+
+    var trackSid: String = String()
+
+    var subscribedQualities: [Livekit_SubscribedQuality] = []
 
     var unknownFields = SwiftProtobuf.UnknownStorage()
 
@@ -1031,7 +1076,8 @@ extension Livekit_SignalResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageI
         10: .standard(proto: "speakers_changed"),
         11: .standard(proto: "room_update"),
         12: .standard(proto: "connection_quality"),
-        13: .standard(proto: "stream_state_update")
+        13: .standard(proto: "stream_state_update"),
+        14: .standard(proto: "subscribed_quality_update")
     ]
 
     mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -1196,6 +1242,19 @@ extension Livekit_SignalResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageI
                     self.message = .streamStateUpdate(v)
                 }
             }()
+            case 14: try {
+                var v: Livekit_SubscribedQualityUpdate?
+                var hadOneofValue = false
+                if let current = self.message {
+                    hadOneofValue = true
+                    if case .subscribedQualityUpdate(let m) = current {v = m}
+                }
+                try decoder.decodeSingularMessageField(value: &v)
+                if let v = v {
+                    if hadOneofValue {try decoder.handleConflictingOneOf()}
+                    self.message = .subscribedQualityUpdate(v)
+                }
+            }()
             default: break
             }
         }
@@ -1254,6 +1313,10 @@ extension Livekit_SignalResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageI
         case .streamStateUpdate?: try {
             guard case .streamStateUpdate(let v)? = self.message else { preconditionFailure() }
             try visitor.visitSingularMessageField(value: v, fieldNumber: 13)
+        }()
+        case .subscribedQualityUpdate?: try {
+            guard case .subscribedQualityUpdate(let v)? = self.message else { preconditionFailure() }
+            try visitor.visitSingularMessageField(value: v, fieldNumber: 14)
         }()
         case nil: break
         }
@@ -1931,7 +1994,8 @@ extension Livekit_ConnectionQualityInfo: SwiftProtobuf.Message, SwiftProtobuf._M
     static let protoMessageName: String = _protobuf_package + ".ConnectionQualityInfo"
     static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
         1: .standard(proto: "participant_sid"),
-        2: .same(proto: "quality")
+        2: .same(proto: "quality"),
+        3: .same(proto: "score")
     ]
 
     mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -1942,6 +2006,7 @@ extension Livekit_ConnectionQualityInfo: SwiftProtobuf.Message, SwiftProtobuf._M
             switch fieldNumber {
             case 1: try { try decoder.decodeSingularStringField(value: &self.participantSid) }()
             case 2: try { try decoder.decodeSingularEnumField(value: &self.quality) }()
+            case 3: try { try decoder.decodeSingularFloatField(value: &self.score) }()
             default: break
             }
         }
@@ -1954,12 +2019,16 @@ extension Livekit_ConnectionQualityInfo: SwiftProtobuf.Message, SwiftProtobuf._M
         if self.quality != .poor {
             try visitor.visitSingularEnumField(value: self.quality, fieldNumber: 2)
         }
+        if self.score != 0 {
+            try visitor.visitSingularFloatField(value: self.score, fieldNumber: 3)
+        }
         try unknownFields.traverse(visitor: &visitor)
     }
 
     static func ==(lhs: Livekit_ConnectionQualityInfo, rhs: Livekit_ConnectionQualityInfo) -> Bool {
         if lhs.participantSid != rhs.participantSid {return false}
         if lhs.quality != rhs.quality {return false}
+        if lhs.score != rhs.score {return false}
         if lhs.unknownFields != rhs.unknownFields {return false}
         return true
     }
@@ -2068,6 +2137,82 @@ extension Livekit_StreamStateUpdate: SwiftProtobuf.Message, SwiftProtobuf._Messa
 
     static func ==(lhs: Livekit_StreamStateUpdate, rhs: Livekit_StreamStateUpdate) -> Bool {
         if lhs.streamStates != rhs.streamStates {return false}
+        if lhs.unknownFields != rhs.unknownFields {return false}
+        return true
+    }
+}
+
+extension Livekit_SubscribedQuality: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+    static let protoMessageName: String = _protobuf_package + ".SubscribedQuality"
+    static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
+        1: .same(proto: "quality"),
+        2: .same(proto: "enabled")
+    ]
+
+    mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+        while let fieldNumber = try decoder.nextFieldNumber() {
+            // The use of inline closures is to circumvent an issue where the compiler
+            // allocates stack space for every case branch when no optimizations are
+            // enabled. https://github.com/apple/swift-protobuf/issues/1034
+            switch fieldNumber {
+            case 1: try { try decoder.decodeSingularEnumField(value: &self.quality) }()
+            case 2: try { try decoder.decodeSingularBoolField(value: &self.enabled) }()
+            default: break
+            }
+        }
+    }
+
+    func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+        if self.quality != .low {
+            try visitor.visitSingularEnumField(value: self.quality, fieldNumber: 1)
+        }
+        if self.enabled != false {
+            try visitor.visitSingularBoolField(value: self.enabled, fieldNumber: 2)
+        }
+        try unknownFields.traverse(visitor: &visitor)
+    }
+
+    static func ==(lhs: Livekit_SubscribedQuality, rhs: Livekit_SubscribedQuality) -> Bool {
+        if lhs.quality != rhs.quality {return false}
+        if lhs.enabled != rhs.enabled {return false}
+        if lhs.unknownFields != rhs.unknownFields {return false}
+        return true
+    }
+}
+
+extension Livekit_SubscribedQualityUpdate: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+    static let protoMessageName: String = _protobuf_package + ".SubscribedQualityUpdate"
+    static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
+        1: .standard(proto: "track_sid"),
+        2: .standard(proto: "subscribed_qualities")
+    ]
+
+    mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+        while let fieldNumber = try decoder.nextFieldNumber() {
+            // The use of inline closures is to circumvent an issue where the compiler
+            // allocates stack space for every case branch when no optimizations are
+            // enabled. https://github.com/apple/swift-protobuf/issues/1034
+            switch fieldNumber {
+            case 1: try { try decoder.decodeSingularStringField(value: &self.trackSid) }()
+            case 2: try { try decoder.decodeRepeatedMessageField(value: &self.subscribedQualities) }()
+            default: break
+            }
+        }
+    }
+
+    func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+        if !self.trackSid.isEmpty {
+            try visitor.visitSingularStringField(value: self.trackSid, fieldNumber: 1)
+        }
+        if !self.subscribedQualities.isEmpty {
+            try visitor.visitRepeatedMessageField(value: self.subscribedQualities, fieldNumber: 2)
+        }
+        try unknownFields.traverse(visitor: &visitor)
+    }
+
+    static func ==(lhs: Livekit_SubscribedQualityUpdate, rhs: Livekit_SubscribedQualityUpdate) -> Bool {
+        if lhs.trackSid != rhs.trackSid {return false}
+        if lhs.subscribedQualities != rhs.subscribedQualities {return false}
         if lhs.unknownFields != rhs.unknownFields {return false}
         return true
     }
