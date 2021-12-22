@@ -88,6 +88,12 @@ public class LocalParticipant: Participant {
 
         let cid = track.mediaTrack.trackId
 
+        let transInit = RTCRtpTransceiverInit()
+        transInit.direction = .sendOnly
+        transInit.streamIds = [self.streamId]
+        
+        var layers : [Livekit_VideoLayer] = []
+        
         // try to start the track
         return track.start()
             .recover { (error) -> Void in
@@ -95,9 +101,18 @@ public class LocalParticipant: Participant {
                 // start() will fail if it's already started.
                 // but for this case we will allow it, throw for any other error.
                 guard case TrackError.invalidTrackState = error else { throw error }
-            }.then {
+            }.then { () -> Promise<Livekit_TrackInfo> in
+                
+                if let encodings = Utils.computeEncodings(dimensions: track.capturer.dimensions,
+                                                          publishOptions: publishOptions) {
+                    logger.debug("using encodings \(encodings)")
+                    transInit.sendEncodings = encodings
+                    
+                    layers = Utils.videoLayersForEncodings(dimensions: track.capturer.dimensions,
+                                                           encodings: encodings)
+                }
                 // request a new track to the server
-                engine.addTrack(cid: cid,
+                return engine.addTrack(cid: cid,
                                 name: track.name,
                                 kind: .video,
                                 source: track.source.toPBType()) {
@@ -106,18 +121,9 @@ public class LocalParticipant: Participant {
                         $0.width = UInt32(dimensions.width)
                         $0.height = UInt32(dimensions.height)
                     }
+                    $0.layers = layers
                 }
             }.then { (trackInfo) -> LocalTrackPublication in
-
-                let transInit = RTCRtpTransceiverInit()
-                transInit.direction = .sendOnly
-                transInit.streamIds = [self.streamId]
-
-                if let encodings = Utils.computeEncodings(dimensions: track.capturer.dimensions,
-                                                          publishOptions: publishOptions) {
-                    logger.debug("using encodings \(encodings)")
-                    transInit.sendEncodings = encodings
-                }
 
                 // store publishOptions used for this track
                 track.publishOptions = publishOptions

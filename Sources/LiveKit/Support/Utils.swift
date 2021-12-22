@@ -142,6 +142,53 @@ class Utils {
             RTCRtpEncodingParameters(rid: "q", encoding: encodingF)
         ]
     }
+    
+    static func videoLayersForEncodings(
+        dimensions: Dimensions?,
+        encodings: [RTCRtpEncodingParameters]
+    ) -> [Livekit_VideoLayer] {
+        let trackWidth = dimensions?.width
+        let trackHeight = dimensions?.height
+        if (encodings.isEmpty) {
+            return [Livekit_VideoLayer.with {
+                if let width = trackWidth {
+                    $0.width = UInt32(width)
+                }
+                if let height = trackHeight {
+                    $0.height = UInt32(height)
+                }
+                $0.quality = Livekit_VideoQuality.high
+                $0.bitrate = 0
+            }]
+        } else {
+            return encodings.map { encoding in
+                let scaleDownBy = encoding.scaleResolutionDownBy?.doubleValue ?? 1.0
+                
+                var videoQuality: Livekit_VideoQuality
+                switch (encoding.rid ?? "") {
+                case "f": videoQuality = Livekit_VideoQuality.high
+                case "h": videoQuality = Livekit_VideoQuality.medium
+                case "q": videoQuality = Livekit_VideoQuality.low
+                default: videoQuality = Livekit_VideoQuality.UNRECOGNIZED(-1)
+                }
+                
+                if videoQuality == Livekit_VideoQuality.UNRECOGNIZED(-1) && encodings.count == 1 {
+                    videoQuality = Livekit_VideoQuality.high
+                }
+                
+                return Livekit_VideoLayer.with {
+                    if let width = trackWidth {
+                        $0.width = UInt32(round(Double(width) / scaleDownBy))
+                    }
+                    if let height = trackHeight {
+                        $0.height = UInt32(round(Double(height) / scaleDownBy))
+                    }
+                    $0.quality = videoQuality
+                    $0.bitrate = encoding.maxBitrateBps?.uint32Value ?? 0
+                }
+            }
+        }
+    }
 }
 
 extension Collection {
