@@ -27,14 +27,6 @@ public class LocalVideoTrack: LocalTrack, VideoTrack {
         self.capturer.add(delegate: self)
     }
 
-    public override var transceiver: RTCRtpTransceiver? {
-        didSet {
-            guard oldValue != transceiver,
-                  transceiver != nil else { return }
-            self.recomputeSenderParameters()
-        }
-    }
-
     public override func start() -> Promise<Void> {
         super.start().then {
             self.capturer.startCapture()
@@ -53,37 +45,8 @@ public class LocalVideoTrack: LocalTrack, VideoTrack {
 extension LocalVideoTrack: VideoCapturerDelegate {
     // watch for dimension changes to re-compute sender parameters
     public func capturer(_ capturer: VideoCapturer, didUpdate dimensions: Dimensions?) {
-        self.recomputeSenderParameters()
-    }
-
-    internal func recomputeSenderParameters() {
-        logger.debug("Should re-compute sender parameters")
-        guard let sender = transceiver?.sender else {return}
-
-        // get current parameters
-        let parameters = sender.parameters
-
-        // re-compute encodings
-        let encodings = Utils.computeEncodings(dimensions: capturer.dimensions,
-                                               publishOptions: publishOptions)
-
-        for current in parameters.encodings {
-            if let new = encodings?.first(where: { $0.rid == current.rid }) {
-                // update parameters for matching rid
-                current.isActive = new.isActive
-                current.scaleResolutionDownBy = new.scaleResolutionDownBy
-                current.maxBitrateBps = new.maxBitrateBps
-                current.maxFramerate = new.maxFramerate
-            }
-        }
-
-        // TODO: Investigate if WebRTC iOS SDK actually uses this value
-        // parameters.degradationPreference = NSNumber(value: RTCDegradationPreference.disabled.rawValue)
-
-        // set the updated parameters
-        sender.parameters = parameters
-
-        logger.debug("Sender parameters updated: \(sender.parameters.encodings)")
+        // relay the event
+        notify { $0.track(self, capturer: capturer, didUpdate: dimensions) }
     }
 }
 

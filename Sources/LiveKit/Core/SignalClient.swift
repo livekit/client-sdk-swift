@@ -332,6 +332,19 @@ extension SignalClient {
         sendRequest(r)
     }
 
+    func sendUpdateVideoLayers(trackSid: String,
+                               layers: [Livekit_VideoLayer]) {
+
+        let r = Livekit_SignalRequest.with {
+            $0.updateLayers = Livekit_UpdateVideoLayers.with {
+                $0.trackSid = trackSid
+                $0.layers = layers
+            }
+        }
+
+        sendRequest(r)
+    }
+
     func sendUpdateSubscription(sid: String, subscribed: Bool) {
         logger.debug("[SignalClient] Sending update subscription")
 

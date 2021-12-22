@@ -91,4 +91,9 @@ public class TrackPublication: TrackDelegate {
         participant.notify { $0.participant(participant, didUpdate: self, muted: muted) }
         participant.room?.notify { $0.room(participant.room!, participant: participant, didUpdate: self, muted: self.muted) }
     }
+
+    public func track(_ track: Track, capturer: VideoCapturer, didUpdate dimensions: Dimensions?) {
+        //
+        logger.debug("Track capturer didUpdate dimensions: \(String(describing: dimensions))")
+    }
 }

@@ -17,6 +17,8 @@ public protocol TrackDelegate {
     func track(_ track: VideoTrack, didDetach videoView: VideoView)
     /// ``Track/muted`` has updated.
     func track(_ track: Track, didUpdate muted: Bool, shouldSendSignal: Bool)
+    /// ``VideoCapturer`` has updated capture dimensions.
+    func track(_ track: Track, capturer: VideoCapturer, didUpdate dimensions: Dimensions?)
 }
 
 extension TrackDelegate {
@@ -25,4 +27,5 @@ extension TrackDelegate {
     public func track(_ track: VideoTrack, didAttach videoView: VideoView) {}
     public func track(_ track: VideoTrack, didDetach videoView: VideoView) {}
     public func track(_ track: Track, didUpdate muted: Bool, shouldSendSignal: Bool) {}
+    public func track(_ track: Track, capturer: VideoCapturer, didUpdate dimensions: Dimensions?) {}
 }
