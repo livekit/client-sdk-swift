@@ -192,6 +192,11 @@ extension SignalClient {
         if case .connected = connectionState {
             logger.debug("Already connected.")
             return Promise(())
+        } else if case .disconnected(let error) = connectionState {
+            if let error = error {
+                logger.debug("Already errored.")
+                return Promise(error)
+            }
         }
 
         return Promise<Void> { fulfill, reject in
