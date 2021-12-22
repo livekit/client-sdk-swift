@@ -80,9 +80,9 @@ class Utils {
         return builtUrl
     }
 
-    static func createDebounceFunc(wait: TimeInterval,
-                                   onCreateWorkItem: ((DispatchWorkItem) -> Void)? = nil,
-                                   fnc: @escaping @convention(block) () -> Void) -> DebouncFunc {
+    internal static func createDebounceFunc(wait: TimeInterval,
+                                            onCreateWorkItem: ((DispatchWorkItem) -> Void)? = nil,
+                                            fnc: @escaping @convention(block) () -> Void) -> DebouncFunc {
         var workItem: DispatchWorkItem?
         return {
             workItem?.cancel()
@@ -92,7 +92,7 @@ class Utils {
         }
     }
 
-    static func computeEncodings(
+    internal static func computeEncodings(
         dimensions: Dimensions?,
         publishOptions: VideoPublishOptions?
     ) -> [RTCRtpEncodingParameters]? {
@@ -142,50 +142,43 @@ class Utils {
             RTCRtpEncodingParameters(rid: "q", encoding: encodingF)
         ]
     }
-    
-    static func videoLayersForEncodings(
+
+    internal static func videoLayersForEncodings(
         dimensions: Dimensions?,
-        encodings: [RTCRtpEncodingParameters]
+        encodings: [RTCRtpEncodingParameters]?
     ) -> [Livekit_VideoLayer] {
-        let trackWidth = dimensions?.width
-        let trackHeight = dimensions?.height
-        if (encodings.isEmpty) {
+        let trackWidth = dimensions?.width ?? 0
+        let trackHeight = dimensions?.height ?? 0
+
+        guard let encodings = encodings else {
             return [Livekit_VideoLayer.with {
-                if let width = trackWidth {
-                    $0.width = UInt32(width)
-                }
-                if let height = trackHeight {
-                    $0.height = UInt32(height)
-                }
+                $0.width = UInt32(trackWidth)
+                $0.height = UInt32(trackHeight)
                 $0.quality = Livekit_VideoQuality.high
                 $0.bitrate = 0
             }]
-        } else {
-            return encodings.map { encoding in
-                let scaleDownBy = encoding.scaleResolutionDownBy?.doubleValue ?? 1.0
-                
-                var videoQuality: Livekit_VideoQuality
-                switch (encoding.rid ?? "") {
-                case "f": videoQuality = Livekit_VideoQuality.high
-                case "h": videoQuality = Livekit_VideoQuality.medium
-                case "q": videoQuality = Livekit_VideoQuality.low
-                default: videoQuality = Livekit_VideoQuality.UNRECOGNIZED(-1)
-                }
-                
-                if videoQuality == Livekit_VideoQuality.UNRECOGNIZED(-1) && encodings.count == 1 {
-                    videoQuality = Livekit_VideoQuality.high
-                }
-                
-                return Livekit_VideoLayer.with {
-                    if let width = trackWidth {
-                        $0.width = UInt32(round(Double(width) / scaleDownBy))
-                    }
-                    if let height = trackHeight {
-                        $0.height = UInt32(round(Double(height) / scaleDownBy))
-                    }
-                    $0.quality = videoQuality
-                    $0.bitrate = encoding.maxBitrateBps?.uint32Value ?? 0
-                }
+        }
+
+        return encodings.map { encoding in
+            let scaleDownBy = encoding.scaleResolutionDownBy?.doubleValue ?? 1.0
+
+            var videoQuality: Livekit_VideoQuality
+            switch encoding.rid ?? "" {
+            case "f": videoQuality = Livekit_VideoQuality.high
+            case "h": videoQuality = Livekit_VideoQuality.medium
+            case "q": videoQuality = Livekit_VideoQuality.low
+            default: videoQuality = Livekit_VideoQuality.UNRECOGNIZED(-1)
+            }
+
+            if videoQuality == Livekit_VideoQuality.UNRECOGNIZED(-1) && encodings.count == 1 {
+                videoQuality = Livekit_VideoQuality.high
+            }
+
+            return Livekit_VideoLayer.with {
+                $0.width = UInt32((Double(trackWidth) / scaleDownBy).rounded(.up))
+                $0.height = UInt32((Double(trackHeight) / scaleDownBy).rounded(.up))
+                $0.quality = videoQuality
+                $0.bitrate = encoding.maxBitrateBps?.uint32Value ?? 0
             }
         }
     }

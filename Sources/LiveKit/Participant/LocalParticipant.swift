@@ -91,9 +91,18 @@ public class LocalParticipant: Participant {
         let transInit = RTCRtpTransceiverInit()
         transInit.direction = .sendOnly
         transInit.streamIds = [self.streamId]
-        
-        var layers : [Livekit_VideoLayer] = []
-        
+
+        let encodings = Utils.computeEncodings(dimensions: track.capturer.dimensions,
+                                               publishOptions: publishOptions)
+
+        if let encodings = encodings {
+            logger.debug("using encodings \(encodings)")
+            transInit.sendEncodings = encodings
+        }
+
+        let layers = Utils.videoLayersForEncodings(dimensions: track.capturer.dimensions,
+                                                   encodings: encodings)
+
         // try to start the track
         return track.start()
             .recover { (error) -> Void in
@@ -101,18 +110,10 @@ public class LocalParticipant: Participant {
                 // start() will fail if it's already started.
                 // but for this case we will allow it, throw for any other error.
                 guard case TrackError.invalidTrackState = error else { throw error }
-            }.then { () -> Promise<Livekit_TrackInfo> in
-                
-                if let encodings = Utils.computeEncodings(dimensions: track.capturer.dimensions,
-                                                          publishOptions: publishOptions) {
-                    logger.debug("using encodings \(encodings)")
-                    transInit.sendEncodings = encodings
-                    
-                    layers = Utils.videoLayersForEncodings(dimensions: track.capturer.dimensions,
-                                                           encodings: encodings)
-                }
+            }.then { () -> Promise<(Livekit_TrackInfo)> in
+
                 // request a new track to the server
-                return engine.addTrack(cid: cid,
+                engine.addTrack(cid: cid,
                                 name: track.name,
                                 kind: .video,
                                 source: track.source.toPBType()) {
@@ -128,7 +129,8 @@ public class LocalParticipant: Participant {
                 // store publishOptions used for this track
                 track.publishOptions = publishOptions
 
-                track.transceiver = self.room?.engine.publisher?.pc.addTransceiver(with: track.mediaTrack, init: transInit)
+                track.transceiver = self.room?.engine.publisher?.pc.addTransceiver(with: track.mediaTrack,
+                                                                                   init: transInit)
                 if track.transceiver == nil {
                     throw TrackError.publishError("Failed to addTransceiver")
                 }
