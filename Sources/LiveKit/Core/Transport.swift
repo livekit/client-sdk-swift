@@ -12,11 +12,11 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
 
     // forbid direct access to PeerConnection
     private let pc: RTCPeerConnection
-
     private var pendingCandidates: [RTCIceCandidate] = []
-    internal var restartingIce: Bool = false
-    var renegotiate: Bool = false
-    var onOffer: TransportOnOffer?
+
+    public var restartingIce: Bool = false
+    public var renegotiate: Bool = false
+    public var onOffer: TransportOnOffer?
 
     public var iceConnectionState: RTCIceConnectionState {
         DispatchQueue.webRTC.sync { pc.iceConnectionState }
@@ -38,7 +38,7 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
     private var debounceWorkItem: DispatchWorkItem?
 
     // create debounce func
-    lazy var negotiate = Utils.createDebounceFunc(wait: 0.1, onCreateWorkItem: { [weak self] workItem in
+    public lazy var negotiate = Utils.createDebounceFunc(wait: 0.1, onCreateWorkItem: { [weak self] workItem in
         self?.debounceWorkItem = workItem
     }, fnc: { [weak self] in
         self?.createAndSendOffer()
@@ -99,7 +99,7 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
     }
 
     @discardableResult
-    func createAndSendOffer(iceRestart: Bool = false) -> Promise<Void> {
+    public func createAndSendOffer(iceRestart: Bool = false) -> Promise<Void> {
 
         guard let onOffer = onOffer else {
             logger.warning("createAndSendOffer() onOffer is nil")
