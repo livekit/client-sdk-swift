@@ -23,6 +23,8 @@ public class LocalTrackPublication: TrackPublication {
         return track.unmute()
     }
 
+    #if LK_COMPUTE_VIDEO_SENDER_PARAMETERS
+
     // keep reference to cancel later
     private weak var debounceWorkItem: DispatchWorkItem?
 
@@ -40,7 +42,10 @@ public class LocalTrackPublication: TrackPublication {
     public override func track(_ track: Track, capturer: VideoCapturer, didUpdate dimensions: Dimensions?) {
         shouldRecomputeSenderParameters()
     }
+    #endif
 }
+
+#if LK_COMPUTE_VIDEO_SENDER_PARAMETERS
 
 extension LocalTrackPublication {
 
@@ -89,3 +94,5 @@ extension LocalTrackPublication {
                                                                    layers: layers)
     }
 }
+
+#endif

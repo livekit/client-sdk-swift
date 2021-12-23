@@ -35,7 +35,8 @@ let package = Package(
             swiftSettings: [
                 // Compiler flags used to completely remove code for specific features to isolate issues.
                 // Not defining the flag will turn off the feature.
-                .define("LK_OPTIMIZE_VIDEOVIEW_VISIBILITY")
+                .define("LK_OPTIMIZE_VIDEOVIEW_VISIBILITY"),
+                .define("LK_OPTIMIZE_VIDEO_SENDER_PARAMETERS")
             ]
         ),
         .testTarget(

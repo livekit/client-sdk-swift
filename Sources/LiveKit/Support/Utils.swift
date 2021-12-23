@@ -92,6 +92,8 @@ class Utils {
         }
     }
 
+    #if LK_COMPUTE_VIDEO_SENDER_PARAMETERS
+
     internal static func computeEncodings(
         dimensions: Dimensions?,
         publishOptions: VideoPublishOptions?
@@ -182,6 +184,7 @@ class Utils {
             }
         }
     }
+    #endif
 }
 
 extension Collection {

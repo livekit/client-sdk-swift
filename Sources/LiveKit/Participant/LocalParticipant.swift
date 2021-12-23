@@ -98,6 +98,8 @@ public class LocalParticipant: Participant {
         transInit.direction = .sendOnly
         transInit.streamIds = [self.streamId]
 
+        #if LK_COMPUTE_VIDEO_SENDER_PARAMETERS
+
         let encodings = Utils.computeEncodings(dimensions: track.capturer.dimensions,
                                                publishOptions: publishOptions)
 
@@ -108,6 +110,7 @@ public class LocalParticipant: Participant {
 
         let layers = Utils.videoLayersForEncodings(dimensions: track.capturer.dimensions,
                                                    encodings: encodings)
+        #endif
 
         // try to start the track
         return track.start()
@@ -127,7 +130,9 @@ public class LocalParticipant: Participant {
                         $0.width = UInt32(dimensions.width)
                         $0.height = UInt32(dimensions.height)
                     }
+                    #if LK_COMPUTE_VIDEO_SENDER_PARAMETERS
                     $0.layers = layers
+                    #endif
                 }
             }.then { (trackInfo) -> Promise<(RTCRtpTransceiver, Livekit_TrackInfo)> in
                 // add transceiver to pc
