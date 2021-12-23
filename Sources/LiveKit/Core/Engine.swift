@@ -2,9 +2,6 @@ import Foundation
 import WebRTC
 import Promises
 
-let maxReconnectAttempts = 5
-let maxDataPacketSize = 15000
-
 class Engine: MulticastDelegate<EngineDelegate> {
 
     static let factory: RTCPeerConnectionFactory = {
@@ -206,10 +203,6 @@ class Engine: MulticastDelegate<EngineDelegate> {
         signalClient.sendAddTrack(cid: cid, name: name, type: kind, source: source, populator)
 
         return waitForPublishTrack(cid: cid)
-    }
-
-    func updateMuteStatus(trackSid: String, muted: Bool) {
-        signalClient.sendMuteTrack(trackSid: trackSid, muted: muted)
     }
 
     internal func publisherShouldNegotiate() {
