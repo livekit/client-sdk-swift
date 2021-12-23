@@ -5,13 +5,15 @@ import Promises
 class Engine: MulticastDelegate<EngineDelegate> {
 
     static let factory: RTCPeerConnectionFactory = {
-        RTCInitializeSSL()
-        let encoderFactory = RTCDefaultVideoEncoderFactory()
-        let decoderFactory = RTCDefaultVideoDecoderFactory()
-        let simulcastFactory = RTCVideoEncoderFactorySimulcast(primary: encoderFactory,
-                                                               fallback: encoderFactory)
-        return RTCPeerConnectionFactory(encoderFactory: simulcastFactory,
-                                        decoderFactory: decoderFactory)
+        return DispatchQueue.webRTC.sync {
+            RTCInitializeSSL()
+            let encoderFactory = RTCDefaultVideoEncoderFactory()
+            let decoderFactory = RTCDefaultVideoDecoderFactory()
+            let simulcastFactory = RTCVideoEncoderFactorySimulcast(primary: encoderFactory,
+                                                                   fallback: encoderFactory)
+            return RTCPeerConnectionFactory(encoderFactory: simulcastFactory,
+                                            decoderFactory: decoderFactory)
+        }
     }()
 
     // Reference to Room

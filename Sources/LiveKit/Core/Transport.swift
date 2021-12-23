@@ -19,11 +19,19 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
     var onOffer: TransportOnOffer?
 
     public var iceConnectionState: RTCIceConnectionState {
-        pc.iceConnectionState
+        DispatchQueue.webRTC.sync { pc.iceConnectionState }
+    }
+
+    public var remoteDescription: RTCSessionDescription? {
+        DispatchQueue.webRTC.sync { pc.remoteDescription }
+    }
+
+    public var signalingState: RTCSignalingState {
+        DispatchQueue.webRTC.sync { pc.signalingState }
     }
 
     public var isIceConnected: Bool {
-        pc.iceConnectionState.isConnected
+        iceConnectionState.isConnected
     }
 
     // keep reference to cancel later
@@ -37,14 +45,16 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
     })
 
     public init(config: RTCConfiguration,
-         target: Livekit_SignalTarget,
-         primary: Bool,
-         delegate: TransportDelegate) throws {
+                target: Livekit_SignalTarget,
+                primary: Bool,
+                delegate: TransportDelegate) throws {
 
+        let factory = Engine.factory
+        let create = { factory.peerConnection(with: config,
+                                              constraints: RTCMediaConstraints.defaultPCConstraints,
+                                              delegate: nil) }
         // try create peerConnection
-        guard let pc = Engine.factory.peerConnection(with: config,
-                                                     constraints: RTCMediaConstraints.defaultPCConstraints,
-                                                     delegate: nil) else {
+        guard let pc = DispatchQueue.webRTC.sync(execute: create) else {
             throw EngineError.webRTC("failed to create peerConnection")
         }
 
@@ -53,14 +63,14 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
         self.pc = pc
 
         super.init()
-        pc.delegate = self
+        DispatchQueue.webRTC.sync { pc.delegate = self }
         add(delegate: delegate)
     }
 
     @discardableResult
     public func addIceCandidate(_ candidate: RTCIceCandidate) -> Promise<Void> {
 
-        if pc.remoteDescription != nil && !restartingIce {
+        if remoteDescription != nil && !restartingIce {
             return addIceCandidatePromise(candidate)
         }
 
@@ -103,12 +113,12 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
             restartingIce = true
         }
 
-        if pc.signalingState == .haveLocalOffer, !(iceRestart && pc.remoteDescription != nil) {
+        if signalingState == .haveLocalOffer, !(iceRestart && remoteDescription != nil) {
             renegotiate = true
             return Promise(())
         }
 
-        if pc.signalingState == .haveLocalOffer, iceRestart, let sd = pc.remoteDescription {
+        if signalingState == .haveLocalOffer, iceRestart, let sd = remoteDescription {
             return setRemoteDescriptionPromise(sd).then { _ in
                 negotiateSequence()
             }
@@ -130,14 +140,15 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
         // prevent debounced negotiate firing
         debounceWorkItem?.cancel()
 
-        // remove all senders, not required ?
-        // for sender in pc.senders {
-        //    pc.removeTrack(sender)
-        // }
-
-        // Stop listening to delegate
-        pc.delegate = nil
-        pc.close()
+        DispatchQueue.webRTC.sync {
+            // Stop listening to delegate
+            pc.delegate = nil
+            // Remove all senders (if any)
+            for sender in pc.senders {
+                pc.removeTrack(sender)
+            }
+            pc.close()
+        }
     }
 }
 
@@ -319,12 +330,11 @@ extension Transport {
 
     public func dataChannel(for label: String,
                             configuration: RTCDataChannelConfiguration,
-                            delegate: RTCDataChannelDelegate) -> RTCDataChannel {
+                            delegate: RTCDataChannelDelegate) -> RTCDataChannel? {
 
-        let result = self.pc.dataChannel(forLabel: label,
-                                         configuration: configuration)
-        // TODO: Convert to Promise
-        result!.delegate = delegate
-        return result!
+        let result = DispatchQueue.webRTC.sync { pc.dataChannel(forLabel: label,
+                                                                configuration: configuration) }
+        result?.delegate = delegate
+        return result
     }
 }
