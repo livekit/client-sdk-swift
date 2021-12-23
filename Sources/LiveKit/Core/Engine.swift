@@ -185,8 +185,13 @@ class Engine: MulticastDelegate<EngineDelegate> {
         token = nil
 
         connectionState = .disconnected()
+
         publisher?.close()
+        publisher = nil
+
         subscriber?.close()
+        subscriber = nil
+
         signalClient.close()
 
         notify { $0.engineDidDisconnect(self) }

@@ -36,7 +36,7 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
         self?.createAndSendOffer()
     })
 
-    init(config: RTCConfiguration,
+    public init(config: RTCConfiguration,
          target: Livekit_SignalTarget,
          primary: Bool,
          delegate: TransportDelegate) throws {
@@ -55,10 +55,6 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
         super.init()
         pc.delegate = self
         add(delegate: delegate)
-    }
-
-    deinit {
-        //
     }
 
     @discardableResult
@@ -130,7 +126,7 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
         return negotiateSequence()
     }
 
-    func close() {
+    public func close() {
         // prevent debounced negotiate firing
         debounceWorkItem?.cancel()
 
@@ -139,6 +135,8 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
         //    pc.removeTrack(sender)
         // }
 
+        // Stop listening to delegate
+        pc.delegate = nil
         pc.close()
     }
 }
