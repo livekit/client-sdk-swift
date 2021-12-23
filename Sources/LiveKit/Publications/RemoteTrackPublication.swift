@@ -8,10 +8,12 @@ public class RemoteTrackPublication: TrackPublication {
 
     private var metadataMuted: Bool = false
 
+    #if LK_OPTIMIZE_VIDEOVIEW_VISIBILITY
     private var videoViewVisibilities = [Int: VideoViewVisibility]()
     private weak var pendingDebounceFunc: DispatchWorkItem?
     private var debouncedRecomputeVideoViewVisibilities: DebouncFunc?
     private var lastSentVideoTrackSettings: VideoTrackSettings?
+    #endif
 
     public internal(set) var streamState: StreamState = .paused {
         didSet {
@@ -26,10 +28,11 @@ public class RemoteTrackPublication: TrackPublication {
         didSet {
             guard oldValue != track else { return }
 
+            #if LK_OPTIMIZE_VIDEOVIEW_VISIBILITY
             // cancel the pending debounce func
             pendingDebounceFunc?.cancel()
             videoViewVisibilities.removeAll()
-
+            #endif
             // if new Track has been set to this RemoteTrackPublication,
             // update the Track's muted state from the latest info.
             track?.update(muted: metadataMuted,
@@ -48,6 +51,7 @@ public class RemoteTrackPublication: TrackPublication {
         // listen for visibility updates
         track?.add(delegate: self)
 
+        #if LK_OPTIMIZE_VIDEOVIEW_VISIBILITY
         debouncedRecomputeVideoViewVisibilities = Utils.createDebounceFunc(wait: 2,
                                                                            onCreateWorkItem: { [weak self] in
                                                                             self?.pendingDebounceFunc = $0
@@ -57,11 +61,14 @@ public class RemoteTrackPublication: TrackPublication {
 
         // initial trigger
         shouldComputeVideoViewVisibilities()
+        #endif
     }
 
     deinit {
+        #if LK_OPTIMIZE_VIDEOVIEW_VISIBILITY
         // cancel the pending debounce func
         pendingDebounceFunc?.cancel()
+        #endif
     }
 
     override func updateFromInfo(info: Livekit_TrackInfo) {
@@ -99,6 +106,8 @@ public class RemoteTrackPublication: TrackPublication {
                                        enabled: enabled)
     }
 
+    #if LK_OPTIMIZE_VIDEOVIEW_VISIBILITY
+
     // MARK: - TrackDelegate
 
     override public func track(_ track: VideoTrack,
@@ -124,7 +133,10 @@ public class RemoteTrackPublication: TrackPublication {
         videoViewVisibilities.removeValue(forKey: videoView.hash)
         shouldComputeVideoViewVisibilities()
     }
+    #endif
 }
+
+#if LK_OPTIMIZE_VIDEOVIEW_VISIBILITY
 
 // MARK: - Video Optimizations
 
@@ -179,13 +191,15 @@ extension RemoteTrackPublication {
         }
     }
 }
+#endif
 
 // MARK: - Video Optimization related structs
-
+#if LK_OPTIMIZE_VIDEOVIEW_VISIBILITY
 struct VideoViewVisibility {
     let visible: Bool
     let size: CGSize
 }
+#endif
 
 struct VideoTrackSettings {
     let enabled: Bool
@@ -201,6 +215,8 @@ extension VideoTrackSettings: Equatable {
             lhs.size == rhs.size
     }
 }
+
+#if LK_OPTIMIZE_VIDEOVIEW_VISIBILITY
 
 extension Sequence where Element == VideoViewVisibility {
 
@@ -220,3 +236,5 @@ extension Sequence where Element == VideoViewVisibility {
         })
     }
 }
+
+#endif

@@ -31,7 +31,12 @@ let package = Package(
                 .product(name: "Logging", package: "swift-log"),
                 .product(name: "Collections", package: "swift-collections")
             ],
-            path: "Sources"
+            path: "Sources",
+            swiftSettings: [
+                // Compiler flags used to completely remove code for specific features to isolate issues.
+                // Not defining the flag will turn off the feature.
+                .define("LK_OPTIMIZE_VIDEOVIEW_VISIBILITY")
+            ]
         ),
         .testTarget(
             name: "LiveKitTests",
