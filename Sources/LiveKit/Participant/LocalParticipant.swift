@@ -26,6 +26,10 @@ public class LocalParticipant: Participant {
             return Promise(EngineError.invalidState("engine is null"))
         }
 
+        guard let publisher = engine.publisher else {
+            return Promise(EngineError.invalidState("publisher is null"))
+        }
+
         let publishOptions = publishOptions ?? room?.roomOptions?.defaultAudioPublishOptions
 
         if localAudioTrackPublications.first(where: { $0.track === track }) != nil {
@@ -33,6 +37,9 @@ public class LocalParticipant: Participant {
         }
 
         let cid = track.mediaTrack.trackId
+
+        let transInit = RTCRtpTransceiverInit()
+        transInit.direction = .sendOnly
 
         return track.start()
             .recover { (error) -> Void in
@@ -48,16 +55,18 @@ public class LocalParticipant: Participant {
                                 source: track.source.toPBType()) {
                     $0.disableDtx = !(publishOptions?.dtx ?? true)
                 }
-            }.then { (trackInfo) -> LocalTrackPublication in
+            }.then { (trackInfo) -> Promise<(RTCRtpTransceiver, Livekit_TrackInfo)> in
+                // add transceiver to pc
+                publisher.pc.addTransceiverPromise(with: track.mediaTrack,
+                                                   transceiverInit: transInit).then { transceiver in
+                                                    // pass down trackInfo and created transceiver
+                                                    (transceiver, trackInfo)
+                                                   }
+            }.then { (transceiver, trackInfo) -> LocalTrackPublication in
 
-                let transInit = RTCRtpTransceiverInit()
-                transInit.direction = .sendOnly
-                transInit.streamIds = [self.streamId]
-
-                let transceiver = self.room?.engine.publisher?.pc.addTransceiver(with: track.mediaTrack, init: transInit)
-                if transceiver == nil {
-                    throw TrackError.publishError("Nil sender returned from peer connection.")
-                }
+                // store publishOptions used for this track
+                // track.publishOptions = publishOptions TODO: FIX
+                track.transceiver = transceiver
 
                 engine.publisherShouldNegotiate()
 
@@ -78,6 +87,10 @@ public class LocalParticipant: Participant {
 
         guard let engine = room?.engine else {
             return Promise(EngineError.invalidState("engine is null"))
+        }
+
+        guard let publisher = engine.publisher else {
+            return Promise(EngineError.invalidState("publisher is null"))
         }
 
         let publishOptions = publishOptions ?? room?.roomOptions?.defaultVideoPublishOptions
@@ -110,8 +123,7 @@ public class LocalParticipant: Participant {
                 // start() will fail if it's already started.
                 // but for this case we will allow it, throw for any other error.
                 guard case TrackError.invalidTrackState = error else { throw error }
-            }.then { () -> Promise<(Livekit_TrackInfo)> in
-
+            }.then { () -> Promise<Livekit_TrackInfo> in
                 // request a new track to the server
                 engine.addTrack(cid: cid,
                                 name: track.name,
@@ -124,16 +136,18 @@ public class LocalParticipant: Participant {
                     }
                     $0.layers = layers
                 }
-            }.then { (trackInfo) -> LocalTrackPublication in
+            }.then { (trackInfo) -> Promise<(RTCRtpTransceiver, Livekit_TrackInfo)> in
+                // add transceiver to pc
+                publisher.pc.addTransceiverPromise(with: track.mediaTrack,
+                                                   transceiverInit: transInit).then { transceiver in
+                                                    // pass down trackInfo and created transceiver
+                                                    (transceiver, trackInfo)
+                                                   }
+            }.then { (transceiver, trackInfo) -> LocalTrackPublication in
 
                 // store publishOptions used for this track
                 track.publishOptions = publishOptions
-
-                track.transceiver = self.room?.engine.publisher?.pc.addTransceiver(with: track.mediaTrack,
-                                                                                   init: transInit)
-                if track.transceiver == nil {
-                    throw TrackError.publishError("Failed to addTransceiver")
-                }
+                track.transceiver = transceiver
 
                 engine.publisherShouldNegotiate()
 
