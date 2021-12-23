@@ -224,12 +224,8 @@ extension Transport {
         return Promise<RTCSessionDescription>(on: .webRTC) { complete, fail in
 
             self.pc.offer(for: mediaConstraints) { sd, error in
-                guard error == nil else {
-                    fail(EngineError.webRTC("failed to create offer", error))
-                    return
-                }
                 guard let sd = sd else {
-                    fail(EngineError.webRTC("session description is null"))
+                    fail(EngineError.webRTC("Failed to create offer", error))
                     return
                 }
                 complete(sd)
@@ -245,12 +241,8 @@ extension Transport {
         return Promise<RTCSessionDescription>(on: .webRTC) { complete, fail in
 
             self.pc.answer(for: mediaConstraints) { sd, error in
-                guard error == nil else {
-                    fail(EngineError.webRTC("failed to create offer", error))
-                    return
-                }
                 guard let sd = sd else {
-                    fail(EngineError.webRTC("session description is null"))
+                    fail(EngineError.webRTC("Failed to create answer", error))
                     return
                 }
                 complete(sd)
@@ -305,14 +297,12 @@ extension Transport {
 
         Promise<RTCRtpTransceiver>(on: .webRTC) { complete, fail in
 
-            let result = self.pc.addTransceiver(with: track, init: transceiverInit)
-
-            guard let result = result else {
+            guard let transceiver = self.pc.addTransceiver(with: track, init: transceiverInit) else {
                 fail(EngineError.webRTC("Failed to add transceiver"))
                 return
             }
 
-            complete(result)
+            complete(transceiver)
         }
     }
 
