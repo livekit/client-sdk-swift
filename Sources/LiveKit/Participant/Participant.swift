@@ -18,7 +18,7 @@ public class Participant: MulticastDelegate<ParticipantDelegate> {
         didSet {
             guard oldValue != metadata else { return }
             notify { $0.participant(self, didUpdate: self.metadata) }
-            room?.notify { $0.room(self.room!, participant: self, didUpdate: self.metadata) }
+            room.notify { $0.room(self.room, participant: self, didUpdate: self.metadata) }
         }
     }
 
@@ -26,7 +26,7 @@ public class Participant: MulticastDelegate<ParticipantDelegate> {
         didSet {
             guard oldValue != connectionQuality else { return }
             notify { $0.participant(self, didUpdate: self.connectionQuality) }
-            room?.notify { $0.room(self.room!, participant: self, didUpdate: self.connectionQuality) }
+            room.notify { $0.room(self.room, participant: self, didUpdate: self.connectionQuality) }
         }
     }
 
@@ -43,11 +43,12 @@ public class Participant: MulticastDelegate<ParticipantDelegate> {
 
     var info: Livekit_ParticipantInfo?
 
-    // reference to the Room this Participant belongs to
-    weak var room: Room?
+    // Reference to the Room this Participant belongs to
+    public let room: Room
 
-    public init(sid: String) {
+    public init(sid: String, room: Room) {
         self.sid = sid
+        self.room = room
     }
 
     func addTrack(publication: TrackPublication) {

@@ -85,11 +85,11 @@ public class TrackPublication: TrackDelegate {
         }
 
         if shouldSendSignal {
-            participant.room?.engine.signalClient.sendMuteTrack(trackSid: sid, muted: muted)
+            participant.room.engine.signalClient.sendMuteTrack(trackSid: sid, muted: muted)
         }
 
         participant.notify { $0.participant(participant, didUpdate: self, muted: muted) }
-        participant.room?.notify { $0.room(participant.room!, participant: participant, didUpdate: self, muted: self.muted) }
+        participant.room.notify { $0.room(participant.room, participant: participant, didUpdate: self, muted: self.muted) }
     }
 
     public func track(_ track: Track, capturer: VideoCapturer, didUpdate dimensions: Dimensions?) {

@@ -8,9 +8,10 @@ public class LocalParticipant: Participant {
     public var localAudioTrackPublications: [TrackPublication] { Array(audioTracks.values) }
     public var localVideoTrackPublications: [TrackPublication] { Array(videoTracks.values) }
 
-    convenience init(fromInfo info: Livekit_ParticipantInfo, room: Room) {
-        self.init(sid: info.sid)
-        self.room = room
+    convenience init(from info: Livekit_ParticipantInfo,
+                     room: Room) {
+
+        self.init(sid: info.sid, room: room)
         updateFromInfo(info: info)
     }
 
@@ -22,15 +23,11 @@ public class LocalParticipant: Participant {
     public func publishAudioTrack(track: LocalAudioTrack,
                                   publishOptions: AudioPublishOptions? = nil) -> Promise<LocalTrackPublication> {
 
-        guard let engine = room?.engine else {
-            return Promise(EngineError.invalidState("engine is null"))
-        }
-
-        guard let publisher = engine.publisher else {
+        guard let publisher = room.engine.publisher else {
             return Promise(EngineError.invalidState("publisher is null"))
         }
 
-        let publishOptions = publishOptions ?? room?.roomOptions?.defaultAudioPublishOptions
+        let publishOptions = publishOptions ?? room.roomOptions?.defaultAudioPublishOptions
 
         if localAudioTrackPublications.first(where: { $0.track === track }) != nil {
             return Promise(TrackError.publishError("This track has already been published."))
@@ -49,10 +46,10 @@ public class LocalParticipant: Participant {
                 guard case TrackError.invalidTrackState = error else { throw error }
             }.then {
                 // request a new track to the server
-                engine.addTrack(cid: cid,
-                                name: track.name,
-                                kind: .audio,
-                                source: track.source.toPBType()) {
+                self.room.engine.addTrack(cid: cid,
+                                          name: track.name,
+                                          kind: .audio,
+                                          source: track.source.toPBType()) {
                     $0.disableDtx = !(publishOptions?.dtx ?? true)
                 }
             }.then { (trackInfo) -> Promise<(RTCRtpTransceiver, Livekit_TrackInfo)> in
@@ -68,14 +65,14 @@ public class LocalParticipant: Participant {
                 // track.publishOptions = publishOptions TODO: FIX
                 track.transceiver = transceiver
 
-                engine.publisherShouldNegotiate()
+                self.room.engine.publisherShouldNegotiate()
 
                 let publication = LocalTrackPublication(info: trackInfo, track: track, participant: self)
                 self.addTrack(publication: publication)
 
                 // notify didPublish
                 self.notify { $0.localParticipant(self, didPublish: publication) }
-                self.room?.notify { $0.room(self.room!, localParticipant: self, didPublish: publication) }
+                self.room.notify { $0.room(self.room, localParticipant: self, didPublish: publication) }
 
                 return publication
             }
@@ -85,15 +82,11 @@ public class LocalParticipant: Participant {
     public func publishVideoTrack(track: LocalVideoTrack,
                                   publishOptions: VideoPublishOptions? = nil) -> Promise<LocalTrackPublication> {
 
-        guard let engine = room?.engine else {
-            return Promise(EngineError.invalidState("engine is null"))
-        }
-
-        guard let publisher = engine.publisher else {
+        guard let publisher = room.engine.publisher else {
             return Promise(EngineError.invalidState("publisher is null"))
         }
 
-        let publishOptions = publishOptions ?? room?.roomOptions?.defaultVideoPublishOptions
+        let publishOptions = publishOptions ?? room.roomOptions?.defaultVideoPublishOptions
 
         if localVideoTrackPublications.first(where: { $0.track === track }) != nil {
             return Promise(TrackError.publishError("This track has already been published."))
@@ -125,10 +118,10 @@ public class LocalParticipant: Participant {
                 guard case TrackError.invalidTrackState = error else { throw error }
             }.then { () -> Promise<Livekit_TrackInfo> in
                 // request a new track to the server
-                engine.addTrack(cid: cid,
-                                name: track.name,
-                                kind: .video,
-                                source: track.source.toPBType()) {
+                self.room.engine.addTrack(cid: cid,
+                                          name: track.name,
+                                          kind: .video,
+                                          source: track.source.toPBType()) {
                     // depending on the capturer, dimensions may not be available at this point
                     if let dimensions = track.capturer.dimensions {
                         $0.width = UInt32(dimensions.width)
@@ -149,14 +142,14 @@ public class LocalParticipant: Participant {
                 track.publishOptions = publishOptions
                 track.transceiver = transceiver
 
-                engine.publisherShouldNegotiate()
+                self.room.engine.publisherShouldNegotiate()
 
                 let publication = LocalTrackPublication(info: trackInfo, track: track, participant: self)
                 self.addTrack(publication: publication)
 
                 // notify didPublish
                 self.notify { $0.localParticipant(self, didPublish: publication) }
-                self.room?.notify { $0.room(self.room!, localParticipant: self, didPublish: publication) }
+                self.room.notify { $0.room(self.room, localParticipant: self, didPublish: publication) }
 
                 return publication
             }
@@ -174,16 +167,12 @@ public class LocalParticipant: Participant {
     /// this will also stop the track
     public func unpublish(publication: LocalTrackPublication, shouldNotify: Bool = true) -> Promise<Void> {
 
-        guard let engine = room?.engine else {
-            return Promise(EngineError.invalidState("engine is nil"))
-        }
-
         func notifyDidUnpublish() -> Promise<Void> {
             Promise<Void> {
                 guard shouldNotify else { return }
                 // notify unpublish
                 self.notify { $0.localParticipant(self, didUnpublish: publication) }
-                self.room?.notify { $0.room(self.room!, localParticipant: self, didUnpublish: publication) }
+                self.room.notify { $0.room(self.room, localParticipant: self, didUnpublish: publication) }
             }
         }
 
@@ -197,7 +186,7 @@ public class LocalParticipant: Participant {
 
         // build a conditional promise to stop track if required by option
         func stopTrackIfRequired() -> Promise<Void> {
-            let options = room?.roomOptions ?? RoomOptions()
+            let options = room.roomOptions ?? RoomOptions()
             if options.stopLocalTrackOnUnpublish {
                 return track.stop()
             }
@@ -210,12 +199,12 @@ public class LocalParticipant: Participant {
             .recover { error in logger.warning("stopTrackIfRequired() did throw \(error)") }
             .then { () -> Promise<Void> in
 
-                guard let publisher = self.room?.engine.publisher, let sender = track.sender else {
+                guard let publisher = self.room.engine.publisher, let sender = track.sender else {
                     return Promise(())
                 }
 
                 return publisher.removeTrack(sender).then {
-                    engine.publisherShouldNegotiate()
+                    self.room.engine.publisherShouldNegotiate()
                 }
             }.then { () -> Promise<Void> in
                 notifyDidUnpublish()
@@ -237,18 +226,14 @@ public class LocalParticipant: Participant {
                             reliability: DataPublishReliability = .reliable,
                             destination: [String] = []) -> Promise<Void> {
 
-        guard let engine = room?.engine else {
-            return Promise(EngineError.invalidState("Room is nil"))
-        }
-
         let userPacket = Livekit_UserPacket.with {
             $0.destinationSids = destination
             $0.payload = data
             $0.participantSid = self.sid
         }
 
-        return engine.send(userPacket: userPacket,
-                           reliability: reliability)
+        return room.engine.send(userPacket: userPacket,
+                                reliability: reliability)
     }
 }
 
@@ -289,10 +274,10 @@ extension LocalParticipant {
         } else if enabled {
             // try to create a new track
             if source == .camera {
-                let localTrack = LocalVideoTrack.createCameraTrack(options: room?.roomOptions?.defaultVideoCaptureOptions)
+                let localTrack = LocalVideoTrack.createCameraTrack(options: room.roomOptions?.defaultVideoCaptureOptions)
                 return publishVideoTrack(track: localTrack).then { publication in return publication }
             } else if source == .microphone {
-                let localTrack = LocalAudioTrack.createTrack(name: "", options: room?.roomOptions?.defaultAudioCaptureOptions)
+                let localTrack = LocalAudioTrack.createTrack(name: "", options: room.roomOptions?.defaultAudioCaptureOptions)
                 return publishAudioTrack(track: localTrack).then { publication in return publication }
             } else if source == .screenShareVideo {
 

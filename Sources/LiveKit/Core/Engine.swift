@@ -17,10 +17,10 @@ class Engine: MulticastDelegate<EngineDelegate> {
                                         decoderFactory: decoderFactory)
     }()
 
-    // reference to Room
-    private(set) var room: Room?
+    // Reference to Room
+    public let room: Room
 
-    let signalClient: SignalClient
+    public let signalClient: SignalClient
 
     private(set) var hasPublished: Bool = false
     private(set) var publisher: Transport?
@@ -97,7 +97,7 @@ class Engine: MulticastDelegate<EngineDelegate> {
 
         return signalClient.connect(url,
                                     token,
-                                    connectOptions: room?.connectOptions).then {
+                                    connectOptions: room.connectOptions).then {
                                         // wait for join response
                                         self.signalClient.waitReceiveJoinResponse()
                                     }.then { joinResponse in
@@ -142,7 +142,7 @@ class Engine: MulticastDelegate<EngineDelegate> {
 
             signalClient.connect(url,
                                  token,
-                                 connectOptions: room?.connectOptions,
+                                 connectOptions: room.connectOptions,
                                  reconnect: true).then {
                                     self.waitForIceConnect(transport: self.primary)
                                  }.then { () -> Promise<Void> in
@@ -328,7 +328,7 @@ extension Engine: SignalClientDelegate {
         subscriberPrimary = joinResponse.subscriberPrimary
 
         // create publisher and subscribers
-        let connectOptions = room?.connectOptions ?? ConnectOptions()
+        let connectOptions = room.connectOptions ?? ConnectOptions()
 
         // update iceServers from joinResponse
         connectOptions.rtcConfiguration.update(iceServers: joinResponse.iceServers)

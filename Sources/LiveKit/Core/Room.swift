@@ -19,6 +19,8 @@ public class Room: MulticastDelegate<RoomDelegate> {
     //    private let monitorQueue: DispatchQueue
     private var prevPath: NWPath?
     private var lastPathUpdate: TimeInterval = 0
+
+    // Reference to Engine
     internal lazy var engine = Engine(room: self)
 
     internal private(set) var connectOptions: ConnectOptions?
@@ -34,7 +36,6 @@ public class Room: MulticastDelegate<RoomDelegate> {
 
         self.connectOptions = connectOptions
         self.roomOptions = roomOptions
-
         super.init()
 
         if let delegate = delegate {
@@ -132,7 +133,6 @@ public class Room: MulticastDelegate<RoomDelegate> {
             return participant
         }
         let participant = RemoteParticipant(sid: sid, info: info, room: self)
-        participant.room = self // wire up to room delegate calls
         remoteParticipants[sid] = participant
         return participant
     }
@@ -269,7 +269,7 @@ extension Room: EngineDelegate {
         name = joinResponse.room.name
 
         if joinResponse.hasParticipant {
-            localParticipant = LocalParticipant(fromInfo: joinResponse.participant, room: self)
+            localParticipant = LocalParticipant(from: joinResponse.participant, room: self)
         }
         if !joinResponse.otherParticipants.isEmpty {
             for otherParticipant in joinResponse.otherParticipants {

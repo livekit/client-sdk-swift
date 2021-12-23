@@ -18,7 +18,7 @@ public class RemoteTrackPublication: TrackPublication {
             guard oldValue != streamState else { return }
             guard let participant = self.participant as? RemoteParticipant else { return }
             participant.notify { $0.participant(participant, didUpdate: self, streamState: self.streamState) }
-            participant.room?.notify { $0.room(participant.room!, participant: participant, didUpdate: self, streamState: self.streamState) }
+            participant.room.notify { $0.room(participant.room, participant: participant, didUpdate: self, streamState: self.streamState) }
         }
     }
 
@@ -81,7 +81,7 @@ public class RemoteTrackPublication: TrackPublication {
     /// subscribe or unsubscribe from this track
     public func setSubscribed(_ subscribed: Bool) {
         unsubscribed = !subscribed
-        guard let client = participant?.room?.engine.signalClient else {
+        guard let client = participant?.room.engine.signalClient else {
             return
         }
 
@@ -94,7 +94,7 @@ public class RemoteTrackPublication: TrackPublication {
     /// this is useful when the participant is off screen, you may disable streaming down their video to reduce bandwidth requirements
     public func setEnabled(_ enabled: Bool) {
         self.enabled = enabled
-        guard let client = participant?.room?.engine.signalClient else { return }
+        guard let client = participant?.room.engine.signalClient else { return }
         client.sendUpdateTrackSettings(sid: sid,
                                        enabled: enabled)
     }
@@ -154,7 +154,7 @@ extension RemoteTrackPublication {
     private func recomputeVideoViewVisibilities() {
 
         func send(_ settings: VideoTrackSettings) {
-            guard let client = participant?.room?.engine.signalClient else { return }
+            guard let client = participant?.room.engine.signalClient else { return }
             logger.debug("sendUpdateTrackSettings enabled: \(settings.enabled), viewSize: \(settings.size)")
             client.sendUpdateTrackSettings(sid: sid,
                                            enabled: settings.enabled,

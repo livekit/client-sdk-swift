@@ -4,9 +4,12 @@ import Promises
 
 public class RemoteParticipant: Participant {
 
-    init(sid: String, info: Livekit_ParticipantInfo?, room: Room) {
-        super.init(sid: sid)
-        self.room = room
+    init(sid: String,
+         info: Livekit_ParticipantInfo?,
+         room: Room) {
+
+        super.init(sid: sid, room: room)
+
         if let info = info {
             updateFromInfo(info: info)
         }
@@ -39,7 +42,7 @@ public class RemoteParticipant: Participant {
             // ensure we are updating only tracks published since joining
             for publication in newTrackPublications.values {
                 notify { $0.participant(self, didPublish: publication) }
-                room?.notify { $0.room(self.room!, participant: self, didPublish: publication) }
+                room.notify { $0.room(self.room, participant: self, didPublish: publication) }
             }
         }
 
@@ -59,7 +62,7 @@ public class RemoteParticipant: Participant {
             logger.error("Could not subscribe to mediaTrack \(sid), unable to locate track publication")
             let error = TrackError.invalidTrackState("Could not find published track with sid: \(sid)")
             notify { $0.participant(self, didFailToSubscribe: sid, error: error) }
-            room?.notify { $0.room(self.room!, participant: self, didFailToSubscribe: sid, error: error) }
+            room.notify { $0.room(self.room, participant: self, didFailToSubscribe: sid, error: error) }
             return Promise(error)
         }
 
@@ -75,7 +78,7 @@ public class RemoteParticipant: Participant {
         default:
             let error = TrackError.invalidTrackType("Unsupported type: \(rtcTrack.kind.description)")
             notify { $0.participant(self, didFailToSubscribe: sid, error: error) }
-            room?.notify { $0.room(self.room!, participant: self, didFailToSubscribe: sid, error: error) }
+            room.notify { $0.room(self.room, participant: self, didFailToSubscribe: sid, error: error) }
             return Promise(error)
         }
 
@@ -84,7 +87,7 @@ public class RemoteParticipant: Participant {
         addTrack(publication: publication)
         return track.start().then {
             self.notify { $0.participant(self, didSubscribe: publication, track: track) }
-            self.room?.notify { $0.room(self.room!, participant: self, didSubscribe: publication, track: track) }
+            self.room.notify { $0.room(self.room, participant: self, didSubscribe: publication, track: track) }
         }
     }
 
@@ -95,7 +98,7 @@ public class RemoteParticipant: Participant {
                 guard shouldNotify else { return }
                 // notify unpublish
                 self.notify { $0.participant(self, didUnpublish: publication) }
-                self.room?.notify { $0.room(self.room!, participant: self, didUnpublish: publication) }
+                self.room.notify { $0.room(self.room, participant: self, didUnpublish: publication) }
             }
         }
 
@@ -112,7 +115,7 @@ public class RemoteParticipant: Participant {
             guard shouldNotify else { return }
             // notify unsubscribe
             self.notify { $0.participant(self, didUnsubscribe: publication, track: track) }
-            self.room?.notify { $0.room(self.room!, participant: self, didUnsubscribe: publication) }
+            self.room.notify { $0.room(self.room, participant: self, didUnsubscribe: publication) }
         }.then {
             notifyUnpublish()
         }

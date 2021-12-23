@@ -85,7 +85,7 @@ extension LocalTrackPublication {
 
         logger.debug("Sending update video layers request: \(layers)")
 
-        participant.room?.engine.signalClient.sendUpdateVideoLayers(trackSid: sid,
-                                                                    layers: layers)
+        participant.room.engine.signalClient.sendUpdateVideoLayers(trackSid: sid,
+                                                                   layers: layers)
     }
 }
