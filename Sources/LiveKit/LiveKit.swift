@@ -17,8 +17,6 @@ let logger = Logger(label: "io.livekit.ios")
 /// to try out the features.
 public class LiveKit {
 
-    static let queue = DispatchQueue(label: "lk_queue")
-
     public static func connect(
         _ url: String,
         _ token: String,
@@ -32,4 +30,9 @@ public class LiveKit {
 
         return room.connect(url, token)
     }
+}
+
+extension DispatchQueue {
+    //
+    static let webRTC = DispatchQueue(label: "lk_webRTC")
 }

@@ -1,7 +1,6 @@
 import WebRTC
 import Promises
 
-// TODO: Currently uses .main queue, use own queue
 // Promise version
 
 extension RTCPeerConnection {
@@ -11,7 +10,8 @@ extension RTCPeerConnection {
         let mediaConstraints = RTCMediaConstraints(mandatoryConstraints: constraints,
                                                    optionalConstraints: nil)
 
-        return Promise<RTCSessionDescription> { complete, fail in
+        return Promise<RTCSessionDescription>(on: .webRTC) { complete, fail in
+
             self.offer(for: mediaConstraints) { sd, error in
                 guard error == nil else {
                     fail(EngineError.webRTC("failed to create offer", error))
@@ -31,7 +31,8 @@ extension RTCPeerConnection {
         let mediaConstraints = RTCMediaConstraints(mandatoryConstraints: constraints,
                                                    optionalConstraints: nil)
 
-        return Promise<RTCSessionDescription> { complete, fail in
+        return Promise<RTCSessionDescription>(on: .webRTC) { complete, fail in
+
             self.answer(for: mediaConstraints) { sd, error in
                 guard error == nil else {
                     fail(EngineError.webRTC("failed to create offer", error))
@@ -48,7 +49,8 @@ extension RTCPeerConnection {
 
     func setLocalDescriptionPromise(_ sd: RTCSessionDescription) -> Promise<RTCSessionDescription> {
 
-        Promise<RTCSessionDescription> { complete, fail in
+        Promise<RTCSessionDescription>(on: .webRTC) { complete, fail in
+
             self.setLocalDescription(sd) { error in
                 guard error == nil else {
                     fail(EngineError.webRTC("failed to set local description", error))
@@ -61,7 +63,8 @@ extension RTCPeerConnection {
 
     func setRemoteDescriptionPromise(_ sd: RTCSessionDescription) -> Promise<RTCSessionDescription> {
 
-        Promise<RTCSessionDescription> { complete, fail in
+        Promise<RTCSessionDescription>(on: .webRTC) { complete, fail in
+
             self.setRemoteDescription(sd) { error in
                 guard error == nil else {
                     fail(EngineError.webRTC("failed to set remote description", error))
@@ -74,7 +77,8 @@ extension RTCPeerConnection {
 
     func addIceCandidatePromise(_ candidate: RTCIceCandidate) -> Promise<Void> {
 
-        Promise<Void> { complete, fail in
+        Promise<Void>(on: .webRTC) { complete, fail in
+
             self.add(candidate) { error in
                 guard error == nil else {
                     fail(EngineError.webRTC("failed to add ice candidate", error))
@@ -82,6 +86,22 @@ extension RTCPeerConnection {
                 }
                 complete(())
             }
+        }
+    }
+    
+    func addTransceiverPromise(with track: RTCMediaStreamTrack,
+                               transceiverInit: RTCRtpTransceiverInit) -> Promise<RTCRtpTransceiver> {
+        
+        Promise<RTCRtpTransceiver>(on: .webRTC) { complete, fail in
+
+            let result = self.addTransceiver(with: track, init: transceiverInit)
+
+            guard let result = result else {
+                fail(EngineError.webRTC("Failed to add transceiver"))
+                return
+            }
+            
+            complete(result)
         }
     }
 }
