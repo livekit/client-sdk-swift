@@ -179,12 +179,22 @@ struct Livekit_SignalRequest {
 
     /// Set active published layers, deprecated in favor of automatic tracking
     ///    SetSimulcastLayers simulcast = 9;
+    /// Update published video layers
     var updateLayers: Livekit_UpdateVideoLayers {
         get {
             if case .updateLayers(let v)? = message {return v}
             return Livekit_UpdateVideoLayers()
         }
         set {message = .updateLayers(newValue)}
+    }
+
+    /// Update subscriber permissions
+    var subscriptionPermissions: Livekit_UpdateSubscriptionPermissions {
+        get {
+            if case .subscriptionPermissions(let v)? = message {return v}
+            return Livekit_UpdateSubscriptionPermissions()
+        }
+        set {message = .subscriptionPermissions(newValue)}
     }
 
     var unknownFields = SwiftProtobuf.UnknownStorage()
@@ -206,7 +216,10 @@ struct Livekit_SignalRequest {
         case leave(Livekit_LeaveRequest)
         /// Set active published layers, deprecated in favor of automatic tracking
         ///    SetSimulcastLayers simulcast = 9;
+        /// Update published video layers
         case updateLayers(Livekit_UpdateVideoLayers)
+        /// Update subscriber permissions
+        case subscriptionPermissions(Livekit_UpdateSubscriptionPermissions)
 
         #if !swift(>=4.1)
         static func ==(lhs: Livekit_SignalRequest.OneOf_Message, rhs: Livekit_SignalRequest.OneOf_Message) -> Bool {
@@ -248,6 +261,10 @@ struct Livekit_SignalRequest {
             }()
             case (.updateLayers, .updateLayers): return {
                 guard case .updateLayers(let l) = lhs, case .updateLayers(let r) = rhs else { preconditionFailure() }
+                return l == r
+            }()
+            case (.subscriptionPermissions, .subscriptionPermissions): return {
+                guard case .subscriptionPermissions(let l) = lhs, case .subscriptionPermissions(let r) = rhs else { preconditionFailure() }
                 return l == r
             }()
             default: return false
@@ -383,6 +400,15 @@ struct Livekit_SignalResponse {
         set {message = .subscribedQualityUpdate(newValue)}
     }
 
+    /// when subscription permission changed
+    var subscriptionPermissionUpdate: Livekit_SubscriptionPermissionUpdate {
+        get {
+            if case .subscriptionPermissionUpdate(let v)? = message {return v}
+            return Livekit_SubscriptionPermissionUpdate()
+        }
+        set {message = .subscriptionPermissionUpdate(newValue)}
+    }
+
     var unknownFields = SwiftProtobuf.UnknownStorage()
 
     enum OneOf_Message: Equatable {
@@ -412,6 +438,8 @@ struct Livekit_SignalResponse {
         case streamStateUpdate(Livekit_StreamStateUpdate)
         /// when max subscribe quality changed
         case subscribedQualityUpdate(Livekit_SubscribedQualityUpdate)
+        /// when subscription permission changed
+        case subscriptionPermissionUpdate(Livekit_SubscriptionPermissionUpdate)
 
         #if !swift(>=4.1)
         static func ==(lhs: Livekit_SignalResponse.OneOf_Message, rhs: Livekit_SignalResponse.OneOf_Message) -> Bool {
@@ -469,6 +497,10 @@ struct Livekit_SignalResponse {
             }()
             case (.subscribedQualityUpdate, .subscribedQualityUpdate): return {
                 guard case .subscribedQualityUpdate(let l) = lhs, case .subscribedQualityUpdate(let r) = rhs else { preconditionFailure() }
+                return l == r
+            }()
+            case (.subscriptionPermissionUpdate, .subscriptionPermissionUpdate): return {
+                guard case .subscriptionPermissionUpdate(let l) = lhs, case .subscriptionPermissionUpdate(let r) = rhs else { preconditionFailure() }
                 return l == r
             }()
             default: return false
@@ -656,6 +688,8 @@ struct Livekit_UpdateSubscription {
     var trackSids: [String] = []
 
     var subscribe: Bool = false
+
+    var participantTracks: [Livekit_ParticipantTracks] = []
 
     var unknownFields = SwiftProtobuf.UnknownStorage()
 
@@ -848,6 +882,52 @@ struct Livekit_SubscribedQualityUpdate {
     init() {}
 }
 
+struct Livekit_TrackPermission {
+    // SwiftProtobuf.Message conformance is added in an extension below. See the
+    // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+    // methods supported on all messages.
+
+    var participantSid: String = String()
+
+    var allTracks: Bool = false
+
+    var trackSids: [String] = []
+
+    var unknownFields = SwiftProtobuf.UnknownStorage()
+
+    init() {}
+}
+
+struct Livekit_UpdateSubscriptionPermissions {
+    // SwiftProtobuf.Message conformance is added in an extension below. See the
+    // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+    // methods supported on all messages.
+
+    var allParticipants: Bool = false
+
+    var trackPermissions: [Livekit_TrackPermission] = []
+
+    var unknownFields = SwiftProtobuf.UnknownStorage()
+
+    init() {}
+}
+
+struct Livekit_SubscriptionPermissionUpdate {
+    // SwiftProtobuf.Message conformance is added in an extension below. See the
+    // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+    // methods supported on all messages.
+
+    var participantSid: String = String()
+
+    var trackSid: String = String()
+
+    var allowed: Bool = false
+
+    var unknownFields = SwiftProtobuf.UnknownStorage()
+
+    init() {}
+}
+
 // MARK: - Code below here is support for the SwiftProtobuf runtime.
 
 private let _protobuf_package = "livekit"
@@ -877,7 +957,8 @@ extension Livekit_SignalRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageIm
         6: .same(proto: "subscription"),
         7: .standard(proto: "track_setting"),
         8: .same(proto: "leave"),
-        10: .standard(proto: "update_layers")
+        10: .standard(proto: "update_layers"),
+        11: .standard(proto: "subscription_permissions")
     ]
 
     mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -1003,6 +1084,19 @@ extension Livekit_SignalRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageIm
                     self.message = .updateLayers(v)
                 }
             }()
+            case 11: try {
+                var v: Livekit_UpdateSubscriptionPermissions?
+                var hadOneofValue = false
+                if let current = self.message {
+                    hadOneofValue = true
+                    if case .subscriptionPermissions(let m) = current {v = m}
+                }
+                try decoder.decodeSingularMessageField(value: &v)
+                if let v = v {
+                    if hadOneofValue {try decoder.handleConflictingOneOf()}
+                    self.message = .subscriptionPermissions(v)
+                }
+            }()
             default: break
             }
         }
@@ -1050,6 +1144,10 @@ extension Livekit_SignalRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageIm
             guard case .updateLayers(let v)? = self.message else { preconditionFailure() }
             try visitor.visitSingularMessageField(value: v, fieldNumber: 10)
         }()
+        case .subscriptionPermissions?: try {
+            guard case .subscriptionPermissions(let v)? = self.message else { preconditionFailure() }
+            try visitor.visitSingularMessageField(value: v, fieldNumber: 11)
+        }()
         case nil: break
         }
         try unknownFields.traverse(visitor: &visitor)
@@ -1077,7 +1175,8 @@ extension Livekit_SignalResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageI
         11: .standard(proto: "room_update"),
         12: .standard(proto: "connection_quality"),
         13: .standard(proto: "stream_state_update"),
-        14: .standard(proto: "subscribed_quality_update")
+        14: .standard(proto: "subscribed_quality_update"),
+        15: .standard(proto: "subscription_permission_update")
     ]
 
     mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -1255,6 +1354,19 @@ extension Livekit_SignalResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageI
                     self.message = .subscribedQualityUpdate(v)
                 }
             }()
+            case 15: try {
+                var v: Livekit_SubscriptionPermissionUpdate?
+                var hadOneofValue = false
+                if let current = self.message {
+                    hadOneofValue = true
+                    if case .subscriptionPermissionUpdate(let m) = current {v = m}
+                }
+                try decoder.decodeSingularMessageField(value: &v)
+                if let v = v {
+                    if hadOneofValue {try decoder.handleConflictingOneOf()}
+                    self.message = .subscriptionPermissionUpdate(v)
+                }
+            }()
             default: break
             }
         }
@@ -1317,6 +1429,10 @@ extension Livekit_SignalResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageI
         case .subscribedQualityUpdate?: try {
             guard case .subscribedQualityUpdate(let v)? = self.message else { preconditionFailure() }
             try visitor.visitSingularMessageField(value: v, fieldNumber: 14)
+        }()
+        case .subscriptionPermissionUpdate?: try {
+            guard case .subscriptionPermissionUpdate(let v)? = self.message else { preconditionFailure() }
+            try visitor.visitSingularMessageField(value: v, fieldNumber: 15)
         }()
         case nil: break
         }
@@ -1718,7 +1834,8 @@ extension Livekit_UpdateSubscription: SwiftProtobuf.Message, SwiftProtobuf._Mess
     static let protoMessageName: String = _protobuf_package + ".UpdateSubscription"
     static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
         1: .standard(proto: "track_sids"),
-        2: .same(proto: "subscribe")
+        2: .same(proto: "subscribe"),
+        3: .standard(proto: "participant_tracks")
     ]
 
     mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -1729,6 +1846,7 @@ extension Livekit_UpdateSubscription: SwiftProtobuf.Message, SwiftProtobuf._Mess
             switch fieldNumber {
             case 1: try { try decoder.decodeRepeatedStringField(value: &self.trackSids) }()
             case 2: try { try decoder.decodeSingularBoolField(value: &self.subscribe) }()
+            case 3: try { try decoder.decodeRepeatedMessageField(value: &self.participantTracks) }()
             default: break
             }
         }
@@ -1741,12 +1859,16 @@ extension Livekit_UpdateSubscription: SwiftProtobuf.Message, SwiftProtobuf._Mess
         if self.subscribe != false {
             try visitor.visitSingularBoolField(value: self.subscribe, fieldNumber: 2)
         }
+        if !self.participantTracks.isEmpty {
+            try visitor.visitRepeatedMessageField(value: self.participantTracks, fieldNumber: 3)
+        }
         try unknownFields.traverse(visitor: &visitor)
     }
 
     static func ==(lhs: Livekit_UpdateSubscription, rhs: Livekit_UpdateSubscription) -> Bool {
         if lhs.trackSids != rhs.trackSids {return false}
         if lhs.subscribe != rhs.subscribe {return false}
+        if lhs.participantTracks != rhs.participantTracks {return false}
         if lhs.unknownFields != rhs.unknownFields {return false}
         return true
     }
@@ -2213,6 +2335,132 @@ extension Livekit_SubscribedQualityUpdate: SwiftProtobuf.Message, SwiftProtobuf.
     static func ==(lhs: Livekit_SubscribedQualityUpdate, rhs: Livekit_SubscribedQualityUpdate) -> Bool {
         if lhs.trackSid != rhs.trackSid {return false}
         if lhs.subscribedQualities != rhs.subscribedQualities {return false}
+        if lhs.unknownFields != rhs.unknownFields {return false}
+        return true
+    }
+}
+
+extension Livekit_TrackPermission: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+    static let protoMessageName: String = _protobuf_package + ".TrackPermission"
+    static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
+        1: .standard(proto: "participant_sid"),
+        2: .standard(proto: "all_tracks"),
+        3: .standard(proto: "track_sids")
+    ]
+
+    mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+        while let fieldNumber = try decoder.nextFieldNumber() {
+            // The use of inline closures is to circumvent an issue where the compiler
+            // allocates stack space for every case branch when no optimizations are
+            // enabled. https://github.com/apple/swift-protobuf/issues/1034
+            switch fieldNumber {
+            case 1: try { try decoder.decodeSingularStringField(value: &self.participantSid) }()
+            case 2: try { try decoder.decodeSingularBoolField(value: &self.allTracks) }()
+            case 3: try { try decoder.decodeRepeatedStringField(value: &self.trackSids) }()
+            default: break
+            }
+        }
+    }
+
+    func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+        if !self.participantSid.isEmpty {
+            try visitor.visitSingularStringField(value: self.participantSid, fieldNumber: 1)
+        }
+        if self.allTracks != false {
+            try visitor.visitSingularBoolField(value: self.allTracks, fieldNumber: 2)
+        }
+        if !self.trackSids.isEmpty {
+            try visitor.visitRepeatedStringField(value: self.trackSids, fieldNumber: 3)
+        }
+        try unknownFields.traverse(visitor: &visitor)
+    }
+
+    static func ==(lhs: Livekit_TrackPermission, rhs: Livekit_TrackPermission) -> Bool {
+        if lhs.participantSid != rhs.participantSid {return false}
+        if lhs.allTracks != rhs.allTracks {return false}
+        if lhs.trackSids != rhs.trackSids {return false}
+        if lhs.unknownFields != rhs.unknownFields {return false}
+        return true
+    }
+}
+
+extension Livekit_UpdateSubscriptionPermissions: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+    static let protoMessageName: String = _protobuf_package + ".UpdateSubscriptionPermissions"
+    static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
+        1: .standard(proto: "all_participants"),
+        2: .standard(proto: "track_permissions")
+    ]
+
+    mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+        while let fieldNumber = try decoder.nextFieldNumber() {
+            // The use of inline closures is to circumvent an issue where the compiler
+            // allocates stack space for every case branch when no optimizations are
+            // enabled. https://github.com/apple/swift-protobuf/issues/1034
+            switch fieldNumber {
+            case 1: try { try decoder.decodeSingularBoolField(value: &self.allParticipants) }()
+            case 2: try { try decoder.decodeRepeatedMessageField(value: &self.trackPermissions) }()
+            default: break
+            }
+        }
+    }
+
+    func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+        if self.allParticipants != false {
+            try visitor.visitSingularBoolField(value: self.allParticipants, fieldNumber: 1)
+        }
+        if !self.trackPermissions.isEmpty {
+            try visitor.visitRepeatedMessageField(value: self.trackPermissions, fieldNumber: 2)
+        }
+        try unknownFields.traverse(visitor: &visitor)
+    }
+
+    static func ==(lhs: Livekit_UpdateSubscriptionPermissions, rhs: Livekit_UpdateSubscriptionPermissions) -> Bool {
+        if lhs.allParticipants != rhs.allParticipants {return false}
+        if lhs.trackPermissions != rhs.trackPermissions {return false}
+        if lhs.unknownFields != rhs.unknownFields {return false}
+        return true
+    }
+}
+
+extension Livekit_SubscriptionPermissionUpdate: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+    static let protoMessageName: String = _protobuf_package + ".SubscriptionPermissionUpdate"
+    static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
+        1: .standard(proto: "participant_sid"),
+        2: .standard(proto: "track_sid"),
+        3: .same(proto: "allowed")
+    ]
+
+    mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+        while let fieldNumber = try decoder.nextFieldNumber() {
+            // The use of inline closures is to circumvent an issue where the compiler
+            // allocates stack space for every case branch when no optimizations are
+            // enabled. https://github.com/apple/swift-protobuf/issues/1034
+            switch fieldNumber {
+            case 1: try { try decoder.decodeSingularStringField(value: &self.participantSid) }()
+            case 2: try { try decoder.decodeSingularStringField(value: &self.trackSid) }()
+            case 3: try { try decoder.decodeSingularBoolField(value: &self.allowed) }()
+            default: break
+            }
+        }
+    }
+
+    func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+        if !self.participantSid.isEmpty {
+            try visitor.visitSingularStringField(value: self.participantSid, fieldNumber: 1)
+        }
+        if !self.trackSid.isEmpty {
+            try visitor.visitSingularStringField(value: self.trackSid, fieldNumber: 2)
+        }
+        if self.allowed != false {
+            try visitor.visitSingularBoolField(value: self.allowed, fieldNumber: 3)
+        }
+        try unknownFields.traverse(visitor: &visitor)
+    }
+
+    static func ==(lhs: Livekit_SubscriptionPermissionUpdate, rhs: Livekit_SubscriptionPermissionUpdate) -> Bool {
+        if lhs.participantSid != rhs.participantSid {return false}
+        if lhs.trackSid != rhs.trackSid {return false}
+        if lhs.allowed != rhs.allowed {return false}
         if lhs.unknownFields != rhs.unknownFields {return false}
         return true
     }

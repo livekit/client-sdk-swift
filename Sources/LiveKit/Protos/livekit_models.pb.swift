@@ -532,6 +532,21 @@ struct Livekit_UserPacket {
     init() {}
 }
 
+struct Livekit_ParticipantTracks {
+    // SwiftProtobuf.Message conformance is added in an extension below. See the
+    // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+    // methods supported on all messages.
+
+    /// participant ID of participant to whom the tracks belong
+    var participantSid: String = String()
+
+    var trackSids: [String] = []
+
+    var unknownFields = SwiftProtobuf.UnknownStorage()
+
+    init() {}
+}
+
 // MARK: - Code below here is support for the SwiftProtobuf runtime.
 
 private let _protobuf_package = "livekit"
@@ -1111,6 +1126,44 @@ extension Livekit_UserPacket: SwiftProtobuf.Message, SwiftProtobuf._MessageImple
         if lhs.participantSid != rhs.participantSid {return false}
         if lhs.payload != rhs.payload {return false}
         if lhs.destinationSids != rhs.destinationSids {return false}
+        if lhs.unknownFields != rhs.unknownFields {return false}
+        return true
+    }
+}
+
+extension Livekit_ParticipantTracks: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+    static let protoMessageName: String = _protobuf_package + ".ParticipantTracks"
+    static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
+        1: .standard(proto: "participant_sid"),
+        2: .standard(proto: "track_sids")
+    ]
+
+    mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+        while let fieldNumber = try decoder.nextFieldNumber() {
+            // The use of inline closures is to circumvent an issue where the compiler
+            // allocates stack space for every case branch when no optimizations are
+            // enabled. https://github.com/apple/swift-protobuf/issues/1034
+            switch fieldNumber {
+            case 1: try { try decoder.decodeSingularStringField(value: &self.participantSid) }()
+            case 2: try { try decoder.decodeRepeatedStringField(value: &self.trackSids) }()
+            default: break
+            }
+        }
+    }
+
+    func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+        if !self.participantSid.isEmpty {
+            try visitor.visitSingularStringField(value: self.participantSid, fieldNumber: 1)
+        }
+        if !self.trackSids.isEmpty {
+            try visitor.visitRepeatedStringField(value: self.trackSids, fieldNumber: 2)
+        }
+        try unknownFields.traverse(visitor: &visitor)
+    }
+
+    static func ==(lhs: Livekit_ParticipantTracks, rhs: Livekit_ParticipantTracks) -> Bool {
+        if lhs.participantSid != rhs.participantSid {return false}
+        if lhs.trackSids != rhs.trackSids {return false}
         if lhs.unknownFields != rhs.unknownFields {return false}
         return true
     }
