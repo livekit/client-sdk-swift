@@ -7,14 +7,24 @@ typealias TransportOnOffer = (RTCSessionDescription) -> Void
 
 internal class Transport: MulticastDelegate<TransportDelegate> {
 
-    let target: Livekit_SignalTarget
-    let primary: Bool
+    public let target: Livekit_SignalTarget
+    public let primary: Bool
 
-    let pc: RTCPeerConnection
+    // forbid direct access to PeerConnection
+    private let pc: RTCPeerConnection
+
     private var pendingCandidates: [RTCIceCandidate] = []
     internal var restartingIce: Bool = false
     var renegotiate: Bool = false
     var onOffer: TransportOnOffer?
+
+    public var iceConnectionState: RTCIceConnectionState {
+        pc.iceConnectionState
+    }
+
+    public var isIceConnected: Bool {
+        pc.iceConnectionState.isConnected
+    }
 
     // keep reference to cancel later
     private var debounceWorkItem: DispatchWorkItem?
@@ -55,7 +65,7 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
     public func addIceCandidate(_ candidate: RTCIceCandidate) -> Promise<Void> {
 
         if pc.remoteDescription != nil && !restartingIce {
-            return pc.addIceCandidatePromise(candidate)
+            return addIceCandidatePromise(candidate)
         }
 
         pendingCandidates.append(candidate)
@@ -66,8 +76,8 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
     @discardableResult
     public func setRemoteDescription(_ sd: RTCSessionDescription) -> Promise<Void> {
 
-        self.pc.setRemoteDescriptionPromise(sd).then { _ in
-            all(self.pendingCandidates.map { self.pc.addIceCandidatePromise($0) })
+        self.setRemoteDescriptionPromise(sd).then { _ in
+            all(self.pendingCandidates.map { self.addIceCandidatePromise($0) })
         }.then { _ in
 
             self.pendingCandidates.removeAll()
@@ -103,15 +113,15 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
         }
 
         if pc.signalingState == .haveLocalOffer, iceRestart, let sd = pc.remoteDescription {
-            return pc.setRemoteDescriptionPromise(sd).then { _ in
+            return setRemoteDescriptionPromise(sd).then { _ in
                 negotiateSequence()
             }
         }
 
         // actually negotiate
         func negotiateSequence() -> Promise<Void> {
-            pc.createOfferPromise(for: constraints).then { offer in
-                self.pc.setLocalDescriptionPromise(offer)
+            createOffer(for: constraints).then { offer in
+                self.setLocalDescription(offer)
             }.then { offer in
                 onOffer(offer)
             }
@@ -131,7 +141,6 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
 
         pc.close()
     }
-
 }
 
 extension RTCIceConnectionState {
@@ -154,6 +163,8 @@ extension RTCIceConnectionState {
         .completed == self || .connected == self
     }
 }
+
+// MARK: - RTCPeerConnectionDelegate
 
 extension Transport: RTCPeerConnectionDelegate {
 
@@ -199,4 +210,133 @@ extension Transport: RTCPeerConnectionDelegate {
     func peerConnection(_ peerConnection: RTCPeerConnection, didAdd stream: RTCMediaStream) {}
     func peerConnection(_ peerConnection: RTCPeerConnection, didChange newState: RTCIceGatheringState) {}
     func peerConnection(_ peerConnection: RTCPeerConnection, didRemove candidates: [RTCIceCandidate]) {}
+}
+
+// MARK: - Promise methods
+
+extension Transport {
+
+    public func createOffer(for constraints: [String: String]? = nil) -> Promise<RTCSessionDescription> {
+
+        let mediaConstraints = RTCMediaConstraints(mandatoryConstraints: constraints,
+                                                   optionalConstraints: nil)
+
+        return Promise<RTCSessionDescription>(on: .webRTC) { complete, fail in
+
+            self.pc.offer(for: mediaConstraints) { sd, error in
+                guard error == nil else {
+                    fail(EngineError.webRTC("failed to create offer", error))
+                    return
+                }
+                guard let sd = sd else {
+                    fail(EngineError.webRTC("session description is null"))
+                    return
+                }
+                complete(sd)
+            }
+        }
+    }
+
+    public func createAnswer(for constraints: [String: String]? = nil) -> Promise<RTCSessionDescription> {
+
+        let mediaConstraints = RTCMediaConstraints(mandatoryConstraints: constraints,
+                                                   optionalConstraints: nil)
+
+        return Promise<RTCSessionDescription>(on: .webRTC) { complete, fail in
+
+            self.pc.answer(for: mediaConstraints) { sd, error in
+                guard error == nil else {
+                    fail(EngineError.webRTC("failed to create offer", error))
+                    return
+                }
+                guard let sd = sd else {
+                    fail(EngineError.webRTC("session description is null"))
+                    return
+                }
+                complete(sd)
+            }
+        }
+    }
+
+    public func setLocalDescription(_ sd: RTCSessionDescription) -> Promise<RTCSessionDescription> {
+
+        Promise<RTCSessionDescription>(on: .webRTC) { complete, fail in
+
+            self.pc.setLocalDescription(sd) { error in
+                guard error == nil else {
+                    fail(EngineError.webRTC("failed to set local description", error))
+                    return
+                }
+                complete(sd)
+            }
+        }
+    }
+
+    private func setRemoteDescriptionPromise(_ sd: RTCSessionDescription) -> Promise<RTCSessionDescription> {
+
+        Promise<RTCSessionDescription>(on: .webRTC) { complete, fail in
+
+            self.pc.setRemoteDescription(sd) { error in
+                guard error == nil else {
+                    fail(EngineError.webRTC("failed to set remote description", error))
+                    return
+                }
+                complete(sd)
+            }
+        }
+    }
+
+    private func addIceCandidatePromise(_ candidate: RTCIceCandidate) -> Promise<Void> {
+
+        Promise<Void>(on: .webRTC) { complete, fail in
+
+            self.pc.add(candidate) { error in
+                guard error == nil else {
+                    fail(EngineError.webRTC("failed to add ice candidate", error))
+                    return
+                }
+                complete(())
+            }
+        }
+    }
+
+    public func addTransceiver(with track: RTCMediaStreamTrack,
+                               transceiverInit: RTCRtpTransceiverInit) -> Promise<RTCRtpTransceiver> {
+
+        Promise<RTCRtpTransceiver>(on: .webRTC) { complete, fail in
+
+            let result = self.pc.addTransceiver(with: track, init: transceiverInit)
+
+            guard let result = result else {
+                fail(EngineError.webRTC("Failed to add transceiver"))
+                return
+            }
+
+            complete(result)
+        }
+    }
+
+    public func removeTrack(_ sender: RTCRtpSender) -> Promise<Void> {
+
+        Promise<Void>(on: .webRTC) { complete, fail in
+
+            guard self.pc.removeTrack(sender) else {
+                fail(EngineError.webRTC("Failed to removeTrack"))
+                return
+            }
+
+            complete(())
+        }
+    }
+
+    public func dataChannel(for label: String,
+                            configuration: RTCDataChannelConfiguration,
+                            delegate: RTCDataChannelDelegate) -> RTCDataChannel {
+
+        let result = self.pc.dataChannel(forLabel: label,
+                                         configuration: configuration)
+        // TODO: Convert to Promise
+        result!.delegate = delegate
+        return result!
+    }
 }

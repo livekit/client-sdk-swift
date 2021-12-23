@@ -57,11 +57,11 @@ public class LocalParticipant: Participant {
                 }
             }.then { (trackInfo) -> Promise<(RTCRtpTransceiver, Livekit_TrackInfo)> in
                 // add transceiver to pc
-                publisher.pc.addTransceiverPromise(with: track.mediaTrack,
-                                                   transceiverInit: transInit).then { transceiver in
-                                                    // pass down trackInfo and created transceiver
-                                                    (transceiver, trackInfo)
-                                                   }
+                publisher.addTransceiver(with: track.mediaTrack,
+                                         transceiverInit: transInit).then { transceiver in
+                                            // pass down trackInfo and created transceiver
+                                            (transceiver, trackInfo)
+                                         }
             }.then { (transceiver, trackInfo) -> LocalTrackPublication in
 
                 // store publishOptions used for this track
@@ -138,11 +138,11 @@ public class LocalParticipant: Participant {
                 }
             }.then { (trackInfo) -> Promise<(RTCRtpTransceiver, Livekit_TrackInfo)> in
                 // add transceiver to pc
-                publisher.pc.addTransceiverPromise(with: track.mediaTrack,
-                                                   transceiverInit: transInit).then { transceiver in
-                                                    // pass down trackInfo and created transceiver
-                                                    (transceiver, trackInfo)
-                                                   }
+                publisher.addTransceiver(with: track.mediaTrack,
+                                         transceiverInit: transInit).then { transceiver in
+                                            // pass down trackInfo and created transceiver
+                                            (transceiver, trackInfo)
+                                         }
             }.then { (transceiver, trackInfo) -> LocalTrackPublication in
 
                 // store publishOptions used for this track
@@ -174,6 +174,10 @@ public class LocalParticipant: Participant {
     /// this will also stop the track
     public func unpublish(publication: LocalTrackPublication, shouldNotify: Bool = true) -> Promise<Void> {
 
+        guard let engine = room?.engine else {
+            return Promise(EngineError.invalidState("engine is nil"))
+        }
+
         func notifyDidUnpublish() -> Promise<Void> {
             Promise<Void> {
                 guard shouldNotify else { return }
@@ -202,17 +206,20 @@ public class LocalParticipant: Participant {
         }
 
         // wait for track to stop
-        return stopTrackIfRequired().always { () -> Void in
+        return stopTrackIfRequired()
+            .recover { error in logger.warning("stopTrackIfRequired() did throw \(error)") }
+            .then { () -> Promise<Void> in
 
-            if let pc = self.room?.engine.publisher?.pc,
-               let sender = track.sender {
-                pc.removeTrack(sender)
-                self.room?.engine.publisherShouldNegotiate()
+                guard let publisher = self.room?.engine.publisher, let sender = track.sender else {
+                    return Promise(())
+                }
+
+                return publisher.removeTrack(sender).then {
+                    engine.publisherShouldNegotiate()
+                }
+            }.then { () -> Promise<Void> in
+                notifyDidUnpublish()
             }
-
-        }.then {
-            notifyDidUnpublish()
-        }
     }
 
     /**

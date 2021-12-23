@@ -251,7 +251,7 @@ class Engine: MulticastDelegate<EngineDelegate> {
             return Promise(EngineError.invalidState("publisher is nil"))
         }
 
-        guard subscriberPrimary, !publisher.pc.iceConnectionState.isConnected else {
+        guard subscriberPrimary, !publisher.isIceConnected else {
             // aleady connected, no-op
             return Promise(())
         }
@@ -273,7 +273,7 @@ extension Engine {
         }
 
         logger.debug("waiting for iceConnect on \(transport)")
-        if allowCurrentValue, transport.pc.iceConnectionState.isConnected {
+        if allowCurrentValue, transport.isIceConnected {
             logger.debug("iceConnect already connected")
             return Promise(())
         }
@@ -352,16 +352,16 @@ extension Engine: SignalClientDelegate {
             // data over pub channel for backwards compatibility
             let reliableConfig = RTCDataChannelConfiguration()
             reliableConfig.isOrdered = true
-            reliableDC = publisher?.pc.dataChannel(forLabel: RTCDataChannel.labels.reliable,
-                                                   configuration: reliableConfig)
-            reliableDC?.delegate = self
+            reliableDC = publisher?.dataChannel(for: RTCDataChannel.labels.reliable,
+                                                configuration: reliableConfig,
+                                                delegate: self)
 
             let lossyConfig = RTCDataChannelConfiguration()
             lossyConfig.isOrdered = true
             lossyConfig.maxRetransmits = 0
-            lossyDC = publisher?.pc.dataChannel(forLabel: RTCDataChannel.labels.lossy,
-                                                configuration: lossyConfig)
-            lossyDC?.delegate = self
+            lossyDC = publisher?.dataChannel(for: RTCDataChannel.labels.lossy,
+                                             configuration: lossyConfig,
+                                             delegate: self)
 
         } catch {
             //
@@ -414,9 +414,9 @@ extension Engine: SignalClientDelegate {
 
         logger.debug("handling server offer...")
         subscriber.setRemoteDescription(offer).then {
-            subscriber.pc.createAnswerPromise()
+            subscriber.createAnswer()
         }.then { answer in
-            subscriber.pc.setLocalDescriptionPromise(answer)
+            subscriber.setLocalDescription(answer)
         }.then { answer in
             try? self.signalClient.sendAnswer(answer: answer)
         }
