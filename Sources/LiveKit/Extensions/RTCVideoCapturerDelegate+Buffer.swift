@@ -36,7 +36,7 @@ extension RTCVideoCapturerDelegate {
                                   rotation: rotation,
                                   timeStampNs: Int64(timeStampNs))
 
-        self.capturer(capturer, didCapture: frame)
+        DispatchQueue.webRTC.sync { self.capturer(capturer, didCapture: frame) }
     }
 
     /// capture a `CMSampleBuffer`

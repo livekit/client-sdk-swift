@@ -13,7 +13,7 @@ public class LocalVideoTrack: LocalTrack, VideoTrack {
                   capturer: VideoCapturer,
                   videoSource: RTCVideoSource) {
 
-        let rtcTrack = Engine.factory.videoTrack(with: videoSource, trackId: UUID().uuidString)
+        let rtcTrack = Engine.createVideoTrack(source: videoSource)
         rtcTrack.isEnabled = true
 
         self.capturer = capturer

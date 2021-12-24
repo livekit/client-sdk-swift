@@ -158,7 +158,7 @@ extension LocalVideoTrack {
             source = interceptor
             output = interceptor.output
         } else {
-            let videoSource = Engine.factory.videoSource()
+            let videoSource = Engine.createVideoSource(forScreenShare: false)
             source = videoSource
             output = videoSource
         }

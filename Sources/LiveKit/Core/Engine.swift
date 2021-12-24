@@ -4,23 +4,6 @@ import Promises
 
 class Engine: MulticastDelegate<EngineDelegate> {
 
-    static let factory: RTCPeerConnectionFactory = {
-        return DispatchQueue.webRTC.sync {
-            RTCInitializeSSL()
-            let encoderFactory = RTCDefaultVideoEncoderFactory()
-            let decoderFactory = RTCDefaultVideoDecoderFactory()
-            #if LK_USING_CUSTOM_WEBRTC_BUILD
-            let simulcastFactory = RTCVideoEncoderFactorySimulcast(primary: encoderFactory,
-                                                                   fallback: encoderFactory)
-            return RTCPeerConnectionFactory(encoderFactory: simulcastFactory,
-                                            decoderFactory: decoderFactory)
-            #else
-            return RTCPeerConnectionFactory(encoderFactory: encoderFactory,
-                                            decoderFactory: decoderFactory)
-            #endif
-        }
-    }()
-
     // Reference to Room
     public let room: Room
 
@@ -510,4 +493,50 @@ extension Engine: TransportDelegate {
     }
 
     func transportShouldNegotiate(_ transport: Transport) {}
+}
+
+// MARK: Engine - Factory methods
+
+extension Engine {
+
+    // forbid direct access
+    private static let factory: RTCPeerConnectionFactory = {
+        RTCInitializeSSL()
+        let encoderFactory = RTCDefaultVideoEncoderFactory()
+        let decoderFactory = RTCDefaultVideoDecoderFactory()
+        #if LK_USING_CUSTOM_WEBRTC_BUILD
+        let simulcastFactory = RTCVideoEncoderFactorySimulcast(primary: encoderFactory,
+                                                               fallback: encoderFactory)
+        return RTCPeerConnectionFactory(encoderFactory: simulcastFactory,
+                                        decoderFactory: decoderFactory)
+        #else
+        return RTCPeerConnectionFactory(encoderFactory: encoderFactory,
+                                        decoderFactory: decoderFactory)
+        #endif
+    }()
+
+    internal static func createPeerConnection(_ configuration: RTCConfiguration,
+                                              constraints: RTCMediaConstraints) -> RTCPeerConnection? {
+        DispatchQueue.webRTC.sync { factory.peerConnection(with: configuration,
+                                                           constraints: constraints,
+                                                           delegate: nil) }
+    }
+
+    internal static func createVideoSource(forScreenShare: Bool) -> RTCVideoSource {
+        DispatchQueue.webRTC.sync { factory.videoSource(forScreenCast: forScreenShare) }
+    }
+
+    internal static func createVideoTrack(source: RTCVideoSource) -> RTCVideoTrack {
+        DispatchQueue.webRTC.sync { factory.videoTrack(with: source,
+                                                       trackId: UUID().uuidString) }
+    }
+
+    internal static func createAudioSource(_ constraints: RTCMediaConstraints?) -> RTCAudioSource {
+        DispatchQueue.webRTC.sync { factory.audioSource(with: constraints) }
+    }
+
+    internal static func createAudioTrack(source: RTCAudioSource) -> RTCAudioTrack {
+        DispatchQueue.webRTC.sync { factory.audioTrack(with: source,
+                                                       trackId: UUID().uuidString) }
+    }
 }

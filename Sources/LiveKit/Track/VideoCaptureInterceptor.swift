@@ -5,7 +5,7 @@ public typealias InterceptFunc = (_ frame: RTCVideoFrame, _ capture: @escaping C
 
 public class VideoCaptureInterceptor: NSObject, RTCVideoCapturerDelegate {
 
-    let output = Engine.factory.videoSource()
+    let output = Engine.createVideoSource(forScreenShare: true)
     let interceptFunc: InterceptFunc
 
     public init(_ interceptFunc: @escaping InterceptFunc) {

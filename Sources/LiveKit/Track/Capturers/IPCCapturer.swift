@@ -58,7 +58,7 @@ extension LocalVideoTrack {
     public static func createIPCTrack(name: String = Track.screenShareName,
                                       ipcName: String,
                                       source: VideoTrack.Source = .screenShareVideo) -> LocalVideoTrack {
-        let videoSource = Engine.factory.videoSource()
+        let videoSource = Engine.createVideoSource(forScreenShare: true)
         let capturer = IPCCapturer(delegate: videoSource, ipcName: ipcName)
         return LocalVideoTrack(
             name: name,

@@ -32,8 +32,8 @@ public class LocalAudioTrack: LocalTrack, AudioTrack {
         let audioConstraints = RTCMediaConstraints(mandatoryConstraints: nil,
                                                    optionalConstraints: constraints)
 
-        let audioSource = Engine.factory.audioSource(with: audioConstraints)
-        let rtcTrack = Engine.factory.audioTrack(with: audioSource, trackId: UUID().uuidString)
+        let audioSource = Engine.createAudioSource(audioConstraints)
+        let rtcTrack = Engine.createAudioTrack(source: audioSource)
         rtcTrack.isEnabled = true
 
         return LocalAudioTrack(name: name,

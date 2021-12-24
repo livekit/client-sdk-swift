@@ -49,12 +49,10 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
                 primary: Bool,
                 delegate: TransportDelegate) throws {
 
-        let factory = Engine.factory
-        let create = { factory.peerConnection(with: config,
-                                              constraints: RTCMediaConstraints.defaultPCConstraints,
-                                              delegate: nil) }
         // try create peerConnection
-        guard let pc = DispatchQueue.webRTC.sync(execute: create) else {
+        guard let pc = Engine.createPeerConnection(config,
+                                                   constraints: .defaultPCConstraints) else {
+
             throw EngineError.webRTC("failed to create peerConnection")
         }
 
