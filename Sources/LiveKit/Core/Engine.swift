@@ -9,10 +9,15 @@ class Engine: MulticastDelegate<EngineDelegate> {
             RTCInitializeSSL()
             let encoderFactory = RTCDefaultVideoEncoderFactory()
             let decoderFactory = RTCDefaultVideoDecoderFactory()
+            #if LK_USING_CUSTOM_WEBRTC_BUILD
             let simulcastFactory = RTCVideoEncoderFactorySimulcast(primary: encoderFactory,
                                                                    fallback: encoderFactory)
             return RTCPeerConnectionFactory(encoderFactory: simulcastFactory,
                                             decoderFactory: decoderFactory)
+            #else
+            return RTCPeerConnectionFactory(encoderFactory: encoderFactory,
+                                            decoderFactory: decoderFactory)
+            #endif
         }
     }()
 
