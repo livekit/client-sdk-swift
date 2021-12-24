@@ -3,8 +3,6 @@ import Promises
 
 public class LocalParticipant: Participant {
 
-    private var streamId = "stream"
-
     public var localAudioTrackPublications: [TrackPublication] { Array(audioTracks.values) }
     public var localVideoTrackPublications: [TrackPublication] { Array(videoTracks.values) }
 
@@ -94,9 +92,8 @@ public class LocalParticipant: Participant {
 
         let cid = track.mediaTrack.trackId
 
-        let transInit = RTCRtpTransceiverInit()
+        let transInit = DispatchQueue.webRTC.sync { RTCRtpTransceiverInit() }
         transInit.direction = .sendOnly
-        transInit.streamIds = [self.streamId]
 
         #if LK_COMPUTE_VIDEO_SENDER_PARAMETERS
 

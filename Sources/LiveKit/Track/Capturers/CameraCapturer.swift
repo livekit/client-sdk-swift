@@ -7,9 +7,13 @@ public class CameraCapturer: VideoCapturer {
 
     private let capturer: RTCCameraVideoCapturer
 
+    public static func captureDevices() -> [AVCaptureDevice] {
+        DispatchQueue.webRTC.sync { RTCCameraVideoCapturer.captureDevices() }
+    }
+
     /// Checks whether both front and back capturing devices exist, and can be switched.
     public static func canSwitchPosition() -> Bool {
-        let devices = RTCCameraVideoCapturer.captureDevices()
+        let devices = captureDevices()
         return devices.contains(where: { $0.position == .front }) &&
             devices.contains(where: { $0.position == .back })
     }
@@ -28,7 +32,7 @@ public class CameraCapturer: VideoCapturer {
 
     init(delegate: RTCVideoCapturerDelegate,
          options: VideoCaptureOptions? = nil) {
-        self.capturer = RTCCameraVideoCapturer(delegate: delegate)
+        self.capturer = DispatchQueue.webRTC.sync { RTCCameraVideoCapturer(delegate: delegate) }
         self.options = options ?? VideoCaptureOptions()
         super.init(delegate: delegate)
     }
@@ -61,7 +65,7 @@ public class CameraCapturer: VideoCapturer {
 
         logger.debug("CameraCapturer.startCapture()")
 
-        let devices = RTCCameraVideoCapturer.captureDevices()
+        let devices = CameraCapturer.captureDevices()
         // TODO: FaceTime Camera for macOS uses .unspecified, fall back to first device
 
         guard let device = devices.first(where: { $0.position == options.position }) ?? devices.first else {
@@ -69,7 +73,7 @@ public class CameraCapturer: VideoCapturer {
             return Promise(TrackError.mediaError("No camera video capture devices available"))
         }
 
-        let formats = RTCCameraVideoCapturer.supportedFormats(for: device)
+        let formats = DispatchQueue.webRTC.sync { RTCCameraVideoCapturer.supportedFormats(for: device) }
         let (targetWidth, targetHeight) = (options.captureParameter.dimensions.width,
                                            options.captureParameter.dimensions.height)
 
@@ -108,11 +112,11 @@ public class CameraCapturer: VideoCapturer {
             return Promise(TrackError.mediaError("requested framerate is unsupported (\(minFps)-\(maxFps))"))
         }
 
-        logger.info("starting capture with \(device), format: \(selectedFormat), fps: \(fps)")
+        logger.info("Starting camera capturer device: \(device), format: \(selectedFormat), fps: \(fps)")
 
         return super.startCapture().then {
             // return promise that waits for capturer to start
-            Promise { resolve, reject in
+            Promise(on: .webRTC) { resolve, reject in
                 self.capturer.startCapture(with: device, format: selectedFormat, fps: fps) { error in
                     if let error = error {
                         logger.error("CameraCapturer failed to start \(error)")
@@ -134,7 +138,7 @@ public class CameraCapturer: VideoCapturer {
 
     public override func stopCapture() -> Promise<Void> {
         return super.stopCapture().then {
-            Promise { resolve, _ in
+            Promise(on: .webRTC) { resolve, _ in
                 self.capturer.stopCapture {
                     // update internal vars
                     self.device = nil
