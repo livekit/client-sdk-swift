@@ -523,7 +523,11 @@ extension Engine {
     }
 
     internal static func createVideoSource(forScreenShare: Bool) -> RTCVideoSource {
+        #if LK_USING_CUSTOM_WEBRTC_BUILD
+        DispatchQueue.webRTC.sync { factory.videoSource() }
+        #else
         DispatchQueue.webRTC.sync { factory.videoSource(forScreenCast: forScreenShare) }
+        #endif
     }
 
     internal static func createVideoTrack(source: RTCVideoSource) -> RTCVideoTrack {
