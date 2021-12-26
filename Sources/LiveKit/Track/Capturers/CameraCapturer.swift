@@ -63,7 +63,8 @@ public class CameraCapturer: VideoCapturer {
 
     public override func startCapture() -> Promise<Void> {
 
-        logger.debug("CameraCapturer.startCapture()")
+        let preferredPixelFormat = capturer.preferredOutputPixelFormat()
+        logger.debug("CameraCapturer.preferredPixelFormat: \(preferredPixelFormat.toString())")
 
         let devices = CameraCapturer.captureDevices()
         // TODO: FaceTime Camera for macOS uses .unspecified, fall back to first device
@@ -74,6 +75,8 @@ public class CameraCapturer: VideoCapturer {
         }
 
         let formats = DispatchQueue.webRTC.sync { RTCCameraVideoCapturer.supportedFormats(for: device) }
+        logger.debug("CameraCapturer.supportedFormats: \(formats)")
+
         let (targetWidth, targetHeight) = (options.captureParameter.dimensions.width,
                                            options.captureParameter.dimensions.height)
 
