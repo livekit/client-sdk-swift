@@ -22,21 +22,26 @@ extension RTCVideoCapturerDelegate {
                          rotation: RTCVideoRotation = ._0) {
 
         let pixelFormat = CVPixelBufferGetPixelFormatType(pixelBuffer)
-        if pixelFormat != kCVPixelFormatType_420YpCbCr8BiPlanarFullRange &&
-            pixelFormat != kCVPixelFormatType_32BGRA &&
-            pixelFormat != kCVPixelFormatType_32ARGB {
+
+        // RTCCameraVideoCapturer.preferredOutputPixelFormat reports kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange.
+        if [kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange,
+            kCVPixelFormatType_420YpCbCr8BiPlanarFullRange].contains(pixelFormat) {
+            logger.debug("Capturing in pixel format \(pixelFormat.toString())")
+        } else {
             // The source only supports NV12 (full-range) buffers.
-            logger.warning("Failed to capture, pixel buffer format not supported \(pixelFormat)")
-            return
+            logger.warning("Capturing in pixel format unknown to be supported by WebRTC \(pixelFormat.toString())")
         }
 
-        let rtcBuffer = RTCCVPixelBuffer(pixelBuffer: pixelBuffer)
+        DispatchQueue.webRTC.sync {
 
-        let frame = RTCVideoFrame(buffer: rtcBuffer,
-                                  rotation: rotation,
-                                  timeStampNs: Int64(timeStampNs))
+            let rtcBuffer = RTCCVPixelBuffer(pixelBuffer: pixelBuffer)
 
-        DispatchQueue.webRTC.sync { self.capturer(capturer, didCapture: frame) }
+            let frame = RTCVideoFrame(buffer: rtcBuffer,
+                                      rotation: rotation,
+                                      timeStampNs: Int64(timeStampNs))
+
+            self.capturer(capturer, didCapture: frame)
+        }
     }
 
     /// capture a `CMSampleBuffer`
