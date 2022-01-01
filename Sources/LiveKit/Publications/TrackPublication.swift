@@ -34,15 +34,23 @@ public class TrackPublication: TrackDelegate {
     /// video-only
     public internal(set) var simulcasted: Bool = false
 
-    weak var participant: Participant?
+    /// MIME type of the ``Track``.
+    public internal(set) var mimeType: String
+
+    /// Reference to the ``Participant`` this publication belongs to.
+    internal weak var participant: Participant?
 
     public var subscribed: Bool { return track != nil }
 
-    init(info: Livekit_TrackInfo, track: Track? = nil, participant: Participant? = nil) {
-        sid = info.sid
-        name = info.name
-        kind = info.type.toLKType()
-        source = info.source.toLKType()
+    internal init(info: Livekit_TrackInfo,
+                  track: Track? = nil,
+                  participant: Participant? = nil) {
+
+        self.sid = info.sid
+        self.name = info.name
+        self.kind = info.type.toLKType()
+        self.source = info.source.toLKType()
+        self.mimeType = info.mimeType
         self.track = track
         self.participant = participant
         updateFromInfo(info: info)
@@ -53,8 +61,9 @@ public class TrackPublication: TrackDelegate {
 
     internal func updateFromInfo(info: Livekit_TrackInfo) {
         // only muted and name can conceivably update
-        name = info.name
-        simulcasted = info.simulcast
+        self.name = info.name
+        self.simulcasted = info.simulcast
+        self.mimeType = info.mimeType
         if info.type == .video {
             dimensions = Dimensions(width: Int32(info.width),
                                     height: Int32(info.height))
