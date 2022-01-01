@@ -270,6 +270,8 @@ struct Livekit_ParticipantInfo {
 
     var recorder: Bool = false
 
+    var name: String = String()
+
     var unknownFields = SwiftProtobuf.UnknownStorage()
 
     enum State: SwiftProtobuf.Enum {
@@ -361,6 +363,9 @@ struct Livekit_TrackInfo {
     var source: Livekit_TrackSource = .unknown
 
     var layers: [Livekit_VideoLayer] = []
+
+    /// mime type of codec
+    var mimeType: String = String()
 
     var unknownFields = SwiftProtobuf.UnknownStorage()
 
@@ -719,7 +724,8 @@ extension Livekit_ParticipantInfo: SwiftProtobuf.Message, SwiftProtobuf._Message
         5: .same(proto: "metadata"),
         6: .standard(proto: "joined_at"),
         7: .same(proto: "hidden"),
-        8: .same(proto: "recorder")
+        8: .same(proto: "recorder"),
+        9: .same(proto: "name")
     ]
 
     mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -736,6 +742,7 @@ extension Livekit_ParticipantInfo: SwiftProtobuf.Message, SwiftProtobuf._Message
             case 6: try { try decoder.decodeSingularInt64Field(value: &self.joinedAt) }()
             case 7: try { try decoder.decodeSingularBoolField(value: &self.hidden) }()
             case 8: try { try decoder.decodeSingularBoolField(value: &self.recorder) }()
+            case 9: try { try decoder.decodeSingularStringField(value: &self.name) }()
             default: break
             }
         }
@@ -766,6 +773,9 @@ extension Livekit_ParticipantInfo: SwiftProtobuf.Message, SwiftProtobuf._Message
         if self.recorder != false {
             try visitor.visitSingularBoolField(value: self.recorder, fieldNumber: 8)
         }
+        if !self.name.isEmpty {
+            try visitor.visitSingularStringField(value: self.name, fieldNumber: 9)
+        }
         try unknownFields.traverse(visitor: &visitor)
     }
 
@@ -778,6 +788,7 @@ extension Livekit_ParticipantInfo: SwiftProtobuf.Message, SwiftProtobuf._Message
         if lhs.joinedAt != rhs.joinedAt {return false}
         if lhs.hidden != rhs.hidden {return false}
         if lhs.recorder != rhs.recorder {return false}
+        if lhs.name != rhs.name {return false}
         if lhs.unknownFields != rhs.unknownFields {return false}
         return true
     }
@@ -804,7 +815,8 @@ extension Livekit_TrackInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImplem
         7: .same(proto: "simulcast"),
         8: .standard(proto: "disable_dtx"),
         9: .same(proto: "source"),
-        10: .same(proto: "layers")
+        10: .same(proto: "layers"),
+        11: .standard(proto: "mime_type")
     ]
 
     mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -823,6 +835,7 @@ extension Livekit_TrackInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImplem
             case 8: try { try decoder.decodeSingularBoolField(value: &self.disableDtx) }()
             case 9: try { try decoder.decodeSingularEnumField(value: &self.source) }()
             case 10: try { try decoder.decodeRepeatedMessageField(value: &self.layers) }()
+            case 11: try { try decoder.decodeSingularStringField(value: &self.mimeType) }()
             default: break
             }
         }
@@ -859,6 +872,9 @@ extension Livekit_TrackInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImplem
         if !self.layers.isEmpty {
             try visitor.visitRepeatedMessageField(value: self.layers, fieldNumber: 10)
         }
+        if !self.mimeType.isEmpty {
+            try visitor.visitSingularStringField(value: self.mimeType, fieldNumber: 11)
+        }
         try unknownFields.traverse(visitor: &visitor)
     }
 
@@ -873,6 +889,7 @@ extension Livekit_TrackInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImplem
         if lhs.disableDtx != rhs.disableDtx {return false}
         if lhs.source != rhs.source {return false}
         if lhs.layers != rhs.layers {return false}
+        if lhs.mimeType != rhs.mimeType {return false}
         if lhs.unknownFields != rhs.unknownFields {return false}
         return true
     }
