@@ -4,7 +4,8 @@ import WebRTC
 public class Participant: MulticastDelegate<ParticipantDelegate> {
 
     public let sid: Sid
-    public internal(set) var identity: String?
+    public internal(set) var identity: String
+    public internal(set) var name: String
     public internal(set) var audioLevel: Float = 0.0
     public internal(set) var isSpeaking: Bool = false {
         didSet {
@@ -46,8 +47,14 @@ public class Participant: MulticastDelegate<ParticipantDelegate> {
     // Reference to the Room this Participant belongs to
     public let room: Room
 
-    public init(sid: String, room: Room) {
+    public init(sid: String,
+                identity: String,
+                name: String,
+                room: Room) {
+
         self.sid = sid
+        self.identity = identity
+        self.name = name
         self.room = room
     }
 
@@ -57,9 +64,10 @@ public class Participant: MulticastDelegate<ParticipantDelegate> {
     }
 
     func updateFromInfo(info: Livekit_ParticipantInfo) {
-        identity = info.identity
-        metadata = info.metadata
-        joinedAt = Date(timeIntervalSince1970: TimeInterval(info.joinedAt))
+        self.identity = info.identity
+        self.name = info.name
+        self.metadata = info.metadata
+        self.joinedAt = Date(timeIntervalSince1970: TimeInterval(info.joinedAt))
         self.info = info
     }
 }

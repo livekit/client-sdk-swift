@@ -9,7 +9,11 @@ public class LocalParticipant: Participant {
     convenience init(from info: Livekit_ParticipantInfo,
                      room: Room) {
 
-        self.init(sid: info.sid, room: room)
+        self.init(sid: info.sid,
+                  identity: info.identity,
+                  name: info.name,
+                  room: room)
+
         updateFromInfo(info: info)
     }
 

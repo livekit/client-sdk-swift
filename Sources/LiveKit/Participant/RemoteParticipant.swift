@@ -8,7 +8,10 @@ public class RemoteParticipant: Participant {
          info: Livekit_ParticipantInfo?,
          room: Room) {
 
-        super.init(sid: sid, room: room)
+        super.init(sid: sid,
+                   identity: info?.identity ?? "",
+                   name: info?.name ?? "",
+                   room: room)
 
         if let info = info {
             updateFromInfo(info: info)
