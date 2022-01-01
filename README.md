@@ -1,14 +1,17 @@
-# iOS Swift SDK for LiveKit
+# iOS/macOS Swift SDK for LiveKit
 
-Official Client SDK for [LiveKit](https://github.com/livekit/livekit-server). Easily add video & audio capabilities to your iOS apps.
+Official Client SDK for [LiveKit](https://github.com/livekit/livekit-server).
+Easily add video & audio capabilities to your iOS/macOS apps.
 
-## Docs
+## Docs & Example app
 
-Docs and guides at [https://docs.livekit.io](https://docs.livekit.io)
+Docs and guides are at [https://docs.livekit.io](https://docs.livekit.io).
+
+There is full source code of a [iOS/macOS Swift UI Example App](https://github.com/livekit/client-example-swift).
 
 ## Installation
 
-LiveKit for iOS is available as a Swift Package.
+LiveKit for Swift is available as a Swift Package.
 
 ### Package.swift
 
@@ -18,7 +21,7 @@ Add the dependency and also to your target
 let package = Package(
   ...
   dependencies: [
-    .package(name: "LiveKit", url: "https://github.com/livekit/client-sdk-ios.git", .upToNextMajor("version")),
+    .package(name: "LiveKit", url: "https://github.com/livekit/client-sdk-ios.git", .upToNextMajor("0.9.4")),
   ],
   targets: [
     .target(
@@ -35,7 +38,7 @@ Go to Project Settings -> Swift Packages.
 
 Add a new package and enter: `https://github.com/livekit/client-sdk-ios`
 
-## Usage
+## iOS Usage
 
 LiveKit provides an UIKit based `VideoView` class that renders video tracks. Subscribed audio tracks are automatically played.
 
@@ -44,9 +47,22 @@ import LiveKit
 import UIKit
 
 class RoomViewController: UIViewController {
-    var room: Room?
-    var remoteVideo: VideoView?
-    var localVideo: VideoView?
+
+    lazy var room = Room(delegate: self)
+
+    lazy var remoteVideoView: VideoView = {
+        let videoView = VideoView()
+        view.addSubview(videoView)
+        // additional initialization ...
+        return videoView
+    }()
+
+    lazy var localVideoView: VideoView = {
+        let videoView = VideoView()
+        view.addSubview(videoView)
+        // additional initialization ...
+        return videoView
+    }()
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -55,46 +71,35 @@ class RoomViewController: UIViewController {
         let url: String = "ws://your_host"
         let token: String = "your_jwt_token"
 
-        room = LiveKit.connect(options: ConnectOptions(url: url, token: token), delegate: self)
-    }
+        room.connect(url, token).then { room in
 
-    func attachVideo(track: VideoTrack, participant: Participant) {
-      let videoView = VideoView(frame: .zero)
-      // find destination view
-      ...
-      target.addSubview(videoView)
-      track.addRenderer(videoView.renderer)
+            // Publish camera & mic
+            room.localParticipant?.setCamera(enabled: true)
+            room.localParticipant?.setMicrophone(enabled: true)
+
+        }.catch { error in 
+            // failed to connect
+        }
     }
 }
 
 extension RoomViewController: RoomDelegate {
-    func didConnect(room: Room) {
-        guard let localParticipant = room.localParticipant else {
+
+    func room(_ room: Room, localParticipant: LocalParticipant, didPublish publication: LocalTrackPublication) {
+        guard let track = publication?.track as? VideoTrack else {
             return
         }
-
-        // perform work in the background, to not block WebRTC threads
-        DispatchQueue.global(qos: .background).async {
-          do {
-              let videoTrack = try LocalVideoTrack.createTrack(name: "localVideo")
-              _ = localParticipant.publishVideoTrack(track: videoTrack)
-              let audioTrack = LocalAudioTrack.createTrack(name: "localAudio")
-              _ = localParticipant.publishAudioTrack(track: audioTrack)
-          } catch {
-              // error publishing
-          }
+        DispatchQueue.main.async {
+            localVideoView.track = track
         }
-
-        // attach video view
-        attachVideo(videoTrack, localParticipant)
     }
-
-    func didSubscribe(track: Track, publication _: RemoteTrackPublication, participant _: RemoteParticipant) {
-        guard let videoTrack = track as? VideoTrack else {
+    
+    func room(_ room: Room, participant: RemoteParticipant, didSubscribe publication: RemoteTrackPublication, track: Track) {
+        guard let track = track as? VideoTrack else {
           return
         }
         DispatchQueue.main.async {
-            attachVideo(videoTrack, participant)
+            remoteVideoView.track = track
         }
     }
 }
