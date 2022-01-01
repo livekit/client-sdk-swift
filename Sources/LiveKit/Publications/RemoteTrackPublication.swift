@@ -150,6 +150,13 @@ extension RemoteTrackPublication {
     }
 
     private func shouldComputeVideoViewVisibilities() {
+
+        let roomOptions = participant?.room.roomOptions ?? RoomOptions()
+        guard roomOptions.adaptiveStream else {
+            // adaptiveStream is turned off
+            return
+        }
+
         // decide whether to debounce or immediately compute video view visibilities
         if let settings = lastSentVideoTrackSettings,
            settings.enabled == false,
