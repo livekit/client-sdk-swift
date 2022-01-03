@@ -52,10 +52,10 @@ extension LocalVideoTrack: VideoCapturerDelegate {
 
 extension RTCRtpEncodingParameters {
     open override var description: String {
-        return "RTCRtpEncodingParameters(rid: \(rid ?? "-"), "
-            + "active: \(isActive),"
-            + "maxBitrateBps: \(maxBitrateBps ?? 0), "
-            + "maxFramerate: \(maxFramerate ?? 0))"
+        return "RTCRtpEncodingParameters(rid: \(rid ?? "nil"), "
+            + "active: \(isActive), "
+            + "maxBitrateBps: \(maxBitrateBps == nil ? "nil" : String(describing: maxBitrateBps)), "
+            + "maxFramerate: \(maxFramerate == nil ? "nil" : String(describing: maxFramerate)))"
     }
 }
 
