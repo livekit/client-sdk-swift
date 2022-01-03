@@ -279,6 +279,18 @@ public class LocalParticipant: Participant {
             }
         }
         
+        // Non simulcast streams don't have rids, handle here.
+        if(encodings.count == 1 && subscribedQualities.count >= 1) {
+            val encoding = encodings[0]
+            val quality = subscribedQualities[0]
+            
+            if(encoding.isActive != quality.enabled) {
+                hasChanged = true
+                encoding.isActive = quality.enabled
+                logger.info("setting layer \(quality.quality) to \(quality.enabled)")
+            }
+        }
+        
         if hasChanged {
             sender.parameters = parameters
         }
