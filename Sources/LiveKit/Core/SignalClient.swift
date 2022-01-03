@@ -125,7 +125,7 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
                 notify { $0.signalClient(self, didUpdate: states.streamStates) }
 
             case .subscribedQualityUpdate(let update):
-                logger.debug("SubscribedQualityUpdate \(update)")
+                notify { $0.signalClient(self, didUpdate: update.trackSid, subscribedQualities: update.subscribedQualities)}
 
             default:
                 logger.warning("unsupported signal response type: \(msg)")
