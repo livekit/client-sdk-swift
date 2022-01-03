@@ -243,6 +243,10 @@ public class LocalParticipant: Participant {
     }
     
     internal func onSubscribedQualitiesUpdate(trackSid: String, subscribedQualities: [Livekit_SubscribedQuality]){
+        
+        if(!(room.roomOptions?.dynacast ?? false)){
+            return
+        }
         guard let pub = getTrackPublication(sid: trackSid),
               let track = pub.track as? LocalVideoTrack,
               let sender = track.transceiver?.sender
