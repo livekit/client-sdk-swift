@@ -21,15 +21,15 @@ extension RTCVideoCapturerDelegate {
                          timeStampNs: UInt64,
                          rotation: RTCVideoRotation = ._0) {
 
+        // check if pixel format is supported by WebRTC
         let pixelFormat = CVPixelBufferGetPixelFormatType(pixelBuffer)
-
-        // RTCCameraVideoCapturer.preferredOutputPixelFormat reports kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange.
-        if [kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange,
-            kCVPixelFormatType_420YpCbCr8BiPlanarFullRange].contains(pixelFormat) {
-            // logger.debug("Capturing in pixel format \(pixelFormat.toString())")
-        } else {
-            // The source only supports NV12 (full-range) buffers.
-            logger.warning("Capturing in pixel format unknown to be supported by WebRTC \(pixelFormat.toString())")
+        guard RTCCVPixelBuffer.supportedPixelFormats().contains(where: { $0.uint32Value == pixelFormat }) else {
+            // kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
+            // kCVPixelFormatType_420YpCbCr8BiPlanarFullRange
+            // kCVPixelFormatType_32BGRA
+            // kCVPixelFormatType_32ARGB
+            logger.warning("Unsupported pixel format \(pixelFormat.toString())")
+            return
         }
 
         DispatchQueue.webRTC.sync {
