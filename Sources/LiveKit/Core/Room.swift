@@ -26,13 +26,22 @@ public class Room: MulticastDelegate<RoomDelegate> {
     internal private(set) var connectOptions: ConnectOptions?
     internal private(set) var roomOptions: RoomOptions?
 
+    // expose engine's connectionState
     public var state: ConnectionState {
         engine.connectionState
     }
 
-    init(delegate: RoomDelegate? = nil,
-         connectOptions: ConnectOptions? = nil,
-         roomOptions: RoomOptions? = nil) {
+    public var url: String? {
+        engine.url
+    }
+
+    public var token: String? {
+        engine.token
+    }
+
+    public init(delegate: RoomDelegate? = nil,
+                connectOptions: ConnectOptions? = nil,
+                roomOptions: RoomOptions? = nil) {
 
         self.connectOptions = connectOptions
         self.roomOptions = roomOptions
@@ -78,10 +87,10 @@ public class Room: MulticastDelegate<RoomDelegate> {
     }
 
     @discardableResult
-    func connect(_ url: String,
-                 _ token: String,
-                 connectOptions: ConnectOptions? = nil,
-                 roomOptions: RoomOptions? = nil) -> Promise<Room> {
+    public func connect(_ url: String,
+                        _ token: String,
+                        connectOptions: ConnectOptions? = nil,
+                        roomOptions: RoomOptions? = nil) -> Promise<Room> {
 
         // update options if specified
         self.connectOptions = connectOptions ?? self.connectOptions
