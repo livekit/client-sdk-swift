@@ -20,17 +20,33 @@ private struct _GeneratedWithProtocGenSwiftVersion: SwiftProtobuf.ProtobufAPIVer
     typealias Version = _2
 }
 
-public struct IPCMessage {
+public struct ExtensionMessage {
     // SwiftProtobuf.Message conformance is added in an extension below. See the
     // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
     // methods supported on all messages.
 
-    public var type: IPCMessage.OneOf_Type?
+    public var type: ExtensionMessage.OneOf_Type?
 
-    public var buffer: IPCMessage.Buffer {
+    public var stateUpdated: ExtensionMessage.StateUpdate {
+        get {
+            if case .stateUpdated(let v)? = type {return v}
+            return ExtensionMessage.StateUpdate()
+        }
+        set {type = .stateUpdated(newValue)}
+    }
+
+    public var connect: ExtensionMessage.Connect {
+        get {
+            if case .connect(let v)? = type {return v}
+            return ExtensionMessage.Connect()
+        }
+        set {type = .connect(newValue)}
+    }
+
+    public var buffer: ExtensionMessage.Buffer {
         get {
             if case .buffer(let v)? = type {return v}
-            return IPCMessage.Buffer()
+            return ExtensionMessage.Buffer()
         }
         set {type = .buffer(newValue)}
     }
@@ -38,21 +54,105 @@ public struct IPCMessage {
     public var unknownFields = SwiftProtobuf.UnknownStorage()
 
     public enum OneOf_Type: Equatable {
-        case buffer(IPCMessage.Buffer)
+        case stateUpdated(ExtensionMessage.StateUpdate)
+        case connect(ExtensionMessage.Connect)
+        case buffer(ExtensionMessage.Buffer)
 
         #if !swift(>=4.1)
-        public static func ==(lhs: IPCMessage.OneOf_Type, rhs: IPCMessage.OneOf_Type) -> Bool {
+        public static func ==(lhs: ExtensionMessage.OneOf_Type, rhs: ExtensionMessage.OneOf_Type) -> Bool {
             // The use of inline closures is to circumvent an issue where the compiler
             // allocates stack space for every case branch when no optimizations are
             // enabled. https://github.com/apple/swift-protobuf/issues/1034
             switch (lhs, rhs) {
+            case (.stateUpdated, .stateUpdated): return {
+                guard case .stateUpdated(let l) = lhs, case .stateUpdated(let r) = rhs else { preconditionFailure() }
+                return l == r
+            }()
+            case (.connect, .connect): return {
+                guard case .connect(let l) = lhs, case .connect(let r) = rhs else { preconditionFailure() }
+                return l == r
+            }()
             case (.buffer, .buffer): return {
                 guard case .buffer(let l) = lhs, case .buffer(let r) = rhs else { preconditionFailure() }
                 return l == r
             }()
+            default: return false
             }
         }
         #endif
+    }
+
+    public struct StateUpdate {
+        // SwiftProtobuf.Message conformance is added in an extension below. See the
+        // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+        // methods supported on all messages.
+
+        public var state: ExtensionMessage.StateUpdate.State = .started
+
+        public var error: String {
+            get {return _error ?? String()}
+            set {_error = newValue}
+        }
+        /// Returns true if `error` has been explicitly set.
+        public var hasError: Bool {return self._error != nil}
+        /// Clears the value of `error`. Subsequent reads from it will return its default value.
+        public mutating func clearError() {self._error = nil}
+
+        public var unknownFields = SwiftProtobuf.UnknownStorage()
+
+        public enum State: SwiftProtobuf.Enum {
+            public typealias RawValue = Int
+            case started // = 0
+            case paused // = 1
+            case resumed // = 2
+            case finished // = 3
+            case UNRECOGNIZED(Int)
+
+            public init() {
+                self = .started
+            }
+
+            public init?(rawValue: Int) {
+                switch rawValue {
+                case 0: self = .started
+                case 1: self = .paused
+                case 2: self = .resumed
+                case 3: self = .finished
+                default: self = .UNRECOGNIZED(rawValue)
+                }
+            }
+
+            public var rawValue: Int {
+                switch self {
+                case .started: return 0
+                case .paused: return 1
+                case .resumed: return 2
+                case .finished: return 3
+                case .UNRECOGNIZED(let i): return i
+                }
+            }
+
+        }
+
+        public init() {}
+
+        fileprivate var _error: String?
+    }
+
+    public struct Connect {
+        // SwiftProtobuf.Message conformance is added in an extension below. See the
+        // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+        // methods supported on all messages.
+
+        public var url: String = String()
+
+        public var token: String = String()
+
+        public var publish: String = String()
+
+        public var unknownFields = SwiftProtobuf.UnknownStorage()
+
+        public init() {}
     }
 
     public struct Buffer {
@@ -64,28 +164,28 @@ public struct IPCMessage {
 
         public var buffer: Data = Data()
 
-        public var type: IPCMessage.Buffer.OneOf_Type?
+        public var type: ExtensionMessage.Buffer.OneOf_Type?
 
-        public var video: IPCMessage.Buffer.Video {
+        public var video: ExtensionMessage.Buffer.Video {
             get {
                 if case .video(let v)? = type {return v}
-                return IPCMessage.Buffer.Video()
+                return ExtensionMessage.Buffer.Video()
             }
             set {type = .video(newValue)}
         }
 
-        public var audioApp: IPCMessage.Buffer.AudioApp {
+        public var audioApp: ExtensionMessage.Buffer.AudioApp {
             get {
                 if case .audioApp(let v)? = type {return v}
-                return IPCMessage.Buffer.AudioApp()
+                return ExtensionMessage.Buffer.AudioApp()
             }
             set {type = .audioApp(newValue)}
         }
 
-        public var audioMic: IPCMessage.Buffer.AudioMic {
+        public var audioMic: ExtensionMessage.Buffer.AudioMic {
             get {
                 if case .audioMic(let v)? = type {return v}
-                return IPCMessage.Buffer.AudioMic()
+                return ExtensionMessage.Buffer.AudioMic()
             }
             set {type = .audioMic(newValue)}
         }
@@ -93,12 +193,12 @@ public struct IPCMessage {
         public var unknownFields = SwiftProtobuf.UnknownStorage()
 
         public enum OneOf_Type: Equatable {
-            case video(IPCMessage.Buffer.Video)
-            case audioApp(IPCMessage.Buffer.AudioApp)
-            case audioMic(IPCMessage.Buffer.AudioMic)
+            case video(ExtensionMessage.Buffer.Video)
+            case audioApp(ExtensionMessage.Buffer.AudioApp)
+            case audioMic(ExtensionMessage.Buffer.AudioMic)
 
             #if !swift(>=4.1)
-            public static func ==(lhs: IPCMessage.Buffer.OneOf_Type, rhs: IPCMessage.Buffer.OneOf_Type) -> Bool {
+            public static func ==(lhs: ExtensionMessage.Buffer.OneOf_Type, rhs: ExtensionMessage.Buffer.OneOf_Type) -> Bool {
                 // The use of inline closures is to circumvent an issue where the compiler
                 // allocates stack space for every case branch when no optimizations are
                 // enabled. https://github.com/apple/swift-protobuf/issues/1034
@@ -167,12 +267,28 @@ public struct IPCMessage {
     public init() {}
 }
 
+#if swift(>=4.2)
+
+extension ExtensionMessage.StateUpdate.State: CaseIterable {
+    // The compiler won't synthesize support with the UNRECOGNIZED case.
+    public static var allCases: [ExtensionMessage.StateUpdate.State] = [
+        .started,
+        .paused,
+        .resumed,
+        .finished
+    ]
+}
+
+#endif  // swift(>=4.2)
+
 // MARK: - Code below here is support for the SwiftProtobuf runtime.
 
-extension IPCMessage: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
-    public static let protoMessageName: String = "IPCMessage"
+extension ExtensionMessage: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+    public static let protoMessageName: String = "ExtensionMessage"
     public static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
-        1: .same(proto: "buffer")
+        1: .same(proto: "stateUpdated"),
+        2: .same(proto: "connect"),
+        3: .same(proto: "buffer")
     ]
 
     public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -182,7 +298,33 @@ extension IPCMessage: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementatio
             // enabled. https://github.com/apple/swift-protobuf/issues/1034
             switch fieldNumber {
             case 1: try {
-                var v: IPCMessage.Buffer?
+                var v: ExtensionMessage.StateUpdate?
+                var hadOneofValue = false
+                if let current = self.type {
+                    hadOneofValue = true
+                    if case .stateUpdated(let m) = current {v = m}
+                }
+                try decoder.decodeSingularMessageField(value: &v)
+                if let v = v {
+                    if hadOneofValue {try decoder.handleConflictingOneOf()}
+                    self.type = .stateUpdated(v)
+                }
+            }()
+            case 2: try {
+                var v: ExtensionMessage.Connect?
+                var hadOneofValue = false
+                if let current = self.type {
+                    hadOneofValue = true
+                    if case .connect(let m) = current {v = m}
+                }
+                try decoder.decodeSingularMessageField(value: &v)
+                if let v = v {
+                    if hadOneofValue {try decoder.handleConflictingOneOf()}
+                    self.type = .connect(v)
+                }
+            }()
+            case 3: try {
+                var v: ExtensionMessage.Buffer?
                 var hadOneofValue = false
                 if let current = self.type {
                     hadOneofValue = true
@@ -204,21 +346,128 @@ extension IPCMessage: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementatio
         // allocates stack space for every if/case branch local when no optimizations
         // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
         // https://github.com/apple/swift-protobuf/issues/1182
-        try { if case .buffer(let v)? = self.type {
+        switch self.type {
+        case .stateUpdated?: try {
+            guard case .stateUpdated(let v)? = self.type else { preconditionFailure() }
             try visitor.visitSingularMessageField(value: v, fieldNumber: 1)
-        } }()
+        }()
+        case .connect?: try {
+            guard case .connect(let v)? = self.type else { preconditionFailure() }
+            try visitor.visitSingularMessageField(value: v, fieldNumber: 2)
+        }()
+        case .buffer?: try {
+            guard case .buffer(let v)? = self.type else { preconditionFailure() }
+            try visitor.visitSingularMessageField(value: v, fieldNumber: 3)
+        }()
+        case nil: break
+        }
         try unknownFields.traverse(visitor: &visitor)
     }
 
-    public static func ==(lhs: IPCMessage, rhs: IPCMessage) -> Bool {
+    public static func ==(lhs: ExtensionMessage, rhs: ExtensionMessage) -> Bool {
         if lhs.type != rhs.type {return false}
         if lhs.unknownFields != rhs.unknownFields {return false}
         return true
     }
 }
 
-extension IPCMessage.Buffer: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
-    public static let protoMessageName: String = IPCMessage.protoMessageName + ".Buffer"
+extension ExtensionMessage.StateUpdate: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+    public static let protoMessageName: String = ExtensionMessage.protoMessageName + ".StateUpdate"
+    public static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
+        1: .same(proto: "state"),
+        2: .same(proto: "error")
+    ]
+
+    public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+        while let fieldNumber = try decoder.nextFieldNumber() {
+            // The use of inline closures is to circumvent an issue where the compiler
+            // allocates stack space for every case branch when no optimizations are
+            // enabled. https://github.com/apple/swift-protobuf/issues/1034
+            switch fieldNumber {
+            case 1: try { try decoder.decodeSingularEnumField(value: &self.state) }()
+            case 2: try { try decoder.decodeSingularStringField(value: &self._error) }()
+            default: break
+            }
+        }
+    }
+
+    public func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+        // The use of inline closures is to circumvent an issue where the compiler
+        // allocates stack space for every if/case branch local when no optimizations
+        // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+        // https://github.com/apple/swift-protobuf/issues/1182
+        if self.state != .started {
+            try visitor.visitSingularEnumField(value: self.state, fieldNumber: 1)
+        }
+        try { if let v = self._error {
+            try visitor.visitSingularStringField(value: v, fieldNumber: 2)
+        } }()
+        try unknownFields.traverse(visitor: &visitor)
+    }
+
+    public static func ==(lhs: ExtensionMessage.StateUpdate, rhs: ExtensionMessage.StateUpdate) -> Bool {
+        if lhs.state != rhs.state {return false}
+        if lhs._error != rhs._error {return false}
+        if lhs.unknownFields != rhs.unknownFields {return false}
+        return true
+    }
+}
+
+extension ExtensionMessage.StateUpdate.State: SwiftProtobuf._ProtoNameProviding {
+    public static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
+        0: .same(proto: "started"),
+        1: .same(proto: "paused"),
+        2: .same(proto: "resumed"),
+        3: .same(proto: "finished")
+    ]
+}
+
+extension ExtensionMessage.Connect: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+    public static let protoMessageName: String = ExtensionMessage.protoMessageName + ".Connect"
+    public static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
+        1: .same(proto: "url"),
+        2: .same(proto: "token"),
+        3: .same(proto: "publish")
+    ]
+
+    public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+        while let fieldNumber = try decoder.nextFieldNumber() {
+            // The use of inline closures is to circumvent an issue where the compiler
+            // allocates stack space for every case branch when no optimizations are
+            // enabled. https://github.com/apple/swift-protobuf/issues/1034
+            switch fieldNumber {
+            case 1: try { try decoder.decodeSingularStringField(value: &self.url) }()
+            case 2: try { try decoder.decodeSingularStringField(value: &self.token) }()
+            case 3: try { try decoder.decodeSingularStringField(value: &self.publish) }()
+            default: break
+            }
+        }
+    }
+
+    public func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+        if !self.url.isEmpty {
+            try visitor.visitSingularStringField(value: self.url, fieldNumber: 1)
+        }
+        if !self.token.isEmpty {
+            try visitor.visitSingularStringField(value: self.token, fieldNumber: 2)
+        }
+        if !self.publish.isEmpty {
+            try visitor.visitSingularStringField(value: self.publish, fieldNumber: 3)
+        }
+        try unknownFields.traverse(visitor: &visitor)
+    }
+
+    public static func ==(lhs: ExtensionMessage.Connect, rhs: ExtensionMessage.Connect) -> Bool {
+        if lhs.url != rhs.url {return false}
+        if lhs.token != rhs.token {return false}
+        if lhs.publish != rhs.publish {return false}
+        if lhs.unknownFields != rhs.unknownFields {return false}
+        return true
+    }
+}
+
+extension ExtensionMessage.Buffer: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+    public static let protoMessageName: String = ExtensionMessage.protoMessageName + ".Buffer"
     public static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
         1: .same(proto: "timestampNs"),
         2: .same(proto: "buffer"),
@@ -236,7 +485,7 @@ extension IPCMessage.Buffer: SwiftProtobuf.Message, SwiftProtobuf._MessageImplem
             case 1: try { try decoder.decodeSingularUInt64Field(value: &self.timestampNs) }()
             case 2: try { try decoder.decodeSingularBytesField(value: &self.buffer) }()
             case 3: try {
-                var v: IPCMessage.Buffer.Video?
+                var v: ExtensionMessage.Buffer.Video?
                 var hadOneofValue = false
                 if let current = self.type {
                     hadOneofValue = true
@@ -249,7 +498,7 @@ extension IPCMessage.Buffer: SwiftProtobuf.Message, SwiftProtobuf._MessageImplem
                 }
             }()
             case 4: try {
-                var v: IPCMessage.Buffer.AudioApp?
+                var v: ExtensionMessage.Buffer.AudioApp?
                 var hadOneofValue = false
                 if let current = self.type {
                     hadOneofValue = true
@@ -262,7 +511,7 @@ extension IPCMessage.Buffer: SwiftProtobuf.Message, SwiftProtobuf._MessageImplem
                 }
             }()
             case 5: try {
-                var v: IPCMessage.Buffer.AudioMic?
+                var v: ExtensionMessage.Buffer.AudioMic?
                 var hadOneofValue = false
                 if let current = self.type {
                     hadOneofValue = true
@@ -308,7 +557,7 @@ extension IPCMessage.Buffer: SwiftProtobuf.Message, SwiftProtobuf._MessageImplem
         try unknownFields.traverse(visitor: &visitor)
     }
 
-    public static func ==(lhs: IPCMessage.Buffer, rhs: IPCMessage.Buffer) -> Bool {
+    public static func ==(lhs: ExtensionMessage.Buffer, rhs: ExtensionMessage.Buffer) -> Bool {
         if lhs.timestampNs != rhs.timestampNs {return false}
         if lhs.buffer != rhs.buffer {return false}
         if lhs.type != rhs.type {return false}
@@ -317,8 +566,8 @@ extension IPCMessage.Buffer: SwiftProtobuf.Message, SwiftProtobuf._MessageImplem
     }
 }
 
-extension IPCMessage.Buffer.Video: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
-    public static let protoMessageName: String = IPCMessage.Buffer.protoMessageName + ".Video"
+extension ExtensionMessage.Buffer.Video: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+    public static let protoMessageName: String = ExtensionMessage.Buffer.protoMessageName + ".Video"
     public static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
         1: .same(proto: "format"),
         2: .same(proto: "rotation"),
@@ -357,7 +606,7 @@ extension IPCMessage.Buffer.Video: SwiftProtobuf.Message, SwiftProtobuf._Message
         try unknownFields.traverse(visitor: &visitor)
     }
 
-    public static func ==(lhs: IPCMessage.Buffer.Video, rhs: IPCMessage.Buffer.Video) -> Bool {
+    public static func ==(lhs: ExtensionMessage.Buffer.Video, rhs: ExtensionMessage.Buffer.Video) -> Bool {
         if lhs.format != rhs.format {return false}
         if lhs.rotation != rhs.rotation {return false}
         if lhs.width != rhs.width {return false}
@@ -367,8 +616,8 @@ extension IPCMessage.Buffer.Video: SwiftProtobuf.Message, SwiftProtobuf._Message
     }
 }
 
-extension IPCMessage.Buffer.AudioApp: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
-    public static let protoMessageName: String = IPCMessage.Buffer.protoMessageName + ".AudioApp"
+extension ExtensionMessage.Buffer.AudioApp: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+    public static let protoMessageName: String = ExtensionMessage.Buffer.protoMessageName + ".AudioApp"
     public static let _protobuf_nameMap = SwiftProtobuf._NameMap()
 
     public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -380,14 +629,14 @@ extension IPCMessage.Buffer.AudioApp: SwiftProtobuf.Message, SwiftProtobuf._Mess
         try unknownFields.traverse(visitor: &visitor)
     }
 
-    public static func ==(lhs: IPCMessage.Buffer.AudioApp, rhs: IPCMessage.Buffer.AudioApp) -> Bool {
+    public static func ==(lhs: ExtensionMessage.Buffer.AudioApp, rhs: ExtensionMessage.Buffer.AudioApp) -> Bool {
         if lhs.unknownFields != rhs.unknownFields {return false}
         return true
     }
 }
 
-extension IPCMessage.Buffer.AudioMic: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
-    public static let protoMessageName: String = IPCMessage.Buffer.protoMessageName + ".AudioMic"
+extension ExtensionMessage.Buffer.AudioMic: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+    public static let protoMessageName: String = ExtensionMessage.Buffer.protoMessageName + ".AudioMic"
     public static let _protobuf_nameMap = SwiftProtobuf._NameMap()
 
     public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -399,7 +648,7 @@ extension IPCMessage.Buffer.AudioMic: SwiftProtobuf.Message, SwiftProtobuf._Mess
         try unknownFields.traverse(visitor: &visitor)
     }
 
-    public static func ==(lhs: IPCMessage.Buffer.AudioMic, rhs: IPCMessage.Buffer.AudioMic) -> Bool {
+    public static func ==(lhs: ExtensionMessage.Buffer.AudioMic, rhs: ExtensionMessage.Buffer.AudioMic) -> Bool {
         if lhs.unknownFields != rhs.unknownFields {return false}
         return true
     }
