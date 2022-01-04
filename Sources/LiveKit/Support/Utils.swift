@@ -71,6 +71,10 @@ class Utils {
             queryItems.append(URLQueryItem(name: "auto_subscribe", value: "1"))
         }
 
+        if let publish = connectOptions.publish {
+            queryItems.append(URLQueryItem(name: "publish", value: publish))
+        }
+
         builder.queryItems = queryItems
 
         guard let builtUrl = builder.url else {
