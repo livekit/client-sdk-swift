@@ -1,27 +1,47 @@
 syntax = "proto3";
 
-message IPCMessage {
-  oneof type {
-    Buffer buffer = 1;
-  }
-
-  message Buffer {
-    uint64 timestampNs = 1;
-    bytes buffer = 2;
+message ExtensionMessage {
+    
     oneof type {
-      Video video = 3;
-      AudioApp audioApp = 4;
-      AudioMic audioMic = 5;
+        StateUpdate stateUpdated = 1;
+        Connect connect = 2;
+        Buffer buffer = 3;
     }
-
-    message Video {
-      uint32 format = 1; // CVPixelBuffer's FormatType
-      uint32 rotation = 2; // RTCVideoRotation
-      uint32 width = 3;
-      uint32 height = 4;
+    
+    message StateUpdate {
+        State state = 1;
+        optional string error = 2;
+        enum State {
+            started = 0;
+            paused = 1;
+            resumed = 2;
+            finished = 3;
+        }
     }
-  
-    message AudioApp {}
-    message AudioMic {}
-  }
+    
+    message Connect {
+        string url = 1;
+        string token = 2;
+        string publish = 3;
+    }
+    
+    message Buffer {
+        uint64 timestampNs = 1;
+        bytes buffer = 2;
+        oneof type {
+            Video video = 3;
+            AudioApp audioApp = 4;
+            AudioMic audioMic = 5;
+        }
+        
+        message Video {
+            uint32 format = 1; // CVPixelBuffer's FormatType
+            uint32 rotation = 2; // RTCVideoRotation
+            uint32 width = 3;
+            uint32 height = 4;
+        }
+        
+        message AudioApp {}
+        message AudioMic {}
+    }
 }
