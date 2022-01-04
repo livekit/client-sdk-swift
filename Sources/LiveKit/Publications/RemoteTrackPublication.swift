@@ -8,7 +8,7 @@ public class RemoteTrackPublication: TrackPublication {
 
     private var metadataMuted: Bool = false
 
-    #if LK_OPTIMIZE_VIDEOVIEW_VISIBILITY
+    #if LK_FEATURE_ADAPTIVESTREAM
     private var videoViewVisibilities = [Int: VideoViewVisibility]()
     private weak var pendingDebounceFunc: DispatchWorkItem?
     private var debouncedRecomputeVideoViewVisibilities: DebouncFunc?
@@ -28,7 +28,7 @@ public class RemoteTrackPublication: TrackPublication {
         didSet {
             guard oldValue != track else { return }
 
-            #if LK_OPTIMIZE_VIDEOVIEW_VISIBILITY
+            #if LK_FEATURE_ADAPTIVESTREAM
             // cancel the pending debounce func
             pendingDebounceFunc?.cancel()
             videoViewVisibilities.removeAll()
@@ -51,7 +51,7 @@ public class RemoteTrackPublication: TrackPublication {
         // listen for visibility updates
         track?.add(delegate: self)
 
-        #if LK_OPTIMIZE_VIDEOVIEW_VISIBILITY
+        #if LK_FEATURE_ADAPTIVESTREAM
         debouncedRecomputeVideoViewVisibilities = Utils.createDebounceFunc(wait: 2,
                                                                            onCreateWorkItem: { [weak self] in
                                                                             self?.pendingDebounceFunc = $0
@@ -65,7 +65,7 @@ public class RemoteTrackPublication: TrackPublication {
     }
 
     deinit {
-        #if LK_OPTIMIZE_VIDEOVIEW_VISIBILITY
+        #if LK_FEATURE_ADAPTIVESTREAM
         // cancel the pending debounce func
         pendingDebounceFunc?.cancel()
         #endif
@@ -106,7 +106,7 @@ public class RemoteTrackPublication: TrackPublication {
                                        enabled: enabled)
     }
 
-    #if LK_OPTIMIZE_VIDEOVIEW_VISIBILITY
+    #if LK_FEATURE_ADAPTIVESTREAM
 
     // MARK: - TrackDelegate
 
@@ -136,7 +136,7 @@ public class RemoteTrackPublication: TrackPublication {
     #endif
 }
 
-#if LK_OPTIMIZE_VIDEOVIEW_VISIBILITY
+#if LK_FEATURE_ADAPTIVESTREAM
 
 // MARK: - Video Optimizations
 
@@ -201,7 +201,7 @@ extension RemoteTrackPublication {
 #endif
 
 // MARK: - Video Optimization related structs
-#if LK_OPTIMIZE_VIDEOVIEW_VISIBILITY
+#if LK_FEATURE_ADAPTIVESTREAM
 struct VideoViewVisibility {
     let visible: Bool
     let size: CGSize
@@ -223,7 +223,7 @@ extension VideoTrackSettings: Equatable {
     }
 }
 
-#if LK_OPTIMIZE_VIDEOVIEW_VISIBILITY
+#if LK_FEATURE_ADAPTIVESTREAM
 
 extension Sequence where Element == VideoViewVisibility {
 

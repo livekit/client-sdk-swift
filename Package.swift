@@ -36,7 +36,7 @@ let package = Package(
                 // Compiler flags used to completely remove code for specific features to isolate issues.
                 // Not defining the flag will turn off the feature.
                 .define("LK_USING_CUSTOM_WEBRTC_BUILD"),
-                .define("LK_OPTIMIZE_VIDEOVIEW_VISIBILITY"),
+                .define("LK_FEATURE_ADAPTIVESTREAM"),
                 .define("LK_OPTIMIZE_VIDEO_SENDER_PARAMETERS")
             ]
         ),
