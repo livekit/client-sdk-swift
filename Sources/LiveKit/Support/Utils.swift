@@ -18,7 +18,8 @@ class Utils {
         connectOptions: ConnectOptions? = nil,
         reconnect: Bool = false,
         validate: Bool = false,
-        forceSecure: Bool = false
+        forceSecure: Bool = false,
+        publish: String? = nil
     ) throws -> URL {
 
         // use default options if nil
@@ -69,6 +70,10 @@ class Utils {
 
         if connectOptions.autoSubscribe {
             queryItems.append(URLQueryItem(name: "auto_subscribe", value: "1"))
+        }
+
+        if let publish = publish {
+            queryItems.append(URLQueryItem(name: "publish", value: publish))
         }
 
         builder.queryItems = queryItems
