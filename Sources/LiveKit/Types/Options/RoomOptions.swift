@@ -1,6 +1,6 @@
 import Foundation
 
-public struct RoomOptions {
+public class RoomOptions {
     // default options for capturing
     public var defaultVideoCaptureOptions: VideoCaptureOptions
     public var defaultAudioCaptureOptions: AudioCaptureOptions
