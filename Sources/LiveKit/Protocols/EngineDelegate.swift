@@ -7,6 +7,7 @@ internal protocol EngineDelegate {
     func engine(_ engine: Engine, didUpdateEngine speakers: [Livekit_SpeakerInfo])
     func engine(_ engine: Engine, didUpdateSignal speakers: [Livekit_SpeakerInfo])
     func engine(_ engine: Engine, didUpdate connectionQuality: [Livekit_ConnectionQualityInfo])
+    func engine(_ engine: Engine, didUpdate trackSid: String, subscribedQualities: [Livekit_SubscribedQuality])
     func engine(_ engine: Engine, didAdd track: RTCMediaStreamTrack, streams: [RTCMediaStream])
     func engine(_ engine: Engine, didReceive userPacket: Livekit_UserPacket)
     func engine(_ engine: Engine, didUpdateRemoteMute trackSid: String, muted: Bool)
