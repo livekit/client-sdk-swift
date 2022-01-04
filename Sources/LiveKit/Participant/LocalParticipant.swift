@@ -111,6 +111,12 @@ public class LocalParticipant: Participant {
 
         let layers = Utils.videoLayersForEncodings(dimensions: track.capturer.dimensions,
                                                    encodings: encodings)
+        #else
+        transInit.sendEncodings = [
+            RTCRtpEncodingParameters(rid: "f"),
+            RTCRtpEncodingParameters(rid: "h"),
+            RTCRtpEncodingParameters(rid: "q")
+        ]
         #endif
 
         // try to start the track
@@ -133,6 +139,18 @@ public class LocalParticipant: Participant {
                     }
                     #if LK_COMPUTE_VIDEO_SENDER_PARAMETERS
                     $0.layers = layers
+                    #else
+                    // set a single layer if compute sender parameters is off
+                    $0.layers = [
+                        Livekit_VideoLayer.with({
+                            if let dimensions = track.capturer.dimensions {
+                                $0.width = UInt32(dimensions.width)
+                                $0.height = UInt32(dimensions.height)
+                            }
+                            $0.quality = Livekit_VideoQuality.high
+                            $0.bitrate = 0
+                        })
+                    ]
                     #endif
                 }
             }.then { (trackInfo) -> Promise<(RTCRtpTransceiver, Livekit_TrackInfo)> in
