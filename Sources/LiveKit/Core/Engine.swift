@@ -80,6 +80,10 @@ class Engine: MulticastDelegate<EngineDelegate> {
             return Promise(EngineError.invalidState("already connected"))
         }
 
+        // reset internal vars
+        self.url = nil
+        self.token = nil
+
         self.connectionState = .connecting(isReconnecting: false)
 
         return signalClient.connect(url,
