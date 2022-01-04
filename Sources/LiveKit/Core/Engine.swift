@@ -443,7 +443,7 @@ extension Engine: SignalClientDelegate {
     func signalClient(_ signalClient: SignalClient, didUpdate trackStates: [Livekit_StreamStateInfo]) {
         notify { $0.engine(self, didUpdate: trackStates) }
     }
-    
+
     func signalClient(_ signalClient: SignalClient, didUpdate trackSid: String, subscribedQualities: [Livekit_SubscribedQuality]) {
         notify { $0.engine(self, didUpdate: trackSid, subscribedQualities: subscribedQualities) }
     }

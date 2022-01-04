@@ -17,8 +17,7 @@ public class RoomOptions {
     /// the data flow until they are visible again.
     ///
     public var adaptiveStream: Bool
-    
-    
+
     /// Dynamically pauses video layers that are not being consumed by any subscribers,
     /// significantly reducing publishing CPU and bandwidth usage.
     ///

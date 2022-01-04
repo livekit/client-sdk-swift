@@ -20,7 +20,7 @@ internal protocol SignalClientDelegate {
 }
 
 class SignalClientDelegateClosures: NSObject, SignalClientDelegate {
-    
+
     typealias DidConnect = (SignalClient, Bool) -> Void
     typealias DidFailConnection = (SignalClient, Error) -> Void
     typealias DidReceiveJoinResponse = (SignalClient, Livekit_JoinResponse) -> Void

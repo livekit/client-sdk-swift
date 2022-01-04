@@ -250,11 +250,11 @@ public class Room: MulticastDelegate<RoomDelegate> {
 // MARK: - RTCEngineDelegate
 
 extension Room: EngineDelegate {
-    
+
     func engine(_ engine: Engine, didUpdate connectionQuality: [Livekit_ConnectionQualityInfo]) {
         onConnectionQualityUpdate(connectionQuality)
     }
-    
+
     func engine(_ engine: Engine, didUpdate trackSid: String, subscribedQualities: [Livekit_SubscribedQuality]) {
         onSubscribedQualitiesUpdate(trackSid: trackSid, subscribedQualities: subscribedQualities)
     }
