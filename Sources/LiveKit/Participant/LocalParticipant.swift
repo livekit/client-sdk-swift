@@ -259,6 +259,60 @@ public class LocalParticipant: Participant {
         return room.engine.send(userPacket: userPacket,
                                 reliability: reliability)
     }
+
+    internal func onSubscribedQualitiesUpdate(trackSid: String, subscribedQualities: [Livekit_SubscribedQuality]) {
+
+        if !(room.roomOptions?.dynacast ?? false) {
+            return
+        }
+        guard let pub = getTrackPublication(sid: trackSid),
+              let track = pub.track as? LocalVideoTrack,
+              let sender = track.transceiver?.sender
+        else {
+            return
+        }
+
+        let parameters = sender.parameters
+        let encodings = parameters.encodings
+
+        var hasChanged = false
+        for quality in subscribedQualities {
+
+            var rid: String
+            switch quality.quality {
+            case Livekit_VideoQuality.high: rid = "f"
+            case Livekit_VideoQuality.medium: rid = "h"
+            case Livekit_VideoQuality.low: rid = "q"
+            default: continue
+            }
+
+            guard let encoding = encodings.first(where: { $0.rid == rid }) else {
+                continue
+            }
+
+            if encoding.isActive != quality.enabled {
+                hasChanged = true
+                encoding.isActive = quality.enabled
+                logger.info("setting layer \(quality.quality) to \(quality.enabled)")
+            }
+        }
+
+        // Non simulcast streams don't have rids, handle here.
+        if encodings.count == 1 && subscribedQualities.count >= 1 {
+            let encoding = encodings[0]
+            let quality = subscribedQualities[0]
+
+            if encoding.isActive != quality.enabled {
+                hasChanged = true
+                encoding.isActive = quality.enabled
+                logger.info("setting layer \(quality.quality) to \(quality.enabled)")
+            }
+        }
+
+        if hasChanged {
+            sender.parameters = parameters
+        }
+    }
 }
 
 // MARK: - Simplified API

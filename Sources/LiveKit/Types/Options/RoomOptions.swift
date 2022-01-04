@@ -15,7 +15,13 @@ public class RoomOptions {
     ///
     /// When none of the video elements are visible, it'll temporarily pause
     /// the data flow until they are visible again.
+    ///
     public var adaptiveStream: Bool
+
+    /// Dynamically pauses video layers that are not being consumed by any subscribers,
+    /// significantly reducing publishing CPU and bandwidth usage.
+    ///
+    public var dynacast: Bool
 
     public var stopLocalTrackOnUnpublish: Bool
 
@@ -24,6 +30,7 @@ public class RoomOptions {
                 defaultVideoPublishOptions: VideoPublishOptions = VideoPublishOptions(),
                 defaultAudioPublishOptions: AudioPublishOptions = AudioPublishOptions(),
                 adaptiveStream: Bool = false,
+                dynacast: Bool = false,
                 stopLocalTrackOnUnpublish: Bool = true) {
 
         self.defaultVideoCaptureOptions = defaultVideoCaptureOptions
@@ -31,6 +38,7 @@ public class RoomOptions {
         self.defaultVideoPublishOptions = defaultVideoPublishOptions
         self.defaultAudioPublishOptions = defaultAudioPublishOptions
         self.adaptiveStream = adaptiveStream
+        self.dynacast = dynacast
         self.stopLocalTrackOnUnpublish = stopLocalTrackOnUnpublish
     }
 }

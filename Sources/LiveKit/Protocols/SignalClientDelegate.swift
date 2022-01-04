@@ -12,6 +12,7 @@ internal protocol SignalClientDelegate {
     func signalClient(_ signalClient: SignalClient, didUpdate connectionQuality: [Livekit_ConnectionQualityInfo])
     func signalClient(_ signalClient: SignalClient, didUpdateRemoteMute trackSid: String, muted: Bool)
     func signalClient(_ signalClient: SignalClient, didUpdate trackStates: [Livekit_StreamStateInfo])
+    func signalClient(_ signalClient: SignalClient, didUpdate trackSid: String, subscribedQualities: [Livekit_SubscribedQuality])
     func signalClientDidLeave(_ signaClient: SignalClient)
     func signalClient(_ signalClient: SignalClient, didClose reason: String, code: UInt16)
     func signalClient(_ signalClient: SignalClient, didConnect isReconnect: Bool)
@@ -70,5 +71,6 @@ class SignalClientDelegateClosures: NSObject, SignalClientDelegate {
     func signalClient(_ signalClient: SignalClient, didClose reason: String, code: UInt16) {}
     func signalClient(_ signalClient: SignalClient, didUpdateRemoteMute trackSid: String, muted: Bool) {}
     func signalClient(_ signalClient: SignalClient, didUpdate trackStates: [Livekit_StreamStateInfo]) {}
+    func signalClient(_ signalClient: SignalClient, didUpdate trackSid: String, subscribedQualities: [Livekit_SubscribedQuality]) {}
     func signalClientDidLeave(_ signaClient: SignalClient) {}
 }
