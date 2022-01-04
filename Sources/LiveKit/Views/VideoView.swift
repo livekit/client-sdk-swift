@@ -134,32 +134,40 @@ public class VideoView: NativeView {
         layer.setAffineTransform(mirrored ? VideoView.mirrorTransform : .identity)
     }
 
-    static func createNativeRendererView(delegate: RTCVideoViewDelegate) -> RTCVideoRenderer {
+    public static func isMetalAvailable() -> Bool {
+        #if os(iOS)
+        MTLCreateSystemDefaultDevice() != nil
+        #elseif os(macOS)
+        // same method used with WebRTC
+        MTLCopyAllDevices().count > 0
+        #endif
+    }
+
+    private static func createNativeRendererView(delegate: RTCVideoViewDelegate) -> RTCVideoRenderer {
 
         return DispatchQueue.webRTC.sync {
-
+            let view: RTCVideoRenderer
             #if os(iOS)
             // iOS --------------------
-
-            #if targetEnvironment(simulator)
-            logger.debug("Using RTCEAGLVideoView for VideoView's Renderer")
-            let view = RTCEAGLVideoView()
-            view.contentMode = .scaleAspectFit
-            view.delegate = delegate
-            #else
-            logger.debug("Using RTCMTLVideoView for VideoView's Renderer")
-            let view = RTCMTLVideoView()
-            // use .fit here to match macOS behavior and
-            // manually calculate .fill if necessary
-            view.contentMode = .scaleAspectFit
-            view.videoContentMode = .scaleAspectFit
-            view.delegate = delegate
-            #endif
-
+            if isMetalAvailable() {
+                logger.debug("Using RTCMTLVideoView for VideoView's Renderer")
+                let mtlView = RTCMTLVideoView()
+                // use .fit here to match macOS behavior and
+                // manually calculate .fill if necessary
+                mtlView.contentMode = .scaleAspectFit
+                mtlView.videoContentMode = .scaleAspectFit
+                mtlView.delegate = delegate
+                view = mtlView
+            } else {
+                logger.debug("Using RTCEAGLVideoView for VideoView's Renderer")
+                let glView = RTCEAGLVideoView()
+                glView.contentMode = .scaleAspectFit
+                glView.delegate = delegate
+                view = glView
+            }
             #else
             // macOS --------------------
-            let view: RTCVideoRenderer
-            if RTCMTLNSVideoView.isMetalAvailable() {
+            if isMetalAvailable() {
                 logger.debug("Using RTCMTLNSVideoView for VideoView's Renderer")
                 let mtlView = RTCMTLNSVideoView()
                 mtlView.delegate = delegate
