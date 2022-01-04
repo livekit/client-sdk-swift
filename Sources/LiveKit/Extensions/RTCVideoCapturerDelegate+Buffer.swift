@@ -26,7 +26,7 @@ extension RTCVideoCapturerDelegate {
         // RTCCameraVideoCapturer.preferredOutputPixelFormat reports kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange.
         if [kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange,
             kCVPixelFormatType_420YpCbCr8BiPlanarFullRange].contains(pixelFormat) {
-            logger.debug("Capturing in pixel format \(pixelFormat.toString())")
+            // logger.debug("Capturing in pixel format \(pixelFormat.toString())")
         } else {
             // The source only supports NV12 (full-range) buffers.
             logger.warning("Capturing in pixel format unknown to be supported by WebRTC \(pixelFormat.toString())")
