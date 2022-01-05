@@ -7,8 +7,13 @@ public class BufferCapturer: VideoCapturer {
     private let capturer = RTCVideoCapturer()
 
     // shortcut
-    public func capture(_ sampleBuffer: CMSampleBuffer) {
-        delegate?.capturer(capturer, didCapture: sampleBuffer) { pixelBuffer in
+    public func capture(_ sampleBuffer: CMSampleBuffer,
+                        scale: Double = 1) {
+
+        delegate?.capturer(capturer,
+                           didCapture: sampleBuffer,
+                           scale: scale) { pixelBuffer in
+
             // report dimensions update
             self.dimensions = pixelBuffer.toDimensions()
         }

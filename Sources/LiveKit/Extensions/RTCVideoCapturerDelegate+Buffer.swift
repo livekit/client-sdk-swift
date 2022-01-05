@@ -19,7 +19,8 @@ extension RTCVideoCapturerDelegate {
     public func capturer(_ capturer: RTCVideoCapturer,
                          didCapture pixelBuffer: CVPixelBuffer,
                          timeStampNs: UInt64,
-                         rotation: RTCVideoRotation = ._0) {
+                         rotation: RTCVideoRotation = ._0,
+                         scale: Double = 1.0) {
 
         // check if pixel format is supported by WebRTC
         let pixelFormat = CVPixelBufferGetPixelFormatType(pixelBuffer)
@@ -32,9 +33,18 @@ extension RTCVideoCapturerDelegate {
             return
         }
 
+        let height = CVPixelBufferGetHeight(pixelBuffer)
+        let width = CVPixelBufferGetWidth(pixelBuffer)
+
         DispatchQueue.webRTC.sync {
 
-            let rtcBuffer = RTCCVPixelBuffer(pixelBuffer: pixelBuffer)
+            let rtcBuffer = RTCCVPixelBuffer(pixelBuffer: pixelBuffer,
+                                             adaptedWidth: Int32((Double(width) * scale).rounded()),
+                                             adaptedHeight: Int32((Double(height) * scale).rounded()),
+                                             cropWidth: Int32(width),
+                                             cropHeight: Int32(height),
+                                             cropX: 0,
+                                             cropY: 0)
 
             let frame = RTCVideoFrame(buffer: rtcBuffer,
                                       rotation: rotation,
@@ -47,6 +57,7 @@ extension RTCVideoCapturerDelegate {
     /// capture a `CMSampleBuffer`
     public func capturer(_ capturer: RTCVideoCapturer,
                          didCapture sampleBuffer: CMSampleBuffer,
+                         scale: Double = 1,
                          withPixelBuffer: ((CVPixelBuffer) -> Void)? = nil) {
 
         // check if buffer is ready
@@ -81,7 +92,8 @@ extension RTCVideoCapturerDelegate {
         self.capturer(capturer,
                       didCapture: pixelBuffer,
                       timeStampNs: timeStampNs,
-                      rotation: rotation ?? ._0)
+                      rotation: rotation ?? ._0,
+                      scale: scale)
     }
 }
 
