@@ -10,7 +10,7 @@ public class InAppScreenCapturer: VideoCapturer {
     public override func startCapture() -> Promise<Void> {
         return super.startCapture().then {
 
-            Promise { resolve, reject in
+            Promise { resolve, fail in
                 // TODO: force pixel format kCVPixelFormatType_420YpCbCr8BiPlanarFullRange
                 RPScreenRecorder.shared().startCapture { sampleBuffer, type, _ in
                     if type == .video {
@@ -21,7 +21,7 @@ public class InAppScreenCapturer: VideoCapturer {
                     }
                 } completionHandler: { error in
                     if let error = error {
-                        reject(error)
+                        fail(error)
                         return
                     }
                     resolve(())
@@ -32,10 +32,10 @@ public class InAppScreenCapturer: VideoCapturer {
 
     public override func stopCapture() -> Promise<Void> {
         return super.stopCapture().then {
-            Promise { resolve, reject in
+            Promise { resolve, fail in
                 RPScreenRecorder.shared().stopCapture { error in
                     if let error = error {
-                        reject(error)
+                        fail(error)
                         return
                     }
                     resolve(())

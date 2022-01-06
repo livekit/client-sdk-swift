@@ -133,7 +133,7 @@ public class MacOSScreenCapturer: VideoCapturer {
 
                 // try to create a display input
                 guard let input = AVCaptureScreenInput(displayID: displayID) else {
-                    // reject promise if displayID is invalid
+                    // fail promise if displayID is invalid
                     throw TrackError.invalidTrackState("Failed to create screen input with displayID: \(displayID)")
                 }
 

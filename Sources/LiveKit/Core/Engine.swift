@@ -270,16 +270,27 @@ extension Engine {
             return Promise(())
         }
 
-        return Promise<Void> { fulfill, _ in
+        return Promise<Void> { resolve, fail in
             // create temporary delegate
-            var delegate: TransportDelegateClosures?
-            delegate = TransportDelegateClosures(onIceStateUpdated: { _, iceState in
-                if iceState.isConnected {
-                    fulfill(())
-                    delegate = nil
+            var transportDelegate: TransportDelegateClosures?
+            transportDelegate = TransportDelegateClosures(
+                onIceStateUpdated: { _, iceState in
+                    if iceState.isConnected {
+                        resolve(())
+                        transportDelegate = nil
+                    }
                 }
-            })
-            transport.add(delegate: delegate!)
+            )
+            transport.add(delegate: transportDelegate!)
+            // detect signal close while waiting
+            var signalDelegate: SignalClientDelegateClosures?
+            signalDelegate = SignalClientDelegateClosures(
+                didClose: { _, _ in
+                    fail(SignalClientError.close("Socket closed while waiting for ice-connect"))
+                    signalDelegate = nil
+                }
+            )
+            self.signalClient.add(delegate: signalDelegate!)
         }
         // convert to timed-promise
         .timeout(10)
@@ -287,17 +298,25 @@ extension Engine {
 
     func waitForPublishTrack(cid: String) -> Promise<Livekit_TrackInfo> {
 
-        return Promise<Livekit_TrackInfo> { fulfill, _ in
+        return Promise<Livekit_TrackInfo> { resolve, fail in
             // create temporary delegate
             var delegate: SignalClientDelegateClosures?
-            delegate = SignalClientDelegateClosures(didPublishLocalTrack: { _, response in
-                logger.debug("[SignalClientDelegateClosures] didPublishLocalTrack")
-                if response.cid == cid {
-                    // complete when track info received
-                    fulfill(response.track)
+            delegate = SignalClientDelegateClosures(
+                // This promise we be considered failed if signal disconnects while waiting.
+                // still it will attempt to re-connect.
+                didClose: { _, _ in
+                    fail(SignalClientError.close("Socket closed while waiting for publish track"))
                     delegate = nil
+                },
+                didPublishLocalTrack: { _, response in
+                    logger.debug("[SignalClientDelegateClosures] didPublishLocalTrack")
+                    if response.cid == cid {
+                        // complete when track info received
+                        resolve(response.track)
+                        delegate = nil
+                    }
                 }
-            })
+            )
             self.signalClient.add(delegate: delegate!)
         }
         // convert to timed-promise
@@ -422,8 +441,8 @@ extension Engine: SignalClientDelegate {
         disconnect()
     }
 
-    func signalClient(_ signalClient: SignalClient, didClose reason: String, code: UInt16) {
-        logger.debug("signal connection closed with code: \(code), reason: \(reason)")
+    func signalClient(_ signalClient: SignalClient, didClose code: URLSessionWebSocketTask.CloseCode) {
+        logger.debug("signal connection closed with code: \(code)")
         reconnect()
     }
 

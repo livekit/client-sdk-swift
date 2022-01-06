@@ -119,11 +119,11 @@ public class CameraCapturer: VideoCapturer {
 
         return super.startCapture().then {
             // return promise that waits for capturer to start
-            Promise(on: .webRTC) { resolve, reject in
+            Promise(on: .webRTC) { resolve, fail in
                 self.capturer.startCapture(with: device, format: selectedFormat, fps: fps) { error in
                     if let error = error {
                         logger.error("CameraCapturer failed to start \(error)")
-                        reject(error)
+                        fail(error)
                         return
                     }
 
