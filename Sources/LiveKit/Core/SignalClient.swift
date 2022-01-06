@@ -76,7 +76,8 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
 
     // handle errors after already connected
     private func handleError(_ reason: String) {
-        notify { $0.signalClient(self, didClose: reason, code: 0) }
+        //
+        notify { $0.signalClient(self, didClose: .abnormalClosure ) }
         close()
     }
 
@@ -206,17 +207,17 @@ extension SignalClient {
             }
         }
 
-        return Promise<Void> { fulfill, reject in
+        return Promise<Void> { resolve, fail in
             // create temporary delegate
             var delegate: SignalClientDelegateClosures?
             delegate = SignalClientDelegateClosures(didConnect: { _, _ in
                 logger.debug("WebSocket didConnect")
                 // wait until connected
-                fulfill(())
+                resolve(())
                 delegate = nil
             }, didFailConnection: { _, error in
                 logger.debug("WebSocket didFailConnection")
-                reject(error)
+                fail(error)
                 delegate = nil
             })
             // not required to clean up since weak reference
@@ -236,12 +237,12 @@ extension SignalClient {
             return Promise(joinResponse)
         }
 
-        return Promise<Livekit_JoinResponse> { fulfill, _ in
+        return Promise<Livekit_JoinResponse> { resolve, _ in
             // create temporary delegate
             var delegate: SignalClientDelegateClosures?
             delegate = SignalClientDelegateClosures(didReceiveJoinResponse: { _, joinResponse in
                 // wait until connected
-                fulfill(joinResponse)
+                resolve(joinResponse)
                 delegate = nil
             })
             // not required to clean up since weak reference
@@ -409,7 +410,7 @@ extension SignalClient: URLSessionWebSocketDelegate {
 
         logger.debug("websocket disconnected")
         connectionState = .disconnected()
-        notify { $0.signalClient(self, didClose: "", code: UInt16(closeCode.rawValue)) }
+        notify { $0.signalClient(self, didClose: closeCode) }
     }
 
     func urlSession(_ session: URLSession,

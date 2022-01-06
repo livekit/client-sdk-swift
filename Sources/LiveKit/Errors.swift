@@ -51,5 +51,5 @@ enum SignalClientError: LiveKitError {
     case invalidRTCSdpType
     case socketNotConnected
     case socketError(String?, UInt16)
-    case socketDisconnected
+    case close(String?)
 }
