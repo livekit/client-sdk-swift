@@ -24,6 +24,14 @@ public class RemoteTrackPublication: TrackPublication {
         }
     }
 
+    public internal(set) var subscriptionAllowed = true {
+        didSet {
+            guard oldValue != subscriptionAllowed else { return }
+            guard let participant = self.participant as? RemoteParticipant else { return }
+            participant.notify { $0.participant(participant, didUpdate: self, permission: self.subscriptionAllowed) }
+            participant.room.notify { $0.room(participant.room, participant: participant, didUpdate: self, permission: self.subscriptionAllowed) }
+        }
+    }
     override public internal(set) var track: Track? {
         didSet {
             guard oldValue != track else { return }
@@ -78,11 +86,21 @@ public class RemoteTrackPublication: TrackPublication {
     }
 
     override public var subscribed: Bool {
-        if unsubscribed {
+        if unsubscribed || !subscriptionAllowed {
             return false
         }
         // unless explicitly unsubscribed, defer to parent logic
         return super.subscribed
+    }
+    
+    public var subscriptionState: SubscriptionStatus {
+        if unsubscribed || !super.subscribed {
+            return .unsubscribed
+        } else if !subscriptionAllowed {
+            return .notAllowed
+        } else {
+            return .subscribed
+        }
     }
 
     /// subscribe or unsubscribe from this track
@@ -199,6 +217,12 @@ extension RemoteTrackPublication {
     }
 }
 #endif
+
+public enum SubscriptionStatus {
+    case subscribed
+    case notAllowed
+    case unsubscribed
+}
 
 // MARK: - Video Optimization related structs
 #if LK_FEATURE_ADAPTIVESTREAM

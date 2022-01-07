@@ -130,7 +130,8 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
                     return
                 }
                 notify { $0.signalClient(self, didUpdate: update.trackSid, subscribedQualities: update.subscribedQualities)}
-
+            case .subscriptionPermissionUpdate(let permissionUpdate):
+                notify { $0.signalClient(self, didUpdate: permissionUpdate) }
             default:
                 logger.warning("unsupported signal response type: \(msg)")
             }
@@ -365,6 +366,16 @@ extension SignalClient {
         sendRequest(r)
     }
 
+    func sendUpdateSubscriptionPermissions(allParticipants: Bool, participantTrackPermissions: [ParticipantTrackPermission]) {
+        let r = Livekit_SignalRequest.with {
+            $0.subscriptionPermissions = Livekit_UpdateSubscriptionPermissions.with {
+                $0.allParticipants = allParticipants
+                $0.trackPermissions = participantTrackPermissions.map({ $0.toPBType() })
+            }
+        }
+        
+        sendRequest(r)
+    }
     func sendLeave() {
         logger.debug("[SignalClient] Sending leave")
 
