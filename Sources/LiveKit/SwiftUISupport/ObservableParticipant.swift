@@ -79,10 +79,6 @@ extension ObservableParticipant {
     public var identity: String {
         participant.identity
     }
-
-    public var publish: String? {
-        participant.publish
-    }
 }
 
 open class ObservableParticipant: ObservableObject {
