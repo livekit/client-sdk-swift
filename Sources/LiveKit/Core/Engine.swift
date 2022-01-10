@@ -211,6 +211,10 @@ class Engine: MulticastDelegate<EngineDelegate> {
             return
         }
 
+        guard publisher.iceConnectionState != .checking {
+            return
+        }
+        
         hasPublished = true
         publisher.negotiate()
     }
