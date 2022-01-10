@@ -211,10 +211,10 @@ class Engine: MulticastDelegate<EngineDelegate> {
             return
         }
 
-        guard publisher.iceConnectionState != .checking {
+        guard publisher.iceConnectionState != .checking else {
             return
         }
-        
+
         hasPublished = true
         publisher.negotiate()
     }
