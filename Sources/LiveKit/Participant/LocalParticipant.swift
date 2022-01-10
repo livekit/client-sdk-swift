@@ -247,7 +247,7 @@ public class LocalParticipant: Participant {
      */
     @discardableResult
     public func publishData(data: Data,
-                            reliability: DataPublishReliability = .reliable,
+                            reliability: Reliability = .reliable,
                             destination: [String] = []) -> Promise<Void> {
 
         let userPacket = Livekit_UserPacket.with {

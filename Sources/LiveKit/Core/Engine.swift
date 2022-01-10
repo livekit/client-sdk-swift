@@ -17,10 +17,10 @@ class Engine: MulticastDelegate<EngineDelegate> {
         subscriberPrimary ? subscriber : publisher
     }
 
-    private(set) var reliableDC: RTCDataChannel?
-    private(set) var lossyDC: RTCDataChannel?
-    private(set) var reliableDCSub: RTCDataChannel?
-    private(set) var lossyDCSub: RTCDataChannel?
+    private(set) var dcReliablePub: RTCDataChannel?
+    private(set) var dcLossyPub: RTCDataChannel?
+    private(set) var dcReliableSub: RTCDataChannel?
+    private(set) var dcLossySub: RTCDataChannel?
 
     internal var url: String?
     internal var token: String?
@@ -62,11 +62,11 @@ class Engine: MulticastDelegate<EngineDelegate> {
 
         switch dataChannel.label {
         case RTCDataChannel.labels.reliable:
-            reliableDCSub = dataChannel
-            reliableDCSub?.delegate = self
+            dcReliableSub = dataChannel
+            dcReliableSub?.delegate = self
         case RTCDataChannel.labels.lossy:
-            lossyDCSub = dataChannel
-            lossyDCSub?.delegate = self
+            dcLossySub = dataChannel
+            dcLossySub?.delegate = self
         default:
             logger.warning("Unknown data channel label \(dataChannel.label)")
         }
@@ -215,19 +215,44 @@ class Engine: MulticastDelegate<EngineDelegate> {
         publisher.negotiate()
     }
 
+    internal func publisherDataChannel(for reliability: Reliability) -> RTCDataChannel? {
+        reliability == .reliable ? dcReliablePub : dcLossyPub
+    }
+
     internal func send(userPacket: Livekit_UserPacket,
-                       reliability: DataPublishReliability = .reliable) -> Promise<Void> {
+                       reliability: Reliability = .reliable) -> Promise<Void> {
+
+        func ensurePublisherConnected () -> Promise<Void> {
+
+            guard let publisher = publisher else {
+                return Promise(EngineError.invalidState("publisher is nil"))
+            }
+
+            guard subscriberPrimary,
+                  !publisher.isIceConnected,
+                  publisherDataChannel(for: reliability)?.readyState != .open else {
+                // aleady connected and ready, no-op
+                return Promise(())
+            }
+
+            publisherShouldNegotiate()
+
+            return waitForIceConnect(transport: publisher).then {
+                // wait for data channel to open
+                self.waitForPublisherDataChannelOpen(reliability: reliability)
+            }
+        }
 
         return ensurePublisherConnected().then { () -> Void in
 
             let packet = Livekit_DataPacket.with {
-                $0.kind = reliability.toLKType()
+                $0.kind = reliability.toPBType()
                 $0.user = userPacket
             }
 
             let rtcData = try RTCDataBuffer(data: packet.serializedData(), isBinary: true)
 
-            guard let channel = packet.kind == .lossy ? self.lossyDC : self.reliableDC else {
+            guard let channel = self.publisherDataChannel(for: reliability) else {
                 throw InternalError.state("Data channel is nil")
             }
 
@@ -236,27 +261,49 @@ class Engine: MulticastDelegate<EngineDelegate> {
             }
         }
     }
-
-    private func ensurePublisherConnected () -> Promise<Void> {
-
-        guard let publisher = publisher else {
-            return Promise(EngineError.invalidState("publisher is nil"))
-        }
-
-        guard subscriberPrimary, !publisher.isIceConnected else {
-            // aleady connected, no-op
-            return Promise(())
-        }
-
-        publisherShouldNegotiate()
-
-        return waitForIceConnect(transport: publisher)
-    }
 }
 
 // MARK: - Wait extension
 
 extension Engine {
+
+    func waitForPublisherDataChannelOpen(reliability: Reliability, allowCurrentValue: Bool = true) -> Promise<Void> {
+
+        guard let dcPublisher = publisherDataChannel(for: reliability) else {
+            return Promise(EngineError.invalidState("publisher data channel is nil"))
+        }
+
+        logger.debug("waiting for dataChannel to open on \(dcPublisher)")
+        if allowCurrentValue, dcPublisher.readyState == .open {
+            logger.debug("dataChannel already open")
+            return Promise(())
+        }
+
+        return Promise<Void> { resolve, fail in
+            // create temporary delegate
+            var engineDelegate: EngineDelegateClosures?
+            engineDelegate = EngineDelegateClosures(
+                onDataChannelStateUpdated: { _, dataChannel, state in
+                    if dataChannel == dcPublisher, state == .open {
+                        resolve(())
+                        engineDelegate = nil
+                    }
+                }
+            )
+            self.add(delegate: engineDelegate!)
+            // detect signal close while waiting
+            var signalDelegate: SignalClientDelegateClosures?
+            signalDelegate = SignalClientDelegateClosures(
+                didClose: { _, _ in
+                    fail(SignalClientError.close("Socket closed while waiting for ice-connect"))
+                    signalDelegate = nil
+                }
+            )
+            self.signalClient.add(delegate: signalDelegate!)
+        }
+        // convert to timed-promise
+        .timeout(10)
+    }
 
     func waitForIceConnect(transport: Transport?, allowCurrentValue: Bool = true) -> Promise<Void> {
 
@@ -274,8 +321,8 @@ extension Engine {
             // create temporary delegate
             var transportDelegate: TransportDelegateClosures?
             transportDelegate = TransportDelegateClosures(
-                onIceStateUpdated: { _, iceState in
-                    if iceState.isConnected {
+                onIceStateUpdated: { target, iceState in
+                    if transport == target, iceState.isConnected {
                         resolve(())
                         transportDelegate = nil
                     }
@@ -363,16 +410,16 @@ extension Engine: SignalClientDelegate {
             // data over pub channel for backwards compatibility
             let reliableConfig = RTCDataChannelConfiguration()
             reliableConfig.isOrdered = true
-            reliableDC = publisher?.dataChannel(for: RTCDataChannel.labels.reliable,
-                                                configuration: reliableConfig,
-                                                delegate: self)
+            dcReliablePub = publisher?.dataChannel(for: RTCDataChannel.labels.reliable,
+                                                   configuration: reliableConfig,
+                                                   delegate: self)
 
             let lossyConfig = RTCDataChannelConfiguration()
             lossyConfig.isOrdered = true
             lossyConfig.maxRetransmits = 0
-            lossyDC = publisher?.dataChannel(for: RTCDataChannel.labels.lossy,
-                                             configuration: lossyConfig,
-                                             delegate: self)
+            dcLossyPub = publisher?.dataChannel(for: RTCDataChannel.labels.lossy,
+                                                configuration: lossyConfig,
+                                                delegate: self)
 
         } catch {
             //
@@ -470,7 +517,9 @@ extension Engine: SignalClientDelegate {
 
 extension Engine: RTCDataChannelDelegate {
 
-    func dataChannelDidChangeState(_: RTCDataChannel) {}
+    func dataChannelDidChangeState(_ dataChannel: RTCDataChannel) {
+        notify { $0.engine(self, didUpdate: dataChannel, state: dataChannel.readyState) }
+    }
 
     func dataChannel(_: RTCDataChannel, didReceiveMessageWith buffer: RTCDataBuffer) {
 
