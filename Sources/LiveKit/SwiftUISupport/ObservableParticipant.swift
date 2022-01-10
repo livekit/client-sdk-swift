@@ -6,39 +6,49 @@ extension ObservableParticipant: ParticipantDelegate {
     public func participant(_ participant: RemoteParticipant,
                             didSubscribe trackPublication: RemoteTrackPublication,
                             track: Track) {
-        recomputeFirstTracks()
+        DispatchQueue.main.async {
+            self.objectWillChange.send()
+        }
     }
 
     public func participant(_ participant: RemoteParticipant,
                             didUnsubscribe trackPublication: RemoteTrackPublication,
                             track: Track) {
-        recomputeFirstTracks()
+        DispatchQueue.main.async {
+            self.objectWillChange.send()
+        }
     }
 
     public func localParticipant(_ participant: LocalParticipant,
                                  didPublish trackPublication: LocalTrackPublication) {
-        recomputeFirstTracks()
+        DispatchQueue.main.async {
+            self.objectWillChange.send()
+        }
     }
 
     public func localParticipant(_ participant: LocalParticipant,
                                  didUnpublish trackPublication: LocalTrackPublication) {
-        recomputeFirstTracks()
+        DispatchQueue.main.async {
+            self.objectWillChange.send()
+        }
     }
 
     public func participant(_ participant: Participant,
                             didUpdate trackPublication: TrackPublication, muted: Bool) {
-        recomputeFirstTracks()
+        DispatchQueue.main.async {
+            self.objectWillChange.send()
+        }
     }
 
     public func participant(_ participant: Participant, didUpdate speaking: Bool) {
         DispatchQueue.main.async {
-            self.isSpeaking = speaking
+            self.objectWillChange.send()
         }
     }
 
     public func participant(_ participant: Participant, didUpdate connectionQuality: ConnectionQuality) {
         DispatchQueue.main.async {
-            self.connectionQuality = connectionQuality
+            self.objectWillChange.send()
         }
     }
 }
@@ -62,12 +72,16 @@ extension ObservableParticipant: Equatable & Hashable {
 
 extension ObservableParticipant {
 
-    public var sid: String? {
+    public var sid: String {
         participant.sid
     }
 
-    public var identity: String? {
+    public var identity: String {
         participant.identity
+    }
+
+    public var publish: String? {
+        participant.publish
     }
 }
 
@@ -75,9 +89,17 @@ open class ObservableParticipant: ObservableObject {
 
     public let participant: Participant
 
-    @Published public private(set) var firstCameraPublication: TrackPublication?
-    @Published public private(set) var firstScreenSharePublication: TrackPublication?
-    @Published public private(set) var firstAudioPublication: TrackPublication?
+    public var firstCameraPublication: TrackPublication? {
+        participant.videoTracks.values.first(where: { $0.source == .camera })
+    }
+
+    public var firstScreenSharePublication: TrackPublication? {
+        participant.videoTracks.values.first(where: { $0.source == .screenShareVideo })
+    }
+
+    public var firstAudioPublication: TrackPublication? {
+        participant.audioTracks.values.first
+    }
 
     public var firstCameraVideoTrack: VideoTrack? {
         guard let pub = firstCameraPublication, !pub.muted,
@@ -105,25 +127,20 @@ open class ObservableParticipant: ObservableObject {
         firstAudioTrack != nil
     }
 
-    @Published public private(set) var isSpeaking: Bool = false
+    public var isSpeaking: Bool {
+        participant.isSpeaking
+    }
 
-    @Published public private(set) var connectionQuality: ConnectionQuality = .unknown
+    public var connectionQuality: ConnectionQuality {
+        participant.connectionQuality
+    }
 
     public init(_ participant: Participant) {
         self.participant = participant
         participant.add(delegate: self)
-        recomputeFirstTracks()
     }
 
     deinit {
         participant.remove(delegate: self)
-    }
-
-    private func recomputeFirstTracks() {
-        DispatchQueue.main.async {
-            self.firstCameraPublication = self.participant.videoTracks.values.first(where: { $0.source == .camera })
-            self.firstScreenSharePublication = self.participant.videoTracks.values.first(where: { $0.source == .screenShareVideo })
-            self.firstAudioPublication = self.participant.audioTracks.values.first
-        }
     }
 }
