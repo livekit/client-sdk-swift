@@ -7,10 +7,12 @@ open class ObservableRoom: ObservableObject, RoomDelegate {
 
     public let room: Room
 
-    @Published public var participants = OrderedDictionary<Sid, ObservableParticipant>()
+    public var remoteParticipants: OrderedDictionary<Sid, ObservableParticipant> {
+        OrderedDictionary(uniqueKeysWithValues: room.remoteParticipants.map { (sid, participant) in (sid, ObservableParticipant(participant)) })
+    }
 
     public var allParticipants: OrderedDictionary<Sid, ObservableParticipant> {
-        var result = participants
+        var result = remoteParticipants
         if let localParticipant = room.localParticipant {
             result.updateValue(ObservableParticipant(localParticipant),
                                forKey: localParticipant.sid,
@@ -20,22 +22,12 @@ open class ObservableRoom: ObservableObject, RoomDelegate {
     }
 
     @Published public var localScreen: LocalTrackPublication?
-
     @Published public var cameraTrackState: TrackPublishState = .notPublished()
     @Published public var microphoneTrackState: TrackPublishState = .notPublished()
 
     public init(_ room: Room) {
         self.room = room
         room.add(delegate: self)
-
-        if room.remoteParticipants.isEmpty {
-            self.participants = [:]
-        } else {
-            // create initial participants
-            for element in room.remoteParticipants {
-                self.participants[element.key] = ObservableParticipant(element.value)
-            }
-        }
     }
 
     deinit {
@@ -119,14 +111,16 @@ open class ObservableRoom: ObservableObject, RoomDelegate {
     open func room(_ room: Room,
                    participantDidJoin participant: RemoteParticipant) {
         DispatchQueue.main.async {
-            self.participants[participant.sid] = ObservableParticipant(participant)
+            // self.participants[participant.sid] = ObservableParticipant(participant)
+            self.objectWillChange.send()
         }
     }
 
     open func room(_ room: Room,
                    participantDidLeave participant: RemoteParticipant) {
         DispatchQueue.main.async {
-            self.participants.removeValue(forKey: participant.sid)
+            // self.participants.removeValue(forKey: participant.sid)
+            self.objectWillChange.send()
         }
     }
 
