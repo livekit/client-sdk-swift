@@ -21,7 +21,7 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
             if case .disconnected = connectionState {
                 if case .connecting = oldValue {
                     // Failed to connect
-                    notify { $0.signalClient(self, didFailConnection: SignalClientError.close()) }
+                    notify { $0.signalClient(self, didFailConnect: SignalClientError.close()) }
                 } else if case .connected = oldValue {
                     // Disconnected
                     notify { $0.signalClient(self, didClose: .abnormalClosure) }

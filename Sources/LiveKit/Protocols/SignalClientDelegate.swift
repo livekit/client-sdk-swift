@@ -15,9 +15,11 @@ internal protocol SignalClientDelegate {
     func signalClient(_ signalClient: SignalClient, didUpdate trackSid: String, subscribedQualities: [Livekit_SubscribedQuality])
     func signalClient(_ signalClient: SignalClient, didUpdate subscriptionPermission: Livekit_SubscriptionPermissionUpdate)
     func signalClientDidLeave(_ signaClient: SignalClient)
-    func signalClient(_ signalClient: SignalClient, didClose code: URLSessionWebSocketTask.CloseCode)
     func signalClient(_ signalClient: SignalClient, didConnect isReconnect: Bool)
-    func signalClient(_ signalClient: SignalClient, didFailConnection error: Error)
+    // Initial connect has failed
+    func signalClient(_ signalClient: SignalClient, didFailConnect error: Error)
+    // An open connection has closed (disconnected)
+    func signalClient(_ signalClient: SignalClient, didClose code: URLSessionWebSocketTask.CloseCode)
 }
 
 class SignalClientDelegateClosures: NSObject, SignalClientDelegate {
@@ -55,7 +57,7 @@ class SignalClientDelegateClosures: NSObject, SignalClientDelegate {
         didConnect?(signalClient, isReconnect)
     }
 
-    func signalClient(_ signalClient: SignalClient, didFailConnection error: Error) {
+    func signalClient(_ signalClient: SignalClient, didFailConnect error: Error) {
         didFailConnection?(signalClient, error)
     }
 

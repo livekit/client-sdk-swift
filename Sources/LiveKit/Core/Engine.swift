@@ -492,7 +492,7 @@ extension Engine: SignalClientDelegate {
         reconnect()
     }
 
-    func signalClient(_ signalClient: SignalClient, didFailConnection error: Error) {
+    func signalClient(_ signalClient: SignalClient, didFailConnect error: Error) {
         logger.debug("signal connection error: \(error)")
         notify { $0.engine(self, didFailConnection: error) }
     }
