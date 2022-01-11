@@ -5,7 +5,7 @@ import Promises
 ///
 /// Uses `NSHashTable` internally to maintain a set of weak delegates.
 ///
-/// > Note: `NSHashTable` may not immediately deinit the un-referenced object, due to Apple's implementation.
+/// > Note: `NSHashTable` may not immediately deinit the un-referenced object, due to Apple's implementation, therefore `.count` is unreliable.
 public class MulticastDelegate<T>: NSObject {
 
     private let queue = DispatchQueue(label: "livekit.multicast")
@@ -36,8 +36,6 @@ public class MulticastDelegate<T>: NSObject {
     }
 
     internal func notify(_ fnc: @escaping (T) throws -> Void) rethrows {
-
-        guard set.count != 0 else { return }
 
         try queue.sync {
             for delegate in set.objectEnumerator() {
