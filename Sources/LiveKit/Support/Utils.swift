@@ -52,8 +52,8 @@ class Utils {
         var queryItems = [
             URLQueryItem(name: "access_token", value: token),
             URLQueryItem(name: "protocol", value: connectOptions.protocolVersion.description),
-            URLQueryItem(name: "sdk", value: "ios"),
-            URLQueryItem(name: "version", value: "0.5")
+            URLQueryItem(name: "sdk", value: "swift"),
+            URLQueryItem(name: "version", value: LiveKit.version)
         ]
 
         if reconnect {
