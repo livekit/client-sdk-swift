@@ -279,7 +279,7 @@ public class LocalParticipant: Participant {
      *  participant/track. Any omitted participants will not receive any permissions.
      */
     public func setTrackSubscriptionPermissions(allParticipantsAllowed: Bool,
-                                               trackPermissions: [ParticipantTrackPermission]){
+                                               trackPermissions: [ParticipantTrackPermission] = []){
         room.engine.signalClient.sendUpdateSubscriptionPermissions(allParticipants: allParticipantsAllowed, participantTrackPermissions: trackPermissions)
     }
 
