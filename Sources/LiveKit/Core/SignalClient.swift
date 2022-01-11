@@ -374,7 +374,7 @@ extension SignalClient {
                 $0.trackPermissions = participantTrackPermissions.map({ $0.toPBType() })
             }
         }
-        
+
         sendRequest(r)
     }
     func sendLeave() {

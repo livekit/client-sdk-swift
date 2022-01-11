@@ -259,7 +259,6 @@ public class LocalParticipant: Participant {
         return room.engine.send(userPacket: userPacket,
                                 reliability: reliability)
     }
-    
 
     /**
      * Control who can subscribe to LocalParticipant's published tracks.
@@ -279,7 +278,7 @@ public class LocalParticipant: Participant {
      *  participant/track. Any omitted participants will not receive any permissions.
      */
     public func setTrackSubscriptionPermissions(allParticipantsAllowed: Bool,
-                                               trackPermissions: [ParticipantTrackPermission] = []){
+                                                trackPermissions: [ParticipantTrackPermission] = []) {
         room.engine.signalClient.sendUpdateSubscriptionPermissions(allParticipants: allParticipantsAllowed, participantTrackPermissions: trackPermissions)
     }
 

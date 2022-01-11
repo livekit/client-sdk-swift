@@ -5,20 +5,19 @@ public struct ParticipantTrackPermission {
      * The participant id this permission applies to.
      */
     let participantSid: String
-    
+
     /**
      * If set to true, the target participant can subscribe to all tracks from the local participant.
      *
      * Takes precedence over ``allowedTrackSids``.
      */
     let allTracksAllowed: Bool
-    
+
     /**
      * The list of track ids that the target participant can subscribe to.
      */
     let allowedTrackSids: [String]
-    
-    
+
     public init(participantSid: String,
                 allTracksAllowed: Bool,
                 allowedTrackSids: [String] = [String]()) {

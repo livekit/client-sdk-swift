@@ -36,6 +36,7 @@ class EngineDelegateClosures: NSObject, EngineDelegate {
         onDataChannelStateUpdated?(engine, dataChannel, state)
     }
 
+    func engine(_ engine: Engine, didUpdate subscriptionPermission: Livekit_SubscriptionPermissionUpdate) {}
     func engine(_ engine: Engine, didReceive joinResponse: Livekit_JoinResponse) {}
     func engine(_ engine: Engine, didUpdate participants: [Livekit_ParticipantInfo]) {}
     func engine(_ engine: Engine, didUpdateEngine speakers: [Livekit_SpeakerInfo]) {}

@@ -30,12 +30,12 @@ public class RemoteTrackPublication: TrackPublication {
             guard let participant = self.participant as? RemoteParticipant else { return }
             participant.notify { $0.participant(participant, didUpdate: self, permission: self.subscriptionAllowed) }
             participant.room.notify { $0.room(participant.room, participant: participant, didUpdate: self, permission: self.subscriptionAllowed) }
-            
-            if(subscriptionAllowed && subscriptionState == .subscribed){
+
+            if subscriptionAllowed && subscriptionState == .subscribed {
                 guard let track = self.track else { return }
                 participant.notify { $0.participant(participant, didSubscribe: self, track: track) }
                 participant.room.notify { $0.room(participant.room, participant: participant, didSubscribe: self, track: track) }
-            } else if(!subscriptionAllowed && subscriptionState == .notAllowed) {
+            } else if !subscriptionAllowed && subscriptionState == .notAllowed {
                 guard let track = self.track else { return }
                 participant.notify { $0.participant(participant, didUnsubscribe: self, track: track) }
                 participant.room.notify { $0.room(participant.room, participant: participant, didUnsubscribe: self)}
@@ -102,7 +102,7 @@ public class RemoteTrackPublication: TrackPublication {
         // unless explicitly unsubscribed, defer to parent logic
         return super.subscribed
     }
-    
+
     public var subscriptionState: SubscriptionStatus {
         if unsubscribed || !super.subscribed {
             return .unsubscribed

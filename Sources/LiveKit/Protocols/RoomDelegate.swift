@@ -64,7 +64,7 @@ public protocol RoomDelegate {
 
     /// Same with ``ParticipantDelegate/participant(_:didUnpublish:)-3bkga``.
     func room(_ room: Room, localParticipant: LocalParticipant, didUnpublish publication: LocalTrackPublication)
-    
+
     /// Same with ``ParticipantDelegate/participant(_:didUpdate:permission:)``.
     func room(_ room: Room, participant: RemoteParticipant, didUpdate publication: RemoteTrackPublication, permission allowed: Bool)
 }

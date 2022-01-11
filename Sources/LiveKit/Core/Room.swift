@@ -217,15 +217,15 @@ public class Room: MulticastDelegate<RoomDelegate> {
     private func onSubscribedQualitiesUpdate(trackSid: String, subscribedQualities: [Livekit_SubscribedQuality]) {
         localParticipant?.onSubscribedQualitiesUpdate(trackSid: trackSid, subscribedQualities: subscribedQualities)
     }
-    
+
     private func onSubscriptionPermissionUpdate(permissionUpdate: Livekit_SubscriptionPermissionUpdate) {
         guard let participant = remoteParticipants[permissionUpdate.participantSid],
               let publication = participant.getTrackPublication(sid: permissionUpdate.trackSid)
         else {
             return
         }
-        
-        if (publication.subscriptionAllowed != permissionUpdate.allowed) {
+
+        if publication.subscriptionAllowed != permissionUpdate.allowed {
             publication.subscriptionAllowed = permissionUpdate.allowed
         }
     }
@@ -272,7 +272,7 @@ extension Room: EngineDelegate {
     func engine(_ engine: Engine, didUpdate trackSid: String, subscribedQualities: [Livekit_SubscribedQuality]) {
         onSubscribedQualitiesUpdate(trackSid: trackSid, subscribedQualities: subscribedQualities)
     }
-    
+
     func engine(_ engine: Engine, didUpdate subscriptionPermission: Livekit_SubscriptionPermissionUpdate) {
         onSubscriptionPermissionUpdate(permissionUpdate: subscriptionPermission)
     }
