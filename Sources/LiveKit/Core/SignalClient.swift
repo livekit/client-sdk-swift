@@ -98,20 +98,19 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
             logger.warning("Unknown message type")
         }
 
-        guard let response = response else {
+        guard let response = response,
+              let message = response.message else {
             logger.warning("Failed to decode SignalResponse")
             return
         }
 
-        if let message = response.message {
-            onSignalResponse(message: message)
-        }
+        onSignalResponse(message: message)
     }
 
     private func onSignalResponse(message: Livekit_SignalResponse.OneOf_Message) {
 
         guard case .connected = connectionState else {
-            logger.error("not connected")
+            logger.warning("Not connected")
             return
         }
 
