@@ -78,7 +78,7 @@ public enum TrackError: LiveKitError {
 
 public enum SignalClientError: LiveKitError {
     case socketError(rawError: Error?)
-    case close(String?)
+    case close(message: String? = nil)
 
     public var description: String {
         switch self {

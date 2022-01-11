@@ -294,7 +294,7 @@ extension Engine {
             var signalDelegate: SignalClientDelegateClosures?
             signalDelegate = SignalClientDelegateClosures(
                 didClose: { _, _ in
-                    fail(SignalClientError.close("Socket closed while waiting for ice-connect"))
+                    fail(SignalClientError.close(message: "Socket closed while waiting for ice-connect"))
                     signalDelegate = nil
                 }
             )
@@ -332,7 +332,7 @@ extension Engine {
             var signalDelegate: SignalClientDelegateClosures?
             signalDelegate = SignalClientDelegateClosures(
                 didClose: { _, _ in
-                    fail(SignalClientError.close("Socket closed while waiting for ice-connect"))
+                    fail(SignalClientError.close(message: "Socket closed while waiting for ice-connect"))
                     signalDelegate = nil
                 }
             )
@@ -351,7 +351,7 @@ extension Engine {
                 // This promise we be considered failed if signal disconnects while waiting.
                 // still it will attempt to re-connect.
                 didClose: { _, _ in
-                    fail(SignalClientError.close("Socket closed while waiting for publish track"))
+                    fail(SignalClientError.close(message: "Socket closed while waiting for publish track"))
                     delegate = nil
                 },
                 didPublishLocalTrack: { _, response in
