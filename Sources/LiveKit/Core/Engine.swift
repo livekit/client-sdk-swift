@@ -211,10 +211,6 @@ class Engine: MulticastDelegate<EngineDelegate> {
             return
         }
 
-        guard publisher.iceConnectionState != .checking else {
-            return
-        }
-
         hasPublished = true
         publisher.negotiate()
     }
@@ -228,18 +224,17 @@ class Engine: MulticastDelegate<EngineDelegate> {
 
         func ensurePublisherConnected () -> Promise<Void> {
 
+            guard subscriberPrimary else {
+                return Promise(())
+            }
+
             guard let publisher = publisher else {
                 return Promise(EngineError.invalidState("publisher is nil"))
             }
 
-            guard subscriberPrimary,
-                  !publisher.isIceConnected,
-                  publisherDataChannel(for: reliability)?.readyState != .open else {
-                // aleady connected and ready, no-op
-                return Promise(())
+            if !publisher.isIceConnected, publisher.iceConnectionState != .checking {
+                publisherShouldNegotiate()
             }
-
-            publisherShouldNegotiate()
 
             return waitForIceConnect(transport: publisher).then {
                 // wait for data channel to open
@@ -277,7 +272,7 @@ extension Engine {
             return Promise(EngineError.invalidState("publisher data channel is nil"))
         }
 
-        logger.debug("waiting for dataChannel to open on \(dcPublisher)")
+        logger.debug("waiting for dataChannel to open for \(reliability)")
         if allowCurrentValue, dcPublisher.readyState == .open {
             logger.debug("dataChannel already open")
             return Promise(())
