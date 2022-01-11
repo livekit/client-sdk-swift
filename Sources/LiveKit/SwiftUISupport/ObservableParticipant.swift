@@ -80,13 +80,13 @@ open class ObservableParticipant: ObservableObject {
     @Published public private(set) var firstAudioPublication: TrackPublication?
 
     public var firstCameraVideoTrack: VideoTrack? {
-        guard let pub = firstCameraPublication, !pub.muted,
+        guard let pub = firstCameraPublication, !pub.muted, pub.subscribed,
               let track = pub.track else { return nil }
         return track as? VideoTrack
     }
 
     public var firstScreenShareVideoTrack: VideoTrack? {
-        guard let pub = firstScreenSharePublication, !pub.muted,
+        guard let pub = firstScreenSharePublication, !pub.muted, pub.subscribed,
               let track = pub.track else { return nil }
         return track as? VideoTrack
     }
