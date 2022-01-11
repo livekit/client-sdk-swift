@@ -8,22 +8,18 @@ import Promises
 /// > Note: `NSHashTable` may not immediately deinit the un-referenced object, due to Apple's implementation.
 public class MulticastDelegate<T>: NSObject {
 
-    private let lock = NSLock()
+    private let queue = DispatchQueue(label: "livekit.multicast")
     private let set = NSHashTable<AnyObject>.weakObjects()
 
     /// Add a single delegate.
     public func add(delegate: T) {
 
         guard let delegate = delegate as AnyObject? else {
-            logger.debug("delegate is not an AnyObject")
+            logger.debug("MulticastDelegate: delegate is not an AnyObject")
             return
         }
 
-        lock.lock()
-        defer { lock.unlock() }
-
-        self.set.add(delegate)
-        logger.debug("[\(self) MulticastDelegate] count updated: \(self.set.count)")
+        queue.sync { set.add(delegate) }
     }
 
     /// Remove a single delegate.
@@ -32,32 +28,25 @@ public class MulticastDelegate<T>: NSObject {
     public func remove(delegate: T) {
 
         guard let delegate = delegate as AnyObject? else {
-            logger.debug("delegate is not an AnyObject")
+            logger.debug("MulticastDelegate: delegate is not an AnyObject")
             return
         }
 
-        lock.lock()
-        defer { lock.unlock() }
-
-        self.set.remove(delegate)
-        logger.debug("[\(self) MulticastDelegate] count updated: \(self.set.count)")
+        queue.sync { set.remove(delegate) }
     }
 
     internal func notify(_ fnc: @escaping (T) throws -> Void) rethrows {
 
-        guard set.count != 0 else {
-            return
-        }
+        guard set.count != 0 else { return }
 
-        lock.lock()
-        defer { lock.unlock() }
-
-        for delegate in self.set.objectEnumerator() {
-            guard let delegate = delegate as? T else {
-                logger.debug("notify() delegate is not type of \(T.self)")
-                continue
+        try queue.sync {
+            for delegate in set.objectEnumerator() {
+                guard let delegate = delegate as? T else {
+                    logger.debug("MulticastDelegate: skipping notify for \(delegate), not a type of \(T.self)")
+                    continue
+                }
+                try fnc(delegate)
             }
-            try fnc(delegate)
         }
     }
 }
