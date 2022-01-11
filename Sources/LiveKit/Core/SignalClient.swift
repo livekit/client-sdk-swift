@@ -43,26 +43,47 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
 
         // Clear internal vars
         self.latestJoinResponse = nil
-        self.connectionState = .connecting(isReconnecting: reconnect)
 
-        return Promise { () -> URL in
-            try Utils.buildUrl(url,
+        return Utils.buildUrl(url,
+                              token,
+                              connectOptions: connectOptions,
+                              reconnect: reconnect)
+            .catch { error in
+                logger.error("Failed to parse rtc url")
+            }
+            .then { url -> Promise<WebSocket> in
+                logger.debug("Connecting with url: \(url)")
+                self.connectionState = .connecting(isReconnecting: reconnect)
+                return WebSocket.connect(url: url,
+                                         onMessage: self.onWebSocketMessage) { _ in
+                    // onClose
+                    self.connectionState = .disconnected()
+                }
+            }.then { (webSocket: WebSocket) -> Void in
+                self.webSocket = webSocket
+                self.connectionState = .connected
+            }.recover { _ -> Promise<Void> in
+                // Catch first, then throw again after getting validation response
+                // Re-build url with validate mode
+                Utils.buildUrl(url,
                                token,
                                connectOptions: connectOptions,
-                               reconnect: reconnect)
-        }.then { (url: URL) -> Promise<WebSocket> in
-            logger.debug("Connecting with url: \(url)")
-            return WebSocket.connect(url: url,
-                                     onMessage: self.onWebSocketMessage) { _ in
-                // onClose
-                self.connectionState = .disconnected()
+                               reconnect: reconnect,
+                               validate: true
+                ).then { url -> Promise<Data> in
+                    logger.debug("Validating with url: \(url)")
+                    return HTTP().get(url: url)
+                }.then { data in
+                    guard let string = String(data: data, encoding: .utf8) else {
+                        throw SignalClientError.connect(message: "Failed to decode string")
+                    }
+                    print("validate response: \(string)")
+                    // re-throw with validation response
+                    throw SignalClientError.connect(message: string)
+                }
+            }.catch { _ in
+                self.connectionState = .disconnected(SignalClientError.connect())
             }
-        }.then { (webSocket: WebSocket) -> Void in
-            self.webSocket = webSocket
-            self.connectionState = .connected
-        }.catch { error in
-            self.connectionState = .disconnected(error)
-        }
     }
 
     private func sendRequest(_ request: Livekit_SignalRequest) {

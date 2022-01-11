@@ -79,11 +79,24 @@ public enum TrackError: LiveKitError {
 public enum SignalClientError: LiveKitError {
     case socketError(rawError: Error?)
     case close(message: String? = nil)
+    case connect(message: String? = nil)
 
     public var description: String {
         switch self {
         case .socketError(let rawError): return buildDescription("socketError", rawError != nil ? "rawError: \(rawError!.localizedDescription)" : nil)
         case .close(let message): return buildDescription("close", message)
+        case .connect(let message): return buildDescription("connect", message)
+
+        }
+    }
+}
+
+public enum NetworkError: LiveKitError {
+    case response(message: String? = nil)
+
+    public var description: String {
+        switch self {
+        case .response(let message): return buildDescription("response", message)
         }
     }
 }
