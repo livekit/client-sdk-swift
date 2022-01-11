@@ -4,24 +4,31 @@ import WebRTC
 
 internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
 
-    private(set) var connectionState: ConnectionState = .disconnected() {
+    public private(set) var connectionState: ConnectionState = .disconnected() {
         didSet {
             guard oldValue != connectionState else { return }
             // Connected
             if case .connected = connectionState {
+                // Check if this was a re-connect
                 var isReconnect = false
                 if case .connecting(let reconnecting) = oldValue, reconnecting {
                     isReconnect = true
                 }
+
                 notify { $0.signalClient(self, didConnect: isReconnect) }
             }
 
             if case .disconnected = connectionState {
                 if case .connecting = oldValue {
+                    // Failed to connect
                     notify { $0.signalClient(self, didFailConnection: SignalClientError.close()) }
                 } else if case .connected = oldValue {
+                    // Disconnected
                     notify { $0.signalClient(self, didClose: .abnormalClosure) }
                 }
+
+                webSocket?.close()
+                webSocket = nil
             }
         }
     }
@@ -46,7 +53,10 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
         }.then { (url: URL) -> Promise<WebSocket> in
             logger.debug("Connecting with url: \(url)")
             return WebSocket.connect(url: url,
-                                     onMessage: self.onWebSocketMessage)
+                                     onMessage: self.onWebSocketMessage) { _ in
+                // onClose
+                self.connectionState = .disconnected()
+            }
         }.then { (webSocket: WebSocket) -> Void in
             self.webSocket = webSocket
             self.connectionState = .connected
@@ -71,41 +81,29 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
     }
 
     func close() {
-        webSocket?.close()
-        webSocket = nil
         connectionState = .disconnected()
-    }
-
-    // handle errors after already connected
-    private func handleError(_ reason: String) {
-        //
-        notify { $0.signalClient(self, didClose: .abnormalClosure ) }
-        close()
     }
 
     private func onWebSocketMessage(message: URLSessionWebSocketTask.Message) {
 
         var response: Livekit_SignalResponse?
+
         switch message {
         case .data(let data):
-            do {
-                response = try Livekit_SignalResponse(contiguousBytes: data)
-            } catch {
-                logger.error("could not decode protobuf message: \(error)")
-                handleError(error.localizedDescription)
-            }
+            response = try? Livekit_SignalResponse(contiguousBytes: data)
         case .string(let text):
-            do {
-                response = try Livekit_SignalResponse(jsonString: text)
-            } catch {
-                logger.error("could not decode JSON message: \(error)")
-                handleError(error.localizedDescription)
-            }
-        default:
+            response = try? Livekit_SignalResponse(jsonString: text)
+        @unknown default:
+            // This should never happen
+            logger.warning("Unknown message type")
+        }
+
+        guard let response = response else {
+            logger.warning("Failed to decode SignalResponse")
             return
         }
 
-        if let sigResp = response, let message = sigResp.message {
+        if let message = response.message {
             onSignalResponse(message: message)
         }
     }

@@ -25,14 +25,20 @@ internal class WebSocket: NSObject, URLSessionWebSocketDelegate {
         session.webSocketTask(with: request)
     }()
 
-    static func connect(url: URL, onMessage: OnMessage? = nil) -> Promise<WebSocket> {
+    static func connect(url: URL,
+                        onMessage: OnMessage? = nil,
+                        onClose: OnClose? = nil) -> Promise<WebSocket> {
         WebSocket(url: url,
                   onMessage: onMessage).connectPromise
     }
 
-    private init(url: URL, onMessage: OnMessage? = nil) {
+    private init(url: URL,
+                 onMessage: OnMessage? = nil,
+                 onClose: OnClose? = nil) {
+
         request = URLRequest(url: url)
         self.onMessage = onMessage
+        self.onClose = onClose
         super.init()
         task.resume()
     }
@@ -84,28 +90,13 @@ internal class WebSocket: NSObject, URLSessionWebSocketDelegate {
                     didCloseWith closeCode: URLSessionWebSocketTask.CloseCode,
                     reason: Data?) {
 
-        //        guard webSocketTask == webSocket else {
-        //            return
-        //        }
-        //
-        //        logger.debug("websocket disconnected")
-        //        connectionState = .disconnected()
-        //        notify { $0.signalClient(self, didClose: closeCode) }
-        onClose?(nil)
+        close()
     }
 
     func urlSession(_ session: URLSession,
                     task: URLSessionTask,
                     didCompleteWithError error: Error?) {
 
-        //        guard task == webSocket else {
-        //            return
-        //        }
-        //
-        //        let lkError = SignalClientError.socketError(rawError: error)
-        //
-        //        connectionState = .disconnected(lkError)
-        //        notify { $0.signalClient(self, didFailConnection: lkError) }
         connectPromise.reject(error!)
     }
 }
