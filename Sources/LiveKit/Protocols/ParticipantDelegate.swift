@@ -32,7 +32,10 @@ public protocol ParticipantDelegate {
 
     /// ``RemoteTrackPublication/streamState`` has updated for the ``RemoteParticipant``.
     func participant(_ participant: RemoteParticipant, didUpdate publication: RemoteTrackPublication, streamState: StreamState)
-
+    
+    /// ``RemoteTrackPublication/subscriptionAllowed`` has updated for the ``RemoteParticipant``.
+    func participant(_ participant: RemoteParticipant, didUpdate publication: RemoteTrackPublication, permission allowed: Bool)
+    
     /// When a new ``RemoteTrackPublication`` is published to ``Room`` after the ``LocalParticipant`` has joined.
     ///
     /// This delegate method will not be called for tracks that are already published.
@@ -61,7 +64,7 @@ public protocol ParticipantDelegate {
     ///
     /// Clients should listen to this event and handle cleanup.
     func participant(_ participant: RemoteParticipant, didUnsubscribe publication: RemoteTrackPublication, track: Track)
-
+    
     /// Data was received from a ``RemoteParticipant``.
     func participant(_ participant: RemoteParticipant, didReceive data: Data)
 }
@@ -73,6 +76,7 @@ public extension ParticipantDelegate {
     func participant(_ participant: Participant, didUpdate connectionQuality: ConnectionQuality) {}
     func participant(_ participant: Participant, didUpdate publication: TrackPublication, muted: Bool) {}
     func participant(_ participant: RemoteParticipant, didUpdate publication: RemoteTrackPublication, streamState: StreamState) {}
+    func participant(_ participant: RemoteParticipant, didUpdate publication: RemoteTrackPublication, permission allowed: Bool) {}
     func participant(_ participant: RemoteParticipant, didPublish publication: RemoteTrackPublication) {}
     func participant(_ participant: RemoteParticipant, didUnpublish publication: RemoteTrackPublication) {}
     func participant(_ participant: RemoteParticipant, didSubscribe publication: RemoteTrackPublication, track: Track) {}
