@@ -251,6 +251,8 @@ public class Room: MulticastDelegate<RoomDelegate> {
 
 extension Room: EngineDelegate {
 
+    func engine(_ engine: Engine, didUpdate dataChannel: RTCDataChannel, state: RTCDataChannelState) {}
+
     func engine(_ engine: Engine, didUpdate connectionQuality: [Livekit_ConnectionQualityInfo]) {
         onConnectionQualityUpdate(connectionQuality)
     }
