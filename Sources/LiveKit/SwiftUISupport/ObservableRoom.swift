@@ -42,7 +42,7 @@ open class ObservableRoom: ObservableObject, RoomDelegate {
               let track = publication.track as? LocalVideoTrack,
               let cameraCapturer = track.capturer as? CameraCapturer else {
             print("Track or CameraCapturer doesn't exist")
-            return Promise(TrackError.invalidTrackState("Track or a CameraCapturer doesn't exist"))
+            return Promise(TrackError.state(message: "Track or a CameraCapturer doesn't exist"))
         }
 
         return cameraCapturer.switchCameraPosition()

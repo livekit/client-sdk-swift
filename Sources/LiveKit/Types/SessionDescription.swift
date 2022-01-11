@@ -15,7 +15,7 @@ extension RTCSessionDescription {
         case .prAnswer:
             sessionDescription.type = "pranswer"
         default:
-            throw SignalClientError.invalidRTCSdpType
+            throw InternalError.state(message: "Unknown state \(type)")
         }
 
         return sessionDescription
@@ -34,7 +34,7 @@ extension Livekit_SessionDescription {
         case "pranswer":
             rtcSdpType = .prAnswer
         default:
-            throw SignalClientError.invalidRTCSdpType
+            throw InternalError.state(message: "Unknown state \(type)")
         }
 
         return RTCSessionDescription(type: rtcSdpType, sdp: sdp)

@@ -432,14 +432,9 @@ extension SignalClient: URLSessionWebSocketDelegate {
             return
         }
 
-        var realError: Error
-        if error != nil {
-            realError = error!
-        } else {
-            realError = SignalClientError.socketError("could not connect", 0)
-        }
+        let lkError = SignalClientError.socketError(rawError: error)
 
-        connectionState = .disconnected(error)
-        notify { $0.signalClient(self, didFailConnection: realError) }
+        connectionState = .disconnected(lkError)
+        notify { $0.signalClient(self, didFailConnection: lkError) }
     }
 }

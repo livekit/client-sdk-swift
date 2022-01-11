@@ -1,55 +1,89 @@
 import Foundation
 import WebRTC
 
-protocol LiveKitError: Error {}
+public protocol LiveKitError: Error, CustomStringConvertible {}
 
-enum RoomError: LiveKitError {
+extension LiveKitError {
+
+    internal func buildDescription(_ name: String, _ message: String? = nil) -> String {
+        "\(String(describing: type(of: self))).\(name)" + (message != nil ? " \(message!)" : "")
+    }
+}
+
+extension LiveKitError where Self: LocalizedError {
+
+    public var localizedDescription: String {
+        description
+    }
+}
+
+public enum RoomError: LiveKitError {
     case missingRoomId(String)
     case invalidURL(String)
     case protocolError(String)
+
+    public var description: String {
+        "RoomError"
+    }
 }
 
-enum InternalError: LiveKitError & LocalizedError {
-    case state(String? = nil)
-    case parse(String? = nil)
-    case convert(String? = nil)
-    case timeout(String? = nil)
+public enum InternalError: LiveKitError {
+    case state(message: String? = nil)
+    case parse(message: String? = nil)
+    case convert(message: String? = nil)
+    case timeout(message: String? = nil)
 
-    var errorDescription: String? {
+    public var description: String {
         switch self {
-        case .state(let message): return Utils.buildErrorDescription("InternalError.State", message)
-        case .parse(let message): return Utils.buildErrorDescription("InternalError.Parse", message)
-        case .convert(let message): return Utils.buildErrorDescription("InternalError.Convert", message)
-        case .timeout(let message): return Utils.buildErrorDescription("InternalError.Timeout", message)
+        case .state(let message): return buildDescription("state", message)
+        case .parse(let message): return buildDescription("parse", message)
+        case .convert(let message): return buildDescription("convert", message)
+        case .timeout(let message): return buildDescription("timeout", message)
         }
     }
 }
 
-enum EngineError: LiveKitError & LocalizedError {
+public enum EngineError: LiveKitError {
     // WebRTC lib returned error
-    case webRTC(String?, Error? = nil)
-    case invalidState(String? = nil)
+    case webRTC(message: String?, Error? = nil)
+    case state(message: String? = nil)
 
-    var errorDescription: String? {
+    public var description: String {
         switch self {
-        case .webRTC(let message, _): return Utils.buildErrorDescription("EngineError.webRTC", message)
-        case .invalidState(let message): return Utils.buildErrorDescription("EngineError.state", message)
+        case .webRTC(let message, _): return buildDescription("webRTC", message)
+        case .state(let message): return buildDescription("state", message)
         }
     }
 }
 
-enum TrackError: LiveKitError {
-    case invalidTrackType(String)
-    case duplicateTrack(String)
-    case invalidTrackState(String)
-    case mediaError(String)
-    case publishError(String)
-    case unpublishError(String)
+public enum TrackError: LiveKitError {
+    case state(message: String? = nil)
+    case type(message: String? = nil)
+    case duplicate(message: String? = nil)
+    case capturer(message: String? = nil)
+    case publish(message: String? = nil)
+    case unpublish(message: String? = nil)
+
+    public var description: String {
+        switch self {
+        case .state(let message): return buildDescription("state", message)
+        case .type(let message): return buildDescription("type", message)
+        case .duplicate(let message): return buildDescription("duplicate", message)
+        case .capturer(let message): return buildDescription("capturer", message)
+        case .publish(let message): return buildDescription("publish", message)
+        case .unpublish(let message): return buildDescription("unpublish", message)
+        }
+    }
 }
 
-enum SignalClientError: LiveKitError {
-    case invalidRTCSdpType
-    case socketNotConnected
-    case socketError(String?, UInt16)
+public enum SignalClientError: LiveKitError {
+    case socketError(rawError: Error?)
     case close(String?)
+
+    public var description: String {
+        switch self {
+        case .socketError(let rawError): return buildDescription("socketError", rawError != nil ? "rawError: \(rawError!.localizedDescription)" : nil)
+        case .close(let message): return buildDescription("close", message)
+        }
+    }
 }

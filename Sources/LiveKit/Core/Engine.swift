@@ -77,7 +77,7 @@ class Engine: MulticastDelegate<EngineDelegate> {
 
         guard connectionState != .connected else {
             logger.debug("already connected")
-            return Promise(EngineError.invalidState("already connected"))
+            return Promise(EngineError.state(message: "already connected"))
         }
 
         // reset internal vars
@@ -115,16 +115,16 @@ class Engine: MulticastDelegate<EngineDelegate> {
         guard let url = url,
               let token = token else {
             logger.debug("reconnect() must be called with connected state")
-            return Promise(EngineError.invalidState("reconnect() called with no url or token"))
+            return Promise(EngineError.state(message: "reconnect() called with no url or token"))
         }
 
         guard case .connected = connectionState else {
             logger.debug("reconnect() must be called with connected state")
-            return Promise(EngineError.invalidState("reconnect() called with invalid state"))
+            return Promise(EngineError.state(message: "reconnect() called with invalid state"))
         }
 
         guard subscriber != nil, publisher != nil else {
-            return Promise(EngineError.invalidState("publisher or subscriber is null"))
+            return Promise(EngineError.state(message: "publisher or subscriber is null"))
         }
 
         connectionState = .connecting(isReconnecting: true)
@@ -229,7 +229,7 @@ class Engine: MulticastDelegate<EngineDelegate> {
             }
 
             guard let publisher = publisher else {
-                return Promise(EngineError.invalidState("publisher is nil"))
+                return Promise(EngineError.state(message: "publisher is nil"))
             }
 
             if !publisher.isIceConnected, publisher.iceConnectionState != .checking {
@@ -252,11 +252,11 @@ class Engine: MulticastDelegate<EngineDelegate> {
             let rtcData = try RTCDataBuffer(data: packet.serializedData(), isBinary: true)
 
             guard let channel = self.publisherDataChannel(for: reliability) else {
-                throw InternalError.state("Data channel is nil")
+                throw InternalError.state(message: "Data channel is nil")
             }
 
             guard channel.sendData(rtcData) else {
-                throw EngineError.webRTC("DataChannel.sendData returned false")
+                throw EngineError.webRTC(message: "DataChannel.sendData returned false")
             }
         }
     }
@@ -269,7 +269,7 @@ extension Engine {
     func waitForPublisherDataChannelOpen(reliability: Reliability, allowCurrentValue: Bool = true) -> Promise<Void> {
 
         guard let dcPublisher = publisherDataChannel(for: reliability) else {
-            return Promise(EngineError.invalidState("publisher data channel is nil"))
+            return Promise(EngineError.state(message: "publisher data channel is nil"))
         }
 
         logger.debug("waiting for dataChannel to open for \(reliability)")
@@ -307,7 +307,7 @@ extension Engine {
     func waitForIceConnect(transport: Transport?, allowCurrentValue: Bool = true) -> Promise<Void> {
 
         guard let transport = transport else {
-            return Promise(EngineError.invalidState("transport is nil"))
+            return Promise(EngineError.state(message: "transport is nil"))
         }
 
         logger.debug("waiting for iceConnect on \(transport)")

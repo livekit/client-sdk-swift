@@ -98,7 +98,7 @@ public class Room: MulticastDelegate<RoomDelegate> {
 
         logger.info("connecting to room")
         guard localParticipant == nil else {
-            return Promise(EngineError.invalidState("localParticipant is not nil"))
+            return Promise(EngineError.state(message: "localParticipant is not nil"))
         }
 
         // monitor.start(queue: monitorQueue)
@@ -124,7 +124,7 @@ public class Room: MulticastDelegate<RoomDelegate> {
     private func handleParticipantDisconnect(sid: Sid, participant: RemoteParticipant) -> Promise<Void> {
 
         guard let participant = remoteParticipants.removeValue(forKey: sid) else {
-            return Promise(EngineError.invalidState("Participant not found for \(sid)"))
+            return Promise(EngineError.state(message: "Participant not found for \(sid)"))
         }
 
         // create array of unpublish promises
@@ -331,7 +331,7 @@ extension Room: EngineDelegate {
 
         _ = retry(attempts: 10, delay: 0.2) { _, error in
             // if error is invalidTrackState, retry
-            guard case TrackError.invalidTrackState = error else { return false }
+            guard case TrackError.state = error else { return false }
             return true
         } _: {
             participant.addSubscribedMediaTrack(rtcTrack: track, sid: trackSid)

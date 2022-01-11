@@ -26,13 +26,13 @@ public class LocalParticipant: Participant {
                                   publishOptions: AudioPublishOptions? = nil) -> Promise<LocalTrackPublication> {
 
         guard let publisher = room.engine.publisher else {
-            return Promise(EngineError.invalidState("publisher is null"))
+            return Promise(EngineError.state(message: "publisher is null"))
         }
 
         let publishOptions = publishOptions ?? room.roomOptions?.defaultAudioPublishOptions
 
         if localAudioTrackPublications.first(where: { $0.track === track }) != nil {
-            return Promise(TrackError.publishError("This track has already been published."))
+            return Promise(TrackError.publish(message: "This track has already been published."))
         }
 
         let cid = track.mediaTrack.trackId
@@ -45,7 +45,7 @@ public class LocalParticipant: Participant {
                 logger.warning("Failed to start track with error \(error)")
                 // start() will fail if it's already started.
                 // but for this case we will allow it, throw for any other error.
-                guard case TrackError.invalidTrackState = error else { throw error }
+                guard case TrackError.state = error else { throw error }
             }.then {
                 // request a new track to the server
                 self.room.engine.addTrack(cid: cid,
@@ -85,13 +85,13 @@ public class LocalParticipant: Participant {
                                   publishOptions: VideoPublishOptions? = nil) -> Promise<LocalTrackPublication> {
 
         guard let publisher = room.engine.publisher else {
-            return Promise(EngineError.invalidState("publisher is null"))
+            return Promise(EngineError.state(message: "publisher is null"))
         }
 
         let publishOptions = publishOptions ?? room.roomOptions?.defaultVideoPublishOptions
 
         if localVideoTrackPublications.first(where: { $0.track === track }) != nil {
-            return Promise(TrackError.publishError("This track has already been published."))
+            return Promise(TrackError.publish(message: "This track has already been published."))
         }
 
         let cid = track.mediaTrack.trackId
@@ -125,7 +125,7 @@ public class LocalParticipant: Participant {
                 logger.warning("Failed to start track with error \(error)")
                 // start() will fail if it's already started.
                 // but for this case we will allow it, throw for any other error.
-                guard case TrackError.invalidTrackState = error else { throw error }
+                guard case TrackError.state = error else { throw error }
             }.then { () -> Promise<Livekit_TrackInfo> in
                 // request a new track to the server
                 self.room.engine.addTrack(cid: cid,
@@ -397,6 +397,6 @@ extension LocalParticipant {
             }
         }
 
-        return Promise(EngineError.invalidState())
+        return Promise(EngineError.state())
     }
 }

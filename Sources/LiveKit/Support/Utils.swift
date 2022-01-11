@@ -5,13 +5,6 @@ typealias DebouncFunc = () -> Void
 
 class Utils {
 
-    internal static func buildErrorDescription(_ key: String, _ message: String? = nil) -> String {
-        if let message = message {
-            return "\(key) (\(message))"
-        }
-        return key
-    }
-
     internal static func buildUrl(
         _ url: String,
         _ token: String,
@@ -25,13 +18,13 @@ class Utils {
         let connectOptions = connectOptions ?? ConnectOptions()
 
         guard let parsedUrl = URL(string: url) else {
-            throw InternalError.parse("Failed to parse url")
+            throw InternalError.parse(message: "Failed to parse url")
         }
 
         let components = URLComponents(url: parsedUrl, resolvingAgainstBaseURL: false)
 
         guard var builder = components else {
-            throw InternalError.parse("Failed to parse url components")
+            throw InternalError.parse(message: "Failed to parse url components")
         }
 
         let useSecure = parsedUrl.isSecure || forceSecure
@@ -78,7 +71,7 @@ class Utils {
         builder.queryItems = queryItems
 
         guard let builtUrl = builder.url else {
-            throw InternalError.convert("Failed to convert components to url \(builder)")
+            throw InternalError.convert(message: "Failed to convert components to url \(builder)")
         }
 
         return builtUrl

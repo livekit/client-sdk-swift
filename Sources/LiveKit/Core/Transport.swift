@@ -53,7 +53,7 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
         guard let pc = Engine.createPeerConnection(config,
                                                    constraints: .defaultPCConstraints) else {
 
-            throw EngineError.webRTC("failed to create peerConnection")
+            throw EngineError.webRTC(message: "failed to create peerConnection")
         }
 
         self.target = target
@@ -232,7 +232,7 @@ extension Transport {
 
             self.pc.offer(for: mediaConstraints) { sd, error in
                 guard let sd = sd else {
-                    fail(EngineError.webRTC("Failed to create offer", error))
+                    fail(EngineError.webRTC(message: "Failed to create offer", error))
                     return
                 }
                 complete(sd)
@@ -249,7 +249,7 @@ extension Transport {
 
             self.pc.answer(for: mediaConstraints) { sd, error in
                 guard let sd = sd else {
-                    fail(EngineError.webRTC("Failed to create answer", error))
+                    fail(EngineError.webRTC(message: "Failed to create answer", error))
                     return
                 }
                 complete(sd)
@@ -263,7 +263,7 @@ extension Transport {
 
             self.pc.setLocalDescription(sd) { error in
                 guard error == nil else {
-                    fail(EngineError.webRTC("failed to set local description", error))
+                    fail(EngineError.webRTC(message: "failed to set local description", error))
                     return
                 }
                 complete(sd)
@@ -277,7 +277,7 @@ extension Transport {
 
             self.pc.setRemoteDescription(sd) { error in
                 guard error == nil else {
-                    fail(EngineError.webRTC("failed to set remote description", error))
+                    fail(EngineError.webRTC(message: "failed to set remote description", error))
                     return
                 }
                 complete(sd)
@@ -291,7 +291,7 @@ extension Transport {
 
             self.pc.add(candidate) { error in
                 guard error == nil else {
-                    fail(EngineError.webRTC("failed to add ice candidate", error))
+                    fail(EngineError.webRTC(message: "failed to add ice candidate", error))
                     return
                 }
                 complete(())
@@ -305,7 +305,7 @@ extension Transport {
         Promise<RTCRtpTransceiver>(on: .webRTC) { complete, fail in
 
             guard let transceiver = self.pc.addTransceiver(with: track, init: transceiverInit) else {
-                fail(EngineError.webRTC("Failed to add transceiver"))
+                fail(EngineError.webRTC(message: "Failed to add transceiver"))
                 return
             }
 
@@ -318,7 +318,7 @@ extension Transport {
         Promise<Void>(on: .webRTC) { complete, fail in
 
             guard self.pc.removeTrack(sender) else {
-                fail(EngineError.webRTC("Failed to removeTrack"))
+                fail(EngineError.webRTC(message: "Failed to removeTrack"))
                 return
             }
 

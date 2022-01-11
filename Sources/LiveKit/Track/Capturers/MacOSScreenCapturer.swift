@@ -134,7 +134,7 @@ public class MacOSScreenCapturer: VideoCapturer {
                 // try to create a display input
                 guard let input = AVCaptureScreenInput(displayID: displayID) else {
                     // fail promise if displayID is invalid
-                    throw TrackError.invalidTrackState("Failed to create screen input with displayID: \(displayID)")
+                    throw TrackError.state(message: "Failed to create screen input with displayID: \(displayID)")
                 }
 
                 input.minFrameDuration = CMTimeMake(value: 1, timescale: Int32(self.options.fps))

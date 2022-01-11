@@ -43,7 +43,7 @@ public class CameraCapturer: VideoCapturer {
         // cannot toggle if current position is unknown
         guard position != .unspecified else {
             logger.warning("Failed to toggle camera position")
-            return Promise(TrackError.invalidTrackState("Camera position unknown"))
+            return Promise(TrackError.state(message: "Camera position unknown"))
         }
 
         return setCameraPosition(position == .front ? .back : .front)
@@ -71,7 +71,7 @@ public class CameraCapturer: VideoCapturer {
 
         guard let device = devices.first(where: { $0.position == options.position }) ?? devices.first else {
             logger.error("No camera video capture devices available")
-            return Promise(TrackError.mediaError("No camera video capture devices available"))
+            return Promise(TrackError.capturer(message: "No camera video capture devices available"))
         }
 
         let formats = DispatchQueue.webRTC.sync { RTCCameraVideoCapturer.supportedFormats(for: device) }
@@ -99,7 +99,7 @@ public class CameraCapturer: VideoCapturer {
 
         guard selectedDimension != nil else {
             logger.error("Could not get dimensions")
-            return Promise(TrackError.mediaError("Could not get dimensions"))
+            return Promise(TrackError.capturer(message: "Could not get dimensions"))
         }
 
         let fps = options.captureParameter.encoding.maxFps
@@ -112,7 +112,7 @@ public class CameraCapturer: VideoCapturer {
             maxFps = max(maxFps, Int(fpsRange.maxFrameRate))
         }
         if fps < minFps || fps > maxFps {
-            return Promise(TrackError.mediaError("requested framerate is unsupported (\(minFps)-\(maxFps))"))
+            return Promise(TrackError.capturer(message: "requested framerate is unsupported (\(minFps)-\(maxFps))"))
         }
 
         logger.info("Starting camera capturer device: \(device), format: \(selectedFormat), fps: \(fps)")
