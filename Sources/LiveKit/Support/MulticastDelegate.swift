@@ -35,15 +35,16 @@ public class MulticastDelegate<T>: NSObject {
         queue.sync { set.remove(delegate) }
     }
 
-    internal func notify(_ fnc: @escaping (T) throws -> Void) rethrows {
+    internal func notify(_ fnc: @escaping (T) -> Void) {
 
-        try queue.sync {
-            for delegate in set.objectEnumerator() {
+        queue.async {
+            for delegate in self.set.objectEnumerator() {
                 guard let delegate = delegate as? T else {
                     logger.debug("MulticastDelegate: skipping notify for \(delegate), not a type of \(T.self)")
                     continue
                 }
-                try fnc(delegate)
+
+                fnc(delegate)
             }
         }
     }
@@ -67,7 +68,7 @@ extension MulticastDelegateCapable {
         delegates.remove(delegate: delegate)
     }
 
-    public func notify(_ fnc: @escaping (DelegateType) throws -> Void) rethrows {
-        try delegates.notify(fnc)
+    public func notify(_ fnc: @escaping (DelegateType) -> Void) {
+        delegates.notify(fnc)
     }
 }

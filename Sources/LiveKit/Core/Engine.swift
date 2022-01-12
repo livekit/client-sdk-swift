@@ -403,7 +403,7 @@ extension Engine: SignalClientDelegate {
 
             publisher?.onOffer = { offer in
                 logger.debug("publisher onOffer")
-                try? self.signalClient.sendOffer(offer: offer)
+                self.signalClient.sendOffer(offer: offer)
             }
 
             // data over pub channel for backwards compatibility
@@ -475,7 +475,7 @@ extension Engine: SignalClientDelegate {
         }.then { answer in
             subscriber.setLocalDescription(answer)
         }.then { answer in
-            try? self.signalClient.sendAnswer(answer: answer)
+            self.signalClient.sendAnswer(answer: answer)
         }
     }
 

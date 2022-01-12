@@ -2,41 +2,36 @@ import WebRTC
 
 extension RTCSessionDescription {
 
-    func toPBType() throws -> Livekit_SessionDescription {
-
-        var sessionDescription = Livekit_SessionDescription()
-        sessionDescription.sdp = sdp
+    func toPBType() -> Livekit_SessionDescription {
+        var sd = Livekit_SessionDescription()
+        sd.sdp = sdp
 
         switch type {
-        case .answer:
-            sessionDescription.type = "answer"
-        case .offer:
-            sessionDescription.type = "offer"
-        case .prAnswer:
-            sessionDescription.type = "pranswer"
+        case .answer: sd.type = "answer"
+        case .offer: sd.type = "offer"
+        case .prAnswer: sd.type = "pranswer"
         default:
-            throw InternalError.state(message: "Unknown state \(type)")
+            // This should never happen
+            fatalError("Unknown state \(type)")
         }
 
-        return sessionDescription
+        return sd
     }
 }
 
 extension Livekit_SessionDescription {
 
-    func toRTCType() throws -> RTCSessionDescription {
-        var rtcSdpType: RTCSdpType
+    func toRTCType() -> RTCSessionDescription {
+        var sdpType: RTCSdpType
         switch type {
-        case "answer":
-            rtcSdpType = .answer
-        case "offer":
-            rtcSdpType = .offer
-        case "pranswer":
-            rtcSdpType = .prAnswer
+        case "answer": sdpType = .answer
+        case "offer": sdpType = .offer
+        case "pranswer": sdpType = .prAnswer
         default:
-            throw InternalError.state(message: "Unknown state \(type)")
+            // This should never happen
+            fatalError("Unknown state \(type)")
         }
 
-        return RTCSessionDescription(type: rtcSdpType, sdp: sdp)
+        return RTCSessionDescription(type: sdpType, sdp: sdp)
     }
 }

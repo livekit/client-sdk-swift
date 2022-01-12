@@ -135,56 +135,55 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
             return
         }
 
-        do {
-            switch message {
-            case .join(let joinResponse) :
-                latestJoinResponse = joinResponse
-                notify { $0.signalClient(self, didReceive: joinResponse) }
+        switch message {
+        case .join(let joinResponse) :
+            latestJoinResponse = joinResponse
+            notify { $0.signalClient(self, didReceive: joinResponse) }
 
-            case .answer(let sd):
-                try notify { $0.signalClient(self, didReceiveAnswer: try sd.toRTCType()) }
+        case .answer(let sd):
+            notify { $0.signalClient(self, didReceiveAnswer: sd.toRTCType()) }
 
-            case .offer(let sd):
-                try notify { $0.signalClient(self, didReceiveOffer: try sd.toRTCType()) }
+        case .offer(let sd):
+            notify { $0.signalClient(self, didReceiveOffer: sd.toRTCType()) }
 
-            case .trickle(let trickle):
-                let rtcCandidate = try RTCIceCandidate(fromJsonString: trickle.candidateInit)
-                notify { $0.signalClient(self, didReceive: rtcCandidate, target: trickle.target) }
-
-            case .update(let update):
-                notify { $0.signalClient(self, didUpdate: update.participants) }
-
-            case .trackPublished(let trackPublished):
-                notify { $0.signalClient(self, didPublish: trackPublished) }
-
-            case .speakersChanged(let speakers):
-                notify { $0.signalClient(self, didUpdate: speakers.speakers) }
-
-            case .connectionQuality(let quality):
-                notify { $0.signalClient(self, didUpdate: quality.updates) }
-
-            case .mute(let mute):
-                notify { $0.signalClient(self, didUpdateRemoteMute: mute.sid, muted: mute.muted) }
-
-            case .leave:
-                notify { $0.signalClientDidLeave(self) }
-
-            case .streamStateUpdate(let states):
-                notify { $0.signalClient(self, didUpdate: states.streamStates) }
-
-            case .subscribedQualityUpdate(let update):
-                // ignore 0.15.1
-                if latestJoinResponse?.serverVersion == "0.15.1" {
-                    return
-                }
-                notify { $0.signalClient(self, didUpdate: update.trackSid, subscribedQualities: update.subscribedQualities)}
-            case .subscriptionPermissionUpdate(let permissionUpdate):
-                notify { $0.signalClient(self, didUpdate: permissionUpdate) }
-            default:
-                logger.warning("unsupported signal response type: \(message)")
+        case .trickle(let trickle):
+            guard let rtcCandidate = try? RTCIceCandidate(fromJsonString: trickle.candidateInit) else {
+                return
             }
-        } catch {
-            logger.error("could not handle signal response: \(error)")
+
+            notify { $0.signalClient(self, didReceive: rtcCandidate, target: trickle.target) }
+
+        case .update(let update):
+            notify { $0.signalClient(self, didUpdate: update.participants) }
+
+        case .trackPublished(let trackPublished):
+            notify { $0.signalClient(self, didPublish: trackPublished) }
+
+        case .speakersChanged(let speakers):
+            notify { $0.signalClient(self, didUpdate: speakers.speakers) }
+
+        case .connectionQuality(let quality):
+            notify { $0.signalClient(self, didUpdate: quality.updates) }
+
+        case .mute(let mute):
+            notify { $0.signalClient(self, didUpdateRemoteMute: mute.sid, muted: mute.muted) }
+
+        case .leave:
+            notify { $0.signalClientDidLeave(self) }
+
+        case .streamStateUpdate(let states):
+            notify { $0.signalClient(self, didUpdate: states.streamStates) }
+
+        case .subscribedQualityUpdate(let update):
+            // ignore 0.15.1
+            if latestJoinResponse?.serverVersion == "0.15.1" {
+                return
+            }
+            notify { $0.signalClient(self, didUpdate: update.trackSid, subscribedQualities: update.subscribedQualities)}
+        case .subscriptionPermissionUpdate(let permissionUpdate):
+            notify { $0.signalClient(self, didUpdate: permissionUpdate) }
+        default:
+            logger.warning("unsupported signal response type: \(message)")
         }
     }
 }
@@ -223,21 +222,21 @@ extension SignalClient {
 
 extension SignalClient {
 
-    func sendOffer(offer: RTCSessionDescription) throws {
+    func sendOffer(offer: RTCSessionDescription) {
         logger.debug("[SignalClient] Sending offer")
 
-        let r = try Livekit_SignalRequest.with {
-            $0.offer = try offer.toPBType()
+        let r = Livekit_SignalRequest.with {
+            $0.offer = offer.toPBType()
         }
 
         sendRequest(r)
     }
 
-    func sendAnswer(answer: RTCSessionDescription) throws {
+    func sendAnswer(answer: RTCSessionDescription) {
         logger.debug("[SignalClient] Sending answer")
 
-        let r = try Livekit_SignalRequest.with {
-            $0.answer = try answer.toPBType()
+        let r = Livekit_SignalRequest.with {
+            $0.answer = answer.toPBType()
         }
 
         sendRequest(r)
