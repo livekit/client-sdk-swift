@@ -4,13 +4,36 @@ import WebRTC
 
 internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
 
-    // connection state of WebSocket
-    private(set) var connectionState: ConnectionState = .disconnected()
+    public private(set) var connectionState: ConnectionState = .disconnected() {
+        didSet {
+            guard oldValue != connectionState else { return }
+            // Connected
+            if case .connected = connectionState {
+                // Check if this was a re-connect
+                var isReconnect = false
+                if case .connecting(let reconnecting) = oldValue, reconnecting {
+                    isReconnect = true
+                }
 
-    private var urlSession: URLSession?
+                notify { $0.signalClient(self, didConnect: isReconnect) }
+            }
 
-    private var webSocket: URLSessionWebSocketTask?
+            if case .disconnected = connectionState {
+                if case .connecting = oldValue {
+                    // Failed to connect
+                    notify { $0.signalClient(self, didFailConnect: SignalClientError.close()) }
+                } else if case .connected = oldValue {
+                    // Disconnected
+                    notify { $0.signalClient(self, didClose: .abnormalClosure) }
+                }
 
+                webSocket?.close()
+                webSocket = nil
+            }
+        }
+    }
+
+    private var webSocket: WebSocket?
     private var latestJoinResponse: Livekit_JoinResponse?
 
     func connect(_ url: String,
@@ -18,32 +41,49 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
                  connectOptions: ConnectOptions? = nil,
                  reconnect: Bool = false) -> Promise<Void> {
 
-        return Promise<Void> { () -> Void in
+        // Clear internal vars
+        self.latestJoinResponse = nil
 
-            // Clear internal vars
-            self.latestJoinResponse = nil
-
-            let rtcUrl = try Utils.buildUrl(url,
-                                            token,
-                                            connectOptions: connectOptions,
-                                            reconnect: reconnect)
-            logger.debug("connecting with url: \(rtcUrl)")
-
-            self.webSocket?.cancel()
-            // recreate session as old session could be invalidated
-            let session = URLSession(configuration: .default,
-                                     delegate: self,
-                                     delegateQueue: OperationQueue())
-
-            var request = URLRequest(url: rtcUrl)
-            request.networkServiceType = .voip
-            self.webSocket = session.webSocketTask(with: request)
-            self.urlSession = session
-            self.webSocket!.resume() // Unexpectedly found nil while unwrapping an Optional values
-            self.connectionState = .connecting(isReconnecting: reconnect)
-        }.then {
-            self.waitForWebSocketConnected()
-        }
+        return Utils.buildUrl(url,
+                              token,
+                              connectOptions: connectOptions,
+                              reconnect: reconnect)
+            .catch { error in
+                logger.error("Failed to parse rtc url")
+            }
+            .then { url -> Promise<WebSocket> in
+                logger.debug("Connecting with url: \(url)")
+                self.connectionState = .connecting(isReconnecting: reconnect)
+                return WebSocket.connect(url: url,
+                                         onMessage: self.onWebSocketMessage) { _ in
+                    // onClose
+                    self.connectionState = .disconnected()
+                }
+            }.then { (webSocket: WebSocket) -> Void in
+                self.webSocket = webSocket
+                self.connectionState = .connected
+            }.recover { _ -> Promise<Void> in
+                // Catch first, then throw again after getting validation response
+                // Re-build url with validate mode
+                Utils.buildUrl(url,
+                               token,
+                               connectOptions: connectOptions,
+                               reconnect: reconnect,
+                               validate: true
+                ).then { url -> Promise<Data> in
+                    logger.debug("Validating with url: \(url)")
+                    return HTTP().get(url: url)
+                }.then { data in
+                    guard let string = String(data: data, encoding: .utf8) else {
+                        throw SignalClientError.connect(message: "Failed to decode string")
+                    }
+                    print("validate response: \(string)")
+                    // re-throw with validation response
+                    throw SignalClientError.connect(message: string)
+                }
+            }.catch { _ in
+                self.connectionState = .disconnected(SignalClientError.connect())
+            }
     }
 
     private func sendRequest(_ request: Livekit_SignalRequest) {
@@ -53,180 +93,104 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
             return
         }
 
-        do {
-            let msg = try request.serializedData()
-            let message = URLSessionWebSocketTask.Message.data(msg)
-            webSocket?.send(message) { error in
-                if let error = error {
-                    logger.error("could not send message: \(error)")
-                }
-            }
-        } catch {
-            logger.error("could not serialize data: \(error)")
+        guard let data = try? request.serializedData() else {
+            logger.error("could not serialize data")
+            return
         }
+
+        webSocket?.send(data: data)
     }
 
     func close() {
-        urlSession?.invalidateAndCancel()
-        urlSession = nil
-        webSocket?.cancel()
-        webSocket = nil
         connectionState = .disconnected()
     }
 
-    // handle errors after already connected
-    private func handleError(_ reason: String) {
-        //
-        notify { $0.signalClient(self, didClose: .abnormalClosure ) }
-        close()
+    private func onWebSocketMessage(message: URLSessionWebSocketTask.Message) {
+
+        var response: Livekit_SignalResponse?
+
+        switch message {
+        case .data(let data):
+            response = try? Livekit_SignalResponse(contiguousBytes: data)
+        case .string(let text):
+            response = try? Livekit_SignalResponse(jsonString: text)
+        @unknown default:
+            // This should never happen
+            logger.warning("Unknown message type")
+        }
+
+        guard let response = response,
+              let message = response.message else {
+            logger.warning("Failed to decode SignalResponse")
+            return
+        }
+
+        onSignalResponse(message: message)
     }
 
-    private func handleSignalResponse(msg: Livekit_SignalResponse.OneOf_Message) {
+    private func onSignalResponse(message: Livekit_SignalResponse.OneOf_Message) {
 
         guard case .connected = connectionState else {
-            logger.error("not connected")
+            logger.warning("Not connected")
             return
         }
 
-        do {
-            switch msg {
-            case .join(let joinResponse) :
-                latestJoinResponse = joinResponse
-                notify { $0.signalClient(self, didReceive: joinResponse) }
+        switch message {
+        case .join(let joinResponse) :
+            latestJoinResponse = joinResponse
+            notify { $0.signalClient(self, didReceive: joinResponse) }
 
-            case .answer(let sd):
-                try notify { $0.signalClient(self, didReceiveAnswer: try sd.toRTCType()) }
+        case .answer(let sd):
+            notify { $0.signalClient(self, didReceiveAnswer: sd.toRTCType()) }
 
-            case .offer(let sd):
-                try notify { $0.signalClient(self, didReceiveOffer: try sd.toRTCType()) }
+        case .offer(let sd):
+            notify { $0.signalClient(self, didReceiveOffer: sd.toRTCType()) }
 
-            case .trickle(let trickle):
-                let rtcCandidate = try RTCIceCandidate(fromJsonString: trickle.candidateInit)
-                notify { $0.signalClient(self, didReceive: rtcCandidate, target: trickle.target) }
-
-            case .update(let update):
-                notify { $0.signalClient(self, didUpdate: update.participants) }
-
-            case .trackPublished(let trackPublished):
-                notify { $0.signalClient(self, didPublish: trackPublished) }
-
-            case .speakersChanged(let speakers):
-                notify { $0.signalClient(self, didUpdate: speakers.speakers) }
-
-            case .connectionQuality(let quality):
-                notify { $0.signalClient(self, didUpdate: quality.updates) }
-
-            case .mute(let mute):
-                notify { $0.signalClient(self, didUpdateRemoteMute: mute.sid, muted: mute.muted) }
-
-            case .leave:
-                notify { $0.signalClientDidLeave(self) }
-
-            case .streamStateUpdate(let states):
-                notify { $0.signalClient(self, didUpdate: states.streamStates) }
-
-            case .subscribedQualityUpdate(let update):
-                // ignore 0.15.1
-                if latestJoinResponse?.serverVersion == "0.15.1" {
-                    return
-                }
-                notify { $0.signalClient(self, didUpdate: update.trackSid, subscribedQualities: update.subscribedQualities)}
-            case .subscriptionPermissionUpdate(let permissionUpdate):
-                notify { $0.signalClient(self, didUpdate: permissionUpdate) }
-            default:
-                logger.warning("unsupported signal response type: \(msg)")
-            }
-        } catch {
-            logger.error("could not handle signal response: \(error)")
-        }
-    }
-
-    private func receiveNext() {
-        guard let webSocket = webSocket else {
-            logger.debug("webSocket is nil")
-            return
-        }
-        webSocket.receive(completionHandler: handleWebsocketMessage)
-    }
-
-    private func handleWebsocketMessage(result: Result<URLSessionWebSocketTask.Message, Error>) {
-        switch result {
-        case .failure(let error):
-            // cancel connection on failure
-            logger.error("could not receive websocket: \(error)")
-            handleError(error.localizedDescription)
-        case .success(let msg):
-            var response: Livekit_SignalResponse?
-            switch msg {
-            case .data(let data):
-                do {
-                    response = try Livekit_SignalResponse(contiguousBytes: data)
-                } catch {
-                    logger.error("could not decode protobuf message: \(error)")
-                    handleError(error.localizedDescription)
-                }
-            case .string(let text):
-                do {
-                    response = try Livekit_SignalResponse(jsonString: text)
-                } catch {
-                    logger.error("could not decode JSON message: \(error)")
-                    handleError(error.localizedDescription)
-                }
-            default:
+        case .trickle(let trickle):
+            guard let rtcCandidate = try? RTCIceCandidate(fromJsonString: trickle.candidateInit) else {
                 return
             }
 
-            if let sigResp = response, let msg = sigResp.message {
-                handleSignalResponse(msg: msg)
-            }
+            notify { $0.signalClient(self, didReceive: rtcCandidate, target: trickle.target) }
 
-            // queue up the next read
-            DispatchQueue.global(qos: .background).async {
-                self.receiveNext()
+        case .update(let update):
+            notify { $0.signalClient(self, didUpdate: update.participants) }
+
+        case .trackPublished(let trackPublished):
+            notify { $0.signalClient(self, didPublish: trackPublished) }
+
+        case .speakersChanged(let speakers):
+            notify { $0.signalClient(self, didUpdate: speakers.speakers) }
+
+        case .connectionQuality(let quality):
+            notify { $0.signalClient(self, didUpdate: quality.updates) }
+
+        case .mute(let mute):
+            notify { $0.signalClient(self, didUpdateRemoteMute: mute.sid, muted: mute.muted) }
+
+        case .leave:
+            notify { $0.signalClientDidLeave(self) }
+
+        case .streamStateUpdate(let states):
+            notify { $0.signalClient(self, didUpdate: states.streamStates) }
+
+        case .subscribedQualityUpdate(let update):
+            // ignore 0.15.1
+            if latestJoinResponse?.serverVersion == "0.15.1" {
+                return
             }
+            notify { $0.signalClient(self, didUpdate: update.trackSid, subscribedQualities: update.subscribedQualities)}
+        case .subscriptionPermissionUpdate(let permissionUpdate):
+            notify { $0.signalClient(self, didUpdate: permissionUpdate) }
+        default:
+            logger.warning("unsupported signal response type: \(message)")
         }
     }
-
 }
 
 // MARK: Wait extension
 
 extension SignalClient {
-
-    func waitForWebSocketConnected() -> Promise<Void> {
-
-        logger.debug("Waiting for WebSocket to connect...")
-
-        // If already connected, there is no need to wait.
-        if case .connected = connectionState {
-            logger.debug("Already connected.")
-            return Promise(())
-        } else if case .disconnected(let error) = connectionState {
-            if let error = error {
-                logger.debug("Already errored.")
-                return Promise(error)
-            }
-        }
-
-        return Promise<Void> { resolve, fail in
-            // create temporary delegate
-            var delegate: SignalClientDelegateClosures?
-            delegate = SignalClientDelegateClosures(didConnect: { _, _ in
-                logger.debug("WebSocket didConnect")
-                // wait until connected
-                resolve(())
-                delegate = nil
-            }, didFailConnection: { _, error in
-                logger.debug("WebSocket didFailConnection")
-                fail(error)
-                delegate = nil
-            })
-            // not required to clean up since weak reference
-            self.add(delegate: delegate!)
-        }
-        // convert to a timed-promise
-        .timeout(10)
-    }
 
     func waitReceiveJoinResponse() -> Promise<Livekit_JoinResponse> {
 
@@ -258,21 +222,21 @@ extension SignalClient {
 
 extension SignalClient {
 
-    func sendOffer(offer: RTCSessionDescription) throws {
+    func sendOffer(offer: RTCSessionDescription) {
         logger.debug("[SignalClient] Sending offer")
 
-        let r = try Livekit_SignalRequest.with {
-            $0.offer = try offer.toPBType()
+        let r = Livekit_SignalRequest.with {
+            $0.offer = offer.toPBType()
         }
 
         sendRequest(r)
     }
 
-    func sendAnswer(answer: RTCSessionDescription) throws {
+    func sendAnswer(answer: RTCSessionDescription) {
         logger.debug("[SignalClient] Sending answer")
 
-        let r = try Livekit_SignalRequest.with {
-            $0.answer = try answer.toPBType()
+        let r = Livekit_SignalRequest.with {
+            $0.answer = answer.toPBType()
         }
 
         sendRequest(r)
@@ -385,56 +349,5 @@ extension SignalClient {
         }
 
         sendRequest(r)
-    }
-}
-
-// MARK: - URLSessionWebSocketDelegate
-
-extension SignalClient: URLSessionWebSocketDelegate {
-
-    func urlSession(_ session: URLSession,
-                    webSocketTask: URLSessionWebSocketTask,
-                    didOpenWithProtocol protocol: String?) {
-
-        guard webSocketTask == webSocket else {
-            return
-        }
-
-        var isReconnect = false
-        if case .connecting(let reconnecting) = connectionState, reconnecting {
-            isReconnect = true
-        }
-
-        connectionState = .connected
-        notify { $0.signalClient(self, didConnect: isReconnect) }
-        receiveNext()
-    }
-
-    func urlSession(_ session: URLSession,
-                    webSocketTask: URLSessionWebSocketTask,
-                    didCloseWith closeCode: URLSessionWebSocketTask.CloseCode,
-                    reason: Data?) {
-
-        guard webSocketTask == webSocket else {
-            return
-        }
-
-        logger.debug("websocket disconnected")
-        connectionState = .disconnected()
-        notify { $0.signalClient(self, didClose: closeCode) }
-    }
-
-    func urlSession(_ session: URLSession,
-                    task: URLSessionTask,
-                    didCompleteWithError error: Error?) {
-
-        guard task == webSocket else {
-            return
-        }
-
-        let lkError = SignalClientError.socketError(rawError: error)
-
-        connectionState = .disconnected(lkError)
-        notify { $0.signalClient(self, didFailConnection: lkError) }
     }
 }

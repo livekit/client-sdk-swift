@@ -1,5 +1,6 @@
 import Foundation
 import WebRTC
+import Promises
 
 typealias DebouncFunc = () -> Void
 
@@ -12,69 +13,71 @@ class Utils {
         reconnect: Bool = false,
         validate: Bool = false,
         forceSecure: Bool = false
-    ) throws -> URL {
+    ) -> Promise<URL> {
 
-        // use default options if nil
-        let connectOptions = connectOptions ?? ConnectOptions()
+        Promise { () -> URL in
+            // use default options if nil
+            let connectOptions = connectOptions ?? ConnectOptions()
 
-        guard let parsedUrl = URL(string: url) else {
-            throw InternalError.parse(message: "Failed to parse url")
+            guard let parsedUrl = URL(string: url) else {
+                throw InternalError.parse(message: "Failed to parse url")
+            }
+
+            let components = URLComponents(url: parsedUrl, resolvingAgainstBaseURL: false)
+
+            guard var builder = components else {
+                throw InternalError.parse(message: "Failed to parse url components")
+            }
+
+            let useSecure = parsedUrl.isSecure || forceSecure
+            let httpScheme = useSecure ? "https" : "http"
+            let wsScheme = useSecure ? "wss" : "ws"
+            let lastPathSegment = validate ? "validate" : "rtc"
+
+            var pathSegments = parsedUrl.pathComponents
+            // strip empty & slashes
+            pathSegments.removeAll(where: { $0.isEmpty || $0 == "/" })
+
+            // if already ending with `rtc` or `validate`
+            // and is not a dir, remove it
+            if !parsedUrl.hasDirectoryPath
+                && !pathSegments.isEmpty
+                && ["rtc", "validate"].contains(pathSegments.last!) {
+                pathSegments.removeLast()
+            }
+            // add the correct segment
+            pathSegments.append(lastPathSegment)
+
+            builder.scheme = validate ? httpScheme : wsScheme
+            builder.path = "/" + pathSegments.joined(separator: "/")
+
+            var queryItems = [
+                URLQueryItem(name: "access_token", value: token),
+                URLQueryItem(name: "protocol", value: connectOptions.protocolVersion.description),
+                URLQueryItem(name: "sdk", value: "swift"),
+                URLQueryItem(name: "version", value: LiveKit.version)
+            ]
+
+            if reconnect {
+                queryItems.append(URLQueryItem(name: "reconnect", value: "1"))
+            }
+
+            if connectOptions.autoSubscribe {
+                queryItems.append(URLQueryItem(name: "auto_subscribe", value: "1"))
+            }
+
+            if let publish = connectOptions.publish {
+                queryItems.append(URLQueryItem(name: "publish", value: publish))
+            }
+
+            builder.queryItems = queryItems
+
+            guard let builtUrl = builder.url else {
+                throw InternalError.convert(message: "Failed to convert components to url \(builder)")
+            }
+
+            return builtUrl
         }
-
-        let components = URLComponents(url: parsedUrl, resolvingAgainstBaseURL: false)
-
-        guard var builder = components else {
-            throw InternalError.parse(message: "Failed to parse url components")
-        }
-
-        let useSecure = parsedUrl.isSecure || forceSecure
-        let httpScheme = useSecure ? "https" : "http"
-        let wsScheme = useSecure ? "wss" : "ws"
-        let lastPathSegment = validate ? "validate" : "rtc"
-
-        var pathSegments = parsedUrl.pathComponents
-        // strip empty & slashes
-        pathSegments.removeAll(where: { $0.isEmpty || $0 == "/" })
-
-        // if already ending with `rtc` or `validate`
-        // and is not a dir, remove it
-        if !parsedUrl.hasDirectoryPath
-            && !pathSegments.isEmpty
-            && ["rtc", "validate"].contains(pathSegments.last!) {
-            pathSegments.removeLast()
-        }
-        // add the correct segment
-        pathSegments.append(lastPathSegment)
-
-        builder.scheme = validate ? httpScheme : wsScheme
-        builder.path = "/" + pathSegments.joined(separator: "/")
-
-        var queryItems = [
-            URLQueryItem(name: "access_token", value: token),
-            URLQueryItem(name: "protocol", value: connectOptions.protocolVersion.description),
-            URLQueryItem(name: "sdk", value: "swift"),
-            URLQueryItem(name: "version", value: LiveKit.version)
-        ]
-
-        if reconnect {
-            queryItems.append(URLQueryItem(name: "reconnect", value: "1"))
-        }
-
-        if connectOptions.autoSubscribe {
-            queryItems.append(URLQueryItem(name: "auto_subscribe", value: "1"))
-        }
-
-        if let publish = connectOptions.publish {
-            queryItems.append(URLQueryItem(name: "publish", value: publish))
-        }
-
-        builder.queryItems = queryItems
-
-        guard let builtUrl = builder.url else {
-            throw InternalError.convert(message: "Failed to convert components to url \(builder)")
-        }
-
-        return builtUrl
     }
 
     internal static func createDebounceFunc(wait: TimeInterval,

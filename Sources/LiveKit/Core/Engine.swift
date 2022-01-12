@@ -294,7 +294,7 @@ extension Engine {
             var signalDelegate: SignalClientDelegateClosures?
             signalDelegate = SignalClientDelegateClosures(
                 didClose: { _, _ in
-                    fail(SignalClientError.close("Socket closed while waiting for ice-connect"))
+                    fail(SignalClientError.close(message: "Socket closed while waiting for ice-connect"))
                     signalDelegate = nil
                 }
             )
@@ -332,7 +332,7 @@ extension Engine {
             var signalDelegate: SignalClientDelegateClosures?
             signalDelegate = SignalClientDelegateClosures(
                 didClose: { _, _ in
-                    fail(SignalClientError.close("Socket closed while waiting for ice-connect"))
+                    fail(SignalClientError.close(message: "Socket closed while waiting for ice-connect"))
                     signalDelegate = nil
                 }
             )
@@ -351,7 +351,7 @@ extension Engine {
                 // This promise we be considered failed if signal disconnects while waiting.
                 // still it will attempt to re-connect.
                 didClose: { _, _ in
-                    fail(SignalClientError.close("Socket closed while waiting for publish track"))
+                    fail(SignalClientError.close(message: "Socket closed while waiting for publish track"))
                     delegate = nil
                 },
                 didPublishLocalTrack: { _, response in
@@ -403,7 +403,7 @@ extension Engine: SignalClientDelegate {
 
             publisher?.onOffer = { offer in
                 logger.debug("publisher onOffer")
-                try? self.signalClient.sendOffer(offer: offer)
+                self.signalClient.sendOffer(offer: offer)
             }
 
             // data over pub channel for backwards compatibility
@@ -475,7 +475,7 @@ extension Engine: SignalClientDelegate {
         }.then { answer in
             subscriber.setLocalDescription(answer)
         }.then { answer in
-            try? self.signalClient.sendAnswer(answer: answer)
+            self.signalClient.sendAnswer(answer: answer)
         }
     }
 
@@ -492,7 +492,7 @@ extension Engine: SignalClientDelegate {
         reconnect()
     }
 
-    func signalClient(_ signalClient: SignalClient, didFailConnection error: Error) {
+    func signalClient(_ signalClient: SignalClient, didFailConnect error: Error) {
         logger.debug("signal connection error: \(error)")
         notify { $0.engine(self, didFailConnection: error) }
     }
