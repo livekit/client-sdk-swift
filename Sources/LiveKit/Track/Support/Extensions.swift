@@ -1,16 +1,6 @@
 import WebRTC
 import ReplayKit
 
-extension CVPixelBuffer {
-
-    public func toRTCVideoFrame(timeStampNs: Int64) -> RTCVideoFrame {
-        let pixelBuffer = RTCCVPixelBuffer(pixelBuffer: self)
-        return RTCVideoFrame(buffer: pixelBuffer,
-                             rotation: ._0,
-                             timeStampNs: timeStampNs)
-    }
-}
-
 extension CIImage {
 
     /// Convenience method to convert ``CIImage`` to ``CVPixelBuffer``

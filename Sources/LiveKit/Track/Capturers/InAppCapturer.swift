@@ -5,7 +5,7 @@ import Promises
 @available(macOS 11.0, iOS 11.0, *)
 public class InAppScreenCapturer: VideoCapturer {
 
-    private let capturer = RTCVideoCapturer()
+    private let capturer = Engine.createVideoCapturer()
 
     public override func startCapture() -> Promise<Void> {
         return super.startCapture().then {

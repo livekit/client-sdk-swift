@@ -137,11 +137,11 @@ class Utils {
         // if simulcast is enabled, always add "h" and "f" encoding parameters
         // but keep it active = false if dimension is too small
         return publishOptions.simulcast ? [
-            RTCRtpEncodingParameters(rid: "q", encoding: encodingQ, scaleDown: activateF ? 4 : 2),
-            RTCRtpEncodingParameters(rid: "h", encoding: encodingH, scaleDown: activateF ? 2 : 1),
-            RTCRtpEncodingParameters(rid: "f", encoding: encodingF, scaleDown: 1, active: activateF)
+            Engine.createRtpEncodingParameters(rid: "q", encoding: encodingQ, scaleDown: activateF ? 4 : 2),
+            Engine.createRtpEncodingParameters(rid: "h", encoding: encodingH, scaleDown: activateF ? 2 : 1),
+            Engine.createRtpEncodingParameters(rid: "f", encoding: encodingF, scaleDown: 1, active: activateF)
         ] : [
-            RTCRtpEncodingParameters(rid: "q", encoding: encodingF)
+            Engine.createRtpEncodingParameters(rid: "q", encoding: encodingF)
         ]
     }
 

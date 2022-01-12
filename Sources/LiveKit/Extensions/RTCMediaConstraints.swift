@@ -11,8 +11,8 @@ extension RTCMediaConstraints {
     //        optionalConstraints: nil
     //    )
 
-    static let defaultPCConstraints = RTCMediaConstraints(
+    static let defaultPCConstraints = DispatchQueue.webRTC.sync { RTCMediaConstraints(
         mandatoryConstraints: nil,
         optionalConstraints: ["DtlsSrtpKeyAgreement": kRTCMediaConstraintsValueTrue]
-    )
+    ) }
 }

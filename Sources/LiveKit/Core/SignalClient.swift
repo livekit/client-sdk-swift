@@ -147,7 +147,7 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
             notify { $0.signalClient(self, didReceiveOffer: sd.toRTCType()) }
 
         case .trickle(let trickle):
-            guard let rtcCandidate = try? RTCIceCandidate(fromJsonString: trickle.candidateInit) else {
+            guard let rtcCandidate = try? Engine.createIceCandidate(fromJsonString: trickle.candidateInit) else {
                 return
             }
 

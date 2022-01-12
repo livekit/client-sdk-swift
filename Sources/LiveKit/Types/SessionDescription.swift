@@ -32,6 +32,6 @@ extension Livekit_SessionDescription {
             fatalError("Unknown state \(type)")
         }
 
-        return RTCSessionDescription(type: sdpType, sdp: sdp)
+        return Engine.createSessionDescription(type: sdpType, sdp: sdp)
     }
 }

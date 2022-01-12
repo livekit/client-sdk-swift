@@ -62,7 +62,7 @@ extension MacOSScreenCapturer {
 
 public class MacOSScreenCapturer: VideoCapturer {
 
-    private let capturer = RTCVideoCapturer()
+    private let capturer = Engine.createVideoCapturer()
 
     // TODO: Make it possible to change dynamically
     public var source: ScreenShareSource

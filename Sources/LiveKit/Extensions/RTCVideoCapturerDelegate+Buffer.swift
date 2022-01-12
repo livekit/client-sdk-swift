@@ -13,6 +13,8 @@ extension CGImagePropertyOrientation {
     }
 }
 
+internal let supportedPixelFormats = DispatchQueue.webRTC.sync { RTCCVPixelBuffer.supportedPixelFormats() }
+
 extension RTCVideoCapturerDelegate {
 
     /// capture a `CVPixelBuffer`
@@ -24,7 +26,7 @@ extension RTCVideoCapturerDelegate {
 
         // check if pixel format is supported by WebRTC
         let pixelFormat = CVPixelBufferGetPixelFormatType(pixelBuffer)
-        guard RTCCVPixelBuffer.supportedPixelFormats().contains(where: { $0.uint32Value == pixelFormat }) else {
+        guard supportedPixelFormats.contains(where: { $0.uint32Value == pixelFormat }) else {
             // kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
             // kCVPixelFormatType_420YpCbCr8BiPlanarFullRange
             // kCVPixelFormatType_32BGRA

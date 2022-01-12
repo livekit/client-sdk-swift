@@ -34,20 +34,24 @@ extension LiveKit {
     public static func configureAudioSession(_ configuration: RTCAudioSessionConfiguration,
                                              setActive: Bool? = nil) {
 
-        let audioSession = RTCAudioSession.sharedInstance()
-        audioSession.lockForConfiguration()
-        defer { audioSession.unlockForConfiguration() }
+        let audioSession: RTCAudioSession = DispatchQueue.webRTC.sync {
+            let result = RTCAudioSession.sharedInstance()
+            result.lockForConfiguration()
+            return result
+        }
+
+        defer { DispatchQueue.webRTC.async { audioSession.unlockForConfiguration() } }
 
         do {
             logger.debug("configuring audio session with category: \(configuration.category), mode: \(configuration.mode), setActive: \(String(describing: setActive))")
 
             if let setActive = setActive {
-                try audioSession.setConfiguration(configuration, active: setActive)
+                try DispatchQueue.webRTC.sync { try audioSession.setConfiguration(configuration, active: setActive) }
             } else {
-                try audioSession.setConfiguration(configuration)
+                try DispatchQueue.webRTC.sync { try audioSession.setConfiguration(configuration) }
             }
         } catch let error {
-            logger.error("Failed to configure audio session \(error)")
+            logger.error("Failed to configureAudioSession with error: \(error)")
         }
     }
 
@@ -55,7 +59,7 @@ extension LiveKit {
     public static func defaultShouldConfigureAudioSessionFunc(newState: AudioManager.State,
                                                               oldState: AudioManager.State) {
 
-        let config = RTCAudioSessionConfiguration.webRTC()
+        let config = DispatchQueue.webRTC.sync { RTCAudioSessionConfiguration.webRTC() }
 
         switch newState {
         case .remoteOnly:

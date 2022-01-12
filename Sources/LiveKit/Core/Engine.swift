@@ -48,12 +48,12 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
         add(delegate: room)
 
         signalClient.add(delegate: self)
-        logger.debug("RTCEngine init")
+        logger.debug("Engine init")
     }
 
     deinit {
-        logger.debug("RTCEngine deinit")
-        // signalClient.remove(delegate: self)
+        logger.debug("Engine deinit")
+        signalClient.remove(delegate: self)
     }
 
     public func connect(_ url: String,
@@ -249,7 +249,8 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
                 $0.user = userPacket
             }
 
-            let rtcData = try RTCDataBuffer(data: packet.serializedData(), isBinary: true)
+            let serializedData = try packet.serializedData()
+            let rtcData = Engine.createDataBuffer(data: serializedData)
 
             guard let channel = self.publisherDataChannel(for: reliability) else {
                 throw InternalError.state(message: "Data channel is nil")
@@ -407,17 +408,12 @@ extension Engine: SignalClientDelegate {
             }
 
             // data over pub channel for backwards compatibility
-            let reliableConfig = RTCDataChannelConfiguration()
-            reliableConfig.isOrdered = true
             dcReliablePub = publisher?.dataChannel(for: RTCDataChannel.labels.reliable,
-                                                   configuration: reliableConfig,
+                                                   configuration: Engine.createDataChannelConfiguration(),
                                                    delegate: self)
 
-            let lossyConfig = RTCDataChannelConfiguration()
-            lossyConfig.isOrdered = true
-            lossyConfig.maxRetransmits = 0
             dcLossyPub = publisher?.dataChannel(for: RTCDataChannel.labels.lossy,
-                                                configuration: lossyConfig,
+                                                configuration: Engine.createDataChannelConfiguration(maxRetransmits: 0),
                                                 delegate: self)
 
         } catch {
@@ -621,5 +617,48 @@ extension Engine {
     internal static func createAudioTrack(source: RTCAudioSource) -> RTCAudioTrack {
         DispatchQueue.webRTC.sync { factory.audioTrack(with: source,
                                                        trackId: UUID().uuidString) }
+    }
+
+    internal static func createDataChannelConfiguration(ordered: Bool = true,
+                                                        maxRetransmits: Int32 = -1) -> RTCDataChannelConfiguration {
+        let result = DispatchQueue.webRTC.sync { RTCDataChannelConfiguration() }
+        result.isOrdered = ordered
+        result.maxRetransmits = maxRetransmits
+        return result
+    }
+
+    internal static func createDataBuffer(data: Data) -> RTCDataBuffer {
+        DispatchQueue.webRTC.sync { RTCDataBuffer(data: data, isBinary: true) }
+    }
+
+    internal static func createIceCandidate(fromJsonString: String) throws -> RTCIceCandidate {
+        try DispatchQueue.webRTC.sync { try RTCIceCandidate(fromJsonString: fromJsonString) }
+    }
+
+    internal static func createSessionDescription(type: RTCSdpType, sdp: String) -> RTCSessionDescription {
+        DispatchQueue.webRTC.sync { RTCSessionDescription(type: type, sdp: sdp) }
+    }
+
+    internal static func createVideoCapturer() -> RTCVideoCapturer {
+        DispatchQueue.webRTC.sync { RTCVideoCapturer() }
+    }
+
+    internal static func createRtpEncodingParameters(rid: String? = nil,
+                                                     encoding: VideoEncoding? = nil,
+                                                     scaleDown: Double = 1.0,
+                                                     active: Bool = true) -> RTCRtpEncodingParameters {
+
+        let result = DispatchQueue.webRTC.sync { RTCRtpEncodingParameters() }
+
+        result.isActive = active
+        result.rid = rid
+        result.scaleResolutionDownBy = NSNumber(value: scaleDown)
+
+        if let encoding = encoding {
+            result.maxFramerate = NSNumber(value: encoding.maxFps)
+            result.maxBitrateBps = NSNumber(value: encoding.maxBitrate)
+        }
+
+        return result
     }
 }

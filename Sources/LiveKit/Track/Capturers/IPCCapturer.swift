@@ -6,7 +6,7 @@ import Promises
 /// video buffers
 class IPCCapturer: VideoCapturer {
 
-    private let capturer = RTCVideoCapturer()
+    private let capturer = Engine.createVideoCapturer()
     private let ipcServer = IPCServer()
     private let ipcName: String
 

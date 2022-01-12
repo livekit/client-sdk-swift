@@ -7,7 +7,7 @@ extension RTCConfiguration {
 
     public static func liveKitDefault() -> RTCConfiguration {
 
-        let result = RTCConfiguration()
+        let result = DispatchQueue.webRTC.sync { RTCConfiguration() }
         result.sdpSemantics = .unifiedPlan
         result.continualGatheringPolicy = .gatherContinually
         result.candidateNetworkPolicy = .all
@@ -16,7 +16,7 @@ extension RTCConfiguration {
         result.tcpCandidatePolicy = .disabled
         result.iceTransportPolicy = .all
 
-        result.iceServers = [RTCIceServer(urlStrings: defaultIceServers)]
+        result.iceServers = [ DispatchQueue.webRTC.sync { RTCIceServer(urlStrings: defaultIceServers) } ]
 
         return result
     }

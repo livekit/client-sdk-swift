@@ -145,7 +145,7 @@ public class VideoView: NativeView {
 
     private static func createNativeRendererView(delegate: RTCVideoViewDelegate) -> RTCVideoRenderer {
 
-        return DispatchQueue.webRTC.sync {
+        DispatchQueue.webRTC.sync {
             let view: RTCVideoRenderer
             #if os(iOS)
             // iOS --------------------

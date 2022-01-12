@@ -4,7 +4,7 @@ import Promises
 
 public class BufferCapturer: VideoCapturer {
 
-    private let capturer = RTCVideoCapturer()
+    private let capturer = Engine.createVideoCapturer()
 
     // shortcut
     public func capture(_ sampleBuffer: CMSampleBuffer,

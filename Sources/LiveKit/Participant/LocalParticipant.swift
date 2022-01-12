@@ -37,7 +37,7 @@ public class LocalParticipant: Participant {
 
         let cid = track.mediaTrack.trackId
 
-        let transInit = RTCRtpTransceiverInit()
+        let transInit = DispatchQueue.webRTC.sync { RTCRtpTransceiverInit() }
         transInit.direction = .sendOnly
 
         return track.start()
@@ -113,9 +113,9 @@ public class LocalParticipant: Participant {
                                                    encodings: encodings)
         #else
         transInit.sendEncodings = [
-            RTCRtpEncodingParameters(rid: "f"),
-            RTCRtpEncodingParameters(rid: "h"),
-            RTCRtpEncodingParameters(rid: "q")
+            Engine.createRtpEncodingParameters(rid: "f"),
+            Engine.createRtpEncodingParameters(rid: "h"),
+            Engine.createRtpEncodingParameters(rid: "q")
         ]
         #endif
 

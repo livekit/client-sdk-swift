@@ -227,10 +227,10 @@ internal extension Transport {
 
     func createAnswer(for constraints: [String: String]? = nil) -> Promise<RTCSessionDescription> {
 
-        let mediaConstraints = RTCMediaConstraints(mandatoryConstraints: constraints,
-                                                   optionalConstraints: nil)
+        Promise<RTCSessionDescription>(on: .webRTC) { complete, fail in
 
-        return Promise<RTCSessionDescription>(on: .webRTC) { complete, fail in
+            let mediaConstraints = RTCMediaConstraints(mandatoryConstraints: constraints,
+                                                       optionalConstraints: nil)
 
             self.pc.answer(for: mediaConstraints) { sd, error in
                 guard let sd = sd else {
@@ -297,10 +297,10 @@ internal extension Transport {
 
     private func createOffer(for constraints: [String: String]? = nil) -> Promise<RTCSessionDescription> {
 
-        let mediaConstraints = RTCMediaConstraints(mandatoryConstraints: constraints,
-                                                   optionalConstraints: nil)
+        Promise<RTCSessionDescription>(on: .webRTC) { complete, fail in
 
-        return Promise<RTCSessionDescription>(on: .webRTC) { complete, fail in
+            let mediaConstraints = RTCMediaConstraints(mandatoryConstraints: constraints,
+                                                       optionalConstraints: nil)
 
             self.pc.offer(for: mediaConstraints) { sd, error in
                 guard let sd = sd else {
@@ -339,5 +339,4 @@ internal extension Transport {
             }
         }
     }
-
 }
