@@ -38,7 +38,10 @@ internal class WebSocket: NSObject, URLSessionWebSocketDelegate {
                  onMessage: OnMessage? = nil,
                  onClose: OnClose? = nil) {
 
-        request = URLRequest(url: url)
+        request = URLRequest(url: url,
+                             cachePolicy: .reloadIgnoringLocalAndRemoteCacheData,
+                             timeoutInterval: 10)
+
         self.onMessage = onMessage
         self.onClose = onClose
         super.init()
