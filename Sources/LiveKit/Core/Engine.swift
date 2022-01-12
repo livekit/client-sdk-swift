@@ -301,7 +301,7 @@ extension Engine {
             self.signalClient.add(delegate: signalDelegate!)
         }
         // convert to timed-promise
-        .timeout(10)
+        .timeout(.defaultConnect)
     }
 
     func waitForIceConnect(transport: Transport?, allowCurrentValue: Bool = true) -> Promise<Void> {
@@ -339,7 +339,7 @@ extension Engine {
             self.signalClient.add(delegate: signalDelegate!)
         }
         // convert to timed-promise
-        .timeout(10)
+        .timeout(.defaultConnect)
     }
 
     func waitForPublishTrack(cid: String) -> Promise<Livekit_TrackInfo> {
@@ -366,7 +366,7 @@ extension Engine {
             self.signalClient.add(delegate: delegate!)
         }
         // convert to timed-promise
-        .timeout(10)
+        .timeout(.defaultPublish)
     }
 }
 

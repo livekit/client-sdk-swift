@@ -214,7 +214,7 @@ internal extension SignalClient {
             self.add(delegate: delegate!)
         }
         // convert to a timed-promise
-        .timeout(10)
+        .timeout(.defaultConnect)
     }
 }
 
