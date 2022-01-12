@@ -83,7 +83,7 @@ public class Room: MulticastDelegate<RoomDelegate> {
 
     deinit {
         // not really required to remove delegate since it's weak
-        // engine.remove(delegate: self)
+        engine.remove(delegate: self)
     }
 
     @discardableResult
@@ -121,7 +121,16 @@ public class Room: MulticastDelegate<RoomDelegate> {
     //        notify { $0.isReconnecting(room: self) }
     //    }
 
-    private func handleParticipantDisconnect(sid: Sid, participant: RemoteParticipant) -> Promise<Void> {
+    private func getOrCreateRemoteParticipant(sid: Sid, info: Livekit_ParticipantInfo? = nil) -> RemoteParticipant {
+        if let participant = remoteParticipants[sid] {
+            return participant
+        }
+        let participant = RemoteParticipant(sid: sid, info: info, room: self)
+        remoteParticipants[sid] = participant
+        return participant
+    }
+
+    private func onParticipantDisconnect(sid: Sid, participant: RemoteParticipant) -> Promise<Void> {
 
         guard let participant = remoteParticipants.removeValue(forKey: sid) else {
             return Promise(EngineError.state(message: "Participant not found for \(sid)"))
@@ -135,15 +144,6 @@ public class Room: MulticastDelegate<RoomDelegate> {
         return all(promises).then { (_) -> Void in
             self.notify { $0.room(self, participantDidLeave: participant) }
         }
-    }
-
-    private func getOrCreateRemoteParticipant(sid: Sid, info: Livekit_ParticipantInfo? = nil) -> RemoteParticipant {
-        if let participant = remoteParticipants[sid] {
-            return participant
-        }
-        let participant = RemoteParticipant(sid: sid, info: info, room: self)
-        remoteParticipants[sid] = participant
-        return participant
     }
 
     private func onSignalSpeakersUpdate(_ speakers: [Livekit_SpeakerInfo]) {
@@ -220,14 +220,11 @@ public class Room: MulticastDelegate<RoomDelegate> {
 
     private func onSubscriptionPermissionUpdate(permissionUpdate: Livekit_SubscriptionPermissionUpdate) {
         guard let participant = remoteParticipants[permissionUpdate.participantSid],
-              let publication = participant.getTrackPublication(sid: permissionUpdate.trackSid)
-        else {
+              let publication = participant.getTrackPublication(sid: permissionUpdate.trackSid) else {
             return
         }
 
-        if publication.subscriptionAllowed != permissionUpdate.allowed {
-            publication.subscriptionAllowed = permissionUpdate.allowed
-        }
+        publication.subscriptionAllowed = permissionUpdate.allowed
     }
 
     private func handleDisconnect() -> Promise<Void> {
@@ -348,7 +345,7 @@ extension Room: EngineDelegate {
             let participant = getOrCreateRemoteParticipant(sid: info.sid, info: info)
 
             if info.state == .disconnected {
-                _ = handleParticipantDisconnect(sid: info.sid, participant: participant)
+                _ = onParticipantDisconnect(sid: info.sid, participant: participant)
             } else if isNewParticipant {
                 notify { $0.room(self, participantDidJoin: participant) }
             } else {

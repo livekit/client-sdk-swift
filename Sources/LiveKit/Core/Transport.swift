@@ -150,7 +150,7 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
     }
 }
 
-extension RTCIceConnectionState {
+internal extension RTCIceConnectionState {
 
     func toString() -> String {
         switch self {
@@ -175,28 +175,28 @@ extension RTCIceConnectionState {
 
 extension Transport: RTCPeerConnectionDelegate {
 
-    func peerConnection(_ peerConnection: RTCPeerConnection,
-                        didChange iceState: RTCIceConnectionState) {
+    internal func peerConnection(_ peerConnection: RTCPeerConnection,
+                                 didChange iceState: RTCIceConnectionState) {
 
         logger.debug("[RTCPeerConnectionDelegate] did change ice state \(iceState.toString()) for \(target)")
         notify { $0.transport(self, didUpdate: iceState) }
     }
 
-    func peerConnection(_ peerConnection: RTCPeerConnection,
-                        didGenerate candidate: RTCIceCandidate) {
+    internal func peerConnection(_ peerConnection: RTCPeerConnection,
+                                 didGenerate candidate: RTCIceCandidate) {
 
         logger.debug("[RTCPeerConnectionDelegate] did generate ice candidates \(candidate) for \(target)")
         notify { $0.transport(self, didGenerate: candidate) }
     }
 
-    func peerConnectionShouldNegotiate(_ peerConnection: RTCPeerConnection) {
+    internal func peerConnectionShouldNegotiate(_ peerConnection: RTCPeerConnection) {
         logger.debug("[RTCPeerConnectionDelegate] shouldNegotiate for \(target)")
         notify { $0.transportShouldNegotiate(self) }
     }
 
-    func peerConnection(_ peerConnection: RTCPeerConnection,
-                        didAdd rtpReceiver: RTCRtpReceiver,
-                        streams mediaStreams: [RTCMediaStream]) {
+    internal func peerConnection(_ peerConnection: RTCPeerConnection,
+                                 didAdd rtpReceiver: RTCRtpReceiver,
+                                 streams mediaStreams: [RTCMediaStream]) {
 
         guard let track = rtpReceiver.track else {
             logger.warning("[RTCPeerConnectionDelegate] track is empty for \(target)")
@@ -207,40 +207,25 @@ extension Transport: RTCPeerConnectionDelegate {
         notify { $0.transport(self, didAdd: track, streams: mediaStreams) }
     }
 
-    func peerConnection(_ peerConnection: RTCPeerConnection, didOpen dataChannel: RTCDataChannel) {
+    internal func peerConnection(_ peerConnection: RTCPeerConnection, didOpen dataChannel: RTCDataChannel) {
         logger.debug("[RTCPeerConnectionDelegate] Received data channel \(dataChannel.label) for \(target)")
         notify { $0.transport(self, didOpen: dataChannel) }
     }
 
-    func peerConnection(_ peerConnection: RTCPeerConnection, didRemove stream: RTCMediaStream) {}
-    func peerConnection(_ peerConnection: RTCPeerConnection, didChange stateChanged: RTCSignalingState) {}
-    func peerConnection(_ peerConnection: RTCPeerConnection, didAdd stream: RTCMediaStream) {}
-    func peerConnection(_ peerConnection: RTCPeerConnection, didChange newState: RTCIceGatheringState) {}
-    func peerConnection(_ peerConnection: RTCPeerConnection, didRemove candidates: [RTCIceCandidate]) {}
+    internal func peerConnection(_ peerConnection: RTCPeerConnection, didRemove stream: RTCMediaStream) {}
+    internal func peerConnection(_ peerConnection: RTCPeerConnection, didChange stateChanged: RTCSignalingState) {}
+    internal func peerConnection(_ peerConnection: RTCPeerConnection, didAdd stream: RTCMediaStream) {}
+    internal func peerConnection(_ peerConnection: RTCPeerConnection, didChange newState: RTCIceGatheringState) {}
+    internal func peerConnection(_ peerConnection: RTCPeerConnection, didRemove candidates: [RTCIceCandidate]) {}
 }
 
 // MARK: - Promise methods
 
-extension Transport {
+internal extension Transport {
 
-    public func createOffer(for constraints: [String: String]? = nil) -> Promise<RTCSessionDescription> {
+    // MARK: - Internal
 
-        let mediaConstraints = RTCMediaConstraints(mandatoryConstraints: constraints,
-                                                   optionalConstraints: nil)
-
-        return Promise<RTCSessionDescription>(on: .webRTC) { complete, fail in
-
-            self.pc.offer(for: mediaConstraints) { sd, error in
-                guard let sd = sd else {
-                    fail(EngineError.webRTC(message: "Failed to create offer", error))
-                    return
-                }
-                complete(sd)
-            }
-        }
-    }
-
-    public func createAnswer(for constraints: [String: String]? = nil) -> Promise<RTCSessionDescription> {
+    func createAnswer(for constraints: [String: String]? = nil) -> Promise<RTCSessionDescription> {
 
         let mediaConstraints = RTCMediaConstraints(mandatoryConstraints: constraints,
                                                    optionalConstraints: nil)
@@ -257,13 +242,69 @@ extension Transport {
         }
     }
 
-    public func setLocalDescription(_ sd: RTCSessionDescription) -> Promise<RTCSessionDescription> {
+    func setLocalDescription(_ sd: RTCSessionDescription) -> Promise<RTCSessionDescription> {
 
         Promise<RTCSessionDescription>(on: .webRTC) { complete, fail in
 
             self.pc.setLocalDescription(sd) { error in
                 guard error == nil else {
                     fail(EngineError.webRTC(message: "failed to set local description", error))
+                    return
+                }
+                complete(sd)
+            }
+        }
+    }
+
+    func addTransceiver(with track: RTCMediaStreamTrack,
+                        transceiverInit: RTCRtpTransceiverInit) -> Promise<RTCRtpTransceiver> {
+
+        Promise<RTCRtpTransceiver>(on: .webRTC) { complete, fail in
+
+            guard let transceiver = self.pc.addTransceiver(with: track, init: transceiverInit) else {
+                fail(EngineError.webRTC(message: "Failed to add transceiver"))
+                return
+            }
+
+            complete(transceiver)
+        }
+    }
+
+    func removeTrack(_ sender: RTCRtpSender) -> Promise<Void> {
+
+        Promise<Void>(on: .webRTC) { complete, fail in
+
+            guard self.pc.removeTrack(sender) else {
+                fail(EngineError.webRTC(message: "Failed to removeTrack"))
+                return
+            }
+
+            complete(())
+        }
+    }
+
+    func dataChannel(for label: String,
+                     configuration: RTCDataChannelConfiguration,
+                     delegate: RTCDataChannelDelegate) -> RTCDataChannel? {
+
+        let result = DispatchQueue.webRTC.sync { pc.dataChannel(forLabel: label,
+                                                                configuration: configuration) }
+        result?.delegate = delegate
+        return result
+    }
+
+    // MARK: - Private
+
+    private func createOffer(for constraints: [String: String]? = nil) -> Promise<RTCSessionDescription> {
+
+        let mediaConstraints = RTCMediaConstraints(mandatoryConstraints: constraints,
+                                                   optionalConstraints: nil)
+
+        return Promise<RTCSessionDescription>(on: .webRTC) { complete, fail in
+
+            self.pc.offer(for: mediaConstraints) { sd, error in
+                guard let sd = sd else {
+                    fail(EngineError.webRTC(message: "Failed to create offer", error))
                     return
                 }
                 complete(sd)
@@ -299,40 +340,4 @@ extension Transport {
         }
     }
 
-    public func addTransceiver(with track: RTCMediaStreamTrack,
-                               transceiverInit: RTCRtpTransceiverInit) -> Promise<RTCRtpTransceiver> {
-
-        Promise<RTCRtpTransceiver>(on: .webRTC) { complete, fail in
-
-            guard let transceiver = self.pc.addTransceiver(with: track, init: transceiverInit) else {
-                fail(EngineError.webRTC(message: "Failed to add transceiver"))
-                return
-            }
-
-            complete(transceiver)
-        }
-    }
-
-    public func removeTrack(_ sender: RTCRtpSender) -> Promise<Void> {
-
-        Promise<Void>(on: .webRTC) { complete, fail in
-
-            guard self.pc.removeTrack(sender) else {
-                fail(EngineError.webRTC(message: "Failed to removeTrack"))
-                return
-            }
-
-            complete(())
-        }
-    }
-
-    public func dataChannel(for label: String,
-                            configuration: RTCDataChannelConfiguration,
-                            delegate: RTCDataChannelDelegate) -> RTCDataChannel? {
-
-        let result = DispatchQueue.webRTC.sync { pc.dataChannel(forLabel: label,
-                                                                configuration: configuration) }
-        result?.delegate = delegate
-        return result
-    }
 }

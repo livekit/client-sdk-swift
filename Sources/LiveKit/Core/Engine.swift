@@ -2,7 +2,7 @@ import Foundation
 import WebRTC
 import Promises
 
-class Engine: MulticastDelegate<EngineDelegate> {
+internal class Engine: MulticastDelegate<EngineDelegate> {
 
     // Reference to Room
     public let room: Room
@@ -25,7 +25,7 @@ class Engine: MulticastDelegate<EngineDelegate> {
     internal var url: String?
     internal var token: String?
 
-    var connectionState: ConnectionState = .disconnected() {
+    public private(set) var connectionState: ConnectionState = .disconnected() {
         // automatically notify changes
         didSet {
             guard oldValue != connectionState else { return }
@@ -39,8 +39,8 @@ class Engine: MulticastDelegate<EngineDelegate> {
         }
     }
 
-    init(room: Room,
-         signalClient: SignalClient = SignalClient()) {
+    public init(room: Room,
+                signalClient: SignalClient = SignalClient()) {
         self.room = room
         self.signalClient = signalClient
         super.init()
@@ -56,24 +56,8 @@ class Engine: MulticastDelegate<EngineDelegate> {
         // signalClient.remove(delegate: self)
     }
 
-    private func onReceived(dataChannel: RTCDataChannel) {
-
-        logger.debug("Server opened data channel \(dataChannel.label)")
-
-        switch dataChannel.label {
-        case RTCDataChannel.labels.reliable:
-            dcReliableSub = dataChannel
-            dcReliableSub?.delegate = self
-        case RTCDataChannel.labels.lossy:
-            dcLossySub = dataChannel
-            dcLossySub?.delegate = self
-        default:
-            logger.warning("Unknown data channel label \(dataChannel.label)")
-        }
-    }
-
-    func connect(_ url: String,
-                 _ token: String) -> Promise<Void> {
+    public func connect(_ url: String,
+                        _ token: String) -> Promise<Void> {
 
         guard connectionState != .connected else {
             logger.debug("already connected")
@@ -168,7 +152,7 @@ class Engine: MulticastDelegate<EngineDelegate> {
         }
     }
 
-    func disconnect() {
+    public func disconnect() {
 
         guard .disconnected() != connectionState else {
             logger.warning("close() already disconnected")
@@ -191,11 +175,27 @@ class Engine: MulticastDelegate<EngineDelegate> {
         notify { $0.engineDidDisconnect(self) }
     }
 
-    func addTrack(cid: String,
-                  name: String,
-                  kind: Livekit_TrackType,
-                  source: Livekit_TrackSource = .unknown,
-                  _ populator: (inout Livekit_AddTrackRequest) -> Void) -> Promise<Livekit_TrackInfo> {
+    private func onReceived(dataChannel: RTCDataChannel) {
+
+        logger.debug("Server opened data channel \(dataChannel.label)")
+
+        switch dataChannel.label {
+        case RTCDataChannel.labels.reliable:
+            dcReliableSub = dataChannel
+            dcReliableSub?.delegate = self
+        case RTCDataChannel.labels.lossy:
+            dcLossySub = dataChannel
+            dcLossySub?.delegate = self
+        default:
+            logger.warning("Unknown data channel label \(dataChannel.label)")
+        }
+    }
+
+    public func addTrack(cid: String,
+                         name: String,
+                         kind: Livekit_TrackType,
+                         source: Livekit_TrackSource = .unknown,
+                         _ populator: (inout Livekit_AddTrackRequest) -> Void) -> Promise<Livekit_TrackInfo> {
 
         // TODO: Check if cid already published
 

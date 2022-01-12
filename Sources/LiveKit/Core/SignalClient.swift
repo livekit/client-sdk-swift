@@ -36,10 +36,10 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
     private var webSocket: WebSocket?
     private var latestJoinResponse: Livekit_JoinResponse?
 
-    func connect(_ url: String,
-                 _ token: String,
-                 connectOptions: ConnectOptions? = nil,
-                 reconnect: Bool = false) -> Promise<Void> {
+    public func connect(_ url: String,
+                        _ token: String,
+                        connectOptions: ConnectOptions? = nil,
+                        reconnect: Bool = false) -> Promise<Void> {
 
         // Clear internal vars
         self.latestJoinResponse = nil
@@ -101,7 +101,7 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
         webSocket?.send(data: data)
     }
 
-    func close() {
+    public func close() {
         connectionState = .disconnected()
     }
 
@@ -190,7 +190,7 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
 
 // MARK: Wait extension
 
-extension SignalClient {
+internal extension SignalClient {
 
     func waitReceiveJoinResponse() -> Promise<Livekit_JoinResponse> {
 
@@ -220,7 +220,7 @@ extension SignalClient {
 
 // MARK: - Send methods
 
-extension SignalClient {
+internal extension SignalClient {
 
     func sendOffer(offer: RTCSessionDescription) {
         logger.debug("[SignalClient] Sending offer")
@@ -331,7 +331,8 @@ extension SignalClient {
         sendRequest(r)
     }
 
-    func sendUpdateSubscriptionPermissions(allParticipants: Bool, participantTrackPermissions: [ParticipantTrackPermission]) {
+    func sendUpdateSubscriptionPermissions(allParticipants: Bool,
+                                           participantTrackPermissions: [ParticipantTrackPermission]) {
         let r = Livekit_SignalRequest.with {
             $0.subscriptionPermissions = Livekit_UpdateSubscriptionPermissions.with {
                 $0.allParticipants = allParticipants
@@ -341,6 +342,7 @@ extension SignalClient {
 
         sendRequest(r)
     }
+
     func sendLeave() {
         logger.debug("[SignalClient] Sending leave")
 
