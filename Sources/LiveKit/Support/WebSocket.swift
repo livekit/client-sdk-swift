@@ -15,7 +15,7 @@ internal class WebSocket: NSObject, URLSessionWebSocketDelegate {
 
     public var connectPromise = Promise<WebSocket>.pending()
 
-    let operationQueue = OperationQueue()
+    private let operationQueue = OperationQueue()
 
     private lazy var session: URLSession = {
         URLSession(configuration: .default,

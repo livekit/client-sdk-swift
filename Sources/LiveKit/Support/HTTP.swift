@@ -3,7 +3,7 @@ import Promises
 
 internal class HTTP: NSObject, URLSessionDelegate {
 
-    let operationQueue = OperationQueue()
+    private let operationQueue = OperationQueue()
 
     private lazy var session: URLSession = {
         URLSession(configuration: .default,
@@ -12,8 +12,14 @@ internal class HTTP: NSObject, URLSessionDelegate {
     }()
 
     func get(url: URL) -> Promise<Data> {
+
         Promise<Data> { resolve, fail in
-            let task = self.session.dataTask(with: url) { data, response, error in
+
+            let request = URLRequest(url: url,
+                                     cachePolicy: .reloadIgnoringLocalAndRemoteCacheData,
+                                     timeoutInterval: 10)
+
+            let task = self.session.dataTask(with: request) { data, response, error in
                 if let error = error {
                     fail(error)
                     return
