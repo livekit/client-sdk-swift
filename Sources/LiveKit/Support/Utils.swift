@@ -18,7 +18,7 @@ extension OS: CustomStringConvertible {
     }
 }
 
-public class Utils {
+internal class Utils {
 
     private static let processInfo = ProcessInfo()
 
@@ -269,19 +269,17 @@ public class Utils {
     #endif
 }
 
-extension Collection {
+internal extension Collection {
     /// Returns the element at the specified index if it is within bounds, otherwise nil.
     subscript(safe index: Index) -> Element? {
         return indices.contains(index) ? self[index] : nil
     }
 }
 
-extension MutableCollection {
+internal extension MutableCollection {
     subscript(safe index: Index) -> Element? {
-        get {
-            return indices.contains(index) ? self[index] : nil
-        }
-        set(newValue) {
+        get { indices.contains(index) ? self[index] : nil }
+        set {
             if let newValue = newValue, indices.contains(index) {
                 self[index] = newValue
             }
