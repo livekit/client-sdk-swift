@@ -57,7 +57,7 @@ internal class WebSocket: NSObject, URLSessionWebSocketDelegate {
     @discardableResult
     public func send(data: Data) -> Promise<Void> {
         let message = URLSessionWebSocketTask.Message.data(data)
-        return Promise { resolve, fail in
+        return Promise(on: .sdk) { resolve, fail in
             self.task.send(message) { error in
                 if let error = error {
                     fail(error)

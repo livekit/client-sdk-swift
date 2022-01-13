@@ -51,7 +51,7 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
             .catch { error in
                 logger.error("Failed to parse rtc url")
             }
-            .then { url -> Promise<WebSocket> in
+            .then(on: .sdk) { url -> Promise<WebSocket> in
                 logger.debug("Connecting with url: \(url)")
                 self.connectionState = .connecting(isReconnecting: reconnect)
                 return WebSocket.connect(url: url,
@@ -59,10 +59,10 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
                     // onClose
                     self.connectionState = .disconnected()
                 }
-            }.then { (webSocket: WebSocket) -> Void in
+            }.then(on: .sdk) { (webSocket: WebSocket) -> Void in
                 self.webSocket = webSocket
                 self.connectionState = .connected
-            }.recover { _ -> Promise<Void> in
+            }.recover(on: .sdk) { _ -> Promise<Void> in
                 // Catch first, then throw again after getting validation response
                 // Re-build url with validate mode
                 Utils.buildUrl(url,
@@ -70,10 +70,10 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
                                connectOptions: connectOptions,
                                reconnect: reconnect,
                                validate: true
-                ).then { url -> Promise<Data> in
+                ).then(on: .sdk) { url -> Promise<Data> in
                     logger.debug("Validating with url: \(url)")
                     return HTTP().get(url: url)
-                }.then { data in
+                }.then(on: .sdk) { data in
                     guard let string = String(data: data, encoding: .utf8) else {
                         throw SignalClientError.connect(message: "Failed to decode string")
                     }
@@ -202,7 +202,7 @@ internal extension SignalClient {
             return Promise(joinResponse)
         }
 
-        return Promise<Livekit_JoinResponse> { resolve, _ in
+        return Promise<Livekit_JoinResponse>(on: .sdk) { resolve, _ in
             // create temporary delegate
             var delegate: SignalClientDelegateClosures?
             delegate = SignalClientDelegateClosures(didReceiveJoinResponse: { _, joinResponse in

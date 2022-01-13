@@ -35,6 +35,6 @@ public class LiveKit {
 }
 
 internal extension DispatchQueue {
-    //
-    static let webRTC = DispatchQueue(label: "lk_webRTC")
+    static let webRTC = DispatchQueue(label: "livekit.webRTC")
+    static let sdk = DispatchQueue(label: "livekit.sdk")
 }

@@ -6,9 +6,9 @@ public class LocalTrack: Track {
         // Already muted
         if muted { return Promise(()) }
 
-        return disable().then {
+        return disable().then(on: .sdk) {
             self.stop()
-        }.then {
+        }.then(on: .sdk) {
             self.update(muted: true, shouldSendSignal: true)
         }
     }
@@ -17,9 +17,9 @@ public class LocalTrack: Track {
         // Already un-muted
         if !muted { return Promise(()) }
 
-        return enable().then {
+        return enable().then(on: .sdk) {
             self.start()
-        }.then {
+        }.then(on: .sdk) {
             self.update(muted: false, shouldSendSignal: true)
         }
     }

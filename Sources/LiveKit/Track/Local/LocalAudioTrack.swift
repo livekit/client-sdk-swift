@@ -43,14 +43,14 @@ public class LocalAudioTrack: LocalTrack, AudioTrack {
 
     @discardableResult
     override func start() -> Promise<Void> {
-        super.start().then {
+        super.start().then(on: .sdk) {
             AudioManager.shared.trackDidStart(.local)
         }
     }
 
     @discardableResult
     override public func stop() -> Promise<Void> {
-        super.stop().then {
+        super.stop().then(on: .sdk) {
             AudioManager.shared.trackDidStop(.local)
         }
     }

@@ -62,7 +62,7 @@ open class ObservableRoom: ObservableObject, RoomDelegate {
             self.cameraTrackState = .busy(isPublishing: !enabled)
         }
 
-        localParticipant.setCamera(enabled: !enabled).then { publication in
+        localParticipant.setCamera(enabled: !enabled).then(on: .sdk) { publication in
             DispatchQueue.main.async {
                 guard let publication = publication else {
                     self.cameraTrackState = .notPublished()
@@ -92,7 +92,7 @@ open class ObservableRoom: ObservableObject, RoomDelegate {
             self.microphoneTrackState = .busy(isPublishing: !enabled)
         }
 
-        localParticipant.setMicrophone(enabled: !enabled).then { publication in
+        localParticipant.setMicrophone(enabled: !enabled).then(on: .sdk) { publication in
             DispatchQueue.main.async {
                 guard let publication = publication else {
                     self.microphoneTrackState = .notPublished()

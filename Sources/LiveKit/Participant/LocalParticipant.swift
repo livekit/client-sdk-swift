@@ -46,7 +46,7 @@ public class LocalParticipant: Participant {
                 // start() will fail if it's already started.
                 // but for this case we will allow it, throw for any other error.
                 guard case TrackError.state = error else { throw error }
-            }.then {
+            }.then(on: .sdk) {
                 // request a new track to the server
                 self.room.engine.addTrack(cid: cid,
                                           name: track.name,
@@ -54,14 +54,14 @@ public class LocalParticipant: Participant {
                                           source: track.source.toPBType()) {
                     $0.disableDtx = !(publishOptions?.dtx ?? true)
                 }
-            }.then { (trackInfo) -> Promise<(RTCRtpTransceiver, Livekit_TrackInfo)> in
+            }.then(on: .sdk) { (trackInfo) -> Promise<(RTCRtpTransceiver, Livekit_TrackInfo)> in
                 // add transceiver to pc
                 publisher.addTransceiver(with: track.mediaTrack,
-                                         transceiverInit: transInit).then { transceiver in
+                                         transceiverInit: transInit).then(on: .sdk) { transceiver in
                                             // pass down trackInfo and created transceiver
                                             (transceiver, trackInfo)
                                          }
-            }.then { (transceiver, trackInfo) -> LocalTrackPublication in
+            }.then(on: .sdk) { (transceiver, trackInfo) -> LocalTrackPublication in
 
                 // store publishOptions used for this track
                 // track.publishOptions = publishOptions TODO: FIX
@@ -126,7 +126,7 @@ public class LocalParticipant: Participant {
                 // start() will fail if it's already started.
                 // but for this case we will allow it, throw for any other error.
                 guard case TrackError.state = error else { throw error }
-            }.then { () -> Promise<Livekit_TrackInfo> in
+            }.then(on: .sdk) { () -> Promise<Livekit_TrackInfo> in
                 // request a new track to the server
                 self.room.engine.addTrack(cid: cid,
                                           name: track.name,
@@ -153,14 +153,14 @@ public class LocalParticipant: Participant {
                     ]
                     #endif
                 }
-            }.then { (trackInfo) -> Promise<(RTCRtpTransceiver, Livekit_TrackInfo)> in
+            }.then(on: .sdk) { (trackInfo) -> Promise<(RTCRtpTransceiver, Livekit_TrackInfo)> in
                 // add transceiver to pc
                 publisher.addTransceiver(with: track.mediaTrack,
-                                         transceiverInit: transInit).then { transceiver in
+                                         transceiverInit: transInit).then(on: .sdk) { transceiver in
                                             // pass down trackInfo and created transceiver
                                             (transceiver, trackInfo)
                                          }
-            }.then { (transceiver, trackInfo) -> LocalTrackPublication in
+            }.then(on: .sdk) { (transceiver, trackInfo) -> LocalTrackPublication in
 
                 // store publishOptions used for this track
                 track.publishOptions = publishOptions
@@ -184,7 +184,7 @@ public class LocalParticipant: Participant {
         let promises = tracks.values.compactMap { $0 as? LocalTrackPublication }
             .map { unpublish(publication: $0, shouldNotify: shouldNotify) }
         // combine promises to wait all to complete
-        return all(promises)
+        return all(on: .sdk, promises)
     }
 
     /// unpublish an existing published track
@@ -192,7 +192,7 @@ public class LocalParticipant: Participant {
     public func unpublish(publication: LocalTrackPublication, shouldNotify: Bool = true) -> Promise<Void> {
 
         func notifyDidUnpublish() -> Promise<Void> {
-            Promise<Void> {
+            Promise<Void>(on: .sdk) {
                 guard shouldNotify else { return }
                 // notify unpublish
                 self.notify { $0.localParticipant(self, didUnpublish: publication) }
@@ -221,16 +221,16 @@ public class LocalParticipant: Participant {
         // wait for track to stop
         return stopTrackIfRequired()
             .recover { error in logger.warning("stopTrackIfRequired() did throw \(error)") }
-            .then { () -> Promise<Void> in
+            .then(on: .sdk) { () -> Promise<Void> in
 
                 guard let publisher = self.room.engine.publisher, let sender = track.sender else {
                     return Promise(())
                 }
 
-                return publisher.removeTrack(sender).then {
+                return publisher.removeTrack(sender).then(on: .sdk) {
                     self.room.engine.publisherShouldNegotiate()
                 }
-            }.then { () -> Promise<Void> in
+            }.then(on: .sdk) { () -> Promise<Void> in
                 notifyDidUnpublish()
             }
     }
@@ -367,18 +367,18 @@ extension LocalParticipant {
         if let publication = publication as? LocalTrackPublication {
             // publication already exists
             if enabled {
-                return publication.unmute().then { publication }
+                return publication.unmute().then(on: .sdk) { publication }
             } else {
-                return publication.mute().then { nil }
+                return publication.mute().then(on: .sdk) { nil }
             }
         } else if enabled {
             // try to create a new track
             if source == .camera {
                 let localTrack = LocalVideoTrack.createCameraTrack(options: room.roomOptions?.defaultVideoCaptureOptions)
-                return publishVideoTrack(track: localTrack).then { publication in return publication }
+                return publishVideoTrack(track: localTrack).then(on: .sdk) { return $0 }
             } else if source == .microphone {
                 let localTrack = LocalAudioTrack.createTrack(name: "", options: room.roomOptions?.defaultAudioCaptureOptions)
-                return publishAudioTrack(track: localTrack).then { publication in return publication }
+                return publishAudioTrack(track: localTrack).then(on: .sdk) { return $0 }
             } else if source == .screenShareVideo {
 
                 var localTrack: LocalVideoTrack?
@@ -392,7 +392,7 @@ extension LocalParticipant {
                 #endif
 
                 if let localTrack = localTrack {
-                    return publishVideoTrack(track: localTrack).then { publication in return publication }
+                    return publishVideoTrack(track: localTrack).then(on: .sdk) { publication in return publication }
                 }
             }
         }

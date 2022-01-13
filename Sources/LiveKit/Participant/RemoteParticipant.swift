@@ -55,7 +55,7 @@ public class RemoteParticipant: Participant {
             .map { unpublish(publication: $0) }
 
         // TODO: Return a promise
-        _ = all(unpublishPromises)
+        _ = all(on: .sdk, unpublishPromises)
     }
 
     func addSubscribedMediaTrack(rtcTrack: RTCMediaStreamTrack, sid: String) -> Promise<Void> {
@@ -88,7 +88,7 @@ public class RemoteParticipant: Participant {
         publication.track = track
         track.sid = publication.sid
         addTrack(publication: publication)
-        return track.start().then {
+        return track.start().then(on: .sdk) {
             self.notify { $0.participant(self, didSubscribe: publication, track: track) }
             self.room.notify { $0.room(self.room, participant: self, didSubscribe: publication, track: track) }
         }
@@ -97,7 +97,7 @@ public class RemoteParticipant: Participant {
     func unpublish(publication: RemoteTrackPublication, shouldNotify: Bool = true) -> Promise<Void> {
 
         func notifyUnpublish() -> Promise<Void> {
-            Promise<Void> {
+            Promise<Void>(on: .sdk) {
                 guard shouldNotify else { return }
                 // notify unpublish
                 self.notify { $0.participant(self, didUnpublish: publication) }
@@ -119,7 +119,7 @@ public class RemoteParticipant: Participant {
             // notify unsubscribe
             self.notify { $0.participant(self, didUnsubscribe: publication, track: track) }
             self.room.notify { $0.room(self.room, participant: self, didUnsubscribe: publication) }
-        }.then {
+        }.then(on: .sdk) {
             notifyUnpublish()
         }
     }

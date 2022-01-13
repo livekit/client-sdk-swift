@@ -102,7 +102,7 @@ public class Room: MulticastDelegate<RoomDelegate> {
         }
 
         // monitor.start(queue: monitorQueue)
-        return engine.connect(url, token).then { self }
+        return engine.connect(url, token).then(on: .sdk) { self }
     }
 
     @discardableResult
@@ -141,7 +141,7 @@ public class Room: MulticastDelegate<RoomDelegate> {
             .compactMap { $0 as? RemoteTrackPublication }
             .map { participant.unpublish(publication: $0) }
 
-        return all(promises).then { (_) -> Void in
+        return all(on: .sdk, promises).then(on: .sdk) { (_) -> Void in
             self.notify { $0.room(self, participantDidLeave: participant) }
         }
     }
@@ -247,10 +247,10 @@ public class Room: MulticastDelegate<RoomDelegate> {
             }
         }
 
-        return all(promises).then { (_) -> Void in
+        return all(on: .sdk, promises).then(on: .sdk) { (_) -> Void in
             self.remoteParticipants.removeAll()
             self.activeSpeakers.removeAll()
-            //        monitor.cancel()
+            // monitor.cancel()
             self.notify { $0.room(self, didDisconnect: nil) }
         }
     }

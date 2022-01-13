@@ -80,9 +80,9 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
     @discardableResult
     public func setRemoteDescription(_ sd: RTCSessionDescription) -> Promise<Void> {
 
-        self.setRemoteDescriptionPromise(sd).then { _ in
-            all(self.pendingCandidates.map { self.addIceCandidatePromise($0) })
-        }.then { _ in
+        self.setRemoteDescriptionPromise(sd).then(on: .sdk) { _ in
+            all(on: .sdk, self.pendingCandidates.map { self.addIceCandidatePromise($0) })
+        }.then(on: .sdk) { _ in
 
             self.pendingCandidates.removeAll()
             self.restartingIce = false
@@ -117,16 +117,16 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
         }
 
         if signalingState == .haveLocalOffer, iceRestart, let sd = remoteDescription {
-            return setRemoteDescriptionPromise(sd).then { _ in
+            return setRemoteDescriptionPromise(sd).then(on: .sdk) { _ in
                 negotiateSequence()
             }
         }
 
         // actually negotiate
         func negotiateSequence() -> Promise<Void> {
-            createOffer(for: constraints).then { offer in
+            createOffer(for: constraints).then(on: .sdk) { offer in
                 self.setLocalDescription(offer)
-            }.then { offer in
+            }.then(on: .sdk) { offer in
                 onOffer(offer)
             }
         }

@@ -72,16 +72,16 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
 
         return signalClient.connect(url,
                                     token,
-                                    connectOptions: room.connectOptions).then {
+                                    connectOptions: room.connectOptions).then(on: .sdk) {
                                         // wait for join response
                                         self.signalClient.waitReceiveJoinResponse()
-                                    }.then { joinResponse in
+                                    }.then(on: .sdk) { joinResponse in
                                         // set up peer connections
                                         self.configureTransports(joinResponse: joinResponse)
-                                    }.then {
+                                    }.then(on: .sdk) {
                                         // wait for peer connections to connect
                                         self.waitForIceConnect(transport: self.primary)
-                                    }.then {
+                                    }.then(on: .sdk) {
                                         // connect sequence successful
                                         logger.debug("connect sequence completed")
 
@@ -118,9 +118,9 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
             signalClient.connect(url,
                                  token,
                                  connectOptions: room.connectOptions,
-                                 reconnect: true).then {
+                                 reconnect: true).then(on: .sdk) {
                                     self.waitForIceConnect(transport: self.primary)
-                                 }.then { () -> Promise<Void> in
+                                 }.then(on: .sdk) { () -> Promise<Void> in
                                     self.subscriber?.restartingIce = true
 
                                     // only if published, continue...
@@ -128,7 +128,7 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
                                         return Promise(())
                                     }
 
-                                    return publisher.createAndSendOffer(iceRestart: true).then {
+                                    return publisher.createAndSendOffer(iceRestart: true).then(on: .sdk) {
                                         self.waitForIceConnect(transport: publisher)
                                     }
                                  }
@@ -142,7 +142,7 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
         } _: {
             // try to re-connect
             reconnectSequence()
-        }.then {
+        }.then(on: .sdk) {
             // re-connect sequence successful
             logger.debug("re-connect sequence completed")
             self.connectionState = .connected
@@ -236,13 +236,13 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
                 publisherShouldNegotiate()
             }
 
-            return waitForIceConnect(transport: publisher).then {
+            return waitForIceConnect(transport: publisher).then(on: .sdk) {
                 // wait for data channel to open
                 self.waitForPublisherDataChannelOpen(reliability: reliability)
             }
         }
 
-        return ensurePublisherConnected().then { () -> Void in
+        return ensurePublisherConnected().then(on: .sdk) { () -> Void in
 
             let packet = Livekit_DataPacket.with {
                 $0.kind = reliability.toPBType()
@@ -279,7 +279,7 @@ extension Engine {
             return Promise(())
         }
 
-        return Promise<Void> { resolve, fail in
+        return Promise<Void>(on: .sdk) { resolve, fail in
             // create temporary delegate
             var engineDelegate: EngineDelegateClosures?
             engineDelegate = EngineDelegateClosures(
@@ -317,7 +317,7 @@ extension Engine {
             return Promise(())
         }
 
-        return Promise<Void> { resolve, fail in
+        return Promise<Void>(on: .sdk) { resolve, fail in
             // create temporary delegate
             var transportDelegate: TransportDelegateClosures?
             transportDelegate = TransportDelegateClosures(
@@ -345,7 +345,7 @@ extension Engine {
 
     func waitForPublishTrack(cid: String) -> Promise<Livekit_TrackInfo> {
 
-        return Promise<Livekit_TrackInfo> { resolve, fail in
+        return Promise<Livekit_TrackInfo>(on: .sdk) { resolve, fail in
             // create temporary delegate
             var delegate: SignalClientDelegateClosures?
             delegate = SignalClientDelegateClosures(
@@ -466,11 +466,11 @@ extension Engine: SignalClientDelegate {
         }
 
         logger.debug("handling server offer...")
-        subscriber.setRemoteDescription(offer).then {
+        subscriber.setRemoteDescription(offer).then(on: .sdk) {
             subscriber.createAnswer()
-        }.then { answer in
+        }.then(on: .sdk) { answer in
             subscriber.setLocalDescription(answer)
-        }.then { answer in
+        }.then(on: .sdk) { answer in
             self.signalClient.sendAnswer(answer: answer)
         }
     }

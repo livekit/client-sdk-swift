@@ -122,7 +122,7 @@ public class MacOSScreenCapturer: VideoCapturer {
     }
 
     public override func startCapture() -> Promise<Void> {
-        super.startCapture().then { () -> Void in
+        super.startCapture().then(on: .sdk) { () -> Void in
 
             if case .display(let displayID) = self.source {
 
@@ -154,8 +154,7 @@ public class MacOSScreenCapturer: VideoCapturer {
     }
 
     public override func stopCapture() -> Promise<Void> {
-        super.stopCapture().then {
-
+        super.stopCapture().then(on: .sdk) {
             if case .display = self.source {
                 self.session.stopRunning()
             } else if case .window = self.source {

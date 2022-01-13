@@ -39,14 +39,14 @@ class IPCCapturer: VideoCapturer {
     }
 
     override func startCapture() -> Promise<Void> {
-        super.startCapture().then {
+        super.startCapture().then(on: .sdk) {
             // start listening for ipc messages
             self.ipcServer.listen(self.ipcName)
         }
     }
 
     override func stopCapture() -> Promise<Void> {
-        super.stopCapture().then {
+        super.stopCapture().then(on: .sdk) {
             // stop listening for ipc messages
             self.ipcServer.close()
         }

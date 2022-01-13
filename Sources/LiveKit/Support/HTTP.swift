@@ -13,7 +13,7 @@ internal class HTTP: NSObject, URLSessionDelegate {
 
     func get(url: URL) -> Promise<Data> {
 
-        Promise<Data> { resolve, fail in
+        Promise<Data>(on: .sdk) { resolve, fail in
 
             let request = URLRequest(url: url,
                                      cachePolicy: .reloadIgnoringLocalAndRemoteCacheData,

@@ -117,7 +117,7 @@ public class CameraCapturer: VideoCapturer {
 
         logger.info("Starting camera capturer device: \(device), format: \(selectedFormat), fps: \(fps)")
 
-        return super.startCapture().then {
+        return super.startCapture().then(on: .sdk) {
             // return promise that waits for capturer to start
             Promise(on: .webRTC) { resolve, fail in
                 self.capturer.startCapture(with: device, format: selectedFormat, fps: fps) { error in
@@ -140,7 +140,7 @@ public class CameraCapturer: VideoCapturer {
     }
 
     public override func stopCapture() -> Promise<Void> {
-        return super.stopCapture().then {
+        return super.stopCapture().then(on: .sdk) {
             Promise(on: .webRTC) { resolve, _ in
                 self.capturer.stopCapture {
                     // update internal vars

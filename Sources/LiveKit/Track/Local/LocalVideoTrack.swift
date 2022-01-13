@@ -28,13 +28,13 @@ public class LocalVideoTrack: LocalTrack, VideoTrack {
     }
 
     public override func start() -> Promise<Void> {
-        super.start().then {
+        super.start().then(on: .sdk) {
             self.capturer.startCapture()
         }
     }
 
     public override func stop() -> Promise<Void> {
-        super.stop().then {
+        super.stop().then(on: .sdk) {
             self.capturer.stopCapture()
         }
     }

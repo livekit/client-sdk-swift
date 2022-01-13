@@ -74,13 +74,13 @@ public class Track: MulticastDelegate<TrackDelegate> {
     }
 
     internal func enable() -> Promise<Void> {
-        Promise {
+        Promise(on: .sdk) {
             self.mediaTrack.isEnabled = true
         }
     }
 
     internal func disable() -> Promise<Void> {
-        Promise {
+        Promise(on: .sdk) {
             self.mediaTrack.isEnabled = false
         }
     }

@@ -15,7 +15,7 @@ class Utils {
         forceSecure: Bool = false
     ) -> Promise<URL> {
 
-        Promise { () -> URL in
+        Promise(on: .sdk) { () -> URL in
             // use default options if nil
             let connectOptions = connectOptions ?? ConnectOptions()
 
