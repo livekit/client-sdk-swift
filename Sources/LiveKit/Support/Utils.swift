@@ -2,9 +2,76 @@ import Foundation
 import WebRTC
 import Promises
 
-typealias DebouncFunc = () -> Void
+internal typealias DebouncFunc = () -> Void
 
-class Utils {
+internal enum OS {
+    case macOS
+    case iOS
+}
+
+extension OS: CustomStringConvertible {
+    internal var description: String {
+        switch self {
+        case .macOS: return "macOS"
+        case .iOS: return "iOS"
+        }
+    }
+}
+
+public class Utils {
+
+    private static let processInfo = ProcessInfo()
+
+    internal static func os() -> OS {
+        #if os(macOS)
+        .macOS
+        #elseif os(iOS)
+        .iOS
+        #endif
+    }
+
+    internal static func osVersionString() -> String {
+        let osVersion = processInfo.operatingSystemVersion
+        return [osVersion.majorVersion,
+                osVersion.minorVersion,
+                osVersion.patchVersion].map({ String($0) }).joined(separator: ".")
+    }
+
+    /// Returns a model identifier
+    /// example: `MacBookPro18,3`, `iPhone13,3` or `iOSSimulator,arm64`
+    internal static func modelIdentifier() -> String? {
+        #if os(macOS)
+        let service = IOServiceGetMatchingService(kIOMasterPortDefault,
+                                                  IOServiceMatching("IOPlatformExpertDevice"))
+        defer { IOObjectRelease(service) }
+
+        guard let modelData = IORegistryEntryCreateCFProperty(service,
+                                                              "model" as CFString,
+                                                              kCFAllocatorDefault,
+                                                              0).takeRetainedValue() as? Data else {
+            return nil
+        }
+
+        guard let cString = modelData.withUnsafeBytes({ $0.baseAddress?.assumingMemoryBound(to: UInt8.self) }) else {
+            return nil
+        }
+
+        return String(cString: cString)
+        #elseif os(iOS)
+        var systemInfo = utsname()
+        uname(&systemInfo)
+        let machineMirror = Mirror(reflecting: systemInfo.machine)
+        let identifier = machineMirror.children.reduce("") { identifier, element in
+            guard let value = element.value as? Int8, value != 0 else { return identifier }
+            return identifier + String(UnicodeScalar(UInt8(value)))
+        }
+        // for simulator, the following codes are returned
+        guard !["i386", "x86_64", "arm64"].contains(where: { $0 == identifier }) else {
+            return "iOSSimulator,\(identifier)"
+        }
+        return identifier
+        #endif
+    }
 
     internal static func buildUrl(
         _ url: String,
@@ -55,8 +122,15 @@ class Utils {
                 URLQueryItem(name: "access_token", value: token),
                 URLQueryItem(name: "protocol", value: connectOptions.protocolVersion.description),
                 URLQueryItem(name: "sdk", value: "swift"),
-                URLQueryItem(name: "version", value: LiveKit.version)
+                URLQueryItem(name: "version", value: LiveKit.version),
+                // Additional client info
+                URLQueryItem(name: "os", value: String(describing: os())),
+                URLQueryItem(name: "os_version", value: osVersionString())
             ]
+
+            if let modelIdentifier = modelIdentifier() {
+                queryItems.append(URLQueryItem(name: "device_model", value: modelIdentifier))
+            }
 
             if reconnect {
                 queryItems.append(URLQueryItem(name: "reconnect", value: "1"))
