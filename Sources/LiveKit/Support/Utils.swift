@@ -22,6 +22,7 @@ public class Utils {
 
     private static let processInfo = ProcessInfo()
 
+    /// Returns current OS.
     internal static func os() -> OS {
         #if os(macOS)
         .macOS
@@ -30,8 +31,8 @@ public class Utils {
         #endif
     }
 
-    /// Returns os version as a string
-    /// format: `12.1`, `15.3.1`
+    /// Returns os version as a string.
+    /// format: `12.1`, `15.3.1`, `15.0.1`
     internal static func osVersionString() -> String {
         let osVersion = processInfo.operatingSystemVersion
         var versions = [osVersion.majorVersion]
@@ -44,7 +45,7 @@ public class Utils {
         return versions.map({ String($0) }).joined(separator: ".")
     }
 
-    /// Returns a model identifier
+    /// Returns a model identifier.
     /// format: `MacBookPro18,3`, `iPhone13,3` or `iOSSimulator,arm64`
     internal static func modelIdentifier() -> String? {
         #if os(macOS)
