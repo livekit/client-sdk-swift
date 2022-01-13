@@ -35,13 +35,10 @@ public class Utils {
     internal static func osVersionString() -> String {
         let osVersion = processInfo.operatingSystemVersion
         var versions = [osVersion.majorVersion]
-        if osVersion.minorVersion != 0 {
+        if osVersion.minorVersion != 0 || osVersion.patchVersion != 0 {
             versions.append(osVersion.minorVersion)
         }
         if osVersion.patchVersion != 0 {
-            if versions.count == 1 {
-                versions.append(osVersion.minorVersion)
-            }
             versions.append(osVersion.patchVersion)
         }
         return versions.map({ String($0) }).joined(separator: ".")
