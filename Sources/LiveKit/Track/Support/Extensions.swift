@@ -27,8 +27,8 @@ extension CIImage {
 
         let ciContext = CIContext()
 
-        if status == kCVReturnSuccess && pixelBuffer != nil {
-            ciContext.render(self, to: pixelBuffer!)
+        if let pixelBuffer = pixelBuffer, status == kCVReturnSuccess {
+            ciContext.render(self, to: pixelBuffer)
         }
 
         return pixelBuffer

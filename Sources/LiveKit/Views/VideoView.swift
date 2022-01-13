@@ -38,7 +38,10 @@ public class VideoView: NativeView {
             markNeedsLayout()
             // notify dimensions update
             guard let dimensions = dimensions else { return }
-            track?.notify { $0.track(self.track!, videoView: self, didUpdate: dimensions) }
+            track?.notify { [weak track] in
+                guard let track = track else { return }
+                $0.track(track, videoView: self, didUpdate: dimensions)
+            }
         }
     }
 
@@ -73,7 +76,10 @@ public class VideoView: NativeView {
                 oldValue.notify { $0.track(oldValue, didDetach: self) }
             }
             track?.addRenderer(rendererView)
-            track?.notify { $0.track(self.track!, didAttach: self) }
+            track?.notify { [weak track] in
+                guard let track = track else { return }
+                $0.track(track, didAttach: self)
+            }
         }
     }
 

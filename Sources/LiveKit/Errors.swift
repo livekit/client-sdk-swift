@@ -92,10 +92,12 @@ public enum SignalClientError: LiveKitError {
 }
 
 public enum NetworkError: LiveKitError {
+    case disconnected(message: String? = nil, rawError: Error? = nil)
     case response(message: String? = nil)
 
     public var description: String {
         switch self {
+        case .disconnected(let message, _): return buildDescription("disconnected", message)
         case .response(let message): return buildDescription("response", message)
         }
     }

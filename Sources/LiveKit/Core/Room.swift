@@ -173,10 +173,11 @@ public class Room: MulticastDelegate<RoomDelegate> {
         var seenSids = [String: Bool]()
         for speaker in speakers {
             seenSids[speaker.sid] = true
-            if speaker.sid == localParticipant?.sid {
-                localParticipant?.audioLevel = speaker.level
-                localParticipant?.isSpeaking = true
-                activeSpeakers.append(localParticipant!)
+            if let localParticipant = localParticipant,
+               speaker.sid == localParticipant.sid {
+                localParticipant.audioLevel = speaker.level
+                localParticipant.isSpeaking = true
+                activeSpeakers.append(localParticipant)
             } else {
                 if let participant = remoteParticipants[speaker.sid] {
                     participant.audioLevel = speaker.level
@@ -359,7 +360,10 @@ extension Room: EngineDelegate {
         let participant = remoteParticipants[userPacket.participantSid]
 
         notify { $0.room(self, participant: participant, didReceive: userPacket.payload) }
-        participant?.notify { $0.participant(participant!, didReceive: userPacket.payload) }
+        participant?.notify { [weak participant] in
+            guard let participant = participant else { return }
+            $0.participant(participant, didReceive: userPacket.payload)
+        }
     }
 
     func engine(_ engine: Engine, didUpdateRemoteMute trackSid: String, muted: Bool) {

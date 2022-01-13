@@ -102,6 +102,6 @@ internal class WebSocket: NSObject, URLSessionWebSocketDelegate {
                     task: URLSessionTask,
                     didCompleteWithError error: Error?) {
 
-        connectPromise.reject(error!)
+        connectPromise.reject(NetworkError.disconnected(message: "WebSocket disconnected", rawError: error))
     }
 }
