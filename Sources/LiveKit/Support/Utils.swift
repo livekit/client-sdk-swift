@@ -30,15 +30,25 @@ public class Utils {
         #endif
     }
 
+    /// Returns os version as a string
+    /// format: `12.1`, `15.3.1`
     internal static func osVersionString() -> String {
         let osVersion = processInfo.operatingSystemVersion
-        return [osVersion.majorVersion,
-                osVersion.minorVersion,
-                osVersion.patchVersion].map({ String($0) }).joined(separator: ".")
+        var versions = [osVersion.majorVersion]
+        if osVersion.minorVersion != 0 {
+            versions.append(osVersion.minorVersion)
+        }
+        if osVersion.patchVersion != 0 {
+            if versions.count == 1 {
+                versions.append(osVersion.minorVersion)
+            }
+            versions.append(osVersion.patchVersion)
+        }
+        return versions.map({ String($0) }).joined(separator: ".")
     }
 
     /// Returns a model identifier
-    /// example: `MacBookPro18,3`, `iPhone13,3` or `iOSSimulator,arm64`
+    /// format: `MacBookPro18,3`, `iPhone13,3` or `iOSSimulator,arm64`
     internal static func modelIdentifier() -> String? {
         #if os(macOS)
         let service = IOServiceGetMatchingService(kIOMasterPortDefault,
