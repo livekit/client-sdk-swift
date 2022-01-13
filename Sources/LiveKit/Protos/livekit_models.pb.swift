@@ -121,6 +121,7 @@ enum Livekit_VideoQuality: SwiftProtobuf.Enum {
     case low // = 0
     case medium // = 1
     case high // = 2
+    case off // = 3
     case UNRECOGNIZED(Int)
 
     init() {
@@ -132,6 +133,7 @@ enum Livekit_VideoQuality: SwiftProtobuf.Enum {
         case 0: self = .low
         case 1: self = .medium
         case 2: self = .high
+        case 3: self = .off
         default: self = .UNRECOGNIZED(rawValue)
         }
     }
@@ -141,6 +143,7 @@ enum Livekit_VideoQuality: SwiftProtobuf.Enum {
         case .low: return 0
         case .medium: return 1
         case .high: return 2
+        case .off: return 3
         case .UNRECOGNIZED(let i): return i
         }
     }
@@ -154,7 +157,8 @@ extension Livekit_VideoQuality: CaseIterable {
     static var allCases: [Livekit_VideoQuality] = [
         .low,
         .medium,
-        .high
+        .high,
+        .off
     ]
 }
 
@@ -367,6 +371,8 @@ struct Livekit_TrackInfo {
     /// mime type of codec
     var mimeType: String = String()
 
+    var mid: String = String()
+
     var unknownFields = SwiftProtobuf.UnknownStorage()
 
     init() {}
@@ -387,6 +393,8 @@ struct Livekit_VideoLayer {
 
     /// target bitrate, server will measure actual
     var bitrate: UInt32 = 0
+
+    var ssrc: UInt32 = 0
 
     var unknownFields = SwiftProtobuf.UnknownStorage()
 
@@ -552,6 +560,93 @@ struct Livekit_ParticipantTracks {
     init() {}
 }
 
+/// details about the client
+struct Livekit_ClientInfo {
+    // SwiftProtobuf.Message conformance is added in an extension below. See the
+    // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+    // methods supported on all messages.
+
+    var sdk: Livekit_ClientInfo.SDK = .unknown
+
+    var version: String = String()
+
+    var `protocol`: Int32 = 0
+
+    var os: String = String()
+
+    var osVersion: String = String()
+
+    var deviceModel: String = String()
+
+    var browser: String = String()
+
+    var browserVersion: String = String()
+
+    var unknownFields = SwiftProtobuf.UnknownStorage()
+
+    enum SDK: SwiftProtobuf.Enum {
+        typealias RawValue = Int
+        case unknown // = 0
+        case js // = 1
+        case swift // = 2
+        case android // = 3
+        case flutter // = 4
+        case go // = 5
+        case unity // = 6
+        case UNRECOGNIZED(Int)
+
+        init() {
+            self = .unknown
+        }
+
+        init?(rawValue: Int) {
+            switch rawValue {
+            case 0: self = .unknown
+            case 1: self = .js
+            case 2: self = .swift
+            case 3: self = .android
+            case 4: self = .flutter
+            case 5: self = .go
+            case 6: self = .unity
+            default: self = .UNRECOGNIZED(rawValue)
+            }
+        }
+
+        var rawValue: Int {
+            switch self {
+            case .unknown: return 0
+            case .js: return 1
+            case .swift: return 2
+            case .android: return 3
+            case .flutter: return 4
+            case .go: return 5
+            case .unity: return 6
+            case .UNRECOGNIZED(let i): return i
+            }
+        }
+
+    }
+
+    init() {}
+}
+
+#if swift(>=4.2)
+
+extension Livekit_ClientInfo.SDK: CaseIterable {
+    // The compiler won't synthesize support with the UNRECOGNIZED case.
+    static var allCases: [Livekit_ClientInfo.SDK] = [
+        .unknown,
+        .js,
+        .swift,
+        .android,
+        .flutter,
+        .go,
+        .unity
+    ]
+}
+
+#endif  // swift(>=4.2)
+
 // MARK: - Code below here is support for the SwiftProtobuf runtime.
 
 private let _protobuf_package = "livekit"
@@ -578,7 +673,8 @@ extension Livekit_VideoQuality: SwiftProtobuf._ProtoNameProviding {
     static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
         0: .same(proto: "LOW"),
         1: .same(proto: "MEDIUM"),
-        2: .same(proto: "HIGH")
+        2: .same(proto: "HIGH"),
+        3: .same(proto: "OFF")
     ]
 }
 
@@ -816,7 +912,8 @@ extension Livekit_TrackInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImplem
         8: .standard(proto: "disable_dtx"),
         9: .same(proto: "source"),
         10: .same(proto: "layers"),
-        11: .standard(proto: "mime_type")
+        11: .standard(proto: "mime_type"),
+        12: .same(proto: "mid")
     ]
 
     mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -836,6 +933,7 @@ extension Livekit_TrackInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImplem
             case 9: try { try decoder.decodeSingularEnumField(value: &self.source) }()
             case 10: try { try decoder.decodeRepeatedMessageField(value: &self.layers) }()
             case 11: try { try decoder.decodeSingularStringField(value: &self.mimeType) }()
+            case 12: try { try decoder.decodeSingularStringField(value: &self.mid) }()
             default: break
             }
         }
@@ -875,6 +973,9 @@ extension Livekit_TrackInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImplem
         if !self.mimeType.isEmpty {
             try visitor.visitSingularStringField(value: self.mimeType, fieldNumber: 11)
         }
+        if !self.mid.isEmpty {
+            try visitor.visitSingularStringField(value: self.mid, fieldNumber: 12)
+        }
         try unknownFields.traverse(visitor: &visitor)
     }
 
@@ -890,6 +991,7 @@ extension Livekit_TrackInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImplem
         if lhs.source != rhs.source {return false}
         if lhs.layers != rhs.layers {return false}
         if lhs.mimeType != rhs.mimeType {return false}
+        if lhs.mid != rhs.mid {return false}
         if lhs.unknownFields != rhs.unknownFields {return false}
         return true
     }
@@ -901,7 +1003,8 @@ extension Livekit_VideoLayer: SwiftProtobuf.Message, SwiftProtobuf._MessageImple
         1: .same(proto: "quality"),
         2: .same(proto: "width"),
         3: .same(proto: "height"),
-        4: .same(proto: "bitrate")
+        4: .same(proto: "bitrate"),
+        5: .same(proto: "ssrc")
     ]
 
     mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -914,6 +1017,7 @@ extension Livekit_VideoLayer: SwiftProtobuf.Message, SwiftProtobuf._MessageImple
             case 2: try { try decoder.decodeSingularUInt32Field(value: &self.width) }()
             case 3: try { try decoder.decodeSingularUInt32Field(value: &self.height) }()
             case 4: try { try decoder.decodeSingularUInt32Field(value: &self.bitrate) }()
+            case 5: try { try decoder.decodeSingularUInt32Field(value: &self.ssrc) }()
             default: break
             }
         }
@@ -932,6 +1036,9 @@ extension Livekit_VideoLayer: SwiftProtobuf.Message, SwiftProtobuf._MessageImple
         if self.bitrate != 0 {
             try visitor.visitSingularUInt32Field(value: self.bitrate, fieldNumber: 4)
         }
+        if self.ssrc != 0 {
+            try visitor.visitSingularUInt32Field(value: self.ssrc, fieldNumber: 5)
+        }
         try unknownFields.traverse(visitor: &visitor)
     }
 
@@ -940,6 +1047,7 @@ extension Livekit_VideoLayer: SwiftProtobuf.Message, SwiftProtobuf._MessageImple
         if lhs.width != rhs.width {return false}
         if lhs.height != rhs.height {return false}
         if lhs.bitrate != rhs.bitrate {return false}
+        if lhs.ssrc != rhs.ssrc {return false}
         if lhs.unknownFields != rhs.unknownFields {return false}
         return true
     }
@@ -1184,4 +1292,90 @@ extension Livekit_ParticipantTracks: SwiftProtobuf.Message, SwiftProtobuf._Messa
         if lhs.unknownFields != rhs.unknownFields {return false}
         return true
     }
+}
+
+extension Livekit_ClientInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+    static let protoMessageName: String = _protobuf_package + ".ClientInfo"
+    static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
+        1: .same(proto: "sdk"),
+        2: .same(proto: "version"),
+        3: .same(proto: "protocol"),
+        4: .same(proto: "os"),
+        5: .standard(proto: "os_version"),
+        6: .standard(proto: "device_model"),
+        7: .same(proto: "browser"),
+        8: .standard(proto: "browser_version")
+    ]
+
+    mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+        while let fieldNumber = try decoder.nextFieldNumber() {
+            // The use of inline closures is to circumvent an issue where the compiler
+            // allocates stack space for every case branch when no optimizations are
+            // enabled. https://github.com/apple/swift-protobuf/issues/1034
+            switch fieldNumber {
+            case 1: try { try decoder.decodeSingularEnumField(value: &self.sdk) }()
+            case 2: try { try decoder.decodeSingularStringField(value: &self.version) }()
+            case 3: try { try decoder.decodeSingularInt32Field(value: &self.`protocol`) }()
+            case 4: try { try decoder.decodeSingularStringField(value: &self.os) }()
+            case 5: try { try decoder.decodeSingularStringField(value: &self.osVersion) }()
+            case 6: try { try decoder.decodeSingularStringField(value: &self.deviceModel) }()
+            case 7: try { try decoder.decodeSingularStringField(value: &self.browser) }()
+            case 8: try { try decoder.decodeSingularStringField(value: &self.browserVersion) }()
+            default: break
+            }
+        }
+    }
+
+    func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+        if self.sdk != .unknown {
+            try visitor.visitSingularEnumField(value: self.sdk, fieldNumber: 1)
+        }
+        if !self.version.isEmpty {
+            try visitor.visitSingularStringField(value: self.version, fieldNumber: 2)
+        }
+        if self.`protocol` != 0 {
+            try visitor.visitSingularInt32Field(value: self.`protocol`, fieldNumber: 3)
+        }
+        if !self.os.isEmpty {
+            try visitor.visitSingularStringField(value: self.os, fieldNumber: 4)
+        }
+        if !self.osVersion.isEmpty {
+            try visitor.visitSingularStringField(value: self.osVersion, fieldNumber: 5)
+        }
+        if !self.deviceModel.isEmpty {
+            try visitor.visitSingularStringField(value: self.deviceModel, fieldNumber: 6)
+        }
+        if !self.browser.isEmpty {
+            try visitor.visitSingularStringField(value: self.browser, fieldNumber: 7)
+        }
+        if !self.browserVersion.isEmpty {
+            try visitor.visitSingularStringField(value: self.browserVersion, fieldNumber: 8)
+        }
+        try unknownFields.traverse(visitor: &visitor)
+    }
+
+    static func ==(lhs: Livekit_ClientInfo, rhs: Livekit_ClientInfo) -> Bool {
+        if lhs.sdk != rhs.sdk {return false}
+        if lhs.version != rhs.version {return false}
+        if lhs.`protocol` != rhs.`protocol` {return false}
+        if lhs.os != rhs.os {return false}
+        if lhs.osVersion != rhs.osVersion {return false}
+        if lhs.deviceModel != rhs.deviceModel {return false}
+        if lhs.browser != rhs.browser {return false}
+        if lhs.browserVersion != rhs.browserVersion {return false}
+        if lhs.unknownFields != rhs.unknownFields {return false}
+        return true
+    }
+}
+
+extension Livekit_ClientInfo.SDK: SwiftProtobuf._ProtoNameProviding {
+    static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
+        0: .same(proto: "UNKNOWN"),
+        1: .same(proto: "JS"),
+        2: .same(proto: "SWIFT"),
+        3: .same(proto: "ANDROID"),
+        4: .same(proto: "FLUTTER"),
+        5: .same(proto: "GO"),
+        6: .same(proto: "UNITY")
+    ]
 }
