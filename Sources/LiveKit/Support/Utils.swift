@@ -2,9 +2,84 @@ import Foundation
 import WebRTC
 import Promises
 
-typealias DebouncFunc = () -> Void
+internal typealias DebouncFunc = () -> Void
 
-class Utils {
+internal enum OS {
+    case macOS
+    case iOS
+}
+
+extension OS: CustomStringConvertible {
+    internal var description: String {
+        switch self {
+        case .macOS: return "macOS"
+        case .iOS: return "iOS"
+        }
+    }
+}
+
+internal class Utils {
+
+    private static let processInfo = ProcessInfo()
+
+    /// Returns current OS.
+    internal static func os() -> OS {
+        #if os(macOS)
+        .macOS
+        #elseif os(iOS)
+        .iOS
+        #endif
+    }
+
+    /// Returns os version as a string.
+    /// format: `12.1`, `15.3.1`, `15.0.1`
+    internal static func osVersionString() -> String {
+        let osVersion = processInfo.operatingSystemVersion
+        var versions = [osVersion.majorVersion]
+        if osVersion.minorVersion != 0 || osVersion.patchVersion != 0 {
+            versions.append(osVersion.minorVersion)
+        }
+        if osVersion.patchVersion != 0 {
+            versions.append(osVersion.patchVersion)
+        }
+        return versions.map({ String($0) }).joined(separator: ".")
+    }
+
+    /// Returns a model identifier.
+    /// format: `MacBookPro18,3`, `iPhone13,3` or `iOSSimulator,arm64`
+    internal static func modelIdentifier() -> String? {
+        #if os(macOS)
+        let service = IOServiceGetMatchingService(kIOMasterPortDefault,
+                                                  IOServiceMatching("IOPlatformExpertDevice"))
+        defer { IOObjectRelease(service) }
+
+        guard let modelData = IORegistryEntryCreateCFProperty(service,
+                                                              "model" as CFString,
+                                                              kCFAllocatorDefault,
+                                                              0).takeRetainedValue() as? Data else {
+            return nil
+        }
+
+        guard let cString = modelData.withUnsafeBytes({ $0.baseAddress?.assumingMemoryBound(to: UInt8.self) }) else {
+            return nil
+        }
+
+        return String(cString: cString)
+        #elseif os(iOS)
+        var systemInfo = utsname()
+        uname(&systemInfo)
+        let machineMirror = Mirror(reflecting: systemInfo.machine)
+        let identifier = machineMirror.children.reduce("") { identifier, element in
+            guard let value = element.value as? Int8, value != 0 else { return identifier }
+            return identifier + String(UnicodeScalar(UInt8(value)))
+        }
+        // for simulator, the following codes are returned
+        guard !["i386", "x86_64", "arm64"].contains(where: { $0 == identifier }) else {
+            return "iOSSimulator,\(identifier)"
+        }
+        return identifier
+        #endif
+    }
 
     internal static func buildUrl(
         _ url: String,
@@ -55,8 +130,15 @@ class Utils {
                 URLQueryItem(name: "access_token", value: token),
                 URLQueryItem(name: "protocol", value: connectOptions.protocolVersion.description),
                 URLQueryItem(name: "sdk", value: "swift"),
-                URLQueryItem(name: "version", value: LiveKit.version)
+                URLQueryItem(name: "version", value: LiveKit.version),
+                // Additional client info
+                URLQueryItem(name: "os", value: String(describing: os())),
+                URLQueryItem(name: "os_version", value: osVersionString())
             ]
+
+            if let modelIdentifier = modelIdentifier() {
+                queryItems.append(URLQueryItem(name: "device_model", value: modelIdentifier))
+            }
 
             if reconnect {
                 queryItems.append(URLQueryItem(name: "reconnect", value: "1"))
@@ -187,19 +269,17 @@ class Utils {
     #endif
 }
 
-extension Collection {
+internal extension Collection {
     /// Returns the element at the specified index if it is within bounds, otherwise nil.
     subscript(safe index: Index) -> Element? {
         return indices.contains(index) ? self[index] : nil
     }
 }
 
-extension MutableCollection {
+internal extension MutableCollection {
     subscript(safe index: Index) -> Element? {
-        get {
-            return indices.contains(index) ? self[index] : nil
-        }
-        set(newValue) {
+        get { indices.contains(index) ? self[index] : nil }
+        set {
             if let newValue = newValue, indices.contains(index) {
                 self[index] = newValue
             }
