@@ -60,14 +60,11 @@ open class ObservableRoom: ObservableObject, RoomDelegate {
             return
         }
 
-        var enabled = false
-        if case .published = cameraTrackState { enabled = true }
-
         DispatchQueue.main.async {
-            self.cameraTrackState = .busy(isPublishing: !enabled)
+            self.cameraTrackState = .busy(isPublishing: !self.cameraTrackState.isPublished)
         }
 
-        localParticipant.setCamera(enabled: !enabled).then(on: .sdk) { publication in
+        localParticipant.setCamera(enabled: !cameraTrackState.isPublished).then(on: .sdk) { publication in
             DispatchQueue.main.async {
                 guard let publication = publication else {
                     self.cameraTrackState = .notPublished()
@@ -95,14 +92,11 @@ open class ObservableRoom: ObservableObject, RoomDelegate {
             return
         }
 
-        var enabled = false
-        if case .published = screenShareTrackState { enabled = true }
-
         DispatchQueue.main.async {
-            self.screenShareTrackState = .busy(isPublishing: !enabled)
+            self.screenShareTrackState = .busy(isPublishing: !self.screenShareTrackState.isPublished)
         }
 
-        localParticipant.setScreenShare(enabled: !enabled).then(on: .sdk) { publication in
+        localParticipant.setScreenShare(enabled: !screenShareTrackState.isPublished).then(on: .sdk) { publication in
             DispatchQueue.main.async {
                 guard let publication = publication else {
                     self.screenShareTrackState = .notPublished()
@@ -130,14 +124,11 @@ open class ObservableRoom: ObservableObject, RoomDelegate {
             return
         }
 
-        var enabled = false
-        if case .published = microphoneTrackState { enabled = true }
-
         DispatchQueue.main.async {
-            self.microphoneTrackState = .busy(isPublishing: !enabled)
+            self.microphoneTrackState = .busy(isPublishing: !self.microphoneTrackState.isPublished)
         }
 
-        localParticipant.setMicrophone(enabled: !enabled).then(on: .sdk) { publication in
+        localParticipant.setMicrophone(enabled: !microphoneTrackState.isPublished).then(on: .sdk) { publication in
             DispatchQueue.main.async {
                 guard let publication = publication else {
                     self.microphoneTrackState = .notPublished()
