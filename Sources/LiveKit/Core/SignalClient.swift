@@ -77,7 +77,7 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
                     guard let string = String(data: data, encoding: .utf8) else {
                         throw SignalClientError.connect(message: "Failed to decode string")
                     }
-                    print("validate response: \(string)")
+                    logger.debug("validate response: \(string)")
                     // re-throw with validation response
                     throw SignalClientError.connect(message: string)
                 }
