@@ -104,3 +104,7 @@ extension RoomViewController: RoomDelegate {
     }
 }
 ```
+
+# Getting help / Contributing
+
+Please join us on [Slack](https://join.slack.com/t/livekit-users/shared_invite/zt-rrdy5abr-5pZ1wW8pXEkiQxBzFiXPUg) to get help from our [devs](https://github.com/orgs/livekit/teams/devs/members) / community members. We welcome your contributions(PRs) and details can be discussed there.
