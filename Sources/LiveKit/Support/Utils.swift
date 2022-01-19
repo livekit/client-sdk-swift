@@ -170,7 +170,7 @@ internal class Utils {
             workItem?.cancel()
             workItem = DispatchWorkItem { fnc() }
             onCreateWorkItem?(workItem!)
-            DispatchQueue.main.asyncAfter(deadline: .now() + wait, execute: workItem!)
+            DispatchQueue.sdk.asyncAfter(deadline: .now() + wait, execute: workItem!)
         }
     }
 
