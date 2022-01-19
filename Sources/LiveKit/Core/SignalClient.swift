@@ -84,7 +84,7 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
                     throw SignalClientError.connect(message: string)
                 }
             }.catch { _ in
-                self.connectionState = .disconnected(SignalClientError.connect())
+                self.connectionState = .disconnected(error: SignalClientError.connect())
             }
     }
 

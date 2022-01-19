@@ -1,7 +1,7 @@
 import Foundation
 
 public enum ConnectionState {
-    case disconnected(Error? = nil)
+    case disconnected(error: Error? = nil)
     case connecting(isReconnecting: Bool)
     case connected
 }
