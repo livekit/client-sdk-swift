@@ -171,8 +171,6 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
         subscriber = nil
 
         signalClient.close()
-
-        notify { $0.engineDidDisconnect(self) }
     }
 
     private func onReceived(dataChannel: RTCDataChannel) {
