@@ -29,7 +29,7 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
         // automatically notify changes
         didSet {
             guard oldValue != connectionState else { return }
-            log("Engine connectionState updated \(oldValue) -> \(self.connectionState)")
+            log("\(oldValue) -> \(self.connectionState)")
             switch connectionState {
             case .connected: notify { $0.engine(self, didConnect: oldValue.isReconnecting) }
             case .disconnected: notify { $0.engineDidDisconnect(self) }
@@ -48,11 +48,11 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
         add(delegate: room)
 
         signalClient.add(delegate: self)
-        log("Engine init")
+        log()
     }
 
     deinit {
-        log("Engine deinit")
+        log()
         signalClient.remove(delegate: self)
     }
 
@@ -358,7 +358,7 @@ extension Engine {
                     delegate = nil
                 },
                 didPublishLocalTrack: { _, response in
-                    self.log("[SignalClientDelegateClosures] didPublishLocalTrack")
+                    self.log("didPublishLocalTrack", type: SignalClientDelegateClosures.self)
                     if response.cid == cid {
                         // complete when track info received
                         resolve(response.track)
@@ -542,12 +542,12 @@ extension Engine: RTCDataChannelDelegate {
 extension Engine: TransportDelegate {
 
     func transport(_ transport: Transport, didGenerate iceCandidate: RTCIceCandidate) {
-        log("[PCTransportDelegate] didGenerate iceCandidate")
+        log("didGenerate iceCandidate")
         try? signalClient.sendCandidate(candidate: iceCandidate, target: transport.target)
     }
 
     func transport(_ transport: Transport, didUpdate iceState: RTCIceConnectionState) {
-        log("[PCTransportDelegate] didUpdate iceState")
+        log("didUpdate iceState")
         if transport.primary {
             if iceState == .failed {
                 reconnect()
@@ -556,14 +556,14 @@ extension Engine: TransportDelegate {
     }
 
     func transport(_ transport: Transport, didAdd track: RTCMediaStreamTrack, streams: [RTCMediaStream]) {
-        log("[PCTransportDelegate] did add track")
+        log("did add track")
         if transport.target == .subscriber {
             notify { $0.engine(self, didAdd: track, streams: streams) }
         }
     }
 
     func transport(_ transport: Transport, didOpen dataChannel: RTCDataChannel) {
-        log("[PCTransportDelegate] did add track] did open datachannel")
+        log("did add track] did open datachannel")
         if subscriberPrimary, transport.target == .subscriber {
             onReceived(dataChannel: dataChannel)
         }

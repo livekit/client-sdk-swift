@@ -100,13 +100,13 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
     public func createAndSendOffer(iceRestart: Bool = false) -> Promise<Void> {
 
         guard let onOffer = onOffer else {
-            log("createAndSendOffer() onOffer is nil", .warning)
+            log("onOffer is nil", .warning)
             return Promise(())
         }
 
         var constraints = [String: String]()
         if iceRestart {
-            log("[Transport] createAndSendOffer() Restarting ICE...")
+            log("Restarting ICE...")
             constraints[kRTCMediaConstraintsIceRestart] = kRTCMediaConstraintsValueTrue
             restartingIce = true
         }
@@ -178,19 +178,19 @@ extension Transport: RTCPeerConnectionDelegate {
     internal func peerConnection(_ peerConnection: RTCPeerConnection,
                                  didChange iceState: RTCIceConnectionState) {
 
-        log("[RTCPeerConnectionDelegate] did change ice state \(iceState.toString()) for \(target)")
+        log("Did change ice state \(iceState.toString()) for \(target)")
         notify { $0.transport(self, didUpdate: iceState) }
     }
 
     internal func peerConnection(_ peerConnection: RTCPeerConnection,
                                  didGenerate candidate: RTCIceCandidate) {
 
-        log("[RTCPeerConnectionDelegate] did generate ice candidates \(candidate) for \(target)")
+        log("Did generate ice candidates \(candidate) for \(target)")
         notify { $0.transport(self, didGenerate: candidate) }
     }
 
     internal func peerConnectionShouldNegotiate(_ peerConnection: RTCPeerConnection) {
-        log("[RTCPeerConnectionDelegate] shouldNegotiate for \(target)")
+        log("ShouldNegotiate for \(target)")
         notify { $0.transportShouldNegotiate(self) }
     }
 
@@ -199,16 +199,16 @@ extension Transport: RTCPeerConnectionDelegate {
                                  streams mediaStreams: [RTCMediaStream]) {
 
         guard let track = rtpReceiver.track else {
-            log("[RTCPeerConnectionDelegate] track is empty for \(target)", .warning)
+            log("Track is empty for \(target)", .warning)
             return
         }
 
-        log("[RTCPeerConnectionDelegate] Received streams for \(target)")
+        log("Received streams for \(target)")
         notify { $0.transport(self, didAdd: track, streams: mediaStreams) }
     }
 
     internal func peerConnection(_ peerConnection: RTCPeerConnection, didOpen dataChannel: RTCDataChannel) {
-        log("[RTCPeerConnectionDelegate] Received data channel \(dataChannel.label) for \(target)")
+        log("Received data channel \(dataChannel.label) for \(target)")
         notify { $0.transport(self, didOpen: dataChannel) }
     }
 

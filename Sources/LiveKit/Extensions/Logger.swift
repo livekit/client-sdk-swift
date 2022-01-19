@@ -9,16 +9,17 @@ internal protocol Loggable: Any {
 internal extension Loggable {
 
     /// Automatically captures current type (class name) to ``Logger.Metadata``
-    func log(_ message: Logger.Message,
+    func log(_ message: Logger.Message? = nil,
              _ level: Logger.Level = .debug,
              file: String = #file,
+             type type_: Any.Type? = nil,
              function: String = #function,
              line: UInt = #line) {
 
-        logger.log(message,
+        logger.log(message ?? "",
                    level,
                    file: file,
-                   type: type(of: self),
+                   type: type_ ?? type(of: self),
                    function: function,
                    line: line)
     }
@@ -79,15 +80,18 @@ public struct LiveKitLogHandler: LogHandler {
         var elements: [String] = [
             label.padding(toLength: 10, withPad: " ", startingAt: 0),
             // longest level string is `critical` which is 8 characters
-            String(describing: level).padding(toLength: 8, withPad: " ", startingAt: 0)
+            String(describing: level).uppercased().padding(toLength: 8, withPad: " ", startingAt: 0)
         ]
 
         // append type (usually class name) if available
         if case .string(let type) = metadata?["type"] {
-            elements.append(type.padding(toLength: 15, withPad: " ", startingAt: 0))
+            elements.append("\(type).\(function)".padding(toLength: 40, withPad: " ", startingAt: 0))
         }
 
-        elements.append(String(describing: message))
+        let str = String(describing: message)
+        if !str.isEmpty {
+            elements.append(str)
+        }
 
         // join all elements with a space in between
         print(elements.joined(separator: " "))

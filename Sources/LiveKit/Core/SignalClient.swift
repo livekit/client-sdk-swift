@@ -7,7 +7,7 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
     public private(set) var connectionState: ConnectionState = .disconnected() {
         didSet {
             guard oldValue != connectionState else { return }
-            log("connectionState updated \(oldValue) -> \(self.connectionState)")
+            log("\(oldValue) -> \(self.connectionState)")
 
             // Connected
             if case .connected = connectionState {
@@ -225,7 +225,7 @@ internal extension SignalClient {
 internal extension SignalClient {
 
     func sendOffer(offer: RTCSessionDescription) {
-        log("[SignalClient] Sending offer")
+        log("Sending offer")
 
         let r = Livekit_SignalRequest.with {
             $0.offer = offer.toPBType()
@@ -235,7 +235,7 @@ internal extension SignalClient {
     }
 
     func sendAnswer(answer: RTCSessionDescription) {
-        log("[SignalClient] Sending answer")
+        log("Sending answer")
 
         let r = Livekit_SignalRequest.with {
             $0.answer = answer.toPBType()
@@ -245,7 +245,7 @@ internal extension SignalClient {
     }
 
     func sendCandidate(candidate: RTCIceCandidate, target: Livekit_SignalTarget) throws {
-        log("[SignalClient] Sending ICE candidate")
+        log("Sending ICE candidate")
 
         let r = try Livekit_SignalRequest.with {
             $0.trickle = try Livekit_TrickleRequest.with {
@@ -258,7 +258,7 @@ internal extension SignalClient {
     }
 
     func sendMuteTrack(trackSid: String, muted: Bool) {
-        log("[SignalClient] Sending mute for \(trackSid), muted: \(muted)")
+        log("Sending mute for \(trackSid), muted: \(muted)")
 
         let r = Livekit_SignalRequest.with {
             $0.mute = Livekit_MuteTrackRequest.with {
@@ -275,7 +275,7 @@ internal extension SignalClient {
                       type: Livekit_TrackType,
                       source: Livekit_TrackSource = .unknown,
                       _ populator: (inout Livekit_AddTrackRequest) -> Void) {
-        log("[SignalClient] Sending add track request")
+        log("Sending add track request")
         let r = Livekit_SignalRequest.with {
             $0.addTrack = Livekit_AddTrackRequest.with {
                 populator(&$0)
@@ -293,7 +293,7 @@ internal extension SignalClient {
                                  enabled: Bool,
                                  width: Int = 0,
                                  height: Int = 0) {
-        log("[SignalClient] Sending update track settings")
+        log("Sending update track settings")
 
         let r = Livekit_SignalRequest.with {
             $0.trackSetting = Livekit_UpdateTrackSettings.with {
@@ -321,7 +321,7 @@ internal extension SignalClient {
     }
 
     func sendUpdateSubscription(sid: String, subscribed: Bool) {
-        log("[SignalClient] Sending update subscription")
+        log("Sending update subscription")
 
         let r = Livekit_SignalRequest.with {
             $0.subscription = Livekit_UpdateSubscription.with {
@@ -346,7 +346,7 @@ internal extension SignalClient {
     }
 
     func sendLeave() {
-        log("[SignalClient] Sending leave")
+        log("Sending leave")
 
         let r = Livekit_SignalRequest.with {
             $0.leave = Livekit_LeaveRequest()

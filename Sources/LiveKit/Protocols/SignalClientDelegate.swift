@@ -47,11 +47,11 @@ class SignalClientDelegateClosures: NSObject, SignalClientDelegate, Loggable {
         self.didReceiveJoinResponse = didReceiveJoinResponse
         self.didPublishLocalTrack = didPublishLocalTrack
         super.init()
-        log("init")
+        log()
     }
 
     deinit {
-        log("[SignalClientDelegateClosures] deinit")
+        log()
     }
 
     func signalClient(_ signalClient: SignalClient, didConnect isReconnect: Bool) {

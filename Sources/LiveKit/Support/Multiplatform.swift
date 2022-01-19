@@ -1,7 +1,7 @@
 #if os(iOS)
 import UIKit
 public typealias NativeViewType = UIView
-#else
+#elseif os(macOS)
 // macOS
 import AppKit
 public typealias NativeViewType = NSView
