@@ -38,6 +38,11 @@ extension RTCVideoCapturerDelegate {
         let height = CVPixelBufferGetHeight(pixelBuffer)
         let width = CVPixelBufferGetWidth(pixelBuffer)
 
+        guard width != 0, height != 0 else {
+            logger.log("pixelBuffer's height or width is 0", .warning, type: type(of: self))
+            return
+        }
+
         DispatchQueue.webRTC.sync {
 
             let rtcBuffer = RTCCVPixelBuffer(pixelBuffer: pixelBuffer,
