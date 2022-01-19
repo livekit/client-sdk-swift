@@ -3,7 +3,7 @@ import WebRTC
 public typealias CaptureFunc = (_ capture: RTCVideoFrame) -> Void
 public typealias InterceptFunc = (_ frame: RTCVideoFrame, _ capture: @escaping CaptureFunc) -> Void
 
-public class VideoCaptureInterceptor: NSObject, RTCVideoCapturerDelegate {
+public class VideoCaptureInterceptor: NSObject, RTCVideoCapturerDelegate, Loggable {
 
     let output = Engine.createVideoSource(forScreenShare: true)
     let interceptFunc: InterceptFunc
@@ -11,11 +11,11 @@ public class VideoCaptureInterceptor: NSObject, RTCVideoCapturerDelegate {
     public init(_ interceptFunc: @escaping InterceptFunc) {
         self.interceptFunc = interceptFunc
         super.init()
-        logger.debug("VideoCaptureInterceptor.init()")
+        log("VideoCaptureInterceptor.init()")
     }
 
     deinit {
-        logger.debug("VideoCaptureInterceptor.deinit()")
+        log("VideoCaptureInterceptor.deinit()")
     }
 
     public func capturer(_ capturer: RTCVideoCapturer, didCapture frame: RTCVideoFrame) {

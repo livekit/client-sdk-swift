@@ -3,7 +3,7 @@ import Logging
 import Promises
 import WebRTC
 
-internal let logger = Logger(label: "io.livekit.ios")
+internal let logger = Logger(label: "LiveKitSDK")
 
 /// The open source platform for real-time communication.
 ///

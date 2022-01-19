@@ -31,7 +31,7 @@ extension RTCVideoCapturerDelegate {
             // kCVPixelFormatType_420YpCbCr8BiPlanarFullRange
             // kCVPixelFormatType_32BGRA
             // kCVPixelFormatType_32ARGB
-            logger.warning("Unsupported pixel format \(pixelFormat.toString())")
+            logger.log("Unsupported pixel format \(pixelFormat.toString())", .warning, type: type(of: self))
             return
         }
 
@@ -66,7 +66,7 @@ extension RTCVideoCapturerDelegate {
         guard CMSampleBufferGetNumSamples(sampleBuffer) == 1,
               CMSampleBufferIsValid(sampleBuffer),
               CMSampleBufferDataIsReady(sampleBuffer) else {
-            logger.warning("Failed to capture, buffer is not ready")
+            logger.log("Failed to capture, buffer is not ready", .warning, type: type(of: self))
             return
         }
 
@@ -82,7 +82,7 @@ extension RTCVideoCapturerDelegate {
         }
 
         guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else {
-            logger.warning("Failed to capture, pixel buffer not found")
+            logger.log("Failed to capture, pixel buffer not found", .warning, type: type(of: self))
             return
         }
 

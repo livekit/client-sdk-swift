@@ -17,7 +17,7 @@ class IPCCapturer: VideoCapturer {
         ipcServer.onReceivedData = { _, _, data in
 
             guard let message = try? IPCMessage(serializedData: data) else {
-                logger.warning("Failed to decode ipc message")
+                self.log("Failed to decode ipc message", .warning)
                 return
             }
 

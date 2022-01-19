@@ -8,7 +8,7 @@ extension TrackPublication: Equatable {
     }
 }
 
-public class TrackPublication: TrackDelegate {
+public class TrackPublication: TrackDelegate, Loggable {
 
     public let sid: Sid
     public let kind: Track.Kind
@@ -86,10 +86,10 @@ public class TrackPublication: TrackDelegate {
 
     public func track(_ track: Track, didUpdate muted: Bool, shouldSendSignal: Bool) {
         //
-        logger.debug("track didUpdate muted: \(muted) shouldSendSignal: \(shouldSendSignal)")
+        log("track didUpdate muted: \(muted) shouldSendSignal: \(shouldSendSignal)")
 
         guard let participant = participant else {
-            logger.warning("Participant is nil")
+            log("Participant is nil", .warning)
             return
         }
 
@@ -103,6 +103,6 @@ public class TrackPublication: TrackDelegate {
 
     public func track(_ track: Track, capturer: VideoCapturer, didUpdate dimensions: Dimensions?) {
         //
-        logger.debug("Track capturer didUpdate dimensions: \(String(describing: dimensions))")
+        log("Track capturer didUpdate dimensions: \(String(describing: dimensions))")
     }
 }

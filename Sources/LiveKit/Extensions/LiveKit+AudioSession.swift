@@ -43,7 +43,7 @@ extension LiveKit {
         defer { DispatchQueue.webRTC.async { audioSession.unlockForConfiguration() } }
 
         do {
-            logger.debug("configuring audio session with category: \(configuration.category), mode: \(configuration.mode), setActive: \(String(describing: setActive))")
+            logger.log("configuring audio session with category: \(configuration.category), mode: \(configuration.mode), setActive: \(String(describing: setActive))", type: LiveKit.self)
 
             if let setActive = setActive {
                 try DispatchQueue.webRTC.sync { try audioSession.setConfiguration(configuration, active: setActive) }
@@ -51,7 +51,7 @@ extension LiveKit {
                 try DispatchQueue.webRTC.sync { try audioSession.setConfiguration(configuration) }
             }
         } catch let error {
-            logger.error("Failed to configureAudioSession with error: \(error)")
+            logger.log("Failed to configureAudioSession with error: \(error)", .error, type: LiveKit.self)
         }
     }
 

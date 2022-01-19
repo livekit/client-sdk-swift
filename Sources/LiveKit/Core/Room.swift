@@ -55,7 +55,7 @@ public class Room: MulticastDelegate<RoomDelegate> {
         //        monitorQueue = DispatchQueue(label: "networkMonitor", qos: .background)
 
         //        monitor.pathUpdateHandler = { path in
-        //            logger.debug("network path update: \(path.availableInterfaces), \(path.status)")
+        //            log("network path update: \(path.availableInterfaces), \(path.status)")
         //            if self.prevPath == nil || path.status != .satisfied {
         //                self.prevPath = path
         //                return
@@ -67,12 +67,12 @@ public class Room: MulticastDelegate<RoomDelegate> {
         //            // We'll ignore frequent updates
         //            let currTime = Date().timeIntervalSince1970
         //            if currTime - self.lastPathUpdate < networkChangeIgnoreInterval {
-        //                logger.debug("skipping duplicate network update")
+        //                log("skipping duplicate network update")
         //                return
         //            }
         //            // trigger reconnect
         //            if self.state != .disconnected {
-        //                logger.info("network path changed, starting engine reconnect")
+        //                log("network path changed, starting engine reconnect", .info)
         //                self.reconnect()
         //            }
         //            self.prevPath = path
@@ -96,7 +96,7 @@ public class Room: MulticastDelegate<RoomDelegate> {
         self.connectOptions = connectOptions ?? self.connectOptions
         self.roomOptions = roomOptions ?? self.roomOptions
 
-        logger.info("connecting to room")
+        log("connecting to room", .info)
         guard localParticipant == nil else {
             return Promise(EngineError.state(message: "localParticipant is not nil"))
         }
@@ -229,7 +229,7 @@ public class Room: MulticastDelegate<RoomDelegate> {
     }
 
     private func handleDisconnect() -> Promise<Void> {
-        logger.info("disconnected from room: \(self.name ?? "")")
+        log("disconnected from room: \(self.name ?? "")", .info)
         // stop any tracks && release audio session
 
         var promises = [Promise<Void>]()
@@ -296,7 +296,7 @@ extension Room: EngineDelegate {
     }
 
     func engine(_ engine: Engine, didReceive joinResponse: Livekit_JoinResponse) {
-        logger.info("connected to room, server version: \(joinResponse.serverVersion)")
+        log("connected to room, server version: \(joinResponse.serverVersion)", .info)
 
         sid = joinResponse.room.sid
         name = joinResponse.room.name
@@ -313,7 +313,7 @@ extension Room: EngineDelegate {
 
     func engine(_ engine: Engine, didAdd track: RTCMediaStreamTrack, streams: [RTCMediaStream]) {
         guard streams.count > 0 else {
-            logger.error("received onTrack with no streams!")
+            log("received onTrack with no streams!", .error)
             return
         }
 
@@ -325,7 +325,7 @@ extension Room: EngineDelegate {
         }
         let participant = getOrCreateRemoteParticipant(sid: participantSid)
 
-        logger.debug("added media track from: \(participantSid), sid: \(trackSid)")
+        log("added media track from: \(participantSid), sid: \(trackSid)")
 
         _ = retry(attempts: 10, delay: 0.2) { _, error in
             // if error is invalidTrackState, retry

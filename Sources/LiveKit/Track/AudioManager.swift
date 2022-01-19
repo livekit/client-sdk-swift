@@ -2,7 +2,7 @@ import Foundation
 import WebRTC
 
 // Audio Session Configuration related
-public class AudioManager {
+public class AudioManager: Loggable {
 
     public enum State {
         case none
@@ -21,7 +21,7 @@ public class AudioManager {
     public private(set) var state: State = .none {
         didSet {
             guard oldValue != state else { return }
-            logger.debug("AudioManager.state didUpdate \(oldValue) -> \(state)")
+            log("AudioManager.state didUpdate \(oldValue) -> \(state)")
             #if os(iOS)
             LiveKit.onShouldConfigureAudioSession(state, oldValue)
             #endif

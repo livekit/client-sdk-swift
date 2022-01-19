@@ -62,7 +62,7 @@ public class RemoteParticipant: Participant {
         var track: Track
 
         guard let publication = getTrackPublication(sid: sid) else {
-            logger.error("Could not subscribe to mediaTrack \(sid), unable to locate track publication")
+            log("Could not subscribe to mediaTrack \(sid), unable to locate track publication", .error)
             let error = TrackError.state(message: "Could not find published track with sid: \(sid)")
             notify { $0.participant(self, didFailToSubscribe: sid, error: error) }
             room.notify { $0.room(self.room, participant: self, didFailToSubscribe: sid, error: error) }

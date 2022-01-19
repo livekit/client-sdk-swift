@@ -7,6 +7,8 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
     public private(set) var connectionState: ConnectionState = .disconnected() {
         didSet {
             guard oldValue != connectionState else { return }
+            log("connectionState updated \(oldValue) -> \(self.connectionState)")
+
             // Connected
             if case .connected = connectionState {
                 // Check if this was a re-connect
@@ -49,10 +51,10 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
                               connectOptions: connectOptions,
                               reconnect: reconnect)
             .catch { error in
-                logger.error("Failed to parse rtc url")
+                self.log("Failed to parse rtc url", .error)
             }
             .then(on: .sdk) { url -> Promise<WebSocket> in
-                logger.debug("Connecting with url: \(url)")
+                self.log("Connecting with url: \(url)")
                 self.connectionState = .connecting(isReconnecting: reconnect)
                 return WebSocket.connect(url: url,
                                          onMessage: self.onWebSocketMessage) { _ in
@@ -71,13 +73,13 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
                                reconnect: reconnect,
                                validate: true
                 ).then(on: .sdk) { url -> Promise<Data> in
-                    logger.debug("Validating with url: \(url)")
+                    self.log("Validating with url: \(url)")
                     return HTTP().get(url: url)
                 }.then(on: .sdk) { data in
                     guard let string = String(data: data, encoding: .utf8) else {
                         throw SignalClientError.connect(message: "Failed to decode string")
                     }
-                    logger.debug("validate response: \(string)")
+                    self.log("validate response: \(string)")
                     // re-throw with validation response
                     throw SignalClientError.connect(message: string)
                 }
@@ -89,12 +91,12 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
     private func sendRequest(_ request: Livekit_SignalRequest) {
 
         guard case .connected = connectionState else {
-            logger.error("could not send message, not connected")
+            log("could not send message, not connected", .error)
             return
         }
 
         guard let data = try? request.serializedData() else {
-            logger.error("could not serialize data")
+            log("could not serialize data", .error)
             return
         }
 
@@ -116,12 +118,12 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
             response = try? Livekit_SignalResponse(jsonString: text)
         @unknown default:
             // This should never happen
-            logger.warning("Unknown message type")
+            log("Unknown message type", .warning)
         }
 
         guard let response = response,
               let message = response.message else {
-            logger.warning("Failed to decode SignalResponse")
+            log("Failed to decode SignalResponse", .warning)
             return
         }
 
@@ -131,7 +133,7 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
     private func onSignalResponse(message: Livekit_SignalResponse.OneOf_Message) {
 
         guard case .connected = connectionState else {
-            logger.warning("Not connected")
+            log("Not connected", .warning)
             return
         }
 
@@ -183,7 +185,7 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
         case .subscriptionPermissionUpdate(let permissionUpdate):
             notify { $0.signalClient(self, didUpdate: permissionUpdate) }
         default:
-            logger.warning("unsupported signal response type: \(message)")
+            log("unsupported signal response type: \(message)", .warning)
         }
     }
 }
@@ -194,11 +196,11 @@ internal extension SignalClient {
 
     func waitReceiveJoinResponse() -> Promise<Livekit_JoinResponse> {
 
-        logger.debug("Waiting for join response...")
+        log("Waiting for join response...")
 
         // If already received a join response, there is no need to wait.
         if let joinResponse = latestJoinResponse {
-            logger.debug("Already received join response")
+            log("Already received join response")
             return Promise(joinResponse)
         }
 
@@ -223,7 +225,7 @@ internal extension SignalClient {
 internal extension SignalClient {
 
     func sendOffer(offer: RTCSessionDescription) {
-        logger.debug("[SignalClient] Sending offer")
+        log("[SignalClient] Sending offer")
 
         let r = Livekit_SignalRequest.with {
             $0.offer = offer.toPBType()
@@ -233,7 +235,7 @@ internal extension SignalClient {
     }
 
     func sendAnswer(answer: RTCSessionDescription) {
-        logger.debug("[SignalClient] Sending answer")
+        log("[SignalClient] Sending answer")
 
         let r = Livekit_SignalRequest.with {
             $0.answer = answer.toPBType()
@@ -243,7 +245,7 @@ internal extension SignalClient {
     }
 
     func sendCandidate(candidate: RTCIceCandidate, target: Livekit_SignalTarget) throws {
-        logger.debug("[SignalClient] Sending ICE candidate")
+        log("[SignalClient] Sending ICE candidate")
 
         let r = try Livekit_SignalRequest.with {
             $0.trickle = try Livekit_TrickleRequest.with {
@@ -256,7 +258,7 @@ internal extension SignalClient {
     }
 
     func sendMuteTrack(trackSid: String, muted: Bool) {
-        logger.debug("[SignalClient] Sending mute for \(trackSid), muted: \(muted)")
+        log("[SignalClient] Sending mute for \(trackSid), muted: \(muted)")
 
         let r = Livekit_SignalRequest.with {
             $0.mute = Livekit_MuteTrackRequest.with {
@@ -273,7 +275,7 @@ internal extension SignalClient {
                       type: Livekit_TrackType,
                       source: Livekit_TrackSource = .unknown,
                       _ populator: (inout Livekit_AddTrackRequest) -> Void) {
-        logger.debug("[SignalClient] Sending add track request")
+        log("[SignalClient] Sending add track request")
         let r = Livekit_SignalRequest.with {
             $0.addTrack = Livekit_AddTrackRequest.with {
                 populator(&$0)
@@ -291,7 +293,7 @@ internal extension SignalClient {
                                  enabled: Bool,
                                  width: Int = 0,
                                  height: Int = 0) {
-        logger.debug("[SignalClient] Sending update track settings")
+        log("[SignalClient] Sending update track settings")
 
         let r = Livekit_SignalRequest.with {
             $0.trackSetting = Livekit_UpdateTrackSettings.with {
@@ -319,7 +321,7 @@ internal extension SignalClient {
     }
 
     func sendUpdateSubscription(sid: String, subscribed: Bool) {
-        logger.debug("[SignalClient] Sending update subscription")
+        log("[SignalClient] Sending update subscription")
 
         let r = Livekit_SignalRequest.with {
             $0.subscription = Livekit_UpdateSubscription.with {
@@ -344,7 +346,7 @@ internal extension SignalClient {
     }
 
     func sendLeave() {
-        logger.debug("[SignalClient] Sending leave")
+        log("[SignalClient] Sending leave")
 
         let r = Livekit_SignalRequest.with {
             $0.leave = Livekit_LeaveRequest()

@@ -9,7 +9,7 @@ import AppKit
 typealias NativeRect = NSRect
 #endif
 
-public class VideoView: NativeView {
+public class VideoView: NativeView, Loggable {
 
     public enum Mode {
         case fit
@@ -156,7 +156,7 @@ public class VideoView: NativeView {
             #if os(iOS)
             // iOS --------------------
             if isMetalAvailable() {
-                logger.debug("Using RTCMTLVideoView for VideoView's Renderer")
+                logger.log("Using RTCMTLVideoView for VideoView's Renderer", type: VideoView.self)
                 let mtlView = RTCMTLVideoView()
                 // use .fit here to match macOS behavior and
                 // manually calculate .fill if necessary
@@ -165,7 +165,7 @@ public class VideoView: NativeView {
                 mtlView.delegate = delegate
                 view = mtlView
             } else {
-                logger.debug("Using RTCEAGLVideoView for VideoView's Renderer")
+                logger.log("Using RTCEAGLVideoView for VideoView's Renderer", type: VideoView.self)
                 let glView = RTCEAGLVideoView()
                 glView.contentMode = .scaleAspectFit
                 glView.delegate = delegate
@@ -174,12 +174,12 @@ public class VideoView: NativeView {
             #else
             // macOS --------------------
             if isMetalAvailable() {
-                logger.debug("Using RTCMTLNSVideoView for VideoView's Renderer")
+                logger.log("Using RTCMTLNSVideoView for VideoView's Renderer", type: VideoView.self)
                 let mtlView = RTCMTLNSVideoView()
                 mtlView.delegate = delegate
                 view = mtlView
             } else {
-                logger.debug("Using RTCNSGLVideoView for VideoView's Renderer")
+                logger.log("Using RTCNSGLVideoView for VideoView's Renderer", type: VideoView.self)
                 let glView = RTCNSGLVideoView()
                 glView.delegate = delegate
                 view = glView
@@ -195,19 +195,19 @@ extension VideoView: RTCVideoViewDelegate {
 
     public func videoView(_: RTCVideoRenderer, didChangeVideoSize size: CGSize) {
 
-        logger.debug("VideoView: didChangeVideoSize \(size)")
+        log("VideoView: didChangeVideoSize \(size)")
 
         guard let width = Int32(exactly: size.width),
               let height = Int32(exactly: size.height) else {
             // CGSize is used by WebRTC but this should always be an integer
-            logger.warning("VideoView: size width/height is not an integer")
+            log("VideoView: size width/height is not an integer", .warning)
             return
         }
 
         guard width > 1, height > 1 else {
             // Handle known issue where the delegate (rarely) reports dimensions of 1x1
             // which causes [MTLTextureDescriptorInternal validateWithDevice] to crash.
-            logger.warning("VideoView: size is 1x1, ignoring...")
+            log("VideoView: size is 1x1, ignoring...", .warning)
             return
         }
 

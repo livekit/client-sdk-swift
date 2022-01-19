@@ -29,7 +29,7 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
         // automatically notify changes
         didSet {
             guard oldValue != connectionState else { return }
-            logger.debug("Engine connectionState updated \(oldValue) -> \(self.connectionState)")
+            log("Engine connectionState updated \(oldValue) -> \(self.connectionState)")
             switch connectionState {
             case .connected: notify { $0.engine(self, didConnect: oldValue.isReconnecting) }
             case .disconnected: notify { $0.engineDidDisconnect(self) }
@@ -48,11 +48,11 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
         add(delegate: room)
 
         signalClient.add(delegate: self)
-        logger.debug("Engine init")
+        log("Engine init")
     }
 
     deinit {
-        logger.debug("Engine deinit")
+        log("Engine deinit")
         signalClient.remove(delegate: self)
     }
 
@@ -60,7 +60,7 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
                         _ token: String) -> Promise<Void> {
 
         guard connectionState != .connected else {
-            logger.debug("already connected")
+            log("already connected")
             return Promise(EngineError.state(message: "already connected"))
         }
 
@@ -83,7 +83,7 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
                                         self.waitForIceConnect(transport: self.primary)
                                     }.then(on: .sdk) {
                                         // connect sequence successful
-                                        logger.debug("connect sequence completed")
+                                        self.log("connect sequence completed")
 
                                         // update internal vars (only if connect succeeded)
                                         self.url = url
@@ -98,12 +98,12 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
 
         guard let url = url,
               let token = token else {
-            logger.debug("reconnect() must be called with connected state")
+            log("reconnect() must be called with connected state")
             return Promise(EngineError.state(message: "reconnect() called with no url or token"))
         }
 
         guard case .connected = connectionState else {
-            logger.debug("reconnect() must be called with connected state")
+            log("reconnect() must be called with connected state")
             return Promise(EngineError.state(message: "reconnect() called with invalid state"))
         }
 
@@ -136,7 +136,7 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
 
         let delay: TimeInterval = 1
         return retry(attempts: 5, delay: delay) { remainingAttempts, _ in
-            logger.debug("re-connecting in \(delay)second(s), \(remainingAttempts) remaining attempts...")
+            self.log("re-connecting in \(delay)second(s), \(remainingAttempts) remaining attempts...")
             // only retry if still reconnecting state (not disconnected)
             return .connecting(isReconnecting: true) == self.connectionState
         } _: {
@@ -144,7 +144,7 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
             reconnectSequence()
         }.then(on: .sdk) {
             // re-connect sequence successful
-            logger.debug("re-connect sequence completed")
+            self.log("re-connect sequence completed")
             self.connectionState = .connected
         }.catch { _ in
             // finally disconnect if all attempts fail
@@ -155,7 +155,7 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
     public func disconnect() {
 
         guard .disconnected() != connectionState else {
-            logger.warning("disconnect() already disconnected")
+            log("disconnect() already disconnected", .warning)
             return
         }
 
@@ -179,7 +179,7 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
 
     private func onReceived(dataChannel: RTCDataChannel) {
 
-        logger.debug("Server opened data channel \(dataChannel.label)")
+        log("Server opened data channel \(dataChannel.label)")
 
         switch dataChannel.label {
         case RTCDataChannel.labels.reliable:
@@ -189,7 +189,7 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
             dcLossySub = dataChannel
             dcLossySub?.delegate = self
         default:
-            logger.warning("Unknown data channel label \(dataChannel.label)")
+            log("Unknown data channel label \(dataChannel.label)", .warning)
         }
     }
 
@@ -209,7 +209,7 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
     internal func publisherShouldNegotiate() {
 
         guard let publisher = publisher else {
-            logger.debug("negotiate() publisher is nil")
+            log("negotiate() publisher is nil")
             return
         }
 
@@ -275,9 +275,9 @@ extension Engine {
             return Promise(EngineError.state(message: "publisher data channel is nil"))
         }
 
-        logger.debug("waiting for dataChannel to open for \(reliability)")
+        log("waiting for dataChannel to open for \(reliability)")
         if allowCurrentValue, dcPublisher.readyState == .open {
-            logger.debug("dataChannel already open")
+            log("dataChannel already open")
             return Promise(())
         }
 
@@ -313,9 +313,9 @@ extension Engine {
             return Promise(EngineError.state(message: "transport is nil"))
         }
 
-        logger.debug("waiting for iceConnect on \(transport)")
+        log("waiting for iceConnect on \(transport)")
         if allowCurrentValue, transport.isIceConnected {
-            logger.debug("iceConnect already connected")
+            log("iceConnect already connected")
             return Promise(())
         }
 
@@ -358,7 +358,7 @@ extension Engine {
                     delegate = nil
                 },
                 didPublishLocalTrack: { _, response in
-                    logger.debug("[SignalClientDelegateClosures] didPublishLocalTrack")
+                    self.log("[SignalClientDelegateClosures] didPublishLocalTrack")
                     if response.cid == cid {
                         // complete when track info received
                         resolve(response.track)
@@ -378,11 +378,11 @@ extension Engine: SignalClientDelegate {
     func configureTransports(joinResponse: Livekit_JoinResponse) {
 
         guard subscriber == nil, publisher == nil else {
-            logger.debug("transports already configured")
+            log("transports already configured")
             return
         }
 
-        logger.debug("configuring transports...")
+        log("configuring transports...")
 
         // protocol v3
         subscriberPrimary = joinResponse.subscriberPrimary
@@ -405,7 +405,7 @@ extension Engine: SignalClientDelegate {
                                       delegate: self)
 
             publisher?.onOffer = { offer in
-                logger.debug("publisher onOffer")
+                self.log("publisher onOffer")
                 self.signalClient.sendOffer(offer: offer)
             }
 
@@ -452,22 +452,22 @@ extension Engine: SignalClientDelegate {
     func signalClient(_ signalClient: SignalClient, didReceiveAnswer answer: RTCSessionDescription) {
 
         guard let publisher = self.publisher else {
-            logger.warning("signalClient didReceiveAnswer but publisher is nil")
+            log("signalClient didReceiveAnswer but publisher is nil", .warning)
             return
         }
 
-        logger.debug("handling server answer...")
+        log("handling server answer...")
         publisher.setRemoteDescription(answer)
     }
 
     func signalClient(_ signalClient: SignalClient, didReceiveOffer offer: RTCSessionDescription) {
 
         guard let subscriber = self.subscriber else {
-            logger.warning("signalClient didReceiveOffer but subscriber is nil")
+            log("signalClient didReceiveOffer but subscriber is nil", .warning)
             return
         }
 
-        logger.debug("handling server offer...")
+        log("handling server offer...")
         subscriber.setRemoteDescription(offer).then(on: .sdk) {
             subscriber.createAnswer()
         }.then(on: .sdk) { answer in
@@ -478,7 +478,7 @@ extension Engine: SignalClientDelegate {
     }
 
     func signalClient(_ signalClient: SignalClient, didPublish localTrack: Livekit_TrackPublishedResponse) {
-        logger.debug("received track published confirmation from server for: \(localTrack.track.sid)")
+        log("received track published confirmation from server for: \(localTrack.track.sid)")
     }
 
     func signalClientDidLeave(_ signaClient: SignalClient) {
@@ -486,12 +486,12 @@ extension Engine: SignalClientDelegate {
     }
 
     func signalClient(_ signalClient: SignalClient, didClose code: URLSessionWebSocketTask.CloseCode) {
-        logger.debug("signal connection closed with code: \(code)")
+        log("signal connection closed with code: \(code)")
         reconnect()
     }
 
     func signalClient(_ signalClient: SignalClient, didFailConnect error: Error) {
-        logger.debug("signal connection error: \(error)")
+        log("signal connection error: \(error)")
         notify { $0.engine(self, didFailConnection: error) }
     }
 
@@ -525,7 +525,7 @@ extension Engine: RTCDataChannelDelegate {
     func dataChannel(_: RTCDataChannel, didReceiveMessageWith buffer: RTCDataBuffer) {
 
         guard let dataPacket = try? Livekit_DataPacket(contiguousBytes: buffer.data) else {
-            logger.error("could not decode data message")
+            log("could not decode data message", .error)
             return
         }
 
@@ -542,12 +542,12 @@ extension Engine: RTCDataChannelDelegate {
 extension Engine: TransportDelegate {
 
     func transport(_ transport: Transport, didGenerate iceCandidate: RTCIceCandidate) {
-        logger.debug("[PCTransportDelegate] didGenerate iceCandidate")
+        log("[PCTransportDelegate] didGenerate iceCandidate")
         try? signalClient.sendCandidate(candidate: iceCandidate, target: transport.target)
     }
 
     func transport(_ transport: Transport, didUpdate iceState: RTCIceConnectionState) {
-        logger.debug("[PCTransportDelegate] didUpdate iceState")
+        log("[PCTransportDelegate] didUpdate iceState")
         if transport.primary {
             if iceState == .failed {
                 reconnect()
@@ -556,14 +556,14 @@ extension Engine: TransportDelegate {
     }
 
     func transport(_ transport: Transport, didAdd track: RTCMediaStreamTrack, streams: [RTCMediaStream]) {
-        logger.debug("[PCTransportDelegate] did add track")
+        log("[PCTransportDelegate] did add track")
         if transport.target == .subscriber {
             notify { $0.engine(self, didAdd: track, streams: streams) }
         }
     }
 
     func transport(_ transport: Transport, didOpen dataChannel: RTCDataChannel) {
-        logger.debug("[PCTransportDelegate] did add track] did open datachannel")
+        log("[PCTransportDelegate] did add track] did open datachannel")
         if subscriberPrimary, transport.target == .subscriber {
             onReceived(dataChannel: dataChannel)
         }

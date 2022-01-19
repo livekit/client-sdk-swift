@@ -3,7 +3,7 @@ import WebRTC
 import OrderedCollections
 import Promises
 
-open class ObservableRoom: ObservableObject, RoomDelegate {
+open class ObservableRoom: ObservableObject, RoomDelegate, Loggable {
 
     public let room: Room
 
@@ -41,7 +41,7 @@ open class ObservableRoom: ObservableObject, RoomDelegate {
         guard case .published(let publication) = self.cameraTrackState,
               let track = publication.track as? LocalVideoTrack,
               let cameraCapturer = track.capturer as? CameraCapturer else {
-            logger.notice("Track or CameraCapturer doesn't exist")
+            log("Track or CameraCapturer doesn't exist", .notice)
             return Promise(TrackError.state(message: "Track or a CameraCapturer doesn't exist"))
         }
 
@@ -51,12 +51,12 @@ open class ObservableRoom: ObservableObject, RoomDelegate {
     public func toggleCameraEnabled() {
 
         guard let localParticipant = room.localParticipant else {
-            logger.notice("LocalParticipant doesn't exist")
+            log("LocalParticipant doesn't exist", .notice)
             return
         }
 
         guard !cameraTrackState.isBusy else {
-            logger.notice("cameraTrack is .busy")
+            log("cameraTrack is .busy", .notice)
             return
         }
 
@@ -83,12 +83,12 @@ open class ObservableRoom: ObservableObject, RoomDelegate {
     public func toggleScreenShareEnabled() {
 
         guard let localParticipant = room.localParticipant else {
-            logger.notice("LocalParticipant doesn't exist")
+            log("LocalParticipant doesn't exist", .notice)
             return
         }
 
         guard !screenShareTrackState.isBusy else {
-            logger.notice("screenShareTrack is .busy")
+            log("screenShareTrack is .busy", .notice)
             return
         }
 
@@ -115,12 +115,12 @@ open class ObservableRoom: ObservableObject, RoomDelegate {
     public func toggleMicrophoneEnabled() {
 
         guard let localParticipant = room.localParticipant else {
-            logger.notice("LocalParticipant doesn't exist")
+            log("LocalParticipant doesn't exist", .notice)
             return
         }
 
         guard !microphoneTrackState.isBusy else {
-            logger.notice("microphoneTrack is .busy")
+            log("microphoneTrack is .busy", .notice)
             return
         }
 

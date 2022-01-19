@@ -56,7 +56,7 @@ extension LocalTrackPublication {
 
         guard let participant = participant else { return }
 
-        logger.debug("Re-computing sender parameters...")
+        log("Re-computing sender parameters...")
 
         // get current parameters
         let parameters = sender.parameters
@@ -81,14 +81,14 @@ extension LocalTrackPublication {
         // set the updated parameters
         sender.parameters = parameters
 
-        logger.debug("Sender parameters updated: \(sender.parameters.encodings)")
+        log("Sender parameters updated: \(sender.parameters.encodings)")
 
         // Report updated encodings to server
 
         let layers = Utils.videoLayersForEncodings(dimensions: track.capturer.dimensions,
                                                    encodings: encodings)
 
-        logger.debug("Sending update video layers request: \(layers)")
+        log("Sending update video layers request: \(layers)")
 
         participant.room.engine.signalClient.sendUpdateVideoLayers(trackSid: sid,
                                                                    layers: layers)

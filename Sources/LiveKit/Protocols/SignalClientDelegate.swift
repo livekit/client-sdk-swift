@@ -22,7 +22,7 @@ internal protocol SignalClientDelegate {
     func signalClient(_ signalClient: SignalClient, didClose code: URLSessionWebSocketTask.CloseCode)
 }
 
-class SignalClientDelegateClosures: NSObject, SignalClientDelegate {
+class SignalClientDelegateClosures: NSObject, SignalClientDelegate, Loggable {
 
     typealias DidConnect = (SignalClient, Bool) -> Void
     typealias DidFailConnection = (SignalClient, Error) -> Void
@@ -41,16 +41,17 @@ class SignalClientDelegateClosures: NSObject, SignalClientDelegate {
          didClose: DidClose? = nil,
          didReceiveJoinResponse: DidReceiveJoinResponse? = nil,
          didPublishLocalTrack: DidPublishLocalTrack? = nil) {
-        logger.debug("[SignalClientDelegateClosures] init")
         self.didConnect = didConnect
         self.didFailConnection = didFailConnection
         self.didClose = didClose
         self.didReceiveJoinResponse = didReceiveJoinResponse
         self.didPublishLocalTrack = didPublishLocalTrack
+        super.init()
+        log("init")
     }
 
     deinit {
-        logger.debug("[SignalClientDelegateClosures] deinit")
+        log("[SignalClientDelegateClosures] deinit")
     }
 
     func signalClient(_ signalClient: SignalClient, didConnect isReconnect: Bool) {

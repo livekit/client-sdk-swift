@@ -27,7 +27,7 @@ public typealias IPCOnReceivedData = (_ server: IPCServer,
 ///
 /// `name` used between ``IPCServer`` and ``IPCClient`` must match to
 /// establish a connection. `name` must start with an App Group ID. ex. `group.yourapp.ipc-name`.
-public class IPC {
+public class IPC: Loggable {
     internal var port: CFMessagePort?
     public internal(set) var connected: Bool = false
 
@@ -39,7 +39,7 @@ public class IPC {
     }
 
     internal func cleanUp() {
-        logger.debug("\(self) cleanUp")
+        log("\(self) cleanUp")
         connected = false
         self.port = nil
     }
@@ -76,7 +76,7 @@ public class IPCServer: IPC {
 
         guard port == nil else {
             // port already exists
-            logger.debug("port is not nil")
+            log("port is not nil")
             return false
         }
 

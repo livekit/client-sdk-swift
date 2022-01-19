@@ -42,7 +42,7 @@ public class LocalParticipant: Participant {
 
         return track.start()
             .recover { (error) -> Void in
-                logger.warning("Failed to start track with error \(error)")
+                self.log("Failed to start track with error \(error)", .warning)
                 // start() will fail if it's already started.
                 // but for this case we will allow it, throw for any other error.
                 guard case TrackError.state = error else { throw error }
@@ -105,7 +105,7 @@ public class LocalParticipant: Participant {
                                                publishOptions: publishOptions)
 
         if let encodings = encodings {
-            logger.debug("using encodings \(encodings)")
+            log("using encodings \(encodings)")
             transInit.sendEncodings = encodings
         }
 
@@ -122,7 +122,7 @@ public class LocalParticipant: Participant {
         // try to start the track
         return track.start()
             .recover { (error) -> Void in
-                logger.warning("Failed to start track with error \(error)")
+                self.log("Failed to start track with error \(error)", .warning)
                 // start() will fail if it's already started.
                 // but for this case we will allow it, throw for any other error.
                 guard case TrackError.state = error else { throw error }
@@ -220,7 +220,7 @@ public class LocalParticipant: Participant {
 
         // wait for track to stop
         return stopTrackIfRequired()
-            .recover { error in logger.warning("stopTrackIfRequired() did throw \(error)") }
+            .recover { error in self.log("stopTrackIfRequired() did throw \(error)", .warning) }
             .then(on: .sdk) { () -> Promise<Void> in
 
                 guard let publisher = self.room.engine.publisher, let sender = track.sender else {
@@ -315,7 +315,7 @@ public class LocalParticipant: Participant {
             if encoding.isActive != quality.enabled {
                 hasChanged = true
                 encoding.isActive = quality.enabled
-                logger.info("setting layer \(quality.quality) to \(quality.enabled)")
+                log("setting layer \(quality.quality) to \(quality.enabled)", .info)
             }
         }
 
@@ -327,7 +327,7 @@ public class LocalParticipant: Participant {
             if encoding.isActive != quality.enabled {
                 hasChanged = true
                 encoding.isActive = quality.enabled
-                logger.info("setting layer \(quality.quality) to \(quality.enabled)")
+                log("setting layer \(quality.quality) to \(quality.enabled)", .info)
             }
         }
 

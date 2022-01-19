@@ -6,7 +6,7 @@ import Promises
 /// Uses `NSHashTable` internally to maintain a set of weak delegates.
 ///
 /// > Note: `NSHashTable` may not immediately deinit the un-referenced object, due to Apple's implementation, therefore `.count` is unreliable.
-public class MulticastDelegate<T>: NSObject {
+public class MulticastDelegate<T>: NSObject, Loggable {
 
     private let queue = DispatchQueue(label: "livekit.multicast")
     private let set = NSHashTable<AnyObject>.weakObjects()
@@ -15,7 +15,7 @@ public class MulticastDelegate<T>: NSObject {
     public func add(delegate: T) {
 
         guard let delegate = delegate as AnyObject? else {
-            logger.debug("MulticastDelegate: delegate is not an AnyObject")
+            log("MulticastDelegate: delegate is not an AnyObject")
             return
         }
 
@@ -28,7 +28,7 @@ public class MulticastDelegate<T>: NSObject {
     public func remove(delegate: T) {
 
         guard let delegate = delegate as AnyObject? else {
-            logger.debug("MulticastDelegate: delegate is not an AnyObject")
+            log("MulticastDelegate: delegate is not an AnyObject")
             return
         }
 
@@ -40,7 +40,7 @@ public class MulticastDelegate<T>: NSObject {
         queue.async {
             for delegate in self.set.objectEnumerator() {
                 guard let delegate = delegate as? T else {
-                    logger.debug("MulticastDelegate: skipping notify for \(delegate), not a type of \(T.self)")
+                    self.log("MulticastDelegate: skipping notify for \(delegate), not a type of \(T.self)", .info)
                     continue
                 }
 

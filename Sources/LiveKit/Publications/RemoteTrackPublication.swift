@@ -190,7 +190,7 @@ extension RemoteTrackPublication {
            settings.enabled == false,
            hasVisibleVideoViews() {
             // immediately compute (quick enable)
-            logger.debug("Attempting quick enable (no deboucne)")
+            log("Attempting quick enable (no deboucne)")
             pendingDebounceFunc?.cancel()
             recomputeVideoViewVisibilities()
         } else {
@@ -202,7 +202,7 @@ extension RemoteTrackPublication {
 
         func send(_ settings: VideoTrackSettings) {
             guard let client = participant?.room.engine.signalClient else { return }
-            logger.debug("sendUpdateTrackSettings enabled: \(settings.enabled), viewSize: \(settings.size)")
+            log("sendUpdateTrackSettings enabled: \(settings.enabled), viewSize: \(settings.size)")
             client.sendUpdateTrackSettings(sid: sid,
                                            enabled: settings.enabled,
                                            width: Int(ceil(settings.size.width)),

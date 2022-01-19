@@ -10,7 +10,7 @@ public typealias NativeViewRepresentable = NSViewRepresentable
 #endif
 
 /// This class receives delegate events since a struct can't be used for a delegate
-class SwiftUIVideoViewDelegateReceiver: TrackDelegate {
+class SwiftUIVideoViewDelegateReceiver: TrackDelegate, Loggable {
 
     @Binding var dimensions: Dimensions?
 
@@ -21,14 +21,14 @@ class SwiftUIVideoViewDelegateReceiver: TrackDelegate {
     func track(_ track: VideoTrack,
                videoView: VideoView,
                didUpdate dimensions: Dimensions) {
-        logger.debug("SwiftUIVideoView received video dimensions \(dimensions)")
+        log("SwiftUIVideoView received video dimensions \(dimensions)")
         DispatchQueue.main.async {
             self.dimensions = dimensions
         }
     }
 
     func track(_ track: VideoTrack, videoView: VideoView, didUpdate size: CGSize) {
-        logger.debug("SwiftUIVideoView received view size \(size)")
+        log("SwiftUIVideoView received view size \(size)")
     }
 }
 
