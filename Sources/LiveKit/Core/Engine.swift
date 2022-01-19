@@ -29,7 +29,7 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
         // automatically notify changes
         didSet {
             guard oldValue != connectionState else { return }
-            logger.debug("connectionState updated \(oldValue) -> \(self.connectionState)")
+            logger.debug("Engine connectionState updated \(oldValue) -> \(self.connectionState)")
             switch connectionState {
             case .connected: notify { $0.engine(self, didConnect: oldValue.isReconnecting) }
             case .disconnected: notify { $0.engineDidDisconnect(self) }
@@ -155,22 +155,26 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
     public func disconnect() {
 
         guard .disconnected() != connectionState else {
-            logger.warning("close() already disconnected")
+            logger.warning("disconnect() already disconnected")
             return
         }
 
+        cleanUp()
+        connectionState = .disconnected()
+        signalClient.close()
+    }
+
+    // resets internal vars
+    private func cleanUp() {
+
         url = nil
         token = nil
-
-        connectionState = .disconnected()
 
         publisher?.close()
         publisher = nil
 
         subscriber?.close()
         subscriber = nil
-
-        signalClient.close()
     }
 
     private func onReceived(dataChannel: RTCDataChannel) {
