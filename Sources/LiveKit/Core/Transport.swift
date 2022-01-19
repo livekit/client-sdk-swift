@@ -18,8 +18,8 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
     public var renegotiate: Bool = false
     public var onOffer: TransportOnOffer?
 
-    public var iceConnectionState: RTCIceConnectionState {
-        DispatchQueue.webRTC.sync { pc.iceConnectionState }
+    public var connectionState: RTCPeerConnectionState {
+        DispatchQueue.webRTC.sync { pc.connectionState }
     }
 
     public var remoteDescription: RTCSessionDescription? {
@@ -30,8 +30,8 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
         DispatchQueue.webRTC.sync { pc.signalingState }
     }
 
-    public var isIceConnected: Bool {
-        iceConnectionState.isConnected
+    public var isConnected: Bool {
+        connectionState == .connected
     }
 
     // keep reference to cancel later
@@ -150,24 +150,18 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
     }
 }
 
-internal extension RTCIceConnectionState {
+extension RTCPeerConnectionState: CustomStringConvertible {
 
-    func toString() -> String {
+    public var description: String {
         switch self {
         case .new: return "new"
-        case .checking: return "checking"
+        case .connecting: return "connecting"
         case .connected: return "connected"
-        case .completed: return "completed"
         case .failed: return "failed"
         case .disconnected: return "disconnected"
         case .closed: return "closed"
-        case .count: return  "count"
         @unknown default: return "unknown"
         }
-    }
-
-    var isConnected: Bool {
-        .completed == self || .connected == self
     }
 }
 
@@ -175,11 +169,9 @@ internal extension RTCIceConnectionState {
 
 extension Transport: RTCPeerConnectionDelegate {
 
-    internal func peerConnection(_ peerConnection: RTCPeerConnection,
-                                 didChange iceState: RTCIceConnectionState) {
-
-        log("Did change ice state \(iceState.toString()) for \(target)")
-        notify { $0.transport(self, didUpdate: iceState) }
+    internal func peerConnection(_ peerConnection: RTCPeerConnection, didChange state: RTCPeerConnectionState) {
+        log("Did update state \(state) for \(target)")
+        notify { $0.transport(self, didUpdate: state) }
     }
 
     internal func peerConnection(_ peerConnection: RTCPeerConnection,
@@ -212,6 +204,7 @@ extension Transport: RTCPeerConnectionDelegate {
         notify { $0.transport(self, didOpen: dataChannel) }
     }
 
+    internal func peerConnection(_ peerConnection: RTCPeerConnection, didChange newState: RTCIceConnectionState) {}
     internal func peerConnection(_ peerConnection: RTCPeerConnection, didRemove stream: RTCMediaStream) {}
     internal func peerConnection(_ peerConnection: RTCPeerConnection, didChange stateChanged: RTCSignalingState) {}
     internal func peerConnection(_ peerConnection: RTCPeerConnection, didAdd stream: RTCMediaStream) {}

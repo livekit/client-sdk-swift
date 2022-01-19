@@ -2,7 +2,7 @@ import Foundation
 import WebRTC
 
 internal protocol TransportDelegate {
-    func transport(_ transport: Transport, didUpdate iceState: RTCIceConnectionState)
+    func transport(_ transport: Transport, didUpdate state: RTCPeerConnectionState)
     func transport(_ transport: Transport, didGenerate iceCandidate: RTCIceCandidate)
     func transport(_ transport: Transport, didOpen dataChannel: RTCDataChannel)
     func transport(_ transport: Transport, didAdd track: RTCMediaStreamTrack, streams: [RTCMediaStream])
@@ -11,15 +11,15 @@ internal protocol TransportDelegate {
 
 class TransportDelegateClosures: NSObject, TransportDelegate {
 
-    typealias OnIceStateUpdated = (_ transport: Transport, _ iceState: RTCIceConnectionState) -> Void
-    let onIceStateUpdated: OnIceStateUpdated?
+    typealias OnDidUpdateState = (_ transport: Transport, _ state: RTCPeerConnectionState) -> Void
+    let onDidUpdateState: OnDidUpdateState?
 
-    init(onIceStateUpdated: OnIceStateUpdated? = nil) {
-        self.onIceStateUpdated = onIceStateUpdated
+    init(onDidUpdateState: OnDidUpdateState? = nil) {
+        self.onDidUpdateState = onDidUpdateState
     }
 
-    func transport(_ transport: Transport, didUpdate iceState: RTCIceConnectionState) {
-        onIceStateUpdated?(transport, iceState)
+    func transport(_ transport: Transport, didUpdate state: RTCPeerConnectionState) {
+        onDidUpdateState?(transport, state)
     }
 
     func transport(_ transport: Transport, didGenerate iceCandidate: RTCIceCandidate) {}

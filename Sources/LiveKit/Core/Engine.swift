@@ -80,7 +80,7 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
                                         self.configureTransports(joinResponse: joinResponse)
                                     }.then(on: .sdk) {
                                         // wait for peer connections to connect
-                                        self.waitForIceConnect(transport: self.primary)
+                                        self.wait(transport: self.primary, state: .connected)
                                     }.then(on: .sdk) {
                                         // connect sequence successful
                                         self.log("connect sequence completed")
@@ -119,7 +119,7 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
                                  token,
                                  connectOptions: room.connectOptions,
                                  reconnect: true).then(on: .sdk) {
-                                    self.waitForIceConnect(transport: self.primary)
+                                    self.wait(transport: self.primary, state: .connected)
                                  }.then(on: .sdk) { () -> Promise<Void> in
                                     self.subscriber?.restartingIce = true
 
@@ -129,7 +129,7 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
                                     }
 
                                     return publisher.createAndSendOffer(iceRestart: true).then(on: .sdk) {
-                                        self.waitForIceConnect(transport: publisher)
+                                        self.wait(transport: publisher, state: .connected)
                                     }
                                  }
         }
@@ -234,11 +234,11 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
                 return Promise(EngineError.state(message: "publisher is nil"))
             }
 
-            if !publisher.isIceConnected, publisher.iceConnectionState != .checking {
+            if !publisher.isConnected, publisher.connectionState != .connecting {
                 publisherShouldNegotiate()
             }
 
-            return waitForIceConnect(transport: publisher).then(on: .sdk) {
+            return wait(transport: publisher, state: .connected).then(on: .sdk) {
                 // wait for data channel to open
                 self.waitForPublisherDataChannelOpen(reliability: reliability)
             }
@@ -307,15 +307,17 @@ extension Engine {
         .timeout(.defaultConnect)
     }
 
-    func waitForIceConnect(transport: Transport?, allowCurrentValue: Bool = true) -> Promise<Void> {
+    func wait(transport: Transport?,
+              state: RTCPeerConnectionState,
+              allowCurrentValue: Bool = true) -> Promise<Void> {
 
         guard let transport = transport else {
             return Promise(EngineError.state(message: "transport is nil"))
         }
 
-        log("waiting for iceConnect on \(transport)")
-        if allowCurrentValue, transport.isIceConnected {
-            log("iceConnect already connected")
+        log("Waiting for \(transport) to connect...")
+        if allowCurrentValue, transport.connectionState == state {
+            log("\(transport) already connected")
             return Promise(())
         }
 
@@ -323,8 +325,8 @@ extension Engine {
             // create temporary delegate
             var transportDelegate: TransportDelegateClosures?
             transportDelegate = TransportDelegateClosures(
-                onIceStateUpdated: { target, iceState in
-                    if transport == target, iceState.isConnected {
+                onDidUpdateState: { target, newState in
+                    if transport == target, newState == state {
                         resolve(())
                         transportDelegate = nil
                     }
@@ -546,12 +548,10 @@ extension Engine: TransportDelegate {
         try? signalClient.sendCandidate(candidate: iceCandidate, target: transport.target)
     }
 
-    func transport(_ transport: Transport, didUpdate iceState: RTCIceConnectionState) {
-        log("didUpdate iceState")
-        if transport.primary {
-            if iceState == .failed {
-                reconnect()
-            }
+    func transport(_ transport: Transport, didUpdate state: RTCPeerConnectionState) {
+        log("state: \(state)")
+        if transport.primary, state == .failed {
+            reconnect()
         }
     }
 
