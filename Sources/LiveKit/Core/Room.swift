@@ -18,7 +18,7 @@ public class Room: MulticastDelegate<RoomDelegate> {
     internal private(set) var roomOptions: RoomOptions?
 
     // expose engine's connectionState
-    public var state: ConnectionState {
+    public var connectionState: ConnectionState {
         engine.connectionState
     }
 
@@ -213,7 +213,31 @@ public class Room: MulticastDelegate<RoomDelegate> {
 // MARK: - Session Migration
 
 extension Room {
-    
+
+    internal func sendSyncState() {
+
+        guard let subscriber = engine.subscriber,
+              let localDescription = subscriber.localDescription else { return }
+
+        let sendUnSub = connectOptions?.autoSubscribe ?? false
+        let trackSids = remoteParticipants.values.map {
+            $0.tracks.values
+                .filter { $0.subscribed != sendUnSub }
+                .map { $0.sid }
+        }.flatMap { $0 }
+
+        log("trackSids: \(trackSids)")
+
+        let subscription = Livekit_UpdateSubscription.with {
+            $0.trackSids = trackSids
+            $0.subscribe = !sendUnSub
+            $0.participantTracks = []
+        }
+
+        engine.signalClient.sendSyncState(answer: localDescription.toPBType(),
+                                          subscription: subscription,
+                                          publishTracks: localParticipant?.publishedTracksInfo())
+    }
 }
 
 // MARK: - SignalClientDelegate
@@ -222,6 +246,10 @@ extension Room: SignalClientDelegate {
 
     func signalClient(_ signalClient: SignalClient, didConnect isReconnect: Bool) {
         log()
+
+        if connectionState.isReconnecting {
+            sendSyncState()
+        }
     }
 }
 

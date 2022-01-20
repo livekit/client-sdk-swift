@@ -42,6 +42,8 @@ public class TrackPublication: TrackDelegate, Loggable {
 
     public var subscribed: Bool { return track != nil }
 
+    internal private(set) var latestInfo: Livekit_TrackInfo?
+
     internal init(info: Livekit_TrackInfo,
                   track: Track? = nil,
                   participant: Participant? = nil) {
@@ -68,6 +70,7 @@ public class TrackPublication: TrackDelegate, Loggable {
             dimensions = Dimensions(width: Int32(info.width),
                                     height: Int32(info.height))
         }
+        self.latestInfo = info
     }
 
     // MARK: - TrackDelegate

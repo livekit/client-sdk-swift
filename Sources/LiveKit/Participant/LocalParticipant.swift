@@ -337,6 +337,23 @@ public class LocalParticipant: Participant {
     }
 }
 
+// MARK: - Session Migration
+
+extension LocalParticipant {
+
+    internal func publishedTracksInfo() -> [Livekit_TrackPublishedResponse] {
+        tracks.values.filter { $0.track != nil }
+            .map { publication in
+                Livekit_TrackPublishedResponse.with {
+                    $0.cid = publication.track!.mediaTrack.trackId
+                    if let info = publication.latestInfo {
+                        $0.track = info
+                    }
+                }
+            }
+    }
+}
+
 // MARK: - Simplified API
 
 extension LocalParticipant {

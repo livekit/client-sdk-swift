@@ -22,6 +22,10 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
         DispatchQueue.webRTC.sync { pc.connectionState }
     }
 
+    public var localDescription: RTCSessionDescription? {
+        DispatchQueue.webRTC.sync { pc.localDescription }
+    }
+
     public var remoteDescription: RTCSessionDescription? {
         DispatchQueue.webRTC.sync { pc.remoteDescription }
     }

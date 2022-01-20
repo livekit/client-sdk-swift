@@ -10,7 +10,7 @@ public class ConnectOptions {
     public init(autoSubscribe: Bool = true,
                 rtcConfiguration: RTCConfiguration = .liveKitDefault(),
                 publish: String? = nil,
-                protocolVersion: ProtocolVersion = .v5) {
+                protocolVersion: ProtocolVersion = .v6) {
 
         self.autoSubscribe = autoSubscribe
         self.rtcConfiguration = rtcConfiguration
