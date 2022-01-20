@@ -30,11 +30,6 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
         didSet {
             guard oldValue != connectionState else { return }
             log("\(oldValue) -> \(self.connectionState)")
-            switch connectionState {
-            case .connected: notify { $0.engine(self, didConnect: oldValue.isReconnecting) }
-            case .disconnected: notify { $0.engineDidDisconnect(self) }
-            default: break
-            }
             notify { $0.engine(self, didUpdate: self.connectionState) }
         }
     }
@@ -289,7 +284,7 @@ extension Engine {
             // create temporary delegate
             var engineDelegate: EngineDelegateClosures?
             engineDelegate = EngineDelegateClosures(
-                onDataChannelStateUpdated: { _, dataChannel, state in
+                didUpdateDataChannelState: { _, dataChannel, state in
                     if dataChannel == dcPublisher, state == .open {
                         resolve(())
                         engineDelegate = nil
@@ -300,9 +295,11 @@ extension Engine {
             // detect signal close while waiting
             var signalDelegate: SignalClientDelegateClosures?
             signalDelegate = SignalClientDelegateClosures(
-                didClose: { _, _ in
-                    fail(SignalClientError.close(message: "Socket closed while waiting for ice-connect"))
-                    signalDelegate = nil
+                didUpdateConnectionState: { _, state in
+                    if case .disconnected = state {
+                        fail(SignalClientError.close(message: "Socket closed while waiting for ice-connect"))
+                        signalDelegate = nil
+                    }
                 }
             )
             self.signalClient.add(delegate: signalDelegate!)
@@ -340,9 +337,11 @@ extension Engine {
             // detect signal close while waiting
             var signalDelegate: SignalClientDelegateClosures?
             signalDelegate = SignalClientDelegateClosures(
-                didClose: { _, _ in
-                    fail(SignalClientError.close(message: "Socket closed while waiting for ice-connect"))
-                    signalDelegate = nil
+                didUpdateConnectionState: { _, state in
+                    if case .disconnected = state {
+                        fail(SignalClientError.close(message: "Socket closed while waiting for ice-connect"))
+                        signalDelegate = nil
+                    }
                 }
             )
             self.signalClient.add(delegate: signalDelegate!)
@@ -355,24 +354,26 @@ extension Engine {
 
         return Promise<Livekit_TrackInfo>(on: .sdk) { resolve, fail in
             // create temporary delegate
-            var delegate: SignalClientDelegateClosures?
-            delegate = SignalClientDelegateClosures(
+            var signalDelegate: SignalClientDelegateClosures?
+            signalDelegate = SignalClientDelegateClosures(
                 // This promise we be considered failed if signal disconnects while waiting.
                 // still it will attempt to re-connect.
-                didClose: { _, _ in
-                    fail(SignalClientError.close(message: "Socket closed while waiting for publish track"))
-                    delegate = nil
+                didUpdateConnectionState: { _, state in
+                    if case .disconnected = state {
+                        fail(SignalClientError.close(message: "Socket closed while waiting for ice-connect"))
+                        signalDelegate = nil
+                    }
                 },
                 didPublishLocalTrack: { _, response in
                     self.log("didPublishLocalTrack", type: SignalClientDelegateClosures.self)
                     if response.cid == cid {
                         // complete when track info received
                         resolve(response.track)
-                        delegate = nil
+                        signalDelegate = nil
                     }
                 }
             )
-            self.signalClient.add(delegate: delegate!)
+            self.signalClient.add(delegate: signalDelegate!)
         }
         // convert to timed-promise
         .timeout(.defaultPublish)
@@ -434,10 +435,6 @@ extension Engine: SignalClientDelegate {
         }
     }
 
-    func signalClient(_ signalClient: SignalClient, didConnect isReconnect: Bool) {
-        //
-    }
-
     func signalClient(_ signalClient: SignalClient, didReceive joinResponse: Livekit_JoinResponse) {
         notify { $0.engine(self, didReceive: joinResponse) }
     }
@@ -480,18 +477,22 @@ extension Engine: SignalClientDelegate {
     }
 
     func signalClient(_ signalClient: SignalClient, didReceiveLeave canReconnect: Bool) {
-        disconnect()
+        // disconnect()
     }
-
-    func signalClient(_ signalClient: SignalClient, didClose code: URLSessionWebSocketTask.CloseCode) {
-        log("signal connection closed with code: \(code)")
-        reconnect()
+    
+    func signalClient(_ signalClient: SignalClient, didUpdate connectionState: ConnectionState) {
+        //
     }
-
-    func signalClient(_ signalClient: SignalClient, didFailConnect error: Error) {
-        log("signal connection error: \(error)")
-        notify { $0.engine(self, didFailConnection: error) }
-    }
+//
+//    func signalClient(_ signalClient: SignalClient, didClose code: URLSessionWebSocketTask.CloseCode) {
+//        log("signal connection closed with code: \(code)")
+//        reconnect()
+//    }
+//
+//    func signalClient(_ signalClient: SignalClient, didFailConnect error: Error) {
+//        log("signal connection error: \(error)")
+//        notify { $0.engine(self, didFailConnection: error) }
+//    }
 }
 
 extension Engine: RTCDataChannelDelegate {

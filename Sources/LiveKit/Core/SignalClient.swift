@@ -8,30 +8,11 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
         didSet {
             guard oldValue != connectionState else { return }
             log("\(oldValue) -> \(self.connectionState)")
-
-            // Connected
-            if case .connected = connectionState {
-                // Check if this was a re-connect
-                var isReconnect = false
-                if case .connecting(let reconnecting) = oldValue, reconnecting {
-                    isReconnect = true
-                }
-
-                notify { $0.signalClient(self, didConnect: isReconnect) }
-            }
-
             if case .disconnected = connectionState {
-                if case .connecting = oldValue {
-                    // Failed to connect
-                    notify { $0.signalClient(self, didFailConnect: SignalClientError.close()) }
-                } else if case .connected = oldValue {
-                    // Disconnected
-                    notify { $0.signalClient(self, didClose: .abnormalClosure) }
-                }
-
                 webSocket?.close()
                 webSocket = nil
             }
+            notify { $0.signalClient(self, didUpdate: self.connectionState) }
         }
     }
 
@@ -185,7 +166,7 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
         case .subscriptionPermissionUpdate(let permissionUpdate):
             notify { $0.signalClient(self, didUpdate: permissionUpdate) }
         default:
-            log("unsupported signal response type: \(message)", .warning)
+            log("Unhandled signal message: \(message)", .warning)
         }
     }
 }

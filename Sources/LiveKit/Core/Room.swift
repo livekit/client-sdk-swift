@@ -245,7 +245,7 @@ extension Room {
 extension Room: SignalClientDelegate {
 
     func signalClient(_ signalClient: SignalClient, didConnect isReconnect: Bool) {
-        log()
+        log("isReconnect: \(isReconnect)")
 
         if connectionState.isReconnecting {
             sendSyncState()
@@ -260,19 +260,19 @@ extension Room: SignalClientDelegate {
     }
 
     func signalClient(_ signalClient: SignalClient, didUpdate speakers: [Livekit_SpeakerInfo]) {
-        log()
+        log("speakers: \(speakers)")
 
         onSignalSpeakersUpdate(speakers)
     }
 
     func signalClient(_ signalClient: SignalClient, didUpdate connectionQuality: [Livekit_ConnectionQualityInfo]) {
-        log()
+        log("connectionQuality: \(connectionQuality)")
 
         onConnectionQualityUpdate(connectionQuality)
     }
 
     func signalClient(_ signalClient: SignalClient, didUpdateRemoteMute trackSid: String, muted: Bool) {
-        log()
+        log("trackSid: \(trackSid) muted: \(muted)")
 
         guard let publication = localParticipant?.tracks[trackSid] as? LocalTrackPublication else { return }
         if muted {
@@ -283,13 +283,13 @@ extension Room: SignalClientDelegate {
     }
 
     func signalClient(_ signalClient: SignalClient, didUpdate subscriptionPermission: Livekit_SubscriptionPermissionUpdate) {
-        log()
+        log("subscriptionPermission: \(subscriptionPermission)")
 
         onSubscriptionPermissionUpdate(permissionUpdate: subscriptionPermission)
     }
 
     func signalClient(_ signalClient: SignalClient, didUpdate trackStates: [Livekit_StreamStateInfo]) {
-        log()
+        log("trackStates: \(trackStates)")
 
         for update in trackStates {
             // Try to find RemoteParticipant
@@ -302,7 +302,7 @@ extension Room: SignalClientDelegate {
     }
 
     func signalClient(_ signalClient: SignalClient, didUpdate participants: [Livekit_ParticipantInfo]) {
-        log()
+        log("participants: \(participants)")
 
         for info in participants {
             if info.sid == localParticipant?.sid {
@@ -337,6 +337,14 @@ extension Room: EngineDelegate {
         notify { $0.room(self, didConnect: isReconnect) }
     }
 
+    func didDisconnect(reason: String, code: UInt16) {
+        notify { $0.room(self, didDisconnect: nil) }
+    }
+
+    func engine(_ engine: Engine, didFailConnection error: Error) {
+        notify { $0.room(self, didFailToConnect: error) }
+    }
+
     func engineDidDisconnect(_ engine: Engine) {
         _ = handleDisconnect()
     }
@@ -362,8 +370,9 @@ extension Room: EngineDelegate {
     }
 
     func engine(_ engine: Engine, didAdd track: RTCMediaStreamTrack, streams: [RTCMediaStream]) {
+
         guard streams.count > 0 else {
-            log("received onTrack with no streams!", .error)
+            log("Received onTrack with no streams!", .warning)
             return
         }
 
@@ -395,13 +404,5 @@ extension Room: EngineDelegate {
             guard let participant = participant else { return }
             $0.participant(participant, didReceive: userPacket.payload)
         }
-    }
-
-    func didDisconnect(reason: String, code: UInt16) {
-        notify { $0.room(self, didDisconnect: nil) }
-    }
-
-    func engine(_ engine: Engine, didFailConnection error: Error) {
-        notify { $0.room(self, didFailToConnect: error) }
     }
 }

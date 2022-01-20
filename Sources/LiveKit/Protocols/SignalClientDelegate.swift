@@ -2,6 +2,8 @@ import Foundation
 import WebRTC
 
 internal protocol SignalClientDelegate {
+
+    func signalClient(_ signalClient: SignalClient, didUpdate connectionState: ConnectionState)
     func signalClient(_ signalClient: SignalClient, didReceive joinResponse: Livekit_JoinResponse)
     func signalClient(_ signalClient: SignalClient, didReceiveAnswer answer: RTCSessionDescription)
     func signalClient(_ signalClient: SignalClient, didReceiveOffer offer: RTCSessionDescription)
@@ -15,16 +17,13 @@ internal protocol SignalClientDelegate {
     func signalClient(_ signalClient: SignalClient, didUpdate trackSid: String, subscribedQualities: [Livekit_SubscribedQuality])
     func signalClient(_ signalClient: SignalClient, didUpdate subscriptionPermission: Livekit_SubscriptionPermissionUpdate)
     func signalClient(_ signalClient: SignalClient, didReceiveLeave canReconnect: Bool)
-    func signalClient(_ signalClient: SignalClient, didConnect isReconnect: Bool)
-    // Initial connect has failed
-    func signalClient(_ signalClient: SignalClient, didFailConnect error: Error)
-    // An open connection has closed (disconnected)
-    func signalClient(_ signalClient: SignalClient, didClose code: URLSessionWebSocketTask.CloseCode)
 }
 
 // MARK: - Optional
 
 extension SignalClientDelegate {
+
+    func signalClient(_ signalClient: SignalClient, didUpdate connectionState: ConnectionState) {}
     func signalClient(_ signalClient: SignalClient, didReceive joinResponse: Livekit_JoinResponse) {}
     func signalClient(_ signalClient: SignalClient, didReceiveAnswer answer: RTCSessionDescription) {}
     func signalClient(_ signalClient: SignalClient, didReceiveOffer offer: RTCSessionDescription) {}
@@ -38,37 +37,25 @@ extension SignalClientDelegate {
     func signalClient(_ signalClient: SignalClient, didUpdate trackSid: String, subscribedQualities: [Livekit_SubscribedQuality]) {}
     func signalClient(_ signalClient: SignalClient, didUpdate subscriptionPermission: Livekit_SubscriptionPermissionUpdate) {}
     func signalClient(_ signalClient: SignalClient, didReceiveLeave canReconnect: Bool) {}
-    func signalClient(_ signalClient: SignalClient, didConnect isReconnect: Bool) {}
-    // Initial connect has failed
-    func signalClient(_ signalClient: SignalClient, didFailConnect error: Error) {}
-    // An open connection has closed (disconnected)
-    func signalClient(_ signalClient: SignalClient, didClose code: URLSessionWebSocketTask.CloseCode) {}
 }
 
 // MARK: - Closures
 
 class SignalClientDelegateClosures: NSObject, SignalClientDelegate, Loggable {
 
-    typealias DidConnect = (SignalClient, Bool) -> Void
-    typealias DidFailConnection = (SignalClient, Error) -> Void
-    typealias DidClose = (SignalClient, URLSessionWebSocketTask.CloseCode) -> Void
+    typealias DidUpdateConnectionState = (SignalClient, ConnectionState) -> Void
     typealias DidReceiveJoinResponse = (SignalClient, Livekit_JoinResponse) -> Void
     typealias DidPublishLocalTrack = (SignalClient, Livekit_TrackPublishedResponse) -> Void
 
-    let didConnect: DidConnect?
-    let didFailConnection: DidFailConnection?
-    let didClose: DidClose?
+    let didUpdateConnectionState: DidUpdateConnectionState?
     let didReceiveJoinResponse: DidReceiveJoinResponse?
     let didPublishLocalTrack: DidPublishLocalTrack?
 
-    init(didConnect: DidConnect? = nil,
-         didFailConnection: DidFailConnection? = nil,
-         didClose: DidClose? = nil,
+    init(didUpdateConnectionState: DidUpdateConnectionState? = nil,
          didReceiveJoinResponse: DidReceiveJoinResponse? = nil,
          didPublishLocalTrack: DidPublishLocalTrack? = nil) {
-        self.didConnect = didConnect
-        self.didFailConnection = didFailConnection
-        self.didClose = didClose
+
+        self.didUpdateConnectionState = didUpdateConnectionState
         self.didReceiveJoinResponse = didReceiveJoinResponse
         self.didPublishLocalTrack = didPublishLocalTrack
         super.init()
@@ -79,16 +66,8 @@ class SignalClientDelegateClosures: NSObject, SignalClientDelegate, Loggable {
         log()
     }
 
-    func signalClient(_ signalClient: SignalClient, didConnect isReconnect: Bool) {
-        didConnect?(signalClient, isReconnect)
-    }
-
-    func signalClient(_ signalClient: SignalClient, didFailConnect error: Error) {
-        didFailConnection?(signalClient, error)
-    }
-
-    func signalClient(_ signalClient: SignalClient, didClose code: URLSessionWebSocketTask.CloseCode) {
-        didClose?(signalClient, code)
+    func signalClient(_ signalClient: SignalClient, didUpdate connectionState: ConnectionState) {
+        didUpdateConnectionState?(signalClient, connectionState)
     }
 
     func signalClient(_ signalClient: SignalClient, didReceive joinResponse: Livekit_JoinResponse) {
