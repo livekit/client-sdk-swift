@@ -3,10 +3,6 @@ import Network
 import Promises
 import WebRTC
 
-// network path discovery updates multiple times, causing us to disconnect again
-// using a timer interval to ignore changes that are happening too close to each other
-let networkChangeIgnoreInterval = 3.0
-
 public class Room: MulticastDelegate<RoomDelegate> {
 
     public private(set) var sid: Sid?
@@ -14,11 +10,6 @@ public class Room: MulticastDelegate<RoomDelegate> {
     public private(set) var localParticipant: LocalParticipant?
     public private(set) var remoteParticipants = [Sid: RemoteParticipant]()
     public private(set) var activeSpeakers: [Participant] = []
-
-    //    private let monitor: NWPathMonitor
-    //    private let monitorQueue: DispatchQueue
-    private var prevPath: NWPath?
-    private var lastPathUpdate: TimeInterval = 0
 
     // Reference to Engine
     internal lazy var engine = Engine(room: self)
@@ -50,35 +41,6 @@ public class Room: MulticastDelegate<RoomDelegate> {
         if let delegate = delegate {
             add(delegate: delegate)
         }
-
-        // monitor = NWPathMonitor()
-        //        monitorQueue = DispatchQueue(label: "networkMonitor", qos: .background)
-
-        //        monitor.pathUpdateHandler = { path in
-        //            log("network path update: \(path.availableInterfaces), \(path.status)")
-        //            if self.prevPath == nil || path.status != .satisfied {
-        //                self.prevPath = path
-        //                return
-        //            }
-        //
-        //            // TODO: Use debounce fnc instead
-        //            // In iOS 14.4, this update is sent multiple times during a connection change
-        //            // ICE restarts are expensive and error prone (due to renegotiation)
-        //            // We'll ignore frequent updates
-        //            let currTime = Date().timeIntervalSince1970
-        //            if currTime - self.lastPathUpdate < networkChangeIgnoreInterval {
-        //                log("skipping duplicate network update")
-        //                return
-        //            }
-        //            // trigger reconnect
-        //            if self.state != .disconnected {
-        //                log("network path changed, starting engine reconnect", .info)
-        //                self.reconnect()
-        //            }
-        //            self.prevPath = path
-        //            self.lastPathUpdate = currTime
-        //        }
-
     }
 
     deinit {
@@ -111,15 +73,6 @@ public class Room: MulticastDelegate<RoomDelegate> {
         engine.disconnect()
         return handleDisconnect()
     }
-
-    //    func reconnect(connectOptions: ConnectOptions? = nil) {
-    //        if state != .connected && state != .reconnecting {
-    //            return
-    //        }
-    //        state = .connecting(reconnecting: true)
-    //        engine.reconnect(connectOptions: connectOptions)
-    //        notify { $0.isReconnecting(room: self) }
-    //    }
 
     private func getOrCreateRemoteParticipant(sid: Sid, info: Livekit_ParticipantInfo? = nil) -> RemoteParticipant {
         if let participant = remoteParticipants[sid] {
