@@ -45,8 +45,11 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
         self.signalClient = signalClient
         super.init()
 
+        // Room
         add(delegate: room)
+        signalClient.add(delegate: room)
 
+        // Self
         signalClient.add(delegate: self)
         log()
     }

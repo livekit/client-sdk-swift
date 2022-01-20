@@ -210,9 +210,19 @@ public class Room: MulticastDelegate<RoomDelegate> {
     }
 }
 
+// MARK: - Session Migration
+
+extension Room {
+    
+}
+
 // MARK: - SignalClientDelegate
 
 extension Room: SignalClientDelegate {
+
+    func signalClient(_ signalClient: SignalClient, didConnect isReconnect: Bool) {
+        log()
+    }
 }
 
 // MARK: - EngineDelegate
