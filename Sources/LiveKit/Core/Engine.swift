@@ -549,7 +549,7 @@ extension Engine: TransportDelegate {
     }
 
     func transport(_ transport: Transport, didUpdate state: RTCPeerConnectionState) {
-        log("state: \(state)")
+        log("target: \(transport.target), state: \(state)")
         if transport.primary, state == .failed {
             reconnect()
         }
@@ -563,7 +563,7 @@ extension Engine: TransportDelegate {
     }
 
     func transport(_ transport: Transport, didOpen dataChannel: RTCDataChannel) {
-        log("did add track] did open datachannel")
+        log("Did open dataChannel label: \(dataChannel.label)")
         if subscriberPrimary, transport.target == .subscriber {
             onReceived(dataChannel: dataChannel)
         }
