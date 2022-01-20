@@ -251,6 +251,76 @@ extension Room: SignalClientDelegate {
             sendSyncState()
         }
     }
+
+    func signalClient(_ signalClient: SignalClient, didUpdate trackSid: String, subscribedQualities: [Livekit_SubscribedQuality]) {
+        log()
+
+        onSubscribedQualitiesUpdate(trackSid: trackSid,
+                                    subscribedQualities: subscribedQualities)
+    }
+
+    func signalClient(_ signalClient: SignalClient, didUpdate speakers: [Livekit_SpeakerInfo]) {
+        log()
+
+        onSignalSpeakersUpdate(speakers)
+    }
+
+    func signalClient(_ signalClient: SignalClient, didUpdate connectionQuality: [Livekit_ConnectionQualityInfo]) {
+        log()
+
+        onConnectionQualityUpdate(connectionQuality)
+    }
+
+    func signalClient(_ signalClient: SignalClient, didUpdateRemoteMute trackSid: String, muted: Bool) {
+        log()
+
+        guard let publication = localParticipant?.tracks[trackSid] as? LocalTrackPublication else { return }
+        if muted {
+            publication.mute()
+        } else {
+            publication.unmute()
+        }
+    }
+
+    func signalClient(_ signalClient: SignalClient, didUpdate subscriptionPermission: Livekit_SubscriptionPermissionUpdate) {
+        log()
+
+        onSubscriptionPermissionUpdate(permissionUpdate: subscriptionPermission)
+    }
+
+    func signalClient(_ signalClient: SignalClient, didUpdate trackStates: [Livekit_StreamStateInfo]) {
+        log()
+
+        for update in trackStates {
+            // Try to find RemoteParticipant
+            guard let participant = remoteParticipants[update.participantSid] else { continue }
+            // Try to find RemoteTrackPublication
+            guard let trackPublication = participant.tracks[update.trackSid] as? RemoteTrackPublication else { continue }
+            // Update streamState (and notify)
+            trackPublication.streamState = update.state.toLKType()
+        }
+    }
+
+    func signalClient(_ signalClient: SignalClient, didUpdate participants: [Livekit_ParticipantInfo]) {
+        log()
+
+        for info in participants {
+            if info.sid == localParticipant?.sid {
+                localParticipant?.updateFromInfo(info: info)
+                continue
+            }
+            let isNewParticipant = remoteParticipants[info.sid] == nil
+            let participant = getOrCreateRemoteParticipant(sid: info.sid, info: info)
+
+            if info.state == .disconnected {
+                _ = onParticipantDisconnect(sid: info.sid, participant: participant)
+            } else if isNewParticipant {
+                notify { $0.room(self, participantDidJoin: participant) }
+            } else {
+                participant.updateFromInfo(info: info)
+            }
+        }
+    }
 }
 
 // MARK: - EngineDelegate
@@ -258,22 +328,6 @@ extension Room: SignalClientDelegate {
 extension Room: EngineDelegate {
 
     func engine(_ engine: Engine, didUpdate dataChannel: RTCDataChannel, state: RTCDataChannelState) {}
-
-    func engine(_ engine: Engine, didUpdate connectionQuality: [Livekit_ConnectionQualityInfo]) {
-        onConnectionQualityUpdate(connectionQuality)
-    }
-
-    func engine(_ engine: Engine, didUpdate trackSid: String, subscribedQualities: [Livekit_SubscribedQuality]) {
-        onSubscribedQualitiesUpdate(trackSid: trackSid, subscribedQualities: subscribedQualities)
-    }
-
-    func engine(_ engine: Engine, didUpdate subscriptionPermission: Livekit_SubscriptionPermissionUpdate) {
-        onSubscriptionPermissionUpdate(permissionUpdate: subscriptionPermission)
-    }
-
-    func engine(_ engine: Engine, didUpdateSignal speakers: [Livekit_SpeakerInfo]) {
-        onSignalSpeakersUpdate(speakers)
-    }
 
     func engine(_ engine: Engine, didUpdateEngine speakers: [Livekit_SpeakerInfo]) {
         onEngineSpeakersUpdate(speakers)
@@ -332,25 +386,6 @@ extension Room: EngineDelegate {
         }
     }
 
-    func engine(_ engine: Engine, didUpdate participants: [Livekit_ParticipantInfo]) {
-        for info in participants {
-            if info.sid == localParticipant?.sid {
-                localParticipant?.updateFromInfo(info: info)
-                continue
-            }
-            let isNewParticipant = remoteParticipants[info.sid] == nil
-            let participant = getOrCreateRemoteParticipant(sid: info.sid, info: info)
-
-            if info.state == .disconnected {
-                _ = onParticipantDisconnect(sid: info.sid, participant: participant)
-            } else if isNewParticipant {
-                notify { $0.room(self, participantDidJoin: participant) }
-            } else {
-                participant.updateFromInfo(info: info)
-            }
-        }
-    }
-
     func engine(_ engine: Engine, didReceive userPacket: Livekit_UserPacket) {
         // participant could be null if data broadcasted from server
         let participant = remoteParticipants[userPacket.participantSid]
@@ -362,32 +397,11 @@ extension Room: EngineDelegate {
         }
     }
 
-    func engine(_ engine: Engine, didUpdateRemoteMute trackSid: String, muted: Bool) {
-        guard let publication = localParticipant?.tracks[trackSid] as? LocalTrackPublication else { return }
-        if muted {
-            publication.mute()
-        } else {
-            publication.unmute()
-        }
-    }
-
     func didDisconnect(reason: String, code: UInt16) {
         notify { $0.room(self, didDisconnect: nil) }
     }
 
     func engine(_ engine: Engine, didFailConnection error: Error) {
         notify { $0.room(self, didFailToConnect: error) }
-    }
-
-    func engine(_ engine: Engine, didUpdate trackStates: [Livekit_StreamStateInfo]) {
-
-        for update in trackStates {
-            // Try to find RemoteParticipant
-            guard let participant = remoteParticipants[update.participantSid] else { continue }
-            // Try to find RemoteTrackPublication
-            guard let trackPublication = participant.tracks[update.trackSid] as? RemoteTrackPublication else { continue }
-            // Update streamState (and notify)
-            trackPublication.streamState = update.state.toLKType()
-        }
     }
 }

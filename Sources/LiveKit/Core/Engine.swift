@@ -269,7 +269,7 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
     }
 }
 
-// MARK: - Wait extension
+// MARK: - Wait extensions
 
 extension Engine {
 
@@ -434,14 +434,6 @@ extension Engine: SignalClientDelegate {
         }
     }
 
-    func signalClient(_ signalClient: SignalClient, didUpdate speakers: [Livekit_SpeakerInfo]) {
-        notify { $0.engine(self, didUpdateSignal: speakers) }
-    }
-
-    func signalClient(_ signalClient: SignalClient, didUpdate connectionQuality: [Livekit_ConnectionQualityInfo]) {
-        notify { $0.engine(self, didUpdate: connectionQuality)}
-    }
-
     func signalClient(_ signalClient: SignalClient, didConnect isReconnect: Bool) {
         //
     }
@@ -499,26 +491,6 @@ extension Engine: SignalClientDelegate {
     func signalClient(_ signalClient: SignalClient, didFailConnect error: Error) {
         log("signal connection error: \(error)")
         notify { $0.engine(self, didFailConnection: error) }
-    }
-
-    func signalClient(_ signalClient: SignalClient, didUpdateRemoteMute trackSid: String, muted: Bool) {
-        notify { $0.engine(self, didUpdateRemoteMute: trackSid, muted: muted) }
-    }
-
-    func signalClient(_ signalClient: SignalClient, didUpdate participants: [Livekit_ParticipantInfo]) {
-        notify { $0.engine(self, didUpdate: participants) }
-    }
-
-    func signalClient(_ signalClient: SignalClient, didUpdate trackStates: [Livekit_StreamStateInfo]) {
-        notify { $0.engine(self, didUpdate: trackStates) }
-    }
-
-    func signalClient(_ signalClient: SignalClient, didUpdate trackSid: String, subscribedQualities: [Livekit_SubscribedQuality]) {
-        notify { $0.engine(self, didUpdate: trackSid, subscribedQualities: subscribedQualities) }
-    }
-
-    func signalClient(_ signalClient: SignalClient, didUpdate subscriptionPermission: Livekit_SubscriptionPermissionUpdate) {
-        notify { $0.engine(self, didUpdate: subscriptionPermission) }
     }
 }
 
