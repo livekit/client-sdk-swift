@@ -14,13 +14,38 @@ internal protocol SignalClientDelegate {
     func signalClient(_ signalClient: SignalClient, didUpdate trackStates: [Livekit_StreamStateInfo])
     func signalClient(_ signalClient: SignalClient, didUpdate trackSid: String, subscribedQualities: [Livekit_SubscribedQuality])
     func signalClient(_ signalClient: SignalClient, didUpdate subscriptionPermission: Livekit_SubscriptionPermissionUpdate)
-    func signalClientDidLeave(_ signaClient: SignalClient)
+    func signalClient(_ signalClient: SignalClient, didReceiveLeave canReconnect: Bool)
     func signalClient(_ signalClient: SignalClient, didConnect isReconnect: Bool)
     // Initial connect has failed
     func signalClient(_ signalClient: SignalClient, didFailConnect error: Error)
     // An open connection has closed (disconnected)
     func signalClient(_ signalClient: SignalClient, didClose code: URLSessionWebSocketTask.CloseCode)
 }
+
+// MARK: - Optional
+
+extension SignalClientDelegate {
+    func signalClient(_ signalClient: SignalClient, didReceive joinResponse: Livekit_JoinResponse) {}
+    func signalClient(_ signalClient: SignalClient, didReceiveAnswer answer: RTCSessionDescription) {}
+    func signalClient(_ signalClient: SignalClient, didReceiveOffer offer: RTCSessionDescription) {}
+    func signalClient(_ signalClient: SignalClient, didReceive iceCandidate: RTCIceCandidate, target: Livekit_SignalTarget) {}
+    func signalClient(_ signalClient: SignalClient, didPublish localTrack: Livekit_TrackPublishedResponse) {}
+    func signalClient(_ signalClient: SignalClient, didUpdate participants: [Livekit_ParticipantInfo]) {}
+    func signalClient(_ signalClient: SignalClient, didUpdate speakers: [Livekit_SpeakerInfo]) {}
+    func signalClient(_ signalClient: SignalClient, didUpdate connectionQuality: [Livekit_ConnectionQualityInfo]) {}
+    func signalClient(_ signalClient: SignalClient, didUpdateRemoteMute trackSid: String, muted: Bool) {}
+    func signalClient(_ signalClient: SignalClient, didUpdate trackStates: [Livekit_StreamStateInfo]) {}
+    func signalClient(_ signalClient: SignalClient, didUpdate trackSid: String, subscribedQualities: [Livekit_SubscribedQuality]) {}
+    func signalClient(_ signalClient: SignalClient, didUpdate subscriptionPermission: Livekit_SubscriptionPermissionUpdate) {}
+    func signalClient(_ signalClient: SignalClient, didReceiveLeave canReconnect: Bool) {}
+    func signalClient(_ signalClient: SignalClient, didConnect isReconnect: Bool) {}
+    // Initial connect has failed
+    func signalClient(_ signalClient: SignalClient, didFailConnect error: Error) {}
+    // An open connection has closed (disconnected)
+    func signalClient(_ signalClient: SignalClient, didClose code: URLSessionWebSocketTask.CloseCode) {}
+}
+
+// MARK: - Closures
 
 class SignalClientDelegateClosures: NSObject, SignalClientDelegate, Loggable {
 
@@ -73,16 +98,4 @@ class SignalClientDelegateClosures: NSObject, SignalClientDelegate, Loggable {
     func signalClient(_ signalClient: SignalClient, didPublish localTrack: Livekit_TrackPublishedResponse) {
         didPublishLocalTrack?(signalClient, localTrack)
     }
-
-    func signalClient(_ signalClient: SignalClient, didReceiveAnswer answer: RTCSessionDescription) {}
-    func signalClient(_ signalClient: SignalClient, didReceiveOffer offer: RTCSessionDescription) {}
-    func signalClient(_ signalClient: SignalClient, didReceive iceCandidate: RTCIceCandidate, target: Livekit_SignalTarget) {}
-    func signalClient(_ signalClient: SignalClient, didUpdate participants: [Livekit_ParticipantInfo]) {}
-    func signalClient(_ signalClient: SignalClient, didUpdate speakers: [Livekit_SpeakerInfo]) {}
-    func signalClient(_ signalClient: SignalClient, didUpdate connectionQuality: [Livekit_ConnectionQualityInfo]) {}
-    func signalClient(_ signalClient: SignalClient, didUpdateRemoteMute trackSid: String, muted: Bool) {}
-    func signalClient(_ signalClient: SignalClient, didUpdate trackStates: [Livekit_StreamStateInfo]) {}
-    func signalClient(_ signalClient: SignalClient, didUpdate trackSid: String, subscribedQualities: [Livekit_SubscribedQuality]) {}
-    func signalClient(_ signalClient: SignalClient, didUpdate subscriptionPermission: Livekit_SubscriptionPermissionUpdate) {}
-    func signalClientDidLeave(_ signaClient: SignalClient) {}
 }

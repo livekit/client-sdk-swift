@@ -210,7 +210,12 @@ public class Room: MulticastDelegate<RoomDelegate> {
     }
 }
 
-// MARK: - RTCEngineDelegate
+// MARK: - SignalClientDelegate
+
+extension Room: SignalClientDelegate {
+}
+
+// MARK: - EngineDelegate
 
 extension Room: EngineDelegate {
 

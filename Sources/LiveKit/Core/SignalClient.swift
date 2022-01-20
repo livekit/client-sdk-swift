@@ -170,8 +170,8 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
         case .mute(let mute):
             notify { $0.signalClient(self, didUpdateRemoteMute: mute.sid, muted: mute.muted) }
 
-        case .leave:
-            notify { $0.signalClientDidLeave(self) }
+        case .leave(let leave):
+            notify { $0.signalClient(self, didReceiveLeave: leave.canReconnect) }
 
         case .streamStateUpdate(let states):
             notify { $0.signalClient(self, didUpdate: states.streamStates) }

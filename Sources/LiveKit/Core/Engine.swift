@@ -483,7 +483,7 @@ extension Engine: SignalClientDelegate {
         log("received track published confirmation from server for: \(localTrack.track.sid)")
     }
 
-    func signalClientDidLeave(_ signaClient: SignalClient) {
+    func signalClient(_ signalClient: SignalClient, didReceiveLeave canReconnect: Bool) {
         disconnect()
     }
 
