@@ -80,15 +80,27 @@ public class MacOSScreenCapturer: VideoCapturer {
     }()
 
     // used for window capture
-    private lazy var timer: DispatchSourceTimer = {
+    private var dispatchSourceTimer: DispatchSourceTimer?
+
+    private func startDispatchSourceTimer() {
+        stopDispatchSourceTimer()
         let timeInterval: TimeInterval = 1 / Double(options.fps)
-        let result = DispatchSource.makeTimerSource()
+        let result = DispatchSource.makeTimerSource(queue: .capture)
         result.schedule(deadline: .now() + timeInterval, repeating: timeInterval)
-        result.setEventHandler(handler: { [weak self] in
-            self?.onWindowCaptureTimer()
-        })
-        return result
-    }()
+        result.setEventHandler(handler: onDispatchSourceTimer)
+        result.resume()
+        dispatchSourceTimer = result
+    }
+
+    private func stopDispatchSourceTimer() {
+        if let timer = dispatchSourceTimer {
+            // If the timer is suspended, calling cancel without resuming
+            // triggers a crash. This is documented here https://forums.developer.apple.com/thread/15902
+            timer.cancel()
+            // timer.resume()
+            dispatchSourceTimer = nil
+        }
+    }
 
     public let options: MacOSScreenCapturerOptions
 
@@ -100,7 +112,7 @@ public class MacOSScreenCapturer: VideoCapturer {
         super.init(delegate: delegate)
     }
 
-    private func onWindowCaptureTimer() {
+    private func onDispatchSourceTimer() {
 
         guard case .started = self.state,
               case .window(let windowId) = source else { return }
@@ -110,19 +122,24 @@ public class MacOSScreenCapturer: VideoCapturer {
                                                   windowId, [.shouldBeOpaque,
                                                              .nominalResolution,
                                                              .boundsIgnoreFraming]),
-              let pixelBuffer = image.toPixelBuffer() else { return }
+              let pixelBuffer = image.toPixelBuffer(pixelFormatType: kCVPixelFormatType_32ARGB) else { return }
+
+        // TODO: Convert kCVPixelFormatType_32ARGB to kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
+        // h264 encoder may cause issues with ARGB format
+        // vImageConvert_ARGB8888To420Yp8_CbCr8()
 
         let systemTime = ProcessInfo.processInfo.systemUptime
         let timestampNs = UInt64(systemTime * Double(NSEC_PER_SEC))
 
-        delegate?.capturer(capturer, didCapture: pixelBuffer, timeStampNs: timestampNs)
-        // report dimensions
+        self.delegate?.capturer(self.capturer, didCapture: pixelBuffer, timeStampNs: timestampNs)
+
         self.dimensions = Dimensions(width: Int32(image.width),
                                      height: Int32(image.height))
     }
 
     public override func startCapture() -> Promise<Void> {
-        super.startCapture().then(on: .sdk) { () -> Void in
+        log()
+        return super.startCapture().then(on: .sdk) { () -> Void in
 
             if case .display(let displayID) = self.source {
 
@@ -148,28 +165,18 @@ public class MacOSScreenCapturer: VideoCapturer {
                 self.dimensions = Dimensions(width: Int32(CGDisplayPixelsWide(displayID)),
                                              height: Int32(CGDisplayPixelsHigh(displayID)))
             } else if case .window = self.source {
-                self.timer.resume()
+                self.startDispatchSourceTimer()
             }
         }
     }
 
     public override func stopCapture() -> Promise<Void> {
-        super.stopCapture().then(on: .sdk) {
+        log()
+        return super.stopCapture().then(on: .sdk) {
             if case .display = self.source {
                 self.session.stopRunning()
             } else if case .window = self.source {
-                self.timer.suspend()
-            }
-        }
-    }
-
-    deinit {
-        if case .window = source {
-            self.timer.cancel()
-            if case .stopped = state {
-                // If the timer is suspended, calling cancel without resuming
-                // triggers a crash. This is documented here https://forums.developer.apple.com/thread/15902
-                self.timer.resume()
+                self.stopDispatchSourceTimer()
             }
         }
     }
