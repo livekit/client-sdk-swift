@@ -48,6 +48,28 @@ public class MulticastDelegate<T>: NSObject, Loggable {
             }
         }
     }
+
+    /// At least one delegate must return `true`, otherwise a `warning` will be logged
+    internal func notify(_ fnc: @escaping (T) -> Bool,
+                         function: String = #function,
+                         line: UInt = #line) {
+
+        queue.async {
+            var isHandled: Bool = false
+            for delegate in self.set.objectEnumerator() {
+                guard let delegate = delegate as? T else {
+                    self.log("MulticastDelegate: skipping notify for \(delegate), not a type of \(T.self)", .info)
+                    continue
+                }
+
+                if fnc(delegate) { isHandled = true }
+            }
+
+            if !isHandled {
+                self.log("Notify was not handled, called from \(function) line \(line)", .warning)
+            }
+        }
+    }
 }
 
 public protocol MulticastDelegateCapable {

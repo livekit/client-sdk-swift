@@ -380,9 +380,81 @@ extension Engine {
     }
 }
 
-extension Engine: SignalClientDelegate {
+// MARK: - SignalClientDelegate
 
-    func configureTransports(joinResponse: Livekit_JoinResponse) {
+extension Engine: SignalClientDelegate {
+    
+    func signalClient(_ signalClient: SignalClient, didUpdate connectionState: ConnectionState) -> Bool {
+        return false
+    }
+
+    func signalClient(_ signalClient: SignalClient, didReceive iceCandidate: RTCIceCandidate, target: Livekit_SignalTarget) -> Bool {
+        let transport = target == .subscriber ? subscriber : publisher
+        transport?.addIceCandidate(iceCandidate)
+        return true
+    }
+
+    func signalClient(_ signalClient: SignalClient, didReceiveAnswer answer: RTCSessionDescription) -> Bool {
+
+        guard let publisher = self.publisher else {
+            log("Publisher is nil", .warning)
+            return true
+        }
+
+        publisher.setRemoteDescription(answer)
+
+        return true
+    }
+
+    func signalClient(_ signalClient: SignalClient, didReceiveOffer offer: RTCSessionDescription) -> Bool {
+
+        guard let subscriber = self.subscriber else {
+            log("Subscriber is nil", .warning)
+            return true
+        }
+
+        subscriber.setRemoteDescription(offer).then(on: .sdk) {
+            subscriber.createAnswer()
+        }.then(on: .sdk) { answer in
+            subscriber.setLocalDescription(answer)
+        }.then(on: .sdk) { answer in
+            self.signalClient.sendAnswer(answer: answer)
+        }
+
+        return true
+    }
+}
+
+// MARK: - RTCDataChannelDelegate
+
+extension Engine: RTCDataChannelDelegate {
+
+    func dataChannelDidChangeState(_ dataChannel: RTCDataChannel) {
+        notify { $0.engine(self, didUpdate: dataChannel, state: dataChannel.readyState) }
+    }
+
+    func dataChannel(_: RTCDataChannel, didReceiveMessageWith buffer: RTCDataBuffer) {
+
+        guard let dataPacket = try? Livekit_DataPacket(contiguousBytes: buffer.data) else {
+            log("could not decode data message", .error)
+            return
+        }
+
+        switch dataPacket.value {
+        case .speaker(let update):
+            notify { $0.engine(self, didUpdateEngine: update.speakers) }
+        case .user(let userPacket):
+            notify { $0.engine(self, didReceive: userPacket) }
+        default: return
+        }
+    }
+}
+
+// MARK: - TransportDelegate
+
+extension Engine: TransportDelegate {
+
+    private func configureTransports(joinResponse: Livekit_JoinResponse) {
 
         guard subscriber == nil, publisher == nil else {
             log("transports already configured")
@@ -434,91 +506,6 @@ extension Engine: SignalClientDelegate {
             publisherShouldNegotiate()
         }
     }
-
-    func signalClient(_ signalClient: SignalClient, didReceive joinResponse: Livekit_JoinResponse) {
-        notify { $0.engine(self, didReceive: joinResponse) }
-    }
-
-    func signalClient(_ signalClient: SignalClient, didReceive iceCandidate: RTCIceCandidate, target: Livekit_SignalTarget) {
-        let transport = target == .subscriber ? subscriber : publisher
-        transport?.addIceCandidate(iceCandidate)
-    }
-
-    func signalClient(_ signalClient: SignalClient, didReceiveAnswer answer: RTCSessionDescription) {
-
-        guard let publisher = self.publisher else {
-            log("signalClient didReceiveAnswer but publisher is nil", .warning)
-            return
-        }
-
-        log("handling server answer...")
-        publisher.setRemoteDescription(answer)
-    }
-
-    func signalClient(_ signalClient: SignalClient, didReceiveOffer offer: RTCSessionDescription) {
-
-        guard let subscriber = self.subscriber else {
-            log("signalClient didReceiveOffer but subscriber is nil", .warning)
-            return
-        }
-
-        log("handling server offer...")
-        subscriber.setRemoteDescription(offer).then(on: .sdk) {
-            subscriber.createAnswer()
-        }.then(on: .sdk) { answer in
-            subscriber.setLocalDescription(answer)
-        }.then(on: .sdk) { answer in
-            self.signalClient.sendAnswer(answer: answer)
-        }
-    }
-
-    func signalClient(_ signalClient: SignalClient, didPublish localTrack: Livekit_TrackPublishedResponse) {
-        log("received track published confirmation from server for: \(localTrack.track.sid)")
-    }
-
-    func signalClient(_ signalClient: SignalClient, didReceiveLeave canReconnect: Bool) {
-        // disconnect()
-    }
-    
-    func signalClient(_ signalClient: SignalClient, didUpdate connectionState: ConnectionState) {
-        //
-    }
-//
-//    func signalClient(_ signalClient: SignalClient, didClose code: URLSessionWebSocketTask.CloseCode) {
-//        log("signal connection closed with code: \(code)")
-//        reconnect()
-//    }
-//
-//    func signalClient(_ signalClient: SignalClient, didFailConnect error: Error) {
-//        log("signal connection error: \(error)")
-//        notify { $0.engine(self, didFailConnection: error) }
-//    }
-}
-
-extension Engine: RTCDataChannelDelegate {
-
-    func dataChannelDidChangeState(_ dataChannel: RTCDataChannel) {
-        notify { $0.engine(self, didUpdate: dataChannel, state: dataChannel.readyState) }
-    }
-
-    func dataChannel(_: RTCDataChannel, didReceiveMessageWith buffer: RTCDataBuffer) {
-
-        guard let dataPacket = try? Livekit_DataPacket(contiguousBytes: buffer.data) else {
-            log("could not decode data message", .error)
-            return
-        }
-
-        switch dataPacket.value {
-        case .speaker(let update):
-            notify { $0.engine(self, didUpdateEngine: update.speakers) }
-        case .user(let userPacket):
-            notify { $0.engine(self, didReceive: userPacket) }
-        default: return
-        }
-    }
-}
-
-extension Engine: TransportDelegate {
 
     func transport(_ transport: Transport, didGenerate iceCandidate: RTCIceCandidate) {
         log("didGenerate iceCandidate")

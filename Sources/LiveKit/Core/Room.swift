@@ -252,43 +252,71 @@ extension Room: SignalClientDelegate {
         }
     }
 
-    func signalClient(_ signalClient: SignalClient, didUpdate trackSid: String, subscribedQualities: [Livekit_SubscribedQuality]) {
+    func signalClient(_ signalClient: SignalClient, didUpdate trackSid: String, subscribedQualities: [Livekit_SubscribedQuality]) -> Bool {
         log()
 
         onSubscribedQualitiesUpdate(trackSid: trackSid,
                                     subscribedQualities: subscribedQualities)
+        return true
     }
 
-    func signalClient(_ signalClient: SignalClient, didUpdate speakers: [Livekit_SpeakerInfo]) {
+    func signalClient(_ signalClient: SignalClient, didReceive joinResponse: Livekit_JoinResponse) -> Bool {
+        log("Server version: \(joinResponse.serverVersion)", .info)
+
+        sid = joinResponse.room.sid
+        name = joinResponse.room.name
+
+        if joinResponse.hasParticipant {
+            localParticipant = LocalParticipant(from: joinResponse.participant, room: self)
+        }
+        if !joinResponse.otherParticipants.isEmpty {
+            for otherParticipant in joinResponse.otherParticipants {
+                _ = getOrCreateRemoteParticipant(sid: otherParticipant.sid, info: otherParticipant)
+            }
+        }
+
+        return true
+    }
+
+    func signalClient(_ signalClient: SignalClient, didUpdate speakers: [Livekit_SpeakerInfo]) -> Bool {
         log("speakers: \(speakers)")
 
         onSignalSpeakersUpdate(speakers)
+        return true
     }
 
-    func signalClient(_ signalClient: SignalClient, didUpdate connectionQuality: [Livekit_ConnectionQualityInfo]) {
+    func signalClient(_ signalClient: SignalClient, didUpdate connectionQuality: [Livekit_ConnectionQualityInfo]) -> Bool {
         log("connectionQuality: \(connectionQuality)")
 
         onConnectionQualityUpdate(connectionQuality)
+        return true
     }
 
-    func signalClient(_ signalClient: SignalClient, didUpdateRemoteMute trackSid: String, muted: Bool) {
+    func signalClient(_ signalClient: SignalClient, didUpdateRemoteMute trackSid: String, muted: Bool) -> Bool {
         log("trackSid: \(trackSid) muted: \(muted)")
 
-        guard let publication = localParticipant?.tracks[trackSid] as? LocalTrackPublication else { return }
+        guard let publication = localParticipant?.tracks[trackSid] as? LocalTrackPublication else {
+            // publication was not found but the delegate was handled
+            return true
+        }
+
         if muted {
             publication.mute()
         } else {
             publication.unmute()
         }
+
+        return true
     }
 
-    func signalClient(_ signalClient: SignalClient, didUpdate subscriptionPermission: Livekit_SubscriptionPermissionUpdate) {
+    func signalClient(_ signalClient: SignalClient, didUpdate subscriptionPermission: Livekit_SubscriptionPermissionUpdate) -> Bool {
         log("subscriptionPermission: \(subscriptionPermission)")
 
         onSubscriptionPermissionUpdate(permissionUpdate: subscriptionPermission)
+        return true
     }
 
-    func signalClient(_ signalClient: SignalClient, didUpdate trackStates: [Livekit_StreamStateInfo]) {
+    func signalClient(_ signalClient: SignalClient, didUpdate trackStates: [Livekit_StreamStateInfo]) -> Bool {
         log("trackStates: \(trackStates)")
 
         for update in trackStates {
@@ -299,9 +327,10 @@ extension Room: SignalClientDelegate {
             // Update streamState (and notify)
             trackPublication.streamState = update.state.toLKType()
         }
+        return true
     }
 
-    func signalClient(_ signalClient: SignalClient, didUpdate participants: [Livekit_ParticipantInfo]) {
+    func signalClient(_ signalClient: SignalClient, didUpdate participants: [Livekit_ParticipantInfo]) -> Bool {
         log("participants: \(participants)")
 
         for info in participants {
@@ -320,6 +349,7 @@ extension Room: SignalClientDelegate {
                 participant.updateFromInfo(info: info)
             }
         }
+        return true
     }
 }
 
@@ -353,22 +383,6 @@ extension Room: EngineDelegate {
         notify { $0.room(self, didUpdate: connectionState) }
     }
 
-    func engine(_ engine: Engine, didReceive joinResponse: Livekit_JoinResponse) {
-        log("connected to room, server version: \(joinResponse.serverVersion)", .info)
-
-        sid = joinResponse.room.sid
-        name = joinResponse.room.name
-
-        if joinResponse.hasParticipant {
-            localParticipant = LocalParticipant(from: joinResponse.participant, room: self)
-        }
-        if !joinResponse.otherParticipants.isEmpty {
-            for otherParticipant in joinResponse.otherParticipants {
-                _ = getOrCreateRemoteParticipant(sid: otherParticipant.sid, info: otherParticipant)
-            }
-        }
-    }
-
     func engine(_ engine: Engine, didAdd track: RTCMediaStreamTrack, streams: [RTCMediaStream]) {
 
         guard streams.count > 0 else {
@@ -400,9 +414,9 @@ extension Room: EngineDelegate {
         let participant = remoteParticipants[userPacket.participantSid]
 
         notify { $0.room(self, participant: participant, didReceive: userPacket.payload) }
-        participant?.notify { [weak participant] in
+        participant?.notify { [weak participant] (delegate) -> Void in
             guard let participant = participant else { return }
-            $0.participant(participant, didReceive: userPacket.payload)
+            delegate.participant(participant, didReceive: userPacket.payload)
         }
     }
 }
