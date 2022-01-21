@@ -1,9 +1,9 @@
 import Foundation
 
 public enum ConnectionState {
-    case disconnected(error: Error? = nil)
+    case disconnected(reason: DisconnectReason? = nil)
     case connecting(isReconnecting: Bool)
-    case connected
+    case connected(didReconnect: Bool = false)
 }
 
 extension ConnectionState: Equatable {
@@ -27,5 +27,22 @@ extension ConnectionState: Equatable {
     public var isReconnecting: Bool {
         if case .connecting(isReconnecting: true) = self { return true }
         return false
+    }
+}
+
+public enum DisconnectReason {
+    case user // User initiated
+    case network(error: Error? = nil)
+    case sdk // 
+}
+
+extension DisconnectReason {
+
+    var error: Error? {
+        if case .network(let error) = self {
+            return error
+        }
+
+        return nil
     }
 }

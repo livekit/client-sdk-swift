@@ -17,18 +17,10 @@ public class Room: MulticastDelegate<RoomDelegate> {
     internal private(set) var connectOptions: ConnectOptions?
     internal private(set) var roomOptions: RoomOptions?
 
-    // expose engine's connectionState
-    public var connectionState: ConnectionState {
-        engine.connectionState
-    }
-
-    public var url: String? {
-        engine.url
-    }
-
-    public var token: String? {
-        engine.token
-    }
+    // expose engine's vars
+    public var connectionState: ConnectionState { engine.connectionState }
+    public var url: String? { engine.url }
+    public var token: String? { engine.token }
 
     public init(delegate: RoomDelegate? = nil,
                 connectOptions: ConnectOptions? = nil,
@@ -46,6 +38,28 @@ public class Room: MulticastDelegate<RoomDelegate> {
     deinit {
         // not really required to remove delegate since it's weak
         engine.remove(delegate: self)
+    }
+
+    internal func cleanUp(reason: DisconnectReason) -> Promise<Void> {
+
+        engine.cleanUp(reason: reason)
+
+        // Stop all local & remote track
+
+        let allParticipants = ([[localParticipant],
+                                remoteParticipants.map { $0.value }] as [[Participant?]])
+            .joined()
+            .compactMap { $0 }
+
+        let stopPromises = allParticipants.map { $0.tracks.values.map { $0.track } }.joined()
+            .compactMap { $0 }
+            .map { $0.stop() }
+
+        return all(on: .sdk, stopPromises).then(on: .sdk) { (_) -> Void in
+            self.localParticipant = nil
+            self.remoteParticipants.removeAll()
+            self.activeSpeakers.removeAll()
+        }
     }
 
     @discardableResult
@@ -69,9 +83,7 @@ public class Room: MulticastDelegate<RoomDelegate> {
 
     @discardableResult
     public func disconnect() -> Promise<Void> {
-        engine.signalClient.sendLeave()
-        engine.disconnect()
-        return handleDisconnect()
+        return cleanUp(reason: .user)
     }
 
     private func getOrCreateRemoteParticipant(sid: Sid, info: Livekit_ParticipantInfo? = nil) -> RemoteParticipant {
@@ -180,44 +192,19 @@ public class Room: MulticastDelegate<RoomDelegate> {
 
         publication.subscriptionAllowed = permissionUpdate.allowed
     }
-
-    private func handleDisconnect() -> Promise<Void> {
-        log("disconnected from room: \(self.name ?? "")", .info)
-        // stop any tracks && release audio session
-
-        var promises = [Promise<Void>]()
-
-        for participant in remoteParticipants.values {
-            for publication in participant.tracks.values {
-                guard let track = publication.track else { continue }
-                promises.append(track.stop())
-            }
-        }
-
-        if let localParticipant = localParticipant {
-            for publication in localParticipant.tracks.values {
-                guard let track = publication.track else { continue }
-                promises.append(track.stop())
-            }
-        }
-
-        return all(on: .sdk, promises).then(on: .sdk) { (_) -> Void in
-            self.remoteParticipants.removeAll()
-            self.activeSpeakers.removeAll()
-            // monitor.cancel()
-            self.notify { $0.room(self, didDisconnect: nil) }
-        }
-    }
 }
 
 // MARK: - Session Migration
 
 extension Room {
 
-    internal func sendSyncState() {
+    internal func sendSyncState() -> Promise<Void> {
 
         guard let subscriber = engine.subscriber,
-              let localDescription = subscriber.localDescription else { return }
+              let localDescription = subscriber.localDescription else {
+            // No-op
+            return Promise(())
+        }
 
         let sendUnSub = connectOptions?.autoSubscribe ?? false
         let trackSids = remoteParticipants.values.map {
@@ -234,9 +221,9 @@ extension Room {
             $0.participantTracks = []
         }
 
-        engine.signalClient.sendSyncState(answer: localDescription.toPBType(),
-                                          subscription: subscription,
-                                          publishTracks: localParticipant?.publishedTracksInfo())
+        return engine.signalClient.sendSyncState(answer: localDescription.toPBType(),
+                                                 subscription: subscription,
+                                                 publishTracks: localParticipant?.publishedTracksInfo())
     }
 }
 
@@ -357,29 +344,23 @@ extension Room: SignalClientDelegate {
 
 extension Room: EngineDelegate {
 
-    func engine(_ engine: Engine, didUpdate dataChannel: RTCDataChannel, state: RTCDataChannelState) {}
-
-    func engine(_ engine: Engine, didUpdateEngine speakers: [Livekit_SpeakerInfo]) {
+    func engine(_ engine: Engine, didUpdate speakers: [Livekit_SpeakerInfo]) {
         onEngineSpeakersUpdate(speakers)
     }
 
-    func engine(_ engine: Engine, didConnect isReconnect: Bool) {
-        notify { $0.room(self, didConnect: isReconnect) }
-    }
+    func engine(_ engine: Engine, didUpdate connectionState: ConnectionState, oldState: ConnectionState) {
 
-    func didDisconnect(reason: String, code: UInt16) {
-        notify { $0.room(self, didDisconnect: nil) }
-    }
+        // Deprecated
+        if case .connected(let didReconnect) = connectionState {
+            notify { $0.room(self, didConnect: didReconnect) }
+        } else if case .disconnected(let reason) = connectionState {
+            if case .connected = oldState {
+                notify { $0.room(self, didDisconnect: reason?.error ) }
+            } else {
+                notify { $0.room(self, didFailToConnect: reason?.error ?? NetworkError.disconnected() ) }
+            }
+        }
 
-    func engine(_ engine: Engine, didFailConnection error: Error) {
-        notify { $0.room(self, didFailToConnect: error) }
-    }
-
-    func engineDidDisconnect(_ engine: Engine) {
-        _ = handleDisconnect()
-    }
-
-    func engine(_ engine: Engine, didUpdate connectionState: ConnectionState) {
         notify { $0.room(self, didUpdate: connectionState) }
     }
 

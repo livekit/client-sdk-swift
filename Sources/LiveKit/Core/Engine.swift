@@ -30,7 +30,7 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
         didSet {
             guard oldValue != connectionState else { return }
             log("\(oldValue) -> \(self.connectionState)")
-            notify { $0.engine(self, didUpdate: self.connectionState) }
+            notify { $0.engine(self, didUpdate: self.connectionState, oldState: oldValue) }
         }
     }
 
@@ -55,17 +55,36 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
         signalClient.remove(delegate: self)
     }
 
+    internal func cleanUp(reason: DisconnectReason) {
+        log("reason: \(reason)")
+
+        connectionState = .disconnected(reason: reason)
+
+        signalClient.cleanUp(reason: reason)
+
+        url = nil
+        token = nil
+
+        // close publisher
+        if let transport = publisher {
+            transport.close()
+            self.publisher = nil
+        }
+
+        // close subscriber
+        if let transport = subscriber {
+            transport.close()
+            self.subscriber = nil
+        }
+    }
+
     public func connect(_ url: String,
                         _ token: String) -> Promise<Void> {
 
-        guard connectionState != .connected else {
-            log("already connected")
-            return Promise(EngineError.state(message: "already connected"))
+        if case .connected = connectionState {
+            log("Already connected", .warning)
+            return Promise(EngineError.state(message: "Already connected"))
         }
-
-        // reset internal vars
-        self.url = nil
-        self.token = nil
 
         self.connectionState = .connecting(isReconnecting: false)
 
@@ -87,8 +106,10 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
                                         // update internal vars (only if connect succeeded)
                                         self.url = url
                                         self.token = token
+                                        self.connectionState = .connected()
 
-                                        self.connectionState = .connected
+                                    }.catch(on: .sdk) { _ in
+                                        self.cleanUp(reason: .network())
                                     }
     }
 
@@ -133,9 +154,9 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
                                  }
         }
 
-        let delay: TimeInterval = 1
-        return retry(attempts: 5, delay: delay) { remainingAttempts, _ in
-            self.log("re-connecting in \(delay)second(s), \(remainingAttempts) remaining attempts...")
+        return retry(attempts: 5,
+                     delay: .reconnectDelay) { triesLeft, _ in
+            self.log("Re-connecting in \(delay)seconds, \(triesLeft) tries left...")
             // only retry if still reconnecting state (not disconnected)
             return .connecting(isReconnecting: true) == self.connectionState
         } _: {
@@ -144,36 +165,11 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
         }.then(on: .sdk) {
             // re-connect sequence successful
             self.log("re-connect sequence completed")
-            self.connectionState = .connected
-        }.catch { _ in
+            self.connectionState = .connected(didReconnect: true)
+        }.catch(on: .sdk) { _ in
             // finally disconnect if all attempts fail
-            self.disconnect()
+            self.cleanUp(reason: .network())
         }
-    }
-
-    public func disconnect() {
-
-        guard .disconnected() != connectionState else {
-            log("disconnect() already disconnected", .warning)
-            return
-        }
-
-        cleanUp()
-        connectionState = .disconnected()
-        signalClient.close()
-    }
-
-    // resets internal vars
-    private func cleanUp() {
-
-        url = nil
-        token = nil
-
-        publisher?.close()
-        publisher = nil
-
-        subscriber?.close()
-        subscriber = nil
     }
 
     private func onReceived(dataChannel: RTCDataChannel) {
@@ -383,7 +379,7 @@ extension Engine {
 // MARK: - SignalClientDelegate
 
 extension Engine: SignalClientDelegate {
-    
+
     func signalClient(_ signalClient: SignalClient, didUpdate connectionState: ConnectionState) -> Bool {
         return false
     }
@@ -442,7 +438,7 @@ extension Engine: RTCDataChannelDelegate {
 
         switch dataPacket.value {
         case .speaker(let update):
-            notify { $0.engine(self, didUpdateEngine: update.speakers) }
+            notify { $0.engine(self, didUpdate: update.speakers) }
         case .user(let userPacket):
             notify { $0.engine(self, didReceive: userPacket) }
         default: return
@@ -509,7 +505,7 @@ extension Engine: TransportDelegate {
 
     func transport(_ transport: Transport, didGenerate iceCandidate: RTCIceCandidate) {
         log("didGenerate iceCandidate")
-        try? signalClient.sendCandidate(candidate: iceCandidate, target: transport.target)
+        signalClient.sendCandidate(candidate: iceCandidate, target: transport.target)
     }
 
     func transport(_ transport: Transport, didUpdate state: RTCPeerConnectionState) {

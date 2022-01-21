@@ -1,5 +1,6 @@
 import Foundation
 import CoreGraphics
+import Promises
 
 public class RemoteTrackPublication: TrackPublication {
     // have we explicitly unsubscribed
@@ -200,13 +201,17 @@ extension RemoteTrackPublication {
 
     private func recomputeVideoViewVisibilities() {
 
-        func send(_ settings: VideoTrackSettings) {
-            guard let client = participant?.room.engine.signalClient else { return }
+        func send(_ settings: VideoTrackSettings) -> Promise<Void> {
+
+            guard let client = participant?.room.engine.signalClient else {
+                return Promise(EngineError.state(message: "Participant is nil"))
+            }
+
             log("sendUpdateTrackSettings enabled: \(settings.enabled), viewSize: \(settings.size)")
-            client.sendUpdateTrackSettings(sid: sid,
-                                           enabled: settings.enabled,
-                                           width: Int(ceil(settings.size.width)),
-                                           height: Int(ceil(settings.size.height)))
+            return client.sendUpdateTrackSettings(sid: sid,
+                                                  enabled: settings.enabled,
+                                                  width: Int(ceil(settings.size.width)),
+                                                  height: Int(ceil(settings.size.height)))
         }
 
         // set internal enabled var

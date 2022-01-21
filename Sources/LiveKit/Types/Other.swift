@@ -3,9 +3,9 @@ import WebRTC
 
 public typealias Sid = String
 
-public enum Reliability: Int {
-    case reliable = 0
-    case lossy = 1
+public enum Reliability {
+    case reliable
+    case lossy
 }
 
 extension Reliability {
