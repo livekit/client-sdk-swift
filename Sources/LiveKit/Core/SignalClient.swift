@@ -33,10 +33,7 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
                         connectOptions: ConnectOptions? = nil,
                         reconnect: Bool = false) -> Promise<Void> {
 
-        if case .connected = connectionState {
-            log("Already connected", .warning)
-            return Promise(EngineError.state(message: "Already connected"))
-        }
+        cleanUp(reason: .sdk)
 
         return Utils.buildUrl(url,
                               token,
@@ -57,14 +54,16 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
             }.then(on: .sdk) { (webSocket: WebSocket) -> Void in
                 self.webSocket = webSocket
                 self.connectionState = .connected()
-            }.recover(on: .sdk) { _ -> Promise<Void> in
+            }.recover(on: .sdk) { error -> Promise<Void> in
+                // Skip validation if reconnect mode
+                if reconnect { throw error }
                 // Catch first, then throw again after getting validation response
                 // Re-build url with validate mode
-                Utils.buildUrl(url,
-                               token,
-                               connectOptions: connectOptions,
-                               reconnect: reconnect,
-                               validate: true
+                return Utils.buildUrl(url,
+                                      token,
+                                      connectOptions: connectOptions,
+                                      reconnect: reconnect,
+                                      validate: true
                 ).then(on: .sdk) { url -> Promise<Data> in
                     self.log("Validating with url: \(url)")
                     return HTTP().get(url: url)

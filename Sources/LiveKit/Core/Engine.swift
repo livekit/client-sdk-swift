@@ -81,10 +81,7 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
     public func connect(_ url: String,
                         _ token: String) -> Promise<Void> {
 
-        if case .connected = connectionState {
-            log("Already connected", .warning)
-            return Promise(EngineError.state(message: "Already connected"))
-        }
+        cleanUp(reason: .sdk)
 
         self.connectionState = .connecting(isReconnecting: false)
 
@@ -108,27 +105,32 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
                                         self.token = token
                                         self.connectionState = .connected()
 
-                                    }.catch(on: .sdk) { _ in
-                                        self.cleanUp(reason: .network())
+                                    }.catch(on: .sdk) { error in
+                                        self.cleanUp(reason: .network(error: error))
                                     }
     }
 
     @discardableResult
     private func reconnect() -> Promise<Void> {
 
-        guard let url = url,
-              let token = token else {
-            log("reconnect() must be called with connected state")
-            return Promise(EngineError.state(message: "reconnect() called with no url or token"))
+        guard let url = url, let token = token else {
+            log("url or token is nil", . warning)
+            return Promise(EngineError.state(message: "url or token is nil"))
+        }
+
+        if connectionState.isReconnecting {
+            log("Already reconnecting", .warning)
+            return Promise(EngineError.state(message: "Already reconnecting"))
         }
 
         guard case .connected = connectionState else {
-            log("reconnect() must be called with connected state")
-            return Promise(EngineError.state(message: "reconnect() called with invalid state"))
+            log("Must be called with connected state", .warning)
+            return Promise(EngineError.state(message: "Must be called with connected state"))
         }
 
         guard subscriber != nil, publisher != nil else {
-            return Promise(EngineError.state(message: "publisher or subscriber is null"))
+            log("Publisher or Subscriber is nil", .warning)
+            return Promise(EngineError.state(message: "Publisher or Subscriber is nil"))
         }
 
         connectionState = .connecting(isReconnecting: true)
@@ -138,35 +140,39 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
             signalClient.connect(url,
                                  token,
                                  connectOptions: room.connectOptions,
-                                 reconnect: true).then(on: .sdk) {
-                                    self.wait(transport: self.primary, state: .connected)
-                                 }.then(on: .sdk) { () -> Promise<Void> in
-                                    self.subscriber?.restartingIce = true
+                                 reconnect: true
+            ).then(on: .sdk) {
+                self.wait(transport: self.primary, state: .connected)
+            }.then(on: .sdk) { () -> Promise<Void> in
+                self.subscriber?.restartingIce = true
 
-                                    // only if published, continue...
-                                    guard let publisher = self.publisher, self.hasPublished else {
-                                        return Promise(())
-                                    }
+                // only if published, continue...
+                guard let publisher = self.publisher, self.hasPublished else {
+                    return Promise(())
+                }
 
-                                    return publisher.createAndSendOffer(iceRestart: true).then(on: .sdk) {
-                                        self.wait(transport: publisher, state: .connected)
-                                    }
-                                 }
+                return publisher.createAndSendOffer(iceRestart: true).then(on: .sdk) {
+                    self.wait(transport: publisher, state: .connected)
+                }
+            }
         }
 
-        return retry(attempts: 5,
-                     delay: .reconnectDelay) { triesLeft, _ in
-            self.log("Re-connecting in \(delay)seconds, \(triesLeft) tries left...")
-            // only retry if still reconnecting state (not disconnected)
-            return .connecting(isReconnecting: true) == self.connectionState
-        } _: {
+        return retry(on: .sdk,
+                     attempts: 5,
+                     delay: .reconnectDelay,
+                     condition: { triesLeft, _ in
+                        self.log("Re-connecting in \(TimeInterval.reconnectDelay)seconds, \(triesLeft) tries left...")
+                        // only retry if still reconnecting state (not disconnected)
+                        return self.connectionState.isReconnecting
+                     }) {
             // try to re-connect
             reconnectSequence()
         }.then(on: .sdk) {
             // re-connect sequence successful
-            self.log("re-connect sequence completed")
+            self.log("Re-connect sequence completed")
             self.connectionState = .connected(didReconnect: true)
         }.catch(on: .sdk) { _ in
+            self.log("Re-connect sequence failed")
             // finally disconnect if all attempts fail
             self.cleanUp(reason: .network())
         }
@@ -381,7 +387,13 @@ extension Engine {
 extension Engine: SignalClientDelegate {
 
     func signalClient(_ signalClient: SignalClient, didUpdate connectionState: ConnectionState) -> Bool {
-        return false
+        // Attempt re-connect if disconnected(reason: network)
+        if case .disconnected(let reason) = connectionState,
+           case .network = reason {
+            reconnect()
+        }
+
+        return true
     }
 
     func signalClient(_ signalClient: SignalClient, didReceive iceCandidate: RTCIceCandidate, target: Livekit_SignalTarget) -> Bool {
@@ -450,6 +462,15 @@ extension Engine: RTCDataChannelDelegate {
 
 extension Engine: TransportDelegate {
 
+    func transport(_ transport: Transport, didUpdate state: RTCPeerConnectionState) {
+        log("target: \(transport.target), state: \(state)")
+
+        // Attempt re-connect if primary transport failed
+        if transport.primary, state == .failed {
+            reconnect()
+        }
+    }
+
     private func configureTransports(joinResponse: Livekit_JoinResponse) {
 
         guard subscriber == nil, publisher == nil else {
@@ -506,13 +527,6 @@ extension Engine: TransportDelegate {
     func transport(_ transport: Transport, didGenerate iceCandidate: RTCIceCandidate) {
         log("didGenerate iceCandidate")
         signalClient.sendCandidate(candidate: iceCandidate, target: transport.target)
-    }
-
-    func transport(_ transport: Transport, didUpdate state: RTCPeerConnectionState) {
-        log("target: \(transport.target), state: \(state)")
-        if transport.primary, state == .failed {
-            reconnect()
-        }
     }
 
     func transport(_ transport: Transport, didAdd track: RTCMediaStreamTrack, streams: [RTCMediaStream]) {

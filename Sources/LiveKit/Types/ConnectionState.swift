@@ -33,7 +33,7 @@ extension ConnectionState: Equatable {
 public enum DisconnectReason {
     case user // User initiated
     case network(error: Error? = nil)
-    case sdk // 
+    case sdk //
 }
 
 extension DisconnectReason {

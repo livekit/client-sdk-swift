@@ -195,7 +195,8 @@ public class Room: MulticastDelegate<RoomDelegate> {
 }
 
 extension Room {
-    
+
+    @discardableResult
     public func sendSimulate(scenario: SimulateScenario) -> Promise<Void> {
         engine.signalClient.sendSimulate(scenario: scenario)
     }
