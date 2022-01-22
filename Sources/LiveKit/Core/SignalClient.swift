@@ -373,4 +373,19 @@ internal extension SignalClient {
 
         return sendRequest(r)
     }
+    
+    func sendSimulate(scenario: SimulateScenario) -> Promise<Void> {
+        log()
+
+        let r = Livekit_SignalRequest.with {
+            $0.simulate = Livekit_SimulateScenario.with {
+                if case .nodeFailure = scenario { $0.nodeFailure = true }
+                if case .migration = scenario { $0.migration = true }
+                if case .serverLeave = scenario { $0.serverLeave = true }
+                if case .speakerUpdate(let secs) = scenario { $0.speakerUpdate = Int32(secs) }
+            }
+        }
+
+        return sendRequest(r)
+    }
 }

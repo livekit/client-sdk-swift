@@ -15,3 +15,10 @@ extension Reliability {
         return .reliable
     }
 }
+
+public enum SimulateScenario {
+    case nodeFailure
+    case migration
+    case serverLeave
+    case speakerUpdate(seconds: Int)
+}

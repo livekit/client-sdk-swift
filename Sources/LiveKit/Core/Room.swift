@@ -194,6 +194,13 @@ public class Room: MulticastDelegate<RoomDelegate> {
     }
 }
 
+extension Room {
+    
+    public func sendSimulate(scenario: SimulateScenario) -> Promise<Void> {
+        engine.signalClient.sendSimulate(scenario: scenario)
+    }
+}
+
 // MARK: - Session Migration
 
 extension Room {
