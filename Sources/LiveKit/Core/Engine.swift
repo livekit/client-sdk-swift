@@ -113,11 +113,6 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
     @discardableResult
     private func reconnect() -> Promise<Void> {
 
-        guard let url = url, let token = token else {
-            log("url or token is nil", . warning)
-            return Promise(EngineError.state(message: "url or token is nil"))
-        }
-
         if connectionState.isReconnecting {
             log("Already reconnecting", .warning)
             return Promise(EngineError.state(message: "Already reconnecting"))
@@ -126,6 +121,11 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
         guard case .connected = connectionState else {
             log("Must be called with connected state", .warning)
             return Promise(EngineError.state(message: "Must be called with connected state"))
+        }
+
+        guard let url = url, let token = token else {
+            log("url or token is nil", . warning)
+            return Promise(EngineError.state(message: "url or token is nil"))
         }
 
         guard subscriber != nil, publisher != nil else {
@@ -387,6 +387,7 @@ extension Engine {
 extension Engine: SignalClientDelegate {
 
     func signalClient(_ signalClient: SignalClient, didUpdate connectionState: ConnectionState) -> Bool {
+        log()
         // Attempt re-connect if disconnected(reason: network)
         if case .disconnected(let reason) = connectionState,
            case .network = reason {
@@ -396,6 +397,17 @@ extension Engine: SignalClientDelegate {
         return true
     }
 
+    func signalClient(_ signalClient: SignalClient, didReceiveLeave canReconnect: Bool) -> Bool {
+        log()
+        
+        // Server indicates it's not recoverable
+        if !canReconnect {
+            cleanUp(reason: .network())
+        }
+
+        return true
+    }
+    
     func signalClient(_ signalClient: SignalClient, didReceive iceCandidate: RTCIceCandidate, target: Livekit_SignalTarget) -> Bool {
         let transport = target == .subscriber ? subscriber : publisher
         transport?.addIceCandidate(iceCandidate)
