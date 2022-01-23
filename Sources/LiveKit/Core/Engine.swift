@@ -55,25 +55,27 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
         signalClient.remove(delegate: self)
     }
 
-    internal func cleanUp(reason: DisconnectReason) {
+    @discardableResult
+    internal func cleanUp(reason: DisconnectReason) -> Promise<Void> {
         log("reason: \(reason)")
 
+        url = nil
+        token = nil
         connectionState = .disconnected(reason: reason)
 
         signalClient.cleanUp(reason: reason)
 
-        url = nil
-        token = nil
+        func closeTransports() -> Promise<[Void]> {
 
-        // close publisher
-        if let transport = publisher {
-            transport.close()
-            self.publisher = nil
+            let closePromises = [publisher, subscriber]
+                .compactMap { $0 }
+                .map { $0.close() }
+
+            return all(on: .sdk, closePromises)
         }
 
-        // close subscriber
-        if let transport = subscriber {
-            transport.close()
+        return closeTransports().then { (_) -> Void in
+            self.publisher = nil
             self.subscriber = nil
         }
     }
@@ -81,33 +83,33 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
     public func connect(_ url: String,
                         _ token: String) -> Promise<Void> {
 
-        cleanUp(reason: .sdk)
+        return cleanUp(reason: .sdk).then(on: .sdk) {
+            self.connectionState = .connecting(isReconnecting: false)
+        }.then(on: .sdk) {
+            self.signalClient.connect(url,
+                                      token,
+                                      connectOptions: self.room.connectOptions)
+        }.then(on: .sdk) {
+            // wait for join response
+            self.signalClient.waitReceiveJoinResponse()
+        }.then(on: .sdk) { joinResponse in
+            // set up peer connections
+            self.configureTransports(joinResponse: joinResponse)
+        }.then(on: .sdk) {
+            // wait for peer connections to connect
+            self.wait(transport: self.primary, state: .connected)
+        }.then(on: .sdk) {
+            // connect sequence successful
+            self.log("connect sequence completed")
 
-        self.connectionState = .connecting(isReconnecting: false)
+            // update internal vars (only if connect succeeded)
+            self.url = url
+            self.token = token
+            self.connectionState = .connected()
 
-        return signalClient.connect(url,
-                                    token,
-                                    connectOptions: room.connectOptions).then(on: .sdk) {
-                                        // wait for join response
-                                        self.signalClient.waitReceiveJoinResponse()
-                                    }.then(on: .sdk) { joinResponse in
-                                        // set up peer connections
-                                        self.configureTransports(joinResponse: joinResponse)
-                                    }.then(on: .sdk) {
-                                        // wait for peer connections to connect
-                                        self.wait(transport: self.primary, state: .connected)
-                                    }.then(on: .sdk) {
-                                        // connect sequence successful
-                                        self.log("connect sequence completed")
-
-                                        // update internal vars (only if connect succeeded)
-                                        self.url = url
-                                        self.token = token
-                                        self.connectionState = .connected()
-
-                                    }.catch(on: .sdk) { error in
-                                        self.cleanUp(reason: .network(error: error))
-                                    }
+        }.catch(on: .sdk) { error in
+            self.cleanUp(reason: .network(error: error))
+        }
     }
 
     @discardableResult

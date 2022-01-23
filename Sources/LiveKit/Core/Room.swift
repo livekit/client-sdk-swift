@@ -42,20 +42,24 @@ public class Room: MulticastDelegate<RoomDelegate> {
 
     internal func cleanUp(reason: DisconnectReason) -> Promise<Void> {
 
-        engine.cleanUp(reason: reason)
+        // Stop all local & remote tracks
+        func stopAllTracks() -> Promise<[Void]> {
 
-        // Stop all local & remote track
+            let allParticipants = ([[localParticipant],
+                                    remoteParticipants.map { $0.value }] as [[Participant?]])
+                .joined()
+                .compactMap { $0 }
 
-        let allParticipants = ([[localParticipant],
-                                remoteParticipants.map { $0.value }] as [[Participant?]])
-            .joined()
-            .compactMap { $0 }
+            let stopPromises = allParticipants.map { $0.tracks.values.map { $0.track } }.joined()
+                .compactMap { $0 }
+                .map { $0.stop() }
 
-        let stopPromises = allParticipants.map { $0.tracks.values.map { $0.track } }.joined()
-            .compactMap { $0 }
-            .map { $0.stop() }
+            return all(on: .sdk, stopPromises)
+        }
 
-        return all(on: .sdk, stopPromises).then(on: .sdk) { (_) -> Void in
+        return engine.cleanUp(reason: reason).then(on: .sdk) {
+            stopAllTracks()
+        }.then(on: .sdk) { (_) -> Void in
             self.localParticipant = nil
             self.remoteParticipants.removeAll()
             self.activeSpeakers.removeAll()
@@ -83,7 +87,7 @@ public class Room: MulticastDelegate<RoomDelegate> {
 
     @discardableResult
     public func disconnect() -> Promise<Void> {
-        return cleanUp(reason: .user)
+        cleanUp(reason: .user)
     }
 
     private func getOrCreateRemoteParticipant(sid: Sid, info: Livekit_ParticipantInfo? = nil) -> RemoteParticipant {

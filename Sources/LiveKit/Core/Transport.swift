@@ -138,12 +138,11 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
         return negotiateSequence()
     }
 
-    // TODO: Make this async
-    public func close() {
+    public func close() -> Promise<Void> {
         // prevent debounced negotiate firing
         debounceWorkItem?.cancel()
 
-        DispatchQueue.webRTC.sync {
+        return Promise(on: .webRTC) { [pc] in
             // Stop listening to delegate
             pc.delegate = nil
             // Remove all senders (if any)
