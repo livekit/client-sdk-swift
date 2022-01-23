@@ -399,7 +399,7 @@ extension Engine: SignalClientDelegate {
 
     func signalClient(_ signalClient: SignalClient, didReceiveLeave canReconnect: Bool) -> Bool {
         log()
-        
+
         // Server indicates it's not recoverable
         if !canReconnect {
             cleanUp(reason: .network())
@@ -407,7 +407,7 @@ extension Engine: SignalClientDelegate {
 
         return true
     }
-    
+
     func signalClient(_ signalClient: SignalClient, didReceive iceCandidate: RTCIceCandidate, target: Livekit_SignalTarget) -> Bool {
         let transport = target == .subscriber ? subscriber : publisher
         transport?.addIceCandidate(iceCandidate)

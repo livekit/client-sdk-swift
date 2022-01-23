@@ -207,6 +207,7 @@ extension Room {
 extension Room {
 
     internal func sendSyncState() -> Promise<Void> {
+        log()
 
         guard let subscriber = engine.subscriber,
               let localDescription = subscriber.localDescription else {
@@ -239,12 +240,14 @@ extension Room {
 
 extension Room: SignalClientDelegate {
 
-    func signalClient(_ signalClient: SignalClient, didConnect isReconnect: Bool) {
-        log("isReconnect: \(isReconnect)")
+    func signalClient(_ signalClient: SignalClient, didUpdate connectionState: ConnectionState) -> Bool {
+        log()
 
         if connectionState.isReconnecting {
             sendSyncState()
         }
+
+        return true
     }
 
     func signalClient(_ signalClient: SignalClient, didUpdate trackSid: String, subscribedQualities: [Livekit_SubscribedQuality]) -> Bool {

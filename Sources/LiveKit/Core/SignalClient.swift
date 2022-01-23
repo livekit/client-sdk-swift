@@ -53,7 +53,7 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
                                          })
             }.then(on: .sdk) { (webSocket: WebSocket) -> Void in
                 self.webSocket = webSocket
-                self.connectionState = .connected()
+                self.connectionState = .connected(didReconnect: reconnect)
             }.recover(on: .sdk) { error -> Promise<Void> in
                 // Skip validation if reconnect mode
                 if reconnect { throw error }
@@ -77,7 +77,6 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
                 }
             }.catch(on: .sdk) { _ in
                 self.cleanUp(reason: .network())
-                // self.connectionState = .disconnected(error: SignalClientError.connect())
             }
     }
 
@@ -372,7 +371,7 @@ internal extension SignalClient {
 
         return sendRequest(r)
     }
-    
+
     func sendSimulate(scenario: SimulateScenario) -> Promise<Void> {
         log()
 
