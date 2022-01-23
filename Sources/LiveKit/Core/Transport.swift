@@ -3,7 +3,7 @@ import Promises
 import WebRTC
 import SwiftProtobuf
 
-typealias TransportOnOffer = (RTCSessionDescription) -> Void
+typealias TransportOnOffer = (RTCSessionDescription) -> Promise<Void>
 
 internal class Transport: MulticastDelegate<TransportDelegate> {
 

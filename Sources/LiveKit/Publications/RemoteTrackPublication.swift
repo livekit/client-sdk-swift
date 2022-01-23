@@ -117,12 +117,12 @@ public class RemoteTrackPublication: TrackPublication {
     /// subscribe or unsubscribe from this track
     public func setSubscribed(_ subscribed: Bool) {
         unsubscribed = !subscribed
-        guard let client = participant?.room.engine.signalClient else {
-            return
-        }
+        guard let client = participant?.room.engine.signalClient else { return }
 
         client.sendUpdateSubscription(sid: sid,
-                                      subscribed: !unsubscribed)
+                                      subscribed: !unsubscribed).catch { error in
+                                        self.log("Failed to set subscribed, error: \(error)", .error)
+                                      }
     }
 
     /// disable server from sending down data for this track
@@ -131,8 +131,11 @@ public class RemoteTrackPublication: TrackPublication {
     public func setEnabled(_ enabled: Bool) {
         self.enabled = enabled
         guard let client = participant?.room.engine.signalClient else { return }
+
         client.sendUpdateTrackSettings(sid: sid,
-                                       enabled: enabled)
+                                       enabled: enabled).catch { error in
+                                        self.log("Failed to set enabled, error: \(error)", .error)
+                                       }
     }
 
     #if LK_FEATURE_ADAPTIVESTREAM
@@ -227,7 +230,9 @@ extension RemoteTrackPublication {
         // only send if different from previously sent settings
         if videoSettings != lastSentVideoTrackSettings {
             lastSentVideoTrackSettings = videoSettings
-            send(videoSettings)
+            send(videoSettings).catch { error in
+                self.log("Failed to send track settings, error: \(error)", .error)
+            }
         }
     }
 }

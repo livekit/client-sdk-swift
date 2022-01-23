@@ -244,7 +244,9 @@ extension Room: SignalClientDelegate {
         log()
 
         if connectionState.isReconnecting {
-            sendSyncState()
+            sendSyncState().catch { error in
+                self.log("Failed to send sync state, error: \(error)", .error)
+            }
         }
 
         return true

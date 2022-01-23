@@ -202,9 +202,12 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
 
         // TODO: Check if cid already published
 
-        signalClient.sendAddTrack(cid: cid, name: name, type: kind, source: source, populator)
-
-        return waitForPublishTrack(cid: cid)
+        return signalClient.sendAddTrack(cid: cid,
+                                         name: name,
+                                         type: kind,
+                                         source: source, populator).then {
+                                            self.waitForPublishTrack(cid: cid)
+                                         }
     }
 
     internal func publisherShouldNegotiate() {
@@ -514,7 +517,7 @@ extension Engine: TransportDelegate {
 
             publisher?.onOffer = { offer in
                 self.log("publisher onOffer")
-                self.signalClient.sendOffer(offer: offer)
+                return self.signalClient.sendOffer(offer: offer)
             }
 
             // data over pub channel for backwards compatibility
@@ -538,7 +541,10 @@ extension Engine: TransportDelegate {
 
     func transport(_ transport: Transport, didGenerate iceCandidate: RTCIceCandidate) {
         log("didGenerate iceCandidate")
-        signalClient.sendCandidate(candidate: iceCandidate, target: transport.target)
+        signalClient.sendCandidate(candidate: iceCandidate,
+                                   target: transport.target).catch { error in
+                                    self.log("Failed to send candidate, error: \(error)", .error)
+                                   }
     }
 
     func transport(_ transport: Transport, didAdd track: RTCMediaStreamTrack, streams: [RTCMediaStream]) {
