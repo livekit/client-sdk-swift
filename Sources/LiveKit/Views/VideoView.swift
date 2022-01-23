@@ -38,9 +38,9 @@ public class VideoView: NativeView, Loggable {
             markNeedsLayout()
             // notify dimensions update
             guard let dimensions = dimensions else { return }
-            track?.notify { [weak track] in
+            track?.notify { [weak track] (delegate) -> Void in
                 guard let track = track else { return }
-                $0.track(track, videoView: self, didUpdate: dimensions)
+                delegate.track(track, videoView: self, didUpdate: dimensions)
             }
         }
     }
@@ -76,9 +76,9 @@ public class VideoView: NativeView, Loggable {
                 oldValue.notify { $0.track(oldValue, didDetach: self) }
             }
             track?.addRenderer(rendererView)
-            track?.notify { [weak track] in
+            track?.notify { [weak track] (delegate) -> Void in
                 guard let track = track else { return }
-                $0.track(track, didAttach: self)
+                delegate.track(track, didAttach: self)
             }
         }
     }

@@ -11,8 +11,7 @@ public protocol RoomDelegate {
     /// Client disconnected from the room unexpectedly.
     func room(_ room: Room, didDisconnect error: Error?)
 
-    /// When a network change has been detected and LiveKit attempts to reconnect to the room.
-    /// When reconnect attempts succeed, the room state will be kept, including tracks that are subscribed/published.
+    /// When the ``ConnectionState`` has updated.
     func room(_ room: Room, didUpdate connectionState: ConnectionState)
 
     /// When a ``RemoteParticipant`` joins after the ``LocalParticipant``.

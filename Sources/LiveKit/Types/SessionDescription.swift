@@ -10,9 +10,7 @@ extension RTCSessionDescription {
         case .answer: sd.type = "answer"
         case .offer: sd.type = "offer"
         case .prAnswer: sd.type = "pranswer"
-        default:
-            // This should never happen
-            fatalError("Unknown state \(type)")
+        default: fatalError("Unknown state \(type)") // This should never happen
         }
 
         return sd
@@ -27,9 +25,7 @@ extension Livekit_SessionDescription {
         case "answer": sdpType = .answer
         case "offer": sdpType = .offer
         case "pranswer": sdpType = .prAnswer
-        default:
-            // This should never happen
-            fatalError("Unknown state \(type)")
+        default: fatalError("Unknown state \(type)") // This should never happen
         }
 
         return Engine.createSessionDescription(type: sdpType, sdp: sdp)

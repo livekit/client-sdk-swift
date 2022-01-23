@@ -1,5 +1,6 @@
 import Foundation
 import CoreGraphics
+import Promises
 
 extension TrackPublication: Equatable {
     // objects are considered equal if sids are the same
@@ -42,6 +43,8 @@ public class TrackPublication: TrackDelegate, Loggable {
 
     public var subscribed: Bool { return track != nil }
 
+    internal private(set) var latestInfo: Livekit_TrackInfo?
+
     internal init(info: Livekit_TrackInfo,
                   track: Track? = nil,
                   participant: Participant? = nil) {
@@ -68,6 +71,7 @@ public class TrackPublication: TrackDelegate, Loggable {
             dimensions = Dimensions(width: Int32(info.width),
                                     height: Int32(info.height))
         }
+        self.latestInfo = info
     }
 
     // MARK: - TrackDelegate
@@ -85,20 +89,27 @@ public class TrackPublication: TrackDelegate, Loggable {
     }
 
     public func track(_ track: Track, didUpdate muted: Bool, shouldSendSignal: Bool) {
-        //
-        log("track didUpdate muted: \(muted) shouldSendSignal: \(shouldSendSignal)")
+        log("muted: \(muted) shouldSendSignal: \(shouldSendSignal)")
 
         guard let participant = participant else {
             log("Participant is nil", .warning)
             return
         }
 
-        if shouldSendSignal {
-            participant.room.engine.signalClient.sendMuteTrack(trackSid: sid, muted: muted)
+        func sendSignal() -> Promise<Void> {
+
+            guard shouldSendSignal else {
+                return Promise(())
+            }
+
+            return participant.room.engine.signalClient.sendMuteTrack(trackSid: sid,
+                                                                      muted: muted)
         }
 
-        participant.notify { $0.participant(participant, didUpdate: self, muted: muted) }
-        participant.room.notify { $0.room(participant.room, participant: participant, didUpdate: self, muted: self.muted) }
+        sendSignal().always {
+            participant.notify { $0.participant(participant, didUpdate: self, muted: muted) }
+            participant.room.notify { $0.room(participant.room, participant: participant, didUpdate: self, muted: self.muted) }
+        }
     }
 
     public func track(_ track: Track, capturer: VideoCapturer, didUpdate dimensions: Dimensions?) {

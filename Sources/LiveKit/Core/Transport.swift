@@ -3,7 +3,7 @@ import Promises
 import WebRTC
 import SwiftProtobuf
 
-typealias TransportOnOffer = (RTCSessionDescription) -> Void
+typealias TransportOnOffer = (RTCSessionDescription) -> Promise<Void>
 
 internal class Transport: MulticastDelegate<TransportDelegate> {
 
@@ -20,6 +20,10 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
 
     public var connectionState: RTCPeerConnectionState {
         DispatchQueue.webRTC.sync { pc.connectionState }
+    }
+
+    public var localDescription: RTCSessionDescription? {
+        DispatchQueue.webRTC.sync { pc.localDescription }
     }
 
     public var remoteDescription: RTCSessionDescription? {
@@ -134,6 +138,7 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
         return negotiateSequence()
     }
 
+    // TODO: Make this async
     public func close() {
         // prevent debounced negotiate firing
         debounceWorkItem?.cancel()

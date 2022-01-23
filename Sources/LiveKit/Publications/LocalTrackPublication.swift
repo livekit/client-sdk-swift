@@ -91,7 +91,9 @@ extension LocalTrackPublication {
         log("Sending update video layers request: \(layers)")
 
         participant.room.engine.signalClient.sendUpdateVideoLayers(trackSid: sid,
-                                                                   layers: layers)
+                                                                   layers: layers).catch { error in
+                                                                    self.log("Failed to send update video layers", .error)
+                                                                   }
     }
 }
 

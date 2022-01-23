@@ -73,7 +73,7 @@ open class ObservableRoom: ObservableObject, RoomDelegate, Loggable {
 
                 self.cameraTrackState = .published(publication)
             }
-        }.catch { error in
+        }.catch(on: .sdk) { error in
             DispatchQueue.main.async {
                 self.cameraTrackState = .notPublished(error: error)
             }
@@ -105,7 +105,7 @@ open class ObservableRoom: ObservableObject, RoomDelegate, Loggable {
 
                 self.screenShareTrackState = .published(publication)
             }
-        }.catch { error in
+        }.catch(on: .sdk) { error in
             DispatchQueue.main.async {
                 self.screenShareTrackState = .notPublished(error: error)
             }
@@ -137,7 +137,7 @@ open class ObservableRoom: ObservableObject, RoomDelegate, Loggable {
 
                 self.microphoneTrackState = .published(publication)
             }
-        }.catch { error in
+        }.catch(on: .sdk) { error in
             DispatchQueue.main.async {
                 self.microphoneTrackState = .notPublished(error: error)
             }

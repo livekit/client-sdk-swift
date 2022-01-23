@@ -30,23 +30,22 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
         didSet {
             guard oldValue != connectionState else { return }
             log("\(oldValue) -> \(self.connectionState)")
-            switch connectionState {
-            case .connected: notify { $0.engine(self, didConnect: oldValue.isReconnecting) }
-            case .disconnected: notify { $0.engineDidDisconnect(self) }
-            default: break
-            }
-            notify { $0.engine(self, didUpdate: self.connectionState) }
+            notify { $0.engine(self, didUpdate: self.connectionState, oldState: oldValue) }
         }
     }
 
     public init(room: Room,
                 signalClient: SignalClient = SignalClient()) {
+
         self.room = room
         self.signalClient = signalClient
         super.init()
 
+        // Room
         add(delegate: room)
+        signalClient.add(delegate: room)
 
+        // Self
         signalClient.add(delegate: self)
         log()
     }
@@ -56,17 +55,33 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
         signalClient.remove(delegate: self)
     }
 
+    internal func cleanUp(reason: DisconnectReason) {
+        log("reason: \(reason)")
+
+        connectionState = .disconnected(reason: reason)
+
+        signalClient.cleanUp(reason: reason)
+
+        url = nil
+        token = nil
+
+        // close publisher
+        if let transport = publisher {
+            transport.close()
+            self.publisher = nil
+        }
+
+        // close subscriber
+        if let transport = subscriber {
+            transport.close()
+            self.subscriber = nil
+        }
+    }
+
     public func connect(_ url: String,
                         _ token: String) -> Promise<Void> {
 
-        guard connectionState != .connected else {
-            log("already connected")
-            return Promise(EngineError.state(message: "already connected"))
-        }
-
-        // reset internal vars
-        self.url = nil
-        self.token = nil
+        cleanUp(reason: .sdk)
 
         self.connectionState = .connecting(isReconnecting: false)
 
@@ -88,27 +103,34 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
                                         // update internal vars (only if connect succeeded)
                                         self.url = url
                                         self.token = token
+                                        self.connectionState = .connected()
 
-                                        self.connectionState = .connected
+                                    }.catch(on: .sdk) { error in
+                                        self.cleanUp(reason: .network(error: error))
                                     }
     }
 
     @discardableResult
     private func reconnect() -> Promise<Void> {
 
-        guard let url = url,
-              let token = token else {
-            log("reconnect() must be called with connected state")
-            return Promise(EngineError.state(message: "reconnect() called with no url or token"))
+        if connectionState.isReconnecting {
+            log("Already reconnecting", .warning)
+            return Promise(EngineError.state(message: "Already reconnecting"))
         }
 
         guard case .connected = connectionState else {
-            log("reconnect() must be called with connected state")
-            return Promise(EngineError.state(message: "reconnect() called with invalid state"))
+            log("Must be called with connected state", .warning)
+            return Promise(EngineError.state(message: "Must be called with connected state"))
+        }
+
+        guard let url = url, let token = token else {
+            log("url or token is nil", . warning)
+            return Promise(EngineError.state(message: "url or token is nil"))
         }
 
         guard subscriber != nil, publisher != nil else {
-            return Promise(EngineError.state(message: "publisher or subscriber is null"))
+            log("Publisher or Subscriber is nil", .warning)
+            return Promise(EngineError.state(message: "Publisher or Subscriber is nil"))
         }
 
         connectionState = .connecting(isReconnecting: true)
@@ -118,63 +140,42 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
             signalClient.connect(url,
                                  token,
                                  connectOptions: room.connectOptions,
-                                 reconnect: true).then(on: .sdk) {
-                                    self.wait(transport: self.primary, state: .connected)
-                                 }.then(on: .sdk) { () -> Promise<Void> in
-                                    self.subscriber?.restartingIce = true
+                                 reconnect: true
+            ).then(on: .sdk) {
+                self.wait(transport: self.primary, state: .connected)
+            }.then(on: .sdk) { () -> Promise<Void> in
+                self.subscriber?.restartingIce = true
 
-                                    // only if published, continue...
-                                    guard let publisher = self.publisher, self.hasPublished else {
-                                        return Promise(())
-                                    }
+                // only if published, continue...
+                guard let publisher = self.publisher, self.hasPublished else {
+                    return Promise(())
+                }
 
-                                    return publisher.createAndSendOffer(iceRestart: true).then(on: .sdk) {
-                                        self.wait(transport: publisher, state: .connected)
-                                    }
-                                 }
+                return publisher.createAndSendOffer(iceRestart: true).then(on: .sdk) {
+                    self.wait(transport: publisher, state: .connected)
+                }
+            }
         }
 
-        let delay: TimeInterval = 1
-        return retry(attempts: 5, delay: delay) { remainingAttempts, _ in
-            self.log("re-connecting in \(delay)second(s), \(remainingAttempts) remaining attempts...")
-            // only retry if still reconnecting state (not disconnected)
-            return .connecting(isReconnecting: true) == self.connectionState
-        } _: {
+        return retry(on: .sdk,
+                     attempts: 5,
+                     delay: .reconnectDelay,
+                     condition: { triesLeft, _ in
+                        self.log("Re-connecting in \(TimeInterval.reconnectDelay)seconds, \(triesLeft) tries left...")
+                        // only retry if still reconnecting state (not disconnected)
+                        return self.connectionState.isReconnecting
+                     }) {
             // try to re-connect
             reconnectSequence()
         }.then(on: .sdk) {
             // re-connect sequence successful
-            self.log("re-connect sequence completed")
-            self.connectionState = .connected
-        }.catch { _ in
+            self.log("Re-connect sequence completed")
+            self.connectionState = .connected(didReconnect: true)
+        }.catch(on: .sdk) { _ in
+            self.log("Re-connect sequence failed")
             // finally disconnect if all attempts fail
-            self.disconnect()
+            self.cleanUp(reason: .network())
         }
-    }
-
-    public func disconnect() {
-
-        guard .disconnected() != connectionState else {
-            log("disconnect() already disconnected", .warning)
-            return
-        }
-
-        cleanUp()
-        connectionState = .disconnected()
-        signalClient.close()
-    }
-
-    // resets internal vars
-    private func cleanUp() {
-
-        url = nil
-        token = nil
-
-        publisher?.close()
-        publisher = nil
-
-        subscriber?.close()
-        subscriber = nil
     }
 
     private func onReceived(dataChannel: RTCDataChannel) {
@@ -201,9 +202,12 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
 
         // TODO: Check if cid already published
 
-        signalClient.sendAddTrack(cid: cid, name: name, type: kind, source: source, populator)
-
-        return waitForPublishTrack(cid: cid)
+        return signalClient.sendAddTrack(cid: cid,
+                                         name: name,
+                                         type: kind,
+                                         source: source, populator).then {
+                                            self.waitForPublishTrack(cid: cid)
+                                         }
     }
 
     internal func publisherShouldNegotiate() {
@@ -265,7 +269,7 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
     }
 }
 
-// MARK: - Wait extension
+// MARK: - Wait extensions
 
 extension Engine {
 
@@ -285,7 +289,7 @@ extension Engine {
             // create temporary delegate
             var engineDelegate: EngineDelegateClosures?
             engineDelegate = EngineDelegateClosures(
-                onDataChannelStateUpdated: { _, dataChannel, state in
+                didUpdateDataChannelState: { _, dataChannel, state in
                     if dataChannel == dcPublisher, state == .open {
                         resolve(())
                         engineDelegate = nil
@@ -296,9 +300,11 @@ extension Engine {
             // detect signal close while waiting
             var signalDelegate: SignalClientDelegateClosures?
             signalDelegate = SignalClientDelegateClosures(
-                didClose: { _, _ in
-                    fail(SignalClientError.close(message: "Socket closed while waiting for ice-connect"))
-                    signalDelegate = nil
+                didUpdateConnectionState: { _, state in
+                    if case .disconnected = state {
+                        fail(SignalClientError.close(message: "Socket closed while waiting for ice-connect"))
+                        signalDelegate = nil
+                    }
                 }
             )
             self.signalClient.add(delegate: signalDelegate!)
@@ -336,9 +342,11 @@ extension Engine {
             // detect signal close while waiting
             var signalDelegate: SignalClientDelegateClosures?
             signalDelegate = SignalClientDelegateClosures(
-                didClose: { _, _ in
-                    fail(SignalClientError.close(message: "Socket closed while waiting for ice-connect"))
-                    signalDelegate = nil
+                didUpdateConnectionState: { _, state in
+                    if case .disconnected = state {
+                        fail(SignalClientError.close(message: "Socket closed while waiting for ice-connect"))
+                        signalDelegate = nil
+                    }
                 }
             )
             self.signalClient.add(delegate: signalDelegate!)
@@ -351,33 +359,134 @@ extension Engine {
 
         return Promise<Livekit_TrackInfo>(on: .sdk) { resolve, fail in
             // create temporary delegate
-            var delegate: SignalClientDelegateClosures?
-            delegate = SignalClientDelegateClosures(
+            var signalDelegate: SignalClientDelegateClosures?
+            signalDelegate = SignalClientDelegateClosures(
                 // This promise we be considered failed if signal disconnects while waiting.
                 // still it will attempt to re-connect.
-                didClose: { _, _ in
-                    fail(SignalClientError.close(message: "Socket closed while waiting for publish track"))
-                    delegate = nil
+                didUpdateConnectionState: { _, state in
+                    if case .disconnected = state {
+                        fail(SignalClientError.close(message: "Socket closed while waiting for ice-connect"))
+                        signalDelegate = nil
+                    }
                 },
                 didPublishLocalTrack: { _, response in
                     self.log("didPublishLocalTrack", type: SignalClientDelegateClosures.self)
                     if response.cid == cid {
                         // complete when track info received
                         resolve(response.track)
-                        delegate = nil
+                        signalDelegate = nil
                     }
                 }
             )
-            self.signalClient.add(delegate: delegate!)
+            self.signalClient.add(delegate: signalDelegate!)
         }
         // convert to timed-promise
         .timeout(.defaultPublish)
     }
 }
 
+// MARK: - SignalClientDelegate
+
 extension Engine: SignalClientDelegate {
 
-    func configureTransports(joinResponse: Livekit_JoinResponse) {
+    func signalClient(_ signalClient: SignalClient, didUpdate connectionState: ConnectionState) -> Bool {
+        log()
+        // Attempt re-connect if disconnected(reason: network)
+        if case .disconnected(let reason) = connectionState,
+           case .network = reason {
+            reconnect()
+        }
+
+        return true
+    }
+
+    func signalClient(_ signalClient: SignalClient, didReceiveLeave canReconnect: Bool) -> Bool {
+        log()
+
+        // Server indicates it's not recoverable
+        if !canReconnect {
+            cleanUp(reason: .network())
+        }
+
+        return true
+    }
+
+    func signalClient(_ signalClient: SignalClient, didReceive iceCandidate: RTCIceCandidate, target: Livekit_SignalTarget) -> Bool {
+        let transport = target == .subscriber ? subscriber : publisher
+        transport?.addIceCandidate(iceCandidate)
+        return true
+    }
+
+    func signalClient(_ signalClient: SignalClient, didReceiveAnswer answer: RTCSessionDescription) -> Bool {
+
+        guard let publisher = self.publisher else {
+            log("Publisher is nil", .warning)
+            return true
+        }
+
+        publisher.setRemoteDescription(answer)
+
+        return true
+    }
+
+    func signalClient(_ signalClient: SignalClient, didReceiveOffer offer: RTCSessionDescription) -> Bool {
+
+        guard let subscriber = self.subscriber else {
+            log("Subscriber is nil", .warning)
+            return true
+        }
+
+        subscriber.setRemoteDescription(offer).then(on: .sdk) {
+            subscriber.createAnswer()
+        }.then(on: .sdk) { answer in
+            subscriber.setLocalDescription(answer)
+        }.then(on: .sdk) { answer in
+            self.signalClient.sendAnswer(answer: answer)
+        }
+
+        return true
+    }
+}
+
+// MARK: - RTCDataChannelDelegate
+
+extension Engine: RTCDataChannelDelegate {
+
+    func dataChannelDidChangeState(_ dataChannel: RTCDataChannel) {
+        notify { $0.engine(self, didUpdate: dataChannel, state: dataChannel.readyState) }
+    }
+
+    func dataChannel(_: RTCDataChannel, didReceiveMessageWith buffer: RTCDataBuffer) {
+
+        guard let dataPacket = try? Livekit_DataPacket(contiguousBytes: buffer.data) else {
+            log("could not decode data message", .error)
+            return
+        }
+
+        switch dataPacket.value {
+        case .speaker(let update):
+            notify { $0.engine(self, didUpdate: update.speakers) }
+        case .user(let userPacket):
+            notify { $0.engine(self, didReceive: userPacket) }
+        default: return
+        }
+    }
+}
+
+// MARK: - TransportDelegate
+
+extension Engine: TransportDelegate {
+
+    func transport(_ transport: Transport, didUpdate state: RTCPeerConnectionState) {
+        log("target: \(transport.target), state: \(state)")
+
+        // Attempt re-connect if primary transport failed
+        if transport.primary, state == .failed {
+            reconnect()
+        }
+    }
+
+    private func configureTransports(joinResponse: Livekit_JoinResponse) {
 
         guard subscriber == nil, publisher == nil else {
             log("transports already configured")
@@ -408,7 +517,7 @@ extension Engine: SignalClientDelegate {
 
             publisher?.onOffer = { offer in
                 self.log("publisher onOffer")
-                self.signalClient.sendOffer(offer: offer)
+                return self.signalClient.sendOffer(offer: offer)
             }
 
             // data over pub channel for backwards compatibility
@@ -430,129 +539,12 @@ extension Engine: SignalClientDelegate {
         }
     }
 
-    func signalClient(_ signalClient: SignalClient, didUpdate speakers: [Livekit_SpeakerInfo]) {
-        notify { $0.engine(self, didUpdateSignal: speakers) }
-    }
-
-    func signalClient(_ signalClient: SignalClient, didUpdate connectionQuality: [Livekit_ConnectionQualityInfo]) {
-        notify { $0.engine(self, didUpdate: connectionQuality)}
-    }
-
-    func signalClient(_ signalClient: SignalClient, didConnect isReconnect: Bool) {
-        //
-    }
-
-    func signalClient(_ signalClient: SignalClient, didReceive joinResponse: Livekit_JoinResponse) {
-        notify { $0.engine(self, didReceive: joinResponse) }
-    }
-
-    func signalClient(_ signalClient: SignalClient, didReceive iceCandidate: RTCIceCandidate, target: Livekit_SignalTarget) {
-        let transport = target == .subscriber ? subscriber : publisher
-        transport?.addIceCandidate(iceCandidate)
-    }
-
-    func signalClient(_ signalClient: SignalClient, didReceiveAnswer answer: RTCSessionDescription) {
-
-        guard let publisher = self.publisher else {
-            log("signalClient didReceiveAnswer but publisher is nil", .warning)
-            return
-        }
-
-        log("handling server answer...")
-        publisher.setRemoteDescription(answer)
-    }
-
-    func signalClient(_ signalClient: SignalClient, didReceiveOffer offer: RTCSessionDescription) {
-
-        guard let subscriber = self.subscriber else {
-            log("signalClient didReceiveOffer but subscriber is nil", .warning)
-            return
-        }
-
-        log("handling server offer...")
-        subscriber.setRemoteDescription(offer).then(on: .sdk) {
-            subscriber.createAnswer()
-        }.then(on: .sdk) { answer in
-            subscriber.setLocalDescription(answer)
-        }.then(on: .sdk) { answer in
-            self.signalClient.sendAnswer(answer: answer)
-        }
-    }
-
-    func signalClient(_ signalClient: SignalClient, didPublish localTrack: Livekit_TrackPublishedResponse) {
-        log("received track published confirmation from server for: \(localTrack.track.sid)")
-    }
-
-    func signalClientDidLeave(_ signaClient: SignalClient) {
-        disconnect()
-    }
-
-    func signalClient(_ signalClient: SignalClient, didClose code: URLSessionWebSocketTask.CloseCode) {
-        log("signal connection closed with code: \(code)")
-        reconnect()
-    }
-
-    func signalClient(_ signalClient: SignalClient, didFailConnect error: Error) {
-        log("signal connection error: \(error)")
-        notify { $0.engine(self, didFailConnection: error) }
-    }
-
-    func signalClient(_ signalClient: SignalClient, didUpdateRemoteMute trackSid: String, muted: Bool) {
-        notify { $0.engine(self, didUpdateRemoteMute: trackSid, muted: muted) }
-    }
-
-    func signalClient(_ signalClient: SignalClient, didUpdate participants: [Livekit_ParticipantInfo]) {
-        notify { $0.engine(self, didUpdate: participants) }
-    }
-
-    func signalClient(_ signalClient: SignalClient, didUpdate trackStates: [Livekit_StreamStateInfo]) {
-        notify { $0.engine(self, didUpdate: trackStates) }
-    }
-
-    func signalClient(_ signalClient: SignalClient, didUpdate trackSid: String, subscribedQualities: [Livekit_SubscribedQuality]) {
-        notify { $0.engine(self, didUpdate: trackSid, subscribedQualities: subscribedQualities) }
-    }
-
-    func signalClient(_ signalClient: SignalClient, didUpdate subscriptionPermission: Livekit_SubscriptionPermissionUpdate) {
-        notify { $0.engine(self, didUpdate: subscriptionPermission) }
-    }
-}
-
-extension Engine: RTCDataChannelDelegate {
-
-    func dataChannelDidChangeState(_ dataChannel: RTCDataChannel) {
-        notify { $0.engine(self, didUpdate: dataChannel, state: dataChannel.readyState) }
-    }
-
-    func dataChannel(_: RTCDataChannel, didReceiveMessageWith buffer: RTCDataBuffer) {
-
-        guard let dataPacket = try? Livekit_DataPacket(contiguousBytes: buffer.data) else {
-            log("could not decode data message", .error)
-            return
-        }
-
-        switch dataPacket.value {
-        case .speaker(let update):
-            notify { $0.engine(self, didUpdateEngine: update.speakers) }
-        case .user(let userPacket):
-            notify { $0.engine(self, didReceive: userPacket) }
-        default: return
-        }
-    }
-}
-
-extension Engine: TransportDelegate {
-
     func transport(_ transport: Transport, didGenerate iceCandidate: RTCIceCandidate) {
         log("didGenerate iceCandidate")
-        try? signalClient.sendCandidate(candidate: iceCandidate, target: transport.target)
-    }
-
-    func transport(_ transport: Transport, didUpdate state: RTCPeerConnectionState) {
-        log("target: \(transport.target), state: \(state)")
-        if transport.primary, state == .failed {
-            reconnect()
-        }
+        signalClient.sendCandidate(candidate: iceCandidate,
+                                   target: transport.target).catch { error in
+                                    self.log("Failed to send candidate, error: \(error)", .error)
+                                   }
     }
 
     func transport(_ transport: Transport, didAdd track: RTCMediaStreamTrack, streams: [RTCMediaStream]) {
