@@ -57,15 +57,36 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
 
     // Resets state of transports
     @discardableResult
-    internal func cleanUpTransports() -> Promise<Void> {
+    internal func cleanUpRTC() -> Promise<Void> {
 
-        let closePromises = [publisher, subscriber]
-            .compactMap { $0 }
-            .map { $0.close() }
+        func closeAllDataChannels() -> Promise<Void> {
 
-        return all(on: .sdk, closePromises).then { (_) -> Void in
-            self.publisher = nil
-            self.subscriber = nil
+            let promises = [dcReliablePub, dcLossyPub, dcReliableSub, dcLossySub]
+                .compactMap { $0 }
+                .map { dc in Promise<Void>(on: .webRTC) { dc.close() } }
+
+            return all(on: .sdk, promises).then { (_) -> Void in
+                self.dcReliablePub = nil
+                self.dcLossyPub = nil
+                self.dcReliableSub = nil
+                self.dcLossySub = nil
+            }
+        }
+
+        func closeAllTransports() -> Promise<Void> {
+
+            let promises = [publisher, subscriber]
+                .compactMap { $0 }
+                .map { $0.close() }
+
+            return all(on: .sdk, promises).then { (_) -> Void in
+                self.publisher = nil
+                self.subscriber = nil
+            }
+        }
+
+        return closeAllDataChannels().then {
+            closeAllTransports()
         }
     }
 
@@ -81,7 +102,7 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
         connectionState = .disconnected(reason: reason)
         signalClient.cleanUp(reason: reason)
 
-        return cleanUpTransports()
+        return cleanUpRTC()
     }
 
     // Connect sequence only, doesn't update internal state
@@ -197,7 +218,7 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
             log("Starting FULL reconnect sequence...")
 
             return checkShouldContinue().then {
-                self.cleanUpTransports()
+                self.cleanUpRTC()
             }.then { () -> Promise<Void> in
 
                 guard let url = self.url,
