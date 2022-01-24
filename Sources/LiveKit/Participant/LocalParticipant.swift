@@ -280,8 +280,8 @@ public class LocalParticipant: Participant {
     public func setTrackSubscriptionPermissions(allParticipantsAllowed: Bool,
                                                 trackPermissions: [ParticipantTrackPermission] = []) -> Promise<Void> {
 
-        return room.engine.signalClient.sendUpdateSubscriptionPermissions(allParticipants: allParticipantsAllowed,
-                                                                          participantTrackPermissions: trackPermissions)
+        return room.engine.signalClient.sendUpdateSubscriptionPermission(allParticipants: allParticipantsAllowed,
+                                                                         trackPermissions: trackPermissions)
     }
 
     internal func onSubscribedQualitiesUpdate(trackSid: String, subscribedQualities: [Livekit_SubscribedQuality]) {

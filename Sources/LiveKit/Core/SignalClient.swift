@@ -332,14 +332,14 @@ internal extension SignalClient {
         return sendRequest(r)
     }
 
-    func sendUpdateSubscriptionPermissions(allParticipants: Bool,
-                                           participantTrackPermissions: [ParticipantTrackPermission]) -> Promise<Void> {
+    func sendUpdateSubscriptionPermission(allParticipants: Bool,
+                                          trackPermissions: [ParticipantTrackPermission]) -> Promise<Void> {
         log()
 
         let r = Livekit_SignalRequest.with {
-            $0.subscriptionPermissions = Livekit_UpdateSubscriptionPermissions.with {
+            $0.subscriptionPermission = Livekit_SubscriptionPermission.with {
                 $0.allParticipants = allParticipants
-                $0.trackPermissions = participantTrackPermissions.map({ $0.toPBType() })
+                $0.trackPermissions = trackPermissions.map({ $0.toPBType() })
             }
         }
 
