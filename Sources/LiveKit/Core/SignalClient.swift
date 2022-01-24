@@ -177,6 +177,8 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
             notify { $0.signalClient(self, didUpdate: update.trackSid, subscribedQualities: update.subscribedQualities)}
         case .subscriptionPermissionUpdate(let permissionUpdate):
             notify { $0.signalClient(self, didUpdate: permissionUpdate) }
+        case .refreshToken(let token):
+            notify { $0.signalClient(self, didUpdate: token) }
         default:
             log("Unhandled signal message: \(message)", .warning)
         }
