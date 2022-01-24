@@ -40,10 +40,13 @@ public class Room: MulticastDelegate<RoomDelegate> {
         engine.remove(delegate: self)
     }
 
+    // Resets state of Room
+    @discardableResult
     internal func cleanUp(reason: DisconnectReason) -> Promise<Void> {
+        log()
 
         // Stop all local & remote tracks
-        func stopAllTracks() -> Promise<[Void]> {
+        func stopAllTracks() -> Promise<Void> {
 
             let allParticipants = ([[localParticipant],
                                     remoteParticipants.map { $0.value }] as [[Participant?]])
@@ -54,12 +57,12 @@ public class Room: MulticastDelegate<RoomDelegate> {
                 .compactMap { $0 }
                 .map { $0.stop() }
 
-            return all(on: .sdk, stopPromises)
+            return all(on: .sdk, stopPromises).then { _ in }
         }
 
         return engine.cleanUp(reason: reason).then(on: .sdk) {
             stopAllTracks()
-        }.then(on: .sdk) { (_) -> Void in
+        }.then(on: .sdk) {
             self.localParticipant = nil
             self.remoteParticipants.removeAll()
             self.activeSpeakers.removeAll()
@@ -211,7 +214,6 @@ extension Room {
 extension Room {
 
     internal func sendSyncState() -> Promise<Void> {
-        log()
 
         guard let subscriber = engine.subscriber,
               let localDescription = subscriber.localDescription else {
@@ -247,9 +249,10 @@ extension Room: SignalClientDelegate {
     func signalClient(_ signalClient: SignalClient, didUpdate connectionState: ConnectionState) -> Bool {
         log()
 
-        if connectionState.isReconnecting {
+        if case .quick = self.connectionState.reconnectingWithMode,
+           case .quick = connectionState.reconnectedWithMode {
             sendSyncState().catch { error in
-                self.log("Failed to send sync state, error: \(error)", .error)
+                self.log("Failed to sendSyncState, error: \(error)", .error)
             }
         }
 
@@ -283,14 +286,14 @@ extension Room: SignalClientDelegate {
     }
 
     func signalClient(_ signalClient: SignalClient, didUpdate speakers: [Livekit_SpeakerInfo]) -> Bool {
-        log("speakers: \(speakers)")
+        log("speakers: \(speakers)", .trace)
 
         onSignalSpeakersUpdate(speakers)
         return true
     }
 
     func signalClient(_ signalClient: SignalClient, didUpdate connectionQuality: [Livekit_ConnectionQualityInfo]) -> Bool {
-        log("connectionQuality: \(connectionQuality)")
+        log("connectionQuality: \(connectionQuality)", .trace)
 
         onConnectionQualityUpdate(connectionQuality)
         return true
@@ -368,14 +371,28 @@ extension Room: EngineDelegate {
     func engine(_ engine: Engine, didUpdate connectionState: ConnectionState, oldState: ConnectionState) {
 
         // Deprecated
-        if case .connected(let didReconnect) = connectionState {
+        if case .connected(let mode) = connectionState {
+            var didReconnect = false
+            if case .reconnect = mode { didReconnect = true }
+            // Backward compatibility
             notify { $0.room(self, didConnect: didReconnect) }
+
+            // Re-publish on full reconnect
+            if case .reconnect(let rmode) = mode,
+               case .full = rmode {
+                log("Should re-publish existing tracks")
+            }
+
         } else if case .disconnected(let reason) = connectionState {
             if case .connected = oldState {
-                notify { $0.room(self, didDisconnect: reason?.error ) }
+                // Backward compatibility
+                notify { $0.room(self, didDisconnect: reason.error ) }
             } else {
-                notify { $0.room(self, didFailToConnect: reason?.error ?? NetworkError.disconnected() ) }
+                // Backward compatibility
+                notify { $0.room(self, didFailToConnect: reason.error ?? NetworkError.disconnected() ) }
             }
+
+            cleanUp(reason: reason)
         }
 
         notify { $0.room(self, didUpdate: connectionState) }

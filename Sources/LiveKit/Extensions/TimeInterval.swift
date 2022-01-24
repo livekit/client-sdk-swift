@@ -4,5 +4,5 @@ import Foundation
 internal extension TimeInterval {
     static let defaultConnect: Self = 10
     static let defaultPublish: Self = 10
-    static let reconnectDelay: Self = 3
+    static let quickReconnectDelay: Self = 3
 }

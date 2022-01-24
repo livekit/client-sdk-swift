@@ -85,7 +85,7 @@ internal class Utils {
         _ url: String,
         _ token: String,
         connectOptions: ConnectOptions? = nil,
-        reconnect: Bool = false,
+        connectMode: ConnectMode = .normal,
         validate: Bool = false,
         forceSecure: Bool = false
     ) -> Promise<URL> {
@@ -140,7 +140,9 @@ internal class Utils {
                 queryItems.append(URLQueryItem(name: "device_model", value: modelIdentifier))
             }
 
-            if reconnect {
+            if case .reconnect(let r) = connectMode,
+               case .quick = r {
+                // Only append "reconnect" for quick-reconnect
                 queryItems.append(URLQueryItem(name: "reconnect", value: "1"))
             }
 

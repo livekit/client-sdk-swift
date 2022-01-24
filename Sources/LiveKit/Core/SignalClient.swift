@@ -4,7 +4,7 @@ import WebRTC
 
 internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
 
-    public private(set) var connectionState: ConnectionState = .disconnected() {
+    public private(set) var connectionState: ConnectionState = .disconnected(reason: .sdk) {
         didSet {
             guard oldValue != connectionState else { return }
             log("\(oldValue) -> \(self.connectionState)")
@@ -31,20 +31,20 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
     public func connect(_ url: String,
                         _ token: String,
                         connectOptions: ConnectOptions? = nil,
-                        reconnect: Bool = false) -> Promise<Void> {
+                        connectMode: ConnectMode = .normal) -> Promise<Void> {
 
         cleanUp(reason: .sdk)
 
         return Utils.buildUrl(url,
                               token,
                               connectOptions: connectOptions,
-                              reconnect: reconnect)
+                              connectMode: connectMode)
             .catch(on: .sdk) { error in
                 self.log("Failed to parse rtc url", .error)
             }
             .then(on: .sdk) { url -> Promise<WebSocket> in
                 self.log("Connecting with url: \(url)")
-                self.connectionState = .connecting(isReconnecting: reconnect)
+                self.connectionState = .connecting(connectMode)
                 return WebSocket.connect(url: url,
                                          onMessage: self.onWebSocketMessage,
                                          onDisconnect: { reason in
@@ -53,16 +53,16 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
                                          })
             }.then(on: .sdk) { (webSocket: WebSocket) -> Void in
                 self.webSocket = webSocket
-                self.connectionState = .connected(didReconnect: reconnect)
+                self.connectionState = .connected(connectMode)
             }.recover(on: .sdk) { error -> Promise<Void> in
                 // Skip validation if reconnect mode
-                if reconnect { throw error }
+                if case .reconnect = connectMode { throw error }
                 // Catch first, then throw again after getting validation response
                 // Re-build url with validate mode
                 return Utils.buildUrl(url,
                                       token,
                                       connectOptions: connectOptions,
-                                      reconnect: reconnect,
+                                      connectMode: connectMode,
                                       validate: true
                 ).then(on: .sdk) { url -> Promise<Data> in
                     self.log("Validating with url: \(url)")
