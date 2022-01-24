@@ -505,7 +505,7 @@ extension Engine: SignalClientDelegate {
 
         return true
     }
-    
+
     func signalClient(_ signalClient: SignalClient, didUpdate token: String) -> Bool {
         self.token = token
         return true
