@@ -17,7 +17,7 @@ internal let logger = Logger(label: "LiveKitSDK")
 /// to try out the features.
 public class LiveKit {
 
-    static let version = "0.9.5"
+    static let version = "0.9.6"
 
     public static func connect(
         _ url: String,
