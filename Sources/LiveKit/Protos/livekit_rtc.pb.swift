@@ -189,12 +189,12 @@ struct Livekit_SignalRequest {
     }
 
     /// Update subscriber permissions
-    var subscriptionPermissions: Livekit_UpdateSubscriptionPermissions {
+    var subscriptionPermission: Livekit_SubscriptionPermission {
         get {
-            if case .subscriptionPermissions(let v)? = message {return v}
-            return Livekit_UpdateSubscriptionPermissions()
+            if case .subscriptionPermission(let v)? = message {return v}
+            return Livekit_SubscriptionPermission()
         }
-        set {message = .subscriptionPermissions(newValue)}
+        set {message = .subscriptionPermission(newValue)}
     }
 
     /// sync client's subscribe state to server during reconnect
@@ -237,7 +237,7 @@ struct Livekit_SignalRequest {
         /// Update published video layers
         case updateLayers(Livekit_UpdateVideoLayers)
         /// Update subscriber permissions
-        case subscriptionPermissions(Livekit_UpdateSubscriptionPermissions)
+        case subscriptionPermission(Livekit_SubscriptionPermission)
         /// sync client's subscribe state to server during reconnect
         case syncState(Livekit_SyncState)
         /// Simulate conditions, for client validations
@@ -285,8 +285,8 @@ struct Livekit_SignalRequest {
                 guard case .updateLayers(let l) = lhs, case .updateLayers(let r) = rhs else { preconditionFailure() }
                 return l == r
             }()
-            case (.subscriptionPermissions, .subscriptionPermissions): return {
-                guard case .subscriptionPermissions(let l) = lhs, case .subscriptionPermissions(let r) = rhs else { preconditionFailure() }
+            case (.subscriptionPermission, .subscriptionPermission): return {
+                guard case .subscriptionPermission(let l) = lhs, case .subscriptionPermission(let r) = rhs else { preconditionFailure() }
                 return l == r
             }()
             case (.syncState, .syncState): return {
@@ -412,7 +412,8 @@ struct Livekit_SignalResponse {
         set {message = .connectionQuality(newValue)}
     }
 
-    /// when streamed tracks state changed
+    /// when streamed tracks state changed, used to notify when any of the streams were paused due to
+    /// congestion
     var streamStateUpdate: Livekit_StreamStateUpdate {
         get {
             if case .streamStateUpdate(let v)? = message {return v}
@@ -421,7 +422,7 @@ struct Livekit_SignalResponse {
         set {message = .streamStateUpdate(newValue)}
     }
 
-    /// when max subscribe quality changed
+    /// when max subscribe quality changed, used by dynamic broadcasting to disable unused layers
     var subscribedQualityUpdate: Livekit_SubscribedQualityUpdate {
         get {
             if case .subscribedQualityUpdate(let v)? = message {return v}
@@ -437,6 +438,15 @@ struct Livekit_SignalResponse {
             return Livekit_SubscriptionPermissionUpdate()
         }
         set {message = .subscriptionPermissionUpdate(newValue)}
+    }
+
+    /// update the token the client was using, to prevent an active client from using an expired token
+    var refreshToken: String {
+        get {
+            if case .refreshToken(let v)? = message {return v}
+            return String()
+        }
+        set {message = .refreshToken(newValue)}
     }
 
     var unknownFields = SwiftProtobuf.UnknownStorage()
@@ -464,12 +474,15 @@ struct Livekit_SignalResponse {
         case roomUpdate(Livekit_RoomUpdate)
         /// when connection quality changed
         case connectionQuality(Livekit_ConnectionQualityUpdate)
-        /// when streamed tracks state changed
+        /// when streamed tracks state changed, used to notify when any of the streams were paused due to
+        /// congestion
         case streamStateUpdate(Livekit_StreamStateUpdate)
-        /// when max subscribe quality changed
+        /// when max subscribe quality changed, used by dynamic broadcasting to disable unused layers
         case subscribedQualityUpdate(Livekit_SubscribedQualityUpdate)
         /// when subscription permission changed
         case subscriptionPermissionUpdate(Livekit_SubscriptionPermissionUpdate)
+        /// update the token the client was using, to prevent an active client from using an expired token
+        case refreshToken(String)
 
         #if !swift(>=4.1)
         static func ==(lhs: Livekit_SignalResponse.OneOf_Message, rhs: Livekit_SignalResponse.OneOf_Message) -> Bool {
@@ -531,6 +544,10 @@ struct Livekit_SignalResponse {
             }()
             case (.subscriptionPermissionUpdate, .subscriptionPermissionUpdate): return {
                 guard case .subscriptionPermissionUpdate(let l) = lhs, case .subscriptionPermissionUpdate(let r) = rhs else { preconditionFailure() }
+                return l == r
+            }()
+            case (.refreshToken, .refreshToken): return {
+                guard case .refreshToken(let l) = lhs, case .refreshToken(let r) = rhs else { preconditionFailure() }
                 return l == r
             }()
             default: return false
@@ -928,7 +945,7 @@ struct Livekit_TrackPermission {
     init() {}
 }
 
-struct Livekit_UpdateSubscriptionPermissions {
+struct Livekit_SubscriptionPermission {
     // SwiftProtobuf.Message conformance is added in an extension below. See the
     // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
     // methods supported on all messages.
@@ -1107,7 +1124,7 @@ extension Livekit_SignalRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageIm
         7: .standard(proto: "track_setting"),
         8: .same(proto: "leave"),
         10: .standard(proto: "update_layers"),
-        11: .standard(proto: "subscription_permissions"),
+        11: .standard(proto: "subscription_permission"),
         12: .standard(proto: "sync_state"),
         13: .same(proto: "simulate")
     ]
@@ -1236,16 +1253,16 @@ extension Livekit_SignalRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageIm
                 }
             }()
             case 11: try {
-                var v: Livekit_UpdateSubscriptionPermissions?
+                var v: Livekit_SubscriptionPermission?
                 var hadOneofValue = false
                 if let current = self.message {
                     hadOneofValue = true
-                    if case .subscriptionPermissions(let m) = current {v = m}
+                    if case .subscriptionPermission(let m) = current {v = m}
                 }
                 try decoder.decodeSingularMessageField(value: &v)
                 if let v = v {
                     if hadOneofValue {try decoder.handleConflictingOneOf()}
-                    self.message = .subscriptionPermissions(v)
+                    self.message = .subscriptionPermission(v)
                 }
             }()
             case 12: try {
@@ -1321,8 +1338,8 @@ extension Livekit_SignalRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageIm
             guard case .updateLayers(let v)? = self.message else { preconditionFailure() }
             try visitor.visitSingularMessageField(value: v, fieldNumber: 10)
         }()
-        case .subscriptionPermissions?: try {
-            guard case .subscriptionPermissions(let v)? = self.message else { preconditionFailure() }
+        case .subscriptionPermission?: try {
+            guard case .subscriptionPermission(let v)? = self.message else { preconditionFailure() }
             try visitor.visitSingularMessageField(value: v, fieldNumber: 11)
         }()
         case .syncState?: try {
@@ -1361,7 +1378,8 @@ extension Livekit_SignalResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageI
         12: .standard(proto: "connection_quality"),
         13: .standard(proto: "stream_state_update"),
         14: .standard(proto: "subscribed_quality_update"),
-        15: .standard(proto: "subscription_permission_update")
+        15: .standard(proto: "subscription_permission_update"),
+        16: .standard(proto: "refresh_token")
     ]
 
     mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -1552,6 +1570,14 @@ extension Livekit_SignalResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageI
                     self.message = .subscriptionPermissionUpdate(v)
                 }
             }()
+            case 16: try {
+                var v: String?
+                try decoder.decodeSingularStringField(value: &v)
+                if let v = v {
+                    if self.message != nil {try decoder.handleConflictingOneOf()}
+                    self.message = .refreshToken(v)
+                }
+            }()
             default: break
             }
         }
@@ -1618,6 +1644,10 @@ extension Livekit_SignalResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageI
         case .subscriptionPermissionUpdate?: try {
             guard case .subscriptionPermissionUpdate(let v)? = self.message else { preconditionFailure() }
             try visitor.visitSingularMessageField(value: v, fieldNumber: 15)
+        }()
+        case .refreshToken?: try {
+            guard case .refreshToken(let v)? = self.message else { preconditionFailure() }
+            try visitor.visitSingularStringField(value: v, fieldNumber: 16)
         }()
         case nil: break
         }
@@ -2569,8 +2599,8 @@ extension Livekit_TrackPermission: SwiftProtobuf.Message, SwiftProtobuf._Message
     }
 }
 
-extension Livekit_UpdateSubscriptionPermissions: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
-    static let protoMessageName: String = _protobuf_package + ".UpdateSubscriptionPermissions"
+extension Livekit_SubscriptionPermission: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+    static let protoMessageName: String = _protobuf_package + ".SubscriptionPermission"
     static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
         1: .standard(proto: "all_participants"),
         2: .standard(proto: "track_permissions")
@@ -2599,7 +2629,7 @@ extension Livekit_UpdateSubscriptionPermissions: SwiftProtobuf.Message, SwiftPro
         try unknownFields.traverse(visitor: &visitor)
     }
 
-    static func ==(lhs: Livekit_UpdateSubscriptionPermissions, rhs: Livekit_UpdateSubscriptionPermissions) -> Bool {
+    static func ==(lhs: Livekit_SubscriptionPermission, rhs: Livekit_SubscriptionPermission) -> Bool {
         if lhs.allParticipants != rhs.allParticipants {return false}
         if lhs.trackPermissions != rhs.trackPermissions {return false}
         if lhs.unknownFields != rhs.unknownFields {return false}
