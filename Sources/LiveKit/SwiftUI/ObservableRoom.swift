@@ -144,13 +144,15 @@ open class ObservableRoom: ObservableObject, RoomDelegate, Loggable {
     }
 
     // MARK: - RoomDelegate
-    
+
     open func room(_ room: Room, didUpdate connectionState: ConnectionState) {
         if case .disconnected = connectionState {
-            cameraTrackState = .notPublished()
-            microphoneTrackState = .notPublished()
-            screenShareTrackState = .notPublished()
-            DispatchQueue.main.async { self.objectWillChange.send() }
+            DispatchQueue.main.async {
+                self.objectWillChange.send()
+                self.cameraTrackState = .notPublished()
+                self.microphoneTrackState = .notPublished()
+                self.screenShareTrackState = .notPublished()
+            }
         }
     }
 
