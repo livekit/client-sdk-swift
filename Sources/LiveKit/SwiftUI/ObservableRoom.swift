@@ -21,17 +21,16 @@ open class ObservableRoom: ObservableObject, RoomDelegate, Loggable {
         return result
     }
 
-    @Published public var screenShareTrackState: TrackPublishState = .notPublished()
     @Published public var cameraTrackState: TrackPublishState = .notPublished()
     @Published public var microphoneTrackState: TrackPublishState = .notPublished()
+    @Published public var screenShareTrackState: TrackPublishState = .notPublished()
 
-    public init(_ room: Room) {
+    public init(_ room: Room = Room()) {
         self.room = room
         room.add(delegate: self)
     }
 
     deinit {
-        // cameraTrack?.stop()
         room.remove(delegate: self)
     }
 
@@ -144,6 +143,17 @@ open class ObservableRoom: ObservableObject, RoomDelegate, Loggable {
         }
     }
 
+    // MARK: - RoomDelegate
+    
+    open func room(_ room: Room, didUpdate connectionState: ConnectionState) {
+        if case .disconnected = connectionState {
+            cameraTrackState = .notPublished()
+            microphoneTrackState = .notPublished()
+            screenShareTrackState = .notPublished()
+            DispatchQueue.main.async { self.objectWillChange.send() }
+        }
+    }
+
     open func room(_ room: Room,
                    participantDidJoin participant: RemoteParticipant) {
         DispatchQueue.main.async { self.objectWillChange.send() }
@@ -152,9 +162,5 @@ open class ObservableRoom: ObservableObject, RoomDelegate, Loggable {
     open func room(_ room: Room,
                    participantDidLeave participant: RemoteParticipant) {
         DispatchQueue.main.async { self.objectWillChange.send() }
-    }
-
-    open func room(_ room: Room, participant: RemoteParticipant?, didReceive data: Data) {
-        //
     }
 }
