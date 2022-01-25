@@ -117,12 +117,15 @@ public class RemoteTrackPublication: TrackPublication {
     /// subscribe or unsubscribe from this track
     public func setSubscribed(_ subscribed: Bool) {
         unsubscribed = !subscribed
-        guard let client = participant?.room.engine.signalClient else { return }
+        guard let participant = participant else { return }
 
-        client.sendUpdateSubscription(sid: sid,
-                                      subscribed: !unsubscribed).catch { error in
-                                        self.log("Failed to set subscribed, error: \(error)", .error)
-                                      }
+        participant.room.engine.signalClient.sendUpdateSubscription(
+            participantSid: participant.sid,
+            trackSid: sid,
+            subscribed: !unsubscribed
+        ).catch { error in
+            self.log("Failed to set subscribed, error: \(error)", .error)
+        }
     }
 
     /// disable server from sending down data for this track
