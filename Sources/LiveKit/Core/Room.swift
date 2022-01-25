@@ -90,7 +90,9 @@ public class Room: MulticastDelegate<RoomDelegate> {
 
     @discardableResult
     public func disconnect() -> Promise<Void> {
-        cleanUp(reason: .user)
+        engine.signalClient.sendLeave().always {
+            self.cleanUp(reason: .user)
+        }
     }
 
     private func getOrCreateRemoteParticipant(sid: Sid, info: Livekit_ParticipantInfo? = nil) -> RemoteParticipant {
