@@ -148,10 +148,10 @@ open class ObservableRoom: ObservableObject, RoomDelegate, Loggable {
     open func room(_ room: Room, didUpdate connectionState: ConnectionState) {
         if case .disconnected = connectionState {
             DispatchQueue.main.async {
-                self.objectWillChange.send()
                 self.cameraTrackState = .notPublished()
                 self.microphoneTrackState = .notPublished()
                 self.screenShareTrackState = .notPublished()
+                self.objectWillChange.send()
             }
         }
     }
