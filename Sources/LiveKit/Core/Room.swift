@@ -224,18 +224,24 @@ extension Room {
         }
 
         let sendUnSub = connectOptions?.autoSubscribe ?? false
-        let trackSids = remoteParticipants.values.map {
-            $0.tracks.values
-                .filter { $0.subscribed != sendUnSub }
-                .map { $0.sid }
-        }.flatMap { $0 }
+        let participantTracks = remoteParticipants.values.map { participant in
+            Livekit_ParticipantTracks.with {
+                $0.participantSid = participant.sid
+                $0.trackSids = participant.tracks.values
+                    .filter { $0.subscribed != sendUnSub }
+                    .map { $0.sid }
+            }
+        }
+
+        // Backward compatibility
+        let trackSids = participantTracks.map { $0.trackSids }.flatMap { $0 }
 
         log("trackSids: \(trackSids)")
 
         let subscription = Livekit_UpdateSubscription.with {
-            $0.trackSids = trackSids
+            $0.trackSids = trackSids // Deprecated
+            $0.participantTracks = participantTracks
             $0.subscribe = !sendUnSub
-            $0.participantTracks = []
         }
 
         return engine.signalClient.sendSyncState(answer: localDescription.toPBType(),

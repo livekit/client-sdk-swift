@@ -321,12 +321,20 @@ internal extension SignalClient {
         return sendRequest(r)
     }
 
-    func sendUpdateSubscription(sid: String, subscribed: Bool) -> Promise<Void> {
+    func sendUpdateSubscription(participantSid: String,
+                                trackSid: String,
+                                subscribed: Bool) -> Promise<Void> {
         log()
+
+        let p = Livekit_ParticipantTracks.with {
+            $0.participantSid = participantSid
+            $0.trackSids = [trackSid]
+        }
 
         let r = Livekit_SignalRequest.with {
             $0.subscription = Livekit_UpdateSubscription.with {
-                $0.trackSids = [sid]
+                $0.trackSids = [trackSid] // Deprecated
+                $0.participantTracks = [p]
                 $0.subscribe = subscribed
             }
         }
