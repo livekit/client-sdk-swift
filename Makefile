@@ -9,10 +9,10 @@ proto: protoc protoc-swift
 
 docs: swift-docs
 	swift doc generate Sources/LiveKit \
-		--module-name "LiveKit iOS Client" \
+		--module-name "LiveKit Swift Client SDK" \
 		--output Documentation \
 		--format html \
-		--base-url /client-sdk-ios
+		--base-url /client-sdk-swift
 
 protoc-swift:
 ifeq (, $(shell which protoc-gen-swift))

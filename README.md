@@ -21,7 +21,7 @@ Add the dependency and also to your target
 let package = Package(
   ...
   dependencies: [
-    .package(name: "LiveKit", url: "https://github.com/livekit/client-sdk-ios.git", .upToNextMajor("0.9.4")),
+    .package(name: "LiveKit", url: "https://github.com/livekit/client-sdk-swift.git", .upToNextMajor("0.9.5")),
   ],
   targets: [
     .target(
@@ -36,7 +36,7 @@ let package = Package(
 
 Go to Project Settings -> Swift Packages.
 
-Add a new package and enter: `https://github.com/livekit/client-sdk-ios`
+Add a new package and enter: `https://github.com/livekit/client-sdk-swift`
 
 ## iOS Usage
 
