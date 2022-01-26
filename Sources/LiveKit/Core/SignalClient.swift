@@ -217,9 +217,9 @@ internal extension SignalClient {
 
 // MARK: - Send methods
 
-internal extension SignalClient {
+extension SignalClient {
 
-    func sendOffer(offer: RTCSessionDescription) -> Promise<Void> {
+    internal func sendOffer(offer: RTCSessionDescription) -> Promise<Void> {
         log()
 
         let r = Livekit_SignalRequest.with {
@@ -229,7 +229,7 @@ internal extension SignalClient {
         return sendRequest(r)
     }
 
-    func sendAnswer(answer: RTCSessionDescription) -> Promise<Void> {
+    internal func sendAnswer(answer: RTCSessionDescription) -> Promise<Void> {
         log()
 
         let r = Livekit_SignalRequest.with {
@@ -239,7 +239,7 @@ internal extension SignalClient {
         return sendRequest(r)
     }
 
-    func sendCandidate(candidate: RTCIceCandidate, target: Livekit_SignalTarget) -> Promise<Void> {
+    internal func sendCandidate(candidate: RTCIceCandidate, target: Livekit_SignalTarget) -> Promise<Void> {
         log("target: \(target)")
 
         return Promise { () -> Livekit_SignalRequest in
@@ -256,7 +256,7 @@ internal extension SignalClient {
         }
     }
 
-    func sendMuteTrack(trackSid: String, muted: Bool) -> Promise<Void> {
+    internal func sendMuteTrack(trackSid: String, muted: Bool) -> Promise<Void> {
         log("trackSid: \(trackSid), muted: \(muted)")
 
         let r = Livekit_SignalRequest.with {
@@ -269,11 +269,11 @@ internal extension SignalClient {
         return sendRequest(r)
     }
 
-    func sendAddTrack(cid: String,
-                      name: String,
-                      type: Livekit_TrackType,
-                      source: Livekit_TrackSource = .unknown,
-                      _ populator: (inout Livekit_AddTrackRequest) -> Void) -> Promise<Void> {
+    internal func sendAddTrack(cid: String,
+                               name: String,
+                               type: Livekit_TrackType,
+                               source: Livekit_TrackSource = .unknown,
+                               _ populator: (inout Livekit_AddTrackRequest) -> Void) -> Promise<Void> {
         log()
 
         let r = Livekit_SignalRequest.with {
@@ -289,10 +289,10 @@ internal extension SignalClient {
         return sendRequest(r)
     }
 
-    func sendUpdateTrackSettings(sid: String,
-                                 enabled: Bool,
-                                 width: Int = 0,
-                                 height: Int = 0) -> Promise<Void> {
+    internal func sendUpdateTrackSettings(sid: String,
+                                          enabled: Bool,
+                                          width: Int = 0,
+                                          height: Int = 0) -> Promise<Void> {
         log()
 
         let r = Livekit_SignalRequest.with {
@@ -307,8 +307,8 @@ internal extension SignalClient {
         return sendRequest(r)
     }
 
-    func sendUpdateVideoLayers(trackSid: String,
-                               layers: [Livekit_VideoLayer]) -> Promise<Void> {
+    internal func sendUpdateVideoLayers(trackSid: String,
+                                        layers: [Livekit_VideoLayer]) -> Promise<Void> {
         log()
 
         let r = Livekit_SignalRequest.with {
@@ -321,9 +321,9 @@ internal extension SignalClient {
         return sendRequest(r)
     }
 
-    func sendUpdateSubscription(participantSid: String,
-                                trackSid: String,
-                                subscribed: Bool) -> Promise<Void> {
+    internal func sendUpdateSubscription(participantSid: String,
+                                         trackSid: String,
+                                         subscribed: Bool) -> Promise<Void> {
         log()
 
         let p = Livekit_ParticipantTracks.with {
@@ -342,8 +342,8 @@ internal extension SignalClient {
         return sendRequest(r)
     }
 
-    func sendUpdateSubscriptionPermission(allParticipants: Bool,
-                                          trackPermissions: [ParticipantTrackPermission]) -> Promise<Void> {
+    internal func sendUpdateSubscriptionPermission(allParticipants: Bool,
+                                                   trackPermissions: [ParticipantTrackPermission]) -> Promise<Void> {
         log()
 
         let r = Livekit_SignalRequest.with {
@@ -356,9 +356,9 @@ internal extension SignalClient {
         return sendRequest(r)
     }
 
-    func sendSyncState(answer: Livekit_SessionDescription,
-                       subscription: Livekit_UpdateSubscription,
-                       publishTracks: [Livekit_TrackPublishedResponse]?) -> Promise<Void> {
+    internal func sendSyncState(answer: Livekit_SessionDescription,
+                                subscription: Livekit_UpdateSubscription,
+                                publishTracks: [Livekit_TrackPublishedResponse]?) -> Promise<Void> {
         log()
 
         let r = Livekit_SignalRequest.with {
@@ -372,7 +372,7 @@ internal extension SignalClient {
         return sendRequest(r)
     }
 
-    func sendLeave() -> Promise<Void> {
+    internal func sendLeave() -> Promise<Void> {
         log()
 
         let r = Livekit_SignalRequest.with {
@@ -382,7 +382,7 @@ internal extension SignalClient {
         return sendRequest(r)
     }
 
-    func sendSimulate(scenario: SimulateScenario) -> Promise<Void> {
+    internal func sendSimulate(scenario: SimulateScenario) -> Promise<Void> {
         log()
 
         let r = Livekit_SignalRequest.with {
