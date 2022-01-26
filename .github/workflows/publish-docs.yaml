@@ -21,10 +21,10 @@ jobs:
         uses: SwiftDocOrg/swift-doc@master
         with:
           inputs: "Sources"
-          module-name: LiveKit iOS Client
+          module-name: LiveKit Swift Client SDK
           output: "Documentation"
           format: html
-          base-url: /client-sdk-ios
+          base-url: /client-sdk-swift
 
       - name: Get Actions user id
         id: get_uid
@@ -39,7 +39,7 @@ jobs:
           user_id: ${{ steps.get_uid.outputs.uid }}
 
       - name: S3 Upload
-        run: aws s3 sync Documentation/ s3://livekit-docs/client-sdk-ios/
+        run: aws s3 sync Documentation/ s3://livekit-docs/client-sdk-swift/
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.DOCS_DEPLOY_AWS_ACCESS_KEY }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.DOCS_DEPLOY_AWS_API_SECRET }}
