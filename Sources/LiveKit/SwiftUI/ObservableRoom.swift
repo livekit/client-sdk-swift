@@ -72,10 +72,12 @@ open class ObservableRoom: ObservableObject, RoomDelegate, Loggable {
 
                 self.cameraTrackState = .published(publication)
             }
+            self.log("Successfully published camera")
         }.catch(on: .sdk) { error in
             DispatchQueue.main.async {
                 self.cameraTrackState = .notPublished(error: error)
             }
+            self.log("Failed to publish camera, error: \(error)")
         }
     }
 
@@ -136,10 +138,12 @@ open class ObservableRoom: ObservableObject, RoomDelegate, Loggable {
 
                 self.microphoneTrackState = .published(publication)
             }
+            self.log("Successfully published microphone")
         }.catch(on: .sdk) { error in
             DispatchQueue.main.async {
                 self.microphoneTrackState = .notPublished(error: error)
             }
+            self.log("Failed to publish microphone, error: \(error)")
         }
     }
 
