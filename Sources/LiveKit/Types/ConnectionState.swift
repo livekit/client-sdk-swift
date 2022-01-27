@@ -68,6 +68,11 @@ extension ConnectionState: Equatable {
               case .reconnect(let r) = c else { return nil }
         return r
     }
+
+    public var disconnectedWithError: Error? {
+        guard case .disconnected(let r) = self else { return nil }
+        return r.error
+    }
 }
 
 public enum DisconnectReason {
