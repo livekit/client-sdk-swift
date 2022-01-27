@@ -3,7 +3,7 @@ import WebRTC
 import Promises
 import ReplayKit
 
-public class LocalVideoTrack: LocalTrack, VideoTrack {
+public class LocalVideoTrack: LocalTrack<VideoPublishOptions>, VideoTrack {
 
     public internal(set) var capturer: VideoCapturer
     public internal(set) var videoSource: RTCVideoSource

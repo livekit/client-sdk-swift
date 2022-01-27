@@ -1,6 +1,9 @@
 import Promises
 
-public class LocalTrack: Track {
+public class LocalTrack<P: PublishOptions>: Track {
+
+    /// ``publishOptions`` used for this track if already published.
+    public internal (set) var publishOptions: P?
 
     public func mute() -> Promise<Void> {
         // Already muted

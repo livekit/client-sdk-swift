@@ -64,7 +64,7 @@ public class LocalParticipant: Participant {
             }.then(on: .sdk) { (transceiver, trackInfo) -> LocalTrackPublication in
 
                 // store publishOptions used for this track
-                // track.publishOptions = publishOptions TODO: FIX
+                track.publishOptions = publishOptions
                 track.transceiver = transceiver
 
                 self.room.engine.publisherShouldNegotiate()
