@@ -203,6 +203,16 @@ extension Transport: RTCPeerConnectionDelegate {
         notify { $0.transport(self, didAdd: track, streams: mediaStreams) }
     }
 
+    internal func peerConnection(_ peerConnection: RTCPeerConnection, didRemove rtpReceiver: RTCRtpReceiver) {
+
+        guard let track = rtpReceiver.track else {
+            log("Track is empty for \(target)", .warning)
+            return
+        }
+
+        log("did remove track: \(track.trackId)")
+    }
+
     internal func peerConnection(_ peerConnection: RTCPeerConnection, didOpen dataChannel: RTCDataChannel) {
         log("Received data channel \(dataChannel.label) for \(target)")
         notify { $0.transport(self, didOpen: dataChannel) }
