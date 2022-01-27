@@ -165,4 +165,22 @@ open class ObservableRoom: ObservableObject, RoomDelegate, Loggable {
                    participantDidLeave participant: RemoteParticipant) {
         DispatchQueue.main.async { self.objectWillChange.send() }
     }
+
+    open func room(_ room: Room, didConnect isReconnect: Bool) {}
+    open func room(_ room: Room, didFailToConnect error: Error) {}
+    open func room(_ room: Room, didDisconnect error: Error?) {}
+    open func room(_ room: Room, didUpdate speakers: [Participant]) {}
+    open func room(_ room: Room, participant: Participant, didUpdate metadata: String?) {}
+    open func room(_ room: Room, participant: Participant, didUpdate publication: TrackPublication, muted: Bool) {}
+    open func room(_ room: Room, participant: RemoteParticipant, didUpdate publication: RemoteTrackPublication, streamState: StreamState) {}
+    open func room(_ room: Room, participant: Participant, didUpdate connectionQuality: ConnectionQuality) {}
+    open func room(_ room: Room, participant: RemoteParticipant, didPublish publication: RemoteTrackPublication) {}
+    open func room(_ room: Room, participant: RemoteParticipant, didUnpublish publication: RemoteTrackPublication) {}
+    open func room(_ room: Room, participant: RemoteParticipant, didSubscribe publication: RemoteTrackPublication, track: Track) {}
+    open func room(_ room: Room, participant: RemoteParticipant, didFailToSubscribe trackSid: String, error: Error) {}
+    open func room(_ room: Room, participant: RemoteParticipant, didUnsubscribe publication: RemoteTrackPublication) {}
+    open func room(_ room: Room, participant: RemoteParticipant?, didReceive data: Data) {}
+    open func room(_ room: Room, localParticipant: LocalParticipant, didPublish publication: LocalTrackPublication) {}
+    open func room(_ room: Room, localParticipant: LocalParticipant, didUnpublish publication: LocalTrackPublication) {}
+    open func room(_ room: Room, participant: RemoteParticipant, didUpdate publication: RemoteTrackPublication, permission allowed: Bool) {}
 }
