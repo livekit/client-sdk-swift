@@ -211,6 +211,7 @@ internal extension SignalClient {
                 onDidReceiveJoinResponse?(joinResponse)
                 resolve(joinResponse)
                 delegate = nil
+                return true
             })
             // not required to clean up since weak reference
             self.add(delegate: delegate!)

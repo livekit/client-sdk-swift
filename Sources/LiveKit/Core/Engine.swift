@@ -385,6 +385,7 @@ extension Engine {
                         fail(SignalClientError.close(message: "Socket closed while waiting for ice-connect"))
                         signalDelegate = nil
                     }
+                    return true
                 }
             )
             self.signalClient.add(delegate: signalDelegate!)
@@ -427,6 +428,7 @@ extension Engine {
                         fail(SignalClientError.close(message: "Socket closed while waiting for ice-connect"))
                         signalDelegate = nil
                     }
+                    return true
                 }
             )
             self.signalClient.add(delegate: signalDelegate!)
@@ -448,6 +450,7 @@ extension Engine {
                         fail(SignalClientError.close(message: "Socket closed while waiting for ice-connect"))
                         signalDelegate = nil
                     }
+                    return true
                 },
                 didPublishLocalTrack: { _, response in
                     self.log("didPublishLocalTrack", type: SignalClientDelegateClosures.self)
@@ -456,6 +459,7 @@ extension Engine {
                         resolve(response.track)
                         signalDelegate = nil
                     }
+                    return true
                 }
             )
             self.signalClient.add(delegate: signalDelegate!)

@@ -8,7 +8,7 @@ internal protocol SignalClientDelegate {
     func signalClient(_ signalClient: SignalClient, didReceiveAnswer answer: RTCSessionDescription) -> Bool
     func signalClient(_ signalClient: SignalClient, didReceiveOffer offer: RTCSessionDescription) -> Bool
     func signalClient(_ signalClient: SignalClient, didReceive iceCandidate: RTCIceCandidate, target: Livekit_SignalTarget) -> Bool
-    func signalClient(_ signalClient: SignalClient, didPublish localTrack: Livekit_TrackPublishedResponse)
+    func signalClient(_ signalClient: SignalClient, didPublish localTrack: Livekit_TrackPublishedResponse) -> Bool
     func signalClient(_ signalClient: SignalClient, didUpdate participants: [Livekit_ParticipantInfo]) -> Bool
     func signalClient(_ signalClient: SignalClient, didUpdate speakers: [Livekit_SpeakerInfo]) -> Bool
     func signalClient(_ signalClient: SignalClient, didUpdate connectionQuality: [Livekit_ConnectionQualityInfo]) -> Bool
@@ -29,7 +29,7 @@ extension SignalClientDelegate {
     func signalClient(_ signalClient: SignalClient, didReceiveAnswer answer: RTCSessionDescription) -> Bool { false }
     func signalClient(_ signalClient: SignalClient, didReceiveOffer offer: RTCSessionDescription) -> Bool { false }
     func signalClient(_ signalClient: SignalClient, didReceive iceCandidate: RTCIceCandidate, target: Livekit_SignalTarget) -> Bool { false }
-    func signalClient(_ signalClient: SignalClient, didPublish localTrack: Livekit_TrackPublishedResponse) {}
+    func signalClient(_ signalClient: SignalClient, didPublish localTrack: Livekit_TrackPublishedResponse) -> Bool { false }
     func signalClient(_ signalClient: SignalClient, didUpdate participants: [Livekit_ParticipantInfo]) -> Bool { false }
     func signalClient(_ signalClient: SignalClient, didUpdate speakers: [Livekit_SpeakerInfo]) -> Bool { false }
     func signalClient(_ signalClient: SignalClient, didUpdate connectionQuality: [Livekit_ConnectionQualityInfo]) -> Bool { false }
@@ -45,9 +45,9 @@ extension SignalClientDelegate {
 
 class SignalClientDelegateClosures: NSObject, SignalClientDelegate, Loggable {
 
-    typealias DidUpdateConnectionState = (SignalClient, ConnectionState) -> Void
-    typealias DidReceiveJoinResponse = (SignalClient, Livekit_JoinResponse) -> Void
-    typealias DidPublishLocalTrack = (SignalClient, Livekit_TrackPublishedResponse) -> Void
+    typealias DidUpdateConnectionState = (SignalClient, ConnectionState) -> Bool
+    typealias DidReceiveJoinResponse = (SignalClient, Livekit_JoinResponse) -> Bool
+    typealias DidPublishLocalTrack = (SignalClient, Livekit_TrackPublishedResponse) -> Bool
 
     let didUpdateConnectionState: DidUpdateConnectionState?
     let didReceiveJoinResponse: DidReceiveJoinResponse?
@@ -69,16 +69,14 @@ class SignalClientDelegateClosures: NSObject, SignalClientDelegate, Loggable {
     }
 
     func signalClient(_ signalClient: SignalClient, didUpdate connectionState: ConnectionState) -> Bool {
-        didUpdateConnectionState?(signalClient, connectionState)
-        return true
+        return didUpdateConnectionState?(signalClient, connectionState) ?? false
     }
 
     func signalClient(_ signalClient: SignalClient, didReceive joinResponse: Livekit_JoinResponse) -> Bool {
-        didReceiveJoinResponse?(signalClient, joinResponse)
-        return true
+        return didReceiveJoinResponse?(signalClient, joinResponse) ?? false
     }
 
-    func signalClient(_ signalClient: SignalClient, didPublish localTrack: Livekit_TrackPublishedResponse) {
-        didPublishLocalTrack?(signalClient, localTrack)
+    func signalClient(_ signalClient: SignalClient, didPublish localTrack: Livekit_TrackPublishedResponse) -> Bool {
+        return didPublishLocalTrack?(signalClient, localTrack) ?? false
     }
 }
