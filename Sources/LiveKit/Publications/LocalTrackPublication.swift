@@ -63,7 +63,7 @@ extension LocalTrackPublication {
 
         // re-compute encodings
         let encodings = Utils.computeEncodings(dimensions: track.capturer.dimensions,
-                                               publishOptions: track.publishOptions)
+                                               publishOptions: track.publishOptions as? VideoPublishOptions)
 
         for current in parameters.encodings {
             if let new = encodings?.first(where: { $0.rid == current.rid }) {
