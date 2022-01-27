@@ -114,11 +114,11 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
                                          connectOptions: self.room.connectOptions
         ).then(on: .sdk) {
             // wait for join response
-            self.signalClient.waitReceiveJoinResponse()
-        }.then(on: .sdk) { joinResponse in
-            // set up peer connections
-            self.configureTransports(joinResponse: joinResponse)
-        }.then(on: .sdk) {
+            self.signalClient.waitReceiveJoinResponse { jr in
+                // synchronously configure transports
+                self.configureTransports(joinResponse: jr)
+            }
+        }.then(on: .sdk) { _ in
             // wait for peer connections to connect
             self.wait(transport: self.primary, state: .connected)
         }
@@ -512,9 +512,11 @@ extension Engine: SignalClientDelegate {
     func signalClient(_ signalClient: SignalClient, didReceiveOffer offer: RTCSessionDescription) -> Bool {
 
         guard let subscriber = self.subscriber else {
-            log("Subscriber is nil", .warning)
+            log("Subscriber is nil", .error)
             return true
         }
+
+        log()
 
         subscriber.setRemoteDescription(offer).then(on: .sdk) {
             subscriber.createAnswer()
