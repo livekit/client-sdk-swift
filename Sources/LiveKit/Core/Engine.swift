@@ -65,7 +65,7 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
                 .compactMap { $0 }
                 .map { dc in Promise<Void>(on: .webRTC) { dc.close() } }
 
-            return all(on: .sdk, promises).then { (_) -> Void in
+            return all(on: .sdk, promises).then(on: .sdk) { (_) -> Void in
                 self.dcReliablePub = nil
                 self.dcLossyPub = nil
                 self.dcReliableSub = nil
@@ -79,13 +79,13 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
                 .compactMap { $0 }
                 .map { $0.close() }
 
-            return all(on: .sdk, promises).then { (_) -> Void in
+            return all(on: .sdk, promises).then(on: .sdk) { (_) -> Void in
                 self.publisher = nil
                 self.subscriber = nil
             }
         }
 
-        return closeAllDataChannels().then {
+        return closeAllDataChannels().then(on: .sdk) {
             closeAllTransports()
         }
     }
@@ -109,18 +109,18 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
     internal func fullConnectSequence(_ url: String,
                                       _ token: String) -> Promise<Void> {
 
-        return self.signalClient.connect(url,
-                                         token,
-                                         connectOptions: self.room.connectOptions
-        ).then(on: .sdk) {
-            // wait for join response
-            self.signalClient.waitReceiveJoinResponse { jr in
-                // synchronously configure transports
-                self.configureTransports(joinResponse: jr)
-            }
-        }.then(on: .sdk) { _ in
-            // wait for peer connections to connect
-            self.wait(transport: self.primary, state: .connected)
+        let joinPromises = signalClient.waitForJoinResponse()
+
+        return joinPromises.listen.then(on: .sdk) {
+            self.signalClient.connect(url,
+                                      token,
+                                      connectOptions: self.room.connectOptions)
+        }.then(on: .sdk) {
+            joinPromises.wait
+        }.then(on: .sdk) { jr in
+            self.configureTransports(joinResponse: jr)
+        }.then(on: .sdk) {
+            self.waitFor(transport: self.primary, state: .connected).wait
         }
     }
 
@@ -185,7 +185,7 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
             log("Starting QUICK reconnect sequence...")
             // return Promise(EngineError.state(message: "DEBUG"))
 
-            return checkShouldContinue().then {
+            return checkShouldContinue().then(on: .sdk) {
                 self.signalClient.connect(url,
                                           token,
                                           connectOptions: self.room.connectOptions,
@@ -194,7 +194,7 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
                 checkShouldContinue()
             }.then(on: .sdk) {
                 // Wait for primary transport to connect (if not already)
-                self.wait(transport: self.primary, state: .connected)
+                self.waitFor(transport: self.primary, state: .connected).wait
             }.then(on: .sdk) {
                 checkShouldContinue()
             }.then(on: .sdk) { () -> Promise<Void> in
@@ -207,7 +207,7 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
                 }
 
                 return publisher.createAndSendOffer(iceRestart: true).then(on: .sdk) {
-                    self.wait(transport: publisher, state: .connected)
+                    self.waitFor(transport: publisher, state: .connected).wait
                 }
             }
         }
@@ -217,9 +217,9 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
         func fullReconnectSequence() -> Promise<Void> {
             log("Starting FULL reconnect sequence...")
 
-            return checkShouldContinue().then {
+            return checkShouldContinue().then(on: .sdk) {
                 self.cleanUpRTC()
-            }.then { () -> Promise<Void> in
+            }.then(on: .sdk) { () -> Promise<Void> in
 
                 guard let url = self.url,
                       let token = self.token else {
@@ -278,16 +278,20 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
                          name: String,
                          kind: Livekit_TrackType,
                          source: Livekit_TrackSource = .unknown,
-                         _ populator: (inout Livekit_AddTrackRequest) -> Void) -> Promise<Livekit_TrackInfo> {
+                         _ populator: @escaping (inout Livekit_AddTrackRequest) -> Void) -> Promise<Livekit_TrackInfo> {
 
         // TODO: Check if cid already published
 
-        return signalClient.sendAddTrack(cid: cid,
-                                         name: name,
-                                         type: kind,
-                                         source: source, populator).then {
-                                            self.waitForPublishTrack(cid: cid)
-                                         }
+        let promises = waitFor(publishLocalTrackWith: cid)
+
+        return promises.listen.then(on: .sdk) {
+            self.signalClient.sendAddTrack(cid: cid,
+                                           name: name,
+                                           type: kind,
+                                           source: source, populator)
+        }.then(on: .sdk) {
+            return promises.wait
+        }
     }
 
     internal func publisherShouldNegotiate() {
@@ -322,9 +326,14 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
                 publisherShouldNegotiate()
             }
 
-            return wait(transport: publisher, state: .connected).then(on: .sdk) {
-                // wait for data channel to open
-                self.waitForPublisherDataChannelOpen(reliability: reliability)
+            let waitTransport = waitFor(transport: publisher, state: .connected)
+            let waitDC = waitForPublisherDataChannelOpen(reliability: reliability)
+            let listenBoth = all(on: .sdk, [waitTransport.listen, waitDC.listen])
+
+            return listenBoth.then(on: .sdk) { _ in
+                waitTransport.wait
+            }.then(on: .sdk) {
+                waitDC.wait
             }
         }
 
@@ -351,21 +360,31 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
 
 // MARK: - Wait extensions
 
+// A tuple of Promises,
+// listen: resolves when started listening
+// wait: resolves when wait is complete or rejects when timeout
+typealias WaitPromises<T> = (listen: Promise<Void>, wait: Promise<T>)
+
 extension Engine {
 
-    func waitForPublisherDataChannelOpen(reliability: Reliability, allowCurrentValue: Bool = true) -> Promise<Void> {
+    func waitForPublisherDataChannelOpen(reliability: Reliability, allowCurrentValue: Bool = true) -> WaitPromises<Void> {
 
-        guard let dcPublisher = publisherDataChannel(for: reliability) else {
-            return Promise(EngineError.state(message: "publisher data channel is nil"))
-        }
+        let listen = Promise<Void>(())
+        let wait = Promise<Void>(on: .sdk) { resolve, fail in
 
-        log("waiting for dataChannel to open for \(reliability)")
-        if allowCurrentValue, dcPublisher.readyState == .open {
-            log("dataChannel already open")
-            return Promise(())
-        }
+            guard let dcPublisher = self.publisherDataChannel(for: reliability) else {
+                fail(EngineError.state(message: "publisher data channel is nil"))
+                listen.fulfill(())
+                return
+            }
 
-        return Promise<Void>(on: .sdk) { resolve, fail in
+            if allowCurrentValue, dcPublisher.readyState == .open {
+                self.log("dataChannel already open")
+                resolve(())
+                listen.fulfill(())
+                return
+            }
+
             // create temporary delegate
             var engineDelegate: EngineDelegateClosures?
             engineDelegate = EngineDelegateClosures(
@@ -389,26 +408,34 @@ extension Engine {
                 }
             )
             self.signalClient.add(delegate: signalDelegate!)
+            listen.fulfill(())
         }
         // convert to timed-promise
         .timeout(.defaultConnect)
+
+        return (listen, wait)
     }
 
-    func wait(transport: Transport?,
-              state: RTCPeerConnectionState,
-              allowCurrentValue: Bool = true) -> Promise<Void> {
+    func waitFor(transport: Transport?,
+                 state: RTCPeerConnectionState,
+                 allowCurrentValue: Bool = true) -> WaitPromises<Void> {
 
-        guard let transport = transport else {
-            return Promise(EngineError.state(message: "transport is nil"))
-        }
+        let listen = Promise<Void>.pending()
+        let wait = Promise<Void>(on: .sdk) { resolve, fail in
 
-        log("Waiting for \(transport) to connect...")
-        if allowCurrentValue, transport.connectionState == state {
-            log("\(transport) already connected")
-            return Promise(())
-        }
+            guard let transport = transport else {
+                fail(EngineError.state(message: "transport is nil"))
+                listen.fulfill(())
+                return
+            }
 
-        return Promise<Void>(on: .sdk) { resolve, fail in
+            if allowCurrentValue, transport.connectionState == state {
+                self.log("\(transport) already connected")
+                resolve(())
+                listen.fulfill(())
+                return
+            }
+
             // create temporary delegate
             var transportDelegate: TransportDelegateClosures?
             transportDelegate = TransportDelegateClosures(
@@ -432,14 +459,18 @@ extension Engine {
                 }
             )
             self.signalClient.add(delegate: signalDelegate!)
+            listen.fulfill(())
         }
         // convert to timed-promise
         .timeout(.defaultConnect)
+
+        return (listen, wait)
     }
 
-    func waitForPublishTrack(cid: String) -> Promise<Livekit_TrackInfo> {
+    func waitFor(publishLocalTrackWith cid: String) -> WaitPromises<Livekit_TrackInfo> {
 
-        return Promise<Livekit_TrackInfo>(on: .sdk) { resolve, fail in
+        let listen = Promise<Void>.pending()
+        let wait = Promise<Livekit_TrackInfo>(on: .sdk) { resolve, fail in
             // create temporary delegate
             var signalDelegate: SignalClientDelegateClosures?
             signalDelegate = SignalClientDelegateClosures(
@@ -463,9 +494,12 @@ extension Engine {
                 }
             )
             self.signalClient.add(delegate: signalDelegate!)
+            listen.fulfill(())
         }
         // convert to timed-promise
         .timeout(.defaultPublish)
+
+        return (listen, wait)
     }
 }
 

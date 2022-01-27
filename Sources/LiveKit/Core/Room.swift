@@ -57,7 +57,7 @@ public class Room: MulticastDelegate<RoomDelegate> {
                 .compactMap { $0 }
                 .map { $0.stop() }
 
-            return all(on: .sdk, stopPromises).then { _ in }
+            return all(on: .sdk, stopPromises).then(on: .sdk) { _ in }
         }
 
         return engine.cleanUp(reason: reason).then(on: .sdk) {

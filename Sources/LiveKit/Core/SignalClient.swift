@@ -189,35 +189,28 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
 
 internal extension SignalClient {
 
-    typealias DidReceiveJoinResponse = (Livekit_JoinResponse) -> Void
+    func waitForJoinResponse() -> WaitPromises<Livekit_JoinResponse> {
 
-    // if onDidReceiveJoinResponse is specified, it will be executed synchronously
-    // before resolving the Promise
-    func waitReceiveJoinResponse(onDidReceiveJoinResponse: DidReceiveJoinResponse? = nil) -> Promise<Livekit_JoinResponse> {
-
-        log("Waiting for join response...")
-
-        // If already received a join response, there is no need to wait.
-        if let joinResponse = latestJoinResponse {
-            log("Already received join response")
-            return Promise(joinResponse)
-        }
-
-        return Promise<Livekit_JoinResponse>(on: .sdk) { resolve, _ in
+        let listen = Promise<Void>.pending()
+        let wait = Promise<Livekit_JoinResponse>(on: .sdk) { resolve, _ in
             // create temporary delegate
             var delegate: SignalClientDelegateClosures?
             delegate = SignalClientDelegateClosures(didReceiveJoinResponse: { _, joinResponse in
                 // wait until connected
-                onDidReceiveJoinResponse?(joinResponse)
                 resolve(joinResponse)
                 delegate = nil
                 return true
             })
             // not required to clean up since weak reference
             self.add(delegate: delegate!)
+
+            self.log("Waiting for join response...")
+            listen.fulfill(())
         }
         // convert to a timed-promise
         .timeout(.defaultConnect)
+
+        return (listen, wait)
     }
 }
 
@@ -257,7 +250,7 @@ extension SignalClient {
                 }
             }
 
-        }.then {
+        }.then(on: .sdk) {
             self.sendRequest($0)
         }
     }
