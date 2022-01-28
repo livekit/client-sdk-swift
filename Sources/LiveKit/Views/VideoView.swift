@@ -213,7 +213,7 @@ extension VideoView: RTCVideoViewDelegate {
 
     public func videoView(_: RTCVideoRenderer, didChangeVideoSize size: CGSize) {
 
-        log("size:\(size)")
+        log("size: \(size)")
 
         guard let width = Int32(exactly: size.width),
               let height = Int32(exactly: size.height) else {
@@ -222,10 +222,10 @@ extension VideoView: RTCVideoViewDelegate {
             return
         }
 
-        guard width > 1, height > 1 else {
-            // Handle known issue where the delegate (rarely) reports dimensions of 1x1
-            // which causes [MTLTextureDescriptorInternal validateWithDevice] to crash.
-            log("Size is \(width)x\(height), ignoring...", .warning)
+        guard width > 8, height > 8 else {
+            // When unsubscribing a video track,
+            // server will send send a small frame to flush decoder
+            log("Ignoring frame size <= 8x8...", .debug)
             return
         }
 
