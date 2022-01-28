@@ -39,6 +39,7 @@ public struct SwiftUIVideoView: NativeViewRepresentable {
     let track: VideoTrack
     let mode: VideoView.Mode
     let mirrored: Bool
+    let preferMetal: Bool
 
     @Binding var dimensions: Dimensions?
 
@@ -47,12 +48,14 @@ public struct SwiftUIVideoView: NativeViewRepresentable {
     public init(_ track: VideoTrack,
                 mode: VideoView.Mode = .fill,
                 mirrored: Bool = false,
-                dimensions: Binding<Dimensions?> = .constant(nil)) {
+                dimensions: Binding<Dimensions?> = .constant(nil),
+                preferMetal: Bool = true) {
 
         self.track = track
         self.mode = mode
         self.mirrored = mirrored
         self._dimensions = dimensions
+        self.preferMetal = preferMetal
 
         self.delegateReceiver = SwiftUIVideoViewDelegateReceiver(dimensions: dimensions)
         self.track.add(delegate: delegateReceiver)
@@ -62,7 +65,7 @@ public struct SwiftUIVideoView: NativeViewRepresentable {
     // iOS
 
     public func makeUIView(context: Context) -> VideoView {
-        let view = VideoView()
+        let view = VideoView(preferMetal: preferMetal)
         updateUIView(view, context: context)
         return view
     }
@@ -80,7 +83,7 @@ public struct SwiftUIVideoView: NativeViewRepresentable {
     // macOS
 
     public func makeNSView(context: Context) -> VideoView {
-        let view = VideoView()
+        let view = VideoView(preferMetal: preferMetal)
         updateNSView(view, context: context)
         return view
     }
