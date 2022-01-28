@@ -9,6 +9,9 @@ import AppKit
 typealias NativeRect = NSRect
 #endif
 
+/// A ``NativeViewType`` that conforms to ``RTCVideoRenderer``.
+public typealias NativeRendererView = NativeViewType & RTCVideoRenderer
+
 public class VideoView: NativeView, Loggable {
 
     public enum Mode {
@@ -16,8 +19,10 @@ public class VideoView: NativeView, Loggable {
         case fill
     }
 
+    /// Layout ``Mode`` of the ``VideoView``.
     public var mode: Mode = .fill {
         didSet {
+            guard oldValue != mode else { return }
             markNeedsLayout()
         }
     }
@@ -31,11 +36,16 @@ public class VideoView: NativeView, Loggable {
 
     /// OpenGL is deprecated and the SDK prefers to use Metal by default.
     /// Setting false when creating ``VideoView`` will force to use OpenGL.
-    public let preferMetal: Bool
+    public var preferMetal: Bool = true {
+        didSet {
+            guard oldValue != preferMetal else { return }
+            reCreateNativeRenderer()
+        }
+    }
 
     /// Size of the actual video, this will change when the publisher
     /// changes dimensions of the video such as rotating etc.
-    public private(set) var dimensions: Dimensions? {
+    public internal(set) var dimensions: Dimensions? {
         didSet {
             guard oldValue != dimensions else { return }
             // force layout
@@ -51,7 +61,7 @@ public class VideoView: NativeView, Loggable {
 
     /// Size of this view (used to notify delegates)
     /// usually should be equal to `frame.size`
-    public private(set) var viewSize: CGSize {
+    public internal(set) var viewSize: CGSize {
         didSet {
             guard oldValue != viewSize else { return }
             // notify viewSize update
@@ -59,29 +69,14 @@ public class VideoView: NativeView, Loggable {
         }
     }
 
-    init(frame: CGRect = .zero, preferMetal: Bool = true) {
-        self.viewSize = frame.size
-        self.preferMetal = preferMetal
-        super.init(frame: frame)
-    }
-
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
-
-    public private(set) lazy var rendererView: RTCVideoRenderer = {
-        VideoView.createNativeRendererView(delegate: self,
-                                           preferMetal: preferMetal)
-    }()
-
     /// Calls addRenderer and/or removeRenderer internally for convenience.
     public var track: VideoTrack? {
         didSet {
             if let oldValue = oldValue {
-                oldValue.removeRenderer(rendererView)
+                oldValue.removeRenderer(self)
                 oldValue.notify { $0.track(oldValue, didDetach: self) }
             }
-            track?.addRenderer(rendererView)
+            track?.addRenderer(self)
             track?.notify { [weak track] (delegate) -> Void in
                 guard let track = track else { return }
                 delegate.track(track, didAttach: self)
@@ -89,29 +84,39 @@ public class VideoView: NativeView, Loggable {
         }
     }
 
-    override func shouldPrepare() {
-        super.shouldPrepare()
-        guard let rendererView = rendererView as? NativeViewType else { return }
-        rendererView.translatesAutoresizingMaskIntoConstraints = true
-        addSubview(rendererView)
-        shouldLayout()
+    internal var nativeRenderer: NativeRendererView
+    internal var nativeRendererDidRenderFirstFrame: Bool = false
+
+    init(frame: CGRect = .zero, preferMetal: Bool = true) {
+        self.viewSize = frame.size
+        self.preferMetal = preferMetal
+        self.nativeRenderer = VideoView.createNativeRendererView(preferMetal: preferMetal)
+        super.init(frame: frame)
+        addSubview(nativeRenderer)
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
     }
 
     override func shouldLayout() {
         super.shouldLayout()
-        self.viewSize = frame.size
 
-        guard let rendererView = rendererView as? NativeViewType else { return }
+        defer {
+            DispatchQueue.main.async {
+                self.viewSize = self.frame.size
+            }
+        }
 
+        // dimensions are required to continue computation
         guard let dimensions = dimensions else {
-            rendererView.isHidden = true
             return
         }
 
         if case .fill = mode {
             // manual calculation for .fill
 
-            var size = viewSize
+            var size = frame.size
             let widthRatio = size.width / CGFloat(dimensions.width)
             let heightRatio = size.height / CGFloat(dimensions.height)
 
@@ -122,17 +127,15 @@ public class VideoView: NativeView, Loggable {
             }
 
             // center layout
-            rendererView.frame = CGRect(x: -((size.width - viewSize.width) / 2),
-                                        y: -((size.height - viewSize.height) / 2),
-                                        width: size.width,
-                                        height: size.height)
+            nativeRenderer.frame = CGRect(x: -((size.width - frame.size.width) / 2),
+                                          y: -((size.height - frame.size.height) / 2),
+                                          width: size.width,
+                                          height: size.height)
 
         } else {
-            //
-            rendererView.frame = bounds
+            // .fit
+            nativeRenderer.frame = bounds
         }
-
-        rendererView.isHidden = false
     }
 
     private static let mirrorTransform = CGAffineTransform(scaleX: -1.0, y: 1.0)
@@ -146,6 +149,60 @@ public class VideoView: NativeView, Loggable {
         layer.setAffineTransform(mirrored ? VideoView.mirrorTransform : .identity)
     }
 
+    private func reCreateNativeRenderer() {
+        // Save current track if exists
+        let currentTrack = self.track
+        // Remove track (notify delegates)
+        self.track = nil
+        // Remove the renderer view
+        nativeRenderer.removeFromSuperview()
+        nativeRendererDidRenderFirstFrame = false
+        // Re-create renderer view
+        nativeRenderer = VideoView.createNativeRendererView(preferMetal: preferMetal)
+        addSubview(nativeRenderer)
+        // Set previous track to new renderer view
+        self.track = currentTrack
+
+    }
+}
+
+// MARK: - RTCVideoRenderer
+
+extension VideoView: RTCVideoRenderer {
+
+    public func setSize(_ size: CGSize) {
+
+        nativeRenderer.setSize(size)
+
+        guard let width = Int32(exactly: size.width),
+              let height = Int32(exactly: size.height) else {
+            // CGSize is used by WebRTC but this should always be an integer
+            log("Size width/height is not an integer", .warning)
+            return
+        }
+
+        DispatchQueue.main.async {
+            self.dimensions = Dimensions(width: width,
+                                         height: height)
+        }
+    }
+
+    public func renderFrame(_ frame: RTCVideoFrame?) {
+
+        nativeRenderer.renderFrame(frame)
+
+        // layout after first frame has been rendered
+        if !nativeRendererDidRenderFirstFrame {
+            nativeRendererDidRenderFirstFrame = true
+            DispatchQueue.main.async { self.markNeedsLayout() }
+        }
+    }
+}
+
+// MARK: - Static helper methods
+
+extension VideoView {
+
     public static func isMetalAvailable() -> Bool {
         #if os(iOS)
         MTLCreateSystemDefaultDevice() != nil
@@ -155,11 +212,10 @@ public class VideoView: NativeView, Loggable {
         #endif
     }
 
-    private static func createNativeRendererView(delegate: RTCVideoViewDelegate,
-                                                 preferMetal: Bool) -> RTCVideoRenderer {
+    internal static func createNativeRendererView(preferMetal: Bool) -> NativeRendererView {
 
         DispatchQueue.webRTC.sync {
-            let view: RTCVideoRenderer
+            let view: NativeRendererView
             #if os(iOS)
             // iOS --------------------
             if preferMetal && isMetalAvailable() {
@@ -169,22 +225,18 @@ public class VideoView: NativeView, Loggable {
                 // manually calculate .fill if necessary
                 mtlView.contentMode = .scaleAspectFit
                 mtlView.videoContentMode = .scaleAspectFit
-                mtlView.delegate = delegate
                 view = mtlView
             } else {
                 logger.log("Using RTCEAGLVideoView for VideoView's Renderer", type: VideoView.self)
                 let glView = RTCEAGLVideoView()
                 glView.contentMode = .scaleAspectFit
-                glView.delegate = delegate
                 view = glView
             }
             #else
             // macOS --------------------
             if preferMetal && isMetalAvailable() {
                 logger.log("Using RTCMTLNSVideoView for VideoView's Renderer", type: VideoView.self)
-                let mtlView = RTCMTLNSVideoView()
-                mtlView.delegate = delegate
-                view = mtlView
+                view = RTCMTLNSVideoView()
             } else {
                 logger.log("Using RTCNSGLVideoView for VideoView's Renderer", type: VideoView.self)
                 let attributes: [NSOpenGLPixelFormatAttribute] = [
@@ -198,40 +250,11 @@ public class VideoView: NativeView, Loggable {
                     UInt32(0)
                 ]
                 let pixelFormat = NSOpenGLPixelFormat(attributes: attributes)
-                let glView = RTCNSGLVideoView(frame: .zero, pixelFormat: pixelFormat)!
-                glView.delegate = delegate
-                view = glView
+                view = RTCNSGLVideoView(frame: .zero, pixelFormat: pixelFormat)!
             }
             #endif
 
             return view
-        }
-    }
-}
-
-extension VideoView: RTCVideoViewDelegate {
-
-    public func videoView(_: RTCVideoRenderer, didChangeVideoSize size: CGSize) {
-
-        log("size: \(size)")
-
-        guard let width = Int32(exactly: size.width),
-              let height = Int32(exactly: size.height) else {
-            // CGSize is used by WebRTC but this should always be an integer
-            log("Size width/height is not an integer", .warning)
-            return
-        }
-
-        guard width > 8, height > 8 else {
-            // When unsubscribing a video track,
-            // server will send send a small frame to flush decoder
-            log("Ignoring frame size <= 8x8...", .debug)
-            return
-        }
-
-        DispatchQueue.main.async {
-            self.dimensions = Dimensions(width: width,
-                                         height: height)
         }
     }
 }

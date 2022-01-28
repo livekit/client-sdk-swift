@@ -74,6 +74,7 @@ public struct SwiftUIVideoView: NativeViewRepresentable {
         videoView.track = track
         videoView.mode = mode
         videoView.mirrored = mirrored
+        videoView.preferMetal = preferMetal
     }
 
     public static func dismantleUIView(_ videoView: VideoView, coordinator: ()) {
@@ -92,6 +93,7 @@ public struct SwiftUIVideoView: NativeViewRepresentable {
         videoView.track = track
         videoView.mode = mode
         videoView.mirrored = mirrored
+        videoView.preferMetal = preferMetal
     }
 
     public static func dismantleNSView(_ videoView: VideoView, coordinator: ()) {
