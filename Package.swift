@@ -37,7 +37,10 @@ let package = Package(
                 // Not defining the flag will turn off the feature.
                 .define("LK_USING_CUSTOM_WEBRTC_BUILD"),
                 .define("LK_FEATURE_ADAPTIVESTREAM"),
-                .define("LK_COMPUTE_VIDEO_SENDER_PARAMETERS")
+                .define("LK_COMPUTE_VIDEO_SENDER_PARAMETERS"),
+                // Silence deprecated OpenGL usage.
+                // The SDK prefers to use Metal, OpenGL is only used when Metal is not available.
+                .define("GLES_SILENCE_DEPRECATION")
             ]
         ),
         .testTarget(

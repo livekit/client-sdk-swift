@@ -29,6 +29,10 @@ public class VideoView: NativeView, Loggable {
         }
     }
 
+    /// OpenGL is deprecated and the SDK prefers to use Metal by default.
+    /// Setting false when creating ``VideoView`` will force to use OpenGL.
+    public let preferMetal: Bool
+
     /// Size of the actual video, this will change when the publisher
     /// changes dimensions of the video such as rotating etc.
     public private(set) var dimensions: Dimensions? {
@@ -55,8 +59,9 @@ public class VideoView: NativeView, Loggable {
         }
     }
 
-    override init(frame: CGRect) {
+    init(frame: CGRect = .zero, preferMetal: Bool = true) {
         self.viewSize = frame.size
+        self.preferMetal = preferMetal
         super.init(frame: frame)
     }
 
@@ -65,7 +70,8 @@ public class VideoView: NativeView, Loggable {
     }
 
     public private(set) lazy var rendererView: RTCVideoRenderer = {
-        VideoView.createNativeRendererView(delegate: self)
+        VideoView.createNativeRendererView(delegate: self,
+                                           preferMetal: preferMetal)
     }()
 
     /// Calls addRenderer and/or removeRenderer internally for convenience.
@@ -149,13 +155,14 @@ public class VideoView: NativeView, Loggable {
         #endif
     }
 
-    private static func createNativeRendererView(delegate: RTCVideoViewDelegate) -> RTCVideoRenderer {
+    private static func createNativeRendererView(delegate: RTCVideoViewDelegate,
+                                                 preferMetal: Bool) -> RTCVideoRenderer {
 
         DispatchQueue.webRTC.sync {
             let view: RTCVideoRenderer
             #if os(iOS)
             // iOS --------------------
-            if isMetalAvailable() {
+            if preferMetal && isMetalAvailable() {
                 logger.log("Using RTCMTLVideoView for VideoView's Renderer", type: VideoView.self)
                 let mtlView = RTCMTLVideoView()
                 // use .fit here to match macOS behavior and
@@ -173,14 +180,25 @@ public class VideoView: NativeView, Loggable {
             }
             #else
             // macOS --------------------
-            if isMetalAvailable() {
+            if preferMetal && isMetalAvailable() {
                 logger.log("Using RTCMTLNSVideoView for VideoView's Renderer", type: VideoView.self)
                 let mtlView = RTCMTLNSVideoView()
                 mtlView.delegate = delegate
                 view = mtlView
             } else {
                 logger.log("Using RTCNSGLVideoView for VideoView's Renderer", type: VideoView.self)
-                let glView = RTCNSGLVideoView()
+                let attributes: [NSOpenGLPixelFormatAttribute] = [
+                    UInt32(NSOpenGLPFAAccelerated),
+                    // The following attributes are from
+                    // https://chromium.googlesource.com/external/webrtc/+/refs/heads/master/examples/objc/AppRTCMobile/mac/APPRTCViewController.m
+                    UInt32(NSOpenGLPFADoubleBuffer),
+                    UInt32(NSOpenGLPFADepthSize), UInt32(24),
+                    UInt32(NSOpenGLPFAOpenGLProfile),
+                    UInt32(NSOpenGLProfileVersion3_2Core),
+                    UInt32(0)
+                ]
+                let pixelFormat = NSOpenGLPixelFormat(attributes: attributes)
+                let glView = RTCNSGLVideoView(frame: .zero, pixelFormat: pixelFormat)!
                 glView.delegate = delegate
                 view = glView
             }
