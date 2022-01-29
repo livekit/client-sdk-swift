@@ -4,12 +4,12 @@ import ReplayKit
 extension Dimensions {
 
     // Ensures width and height are even numbers
-    func toEncodeSafeDimensions() -> Dimensions {
+    internal func toEncodeSafeDimensions() -> Dimensions {
         Dimensions(width: max(encodeSafeSize, width % 2 == 0 ? width : width + 1),
                    height: max(encodeSafeSize, height % 2 == 0 ? height : height + 1))
     }
 
-    static func * (a: Dimensions, b: Double) -> Dimensions {
+    internal static func * (a: Dimensions, b: Double) -> Dimensions {
         Dimensions(width: Int32((Double(a.width) * b).rounded()),
                    height: Int32((Double(a.height) * b).rounded()))
     }
