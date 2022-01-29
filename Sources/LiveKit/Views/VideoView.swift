@@ -48,6 +48,7 @@ public class VideoView: NativeView, Loggable {
     public internal(set) var dimensions: Dimensions? {
         didSet {
             guard oldValue != dimensions else { return }
+            log("\(String(describing: oldValue)) -> \(String(describing: dimensions))")
             // force layout
             markNeedsLayout()
             // notify dimensions update
