@@ -1,6 +1,20 @@
 import WebRTC
 import ReplayKit
 
+extension Dimensions {
+
+    // Ensures width and height are even numbers
+    func toEncodeSafeDimensions() -> Dimensions {
+        Dimensions(width: max(encodeSafeSize, width % 2 == 0 ? width : width + 1),
+                   height: max(encodeSafeSize, height % 2 == 0 ? height : height + 1))
+    }
+
+    static func * (a: Dimensions, b: Double) -> Dimensions {
+        Dimensions(width: Int32((Double(a.width) * b).rounded()),
+                   height: Int32((Double(a.height) * b).rounded()))
+    }
+}
+
 extension CGImagePropertyOrientation {
 
     public func toRTCRotation() -> RTCVideoRotation {
@@ -14,15 +28,20 @@ extension CGImagePropertyOrientation {
 }
 
 internal let supportedPixelFormats = DispatchQueue.webRTC.sync { RTCCVPixelBuffer.supportedPixelFormats() }
+internal let renderSafeSize: Int32 = 8
+internal let encodeSafeSize: Int32 = 16
 
 extension RTCVideoCapturerDelegate {
 
-    /// capture a `CVPixelBuffer`
+    public typealias OnTargetDimensions = (Dimensions) -> Void
+
+    /// capture a `CVPixelBuffer`, all other capture methods call this method internally.
     public func capturer(_ capturer: RTCVideoCapturer,
                          didCapture pixelBuffer: CVPixelBuffer,
                          timeStampNs: UInt64,
                          rotation: RTCVideoRotation = ._0,
-                         scale: Double = 1.0) {
+                         scale: Double = 1.0,
+                         onTargetDimensions: OnTargetDimensions? = nil) {
 
         // check if pixel format is supported by WebRTC
         let pixelFormat = CVPixelBufferGetPixelFormatType(pixelBuffer)
@@ -31,33 +50,55 @@ extension RTCVideoCapturerDelegate {
             // kCVPixelFormatType_420YpCbCr8BiPlanarFullRange
             // kCVPixelFormatType_32BGRA
             // kCVPixelFormatType_32ARGB
-            logger.log("Unsupported pixel format \(pixelFormat.toString())", .warning, type: type(of: self))
+            logger.log("Skipping capture for unsupported pixel format: \(pixelFormat.toString())", .warning,
+                       type: type(of: self))
             return
         }
 
-        let height = CVPixelBufferGetHeight(pixelBuffer)
-        let width = CVPixelBufferGetWidth(pixelBuffer)
+        let sourceDimensions = Dimensions(width: Int32(CVPixelBufferGetWidth(pixelBuffer)),
+                                          height: Int32(CVPixelBufferGetHeight(pixelBuffer)))
 
-        guard width != 0, height != 0 else {
-            logger.log("pixelBuffer's height or width is 0", .warning, type: type(of: self))
+        guard sourceDimensions.width >= encodeSafeSize,
+              sourceDimensions.height >= encodeSafeSize else {
+            logger.log("Skipping capture for dimensions: \(sourceDimensions)", .warning,
+                       type: type(of: self))
             return
+        }
+
+        // Dimensions which are adjusted to be safe with both VP8 and H264 encoders
+        let targetDimensions = (sourceDimensions * scale).toEncodeSafeDimensions()
+
+        // report back the computed target dimensions
+        onTargetDimensions?(targetDimensions)
+
+        if sourceDimensions != targetDimensions {
+            logger.log("capturing with adapted dimensions: \(sourceDimensions) -> \(targetDimensions)",
+                       type: type(of: self))
         }
 
         DispatchQueue.webRTC.sync {
 
-            let rtcBuffer = RTCCVPixelBuffer(pixelBuffer: pixelBuffer,
-                                             adaptedWidth: Int32((Double(width) * scale).rounded()),
-                                             adaptedHeight: Int32((Double(height) * scale).rounded()),
-                                             cropWidth: Int32(width),
-                                             cropHeight: Int32(height),
+            let rtcBuffer: RTCCVPixelBuffer
+
+            if sourceDimensions != targetDimensions {
+                // no adjustments required
+                rtcBuffer = RTCCVPixelBuffer(pixelBuffer: pixelBuffer)
+            } else {
+                // apply adjustments
+                rtcBuffer = RTCCVPixelBuffer(pixelBuffer: pixelBuffer,
+                                             adaptedWidth: targetDimensions.width,
+                                             adaptedHeight: targetDimensions.height,
+                                             cropWidth: sourceDimensions.width,
+                                             cropHeight: sourceDimensions.height,
                                              cropX: 0,
                                              cropY: 0)
+            }
 
-            let frame = RTCVideoFrame(buffer: rtcBuffer,
-                                      rotation: rotation,
-                                      timeStampNs: Int64(timeStampNs))
+            let rtcFrame = RTCVideoFrame(buffer: rtcBuffer,
+                                         rotation: rotation,
+                                         timeStampNs: Int64(timeStampNs))
 
-            self.capturer(capturer, didCapture: frame)
+            self.capturer(capturer, didCapture: rtcFrame)
         }
     }
 

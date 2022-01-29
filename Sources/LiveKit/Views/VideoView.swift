@@ -190,6 +190,12 @@ extension VideoView: RTCVideoRenderer {
 
     public func renderFrame(_ frame: RTCVideoFrame?) {
 
+        // check if dimensions are safe to pass to renderer
+        if let frame = frame, (frame.width < renderSafeSize || frame.height < renderSafeSize) {
+            log("Skipping render for dimension \(frame.width)x\(frame.height)", .warning)
+            return
+        }
+
         nativeRenderer.renderFrame(frame)
 
         // layout after first frame has been rendered
