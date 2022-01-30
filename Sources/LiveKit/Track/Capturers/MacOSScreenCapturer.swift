@@ -131,10 +131,9 @@ public class MacOSScreenCapturer: VideoCapturer {
         let systemTime = ProcessInfo.processInfo.systemUptime
         let timestampNs = UInt64(systemTime * Double(NSEC_PER_SEC))
 
-        self.delegate?.capturer(self.capturer, didCapture: pixelBuffer, timeStampNs: timestampNs)
-
-        self.dimensions = Dimensions(width: Int32(image.width),
-                                     height: Int32(image.height))
+        self.delegate?.capturer(self.capturer, didCapture: pixelBuffer, timeStampNs: timestampNs) { targetDimensions in
+            self.dimensions = targetDimensions
+        }
     }
 
     public override func startCapture() -> Promise<Void> {
