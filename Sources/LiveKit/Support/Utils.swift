@@ -197,7 +197,7 @@ internal class Utils {
             let presets = dimensions.computeSuggestedPresets()
             let presetIndexF = dimensions.computeSuggestedPresetIndex(in: presets)
 
-            encodingF = presets[presetIndexF].encoding
+            encodingF = presets[safe: presetIndexF]?.encoding
             encodingH = encodingF
             encodingQ = encodingF
 
