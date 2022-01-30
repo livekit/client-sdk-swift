@@ -14,7 +14,7 @@ public typealias NativeRendererView = NativeViewType & RTCVideoRenderer
 
 public class VideoView: NativeView, Loggable {
 
-    public enum Mode {
+    public enum Mode: String, Codable, CaseIterable {
         case fit
         case fill
     }
