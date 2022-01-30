@@ -1,17 +1,33 @@
 import WebRTC
 import ReplayKit
 
+extension FixedWidthInteger {
+
+    func roundUp(toMultipleOf powerOfTwo: Self) -> Self {
+        // Check that powerOfTwo really is.
+        precondition(powerOfTwo > 0 && powerOfTwo & (powerOfTwo &- 1) == 0)
+        // Round up and return. This may overflow and trap, but only if the rounded
+        // result would have overflowed anyway.
+        return (self + (powerOfTwo &- 1)) & (0 &- powerOfTwo)
+    }
+}
+
 extension Dimensions {
 
     // Ensures width and height are even numbers
     internal func toEncodeSafeDimensions() -> Dimensions {
-        Dimensions(width: max(encodeSafeSize, width % 2 == 0 ? width : width + 1),
-                   height: max(encodeSafeSize, height % 2 == 0 ? height : height + 1))
+        Dimensions(width: max(encodeSafeSize, width.roundUp(toMultipleOf: 4)),
+                   height: max(encodeSafeSize, height.roundUp(toMultipleOf: 4)))
+
     }
 
     internal static func * (a: Dimensions, b: Double) -> Dimensions {
         Dimensions(width: Int32((Double(a.width) * b).rounded()),
                    height: Int32((Double(a.height) * b).rounded()))
+    }
+
+    internal var isRenderSafe: Bool {
+        width >= renderSafeSize && height >= renderSafeSize
     }
 }
 
@@ -80,7 +96,7 @@ extension RTCVideoCapturerDelegate {
 
             let rtcBuffer: RTCCVPixelBuffer
 
-            if sourceDimensions != targetDimensions {
+            if sourceDimensions == targetDimensions {
                 // no adjustments required
                 rtcBuffer = RTCCVPixelBuffer(pixelBuffer: pixelBuffer)
             } else {

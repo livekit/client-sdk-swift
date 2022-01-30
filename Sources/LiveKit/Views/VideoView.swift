@@ -174,26 +174,22 @@ extension VideoView: RTCVideoRenderer {
     public func setSize(_ size: CGSize) {
 
         nativeRenderer.setSize(size)
-
-        guard let width = Int32(exactly: size.width),
-              let height = Int32(exactly: size.height) else {
-            // CGSize is used by WebRTC but this should always be an integer
-            log("Size width/height is not an integer", .warning)
-            return
-        }
-
-        DispatchQueue.main.async {
-            self.dimensions = Dimensions(width: width,
-                                         height: height)
-        }
     }
 
     public func renderFrame(_ frame: RTCVideoFrame?) {
 
-        // check if dimensions are safe to pass to renderer
-        if let frame = frame, (frame.width < renderSafeSize || frame.height < renderSafeSize) {
-            log("Skipping render for dimension \(frame.width)x\(frame.height)", .warning)
-            return
+        if let frame = frame {
+
+            let dimensions = Dimensions(width: frame.width,
+                                        height: frame.height)
+
+            // check if dimensions are safe to pass to renderer
+            guard dimensions.isRenderSafe else {
+                log("Skipping render for dimension \(dimensions)", .warning)
+                return
+            }
+
+            DispatchQueue.main.async { self.dimensions = dimensions }
         }
 
         nativeRenderer.renderFrame(frame)
