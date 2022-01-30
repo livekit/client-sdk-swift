@@ -120,7 +120,7 @@ public class MacOSScreenCapturer: VideoCapturer {
         guard let image = CGWindowListCreateImage(CGRect.null,
                                                   .optionIncludingWindow,
                                                   windowId, [.shouldBeOpaque,
-                                                             .nominalResolution,
+                                                             .bestResolution,
                                                              .boundsIgnoreFraming]),
               let pixelBuffer = image.toPixelBuffer(pixelFormatType: kCVPixelFormatType_32ARGB) else { return }
 
