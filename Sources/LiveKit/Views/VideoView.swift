@@ -186,15 +186,15 @@ extension VideoView: RTCVideoRenderer {
             }
 
             DispatchQueue.main.async { self.dimensions = dimensions }
+
+            // layout after first frame has been rendered
+            if !nativeRendererDidRenderFirstFrame {
+                nativeRendererDidRenderFirstFrame = true
+                DispatchQueue.main.async { self.markNeedsLayout() }
+            }
         }
 
         nativeRenderer.renderFrame(frame)
-
-        // layout after first frame has been rendered
-        if !nativeRendererDidRenderFirstFrame {
-            nativeRendererDidRenderFirstFrame = true
-            DispatchQueue.main.async { self.markNeedsLayout() }
-        }
     }
 }
 
