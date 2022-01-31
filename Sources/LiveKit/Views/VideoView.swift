@@ -114,29 +114,23 @@ public class VideoView: NativeView, Loggable {
             return
         }
 
-        if case .fill = mode {
-            // manual calculation for .fill
+        var size = frame.size
+        let wDim = CGFloat(dimensions.width)
+        let hDim = CGFloat(dimensions.height)
+        let wRatio = size.width / wDim
+        let hRatio = size.height / hDim
 
-            var size = frame.size
-            let widthRatio = size.width / CGFloat(dimensions.width)
-            let heightRatio = size.height / CGFloat(dimensions.height)
-
-            if heightRatio > widthRatio {
-                size.width = size.height / CGFloat(dimensions.height) * CGFloat(dimensions.width)
-            } else if widthRatio > heightRatio {
-                size.height = size.width / CGFloat(dimensions.width) * CGFloat(dimensions.height)
-            }
-
-            // center layout
-            nativeRenderer.frame = CGRect(x: -((size.width - frame.size.width) / 2),
-                                          y: -((size.height - frame.size.height) / 2),
-                                          width: size.width,
-                                          height: size.height)
-
-        } else {
-            // .fit
-            nativeRenderer.frame = bounds
+        if .fill == mode ? hRatio > wRatio : hRatio < wRatio {
+            size.width = size.height / hDim * wDim
+        } else if .fill == mode ? wRatio > hRatio : wRatio < hRatio {
+            size.height = size.width / wDim * hDim
         }
+
+        // center layout
+        nativeRenderer.frame = CGRect(x: -((size.width - frame.size.width) / 2),
+                                      y: -((size.height - frame.size.height) / 2),
+                                      width: size.width,
+                                      height: size.height)
     }
 
     private static let mirrorTransform = CGAffineTransform(scaleX: -1.0, y: 1.0)
