@@ -82,6 +82,8 @@ public class VideoView: NativeView, Loggable {
                 guard let track = track else { return }
                 delegate.track(track, didAttach: self)
             }
+            // if nil is set, clear out the renderer
+            if track == nil { renderFrame(nil) }
         }
     }
 
