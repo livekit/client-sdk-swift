@@ -5,7 +5,7 @@ import Promises
 public class RemoteTrackPublication: TrackPublication {
     // have we explicitly unsubscribed
     var unsubscribed: Bool = false
-    var enabled: Bool = true
+    public internal(set) var enabled: Bool = true
 
     private var metadataMuted: Bool = false
 
@@ -131,14 +131,44 @@ public class RemoteTrackPublication: TrackPublication {
     /// disable server from sending down data for this track
     ///
     /// this is useful when the participant is off screen, you may disable streaming down their video to reduce bandwidth requirements
+    @available(*, deprecated, message: "Use enable() or disable() instead.")
     public func setEnabled(_ enabled: Bool) {
-        self.enabled = enabled
-        guard let client = participant?.room.engine.signalClient else { return }
+        let promise = enabled ? enable() : disable()
+        promise.catch { error in
+            self.log("Failed to set enabled, error: \(error)", .error)
+        }
+    }
 
-        client.sendUpdateTrackSettings(sid: sid,
-                                       enabled: enabled).catch { error in
-                                        self.log("Failed to set enabled, error: \(error)", .error)
-                                       }
+    public func enable() -> Promise<Void> {
+
+        guard !enabled else {
+            // already enabled
+            return Promise(())
+        }
+
+        guard let client = participant?.room.engine.signalClient else {
+            return Promise(EngineError.state(message: "SignalClient is nil"))
+        }
+
+        return client.sendUpdateTrackSettings(sid: sid, enabled: true).then {
+            self.enabled = true
+        }
+    }
+
+    public func disable() -> Promise<Void> {
+
+        guard enabled else {
+            // already disabled
+            return Promise(())
+        }
+
+        guard let client = participant?.room.engine.signalClient else {
+            return Promise(EngineError.state(message: "SignalClient is nil"))
+        }
+
+        return client.sendUpdateTrackSettings(sid: sid, enabled: false).then {
+            self.enabled = false
+        }
     }
 
     #if LK_FEATURE_ADAPTIVESTREAM
