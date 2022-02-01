@@ -61,7 +61,7 @@ public class RemoteTrackPublication: TrackPublication {
 
     override init(info: Livekit_TrackInfo,
                   track: Track? = nil,
-                  participant: Participant? = nil) {
+                  participant: Participant) {
 
         super.init(info: info,
                    track: track,
@@ -117,7 +117,6 @@ public class RemoteTrackPublication: TrackPublication {
     /// subscribe or unsubscribe from this track
     public func setSubscribed(_ subscribed: Bool) {
         unsubscribed = !subscribed
-        guard let participant = participant else { return }
 
         participant.room.engine.signalClient.sendUpdateSubscription(
             participantSid: participant.sid,
@@ -146,10 +145,6 @@ public class RemoteTrackPublication: TrackPublication {
             return Promise(())
         }
 
-        guard let participant = participant else {
-            return Promise(EngineError.state(message: "Participant is nil"))
-        }
-
         return participant.room.engine.signalClient.sendUpdateTrackSettings(sid: sid, enabled: true).then {
             self.enabled = true
         }
@@ -160,10 +155,6 @@ public class RemoteTrackPublication: TrackPublication {
         guard enabled else {
             // already disabled
             return Promise(())
-        }
-
-        guard let participant = participant else {
-            return Promise(EngineError.state(message: "Participant is nil"))
         }
 
         return participant.room.engine.signalClient.sendUpdateTrackSettings(sid: sid, enabled: false).then {
@@ -216,7 +207,7 @@ extension RemoteTrackPublication {
 
     private func shouldComputeVideoViewVisibilities() {
 
-        let roomOptions = participant?.room.roomOptions ?? RoomOptions()
+        let roomOptions = participant.room.roomOptions ?? RoomOptions()
         guard roomOptions.adaptiveStream else {
             // adaptiveStream is turned off
             return
@@ -239,15 +230,11 @@ extension RemoteTrackPublication {
 
         func send(_ settings: VideoTrackSettings) -> Promise<Void> {
 
-            guard let client = participant?.room.engine.signalClient else {
-                return Promise(EngineError.state(message: "Participant is nil"))
-            }
-
             log("sendUpdateTrackSettings enabled: \(settings.enabled), viewSize: \(settings.size)")
-            return client.sendUpdateTrackSettings(sid: sid,
-                                                  enabled: settings.enabled,
-                                                  width: Int(ceil(settings.size.width)),
-                                                  height: Int(ceil(settings.size.height)))
+            return participant.room.engine.signalClient.sendUpdateTrackSettings(sid: sid,
+                                                                                enabled: settings.enabled,
+                                                                                width: Int(ceil(settings.size.width)),
+                                                                                height: Int(ceil(settings.size.height)))
         }
 
         // set internal enabled var

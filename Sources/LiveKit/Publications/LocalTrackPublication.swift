@@ -54,8 +54,6 @@ extension LocalTrackPublication {
         guard let track = track as? LocalVideoTrack,
               let sender = track.transceiver?.sender else { return }
 
-        guard let participant = participant else { return }
-
         log("Re-computing sender parameters...")
 
         // get current parameters
