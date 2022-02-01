@@ -4,10 +4,7 @@ import Promises
 
 internal class Engine: MulticastDelegate<EngineDelegate> {
 
-    // Reference to Room
-    public let room: Room
-
-    public let signalClient: SignalClient
+    internal let signalClient: SignalClient
 
     private(set) var hasPublished: Bool = false
     private(set) var publisher: Transport?
@@ -24,6 +21,7 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
 
     internal var url: String?
     internal var token: String?
+    internal var connectOptions: ConnectOptions?
 
     public private(set) var connectionState: ConnectionState = .disconnected(reason: .sdk) {
         // automatically notify changes
@@ -34,16 +32,10 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
         }
     }
 
-    public init(room: Room,
-                signalClient: SignalClient = SignalClient()) {
+    public init(signalClient: SignalClient = SignalClient()) {
 
-        self.room = room
         self.signalClient = signalClient
         super.init()
-
-        // Room
-        add(delegate: room)
-        signalClient.add(delegate: room)
 
         // Self
         signalClient.add(delegate: self)
@@ -114,7 +106,7 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
         return joinPromises.listen.then(on: .sdk) {
             self.signalClient.connect(url,
                                       token,
-                                      connectOptions: self.room.connectOptions)
+                                      connectOptions: self.connectOptions)
         }.then(on: .sdk) {
             joinPromises.wait
         }.then(on: .sdk) { jr in
@@ -188,7 +180,7 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
             return checkShouldContinue().then(on: .sdk) {
                 self.signalClient.connect(url,
                                           token,
-                                          connectOptions: self.room.connectOptions,
+                                          connectOptions: self.connectOptions,
                                           connectMode: .reconnect(.quick))
             }.then(on: .sdk) {
                 checkShouldContinue()
@@ -624,7 +616,7 @@ extension Engine: TransportDelegate {
         subscriberPrimary = joinResponse.subscriberPrimary
 
         // create publisher and subscribers
-        let connectOptions = room.connectOptions ?? ConnectOptions()
+        let connectOptions = self.connectOptions ?? ConnectOptions()
 
         // update iceServers from joinResponse
         connectOptions.rtcConfiguration.update(iceServers: joinResponse.iceServers)
