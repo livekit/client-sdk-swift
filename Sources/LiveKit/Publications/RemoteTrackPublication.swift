@@ -168,18 +168,6 @@ public class RemoteTrackPublication: TrackPublication {
         return send(trackSettings: trackSettings.copyWith(enabled: false))
     }
 
-    internal func send(trackSettings: TrackSettings) -> Promise<Void> {
-
-        guard self.trackSettings != trackSettings else {
-            // no-updated
-            return Promise(())
-        }
-
-        return participant.room.engine.signalClient.sendUpdateTrackSettings(sid: sid, settings: trackSettings).then {
-            self.trackSettings = trackSettings
-        }
-    }
-
     #if LK_FEATURE_ADAPTIVESTREAM
 
     // MARK: - TrackDelegate
@@ -271,16 +259,28 @@ public enum SubscriptionStatus {
     case unsubscribed
 }
 
-// MARK: - Video Optimization related structs
-#if LK_FEATURE_ADAPTIVESTREAM
-struct VideoViewVisibility {
-    let visible: Bool
-    let size: CGSize
-}
-#endif
-
-
 // MARK: - TrackSettings
+
+extension RemoteTrackPublication {
+
+    // Simply send current track settings without any checks
+    internal func sendCurrentTrackSettings() -> Promise<Void> {
+        participant.room.engine.signalClient.sendUpdateTrackSettings(sid: sid, settings: self.trackSettings)
+    }
+
+    // Send new track settings
+    internal func send(trackSettings: TrackSettings) -> Promise<Void> {
+
+        guard self.trackSettings != trackSettings else {
+            // no-updated
+            return Promise(())
+        }
+
+        return participant.room.engine.signalClient.sendUpdateTrackSettings(sid: sid, settings: trackSettings).then {
+            self.trackSettings = trackSettings
+        }
+    }
+}
 
 internal class TrackSettings {
     let enabled: Bool
@@ -305,13 +305,20 @@ extension TrackSettings: Equatable {
 }
 
 extension TrackSettings: CustomStringConvertible {
-    
+
     var description: String {
         "TrackSettings(enabled: \(enabled), dimensions: \(dimensions)"
     }
 }
 
+// MARK: - Adaptive Stream
+
 #if LK_FEATURE_ADAPTIVESTREAM
+
+struct VideoViewVisibility {
+    let visible: Bool
+    let size: CGSize
+}
 
 extension Sequence where Element == VideoViewVisibility {
 
