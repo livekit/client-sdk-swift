@@ -278,7 +278,10 @@ struct VideoViewVisibility {
 }
 #endif
 
-class TrackSettings {
+
+// MARK: - TrackSettings
+
+internal class TrackSettings {
     let enabled: Bool
     let dimensions: Dimensions
 
@@ -293,12 +296,17 @@ class TrackSettings {
     }
 }
 
-// MARK: - Video Optimization related extensions
-
 extension TrackSettings: Equatable {
 
     static func == (lhs: TrackSettings, rhs: TrackSettings) -> Bool {
         lhs.enabled == rhs.enabled && lhs.dimensions == rhs.dimensions
+    }
+}
+
+extension TrackSettings: CustomStringConvertible {
+    
+    var description: String {
+        "TrackSettings(enabled: \(enabled), dimensions: \(dimensions)"
     }
 }
 
