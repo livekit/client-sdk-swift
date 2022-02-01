@@ -146,11 +146,11 @@ public class RemoteTrackPublication: TrackPublication {
             return Promise(())
         }
 
-        guard let client = participant?.room.engine.signalClient else {
-            return Promise(EngineError.state(message: "SignalClient is nil"))
+        guard let participant = participant else {
+            return Promise(EngineError.state(message: "Participant is nil"))
         }
 
-        return client.sendUpdateTrackSettings(sid: sid, enabled: true).then {
+        return participant.room.engine.signalClient.sendUpdateTrackSettings(sid: sid, enabled: true).then {
             self.enabled = true
         }
     }
@@ -162,11 +162,11 @@ public class RemoteTrackPublication: TrackPublication {
             return Promise(())
         }
 
-        guard let client = participant?.room.engine.signalClient else {
-            return Promise(EngineError.state(message: "SignalClient is nil"))
+        guard let participant = participant else {
+            return Promise(EngineError.state(message: "Participant is nil"))
         }
 
-        return client.sendUpdateTrackSettings(sid: sid, enabled: false).then {
+        return participant.room.engine.signalClient.sendUpdateTrackSettings(sid: sid, enabled: false).then {
             self.enabled = false
         }
     }
