@@ -32,13 +32,18 @@ extension MacOSScreenCapturer {
     }
 
     // gets a list of window IDs
-    public static func windowIDs() -> [CGWindowID] {
+    public static func windowIDs(includeCurrentProcess: Bool = false) -> [CGWindowID] {
+
+        let currentPID = ProcessInfo.processInfo.processIdentifier
 
         let list = CGWindowListCopyWindowInfo([.optionOnScreenOnly,
                                                .excludeDesktopElements ], kCGNullWindowID)! as Array
 
         return list
-            .filter { ($0.object(forKey: kCGWindowLayer) as! NSNumber).intValue == 0 }
+            .filter {
+                ($0.object(forKey: kCGWindowLayer) as! NSNumber).intValue == 0 &&
+                    (includeCurrentProcess ? true : ($0.object(forKey: kCGWindowOwnerPID) as! NSNumber).intValue != currentPID)
+            }
             .map { $0.object(forKey: kCGWindowNumber) as! NSNumber }.compactMap { $0.uint32Value }
     }
 
