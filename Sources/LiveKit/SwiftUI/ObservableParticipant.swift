@@ -85,6 +85,14 @@ open class ObservableParticipant: ObservableObject {
 
     public let participant: Participant
 
+    public var asLocal: LocalParticipant? {
+        participant as? LocalParticipant
+    }
+
+    public var asRemote: RemoteParticipant? {
+        participant as? RemoteParticipant
+    }
+
     public var firstCameraPublication: TrackPublication? {
         participant.videoTracks.values.first(where: { $0.source == .camera })
     }
