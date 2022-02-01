@@ -14,6 +14,27 @@ public typealias NativeRendererView = NativeViewType & RTCVideoRenderer
 
 public class VideoView: NativeView, Loggable {
 
+    /// A set of bool values describing the state of rendering.
+    public struct RenderState: OptionSet {
+        public let rawValue: Int
+        public init(rawValue: Int) {
+            self.rawValue = rawValue
+        }
+
+        /// Received first frame and already rendered to the ``VideoView``.
+        /// This can be used to trigger smooth transition of the UI.
+        static let didRenderFirstFrame  = RenderState(rawValue: 1 << 0)
+        /// ``VideoView`` skipped rendering of a frame that could lead to crashes.
+        static let didSkipUnsafeFrame   = RenderState(rawValue: 1 << 1)
+    }
+
+    public internal(set) var renderState = RenderState() {
+        didSet {
+            guard oldValue != renderState else { return }
+            track?.notify { $0.track(self.track!, videoView: self, didUpdate: self.renderState) }
+        }
+    }
+
     public enum Mode: String, Codable, CaseIterable {
         case fit
         case fill
@@ -88,7 +109,6 @@ public class VideoView: NativeView, Loggable {
     }
 
     internal var nativeRenderer: NativeRendererView
-    internal var nativeRendererDidRenderFirstFrame: Bool = false
 
     init(frame: CGRect = .zero, preferMetal: Bool = true) {
         self.viewSize = frame.size
@@ -153,7 +173,8 @@ public class VideoView: NativeView, Loggable {
         self.track = nil
         // Remove the renderer view
         nativeRenderer.removeFromSuperview()
-        nativeRendererDidRenderFirstFrame = false
+        // Clear the renderState
+        renderState = []
         // Re-create renderer view
         nativeRenderer = VideoView.createNativeRendererView(preferMetal: preferMetal)
         addSubview(nativeRenderer)
@@ -182,19 +203,22 @@ extension VideoView: RTCVideoRenderer {
             // check if dimensions are safe to pass to renderer
             guard dimensions.isRenderSafe else {
                 log("Skipping render for dimension \(dimensions)", .warning)
+                renderState.insert(.didSkipUnsafeFrame)
                 return
             }
 
             DispatchQueue.main.async { self.dimensions = dimensions }
 
             // layout after first frame has been rendered
-            if !nativeRendererDidRenderFirstFrame {
-                nativeRendererDidRenderFirstFrame = true
+            if !renderState.contains(.didRenderFirstFrame) {
+                renderState.insert(.didRenderFirstFrame)
+                log("Did render first frame")
                 DispatchQueue.main.async { self.markNeedsLayout() }
             }
         }
 
         nativeRenderer.renderFrame(frame)
+        renderState.remove(.didSkipUnsafeFrame)
     }
 }
 
