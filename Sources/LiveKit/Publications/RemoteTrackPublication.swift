@@ -16,6 +16,7 @@ public class RemoteTrackPublication: TrackPublication {
         didSet {
             guard oldValue != trackSettings else { return }
             log("did update trackSettings: \(trackSettings)")
+            // TODO: emit event when trackSettings has been updated by adaptiveStream.
         }
     }
 
