@@ -603,56 +603,54 @@ extension Engine: TransportDelegate {
         }
     }
 
-    private func configureTransports(joinResponse: Livekit_JoinResponse) {
+    private func configureTransports(joinResponse: Livekit_JoinResponse) -> Promise<Void> {
 
-        guard subscriber == nil, publisher == nil else {
-            log("transports already configured")
-            return
-        }
+        Promise<Void> { () -> Void in
 
-        log("configuring transports...")
+            self.log("configuring transports...")
 
-        // protocol v3
-        subscriberPrimary = joinResponse.subscriberPrimary
+            guard self.subscriber == nil, self.publisher == nil else {
+                self.log("transports already configured")
+                return
+            }
 
-        // create publisher and subscribers
-        let connectOptions = self.connectOptions ?? ConnectOptions()
+            // protocol v3
+            self.subscriberPrimary = joinResponse.subscriberPrimary
 
-        // update iceServers from joinResponse
-        connectOptions.rtcConfiguration.update(iceServers: joinResponse.iceServers)
+            // create publisher and subscribers
+            let connectOptions = self.connectOptions ?? ConnectOptions()
 
-        do {
-            subscriber = try Transport(config: connectOptions.rtcConfiguration,
-                                       target: .subscriber,
-                                       primary: subscriberPrimary,
-                                       delegate: self)
+            // update iceServers from joinResponse
+            connectOptions.rtcConfiguration.update(iceServers: joinResponse.iceServers)
 
-            publisher = try Transport(config: connectOptions.rtcConfiguration,
-                                      target: .publisher,
-                                      primary: !subscriberPrimary,
-                                      delegate: self)
+            self.subscriber = try Transport(config: connectOptions.rtcConfiguration,
+                                            target: .subscriber,
+                                            primary: self.subscriberPrimary,
+                                            delegate: self)
 
-            publisher?.onOffer = { offer in
+            self.publisher = try Transport(config: connectOptions.rtcConfiguration,
+                                           target: .publisher,
+                                           primary: !self.subscriberPrimary,
+                                           delegate: self)
+
+            self.publisher?.onOffer = { offer in
                 self.log("publisher onOffer")
                 return self.signalClient.sendOffer(offer: offer)
             }
 
             // data over pub channel for backwards compatibility
-            dcReliablePub = publisher?.dataChannel(for: RTCDataChannel.labels.reliable,
-                                                   configuration: Engine.createDataChannelConfiguration(),
-                                                   delegate: self)
+            self.dcReliablePub = self.publisher?.dataChannel(for: RTCDataChannel.labels.reliable,
+                                                             configuration: Engine.createDataChannelConfiguration(),
+                                                             delegate: self)
 
-            dcLossyPub = publisher?.dataChannel(for: RTCDataChannel.labels.lossy,
-                                                configuration: Engine.createDataChannelConfiguration(maxRetransmits: 0),
-                                                delegate: self)
+            self.dcLossyPub = self.publisher?.dataChannel(for: RTCDataChannel.labels.lossy,
+                                                          configuration: Engine.createDataChannelConfiguration(maxRetransmits: 0),
+                                                          delegate: self)
 
-        } catch {
-            //
-        }
-
-        if !subscriberPrimary {
-            // lazy negotiation for protocol v3+
-            publisherShouldNegotiate()
+            if !self.subscriberPrimary {
+                // lazy negotiation for protocol v3+
+                self.publisherShouldNegotiate()
+            }
         }
     }
 
