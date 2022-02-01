@@ -7,13 +7,13 @@ public typealias Dimensions = CMVideoDimensions
 extension Dimensions {
     public static let aspectRatio169 = 16.0 / 9.0
     public static let aspectRatio43 = 4.0 / 3.0
+    public static let zero = Dimensions(width: 0, height: 0)
 }
 
 extension Dimensions: Equatable {
 
     public static func == (lhs: Dimensions, rhs: Dimensions) -> Bool {
-        lhs.width == rhs.width &&
-            lhs.height == rhs.height
+        lhs.width == rhs.width && lhs.height == rhs.height
     }
 }
 
