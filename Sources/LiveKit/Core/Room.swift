@@ -221,6 +221,19 @@ extension Room {
 
 extension Room {
 
+    internal func sendTrackSettings() -> Promise<Void> {
+        log()
+
+        let promises = remoteParticipants.values.map {
+            $0.tracks.values
+                .compactMap { $0 as? RemoteTrackPublication }
+                .filter { $0.subscribed }
+                .map { $0.sendCurrentTrackSettings() }
+        }.joined()
+
+        return all(promises).then { _ in }
+    }
+
     internal func sendSyncState() -> Promise<Void> {
 
         guard let subscriber = engine.subscriber,
@@ -407,6 +420,13 @@ extension Room: EngineDelegate {
             }
 
             cleanUp(reason: reason)
+        }
+
+        if connectionState.didReconnect {
+            // Re-send track settings on a reconnect
+            sendTrackSettings().catch { error in
+                self.log("Failed to sendTrackSettings, error: \(error)", .error)
+            }
         }
 
         notify { $0.room(self, didUpdate: connectionState) }

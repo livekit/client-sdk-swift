@@ -5,15 +5,25 @@ import Promises
 public class RemoteTrackPublication: TrackPublication {
     // have we explicitly unsubscribed
     var unsubscribed: Bool = false
-    public internal(set) var enabled: Bool = true
+
+    public var enabled: Bool {
+        trackSettings.enabled
+    }
 
     private var metadataMuted: Bool = false
+
+    private var trackSettings = TrackSettings() {
+        didSet {
+            guard oldValue != trackSettings else { return }
+            log("did update trackSettings: \(trackSettings)")
+            // TODO: emit event when trackSettings has been updated by adaptiveStream.
+        }
+    }
 
     #if LK_FEATURE_ADAPTIVESTREAM
     private var videoViewVisibilities = [Int: VideoViewVisibility]()
     private weak var pendingDebounceFunc: DispatchWorkItem?
     private var debouncedRecomputeVideoViewVisibilities: DebouncFunc?
-    private var lastSentVideoTrackSettings: VideoTrackSettings?
     #endif
 
     public internal(set) var streamState: StreamState = .paused {
@@ -145,9 +155,7 @@ public class RemoteTrackPublication: TrackPublication {
             return Promise(())
         }
 
-        return participant.room.engine.signalClient.sendUpdateTrackSettings(sid: sid, enabled: true).then {
-            self.enabled = true
-        }
+        return send(trackSettings: trackSettings.copyWith(enabled: true))
     }
 
     public func disable() -> Promise<Void> {
@@ -157,9 +165,7 @@ public class RemoteTrackPublication: TrackPublication {
             return Promise(())
         }
 
-        return participant.room.engine.signalClient.sendUpdateTrackSettings(sid: sid, enabled: false).then {
-            self.enabled = false
-        }
+        return send(trackSettings: trackSettings.copyWith(enabled: false))
     }
 
     #if LK_FEATURE_ADAPTIVESTREAM
@@ -214,9 +220,7 @@ extension RemoteTrackPublication {
         }
 
         // decide whether to debounce or immediately compute video view visibilities
-        if let settings = lastSentVideoTrackSettings,
-           settings.enabled == false,
-           hasVisibleVideoViews() {
+        if trackSettings.enabled == false, hasVisibleVideoViews() {
             // immediately compute (quick enable)
             log("Attempting quick enable (no deboucne)")
             pendingDebounceFunc?.cancel()
@@ -228,32 +232,23 @@ extension RemoteTrackPublication {
 
     private func recomputeVideoViewVisibilities() {
 
-        func send(_ settings: VideoTrackSettings) -> Promise<Void> {
-
-            log("sendUpdateTrackSettings enabled: \(settings.enabled), viewSize: \(settings.size)")
-            return participant.room.engine.signalClient.sendUpdateTrackSettings(sid: sid,
-                                                                                enabled: settings.enabled,
-                                                                                width: Int(ceil(settings.size.width)),
-                                                                                height: Int(ceil(settings.size.height)))
-        }
-
         // set internal enabled var
-        enabled = hasVisibleVideoViews()
-        var size: CGSize = .zero
+        let enabled = hasVisibleVideoViews()
+        var dimensions: Dimensions = .zero
 
         // compute the largest video view size
         if enabled, let maxSize = videoViewVisibilities.values.largestVideoViewSize() {
-            size = maxSize
+            dimensions = Dimensions(width: Int32(ceil(maxSize.width)),
+                                    height: Int32(ceil(maxSize.height)))
         }
 
-        let videoSettings = VideoTrackSettings(enabled: enabled, size: size)
-        // only send if different from previously sent settings
-        if videoSettings != lastSentVideoTrackSettings {
-            lastSentVideoTrackSettings = videoSettings
-            send(videoSettings).catch { error in
-                self.log("Failed to send track settings, error: \(error)", .error)
-            }
+        let newSettings = TrackSettings(enabled: enabled,
+                                        dimensions: dimensions)
+
+        send(trackSettings: newSettings).catch { error in
+            self.log("Failed to send track settings, error: \(error)", .error)
         }
+
     }
 }
 #endif
@@ -264,30 +259,66 @@ public enum SubscriptionStatus {
     case unsubscribed
 }
 
-// MARK: - Video Optimization related structs
+// MARK: - TrackSettings
+
+extension RemoteTrackPublication {
+
+    // Simply send current track settings without any checks
+    internal func sendCurrentTrackSettings() -> Promise<Void> {
+        participant.room.engine.signalClient.sendUpdateTrackSettings(sid: sid, settings: self.trackSettings)
+    }
+
+    // Send new track settings
+    internal func send(trackSettings: TrackSettings) -> Promise<Void> {
+
+        guard self.trackSettings != trackSettings else {
+            // no-updated
+            return Promise(())
+        }
+
+        return participant.room.engine.signalClient.sendUpdateTrackSettings(sid: sid, settings: trackSettings).then {
+            self.trackSettings = trackSettings
+        }
+    }
+}
+
+internal class TrackSettings {
+    let enabled: Bool
+    let dimensions: Dimensions
+
+    init(enabled: Bool = true, dimensions: Dimensions = Dimensions(width: 0, height: 0)) {
+        self.enabled = enabled
+        self.dimensions = dimensions
+    }
+
+    func copyWith(enabled: Bool? = nil, dimensions: Dimensions? = nil) -> TrackSettings {
+        TrackSettings(enabled: enabled ?? self.enabled,
+                      dimensions: dimensions ?? self.dimensions)
+    }
+}
+
+extension TrackSettings: Equatable {
+
+    static func == (lhs: TrackSettings, rhs: TrackSettings) -> Bool {
+        lhs.enabled == rhs.enabled && lhs.dimensions == rhs.dimensions
+    }
+}
+
+extension TrackSettings: CustomStringConvertible {
+
+    var description: String {
+        "TrackSettings(enabled: \(enabled), dimensions: \(dimensions)"
+    }
+}
+
+// MARK: - Adaptive Stream
+
 #if LK_FEATURE_ADAPTIVESTREAM
+
 struct VideoViewVisibility {
     let visible: Bool
     let size: CGSize
 }
-#endif
-
-struct VideoTrackSettings {
-    let enabled: Bool
-    let size: CGSize
-}
-
-// MARK: - Video Optimization related extensions
-
-extension VideoTrackSettings: Equatable {
-
-    static func == (lhs: Self, rhs: Self) -> Bool {
-        lhs.enabled == rhs.enabled &&
-            lhs.size == rhs.size
-    }
-}
-
-#if LK_FEATURE_ADAPTIVESTREAM
 
 extension Sequence where Element == VideoViewVisibility {
 
