@@ -57,7 +57,7 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
                 .compactMap { $0 }
                 .map { dc in Promise<Void>(on: .webRTC) { dc.close() } }
 
-            return all(on: .sdk, promises).then(on: .sdk) { (_) -> Void in
+            return promises.all(on: .sdk).then(on: .sdk) {
                 self.dcReliablePub = nil
                 self.dcLossyPub = nil
                 self.dcReliableSub = nil
@@ -71,7 +71,7 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
                 .compactMap { $0 }
                 .map { $0.close() }
 
-            return all(on: .sdk, promises).then(on: .sdk) { (_) -> Void in
+            return promises.all(on: .sdk).then(on: .sdk) {
                 self.publisher = nil
                 self.subscriber = nil
             }
@@ -320,7 +320,7 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
 
             let waitTransport = waitFor(transport: publisher, state: .connected)
             let waitDC = waitForPublisherDataChannelOpen(reliability: reliability)
-            let listenBoth = all(on: .sdk, [waitTransport.listen, waitDC.listen])
+            let listenBoth = [waitTransport.listen, waitDC.listen].all(on: .sdk)
 
             return listenBoth.then(on: .sdk) { _ in
                 waitTransport.wait

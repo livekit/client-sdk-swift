@@ -61,7 +61,7 @@ public class Room: MulticastDelegate<RoomDelegate> {
                 .compactMap { $0 }
                 .map { $0.stop() }
 
-            return all(on: .sdk, stopPromises).then(on: .sdk) { _ in }
+            return stopPromises.all(on: .sdk)
         }
 
         return engine.cleanUp(reason: reason).then(on: .sdk) {
@@ -121,7 +121,7 @@ public class Room: MulticastDelegate<RoomDelegate> {
             .compactMap { $0 as? RemoteTrackPublication }
             .map { participant.unpublish(publication: $0) }
 
-        return all(on: .sdk, promises).then(on: .sdk) { (_) -> Void in
+        return promises.all(on: .sdk).then(on: .sdk) {
             self.notify { $0.room(self, participantDidLeave: participant) }
         }
     }
@@ -229,7 +229,7 @@ extension Room {
 
         let tracks = localParticipant.tracks.values.map { $0.track }.compactMap { $0 }
 
-        return localParticipant.unpublishAll().then { () -> Promise<Void> in
+        return localParticipant.unpublishAll().then(on: .sdk) { () -> Promise<Void> in
 
             let promises = tracks.map { track -> Promise<LocalTrackPublication>? in
                 if let videoTrack = track as? LocalVideoTrack {
@@ -243,7 +243,7 @@ extension Room {
                 }
             }.compactMap { $0 }
 
-            return all(promises).then { _ in }
+            return all(on: .sdk, promises).then(on: .sdk) { _ in }
         }
     }
 
@@ -257,7 +257,7 @@ extension Room {
                 .map { $0.sendCurrentTrackSettings() }
         }.joined()
 
-        return all(promises).then { _ in }
+        return promises.all(on: .sdk)
     }
 
     internal func sendSyncState() -> Promise<Void> {

@@ -55,7 +55,9 @@ public class RemoteParticipant: Participant {
             .map { unpublish(publication: $0) }
 
         // TODO: Return a promise
-        _ = all(on: .sdk, unpublishPromises)
+        unpublishPromises.all(on: .sdk).catch { error in
+            self.log("Failed to unpublish with error: \(error)")
+        }
     }
 
     func addSubscribedMediaTrack(rtcTrack: RTCMediaStreamTrack, sid: String) -> Promise<Void> {

@@ -276,7 +276,7 @@ extension RemoteTrackPublication {
             return Promise(())
         }
 
-        return participant.room.engine.signalClient.sendUpdateTrackSettings(sid: sid, settings: trackSettings).then {
+        return participant.room.engine.signalClient.sendUpdateTrackSettings(sid: sid, settings: trackSettings).then(on: .sdk) {
             self.trackSettings = trackSettings
         }
     }

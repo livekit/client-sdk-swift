@@ -85,8 +85,8 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
     public func setRemoteDescription(_ sd: RTCSessionDescription) -> Promise<Void> {
 
         self.setRemoteDescriptionPromise(sd).then(on: .sdk) { _ in
-            all(on: .sdk, self.pendingCandidates.map { self.addIceCandidatePromise($0) })
-        }.then(on: .sdk) { _ in
+            self.pendingCandidates.map { self.addIceCandidatePromise($0) }.all(on: .sdk)
+        }.then(on: .sdk) { () -> Promise<Void> in
 
             self.pendingCandidates.removeAll()
             self.restartingIce = false
