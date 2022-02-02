@@ -281,9 +281,6 @@ extension Room: SignalClientDelegate {
             sendSyncState().catch { error in
                 self.log("Failed to sendSyncState, error: \(error)", .error)
             }
-            sendTrackSettings().catch { error in
-                self.log("Failed to sendTrackSettings, error: \(error)", .error)
-            }
         }
 
         return true
@@ -423,6 +420,13 @@ extension Room: EngineDelegate {
             }
 
             cleanUp(reason: reason)
+        }
+
+        if connectionState.didReconnect {
+            // Re-send track settings on a reconnect
+            sendTrackSettings().catch { error in
+                self.log("Failed to sendTrackSettings, error: \(error)", .error)
+            }
         }
 
         notify { $0.room(self, didUpdate: connectionState) }
