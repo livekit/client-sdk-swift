@@ -179,12 +179,12 @@ public class LocalParticipant: Participant {
             }
     }
 
-    public func unpublishAll(shouldNotify: Bool = true) -> Promise<[Void]> {
+    public func unpublishAll(shouldNotify: Bool = true) -> Promise<Void> {
         // build a list of promises
         let promises = tracks.values.compactMap { $0 as? LocalTrackPublication }
             .map { unpublish(publication: $0, shouldNotify: shouldNotify) }
         // combine promises to wait all to complete
-        return all(on: .sdk, promises)
+        return all(on: .sdk, promises).then { _ in }
     }
 
     /// unpublish an existing published track
