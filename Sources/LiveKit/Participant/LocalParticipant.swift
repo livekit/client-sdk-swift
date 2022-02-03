@@ -21,38 +21,95 @@ public class LocalParticipant: Participant {
         return tracks[sid] as? LocalTrackPublication
     }
 
-    /// publish a new audio track to the Room
-    public func publishAudioTrack(track: LocalAudioTrack,
-                                  publishOptions: AudioPublishOptions? = nil) -> Promise<LocalTrackPublication> {
+    internal func publish(track: LocalTrack,
+                          publishOptions: PublishOptions? = nil) -> Promise<LocalTrackPublication> {
 
         guard let publisher = room.engine.publisher else {
             return Promise(EngineError.state(message: "publisher is null"))
         }
 
-        let publishOptions = publishOptions ?? room.roomOptions?.defaultAudioPublishOptions
-
-        if localAudioTrackPublications.first(where: { $0.track === track }) != nil {
+        guard tracks.values.first(where: { $0.track === track }) == nil else {
             return Promise(TrackError.publish(message: "This track has already been published."))
         }
 
-        let cid = track.mediaTrack.trackId
+        guard track is LocalVideoTrack || track is LocalAudioTrack else {
+            return Promise(TrackError.publish(message: "Unknown LocalTrack type"))
+        }
+
+        let videoLayers: [Livekit_VideoLayer]
 
         let transInit = DispatchQueue.webRTC.sync { RTCRtpTransceiverInit() }
         transInit.direction = .sendOnly
 
+        if let track = track as? LocalVideoTrack {
+
+            let publishOptions = (publishOptions as? VideoPublishOptions) ?? room.roomOptions?.defaultVideoPublishOptions
+
+            #if LK_COMPUTE_VIDEO_SENDER_PARAMETERS
+
+            let encodings = Utils.computeEncodings(dimensions: track.capturer.dimensions,
+                                                   publishOptions: publishOptions)
+
+            if let encodings = encodings {
+                log("using encodings \(encodings)")
+                transInit.sendEncodings = encodings
+            }
+
+            videoLayers = Utils.videoLayersForEncodings(dimensions: track.capturer.dimensions,
+                                                        encodings: encodings)
+            #else
+            transInit.sendEncodings = [
+                Engine.createRtpEncodingParameters(rid: "f"),
+                Engine.createRtpEncodingParameters(rid: "h"),
+                Engine.createRtpEncodingParameters(rid: "q")
+            ]
+            #endif
+        } else {
+            videoLayers = []
+        }
+
+        // try to start the track
         return track.start()
             .recover { (error) -> Void in
                 self.log("Failed to start track with error \(error)", .warning)
                 // start() will fail if it's already started.
                 // but for this case we will allow it, throw for any other error.
                 guard case TrackError.state = error else { throw error }
-            }.then(on: .sdk) {
+            }.then(on: .sdk) { () -> Promise<Livekit_TrackInfo> in
                 // request a new track to the server
-                self.room.engine.addTrack(cid: cid,
+                self.room.engine.addTrack(cid: track.mediaTrack.trackId,
                                           name: track.name,
-                                          kind: .audio,
+                                          kind: track.kind.toPBType(),
                                           source: track.source.toPBType()) {
-                    $0.disableDtx = !(publishOptions?.dtx ?? true)
+
+                    if let track = track as? LocalVideoTrack {
+                        // additional params for Video
+
+                        // depending on the capturer, dimensions may not be available at this point
+                        if let dimensions = track.capturer.dimensions {
+                            $0.width = UInt32(dimensions.width)
+                            $0.height = UInt32(dimensions.height)
+                        }
+                        #if LK_COMPUTE_VIDEO_SENDER_PARAMETERS
+                        $0.layers = videoLayers
+                        #else
+                        // set a single layer if compute sender parameters is off
+                        $0.layers = [
+                            Livekit_VideoLayer.with({
+                                if let dimensions = track.capturer.dimensions {
+                                    $0.width = UInt32(dimensions.width)
+                                    $0.height = UInt32(dimensions.height)
+                                }
+                                $0.quality = Livekit_VideoQuality.high
+                                $0.bitrate = 0
+                            })
+                        ]
+                        #endif
+                    } else if track is LocalAudioTrack {
+                        // additional params for Audio
+                        let publishOptions = (publishOptions as? AudioPublishOptions) ?? self.room.roomOptions?.defaultAudioPublishOptions
+                        $0.disableDtx = !(publishOptions?.dtx ?? true)
+                    }
                 }
             }.then(on: .sdk) { (trackInfo) -> Promise<(RTCRtpTransceiver, Livekit_TrackInfo)> in
                 // add transceiver to pc
@@ -80,103 +137,18 @@ public class LocalParticipant: Participant {
             }
     }
 
+    /// publish a new audio track to the Room
+    public func publishAudioTrack(track: LocalAudioTrack,
+                                  publishOptions: AudioPublishOptions? = nil) -> Promise<LocalTrackPublication> {
+
+        publish(track: track, publishOptions: publishOptions)
+    }
+
     /// publish a new video track to the Room
     public func publishVideoTrack(track: LocalVideoTrack,
                                   publishOptions: VideoPublishOptions? = nil) -> Promise<LocalTrackPublication> {
 
-        guard let publisher = room.engine.publisher else {
-            return Promise(EngineError.state(message: "publisher is null"))
-        }
-
-        let publishOptions = publishOptions ?? room.roomOptions?.defaultVideoPublishOptions
-
-        if localVideoTrackPublications.first(where: { $0.track === track }) != nil {
-            return Promise(TrackError.publish(message: "This track has already been published."))
-        }
-
-        let cid = track.mediaTrack.trackId
-
-        let transInit = DispatchQueue.webRTC.sync { RTCRtpTransceiverInit() }
-        transInit.direction = .sendOnly
-
-        #if LK_COMPUTE_VIDEO_SENDER_PARAMETERS
-
-        let encodings = Utils.computeEncodings(dimensions: track.capturer.dimensions,
-                                               publishOptions: publishOptions)
-
-        if let encodings = encodings {
-            log("using encodings \(encodings)")
-            transInit.sendEncodings = encodings
-        }
-
-        let layers = Utils.videoLayersForEncodings(dimensions: track.capturer.dimensions,
-                                                   encodings: encodings)
-        #else
-        transInit.sendEncodings = [
-            Engine.createRtpEncodingParameters(rid: "f"),
-            Engine.createRtpEncodingParameters(rid: "h"),
-            Engine.createRtpEncodingParameters(rid: "q")
-        ]
-        #endif
-
-        // try to start the track
-        return track.start()
-            .recover { (error) -> Void in
-                self.log("Failed to start track with error \(error)", .warning)
-                // start() will fail if it's already started.
-                // but for this case we will allow it, throw for any other error.
-                guard case TrackError.state = error else { throw error }
-            }.then(on: .sdk) { () -> Promise<Livekit_TrackInfo> in
-                // request a new track to the server
-                self.room.engine.addTrack(cid: cid,
-                                          name: track.name,
-                                          kind: .video,
-                                          source: track.source.toPBType()) {
-                    // depending on the capturer, dimensions may not be available at this point
-                    if let dimensions = track.capturer.dimensions {
-                        $0.width = UInt32(dimensions.width)
-                        $0.height = UInt32(dimensions.height)
-                    }
-                    #if LK_COMPUTE_VIDEO_SENDER_PARAMETERS
-                    $0.layers = layers
-                    #else
-                    // set a single layer if compute sender parameters is off
-                    $0.layers = [
-                        Livekit_VideoLayer.with({
-                            if let dimensions = track.capturer.dimensions {
-                                $0.width = UInt32(dimensions.width)
-                                $0.height = UInt32(dimensions.height)
-                            }
-                            $0.quality = Livekit_VideoQuality.high
-                            $0.bitrate = 0
-                        })
-                    ]
-                    #endif
-                }
-            }.then(on: .sdk) { (trackInfo) -> Promise<(RTCRtpTransceiver, Livekit_TrackInfo)> in
-                // add transceiver to pc
-                publisher.addTransceiver(with: track.mediaTrack,
-                                         transceiverInit: transInit).then(on: .sdk) { transceiver in
-                                            // pass down trackInfo and created transceiver
-                                            (transceiver, trackInfo)
-                                         }
-            }.then(on: .sdk) { (transceiver, trackInfo) -> LocalTrackPublication in
-
-                // store publishOptions used for this track
-                track.publishOptions = publishOptions
-                track.transceiver = transceiver
-
-                self.room.engine.publisherShouldNegotiate()
-
-                let publication = LocalTrackPublication(info: trackInfo, track: track, participant: self)
-                self.addTrack(publication: publication)
-
-                // notify didPublish
-                self.notify { $0.localParticipant(self, didPublish: publication) }
-                self.room.notify { $0.room(self.room, localParticipant: self, didPublish: publication) }
-
-                return publication
-            }
+        publish(track: track, publishOptions: publishOptions)
     }
 
     public func unpublishAll(shouldNotify: Bool = true) -> Promise<Void> {
