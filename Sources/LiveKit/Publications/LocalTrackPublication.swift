@@ -40,6 +40,7 @@ public class LocalTrackPublication: TrackPublication {
     })
 
     public override func track(_ track: Track, capturer: VideoCapturer, didUpdate dimensions: Dimensions?) {
+        super.track(track, capturer: capturer, didUpdate: dimensions)
         shouldRecomputeSenderParameters()
     }
     #endif
@@ -54,22 +55,31 @@ extension LocalTrackPublication {
         guard let track = track as? LocalVideoTrack,
               let sender = track.transceiver?.sender else { return }
 
-        log("Re-computing sender parameters...")
+        log("Re-computing sender parameters... dimensions: \(String(describing: track.capturer.dimensions))")
 
         // get current parameters
         let parameters = sender.parameters
 
         // re-compute encodings
         let encodings = Utils.computeEncodings(dimensions: track.capturer.dimensions,
-                                               publishOptions: track.publishOptions as? VideoPublishOptions)
+                                               publishOptions: track.publishOptions as? VideoPublishOptions,
+                                               isScreenShare: track.source == .screenShareVideo)
+
+        log("Computed encodings: \(encodings)")
 
         for current in parameters.encodings {
-            if let new = encodings.first(where: { $0.rid == current.rid }) {
+            //
+            if let updated = encodings.first(where: { $0.rid == current.rid }) {
                 // update parameters for matching rid
-                current.isActive = new.isActive
-                current.scaleResolutionDownBy = new.scaleResolutionDownBy
-                current.maxBitrateBps = new.maxBitrateBps
-                current.maxFramerate = new.maxFramerate
+                current.isActive = updated.isActive
+                current.scaleResolutionDownBy = updated.scaleResolutionDownBy
+                current.maxBitrateBps = updated.maxBitrateBps
+                current.maxFramerate = updated.maxFramerate
+            } else {
+                current.isActive = false
+                current.scaleResolutionDownBy = nil
+                current.maxBitrateBps = nil
+                current.maxBitrateBps = nil
             }
         }
 
@@ -79,7 +89,7 @@ extension LocalTrackPublication {
         // set the updated parameters
         sender.parameters = parameters
 
-        log("Sender parameters updated: \(sender.parameters.encodings)")
+        log("Using encodings: \(sender.parameters.encodings)")
 
         // Report updated encodings to server
 

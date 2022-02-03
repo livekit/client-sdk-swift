@@ -15,6 +15,59 @@ public protocol VideoCapturerDelegate {
     func capturer(_ capturer: VideoCapturer, didUpdate dimensions: Dimensions?)
 }
 
+// MARK: - Closures
+
+class VideoCapturerDelegateClosures: NSObject, VideoCapturerDelegate, Loggable {
+
+    typealias DidUpdateDimensions = (VideoCapturer, Dimensions?) -> Void
+
+    let didUpdateDimensions: DidUpdateDimensions?
+
+    init(didUpdateDimensions: DidUpdateDimensions? = nil) {
+        self.didUpdateDimensions = didUpdateDimensions
+        super.init()
+        log()
+    }
+
+    deinit {
+        log()
+    }
+
+    func capturer(_ capturer: VideoCapturer, didUpdate dimensions: Dimensions?) {
+        didUpdateDimensions?(capturer, dimensions)
+    }
+}
+
+internal extension VideoCapturer {
+
+    func waitForDimensions(allowCurrent: Bool = true) -> WaitPromises<Void> {
+
+        if allowCurrent, dimensions != nil {
+            return (Promise(()), Promise(()))
+        }
+
+        let listen = Promise<Void>.pending()
+        let wait = Promise<Void>(on: .sdk) { resolve, _ in
+            // create temporary delegate
+            var delegate: VideoCapturerDelegateClosures?
+            delegate = VideoCapturerDelegateClosures(didUpdateDimensions: { _, _ in
+                // wait until connected
+                resolve(())
+                self.log("Dimensions resolved...")
+                delegate = nil
+            })
+            // not required to clean up since weak reference
+            self.add(delegate: delegate!)
+            self.log("Waiting for dimensions...")
+            listen.fulfill(())
+        }
+        // convert to a timed-promise
+        .timeout(.captureStart)
+
+        return (listen, wait)
+    }
+}
+
 // Intended to be a base class for video capturers
 public class VideoCapturer: MulticastDelegate<VideoCapturerDelegate>, VideoCapturerProtocol {
 
@@ -28,6 +81,7 @@ public class VideoCapturer: MulticastDelegate<VideoCapturerDelegate>, VideoCaptu
     public internal(set) var dimensions: Dimensions? {
         didSet {
             guard oldValue != dimensions else { return }
+            log("\(String(describing: oldValue)) -> \(String(describing: dimensions))")
             notify { $0.capturer(self, didUpdate: self.dimensions) }
         }
     }

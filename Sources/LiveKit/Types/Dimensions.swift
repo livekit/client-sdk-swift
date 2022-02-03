@@ -62,11 +62,14 @@ extension Dimensions {
             let parameters = Engine.createRtpEncodingParameters(
                 rid: rid,
                 encoding: preset.encoding,
-                scaleDown: Double(max) / Double(preset.dimensions.max))
+                scaleDown: Double(max) / Double(preset.dimensions.max)
+            )
 
             result.append(parameters)
         }
-        return result
+        return videoRids.map { rid in
+            return result.first(where: { $0.rid == rid }) ?? Engine.createRtpEncodingParameters(rid: rid, active: false)
+        }
     }
 
     func computeSuggestedPresetIndex(in presets: [VideoParameters]) -> Int {

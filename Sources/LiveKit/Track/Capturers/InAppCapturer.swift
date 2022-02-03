@@ -13,9 +13,9 @@ public class InAppScreenCapturer: VideoCapturer {
                 // TODO: force pixel format kCVPixelFormatType_420YpCbCr8BiPlanarFullRange
                 RPScreenRecorder.shared().startCapture { sampleBuffer, type, _ in
                     if type == .video {
-                        self.delegate?.capturer(self.capturer, didCapture: sampleBuffer) { pixelBuffer in
+                        self.delegate?.capturer(self.capturer, didCapture: sampleBuffer) { targetDimensions in
                             // report dimensions update
-                            self.dimensions = pixelBuffer.toDimensions()
+                            self.dimensions = targetDimensions
                         }
                     }
                 } completionHandler: { error in

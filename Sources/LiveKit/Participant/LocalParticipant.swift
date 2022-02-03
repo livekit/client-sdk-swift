@@ -36,38 +36,8 @@ public class LocalParticipant: Participant {
             return Promise(TrackError.publish(message: "Unknown LocalTrack type"))
         }
 
-        let videoLayers: [Livekit_VideoLayer]
-
         let transInit = DispatchQueue.webRTC.sync { RTCRtpTransceiverInit() }
         transInit.direction = .sendOnly
-
-        if let track = track as? LocalVideoTrack {
-
-            let publishOptions = (publishOptions as? VideoPublishOptions) ?? room.roomOptions?.defaultVideoPublishOptions
-
-            #if LK_COMPUTE_VIDEO_SENDER_PARAMETERS
-
-            log("Capturer dimensions: \(String(describing: track.capturer.dimensions))")
-
-            let encodings = Utils.computeEncodings(dimensions: track.capturer.dimensions,
-                                                   publishOptions: publishOptions,
-                                                   isScreenShare: track.source == .screenShareVideo)
-
-            log("Using encodings \(encodings)")
-            transInit.sendEncodings = encodings
-
-            videoLayers = Utils.videoLayersForEncodings(dimensions: track.capturer.dimensions,
-                                                        encodings: encodings)
-            #else
-            transInit.sendEncodings = [
-                Engine.createRtpEncodingParameters(rid: "f"),
-                Engine.createRtpEncodingParameters(rid: "h"),
-                Engine.createRtpEncodingParameters(rid: "q")
-            ]
-            #endif
-        } else {
-            videoLayers = []
-        }
 
         // try to start the track
         return track.start()
@@ -77,11 +47,32 @@ public class LocalParticipant: Participant {
                 // but for this case we will allow it, throw for any other error.
                 guard case TrackError.state = error else { throw error }
             }.then(on: .sdk) { () -> Promise<Livekit_TrackInfo> in
+
+                var videoLayers: [Livekit_VideoLayer] = []
+
+                if let track = track as? LocalVideoTrack {
+                    // track.start() should only complete when it generates at least 1 frame which then can determine dimensions
+                    assert(track.capturer.dimensions != nil, "VideoCapturer's dimensions should be determined at this point")
+
+                    let publishOptions = (publishOptions as? VideoPublishOptions) ?? self.room.roomOptions?.defaultVideoPublishOptions
+
+                    self.log("Capturer dimensions: \(String(describing: track.capturer.dimensions))")
+
+                    let encodings = Utils.computeEncodings(dimensions: track.capturer.dimensions,
+                                                           publishOptions: publishOptions,
+                                                           isScreenShare: track.source == .screenShareVideo)
+
+                    self.log("Using encodings \(encodings)")
+                    transInit.sendEncodings = encodings
+
+                    videoLayers = Utils.videoLayersForEncodings(dimensions: track.capturer.dimensions,
+                                                                encodings: encodings)
+                }
                 // request a new track to the server
-                self.room.engine.addTrack(cid: track.mediaTrack.trackId,
-                                          name: track.name,
-                                          kind: track.kind.toPBType(),
-                                          source: track.source.toPBType()) {
+                return self.room.engine.addTrack(cid: track.mediaTrack.trackId,
+                                                 name: track.name,
+                                                 kind: track.kind.toPBType(),
+                                                 source: track.source.toPBType()) {
 
                     if let track = track as? LocalVideoTrack {
                         // additional params for Video
@@ -91,21 +82,9 @@ public class LocalParticipant: Participant {
                             $0.width = UInt32(dimensions.width)
                             $0.height = UInt32(dimensions.height)
                         }
-                        #if LK_COMPUTE_VIDEO_SENDER_PARAMETERS
+
                         $0.layers = videoLayers
-                        #else
-                        // set a single layer if compute sender parameters is off
-                        $0.layers = [
-                            Livekit_VideoLayer.with({
-                                if let dimensions = track.capturer.dimensions {
-                                    $0.width = UInt32(dimensions.width)
-                                    $0.height = UInt32(dimensions.height)
-                                }
-                                $0.quality = Livekit_VideoQuality.high
-                                $0.bitrate = 0
-                            })
-                        ]
-                        #endif
+
                     } else if track is LocalAudioTrack {
                         // additional params for Audio
                         let publishOptions = (publishOptions as? AudioPublishOptions) ?? self.room.roomOptions?.defaultAudioPublishOptions

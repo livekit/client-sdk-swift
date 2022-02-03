@@ -28,8 +28,14 @@ public class LocalVideoTrack: LocalTrack, VideoTrack {
     }
 
     public override func start() -> Promise<Void> {
-        super.start().then(on: .sdk) {
+        let wait = self.capturer.waitForDimensions()
+        return super.start().then(on: .sdk) {
+        }.then {
+            wait.listen
+        }.then {
             self.capturer.startCapture()
+        }.then {
+            wait.wait
         }
     }
 

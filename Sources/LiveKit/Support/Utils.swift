@@ -2,6 +2,7 @@ import Foundation
 import WebRTC
 import Promises
 
+internal let primaryVideoRid = "q"
 internal let videoRids = ["q", "h", "f"]
 
 internal typealias DebouncFunc = () -> Void
@@ -190,8 +191,10 @@ internal class Utils {
         let useSimulcast: Bool = !isScreenShare && publishOptions.simulcast
         let encoding: VideoEncoding? = isScreenShare ? publishOptions.screenShareEncoding : publishOptions.encoding
 
-        guard (encoding != nil || useSimulcast), let dimensions = dimensions else {
-            return []
+        guard let dimensions = dimensions else {
+
+            return videoRids.map { Engine.createRtpEncodingParameters(rid: $0,
+                                                                      active: useSimulcast ? true : ( $0 == primaryVideoRid ) ) }
         }
 
         // get suggested presets for the dimensions
@@ -200,7 +203,9 @@ internal class Utils {
         let encoding2 = encoding ?? dimensions.computeSuggestedPreset(in: presets)
 
         guard useSimulcast else {
-            return [Engine.createRtpEncodingParameters(encoding: encoding2)]
+            return videoRids.map { Engine.createRtpEncodingParameters(rid: $0,
+                                                                      encoding: $0 == primaryVideoRid ? encoding2 : nil,
+                                                                      active: $0 == primaryVideoRid) }
         }
 
         let lowPreset = presets[0]
@@ -208,14 +213,14 @@ internal class Utils {
         let original = VideoParameters(dimensions: dimensions,
                                        encoding: encoding2)
 
-        var l = [original]
+        var resultPresets = [original]
         if dimensions.max >= 960, let midPreset = midPreset {
-            l = [lowPreset, midPreset, original]
+            resultPresets = [lowPreset, midPreset, original]
         } else if dimensions.max >= 500 {
-            l = [lowPreset, original]
+            resultPresets = [lowPreset, original]
         }
 
-        return dimensions.encodings(from: l)
+        return dimensions.encodings(from: resultPresets)
     }
 
     internal static func videoLayersForEncodings(

@@ -165,9 +165,6 @@ public class MacOSScreenCapturer: VideoCapturer {
 
                 self.session.startRunning()
 
-                // report dimensions
-                self.dimensions = Dimensions(width: Int32(CGDisplayPixelsWide(displayID)),
-                                             height: Int32(CGDisplayPixelsHigh(displayID)))
             } else if case .window = self.source {
                 self.startDispatchSourceTimer()
             }
@@ -193,7 +190,10 @@ extension MacOSScreenCapturer: AVCaptureVideoDataOutputSampleBufferDelegate {
     public func captureOutput(_ output: AVCaptureOutput, didOutput
                                 sampleBuffer: CMSampleBuffer,
                               from connection: AVCaptureConnection) {
-        delegate?.capturer(capturer, didCapture: sampleBuffer)
+
+        delegate?.capturer(capturer, didCapture: sampleBuffer, onTargetDimensions: { targetDimensions in
+            self.dimensions = targetDimensions
+        })
     }
 }
 

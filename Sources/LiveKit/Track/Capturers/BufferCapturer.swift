@@ -12,10 +12,10 @@ public class BufferCapturer: VideoCapturer {
 
         delegate?.capturer(capturer,
                            didCapture: sampleBuffer,
-                           scale: scale) { pixelBuffer in
+                           scale: scale) { targetDimensions in
 
             // report dimensions update
-            self.dimensions = pixelBuffer.toDimensions()
+            self.dimensions = targetDimensions
         }
     }
 }
