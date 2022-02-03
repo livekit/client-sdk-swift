@@ -55,13 +55,18 @@ extension LocalTrackPublication {
         guard let track = track as? LocalVideoTrack,
               let sender = track.transceiver?.sender else { return }
 
-        log("Re-computing sender parameters... dimensions: \(String(describing: track.capturer.dimensions))")
+        guard let dimensions = track.capturer.dimensions else {
+            log("Cannot re-compute sender parameters without dimensions", .warning)
+            return
+        }
+
+        log("Re-computing sender parameters, dimensions: \(String(describing: track.capturer.dimensions))")
 
         // get current parameters
         let parameters = sender.parameters
 
         // re-compute encodings
-        let encodings = Utils.computeEncodings(dimensions: track.capturer.dimensions,
+        let encodings = Utils.computeEncodings(dimensions: dimensions,
                                                publishOptions: track.publishOptions as? VideoPublishOptions,
                                                isScreenShare: track.source == .screenShareVideo)
 
@@ -93,12 +98,11 @@ extension LocalTrackPublication {
 
         // Report updated encodings to server
 
-        let layers = Utils.videoLayersForEncodings(dimensions: track.capturer.dimensions,
-                                                   encodings: encodings)
+        let layers = dimensions.videoLayers(for: encodings)
 
-        log("Sending update video layers request: \(layers)")
+        self.log("Using encodings layers: \(layers.map { String(describing: $0) }.joined(separator: ", "))")
 
-        participant.room.engine.signalClient.sendUpdateVideoLayers(trackSid: sid,
+        participant.room.engine.signalClient.sendUpdateVideoLayers(trackSid: track.sid!,
                                                                    layers: layers).catch { error in
                                                                     self.log("Failed to send update video layers", .error)
                                                                    }

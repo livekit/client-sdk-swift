@@ -82,6 +82,18 @@ extension Dimensions {
         }
         return result
     }
+
+    internal func videoLayers(for encodings: [RTCRtpEncodingParameters]) -> [Livekit_VideoLayer] {
+        encodings.filter { $0.isActive }.map { encoding in
+            let scaleDownBy = encoding.scaleResolutionDownBy?.doubleValue ?? 1.0
+            return Livekit_VideoLayer.with {
+                $0.width = UInt32((Double(self.width) / scaleDownBy).rounded(.up))
+                $0.height = UInt32((Double(self.height) / scaleDownBy).rounded(.up))
+                $0.quality = Livekit_VideoQuality.from(rid: encoding.rid)
+                $0.bitrate = encoding.maxBitrateBps?.uint32Value ?? 0
+            }
+        }
+    }
 }
 
 extension VideoEncoding {

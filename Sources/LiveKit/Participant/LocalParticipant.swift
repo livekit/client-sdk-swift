@@ -52,21 +52,26 @@ public class LocalParticipant: Participant {
 
                 if let track = track as? LocalVideoTrack {
                     // track.start() should only complete when it generates at least 1 frame which then can determine dimensions
-                    assert(track.capturer.dimensions != nil, "VideoCapturer's dimensions should be determined at this point")
+                    // assert(track.capturer.dimensions != nil, "VideoCapturer's dimensions should be determined at this point")
+
+                    guard let dimensions = track.capturer.dimensions else {
+                        throw TrackError.publish(message: "VideoCapturer dimensions are unknown")
+                    }
 
                     let publishOptions = (publishOptions as? VideoPublishOptions) ?? self.room.roomOptions?.defaultVideoPublishOptions
 
                     self.log("Capturer dimensions: \(String(describing: track.capturer.dimensions))")
 
-                    let encodings = Utils.computeEncodings(dimensions: track.capturer.dimensions,
+                    let encodings = Utils.computeEncodings(dimensions: dimensions,
                                                            publishOptions: publishOptions,
                                                            isScreenShare: track.source == .screenShareVideo)
 
                     self.log("Using encodings \(encodings)")
                     transInit.sendEncodings = encodings
 
-                    videoLayers = Utils.videoLayersForEncodings(dimensions: track.capturer.dimensions,
-                                                                encodings: encodings)
+                    videoLayers = dimensions.videoLayers(for: encodings)
+
+                    self.log("Using encodings layers: \(videoLayers.map { String(describing: $0) }.joined(separator: ", "))")
                 }
                 // request a new track to the server
                 return self.room.engine.addTrack(cid: track.mediaTrack.trackId,
@@ -77,7 +82,6 @@ public class LocalParticipant: Participant {
                     if let track = track as? LocalVideoTrack {
                         // additional params for Video
 
-                        // depending on the capturer, dimensions may not be available at this point
                         if let dimensions = track.capturer.dimensions {
                             $0.width = UInt32(dimensions.width)
                             $0.height = UInt32(dimensions.height)

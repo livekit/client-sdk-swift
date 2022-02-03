@@ -182,7 +182,7 @@ internal class Utils {
     #if LK_COMPUTE_VIDEO_SENDER_PARAMETERS
 
     internal static func computeEncodings(
-        dimensions: Dimensions?,
+        dimensions: Dimensions,
         publishOptions: VideoPublishOptions?,
         isScreenShare: Bool = false
     ) -> [RTCRtpEncodingParameters] {
@@ -191,21 +191,14 @@ internal class Utils {
         let useSimulcast: Bool = !isScreenShare && publishOptions.simulcast
         let encoding: VideoEncoding? = isScreenShare ? publishOptions.screenShareEncoding : publishOptions.encoding
 
-        guard let dimensions = dimensions else {
-
-            return videoRids.map { Engine.createRtpEncodingParameters(rid: $0,
-                                                                      active: useSimulcast ? true : ( $0 == primaryVideoRid ) ) }
-        }
-
         // get suggested presets for the dimensions
         let presets = dimensions.computeSuggestedPresets(isScreenShare: isScreenShare)
 
         let encoding2 = encoding ?? dimensions.computeSuggestedPreset(in: presets)
 
         guard useSimulcast else {
-            return videoRids.map { Engine.createRtpEncodingParameters(rid: $0,
-                                                                      encoding: $0 == primaryVideoRid ? encoding2 : nil,
-                                                                      active: $0 == primaryVideoRid) }
+            // return videoRids.map { Engine.createRtpEncodingParameters(rid: $0, encoding: $0 == primaryVideoRid ? encoding2 : nil,  active: $0 == primaryVideoRid) }
+            return [Engine.createRtpEncodingParameters(encoding: encoding2)]
         }
 
         let lowPreset = presets[0]
@@ -222,47 +215,18 @@ internal class Utils {
 
         return dimensions.encodings(from: resultPresets)
     }
+    #endif
+}
 
-    internal static func videoLayersForEncodings(
-        dimensions: Dimensions?,
-        encodings: [RTCRtpEncodingParameters]?
-    ) -> [Livekit_VideoLayer] {
-        let trackWidth = dimensions?.width ?? 0
-        let trackHeight = dimensions?.height ?? 0
+extension Livekit_VideoQuality {
 
-        guard let encodings = encodings else {
-            return [Livekit_VideoLayer.with {
-                $0.width = UInt32(trackWidth)
-                $0.height = UInt32(trackHeight)
-                $0.quality = Livekit_VideoQuality.high
-                $0.bitrate = 0
-            }]
-        }
-
-        return encodings.map { encoding in
-            let scaleDownBy = encoding.scaleResolutionDownBy?.doubleValue ?? 1.0
-
-            var videoQuality: Livekit_VideoQuality
-            switch encoding.rid ?? "" {
-            case "f": videoQuality = Livekit_VideoQuality.high
-            case "h": videoQuality = Livekit_VideoQuality.medium
-            case "q": videoQuality = Livekit_VideoQuality.low
-            default: videoQuality = Livekit_VideoQuality.UNRECOGNIZED(-1)
-            }
-
-            if videoQuality == Livekit_VideoQuality.UNRECOGNIZED(-1) && encodings.count == 1 {
-                videoQuality = Livekit_VideoQuality.high
-            }
-
-            return Livekit_VideoLayer.with {
-                $0.width = UInt32((Double(trackWidth) / scaleDownBy).rounded(.up))
-                $0.height = UInt32((Double(trackHeight) / scaleDownBy).rounded(.up))
-                $0.quality = videoQuality
-                $0.bitrate = encoding.maxBitrateBps?.uint32Value ?? 0
-            }
+    static func from(rid: String?) -> Livekit_VideoQuality {
+        switch rid {
+        case "h": return Livekit_VideoQuality.medium
+        case "q": return Livekit_VideoQuality.low
+        default: return Livekit_VideoQuality.high
         }
     }
-    #endif
 }
 
 internal extension Collection {
@@ -280,5 +244,12 @@ internal extension MutableCollection {
                 self[index] = newValue
             }
         }
+    }
+}
+
+extension Livekit_VideoLayer: CustomStringConvertible {
+
+    var description: String {
+        "VideoLayer(quality: \(quality), dimensions: \(width)x\(height), bitrate: \(bitrate))"
     }
 }
