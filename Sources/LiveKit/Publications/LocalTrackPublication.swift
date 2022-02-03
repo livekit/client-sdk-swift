@@ -64,7 +64,7 @@ extension LocalTrackPublication {
                                                publishOptions: track.publishOptions as? VideoPublishOptions)
 
         for current in parameters.encodings {
-            if let new = encodings?.first(where: { $0.rid == current.rid }) {
+            if let new = encodings.first(where: { $0.rid == current.rid }) {
                 // update parameters for matching rid
                 current.isActive = new.isActive
                 current.scaleResolutionDownBy = new.scaleResolutionDownBy

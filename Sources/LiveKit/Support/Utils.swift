@@ -2,6 +2,8 @@ import Foundation
 import WebRTC
 import Promises
 
+internal let videoRids = ["q", "h", "f"]
+
 internal typealias DebouncFunc = () -> Void
 
 internal enum OS {
@@ -180,53 +182,40 @@ internal class Utils {
 
     internal static func computeEncodings(
         dimensions: Dimensions?,
-        publishOptions: VideoPublishOptions?
-    ) -> [RTCRtpEncodingParameters]? {
+        publishOptions: VideoPublishOptions?,
+        isScreenShare: Bool = false
+    ) -> [RTCRtpEncodingParameters] {
 
         let publishOptions = publishOptions ?? VideoPublishOptions()
+        let useSimulcast: Bool = !isScreenShare && publishOptions.simulcast
+        let encoding: VideoEncoding? = isScreenShare ? publishOptions.screenShareEncoding : publishOptions.encoding
 
-        var encodingF: VideoEncoding?
-        var encodingH: VideoEncoding?
-        var encodingQ: VideoEncoding?
-
-        var activateF = true
-
-        // only if dimensions are available, compute encodings
-        if let dimensions = dimensions {
-            // find presets array 16:9 or 4:3, always small to large order
-            let presets = dimensions.computeSuggestedPresets()
-            let presetIndexF = dimensions.computeSuggestedPresetIndex(in: presets)
-
-            encodingF = presets[safe: presetIndexF]?.encoding
-            encodingH = encodingF
-            encodingQ = encodingF
-
-            // try to get a 1 step lower encoding preset
-            if let e = presets[safe: presetIndexF - 1]?.encoding {
-                encodingH = e
-                encodingQ = e
-            }
-
-            // try to get a 2 step lower encoding preset
-            if let e = presets[safe: presetIndexF - 2]?.encoding {
-                encodingQ = e
-            }
-
-            if max(dimensions.width, dimensions.height) < 960 {
-                // deactivate F if dimensions are too small
-                activateF = false
-            }
+        guard (encoding != nil || useSimulcast), let dimensions = dimensions else {
+            return []
         }
 
-        // if simulcast is enabled, always add "h" and "f" encoding parameters
-        // but keep it active = false if dimension is too small
-        return publishOptions.simulcast ? [
-            Engine.createRtpEncodingParameters(rid: "q", encoding: encodingQ, scaleDown: activateF ? 4 : 2),
-            Engine.createRtpEncodingParameters(rid: "h", encoding: encodingH, scaleDown: activateF ? 2 : 1),
-            Engine.createRtpEncodingParameters(rid: "f", encoding: encodingF, scaleDown: 1, active: activateF)
-        ] : [
-            Engine.createRtpEncodingParameters(rid: "q", encoding: encodingF)
-        ]
+        // get suggested presets for the dimensions
+        let presets = dimensions.computeSuggestedPresets(isScreenShare: isScreenShare)
+
+        let encoding2 = encoding ?? dimensions.computeSuggestedPreset(in: presets)
+
+        guard useSimulcast else {
+            return [Engine.createRtpEncodingParameters(encoding: encoding2)]
+        }
+
+        let lowPreset = presets[0]
+        let midPreset = presets[safe: 1]
+        let original = VideoParameters(dimensions: dimensions,
+                                       encoding: encoding2)
+
+        var l = [original]
+        if dimensions.max >= 960, let midPreset = midPreset {
+            l = [lowPreset, midPreset, original]
+        } else if dimensions.max >= 500 {
+            l = [lowPreset, original]
+        }
+
+        return dimensions.encodings(from: l)
     }
 
     internal static func videoLayersForEncodings(

@@ -47,13 +47,14 @@ public class LocalParticipant: Participant {
 
             #if LK_COMPUTE_VIDEO_SENDER_PARAMETERS
 
-            let encodings = Utils.computeEncodings(dimensions: track.capturer.dimensions,
-                                                   publishOptions: publishOptions)
+            log("Capturer dimensions: \(String(describing: track.capturer.dimensions))")
 
-            if let encodings = encodings {
-                log("using encodings \(encodings)")
-                transInit.sendEncodings = encodings
-            }
+            let encodings = Utils.computeEncodings(dimensions: track.capturer.dimensions,
+                                                   publishOptions: publishOptions,
+                                                   isScreenShare: track.source == .screenShareVideo)
+
+            log("Using encodings \(encodings)")
+            transInit.sendEncodings = encodings
 
             videoLayers = Utils.videoLayersForEncodings(dimensions: track.capturer.dimensions,
                                                         encodings: encodings)
