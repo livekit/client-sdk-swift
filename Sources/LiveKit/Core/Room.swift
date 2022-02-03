@@ -66,7 +66,7 @@ public class Room: MulticastDelegate<RoomDelegate> {
 
         return engine.cleanUp(reason: reason).then(on: .sdk) {
             stopAllTracks()
-        }.then(on: .sdk) {
+        }.always(on: .sdk) {
             self.sid = nil
             self.name = nil
             self.localParticipant = nil
