@@ -8,7 +8,7 @@ public struct VideoCaptureOptions {
 
     public init(position: AVCaptureDevice.Position = .front,
                 captureFormat: AVCaptureDevice.Format? = nil,
-                captureParameter: VideoParameters = .presetHD169) {
+                captureParameter: VideoParameters = .presetQHD43) {
         self.position = position
         self.captureFormat = captureFormat
         self.captureParameter = captureParameter
