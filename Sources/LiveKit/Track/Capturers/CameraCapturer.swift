@@ -2,6 +2,7 @@ import Foundation
 import WebRTC
 import Promises
 import ReplayKit
+import OrderedCollections
 
 public class CameraCapturer: VideoCapturer {
 
@@ -74,53 +75,47 @@ public class CameraCapturer: VideoCapturer {
             return Promise(TrackError.capturer(message: "No camera video capture devices available"))
         }
 
+        // list of all formats in order of dimensions size
         let formats = DispatchQueue.webRTC.sync { RTCCameraVideoCapturer.supportedFormats(for: device) }
-        log("CameraCapturer.supportedFormats: \(formats)")
+        // create a dictionary sorted by dimensions size
+        let sortedFormats = OrderedDictionary(uniqueKeysWithValues: formats.map { ($0, CMVideoFormatDescriptionGetDimensions($0.formatDescription)) })
+            .sorted { $0.value.area < $1.value.area }
 
-        let (targetWidth, targetHeight) = (options.captureParameter.dimensions.width,
-                                           options.captureParameter.dimensions.height)
+        // default to the smallest
+        var selectedFormat = sortedFormats.first
 
-        var currentDiff = Int32.max
-        var selectedFormat: AVCaptureDevice.Format = formats[0]
-        var selectedDimension: Dimensions?
-        for format in formats {
-            if options.captureFormat == format {
-                selectedFormat = format
-                break
-            }
-            let dimension = CMVideoFormatDescriptionGetDimensions(format.formatDescription)
-            let diff = abs(targetWidth - dimension.width) + abs(targetHeight - dimension.height)
-            if diff < currentDiff {
-                selectedFormat = format
-                currentDiff = diff
-                selectedDimension = dimension
-            }
+        // find preferred capture format if specified in options
+        if let preferredFormat = options.captureFormat,
+           let foundFormat = sortedFormats.first(where: { $0.key == preferredFormat }) {
+            selectedFormat = foundFormat
+        } else {
+            log("formats: \(sortedFormats.map { String(describing: $0.value) }), target: \(options.captureParameter.dimensions)")
+            // find format that satisfies preferred dimensions
+            selectedFormat = sortedFormats.first(where: { $0.value.area >= options.captureParameter.dimensions.area })
         }
 
-        guard selectedDimension != nil else {
-            log("Could not get dimensions", .error)
-            return Promise(TrackError.capturer(message: "Could not get dimensions"))
+        // format should be resolved at this point
+        guard let selectedFormat = selectedFormat else {
+            log("Unable to resolve format", .error)
+            return Promise(TrackError.capturer(message: "Unable to determine format for camera capturer"))
         }
 
-        let fps = options.captureParameter.encoding.maxFps
+        // ensure fps is within range
+        let maxFps = options.captureParameter.encoding.maxFps
+        let fpsRange = selectedFormat.key.videoSupportedFrameRateRanges
+            .reduce((min: Int.max, max: 0)) { (min($0.min, Int($1.minFrameRate)), max($0.max, Int($1.maxFrameRate)) ) }
+        log("fpsRange: \(fpsRange)")
 
-        // discover FPS limits
-        var minFps = 60
-        var maxFps = 0
-        for fpsRange in selectedFormat.videoSupportedFrameRateRanges {
-            minFps = min(minFps, Int(fpsRange.minFrameRate))
-            maxFps = max(maxFps, Int(fpsRange.maxFrameRate))
-        }
-        if fps < minFps || fps > maxFps {
-            return Promise(TrackError.capturer(message: "requested framerate is unsupported (\(minFps)-\(maxFps))"))
+        guard maxFps >= fpsRange.min && maxFps <= fpsRange.max else {
+            return Promise(TrackError.capturer(message: "Requested framerate is out of range (\(fpsRange)"))
         }
 
-        log("Starting camera capturer device: \(device), format: \(selectedFormat), fps: \(fps)", .info)
+        log("Starting camera capturer device: \(device), format: \(selectedFormat), fps: \(maxFps)", .info)
 
         return super.startCapture().then(on: .sdk) {
             // return promise that waits for capturer to start
             Promise(on: .webRTC) { resolve, fail in
-                self.capturer.startCapture(with: device, format: selectedFormat, fps: fps) { error in
+                self.capturer.startCapture(with: device, format: selectedFormat.key, fps: maxFps) { error in
                     if let error = error {
                         self.log("CameraCapturer failed to start \(error)", .error)
                         fail(error)
@@ -130,7 +125,7 @@ public class CameraCapturer: VideoCapturer {
                     // update internal vars
                     self.device = device
                     // this will trigger to re-compute encodings for sender parameters if dimensions have updated
-                    self.dimensions = selectedDimension
+                    self.dimensions = selectedFormat.value
 
                     // successfully started
                     resolve(())

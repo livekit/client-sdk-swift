@@ -18,6 +18,15 @@ extension Dimensions: Equatable {
     }
 }
 
+// this may cause ambiguity to comparison
+// extension Dimensions: Comparable {
+//
+//    // compares by resolution
+//    public static func < (lhs: CMVideoDimensions, rhs: CMVideoDimensions) -> Bool {
+//        lhs.area < rhs.area
+//    }
+// }
+
 extension Dimensions {
 
     var aspectRatio: Double {
@@ -29,6 +38,21 @@ extension Dimensions {
     var max: Int32 {
         Swift.max(width, height)
     }
+
+    var sum: Int32 {
+        width + height
+    }
+
+    // TODO: Find better name
+    var area: Int32 {
+        width * height
+    }
+
+    // this may cause ambiguity
+    // func diff(of dimensions: Dimensions) -> Dimensions {
+    //    Dimensions(width: abs(self.width - dimensions.width),
+    //               height: abs(self.height - dimensions.height))
+    // }
 
     func computeSuggestedPresets(isScreenShare: Bool = false) -> [VideoParameters] {
         if isScreenShare {
