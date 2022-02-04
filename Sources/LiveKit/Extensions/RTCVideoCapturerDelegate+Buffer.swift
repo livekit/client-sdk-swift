@@ -16,8 +16,8 @@ extension Dimensions {
 
     // Ensures width and height are even numbers
     internal func toEncodeSafeDimensions() -> Dimensions {
-        Dimensions(width: Swift.max(encodeSafeSize, width.roundUp(toMultipleOf: 4)),
-                   height: Swift.max(encodeSafeSize, height.roundUp(toMultipleOf: 4)))
+        Dimensions(width: Swift.max(encodeSafeSize, width.roundUp(toMultipleOf: 2)),
+                   height: Swift.max(encodeSafeSize, height.roundUp(toMultipleOf: 2)))
 
     }
 
