@@ -310,6 +310,21 @@ extension LocalParticipant {
                 }
             }
     }
+
+    internal func republishTracks() -> Promise<Void> {
+
+        let mediaTracks = tracks.values.map { $0.track }.compactMap { $0 }
+
+        return unpublishAll().then(on: .sdk) { () -> Promise<Void> in
+
+            let promises = mediaTracks.map { track -> Promise<LocalTrackPublication>? in
+                guard let track = track as? LocalTrack else { return nil }
+                return self.publish(track: track, publishOptions: track.publishOptions)
+            }.compactMap { $0 }
+
+            return all(on: .sdk, promises).then(on: .sdk) { _ in }
+        }
+    }
 }
 
 // MARK: - Simplified API

@@ -221,32 +221,6 @@ extension Room {
 
 extension Room {
 
-    internal func republishLocalTracks() -> Promise<Void> {
-        // local participant is nil, no need to continue
-        guard let localParticipant = localParticipant else {
-            return Promise(())
-        }
-
-        let tracks = localParticipant.tracks.values.map { $0.track }.compactMap { $0 }
-
-        return localParticipant.unpublishAll().then(on: .sdk) { () -> Promise<Void> in
-
-            let promises = tracks.map { track -> Promise<LocalTrackPublication>? in
-                if let videoTrack = track as? LocalVideoTrack {
-                    return localParticipant.publishVideoTrack(track: videoTrack,
-                                                              publishOptions: videoTrack.publishOptions as? VideoPublishOptions)
-                } else if let audioTrack = track as? LocalAudioTrack {
-                    return localParticipant.publishAudioTrack(track: audioTrack,
-                                                              publishOptions: audioTrack.publishOptions as? AudioPublishOptions)
-                } else {
-                    return nil
-                }
-            }.compactMap { $0 }
-
-            return all(on: .sdk, promises).then(on: .sdk) { _ in }
-        }
-    }
-
     internal func sendTrackSettings() -> Promise<Void> {
         log()
 
@@ -434,7 +408,7 @@ extension Room: EngineDelegate {
             if case .reconnect(let rmode) = mode,
                case .full = rmode {
                 log("Should re-publish existing tracks")
-                republishLocalTracks().catch { error in
+                localParticipant?.republishTracks().catch { error in
                     self.log("Failed to republish all track, error: \(error)", .error)
                 }
             }
