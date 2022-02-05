@@ -108,6 +108,15 @@ public class LocalParticipant: Participant {
                 track.publishOptions = publishOptions
                 track.transceiver = transceiver
 
+                if track.source == .screenShareVideo {
+                    // prefer to maintain resolution for screen share
+                    let params = transceiver.sender.parameters
+                    params.degradationPreference = NSNumber(value: RTCDegradationPreference.maintainResolution.rawValue)
+                    // changing params directly doesn't work so we need to update params
+                    // and set it back to sender.parameters
+                    transceiver.sender.parameters = params
+                }
+
                 self.room.engine.publisherShouldNegotiate()
 
                 let publication = LocalTrackPublication(info: trackInfo, track: track, participant: self)
