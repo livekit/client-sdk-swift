@@ -373,7 +373,7 @@ extension LocalParticipant {
         } else if enabled {
             // try to create a new track
             if source == .camera {
-                let localTrack = LocalVideoTrack.createCameraTrack(options: room.roomOptions?.defaultVideoCaptureOptions)
+                let localTrack = LocalVideoTrack.createCameraTrack(options: room.roomOptions?.defaultCameraCaptureOptions ?? CameraCaptureOptions())
                 return publishVideoTrack(track: localTrack).then(on: .sdk) { return $0 }
             } else if source == .microphone {
                 let localTrack = LocalAudioTrack.createTrack(name: "", options: room.roomOptions?.defaultAudioCaptureOptions)
@@ -385,9 +385,9 @@ extension LocalParticipant {
                 #if os(iOS)
                 // iOS defaults to in-app screen share only since background screen share
                 // requires a broadcast extension (iOS limitation).
-                localTrack = LocalVideoTrack.createInAppScreenShareTrack()
+                localTrack = LocalVideoTrack.createInAppScreenShareTrack(options: room.roomOptions?.defaultScreenShareCaptureOptions ?? ScreenShareCaptureOptions())
                 #elseif os(macOS)
-                localTrack = LocalVideoTrack.createMacOSScreenShareTrack()
+                localTrack = LocalVideoTrack.createMacOSScreenShareTrack(options: room.roomOptions?.defaultScreenShareCaptureOptions ?? ScreenShareCaptureOptions())
                 #endif
 
                 if let localTrack = localTrack {

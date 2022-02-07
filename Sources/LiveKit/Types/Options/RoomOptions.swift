@@ -2,7 +2,9 @@ import Foundation
 
 public class RoomOptions {
     // default options for capturing
-    public var defaultVideoCaptureOptions: VideoCaptureOptions
+    public var defaultCameraCaptureOptions: CameraCaptureOptions
+    public var defaultScreenShareCaptureOptions: ScreenShareCaptureOptions
+
     public var defaultAudioCaptureOptions: AudioCaptureOptions
     // default options for publishing
     public var defaultVideoPublishOptions: VideoPublishOptions
@@ -25,7 +27,8 @@ public class RoomOptions {
 
     public var stopLocalTrackOnUnpublish: Bool
 
-    public init(defaultVideoCaptureOptions: VideoCaptureOptions = VideoCaptureOptions(),
+    public init(defaultCameraCaptureOptions: CameraCaptureOptions = CameraCaptureOptions(),
+                defaultScreenShareCaptureOptions: ScreenShareCaptureOptions = ScreenShareCaptureOptions(),
                 defaultAudioCaptureOptions: AudioCaptureOptions = AudioCaptureOptions(),
                 defaultVideoPublishOptions: VideoPublishOptions = VideoPublishOptions(),
                 defaultAudioPublishOptions: AudioPublishOptions = AudioPublishOptions(),
@@ -33,7 +36,8 @@ public class RoomOptions {
                 dynacast: Bool = false,
                 stopLocalTrackOnUnpublish: Bool = true) {
 
-        self.defaultVideoCaptureOptions = defaultVideoCaptureOptions
+        self.defaultCameraCaptureOptions = defaultCameraCaptureOptions
+        self.defaultScreenShareCaptureOptions = defaultScreenShareCaptureOptions
         self.defaultAudioCaptureOptions = defaultAudioCaptureOptions
         self.defaultVideoPublishOptions = defaultVideoPublishOptions
         self.defaultAudioPublishOptions = defaultAudioPublishOptions

@@ -11,15 +11,6 @@ public enum ScreenShareSource {
 
 #if os(macOS)
 
-/// Options for ``MacOSScreenCapturer``
-public struct MacOSScreenCapturerOptions {
-    let fps: UInt
-    // let dropDuplicateFrames:
-    init(fps: UInt = 24) {
-        self.fps = fps
-    }
-}
-
 extension ScreenShareSource {
     public static let mainDisplay: ScreenShareSource = .display(id: CGMainDisplayID())
 }
@@ -107,11 +98,13 @@ public class MacOSScreenCapturer: VideoCapturer {
         }
     }
 
-    public let options: MacOSScreenCapturerOptions
+    /// The ``ScreenShareCaptureOptions`` used for this capturer.
+    /// It is possible to modify the options but `restartCapture` must be called.
+    public var options: ScreenShareCaptureOptions
 
     init(delegate: RTCVideoCapturerDelegate,
          source: ScreenShareSource,
-         options: MacOSScreenCapturerOptions = MacOSScreenCapturerOptions()) {
+         options: ScreenShareCaptureOptions) {
         self.source = source
         self.options = options
         super.init(delegate: delegate)
@@ -133,12 +126,22 @@ public class MacOSScreenCapturer: VideoCapturer {
         // h264 encoder may cause issues with ARGB format
         // vImageConvert_ARGB8888To420Yp8_CbCr8()
 
-        let systemTime = ProcessInfo.processInfo.systemUptime
-        let timestampNs = UInt64(systemTime * Double(NSEC_PER_SEC))
+        self.delegate?.capturer(self.capturer,
+                                didCapture: pixelBuffer,
+                                onResolveSourceDimensions: { sourceDimensions in
 
-        self.delegate?.capturer(self.capturer, didCapture: pixelBuffer, timeStampNs: timestampNs) { targetDimensions in
-            self.dimensions = targetDimensions
-        }
+                                    let targetDimensions = sourceDimensions
+                                        .aspectFit(size: self.options.dimensions.max)
+                                        .toEncodeSafeDimensions()
+
+                                    guard let videoSource = self.delegate as? RTCVideoSource else { return }
+                                    videoSource.adaptOutputFormat(toWidth: targetDimensions.width,
+                                                                  height: targetDimensions.height,
+                                                                  fps: Int32(self.options.fps))
+
+                                    self.dimensions = targetDimensions
+                                })
+
     }
 
     public override func startCapture() -> Promise<Void> {
@@ -191,17 +194,28 @@ extension MacOSScreenCapturer: AVCaptureVideoDataOutputSampleBufferDelegate {
                                 sampleBuffer: CMSampleBuffer,
                               from connection: AVCaptureConnection) {
 
-        delegate?.capturer(capturer, didCapture: sampleBuffer, onTargetDimensions: { targetDimensions in
+        delegate?.capturer(capturer, didCapture: sampleBuffer) { sourceDimensions in
+
+            let targetDimensions = sourceDimensions
+                .aspectFit(size: self.options.dimensions.max)
+                .toEncodeSafeDimensions()
+
+            guard let videoSource = self.delegate as? RTCVideoSource else { return }
+            videoSource.adaptOutputFormat(toWidth: targetDimensions.width,
+                                          height: targetDimensions.height,
+                                          fps: Int32(self.options.fps))
+
             self.dimensions = targetDimensions
-        })
+        }
     }
 }
 
 extension LocalVideoTrack {
     /// Creates a track that captures the whole desktop screen
-    public static func createMacOSScreenShareTrack(source: ScreenShareSource = .mainDisplay) -> LocalVideoTrack {
+    public static func createMacOSScreenShareTrack(source: ScreenShareSource = .mainDisplay,
+                                                   options: ScreenShareCaptureOptions = ScreenShareCaptureOptions()) -> LocalVideoTrack {
         let videoSource = Engine.createVideoSource(forScreenShare: true)
-        let capturer = MacOSScreenCapturer(delegate: videoSource, source: source)
+        let capturer = MacOSScreenCapturer(delegate: videoSource, source: source, options: options)
         return LocalVideoTrack(
             name: Track.screenShareName,
             source: .screenShareVideo,

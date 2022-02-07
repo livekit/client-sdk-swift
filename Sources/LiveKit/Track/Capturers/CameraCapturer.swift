@@ -19,10 +19,6 @@ public class CameraCapturer: VideoCapturer {
             devices.contains(where: { $0.position == .back })
     }
 
-    /// The ``LocalAudioTrackOptions`` used for this capturer.
-    /// It is possible to modify the options but `restartCapture` must be called.
-    public var options: VideoCaptureOptions
-
     /// Current device used for capturing
     public private(set) var device: AVCaptureDevice?
 
@@ -31,10 +27,11 @@ public class CameraCapturer: VideoCapturer {
         get { device?.position }
     }
 
-    init(delegate: RTCVideoCapturerDelegate,
-         options: VideoCaptureOptions? = nil) {
+    public var options: CameraCaptureOptions
+
+    init(delegate: RTCVideoCapturerDelegate, options: CameraCaptureOptions) {
         self.capturer = DispatchQueue.webRTC.sync { RTCCameraVideoCapturer(delegate: delegate) }
-        self.options = options ?? VideoCaptureOptions()
+        self.options = options
         super.init(delegate: delegate)
     }
 
@@ -56,7 +53,7 @@ public class CameraCapturer: VideoCapturer {
         log("setCameraPosition(position: \(position)")
 
         // update options to use new position
-        options.position = position
+        options = options.copyWith(position: position)
 
         // restart capturer
         return restartCapture()
@@ -85,13 +82,13 @@ public class CameraCapturer: VideoCapturer {
         var selectedFormat = sortedFormats.first
 
         // find preferred capture format if specified in options
-        if let preferredFormat = options.captureFormat,
+        if let preferredFormat = options.preferredFormat,
            let foundFormat = sortedFormats.first(where: { $0.key == preferredFormat }) {
             selectedFormat = foundFormat
         } else {
-            log("formats: \(sortedFormats.map { String(describing: $0.value) }), target: \(options.captureParameter.dimensions)")
+            log("formats: \(sortedFormats.map { String(describing: $0.value) }), target: \(options.dimensions)")
             // find format that satisfies preferred dimensions
-            selectedFormat = sortedFormats.first(where: { $0.value.area >= options.captureParameter.dimensions.area })
+            selectedFormat = sortedFormats.first(where: { $0.value.area >= options.dimensions.area })
         }
 
         // format should be resolved at this point
@@ -101,21 +98,20 @@ public class CameraCapturer: VideoCapturer {
         }
 
         // ensure fps is within range
-        let maxFps = options.captureParameter.encoding.maxFps
         let fpsRange = selectedFormat.key.videoSupportedFrameRateRanges
             .reduce((min: Int.max, max: 0)) { (min($0.min, Int($1.minFrameRate)), max($0.max, Int($1.maxFrameRate)) ) }
         log("fpsRange: \(fpsRange)")
 
-        guard maxFps >= fpsRange.min && maxFps <= fpsRange.max else {
+        guard options.fps >= fpsRange.min && options.fps <= fpsRange.max else {
             return Promise(TrackError.capturer(message: "Requested framerate is out of range (\(fpsRange)"))
         }
 
-        log("Starting camera capturer device: \(device), format: \(selectedFormat), fps: \(maxFps)", .info)
+        log("Starting camera capturer device: \(device), format: \(selectedFormat), fps: \(options.fps)", .info)
 
         return super.startCapture().then(on: .sdk) {
             // return promise that waits for capturer to start
             Promise(on: .webRTC) { resolve, fail in
-                self.capturer.startCapture(with: device, format: selectedFormat.key, fps: maxFps) { error in
+                self.capturer.startCapture(with: device, format: selectedFormat.key, fps: self.options.fps) { error in
                     if let error = error {
                         self.log("CameraCapturer failed to start \(error)", .error)
                         fail(error)
@@ -152,7 +148,7 @@ public class CameraCapturer: VideoCapturer {
 
 extension LocalVideoTrack {
 
-    public static func createCameraTrack(options: VideoCaptureOptions? = nil,
+    public static func createCameraTrack(options: CameraCaptureOptions = CameraCaptureOptions(),
                                          interceptor: VideoCaptureInterceptor? = nil) -> LocalVideoTrack {
         let source: RTCVideoCapturerDelegate
         let output: RTCVideoSource

@@ -48,6 +48,13 @@ extension Dimensions {
         width * height
     }
 
+    func aspectFit(size: Int32) -> Dimensions {
+        let c = width >= height
+        let r = c ? Double(height) / Double(width) : Double(width) / Double(height)
+        return Dimensions(width: c ? size : Int32(r * Double(size)),
+                          height: c ? Int32(r * Double(size)) : size)
+    }
+
     // this may cause ambiguity
     // func diff(of dimensions: Dimensions) -> Dimensions {
     //    Dimensions(width: abs(self.width - dimensions.width),

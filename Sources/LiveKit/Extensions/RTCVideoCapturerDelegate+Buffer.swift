@@ -49,15 +49,19 @@ internal let encodeSafeSize: Int32 = 16
 
 extension RTCVideoCapturerDelegate {
 
-    public typealias OnTargetDimensions = (Dimensions) -> Void
+    public typealias OnResolveSourceDimensions = (Dimensions) -> Void
+
+    public static func createTimeStamp() -> Int64 {
+        let systemTime = ProcessInfo.processInfo.systemUptime
+        return Int64(systemTime * Double(NSEC_PER_SEC))
+    }
 
     /// capture a `CVPixelBuffer`, all other capture methods call this method internally.
     public func capturer(_ capturer: RTCVideoCapturer,
                          didCapture pixelBuffer: CVPixelBuffer,
-                         timeStampNs: UInt64,
+                         timeStampNs: Int64 = createTimeStamp(),
                          rotation: RTCVideoRotation = ._0,
-                         scale: Double = 1.0,
-                         onTargetDimensions: OnTargetDimensions? = nil) {
+                         onResolveSourceDimensions: OnResolveSourceDimensions? = nil) {
 
         // check if pixel format is supported by WebRTC
         let pixelFormat = CVPixelBufferGetPixelFormatType(pixelBuffer)
@@ -81,38 +85,14 @@ extension RTCVideoCapturerDelegate {
             return
         }
 
-        // Dimensions which are adjusted to be safe with both VP8 and H264 encoders
-        let targetDimensions = (sourceDimensions * scale).toEncodeSafeDimensions()
-
-        // report back the computed target dimensions
-        onTargetDimensions?(targetDimensions)
-
-        if sourceDimensions != targetDimensions {
-            logger.log("capturing with adapted dimensions: \(sourceDimensions) -> \(targetDimensions)",
-                       type: type(of: self))
-        }
+        onResolveSourceDimensions?(sourceDimensions)
 
         DispatchQueue.webRTC.sync {
 
-            let rtcBuffer: RTCCVPixelBuffer
-
-            if sourceDimensions == targetDimensions {
-                // no adjustments required
-                rtcBuffer = RTCCVPixelBuffer(pixelBuffer: pixelBuffer)
-            } else {
-                // apply adjustments
-                rtcBuffer = RTCCVPixelBuffer(pixelBuffer: pixelBuffer,
-                                             adaptedWidth: targetDimensions.width,
-                                             adaptedHeight: targetDimensions.height,
-                                             cropWidth: sourceDimensions.width,
-                                             cropHeight: sourceDimensions.height,
-                                             cropX: 0,
-                                             cropY: 0)
-            }
-
+            let rtcBuffer = RTCCVPixelBuffer(pixelBuffer: pixelBuffer)
             let rtcFrame = RTCVideoFrame(buffer: rtcBuffer,
                                          rotation: rotation,
-                                         timeStampNs: Int64(timeStampNs))
+                                         timeStampNs: timeStampNs)
 
             self.capturer(capturer, didCapture: rtcFrame)
         }
@@ -121,8 +101,7 @@ extension RTCVideoCapturerDelegate {
     /// capture a `CMSampleBuffer`
     public func capturer(_ capturer: RTCVideoCapturer,
                          didCapture sampleBuffer: CMSampleBuffer,
-                         scale: Double = 1,
-                         onTargetDimensions: OnTargetDimensions? = nil) {
+                         onResolveSourceDimensions: OnResolveSourceDimensions? = nil) {
 
         // check if buffer is ready
         guard CMSampleBufferGetNumSamples(sampleBuffer) == 1,
@@ -149,14 +128,13 @@ extension RTCVideoCapturerDelegate {
         }
 
         let timeStamp = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
-        let timeStampNs = UInt64(CMTimeGetSeconds(timeStamp) * Double(NSEC_PER_SEC))
+        let timeStampNs = Int64(CMTimeGetSeconds(timeStamp) * Double(NSEC_PER_SEC))
 
         self.capturer(capturer,
                       didCapture: pixelBuffer,
                       timeStampNs: timeStampNs,
                       rotation: rotation ?? ._0,
-                      scale: scale,
-                      onTargetDimensions: onTargetDimensions)
+                      onResolveSourceDimensions: onResolveSourceDimensions)
     }
 }
 

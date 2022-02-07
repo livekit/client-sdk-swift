@@ -90,13 +90,10 @@ extension LocalTrackPublication {
             }
         }
 
-        // TODO: Investigate if WebRTC iOS SDK actually uses this value
-        // parameters.degradationPreference = NSNumber(value: RTCDegradationPreference.disabled.rawValue)
-
         // set the updated parameters
         sender.parameters = parameters
 
-        log("Using encodings: \(sender.parameters.encodings)")
+        log("Using encodings: \(sender.parameters.encodings), degradationPreference: \(String(describing: sender.parameters.degradationPreference))")
 
         // Report updated encodings to server
 
