@@ -4,7 +4,7 @@ import Promises
 
 internal class Engine: MulticastDelegate<EngineDelegate> {
 
-    internal let signalClient: SignalClient
+    internal let signalClient = SignalClient()
 
     private(set) var hasPublished: Bool = false
     private(set) var publisher: Transport?
@@ -21,7 +21,7 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
 
     internal var url: String?
     internal var token: String?
-    internal var connectOptions: ConnectOptions?
+    internal var connectOptions: ConnectOptions
 
     public private(set) var connectionState: ConnectionState = .disconnected(reason: .sdk) {
         // automatically notify changes
@@ -32,9 +32,8 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
         }
     }
 
-    public init(signalClient: SignalClient = SignalClient()) {
-
-        self.signalClient = signalClient
+    public init(connectOptions: ConnectOptions) {
+        self.connectOptions = connectOptions
         super.init()
 
         // Self
@@ -617,18 +616,15 @@ extension Engine: TransportDelegate {
             // protocol v3
             self.subscriberPrimary = joinResponse.subscriberPrimary
 
-            // create publisher and subscribers
-            let connectOptions = self.connectOptions ?? ConnectOptions()
-
             // update iceServers from joinResponse
-            connectOptions.rtcConfiguration.update(iceServers: joinResponse.iceServers)
+            self.connectOptions.rtcConfiguration.update(iceServers: joinResponse.iceServers)
 
-            self.subscriber = try Transport(config: connectOptions.rtcConfiguration,
+            self.subscriber = try Transport(config: self.connectOptions.rtcConfiguration,
                                             target: .subscriber,
                                             primary: self.subscriberPrimary,
                                             delegate: self)
 
-            self.publisher = try Transport(config: connectOptions.rtcConfiguration,
+            self.publisher = try Transport(config: self.connectOptions.rtcConfiguration,
                                            target: .publisher,
                                            primary: !self.subscriberPrimary,
                                            delegate: self)

@@ -58,7 +58,7 @@ public class LocalParticipant: Participant {
                         throw TrackError.publish(message: "VideoCapturer dimensions are unknown")
                     }
 
-                    let publishOptions = (publishOptions as? VideoPublishOptions) ?? self.room.roomOptions?.defaultVideoPublishOptions
+                    let publishOptions = (publishOptions as? VideoPublishOptions) ?? self.room.options.defaultVideoPublishOptions
 
                     self.log("Capturer dimensions: \(String(describing: track.capturer.dimensions))")
 
@@ -91,8 +91,8 @@ public class LocalParticipant: Participant {
 
                     } else if track is LocalAudioTrack {
                         // additional params for Audio
-                        let publishOptions = (publishOptions as? AudioPublishOptions) ?? self.room.roomOptions?.defaultAudioPublishOptions
-                        $0.disableDtx = !(publishOptions?.dtx ?? true)
+                        let publishOptions = (publishOptions as? AudioPublishOptions) ?? self.room.options.defaultAudioPublishOptions
+                        $0.disableDtx = !publishOptions.dtx
                     }
                 }
             }.then(on: .sdk) { (trackInfo) -> Promise<(RTCRtpTransceiver, Livekit_TrackInfo)> in
@@ -175,8 +175,7 @@ public class LocalParticipant: Participant {
 
         // build a conditional promise to stop track if required by option
         func stopTrackIfRequired() -> Promise<Void> {
-            let options = room.roomOptions ?? RoomOptions()
-            if options.stopLocalTrackOnUnpublish {
+            if room.options.stopLocalTrackOnUnpublish {
                 return track.stop()
             }
             // Do nothing
@@ -251,15 +250,14 @@ public class LocalParticipant: Participant {
 
     internal func onSubscribedQualitiesUpdate(trackSid: String, subscribedQualities: [Livekit_SubscribedQuality]) {
 
-        if !(room.roomOptions?.dynacast ?? false) {
+        if !room.options.dynacast {
             return
         }
+
         guard let pub = getTrackPublication(sid: trackSid),
               let track = pub.track as? LocalVideoTrack,
               let sender = track.transceiver?.sender
-        else {
-            return
-        }
+        else { return }
 
         let parameters = sender.parameters
         let encodings = parameters.encodings
@@ -373,10 +371,10 @@ extension LocalParticipant {
         } else if enabled {
             // try to create a new track
             if source == .camera {
-                let localTrack = LocalVideoTrack.createCameraTrack(options: room.roomOptions?.defaultCameraCaptureOptions ?? CameraCaptureOptions())
+                let localTrack = LocalVideoTrack.createCameraTrack(options: room.options.defaultCameraCaptureOptions)
                 return publishVideoTrack(track: localTrack).then(on: .sdk) { return $0 }
             } else if source == .microphone {
-                let localTrack = LocalAudioTrack.createTrack(name: "", options: room.roomOptions?.defaultAudioCaptureOptions)
+                let localTrack = LocalAudioTrack.createTrack(name: "", options: room.options.defaultAudioCaptureOptions)
                 return publishAudioTrack(track: localTrack).then(on: .sdk) { return $0 }
             } else if source == .screenShareVideo {
 
@@ -385,9 +383,9 @@ extension LocalParticipant {
                 #if os(iOS)
                 // iOS defaults to in-app screen share only since background screen share
                 // requires a broadcast extension (iOS limitation).
-                localTrack = LocalVideoTrack.createInAppScreenShareTrack(options: room.roomOptions?.defaultScreenShareCaptureOptions ?? ScreenShareCaptureOptions())
+                localTrack = LocalVideoTrack.createInAppScreenShareTrack(options: room.options.defaultScreenShareCaptureOptions)
                 #elseif os(macOS)
-                localTrack = LocalVideoTrack.createMacOSScreenShareTrack(options: room.roomOptions?.defaultScreenShareCaptureOptions ?? ScreenShareCaptureOptions())
+                localTrack = LocalVideoTrack.createMacOSScreenShareTrack(options: room.options.defaultScreenShareCaptureOptions)
                 #endif
 
                 if let localTrack = localTrack {

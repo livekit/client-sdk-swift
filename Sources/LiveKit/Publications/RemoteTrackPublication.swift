@@ -213,8 +213,7 @@ extension RemoteTrackPublication {
 
     private func shouldComputeVideoViewVisibilities() {
 
-        let roomOptions = participant.room.roomOptions ?? RoomOptions()
-        guard roomOptions.adaptiveStream else {
+        guard participant.room.options.adaptiveStream else {
             // adaptiveStream is turned off
             return
         }

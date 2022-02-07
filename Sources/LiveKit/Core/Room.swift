@@ -12,9 +12,8 @@ public class Room: MulticastDelegate<RoomDelegate> {
     public private(set) var activeSpeakers: [Participant] = []
 
     // Reference to Engine
-    internal let engine = Engine()
-
-    internal private(set) var roomOptions: RoomOptions?
+    internal let engine: Engine
+    internal private(set) var options: RoomOptions
 
     // expose engine's vars
     public var connectionState: ConnectionState { engine.connectionState }
@@ -22,12 +21,12 @@ public class Room: MulticastDelegate<RoomDelegate> {
     public var token: String? { engine.token }
 
     public init(delegate: RoomDelegate? = nil,
-                connectOptions: ConnectOptions? = nil,
-                roomOptions: RoomOptions? = nil) {
+                connectOptions: ConnectOptions = ConnectOptions(),
+                roomOptions: RoomOptions = RoomOptions()) {
 
+        self.options = roomOptions
+        self.engine = Engine(connectOptions: connectOptions)
         super.init()
-
-        self.roomOptions = roomOptions
         self.engine.connectOptions = connectOptions
 
         // listen to engine & signalClient
@@ -83,7 +82,7 @@ public class Room: MulticastDelegate<RoomDelegate> {
 
         // update options if specified
         self.engine.connectOptions = connectOptions ?? self.engine.connectOptions
-        self.roomOptions = roomOptions ?? self.roomOptions
+        self.options = roomOptions ?? self.options
 
         log("connecting to room", .info)
         guard localParticipant == nil else {
@@ -242,7 +241,7 @@ extension Room {
             return Promise(())
         }
 
-        let sendUnSub = engine.connectOptions?.autoSubscribe ?? false
+        let sendUnSub = engine.connectOptions.autoSubscribe
         let participantTracks = remoteParticipants.values.map { participant in
             Livekit_ParticipantTracks.with {
                 $0.participantSid = participant.sid

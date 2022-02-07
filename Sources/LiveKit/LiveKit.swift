@@ -23,8 +23,8 @@ public class LiveKit {
         _ url: String,
         _ token: String,
         delegate: RoomDelegate? = nil,
-        connectOptions: ConnectOptions? = nil,
-        roomOptions: RoomOptions? = nil) -> Promise<Room> {
+        connectOptions: ConnectOptions = ConnectOptions(),
+        roomOptions: RoomOptions = RoomOptions()) -> Promise<Room> {
 
         let room = Room(delegate: delegate,
                         connectOptions: connectOptions,
