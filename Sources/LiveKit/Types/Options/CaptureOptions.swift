@@ -20,7 +20,7 @@ public class CameraCaptureOptions: VideoCaptureOptions {
 
     public init(position: AVCaptureDevice.Position = .front,
                 preferredFormat: AVCaptureDevice.Format? = nil,
-                dimensions: Dimensions = Dimensions(width: 1080, height: 1080),
+                dimensions: Dimensions = .fhd169,
                 fps: Int = 30) {
 
         self.position = position
@@ -46,7 +46,7 @@ public class ScreenShareCaptureOptions: VideoCaptureOptions {
     public let dimensions: Dimensions
     public let fps: Int
 
-    public init(dimensions: Dimensions = Dimensions(width: 1080, height: 1080),
+    public init(dimensions: Dimensions = .hd169,
                 fps: Int = 30) {
 
         self.dimensions = dimensions

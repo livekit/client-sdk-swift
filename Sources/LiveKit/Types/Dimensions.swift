@@ -127,6 +127,21 @@ extension Dimensions {
     }
 }
 
-extension VideoEncoding {
+// MARK: - Presets
 
+public extension Dimensions {
+
+    // 4:3 aspect ratio presets
+    static let qvga43 = Dimensions(width: 240, height: 180)
+    static let vga43 = Dimensions(width: 480, height: 360)
+    static let qhd43 = Dimensions(width: 720, height: 540)
+    static let hd43 = Dimensions(width: 960, height: 720)
+    static let fhd43 = Dimensions(width: 1440, height: 1080)
+
+    // 16:9 aspect ratio presets
+    static let qvga169 = Dimensions(width: 320, height: 180)
+    static let vga169 = Dimensions(width: 640, height: 360)
+    static let qhd169 = Dimensions(width: 960, height: 540)
+    static let hd169 = Dimensions(width: 1280, height: 720)
+    static let fhd169 = Dimensions(width: 1920, height: 1080)
 }
