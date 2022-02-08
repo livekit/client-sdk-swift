@@ -60,6 +60,7 @@ extension RTCRtpEncodingParameters {
     open override var description: String {
         return "RTCRtpEncodingParameters(rid: \(rid ?? "nil"), "
             + "active: \(isActive), "
+            + "scaleResolutionDownBy: \(String(describing: scaleResolutionDownBy)), "
             + "maxBitrateBps: \(maxBitrateBps == nil ? "nil" : String(describing: maxBitrateBps)), "
             + "maxFramerate: \(maxFramerate == nil ? "nil" : String(describing: maxFramerate)))"
     }
