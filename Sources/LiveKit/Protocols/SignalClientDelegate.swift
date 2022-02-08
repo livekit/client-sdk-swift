@@ -10,6 +10,7 @@ internal protocol SignalClientDelegate {
     func signalClient(_ signalClient: SignalClient, didReceive iceCandidate: RTCIceCandidate, target: Livekit_SignalTarget) -> Bool
     func signalClient(_ signalClient: SignalClient, didPublish localTrack: Livekit_TrackPublishedResponse) -> Bool
     func signalClient(_ signalClient: SignalClient, didUpdate participants: [Livekit_ParticipantInfo]) -> Bool
+    func signalClient(_ signalClient: SignalClient, didUpdate room: Livekit_Room) -> Bool
     func signalClient(_ signalClient: SignalClient, didUpdate speakers: [Livekit_SpeakerInfo]) -> Bool
     func signalClient(_ signalClient: SignalClient, didUpdate connectionQuality: [Livekit_ConnectionQualityInfo]) -> Bool
     func signalClient(_ signalClient: SignalClient, didUpdateRemoteMute trackSid: String, muted: Bool) -> Bool
@@ -31,6 +32,7 @@ extension SignalClientDelegate {
     func signalClient(_ signalClient: SignalClient, didReceive iceCandidate: RTCIceCandidate, target: Livekit_SignalTarget) -> Bool { false }
     func signalClient(_ signalClient: SignalClient, didPublish localTrack: Livekit_TrackPublishedResponse) -> Bool { false }
     func signalClient(_ signalClient: SignalClient, didUpdate participants: [Livekit_ParticipantInfo]) -> Bool { false }
+    func signalClient(_ signalClient: SignalClient, didUpdate room: Livekit_Room) -> Bool { false }
     func signalClient(_ signalClient: SignalClient, didUpdate speakers: [Livekit_SpeakerInfo]) -> Bool { false }
     func signalClient(_ signalClient: SignalClient, didUpdate connectionQuality: [Livekit_ConnectionQualityInfo]) -> Bool { false }
     func signalClient(_ signalClient: SignalClient, didUpdateRemoteMute trackSid: String, muted: Bool) -> Bool { false }

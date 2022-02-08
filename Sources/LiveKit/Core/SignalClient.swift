@@ -151,6 +151,9 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
         case .update(let update):
             notify { $0.signalClient(self, didUpdate: update.participants) }
 
+        case .roomUpdate(let update):
+            notify { $0.signalClient(self, didUpdate: update.room) }
+
         case .trackPublished(let trackPublished):
             notify { $0.signalClient(self, didPublish: trackPublished) }
 
