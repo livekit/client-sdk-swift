@@ -7,6 +7,7 @@ public class Room: MulticastDelegate<RoomDelegate> {
 
     public private(set) var sid: Sid?
     public private(set) var name: String?
+    public private(set) var metadata: String?
     public private(set) var localParticipant: LocalParticipant?
     public private(set) var remoteParticipants = [Sid: RemoteParticipant]()
     public private(set) var activeSpeakers: [Participant] = []
@@ -68,6 +69,7 @@ public class Room: MulticastDelegate<RoomDelegate> {
         }.always(on: .sdk) {
             self.sid = nil
             self.name = nil
+            self.metadata = nil
             self.localParticipant = nil
             self.remoteParticipants.removeAll()
             self.activeSpeakers.removeAll()
@@ -268,6 +270,17 @@ extension Room {
     }
 }
 
+// MARK: - Internal
+
+internal extension Room {
+
+    func update(metadata: String?) {
+        guard self.metadata != metadata else { return }
+        self.metadata = metadata
+        notify { $0.room(self, didUpdate: metadata) }
+    }
+}
+
 // MARK: - SignalClientDelegate
 
 extension Room: SignalClientDelegate {
@@ -298,6 +311,7 @@ extension Room: SignalClientDelegate {
 
         sid = joinResponse.room.sid
         name = joinResponse.room.name
+        metadata = joinResponse.room.metadata
 
         if joinResponse.hasParticipant {
             localParticipant = LocalParticipant(from: joinResponse.participant, room: self)
@@ -308,6 +322,11 @@ extension Room: SignalClientDelegate {
             }
         }
 
+        return true
+    }
+
+    func signalClient(_ signalClient: SignalClient, didUpdate room: Livekit_Room) -> Bool {
+        update(metadata: room.metadata)
         return true
     }
 

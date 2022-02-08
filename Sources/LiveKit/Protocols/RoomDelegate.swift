@@ -41,6 +41,9 @@ public protocol RoomDelegate {
     /// This will include the ``LocalParticipant`` too.
     func room(_ room: Room, didUpdate speakers: [Participant])
 
+    /// ``Room``'s metadata has been updated.
+    func room(_ room: Room, didUpdate metadata: String?)
+
     /// Same with ``ParticipantDelegate/participant(_:didUpdate:)-46iut``.
     func room(_ room: Room, participant: Participant, didUpdate metadata: String?)
 
@@ -91,6 +94,7 @@ public extension RoomDelegate {
     func room(_ room: Room, participantDidJoin participant: RemoteParticipant) {}
     func room(_ room: Room, participantDidLeave participant: RemoteParticipant) {}
     func room(_ room: Room, didUpdate speakers: [Participant]) {}
+    func room(_ room: Room, didUpdate metadata: String?) {}
     func room(_ room: Room, participant: Participant, didUpdate metadata: String?) {}
     func room(_ room: Room, participant: Participant, didUpdate publication: TrackPublication, muted: Bool) {}
     func room(_ room: Room, participant: RemoteParticipant, didUpdate publication: RemoteTrackPublication, streamState: StreamState) {}
