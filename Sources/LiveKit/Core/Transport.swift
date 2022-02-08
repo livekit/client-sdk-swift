@@ -3,38 +3,38 @@ import Promises
 import WebRTC
 import SwiftProtobuf
 
-typealias TransportOnOffer = (RTCSessionDescription) -> Promise<Void>
+internal typealias TransportOnOffer = (RTCSessionDescription) -> Promise<Void>
 
 internal class Transport: MulticastDelegate<TransportDelegate> {
 
-    public let target: Livekit_SignalTarget
-    public let primary: Bool
+    let target: Livekit_SignalTarget
+    let primary: Bool
 
     // forbid direct access to PeerConnection
     private let pc: RTCPeerConnection
     private var pendingCandidates: [RTCIceCandidate] = []
 
-    public var restartingIce: Bool = false
-    public var renegotiate: Bool = false
-    public var onOffer: TransportOnOffer?
+    var restartingIce: Bool = false
+    var renegotiate: Bool = false
+    var onOffer: TransportOnOffer?
 
-    public var connectionState: RTCPeerConnectionState {
+    var connectionState: RTCPeerConnectionState {
         DispatchQueue.webRTC.sync { pc.connectionState }
     }
 
-    public var localDescription: RTCSessionDescription? {
+    var localDescription: RTCSessionDescription? {
         DispatchQueue.webRTC.sync { pc.localDescription }
     }
 
-    public var remoteDescription: RTCSessionDescription? {
+    var remoteDescription: RTCSessionDescription? {
         DispatchQueue.webRTC.sync { pc.remoteDescription }
     }
 
-    public var signalingState: RTCSignalingState {
+    var signalingState: RTCSignalingState {
         DispatchQueue.webRTC.sync { pc.signalingState }
     }
 
-    public var isConnected: Bool {
+    var isConnected: Bool {
         connectionState == .connected
     }
 
@@ -42,16 +42,16 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
     private var debounceWorkItem: DispatchWorkItem?
 
     // create debounce func
-    public lazy var negotiate = Utils.createDebounceFunc(wait: 0.1, onCreateWorkItem: { [weak self] workItem in
+    lazy var negotiate = Utils.createDebounceFunc(wait: 0.1, onCreateWorkItem: { [weak self] workItem in
         self?.debounceWorkItem = workItem
     }, fnc: { [weak self] in
         self?.createAndSendOffer()
     })
 
-    public init(config: RTCConfiguration,
-                target: Livekit_SignalTarget,
-                primary: Bool,
-                delegate: TransportDelegate) throws {
+    init(config: RTCConfiguration,
+         target: Livekit_SignalTarget,
+         primary: Bool,
+         delegate: TransportDelegate) throws {
 
         // try create peerConnection
         guard let pc = Engine.createPeerConnection(config,
@@ -70,7 +70,7 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
     }
 
     @discardableResult
-    public func addIceCandidate(_ candidate: RTCIceCandidate) -> Promise<Void> {
+    func addIceCandidate(_ candidate: RTCIceCandidate) -> Promise<Void> {
 
         if remoteDescription != nil && !restartingIce {
             return addIceCandidatePromise(candidate)
@@ -82,7 +82,7 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
     }
 
     @discardableResult
-    public func setRemoteDescription(_ sd: RTCSessionDescription) -> Promise<Void> {
+    func setRemoteDescription(_ sd: RTCSessionDescription) -> Promise<Void> {
 
         self.setRemoteDescriptionPromise(sd).then(on: .sdk) { _ in
             self.pendingCandidates.map { self.addIceCandidatePromise($0) }.all(on: .sdk)
@@ -101,7 +101,7 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
     }
 
     @discardableResult
-    public func createAndSendOffer(iceRestart: Bool = false) -> Promise<Void> {
+    func createAndSendOffer(iceRestart: Bool = false) -> Promise<Void> {
 
         guard let onOffer = onOffer else {
             log("onOffer is nil", .warning)
@@ -138,7 +138,7 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
         return negotiateSequence()
     }
 
-    public func close() -> Promise<Void> {
+    func close() -> Promise<Void> {
         // prevent debounced negotiate firing
         debounceWorkItem?.cancel()
 
@@ -150,21 +150,6 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
                 pc.removeTrack(sender)
             }
             pc.close()
-        }
-    }
-}
-
-extension RTCPeerConnectionState: CustomStringConvertible {
-
-    public var description: String {
-        switch self {
-        case .new: return "new"
-        case .connecting: return "connecting"
-        case .connected: return "connected"
-        case .failed: return "failed"
-        case .disconnected: return "disconnected"
-        case .closed: return "closed"
-        @unknown default: return "unknown"
         }
     }
 }
@@ -226,11 +211,59 @@ extension Transport: RTCPeerConnectionDelegate {
     internal func peerConnection(_ peerConnection: RTCPeerConnection, didRemove candidates: [RTCIceCandidate]) {}
 }
 
-// MARK: - Promise methods
+// MARK: - Private
+
+private extension Transport {
+
+    func createOffer(for constraints: [String: String]? = nil) -> Promise<RTCSessionDescription> {
+
+        Promise<RTCSessionDescription>(on: .webRTC) { complete, fail in
+
+            let mediaConstraints = RTCMediaConstraints(mandatoryConstraints: constraints,
+                                                       optionalConstraints: nil)
+
+            self.pc.offer(for: mediaConstraints) { sd, error in
+                guard let sd = sd else {
+                    fail(EngineError.webRTC(message: "Failed to create offer", error))
+                    return
+                }
+                complete(sd)
+            }
+        }
+    }
+
+    func setRemoteDescriptionPromise(_ sd: RTCSessionDescription) -> Promise<RTCSessionDescription> {
+
+        Promise<RTCSessionDescription>(on: .webRTC) { complete, fail in
+
+            self.pc.setRemoteDescription(sd) { error in
+                guard error == nil else {
+                    fail(EngineError.webRTC(message: "failed to set remote description", error))
+                    return
+                }
+                complete(sd)
+            }
+        }
+    }
+
+    func addIceCandidatePromise(_ candidate: RTCIceCandidate) -> Promise<Void> {
+
+        Promise<Void>(on: .webRTC) { complete, fail in
+
+            self.pc.add(candidate) { error in
+                guard error == nil else {
+                    fail(EngineError.webRTC(message: "failed to add ice candidate", error))
+                    return
+                }
+                complete(())
+            }
+        }
+    }
+}
+
+// MARK: - Internal
 
 internal extension Transport {
-
-    // MARK: - Internal
 
     func createAnswer(for constraints: [String: String]? = nil) -> Promise<RTCSessionDescription> {
 
@@ -298,52 +331,5 @@ internal extension Transport {
                                                                 configuration: configuration) }
         result?.delegate = delegate
         return result
-    }
-
-    // MARK: - Private
-
-    private func createOffer(for constraints: [String: String]? = nil) -> Promise<RTCSessionDescription> {
-
-        Promise<RTCSessionDescription>(on: .webRTC) { complete, fail in
-
-            let mediaConstraints = RTCMediaConstraints(mandatoryConstraints: constraints,
-                                                       optionalConstraints: nil)
-
-            self.pc.offer(for: mediaConstraints) { sd, error in
-                guard let sd = sd else {
-                    fail(EngineError.webRTC(message: "Failed to create offer", error))
-                    return
-                }
-                complete(sd)
-            }
-        }
-    }
-
-    private func setRemoteDescriptionPromise(_ sd: RTCSessionDescription) -> Promise<RTCSessionDescription> {
-
-        Promise<RTCSessionDescription>(on: .webRTC) { complete, fail in
-
-            self.pc.setRemoteDescription(sd) { error in
-                guard error == nil else {
-                    fail(EngineError.webRTC(message: "failed to set remote description", error))
-                    return
-                }
-                complete(sd)
-            }
-        }
-    }
-
-    private func addIceCandidatePromise(_ candidate: RTCIceCandidate) -> Promise<Void> {
-
-        Promise<Void>(on: .webRTC) { complete, fail in
-
-            self.pc.add(candidate) { error in
-                guard error == nil else {
-                    fail(EngineError.webRTC(message: "failed to add ice candidate", error))
-                    return
-                }
-                complete(())
-            }
-        }
     }
 }

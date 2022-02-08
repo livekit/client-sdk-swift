@@ -4,7 +4,7 @@ import WebRTC
 
 internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
 
-    public private(set) var connectionState: ConnectionState = .disconnected(reason: .sdk) {
+    private(set) var connectionState: ConnectionState = .disconnected(reason: .sdk) {
         didSet {
             guard oldValue != connectionState else { return }
             log("\(oldValue) -> \(self.connectionState)")
@@ -15,23 +15,10 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
     private var webSocket: WebSocket?
     private var latestJoinResponse: Livekit_JoinResponse?
 
-    internal func cleanUp(reason: DisconnectReason) {
-        log("reason: \(reason)")
-
-        connectionState = .disconnected(reason: reason)
-
-        if let socket = webSocket {
-            socket.cleanUp(reason: reason)
-            self.webSocket = nil
-        }
-
-        latestJoinResponse = nil
-    }
-
-    public func connect(_ url: String,
-                        _ token: String,
-                        connectOptions: ConnectOptions? = nil,
-                        connectMode: ConnectMode = .normal) -> Promise<Void> {
+    func connect(_ url: String,
+                 _ token: String,
+                 connectOptions: ConnectOptions? = nil,
+                 connectMode: ConnectMode = .normal) -> Promise<Void> {
 
         cleanUp(reason: .sdk)
 
@@ -80,7 +67,25 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
             }
     }
 
-    private func sendRequest(_ request: Livekit_SignalRequest) -> Promise<Void> {
+    func cleanUp(reason: DisconnectReason) {
+        log("reason: \(reason)")
+
+        connectionState = .disconnected(reason: reason)
+
+        if let socket = webSocket {
+            socket.cleanUp(reason: reason)
+            self.webSocket = nil
+        }
+
+        latestJoinResponse = nil
+    }
+}
+
+// MARK: - Private
+
+private extension SignalClient {
+
+    func sendRequest(_ request: Livekit_SignalRequest) -> Promise<Void> {
 
         guard case .connected = connectionState else {
             log("Not connected", .error)
@@ -100,18 +105,14 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
         return webSocket.send(data: data)
     }
 
-    private func onWebSocketMessage(message: URLSessionWebSocketTask.Message) {
+    func onWebSocketMessage(message: URLSessionWebSocketTask.Message) {
 
         var response: Livekit_SignalResponse?
 
-        switch message {
-        case .data(let data):
+        if case .data(let data) = message {
             response = try? Livekit_SignalResponse(contiguousBytes: data)
-        case .string(let text):
-            response = try? Livekit_SignalResponse(jsonString: text)
-        @unknown default:
-            // This should never happen
-            log("Unknown message type", .warning)
+        } else if case .string(let string) = message {
+            response = try? Livekit_SignalResponse(jsonString: string)
         }
 
         guard let response = response,
@@ -123,7 +124,7 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
         onSignalResponse(message: message)
     }
 
-    private func onSignalResponse(message: Livekit_SignalResponse.OneOf_Message) {
+    func onSignalResponse(message: Livekit_SignalResponse.OneOf_Message) {
 
         guard case .connected = connectionState else {
             log("Not connected", .warning)
@@ -182,13 +183,11 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
             notify { $0.signalClient(self, didUpdate: permissionUpdate) }
         case .refreshToken(let token):
             notify { $0.signalClient(self, didUpdate: token) }
-        default:
-            log("Unhandled signal message: \(message)", .warning)
         }
     }
 }
 
-// MARK: Wait extension
+// MARK: - Wait extension
 
 internal extension SignalClient {
 
@@ -219,9 +218,9 @@ internal extension SignalClient {
 
 // MARK: - Send methods
 
-extension SignalClient {
+internal extension SignalClient {
 
-    internal func sendOffer(offer: RTCSessionDescription) -> Promise<Void> {
+    func sendOffer(offer: RTCSessionDescription) -> Promise<Void> {
         log()
 
         let r = Livekit_SignalRequest.with {
@@ -231,7 +230,7 @@ extension SignalClient {
         return sendRequest(r)
     }
 
-    internal func sendAnswer(answer: RTCSessionDescription) -> Promise<Void> {
+    func sendAnswer(answer: RTCSessionDescription) -> Promise<Void> {
         log()
 
         let r = Livekit_SignalRequest.with {
@@ -241,7 +240,7 @@ extension SignalClient {
         return sendRequest(r)
     }
 
-    internal func sendCandidate(candidate: RTCIceCandidate, target: Livekit_SignalTarget) -> Promise<Void> {
+    func sendCandidate(candidate: RTCIceCandidate, target: Livekit_SignalTarget) -> Promise<Void> {
         log("target: \(target)")
 
         return Promise { () -> Livekit_SignalRequest in
@@ -258,7 +257,7 @@ extension SignalClient {
         }
     }
 
-    internal func sendMuteTrack(trackSid: String, muted: Bool) -> Promise<Void> {
+    func sendMuteTrack(trackSid: String, muted: Bool) -> Promise<Void> {
         log("trackSid: \(trackSid), muted: \(muted)")
 
         let r = Livekit_SignalRequest.with {
@@ -271,11 +270,11 @@ extension SignalClient {
         return sendRequest(r)
     }
 
-    internal func sendAddTrack(cid: String,
-                               name: String,
-                               type: Livekit_TrackType,
-                               source: Livekit_TrackSource = .unknown,
-                               _ populator: (inout Livekit_AddTrackRequest) -> Void) -> Promise<Void> {
+    func sendAddTrack(cid: String,
+                      name: String,
+                      type: Livekit_TrackType,
+                      source: Livekit_TrackSource = .unknown,
+                      _ populator: (inout Livekit_AddTrackRequest) -> Void) -> Promise<Void> {
         log()
 
         let r = Livekit_SignalRequest.with {
@@ -291,7 +290,7 @@ extension SignalClient {
         return sendRequest(r)
     }
 
-    internal func sendUpdateTrackSettings(sid: String, settings: TrackSettings) -> Promise<Void> {
+    func sendUpdateTrackSettings(sid: String, settings: TrackSettings) -> Promise<Void> {
         log()
 
         let r = Livekit_SignalRequest.with {
@@ -306,8 +305,8 @@ extension SignalClient {
         return sendRequest(r)
     }
 
-    internal func sendUpdateVideoLayers(trackSid: String,
-                                        layers: [Livekit_VideoLayer]) -> Promise<Void> {
+    func sendUpdateVideoLayers(trackSid: String,
+                               layers: [Livekit_VideoLayer]) -> Promise<Void> {
         log()
 
         let r = Livekit_SignalRequest.with {
@@ -320,9 +319,9 @@ extension SignalClient {
         return sendRequest(r)
     }
 
-    internal func sendUpdateSubscription(participantSid: String,
-                                         trackSid: String,
-                                         subscribed: Bool) -> Promise<Void> {
+    func sendUpdateSubscription(participantSid: String,
+                                trackSid: String,
+                                subscribed: Bool) -> Promise<Void> {
         log()
 
         let p = Livekit_ParticipantTracks.with {
@@ -341,8 +340,8 @@ extension SignalClient {
         return sendRequest(r)
     }
 
-    internal func sendUpdateSubscriptionPermission(allParticipants: Bool,
-                                                   trackPermissions: [ParticipantTrackPermission]) -> Promise<Void> {
+    func sendUpdateSubscriptionPermission(allParticipants: Bool,
+                                          trackPermissions: [ParticipantTrackPermission]) -> Promise<Void> {
         log()
 
         let r = Livekit_SignalRequest.with {
@@ -355,9 +354,9 @@ extension SignalClient {
         return sendRequest(r)
     }
 
-    internal func sendSyncState(answer: Livekit_SessionDescription,
-                                subscription: Livekit_UpdateSubscription,
-                                publishTracks: [Livekit_TrackPublishedResponse]?) -> Promise<Void> {
+    func sendSyncState(answer: Livekit_SessionDescription,
+                       subscription: Livekit_UpdateSubscription,
+                       publishTracks: [Livekit_TrackPublishedResponse]?) -> Promise<Void> {
         log()
 
         let r = Livekit_SignalRequest.with {
@@ -371,7 +370,7 @@ extension SignalClient {
         return sendRequest(r)
     }
 
-    internal func sendLeave() -> Promise<Void> {
+    func sendLeave() -> Promise<Void> {
         log()
 
         let r = Livekit_SignalRequest.with {
@@ -381,7 +380,7 @@ extension SignalClient {
         return sendRequest(r)
     }
 
-    internal func sendSimulate(scenario: SimulateScenario) -> Promise<Void> {
+    func sendSimulate(scenario: SimulateScenario) -> Promise<Void> {
         log()
 
         let r = Livekit_SignalRequest.with {

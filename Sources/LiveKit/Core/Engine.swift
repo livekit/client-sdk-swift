@@ -4,7 +4,7 @@ import Promises
 
 internal class Engine: MulticastDelegate<EngineDelegate> {
 
-    internal let signalClient = SignalClient()
+    let signalClient = SignalClient()
 
     private(set) var hasPublished: Bool = false
     private(set) var publisher: Transport?
@@ -19,11 +19,12 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
     private(set) var dcReliableSub: RTCDataChannel?
     private(set) var dcLossySub: RTCDataChannel?
 
-    internal var url: String?
-    internal var token: String?
-    internal var connectOptions: ConnectOptions
+    private(set) var url: String?
+    private(set) var token: String?
 
-    public private(set) var connectionState: ConnectionState = .disconnected(reason: .sdk) {
+    var connectOptions: ConnectOptions
+
+    private(set) var connectionState: ConnectionState = .disconnected(reason: .sdk) {
         // automatically notify changes
         didSet {
             guard oldValue != connectionState else { return }
@@ -32,11 +33,10 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
         }
     }
 
-    public init(connectOptions: ConnectOptions) {
+    init(connectOptions: ConnectOptions) {
         self.connectOptions = connectOptions
         super.init()
 
-        // Self
         signalClient.add(delegate: self)
         log()
     }
@@ -46,9 +46,150 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
         signalClient.remove(delegate: self)
     }
 
+    // Connect sequence, resets existing state
+    func connect(_ url: String,
+                 _ token: String) -> Promise<Void> {
+
+        return cleanUp(reason: .sdk).then(on: .sdk) {
+            self.connectionState = .connecting(.normal)
+        }.then(on: .sdk) {
+            self.fullConnectSequence(url, token)
+        }.then(on: .sdk) {
+            // connect sequence successful
+            self.log("Connect sequence completed")
+
+            // update internal vars (only if connect succeeded)
+            self.url = url
+            self.token = token
+            self.connectionState = .connected(.normal)
+
+        }.catch(on: .sdk) { error in
+            self.cleanUp(reason: .network(error: error))
+        }
+    }
+
+    // Resets state of Engine
+    @discardableResult
+    func cleanUp(reason: DisconnectReason) -> Promise<Void> {
+
+        log("reason: \(reason)")
+
+        url = nil
+        token = nil
+
+        connectionState = .disconnected(reason: reason)
+        signalClient.cleanUp(reason: reason)
+
+        return cleanUpRTC()
+    }
+
+    func addTrack(cid: String,
+                  name: String,
+                  kind: Livekit_TrackType,
+                  source: Livekit_TrackSource = .unknown,
+                  _ populator: @escaping (inout Livekit_AddTrackRequest) -> Void) -> Promise<Livekit_TrackInfo> {
+
+        // TODO: Check if cid already published
+
+        let promises = waitFor(publishLocalTrackWith: cid)
+
+        return promises.listen.then(on: .sdk) {
+            self.signalClient.sendAddTrack(cid: cid,
+                                           name: name,
+                                           type: kind,
+                                           source: source, populator)
+        }.then(on: .sdk) {
+            return promises.wait
+        }
+    }
+
+    func publisherShouldNegotiate() {
+
+        guard let publisher = publisher else {
+            log("negotiate() publisher is nil")
+            return
+        }
+
+        hasPublished = true
+        publisher.negotiate()
+    }
+
+    func send(userPacket: Livekit_UserPacket,
+              reliability: Reliability = .reliable) -> Promise<Void> {
+
+        func ensurePublisherConnected () -> Promise<Void> {
+
+            guard subscriberPrimary else {
+                return Promise(())
+            }
+
+            guard let publisher = publisher else {
+                return Promise(EngineError.state(message: "publisher is nil"))
+            }
+
+            if !publisher.isConnected, publisher.connectionState != .connecting {
+                publisherShouldNegotiate()
+            }
+
+            let waitTransport = waitFor(transport: publisher, state: .connected)
+            let waitDC = waitForPublisherDataChannelOpen(reliability: reliability)
+            let listenBoth = [waitTransport.listen, waitDC.listen].all(on: .sdk)
+
+            return listenBoth.then(on: .sdk) { _ in
+                waitTransport.wait
+            }.then(on: .sdk) {
+                waitDC.wait
+            }
+        }
+
+        return ensurePublisherConnected().then(on: .sdk) { () -> Void in
+
+            let packet = Livekit_DataPacket.with {
+                $0.kind = reliability.toPBType()
+                $0.user = userPacket
+            }
+
+            let serializedData = try packet.serializedData()
+            let rtcData = Engine.createDataBuffer(data: serializedData)
+
+            guard let channel = self.publisherDataChannel(for: reliability) else {
+                throw InternalError.state(message: "Data channel is nil")
+            }
+
+            guard channel.sendData(rtcData) else {
+                throw EngineError.webRTC(message: "DataChannel.sendData returned false")
+            }
+        }
+    }
+}
+
+// MARK: - Private
+
+private extension Engine {
+
+    func publisherDataChannel(for reliability: Reliability) -> RTCDataChannel? {
+        reliability == .reliable ? dcReliablePub : dcLossyPub
+    }
+
+    private func onReceived(dataChannel: RTCDataChannel) {
+
+        log("Server opened data channel \(dataChannel.label)")
+
+        switch dataChannel.label {
+        case RTCDataChannel.labels.reliable:
+            dcReliableSub = dataChannel
+            dcReliableSub?.delegate = self
+        case RTCDataChannel.labels.lossy:
+            dcLossySub = dataChannel
+            dcLossySub?.delegate = self
+        default:
+            log("Unknown data channel label \(dataChannel.label)", .warning)
+        }
+    }
+
     // Resets state of transports
     @discardableResult
-    internal func cleanUpRTC() -> Promise<Void> {
+    func cleanUpRTC() -> Promise<Void> {
 
         func closeAllDataChannels() -> Promise<Void> {
 
@@ -81,24 +222,9 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
         }
     }
 
-    // Resets state of Engine
-    @discardableResult
-    internal func cleanUp(reason: DisconnectReason) -> Promise<Void> {
-
-        log("reason: \(reason)")
-
-        url = nil
-        token = nil
-
-        connectionState = .disconnected(reason: reason)
-        signalClient.cleanUp(reason: reason)
-
-        return cleanUpRTC()
-    }
-
     // Connect sequence only, doesn't update internal state
-    internal func fullConnectSequence(_ url: String,
-                                      _ token: String) -> Promise<Void> {
+    func fullConnectSequence(_ url: String,
+                             _ token: String) -> Promise<Void> {
 
         let joinPromises = signalClient.waitForJoinResponse()
 
@@ -115,30 +241,8 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
         }
     }
 
-    // Connect sequence, resets existing state
-    public func connect(_ url: String,
-                        _ token: String) -> Promise<Void> {
-
-        return cleanUp(reason: .sdk).then(on: .sdk) {
-            self.connectionState = .connecting(.normal)
-        }.then(on: .sdk) {
-            self.fullConnectSequence(url, token)
-        }.then(on: .sdk) {
-            // connect sequence successful
-            self.log("Connect sequence completed")
-
-            // update internal vars (only if connect succeeded)
-            self.url = url
-            self.token = token
-            self.connectionState = .connected(.normal)
-
-        }.catch(on: .sdk) { error in
-            self.cleanUp(reason: .network(error: error))
-        }
-    }
-
     @discardableResult
-    private func startReconnect() -> Promise<Void> {
+    func startReconnect() -> Promise<Void> {
 
         if connectionState.isReconnecting {
             log("Already reconnecting", .warning)
@@ -249,112 +353,9 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
         }
     }
 
-    private func onReceived(dataChannel: RTCDataChannel) {
-
-        log("Server opened data channel \(dataChannel.label)")
-
-        switch dataChannel.label {
-        case RTCDataChannel.labels.reliable:
-            dcReliableSub = dataChannel
-            dcReliableSub?.delegate = self
-        case RTCDataChannel.labels.lossy:
-            dcLossySub = dataChannel
-            dcLossySub?.delegate = self
-        default:
-            log("Unknown data channel label \(dataChannel.label)", .warning)
-        }
-    }
-
-    public func addTrack(cid: String,
-                         name: String,
-                         kind: Livekit_TrackType,
-                         source: Livekit_TrackSource = .unknown,
-                         _ populator: @escaping (inout Livekit_AddTrackRequest) -> Void) -> Promise<Livekit_TrackInfo> {
-
-        // TODO: Check if cid already published
-
-        let promises = waitFor(publishLocalTrackWith: cid)
-
-        return promises.listen.then(on: .sdk) {
-            self.signalClient.sendAddTrack(cid: cid,
-                                           name: name,
-                                           type: kind,
-                                           source: source, populator)
-        }.then(on: .sdk) {
-            return promises.wait
-        }
-    }
-
-    internal func publisherShouldNegotiate() {
-
-        guard let publisher = publisher else {
-            log("negotiate() publisher is nil")
-            return
-        }
-
-        hasPublished = true
-        publisher.negotiate()
-    }
-
-    internal func publisherDataChannel(for reliability: Reliability) -> RTCDataChannel? {
-        reliability == .reliable ? dcReliablePub : dcLossyPub
-    }
-
-    internal func send(userPacket: Livekit_UserPacket,
-                       reliability: Reliability = .reliable) -> Promise<Void> {
-
-        func ensurePublisherConnected () -> Promise<Void> {
-
-            guard subscriberPrimary else {
-                return Promise(())
-            }
-
-            guard let publisher = publisher else {
-                return Promise(EngineError.state(message: "publisher is nil"))
-            }
-
-            if !publisher.isConnected, publisher.connectionState != .connecting {
-                publisherShouldNegotiate()
-            }
-
-            let waitTransport = waitFor(transport: publisher, state: .connected)
-            let waitDC = waitForPublisherDataChannelOpen(reliability: reliability)
-            let listenBoth = [waitTransport.listen, waitDC.listen].all(on: .sdk)
-
-            return listenBoth.then(on: .sdk) { _ in
-                waitTransport.wait
-            }.then(on: .sdk) {
-                waitDC.wait
-            }
-        }
-
-        return ensurePublisherConnected().then(on: .sdk) { () -> Void in
-
-            let packet = Livekit_DataPacket.with {
-                $0.kind = reliability.toPBType()
-                $0.user = userPacket
-            }
-
-            let serializedData = try packet.serializedData()
-            let rtcData = Engine.createDataBuffer(data: serializedData)
-
-            guard let channel = self.publisherDataChannel(for: reliability) else {
-                throw InternalError.state(message: "Data channel is nil")
-            }
-
-            guard channel.sendData(rtcData) else {
-                throw EngineError.webRTC(message: "DataChannel.sendData returned false")
-            }
-        }
-    }
 }
 
 // MARK: - Wait extensions
-
-// A tuple of Promises,
-// listen: resolves when started listening
-// wait: resolves when wait is complete or rejects when timeout
-typealias WaitPromises<T> = (listen: Promise<Void>, wait: Promise<T>)
 
 extension Engine {
 
