@@ -511,7 +511,7 @@ extension Engine: SignalClientDelegate {
     }
 
     func signalClient(_ signalClient: SignalClient, didReceiveLeave canReconnect: Bool) -> Bool {
-        log()
+        log("canReconnect: \(canReconnect)")
 
         // Server indicates it's not recoverable
         if !canReconnect {
