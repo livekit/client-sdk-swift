@@ -2,6 +2,12 @@ import Foundation
 import CoreGraphics
 import Promises
 
+public enum SubscriptionStatus {
+    case subscribed
+    case notAllowed
+    case unsubscribed
+}
+
 public class RemoteTrackPublication: TrackPublication {
     // have we explicitly unsubscribed
     var unsubscribed: Bool = false
@@ -124,48 +130,25 @@ public class RemoteTrackPublication: TrackPublication {
         }
     }
 
-    /// subscribe or unsubscribe from this track
-    public func setSubscribed(_ subscribed: Bool) {
+    /// Subscribe or unsubscribe from this track.
+    @discardableResult
+    public func set(subscribed: Bool) -> Promise<Void> {
         unsubscribed = !subscribed
 
-        participant.room.engine.signalClient.sendUpdateSubscription(
+        return participant.room.engine.signalClient.sendUpdateSubscription(
             participantSid: participant.sid,
             trackSid: sid,
             subscribed: !unsubscribed
-        ).catch { error in
-            self.log("Failed to set subscribed, error: \(error)", .error)
-        }
+        )
     }
 
-    /// disable server from sending down data for this track
+    /// Enable or disable server from sending down data for this track.
     ///
-    /// this is useful when the participant is off screen, you may disable streaming down their video to reduce bandwidth requirements
-    @available(*, deprecated, message: "Use enable() or disable() instead.")
-    public func setEnabled(_ enabled: Bool) {
-        let promise = enabled ? enable() : disable()
-        promise.catch { error in
-            self.log("Failed to set enabled, error: \(error)", .error)
-        }
-    }
-
-    public func enable() -> Promise<Void> {
-
-        guard !enabled else {
-            // already enabled
-            return Promise(())
-        }
-
-        return send(trackSettings: trackSettings.copyWith(enabled: true))
-    }
-
-    public func disable() -> Promise<Void> {
-
-        guard enabled else {
-            // already disabled
-            return Promise(())
-        }
-
-        return send(trackSettings: trackSettings.copyWith(enabled: false))
+    /// This is useful when the participant is off screen, you may disable streaming down their video to reduce bandwidth requirements.
+    @discardableResult
+    public func set(enabled: Bool) -> Promise<Void> {
+        guard self.enabled != enabled else { return Promise(()) }
+        return send(trackSettings: trackSettings.copyWith(enabled: enabled))
     }
 
     #if LK_FEATURE_ADAPTIVESTREAM
@@ -200,7 +183,7 @@ public class RemoteTrackPublication: TrackPublication {
 
 #if LK_FEATURE_ADAPTIVESTREAM
 
-// MARK: - Video Optimizations
+// MARK: - Adaptive Stream
 
 extension RemoteTrackPublication {
 
@@ -252,12 +235,6 @@ extension RemoteTrackPublication {
 }
 #endif
 
-public enum SubscriptionStatus {
-    case subscribed
-    case notAllowed
-    case unsubscribed
-}
-
 // MARK: - TrackSettings
 
 extension RemoteTrackPublication {
@@ -269,44 +246,12 @@ extension RemoteTrackPublication {
 
     // Send new track settings
     internal func send(trackSettings: TrackSettings) -> Promise<Void> {
-
-        guard self.trackSettings != trackSettings else {
-            // no-updated
-            return Promise(())
-        }
+        // no-update
+        guard self.trackSettings != trackSettings else { return Promise(()) }
 
         return participant.room.engine.signalClient.sendUpdateTrackSettings(sid: sid, settings: trackSettings).then(on: .sdk) {
             self.trackSettings = trackSettings
         }
-    }
-}
-
-internal class TrackSettings {
-    let enabled: Bool
-    let dimensions: Dimensions
-
-    init(enabled: Bool = true, dimensions: Dimensions = Dimensions(width: 0, height: 0)) {
-        self.enabled = enabled
-        self.dimensions = dimensions
-    }
-
-    func copyWith(enabled: Bool? = nil, dimensions: Dimensions? = nil) -> TrackSettings {
-        TrackSettings(enabled: enabled ?? self.enabled,
-                      dimensions: dimensions ?? self.dimensions)
-    }
-}
-
-extension TrackSettings: Equatable {
-
-    static func == (lhs: TrackSettings, rhs: TrackSettings) -> Bool {
-        lhs.enabled == rhs.enabled && lhs.dimensions == rhs.dimensions
-    }
-}
-
-extension TrackSettings: CustomStringConvertible {
-
-    var description: String {
-        "TrackSettings(enabled: \(enabled), dimensions: \(dimensions)"
     }
 }
 
