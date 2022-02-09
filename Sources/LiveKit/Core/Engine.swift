@@ -666,6 +666,12 @@ extension Engine: TransportDelegate {
         }
     }
 
+    func transport(_ transport: Transport, didRemove track: RTCMediaStreamTrack) {
+        if transport.target == .subscriber {
+            notify { $0.engine(self, didRemove: track) }
+        }
+    }
+
     func transport(_ transport: Transport, didOpen dataChannel: RTCDataChannel) {
         log("Did open dataChannel label: \(dataChannel.label)")
         if subscriberPrimary, transport.target == .subscriber {
