@@ -87,7 +87,7 @@ public class RemoteParticipant: Participant {
             return Promise(error)
         }
 
-        publication.track = track
+        publication.set(track: track)
         track.sid = publication.sid
         addTrack(publication: publication)
         return track.start().then(on: .sdk) {
@@ -120,7 +120,7 @@ public class RemoteParticipant: Participant {
             guard shouldNotify else { return }
             // notify unsubscribe
             self.notify { $0.participant(self, didUnsubscribe: publication, track: track) }
-            self.room.notify { $0.room(self.room, participant: self, didUnsubscribe: publication) }
+            self.room.notify { $0.room(self.room, participant: self, didUnsubscribe: publication, track: track) }
         }.then(on: .sdk) {
             notifyUnpublish()
         }

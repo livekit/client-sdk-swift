@@ -1,11 +1,12 @@
 import SwiftUI
 import WebRTC
 
-extension ObservableParticipant: ParticipantDelegate {
+extension ObservableParticipant: ParticipantDelegate, Loggable {
 
     public func participant(_ participant: RemoteParticipant,
                             didSubscribe trackPublication: RemoteTrackPublication,
                             track: Track) {
+        log("\(self.hashValue) didSubscribe remoteTrack: \(String(describing: track.sid))")
         DispatchQueue.main.async {
             self.objectWillChange.send()
         }
@@ -14,6 +15,16 @@ extension ObservableParticipant: ParticipantDelegate {
     public func participant(_ participant: RemoteParticipant,
                             didUnsubscribe trackPublication: RemoteTrackPublication,
                             track: Track) {
+        log("\(self.hashValue) didUnsubscribe remoteTrack: \(String(describing: track.sid))")
+        DispatchQueue.main.async {
+            self.objectWillChange.send()
+        }
+    }
+
+    public func participant(_ participant: RemoteParticipant,
+                            didUpdate publication: RemoteTrackPublication,
+                            permission allowed: Bool) {
+        log("\(self.hashValue) didUpdate allowed: \(allowed)")
         DispatchQueue.main.async {
             self.objectWillChange.send()
         }
@@ -34,7 +45,9 @@ extension ObservableParticipant: ParticipantDelegate {
     }
 
     public func participant(_ participant: Participant,
-                            didUpdate trackPublication: TrackPublication, muted: Bool) {
+                            didUpdate trackPublication: TrackPublication,
+                            muted: Bool) {
+        log("\(self.hashValue) didUpdate muted: \(muted)")
         DispatchQueue.main.async {
             self.objectWillChange.send()
         }

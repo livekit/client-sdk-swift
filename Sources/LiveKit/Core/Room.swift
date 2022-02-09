@@ -210,7 +210,7 @@ private extension Room {
             return
         }
 
-        publication.subscriptionAllowed = permissionUpdate.allowed
+        publication.set(subscriptionAllowed: permissionUpdate.allowed)
     }
 }
 

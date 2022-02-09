@@ -14,16 +14,9 @@ public class TrackPublication: TrackDelegate, Loggable {
     public let sid: Sid
     public let kind: Track.Kind
     public let source: Track.Source
-    public internal(set) var name: String
-    public internal(set) var track: Track? {
-        didSet {
-            guard oldValue != track else { return }
 
-            // listen for visibility updates
-            oldValue?.remove(delegate: self)
-            track?.add(delegate: self)
-        }
-    }
+    public internal(set) var name: String
+    public private(set) var track: Track?
 
     public var muted: Bool {
         track?.muted ?? false
@@ -54,8 +47,8 @@ public class TrackPublication: TrackDelegate, Loggable {
         self.kind = info.type.toLKType()
         self.source = info.source.toLKType()
         self.mimeType = info.mimeType
-        self.track = track
         self.participant = participant
+        self.set(track: track)
         updateFromInfo(info: info)
 
         // listen for events from Track
@@ -72,6 +65,22 @@ public class TrackPublication: TrackDelegate, Loggable {
                                     height: Int32(info.height))
         }
         self.latestInfo = info
+    }
+
+    @discardableResult
+    internal func set(track newValue: Track?) -> Track? {
+        // keep ref to old value
+        let oldValue = self.track
+        // continue only if updated
+        guard self.track != newValue else { return oldValue }
+        log("\(String(describing: oldValue)) -> \(String(describing: newValue))")
+
+        // listen for visibility updates
+        self.track?.remove(delegate: self)
+        newValue?.add(delegate: self)
+
+        self.track = newValue
+        return oldValue
     }
 
     // MARK: - TrackDelegate

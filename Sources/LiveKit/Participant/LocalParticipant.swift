@@ -241,6 +241,7 @@ public class LocalParticipant: Participant {
      * - Parameter participantTrackPermissions Full list of individual permissions per
      *  participant/track. Any omitted participants will not receive any permissions.
      */
+    @discardableResult
     public func setTrackSubscriptionPermissions(allParticipantsAllowed: Bool,
                                                 trackPermissions: [ParticipantTrackPermission] = []) -> Promise<Void> {
 

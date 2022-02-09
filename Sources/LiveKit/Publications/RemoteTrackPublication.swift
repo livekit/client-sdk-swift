@@ -2,21 +2,27 @@ import Foundation
 import CoreGraphics
 import Promises
 
-public enum SubscriptionStatus {
+public enum SubscriptionState {
     case subscribed
     case notAllowed
     case unsubscribed
 }
 
 public class RemoteTrackPublication: TrackPublication {
-    // have we explicitly unsubscribed
-    var unsubscribed: Bool = false
+    // user's preference to subscribe or not
+    internal var preferSubscribed: Bool?
+
+    public private(set) var subscriptionAllowed = true
 
     public var enabled: Bool {
         trackSettings.enabled
     }
 
     private var metadataMuted: Bool = false
+
+    override public var muted: Bool {
+        track?.muted ?? metadataMuted
+    }
 
     private var trackSettings = TrackSettings() {
         didSet {
@@ -38,40 +44,6 @@ public class RemoteTrackPublication: TrackPublication {
             guard let participant = self.participant as? RemoteParticipant else { return }
             participant.notify { $0.participant(participant, didUpdate: self, streamState: self.streamState) }
             participant.room.notify { $0.room(participant.room, participant: participant, didUpdate: self, streamState: self.streamState) }
-        }
-    }
-
-    public internal(set) var subscriptionAllowed = true {
-        didSet {
-            guard oldValue != subscriptionAllowed else { return }
-            guard let participant = self.participant as? RemoteParticipant else { return }
-            participant.notify { $0.participant(participant, didUpdate: self, permission: self.subscriptionAllowed) }
-            participant.room.notify { $0.room(participant.room, participant: participant, didUpdate: self, permission: self.subscriptionAllowed) }
-
-            if subscriptionAllowed && subscriptionState == .subscribed {
-                guard let track = self.track else { return }
-                participant.notify { $0.participant(participant, didSubscribe: self, track: track) }
-                participant.room.notify { $0.room(participant.room, participant: participant, didSubscribe: self, track: track) }
-            } else if !subscriptionAllowed && subscriptionState == .notAllowed {
-                guard let track = self.track else { return }
-                participant.notify { $0.participant(participant, didUnsubscribe: self, track: track) }
-                participant.room.notify { $0.room(participant.room, participant: participant, didUnsubscribe: self)}
-            }
-        }
-    }
-    override public internal(set) var track: Track? {
-        didSet {
-            guard oldValue != track else { return }
-
-            #if LK_FEATURE_ADAPTIVESTREAM
-            // cancel the pending debounce func
-            pendingDebounceFunc?.cancel()
-            videoViewVisibilities.removeAll()
-            #endif
-            // if new Track has been set to this RemoteTrackPublication,
-            // update the Track's muted state from the latest info.
-            track?.update(muted: metadataMuted,
-                          shouldNotify: false)
         }
     }
 
@@ -109,37 +81,74 @@ public class RemoteTrackPublication: TrackPublication {
     override func updateFromInfo(info: Livekit_TrackInfo) {
         super.updateFromInfo(info: info)
         track?.update(muted: info.muted)
-        metadataMuted = info.muted
+        set(metadataMuted: info.muted)
     }
 
     override public var subscribed: Bool {
-        if unsubscribed || !subscriptionAllowed {
-            return false
-        }
-        // unless explicitly unsubscribed, defer to parent logic
-        return super.subscribed
+        if !subscriptionAllowed { return false }
+        return preferSubscribed != false && super.subscribed
     }
 
-    public var subscriptionState: SubscriptionStatus {
-        if unsubscribed || !super.subscribed {
-            return .unsubscribed
-        } else if !subscriptionAllowed {
-            return .notAllowed
-        } else {
-            return .subscribed
+    public var subscriptionState: SubscriptionState {
+        if !subscriptionAllowed { return .notAllowed }
+        return self.subscribed ? .subscribed : .unsubscribed
+    }
+
+    internal func set(metadataMuted newValue: Bool) {
+        guard self.metadataMuted != newValue else { return }
+        self.metadataMuted = newValue
+        // if track exists, track will emit the following events
+        if track == nil {
+            self.participant.notify { $0.participant(self.participant, didUpdate: self, muted: newValue) }
+            self.participant.room.notify { $0.room(self.participant.room, participant: self.participant, didUpdate: self, muted: newValue) }
         }
+    }
+
+    internal func set(subscriptionAllowed newValue: Bool) {
+        guard self.subscriptionAllowed != newValue else { return }
+        self.subscriptionAllowed = newValue
+
+        guard let participant = self.participant as? RemoteParticipant else { return }
+        participant.notify { $0.participant(participant, didUpdate: self, permission: newValue) }
+        participant.room.notify { $0.room(participant.room, participant: participant, didUpdate: self, permission: newValue) }
+    }
+
+    @discardableResult
+    internal override func set(track newValue: Track?) -> Track? {
+        let oldValue = super.set(track: newValue)
+        if newValue != oldValue {
+            #if LK_FEATURE_ADAPTIVESTREAM
+            // cancel the pending debounce func
+            pendingDebounceFunc?.cancel()
+            videoViewVisibilities.removeAll()
+            #endif
+            // if new Track has been set to this RemoteTrackPublication,
+            // update the Track's muted state from the latest info.
+            newValue?.update(muted: metadataMuted,
+                             shouldNotify: false)
+
+            if let oldValue = oldValue, newValue == nil,
+               let participant = participant as? RemoteParticipant {
+                participant.notify { $0.participant(participant, didUnsubscribe: self, track: oldValue) }
+                participant.room.notify { $0.room(participant.room, participant: participant, didUnsubscribe: self, track: oldValue) }
+            }
+        }
+        return oldValue
     }
 
     /// Subscribe or unsubscribe from this track.
     @discardableResult
-    public func set(subscribed: Bool) -> Promise<Void> {
-        unsubscribed = !subscribed
+    public func set(subscribed newValue: Bool) -> Promise<Void> {
+
+        guard self.preferSubscribed != newValue else { return Promise(()) }
 
         return participant.room.engine.signalClient.sendUpdateSubscription(
             participantSid: participant.sid,
             trackSid: sid,
-            subscribed: !unsubscribed
-        )
+            subscribed: newValue
+        ).then {
+            self.preferSubscribed = newValue
+        }
     }
 
     /// Enable or disable server from sending down data for this track.
@@ -230,7 +239,6 @@ extension RemoteTrackPublication {
         send(trackSettings: newSettings).catch { error in
             self.log("Failed to send track settings, error: \(error)", .error)
         }
-
     }
 }
 #endif
