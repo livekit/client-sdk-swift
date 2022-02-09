@@ -10,7 +10,7 @@ public protocol VideoCaptureOptions: CaptureOptions {
     var fps: Int { get }
 }
 
-public class CameraCaptureOptions: VideoCaptureOptions {
+public struct CameraCaptureOptions: VideoCaptureOptions {
 
     public let position: AVCaptureDevice.Position
     public let preferredFormat: AVCaptureDevice.Format?
@@ -20,7 +20,7 @@ public class CameraCaptureOptions: VideoCaptureOptions {
 
     public init(position: AVCaptureDevice.Position = .front,
                 preferredFormat: AVCaptureDevice.Format? = nil,
-                dimensions: Dimensions = .fhd169,
+                dimensions: Dimensions = .hd169,
                 fps: Int = 30) {
 
         self.position = position
@@ -41,7 +41,7 @@ public class CameraCaptureOptions: VideoCaptureOptions {
     }
 }
 
-public class ScreenShareCaptureOptions: VideoCaptureOptions {
+public struct ScreenShareCaptureOptions: VideoCaptureOptions {
 
     public let dimensions: Dimensions
     public let fps: Int
@@ -54,7 +54,7 @@ public class ScreenShareCaptureOptions: VideoCaptureOptions {
     }
 }
 
-public class AudioCaptureOptions: CaptureOptions {
+public struct AudioCaptureOptions: CaptureOptions {
 
     public let echoCancellation: Bool
     public let noiseSuppression: Bool

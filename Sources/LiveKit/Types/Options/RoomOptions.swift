@@ -1,14 +1,14 @@
 import Foundation
 
-public class RoomOptions {
+public struct RoomOptions {
     // default options for capturing
-    public var defaultCameraCaptureOptions: CameraCaptureOptions
-    public var defaultScreenShareCaptureOptions: ScreenShareCaptureOptions
+    public let defaultCameraCaptureOptions: CameraCaptureOptions
+    public let defaultScreenShareCaptureOptions: ScreenShareCaptureOptions
 
-    public var defaultAudioCaptureOptions: AudioCaptureOptions
+    public let defaultAudioCaptureOptions: AudioCaptureOptions
     // default options for publishing
-    public var defaultVideoPublishOptions: VideoPublishOptions
-    public var defaultAudioPublishOptions: AudioPublishOptions
+    public let defaultVideoPublishOptions: VideoPublishOptions
+    public let defaultAudioPublishOptions: AudioPublishOptions
 
     /// AdaptiveStream lets LiveKit automatically manage quality of subscribed
     /// video tracks to optimize for bandwidth and CPU.
@@ -18,14 +18,14 @@ public class RoomOptions {
     /// When none of the video elements are visible, it'll temporarily pause
     /// the data flow until they are visible again.
     ///
-    public var adaptiveStream: Bool
+    public let adaptiveStream: Bool
 
     /// Dynamically pauses video layers that are not being consumed by any subscribers,
     /// significantly reducing publishing CPU and bandwidth usage.
     ///
-    public var dynacast: Bool
+    public let dynacast: Bool
 
-    public var stopLocalTrackOnUnpublish: Bool
+    public let stopLocalTrackOnUnpublish: Bool
 
     public init(defaultCameraCaptureOptions: CameraCaptureOptions = CameraCaptureOptions(),
                 defaultScreenShareCaptureOptions: ScreenShareCaptureOptions = ScreenShareCaptureOptions(),

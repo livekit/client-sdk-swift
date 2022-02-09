@@ -1,11 +1,12 @@
 import Foundation
 import WebRTC
 
-public class ConnectOptions {
-    public var autoSubscribe: Bool
-    public var rtcConfiguration: RTCConfiguration
-    public var protocolVersion: ProtocolVersion
-    public var publish: String?
+public struct ConnectOptions {
+
+    public let autoSubscribe: Bool
+    public let rtcConfiguration: RTCConfiguration
+    public let protocolVersion: ProtocolVersion
+    public let publish: String?
 
     public init(autoSubscribe: Bool = true,
                 rtcConfiguration: RTCConfiguration = .liveKitDefault(),
