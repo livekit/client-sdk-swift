@@ -143,15 +143,15 @@ internal class Utils {
                 queryItems.append(URLQueryItem(name: "device_model", value: modelIdentifier))
             }
 
+            var reconnect = false
             if case .reconnect(let r) = connectMode,
                case .quick = r {
-                // Only append "reconnect" for quick-reconnect
-                queryItems.append(URLQueryItem(name: "reconnect", value: "1"))
+                reconnect = true
             }
 
-            if connectOptions.autoSubscribe {
-                queryItems.append(URLQueryItem(name: "auto_subscribe", value: "1"))
-            }
+            queryItems.append(URLQueryItem(name: "reconnect", value: reconnect ? "1" : "0"))
+
+            queryItems.append(URLQueryItem(name: "auto_subscribe", value: connectOptions.autoSubscribe ? "1" : "0"))
 
             if let publish = connectOptions.publish {
                 queryItems.append(URLQueryItem(name: "publish", value: publish))
