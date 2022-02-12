@@ -14,6 +14,8 @@ public typealias NativeRendererView = NativeViewType & RTCVideoRenderer
 
 public class VideoView: NativeView, Loggable {
 
+    private static let mirrorTransform = CATransform3DMakeScale(-1.0, 1.0, 1.0)
+
     /// A set of bool values describing the state of rendering.
     public struct RenderState: OptionSet {
         public let rawValue: Int
@@ -48,10 +50,12 @@ public class VideoView: NativeView, Loggable {
         }
     }
 
+    /// Flips the video horizontally, useful for local VideoViews.
+    /// Known Issue: this will not work when os is macOS and ``preferMetal`` is false.
     public var mirrored: Bool = false {
         didSet {
             guard oldValue != mirrored else { return }
-            update(mirrored: mirrored)
+            markNeedsLayout()
         }
     }
 
@@ -153,17 +157,23 @@ public class VideoView: NativeView, Loggable {
                                       y: -((size.height - frame.size.height) / 2),
                                       width: size.width,
                                       height: size.height)
-    }
 
-    private static let mirrorTransform = CGAffineTransform(scaleX: -1.0, y: 1.0)
-
-    private func update(mirrored: Bool) {
-        #if os(iOS)
-        let layer = self.layer
-        #elseif os(macOS)
-        guard let layer = self.layer else { return }
-        #endif
-        layer.setAffineTransform(mirrored ? VideoView.mirrorTransform : .identity)
+        if mirrored {
+            #if os(macOS)
+            // this is required for macOS
+            nativeRenderer.set(anchorPoint: CGPoint(x: 0.5, y: 0.5))
+            nativeRenderer.wantsLayer = true
+            nativeRenderer.layer!.sublayerTransform = VideoView.mirrorTransform
+            #elseif os(iOS)
+            nativeRenderer.layer.transform = VideoView.mirrorTransform
+            #endif
+        } else {
+            #if os(macOS)
+            nativeRenderer.layer?.sublayerTransform = CATransform3DIdentity
+            #elseif os(iOS)
+            nativeRenderer.layer.transform = CATransform3DIdentity
+            #endif
+        }
     }
 
     private func reCreateNativeRenderer() {
@@ -281,3 +291,34 @@ extension VideoView {
         }
     }
 }
+
+#if os(macOS)
+extension NSView {
+    //
+    // Converted to Swift + NSView from:
+    // http://stackoverflow.com/a/10700737
+    //
+    func set(anchorPoint: CGPoint) {
+        if let layer = self.layer {
+            var newPoint = CGPoint(x: self.bounds.size.width * anchorPoint.x,
+                                   y: self.bounds.size.height * anchorPoint.y)
+            var oldPoint = CGPoint(x: self.bounds.size.width * layer.anchorPoint.x,
+                                   y: self.bounds.size.height * layer.anchorPoint.y)
+
+            newPoint = newPoint.applying(layer.affineTransform())
+            oldPoint = oldPoint.applying(layer.affineTransform())
+
+            var position = layer.position
+
+            position.x -= oldPoint.x
+            position.x += newPoint.x
+
+            position.y -= oldPoint.y
+            position.y += newPoint.y
+
+            layer.position = position
+            layer.anchorPoint = anchorPoint
+        }
+    }
+}
+#endif
