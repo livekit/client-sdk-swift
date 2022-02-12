@@ -28,11 +28,6 @@ public class VideoView: NativeView, Loggable {
         static let didSkipUnsafeFrame   = RenderState(rawValue: 1 << 1)
     }
 
-    public enum Mode: String, Codable, CaseIterable {
-        case fit
-        case fill
-    }
-
     public internal(set) var renderState = RenderState() {
         didSet {
             guard oldValue != renderState else { return }
@@ -40,45 +35,46 @@ public class VideoView: NativeView, Loggable {
         }
     }
 
+    public enum Mode: String, Codable, CaseIterable {
+        case fit
+        case fill
+    }
+
     /// Layout ``Mode`` of the ``VideoView``.
-    public var mode: Mode = .fit {
+    public var mode: Mode = .fill {
         didSet {
             guard oldValue != mode else { return }
-            log("mode: \(String(describing: oldValue)) -> \(String(describing: self.mode))")
-            DispatchQueue.main.async { self.markNeedsLayout() }
+            markNeedsLayout()
         }
     }
 
     public var mirrored: Bool = false {
         didSet {
             guard oldValue != mirrored else { return }
-            log("mirrored: \(String(describing: oldValue)) -> \(String(describing: self.mirrored))")
-            DispatchQueue.main.async { self.markNeedsLayout() }
+            update(mirrored: mirrored)
         }
     }
 
     /// OpenGL is deprecated and the SDK prefers to use Metal by default.
     /// Setting false when creating ``VideoView`` will force to use OpenGL.
-    public var preferMetal: Bool {
+    public var preferMetal: Bool = true {
         didSet {
             guard oldValue != preferMetal else { return }
-            DispatchQueue.main.async { self.reCreateRenderer() }
+            reCreateNativeRenderer()
         }
     }
 
     /// Size of the actual video, this will change when the publisher
     /// changes dimensions of the video such as rotating etc.
-    public private(set) var dimensions: Dimensions?
-
-    private func set(dimensions newValue: Dimensions?) {
-        guard self.dimensions != newValue else { return }
-        log("\(String(describing: self.dimensions)) -> \(String(describing: newValue))")
-        self.dimensions = newValue
-        // force layout
-        DispatchQueue.main.async { self.markNeedsLayout() }
-        // notify dimensions update
-        if let track = track, let dimensions = newValue {
-            track.notify { [weak track] (delegate) -> Void in
+    public internal(set) var dimensions: Dimensions? {
+        didSet {
+            guard oldValue != dimensions else { return }
+            log("\(String(describing: oldValue)) -> \(String(describing: dimensions))")
+            // force layout
+            markNeedsLayout()
+            // notify dimensions update
+            guard let dimensions = dimensions else { return }
+            track?.notify { [weak track] (delegate) -> Void in
                 guard let track = track else { return }
                 delegate.track(track, videoView: self, didUpdate: dimensions)
             }
@@ -112,35 +108,31 @@ public class VideoView: NativeView, Loggable {
         }
     }
 
-    private var renderer: NativeRendererView
+    internal var nativeRenderer: NativeRendererView
 
     init(frame: CGRect = .zero, preferMetal: Bool = true) {
         self.viewSize = frame.size
         self.preferMetal = preferMetal
-        renderer = VideoView.createNativeRendererView(preferMetal: preferMetal)
-        // renderer.translatesAutoresizingMaskIntoConstraints = false
+        self.nativeRenderer = VideoView.createNativeRendererView(preferMetal: preferMetal)
         super.init(frame: frame)
-        log("layout: Created")
-        // translatesAutoresizingMaskIntoConstraints = false
-        addSubview(renderer)
+        addSubview(nativeRenderer)
     }
 
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
 
-    static let mirrorTransform = CATransform3DMakeScale(-1.0, 1.0, 1.0)
-
     override func shouldLayout() {
         super.shouldLayout()
 
-        log("layout: Should layout, dim: \(String(describing: dimensions))")
-
-        defer { self.viewSize = self.frame.size }
+        defer {
+            DispatchQueue.main.async {
+                self.viewSize = self.frame.size
+            }
+        }
 
         // dimensions are required to continue computation
         guard let dimensions = dimensions else {
-            log("layout: Skipping layout since dimensions are unknown", .warning)
             return
         }
 
@@ -156,43 +148,39 @@ public class VideoView: NativeView, Loggable {
             size.height = size.width / wDim * hDim
         }
 
-        renderer.frame = CGRect(x: -((size.width - frame.size.width) / 2),
-                                y: -((size.height - frame.size.height) / 2),
-                                width: size.width,
-                                height: size.height)
-
-        if mirrored {
-            #if os(macOS)
-            // this is required for macOS
-            renderer.set(anchorPoint: CGPoint(x: 0.5, y: 0.5))
-            renderer.wantsLayer = true
-            renderer.layer!.sublayerTransform = VideoView.mirrorTransform
-            #elseif os(iOS)
-            renderer.layer.transform = VideoView.mirrorTransform
-            #endif
-        } else {
-            #if os(macOS)
-            renderer.layer?.sublayerTransform = CATransform3DIdentity
-            #elseif os(iOS)
-            renderer.layer.transform = CATransform3DIdentity
-            #endif
-        }
+        // center layout
+        nativeRenderer.frame = CGRect(x: -((size.width - frame.size.width) / 2),
+                                      y: -((size.height - frame.size.height) / 2),
+                                      width: size.width,
+                                      height: size.height)
     }
 
-    private func reCreateRenderer() {
+    private static let mirrorTransform = CGAffineTransform(scaleX: -1.0, y: 1.0)
+
+    private func update(mirrored: Bool) {
+        #if os(iOS)
+        let layer = self.layer
+        #elseif os(macOS)
+        guard let layer = self.layer else { return }
+        #endif
+        layer.setAffineTransform(mirrored ? VideoView.mirrorTransform : .identity)
+    }
+
+    private func reCreateNativeRenderer() {
         // Save current track if exists
         let currentTrack = self.track
         // Remove track (notify delegates)
         self.track = nil
         // Remove the renderer view
-        renderer.removeFromSuperview()
+        nativeRenderer.removeFromSuperview()
         // Clear the renderState
         renderState = []
         // Re-create renderer view
-        renderer = VideoView.createNativeRendererView(preferMetal: preferMetal)
-        addSubview(renderer)
+        nativeRenderer = VideoView.createNativeRendererView(preferMetal: preferMetal)
+        addSubview(nativeRenderer)
         // Set previous track to new renderer view
         self.track = currentTrack
+
     }
 }
 
@@ -201,7 +189,8 @@ public class VideoView: NativeView, Loggable {
 extension VideoView: RTCVideoRenderer {
 
     public func setSize(_ size: CGSize) {
-        renderer.setSize(size)
+
+        nativeRenderer.setSize(size)
     }
 
     public func renderFrame(_ frame: RTCVideoFrame?) {
@@ -218,17 +207,17 @@ extension VideoView: RTCVideoRenderer {
                 return
             }
 
-            self.set(dimensions: dimensions)
+            DispatchQueue.main.async { self.dimensions = dimensions }
 
             // layout after first frame has been rendered
             if !renderState.contains(.didRenderFirstFrame) {
                 renderState.insert(.didRenderFirstFrame)
-                log("layout: did render first frame")
+                log("Did render first frame")
                 DispatchQueue.main.async { self.markNeedsLayout() }
             }
         }
 
-        renderer.renderFrame(frame)
+        nativeRenderer.renderFrame(frame)
         renderState.remove(.didSkipUnsafeFrame)
     }
 }
@@ -292,35 +281,3 @@ extension VideoView {
         }
     }
 }
-
-#if os(macOS)
-//
-extension NSView {
-    //
-    // Converted to Swift + NSView from:
-    // http://stackoverflow.com/a/10700737
-    //
-    func set(anchorPoint: CGPoint) {
-        if let layer = self.layer {
-            var newPoint = CGPoint(x: self.bounds.size.width * anchorPoint.x,
-                                   y: self.bounds.size.height * anchorPoint.y)
-            var oldPoint = CGPoint(x: self.bounds.size.width * layer.anchorPoint.x,
-                                   y: self.bounds.size.height * layer.anchorPoint.y)
-
-            newPoint = newPoint.applying(layer.affineTransform())
-            oldPoint = oldPoint.applying(layer.affineTransform())
-
-            var position = layer.position
-
-            position.x -= oldPoint.x
-            position.x += newPoint.x
-
-            position.y -= oldPoint.y
-            position.y += newPoint.y
-
-            layer.position = position
-            layer.anchorPoint = anchorPoint
-        }
-    }
-}
-#endif
