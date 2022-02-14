@@ -103,7 +103,7 @@ private extension SignalClient {
 
         // create a promise that never throws so the send sequence can continue
         func safeSend(_ request: Livekit_SignalRequest) -> Promise<Void> {
-            sendRequest(request).recover(on: .sdk) { error in
+            sendRequest(request, enqueueIfReconnecting: false).recover(on: .sdk) { error in
                 self.log("Failed to send queued request, request: \(request) \(error)", .warning)
             }
         }
