@@ -115,9 +115,4 @@ public class TrackPublication: TrackDelegate, Loggable {
             self.participant.room.notify { $0.room(self.participant.room, participant: self.participant, didUpdate: self, muted: self.muted) }
         }
     }
-
-    public func track(_ track: Track, capturer: VideoCapturer, didUpdate dimensions: Dimensions?) {
-        //
-        log("Track capturer didUpdate dimensions: \(String(describing: dimensions))")
-    }
 }

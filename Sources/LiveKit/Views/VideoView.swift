@@ -1,5 +1,6 @@
 import Foundation
 import WebRTC
+import MetalKit
 
 #if os(iOS)
 typealias NativeRect = CGRect
@@ -8,6 +9,28 @@ import UIKit
 import AppKit
 typealias NativeRect = NSRect
 #endif
+
+extension Dimensions {
+
+    func toCGSize() -> CGSize {
+        CGSize(width: Int(width), height: Int(height))
+    }
+}
+
+extension DispatchQueue {
+
+    // execute work on the main thread if not already on the main thread
+    public static func mainSafeSync<T>(execute work: () throws -> T) rethrows -> T {
+        guard !Thread.current.isMainThread else { return try work() }
+        return try Self.main.sync(execute: work)
+    }
+
+    // execute work sync if already on main thread otherwise queue the work on main
+    public static func mainSafeAsync(execute work: @escaping @convention(block) () -> Void) {
+        guard !Thread.current.isMainThread else { return work() }
+        Self.main.async(execute: work)
+    }
+}
 
 /// A ``NativeViewType`` that conforms to ``RTCVideoRenderer``.
 public typealias NativeRendererView = NativeViewType & RTCVideoRenderer
@@ -33,7 +56,8 @@ public class VideoView: NativeView, Loggable {
     public internal(set) var renderState = RenderState() {
         didSet {
             guard oldValue != renderState else { return }
-            track?.notify { $0.track(self.track!, videoView: self, didUpdate: self.renderState) }
+            guard let track = track else { return }
+            track.notify { $0.track(track, videoView: self, didUpdate: self.renderState) }
         }
     }
 
@@ -46,7 +70,9 @@ public class VideoView: NativeView, Loggable {
     public var mode: Mode = .fill {
         didSet {
             guard oldValue != mode else { return }
-            markNeedsLayout()
+            DispatchQueue.mainSafeAsync {
+                self.markNeedsLayout()
+            }
         }
     }
 
@@ -55,7 +81,9 @@ public class VideoView: NativeView, Loggable {
     public var mirrored: Bool = false {
         didSet {
             guard oldValue != mirrored else { return }
-            markNeedsLayout()
+            DispatchQueue.mainSafeAsync {
+                self.markNeedsLayout()
+            }
         }
     }
 
@@ -68,47 +96,50 @@ public class VideoView: NativeView, Loggable {
         }
     }
 
-    /// Size of the actual video, this will change when the publisher
-    /// changes dimensions of the video such as rotating etc.
-    public internal(set) var dimensions: Dimensions? {
-        didSet {
-            guard oldValue != dimensions else { return }
-            log("\(String(describing: oldValue)) -> \(String(describing: dimensions))")
-            // force layout
-            markNeedsLayout()
-            // notify dimensions update
-            guard let dimensions = dimensions else { return }
-            track?.notify { [weak track] (delegate) -> Void in
-                guard let track = track else { return }
-                delegate.track(track, videoView: self, didUpdate: dimensions)
-            }
-        }
-    }
-
     /// Size of this view (used to notify delegates)
     /// usually should be equal to `frame.size`
     public internal(set) var viewSize: CGSize {
         didSet {
             guard oldValue != viewSize else { return }
             // notify viewSize update
-            track?.notify { $0.track(self.track!, videoView: self, didUpdate: self.viewSize) }
+            guard let track = track else { return }
+            track.notify { $0.track(track, videoView: self, didUpdate: self.viewSize) }
         }
     }
 
     /// Calls addRenderer and/or removeRenderer internally for convenience.
     public var track: VideoTrack? {
         didSet {
+            guard !(oldValue?.isEqual(to: track) ?? false) else { return }
+
             if let oldValue = oldValue {
-                oldValue.removeRenderer(self)
+                oldValue.remove(delegate: self)
                 oldValue.notify { $0.track(oldValue, didDetach: self) }
             }
-            track?.addRenderer(self)
+            track?.add(delegate: self)
             track?.notify { [weak track] (delegate) -> Void in
                 guard let track = track else { return }
                 delegate.track(track, didAttach: self)
             }
-            // if nil is set, clear out the renderer
-            if track == nil { renderFrame(nil) }
+
+            if let track = track {
+                // if track knows dimensions, prepare the renderer
+                if let dimensions = track.dimensions {
+                    DispatchQueue.webRTC.sync {
+                        nativeRenderer.setSize(dimensions.toCGSize())
+                    }
+                }
+                // log("rendering last frame")
+                // nativeRenderer.renderFrame(lastFrame)
+            } else {
+                // if nil is set, clear out the renderer
+                DispatchQueue.webRTC.sync { nativeRenderer.renderFrame(nil) }
+                renderState = []
+            }
+
+            DispatchQueue.mainSafeAsync {
+                self.markNeedsLayout()
+            }
         }
     }
 
@@ -129,6 +160,9 @@ public class VideoView: NativeView, Loggable {
     override func shouldLayout() {
         super.shouldLayout()
 
+        // this should never happen
+        assert(Thread.current.isMainThread, "shouldLayout must be called from main thread")
+
         defer {
             DispatchQueue.main.async {
                 self.viewSize = self.frame.size
@@ -136,7 +170,8 @@ public class VideoView: NativeView, Loggable {
         }
 
         // dimensions are required to continue computation
-        guard let dimensions = dimensions else {
+        guard let dimensions = DispatchQueue.mainSafeSync(execute: { track?.dimensions }) else {
+            log("dimensions are nil, cannot layout without dimensions")
             return
         }
 
@@ -153,10 +188,15 @@ public class VideoView: NativeView, Loggable {
         }
 
         // center layout
+        // DispatchQueue.webRTC.sync {
         nativeRenderer.frame = CGRect(x: -((size.width - frame.size.width) / 2),
                                       y: -((size.height - frame.size.height) / 2),
                                       width: size.width,
                                       height: size.height)
+
+        // nativeRenderer.wantsLayer = true
+        // nativeRenderer.layer!.borderColor = NSColor.red.cgColor
+        // nativeRenderer.layer!.borderWidth = 3
 
         if mirrored {
             #if os(macOS)
@@ -194,41 +234,36 @@ public class VideoView: NativeView, Loggable {
     }
 }
 
-// MARK: - RTCVideoRenderer
+// MARK: - TrackDelegate
 
-extension VideoView: RTCVideoRenderer {
+extension VideoView: TrackDelegate {
 
-    public func setSize(_ size: CGSize) {
+    public func track(_ track: VideoTrack, didUpdate dimensions: Dimensions?) {
 
-        nativeRenderer.setSize(size)
-    }
-
-    public func renderFrame(_ frame: RTCVideoFrame?) {
-
-        if let frame = frame {
-
-            let dimensions = Dimensions(width: frame.width,
-                                        height: frame.height)
-
-            // check if dimensions are safe to pass to renderer
-            guard dimensions.isRenderSafe else {
-                log("Skipping render for dimension \(dimensions)", .warning)
-                renderState.insert(.didSkipUnsafeFrame)
-                return
-            }
-
-            DispatchQueue.main.async { self.dimensions = dimensions }
-
-            // layout after first frame has been rendered
-            if !renderState.contains(.didRenderFirstFrame) {
-                renderState.insert(.didRenderFirstFrame)
-                log("Did render first frame")
-                DispatchQueue.main.async { self.markNeedsLayout() }
+        if let dimensions = dimensions {
+            DispatchQueue.webRTC.sync {
+                nativeRenderer.setSize(dimensions.toCGSize())
             }
         }
 
-        nativeRenderer.renderFrame(frame)
-        renderState.remove(.didSkipUnsafeFrame)
+        // re-compute layout when dimensions change
+        DispatchQueue.mainSafeAsync {
+            self.markNeedsLayout()
+        }
+    }
+
+    public func track(_ track: VideoTrack, didReceive frame: RTCVideoFrame?) {
+
+        DispatchQueue.webRTC.sync {
+            nativeRenderer.renderFrame(frame)
+        }
+
+        // layout after first frame has been rendered
+        if !renderState.contains(.didRenderFirstFrame) {
+            renderState.insert(.didRenderFirstFrame)
+            log("Did render first frame")
+            DispatchQueue.main.async { self.markNeedsLayout() }
+        }
     }
 }
 
@@ -286,6 +321,13 @@ extension VideoView {
                 view = RTCNSGLVideoView(frame: .zero, pixelFormat: pixelFormat)!
             }
             #endif
+
+            // extra checks for MTKView
+            for subView in view.subviews {
+                if let metal = subView as? MTKView {
+                    metal.layerContentsPlacement = .scaleProportionallyToFit
+                }
+            }
 
             return view
         }

@@ -12,7 +12,7 @@ public class LocalTrack: Track {
         return disable().then(on: .sdk) {
             self.stop()
         }.then(on: .sdk) {
-            self.update(muted: true, shouldSendSignal: true)
+            self.set(muted: true, shouldSendSignal: true)
         }
     }
 
@@ -23,7 +23,7 @@ public class LocalTrack: Track {
         return enable().then(on: .sdk) {
             self.start()
         }.then(on: .sdk) {
-            self.update(muted: false, shouldSendSignal: true)
+            self.set(muted: false, shouldSendSignal: true)
         }
     }
 }

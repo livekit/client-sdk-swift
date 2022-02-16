@@ -21,7 +21,7 @@ extension RTCConfiguration {
         return result
     }
 
-    internal func update(iceServers: [Livekit_ICEServer]) {
+    internal func set(iceServers: [Livekit_ICEServer]) {
 
         // convert to a list of RTCIceServer
         let rtcIceServers = iceServers.map { $0.toRTCType() }

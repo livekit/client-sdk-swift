@@ -80,7 +80,7 @@ public class RemoteTrackPublication: TrackPublication {
 
     override func updateFromInfo(info: Livekit_TrackInfo) {
         super.updateFromInfo(info: info)
-        track?.update(muted: info.muted)
+        track?.set(muted: info.muted)
         set(metadataMuted: info.muted)
     }
 
@@ -124,8 +124,8 @@ public class RemoteTrackPublication: TrackPublication {
             #endif
             // if new Track has been set to this RemoteTrackPublication,
             // update the Track's muted state from the latest info.
-            newValue?.update(muted: metadataMuted,
-                             shouldNotify: false)
+            newValue?.set(muted: metadataMuted,
+                          shouldNotify: false)
 
             if let oldValue = oldValue, newValue == nil,
                let participant = participant as? RemoteParticipant {
