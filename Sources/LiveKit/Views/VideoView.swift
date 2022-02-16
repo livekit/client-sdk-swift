@@ -99,10 +99,10 @@ public class VideoView: NativeView, Loggable {
     public var track: VideoTrack? {
         didSet {
             if let oldValue = oldValue {
-                oldValue.removeRenderer(self)
+                oldValue.remove(renderer: self)
                 oldValue.notify { $0.track(oldValue, didDetach: self) }
             }
-            track?.addRenderer(self)
+            track?.add(renderer: self)
             track?.notify { [weak track] (delegate) -> Void in
                 guard let track = track else { return }
                 delegate.track(track, didAttach: self)
