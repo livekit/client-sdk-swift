@@ -29,7 +29,7 @@ public class Track: MulticastDelegate<TrackDelegate> {
     public let source: Track.Source
     public internal(set) var name: String
     public internal(set) var sid: Sid?
-    public internal(set) var mediaTrack: RTCMediaStreamTrack
+    public let mediaTrack: RTCMediaStreamTrack
     public private(set) var muted: Bool = false
     public internal(set) var transceiver: RTCRtpTransceiver?
     public var sender: RTCRtpSender? {
@@ -86,9 +86,9 @@ public class Track: MulticastDelegate<TrackDelegate> {
         //
     }
 
-    internal func update(muted: Bool,
-                         shouldNotify: Bool = true,
-                         shouldSendSignal: Bool = false) {
+    internal func set(muted: Bool,
+                      shouldNotify: Bool = true,
+                      shouldSendSignal: Bool = false) {
 
         guard muted != self.muted else { return }
         self.muted = muted

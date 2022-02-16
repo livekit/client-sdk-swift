@@ -218,7 +218,7 @@ private extension Room {
 
 internal extension Room {
 
-    func update(metadata: String?) {
+    func set(metadata: String?) {
         guard self.metadata != metadata else { return }
         self.metadata = metadata
         notify { $0.room(self, didUpdate: metadata) }
@@ -332,7 +332,7 @@ extension Room: SignalClientDelegate {
     }
 
     func signalClient(_ signalClient: SignalClient, didUpdate room: Livekit_Room) -> Bool {
-        update(metadata: room.metadata)
+        set(metadata: room.metadata)
         return true
     }
 

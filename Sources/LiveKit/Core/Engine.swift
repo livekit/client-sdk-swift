@@ -618,7 +618,7 @@ extension Engine: TransportDelegate {
             self.subscriberPrimary = joinResponse.subscriberPrimary
 
             // update iceServers from joinResponse
-            self.connectOptions.rtcConfiguration.update(iceServers: joinResponse.iceServers)
+            self.connectOptions.rtcConfiguration.set(iceServers: joinResponse.iceServers)
 
             self.subscriber = try Transport(config: self.connectOptions.rtcConfiguration,
                                             target: .subscriber,
