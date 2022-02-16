@@ -19,16 +19,10 @@ class SwiftUIVideoViewDelegateReceiver: TrackDelegate, Loggable {
     }
 
     func track(_ track: VideoTrack,
-               videoView: VideoView,
-               didUpdate dimensions: Dimensions) {
-        log("SwiftUIVideoView received video dimensions \(dimensions)")
+               didUpdate dimensions: Dimensions?) {
         DispatchQueue.main.async {
             self.dimensions = dimensions
         }
-    }
-
-    func track(_ track: VideoTrack, videoView: VideoView, didUpdate size: CGSize) {
-        log("SwiftUIVideoView received view size \(size)")
     }
 }
 
@@ -62,6 +56,11 @@ public struct SwiftUIVideoView: NativeViewRepresentable {
 
         self.delegateReceiver = SwiftUIVideoViewDelegateReceiver(dimensions: dimensions)
         self.track.add(delegate: delegateReceiver)
+
+        // update binding value
+        DispatchQueue.main.async {
+            dimensions.wrappedValue = track.dimensions
+        }
     }
 
     public func makeView(context: Context) -> VideoView {

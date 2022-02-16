@@ -23,8 +23,6 @@ public class LocalVideoTrack: LocalTrack, VideoTrack {
                    kind: .video,
                    source: source,
                    track: rtcTrack)
-
-        self.capturer.add(delegate: self)
     }
 
     public override func start() -> Promise<Void> {
@@ -43,16 +41,6 @@ public class LocalVideoTrack: LocalTrack, VideoTrack {
         super.stop().then(on: .sdk) {
             self.capturer.stopCapture()
         }
-    }
-}
-
-// MARK: - Re-compute sender parameters
-
-extension LocalVideoTrack: VideoCapturerDelegate {
-    // watch for dimension changes to re-compute sender parameters
-    public func capturer(_ capturer: VideoCapturer, didUpdate dimensions: Dimensions?) {
-        // relay the event
-        notify { $0.track(self, capturer: capturer, didUpdate: dimensions) }
     }
 }
 

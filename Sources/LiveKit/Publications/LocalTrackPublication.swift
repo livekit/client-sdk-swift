@@ -25,6 +25,21 @@ public class LocalTrackPublication: TrackPublication {
 
     #if LK_COMPUTE_VIDEO_SENDER_PARAMETERS
 
+    override func set(track newValue: Track?) -> Track? {
+        let oldValue = super.set(track: newValue)
+
+        // listen for VideoCapturerDelegate
+        if let oldLocalVideoTrack = oldValue as? LocalVideoTrack {
+            oldLocalVideoTrack.capturer.remove(delegate: self)
+        }
+
+        if let newLocalVideoTrack = newValue as? LocalVideoTrack {
+            newLocalVideoTrack.capturer.add(delegate: self)
+        }
+
+        return oldValue
+    }
+
     // keep reference to cancel later
     private weak var debounceWorkItem: DispatchWorkItem?
 
@@ -38,15 +53,17 @@ public class LocalTrackPublication: TrackPublication {
     }, fnc: { [weak self] in
         self?.recomputeSenderParameters()
     })
-
-    public override func track(_ track: Track, capturer: VideoCapturer, didUpdate dimensions: Dimensions?) {
-        super.track(track, capturer: capturer, didUpdate: dimensions)
-        shouldRecomputeSenderParameters()
-    }
     #endif
 }
 
 #if LK_COMPUTE_VIDEO_SENDER_PARAMETERS
+
+extension LocalTrackPublication: VideoCapturerDelegate {
+
+    public func capturer(_ capturer: VideoCapturer, didUpdate dimensions: Dimensions?) {
+        shouldRecomputeSenderParameters()
+    }
+}
 
 extension LocalTrackPublication {
 
