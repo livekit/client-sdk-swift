@@ -32,6 +32,7 @@ public class Track: MulticastDelegate<TrackDelegate> {
     public let mediaTrack: RTCMediaStreamTrack
     public private(set) var muted: Bool = false
     public internal(set) var transceiver: RTCRtpTransceiver?
+    public internal(set) var stats: TrackStats?
     public var sender: RTCRtpSender? {
         return transceiver?.sender
     }
@@ -109,6 +110,17 @@ public class Track: MulticastDelegate<TrackDelegate> {
         if shouldNotify {
             notify { $0.track(self, didUpdate: muted, shouldSendSignal: shouldSendSignal) }
         }
+    }
+}
+
+// MARK: - Internal
+
+internal extension Track {
+
+    func set(stats newValue: TrackStats) {
+        guard self.stats != newValue else { return }
+        self.stats = newValue
+        notify { $0.track(self, didUpdate: newValue) }
     }
 }
 

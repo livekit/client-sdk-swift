@@ -594,6 +594,11 @@ extension Engine: RTCDataChannelDelegate {
 
 extension Engine: TransportDelegate {
 
+    func transport(_ transport: Transport, didGenerate stats: [TrackStats], target: Livekit_SignalTarget) {
+        // relay to Room
+        notify { $0.engine(self, didGenerate: stats, target: target) }
+    }
+
     func transport(_ transport: Transport, didUpdate state: RTCPeerConnectionState) {
         log("target: \(transport.target), state: \(state)")
 

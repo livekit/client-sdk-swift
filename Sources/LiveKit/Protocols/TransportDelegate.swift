@@ -8,6 +8,7 @@ internal protocol TransportDelegate {
     func transport(_ transport: Transport, didAdd track: RTCMediaStreamTrack, streams: [RTCMediaStream])
     func transport(_ transport: Transport, didRemove track: RTCMediaStreamTrack)
     func transportShouldNegotiate(_ transport: Transport)
+    func transport(_ transport: Transport, didGenerate stats: [TrackStats], target: Livekit_SignalTarget)
 }
 
 class TransportDelegateClosures: NSObject, TransportDelegate {
@@ -28,4 +29,5 @@ class TransportDelegateClosures: NSObject, TransportDelegate {
     func transport(_ transport: Transport, didAdd track: RTCMediaStreamTrack, streams: [RTCMediaStream]) {}
     func transport(_ transport: Transport, didRemove track: RTCMediaStreamTrack) {}
     func transportShouldNegotiate(_ transport: Transport) {}
+    func transport(_ transport: Transport, didGenerate stats: [TrackStats], target: Livekit_SignalTarget) {}
 }

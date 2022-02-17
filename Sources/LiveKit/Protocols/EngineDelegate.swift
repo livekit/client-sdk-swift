@@ -8,6 +8,7 @@ internal protocol EngineDelegate {
     func engine(_ engine: Engine, didRemove track: RTCMediaStreamTrack)
     func engine(_ engine: Engine, didReceive userPacket: Livekit_UserPacket)
     func engine(_ engine: Engine, didUpdate dataChannel: RTCDataChannel, state: RTCDataChannelState)
+    func engine(_ engine: Engine, didGenerate stats: [TrackStats], target: Livekit_SignalTarget)
 }
 
 // MARK: - Optional
@@ -19,6 +20,7 @@ extension EngineDelegate {
     func engine(_ engine: Engine, didRemove track: RTCMediaStreamTrack) {}
     func engine(_ engine: Engine, didReceive userPacket: Livekit_UserPacket) {}
     func engine(_ engine: Engine, didUpdate dataChannel: RTCDataChannel, state: RTCDataChannelState) {}
+    func engine(_ engine: Engine, didGenerate stats: [TrackStats], target: Livekit_SignalTarget) {}
 }
 
 // MARK: - Closures

@@ -416,6 +416,23 @@ extension Room: SignalClientDelegate {
 
 extension Room: EngineDelegate {
 
+    func engine(_ engine: Engine, didGenerate trackStats: [TrackStats], target: Livekit_SignalTarget) {
+        //
+        let allParticipants = ([[localParticipant],
+                                remoteParticipants.map { $0.value }] as [[Participant?]])
+            .joined()
+            .compactMap { $0 }
+
+        let allTracks = allParticipants.map { $0.tracks.values.map { $0.track } }.joined()
+            .compactMap { $0 }
+
+        for stats in trackStats {
+            if let track = allTracks.first(where: { $0.mediaTrack.trackId == stats.trackId }) {
+                track.set(stats: stats)
+            }
+        }
+    }
+
     func engine(_ engine: Engine, didUpdate speakers: [Livekit_SpeakerInfo]) {
         onEngineSpeakersUpdate(speakers)
     }
