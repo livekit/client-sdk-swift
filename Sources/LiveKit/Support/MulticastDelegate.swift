@@ -8,8 +8,12 @@ import Promises
 /// > Note: `NSHashTable` may not immediately deinit the un-referenced object, due to Apple's implementation, therefore `.count` is unreliable.
 public class MulticastDelegate<T>: NSObject, Loggable {
 
-    private let queue = DispatchQueue(label: "livekit.multicast")
+    private let queue: DispatchQueue
     private let set = NSHashTable<AnyObject>.weakObjects()
+
+    init(label: String = "livekit.multicast", qos: DispatchQoS = .default) {
+        self.queue = DispatchQueue(label: label, qos: qos)
+    }
 
     /// Add a single delegate.
     public func add(delegate: T) {
