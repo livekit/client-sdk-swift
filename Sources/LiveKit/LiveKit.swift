@@ -35,8 +35,8 @@ public class LiveKit {
 }
 
 internal extension DispatchQueue {
-    static let sdk = DispatchQueue(label: "LiveKitSDK")
-    static let webRTC = DispatchQueue(label: "LiveKitSDK.webRTC")
+    static let sdk = DispatchQueue(label: "LiveKitSDK", qos: .userInitiated)
+    static let webRTC = DispatchQueue(label: "LiveKitSDK.webRTC", qos: .background)
     static let capture = DispatchQueue(label: "LiveKitSDK.capture",
-                                       qos: .userInteractive)
+                                       qos: .background)
 }
