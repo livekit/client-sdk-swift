@@ -417,7 +417,7 @@ extension Room: SignalClientDelegate {
 extension Room: EngineDelegate {
 
     func engine(_ engine: Engine, didGenerate trackStats: [TrackStats], target: Livekit_SignalTarget) {
-        //
+
         let allParticipants = ([[localParticipant],
                                 remoteParticipants.map { $0.value }] as [[Participant?]])
             .joined()
@@ -426,8 +426,9 @@ extension Room: EngineDelegate {
         let allTracks = allParticipants.map { $0.tracks.values.map { $0.track } }.joined()
             .compactMap { $0 }
 
-        for stats in trackStats {
-            if let track = allTracks.first(where: { $0.mediaTrack.trackId == stats.trackId }) {
+        // this relies on the last stat entry being the latest
+        for track in allTracks {
+            if let stats = trackStats.last(where: { $0.trackId == track.mediaTrack.trackId }) {
                 track.set(stats: stats)
             }
         }
