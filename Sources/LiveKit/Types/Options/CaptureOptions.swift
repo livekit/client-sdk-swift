@@ -20,7 +20,7 @@ public struct CameraCaptureOptions: VideoCaptureOptions {
 
     public init(position: AVCaptureDevice.Position = .front,
                 preferredFormat: AVCaptureDevice.Format? = nil,
-                dimensions: Dimensions = .hd169,
+                dimensions: Dimensions = .h720_169,
                 fps: Int = 30) {
 
         self.position = position
