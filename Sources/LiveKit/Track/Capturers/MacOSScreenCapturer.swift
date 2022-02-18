@@ -76,24 +76,19 @@ public class MacOSScreenCapturer: VideoCapturer {
     }()
 
     // used for window capture
-    private var dispatchSourceTimer: DispatchSourceTimer?
+    private var dispatchSourceTimer: DispatchQueueTimer?
 
     private func startDispatchSourceTimer() {
         stopDispatchSourceTimer()
         let timeInterval: TimeInterval = 1 / Double(options.fps)
-        let result = DispatchSource.makeTimerSource(queue: .capture)
-        result.schedule(deadline: .now() + timeInterval, repeating: timeInterval)
-        result.setEventHandler(handler: onDispatchSourceTimer)
-        result.resume()
-        dispatchSourceTimer = result
+        dispatchSourceTimer = DispatchQueueTimer(timeInterval: timeInterval, queue: .capture)
+        dispatchSourceTimer?.handler = onDispatchSourceTimer
+        dispatchSourceTimer?.resume()
     }
 
     private func stopDispatchSourceTimer() {
         if let timer = dispatchSourceTimer {
-            // If the timer is suspended, calling cancel without resuming
-            // triggers a crash. This is documented here https://forums.developer.apple.com/thread/15902
-            timer.cancel()
-            // timer.resume()
+            timer.suspend()
             dispatchSourceTimer = nil
         }
     }

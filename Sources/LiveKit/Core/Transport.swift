@@ -15,7 +15,7 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
     private var pendingCandidates: [RTCIceCandidate] = []
 
     // used for stats timer
-    private var statsTimer = QueueTimer(timeInterval: 1, queue: .webRTC)
+    private var statsTimer = DispatchQueueTimer(timeInterval: 1, queue: .webRTC)
     private var stats = [String: TrackStats]()
 
     var restartingIce: Bool = false

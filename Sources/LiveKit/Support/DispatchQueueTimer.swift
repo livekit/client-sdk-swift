@@ -1,6 +1,6 @@
 import Foundation
 
-internal class QueueTimer {
+internal class DispatchQueueTimer {
 
     public enum State {
         case suspended
