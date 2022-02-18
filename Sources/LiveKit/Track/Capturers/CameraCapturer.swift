@@ -108,6 +108,16 @@ public class CameraCapturer: VideoCapturer {
 
         log("Starting camera capturer device: \(device), format: \(selectedFormat), fps: \(options.fps)", .info)
 
+        // adapt if requested dimensions and camera's dimensions don't match
+        if let videoSource = delegate as? RTCVideoSource,
+           selectedFormat.value != options.dimensions {
+
+            self.log("adapting to: \(options.dimensions) fps: \(options.fps)")
+            videoSource.adaptOutputFormat(toWidth: options.dimensions.width,
+                                          height: options.dimensions.height,
+                                          fps: Int32(options.fps))
+        }
+
         return super.startCapture().then(on: .sdk) {
             // return promise that waits for capturer to start
             Promise(on: .webRTC) { resolve, fail in
