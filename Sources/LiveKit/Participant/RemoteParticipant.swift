@@ -4,7 +4,7 @@ import Promises
 
 public class RemoteParticipant: Participant {
 
-    init(sid: String,
+    init(sid: Sid,
          info: Livekit_ParticipantInfo?,
          room: Room) {
 
@@ -18,7 +18,7 @@ public class RemoteParticipant: Participant {
         }
     }
 
-    public func getTrackPublication(sid: String) -> RemoteTrackPublication? {
+    public func getTrackPublication(sid: Sid) -> RemoteTrackPublication? {
         return tracks[sid] as? RemoteTrackPublication
     }
 
@@ -60,7 +60,7 @@ public class RemoteParticipant: Participant {
         }
     }
 
-    func addSubscribedMediaTrack(rtcTrack: RTCMediaStreamTrack, sid: String) -> Promise<Void> {
+    func addSubscribedMediaTrack(rtcTrack: RTCMediaStreamTrack, sid: Sid) -> Promise<Void> {
         var track: Track
 
         guard let publication = getTrackPublication(sid: sid) else {

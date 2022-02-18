@@ -621,6 +621,7 @@ extension Engine: TransportDelegate {
 
             // protocol v3
             self.subscriberPrimary = joinResponse.subscriberPrimary
+            self.log("subscriberPrimary: \(joinResponse.subscriberPrimary)")
 
             // update iceServers from joinResponse
             self.connectOptions.rtcConfiguration.set(iceServers: joinResponse.iceServers)

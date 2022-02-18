@@ -290,7 +290,7 @@ internal extension SignalClient {
         return sendRequest(r)
     }
 
-    func sendUpdateTrackSettings(sid: String, settings: TrackSettings) -> Promise<Void> {
+    func sendUpdateTrackSettings(sid: Sid, settings: TrackSettings) -> Promise<Void> {
         log()
 
         let r = Livekit_SignalRequest.with {
@@ -305,7 +305,7 @@ internal extension SignalClient {
         return sendRequest(r)
     }
 
-    func sendUpdateVideoLayers(trackSid: String,
+    func sendUpdateVideoLayers(trackSid: Sid,
                                layers: [Livekit_VideoLayer]) -> Promise<Void> {
         log()
 
@@ -319,7 +319,7 @@ internal extension SignalClient {
         return sendRequest(r)
     }
 
-    func sendUpdateSubscription(participantSid: String,
+    func sendUpdateSubscription(participantSid: Sid,
                                 trackSid: String,
                                 subscribed: Bool) -> Promise<Void> {
         log()

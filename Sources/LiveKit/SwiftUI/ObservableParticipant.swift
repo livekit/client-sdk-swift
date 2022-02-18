@@ -85,7 +85,7 @@ extension ObservableParticipant: Equatable & Hashable {
 
 extension ObservableParticipant {
 
-    public var sid: String {
+    public var sid: Sid {
         participant.sid
     }
 
