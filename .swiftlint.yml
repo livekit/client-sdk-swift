@@ -7,6 +7,7 @@ excluded:
 disabled_rules:
   - line_length
   - todo
+  - identifier_name
 
 opt_in_rules:
   - empty_count

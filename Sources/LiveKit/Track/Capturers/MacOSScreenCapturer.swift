@@ -32,10 +32,17 @@ extension MacOSScreenCapturer {
 
         return list
             .filter {
-                ($0.object(forKey: kCGWindowLayer) as! NSNumber).intValue == 0 &&
-                    (includeCurrentProcess ? true : ($0.object(forKey: kCGWindowOwnerPID) as! NSNumber).intValue != currentPID)
+                guard let windowLayer = $0.object(forKey: kCGWindowLayer) as? NSNumber,
+                      windowLayer.intValue == 0 else { return false }
+
+                if !includeCurrentProcess {
+                    guard let windowOwnerPid = $0.object(forKey: kCGWindowOwnerPID) as? NSNumber,
+                          windowOwnerPid.intValue != currentPID else { return false }
+                }
+
+                return true
             }
-            .map { $0.object(forKey: kCGWindowNumber) as! NSNumber }.compactMap { $0.uint32Value }
+            .map { $0.object(forKey: kCGWindowNumber) as? NSNumber }.compactMap { $0 }.map { $0.uint32Value }
     }
 
     // gets a list of display IDs
