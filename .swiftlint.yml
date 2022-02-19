@@ -1,0 +1,11 @@
+included:
+  - Sources
+
+excluded:
+  - Sources/LiveKit/Protos
+
+disabled_rules:
+  - line_length
+
+opt_in_rules:
+  - empty_count
