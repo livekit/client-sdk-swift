@@ -45,6 +45,7 @@ public struct TrackStats: Equatable {
     static let keyBytesReceived = "bytesReceived"
     static let keyLastDate = "lastDate"
     static let keyMediaTypeKey = "mediaType"
+    static let keyCodecName = "googCodecName"
 
     // date and time of this stats created
     let created = Date()
@@ -55,6 +56,7 @@ public struct TrackStats: Equatable {
     // TODO: add more values
     public let bytesSent: Int
     public let bytesReceived: Int
+    public let codecName: String?
 
     public let bpsSent: Int
     public let bpsReceived: Int
@@ -102,6 +104,7 @@ public struct TrackStats: Equatable {
         self.trackId = trackId
         self.bytesSent = Int(values[TrackStats.keyBytesSent] ?? "0") ?? 0
         self.bytesReceived = Int(values[TrackStats.keyBytesReceived] ?? "0") ?? 0
+        self.codecName = values[TrackStats.keyBytesReceived] as String?
 
         if let previous = previous {
             let secondsDiff = self.created.timeIntervalSince(previous.created)
