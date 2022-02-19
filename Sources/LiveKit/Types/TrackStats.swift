@@ -104,7 +104,7 @@ public struct TrackStats: Equatable {
         self.trackId = trackId
         self.bytesSent = Int(values[TrackStats.keyBytesSent] ?? "0") ?? 0
         self.bytesReceived = Int(values[TrackStats.keyBytesReceived] ?? "0") ?? 0
-        self.codecName = values[TrackStats.keyBytesReceived] as String?
+        self.codecName = values[TrackStats.keyCodecName] as String?
 
         if let previous = previous {
             let secondsDiff = self.created.timeIntervalSince(previous.created)
