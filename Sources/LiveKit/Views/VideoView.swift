@@ -2,14 +2,6 @@ import Foundation
 import WebRTC
 import MetalKit
 
-#if os(iOS)
-typealias NativeRect = CGRect
-import UIKit
-#else
-import AppKit
-typealias NativeRect = NSRect
-#endif
-
 extension Dimensions {
 
     func toCGSize() -> CGSize {
