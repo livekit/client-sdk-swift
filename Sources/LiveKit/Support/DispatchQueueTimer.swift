@@ -16,12 +16,10 @@ internal class DispatchQueueTimer {
     }
 
     private lazy var timer: DispatchSourceTimer = {
-        let t = DispatchSource.makeTimerSource(queue: queue)
-        t.schedule(deadline: .now() + self.timeInterval, repeating: self.timeInterval)
-        t.setEventHandler(handler: { [weak self] in
-            self?.handler?()
-        })
-        return t
+        let timer = DispatchSource.makeTimerSource(queue: queue)
+        timer.schedule(deadline: .now() + self.timeInterval, repeating: self.timeInterval)
+        timer.setEventHandler(handler: { [weak self] in self?.handler?() })
+        return timer
     }()
 
     var handler: (() -> Void)?

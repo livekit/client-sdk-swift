@@ -1,7 +1,7 @@
 import Foundation
 import WebRTC
 
-internal protocol TransportDelegate {
+internal protocol TransportDelegate: AnyObject {
     func transport(_ transport: Transport, didUpdate state: RTCPeerConnectionState)
     func transport(_ transport: Transport, didGenerate iceCandidate: RTCIceCandidate)
     func transport(_ transport: Transport, didOpen dataChannel: RTCDataChannel)

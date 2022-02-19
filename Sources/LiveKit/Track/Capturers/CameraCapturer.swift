@@ -24,7 +24,7 @@ public class CameraCapturer: VideoCapturer {
 
     /// Current position of the device
     public var position: AVCaptureDevice.Position? {
-        get { device?.position }
+        device?.position
     }
 
     public var options: CameraCaptureOptions

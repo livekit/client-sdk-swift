@@ -334,23 +334,23 @@ private extension Engine {
                         self.log("Re-connecting in \(TimeInterval.quickReconnectDelay)seconds, \(triesLeft) tries left...")
                         // only retry if still reconnecting state (not disconnected)
                         return self.connectionState.isReconnecting
-                     }) {
-            // try quick re-connect
-            quickReconnectSequence()
-        }.recover(on: .sdk) { (_) -> Promise<Void> in
-            // try full re-connect (only if quick re-connect failed)
-            self.connectionState = .connecting(.reconnect(.full))
-            return fullReconnectSequence()
-        }.then(on: .sdk) {
-            // re-connect sequence successful
-            self.log("Re-connect sequence completed")
-            let previousMode = self.connectionState.reconnectingWithMode
-            self.connectionState = .connected(.reconnect(previousMode ?? .quick))
-        }.catch(on: .sdk) { _ in
-            self.log("Re-connect sequence failed")
-            // finally disconnect if all attempts fail
-            self.cleanUp(reason: .network())
-        }
+                     }, _: {
+                        // try quick re-connect
+                        quickReconnectSequence()
+                     }).recover(on: .sdk) { (_) -> Promise<Void> in
+                        // try full re-connect (only if quick re-connect failed)
+                        self.connectionState = .connecting(.reconnect(.full))
+                        return fullReconnectSequence()
+                     }.then(on: .sdk) {
+                        // re-connect sequence successful
+                        self.log("Re-connect sequence completed")
+                        let previousMode = self.connectionState.reconnectingWithMode
+                        self.connectionState = .connected(.reconnect(previousMode ?? .quick))
+                     }.catch(on: .sdk) { _ in
+                        self.log("Re-connect sequence failed")
+                        // finally disconnect if all attempts fail
+                        self.cleanUp(reason: .network())
+                     }
     }
 
 }

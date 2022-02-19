@@ -1,7 +1,7 @@
 import Foundation
 import WebRTC
 
-internal protocol SignalClientDelegate {
+internal protocol SignalClientDelegate: AnyObject {
 
     func signalClient(_ signalClient: SignalClient, didUpdate connectionState: ConnectionState) -> Bool
     func signalClient(_ signalClient: SignalClient, didReceive joinResponse: Livekit_JoinResponse) -> Bool

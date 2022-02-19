@@ -7,7 +7,7 @@ import UIKit
 
 // TODO: Make this internal
 // Currently used for internal purposes
-public protocol TrackDelegate {
+public protocol TrackDelegate: AnyObject {
     /// Dimensions of the video track has updated
     func track(_ track: VideoTrack, didUpdate dimensions: Dimensions?)
     /// Dimensions of the VideoView has updated

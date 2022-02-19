@@ -15,7 +15,7 @@ import Foundation
 /// }
 /// ```
 /// See the source code of [Swift Example App](https://github.com/livekit/client-example-swift) for more examples.
-public protocol RoomDelegate {
+public protocol RoomDelegate: AnyObject {
     /// Successfully connected to the room.
     func room(_ room: Room, didConnect isReconnect: Bool)
 

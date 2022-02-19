@@ -253,7 +253,7 @@ extension VideoView {
         MTLCreateSystemDefaultDevice() != nil
         #elseif os(macOS)
         // same method used with WebRTC
-        MTLCopyAllDevices().count > 0
+        !MTLCopyAllDevices().isEmpty
         #endif
     }
 

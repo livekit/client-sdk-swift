@@ -1,7 +1,7 @@
 import Foundation
 import WebRTC
 
-internal protocol EngineDelegate {
+internal protocol EngineDelegate: AnyObject {
     func engine(_ engine: Engine, didUpdate connectionState: ConnectionState, oldState: ConnectionState)
     func engine(_ engine: Engine, didUpdate speakers: [Livekit_SpeakerInfo])
     func engine(_ engine: Engine, didAdd track: RTCMediaStreamTrack, streams: [RTCMediaStream])

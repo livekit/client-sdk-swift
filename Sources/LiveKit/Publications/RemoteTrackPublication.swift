@@ -62,9 +62,9 @@ public class RemoteTrackPublication: TrackPublication {
         debouncedRecomputeVideoViewVisibilities = Utils.createDebounceFunc(wait: 2,
                                                                            onCreateWorkItem: { [weak self] in
                                                                             self?.pendingDebounceFunc = $0
-                                                                           }) { [weak self] in
-            self?.recomputeVideoViewVisibilities()
-        }
+                                                                           }, fnc: { [weak self] in
+                                                                            self?.recomputeVideoViewVisibilities()
+                                                                           })
 
         // initial trigger
         shouldComputeVideoViewVisibilities()

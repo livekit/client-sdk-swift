@@ -12,7 +12,7 @@ public enum ConnectMode {
 
 extension ConnectMode: Equatable {
 
-    public static func ==(lhs: ConnectMode, rhs: ConnectMode) -> Bool {
+    public static func == (lhs: ConnectMode, rhs: ConnectMode) -> Bool {
         switch (lhs, rhs) {
         case (let .reconnect(type1), let .reconnect(type2)): return type1 == type2
         case (.normal, .normal): return true
@@ -35,7 +35,7 @@ extension ConnectionState: Identifiable {
 
 extension ConnectionState: Equatable {
 
-    public static func ==(lhs: ConnectionState, rhs: ConnectionState) -> Bool {
+    public static func == (lhs: ConnectionState, rhs: ConnectionState) -> Bool {
         switch (lhs, rhs) {
         case (.disconnected(let m1), .disconnected(let m2)): return m1 == m2
         case (.connecting(let r1), .connecting(let r2)): return r1 == r2
@@ -83,7 +83,7 @@ public enum DisconnectReason {
 
 extension DisconnectReason: Equatable {
 
-    public static func ==(lhs: DisconnectReason, rhs: DisconnectReason) -> Bool {
+    public static func == (lhs: DisconnectReason, rhs: DisconnectReason) -> Bool {
         switch (lhs, rhs) {
         case (.user, .user): return true
         case (.network, .network): return true

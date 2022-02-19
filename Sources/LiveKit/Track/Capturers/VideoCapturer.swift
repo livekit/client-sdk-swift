@@ -6,12 +6,13 @@ public protocol VideoCapturerProtocol {
 }
 
 extension VideoCapturerProtocol {
+
     public var capturer: RTCVideoCapturer {
-        get { fatalError("Must be implemented") }
+        fatalError("Must be implemented")
     }
 }
 
-public protocol VideoCapturerDelegate {
+public protocol VideoCapturerDelegate: AnyObject {
     func capturer(_ capturer: VideoCapturer, didUpdate dimensions: Dimensions?)
 }
 

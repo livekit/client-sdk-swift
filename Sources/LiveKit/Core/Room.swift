@@ -480,7 +480,7 @@ extension Room: EngineDelegate {
 
     func engine(_ engine: Engine, didAdd track: RTCMediaStreamTrack, streams: [RTCMediaStream]) {
 
-        guard streams.count > 0 else {
+        guard !streams.isEmpty else {
             log("Received onTrack with no streams!", .warning)
             return
         }
