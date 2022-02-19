@@ -9,21 +9,6 @@ extension Dimensions {
     }
 }
 
-extension DispatchQueue {
-
-    // execute work on the main thread if not already on the main thread
-    public static func mainSafeSync<T>(execute work: () throws -> T) rethrows -> T {
-        guard !Thread.current.isMainThread else { return try work() }
-        return try Self.main.sync(execute: work)
-    }
-
-    // execute work sync if already on main thread otherwise queue the work on main
-    public static func mainSafeAsync(execute work: @escaping @convention(block) () -> Void) {
-        guard !Thread.current.isMainThread else { return work() }
-        Self.main.async(execute: work)
-    }
-}
-
 /// A ``NativeViewType`` that conforms to ``RTCVideoRenderer``.
 public typealias NativeRendererView = NativeViewType & RTCVideoRenderer
 
