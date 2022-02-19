@@ -57,6 +57,8 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
          primary: Bool,
          delegate: TransportDelegate) throws {
 
+        logger.log("supportedVideoCodecs: \(Engine.encoderFactory.supportedCodecs().map { "\($0.name) - \($0.parameters)" })", type: type(of: Engine.self))
+
         // try create peerConnection
         guard let pc = Engine.createPeerConnection(config,
                                                    constraints: .defaultPCConstraints) else {

@@ -690,12 +690,23 @@ extension Engine: TransportDelegate {
 
 // MARK: Engine - Factory methods
 
+class VideoEncoderFactory: RTCDefaultVideoEncoderFactory {
+
+    override class func supportedCodecs() -> [RTCVideoCodecInfo] {
+        let defaultSupportedCodecs = super.supportedCodecs()
+        return Array(LiveKit.supportedVideoCodecs.map { videoCodec in
+            return defaultSupportedCodecs.filter { videoCodec.isEqualTo(rtcType: $0) }
+        }.joined())
+    }
+}
+
 extension Engine {
+
+    internal static let encoderFactory = VideoEncoderFactory()
 
     // forbid direct access
     private static let factory: RTCPeerConnectionFactory = {
         RTCInitializeSSL()
-        let encoderFactory = RTCDefaultVideoEncoderFactory()
         let decoderFactory = RTCDefaultVideoDecoderFactory()
         #if LK_USING_CUSTOM_WEBRTC_BUILD
         let simulcastFactory = RTCVideoEncoderFactorySimulcast(primary: encoderFactory,

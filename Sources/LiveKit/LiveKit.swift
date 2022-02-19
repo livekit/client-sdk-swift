@@ -2,6 +2,7 @@ import Foundation
 import Logging
 import Promises
 import WebRTC
+import OrderedCollections
 
 internal let logger = Logger(label: "LiveKitSDK")
 
@@ -18,6 +19,10 @@ internal let logger = Logger(label: "LiveKitSDK")
 public class LiveKit {
 
     public static let version = "0.9.7"
+
+    /// Supported video codecs which will be chosen when publishing a video track. The priority is in high to low order.
+    /// Must be set before connecting (before internal peerConnection creation) to take effect.
+    public static var supportedVideoCodecs: OrderedSet<VideoCodec> = [.h264(), .vp8]
 
     public static func connect(
         _ url: String,
