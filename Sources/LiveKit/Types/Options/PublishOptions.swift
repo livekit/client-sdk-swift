@@ -17,13 +17,21 @@ public class VideoPublishOptions: PublishOptions {
     /// true to enable simulcasting, publishes three tracks at different sizes
     public let simulcast: Bool
 
+    public let simulcastLayers: [VideoParameters]
+
+    public let screenShareSimulcastLayers: [VideoParameters]
+
     public init(encoding: VideoEncoding? = nil,
                 screenShareEncoding: VideoEncoding? = nil,
-                simulcast: Bool = true) {
+                simulcast: Bool = true,
+                simulcastLayers: [VideoParameters] = [],
+                screenShareSimulcastLayers: [VideoParameters] = [.presetScreenShareH360FPS3, .presetScreenShareH720FPS5]) {
 
         self.encoding = encoding
         self.screenShareEncoding = screenShareEncoding
         self.simulcast = simulcast
+        self.simulcastLayers = simulcastLayers
+        self.screenShareSimulcastLayers = screenShareSimulcastLayers
     }
 }
 

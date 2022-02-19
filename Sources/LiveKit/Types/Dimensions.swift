@@ -61,7 +61,7 @@ extension Dimensions {
     //               height: abs(self.height - dimensions.height))
     // }
 
-    func computeSuggestedPresets(isScreenShare: Bool = false) -> [VideoParameters] {
+    func computeSuggestedPresets(isScreenShare: Bool) -> [VideoParameters] {
         if isScreenShare {
             return VideoParameters.presetsScreenShare
         }
@@ -69,6 +69,16 @@ extension Dimensions {
             return VideoParameters.presets169
         }
         return VideoParameters.presets43
+    }
+
+    func defaultSimulcastLayers(isScreenShare: Bool) -> [VideoParameters] {
+        if isScreenShare {
+            return []
+        }
+        if abs(aspectRatio - Dimensions.aspectRatio169) < abs(aspectRatio - Dimensions.aspectRatio43) {
+            return VideoParameters.defaultSimulcastPresets169
+        }
+        return VideoParameters.defaultSimulcastPresets43
     }
 
     func computeSuggestedPreset(in presets: [VideoParameters]) -> VideoEncoding {
