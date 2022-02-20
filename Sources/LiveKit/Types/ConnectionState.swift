@@ -13,8 +13,12 @@ public enum ConnectMode {
 extension ConnectMode: Equatable {
 
     public static func == (lhs: ConnectMode, rhs: ConnectMode) -> Bool {
-        switch (lhs, rhs) {
-        case (let .reconnect(type1), let .reconnect(type2)): return type1 == type2
+        lhs.isEqual(to: rhs)
+    }
+
+    public func isEqual(to rhs: ConnectMode, includingAssociatedValues: Bool = true) -> Bool {
+        switch (self, rhs) {
+        case (.reconnect(let mode1), .reconnect(let mode2)): return includingAssociatedValues ? mode1 == mode2 : true
         case (.normal, .normal): return true
         default: return false
         }
@@ -36,10 +40,17 @@ extension ConnectionState: Identifiable {
 extension ConnectionState: Equatable {
 
     public static func == (lhs: ConnectionState, rhs: ConnectionState) -> Bool {
-        switch (lhs, rhs) {
-        case (.disconnected(let m1), .disconnected(let m2)): return m1 == m2
-        case (.connecting(let r1), .connecting(let r2)): return r1 == r2
-        case (.connected(let m1), .connected(let m2)): return m1 == m2
+        lhs.isEqual(to: rhs)
+    }
+
+    public func isEqual(to rhs: ConnectionState, includingAssociatedValues: Bool = true) -> Bool {
+        switch (self, rhs) {
+        case (.disconnected(let reason1), .disconnected(let reason2)):
+            return includingAssociatedValues ? reason1.isEqual(to: reason2) : true
+        case (.connecting(let mode1), .connecting(let mode2)):
+            return includingAssociatedValues ? mode1.isEqual(to: mode2) : true
+        case (.connected(let mode1), .connected(let mode2)):
+            return includingAssociatedValues ? mode1.isEqual(to: mode2) : true
         default: return false
         }
     }
@@ -84,7 +95,11 @@ public enum DisconnectReason {
 extension DisconnectReason: Equatable {
 
     public static func == (lhs: DisconnectReason, rhs: DisconnectReason) -> Bool {
-        switch (lhs, rhs) {
+        lhs.isEqual(to: rhs)
+    }
+
+    public func isEqual(to rhs: DisconnectReason, includingAssociatedValues: Bool = true) -> Bool {
+        switch (self, rhs) {
         case (.user, .user): return true
         case (.network, .network): return true
         case (.sdk, .sdk): return true

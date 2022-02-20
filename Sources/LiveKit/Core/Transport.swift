@@ -76,6 +76,10 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
         statsTimer.resume()
     }
 
+    deinit {
+        log()
+    }
+
     @discardableResult
     func addIceCandidate(_ candidate: RTCIceCandidate) -> Promise<Void> {
 

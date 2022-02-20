@@ -29,7 +29,7 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
         didSet {
             guard oldValue != connectionState else { return }
             log("\(oldValue) -> \(self.connectionState)")
-            notify { $0.engine(self, didUpdate: self.connectionState, oldState: oldValue) }
+            notify { $0.engine(self, didUpdate: self.connectionState, oldValue: oldValue) }
         }
     }
 
@@ -42,8 +42,8 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
     }
 
     deinit {
-        log()
         signalClient.remove(delegate: self)
+        log()
     }
 
     // Connect sequence, resets existing state
@@ -217,9 +217,11 @@ private extension Engine {
             }
         }
 
-        return closeAllDataChannels().then(on: .sdk) {
-            closeAllTransports()
-        }
+        return closeAllDataChannels()
+            .recover(on: .sdk) { self.log("Failed to close data channels, error: \($0)") }
+            .then(on: .sdk) {
+                closeAllTransports()
+            }
     }
 
     // Connect sequence only, doesn't update internal state
@@ -499,8 +501,14 @@ extension Engine {
 
 extension Engine: SignalClientDelegate {
 
-    func signalClient(_ signalClient: SignalClient, didUpdate connectionState: ConnectionState) -> Bool {
+    func signalClient(_ signalClient: SignalClient, didUpdate connectionState: ConnectionState, oldValue: ConnectionState) -> Bool {
         log()
+
+        guard !connectionState.isEqual(to: oldValue, includingAssociatedValues: false) else {
+            log("Skipping same conectionState")
+            return true
+        }
+
         // Attempt re-connect if disconnected(reason: network)
         if case .disconnected(let reason) = connectionState,
            case .network = reason {
