@@ -6,8 +6,8 @@ internal class WebSocket: NSObject, URLSessionWebSocketDelegate, Loggable {
     typealias OnMessage = (URLSessionWebSocketTask.Message) -> Void
     typealias OnDisconnect = (_ reason: DisconnectReason) -> Void
 
-    private var onMessage: OnMessage?
-    private var onDisconnect: OnDisconnect?
+    public var onMessage: OnMessage?
+    public var onDisconnect: OnDisconnect?
 
     private let queue = DispatchQueue(label: "LiveKitSDK.webSocket", qos: .background)
     private let operationQueue = OperationQueue()

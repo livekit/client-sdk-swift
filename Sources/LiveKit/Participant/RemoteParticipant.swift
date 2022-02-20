@@ -116,13 +116,15 @@ public class RemoteParticipant: Participant {
             return notifyUnpublish()
         }
 
-        return track.stop().always {
-            guard shouldNotify else { return }
-            // notify unsubscribe
-            self.notify { $0.participant(self, didUnsubscribe: publication, track: track) }
-            self.room.notify { $0.room(self.room, participant: self, didUnsubscribe: publication, track: track) }
-        }.then(on: .sdk) {
-            notifyUnpublish()
-        }
+        return track.stop()
+            .recover(on: .sdk) { self.log("Failed to stop track, error: \($0)") }
+            .then(on: .sdk) {
+                guard shouldNotify else { return }
+                // notify unsubscribe
+                self.notify { $0.participant(self, didUnsubscribe: publication, track: track) }
+                self.room.notify { $0.room(self.room, participant: self, didUnsubscribe: publication, track: track) }
+            }.then(on: .sdk) {
+                notifyUnpublish()
+            }
     }
 }

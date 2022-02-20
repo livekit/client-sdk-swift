@@ -8,12 +8,16 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
         didSet {
             guard oldValue != connectionState else { return }
             log("\(oldValue) -> \(self.connectionState)")
-            notify { $0.signalClient(self, didUpdate: self.connectionState) }
+            notify { $0.signalClient(self, didUpdate: self.connectionState, oldValue: oldValue) }
         }
     }
 
     private var webSocket: WebSocket?
     private var latestJoinResponse: Livekit_JoinResponse?
+
+    deinit {
+        log()
+    }
 
     func connect(_ url: String,
                  _ token: String,
@@ -74,6 +78,8 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
 
         if let socket = webSocket {
             socket.cleanUp(reason: reason)
+            socket.onMessage = nil
+            socket.onDisconnect = nil
             self.webSocket = nil
         }
 
