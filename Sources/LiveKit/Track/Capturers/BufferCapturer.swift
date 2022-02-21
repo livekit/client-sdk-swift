@@ -23,14 +23,13 @@ public class BufferCapturer: VideoCapturer {
                 .aspectFit(size: self.options.dimensions.max)
                 .toEncodeSafeDimensions()
 
-            if let videoSource = self.delegate as? RTCVideoSource {
-                self.log("adapting to \(targetDimensions)")
-                videoSource.adaptOutputFormat(toWidth: targetDimensions.width,
-                                              height: targetDimensions.height,
-                                              fps: Int32(self.options.fps))
-            }
+            defer { self.dimensions = targetDimensions }
 
-            self.dimensions = targetDimensions
+            guard let videoSource = self.delegate as? RTCVideoSource else { return }
+            self.log("adaptOutputFormat to: \(targetDimensions) fps: \(self.options.fps)")
+            videoSource.adaptOutputFormat(toWidth: targetDimensions.width,
+                                          height: targetDimensions.height,
+                                          fps: Int32(self.options.fps))
         }
     }
 }

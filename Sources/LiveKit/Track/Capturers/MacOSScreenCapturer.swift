@@ -136,12 +136,13 @@ public class MacOSScreenCapturer: VideoCapturer {
                                         .aspectFit(size: self.options.dimensions.max)
                                         .toEncodeSafeDimensions()
 
+                                    defer { self.dimensions = targetDimensions }
+
                                     guard let videoSource = self.delegate as? RTCVideoSource else { return }
+                                    self.log("adaptOutputFormat to: \(targetDimensions) fps: \(self.options.fps)")
                                     videoSource.adaptOutputFormat(toWidth: targetDimensions.width,
                                                                   height: targetDimensions.height,
                                                                   fps: Int32(self.options.fps))
-
-                                    self.dimensions = targetDimensions
                                 })
 
     }
@@ -202,12 +203,13 @@ extension MacOSScreenCapturer: AVCaptureVideoDataOutputSampleBufferDelegate {
                 .aspectFit(size: self.options.dimensions.max)
                 .toEncodeSafeDimensions()
 
+            defer { self.dimensions = targetDimensions }
+
             guard let videoSource = self.delegate as? RTCVideoSource else { return }
+            self.log("adaptOutputFormat to: \(targetDimensions) fps: \(self.options.fps)")
             videoSource.adaptOutputFormat(toWidth: targetDimensions.width,
                                           height: targetDimensions.height,
                                           fps: Int32(self.options.fps))
-
-            self.dimensions = targetDimensions
         }
     }
 }

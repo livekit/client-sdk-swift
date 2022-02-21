@@ -112,7 +112,7 @@ public class CameraCapturer: VideoCapturer {
         if let videoSource = delegate as? RTCVideoSource,
            selectedFormat.value != options.dimensions {
 
-            self.log("adapting to: \(options.dimensions) fps: \(options.fps)")
+            self.log("adaptOutputFormat to: \(options.dimensions) fps: \(self.options.fps)")
             videoSource.adaptOutputFormat(toWidth: options.dimensions.width,
                                           height: options.dimensions.height,
                                           fps: Int32(options.fps))
@@ -131,7 +131,7 @@ public class CameraCapturer: VideoCapturer {
                     // update internal vars
                     self.device = device
                     // this will trigger to re-compute encodings for sender parameters if dimensions have updated
-                    self.dimensions = selectedFormat.value
+                    self.dimensions = self.options.dimensions
 
                     // successfully started
                     resolve(())

@@ -150,10 +150,8 @@ private extension Track {
 
 extension Track: RTCVideoRenderer {
 
-    public func setSize(_ size: CGSize) {
-        // guard let videoTrack = self as? VideoTrack else { return }
-        // notify { $0.track(videoTrack, didReceive: size) }
-    }
+    // not used
+    public func setSize(_ size: CGSize) {}
 
     public func renderFrame(_ frame: RTCVideoFrame?) {
 
