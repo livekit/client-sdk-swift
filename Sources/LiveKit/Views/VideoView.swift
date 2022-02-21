@@ -87,7 +87,7 @@ public class VideoView: NativeView, Loggable {
     /// Calls addRenderer and/or removeRenderer internally for convenience.
     public var track: VideoTrack? {
         didSet {
-            guard !(oldValue?.isEqual(to: track) ?? false) else { return }
+            guard !(oldValue?.isEqual(track) ?? false) else { return }
 
             if let oldValue = oldValue {
                 oldValue.remove(renderer: self)
@@ -317,7 +317,11 @@ extension VideoView {
             // extra checks for MTKView
             for subView in view.subviews {
                 if let metal = subView as? MTKView {
+                    #if os(iOS)
+                    metal.contentMode = .scaleAspectFit
+                    #elseif os(macOS)
                     metal.layerContentsPlacement = .scaleProportionallyToFit
+                    #endif
                 }
             }
 
