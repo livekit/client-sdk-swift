@@ -188,28 +188,28 @@ internal class Utils {
     ) -> [RTCRtpEncodingParameters] {
 
         let publishOptions = publishOptions ?? VideoPublishOptions()
-        let useSimulcast: Bool = !isScreenShare && publishOptions.simulcast
-        let encoding: VideoEncoding? = isScreenShare ? publishOptions.screenShareEncoding : publishOptions.encoding
-
-        // get suggested presets for the dimensions
-        let presets = dimensions.computeSuggestedPresets(isScreenShare: isScreenShare)
-
-        let encoding2 = encoding ?? dimensions.computeSuggestedPreset(in: presets)
+        let useSimulcast: Bool = (!isScreenShare || !publishOptions.screenShareSimulcastLayers.isEmpty) && publishOptions.simulcast
+        let preferredEncoding: VideoEncoding? = isScreenShare ? publishOptions.screenShareEncoding : publishOptions.encoding
+        let encoding = preferredEncoding ?? dimensions.computeSuggestedPreset(in: dimensions.computeSuggestedPresets(isScreenShare: isScreenShare))
 
         guard useSimulcast else {
-            // return videoRids.map { Engine.createRtpEncodingParameters(rid: $0, encoding: $0 == primaryVideoRid ? encoding2 : nil,  active: $0 == primaryVideoRid) }
-            return [Engine.createRtpEncodingParameters(encoding: encoding2)]
+            return [Engine.createRtpEncodingParameters(encoding: encoding)]
         }
+
+        // get suggested presets for the dimensions
+        let preferredPresets = (isScreenShare ? publishOptions.screenShareSimulcastLayers : publishOptions.simulcastLayers)
+        let presets = (!preferredPresets.isEmpty ? preferredPresets : dimensions.defaultSimulcastLayers(isScreenShare: isScreenShare)).sorted { $0 < $1 }
+        logger.log("Using presets: \(presets)", type: Utils.self)
 
         let lowPreset = presets[0]
         let midPreset = presets[safe: 1]
         let original = VideoParameters(dimensions: dimensions,
-                                       encoding: encoding2)
+                                       encoding: encoding)
 
         var resultPresets = [original]
         if dimensions.max >= 960, let midPreset = midPreset {
             resultPresets = [lowPreset, midPreset, original]
-        } else if dimensions.max >= 500 {
+        } else if dimensions.max >= 480 {
             resultPresets = [lowPreset, original]
         }
 

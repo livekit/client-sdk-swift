@@ -74,6 +74,16 @@ public extension VideoParameters {
         presetScreenShareH1080FPS30
     ]
 
+    static let defaultSimulcastPresets169 = [
+        presetH180_169,
+        presetH360_169
+    ]
+
+    static let defaultSimulcastPresets43 = [
+        presetH180_43,
+        presetH360_43
+    ]
+
     // 16:9 aspect ratio
 
     static let presetH90_169 = VideoParameters(
@@ -194,6 +204,23 @@ public extension VideoParameters {
         dimensions: .h1080_169,
         encoding: VideoEncoding(maxBitrate: 3_000_000, maxFps: 30)
     )
+}
+
+extension VideoParameters: Comparable {
+
+    public static func < (lhs: VideoParameters, rhs: VideoParameters) -> Bool {
+
+        if lhs.dimensions.area == rhs.dimensions.area {
+            return lhs.encoding < rhs.encoding
+        }
+
+        return lhs.dimensions.area < rhs.dimensions.area
+    }
+
+    public static func == (lhs: VideoParameters, rhs: VideoParameters) -> Bool {
+        lhs.dimensions == rhs.dimensions &&
+            lhs.encoding == rhs.encoding
+    }
 }
 
 // MARK: - Presets(Deprecated)
