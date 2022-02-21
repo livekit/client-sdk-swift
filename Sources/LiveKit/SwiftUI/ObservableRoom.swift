@@ -30,10 +30,6 @@ open class ObservableRoom: ObservableObject, RoomDelegate, Loggable {
         room.add(delegate: self)
     }
 
-    deinit {
-        room.remove(delegate: self)
-    }
-
     @discardableResult
     public func switchCameraPosition() -> Promise<Void> {
 

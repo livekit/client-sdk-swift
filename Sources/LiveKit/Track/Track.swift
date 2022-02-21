@@ -130,21 +130,15 @@ private extension Track {
 
     func set(dimensions newValue: Dimensions?) {
         guard self.dimensions != newValue else { return }
-
-        //        DispatchQueue.mainSafeSync {
         self.dimensions = newValue
-        //        }
 
         guard let videoTrack = self as? VideoTrack else { return }
         notify { $0.track(videoTrack, didUpdate: newValue) }
     }
 
     func set(videoFrame newValue: RTCVideoFrame?) {
-        // guard self.videoFrame != newValue else { return }
+        guard self.videoFrame != newValue else { return }
         self.videoFrame = newValue
-
-        guard let videoTrack = self as? VideoTrack else { return }
-        notify { $0.track(videoTrack, didReceive: self.videoFrame) }
     }
 }
 
@@ -156,16 +150,8 @@ extension Track: RTCVideoRenderer {
     public func renderFrame(_ frame: RTCVideoFrame?) {
 
         if let frame = frame {
-            let dimensions = Dimensions(width: frame.width,
-                                        height: frame.height)
-            // ignore unsafe dimensions
-            guard dimensions.isRenderSafe else {
-                log("Skipping render for dimension \(dimensions)", .warning)
-                // renderState.insert(.didSkipUnsafeFrame)
-                return
-            }
-
-            set(dimensions: dimensions)
+            set(dimensions: Dimensions(width: frame.width,
+                                       height: frame.height))
         } else {
             set(dimensions: nil)
         }
