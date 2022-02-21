@@ -55,9 +55,6 @@ public class RemoteTrackPublication: TrackPublication {
                    track: track,
                    participant: participant)
 
-        // listen for visibility updates
-        track?.add(delegate: self)
-
         #if LK_FEATURE_ADAPTIVESTREAM
         debouncedRecomputeVideoViewVisibilities = Utils.createDebounceFunc(wait: 2,
                                                                            onCreateWorkItem: { [weak self] in
