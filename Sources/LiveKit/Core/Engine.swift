@@ -42,7 +42,6 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
     }
 
     deinit {
-        signalClient.remove(delegate: self)
         log()
     }
 
