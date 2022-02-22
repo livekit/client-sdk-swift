@@ -125,7 +125,7 @@ private extension SignalClient {
     // send request or enqueue while reconnecting
     func sendRequest(_ request: Livekit_SignalRequest, enqueueIfReconnecting: Bool = true) -> Promise<Void> {
 
-        guard !(connectionState.isReconnecting && enqueueIfReconnecting) else {
+        guard !(connectionState.isReconnecting && request.canQueue() && enqueueIfReconnecting) else {
             log("Queuing request while reconnecting, request: \(request)")
             queue.append(request)
             // success
@@ -439,5 +439,19 @@ internal extension SignalClient {
         }
 
         return sendRequest(r)
+    }
+}
+
+internal extension Livekit_SignalRequest {
+
+    func canQueue() -> Bool {
+        switch self.message {
+        case .syncState: return false
+        case .trickle: return false
+        case .offer: return false
+        case .answer: return false
+        case .simulate: return false
+        default: return true
+        }
     }
 }
