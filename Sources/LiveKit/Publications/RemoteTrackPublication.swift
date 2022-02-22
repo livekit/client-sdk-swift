@@ -93,12 +93,13 @@ public class RemoteTrackPublication: TrackPublication {
 
     internal func set(metadataMuted newValue: Bool) {
 
+        guard self.metadataMuted != newValue else { return }
+
         guard let participant = participant else {
             log("Participant is nil", .warning)
             return
         }
 
-        guard self.metadataMuted != newValue else { return }
         self.metadataMuted = newValue
         // if track exists, track will emit the following events
         if track == nil {

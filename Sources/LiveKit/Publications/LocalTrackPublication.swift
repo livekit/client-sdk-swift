@@ -70,16 +70,16 @@ extension LocalTrackPublication {
 
     internal func recomputeSenderParameters() {
 
-        guard let participant = participant else {
-            log("Participant is nil", .warning)
-            return
-        }
-
         guard let track = track as? LocalVideoTrack,
               let sender = track.transceiver?.sender else { return }
 
         guard let dimensions = track.capturer.dimensions else {
             log("Cannot re-compute sender parameters without dimensions", .warning)
+            return
+        }
+
+        guard let participant = participant else {
+            log("Participant is nil", .warning)
             return
         }
 
