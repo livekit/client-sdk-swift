@@ -8,7 +8,7 @@ import Foundation
 ///
 /// To ensure each participant's delegate is registered, you can look through ``Room/localParticipant`` and ``Room/remoteParticipants`` on connect
 /// and register it on new participants inside ``RoomDelegate/room(_:participantDidJoin:)-9bkm4``
-public protocol ParticipantDelegate {
+public protocol ParticipantDelegate: AnyObject {
 
     /// A ``Participant``'s metadata has updated.
     /// `participant` Can be a ``LocalParticipant`` or a ``RemoteParticipant``.

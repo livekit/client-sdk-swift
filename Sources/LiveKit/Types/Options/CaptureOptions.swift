@@ -20,7 +20,7 @@ public struct CameraCaptureOptions: VideoCaptureOptions {
 
     public init(position: AVCaptureDevice.Position = .front,
                 preferredFormat: AVCaptureDevice.Format? = nil,
-                dimensions: Dimensions = .hd169,
+                dimensions: Dimensions = .h720_169,
                 fps: Int = 30) {
 
         self.position = position
@@ -46,7 +46,20 @@ public struct ScreenShareCaptureOptions: VideoCaptureOptions {
     public let dimensions: Dimensions
     public let fps: Int
 
-    public init(dimensions: Dimensions = .hd169,
+    public init(dimensions: Dimensions = .h720_169,
+                fps: Int = 30) {
+
+        self.dimensions = dimensions
+        self.fps = fps
+    }
+}
+
+public struct BufferCaptureOptions: VideoCaptureOptions {
+
+    public let dimensions: Dimensions
+    public let fps: Int
+
+    public init(dimensions: Dimensions = .h720_169,
                 fps: Int = 30) {
 
         self.dimensions = dimensions

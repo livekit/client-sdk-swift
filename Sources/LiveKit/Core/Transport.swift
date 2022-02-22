@@ -14,6 +14,10 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
     private let pc: RTCPeerConnection
     private var pendingCandidates: [RTCIceCandidate] = []
 
+    // used for stats timer
+    private var statsTimer = DispatchQueueTimer(timeInterval: 1, queue: .webRTC)
+    private var stats = [String: TrackStats]()
+
     var restartingIce: Bool = false
     var renegotiate: Bool = false
     var onOffer: TransportOnOffer?
@@ -67,6 +71,13 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
         super.init()
         DispatchQueue.webRTC.sync { pc.delegate = self }
         add(delegate: delegate)
+
+        statsTimer.handler = onStatsTimer
+        statsTimer.resume()
+    }
+
+    deinit {
+        log()
     }
 
     @discardableResult
@@ -141,6 +152,7 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
     func close() -> Promise<Void> {
         // prevent debounced negotiate firing
         debounceWorkItem?.cancel()
+        statsTimer.suspend()
 
         return Promise(on: .webRTC) { [pc] in
             // Stop listening to delegate
@@ -150,6 +162,50 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
                 pc.removeTrack(sender)
             }
             pc.close()
+        }
+    }
+}
+
+// MARK: - Stats
+
+extension Transport {
+
+    func onStatsTimer() {
+
+        statsTimer.suspend()
+        pc.stats(for: nil, statsOutputLevel: .standard) { reports in
+
+            self.statsTimer.resume()
+
+            let tracks = reports
+                .filter { $0.type == TrackStats.keyTypeSSRC }
+                .map { entry -> TrackStats? in
+
+                    let findPrevious = { () -> TrackStats? in
+                        guard let ssrc = entry.values[TrackStats.keyTypeSSRC],
+                              let previous = self.stats[ssrc] else { return nil }
+                        return previous
+                    }
+
+                    return TrackStats(from: entry.values, previous: findPrevious())
+                }
+                .compactMap { $0 }
+
+            for track in tracks {
+                // cache
+                self.stats[track.ssrc] = track
+            }
+
+            if !tracks.isEmpty {
+                self.notify { $0.transport(self, didGenerate: tracks, target: self.target) }
+            }
+
+            // clean up
+            // for key in self.stats.keys {
+            //    if !tracks.contains(where: { $0.ssrc == key }) {
+            //        self.stats.removeValue(forKey: key)
+            //    }
+            // }
         }
     }
 }

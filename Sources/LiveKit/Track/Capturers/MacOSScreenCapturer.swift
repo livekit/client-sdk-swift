@@ -32,10 +32,17 @@ extension MacOSScreenCapturer {
 
         return list
             .filter {
-                ($0.object(forKey: kCGWindowLayer) as! NSNumber).intValue == 0 &&
-                    (includeCurrentProcess ? true : ($0.object(forKey: kCGWindowOwnerPID) as! NSNumber).intValue != currentPID)
+                guard let windowLayer = $0.object(forKey: kCGWindowLayer) as? NSNumber,
+                      windowLayer.intValue == 0 else { return false }
+
+                if !includeCurrentProcess {
+                    guard let windowOwnerPid = $0.object(forKey: kCGWindowOwnerPID) as? NSNumber,
+                          windowOwnerPid.intValue != currentPID else { return false }
+                }
+
+                return true
             }
-            .map { $0.object(forKey: kCGWindowNumber) as! NSNumber }.compactMap { $0.uint32Value }
+            .map { $0.object(forKey: kCGWindowNumber) as? NSNumber }.compactMap { $0 }.map { $0.uint32Value }
     }
 
     // gets a list of display IDs
@@ -76,24 +83,19 @@ public class MacOSScreenCapturer: VideoCapturer {
     }()
 
     // used for window capture
-    private var dispatchSourceTimer: DispatchSourceTimer?
+    private var dispatchSourceTimer: DispatchQueueTimer?
 
     private func startDispatchSourceTimer() {
         stopDispatchSourceTimer()
         let timeInterval: TimeInterval = 1 / Double(options.fps)
-        let result = DispatchSource.makeTimerSource(queue: .capture)
-        result.schedule(deadline: .now() + timeInterval, repeating: timeInterval)
-        result.setEventHandler(handler: onDispatchSourceTimer)
-        result.resume()
-        dispatchSourceTimer = result
+        dispatchSourceTimer = DispatchQueueTimer(timeInterval: timeInterval, queue: .capture)
+        dispatchSourceTimer?.handler = onDispatchSourceTimer
+        dispatchSourceTimer?.resume()
     }
 
     private func stopDispatchSourceTimer() {
         if let timer = dispatchSourceTimer {
-            // If the timer is suspended, calling cancel without resuming
-            // triggers a crash. This is documented here https://forums.developer.apple.com/thread/15902
-            timer.cancel()
-            // timer.resume()
+            timer.suspend()
             dispatchSourceTimer = nil
         }
     }
@@ -134,12 +136,13 @@ public class MacOSScreenCapturer: VideoCapturer {
                                         .aspectFit(size: self.options.dimensions.max)
                                         .toEncodeSafeDimensions()
 
+                                    defer { self.dimensions = targetDimensions }
+
                                     guard let videoSource = self.delegate as? RTCVideoSource else { return }
+                                    self.log("adaptOutputFormat to: \(targetDimensions) fps: \(self.options.fps)")
                                     videoSource.adaptOutputFormat(toWidth: targetDimensions.width,
                                                                   height: targetDimensions.height,
                                                                   fps: Int32(self.options.fps))
-
-                                    self.dimensions = targetDimensions
                                 })
 
     }
@@ -200,12 +203,13 @@ extension MacOSScreenCapturer: AVCaptureVideoDataOutputSampleBufferDelegate {
                 .aspectFit(size: self.options.dimensions.max)
                 .toEncodeSafeDimensions()
 
+            defer { self.dimensions = targetDimensions }
+
             guard let videoSource = self.delegate as? RTCVideoSource else { return }
+            self.log("adaptOutputFormat to: \(targetDimensions) fps: \(self.options.fps)")
             videoSource.adaptOutputFormat(toWidth: targetDimensions.width,
                                           height: targetDimensions.height,
                                           fps: Int32(self.options.fps))
-
-            self.dimensions = targetDimensions
         }
     }
 }

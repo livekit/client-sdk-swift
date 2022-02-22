@@ -13,15 +13,24 @@ public typealias NativeViewRepresentableType = NSViewRepresentable
 class SwiftUIVideoViewDelegateReceiver: TrackDelegate, Loggable {
 
     @Binding var dimensions: Dimensions?
+    @Binding var stats: TrackStats?
 
-    init(dimensions: Binding<Dimensions?> = .constant(nil)) {
+    init(dimensions: Binding<Dimensions?> = .constant(nil),
+         stats: Binding<TrackStats?> = .constant(nil)) {
         self._dimensions = dimensions
+        self._stats = stats
     }
 
     func track(_ track: VideoTrack,
                didUpdate dimensions: Dimensions?) {
         DispatchQueue.main.async {
             self.dimensions = dimensions
+        }
+    }
+
+    func track(_ track: Track, didUpdate stats: TrackStats) {
+        DispatchQueue.main.async {
+            self.stats = stats
         }
     }
 }
@@ -46,6 +55,7 @@ public struct SwiftUIVideoView: NativeViewRepresentable {
                 mode: VideoView.Mode = .fill,
                 mirrored: Bool = false,
                 dimensions: Binding<Dimensions?> = .constant(nil),
+                trackStats: Binding<TrackStats?> = .constant(nil),
                 preferMetal: Bool = true) {
 
         self.track = track
@@ -54,12 +64,14 @@ public struct SwiftUIVideoView: NativeViewRepresentable {
         self._dimensions = dimensions
         self.preferMetal = preferMetal
 
-        self.delegateReceiver = SwiftUIVideoViewDelegateReceiver(dimensions: dimensions)
+        self.delegateReceiver = SwiftUIVideoViewDelegateReceiver(dimensions: dimensions,
+                                                                 stats: trackStats)
         self.track.add(delegate: delegateReceiver)
 
         // update binding value
         DispatchQueue.main.async {
             dimensions.wrappedValue = track.dimensions
+            trackStats.wrappedValue = track.stats
         }
     }
 

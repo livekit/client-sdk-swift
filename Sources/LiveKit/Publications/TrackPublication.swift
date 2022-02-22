@@ -110,9 +110,11 @@ public class TrackPublication: TrackDelegate, Loggable {
                                                                       muted: muted)
         }
 
-        sendSignal().always {
-            self.participant.notify { $0.participant(self.participant, didUpdate: self, muted: muted) }
-            self.participant.room.notify { $0.room(self.participant.room, participant: self.participant, didUpdate: self, muted: self.muted) }
-        }
+        sendSignal()
+            .recover(on: .sdk) { self.log("Failed to stop all tracks, error: \($0)") }
+            .then(on: .sdk) {
+                self.participant.notify { $0.participant(self.participant, didUpdate: self, muted: muted) }
+                self.participant.room.notify { $0.room(self.participant.room, participant: self.participant, didUpdate: self, muted: self.muted) }
+            }
     }
 }

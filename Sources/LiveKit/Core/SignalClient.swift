@@ -12,12 +12,16 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
         didSet {
             guard oldValue != connectionState else { return }
             log("\(oldValue) -> \(self.connectionState)")
-            notify { $0.signalClient(self, didUpdate: self.connectionState) }
+            notify { $0.signalClient(self, didUpdate: self.connectionState, oldValue: oldValue) }
         }
     }
 
     private var webSocket: WebSocket?
     private var latestJoinResponse: Livekit_JoinResponse?
+
+    deinit {
+        log()
+    }
 
     func connect(_ url: String,
                  _ token: String,
@@ -81,6 +85,8 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
 
         if let socket = webSocket {
             socket.cleanUp(reason: reason)
+            socket.onMessage = nil
+            socket.onDisconnect = nil
             self.webSocket = nil
         }
 
@@ -330,7 +336,7 @@ internal extension SignalClient {
         return sendRequest(r)
     }
 
-    func sendUpdateTrackSettings(sid: String, settings: TrackSettings) -> Promise<Void> {
+    func sendUpdateTrackSettings(sid: Sid, settings: TrackSettings) -> Promise<Void> {
         log()
 
         let r = Livekit_SignalRequest.with {
@@ -345,7 +351,7 @@ internal extension SignalClient {
         return sendRequest(r)
     }
 
-    func sendUpdateVideoLayers(trackSid: String,
+    func sendUpdateVideoLayers(trackSid: Sid,
                                layers: [Livekit_VideoLayer]) -> Promise<Void> {
         log()
 
@@ -359,7 +365,7 @@ internal extension SignalClient {
         return sendRequest(r)
     }
 
-    func sendUpdateSubscription(participantSid: String,
+    func sendUpdateSubscription(participantSid: Sid,
                                 trackSid: String,
                                 subscribed: Bool) -> Promise<Void> {
         log()

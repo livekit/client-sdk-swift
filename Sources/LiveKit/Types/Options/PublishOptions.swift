@@ -1,15 +1,12 @@
 import Foundation
 
-public class PublishOptions {
-
-    public let name: String?
-
-    internal init(name: String? = nil) {
-        self.name = name
-    }
+public protocol PublishOptions {
+    var name: String? { get }
 }
 
-public class VideoPublishOptions: PublishOptions {
+public struct VideoPublishOptions: PublishOptions {
+
+    public let name: String?
     /// preferred encoding parameters
     public let encoding: VideoEncoding?
     /// encoding parameters for for screen share
@@ -17,18 +14,29 @@ public class VideoPublishOptions: PublishOptions {
     /// true to enable simulcasting, publishes three tracks at different sizes
     public let simulcast: Bool
 
-    public init(encoding: VideoEncoding? = nil,
-                screenShareEncoding: VideoEncoding? = nil,
-                simulcast: Bool = true) {
+    public let simulcastLayers: [VideoParameters]
 
+    public let screenShareSimulcastLayers: [VideoParameters]
+
+    public init(name: String? = nil,
+                encoding: VideoEncoding? = nil,
+                screenShareEncoding: VideoEncoding? = nil,
+                simulcast: Bool = true,
+                simulcastLayers: [VideoParameters] = [],
+                screenShareSimulcastLayers: [VideoParameters] = [.presetScreenShareH360FPS3, .presetScreenShareH720FPS5]) {
+
+        self.name = name
         self.encoding = encoding
         self.screenShareEncoding = screenShareEncoding
         self.simulcast = simulcast
+        self.simulcastLayers = simulcastLayers
+        self.screenShareSimulcastLayers = screenShareSimulcastLayers
     }
 }
 
-public class AudioPublishOptions: PublishOptions {
+public struct AudioPublishOptions: PublishOptions {
 
+    public let name: String?
     public let bitrate: Int?
     public let dtx: Bool
 
@@ -36,12 +44,18 @@ public class AudioPublishOptions: PublishOptions {
                 bitrate: Int? = nil,
                 dtx: Bool = true) {
 
+        self.name = name
         self.bitrate = bitrate
         self.dtx = dtx
-        super.init(name: name)
     }
 }
 
-public class DataPublishOptions: PublishOptions {
+public struct DataPublishOptions: PublishOptions {
 
+    public let name: String?
+
+    public init(name: String? = nil) {
+
+        self.name = name
+    }
 }

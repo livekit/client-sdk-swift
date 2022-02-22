@@ -2,33 +2,10 @@ import Foundation
 import WebRTC
 import MetalKit
 
-#if os(iOS)
-typealias NativeRect = CGRect
-import UIKit
-#else
-import AppKit
-typealias NativeRect = NSRect
-#endif
-
 extension Dimensions {
 
     func toCGSize() -> CGSize {
         CGSize(width: Int(width), height: Int(height))
-    }
-}
-
-extension DispatchQueue {
-
-    // execute work on the main thread if not already on the main thread
-    public static func mainSafeSync<T>(execute work: () throws -> T) rethrows -> T {
-        guard !Thread.current.isMainThread else { return try work() }
-        return try Self.main.sync(execute: work)
-    }
-
-    // execute work sync if already on main thread otherwise queue the work on main
-    public static func mainSafeAsync(execute work: @escaping @convention(block) () -> Void) {
-        guard !Thread.current.isMainThread else { return work() }
-        Self.main.async(execute: work)
     }
 }
 
@@ -110,13 +87,15 @@ public class VideoView: NativeView, Loggable {
     /// Calls addRenderer and/or removeRenderer internally for convenience.
     public var track: VideoTrack? {
         didSet {
-            guard !(oldValue?.isEqual(to: track) ?? false) else { return }
+            guard !(oldValue?.isEqual(track) ?? false) else { return }
 
             if let oldValue = oldValue {
+                oldValue.remove(renderer: self)
                 oldValue.remove(delegate: self)
                 oldValue.notify { $0.track(oldValue, didDetach: self) }
             }
             track?.add(delegate: self)
+            track?.add(renderer: self)
             track?.notify { [weak track] (delegate) -> Void in
                 guard let track = track else { return }
                 delegate.track(track, didAttach: self)
@@ -234,35 +213,48 @@ public class VideoView: NativeView, Loggable {
     }
 }
 
-// MARK: - TrackDelegate
+// MARK: - RTCVideoRenderer
 
-extension VideoView: TrackDelegate {
+extension VideoView: RTCVideoRenderer {
 
-    public func track(_ track: VideoTrack, didUpdate dimensions: Dimensions?) {
+    public func setSize(_ size: CGSize) {
+        nativeRenderer.setSize(size)
+    }
 
-        if let dimensions = dimensions {
-            DispatchQueue.webRTC.sync {
-                nativeRenderer.setSize(dimensions.toCGSize())
+    public func renderFrame(_ frame: RTCVideoFrame?) {
+
+        if let frame = frame {
+
+            let dimensions = Dimensions(width: frame.width,
+                                        height: frame.height)
+
+            guard dimensions.isRenderSafe else {
+                log("Skipping render for dimension \(dimensions)", .warning)
+                // renderState.insert(.didSkipUnsafeFrame)
+                return
             }
         }
 
-        // re-compute layout when dimensions change
-        DispatchQueue.mainSafeAsync {
-            self.markNeedsLayout()
-        }
-    }
-
-    public func track(_ track: VideoTrack, didReceive frame: RTCVideoFrame?) {
-
-        DispatchQueue.webRTC.sync {
-            nativeRenderer.renderFrame(frame)
-        }
+        // dispatchPrecondition(condition: .onQueue(.webRTC))
+        nativeRenderer.renderFrame(frame)
 
         // layout after first frame has been rendered
         if !renderState.contains(.didRenderFirstFrame) {
             renderState.insert(.didRenderFirstFrame)
             log("Did render first frame")
             DispatchQueue.main.async { self.markNeedsLayout() }
+        }
+    }
+}
+
+// MARK: - TrackDelegate
+
+extension VideoView: TrackDelegate {
+
+    public func track(_ track: VideoTrack, didUpdate dimensions: Dimensions?) {
+        // re-compute layout when dimensions change
+        DispatchQueue.mainSafeAsync {
+            self.markNeedsLayout()
         }
     }
 }
@@ -276,7 +268,7 @@ extension VideoView {
         MTLCreateSystemDefaultDevice() != nil
         #elseif os(macOS)
         // same method used with WebRTC
-        MTLCopyAllDevices().count > 0
+        !MTLCopyAllDevices().isEmpty
         #endif
     }
 
@@ -325,7 +317,11 @@ extension VideoView {
             // extra checks for MTKView
             for subView in view.subviews {
                 if let metal = subView as? MTKView {
+                    #if os(iOS)
+                    metal.contentMode = .scaleAspectFit
+                    #elseif os(macOS)
                     metal.layerContentsPlacement = .scaleProportionallyToFit
+                    #endif
                 }
             }
 

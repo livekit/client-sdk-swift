@@ -17,7 +17,7 @@ public class LocalParticipant: Participant {
         updateFromInfo(info: info)
     }
 
-    public func getTrackPublication(sid: String) -> LocalTrackPublication? {
+    public func getTrackPublication(sid: Sid) -> LocalTrackPublication? {
         return tracks[sid] as? LocalTrackPublication
     }
 

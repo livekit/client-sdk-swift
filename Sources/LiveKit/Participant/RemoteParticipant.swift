@@ -4,7 +4,7 @@ import Promises
 
 public class RemoteParticipant: Participant {
 
-    init(sid: String,
+    init(sid: Sid,
          info: Livekit_ParticipantInfo?,
          room: Room) {
 
@@ -18,7 +18,7 @@ public class RemoteParticipant: Participant {
         }
     }
 
-    public func getTrackPublication(sid: String) -> RemoteTrackPublication? {
+    public func getTrackPublication(sid: Sid) -> RemoteTrackPublication? {
         return tracks[sid] as? RemoteTrackPublication
     }
 
@@ -60,7 +60,7 @@ public class RemoteParticipant: Participant {
         }
     }
 
-    func addSubscribedMediaTrack(rtcTrack: RTCMediaStreamTrack, sid: String) -> Promise<Void> {
+    func addSubscribedMediaTrack(rtcTrack: RTCMediaStreamTrack, sid: Sid) -> Promise<Void> {
         var track: Track
 
         guard let publication = getTrackPublication(sid: sid) else {
@@ -116,13 +116,15 @@ public class RemoteParticipant: Participant {
             return notifyUnpublish()
         }
 
-        return track.stop().always {
-            guard shouldNotify else { return }
-            // notify unsubscribe
-            self.notify { $0.participant(self, didUnsubscribe: publication, track: track) }
-            self.room.notify { $0.room(self.room, participant: self, didUnsubscribe: publication, track: track) }
-        }.then(on: .sdk) {
-            notifyUnpublish()
-        }
+        return track.stop()
+            .recover(on: .sdk) { self.log("Failed to stop track, error: \($0)") }
+            .then(on: .sdk) {
+                guard shouldNotify else { return }
+                // notify unsubscribe
+                self.notify { $0.participant(self, didUnsubscribe: publication, track: track) }
+                self.room.notify { $0.room(self.room, participant: self, didUnsubscribe: publication, track: track) }
+            }.then(on: .sdk) {
+                notifyUnpublish()
+            }
     }
 }

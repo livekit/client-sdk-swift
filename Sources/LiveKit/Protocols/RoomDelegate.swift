@@ -15,7 +15,7 @@ import Foundation
 /// }
 /// ```
 /// See the source code of [Swift Example App](https://github.com/livekit/client-example-swift) for more examples.
-public protocol RoomDelegate {
+public protocol RoomDelegate: AnyObject {
     /// Successfully connected to the room.
     func room(_ room: Room, didConnect isReconnect: Bool)
 
@@ -26,7 +26,7 @@ public protocol RoomDelegate {
     func room(_ room: Room, didDisconnect error: Error?)
 
     /// When the ``ConnectionState`` has updated.
-    func room(_ room: Room, didUpdate connectionState: ConnectionState)
+    func room(_ room: Room, didUpdate connectionState: ConnectionState, oldValue: ConnectionState)
 
     /// When a ``RemoteParticipant`` joins after the ``LocalParticipant``.
     /// It will not emit events for participants that are already in the room.
@@ -90,7 +90,7 @@ public extension RoomDelegate {
     func room(_ room: Room, didConnect isReconnect: Bool) {}
     func room(_ room: Room, didFailToConnect error: Error) {}
     func room(_ room: Room, didDisconnect error: Error?) {}
-    func room(_ room: Room, didUpdate connectionState: ConnectionState) {}
+    func room(_ room: Room, didUpdate connectionState: ConnectionState, oldValue: ConnectionState) {}
     func room(_ room: Room, participantDidJoin participant: RemoteParticipant) {}
     func room(_ room: Room, participantDidLeave participant: RemoteParticipant) {}
     func room(_ room: Room, didUpdate speakers: [Participant]) {}

@@ -41,6 +41,7 @@ public class Room: MulticastDelegate<RoomDelegate> {
     deinit {
         // not really required to remove delegate since it's weak
         engine.remove(delegate: self)
+        log()
     }
 
     @discardableResult
@@ -64,9 +65,11 @@ public class Room: MulticastDelegate<RoomDelegate> {
 
     @discardableResult
     public func disconnect() -> Promise<Void> {
-        engine.signalClient.sendLeave().always {
-            self.cleanUp(reason: .user)
-        }
+        engine.signalClient.sendLeave()
+            .recover(on: .sdk) { self.log("Failed to send leave, error: \($0)") }
+            .then(on: .sdk) {
+                self.cleanUp(reason: .user)
+            }
     }
 }
 
@@ -94,16 +97,18 @@ private extension Room {
             return stopPromises.all(on: .sdk)
         }
 
-        return engine.cleanUp(reason: reason).then(on: .sdk) {
-            stopAllTracks()
-        }.always(on: .sdk) {
-            self.sid = nil
-            self.name = nil
-            self.metadata = nil
-            self.localParticipant = nil
-            self.remoteParticipants.removeAll()
-            self.activeSpeakers.removeAll()
-        }
+        return engine.cleanUp(reason: reason)
+            .then(on: .sdk) {
+                stopAllTracks()
+            }.recover(on: .sdk) { self.log("Failed to stop all tracks, error: \($0)")
+            }.then(on: .sdk) {
+                self.sid = nil
+                self.name = nil
+                self.metadata = nil
+                self.localParticipant = nil
+                self.remoteParticipants.removeAll()
+                self.activeSpeakers.removeAll()
+            }
     }
 
     func getOrCreateRemoteParticipant(sid: Sid, info: Livekit_ParticipantInfo? = nil) -> RemoteParticipant {
@@ -291,8 +296,13 @@ internal extension Room {
 
 extension Room: SignalClientDelegate {
 
-    func signalClient(_ signalClient: SignalClient, didUpdate connectionState: ConnectionState) -> Bool {
+    func signalClient(_ signalClient: SignalClient, didUpdate connectionState: ConnectionState, oldValue: ConnectionState) -> Bool {
         log()
+
+        guard !connectionState.isEqual(to: oldValue, includingAssociatedValues: false) else {
+            log("Skipping same conectionState")
+            return true
+        }
 
         if case .quick = self.connectionState.reconnectingWithMode,
            case .quick = connectionState.reconnectedWithMode {
@@ -416,11 +426,37 @@ extension Room: SignalClientDelegate {
 
 extension Room: EngineDelegate {
 
+    func engine(_ engine: Engine, didGenerate trackStats: [TrackStats], target: Livekit_SignalTarget) {
+
+        let allParticipants = ([[localParticipant],
+                                remoteParticipants.map { $0.value }] as [[Participant?]])
+            .joined()
+            .compactMap { $0 }
+
+        let allTracks = allParticipants.map { $0.tracks.values.map { $0.track } }.joined()
+            .compactMap { $0 }
+
+        // this relies on the last stat entry being the latest
+        for track in allTracks {
+            if let stats = trackStats.last(where: { $0.trackId == track.mediaTrack.trackId }) {
+                track.set(stats: stats)
+            }
+        }
+    }
+
     func engine(_ engine: Engine, didUpdate speakers: [Livekit_SpeakerInfo]) {
         onEngineSpeakersUpdate(speakers)
     }
 
-    func engine(_ engine: Engine, didUpdate connectionState: ConnectionState, oldState: ConnectionState) {
+    func engine(_ engine: Engine, didUpdate connectionState: ConnectionState, oldValue: ConnectionState) {
+        log()
+
+        defer { notify { $0.room(self, didUpdate: connectionState, oldValue: oldValue) } }
+
+        guard !connectionState.isEqual(to: oldValue, includingAssociatedValues: false) else {
+            log("Skipping same conectionState")
+            return
+        }
 
         // Deprecated
         if case .connected(let mode) = connectionState {
@@ -439,7 +475,7 @@ extension Room: EngineDelegate {
             }
 
         } else if case .disconnected(let reason) = connectionState {
-            if case .connected = oldState {
+            if case .connected = oldValue {
                 // Backward compatibility
                 notify { $0.room(self, didDisconnect: reason.error ) }
             } else {
@@ -456,13 +492,11 @@ extension Room: EngineDelegate {
                 self.log("Failed to sendTrackSettings, error: \(error)", .error)
             }
         }
-
-        notify { $0.room(self, didUpdate: connectionState) }
     }
 
     func engine(_ engine: Engine, didAdd track: RTCMediaStreamTrack, streams: [RTCMediaStream]) {
 
-        guard streams.count > 0 else {
+        guard !streams.isEmpty else {
             log("Received onTrack with no streams!", .warning)
             return
         }

@@ -6,11 +6,10 @@ public class BufferCapturer: VideoCapturer {
 
     private let capturer = Engine.createVideoCapturer()
 
-    /// The ``ScreenShareCaptureOptions`` used for this capturer.
-    /// It is possible to modify the options but `restartCapture` must be called.
-    public var options: ScreenShareCaptureOptions
+    /// The ``BufferCaptureOptions`` used for this capturer.
+    public var options: BufferCaptureOptions
 
-    init(delegate: RTCVideoCapturerDelegate, options: ScreenShareCaptureOptions) {
+    init(delegate: RTCVideoCapturerDelegate, options: BufferCaptureOptions) {
         self.options = options
         super.init(delegate: delegate)
     }
@@ -20,16 +19,17 @@ public class BufferCapturer: VideoCapturer {
 
         delegate?.capturer(capturer, didCapture: sampleBuffer) { sourceDimensions in
 
-            let targetDimensions = sourceDimensions.aspectFit(size: 1080).toEncodeSafeDimensions()
+            let targetDimensions = sourceDimensions
+                .aspectFit(size: self.options.dimensions.max)
+                .toEncodeSafeDimensions()
 
-            if let videoSource = self.delegate as? RTCVideoSource {
-                self.log("adapting to \(targetDimensions)")
-                videoSource.adaptOutputFormat(toWidth: targetDimensions.width,
-                                              height: targetDimensions.height,
-                                              fps: Int32(24))
-            }
+            defer { self.dimensions = targetDimensions }
 
-            self.dimensions = targetDimensions
+            guard let videoSource = self.delegate as? RTCVideoSource else { return }
+            self.log("adaptOutputFormat to: \(targetDimensions) fps: \(self.options.fps)")
+            videoSource.adaptOutputFormat(toWidth: targetDimensions.width,
+                                          height: targetDimensions.height,
+                                          fps: Int32(self.options.fps))
         }
     }
 }
@@ -39,7 +39,7 @@ extension LocalVideoTrack {
     /// Creates a track that can directly capture `CVPixelBuffer` or `CMSampleBuffer` for convienience
     public static func createBufferTrack(name: String = Track.screenShareName,
                                          source: VideoTrack.Source = .screenShareVideo,
-                                         options: ScreenShareCaptureOptions = ScreenShareCaptureOptions()) -> LocalVideoTrack {
+                                         options: BufferCaptureOptions = BufferCaptureOptions()) -> LocalVideoTrack {
         let videoSource = Engine.createVideoSource(forScreenShare: true)
         let capturer = BufferCapturer(delegate: videoSource, options: options)
         return LocalVideoTrack(

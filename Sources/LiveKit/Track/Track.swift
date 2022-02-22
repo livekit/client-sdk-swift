@@ -32,6 +32,7 @@ public class Track: MulticastDelegate<TrackDelegate> {
     public let mediaTrack: RTCMediaStreamTrack
     public private(set) var muted: Bool = false
     public internal(set) var transceiver: RTCRtpTransceiver?
+    public internal(set) var stats: TrackStats?
     public var sender: RTCRtpSender? {
         return transceiver?.sender
     }
@@ -112,50 +113,45 @@ public class Track: MulticastDelegate<TrackDelegate> {
     }
 }
 
+// MARK: - Internal
+
+internal extension Track {
+
+    func set(stats newValue: TrackStats) {
+        guard self.stats != newValue else { return }
+        self.stats = newValue
+        notify { $0.track(self, didUpdate: newValue) }
+    }
+}
+
 // MARK: - Private
 
 private extension Track {
 
     func set(dimensions newValue: Dimensions?) {
         guard self.dimensions != newValue else { return }
-
-        //        DispatchQueue.mainSafeSync {
         self.dimensions = newValue
-        //        }
 
         guard let videoTrack = self as? VideoTrack else { return }
         notify { $0.track(videoTrack, didUpdate: newValue) }
     }
 
     func set(videoFrame newValue: RTCVideoFrame?) {
-        // guard self.videoFrame != newValue else { return }
+        guard self.videoFrame != newValue else { return }
         self.videoFrame = newValue
-
-        guard let videoTrack = self as? VideoTrack else { return }
-        notify { $0.track(videoTrack, didReceive: self.videoFrame) }
     }
 }
 
 extension Track: RTCVideoRenderer {
 
-    public func setSize(_ size: CGSize) {
-        // guard let videoTrack = self as? VideoTrack else { return }
-        // notify { $0.track(videoTrack, didReceive: size) }
-    }
+    // not used
+    public func setSize(_ size: CGSize) {}
 
     public func renderFrame(_ frame: RTCVideoFrame?) {
 
         if let frame = frame {
-            let dimensions = Dimensions(width: frame.width,
-                                        height: frame.height)
-            // ignore unsafe dimensions
-            guard dimensions.isRenderSafe else {
-                log("Skipping render for dimension \(dimensions)", .warning)
-                // renderState.insert(.didSkipUnsafeFrame)
-                return
-            }
-
-            set(dimensions: dimensions)
+            set(dimensions: Dimensions(width: frame.width,
+                                       height: frame.height))
         } else {
             set(dimensions: nil)
         }

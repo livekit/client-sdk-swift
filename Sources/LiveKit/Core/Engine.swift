@@ -29,7 +29,7 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
         didSet {
             guard oldValue != connectionState else { return }
             log("\(oldValue) -> \(self.connectionState)")
-            notify { $0.engine(self, didUpdate: self.connectionState, oldState: oldValue) }
+            notify { $0.engine(self, didUpdate: self.connectionState, oldValue: oldValue) }
         }
     }
 
@@ -42,8 +42,8 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
     }
 
     deinit {
-        log()
         signalClient.remove(delegate: self)
+        log()
     }
 
     // Connect sequence, resets existing state
@@ -217,9 +217,11 @@ private extension Engine {
             }
         }
 
-        return closeAllDataChannels().then(on: .sdk) {
-            closeAllTransports()
-        }
+        return closeAllDataChannels()
+            .recover(on: .sdk) { self.log("Failed to close data channels, error: \($0)") }
+            .then(on: .sdk) {
+                closeAllTransports()
+            }
     }
 
     // Connect sequence only, doesn't update internal state
@@ -334,23 +336,23 @@ private extension Engine {
                         self.log("Re-connecting in \(TimeInterval.quickReconnectDelay)seconds, \(triesLeft) tries left...")
                         // only retry if still reconnecting state (not disconnected)
                         return self.connectionState.isReconnecting
-                     }) {
-            // try quick re-connect
-            quickReconnectSequence()
-        }.recover(on: .sdk) { (_) -> Promise<Void> in
-            // try full re-connect (only if quick re-connect failed)
-            self.connectionState = .connecting(.reconnect(.full))
-            return fullReconnectSequence()
-        }.then(on: .sdk) {
-            // re-connect sequence successful
-            self.log("Re-connect sequence completed")
-            let previousMode = self.connectionState.reconnectingWithMode
-            self.connectionState = .connected(.reconnect(previousMode ?? .quick))
-        }.catch(on: .sdk) { _ in
-            self.log("Re-connect sequence failed")
-            // finally disconnect if all attempts fail
-            self.cleanUp(reason: .network())
-        }
+                     }, _: {
+                        // try quick re-connect
+                        quickReconnectSequence()
+                     }).recover(on: .sdk) { (_) -> Promise<Void> in
+                        // try full re-connect (only if quick re-connect failed)
+                        self.connectionState = .connecting(.reconnect(.full))
+                        return fullReconnectSequence()
+                     }.then(on: .sdk) {
+                        // re-connect sequence successful
+                        self.log("Re-connect sequence completed")
+                        let previousMode = self.connectionState.reconnectingWithMode
+                        self.connectionState = .connected(.reconnect(previousMode ?? .quick))
+                     }.catch(on: .sdk) { _ in
+                        self.log("Re-connect sequence failed")
+                        // finally disconnect if all attempts fail
+                        self.cleanUp(reason: .network())
+                     }
     }
 
 }
@@ -499,8 +501,14 @@ extension Engine {
 
 extension Engine: SignalClientDelegate {
 
-    func signalClient(_ signalClient: SignalClient, didUpdate connectionState: ConnectionState) -> Bool {
+    func signalClient(_ signalClient: SignalClient, didUpdate connectionState: ConnectionState, oldValue: ConnectionState) -> Bool {
         log()
+
+        guard !connectionState.isEqual(to: oldValue, includingAssociatedValues: false) else {
+            log("Skipping same conectionState")
+            return true
+        }
+
         // Attempt re-connect if disconnected(reason: network)
         if case .disconnected(let reason) = connectionState,
            case .network = reason {
@@ -594,6 +602,11 @@ extension Engine: RTCDataChannelDelegate {
 
 extension Engine: TransportDelegate {
 
+    func transport(_ transport: Transport, didGenerate stats: [TrackStats], target: Livekit_SignalTarget) {
+        // relay to Room
+        notify { $0.engine(self, didGenerate: stats, target: target) }
+    }
+
     func transport(_ transport: Transport, didUpdate state: RTCPeerConnectionState) {
         log("target: \(transport.target), state: \(state)")
 
@@ -616,6 +629,7 @@ extension Engine: TransportDelegate {
 
             // protocol v3
             self.subscriberPrimary = joinResponse.subscriberPrimary
+            self.log("subscriberPrimary: \(joinResponse.subscriberPrimary)")
 
             // update iceServers from joinResponse
             self.connectOptions.rtcConfiguration.set(iceServers: joinResponse.iceServers)

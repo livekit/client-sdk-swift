@@ -7,7 +7,7 @@ import UIKit
 
 // TODO: Make this internal
 // Currently used for internal purposes
-public protocol TrackDelegate {
+public protocol TrackDelegate: AnyObject {
     /// Dimensions of the video track has updated
     func track(_ track: VideoTrack, didUpdate dimensions: Dimensions?)
     /// Dimensions of the VideoView has updated
@@ -20,8 +20,8 @@ public protocol TrackDelegate {
     func track(_ track: VideoTrack, didDetach videoView: VideoView)
     /// ``Track/muted`` has updated.
     func track(_ track: Track, didUpdate muted: Bool, shouldSendSignal: Bool)
-
-    func track(_ track: VideoTrack, didReceive frame: RTCVideoFrame?)
+    /// Statistics for the track has been generated.
+    func track(_ track: Track, didUpdate stats: TrackStats)
 }
 
 // MARK: - Optional
@@ -33,6 +33,5 @@ extension TrackDelegate {
     public func track(_ track: VideoTrack, didAttach videoView: VideoView) {}
     public func track(_ track: VideoTrack, didDetach videoView: VideoView) {}
     public func track(_ track: Track, didUpdate muted: Bool, shouldSendSignal: Bool) {}
-
-    public func track(_ track: VideoTrack, didReceive frame: RTCVideoFrame?) {}
+    public func track(_ track: Track, didUpdate stats: TrackStats) {}
 }

@@ -17,7 +17,7 @@ internal let logger = Logger(label: "LiveKitSDK")
 /// to try out the features.
 public class LiveKit {
 
-    public static let version = "0.9.6"
+    public static let version = "0.9.7"
 
     public static func connect(
         _ url: String,
@@ -32,11 +32,4 @@ public class LiveKit {
 
         return room.connect(url, token)
     }
-}
-
-internal extension DispatchQueue {
-    static let sdk = DispatchQueue(label: "LiveKitSDK")
-    static let webRTC = DispatchQueue(label: "LiveKitSDK.webRTC")
-    static let capture = DispatchQueue(label: "LiveKitSDK.capture",
-                                       qos: .userInteractive)
 }

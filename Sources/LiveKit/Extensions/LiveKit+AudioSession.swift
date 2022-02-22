@@ -40,7 +40,7 @@ extension LiveKit {
             return result
         }
 
-        defer { DispatchQueue.webRTC.async { audioSession.unlockForConfiguration() } }
+        defer { DispatchQueue.webRTC.sync { audioSession.unlockForConfiguration() } }
 
         do {
             logger.log("configuring audio session with category: \(configuration.category), mode: \(configuration.mode), setActive: \(String(describing: setActive))", type: LiveKit.self)

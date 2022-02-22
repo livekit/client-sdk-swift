@@ -1,9 +1,9 @@
 import Foundation
 import WebRTC
 
-internal protocol SignalClientDelegate {
+internal protocol SignalClientDelegate: AnyObject {
 
-    func signalClient(_ signalClient: SignalClient, didUpdate connectionState: ConnectionState) -> Bool
+    func signalClient(_ signalClient: SignalClient, didUpdate connectionState: ConnectionState, oldValue: ConnectionState) -> Bool
     func signalClient(_ signalClient: SignalClient, didReceive joinResponse: Livekit_JoinResponse) -> Bool
     func signalClient(_ signalClient: SignalClient, didReceiveAnswer answer: RTCSessionDescription) -> Bool
     func signalClient(_ signalClient: SignalClient, didReceiveOffer offer: RTCSessionDescription) -> Bool
@@ -25,7 +25,7 @@ internal protocol SignalClientDelegate {
 
 extension SignalClientDelegate {
 
-    func signalClient(_ signalClient: SignalClient, didUpdate connectionState: ConnectionState) -> Bool { false }
+    func signalClient(_ signalClient: SignalClient, didUpdate connectionState: ConnectionState, oldValue: ConnectionState) -> Bool { false }
     func signalClient(_ signalClient: SignalClient, didReceive joinResponse: Livekit_JoinResponse) -> Bool { false }
     func signalClient(_ signalClient: SignalClient, didReceiveAnswer answer: RTCSessionDescription) -> Bool { false }
     func signalClient(_ signalClient: SignalClient, didReceiveOffer offer: RTCSessionDescription) -> Bool { false }
@@ -70,7 +70,7 @@ class SignalClientDelegateClosures: NSObject, SignalClientDelegate, Loggable {
         log()
     }
 
-    func signalClient(_ signalClient: SignalClient, didUpdate connectionState: ConnectionState) -> Bool {
+    func signalClient(_ signalClient: SignalClient, didUpdate connectionState: ConnectionState, oldValue: ConnectionState) -> Bool {
         return didUpdateConnectionState?(signalClient, connectionState) ?? false
     }
 
