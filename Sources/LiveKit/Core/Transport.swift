@@ -72,11 +72,15 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
         DispatchQueue.webRTC.sync { pc.delegate = self }
         add(delegate: delegate)
 
-        statsTimer.handler = onStatsTimer
+        statsTimer.handler = { [weak self] in
+            self?.onStatsTimer()
+        }
+
         statsTimer.resume()
     }
 
     deinit {
+        statsTimer.suspend()
         log()
     }
 
@@ -173,7 +177,9 @@ extension Transport {
     func onStatsTimer() {
 
         statsTimer.suspend()
-        pc.stats(for: nil, statsOutputLevel: .standard) { reports in
+        pc.stats(for: nil, statsOutputLevel: .standard) { [weak self] reports in
+
+            guard let self = self else { return }
 
             self.statsTimer.resume()
 
