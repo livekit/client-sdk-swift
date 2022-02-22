@@ -32,7 +32,7 @@ public class TrackPublication: TrackDelegate, Loggable {
     public internal(set) var mimeType: String
 
     /// Reference to the ``Participant`` this publication belongs to.
-    internal let participant: Participant
+    internal weak var participant: Participant?
 
     public var subscribed: Bool { return track != nil }
 
@@ -100,6 +100,11 @@ public class TrackPublication: TrackDelegate, Loggable {
     public func track(_ track: Track, didUpdate muted: Bool, shouldSendSignal: Bool) {
         log("muted: \(muted) shouldSendSignal: \(shouldSendSignal)")
 
+        guard let participant = participant else {
+            log("Participant is nil", .warning)
+            return
+        }
+
         func sendSignal() -> Promise<Void> {
 
             guard shouldSendSignal else {
@@ -113,8 +118,8 @@ public class TrackPublication: TrackDelegate, Loggable {
         sendSignal()
             .recover(on: .sdk) { self.log("Failed to stop all tracks, error: \($0)") }
             .then(on: .sdk) {
-                self.participant.notify { $0.participant(self.participant, didUpdate: self, muted: muted) }
-                self.participant.room.notify { $0.room(self.participant.room, participant: self.participant, didUpdate: self, muted: self.muted) }
+                participant.notify { $0.participant(participant, didUpdate: self, muted: muted) }
+                participant.room.notify { $0.room(participant.room, participant: participant, didUpdate: self, muted: self.muted) }
             }
     }
 }

@@ -44,6 +44,7 @@ public class LocalTrackPublication: TrackPublication {
     private weak var debounceWorkItem: DispatchWorkItem?
 
     deinit {
+        log()
         debounceWorkItem?.cancel()
     }
 
@@ -68,6 +69,11 @@ extension LocalTrackPublication: VideoCapturerDelegate {
 extension LocalTrackPublication {
 
     internal func recomputeSenderParameters() {
+
+        guard let participant = participant else {
+            log("Participant is nil", .warning)
+            return
+        }
 
         guard let track = track as? LocalVideoTrack,
               let sender = track.transceiver?.sender else { return }

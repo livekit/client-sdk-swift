@@ -92,12 +92,18 @@ public class RemoteTrackPublication: TrackPublication {
     }
 
     internal func set(metadataMuted newValue: Bool) {
+
+        guard let participant = participant else {
+            log("Participant is nil", .warning)
+            return
+        }
+
         guard self.metadataMuted != newValue else { return }
         self.metadataMuted = newValue
         // if track exists, track will emit the following events
         if track == nil {
-            self.participant.notify { $0.participant(self.participant, didUpdate: self, muted: newValue) }
-            self.participant.room.notify { $0.room(self.participant.room, participant: self.participant, didUpdate: self, muted: newValue) }
+            participant.notify { $0.participant(participant, didUpdate: self, muted: newValue) }
+            participant.room.notify { $0.room(participant.room, participant: participant, didUpdate: self, muted: newValue) }
         }
     }
 
@@ -138,6 +144,11 @@ public class RemoteTrackPublication: TrackPublication {
     public func set(subscribed newValue: Bool) -> Promise<Void> {
 
         guard self.preferSubscribed != newValue else { return Promise(()) }
+
+        guard let participant = participant else {
+            log("Participant is nil", .warning)
+            return Promise(EngineError.state(message: "Participant is nil"))
+        }
 
         return participant.room.engine.signalClient.sendUpdateSubscription(
             participantSid: participant.sid,
@@ -202,6 +213,11 @@ extension RemoteTrackPublication {
 
     private func shouldComputeVideoViewVisibilities() {
 
+        guard let participant = participant else {
+            log("Participant is nil", .warning)
+            return
+        }
+
         guard participant.room.options.adaptiveStream else {
             // adaptiveStream is turned off
             return
@@ -246,13 +262,24 @@ extension RemoteTrackPublication {
 
     // Simply send current track settings without any checks
     internal func sendCurrentTrackSettings() -> Promise<Void> {
-        participant.room.engine.signalClient.sendUpdateTrackSettings(sid: sid, settings: self.trackSettings)
+
+        guard let participant = participant else {
+            log("Participant is nil", .warning)
+            return Promise(EngineError.state(message: "Participant is nil"))
+        }
+
+        return participant.room.engine.signalClient.sendUpdateTrackSettings(sid: sid, settings: self.trackSettings)
     }
 
     // Send new track settings
     internal func send(trackSettings: TrackSettings) -> Promise<Void> {
         // no-update
         guard self.trackSettings != trackSettings else { return Promise(()) }
+
+        guard let participant = participant else {
+            log("Participant is nil", .warning)
+            return Promise(EngineError.state(message: "Participant is nil"))
+        }
 
         return participant.room.engine.signalClient.sendUpdateTrackSettings(sid: sid, settings: trackSettings).then(on: .sdk) {
             self.trackSettings = trackSettings
