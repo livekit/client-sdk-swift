@@ -49,9 +49,6 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
             }.then(on: .sdk) { (webSocket: WebSocket) -> Void in
                 self.webSocket = webSocket
                 self.connectionState = .connected(connectMode)
-            }.then(on: .sdk) {
-                // always check if there are queued requests
-                self.sendQueuedRequests()
             }.recover(on: .sdk) { error -> Promise<Void> in
                 // Skip validation if reconnect mode
                 if case .reconnect = connectMode { throw error }
@@ -98,29 +95,6 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
 // MARK: - Private
 
 private extension SignalClient {
-
-    func sendQueuedRequests() -> Promise<Void> {
-
-        // quickly return if no queued requests
-        guard !queue.isEmpty else {
-            log("No queued requests")
-            return Promise(())
-        }
-
-        // create a promise that never throws so the send sequence can continue
-        func safeSend(_ request: Livekit_SignalRequest) -> Promise<Void> {
-            sendRequest(request, enqueueIfReconnecting: false).recover(on: .sdk) { error in
-                self.log("Failed to send queued request, request: \(request) \(error)", .warning)
-            }
-        }
-
-        // send requests in sequential order
-        let promises = queue.reduce(into: Promise(())) { result, request in result.then(on: .sdk) { safeSend(request) } }
-        // clear the queue
-        queue.removeAll()
-
-        return promises
-    }
 
     // send request or enqueue while reconnecting
     func sendRequest(_ request: Livekit_SignalRequest, enqueueIfReconnecting: Bool = true) -> Promise<Void> {
@@ -265,6 +239,29 @@ internal extension SignalClient {
 // MARK: - Send methods
 
 internal extension SignalClient {
+
+    func sendQueuedRequests() -> Promise<Void> {
+
+        // quickly return if no queued requests
+        guard !queue.isEmpty else {
+            log("No queued requests")
+            return Promise(())
+        }
+
+        // create a promise that never throws so the send sequence can continue
+        func safeSend(_ request: Livekit_SignalRequest) -> Promise<Void> {
+            sendRequest(request, enqueueIfReconnecting: false).recover(on: .sdk) { error in
+                self.log("Failed to send queued request, request: \(request) \(error)", .warning)
+            }
+        }
+
+        // send requests in sequential order
+        let promises = queue.reduce(into: Promise(())) { result, request in result.then(on: .sdk) { safeSend(request) } }
+        // clear the queue
+        queue.removeAll()
+
+        return promises
+    }
 
     func sendOffer(offer: RTCSessionDescription) -> Promise<Void> {
         log()
