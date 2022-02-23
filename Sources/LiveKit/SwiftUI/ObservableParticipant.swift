@@ -156,8 +156,4 @@ open class ObservableParticipant: ObservableObject {
         self.participant = participant
         participant.add(delegate: self)
     }
-
-    deinit {
-        participant.remove(delegate: self)
-    }
 }

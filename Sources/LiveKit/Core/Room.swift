@@ -39,8 +39,6 @@ public class Room: MulticastDelegate<RoomDelegate> {
     }
 
     deinit {
-        // not really required to remove delegate since it's weak
-        engine.remove(delegate: self)
         log()
     }
 

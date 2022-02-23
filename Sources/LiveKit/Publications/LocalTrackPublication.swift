@@ -44,6 +44,7 @@ public class LocalTrackPublication: TrackPublication {
     private weak var debounceWorkItem: DispatchWorkItem?
 
     deinit {
+        log()
         debounceWorkItem?.cancel()
     }
 
@@ -74,6 +75,11 @@ extension LocalTrackPublication {
 
         guard let dimensions = track.capturer.dimensions else {
             log("Cannot re-compute sender parameters without dimensions", .warning)
+            return
+        }
+
+        guard let participant = participant else {
+            log("Participant is nil", .warning)
             return
         }
 
