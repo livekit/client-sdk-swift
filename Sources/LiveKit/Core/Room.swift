@@ -286,7 +286,8 @@ internal extension Room {
 
         return engine.signalClient.sendSyncState(answer: localDescription.toPBType(),
                                                  subscription: subscription,
-                                                 publishTracks: localParticipant?.publishedTracksInfo())
+                                                 publishTracks: localParticipant?.publishedTracksInfo(),
+                                                 dataChannels: engine.dataChannelInfo())
     }
 }
 
