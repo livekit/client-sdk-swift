@@ -49,16 +49,12 @@ internal extension VideoParameters {
             let fps: Int
         }
 
-        func pow2(_ n: Double) -> Double {
-            n * n
-        }
-
         let layers = [Layer(scaleDownBy: 2, fps: 3)]
         return layers.map {
             VideoParameters(dimensions: Dimensions(width: Int32((Double(dimensions.width) / $0.scaleDownBy).rounded(.down)),
                                                    height: Int32((Double(dimensions.height) / $0.scaleDownBy).rounded(.down))),
                             encoding: VideoEncoding(maxBitrate: Swift.max(150_000,
-                                                                          Int((Double(encoding.maxBitrate) / (pow2(Double($0.scaleDownBy)) * (Double(encoding.maxFps) / Double($0.fps)))).rounded(.down))),
+                                                                          Int((Double(encoding.maxBitrate) / (pow(Double($0.scaleDownBy), 2) * (Double(encoding.maxFps) / Double($0.fps)))).rounded(.down))),
                                                     maxFps: 3))
         }
     }
