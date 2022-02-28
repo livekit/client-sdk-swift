@@ -356,9 +356,21 @@ private extension Engine {
 
 }
 
+// MARK: - Session Migration
+
+internal extension Engine {
+
+    func dataChannelInfo() -> [Livekit_DataChannelInfo] {
+
+        [publisherDataChannel(for: .lossy), publisherDataChannel(for: .reliable)]
+            .compactMap { $0 }
+            .map { $0.toLKInfoType() }
+    }
+}
+
 // MARK: - Wait extensions
 
-extension Engine {
+internal extension Engine {
 
     func waitForPublisherDataChannelOpen(reliability: Reliability, allowCurrentValue: Bool = true) -> WaitPromises<Void> {
 
