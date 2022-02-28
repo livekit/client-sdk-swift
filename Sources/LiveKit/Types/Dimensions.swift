@@ -71,16 +71,6 @@ extension Dimensions {
         return VideoParameters.presets43
     }
 
-    func defaultSimulcastLayers(isScreenShare: Bool) -> [VideoParameters] {
-        if isScreenShare {
-            return []
-        }
-        if abs(aspectRatio - Dimensions.aspectRatio169) < abs(aspectRatio - Dimensions.aspectRatio43) {
-            return VideoParameters.defaultSimulcastPresets169
-        }
-        return VideoParameters.defaultSimulcastPresets43
-    }
-
     func computeSuggestedPreset(in presets: [VideoParameters]) -> VideoEncoding {
         assert(!presets.isEmpty)
         var result = presets[0].encoding

@@ -38,6 +38,44 @@ public struct VideoParameters {
     }
 }
 
+// MARK: -
+
+internal extension VideoParameters {
+
+    func defaultScreenShareSimulcastLayers() -> [VideoParameters] {
+
+        struct Layer {
+            let scaleResolutionDownBy: Double
+            let fps: Int
+        }
+
+        func pow2(_ n: Double) -> Double {
+            n * n
+        }
+
+        let layers = [Layer(scaleResolutionDownBy: 2, fps: 3)]
+        return layers.map {
+            let d = Dimensions(width: Int32((Double(dimensions.width) / $0.scaleResolutionDownBy).rounded(.down)),
+                               height: Int32((Double(dimensions.height) / $0.scaleResolutionDownBy).rounded(.down)))
+            let e = VideoEncoding(maxBitrate: Swift.max(150_000,
+                                                        Int((Double(encoding.maxBitrate) /
+                                                                (pow2(Double($0.scaleResolutionDownBy)) * (Double(encoding.maxFps) / Double($0.fps)))).rounded(.down))),
+                                  maxFps: 3)
+            return VideoParameters(dimensions: d, encoding: e)
+        }
+    }
+
+    func defaultSimulcastLayers(isScreenShare: Bool) -> [VideoParameters] {
+        if isScreenShare {
+            return defaultScreenShareSimulcastLayers()
+        }
+        if abs(dimensions.aspectRatio - Dimensions.aspectRatio169) < abs(dimensions.aspectRatio - Dimensions.aspectRatio43) {
+            return VideoParameters.defaultSimulcastPresets169
+        }
+        return VideoParameters.defaultSimulcastPresets43
+    }
+}
+
 // MARK: - Presets
 
 public extension VideoParameters {
