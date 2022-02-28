@@ -201,7 +201,8 @@ internal class Utils {
         // get suggested presets for the dimensions
         let preferredPresets = (isScreenShare ? publishOptions.screenShareSimulcastLayers : publishOptions.simulcastLayers)
         let presets = (!preferredPresets.isEmpty ? preferredPresets : baseParameters.defaultSimulcastLayers(isScreenShare: isScreenShare)).sorted { $0 < $1 }
-        logger.log("Using presets: \(presets)", type: Utils.self)
+
+        logger.log("Using presets: \(presets), count: \(presets.count) isScreenShare: \(isScreenShare)", type: Utils.self)
 
         let lowPreset = presets[0]
         let midPreset = presets[safe: 1]
