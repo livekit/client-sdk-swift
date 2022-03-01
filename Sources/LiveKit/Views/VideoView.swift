@@ -47,7 +47,7 @@ public class VideoView: NativeView, Loggable {
     public var mode: Mode = .fill {
         didSet {
             guard oldValue != mode else { return }
-            DispatchQueue.mainSafeAsync {
+            DispatchQueue.main.async {
                 self.markNeedsLayout()
             }
         }
@@ -58,7 +58,7 @@ public class VideoView: NativeView, Loggable {
     public var mirrored: Bool = false {
         didSet {
             guard oldValue != mirrored else { return }
-            DispatchQueue.mainSafeAsync {
+            DispatchQueue.main.async {
                 self.markNeedsLayout()
             }
         }
@@ -116,7 +116,7 @@ public class VideoView: NativeView, Loggable {
                 renderState = []
             }
 
-            DispatchQueue.mainSafeAsync {
+            DispatchQueue.main.async {
                 self.markNeedsLayout()
             }
         }
@@ -253,7 +253,7 @@ extension VideoView: TrackDelegate {
 
     public func track(_ track: VideoTrack, didUpdate dimensions: Dimensions?) {
         // re-compute layout when dimensions change
-        DispatchQueue.mainSafeAsync {
+        DispatchQueue.main.async {
             self.markNeedsLayout()
         }
     }
