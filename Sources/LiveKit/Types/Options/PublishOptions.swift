@@ -23,7 +23,7 @@ public struct VideoPublishOptions: PublishOptions {
                 screenShareEncoding: VideoEncoding? = nil,
                 simulcast: Bool = true,
                 simulcastLayers: [VideoParameters] = [],
-                screenShareSimulcastLayers: [VideoParameters] = [.presetScreenShareH360FPS3, .presetScreenShareH720FPS5]) {
+                screenShareSimulcastLayers: [VideoParameters] = []) {
 
         self.name = name
         self.encoding = encoding
