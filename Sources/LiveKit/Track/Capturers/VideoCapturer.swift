@@ -72,6 +72,9 @@ internal extension VideoCapturer {
 // Intended to be a base class for video capturers
 public class VideoCapturer: MulticastDelegate<VideoCapturerDelegate>, VideoCapturerProtocol {
 
+    /// Array of supported pixel formats that can be used to capture a frame.
+    static let supportedPixelFormats = DispatchQueue.webRTC.sync { RTCCVPixelBuffer.supportedPixelFormats() }
+
     public enum State {
         case stopped
         case started

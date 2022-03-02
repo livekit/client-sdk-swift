@@ -5,11 +5,18 @@ import WebRTC
 // use CMVideoDimensions instead of defining our own struct
 public typealias Dimensions = CMVideoDimensions
 
+// MARK: - Static constants
+
 extension Dimensions {
     public static let aspectRatio169 = 16.0 / 9.0
     public static let aspectRatio43 = 4.0 / 3.0
     public static let zero = Dimensions(width: 0, height: 0)
+
+    internal static let renderSafeSize: Int32 = 8
+    internal static let encodeSafeSize: Int32 = 16
 }
+
+// MARK: - Equatable
 
 extension Dimensions: Equatable {
 
@@ -124,6 +131,15 @@ extension Dimensions {
                 $0.bitrate = encoding.maxBitrateBps?.uint32Value ?? 0
             }
         }
+    }
+}
+
+// MARK: - Convert
+
+extension Dimensions {
+
+    func toCGSize() -> CGSize {
+        CGSize(width: Int(width), height: Int(height))
     }
 }
 

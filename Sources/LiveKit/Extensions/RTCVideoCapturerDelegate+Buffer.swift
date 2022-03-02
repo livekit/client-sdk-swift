@@ -16,8 +16,8 @@ extension Dimensions {
 
     // Ensures width and height are even numbers
     internal func toEncodeSafeDimensions() -> Dimensions {
-        Dimensions(width: Swift.max(encodeSafeSize, width.roundUp(toMultipleOf: 2)),
-                   height: Swift.max(encodeSafeSize, height.roundUp(toMultipleOf: 2)))
+        Dimensions(width: Swift.max(Self.encodeSafeSize, width.roundUp(toMultipleOf: 2)),
+                   height: Swift.max(Self.encodeSafeSize, height.roundUp(toMultipleOf: 2)))
 
     }
 
@@ -27,7 +27,11 @@ extension Dimensions {
     }
 
     internal var isRenderSafe: Bool {
-        width >= renderSafeSize && height >= renderSafeSize
+        width >= Self.renderSafeSize && height >= Self.renderSafeSize
+    }
+
+    internal var isEncodeSafe: Bool {
+        width >= Self.encodeSafeSize && height >= Self.encodeSafeSize
     }
 }
 
@@ -42,10 +46,6 @@ extension CGImagePropertyOrientation {
         }
     }
 }
-
-internal let supportedPixelFormats = DispatchQueue.webRTC.sync { RTCCVPixelBuffer.supportedPixelFormats() }
-internal let renderSafeSize: Int32 = 8
-internal let encodeSafeSize: Int32 = 16
 
 extension RTCVideoCapturerDelegate {
 
@@ -65,7 +65,7 @@ extension RTCVideoCapturerDelegate {
 
         // check if pixel format is supported by WebRTC
         let pixelFormat = CVPixelBufferGetPixelFormatType(pixelBuffer)
-        guard supportedPixelFormats.contains(where: { $0.uint32Value == pixelFormat }) else {
+        guard VideoCapturer.supportedPixelFormats.contains(where: { $0.uint32Value == pixelFormat }) else {
             // kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
             // kCVPixelFormatType_420YpCbCr8BiPlanarFullRange
             // kCVPixelFormatType_32BGRA
@@ -78,8 +78,7 @@ extension RTCVideoCapturerDelegate {
         let sourceDimensions = Dimensions(width: Int32(CVPixelBufferGetWidth(pixelBuffer)),
                                           height: Int32(CVPixelBufferGetHeight(pixelBuffer)))
 
-        guard sourceDimensions.width >= encodeSafeSize,
-              sourceDimensions.height >= encodeSafeSize else {
+        guard sourceDimensions.isEncodeSafe else {
             logger.log("Skipping capture for dimensions: \(sourceDimensions)", .warning,
                        type: type(of: self))
             return

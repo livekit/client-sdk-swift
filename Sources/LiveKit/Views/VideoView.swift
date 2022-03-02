@@ -2,13 +2,6 @@ import Foundation
 import WebRTC
 import MetalKit
 
-extension Dimensions {
-
-    func toCGSize() -> CGSize {
-        CGSize(width: Int(width), height: Int(height))
-    }
-}
-
 /// A ``NativeViewType`` that conforms to ``RTCVideoRenderer``.
 public typealias NativeRendererView = NativeViewType & RTCVideoRenderer
 
