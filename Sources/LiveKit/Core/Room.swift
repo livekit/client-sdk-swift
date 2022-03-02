@@ -385,7 +385,7 @@ extension Room: SignalClientDelegate {
 
     func signalClient(_ signalClient: SignalClient, didUpdate trackStates: [Livekit_StreamStateInfo]) -> Bool {
 
-        log("trackStates: \(trackStates.map { String(describing: $0.state) }.joined(separator: ", "))")
+        log("trackStates: \(trackStates.map { "(\($0.trackSid): \(String(describing: $0.state)))" }.joined(separator: ", "))")
 
         for update in trackStates {
             // Try to find RemoteParticipant
