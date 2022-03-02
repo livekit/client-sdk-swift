@@ -73,7 +73,13 @@ internal extension VideoCapturer {
 public class VideoCapturer: MulticastDelegate<VideoCapturerDelegate>, VideoCapturerProtocol {
 
     /// Array of supported pixel formats that can be used to capture a frame.
-    static let supportedPixelFormats = DispatchQueue.webRTC.sync { RTCCVPixelBuffer.supportedPixelFormats() }
+    ///
+    /// Usually the following formats are supported but it is recommended to confirm at run-time:
+    /// `kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange`,
+    /// `kCVPixelFormatType_420YpCbCr8BiPlanarFullRange`,
+    /// `kCVPixelFormatType_32BGRA`,
+    /// `kCVPixelFormatType_32ARGB`.
+    public static let supportedPixelFormats = DispatchQueue.webRTC.sync { RTCCVPixelBuffer.supportedPixelFormats() }
 
     public enum State {
         case stopped
