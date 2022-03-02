@@ -1,4 +1,4 @@
-internal class TrackSettings {
+internal struct TrackSettings {
 
     let enabled: Bool
     let dimensions: Dimensions
@@ -26,6 +26,6 @@ extension TrackSettings: Equatable {
 extension TrackSettings: CustomStringConvertible {
 
     var description: String {
-        "TrackSettings(enabled: \(enabled), dimensions: \(dimensions)"
+        "TrackSettings(enabled: \(enabled), dimensions: \(dimensions))"
     }
 }
