@@ -10,7 +10,7 @@ public enum SubscriptionState {
 
 public class RemoteTrackPublication: TrackPublication {
     // user's preference to subscribe or not
-    internal var preferSubscribed: Bool?
+    private var preferSubscribed: Bool?
 
     public private(set) var subscriptionAllowed = true
 
@@ -91,55 +91,6 @@ public class RemoteTrackPublication: TrackPublication {
         return self.subscribed ? .subscribed : .unsubscribed
     }
 
-    internal func set(metadataMuted newValue: Bool) {
-
-        guard self.metadataMuted != newValue else { return }
-
-        guard let participant = participant else {
-            log("Participant is nil", .warning)
-            return
-        }
-
-        self.metadataMuted = newValue
-        // if track exists, track will emit the following events
-        if track == nil {
-            participant.notify { $0.participant(participant, didUpdate: self, muted: newValue) }
-            participant.room.notify { $0.room(participant.room, participant: participant, didUpdate: self, muted: newValue) }
-        }
-    }
-
-    internal func set(subscriptionAllowed newValue: Bool) {
-        guard self.subscriptionAllowed != newValue else { return }
-        self.subscriptionAllowed = newValue
-
-        guard let participant = self.participant as? RemoteParticipant else { return }
-        participant.notify { $0.participant(participant, didUpdate: self, permission: newValue) }
-        participant.room.notify { $0.room(participant.room, participant: participant, didUpdate: self, permission: newValue) }
-    }
-
-    @discardableResult
-    internal override func set(track newValue: Track?) -> Track? {
-        let oldValue = super.set(track: newValue)
-        if newValue != oldValue {
-            #if LK_FEATURE_ADAPTIVESTREAM
-            // cancel the pending debounce func
-            pendingDebounceFunc?.cancel()
-            videoViewVisibilities.removeAll()
-            #endif
-            // if new Track has been set to this RemoteTrackPublication,
-            // update the Track's muted state from the latest info.
-            newValue?.set(muted: metadataMuted,
-                          shouldNotify: false)
-
-            if let oldValue = oldValue, newValue == nil,
-               let participant = participant as? RemoteParticipant {
-                participant.notify { $0.participant(participant, didUnsubscribe: self, track: oldValue) }
-                participant.room.notify { $0.room(participant.room, participant: participant, didUnsubscribe: self, track: oldValue) }
-            }
-        }
-        return oldValue
-    }
-
     /// Subscribe or unsubscribe from this track.
     @discardableResult
     public func set(subscribed newValue: Bool) -> Promise<Void> {
@@ -165,8 +116,37 @@ public class RemoteTrackPublication: TrackPublication {
     /// This is useful when the participant is off screen, you may disable streaming down their video to reduce bandwidth requirements.
     @discardableResult
     public func set(enabled: Bool) -> Promise<Void> {
+        // no-op if already the desired value
         guard self.enabled != enabled else { return Promise(()) }
-        return send(trackSettings: trackSettings.copyWith(enabled: enabled))
+        // create new settings
+        let newSettings = trackSettings.copyWith(enabled: enabled)
+        // attempt to set the new settings
+        return checkCanModifyTrackSettings().then {
+            self.send(trackSettings: newSettings)
+        }
+    }
+
+    @discardableResult
+    internal override func set(track newValue: Track?) -> Track? {
+        let oldValue = super.set(track: newValue)
+        if newValue != oldValue {
+            #if LK_FEATURE_ADAPTIVESTREAM
+            // cancel the pending debounce func
+            pendingDebounceFunc?.cancel()
+            videoViewVisibilities.removeAll()
+            #endif
+            // if new Track has been set to this RemoteTrackPublication,
+            // update the Track's muted state from the latest info.
+            newValue?.set(muted: metadataMuted,
+                          shouldNotify: false)
+
+            if let oldValue = oldValue, newValue == nil,
+               let participant = participant as? RemoteParticipant {
+                participant.notify { $0.participant(participant, didUnsubscribe: self, track: oldValue) }
+                participant.room.notify { $0.room(participant.room, participant: participant, didUnsubscribe: self, track: oldValue) }
+            }
+        }
+        return oldValue
     }
 
     #if LK_FEATURE_ADAPTIVESTREAM
@@ -197,6 +177,60 @@ public class RemoteTrackPublication: TrackPublication {
         shouldComputeVideoViewVisibilities()
     }
     #endif
+}
+
+// MARK: - Private
+
+private extension RemoteTrackPublication {
+
+    func checkCanModifyTrackSettings() -> Promise<Void> {
+
+        Promise<Void> { () -> Void in
+
+            guard let adaptiveStream = self.participant?.room.options.adaptiveStream else {
+                throw TrackError.state(message: "The state of AdaptiveStream is unknown")
+            }
+
+            guard !adaptiveStream else {
+                throw TrackError.state(message: "Cannot modify this track setting when using AdaptiveStream")
+            }
+
+            guard self.subscribed else {
+                throw TrackError.state(message: "Cannot modify this track setting when not subscribed")
+            }
+        }
+    }
+}
+
+// MARK: - Internal
+
+internal extension RemoteTrackPublication {
+
+    func set(metadataMuted newValue: Bool) {
+
+        guard self.metadataMuted != newValue else { return }
+
+        guard let participant = participant else {
+            log("Participant is nil", .warning)
+            return
+        }
+
+        self.metadataMuted = newValue
+        // if track exists, track will emit the following events
+        if track == nil {
+            participant.notify { $0.participant(participant, didUpdate: self, muted: newValue) }
+            participant.room.notify { $0.room(participant.room, participant: participant, didUpdate: self, muted: newValue) }
+        }
+    }
+
+    func set(subscriptionAllowed newValue: Bool) {
+        guard self.subscriptionAllowed != newValue else { return }
+        self.subscriptionAllowed = newValue
+
+        guard let participant = self.participant as? RemoteParticipant else { return }
+        participant.notify { $0.participant(participant, didUpdate: self, permission: newValue) }
+        participant.room.notify { $0.room(participant.room, participant: participant, didUpdate: self, permission: newValue) }
+    }
 }
 
 #if LK_FEATURE_ADAPTIVESTREAM
