@@ -2,9 +2,6 @@ import Foundation
 import WebRTC
 import Promises
 
-internal let primaryVideoRid = "q"
-internal let videoRids = ["q", "h", "f"]
-
 internal typealias DebouncFunc = () -> Void
 
 internal enum OS {
@@ -217,17 +214,6 @@ internal class Utils {
         return dimensions.encodings(from: resultPresets)
     }
     #endif
-}
-
-extension Livekit_VideoQuality {
-
-    static func from(rid: String?) -> Livekit_VideoQuality {
-        switch rid {
-        case "h": return Livekit_VideoQuality.medium
-        case "q": return Livekit_VideoQuality.low
-        default: return Livekit_VideoQuality.high
-        }
-    }
 }
 
 internal extension Collection {

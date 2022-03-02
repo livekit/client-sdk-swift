@@ -93,7 +93,7 @@ extension Dimensions {
     func encodings(from presets: [VideoParameters?]) -> [RTCRtpEncodingParameters] {
         var result: [RTCRtpEncodingParameters] = []
         for (index, preset) in presets.compactMap({ $0 }).enumerated() {
-            guard let rid = videoRids[safe: index] else {
+            guard let rid = VideoQuality.rids[safe: index] else {
                 continue
             }
 
@@ -105,7 +105,7 @@ extension Dimensions {
 
             result.append(parameters)
         }
-        return videoRids.map { rid in
+        return VideoQuality.rids.map { rid in
             return result.first(where: { $0.rid == rid }) ?? Engine.createRtpEncodingParameters(rid: rid, active: false)
         }
     }
