@@ -40,7 +40,7 @@ public struct RoomOptions {
                 adaptiveStream: Bool = false,
                 dynacast: Bool = false,
                 stopLocalTrackOnUnpublish: Bool = true,
-                reportTrackStats: Bool = false) {
+                reportStats: Bool = false) {
 
         self.defaultCameraCaptureOptions = defaultCameraCaptureOptions
         self.defaultScreenShareCaptureOptions = defaultScreenShareCaptureOptions
@@ -50,6 +50,6 @@ public struct RoomOptions {
         self.adaptiveStream = adaptiveStream
         self.dynacast = dynacast
         self.stopLocalTrackOnUnpublish = stopLocalTrackOnUnpublish
-        self.reportStats = reportTrackStats
+        self.reportStats = reportStats
     }
 }
