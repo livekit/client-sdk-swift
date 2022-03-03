@@ -679,6 +679,11 @@ struct Livekit_JoinResponse {
   /// Clears the value of `clientConfiguration`. Subsequent reads from it will return its default value.
   mutating func clearClientConfiguration() {_uniqueStorage()._clientConfiguration = nil}
 
+  var serverRegion: String {
+    get {return _storage._serverRegion}
+    set {_uniqueStorage()._serverRegion = newValue}
+  }
+
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   init() {}
@@ -1853,6 +1858,7 @@ extension Livekit_JoinResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageImp
     6: .standard(proto: "subscriber_primary"),
     7: .standard(proto: "alternative_url"),
     8: .standard(proto: "client_configuration"),
+    9: .standard(proto: "server_region"),
   ]
 
   fileprivate class _StorageClass {
@@ -1864,6 +1870,7 @@ extension Livekit_JoinResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageImp
     var _subscriberPrimary: Bool = false
     var _alternativeURL: String = String()
     var _clientConfiguration: Livekit_ClientConfiguration? = nil
+    var _serverRegion: String = String()
 
     static let defaultInstance = _StorageClass()
 
@@ -1878,6 +1885,7 @@ extension Livekit_JoinResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageImp
       _subscriberPrimary = source._subscriberPrimary
       _alternativeURL = source._alternativeURL
       _clientConfiguration = source._clientConfiguration
+      _serverRegion = source._serverRegion
     }
   }
 
@@ -1904,6 +1912,7 @@ extension Livekit_JoinResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageImp
         case 6: try { try decoder.decodeSingularBoolField(value: &_storage._subscriberPrimary) }()
         case 7: try { try decoder.decodeSingularStringField(value: &_storage._alternativeURL) }()
         case 8: try { try decoder.decodeSingularMessageField(value: &_storage._clientConfiguration) }()
+        case 9: try { try decoder.decodeSingularStringField(value: &_storage._serverRegion) }()
         default: break
         }
       }
@@ -1940,6 +1949,9 @@ extension Livekit_JoinResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageImp
       try { if let v = _storage._clientConfiguration {
         try visitor.visitSingularMessageField(value: v, fieldNumber: 8)
       } }()
+      if !_storage._serverRegion.isEmpty {
+        try visitor.visitSingularStringField(value: _storage._serverRegion, fieldNumber: 9)
+      }
     }
     try unknownFields.traverse(visitor: &visitor)
   }
@@ -1957,6 +1969,7 @@ extension Livekit_JoinResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageImp
         if _storage._subscriberPrimary != rhs_storage._subscriberPrimary {return false}
         if _storage._alternativeURL != rhs_storage._alternativeURL {return false}
         if _storage._clientConfiguration != rhs_storage._clientConfiguration {return false}
+        if _storage._serverRegion != rhs_storage._serverRegion {return false}
         return true
       }
       if !storagesAreEqual {return false}
