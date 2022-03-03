@@ -8,6 +8,8 @@ public class Room: MulticastDelegate<RoomDelegate> {
     public private(set) var sid: Sid?
     public private(set) var name: String?
     public private(set) var metadata: String?
+    public private(set) var serverVersion: String?
+    public private(set) var serverRegion: String?
     public private(set) var localParticipant: LocalParticipant?
     public private(set) var remoteParticipants = [Sid: RemoteParticipant]()
     public private(set) var activeSpeakers: [Participant] = []
@@ -103,6 +105,8 @@ private extension Room {
                 self.sid = nil
                 self.name = nil
                 self.metadata = nil
+                self.serverVersion = nil
+                self.serverRegion = nil
                 self.localParticipant = nil
                 self.remoteParticipants.removeAll()
                 self.activeSpeakers.removeAll()
@@ -322,11 +326,14 @@ extension Room: SignalClientDelegate {
     }
 
     func signalClient(_ signalClient: SignalClient, didReceive joinResponse: Livekit_JoinResponse) -> Bool {
-        log("Server version: \(joinResponse.serverVersion)", .info)
+
+        log("Server version: \(joinResponse.serverVersion), region: \(joinResponse.serverRegion)", .info)
 
         sid = joinResponse.room.sid
         name = joinResponse.room.name
         metadata = joinResponse.room.metadata
+        serverVersion = joinResponse.serverVersion
+        serverRegion = joinResponse.serverRegion.isEmpty ? nil : joinResponse.serverRegion
 
         if joinResponse.hasParticipant {
             localParticipant = LocalParticipant(from: joinResponse.participant, room: self)
