@@ -22,7 +22,8 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
     private(set) var url: String?
     private(set) var token: String?
 
-    var connectOptions: ConnectOptions
+    private(set) var connectOptions: ConnectOptions
+    private(set) var roomOptions: RoomOptions
 
     private(set) var connectionState: ConnectionState = .disconnected(reason: .sdk) {
         // automatically notify changes
@@ -33,8 +34,11 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
         }
     }
 
-    init(connectOptions: ConnectOptions) {
+    init(connectOptions: ConnectOptions,
+         roomOptions: RoomOptions) {
+
         self.connectOptions = connectOptions
+        self.roomOptions = roomOptions
         super.init()
 
         signalClient.add(delegate: self)
@@ -47,7 +51,13 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
 
     // Connect sequence, resets existing state
     func connect(_ url: String,
-                 _ token: String) -> Promise<Void> {
+                 _ token: String,
+                 connectOptions: ConnectOptions? = nil,
+                 roomOptions: RoomOptions? = nil) -> Promise<Void> {
+
+        // update options if specified
+        self.connectOptions = connectOptions ?? self.connectOptions
+        self.roomOptions = roomOptions ?? self.roomOptions
 
         return cleanUp(reason: .sdk).then(on: .sdk) {
             self.connectionState = .connecting(.normal)
@@ -648,12 +658,14 @@ extension Engine: TransportDelegate {
             self.subscriber = try Transport(config: self.connectOptions.rtcConfiguration,
                                             target: .subscriber,
                                             primary: self.subscriberPrimary,
-                                            delegate: self)
+                                            delegate: self,
+                                            reportStats: self.roomOptions.reportStats)
 
             self.publisher = try Transport(config: self.connectOptions.rtcConfiguration,
                                            target: .publisher,
                                            primary: !self.subscriberPrimary,
-                                           delegate: self)
+                                           delegate: self,
+                                           reportStats: self.roomOptions.reportStats)
 
             self.publisher?.onOffer = { offer in
                 self.log("publisher onOffer")

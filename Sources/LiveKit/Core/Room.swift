@@ -26,7 +26,8 @@ public class Room: MulticastDelegate<RoomDelegate> {
                 roomOptions: RoomOptions = RoomOptions()) {
 
         self.options = roomOptions
-        self.engine = Engine(connectOptions: connectOptions)
+        self.engine = Engine(connectOptions: connectOptions,
+                             roomOptions: roomOptions)
         super.init()
 
         // listen to engine & signalClient
@@ -49,7 +50,6 @@ public class Room: MulticastDelegate<RoomDelegate> {
                         roomOptions: RoomOptions? = nil) -> Promise<Room> {
 
         // update options if specified
-        self.engine.connectOptions = connectOptions ?? self.engine.connectOptions
         self.options = roomOptions ?? self.options
 
         log("connecting to room", .info)
@@ -58,7 +58,9 @@ public class Room: MulticastDelegate<RoomDelegate> {
         }
 
         // monitor.start(queue: monitorQueue)
-        return engine.connect(url, token).then(on: .sdk) { self }
+        return engine.connect(url, token,
+                              connectOptions: connectOptions,
+                              roomOptions: roomOptions).then(on: .sdk) { self }
     }
 
     @discardableResult
