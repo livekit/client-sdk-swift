@@ -23,6 +23,8 @@ public class Room: MulticastDelegate<RoomDelegate> {
     public var url: String? { engine.url }
     public var token: String? { engine.token }
 
+    internal let appStateListener = AppStateListener()
+
     public init(delegate: RoomDelegate? = nil,
                 connectOptions: ConnectOptions = ConnectOptions(),
                 roomOptions: RoomOptions = RoomOptions()) {
