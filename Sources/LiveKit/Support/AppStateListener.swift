@@ -3,14 +3,18 @@ import Foundation
 import UIKit
 #endif
 
-internal class AppStateListener: Loggable {
+internal protocol AppStateDelegate: AnyObject {
+    func appDidEnterBackground()
+    func appWillEnterForeground()
+}
 
-    typealias EventHandler = () -> Void
+internal class AppStateListener: MulticastDelegate<AppStateDelegate> {
 
-    var onEnterBackground: EventHandler?
-    var onEnterForeground: EventHandler?
+    static let shared = AppStateListener()
 
-    init() {
+    private init() {
+        super.init(qos: .userInitiated)
+
         let center = NotificationCenter.default
 
         #if os(iOS)
@@ -18,16 +22,16 @@ internal class AppStateListener: Loggable {
                            object: nil,
                            queue: OperationQueue.main) { (_) in
 
-            self.log("UIScene.didEnterBackgroundNotification")
-            self.onEnterBackground?()
+            self.log("didEnterBackground")
+            self.notify { $0.appDidEnterBackground() }
         }
 
-        center.addObserver(forName: UIScene.didDisconnectNotification,
+        center.addObserver(forName: UIScene.willEnterForegroundNotification,
                            object: nil,
                            queue: OperationQueue.main) { (_) in
 
-            self.log("UIScene.didDisconnectNotification")
-            self.onEnterForeground?()
+            self.log("willEnterForeground")
+            self.notify { $0.appWillEnterForeground() }
         }
         #endif
     }

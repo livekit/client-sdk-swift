@@ -23,8 +23,6 @@ public class Room: MulticastDelegate<RoomDelegate> {
     public var url: String? { engine.url }
     public var token: String? { engine.token }
 
-    internal let appStateListener = AppStateListener()
-
     public init(delegate: RoomDelegate? = nil,
                 connectOptions: ConnectOptions = ConnectOptions(),
                 roomOptions: RoomOptions = RoomOptions()) {
@@ -41,6 +39,9 @@ public class Room: MulticastDelegate<RoomDelegate> {
         if let delegate = delegate {
             add(delegate: delegate)
         }
+
+        // listen to app states
+        AppStateListener.shared.add(delegate: self)
     }
 
     deinit {
@@ -545,6 +546,43 @@ extension Room: EngineDelegate {
         participant?.notify { [weak participant] (delegate) -> Void in
             guard let participant = participant else { return }
             delegate.participant(participant, didReceive: userPacket.payload)
+        }
+    }
+}
+
+// MARK: - AppStateDelegate
+
+extension Room: AppStateDelegate {
+
+    func appDidEnterBackground() {
+
+        guard options.suspendLocalVideoTracksInBackground else { return }
+
+        guard let localParticipant = localParticipant else { return }
+        let promises = localParticipant.videoTracks.values
+            .compactMap { $0 as? LocalTrackPublication }
+            .filter { $0.kind == .video }
+            .map { $0.suspend() }
+
+        guard !promises.isEmpty else { return }
+
+        all(promises).then { _ in
+            self.log("suspended all video tracks")
+        }
+    }
+
+    func appWillEnterForeground() {
+
+        guard let localParticipant = localParticipant else { return }
+        let promises = localParticipant.videoTracks.values
+            .compactMap { $0 as? LocalTrackPublication }
+            .filter { $0.kind == .video }
+            .map { $0.resume() }
+
+        guard !promises.isEmpty else { return }
+
+        all(promises).then { _ in
+            self.log("resumed all video tracks")
         }
     }
 }
