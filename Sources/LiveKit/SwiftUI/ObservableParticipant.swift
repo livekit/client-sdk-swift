@@ -107,15 +107,15 @@ open class ObservableParticipant: ObservableObject {
     }
 
     public var firstCameraPublication: TrackPublication? {
-        participant.videoTracks.values.first(where: { $0.source == .camera })
+        participant.videoTracks.first(where: { $0.source == .camera })
     }
 
     public var firstScreenSharePublication: TrackPublication? {
-        participant.videoTracks.values.first(where: { $0.source == .screenShareVideo })
+        participant.videoTracks.first(where: { $0.source == .screenShareVideo })
     }
 
     public var firstAudioPublication: TrackPublication? {
-        participant.audioTracks.values.first
+        participant.audioTracks.first
     }
 
     public var firstCameraVideoTrack: VideoTrack? {
