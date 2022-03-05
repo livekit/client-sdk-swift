@@ -3,8 +3,8 @@ import Promises
 
 public class LocalParticipant: Participant {
 
-    public var localAudioTrackPublications: [TrackPublication] { Array(audioTracks.values) }
-    public var localVideoTrackPublications: [TrackPublication] { Array(videoTracks.values) }
+    public var localAudioTracks: [LocalTrackPublication] { audioTracks.compactMap { $0 as? LocalTrackPublication } }
+    public var localVideoTracks: [LocalTrackPublication] { videoTracks.compactMap { $0 as? LocalTrackPublication } }
 
     convenience init(from info: Livekit_ParticipantInfo,
                      room: Room) {

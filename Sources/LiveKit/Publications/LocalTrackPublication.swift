@@ -3,6 +3,9 @@ import Promises
 
 public class LocalTrackPublication: TrackPublication {
 
+    // indicates whether the track was suspended(muted) by the SDK
+    internal var suspended: Bool = false
+
     @discardableResult
     public func mute() -> Promise<Void> {
 
@@ -55,6 +58,27 @@ public class LocalTrackPublication: TrackPublication {
         self?.recomputeSenderParameters()
     })
     #endif
+}
+
+internal extension LocalTrackPublication {
+
+    @discardableResult
+    func suspend() -> Promise<Void> {
+        // do nothing if already muted
+        guard !muted else { return Promise(()) }
+        return mute().then {
+            self.suspended = true
+        }
+    }
+
+    @discardableResult
+    func resume() -> Promise<Void> {
+        // do nothing if was not suspended
+        guard suspended else { return Promise(()) }
+        return unmute().then {
+            self.suspended = false
+        }
+    }
 }
 
 #if LK_COMPUTE_VIDEO_SENDER_PARAMETERS
