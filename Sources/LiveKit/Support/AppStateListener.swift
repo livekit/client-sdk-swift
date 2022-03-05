@@ -19,27 +19,27 @@ internal class AppStateListener: MulticastDelegate<AppStateDelegate> {
         let center = NotificationCenter.default
 
         #if os(iOS)
-        center.addObserver(forName: UIScene.didEnterBackgroundNotification,
+        center.addObserver(forName: UIApplication.didEnterBackgroundNotification,
                            object: nil,
                            queue: OperationQueue.main) { (_) in
 
-            self.log("UIScene.didEnterBackground")
+            self.log("UIApplication.didEnterBackground")
             self.notify { $0.appDidEnterBackground() }
         }
 
-        center.addObserver(forName: UIScene.willEnterForegroundNotification,
+        center.addObserver(forName: UIApplication.willEnterForegroundNotification,
                            object: nil,
                            queue: OperationQueue.main) { (_) in
 
-            self.log("UIScene.willEnterForeground")
+            self.log("UIApplication.willEnterForeground")
             self.notify { $0.appWillEnterForeground() }
         }
 
-        center.addObserver(forName: UIScene.didDisconnectNotification,
+        center.addObserver(forName: UIApplication.willTerminateNotification,
                            object: nil,
                            queue: OperationQueue.main) { (_) in
 
-            self.log("UIScene.didDisconnect")
+            self.log("UIApplication.willTerminate")
             self.notify { $0.appWillTerminate() }
         }
         #endif
