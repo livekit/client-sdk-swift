@@ -43,9 +43,8 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
         super.init()
 
         signalClient.add(delegate: self)
-        log()
-
         ConnectivityListener.shared.add(delegate: self)
+        log()
     }
 
     deinit {
@@ -726,13 +725,17 @@ extension Engine: TransportDelegate {
 
 extension Engine: ConnectivityListenerDelegate {
 
-    func networkStateDidUpdate(_ state: NetworkState) {
-        log("state: \(state)")
-    }
-    
-    func networkMonitor(_ networkMonitor: ConnectivityListener, didUpdate activeInterface: NWInterface) {
+    func connectivityListener(_: ConnectivityListener, didUpdate hasConnectivity: Bool) {
         //
-        log("activeInterface: \(activeInterface)")
+    }
+
+    func connectivityListener(_: ConnectivityListener, didSwitch path: NWPath) {
+        log("didSwitch path: \(path)")
+
+        // network has been switched, e.g. wifi <-> cellular
+        if case .connected = connectionState {
+            startReconnect()
+        }
     }
 }
 

@@ -1,66 +1,62 @@
 import Network
 
-internal enum NetworkState {
-    case connected
-    case disconnected
-}
-
 internal protocol ConnectivityListenerDelegate: AnyObject {
-    func networkStateDidUpdate(_ state: NetworkState)
-    // the active interface has changed
-    func networkMonitor(_ networkMonitor: ConnectivityListener, didUpdate activeInterface: NWInterface)
+
+    func connectivityListener(_: ConnectivityListener, didUpdate hasConnectivity: Bool)
+    // network remains to have connectivity but path changed
+    func connectivityListener(_: ConnectivityListener, didSwitch path: NWPath)
 }
 
 internal extension NWPath {
-    
-    func toNetworkState() -> NetworkState {
-        if case .satisfied = status { return .connected }
-        return .disconnected
+
+    func hasConnectivity() -> Bool {
+        if case .satisfied = status { return true }
+        return false
     }
 }
 
 internal class ConnectivityListener: MulticastDelegate<ConnectivityListenerDelegate> {
-    
+
     static let shared = ConnectivityListener()
 
-    public private(set) var state: NetworkState {
+    public private(set) var hasConnectivity: Bool {
         didSet {
-            guard oldValue != state else { return }
-            notify { $0.networkStateDidUpdate(self.state) }
-        }
-    }
-    
-    public private(set) var activeInterface: NWInterface? {
-        didSet {
-            guard let activeInterface = activeInterface else { return }
-            
-            guard let oldValue = oldValue else {
-                // if previous value was nil, always notify
-                return notify { $0.networkMonitor(self, didUpdate: activeInterface) }
-            }
-            
-            guard activeInterface.type != oldValue.type else { return }
-            notify { $0.networkMonitor(self, didUpdate: activeInterface) }
+            guard oldValue != hasConnectivity else { return }
+            notify { $0.connectivityListener(self, didUpdate: self.hasConnectivity) }
         }
     }
 
-    private let queue = DispatchQueue(label: "LiveKitSDK.networkMonitor")
+    public private(set) var path: NWPath {
+        didSet {
+            defer { self.hasConnectivity = path.hasConnectivity() }
+
+            if oldValue.hasConnectivity(), path.hasConnectivity(),
+               // first interface changed
+               (oldValue.availableInterfaces.first != path.availableInterfaces.first)
+                // same interface but gateways changed (detect wifi network switch)
+                || (oldValue.gateways != path.gateways) {
+                notify { $0.connectivityListener(self, didSwitch: self.path) }
+            }
+        }
+    }
+
+    private let queue = DispatchQueue(label: "LiveKitSDK.connectivityListener")
     private let monitor = NWPathMonitor()
-    
+
     private init() {
         // set initial values
-        self.state = monitor.currentPath.toNetworkState()
-        self.activeInterface = monitor.currentPath.availableInterfaces.first
+        self.path = monitor.currentPath
+        self.hasConnectivity = monitor.currentPath.hasConnectivity()
 
         super.init()
 
         monitor.pathUpdateHandler = { path in
-            //path.status == .satisfied
 
-            self.log("networkPathDidUpdate status: \(path.status), interfaces: \(path.availableInterfaces.map({ "\(String(describing: $0.type))-\(String(describing: $0.index))" })), local: \(String(describing: path.localEndpoint)), remote: \(String(describing: path.remoteEndpoint)), gw: \(path.gateways)")
+            self.log("NWPathDidUpdate status: \(path.status), interfaces: \(path.availableInterfaces.map({ "\(String(describing: $0.type))-\(String(describing: $0.index))" })), local: \(String(describing: path.localEndpoint)), remote: \(String(describing: path.remoteEndpoint)), gateways: \(path.gateways)")
 
-            self.state = path.toNetworkState()
-            self.activeInterface = path.availableInterfaces.first
+            DispatchQueue.sdk.async {
+                self.path = path
+            }
         }
 
         monitor.start(queue: queue)
