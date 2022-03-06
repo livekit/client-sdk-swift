@@ -7,6 +7,11 @@ internal protocol ConnectivityListenerDelegate: AnyObject {
     func connectivityListener(_: ConnectivityListener, didSwitch path: NWPath)
 }
 
+internal extension ConnectivityListenerDelegate {
+    func connectivityListener(_: ConnectivityListener, didUpdate hasConnectivity: Bool) {}
+    func connectivityListener(_: ConnectivityListener, didSwitch path: NWPath) {}
+}
+
 internal extension NWPath {
 
     func hasConnectivity() -> Bool {

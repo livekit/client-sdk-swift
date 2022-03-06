@@ -721,13 +721,9 @@ extension Engine: TransportDelegate {
     func transportShouldNegotiate(_ transport: Transport) {}
 }
 
-// MARK: - NetworkStateDelegate
+// MARK: - ConnectivityListenerDelegate
 
 extension Engine: ConnectivityListenerDelegate {
-
-    func connectivityListener(_: ConnectivityListener, didUpdate hasConnectivity: Bool) {
-        //
-    }
 
     func connectivityListener(_: ConnectivityListener, didSwitch path: NWPath) {
         log("didSwitch path: \(path)")
