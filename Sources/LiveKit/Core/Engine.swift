@@ -43,6 +43,8 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
 
         signalClient.add(delegate: self)
         log()
+
+        NetworkStateListener.shared.add(delegate: self)
     }
 
     deinit {
@@ -717,6 +719,15 @@ extension Engine: TransportDelegate {
     }
 
     func transportShouldNegotiate(_ transport: Transport) {}
+}
+
+// MARK: - NetworkStateDelegate
+
+extension Engine: NetworkStateDelegate {
+
+    func networkStateDidUpdate(_ state: NetworkState) {
+        log("state: \(state)")
+    }
 }
 
 // MARK: Engine - Factory methods
