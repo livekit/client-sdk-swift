@@ -45,7 +45,8 @@ internal class ConnectivityListener: MulticastDelegate<ConnectivityListenerDeleg
         }
     }
 
-    private let queue = DispatchQueue(label: "LiveKitSDK.connectivityListener")
+    private let queue = DispatchQueue(label: "LiveKitSDK.connectivityListener",
+                                      qos: .userInitiated)
     private let monitor = NWPathMonitor()
 
     private init() {
@@ -53,7 +54,7 @@ internal class ConnectivityListener: MulticastDelegate<ConnectivityListenerDeleg
         self.path = monitor.currentPath
         self.hasConnectivity = monitor.currentPath.hasConnectivity()
 
-        super.init()
+        super.init(qos: .userInitiated)
 
         monitor.pathUpdateHandler = { path in
 
