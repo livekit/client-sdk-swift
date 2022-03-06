@@ -1,6 +1,7 @@
 import Foundation
 import WebRTC
 import Promises
+import Network
 
 internal class Engine: MulticastDelegate<EngineDelegate> {
 
@@ -44,7 +45,7 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
         signalClient.add(delegate: self)
         log()
 
-        NetworkStateListener.shared.add(delegate: self)
+        ConnectivityListener.shared.add(delegate: self)
     }
 
     deinit {
@@ -723,10 +724,15 @@ extension Engine: TransportDelegate {
 
 // MARK: - NetworkStateDelegate
 
-extension Engine: NetworkStateDelegate {
+extension Engine: ConnectivityListenerDelegate {
 
     func networkStateDidUpdate(_ state: NetworkState) {
         log("state: \(state)")
+    }
+    
+    func networkMonitor(_ networkMonitor: ConnectivityListener, didUpdate activeInterface: NWInterface) {
+        //
+        log("activeInterface: \(activeInterface)")
     }
 }
 
