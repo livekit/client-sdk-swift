@@ -70,7 +70,11 @@ public class Room: MulticastDelegate<RoomDelegate> {
 
     @discardableResult
     public func disconnect() -> Promise<Void> {
-        engine.signalClient.sendLeave()
+
+        // return if already disconnected state
+        if case .disconnected = connectionState { return Promise(()) }
+
+        return engine.signalClient.sendLeave()
             .recover(on: .sdk) { self.log("Failed to send leave, error: \($0)") }
             .then(on: .sdk) {
                 self.cleanUp(reason: .user)
@@ -578,5 +582,11 @@ extension Room: AppStateDelegate {
         all(promises).then { _ in
             self.log("resumed all video tracks")
         }
+    }
+
+    func appWillTerminate() {
+        // attempt to disconnect if already connected.
+        // this is not guranteed since there is no reliable way to detect app termination.
+        disconnect()
     }
 }
