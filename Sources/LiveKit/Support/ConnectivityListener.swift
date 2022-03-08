@@ -1,3 +1,4 @@
+import Foundation
 import Network
 
 internal protocol ConnectivityListenerDelegate: AnyObject {
@@ -30,10 +31,18 @@ internal class ConnectivityListener: MulticastDelegate<ConnectivityListenerDeleg
                                       qos: .userInitiated)
     private let monitor = NWPathMonitor()
 
+    // timer and flag used to handle the case when state transitions from:
+    // satisfied -> unsatisfied -> satisfied
+    // network doesn't always switch from?
+    // satisfied -> satisfied
+    private var isPossiblySwitchingNetwork: Bool = false
+    private var switchNetworkTimer: Timer?
+    private let switchInterval: TimeInterval = 3
+
     private init() {
         super.init(qos: .userInitiated)
 
-        log("initial path: \(monitor.currentPath), has: \(monitor.currentPath.hasConnectivity())")
+        log("initial path: \(monitor.currentPath), has: \(monitor.currentPath.isSatisfied())")
 
         monitor.pathUpdateHandler = { path in
             DispatchQueue.sdk.async { self.set(path: path) }
@@ -47,7 +56,7 @@ private extension ConnectivityListener {
 
     func set(path newValue: NWPath, shouldNotify: Bool = false) {
 
-        log("NWPathDidUpdate status: \(newValue.status), interfaces: \(newValue.availableInterfaces.map({ "\(String(describing: $0.type))-\(String(describing: $0.index))" })), gateways: \(newValue.gateways), activeIp: \(String(describing: newValue.availableInterfaces.first?.ipv4))")
+        log("status: \(newValue.status), interfaces: \(newValue.availableInterfaces.map({ "\(String(describing: $0.type))-\(String(describing: $0.index))" })), gateways: \(newValue.gateways), activeIp: \(String(describing: newValue.availableInterfaces.first?.ipv4))")
 
         // check if different path
         guard newValue != self.path else { return }
@@ -60,28 +69,50 @@ private extension ConnectivityListener {
         let newIpValue = newValue.availableInterfaces.first?.ipv4
         self.path = newValue
         self.ipv4 = newIpValue
-        self.hasConnectivity = newValue.hasConnectivity()
+        self.hasConnectivity = newValue.isSatisfied()
 
         // continue if old value exists
         guard let oldValue = oldValue else { return }
 
-        // continue if was network switch (old and new have connectivity)
-        guard oldValue.hasConnectivity(), newValue.hasConnectivity() else { return }
+        if oldValue.isSatisfied(), !newValue.isSatisfied() {
+            // satisfied -> unsatisfied
+            // active connection did disconnect
+            log("starting satisfied monitor timer")
+            self.isPossiblySwitchingNetwork = true
+            switchNetworkTimer?.invalidate()
+            switchNetworkTimer = Timer.scheduledTimer(withTimeInterval: switchInterval,
+                                                      repeats: false) { [weak self] _ in
+                guard let self = self else { return }
+                self.log("satisfied monitor timer invalidated")
+                self.isPossiblySwitchingNetwork = false
+                self.switchNetworkTimer = nil
+            }
+        } else if !oldValue.isSatisfied(), newValue.isSatisfied(), isPossiblySwitchingNetwork {
+            // unsatisfied -> satisfied
+            // did switch network
+            self.isPossiblySwitchingNetwork = false
 
-        let oldInterface = oldValue.availableInterfaces.first
-        let newInterface = newValue.availableInterfaces.first
-
-        if (oldInterface != newInterface) // active interface changed
-            || (oldIpValue != newIpValue) // or, same interface but ip changed (detect wifi network switch)
-        {
+            log("didSwitch type: quick on & off")
             notify { $0.connectivityListener(self, didSwitch: newValue) }
+        } else if oldValue.isSatisfied(), newValue.isSatisfied() {
+            // satisfied -> satisfied
+
+            let oldInterface = oldValue.availableInterfaces.first
+            let newInterface = newValue.availableInterfaces.first
+
+            if (oldInterface != newInterface) // active interface changed
+                || (oldIpValue != newIpValue) // or, same interface but ip changed (detect wifi network switch)
+            {
+                log("didSwitch type: network or ip change")
+                notify { $0.connectivityListener(self, didSwitch: newValue) }
+            }
         }
     }
 }
 
 internal extension NWPath {
 
-    func hasConnectivity() -> Bool {
+    func isSatisfied() -> Bool {
         if case .satisfied = status { return true }
         return false
     }
