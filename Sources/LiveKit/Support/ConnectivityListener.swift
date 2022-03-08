@@ -50,6 +50,11 @@ internal class ConnectivityListener: MulticastDelegate<ConnectivityListenerDeleg
 
         monitor.start(queue: queue)
     }
+
+    deinit {
+        switchNetworkTimer?.invalidate()
+        switchNetworkTimer = nil
+    }
 }
 
 private extension ConnectivityListener {
@@ -90,6 +95,8 @@ private extension ConnectivityListener {
         } else if !oldValue.isSatisfied(), newValue.isSatisfied(), isPossiblySwitchingNetwork {
             // unsatisfied -> satisfied
             // did switch network
+            switchNetworkTimer?.invalidate()
+            switchNetworkTimer = nil
             self.isPossiblySwitchingNetwork = false
 
             log("didSwitch type: quick on & off")
