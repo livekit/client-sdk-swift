@@ -102,7 +102,7 @@ private extension SignalClient {
 
         Promise<Void>(on: queue) { () -> Void in
 
-            guard !(self.connectionState.isReconnecting && request.canQueue() && enqueueIfReconnecting) else {
+            guard !(self.connectionState.isReconnecting && request.canEnqueue() && enqueueIfReconnecting) else {
                 self.log("Queuing request while reconnecting, request: \(request)")
                 self.requestQueue.append(request)
                 // success
@@ -452,7 +452,7 @@ internal extension SignalClient {
 
 internal extension Livekit_SignalRequest {
 
-    func canQueue() -> Bool {
+    func canEnqueue() -> Bool {
         switch self.message {
         case .syncState: return false
         case .trickle: return false
