@@ -1,10 +1,6 @@
 import Foundation
 import WebRTC
 
-#if os(iOS)
-import UIKit
-#endif
-
 // TODO: Make this internal
 // Currently used for internal purposes
 public protocol TrackDelegate: AnyObject {

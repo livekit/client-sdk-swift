@@ -34,12 +34,12 @@ public class Participant: MulticastDelegate<ParticipantDelegate> {
     public private(set) var joinedAt: Date?
     public internal(set) var tracks = [String: TrackPublication]()
 
-    public var audioTracks: [String: TrackPublication] {
-        tracks.filter { $0.value.kind == .audio }
+    public var audioTracks: [TrackPublication] {
+        tracks.values.filter { $0.kind == .audio }
     }
 
-    public var videoTracks: [String: TrackPublication] {
-        tracks.filter { $0.value.kind == .video }
+    public var videoTracks: [TrackPublication] {
+        tracks.values.filter { $0.kind == .video }
     }
 
     var info: Livekit_ParticipantInfo?

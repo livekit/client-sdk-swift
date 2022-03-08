@@ -2,9 +2,6 @@ import Foundation
 import WebRTC
 import Promises
 
-internal let primaryVideoRid = "q"
-internal let videoRids = ["q", "h", "f"]
-
 internal typealias DebouncFunc = () -> Void
 
 internal enum OS {
@@ -153,7 +150,7 @@ internal class Utils {
 
             queryItems.append(URLQueryItem(name: "auto_subscribe", value: connectOptions.autoSubscribe ? "1" : "0"))
 
-            if let publish = connectOptions.publish {
+            if let publish = connectOptions.publishOnlyMode {
                 queryItems.append(URLQueryItem(name: "publish", value: publish))
             }
 
@@ -188,45 +185,35 @@ internal class Utils {
     ) -> [RTCRtpEncodingParameters] {
 
         let publishOptions = publishOptions ?? VideoPublishOptions()
-        let useSimulcast: Bool = (!isScreenShare || !publishOptions.screenShareSimulcastLayers.isEmpty) && publishOptions.simulcast
         let preferredEncoding: VideoEncoding? = isScreenShare ? publishOptions.screenShareEncoding : publishOptions.encoding
         let encoding = preferredEncoding ?? dimensions.computeSuggestedPreset(in: dimensions.computeSuggestedPresets(isScreenShare: isScreenShare))
 
-        guard useSimulcast else {
+        guard publishOptions.simulcast else {
             return [Engine.createRtpEncodingParameters(encoding: encoding)]
         }
 
+        let baseParameters = VideoParameters(dimensions: dimensions,
+                                             encoding: encoding)
+
         // get suggested presets for the dimensions
         let preferredPresets = (isScreenShare ? publishOptions.screenShareSimulcastLayers : publishOptions.simulcastLayers)
-        let presets = (!preferredPresets.isEmpty ? preferredPresets : dimensions.defaultSimulcastLayers(isScreenShare: isScreenShare)).sorted { $0 < $1 }
-        logger.log("Using presets: \(presets)", type: Utils.self)
+        let presets = (!preferredPresets.isEmpty ? preferredPresets : baseParameters.defaultSimulcastLayers(isScreenShare: isScreenShare)).sorted { $0 < $1 }
+
+        logger.log("Using presets: \(presets), count: \(presets.count) isScreenShare: \(isScreenShare)", type: Utils.self)
 
         let lowPreset = presets[0]
         let midPreset = presets[safe: 1]
-        let original = VideoParameters(dimensions: dimensions,
-                                       encoding: encoding)
 
-        var resultPresets = [original]
+        var resultPresets = [baseParameters]
         if dimensions.max >= 960, let midPreset = midPreset {
-            resultPresets = [lowPreset, midPreset, original]
+            resultPresets = [lowPreset, midPreset, baseParameters]
         } else if dimensions.max >= 480 {
-            resultPresets = [lowPreset, original]
+            resultPresets = [lowPreset, baseParameters]
         }
 
         return dimensions.encodings(from: resultPresets)
     }
     #endif
-}
-
-extension Livekit_VideoQuality {
-
-    static func from(rid: String?) -> Livekit_VideoQuality {
-        switch rid {
-        case "h": return Livekit_VideoQuality.medium
-        case "q": return Livekit_VideoQuality.low
-        default: return Livekit_VideoQuality.high
-        }
-    }
 }
 
 internal extension Collection {

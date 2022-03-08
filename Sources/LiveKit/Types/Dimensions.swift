@@ -5,11 +5,18 @@ import WebRTC
 // use CMVideoDimensions instead of defining our own struct
 public typealias Dimensions = CMVideoDimensions
 
+// MARK: - Static constants
+
 extension Dimensions {
     public static let aspectRatio169 = 16.0 / 9.0
     public static let aspectRatio43 = 4.0 / 3.0
     public static let zero = Dimensions(width: 0, height: 0)
+
+    internal static let renderSafeSize: Int32 = 8
+    internal static let encodeSafeSize: Int32 = 16
 }
+
+// MARK: - Equatable
 
 extension Dimensions: Equatable {
 
@@ -71,16 +78,6 @@ extension Dimensions {
         return VideoParameters.presets43
     }
 
-    func defaultSimulcastLayers(isScreenShare: Bool) -> [VideoParameters] {
-        if isScreenShare {
-            return []
-        }
-        if abs(aspectRatio - Dimensions.aspectRatio169) < abs(aspectRatio - Dimensions.aspectRatio43) {
-            return VideoParameters.defaultSimulcastPresets169
-        }
-        return VideoParameters.defaultSimulcastPresets43
-    }
-
     func computeSuggestedPreset(in presets: [VideoParameters]) -> VideoEncoding {
         assert(!presets.isEmpty)
         var result = presets[0].encoding
@@ -96,7 +93,7 @@ extension Dimensions {
     func encodings(from presets: [VideoParameters?]) -> [RTCRtpEncodingParameters] {
         var result: [RTCRtpEncodingParameters] = []
         for (index, preset) in presets.compactMap({ $0 }).enumerated() {
-            guard let rid = videoRids[safe: index] else {
+            guard let rid = VideoQuality.rids[safe: index] else {
                 continue
             }
 
@@ -108,7 +105,7 @@ extension Dimensions {
 
             result.append(parameters)
         }
-        return videoRids.map { rid in
+        return VideoQuality.rids.map { rid in
             return result.first(where: { $0.rid == rid }) ?? Engine.createRtpEncodingParameters(rid: rid, active: false)
         }
     }
@@ -134,6 +131,15 @@ extension Dimensions {
                 $0.bitrate = encoding.maxBitrateBps?.uint32Value ?? 0
             }
         }
+    }
+}
+
+// MARK: - Convert
+
+extension Dimensions {
+
+    func toCGSize() -> CGSize {
+        CGSize(width: Int(width), height: Int(height))
     }
 }
 

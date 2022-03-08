@@ -2,6 +2,15 @@ import Foundation
 import WebRTC
 import Promises
 
+/// A ``VideoCapturer`` that can capture ``CMSampleBuffer``s.
+///
+/// Repeatedly call ``capture(_:)`` to capture a stream of ``CMSampleBuffer``s.
+/// The pixel format must be one of ``VideoCapturer/supportedPixelFormats``. If an unsupported pixel format is used, the SDK will skip the capture.
+/// ``BufferCapturer`` can be used to provide video buffers from ReplayKit.
+///
+/// > Note: At least one frame must be captured before publishing the track or the publish will timeout,
+/// since dimensions must be resolved at the time of publishing (to compute video parameters).
+///
 public class BufferCapturer: VideoCapturer {
 
     private let capturer = Engine.createVideoCapturer()

@@ -27,6 +27,15 @@ public struct RoomOptions {
 
     public let stopLocalTrackOnUnpublish: Bool
 
+    /// Automatically suspend(mute) video tracks when the app enters background and
+    /// resume(unmute) when the app enters foreground again.
+    public let suspendLocalVideoTracksInBackground: Bool
+
+    /// **Experimental**
+    /// Report ``TrackStats`` every second to ``TrackDelegate`` for each local and remote tracks.
+    /// This may consume slightly more CPU resources.
+    public let reportStats: Bool
+
     public init(defaultCameraCaptureOptions: CameraCaptureOptions = CameraCaptureOptions(),
                 defaultScreenShareCaptureOptions: ScreenShareCaptureOptions = ScreenShareCaptureOptions(),
                 defaultAudioCaptureOptions: AudioCaptureOptions = AudioCaptureOptions(),
@@ -34,7 +43,9 @@ public struct RoomOptions {
                 defaultAudioPublishOptions: AudioPublishOptions = AudioPublishOptions(),
                 adaptiveStream: Bool = false,
                 dynacast: Bool = false,
-                stopLocalTrackOnUnpublish: Bool = true) {
+                stopLocalTrackOnUnpublish: Bool = true,
+                suspendLocalVideoTracksInBackground: Bool = true,
+                reportStats: Bool = false) {
 
         self.defaultCameraCaptureOptions = defaultCameraCaptureOptions
         self.defaultScreenShareCaptureOptions = defaultScreenShareCaptureOptions
@@ -44,5 +55,7 @@ public struct RoomOptions {
         self.adaptiveStream = adaptiveStream
         self.dynacast = dynacast
         self.stopLocalTrackOnUnpublish = stopLocalTrackOnUnpublish
+        self.suspendLocalVideoTracksInBackground = suspendLocalVideoTracksInBackground
+        self.reportStats = reportStats
     }
 }

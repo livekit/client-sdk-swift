@@ -55,7 +55,8 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
     init(config: RTCConfiguration,
          target: Livekit_SignalTarget,
          primary: Bool,
-         delegate: TransportDelegate) throws {
+         delegate: TransportDelegate,
+         reportStats: Bool = false) throws {
 
         // try create peerConnection
         guard let pc = Engine.createPeerConnection(config,
@@ -76,12 +77,17 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
             self?.onStatsTimer()
         }
 
-        statsTimer.resume()
+        set(reportStats: reportStats)
     }
 
     deinit {
         statsTimer.suspend()
         log()
+    }
+
+    internal func set(reportStats: Bool) {
+        log("reportStats: \(reportStats)")
+        reportStats ? statsTimer.resume() : statsTimer.suspend()
     }
 
     @discardableResult

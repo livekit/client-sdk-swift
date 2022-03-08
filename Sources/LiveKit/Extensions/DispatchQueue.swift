@@ -11,10 +11,4 @@ internal extension DispatchQueue {
         guard !Thread.current.isMainThread else { return try work() }
         return try Self.main.sync(execute: work)
     }
-
-    // execute work sync if already on main thread otherwise queue the work on main
-    static func mainSafeAsync(execute work: @escaping @convention(block) () -> Void) {
-        guard !Thread.current.isMainThread else { return work() }
-        Self.main.async(execute: work)
-    }
 }

@@ -1,6 +1,7 @@
 import Foundation
 import WebRTC
 import Promises
+import Network
 
 internal class Engine: MulticastDelegate<EngineDelegate> {
 
@@ -22,7 +23,8 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
     private(set) var url: String?
     private(set) var token: String?
 
-    var connectOptions: ConnectOptions
+    private(set) var connectOptions: ConnectOptions
+    private(set) var roomOptions: RoomOptions
 
     private(set) var connectionState: ConnectionState = .disconnected(reason: .sdk) {
         // automatically notify changes
@@ -33,11 +35,15 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
         }
     }
 
-    init(connectOptions: ConnectOptions) {
+    init(connectOptions: ConnectOptions,
+         roomOptions: RoomOptions) {
+
         self.connectOptions = connectOptions
+        self.roomOptions = roomOptions
         super.init()
 
         signalClient.add(delegate: self)
+        ConnectivityListener.shared.add(delegate: self)
         log()
     }
 
@@ -47,7 +53,13 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
 
     // Connect sequence, resets existing state
     func connect(_ url: String,
-                 _ token: String) -> Promise<Void> {
+                 _ token: String,
+                 connectOptions: ConnectOptions? = nil,
+                 roomOptions: RoomOptions? = nil) -> Promise<Void> {
+
+        // update options if specified
+        self.connectOptions = connectOptions ?? self.connectOptions
+        self.roomOptions = roomOptions ?? self.roomOptions
 
         return cleanUp(reason: .sdk).then(on: .sdk) {
             self.connectionState = .connecting(.normal)
@@ -359,9 +371,21 @@ private extension Engine {
 
 }
 
+// MARK: - Session Migration
+
+internal extension Engine {
+
+    func dataChannelInfo() -> [Livekit_DataChannelInfo] {
+
+        [publisherDataChannel(for: .lossy), publisherDataChannel(for: .reliable)]
+            .compactMap { $0 }
+            .map { $0.toLKInfoType() }
+    }
+}
+
 // MARK: - Wait extensions
 
-extension Engine {
+internal extension Engine {
 
     func waitForPublisherDataChannelOpen(reliability: Reliability, allowCurrentValue: Bool = true) -> WaitPromises<Void> {
 
@@ -639,12 +663,14 @@ extension Engine: TransportDelegate {
             self.subscriber = try Transport(config: self.connectOptions.rtcConfiguration,
                                             target: .subscriber,
                                             primary: self.subscriberPrimary,
-                                            delegate: self)
+                                            delegate: self,
+                                            reportStats: self.roomOptions.reportStats)
 
             self.publisher = try Transport(config: self.connectOptions.rtcConfiguration,
                                            target: .publisher,
                                            primary: !self.subscriberPrimary,
-                                           delegate: self)
+                                           delegate: self,
+                                           reportStats: self.roomOptions.reportStats)
 
             self.publisher?.onOffer = { offer in
                 self.log("publisher onOffer")
@@ -696,6 +722,20 @@ extension Engine: TransportDelegate {
     }
 
     func transportShouldNegotiate(_ transport: Transport) {}
+}
+
+// MARK: - ConnectivityListenerDelegate
+
+extension Engine: ConnectivityListenerDelegate {
+
+    func connectivityListener(_: ConnectivityListener, didSwitch path: NWPath) {
+        log("didSwitch path: \(path)")
+
+        // network has been switched, e.g. wifi <-> cellular
+        if case .connected = connectionState {
+            startReconnect()
+        }
+    }
 }
 
 // MARK: Engine - Factory methods

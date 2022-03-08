@@ -8,6 +8,8 @@ public class Room: MulticastDelegate<RoomDelegate> {
     public private(set) var sid: Sid?
     public private(set) var name: String?
     public private(set) var metadata: String?
+    public private(set) var serverVersion: String?
+    public private(set) var serverRegion: String?
     public private(set) var localParticipant: LocalParticipant?
     public private(set) var remoteParticipants = [Sid: RemoteParticipant]()
     public private(set) var activeSpeakers: [Participant] = []
@@ -26,7 +28,8 @@ public class Room: MulticastDelegate<RoomDelegate> {
                 roomOptions: RoomOptions = RoomOptions()) {
 
         self.options = roomOptions
-        self.engine = Engine(connectOptions: connectOptions)
+        self.engine = Engine(connectOptions: connectOptions,
+                             roomOptions: roomOptions)
         super.init()
 
         // listen to engine & signalClient
@@ -36,6 +39,9 @@ public class Room: MulticastDelegate<RoomDelegate> {
         if let delegate = delegate {
             add(delegate: delegate)
         }
+
+        // listen to app states
+        AppStateListener.shared.add(delegate: self)
     }
 
     deinit {
@@ -49,7 +55,6 @@ public class Room: MulticastDelegate<RoomDelegate> {
                         roomOptions: RoomOptions? = nil) -> Promise<Room> {
 
         // update options if specified
-        self.engine.connectOptions = connectOptions ?? self.engine.connectOptions
         self.options = roomOptions ?? self.options
 
         log("connecting to room", .info)
@@ -58,12 +63,18 @@ public class Room: MulticastDelegate<RoomDelegate> {
         }
 
         // monitor.start(queue: monitorQueue)
-        return engine.connect(url, token).then(on: .sdk) { self }
+        return engine.connect(url, token,
+                              connectOptions: connectOptions,
+                              roomOptions: roomOptions).then(on: .sdk) { self }
     }
 
     @discardableResult
     public func disconnect() -> Promise<Void> {
-        engine.signalClient.sendLeave()
+
+        // return if already disconnected state
+        if case .disconnected = connectionState { return Promise(()) }
+
+        return engine.signalClient.sendLeave()
             .recover(on: .sdk) { self.log("Failed to send leave, error: \($0)") }
             .then(on: .sdk) {
                 self.cleanUp(reason: .user)
@@ -103,6 +114,8 @@ private extension Room {
                 self.sid = nil
                 self.name = nil
                 self.metadata = nil
+                self.serverVersion = nil
+                self.serverRegion = nil
                 self.localParticipant = nil
                 self.remoteParticipants.removeAll()
                 self.activeSpeakers.removeAll()
@@ -286,7 +299,8 @@ internal extension Room {
 
         return engine.signalClient.sendSyncState(answer: localDescription.toPBType(),
                                                  subscription: subscription,
-                                                 publishTracks: localParticipant?.publishedTracksInfo())
+                                                 publishTracks: localParticipant?.publishedTracksInfo(),
+                                                 dataChannels: engine.dataChannelInfo())
     }
 }
 
@@ -321,11 +335,14 @@ extension Room: SignalClientDelegate {
     }
 
     func signalClient(_ signalClient: SignalClient, didReceive joinResponse: Livekit_JoinResponse) -> Bool {
-        log("Server version: \(joinResponse.serverVersion)", .info)
+
+        log("Server version: \(joinResponse.serverVersion), region: \(joinResponse.serverRegion)", .info)
 
         sid = joinResponse.room.sid
         name = joinResponse.room.name
         metadata = joinResponse.room.metadata
+        serverVersion = joinResponse.serverVersion
+        serverRegion = joinResponse.serverRegion.isEmpty ? nil : joinResponse.serverRegion
 
         if joinResponse.hasParticipant {
             localParticipant = LocalParticipant(from: joinResponse.participant, room: self)
@@ -384,7 +401,7 @@ extension Room: SignalClientDelegate {
 
     func signalClient(_ signalClient: SignalClient, didUpdate trackStates: [Livekit_StreamStateInfo]) -> Bool {
 
-        log("trackStates: \(trackStates.map { String(describing: $0.state) }.joined(separator: ", "))")
+        log("trackStates: \(trackStates.map { "(\($0.trackSid): \(String(describing: $0.state)))" }.joined(separator: ", "))")
 
         for update in trackStates {
             // Try to find RemoteParticipant
@@ -534,5 +551,42 @@ extension Room: EngineDelegate {
             guard let participant = participant else { return }
             delegate.participant(participant, didReceive: userPacket.payload)
         }
+    }
+}
+
+// MARK: - AppStateDelegate
+
+extension Room: AppStateDelegate {
+
+    func appDidEnterBackground() {
+
+        guard options.suspendLocalVideoTracksInBackground else { return }
+
+        guard let localParticipant = localParticipant else { return }
+        let promises = localParticipant.localVideoTracks.map { $0.suspend() }
+
+        guard !promises.isEmpty else { return }
+
+        all(promises).then { _ in
+            self.log("suspended all video tracks")
+        }
+    }
+
+    func appWillEnterForeground() {
+
+        guard let localParticipant = localParticipant else { return }
+        let promises = localParticipant.localVideoTracks.map { $0.resume() }
+
+        guard !promises.isEmpty else { return }
+
+        all(promises).then { _ in
+            self.log("resumed all video tracks")
+        }
+    }
+
+    func appWillTerminate() {
+        // attempt to disconnect if already connected.
+        // this is not guranteed since there is no reliable way to detect app termination.
+        disconnect()
     }
 }
