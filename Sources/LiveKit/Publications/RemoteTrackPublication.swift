@@ -54,18 +54,6 @@ public class RemoteTrackPublication: TrackPublication {
         super.init(info: info,
                    track: track,
                    participant: participant)
-
-        #if LK_FEATURE_ADAPTIVESTREAM
-        debouncedRecomputeVideoViewVisibilities = Utils.createDebounceFunc(wait: 2,
-                                                                           onCreateWorkItem: { [weak self] in
-                                                                            self?.pendingDebounceFunc = $0
-                                                                           }, fnc: { [weak self] in
-                                                                            self?.recomputeVideoViewVisibilities()
-                                                                           })
-
-        // initial trigger
-        shouldComputeVideoViewVisibilities()
-        #endif
     }
 
     deinit {
@@ -131,14 +119,38 @@ public class RemoteTrackPublication: TrackPublication {
         let oldValue = super.set(track: newValue)
         if newValue != oldValue {
             #if LK_FEATURE_ADAPTIVESTREAM
-            // cancel the pending debounce func
+            // always cancel the pending debounce func
             pendingDebounceFunc?.cancel()
             videoViewVisibilities.removeAll()
             #endif
-            // if new Track has been set to this RemoteTrackPublication,
-            // update the Track's muted state from the latest info.
-            newValue?.set(muted: metadataMuted,
-                          shouldNotify: false)
+
+            if let newValue = newValue {
+
+                #if LK_FEATURE_ADAPTIVESTREAM
+                // only if is video track
+                if newValue.kind == .video {
+
+                    if debouncedRecomputeVideoViewVisibilities == nil {
+                        // create debounce func
+                        debouncedRecomputeVideoViewVisibilities = Utils.createDebounceFunc(wait: 2,
+                                                                                           onCreateWorkItem: { [weak self] in
+                                                                                            self?.pendingDebounceFunc = $0
+                                                                                           }, fnc: { [weak self] in
+                                                                                            self?.recomputeVideoViewVisibilities()
+                                                                                           })
+
+                    }
+
+                    // initial trigger
+                    shouldComputeVideoViewVisibilities()
+                }
+                #endif
+
+                // if new Track has been set to this RemoteTrackPublication,
+                // update the Track's muted state from the latest info.
+                newValue.set(muted: metadataMuted,
+                             shouldNotify: false)
+            }
 
             if let oldValue = oldValue, newValue == nil,
                let participant = participant as? RemoteParticipant {
@@ -247,6 +259,7 @@ extension RemoteTrackPublication {
     }
 
     private func shouldComputeVideoViewVisibilities() {
+        log()
 
         guard let participant = participant else {
             log("Participant is nil", .warning)
@@ -255,6 +268,11 @@ extension RemoteTrackPublication {
 
         guard participant.room.options.adaptiveStream else {
             // adaptiveStream is turned off
+            return
+        }
+
+        guard let track = track, track.kind == .video else {
+            log("Track is not a video track", .warning)
             return
         }
 
@@ -270,6 +288,12 @@ extension RemoteTrackPublication {
     }
 
     private func recomputeVideoViewVisibilities() {
+        log()
+
+        guard let track = track, track.kind == .video else {
+            log("Track is not a video track", .warning)
+            return
+        }
 
         // set internal enabled var
         let enabled = hasVisibleVideoViews()
