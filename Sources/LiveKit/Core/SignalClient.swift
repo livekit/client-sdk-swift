@@ -6,7 +6,8 @@ import Collections
 internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
 
     // queue to store requests while reconnecting
-    private var queue = [Livekit_SignalRequest]()
+    private var requestQueue = [Livekit_SignalRequest]()
+    private var queue = DispatchQueue(label: "LiveKitSDK.signalClient", qos: .background)
 
     private(set) var connectionState: ConnectionState = .disconnected(reason: .sdk) {
         didSet {
@@ -88,7 +89,7 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
         }
 
         latestJoinResponse = nil
-        queue.removeAll()
+        queue.sync { requestQueue.removeAll() }
     }
 }
 
@@ -99,30 +100,34 @@ private extension SignalClient {
     // send request or enqueue while reconnecting
     func sendRequest(_ request: Livekit_SignalRequest, enqueueIfReconnecting: Bool = true) -> Promise<Void> {
 
-        guard !(connectionState.isReconnecting && request.canQueue() && enqueueIfReconnecting) else {
-            log("Queuing request while reconnecting, request: \(request)")
-            queue.append(request)
-            // success
-            return Promise(())
-        }
+        Promise<Void>(on: queue) { () -> Void in
 
-        guard case .connected = connectionState else {
-            log("Not connected", .error)
-            return Promise(SignalClientError.state(message: "Not connected"))
-        }
+            guard !(self.connectionState.isReconnecting && request.canQueue() && enqueueIfReconnecting) else {
+                self.log("Queuing request while reconnecting, request: \(request)")
+                self.requestQueue.append(request)
+                // success
+                return
+            }
 
-        // this shouldn't happen
-        guard let webSocket = webSocket else {
-            log("WebSocket is nil", .error)
-            return Promise(SignalClientError.state(message: "WebSocket is nil"))
-        }
+            guard case .connected = self.connectionState else {
+                self.log("Not connected", .error)
+                throw SignalClientError.state(message: "Not connected")
+            }
 
-        guard let data = try? request.serializedData() else {
-            log("Could not serialize data", .error)
-            return Promise(InternalError.convert(message: "Could not serialize data"))
-        }
+            // this shouldn't happen
+            guard let webSocket = self.webSocket else {
+                self.log("WebSocket is nil", .error)
+                throw SignalClientError.state(message: "WebSocket is nil")
+            }
 
-        return webSocket.send(data: data)
+            guard let data = try? request.serializedData() else {
+                self.log("Could not serialize data", .error)
+                throw InternalError.convert(message: "Could not serialize data")
+            }
+
+            // resolve promise in this queue
+            try awaitPromise(webSocket.send(data: data))
+        }
     }
 
     func onWebSocketMessage(message: URLSessionWebSocketTask.Message) {
@@ -242,12 +247,6 @@ internal extension SignalClient {
 
     func sendQueuedRequests() -> Promise<Void> {
 
-        // quickly return if no queued requests
-        guard !queue.isEmpty else {
-            log("No queued requests")
-            return Promise(())
-        }
-
         // create a promise that never throws so the send sequence can continue
         func safeSend(_ request: Livekit_SignalRequest) -> Promise<Void> {
             sendRequest(request, enqueueIfReconnecting: false).recover(on: .sdk) { error in
@@ -255,12 +254,22 @@ internal extension SignalClient {
             }
         }
 
-        // send requests in sequential order
-        let promises = queue.reduce(into: Promise(())) { result, request in result.then(on: .sdk) { safeSend(request) } }
-        // clear the queue
-        queue.removeAll()
+        return Promise<Void>(on: queue) { () -> Void in
 
-        return promises
+            // quickly return if no queued requests
+            guard !self.requestQueue.isEmpty else {
+                self.log("No queued requests")
+                return
+            }
+
+            // send requests in sequential order
+            let promises = self.requestQueue.reduce(into: Promise(())) { result, request in result.then(on: .sdk) { safeSend(request) } }
+            // clear the queue
+            self.requestQueue.removeAll()
+
+            // resolve promise in this queue
+            try awaitPromise(promises)
+        }
     }
 
     func sendOffer(offer: RTCSessionDescription) -> Promise<Void> {
