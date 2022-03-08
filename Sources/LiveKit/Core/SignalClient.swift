@@ -1,8 +1,13 @@
 import Foundation
 import Promises
 import WebRTC
+import Collections
 
 internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
+
+    // queue to store requests while reconnecting
+    private var requestQueue = [Livekit_SignalRequest]()
+    private var queue = DispatchQueue(label: "LiveKitSDK.signalClient", qos: .background)
 
     private(set) var connectionState: ConnectionState = .disconnected(reason: .sdk) {
         didSet {
@@ -84,6 +89,7 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
         }
 
         latestJoinResponse = nil
+        queue.sync { requestQueue.removeAll() }
     }
 }
 
@@ -91,24 +97,37 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
 
 private extension SignalClient {
 
-    func sendRequest(_ request: Livekit_SignalRequest) -> Promise<Void> {
+    // send request or enqueue while reconnecting
+    func sendRequest(_ request: Livekit_SignalRequest, enqueueIfReconnecting: Bool = true) -> Promise<Void> {
 
-        guard case .connected = connectionState else {
-            log("Not connected", .error)
-            return Promise(SignalClientError.state(message: "Not connected"))
+        Promise<Void>(on: queue) { () -> Void in
+
+            guard !(self.connectionState.isReconnecting && request.canEnqueue() && enqueueIfReconnecting) else {
+                self.log("Queuing request while reconnecting, request: \(request)")
+                self.requestQueue.append(request)
+                // success
+                return
+            }
+
+            guard case .connected = self.connectionState else {
+                self.log("Not connected", .error)
+                throw SignalClientError.state(message: "Not connected")
+            }
+
+            // this shouldn't happen
+            guard let webSocket = self.webSocket else {
+                self.log("WebSocket is nil", .error)
+                throw SignalClientError.state(message: "WebSocket is nil")
+            }
+
+            guard let data = try? request.serializedData() else {
+                self.log("Could not serialize data", .error)
+                throw InternalError.convert(message: "Could not serialize data")
+            }
+
+            // resolve promise in this queue
+            try awaitPromise(webSocket.send(data: data))
         }
-
-        guard let webSocket = webSocket else {
-            log("WebSocket is nil", .error)
-            return Promise(SignalClientError.state(message: "WebSocket is nil"))
-        }
-
-        guard let data = try? request.serializedData() else {
-            log("Could not serialize data", .error)
-            return Promise(InternalError.convert(message: "Could not serialize data"))
-        }
-
-        return webSocket.send(data: data)
     }
 
     func onWebSocketMessage(message: URLSessionWebSocketTask.Message) {
@@ -225,6 +244,33 @@ internal extension SignalClient {
 // MARK: - Send methods
 
 internal extension SignalClient {
+
+    func sendQueuedRequests() -> Promise<Void> {
+
+        // create a promise that never throws so the send sequence can continue
+        func safeSend(_ request: Livekit_SignalRequest) -> Promise<Void> {
+            sendRequest(request, enqueueIfReconnecting: false).recover(on: .sdk) { error in
+                self.log("Failed to send queued request, request: \(request) \(error)", .warning)
+            }
+        }
+
+        return Promise<Void>(on: queue) { () -> Void in
+
+            // quickly return if no queued requests
+            guard !self.requestQueue.isEmpty else {
+                self.log("No queued requests")
+                return
+            }
+
+            // send requests in sequential order
+            let promises = self.requestQueue.reduce(into: Promise(())) { result, request in result.then(on: .sdk) { safeSend(request) } }
+            // clear the queue
+            self.requestQueue.removeAll()
+
+            // resolve promise in this queue
+            try awaitPromise(promises)
+        }
+    }
 
     func sendOffer(offer: RTCSessionDescription) -> Promise<Void> {
         log()
@@ -401,5 +447,19 @@ internal extension SignalClient {
         }
 
         return sendRequest(r)
+    }
+}
+
+internal extension Livekit_SignalRequest {
+
+    func canEnqueue() -> Bool {
+        switch self.message {
+        case .syncState: return false
+        case .trickle: return false
+        case .offer: return false
+        case .answer: return false
+        case .simulate: return false
+        default: return true
+        }
     }
 }

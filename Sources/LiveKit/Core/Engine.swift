@@ -317,6 +317,9 @@ private extension Engine {
                 return publisher.createAndSendOffer(iceRestart: true).then(on: .sdk) {
                     self.waitFor(transport: publisher, state: .connected).wait
                 }
+            }.then(on: .sdk) {
+                // always check if there are queued requests
+                self.signalClient.sendQueuedRequests()
             }
         }
 
