@@ -117,7 +117,7 @@ public class VideoView: NativeView, Loggable {
 
     internal var nativeRenderer: NativeRendererView
 
-    init(frame: CGRect = .zero, preferMetal: Bool = true) {
+    public init(frame: CGRect = .zero, preferMetal: Bool = true) {
         self.viewSize = frame.size
         self.preferMetal = preferMetal
         self.nativeRenderer = VideoView.createNativeRendererView(preferMetal: preferMetal)
