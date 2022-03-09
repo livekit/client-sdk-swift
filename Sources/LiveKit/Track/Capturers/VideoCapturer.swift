@@ -14,6 +14,12 @@ extension VideoCapturerProtocol {
 
 public protocol VideoCapturerDelegate: AnyObject {
     func capturer(_ capturer: VideoCapturer, didUpdate dimensions: Dimensions?)
+    func capturer(_ capturer: VideoCapturer, didUpdate state: VideoCapturer.State)
+}
+
+public extension VideoCapturerDelegate {
+    func capturer(_ capturer: VideoCapturer, didUpdate dimensions: Dimensions?) {}
+    func capturer(_ capturer: VideoCapturer, didUpdate state: VideoCapturer.State) {}
 }
 
 // MARK: - Closures
@@ -104,24 +110,32 @@ public class VideoCapturer: MulticastDelegate<VideoCapturerDelegate>, VideoCaptu
 
     // will fail if already started (to prevent duplicate code execution)
     public func startCapture() -> Promise<Void> {
-        guard state != .started else {
-            log("Capturer already started", .warning)
-            return Promise(TrackError.state(message: "Already started"))
-        }
 
-        self.state = .started
-        return Promise(())
+        Promise(on: .sdk) { () -> Void in
+
+            guard self.state != .started else {
+                self.log("Capturer already started", .warning)
+                throw TrackError.state(message: "Already started")
+            }
+
+            self.state = .started
+            self.notify { $0.capturer(self, didUpdate: .started) }
+        }
     }
 
     // will fail if already stopped (to prevent duplicate code execution)
     public func stopCapture() -> Promise<Void> {
-        guard state != .stopped else {
-            log("Capturer already stopped", .warning)
-            return Promise(TrackError.state(message: "Already stopped"))
-        }
 
-        self.state = .stopped
-        return Promise(())
+        Promise(on: .sdk) { () -> Void in
+
+            guard self.state != .stopped else {
+                self.log("Capturer already stopped", .warning)
+                throw TrackError.state(message: "Already stopped")
+            }
+
+            self.state = .stopped
+            self.notify { $0.capturer(self, didUpdate: .stopped) }
+        }
     }
 
     public func restartCapture() -> Promise<Void> {

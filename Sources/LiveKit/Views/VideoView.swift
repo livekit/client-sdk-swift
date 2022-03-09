@@ -31,15 +31,21 @@ public class VideoView: NativeView, Loggable {
         }
     }
 
-    public enum Mode: String, Codable, CaseIterable {
+    public enum LayoutMode: String, Codable, CaseIterable {
         case fit
         case fill
     }
 
-    /// Layout ``Mode`` of the ``VideoView``.
-    public var mode: Mode = .fill {
+    public enum MirrorMode: String, Codable, CaseIterable {
+        case auto
+        case off
+        case mirror
+    }
+
+    /// Layout ``ContentMode`` of the ``VideoView``.
+    public var layoutMode: LayoutMode = .fill {
         didSet {
-            guard oldValue != mode else { return }
+            guard oldValue != layoutMode else { return }
             DispatchQueue.main.async {
                 self.markNeedsLayout()
             }
@@ -48,9 +54,9 @@ public class VideoView: NativeView, Loggable {
 
     /// Flips the video horizontally, useful for local VideoViews.
     /// Known Issue: this will not work when os is macOS and ``preferMetal`` is false.
-    public var mirrored: Bool = false {
+    public var mirrorMode: MirrorMode = .auto {
         didSet {
-            guard oldValue != mirrored else { return }
+            guard oldValue != mirrorMode else { return }
             DispatchQueue.main.async {
                 self.markNeedsLayout()
             }
@@ -83,12 +89,18 @@ public class VideoView: NativeView, Loggable {
             guard !(oldValue?.isEqual(track) ?? false) else { return }
 
             if let oldValue = oldValue {
+                if let localTrack = oldValue as? LocalVideoTrack {
+                    localTrack.capturer.remove(delegate: self)
+                }
                 oldValue.remove(renderer: self)
                 oldValue.remove(delegate: self)
                 oldValue.notify { $0.track(oldValue, didDetach: self) }
             }
             track?.add(delegate: self)
             track?.add(renderer: self)
+            if let localTrack = track as? LocalVideoTrack {
+                localTrack.capturer.add(delegate: self)
+            }
             track?.notify { [weak track] (delegate) -> Void in
                 guard let track = track else { return }
                 delegate.track(track, didAttach: self)
@@ -132,6 +144,18 @@ public class VideoView: NativeView, Loggable {
     override func shouldLayout() {
         super.shouldLayout()
 
+        func shouldMirror() -> Bool {
+            switch mirrorMode {
+            case .auto:
+                guard let localVideoTrack = track as? LocalVideoTrack,
+                      let cameraCapturer = localVideoTrack.capturer as? CameraCapturer,
+                      case .front = cameraCapturer.options.position else { return false }
+                return true
+            case .off: return false
+            case .mirror: return true
+            }
+        }
+
         // this should never happen
         assert(Thread.current.isMainThread, "shouldLayout must be called from main thread")
 
@@ -153,9 +177,9 @@ public class VideoView: NativeView, Loggable {
         let wRatio = size.width / wDim
         let hRatio = size.height / hDim
 
-        if .fill == mode ? hRatio > wRatio : hRatio < wRatio {
+        if .fill == layoutMode ? hRatio > wRatio : hRatio < wRatio {
             size.width = size.height / hDim * wDim
-        } else if .fill == mode ? wRatio > hRatio : wRatio < hRatio {
+        } else if .fill == layoutMode ? wRatio > hRatio : wRatio < hRatio {
             size.height = size.width / wDim * hDim
         }
 
@@ -170,7 +194,7 @@ public class VideoView: NativeView, Loggable {
         // nativeRenderer.layer!.borderColor = NSColor.red.cgColor
         // nativeRenderer.layer!.borderWidth = 3
 
-        if mirrored {
+        if shouldMirror() {
             #if os(macOS)
             // this is required for macOS
             nativeRenderer.set(anchorPoint: CGPoint(x: 0.5, y: 0.5))
@@ -236,6 +260,19 @@ extension VideoView: RTCVideoRenderer {
             renderState.insert(.didRenderFirstFrame)
             log("Did render first frame")
             DispatchQueue.main.async { self.markNeedsLayout() }
+        }
+    }
+}
+
+// MARK: - VideoCapturerDelegate
+
+extension VideoView: VideoCapturerDelegate {
+
+    public func capturer(_ capturer: VideoCapturer, didUpdate state: VideoCapturer.State) {
+        if case .started = state {
+            DispatchQueue.main.async {
+                self.markNeedsLayout()
+            }
         }
     }
 }

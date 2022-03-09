@@ -34,8 +34,8 @@ public struct SwiftUIVideoView: NativeViewRepresentable {
 
     /// Pass a ``VideoTrack`` of a ``Participant``.
     let track: VideoTrack
-    let mode: VideoView.Mode
-    let mirrored: Bool
+    let layoutMode: VideoView.LayoutMode
+    let mirrorMode: VideoView.MirrorMode
     let preferMetal: Bool
 
     @Binding var dimensions: Dimensions?
@@ -43,27 +43,29 @@ public struct SwiftUIVideoView: NativeViewRepresentable {
     let delegateReceiver: SwiftUIVideoViewDelegateReceiver
 
     public init(_ track: VideoTrack,
-                mode: VideoView.Mode = .fill,
-                mirrored: Bool = false,
+                layoutMode: VideoView.LayoutMode = .fill,
+                mirrorMode: VideoView.MirrorMode = .auto,
                 dimensions: Binding<Dimensions?> = .constant(nil),
                 trackStats: Binding<TrackStats?> = .constant(nil),
                 preferMetal: Bool = true) {
 
         self.track = track
-        self.mode = mode
-        self.mirrored = mirrored
+        self.layoutMode = layoutMode
+        self.mirrorMode = mirrorMode
         self._dimensions = dimensions
         self.preferMetal = preferMetal
 
         self.delegateReceiver = SwiftUIVideoViewDelegateReceiver(dimensions: dimensions,
                                                                  stats: trackStats)
-        self.track.add(delegate: delegateReceiver)
 
         // update binding value
         DispatchQueue.main.async {
             dimensions.wrappedValue = track.dimensions
             trackStats.wrappedValue = track.stats
         }
+
+        // listen for TrackDelegate
+        track.add(delegate: delegateReceiver)
     }
 
     public func makeView(context: Context) -> VideoView {
@@ -74,8 +76,8 @@ public struct SwiftUIVideoView: NativeViewRepresentable {
 
     public func updateView(_ videoView: VideoView, context: Context) {
         videoView.track = track
-        videoView.mode = mode
-        videoView.mirrored = mirrored
+        videoView.layoutMode = layoutMode
+        videoView.mirrorMode = mirrorMode
         videoView.preferMetal = preferMetal
     }
 
