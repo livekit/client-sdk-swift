@@ -8,3 +8,4 @@ Documentation
 # DocC
 /build_docs/
 *.doccarchive
+WebRTC.xcframework
