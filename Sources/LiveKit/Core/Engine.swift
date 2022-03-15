@@ -762,10 +762,10 @@ extension Engine {
                                                                fallback: encoderFactory)
         let result: RTCPeerConnectionFactory
         result = RTCPeerConnectionFactory(encoderFactory: simulcastFactory,
-                                        decoderFactory: decoderFactory)
+                                          decoderFactory: decoderFactory)
         #else
         result = RTCPeerConnectionFactory(encoderFactory: encoderFactory,
-                                        decoderFactory: decoderFactory)
+                                          decoderFactory: decoderFactory)
         #endif
         logger.log("PeerConnectionFactory initialized", type: Engine.self)
         return result
