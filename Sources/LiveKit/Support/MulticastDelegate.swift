@@ -11,7 +11,7 @@ public class MulticastDelegate<T>: NSObject, Loggable {
     private let queue: DispatchQueue
     private let set = NSHashTable<AnyObject>.weakObjects()
 
-    init(label: String = "livekit.multicast", qos: DispatchQoS = .background) {
+    init(label: String = "livekit.multicast", qos: DispatchQoS = .default) {
         self.queue = DispatchQueue(label: label, qos: qos)
     }
 
