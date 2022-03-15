@@ -40,7 +40,7 @@ internal class WebSocket: NSObject, URLSessionWebSocketDelegate, Loggable {
                  onDisconnect: OnDisconnect? = nil) {
 
         request = URLRequest(url: url,
-                             cachePolicy: .reloadIgnoringLocalAndRemoteCacheData,
+                             cachePolicy: .useProtocolCachePolicy,
                              timeoutInterval: .defaultConnect)
 
         self.onMessage = onMessage
