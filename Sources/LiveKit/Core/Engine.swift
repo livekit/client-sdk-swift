@@ -758,6 +758,10 @@ extension Engine {
         #endif
     }()
 
+    internal static func audioDeviceModule() -> RTCAudioDeviceModule {
+        factory.audioDeviceModule
+    }
+
     internal static func createPeerConnection(_ configuration: RTCConfiguration,
                                               constraints: RTCMediaConstraints) -> RTCPeerConnection? {
         DispatchQueue.webRTC.sync { factory.peerConnection(with: configuration,

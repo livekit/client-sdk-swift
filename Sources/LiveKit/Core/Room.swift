@@ -590,3 +590,12 @@ extension Room: AppStateDelegate {
         disconnect()
     }
 }
+
+// MARK: - Devices
+
+extension Room {
+
+    static public func audioDeviceModule() -> RTCAudioDeviceModule {
+        Engine.audioDeviceModule()
+    }
+}
