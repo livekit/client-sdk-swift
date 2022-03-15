@@ -7,7 +7,10 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
 
     // queue to store requests while reconnecting
     private var requestQueue = [Livekit_SignalRequest]()
-    private var queue = DispatchQueue(label: "LiveKitSDK.signalClient", qos: .background)
+    private var responseQueue = [Livekit_SignalResponse]()
+
+    private let requestDispatchQueue = DispatchQueue(label: "LiveKitSDK.signalClient.requestQueue", qos: .default)
+    private let responseDispatchQueue = DispatchQueue(label: "LiveKitSDK.signalClient.responseQueue", qos: .default)
 
     private(set) var connectionState: ConnectionState = .disconnected(reason: .sdk) {
         didSet {
@@ -17,6 +20,13 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
         }
     }
 
+    enum QueueState {
+        case active
+        case suspended
+    }
+
+    private(set) var responseQueueState: QueueState = .active
+    
     private var webSocket: WebSocket?
     private var latestJoinResponse: Livekit_JoinResponse?
 
@@ -89,7 +99,11 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
         }
 
         latestJoinResponse = nil
-        queue.sync { requestQueue.removeAll() }
+        requestDispatchQueue.sync { requestQueue.removeAll() }
+        responseDispatchQueue.sync {
+            responseQueue.removeAll()
+            responseQueueState = .active
+        }
     }
 }
 
@@ -100,7 +114,7 @@ private extension SignalClient {
     // send request or enqueue while reconnecting
     func sendRequest(_ request: Livekit_SignalRequest, enqueueIfReconnecting: Bool = true) -> Promise<Void> {
 
-        Promise<Void>(on: queue) { () -> Void in
+        Promise<Void>(on: requestDispatchQueue) { () -> Void in
 
             guard !(self.connectionState.isReconnecting && request.canEnqueue() && enqueueIfReconnecting) else {
                 self.log("Queuing request while reconnecting, request: \(request)")
@@ -140,25 +154,37 @@ private extension SignalClient {
             response = try? Livekit_SignalResponse(jsonString: string)
         }
 
-        guard let response = response,
-              let message = response.message else {
+        guard let response = response else {
             log("Failed to decode SignalResponse", .warning)
             return
         }
-
-        onSignalResponse(message: message)
+        
+        if case .suspended = responseQueueState {
+            log("Enqueueing response: \(response)")
+            requestDispatchQueue.async {
+                self.responseQueue.append(response)
+            }
+        } else {
+            onSignalResponse(response)
+        }
     }
 
-    func onSignalResponse(message: Livekit_SignalResponse.OneOf_Message) {
+    func onSignalResponse(_ response: Livekit_SignalResponse) {
 
         guard case .connected = connectionState else {
             log("Not connected", .warning)
             return
         }
 
+        guard let message = response.message else {
+            log("Failed to decode SignalResponse", .warning)
+            return
+        }
+        
         switch message {
         case .join(let joinResponse) :
             latestJoinResponse = joinResponse
+            responseQueueState = .suspended
             notify { $0.signalClient(self, didReceive: joinResponse) }
 
         case .answer(let sd):
@@ -241,6 +267,35 @@ internal extension SignalClient {
     }
 }
 
+// MARK: - Internal
+
+internal extension SignalClient {
+
+    func resumeResponseQueue() -> Promise<Void> {
+        
+        log("resume")
+        
+        return Promise<Void>(on: responseDispatchQueue) { () -> Void in
+
+            defer { self.responseQueueState = .active }
+            
+            // quickly return if no queued requests
+            guard !self.responseQueue.isEmpty else {
+                self.log("No queued response")
+                return
+            }
+
+            // send requests in sequential order
+            let promises = self.responseQueue.reduce(into: Promise(())) { result, response in result.then(on: .sdk) { self.onSignalResponse(response) } }
+            // clear the queue
+            self.responseQueue.removeAll()
+
+            // resolve promise in this queue
+            try awaitPromise(promises)
+        }
+    }
+}
+
 // MARK: - Send methods
 
 internal extension SignalClient {
@@ -254,7 +309,7 @@ internal extension SignalClient {
             }
         }
 
-        return Promise<Void>(on: queue) { () -> Void in
+        return Promise<Void>(on: requestDispatchQueue) { () -> Void in
 
             // quickly return if no queued requests
             guard !self.requestQueue.isEmpty else {

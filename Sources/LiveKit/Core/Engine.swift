@@ -250,6 +250,8 @@ private extension Engine {
         }.then(on: .sdk) { jr in
             self.configureTransports(joinResponse: jr)
         }.then(on: .sdk) {
+            self.signalClient.resumeResponseQueue()
+        }.then(on: .sdk) {
             self.waitFor(transport: self.primary, state: .connected).wait
         }
     }
