@@ -607,6 +607,8 @@ extension Engine: RTCDataChannelDelegate {
 
     func dataChannelDidChangeState(_ dataChannel: RTCDataChannel) {
         notify { $0.engine(self, didUpdate: dataChannel, state: dataChannel.readyState) }
+
+        self.log("dataChannel.\(dataChannel.label) didChangeState : \(dataChannel.channelId)")
     }
 
     func dataChannel(_: RTCDataChannel, didReceiveMessageWith buffer: RTCDataBuffer) {
@@ -688,6 +690,9 @@ extension Engine: TransportDelegate {
                                                           configuration: Engine.createDataChannelConfiguration(maxRetransmits: 0),
                                                           delegate: self)
 
+            self.log("dataChannel.\(self.dcReliablePub?.label) : \(self.dcReliablePub?.channelId)")
+            self.log("dataChannel.\(self.dcLossyPub?.label) : \(self.dcLossyPub?.channelId)")
+
             if !self.subscriberPrimary {
                 // lazy negotiation for protocol v3+
                 self.publisherShouldNegotiate()
@@ -721,6 +726,8 @@ extension Engine: TransportDelegate {
         if subscriberPrimary, transport.target == .subscriber {
             onReceived(dataChannel: dataChannel)
         }
+
+        self.log("dataChannel..\(dataChannel.label) : \(dataChannel.channelId)")
     }
 
     func transportShouldNegotiate(_ transport: Transport) {}
