@@ -21,12 +21,12 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
     }
 
     enum QueueState {
-        case active
+        case resumed
         case suspended
     }
 
-    private(set) var responseQueueState: QueueState = .active
-    
+    private(set) var responseQueueState: QueueState = .resumed
+
     private var webSocket: WebSocket?
     private var latestJoinResponse: Livekit_JoinResponse?
 
@@ -102,7 +102,7 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
         requestDispatchQueue.sync { requestQueue.removeAll() }
         responseDispatchQueue.sync {
             responseQueue.removeAll()
-            responseQueueState = .active
+            responseQueueState = .resumed
         }
     }
 }
@@ -158,7 +158,7 @@ private extension SignalClient {
             log("Failed to decode SignalResponse", .warning)
             return
         }
-        
+
         if case .suspended = responseQueueState {
             log("Enqueueing response: \(response)")
             requestDispatchQueue.async {
@@ -180,11 +180,11 @@ private extension SignalClient {
             log("Failed to decode SignalResponse", .warning)
             return
         }
-        
+
         switch message {
         case .join(let joinResponse) :
+            suspendResponseQueue()
             latestJoinResponse = joinResponse
-            responseQueueState = .suspended
             notify { $0.signalClient(self, didReceive: joinResponse) }
 
         case .answer(let sd):
@@ -271,14 +271,19 @@ internal extension SignalClient {
 
 internal extension SignalClient {
 
+    func suspendResponseQueue() {
+        log()
+        responseDispatchQueue.sync { self.responseQueueState = .suspended }
+    }
+
     func resumeResponseQueue() -> Promise<Void> {
-        
-        log("resume")
-        
+
+        log()
+
         return Promise<Void>(on: responseDispatchQueue) { () -> Void in
 
-            defer { self.responseQueueState = .active }
-            
+            defer { self.responseQueueState = .resumed }
+
             // quickly return if no queued requests
             guard !self.responseQueue.isEmpty else {
                 self.log("No queued response")
