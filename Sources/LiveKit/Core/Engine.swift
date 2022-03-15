@@ -646,7 +646,7 @@ extension Engine: TransportDelegate {
 
     private func configureTransports(joinResponse: Livekit_JoinResponse) -> Promise<Void> {
 
-        Promise<Void> { () -> Void in
+        Promise<Void>(on: .sdk) { () -> Void in
 
             self.log("configuring transports...")
 
