@@ -9,7 +9,7 @@ internal class WebSocket: NSObject, URLSessionWebSocketDelegate, Loggable {
     public var onMessage: OnMessage?
     public var onDisconnect: OnDisconnect?
 
-    private let queue = DispatchQueue(label: "LiveKitSDK.webSocket", qos: .background)
+    private let queue = DispatchQueue(label: "LiveKitSDK.webSocket", qos: .default)
     private let operationQueue = OperationQueue()
     private let request: URLRequest
 
