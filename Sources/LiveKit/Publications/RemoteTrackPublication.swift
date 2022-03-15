@@ -197,7 +197,7 @@ private extension RemoteTrackPublication {
 
     func checkCanModifyTrackSettings() -> Promise<Void> {
 
-        Promise<Void> { () -> Void in
+        Promise<Void>(on: .sdk) { () -> Void in
 
             guard let adaptiveStream = self.participant?.room.options.adaptiveStream else {
                 throw TrackError.state(message: "The state of AdaptiveStream is unknown")
