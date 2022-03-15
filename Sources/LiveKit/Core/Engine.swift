@@ -690,8 +690,8 @@ extension Engine: TransportDelegate {
                                                           configuration: Engine.createDataChannelConfiguration(maxRetransmits: 0),
                                                           delegate: self)
 
-            self.log("dataChannel.\(self.dcReliablePub?.label) : \(self.dcReliablePub?.channelId)")
-            self.log("dataChannel.\(self.dcLossyPub?.label) : \(self.dcLossyPub?.channelId)")
+            self.log("dataChannel.\(String(describing: self.dcReliablePub?.label)) : \(String(describing: self.dcReliablePub?.channelId))")
+            self.log("dataChannel.\(String(describing: self.dcLossyPub?.label)) : \(String(describing: self.dcLossyPub?.channelId))")
 
             if !self.subscriberPrimary {
                 // lazy negotiation for protocol v3+
