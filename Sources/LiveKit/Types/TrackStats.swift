@@ -1,8 +1,8 @@
 import Foundation
 
-internal extension Double {
+public extension Double {
 
-    func round(to places: Int) -> Double {
+    func rounded(to places: Int) -> Double {
         let divisor = pow(10.0, Double(places))
         return (self * divisor).rounded() / divisor
     }
@@ -24,7 +24,7 @@ public extension TrackStats {
             ordinal += 1
         }
 
-        return String(rate.round(to: 2)) + ordinals[ordinal] + "bps"
+        return String(rate.rounded(to: 2)) + ordinals[ordinal] + "bps"
     }
 
     func formattedBpsSent() -> String {

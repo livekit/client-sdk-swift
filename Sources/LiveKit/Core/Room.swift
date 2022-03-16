@@ -22,6 +22,7 @@ public class Room: MulticastDelegate<RoomDelegate> {
     public var connectionState: ConnectionState { engine.connectionState }
     public var url: String? { engine.url }
     public var token: String? { engine.token }
+    public var connectStopwatch: Stopwatch { engine.connectStopwatch }
 
     public init(delegate: RoomDelegate? = nil,
                 connectOptions: ConnectOptions = ConnectOptions(),

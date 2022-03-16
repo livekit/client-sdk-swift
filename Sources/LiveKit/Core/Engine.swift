@@ -35,7 +35,7 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
         }
     }
 
-    private let stopwatch = Stopwatch(label: "connect")
+    internal let connectStopwatch = Stopwatch(label: "connect")
 
     init(connectOptions: ConnectOptions,
          roomOptions: RoomOptions) {
@@ -92,7 +92,7 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
 
         connectionState = .disconnected(reason: reason)
         signalClient.cleanUp(reason: reason)
-        stopwatch.clear()
+        connectStopwatch.clear()
 
         return cleanUpRTC()
     }
@@ -251,7 +251,7 @@ private extension Engine {
         }.then(on: .sdk) {
             joinPromises.wait
         }.then(on: .sdk) { _ in
-            self.stopwatch.split(label: "signal")
+            self.connectStopwatch.split(label: "signal")
         }.then(on: .sdk) { jr in
             self.configureTransports(joinResponse: jr)
         }.then(on: .sdk) {
@@ -259,8 +259,8 @@ private extension Engine {
         }.then(on: .sdk) {
             self.waitFor(transport: self.primary, state: .connected).wait
         }.then(on: .sdk) {
-            self.stopwatch.split(label: "engine")
-            self.log("\(self.stopwatch)")
+            self.connectStopwatch.split(label: "engine")
+            self.log("\(self.connectStopwatch)")
         }
     }
 
