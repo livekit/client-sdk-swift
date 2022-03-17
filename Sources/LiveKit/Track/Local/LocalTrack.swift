@@ -1,7 +1,7 @@
 import Promises
 
 public class LocalTrack: Track {
-    
+
     public enum PublishState {
         case unpublished
         case published
@@ -33,7 +33,7 @@ public class LocalTrack: Track {
             self.set(muted: false, shouldSendSignal: true)
         }
     }
-    
+
     internal func publish() -> Promise<Void> {
 
         Promise(on: .sdk) {

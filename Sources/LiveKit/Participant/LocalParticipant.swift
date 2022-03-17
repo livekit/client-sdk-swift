@@ -17,6 +17,12 @@ public class LocalParticipant: Participant {
         updateFromInfo(info: info)
     }
 
+    override func cleanUp() -> Promise<Void> {
+        super.cleanUp().then {
+            self.unpublishAll(shouldNotify: false)
+        }
+    }
+
     public func getTrackPublication(sid: Sid) -> LocalTrackPublication? {
         return tracks[sid] as? LocalTrackPublication
     }

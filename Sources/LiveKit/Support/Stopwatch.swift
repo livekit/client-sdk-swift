@@ -40,7 +40,7 @@ public class Stopwatch {
         splits.removeAll()
         start = ProcessInfo.processInfo.systemUptime
     }
-    
+
     public func total() -> TimeInterval {
         guard let last = splits.last else { return 0 }
         return last.time - start
