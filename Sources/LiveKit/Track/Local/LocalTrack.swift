@@ -1,6 +1,13 @@
 import Promises
 
 public class LocalTrack: Track {
+    
+    public enum PublishState {
+        case unpublished
+        case published
+    }
+
+    public private(set) var publishState: PublishState = .unpublished
 
     /// ``publishOptions`` used for this track if already published.
     public internal(set) var publishOptions: PublishOptions?
@@ -24,6 +31,28 @@ public class LocalTrack: Track {
             self.start()
         }.then(on: .sdk) {
             self.set(muted: false, shouldSendSignal: true)
+        }
+    }
+    
+    internal func publish() -> Promise<Void> {
+
+        Promise(on: .sdk) {
+            guard self.publishState != .published else {
+                throw TrackError.state(message: "Already published")
+            }
+
+            self.publishState = .published
+        }
+    }
+
+    internal func unpublish() -> Promise<Void> {
+
+        Promise(on: .sdk) {
+            guard self.publishState != .unpublished else {
+                throw TrackError.state(message: "Already unpublished")
+            }
+
+            self.publishState = .unpublished
         }
     }
 }
