@@ -17,7 +17,7 @@ public class LocalParticipant: Participant {
         updateFromInfo(info: info)
     }
 
-    override func cleanUp() -> Promise<Void> {
+    internal override func cleanUp() -> Promise<Void> {
         super.cleanUp().then {
             self.unpublishAll(shouldNotify: false)
         }
