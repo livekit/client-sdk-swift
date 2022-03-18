@@ -42,15 +42,15 @@ public class LocalAudioTrack: LocalTrack, AudioTrack {
     }
 
     @discardableResult
-    override func start() -> Promise<Void> {
-        super.start().then(on: .sdk) {
+    internal override func publish() -> Promise<Void> {
+        super.publish().then(on: .sdk) {
             AudioManager.shared.trackDidStart(.local)
         }
     }
 
     @discardableResult
-    override public func stop() -> Promise<Void> {
-        super.stop().then(on: .sdk) {
+    internal override func unpublish() -> Promise<Void> {
+        super.unpublish().then(on: .sdk) {
             AudioManager.shared.trackDidStop(.local)
         }
     }

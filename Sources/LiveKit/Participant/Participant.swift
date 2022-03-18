@@ -1,5 +1,6 @@
 import Foundation
 import WebRTC
+import Promises
 
 public class Participant: MulticastDelegate<ParticipantDelegate> {
 
@@ -56,6 +57,11 @@ public class Participant: MulticastDelegate<ParticipantDelegate> {
         self.identity = identity
         self.name = name
         self.room = room
+    }
+
+    @discardableResult
+    internal func cleanUp() -> Promise<Void> {
+        Promise(())
     }
 
     func addTrack(publication: TrackPublication) {

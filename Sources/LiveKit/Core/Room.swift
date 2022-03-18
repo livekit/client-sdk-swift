@@ -93,23 +93,21 @@ private extension Room {
         log()
 
         // Stop all local & remote tracks
-        func stopAllTracks() -> Promise<Void> {
+        func cleanUpParticipants() -> Promise<Void> {
 
             let allParticipants = ([[localParticipant],
                                     remoteParticipants.map { $0.value }] as [[Participant?]])
                 .joined()
                 .compactMap { $0 }
 
-            let stopPromises = allParticipants.map { $0.tracks.values.map { $0.track } }.joined()
-                .compactMap { $0 }
-                .map { $0.stop() }
+            let cleanUpPromises = allParticipants.map { $0.cleanUp() }
 
-            return stopPromises.all(on: .sdk)
+            return cleanUpPromises.all(on: .sdk)
         }
 
         return engine.cleanUp(reason: reason)
             .then(on: .sdk) {
-                stopAllTracks()
+                cleanUpParticipants()
             }.recover(on: .sdk) { self.log("Failed to stop all tracks, error: \($0)")
             }.then(on: .sdk) {
                 self.sid = nil
