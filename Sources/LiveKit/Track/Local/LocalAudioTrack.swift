@@ -49,7 +49,7 @@ public class LocalAudioTrack: LocalTrack, AudioTrack {
     }
 
     @discardableResult
-    internal override public func unpublish() -> Promise<Void> {
+    internal override func unpublish() -> Promise<Void> {
         super.unpublish().then(on: .sdk) {
             AudioManager.shared.trackDidStop(.local)
         }
