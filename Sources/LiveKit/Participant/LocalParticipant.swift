@@ -17,6 +17,12 @@ public class LocalParticipant: Participant {
         updateFromInfo(info: info)
     }
 
+    internal override func cleanUp() -> Promise<Void> {
+        super.cleanUp().then {
+            self.unpublishAll(shouldNotify: false)
+        }
+    }
+
     public func getTrackPublication(sid: Sid) -> LocalTrackPublication? {
         return tracks[sid] as? LocalTrackPublication
     }
@@ -102,6 +108,8 @@ public class LocalParticipant: Participant {
                                             // pass down trackInfo and created transceiver
                                             (transceiver, trackInfo)
                                          }
+            }.then(on: .sdk) { params in
+                track.publish().then { params }
             }.then(on: .sdk) { (transceiver, trackInfo) -> LocalTrackPublication in
 
                 // store publishOptions used for this track
@@ -169,7 +177,7 @@ public class LocalParticipant: Participant {
         tracks.removeValue(forKey: publication.sid)
 
         // if track is nil, only notify unpublish and return
-        guard let track = publication.track else {
+        guard let track = publication.track as? LocalTrack else {
             return notifyDidUnpublish()
         }
 
@@ -194,6 +202,8 @@ public class LocalParticipant: Participant {
                 return publisher.removeTrack(sender).then(on: .sdk) {
                     self.room.engine.publisherShouldNegotiate()
                 }
+            }.then(on: .sdk) {
+                track.unpublish()
             }.then(on: .sdk) { () -> Promise<Void> in
                 notifyDidUnpublish()
             }

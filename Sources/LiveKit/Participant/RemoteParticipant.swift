@@ -18,6 +18,12 @@ public class RemoteParticipant: Participant {
         }
     }
 
+    internal override func cleanUp() -> Promise<Void> {
+        super.cleanUp().then {
+            self.unpublishAll(shouldNotify: false)
+        }
+    }
+
     public func getTrackPublication(sid: Sid) -> RemoteTrackPublication? {
         return tracks[sid] as? RemoteTrackPublication
     }
@@ -94,6 +100,14 @@ public class RemoteParticipant: Participant {
             self.notify { $0.participant(self, didSubscribe: publication, track: track) }
             self.room.notify { $0.room(self.room, participant: self, didSubscribe: publication, track: track) }
         }
+    }
+
+    public func unpublishAll(shouldNotify: Bool = true) -> Promise<Void> {
+        // build a list of promises
+        let promises = tracks.values.compactMap { $0 as? RemoteTrackPublication }
+            .map { unpublish(publication: $0, shouldNotify: shouldNotify) }
+        // combine promises to wait all to complete
+        return promises.all(on: .sdk)
     }
 
     func unpublish(publication: RemoteTrackPublication, shouldNotify: Bool = true) -> Promise<Void> {
