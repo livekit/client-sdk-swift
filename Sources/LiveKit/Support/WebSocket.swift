@@ -95,7 +95,6 @@ internal class WebSocket: NSObject, URLSessionWebSocketDelegate, Loggable {
         switch result {
         case .failure(let error):
             log("Failed to receive \(error)", .error)
-            cleanUp(reason: .network(error: error))
 
         case .success(let message):
             onMessage?(message)
