@@ -33,9 +33,15 @@ internal class WebSocket: NSObject, URLSessionWebSocketDelegate, Loggable {
     private var connectPromise: Promise<WebSocket>?
 
     private lazy var session: URLSession = {
-        URLSession(configuration: .default,
-                   delegate: self,
-                   delegateQueue: operationQueue)
+        let config = URLSessionConfiguration.default
+        // explicitly set timeout intervals
+        config.timeoutIntervalForRequest = TimeInterval(60)
+        config.timeoutIntervalForResource = TimeInterval(604_800)
+        log("URLSessionConfiguration.timeoutIntervalForRequest: \(config.timeoutIntervalForRequest)")
+        log("URLSessionConfiguration.timeoutIntervalForResource: \(config.timeoutIntervalForResource)")
+        return URLSession(configuration: config,
+                          delegate: self,
+                          delegateQueue: operationQueue)
     }()
 
     private lazy var task: URLSessionWebSocketTask = {
