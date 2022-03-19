@@ -159,13 +159,13 @@ private extension SignalClient {
             return
         }
 
-        if case .suspended = responseQueueState {
-            log("Enqueueing response: \(response)")
-            requestDispatchQueue.async {
+        responseDispatchQueue.async {
+            if case .suspended = self.responseQueueState {
+                self.log("Enqueueing response: \(response)")
                 self.responseQueue.append(response)
+            } else {
+                self.onSignalResponse(response)
             }
-        } else {
-            onSignalResponse(response)
         }
     }
 
@@ -183,7 +183,7 @@ private extension SignalClient {
 
         switch message {
         case .join(let joinResponse) :
-            suspendResponseQueue()
+            responseQueueState = .suspended
             latestJoinResponse = joinResponse
             notify { $0.signalClient(self, didReceive: joinResponse) }
 
@@ -270,11 +270,6 @@ internal extension SignalClient {
 // MARK: - Internal
 
 internal extension SignalClient {
-
-    func suspendResponseQueue() {
-        log()
-        responseDispatchQueue.sync { self.responseQueueState = .suspended }
-    }
 
     func resumeResponseQueue() -> Promise<Void> {
 
