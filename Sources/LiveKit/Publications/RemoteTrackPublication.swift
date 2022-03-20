@@ -314,6 +314,7 @@ extension RemoteTrackPublication {
         // set internal enabled var
         let enabled = hasVisibleVideoViews()
         var dimensions: Dimensions = .zero
+        var videoQuality: VideoQuality = .low
 
         // compute the largest video view size
         if enabled, let maxSize = videoViewVisibilities.values.largestVideoViewSize() {
@@ -321,8 +322,14 @@ extension RemoteTrackPublication {
                                     height: Int32(ceil(maxSize.height)))
         }
 
+        // if dimensions are not set, default to .high
+        if dimensions == .zero {
+            videoQuality = .high
+        }
+
         let newSettings = TrackSettings(enabled: enabled,
-                                        dimensions: dimensions)
+                                        dimensions: dimensions,
+                                        videoQuality: videoQuality)
 
         send(trackSettings: newSettings).catch { error in
             self.log("Failed to send track settings, error: \(error)", .error)

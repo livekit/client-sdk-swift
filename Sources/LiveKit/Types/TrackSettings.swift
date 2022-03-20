@@ -18,30 +18,38 @@ internal struct TrackSettings {
 
     let enabled: Bool
     let dimensions: Dimensions
+    let videoQuality: VideoQuality
 
     init(enabled: Bool = true,
-         dimensions: Dimensions = .zero) {
+         dimensions: Dimensions = .zero,
+         videoQuality: VideoQuality = .low) {
 
         self.enabled = enabled
         self.dimensions = dimensions
+        self.videoQuality = videoQuality
     }
 
-    func copyWith(enabled: Bool? = nil, dimensions: Dimensions? = nil) -> TrackSettings {
+    func copyWith(enabled: Bool? = nil,
+                  dimensions: Dimensions? = nil,
+                  videoQuality: VideoQuality? = nil) -> TrackSettings {
         TrackSettings(enabled: enabled ?? self.enabled,
-                      dimensions: dimensions ?? self.dimensions)
+                      dimensions: dimensions ?? self.dimensions,
+                      videoQuality: videoQuality ?? self.videoQuality)
     }
 }
 
 extension TrackSettings: Equatable {
 
     static func == (lhs: TrackSettings, rhs: TrackSettings) -> Bool {
-        lhs.enabled == rhs.enabled && lhs.dimensions == rhs.dimensions
+        lhs.enabled == rhs.enabled
+            && lhs.dimensions == rhs.dimensions
+            && lhs.videoQuality == rhs.videoQuality
     }
 }
 
 extension TrackSettings: CustomStringConvertible {
 
     var description: String {
-        "TrackSettings(enabled: \(enabled), dimensions: \(dimensions))"
+        "TrackSettings(enabled: \(enabled), dimensions: \(dimensions), videoQuality: \(videoQuality))"
     }
 }
