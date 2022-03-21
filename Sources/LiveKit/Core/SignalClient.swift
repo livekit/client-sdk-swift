@@ -418,7 +418,7 @@ internal extension SignalClient {
         // we have to send either width/height or quality.
         // when both are sent, width/height are used.
         if settings.enabled, settings.dimensions == .zero && settings.videoQuality == .low {
-            log("either width/height or quality is not set", .warning)
+            log("either width/height or quality is not set while enabling", .warning)
         }
 
         let r = Livekit_SignalRequest.with {
