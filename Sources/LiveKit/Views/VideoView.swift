@@ -100,7 +100,7 @@ public class VideoView: NativeView, Loggable {
     }
 
     /// Calls addRenderer and/or removeRenderer internally for convenience.
-    public var track: VideoTrack? {
+    public weak var track: VideoTrack? {
         didSet {
             guard !(oldValue?.isEqual(track) ?? false) else { return }
 
