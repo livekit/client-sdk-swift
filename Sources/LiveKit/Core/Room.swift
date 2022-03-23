@@ -577,8 +577,13 @@ extension Room: AppStateDelegate {
 
         guard options.suspendLocalVideoTracksInBackground else { return }
 
-        guard let localParticipant = localParticipant else { return }
-        let promises = localParticipant.localVideoTracks.map { $0.suspend() }
+        let allParticipants = ([[localParticipant],
+                                remoteParticipants.map { $0.value }] as [[Participant?]])
+            .joined()
+            .compactMap { $0 }
+
+        let promises = allParticipants.map { $0.videoTracks }.joined()
+            .map { $0.suspend() }
 
         guard !promises.isEmpty else { return }
 
@@ -589,8 +594,13 @@ extension Room: AppStateDelegate {
 
     func appWillEnterForeground() {
 
-        guard let localParticipant = localParticipant else { return }
-        let promises = localParticipant.localVideoTracks.map { $0.resume() }
+        let allParticipants = ([[localParticipant],
+                                remoteParticipants.map { $0.value }] as [[Participant?]])
+            .joined()
+            .compactMap { $0 }
+
+        let promises = allParticipants.map { $0.videoTracks }.joined()
+            .map { $0.resume() }
 
         guard !promises.isEmpty else { return }
 

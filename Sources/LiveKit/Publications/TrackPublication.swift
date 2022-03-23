@@ -34,6 +34,9 @@ public class TrackPublication: TrackDelegate, Loggable {
     public internal(set) var name: String
     public private(set) var track: Track?
 
+    // indicates whether the track was suspended by the SDK
+    public internal(set) var suspended: Bool = false
+
     public var muted: Bool {
         track?.muted ?? false
     }
@@ -104,7 +107,7 @@ public class TrackPublication: TrackDelegate, Loggable {
     public func track(_ track: VideoTrack, videoView: VideoView, didUpdate size: CGSize) {
         //
     }
-    
+
     public func track(_ track: VideoTrack, videoView: VideoView, didLayout size: CGSize) {
         //
     }
@@ -141,5 +144,17 @@ public class TrackPublication: TrackDelegate, Loggable {
                 participant.notify { $0.participant(participant, didUpdate: self, muted: muted) }
                 participant.room.notify { $0.room(participant.room, participant: participant, didUpdate: self, muted: self.muted) }
             }
+    }
+
+    @discardableResult
+    internal func suspend() -> Promise<Void> {
+        // this will never happen
+        fatalError("suspend() has not been implemented")
+    }
+
+    @discardableResult
+    internal func resume() -> Promise<Void> {
+        // this will never happen
+        fatalError("resume() has not been implemented")
     }
 }

@@ -197,6 +197,28 @@ public class RemoteTrackPublication: TrackPublication {
         shouldComputeVideoViewVisibilities()
     }
     #endif
+
+    // MARK: - Suspend/Resume
+
+    @discardableResult
+    internal override func suspend() -> Promise<Void> {
+        // do nothing if already disabled
+        guard enabled else { return Promise(()) }
+        let newSettings = trackSettings.copyWith(enabled: false)
+        return send(trackSettings: newSettings).then {
+            self.suspended = true
+        }
+    }
+
+    @discardableResult
+    internal override func resume() -> Promise<Void> {
+        // do nothing if was not suspended
+        guard suspended else { return Promise(()) }
+        let newSettings = trackSettings.copyWith(enabled: true)
+        return send(trackSettings: newSettings).then {
+            self.suspended = false
+        }
+    }
 }
 
 // MARK: - Private

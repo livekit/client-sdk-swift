@@ -19,9 +19,6 @@ import Promises
 
 public class LocalTrackPublication: TrackPublication {
 
-    // indicates whether the track was suspended(muted) by the SDK
-    internal var suspended: Bool = false
-
     @discardableResult
     public func mute() -> Promise<Void> {
 
@@ -74,12 +71,11 @@ public class LocalTrackPublication: TrackPublication {
         self?.recomputeSenderParameters()
     })
     #endif
-}
 
-internal extension LocalTrackPublication {
+    // MARK: - Suspend/Resume
 
     @discardableResult
-    func suspend() -> Promise<Void> {
+    internal override func suspend() -> Promise<Void> {
         // do nothing if already muted
         guard !muted else { return Promise(()) }
         return mute().then {
@@ -88,7 +84,7 @@ internal extension LocalTrackPublication {
     }
 
     @discardableResult
-    func resume() -> Promise<Void> {
+    internal override func resume() -> Promise<Void> {
         // do nothing if was not suspended
         guard suspended else { return Promise(()) }
         return unmute().then {
