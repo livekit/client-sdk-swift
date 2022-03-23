@@ -166,8 +166,11 @@ extension Track: RTCVideoRenderer {
     public func renderFrame(_ frame: RTCVideoFrame?) {
 
         if let frame = frame {
-            set(dimensions: Dimensions(width: frame.width,
-                                       height: frame.height))
+            let dimensions = Dimensions(width: frame.width,
+                                        height: frame.height)
+                .apply(rotation: frame.rotation)
+
+            set(dimensions: dimensions)
         } else {
             set(dimensions: nil)
         }

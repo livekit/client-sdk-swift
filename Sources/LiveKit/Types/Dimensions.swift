@@ -71,6 +71,10 @@ extension Dimensions {
         width * height
     }
 
+    func swapped() -> Dimensions {
+        Dimensions(width: height, height: width)
+    }
+
     func aspectFit(size: Int32) -> Dimensions {
         let c = width >= height
         let r = c ? Double(height) / Double(width) : Double(width) / Double(height)
@@ -156,6 +160,15 @@ extension Dimensions {
 
     func toCGSize() -> CGSize {
         CGSize(width: Int(width), height: Int(height))
+    }
+
+    func apply(rotation: RTCVideoRotation) -> Dimensions {
+
+        if ._90 == rotation || ._270 == rotation {
+            return swapped()
+        }
+
+        return self
     }
 }
 
