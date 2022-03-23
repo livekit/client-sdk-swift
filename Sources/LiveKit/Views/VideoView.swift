@@ -325,7 +325,7 @@ extension VideoView {
 
     internal static func createNativeRendererView(preferMetal: Bool) -> NativeRendererView {
 
-        DispatchQueue.webRTC.sync {
+        DispatchQueue.mainSafeSync {
             let view: NativeRendererView
             #if os(iOS)
             // iOS --------------------
