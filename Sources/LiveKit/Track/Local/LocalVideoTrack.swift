@@ -41,6 +41,7 @@ public class LocalVideoTrack: LocalTrack, VideoTrack {
                    track: rtcTrack)
     }
 
+    @discardableResult
     public override func start() -> Promise<Void> {
         let wait = self.capturer.waitForDimensions()
         return super.start().then(on: .sdk) {
@@ -53,6 +54,7 @@ public class LocalVideoTrack: LocalTrack, VideoTrack {
         }
     }
 
+    @discardableResult
     public override func stop() -> Promise<Void> {
         super.stop().then(on: .sdk) {
             self.capturer.stopCapture()
