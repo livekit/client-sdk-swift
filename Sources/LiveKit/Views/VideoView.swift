@@ -176,8 +176,13 @@ public class VideoView: NativeView, Loggable {
         assert(Thread.current.isMainThread, "shouldLayout must be called from main thread")
 
         defer {
+            let size = self.frame.size
             DispatchQueue.main.async {
-                self.viewSize = self.frame.size
+                self.viewSize = size
+            }
+            track?.notify { [weak track] in
+                guard let track = track else { return }
+                $0.track(track, videoView: self, didLayout: size)
             }
         }
 

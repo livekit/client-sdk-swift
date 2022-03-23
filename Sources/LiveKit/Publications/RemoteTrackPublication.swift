@@ -183,7 +183,7 @@ public class RemoteTrackPublication: TrackPublication {
 
     override public func track(_ track: VideoTrack,
                                videoView: VideoView,
-                               didUpdate size: CGSize) {
+                               didLayout size: CGSize) {
 
         videoViewVisibilities[videoView.hash] = VideoViewVisibility(visible: true,
                                                                     size: size)
