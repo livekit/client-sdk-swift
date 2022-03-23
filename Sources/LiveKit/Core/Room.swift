@@ -552,7 +552,7 @@ extension Room: EngineDelegate {
 
     func engine(_ engine: Engine, didRemove track: RTCMediaStreamTrack) {
         // find the publication
-        guard let publication = remoteParticipants.values.map { $0.tracks.values }.joined()
+        guard let publication = remoteParticipants.values.map({ $0.tracks.values }).joined()
                 .first(where: { $0.sid == track.trackId }) else { return }
         publication.set(track: nil)
     }
