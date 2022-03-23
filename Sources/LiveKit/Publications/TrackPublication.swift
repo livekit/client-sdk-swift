@@ -104,6 +104,10 @@ public class TrackPublication: TrackDelegate, Loggable {
     public func track(_ track: VideoTrack, videoView: VideoView, didUpdate size: CGSize) {
         //
     }
+    
+    public func track(_ track: VideoTrack, videoView: VideoView, didLayout size: CGSize) {
+        //
+    }
 
     public func track(_ track: VideoTrack, didAttach videoView: VideoView) {
         //
