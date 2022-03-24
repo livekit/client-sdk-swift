@@ -273,16 +273,24 @@ extension VideoView: RTCVideoRenderer {
 
             let dimensions = Dimensions(width: frame.width,
                                         height: frame.height)
+                .apply(rotation: frame.rotation)
 
             guard dimensions.isRenderSafe else {
                 log("Skipping render for dimension \(dimensions)", .warning)
                 // renderState.insert(.didSkipUnsafeFrame)
                 return
             }
+
+            track?.set(dimensions: dimensions)
+
+        } else {
+            track?.set(dimensions: nil)
         }
 
         // dispatchPrecondition(condition: .onQueue(.webRTC))
         nativeRenderer.renderFrame(frame)
+
+        track?.set(videoFrame: frame)
 
         // layout after first frame has been rendered
         if !renderState.contains(.didRenderFirstFrame) {
