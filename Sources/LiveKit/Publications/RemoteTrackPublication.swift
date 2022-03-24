@@ -215,7 +215,9 @@ public class RemoteTrackPublication: TrackPublication {
         // do nothing if was not suspended
         guard suspended else { return Promise(()) }
         let newSettings = trackSettings.copyWith(enabled: true)
-        return send(trackSettings: newSettings).then {
+        return send(trackSettings: newSettings).recover { error in
+            self.log("Failed to resume RemoteTrackPublication", .warning)
+        }.then {
             self.suspended = false
         }
     }
