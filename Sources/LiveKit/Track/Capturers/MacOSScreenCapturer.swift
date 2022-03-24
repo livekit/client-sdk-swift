@@ -94,7 +94,7 @@ public class MacOSScreenCapturer: VideoCapturer {
             kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_420YpCbCr8BiPlanarFullRange
         ]
         session.addOutput(output)
-        output.setSampleBufferDelegate(self, queue: .sdk)
+        output.setSampleBufferDelegate(self, queue: .capture)
         return session
     }()
 

@@ -100,7 +100,7 @@ public class VideoView: NativeView, Loggable {
     }
 
     /// Calls addRenderer and/or removeRenderer internally for convenience.
-    public var track: VideoTrack? {
+    public weak var track: VideoTrack? {
         didSet {
             guard !(oldValue?.isEqual(track) ?? false) else { return }
 
@@ -150,11 +150,19 @@ public class VideoView: NativeView, Loggable {
         self.preferMetal = preferMetal
         self.nativeRenderer = VideoView.createNativeRendererView(preferMetal: preferMetal)
         super.init(frame: frame)
+        #if os(iOS)
+        self.clipsToBounds = true
+        #endif
         addSubview(nativeRenderer)
     }
 
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
+    }
+
+    deinit {
+        log()
+        self.track = nil
     }
 
     override func shouldLayout() {
@@ -176,8 +184,13 @@ public class VideoView: NativeView, Loggable {
         assert(Thread.current.isMainThread, "shouldLayout must be called from main thread")
 
         defer {
+            let size = self.frame.size
             DispatchQueue.main.async {
-                self.viewSize = self.frame.size
+                self.viewSize = size
+            }
+            track?.notify { [weak track] in
+                guard let track = track else { return }
+                $0.track(track, videoView: self, didLayout: size)
             }
         }
 
@@ -260,16 +273,24 @@ extension VideoView: RTCVideoRenderer {
 
             let dimensions = Dimensions(width: frame.width,
                                         height: frame.height)
+                .apply(rotation: frame.rotation)
 
             guard dimensions.isRenderSafe else {
                 log("Skipping render for dimension \(dimensions)", .warning)
                 // renderState.insert(.didSkipUnsafeFrame)
                 return
             }
+
+            track?.set(dimensions: dimensions)
+
+        } else {
+            track?.set(dimensions: nil)
         }
 
         // dispatchPrecondition(condition: .onQueue(.webRTC))
         nativeRenderer.renderFrame(frame)
+
+        track?.set(videoFrame: frame)
 
         // layout after first frame has been rendered
         if !renderState.contains(.didRenderFirstFrame) {
@@ -320,7 +341,7 @@ extension VideoView {
 
     internal static func createNativeRendererView(preferMetal: Bool) -> NativeRendererView {
 
-        DispatchQueue.webRTC.sync {
+        DispatchQueue.mainSafeSync {
             let view: NativeRendererView
             #if os(iOS)
             // iOS --------------------

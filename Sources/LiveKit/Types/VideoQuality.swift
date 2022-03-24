@@ -34,7 +34,7 @@ internal extension VideoQuality {
     ]
 
     func toPBType() -> Livekit_VideoQuality {
-        return Self.toPBTypeMap[self] ?? .high
+        return Self.toPBTypeMap[self] ?? .low
     }
 }
 
@@ -47,7 +47,7 @@ internal extension Livekit_VideoQuality {
     ]
 
     func toSDKType() -> VideoQuality {
-        return Self.toSDKTypeMap[self] ?? .high
+        return Self.toSDKTypeMap[self] ?? .low
     }
 
     static func from(rid: String?) -> Livekit_VideoQuality {

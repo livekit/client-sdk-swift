@@ -183,18 +183,10 @@ public class RemoteTrackPublication: TrackPublication {
 
     override public func track(_ track: VideoTrack,
                                videoView: VideoView,
-                               didUpdate size: CGSize) {
+                               didLayout size: CGSize) {
 
         videoViewVisibilities[videoView.hash] = VideoViewVisibility(visible: true,
                                                                     size: size)
-        shouldComputeVideoViewVisibilities()
-    }
-
-    override public func track(_ track: VideoTrack,
-                               didAttach videoView: VideoView) {
-
-        videoViewVisibilities[videoView.hash] = VideoViewVisibility(visible: true,
-                                                                    size: videoView.viewSize)
         shouldComputeVideoViewVisibilities()
     }
 
@@ -321,8 +313,8 @@ extension RemoteTrackPublication {
                                     height: Int32(ceil(maxSize.height)))
         }
 
-        let newSettings = TrackSettings(enabled: enabled,
-                                        dimensions: dimensions)
+        let newSettings = trackSettings.copyWith(enabled: enabled,
+                                                 dimensions: dimensions)
 
         send(trackSettings: newSettings).catch { error in
             self.log("Failed to send track settings, error: \(error)", .error)

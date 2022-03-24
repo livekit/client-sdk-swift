@@ -78,10 +78,6 @@ public class Track: MulticastDelegate<TrackDelegate> {
             return Promise(TrackError.state(message: "Already started"))
         }
 
-        if let videoTrack = mediaTrack as? RTCVideoTrack {
-            DispatchQueue.webRTC.sync { videoTrack.add(self) }
-        }
-
         self.state = .started
         return Promise(())
     }
@@ -90,10 +86,6 @@ public class Track: MulticastDelegate<TrackDelegate> {
     public func stop() -> Promise<Void> {
         guard state != .stopped else {
             return Promise(TrackError.state(message: "Already stopped"))
-        }
-
-        if let videoTrack = mediaTrack as? RTCVideoTrack {
-            DispatchQueue.webRTC.sync { videoTrack.remove(self) }
         }
 
         self.state = .stopped
@@ -140,9 +132,9 @@ internal extension Track {
     }
 }
 
-// MARK: - Private
+// MARK: - Internal
 
-private extension Track {
+internal extension Track {
 
     func set(dimensions newValue: Dimensions?) {
         guard self.dimensions != newValue else { return }
@@ -155,23 +147,5 @@ private extension Track {
     func set(videoFrame newValue: RTCVideoFrame?) {
         guard self.videoFrame != newValue else { return }
         self.videoFrame = newValue
-    }
-}
-
-extension Track: RTCVideoRenderer {
-
-    // not used
-    public func setSize(_ size: CGSize) {}
-
-    public func renderFrame(_ frame: RTCVideoFrame?) {
-
-        if let frame = frame {
-            set(dimensions: Dimensions(width: frame.width,
-                                       height: frame.height))
-        } else {
-            set(dimensions: nil)
-        }
-
-        set(videoFrame: frame)
     }
 }
