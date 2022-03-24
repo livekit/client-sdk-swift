@@ -150,7 +150,9 @@ public class VideoView: NativeView, Loggable {
         self.preferMetal = preferMetal
         self.nativeRenderer = VideoView.createNativeRendererView(preferMetal: preferMetal)
         super.init(frame: frame)
+        #if os(iOS)
         self.clipsToBounds = true
+        #endif
         addSubview(nativeRenderer)
     }
 
