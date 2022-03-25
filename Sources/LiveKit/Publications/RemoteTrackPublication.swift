@@ -185,7 +185,7 @@ public class RemoteTrackPublication: TrackPublication {
                                videoView: VideoView,
                                didLayout size: CGSize) {
 
-        videoViewVisibilities[videoView.hash] = VideoViewVisibility(visible: true,
+        videoViewVisibilities[videoView.hash] = VideoViewVisibility(visible: !videoView.isHidden,
                                                                     size: size)
         shouldComputeVideoViewVisibilities()
     }
@@ -373,7 +373,7 @@ extension Sequence where Element == VideoViewVisibility {
                    height: Swift.max(s1.height, s2.height))
         }
 
-        return map({ $0.size }).reduce(into: nil as CGSize?, { previous, current in
+        return filter { $0.visible }.map { $0.size }.reduce(into: nil as CGSize?, { previous, current in
             guard let unwrappedPrevious = previous else {
                 previous = current
                 return
