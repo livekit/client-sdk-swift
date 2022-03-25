@@ -136,16 +136,22 @@ internal extension Track {
 
 internal extension Track {
 
-    func set(dimensions newValue: Dimensions?) {
-        guard self.dimensions != newValue else { return }
+    // returns true when value is updated
+    func set(dimensions newValue: Dimensions?) -> Bool {
+        guard self.dimensions != newValue else { return false }
         self.dimensions = newValue
 
-        guard let videoTrack = self as? VideoTrack else { return }
+        guard let videoTrack = self as? VideoTrack else { return true }
         notify { $0.track(videoTrack, didUpdate: newValue) }
+
+        return true
     }
 
-    func set(videoFrame newValue: RTCVideoFrame?) {
-        guard self.videoFrame != newValue else { return }
+    // returns true when value is updated
+    func set(videoFrame newValue: RTCVideoFrame?) -> Bool {
+        guard self.videoFrame != newValue else { return false }
         self.videoFrame = newValue
+
+        return true
     }
 }

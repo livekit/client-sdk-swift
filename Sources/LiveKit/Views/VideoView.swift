@@ -62,9 +62,7 @@ public class VideoView: NativeView, Loggable {
     public var layoutMode: LayoutMode = .fill {
         didSet {
             guard oldValue != layoutMode else { return }
-            DispatchQueue.main.async {
-                self.markNeedsLayout()
-            }
+            safeMarkNeedsLayout()
         }
     }
 
@@ -73,9 +71,7 @@ public class VideoView: NativeView, Loggable {
     public var mirrorMode: MirrorMode = .auto {
         didSet {
             guard oldValue != mirrorMode else { return }
-            DispatchQueue.main.async {
-                self.markNeedsLayout()
-            }
+            safeMarkNeedsLayout()
         }
     }
 
@@ -134,11 +130,8 @@ public class VideoView: NativeView, Loggable {
                 renderState = []
             }
 
-            syncRendererAttach()
-
-            DispatchQueue.main.async { [weak self] in
-                self?.markNeedsLayout()
-            }
+            syncRendererAttach(oldValue: oldValue)
+            safeMarkNeedsLayout()
         }
     }
 
@@ -146,17 +139,15 @@ public class VideoView: NativeView, Loggable {
         didSet {
             guard oldValue != isHidden else { return }
             syncRendererAttach()
-
-            DispatchQueue.main.async { [weak self] in
-                self?.markNeedsLayout()
-            }
+            safeMarkNeedsLayout()
         }
     }
 
     private var _isRendererAttached: Bool = false
-    private func syncRendererAttach() {
+    private func syncRendererAttach(oldValue: VideoTrack? = nil) {
 
         let shouldBeAttached = (track != nil && !isHidden)
+
         if !_isRendererAttached, shouldBeAttached {
 
             log("attaching renderer")
@@ -198,13 +189,16 @@ public class VideoView: NativeView, Loggable {
     deinit {
         log()
 
-        if _isRendererAttached {
+        if track != nil {
             Self.decrementRendererCount()
         }
     }
 
     override func shouldLayout() {
         super.shouldLayout()
+
+        // this should never happen
+        dispatchPrecondition(condition: .onQueue(.main))
 
         guard !isHidden else {
             // skip layout if hidden
@@ -222,9 +216,6 @@ public class VideoView: NativeView, Loggable {
             case .mirror: return true
             }
         }
-
-        // this should never happen
-        assert(Thread.current.isMainThread, "shouldLayout must be called from main thread")
 
         defer {
             let size = self.frame.size
@@ -302,6 +293,17 @@ public class VideoView: NativeView, Loggable {
     }
 }
 
+// MARK: - Private
+
+private extension VideoView {
+
+    func safeMarkNeedsLayout() {
+        DispatchQueue.main.async { [weak self] in
+            self?.markNeedsLayout()
+        }
+    }
+}
+
 // MARK: - Renderer count
 
 extension VideoView {
@@ -346,22 +348,25 @@ extension VideoView: RTCVideoRenderer {
                 return
             }
 
-            track?.set(dimensions: dimensions)
+            if track?.set(dimensions: dimensions) == true {
+                safeMarkNeedsLayout()
+            }
 
         } else {
-            track?.set(dimensions: nil)
+            if track?.set(dimensions: nil) == true {
+                safeMarkNeedsLayout()
+            }
         }
 
-        // dispatchPrecondition(condition: .onQueue(.webRTC))
         nativeRenderer.renderFrame(frame)
 
-        track?.set(videoFrame: frame)
+        //        track?.set(videoFrame: frame)
 
         // layout after first frame has been rendered
         if !renderState.contains(.didRenderFirstFrame) {
             renderState.insert(.didRenderFirstFrame)
             log("Did render first frame")
-            DispatchQueue.main.async { self.markNeedsLayout() }
+            safeMarkNeedsLayout()
         }
     }
 }
@@ -372,9 +377,7 @@ extension VideoView: VideoCapturerDelegate {
 
     public func capturer(_ capturer: VideoCapturer, didUpdate state: VideoCapturer.State) {
         if case .started = state {
-            DispatchQueue.main.async {
-                self.markNeedsLayout()
-            }
+            safeMarkNeedsLayout()
         }
     }
 }
