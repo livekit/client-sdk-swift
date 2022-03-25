@@ -72,6 +72,10 @@ public class Track: MulticastDelegate<TrackDelegate> {
         mediaTrack = track
     }
 
+    deinit {
+        log()
+    }
+
     // will fail if already started (to prevent duplicate code execution)
     internal func start() -> Promise<Void> {
         guard state != .started else {
