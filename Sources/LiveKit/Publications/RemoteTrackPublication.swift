@@ -185,10 +185,16 @@ public class RemoteTrackPublication: TrackPublication {
                                videoView: VideoView,
                                didLayout size: CGSize) {
 
-        let isHidden = DispatchQueue.mainSafeSync { videoView.isHidden }
+        DispatchQueue.main.async { [weak self] in
+            // read on main thread
+            let isHidden = videoView.isHidden
 
-        videoViewVisibilities[videoView.hash] = VideoViewVisibility(visible: !isHidden, size: size)
-        shouldComputeVideoViewVisibilities()
+            DispatchQueue.sdk.async { [weak self] in
+                guard let self = self else { return }
+                self.videoViewVisibilities[videoView.hash] = VideoViewVisibility(visible: !isHidden, size: size)
+                self.shouldComputeVideoViewVisibilities()
+            }
+        }
     }
 
     override public func track(_ track: VideoTrack,
