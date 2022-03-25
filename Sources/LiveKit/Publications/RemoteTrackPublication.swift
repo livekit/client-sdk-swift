@@ -267,7 +267,6 @@ extension RemoteTrackPublication {
     }
 
     private func shouldComputeVideoViewVisibilities() {
-        log()
 
         guard let participant = participant else {
             log("Participant is nil", .warning)
@@ -283,6 +282,8 @@ extension RemoteTrackPublication {
             log("Track is not a video track", .warning)
             return
         }
+
+        log()
 
         // decide whether to debounce or immediately compute video view visibilities
         if trackSettings.enabled == false, hasVisibleVideoViews() {

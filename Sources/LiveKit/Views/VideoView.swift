@@ -105,45 +105,80 @@ public class VideoView: NativeView, Loggable {
             guard !(oldValue?.isEqual(track) ?? false) else { return }
 
             if let oldValue = oldValue {
+                // CapturerDelegate
                 if let localTrack = oldValue as? LocalVideoTrack {
                     localTrack.capturer.remove(delegate: self)
                 }
-                oldValue.remove(renderer: self)
-                oldValue.remove(delegate: self)
-                oldValue.notify { $0.track(oldValue, didDetach: self) }
-            }
-            track?.add(delegate: self)
-            track?.add(renderer: self)
-            if let localTrack = track as? LocalVideoTrack {
-                localTrack.capturer.add(delegate: self)
-            }
-            track?.notify { [weak track] (delegate) -> Void in
-                guard let track = track else { return }
-                delegate.track(track, didAttach: self)
+
+                // notify detach
+                oldValue.notify { [weak oldValue] (delegate) -> Void in
+                    guard let oldValue = oldValue else { return }
+                    delegate.track(oldValue, didDetach: self)
+                }
             }
 
             if let track = track {
-                // if track knows dimensions, prepare the renderer
-                if let dimensions = track.dimensions {
-                    DispatchQueue.webRTC.sync {
-                        nativeRenderer.setSize(dimensions.toCGSize())
-                    }
+                // CapturerDelegate
+                if let localTrack = track as? LocalVideoTrack {
+                    localTrack.capturer.add(delegate: self)
                 }
-                // log("rendering last frame")
-                // nativeRenderer.renderFrame(lastFrame)
+
+                // notify attach
+                track.notify { [weak track] (delegate) -> Void in
+                    guard let track = track else { return }
+                    delegate.track(track, didAttach: self)
+                }
             } else {
                 // if nil is set, clear out the renderer
                 DispatchQueue.webRTC.sync { nativeRenderer.renderFrame(nil) }
                 renderState = []
             }
 
-            DispatchQueue.main.async {
-                self.markNeedsLayout()
+            syncRendererAttach()
+
+            DispatchQueue.main.async { [weak self] in
+                self?.markNeedsLayout()
             }
         }
     }
 
-    internal var nativeRenderer: NativeRendererView
+    public override var isHidden: Bool {
+        didSet {
+            guard oldValue != isHidden else { return }
+            syncRendererAttach()
+
+            DispatchQueue.main.async { [weak self] in
+                self?.markNeedsLayout()
+            }
+        }
+    }
+
+    private var _isRendererAttached: Bool = false
+    private func syncRendererAttach() {
+
+        let shouldBeAttached = (track != nil && !isHidden)
+        if !_isRendererAttached, shouldBeAttached {
+
+            log("attaching renderer")
+            _isRendererAttached = true
+
+            if let track = track {
+                track.add(renderer: self)
+                Self.incrementRendererCount()
+            }
+
+        } else if _isRendererAttached, !shouldBeAttached {
+
+            log("detaching renderer")
+            _isRendererAttached = false
+            if let track = track {
+                track.remove(renderer: self)
+                Self.decrementRendererCount()
+            }
+        }
+    }
+
+    private var nativeRenderer: NativeRendererView
 
     public init(frame: CGRect = .zero, preferMetal: Bool = true) {
         self.viewSize = frame.size
@@ -162,11 +197,19 @@ public class VideoView: NativeView, Loggable {
 
     deinit {
         log()
-        self.track = nil
+
+        if _isRendererAttached {
+            Self.decrementRendererCount()
+        }
     }
 
     override func shouldLayout() {
         super.shouldLayout()
+
+        guard !isHidden else {
+            // skip layout if hidden
+            return
+        }
 
         func shouldMirror() -> Bool {
             switch mirrorMode {
@@ -259,6 +302,28 @@ public class VideoView: NativeView, Loggable {
     }
 }
 
+// MARK: - Renderer count
+
+extension VideoView {
+
+    private static let rendererCountQueue = DispatchQueue(label: "LiveKitSDK.videoView.rendererCount",
+                                                          qos: .background)
+
+    public private(set) static var totalRendering: Int = 0 {
+        didSet {
+            logger.log("totalRendering: \(totalRendering)", type: VideoView.self)
+        }
+    }
+
+    private static func incrementRendererCount() {
+        rendererCountQueue.async { totalRendering += 1 }
+    }
+
+    private static func decrementRendererCount() {
+        rendererCountQueue.async { totalRendering -= 1 }
+    }
+}
+
 // MARK: - RTCVideoRenderer
 
 extension VideoView: RTCVideoRenderer {
@@ -310,18 +375,6 @@ extension VideoView: VideoCapturerDelegate {
             DispatchQueue.main.async {
                 self.markNeedsLayout()
             }
-        }
-    }
-}
-
-// MARK: - TrackDelegate
-
-extension VideoView: TrackDelegate {
-
-    public func track(_ track: VideoTrack, didUpdate dimensions: Dimensions?) {
-        // re-compute layout when dimensions change
-        DispatchQueue.main.async {
-            self.markNeedsLayout()
         }
     }
 }
