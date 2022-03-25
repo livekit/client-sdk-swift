@@ -17,6 +17,11 @@
 import Foundation
 import Promises
 
+enum WebSocketMessage {
+    case string(_ string: String)
+    case data(_ data: Data)
+}
+
 internal protocol WebSocket {
 
     typealias OnData = (_ data: Data) -> Void
