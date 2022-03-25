@@ -67,12 +67,13 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
             .then(on: .sdk) { url -> Promise<WebSocket> in
                 self.log("Connecting with url: \(url)")
                 self.connectionState = .connecting(connectMode)
-                return WebSocket.connect(url: url,
-                                         onMessage: self.onWebSocketMessage,
-                                         onDisconnect: { reason in
-                                            self.webSocket = nil
-                                            self.cleanUp(reason: reason)
-                                         })
+                let socket = WebSocket_Network(url: url,
+                                               onData: self.onWebSocketMessage,
+                                               onDisconnect: { reason in
+                                                self.webSocket = nil
+                                                self.cleanUp(reason: reason)
+                                               })
+                return socket.connect()
             }.then(on: .sdk) { (webSocket: WebSocket) -> Void in
                 self.webSocket = webSocket
                 self.connectionState = .connected(connectMode)
@@ -109,8 +110,6 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
 
         if let socket = webSocket {
             socket.cleanUp(reason: reason)
-            socket.onMessage = nil
-            socket.onDisconnect = nil
             self.webSocket = nil
         }
 
@@ -160,17 +159,9 @@ private extension SignalClient {
         }
     }
 
-    func onWebSocketMessage(message: URLSessionWebSocketTask.Message) {
+    func onWebSocketMessage(data: Data) {
 
-        var response: Livekit_SignalResponse?
-
-        if case .data(let data) = message {
-            response = try? Livekit_SignalResponse(contiguousBytes: data)
-        } else if case .string(let string) = message {
-            response = try? Livekit_SignalResponse(jsonString: string)
-        }
-
-        guard let response = response else {
+        guard let response = try? Livekit_SignalResponse(contiguousBytes: data) else {
             log("Failed to decode SignalResponse", .warning)
             return
         }

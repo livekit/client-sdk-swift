@@ -17,7 +17,7 @@
 import Foundation
 import Promises
 
-internal class WebSocket: NSObject, URLSessionWebSocketDelegate, Loggable {
+internal class WebSocket_URLSession: NSObject, URLSessionWebSocketDelegate, Loggable {
 
     typealias OnMessage = (URLSessionWebSocketTask.Message) -> Void
     typealias OnDisconnect = (_ reason: DisconnectReason) -> Void
@@ -30,7 +30,7 @@ internal class WebSocket: NSObject, URLSessionWebSocketDelegate, Loggable {
     private let request: URLRequest
 
     private var disconnected = false
-    private var connectPromise: Promise<WebSocket>?
+    private var connectPromise: Promise<WebSocket_URLSession>?
 
     private lazy var session: URLSession = {
         let config = URLSessionConfiguration.default
@@ -50,11 +50,11 @@ internal class WebSocket: NSObject, URLSessionWebSocketDelegate, Loggable {
 
     static func connect(url: URL,
                         onMessage: OnMessage? = nil,
-                        onDisconnect: OnDisconnect? = nil) -> Promise<WebSocket> {
+                        onDisconnect: OnDisconnect? = nil) -> Promise<WebSocket_URLSession> {
 
-        return WebSocket(url: url,
-                         onMessage: onMessage,
-                         onDisconnect: onDisconnect).connect()
+        return WebSocket_URLSession(url: url,
+                                    onMessage: onMessage,
+                                    onDisconnect: onDisconnect).connect()
     }
 
     private init(url: URL,
@@ -71,8 +71,8 @@ internal class WebSocket: NSObject, URLSessionWebSocketDelegate, Loggable {
         task.resume()
     }
 
-    private func connect() -> Promise<WebSocket> {
-        connectPromise = Promise<WebSocket>.pending()
+    private func connect() -> Promise<WebSocket_URLSession> {
+        connectPromise = Promise<WebSocket_URLSession>.pending()
         return connectPromise!
     }
 
@@ -101,7 +101,7 @@ internal class WebSocket: NSObject, URLSessionWebSocketDelegate, Loggable {
 
     public func send(data: Data) -> Promise<Void> {
         let message = URLSessionWebSocketTask.Message.data(data)
-        return Promise(on: .sdk) { resolve, fail in
+        return Promise(on: queue) { resolve, fail in
             self.task.send(message) { error in
                 if let error = error {
                     fail(error)
