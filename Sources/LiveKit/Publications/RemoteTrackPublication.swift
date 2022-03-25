@@ -186,10 +186,11 @@ public class RemoteTrackPublication: TrackPublication {
                                didLayout size: CGSize) {
 
         DispatchQueue.main.async { [weak self] in
+            guard let self = self, let track = self.track else { return }
             // read on main thread
             let isHidden = videoView.isHidden
 
-            DispatchQueue.sdk.async { [weak self] in
+            track.multicastQueue.async { [weak self] in
                 guard let self = self else { return }
                 self.videoViewVisibilities[videoView.hash] = VideoViewVisibility(visible: !isHidden, size: size)
                 self.shouldComputeVideoViewVisibilities()
