@@ -208,7 +208,7 @@ public class VideoView: NativeView, Loggable {
         super.shouldLayout()
 
         // this should never happen
-        dispatchPrecondition(condition: .onQueue(.main))
+        assert(Thread.current.isMainThread, "shouldLayout must be called from main thread")
 
         defer {
             let size = self.frame.size
