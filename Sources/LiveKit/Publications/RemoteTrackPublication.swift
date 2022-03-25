@@ -185,8 +185,9 @@ public class RemoteTrackPublication: TrackPublication {
                                videoView: VideoView,
                                didLayout size: CGSize) {
 
-        videoViewVisibilities[videoView.hash] = VideoViewVisibility(visible: !videoView.isHidden,
-                                                                    size: size)
+        let isHidden = DispatchQueue.mainSafeSync { videoView.isHidden }
+
+        videoViewVisibilities[videoView.hash] = VideoViewVisibility(visible: !isHidden, size: size)
         shouldComputeVideoViewVisibilities()
     }
 
