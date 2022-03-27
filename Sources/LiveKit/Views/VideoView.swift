@@ -100,46 +100,23 @@ public class VideoView: NativeView, Loggable {
     }
 
     /// Calls addRenderer and/or removeRenderer internally for convenience.
-    private weak var oldTrack: VideoTrack?
     public weak var track: VideoTrack? {
         didSet {
             guard !(oldValue?.isEqual(track) ?? false) else { return }
-            oldTrack = oldValue
-            syncRendererAttach()
-            safeMarkNeedsLayout()
-        }
-    }
 
-    public override var isHidden: Bool {
-        didSet {
-            guard oldValue != isHidden else { return }
-            syncRendererAttach()
-            safeMarkNeedsLayout()
-        }
-    }
-
-    private var previousShouldAttach: Bool = false
-
-    private func syncRendererAttach() {
-
-        let shouldAttach = (track != nil && isEnabled && !isHidden)
-
-        if !(oldTrack?.isEqual(track) ?? false) {
-
-            if let oldTrack = oldTrack {
-                self.oldTrack = nil
+            if let oldValue = oldValue {
 
                 log("removing previous renderer")
-                oldTrack.remove(renderer: self)
+                oldValue.remove(renderer: self)
 
                 // CapturerDelegate
-                if let localTrack = oldTrack as? LocalVideoTrack {
+                if let localTrack = oldValue as? LocalVideoTrack {
                     localTrack.capturer.remove(delegate: self)
                 }
 
                 // notify detach
-                oldTrack.notify { [weak oldTrack] (delegate) -> Void in
-                    guard let oldValue = oldTrack else { return }
+                oldValue.notify { [weak oldValue] (delegate) -> Void in
+                    guard let oldValue = oldValue else { return }
                     delegate.track(oldValue, didDetach: self)
                 }
             }
@@ -162,7 +139,25 @@ public class VideoView: NativeView, Loggable {
                 log("clearing renderState")
                 renderState = []
             }
+
+            syncRendererAttach()
+            safeMarkNeedsLayout()
         }
+    }
+
+    public override var isHidden: Bool {
+        didSet {
+            guard oldValue != isHidden else { return }
+            syncRendererAttach()
+            safeMarkNeedsLayout()
+        }
+    }
+
+    private var previousShouldAttach: Bool = false
+
+    private func syncRendererAttach() {
+
+        let shouldAttach = (track != nil && isEnabled && !isHidden)
 
         if previousShouldAttach != shouldAttach {
             previousShouldAttach = shouldAttach
