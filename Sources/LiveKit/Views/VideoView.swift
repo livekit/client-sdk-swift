@@ -153,37 +153,18 @@ public class VideoView: NativeView, Loggable {
         }
     }
 
-    private var previousShouldAttach: Bool = false
-
-    private func syncRendererAttach() {
-
-        let shouldAttach = (track != nil && isEnabled && !isHidden)
-
-        if previousShouldAttach != shouldAttach {
-            previousShouldAttach = shouldAttach
-
-            guard let track = track else {
-                // Possibly Track was released first
-                log("track is nil")
-                return
-            }
-
-            if shouldAttach {
-                log("Renderer: attaching...")
-                track.add(renderer: self)
-            } else {
-                log("Renderer: detaching...")
-                track.remove(renderer: self)
-            }
-
-            // toggle MTKView's isPaused property
-            // https://developer.apple.com/documentation/metalkit/mtkview/1535973-ispaused
-            // https://developer.apple.com/forums/thread/105252
-            nativeRenderer.asMetalView?.isPaused = !shouldAttach
+    public var showDebugInfo: Bool = false {
+        didSet {
+            guard oldValue != showDebugInfo else { return }
+            safeMarkNeedsLayout()
         }
     }
 
+    private var previousShouldAttach: Bool = false
     private var nativeRenderer: NativeRendererView
+    #if os(iOS)
+    private var _debugTextView: UILabel?
+    #endif
 
     public init(frame: CGRect = .zero, preferMetal: Bool = true) {
         self.viewSize = frame.size
@@ -221,15 +202,24 @@ public class VideoView: NativeView, Loggable {
             }
         }
 
-        guard isEnabled, !isHidden else {
-            // skip following layout logic if hidden
-            log("skipping layout logic (!isEnabled or isHidden)...")
+        #if os(iOS)
+        if showDebugInfo {
+            let d = track?.dimensions ?? .zero
+            let r = createDebugTextView()
+            r.text = "\(d.width)x\(d.height)\n" + "isEnabled:\(isEnabled)"
+            r.sizeToFit()
+        }
+        #endif
+
+        // dimensions are required to continue computation
+        guard let dimensions = track?.dimensions else {
+            log("dimensions are nil, cannot layout without dimensions")
             return
         }
 
-        // dimensions are required to continue computation
-        guard let dimensions = DispatchQueue.mainSafeSync(execute: { track?.dimensions }) else {
-            log("dimensions are nil, cannot layout without dimensions")
+        guard isEnabled, !isHidden else {
+            // skip following layout logic if hidden
+            log("skipping layout logic (!isEnabled or isHidden)...")
             return
         }
 
@@ -278,6 +268,50 @@ public class VideoView: NativeView, Loggable {
 // MARK: - Private
 
 private extension VideoView {
+
+    #if os(iOS)
+    private func createDebugTextView() -> UILabel {
+        if let d = _debugTextView { return d }
+        let r = UILabel(frame: .zero)
+        r.numberOfLines = 0
+        r.adjustsFontSizeToFitWidth = false
+        r.lineBreakMode = .byWordWrapping
+        r.textColor = .white
+        r.font = .systemFont(ofSize: 11)
+        r.backgroundColor = .black
+        addSubview(r)
+        _debugTextView = r
+        return r
+    }
+    #endif
+
+    private func syncRendererAttach() {
+
+        let shouldAttach = (track != nil && isEnabled && !isHidden)
+
+        if previousShouldAttach != shouldAttach {
+            previousShouldAttach = shouldAttach
+
+            guard let track = track else {
+                // Possibly Track was released first
+                log("track is nil")
+                return
+            }
+
+            if shouldAttach {
+                log("Renderer: attaching...")
+                track.add(renderer: self)
+            } else {
+                log("Renderer: detaching...")
+                track.remove(renderer: self)
+            }
+
+            // toggle MTKView's isPaused property
+            // https://developer.apple.com/documentation/metalkit/mtkview/1535973-ispaused
+            // https://developer.apple.com/forums/thread/105252
+            nativeRenderer.asMetalView?.isPaused = !shouldAttach
+        }
+    }
 
     func safeMarkNeedsLayout() {
         DispatchQueue.main.async { [weak self] in
@@ -380,7 +414,7 @@ extension VideoView {
         #else
         // macOS --------------------
         logger.log("Using RTCMTLNSVideoView for VideoView's Renderer", type: VideoView.self)
-        view = RTCMTLNSVideoView()
+        result = RTCMTLNSVideoView()
         #endif
 
         // extra checks for MTKView

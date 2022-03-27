@@ -188,11 +188,11 @@ public class RemoteTrackPublication: TrackPublication {
         DispatchQueue.main.async { [weak self] in
             guard let self = self, let track = self.track else { return }
             // read on main thread
-            let isHidden = videoView.isHidden
+            let visible = !videoView.isHidden && videoView.isEnabled
 
             track.multicastQueue.async { [weak self] in
                 guard let self = self else { return }
-                self.videoViewVisibilities[videoView.hash] = VideoViewVisibility(visible: !isHidden, size: size)
+                self.videoViewVisibilities[videoView.hash] = VideoViewVisibility(visible: visible, size: size)
                 self.shouldComputeVideoViewVisibilities()
             }
         }
@@ -311,6 +311,8 @@ extension RemoteTrackPublication {
             log("Track is not a video track", .warning)
             return
         }
+
+        log("viewsCount: \(videoViewVisibilities.count)")
 
         // set internal enabled var
         let enabled = hasVisibleVideoViews()

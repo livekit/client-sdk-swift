@@ -143,7 +143,11 @@ internal extension Track {
     // returns true when value is updated
     func set(dimensions newValue: Dimensions?) -> Bool {
         guard self.dimensions != newValue else { return false }
-        self.dimensions = newValue
+
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            self.dimensions = newValue
+        }
 
         guard let videoTrack = self as? VideoTrack else { return true }
         notify { $0.track(videoTrack, didUpdate: newValue) }
