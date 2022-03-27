@@ -77,12 +77,8 @@ public class VideoView: NativeView, Loggable {
 
     /// OpenGL is deprecated and the SDK prefers to use Metal by default.
     /// Setting false when creating ``VideoView`` will force to use OpenGL.
-    public var preferMetal: Bool = true {
-        didSet {
-            guard oldValue != preferMetal else { return }
-            reCreateNativeRenderer()
-        }
-    }
+    @available(*, deprecated, message: "Metal is always used")
+    public var preferMetal: Bool = true
 
     /// Size of this view (used to notify delegates)
     /// usually should be equal to `frame.size`
@@ -187,8 +183,7 @@ public class VideoView: NativeView, Loggable {
 
     public init(frame: CGRect = .zero, preferMetal: Bool = true) {
         self.viewSize = frame.size
-        self.preferMetal = preferMetal
-        self.nativeRenderer = VideoView.createNativeRendererView(preferMetal: preferMetal)
+        self.nativeRenderer = VideoView.createNativeRendererView()
         super.init(frame: frame)
         #if os(iOS)
         self.clipsToBounds = true
@@ -273,23 +268,6 @@ public class VideoView: NativeView, Loggable {
             nativeRenderer.layer.transform = CATransform3DIdentity
             #endif
         }
-    }
-
-    private func reCreateNativeRenderer() {
-        // Save current track if exists
-        let currentTrack = self.track
-        // Remove track (notify delegates)
-        self.track = nil
-        // Remove the renderer view
-        nativeRenderer.removeFromSuperview()
-        // Clear the renderState
-        renderState = []
-        // Re-create renderer view
-        nativeRenderer = VideoView.createNativeRendererView(preferMetal: preferMetal)
-        addSubview(nativeRenderer)
-        // Set previous track to new renderer view
-        self.track = currentTrack
-
     }
 }
 
@@ -384,61 +362,35 @@ extension VideoView {
         #endif
     }
 
-    internal static func createNativeRendererView(preferMetal: Bool) -> NativeRendererView {
+    internal static func createNativeRendererView() -> NativeRendererView {
+        let view: NativeRendererView
+        #if os(iOS)
+        // iOS --------------------
+        logger.log("Using RTCMTLVideoView for VideoView's Renderer", type: VideoView.self)
+        let mtlView = RTCMTLVideoView()
+        // use .fit here to match macOS behavior and
+        // manually calculate .fill if necessary
+        mtlView.contentMode = .scaleAspectFit
+        mtlView.videoContentMode = .scaleAspectFit
+        view = mtlView
+        #else
+        // macOS --------------------
+        logger.log("Using RTCMTLNSVideoView for VideoView's Renderer", type: VideoView.self)
+        view = RTCMTLNSVideoView()
+        #endif
 
-        DispatchQueue.mainSafeSync {
-            let view: NativeRendererView
-            #if os(iOS)
-            // iOS --------------------
-            if preferMetal && isMetalAvailable() {
-                logger.log("Using RTCMTLVideoView for VideoView's Renderer", type: VideoView.self)
-                let mtlView = RTCMTLVideoView()
-                // use .fit here to match macOS behavior and
-                // manually calculate .fill if necessary
-                mtlView.contentMode = .scaleAspectFit
-                mtlView.videoContentMode = .scaleAspectFit
-                view = mtlView
-            } else {
-                logger.log("Using RTCEAGLVideoView for VideoView's Renderer", type: VideoView.self)
-                let glView = RTCEAGLVideoView()
-                glView.contentMode = .scaleAspectFit
-                view = glView
+        // extra checks for MTKView
+        for subView in view.subviews {
+            if let metal = subView as? MTKView {
+                #if os(iOS)
+                metal.contentMode = .scaleAspectFit
+                #elseif os(macOS)
+                metal.layerContentsPlacement = .scaleProportionallyToFit
+                #endif
             }
-            #else
-            // macOS --------------------
-            if preferMetal && isMetalAvailable() {
-                logger.log("Using RTCMTLNSVideoView for VideoView's Renderer", type: VideoView.self)
-                view = RTCMTLNSVideoView()
-            } else {
-                logger.log("Using RTCNSGLVideoView for VideoView's Renderer", type: VideoView.self)
-                let attributes: [NSOpenGLPixelFormatAttribute] = [
-                    UInt32(NSOpenGLPFAAccelerated),
-                    // The following attributes are from
-                    // https://chromium.googlesource.com/external/webrtc/+/refs/heads/master/examples/objc/AppRTCMobile/mac/APPRTCViewController.m
-                    UInt32(NSOpenGLPFADoubleBuffer),
-                    UInt32(NSOpenGLPFADepthSize), UInt32(24),
-                    UInt32(NSOpenGLPFAOpenGLProfile),
-                    UInt32(NSOpenGLProfileVersion3_2Core),
-                    UInt32(0)
-                ]
-                let pixelFormat = NSOpenGLPixelFormat(attributes: attributes)
-                view = RTCNSGLVideoView(frame: .zero, pixelFormat: pixelFormat)!
-            }
-            #endif
-
-            // extra checks for MTKView
-            for subView in view.subviews {
-                if let metal = subView as? MTKView {
-                    #if os(iOS)
-                    metal.contentMode = .scaleAspectFit
-                    #elseif os(macOS)
-                    metal.layerContentsPlacement = .scaleProportionallyToFit
-                    #endif
-                }
-            }
-
-            return view
         }
+
+        return view
     }
 }
 
