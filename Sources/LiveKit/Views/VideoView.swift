@@ -91,14 +91,6 @@ public class VideoView: NativeView, Loggable {
         }
     }
 
-    public var isEnabled: Bool = true {
-        didSet {
-            guard oldValue != isEnabled else { return }
-            syncRendererAttach()
-            safeMarkNeedsLayout()
-        }
-    }
-
     /// Calls addRenderer and/or removeRenderer internally for convenience.
     public weak var track: VideoTrack? {
         didSet {
@@ -145,6 +137,14 @@ public class VideoView: NativeView, Loggable {
         }
     }
 
+    public var isEnabled: Bool = true {
+        didSet {
+            guard oldValue != isEnabled else { return }
+            syncRendererAttach()
+            safeMarkNeedsLayout()
+        }
+    }
+
     public override var isHidden: Bool {
         didSet {
             guard oldValue != isHidden else { return }
@@ -175,6 +175,9 @@ public class VideoView: NativeView, Loggable {
                 log("Renderer: detaching...")
                 track.remove(renderer: self)
             }
+
+            // toggle MTKView's isPaused property
+            nativeRenderer.asMetalView?.isPaused = !shouldAttach
         }
     }
 
@@ -216,9 +219,9 @@ public class VideoView: NativeView, Loggable {
             }
         }
 
-        guard !isHidden else {
+        guard isEnabled, !isHidden else {
             // skip following layout logic if hidden
-            log("skipping layout logic")
+            log("skipping layout logic (!isEnabled or isHidden)...")
             return
         }
 
@@ -362,7 +365,7 @@ extension VideoView {
     }
 
     internal static func createNativeRendererView() -> NativeRendererView {
-        let view: NativeRendererView
+        let result: NativeRendererView
         #if os(iOS)
         // iOS --------------------
         logger.log("Using RTCMTLVideoView for VideoView's Renderer", type: VideoView.self)
@@ -371,7 +374,7 @@ extension VideoView {
         // manually calculate .fill if necessary
         mtlView.contentMode = .scaleAspectFit
         mtlView.videoContentMode = .scaleAspectFit
-        view = mtlView
+        result = mtlView
         #else
         // macOS --------------------
         logger.log("Using RTCMTLNSVideoView for VideoView's Renderer", type: VideoView.self)
@@ -379,17 +382,24 @@ extension VideoView {
         #endif
 
         // extra checks for MTKView
-        for subView in view.subviews {
-            if let metal = subView as? MTKView {
-                #if os(iOS)
-                metal.contentMode = .scaleAspectFit
-                #elseif os(macOS)
-                metal.layerContentsPlacement = .scaleProportionallyToFit
-                #endif
-            }
+        if let metal = result.asMetalView {
+            #if os(iOS)
+            metal.contentMode = .scaleAspectFit
+            #elseif os(macOS)
+            metal.layerContentsPlacement = .scaleProportionallyToFit
+            #endif
         }
 
-        return view
+        return result
+    }
+}
+
+// MARK: - Access MTKView
+
+internal extension NativeViewType {
+
+    var asMetalView: MTKView? {
+        subviews.compactMap { $0 as? MTKView }.first
     }
 }
 
