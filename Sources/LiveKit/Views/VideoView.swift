@@ -166,6 +166,14 @@ public class VideoView: NativeView, Loggable {
     private var _debugTextView: UILabel?
     #endif
 
+    // used for adaptiveStream
+    internal var rendererSize: CGSize {
+        nativeRenderer.frame.size
+    }
+
+    // whether shoudLayout has already executed
+    internal private(set) var didLayout: Bool = false
+
     public init(frame: CGRect = .zero, preferMetal: Bool = true) {
         self.viewSize = frame.size
         self.nativeRenderer = VideoView.createNativeRendererView()
@@ -192,9 +200,8 @@ public class VideoView: NativeView, Loggable {
 
         defer {
             let size = self.frame.size
-            DispatchQueue.main.async {
-                self.viewSize = size
-            }
+            self.viewSize = size
+            self.didLayout = true
 
             track?.notify { [weak track] in
                 guard let track = track else { return }
