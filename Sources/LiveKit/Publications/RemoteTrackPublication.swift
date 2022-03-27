@@ -167,6 +167,17 @@ public class RemoteTrackPublication: TrackPublication {
         // create a new entry
         asViews.insert(AdaptiveStreamEntry(videoView: videoView))
     }
+
+    public override func track(_ track: VideoTrack, didDetach videoView: VideoView) {
+        log()
+
+        //
+        while let releasedEntry = asViews.first(where: { $0.videoViewHashValue == videoView.hashValue }) {
+            log("removing entry...")
+            asViews.remove(releasedEntry)
+        }
+
+    }
 }
 
 // MARK: - Private
@@ -296,6 +307,7 @@ extension RemoteTrackPublication {
             asViews.remove(releasedEntry)
         }
 
+        log("asViews: \(asViews.count)")
         //        guard asViews.first(where: { $0.videoView?.didLayout ?? false }) != nil else {
         //            // not a single VideoView has completed layout yet,
         //            // there is no point con
