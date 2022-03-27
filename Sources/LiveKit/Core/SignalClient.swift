@@ -115,10 +115,16 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
         }
 
         latestJoinResponse = nil
-        requestDispatchQueue.sync { requestQueue.removeAll() }
-        responseDispatchQueue.sync {
-            responseQueue.removeAll()
-            responseQueueState = .resumed
+
+        requestDispatchQueue.async { [weak self] in
+            guard let self = self else { return }
+            self.requestQueue.removeAll()
+        }
+
+        responseDispatchQueue.async { [weak self] in
+            guard let self = self else { return }
+            self.responseQueue.removeAll()
+            self.responseQueueState = .resumed
         }
     }
 }
