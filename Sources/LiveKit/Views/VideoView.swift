@@ -177,6 +177,8 @@ public class VideoView: NativeView, Loggable {
             }
 
             // toggle MTKView's isPaused property
+            // https://developer.apple.com/documentation/metalkit/mtkview/1535973-ispaused
+            // https://developer.apple.com/forums/thread/105252
             nativeRenderer.asMetalView?.isPaused = !shouldAttach
         }
     }
