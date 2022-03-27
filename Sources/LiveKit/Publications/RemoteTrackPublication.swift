@@ -141,7 +141,7 @@ public class RemoteTrackPublication: TrackPublication {
             if let newValue = newValue {
 
                 // start adaptiveStream timer only if it's a video track
-                if newValue.kind == .video {
+                if (participant?.room.options.adaptiveStream ?? false), newValue.kind == .video {
                     asTimer.resume()
                 }
 
