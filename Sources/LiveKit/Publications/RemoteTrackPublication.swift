@@ -61,7 +61,7 @@ public class RemoteTrackPublication: TrackPublication {
     // adaptiveStream
     private var asViews = Set<AdaptiveStreamEntry>()
     // this must be on .main queue
-    private var asTimer = DispatchQueueTimer(timeInterval: 0.5, queue: .main)
+    private var asTimer = DispatchQueueTimer(timeInterval: 0.3, queue: .main)
 
     override init(info: Livekit_TrackInfo,
                   track: Track? = nil,
