@@ -91,6 +91,14 @@ public class VideoView: NativeView, Loggable {
         }
     }
 
+    public var isEnabled: Bool = true {
+        didSet {
+            guard oldValue != isEnabled else { return }
+            syncRendererAttach()
+            safeMarkNeedsLayout()
+        }
+    }
+
     /// Calls addRenderer and/or removeRenderer internally for convenience.
     private weak var oldTrack: VideoTrack?
     public weak var track: VideoTrack? {
@@ -110,12 +118,11 @@ public class VideoView: NativeView, Loggable {
         }
     }
 
-    private var isDeinit: Bool = false
     private var previousShouldAttach: Bool = false
 
     private func syncRendererAttach() {
 
-        let shouldAttach = (track != nil && !isHidden && !isDeinit)
+        let shouldAttach = (track != nil && isEnabled && !isHidden)
 
         if !(oldTrack?.isEqual(track) ?? false) {
 
@@ -160,20 +167,17 @@ public class VideoView: NativeView, Loggable {
         if previousShouldAttach != shouldAttach {
             previousShouldAttach = shouldAttach
 
+            guard let track = track else {
+                // Possibly Track was released first
+                log("track is nil")
+                return
+            }
+
             if shouldAttach {
-
-                log("attaching renderer")
-                if let track = track {
-                    track.add(renderer: self)
-                }
+                log("Renderer: attaching...")
+                track.add(renderer: self)
             } else {
-                log("detaching renderer")
-                guard let track = track else {
-                    log("track is nil")
-                    // Possibly Track was released first
-                    return
-                }
-
+                log("Renderer: detaching...")
                 track.remove(renderer: self)
             }
         }
