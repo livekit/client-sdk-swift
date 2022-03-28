@@ -59,7 +59,6 @@ public class RemoteTrackPublication: TrackPublication {
     }
 
     // adaptiveStream
-    private var asViews = Set<AdaptiveStreamEntry>()
     // this must be on .main queue
     private var asTimer = DispatchQueueTimer(timeInterval: 0.3, queue: .main)
 
@@ -136,7 +135,6 @@ public class RemoteTrackPublication: TrackPublication {
         if newValue != oldValue {
             // always suspend adaptiveStream timer first
             asTimer.suspend()
-            asViews.removeAll()
 
             if let newValue = newValue {
 
@@ -158,25 +156,6 @@ public class RemoteTrackPublication: TrackPublication {
             }
         }
         return oldValue
-    }
-
-    // MARK: - TrackDelegate
-
-    public override func track(_ track: VideoTrack, didAttach videoView: VideoView) {
-        log()
-        // create a new entry
-        asViews.insert(AdaptiveStreamEntry(videoView: videoView))
-    }
-
-    public override func track(_ track: VideoTrack, didDetach videoView: VideoView) {
-        log()
-
-        //
-        while let releasedEntry = asViews.first(where: { $0.videoViewHashValue == videoView.hashValue }) {
-            log("removing entry...")
-            asViews.remove(releasedEntry)
-        }
-
     }
 }
 
@@ -267,13 +246,13 @@ extension RemoteTrackPublication {
 
 // MARK: - Adaptive Stream
 
-internal extension Collection where Element == AdaptiveStreamEntry {
+internal extension Collection where Element == VideoView {
 
     func hasVisible() -> Bool {
         // not visible if no entry
         if isEmpty { return false }
         // at least 1 entry should be visible
-        return first(where: { $0.isVisible }) != nil
+        return contains { $0.isVisible }
     }
 
     func largestSize() -> CGSize? {
@@ -283,7 +262,7 @@ internal extension Collection where Element == AdaptiveStreamEntry {
                    height: Swift.max(s1.height, s2.height))
         }
 
-        return filter { $0.isVisible }.compactMap { $0.videoSize }.reduce(into: nil as CGSize?, { previous, current in
+        return filter { $0.isVisible }.compactMap { $0.rendererSize }.reduce(into: nil as CGSize?, { previous, current in
             guard let unwrappedPrevious = previous else {
                 previous = current
                 return
@@ -301,20 +280,11 @@ extension RemoteTrackPublication {
         // suspend timer first
         asTimer.suspend()
 
-        // clean up entries for released video views
-        while let releasedEntry = asViews.first(where: { $0.isReleased }) {
-            log("adaptiveStream: cleaning up entry (\(releasedEntry.videoViewHashValue)...")
-            asViews.remove(releasedEntry)
-        }
+        let asViews = track?.videoViews.allObjects ?? []
 
-        log("asViews: \(asViews.count)")
-        //        guard asViews.first(where: { $0.videoView?.didLayout ?? false }) != nil else {
-        //            // not a single VideoView has completed layout yet,
-        //            // there is no point con
-        //            log("all views have not completed layout")
-        //            asTimer.resume()
-        //            return
-        //        }
+        if asViews.count > 1 {
+            log("multiple VideoViews attached, count: \(asViews.count), trackId: \(track?.sid ?? "") views: (\(asViews.map { "\($0.hashValue)" }.joined(separator: ", ")))", .warning)
+        }
 
         let enabled = asViews.hasVisible()
         var dimensions: Dimensions = .zero
@@ -334,51 +304,5 @@ extension RemoteTrackPublication {
         }.always(on: .sdk) { [weak self] in
             self?.asTimer.resume()
         }
-    }
-}
-
-// MARK: - AdaptiveStreamEntry
-
-class AdaptiveStreamEntry {
-
-    // hash of the VideoView
-    let videoViewHashValue: Int
-
-    // weak ref to VideoView
-    // clean up logic will remove this entry
-    weak var videoView: VideoView?
-
-    // weak ref was released
-    var isReleased: Bool {
-        videoView == nil
-    }
-
-    // whether it should be enabled or not
-    var isVisible: Bool {
-        guard let videoView = videoView else { return false }
-        return !videoView.isHidden && videoView.isEnabled
-    }
-
-    //
-    var videoSize: CGSize? {
-        // rendererSize reflects the layoutMode(.fit/.fill)
-        videoView?.rendererSize
-    }
-
-    init(videoView: VideoView) {
-        self.videoViewHashValue = videoView.hashValue
-        self.videoView = videoView
-    }
-}
-
-// conform to Hashable so it can be unique in Sets
-extension AdaptiveStreamEntry: Hashable {
-
-    static func == (lhs: AdaptiveStreamEntry, rhs: AdaptiveStreamEntry) -> Bool {
-        lhs.videoViewHashValue == rhs.videoViewHashValue
-    }
-
-    func hash(into hasher: inout Hasher) {
-        hasher.combine(videoViewHashValue)
     }
 }
