@@ -140,7 +140,7 @@ public class RemoteTrackPublication: TrackPublication {
 
                 // start adaptiveStream timer only if it's a video track
                 if (participant?.room.options.adaptiveStream ?? false), newValue.kind == .video {
-                    asTimer.resume()
+                    asTimer.restart()
                 }
 
                 // if new Track has been set to this RemoteTrackPublication,
@@ -277,6 +277,9 @@ extension RemoteTrackPublication {
     // executed on .main
     private func onAdaptiveStreamTimer() {
 
+        // this should never happen
+        assert(Thread.current.isMainThread, "this method must be called from main thread")
+
         // suspend timer first
         asTimer.suspend()
 
@@ -298,11 +301,16 @@ extension RemoteTrackPublication {
         let newSettings = trackSettings.copyWith(enabled: enabled,
                                                  dimensions: dimensions)
 
-        // requests can be sent on .sdk queue
+        guard self.trackSettings != newSettings else {
+            // no settings updated
+            asTimer.resume()
+            return
+        }
+
         send(trackSettings: newSettings).catch(on: .main) { [weak self] error in
             self?.log("Failed to send track settings, error: \(error)", .error)
         }.always(on: .main) { [weak self] in
-            self?.asTimer.resume()
+            self?.asTimer.restart()
         }
     }
 }
