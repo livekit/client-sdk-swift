@@ -58,7 +58,7 @@ public class MulticastDelegate<T>: NSObject, Loggable {
     internal func notify(_ fnc: @escaping (T) -> Void) {
 
         multicastQueue.async {
-            for delegate in self.set.objectEnumerator() {
+            for delegate in self.set.allObjects {
                 guard let delegate = delegate as? T else {
                     self.log("MulticastDelegate: skipping notify for \(delegate), not a type of \(T.self)", .info)
                     continue
@@ -76,7 +76,7 @@ public class MulticastDelegate<T>: NSObject, Loggable {
 
         multicastQueue.async {
             var isHandled: Bool = false
-            for delegate in self.set.objectEnumerator() {
+            for delegate in self.set.allObjects {
                 guard let delegate = delegate as? T else {
                     self.log("MulticastDelegate: skipping notify for \(delegate), not a type of \(T.self)", .info)
                     continue
