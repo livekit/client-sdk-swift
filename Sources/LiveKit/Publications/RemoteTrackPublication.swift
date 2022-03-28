@@ -299,9 +299,9 @@ extension RemoteTrackPublication {
                                                  dimensions: dimensions)
 
         // requests can be sent on .sdk queue
-        send(trackSettings: newSettings).catch(on: .sdk) { [weak self] error in
+        send(trackSettings: newSettings).catch(on: .main) { [weak self] error in
             self?.log("Failed to send track settings, error: \(error)", .error)
-        }.always(on: .sdk) { [weak self] in
+        }.always(on: .main) { [weak self] in
             self?.asTimer.resume()
         }
     }
