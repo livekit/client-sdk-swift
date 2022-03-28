@@ -62,9 +62,7 @@ public class VideoView: NativeView, Loggable {
     public var layoutMode: LayoutMode = .fill {
         didSet {
             guard oldValue != layoutMode else { return }
-            DispatchQueue.main.async {
-                self.markNeedsLayout()
-            }
+            safeMarkNeedsLayout()
         }
     }
 
@@ -73,20 +71,14 @@ public class VideoView: NativeView, Loggable {
     public var mirrorMode: MirrorMode = .auto {
         didSet {
             guard oldValue != mirrorMode else { return }
-            DispatchQueue.main.async {
-                self.markNeedsLayout()
-            }
+            safeMarkNeedsLayout()
         }
     }
 
     /// OpenGL is deprecated and the SDK prefers to use Metal by default.
     /// Setting false when creating ``VideoView`` will force to use OpenGL.
-    public var preferMetal: Bool = true {
-        didSet {
-            guard oldValue != preferMetal else { return }
-            reCreateNativeRenderer()
-        }
-    }
+    @available(*, deprecated, message: "Metal is always used")
+    public var preferMetal: Bool = true
 
     /// Size of this view (used to notify delegates)
     /// usually should be equal to `frame.size`
@@ -105,50 +97,78 @@ public class VideoView: NativeView, Loggable {
             guard !(oldValue?.isEqual(track) ?? false) else { return }
 
             if let oldValue = oldValue {
+
+                log("removing previous renderer")
+                oldValue.remove(renderer: self)
+
+                // CapturerDelegate
                 if let localTrack = oldValue as? LocalVideoTrack {
                     localTrack.capturer.remove(delegate: self)
                 }
-                oldValue.remove(renderer: self)
-                oldValue.remove(delegate: self)
-                oldValue.notify { $0.track(oldValue, didDetach: self) }
-            }
-            track?.add(delegate: self)
-            track?.add(renderer: self)
-            if let localTrack = track as? LocalVideoTrack {
-                localTrack.capturer.add(delegate: self)
-            }
-            track?.notify { [weak track] (delegate) -> Void in
-                guard let track = track else { return }
-                delegate.track(track, didAttach: self)
+
+                // notify detach
+                oldValue.notify { [weak oldValue] (delegate) -> Void in
+                    guard let oldValue = oldValue else { return }
+                    delegate.track(oldValue, didDetach: self)
+                }
             }
 
             if let track = track {
-                // if track knows dimensions, prepare the renderer
-                if let dimensions = track.dimensions {
-                    DispatchQueue.webRTC.sync {
-                        nativeRenderer.setSize(dimensions.toCGSize())
-                    }
+                // CapturerDelegate
+                if let localTrack = track as? LocalVideoTrack {
+                    localTrack.capturer.add(delegate: self)
                 }
-                // log("rendering last frame")
-                // nativeRenderer.renderFrame(lastFrame)
+
+                // notify attach
+                track.notify { [weak track] (delegate) -> Void in
+                    guard let track = track else { return }
+                    delegate.track(track, didAttach: self)
+                }
+
             } else {
                 // if nil is set, clear out the renderer
-                DispatchQueue.webRTC.sync { nativeRenderer.renderFrame(nil) }
+                // DispatchQueue.webRTC.sync { nativeRenderer.renderFrame(nil) }
+                log("clearing renderState")
                 renderState = []
             }
 
-            DispatchQueue.main.async {
-                self.markNeedsLayout()
-            }
+            syncRendererAttach()
+            safeMarkNeedsLayout()
         }
     }
 
-    internal var nativeRenderer: NativeRendererView
+    public var isEnabled: Bool = true {
+        didSet {
+            guard oldValue != isEnabled else { return }
+            syncRendererAttach()
+            safeMarkNeedsLayout()
+        }
+    }
+
+    public override var isHidden: Bool {
+        didSet {
+            guard oldValue != isHidden else { return }
+            syncRendererAttach()
+            safeMarkNeedsLayout()
+        }
+    }
+
+    public var showDebugInfo: Bool = false {
+        didSet {
+            guard oldValue != showDebugInfo else { return }
+            safeMarkNeedsLayout()
+        }
+    }
+
+    private var previousShouldAttach: Bool = false
+    private var nativeRenderer: NativeRendererView
+    #if os(iOS)
+    private var _debugTextView: UILabel?
+    #endif
 
     public init(frame: CGRect = .zero, preferMetal: Bool = true) {
         self.viewSize = frame.size
-        self.preferMetal = preferMetal
-        self.nativeRenderer = VideoView.createNativeRendererView(preferMetal: preferMetal)
+        self.nativeRenderer = VideoView.createNativeRendererView()
         super.init(frame: frame)
         #if os(iOS)
         self.clipsToBounds = true
@@ -162,23 +182,10 @@ public class VideoView: NativeView, Loggable {
 
     deinit {
         log()
-        self.track = nil
     }
 
     override func shouldLayout() {
         super.shouldLayout()
-
-        func shouldMirror() -> Bool {
-            switch mirrorMode {
-            case .auto:
-                guard let localVideoTrack = track as? LocalVideoTrack,
-                      let cameraCapturer = localVideoTrack.capturer as? CameraCapturer,
-                      case .front = cameraCapturer.options.position else { return false }
-                return true
-            case .off: return false
-            case .mirror: return true
-            }
-        }
 
         // this should never happen
         assert(Thread.current.isMainThread, "shouldLayout must be called from main thread")
@@ -188,15 +195,31 @@ public class VideoView: NativeView, Loggable {
             DispatchQueue.main.async {
                 self.viewSize = size
             }
+
             track?.notify { [weak track] in
                 guard let track = track else { return }
                 $0.track(track, videoView: self, didLayout: size)
             }
         }
 
+        #if os(iOS)
+        if showDebugInfo {
+            let d = track?.dimensions ?? .zero
+            let r = createDebugTextView()
+            r.text = "\(d.width)x\(d.height)\n" + "isEnabled:\(isEnabled)"
+            r.sizeToFit()
+        }
+        #endif
+
         // dimensions are required to continue computation
-        guard let dimensions = DispatchQueue.mainSafeSync(execute: { track?.dimensions }) else {
+        guard let dimensions = track?.dimensions else {
             log("dimensions are nil, cannot layout without dimensions")
+            return
+        }
+
+        guard isEnabled, !isHidden else {
+            // skip following layout logic if hidden
+            log("skipping layout logic (!isEnabled or isHidden)...")
             return
         }
 
@@ -240,22 +263,72 @@ public class VideoView: NativeView, Loggable {
             #endif
         }
     }
+}
 
-    private func reCreateNativeRenderer() {
-        // Save current track if exists
-        let currentTrack = self.track
-        // Remove track (notify delegates)
-        self.track = nil
-        // Remove the renderer view
-        nativeRenderer.removeFromSuperview()
-        // Clear the renderState
-        renderState = []
-        // Re-create renderer view
-        nativeRenderer = VideoView.createNativeRendererView(preferMetal: preferMetal)
-        addSubview(nativeRenderer)
-        // Set previous track to new renderer view
-        self.track = currentTrack
+// MARK: - Private
 
+private extension VideoView {
+
+    #if os(iOS)
+    private func createDebugTextView() -> UILabel {
+        if let d = _debugTextView { return d }
+        let r = UILabel(frame: .zero)
+        r.numberOfLines = 0
+        r.adjustsFontSizeToFitWidth = false
+        r.lineBreakMode = .byWordWrapping
+        r.textColor = .white
+        r.font = .systemFont(ofSize: 11)
+        r.backgroundColor = .black
+        addSubview(r)
+        _debugTextView = r
+        return r
+    }
+    #endif
+
+    private func syncRendererAttach() {
+
+        let shouldAttach = (track != nil && isEnabled && !isHidden)
+
+        if previousShouldAttach != shouldAttach {
+            previousShouldAttach = shouldAttach
+
+            guard let track = track else {
+                // Possibly Track was released first
+                log("track is nil")
+                return
+            }
+
+            if shouldAttach {
+                log("Renderer: attaching...")
+                track.add(renderer: self)
+            } else {
+                log("Renderer: detaching...")
+                track.remove(renderer: self)
+            }
+
+            // toggle MTKView's isPaused property
+            // https://developer.apple.com/documentation/metalkit/mtkview/1535973-ispaused
+            // https://developer.apple.com/forums/thread/105252
+            nativeRenderer.asMetalView?.isPaused = !shouldAttach
+        }
+    }
+
+    func safeMarkNeedsLayout() {
+        DispatchQueue.main.async { [weak self] in
+            self?.markNeedsLayout()
+        }
+    }
+
+    func shouldMirror() -> Bool {
+        switch mirrorMode {
+        case .auto:
+            guard let localVideoTrack = track as? LocalVideoTrack,
+                  let cameraCapturer = localVideoTrack.capturer as? CameraCapturer,
+                  case .front = cameraCapturer.options.position else { return false }
+            return true
+        case .off: return false
+        case .mirror: return true
+        }
     }
 }
 
@@ -281,22 +354,24 @@ extension VideoView: RTCVideoRenderer {
                 return
             }
 
-            track?.set(dimensions: dimensions)
+            if track?.set(dimensions: dimensions) == true {
+                safeMarkNeedsLayout()
+            }
 
         } else {
-            track?.set(dimensions: nil)
+            if track?.set(dimensions: nil) == true {
+                safeMarkNeedsLayout()
+            }
         }
 
-        // dispatchPrecondition(condition: .onQueue(.webRTC))
         nativeRenderer.renderFrame(frame)
-
-        track?.set(videoFrame: frame)
+        // track?.set(videoFrame: frame)
 
         // layout after first frame has been rendered
         if !renderState.contains(.didRenderFirstFrame) {
             renderState.insert(.didRenderFirstFrame)
             log("Did render first frame")
-            DispatchQueue.main.async { self.markNeedsLayout() }
+            safeMarkNeedsLayout()
         }
     }
 }
@@ -307,21 +382,7 @@ extension VideoView: VideoCapturerDelegate {
 
     public func capturer(_ capturer: VideoCapturer, didUpdate state: VideoCapturer.State) {
         if case .started = state {
-            DispatchQueue.main.async {
-                self.markNeedsLayout()
-            }
-        }
-    }
-}
-
-// MARK: - TrackDelegate
-
-extension VideoView: TrackDelegate {
-
-    public func track(_ track: VideoTrack, didUpdate dimensions: Dimensions?) {
-        // re-compute layout when dimensions change
-        DispatchQueue.main.async {
-            self.markNeedsLayout()
+            safeMarkNeedsLayout()
         }
     }
 }
@@ -339,61 +400,42 @@ extension VideoView {
         #endif
     }
 
-    internal static func createNativeRendererView(preferMetal: Bool) -> NativeRendererView {
+    internal static func createNativeRendererView() -> NativeRendererView {
+        let result: NativeRendererView
+        #if os(iOS)
+        // iOS --------------------
+        logger.log("Using RTCMTLVideoView for VideoView's Renderer", type: VideoView.self)
+        let mtlView = RTCMTLVideoView()
+        // use .fit here to match macOS behavior and
+        // manually calculate .fill if necessary
+        mtlView.contentMode = .scaleAspectFit
+        mtlView.videoContentMode = .scaleAspectFit
+        result = mtlView
+        #else
+        // macOS --------------------
+        logger.log("Using RTCMTLNSVideoView for VideoView's Renderer", type: VideoView.self)
+        result = RTCMTLNSVideoView()
+        #endif
 
-        DispatchQueue.mainSafeSync {
-            let view: NativeRendererView
+        // extra checks for MTKView
+        if let metal = result.asMetalView {
             #if os(iOS)
-            // iOS --------------------
-            if preferMetal && isMetalAvailable() {
-                logger.log("Using RTCMTLVideoView for VideoView's Renderer", type: VideoView.self)
-                let mtlView = RTCMTLVideoView()
-                // use .fit here to match macOS behavior and
-                // manually calculate .fill if necessary
-                mtlView.contentMode = .scaleAspectFit
-                mtlView.videoContentMode = .scaleAspectFit
-                view = mtlView
-            } else {
-                logger.log("Using RTCEAGLVideoView for VideoView's Renderer", type: VideoView.self)
-                let glView = RTCEAGLVideoView()
-                glView.contentMode = .scaleAspectFit
-                view = glView
-            }
-            #else
-            // macOS --------------------
-            if preferMetal && isMetalAvailable() {
-                logger.log("Using RTCMTLNSVideoView for VideoView's Renderer", type: VideoView.self)
-                view = RTCMTLNSVideoView()
-            } else {
-                logger.log("Using RTCNSGLVideoView for VideoView's Renderer", type: VideoView.self)
-                let attributes: [NSOpenGLPixelFormatAttribute] = [
-                    UInt32(NSOpenGLPFAAccelerated),
-                    // The following attributes are from
-                    // https://chromium.googlesource.com/external/webrtc/+/refs/heads/master/examples/objc/AppRTCMobile/mac/APPRTCViewController.m
-                    UInt32(NSOpenGLPFADoubleBuffer),
-                    UInt32(NSOpenGLPFADepthSize), UInt32(24),
-                    UInt32(NSOpenGLPFAOpenGLProfile),
-                    UInt32(NSOpenGLProfileVersion3_2Core),
-                    UInt32(0)
-                ]
-                let pixelFormat = NSOpenGLPixelFormat(attributes: attributes)
-                view = RTCNSGLVideoView(frame: .zero, pixelFormat: pixelFormat)!
-            }
+            metal.contentMode = .scaleAspectFit
+            #elseif os(macOS)
+            metal.layerContentsPlacement = .scaleProportionallyToFit
             #endif
-
-            // extra checks for MTKView
-            for subView in view.subviews {
-                if let metal = subView as? MTKView {
-                    #if os(iOS)
-                    metal.contentMode = .scaleAspectFit
-                    #elseif os(macOS)
-                    metal.layerContentsPlacement = .scaleProportionallyToFit
-                    #endif
-                }
-            }
-
-            return view
         }
+
+        return result
+    }
+}
+
+// MARK: - Access MTKView
+
+internal extension NativeViewType {
+
+    var asMetalView: MTKView? {
+        subviews.compactMap { $0 as? MTKView }.first
     }
 }
 

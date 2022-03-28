@@ -72,6 +72,10 @@ public class Track: MulticastDelegate<TrackDelegate> {
         mediaTrack = track
     }
 
+    deinit {
+        log()
+    }
+
     // will fail if already started (to prevent duplicate code execution)
     internal func start() -> Promise<Void> {
         guard state != .started else {
@@ -136,16 +140,26 @@ internal extension Track {
 
 internal extension Track {
 
-    func set(dimensions newValue: Dimensions?) {
-        guard self.dimensions != newValue else { return }
-        self.dimensions = newValue
+    // returns true when value is updated
+    func set(dimensions newValue: Dimensions?) -> Bool {
+        guard self.dimensions != newValue else { return false }
 
-        guard let videoTrack = self as? VideoTrack else { return }
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            self.dimensions = newValue
+        }
+
+        guard let videoTrack = self as? VideoTrack else { return true }
         notify { $0.track(videoTrack, didUpdate: newValue) }
+
+        return true
     }
 
-    func set(videoFrame newValue: RTCVideoFrame?) {
-        guard self.videoFrame != newValue else { return }
+    // returns true when value is updated
+    func set(videoFrame newValue: RTCVideoFrame?) -> Bool {
+        guard self.videoFrame != newValue else { return false }
         self.videoFrame = newValue
+
+        return true
     }
 }

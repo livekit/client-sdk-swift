@@ -22,13 +22,17 @@ public protocol VideoTrack: Track {
 
 extension VideoTrack {
 
-    public func add(renderer: RTCVideoRenderer) {
+    public func add(renderer: VideoView) {
         guard let videoTrack = mediaTrack as? RTCVideoTrack else { return }
-        DispatchQueue.webRTC.sync { videoTrack.add(renderer) }
+        DispatchQueue.webRTC.sync {
+            videoTrack.add(renderer)
+        }
     }
 
-    public func remove(renderer: RTCVideoRenderer) {
+    public func remove(renderer: VideoView) {
         guard let videoTrack = mediaTrack as? RTCVideoTrack else { return }
-        DispatchQueue.webRTC.sync { videoTrack.remove(renderer) }
+        DispatchQueue.webRTC.sync {
+            videoTrack.remove(renderer)
+        }
     }
 }

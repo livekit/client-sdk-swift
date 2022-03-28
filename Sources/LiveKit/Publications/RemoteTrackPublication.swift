@@ -185,9 +185,17 @@ public class RemoteTrackPublication: TrackPublication {
                                videoView: VideoView,
                                didLayout size: CGSize) {
 
-        videoViewVisibilities[videoView.hash] = VideoViewVisibility(visible: true,
-                                                                    size: size)
-        shouldComputeVideoViewVisibilities()
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self, let track = self.track else { return }
+            // read on main thread
+            let visible = !videoView.isHidden && videoView.isEnabled
+
+            track.multicastQueue.async { [weak self] in
+                guard let self = self else { return }
+                self.videoViewVisibilities[videoView.hash] = VideoViewVisibility(visible: visible, size: size)
+                self.shouldComputeVideoViewVisibilities()
+            }
+        }
     }
 
     override public func track(_ track: VideoTrack,
@@ -267,7 +275,6 @@ extension RemoteTrackPublication {
     }
 
     private func shouldComputeVideoViewVisibilities() {
-        log()
 
         guard let participant = participant else {
             log("Participant is nil", .warning)
@@ -283,6 +290,8 @@ extension RemoteTrackPublication {
             log("Track is not a video track", .warning)
             return
         }
+
+        log()
 
         // decide whether to debounce or immediately compute video view visibilities
         if trackSettings.enabled == false, hasVisibleVideoViews() {
@@ -302,6 +311,8 @@ extension RemoteTrackPublication {
             log("Track is not a video track", .warning)
             return
         }
+
+        log("viewsCount: \(videoViewVisibilities.count)")
 
         // set internal enabled var
         let enabled = hasVisibleVideoViews()
@@ -372,7 +383,7 @@ extension Sequence where Element == VideoViewVisibility {
                    height: Swift.max(s1.height, s2.height))
         }
 
-        return map({ $0.size }).reduce(into: nil as CGSize?, { previous, current in
+        return filter { $0.visible }.map { $0.size }.reduce(into: nil as CGSize?, { previous, current in
             guard let unwrappedPrevious = previous else {
                 previous = current
                 return
