@@ -20,7 +20,7 @@ import Network
 
 internal class WebSocket_Network: NSObject, Loggable, WebSocket {
 
-    public var onData: OnData?
+    public var onMessage: OnMessage?
     public var onDisconnect: OnDisconnect?
 
     private let connection: NWConnection
@@ -36,7 +36,7 @@ internal class WebSocket_Network: NSObject, Loggable, WebSocket {
     }
 
     required public init(url: URL,
-                         onData: OnData? = nil,
+                         onMessage: OnMessage? = nil,
                          onDisconnect: OnDisconnect? = nil) {
 
         let params: NWParameters
@@ -50,7 +50,7 @@ internal class WebSocket_Network: NSObject, Loggable, WebSocket {
         params.defaultProtocolStack.applicationProtocols.insert(Self.defaultOptions, at: 0)
 
         connection = NWConnection(to: .url(url), using: params)
-        self.onData = onData
+        self.onMessage = onMessage
         self.onDisconnect = onDisconnect
 
         super.init()
@@ -128,9 +128,10 @@ internal class WebSocket_Network: NSObject, Loggable, WebSocket {
                     //
                     break
                 case .binary:
-                    if let data = data {
+                    if let data = data, let onMessage = self.onMessage {
                         print("connection did receive content, count: \(data.count)")
-                        self.onData?(data)
+                        let message = WebSocketMessage.data(data)
+                        onMessage(message)
                     }
                 case .close:
                     //
@@ -177,7 +178,7 @@ internal class WebSocket_Network: NSObject, Loggable, WebSocket {
             connectPromise = nil
         }
 
-        onData = nil
+        onMessage = nil
         onDisconnect = nil
         connection.cancel()
     }

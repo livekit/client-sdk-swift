@@ -68,7 +68,7 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
                 self.log("Connecting with url: \(url)")
                 self.connectionState = .connecting(connectMode)
                 let socket = WebSocket_Network(url: url,
-                                               onData: self.onWebSocketMessage,
+                                               onMessage: self.onWebSocketMessage,
                                                onDisconnect: { reason in
                                                 self.webSocket = nil
                                                 self.cleanUp(reason: reason)
@@ -165,9 +165,17 @@ private extension SignalClient {
         }
     }
 
-    func onWebSocketMessage(data: Data) {
+    func onWebSocketMessage(message: WebSocketMessage) {
 
-        guard let response = try? Livekit_SignalResponse(contiguousBytes: data) else {
+        let response: Livekit_SignalResponse?
+        switch message {
+        case .string(let string):
+            response = try? Livekit_SignalResponse(jsonString: string)
+        case .data(let data):
+            response = try? Livekit_SignalResponse(contiguousBytes: data)
+        }
+
+        guard let response = response else {
             log("Failed to decode SignalResponse", .warning)
             return
         }

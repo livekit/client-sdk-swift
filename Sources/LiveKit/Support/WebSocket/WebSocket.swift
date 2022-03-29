@@ -24,14 +24,14 @@ enum WebSocketMessage {
 
 internal protocol WebSocket {
 
-    typealias OnData = (_ data: Data) -> Void
+    typealias OnMessage = (_ message: WebSocketMessage) -> Void
     typealias OnDisconnect = (_ reason: DisconnectReason) -> Void
 
-    var onData: OnData? { get set }
+    var onMessage: OnMessage? { get set }
     var onDisconnect: OnDisconnect? { get set }
 
     init (url: URL,
-          onData: OnData?,
+          onMessage: OnMessage?,
           onDisconnect: OnDisconnect?)
 
     func connect() -> Promise<WebSocket>

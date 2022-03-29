@@ -61,7 +61,7 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
         super.init()
 
         signalClient.add(delegate: self)
-        ConnectivityListener.shared.add(delegate: self)
+        // ConnectivityListener.shared.add(delegate: self)
         log()
     }
 
@@ -758,18 +758,18 @@ extension Engine: TransportDelegate {
 }
 
 // MARK: - ConnectivityListenerDelegate
-
-extension Engine: ConnectivityListenerDelegate {
-
-    func connectivityListener(_: ConnectivityListener, didSwitch path: NWPath) {
-        log("didSwitch path: \(path)")
-
-        // network has been switched, e.g. wifi <-> cellular
-        if case .connected = connectionState {
-            startReconnect()
-        }
-    }
-}
+//
+// extension Engine: ConnectivityListenerDelegate {
+//
+//    func connectivityListener(_: ConnectivityListener, didSwitch path: NWPath) {
+//        log("didSwitch path: \(path)")
+//
+//        // network has been switched, e.g. wifi <-> cellular
+//        if case .connected = connectionState {
+//            startReconnect()
+//        }
+//    }
+// }
 
 // MARK: Engine - Factory methods
 
