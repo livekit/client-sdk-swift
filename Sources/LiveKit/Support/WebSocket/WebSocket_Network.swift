@@ -125,11 +125,15 @@ internal class WebSocket_Network: NSObject, Loggable, WebSocket {
                     //
                     break
                 case .text:
-                    //
-                    break
+                    if let data = data, let onMessage = self.onMessage,
+                       let string = String(data: data, encoding: .utf8) {
+                        print("connection did receive text, count: \(string.count)")
+                        let message = WebSocketMessage.string(string)
+                        onMessage(message)
+                    }
                 case .binary:
                     if let data = data, let onMessage = self.onMessage {
-                        print("connection did receive content, count: \(data.count)")
+                        print("connection did receive data, count: \(data.count)")
                         let message = WebSocketMessage.data(data)
                         onMessage(message)
                     }
