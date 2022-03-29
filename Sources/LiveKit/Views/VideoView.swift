@@ -99,7 +99,7 @@ public class VideoView: NativeView, Loggable {
             if let oldValue = oldValue {
 
                 log("removing previous renderer")
-                oldValue.remove(renderer: self)
+                oldValue.remove(videoView: self)
 
                 // CapturerDelegate
                 if let localTrack = oldValue as? LocalVideoTrack {
@@ -160,11 +160,18 @@ public class VideoView: NativeView, Loggable {
         }
     }
 
-    private var previousShouldAttach: Bool = false
     private var nativeRenderer: NativeRendererView
     #if os(iOS)
     private var _debugTextView: UILabel?
     #endif
+
+    // used for adaptiveStream
+    internal var rendererSize: CGSize {
+        nativeRenderer.frame.size
+    }
+
+    // whether shoudLayout has already executed
+    internal private(set) var didLayout: Bool = false
 
     public init(frame: CGRect = .zero, preferMetal: Bool = true) {
         self.viewSize = frame.size
@@ -192,9 +199,8 @@ public class VideoView: NativeView, Loggable {
 
         defer {
             let size = self.frame.size
-            DispatchQueue.main.async {
-                self.viewSize = size
-            }
+            self.viewSize = size
+            self.didLayout = true
 
             track?.notify { [weak track] in
                 guard let track = track else { return }
@@ -289,28 +295,24 @@ private extension VideoView {
 
         let shouldAttach = (track != nil && isEnabled && !isHidden)
 
-        if previousShouldAttach != shouldAttach {
-            previousShouldAttach = shouldAttach
-
-            guard let track = track else {
-                // Possibly Track was released first
-                log("track is nil")
-                return
-            }
-
-            if shouldAttach {
-                log("Renderer: attaching...")
-                track.add(renderer: self)
-            } else {
-                log("Renderer: detaching...")
-                track.remove(renderer: self)
-            }
-
-            // toggle MTKView's isPaused property
-            // https://developer.apple.com/documentation/metalkit/mtkview/1535973-ispaused
-            // https://developer.apple.com/forums/thread/105252
-            nativeRenderer.asMetalView?.isPaused = !shouldAttach
+        guard let track = track else {
+            // Possibly Track was released first
+            log("track is nil")
+            return
         }
+
+        if shouldAttach {
+            log("Renderer: attaching...")
+            track.add(videoView: self)
+        } else {
+            log("Renderer: detaching...")
+            track.remove(videoView: self)
+        }
+
+        // toggle MTKView's isPaused property
+        // https://developer.apple.com/documentation/metalkit/mtkview/1535973-ispaused
+        // https://developer.apple.com/forums/thread/105252
+        nativeRenderer.asMetalView?.isPaused = !shouldAttach
     }
 
     func safeMarkNeedsLayout() {
@@ -384,6 +386,15 @@ extension VideoView: VideoCapturerDelegate {
         if case .started = state {
             safeMarkNeedsLayout()
         }
+    }
+}
+
+// MARK: - Internal
+
+internal extension VideoView {
+
+    var isVisible: Bool {
+        return didLayout && !isHidden && isEnabled
     }
 }
 

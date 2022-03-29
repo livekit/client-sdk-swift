@@ -65,6 +65,8 @@ public class Track: MulticastDelegate<TrackDelegate> {
         }
     }
 
+    internal let videoViews = NSHashTable<VideoView>.weakObjects()
+
     init(name: String, kind: Kind, source: Source, track: RTCMediaStreamTrack) {
         self.name = name
         self.kind = kind
