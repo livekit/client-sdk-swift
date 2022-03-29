@@ -27,7 +27,7 @@ extension VideoTrack {
 
         DispatchQueue.mainSafeSync {
 
-            guard !videoViews.contains(videoView) else {
+            guard !videoViews.allObjects.contains(videoView) else {
                 log("already attached", .warning)
                 return
             }
