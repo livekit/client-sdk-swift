@@ -52,4 +52,14 @@ extension VideoTrack {
             videoViews.remove(videoView)
         }
     }
+
+    @available(*, deprecated, message: "Use add(videoView:) instead")
+    public func add(renderer: VideoView) {
+        add(videoView: renderer)
+    }
+
+    @available(*, deprecated, message: "Use remove(videoView:) instead")
+    public func remove(renderer: VideoView) {
+        remove(videoView: renderer)
+    }
 }
