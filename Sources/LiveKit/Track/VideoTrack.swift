@@ -23,33 +23,39 @@ public protocol VideoTrack: Track {
 extension VideoTrack {
 
     public func add(videoView: VideoView) {
-        guard let videoTrack = mediaTrack as? RTCVideoTrack else { return }
 
-        DispatchQueue.mainSafeSync {
+        DispatchQueue.main.async { [weak self] in
 
-            guard !videoViews.allObjects.contains(videoView) else {
-                log("already attached", .warning)
+            guard let self = self, let videoTrack = self.mediaTrack as? RTCVideoTrack else { return }
+
+            guard !self.videoViews.allObjects.contains(videoView) else {
+                self.log("already attached", .warning)
                 return
             }
 
-            while let otherVideoView = videoViews.allObjects.first(where: { $0 != videoView }) {
+            while let otherVideoView = self.videoViews.allObjects.first(where: { $0 != videoView }) {
                 videoTrack.remove(otherVideoView)
-                videoViews.remove(otherVideoView)
+                self.videoViews.remove(otherVideoView)
             }
 
-            assert(videoViews.allObjects.count <= 1, "multiple VideoViews attached")
+            assert(self.videoViews.allObjects.count <= 1, "multiple VideoViews attached")
 
             videoTrack.add(videoView)
-            videoViews.add(videoView)
+            self.videoViews.add(videoView)
         }
     }
 
     public func remove(videoView: VideoView) {
-        guard let videoTrack = mediaTrack as? RTCVideoTrack else { return }
 
-        DispatchQueue.mainSafeSync {
+        DispatchQueue.main.async { [weak self] in
+
+            guard let self = self else { return }
+
+            self.videoViews.remove(videoView)
+
+            guard let videoTrack = self.mediaTrack as? RTCVideoTrack else { return }
+
             videoTrack.remove(videoView)
-            videoViews.remove(videoView)
         }
     }
 
