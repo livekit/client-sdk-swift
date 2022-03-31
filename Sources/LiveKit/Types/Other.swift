@@ -23,7 +23,7 @@ public typealias Sid = String
 // A tuple of Promises.
 // listen: resolves when started listening
 // wait: resolves when wait is complete or rejects when timeout
-internal typealias WaitPromises<T> = (listen: Promise<Void>, wait: Promise<T>)
+internal typealias WaitPromises<T> = (listen: Promise<Void>, wait: () -> Promise<T>)
 
 public enum Reliability {
     case reliable
