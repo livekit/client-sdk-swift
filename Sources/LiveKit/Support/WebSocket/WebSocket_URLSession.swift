@@ -63,7 +63,7 @@ internal class WebSocket_URLSession: NSObject, URLSessionWebSocketDelegate, Logg
 
         request = URLRequest(url: url,
                              cachePolicy: .useProtocolCachePolicy,
-                             timeoutInterval: .defaultConnect)
+                             timeoutInterval: .defaultSocketConnect)
 
         self.onMessage = onMessage
         self.onDisconnect = onDisconnect

@@ -129,7 +129,7 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
                                            type: kind,
                                            source: source, populator)
         }.then(on: .sdk) {
-            return promises.wait
+            return promises.wait()
         }
     }
 
@@ -166,9 +166,9 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
             let listenBoth = [waitTransport.listen, waitDC.listen].all(on: .sdk)
 
             return listenBoth.then(on: .sdk) { _ in
-                waitTransport.wait
+                waitTransport.wait()
             }.then(on: .sdk) {
-                waitDC.wait
+                waitDC.wait()
             }
         }
 
@@ -265,7 +265,7 @@ private extension Engine {
                                       token,
                                       connectOptions: self.connectOptions)
         }.then(on: .sdk) {
-            joinPromises.wait
+            joinPromises.wait()
         }.then(on: .sdk) { _ in
             self.connectStopwatch.split(label: "signal")
         }.then(on: .sdk) { jr in
@@ -273,7 +273,7 @@ private extension Engine {
         }.then(on: .sdk) {
             self.signalClient.resumeResponseQueue()
         }.then(on: .sdk) {
-            self.waitFor(transport: self.primary, state: .connected).wait
+            self.waitFor(transport: self.primary, state: .connected).wait()
         }.then(on: .sdk) {
             self.connectStopwatch.split(label: "engine")
             self.log("\(self.connectStopwatch)")
@@ -328,7 +328,7 @@ private extension Engine {
                 checkShouldContinue()
             }.then(on: .sdk) {
                 // Wait for primary transport to connect (if not already)
-                self.waitFor(transport: self.primary, state: .connected).wait
+                self.waitFor(transport: self.primary, state: .connected).wait()
             }.then(on: .sdk) {
                 checkShouldContinue()
             }.then(on: .sdk) { () -> Promise<Void> in
@@ -341,7 +341,7 @@ private extension Engine {
                 }
 
                 return publisher.createAndSendOffer(iceRestart: true).then(on: .sdk) {
-                    self.waitFor(transport: publisher, state: .connected).wait
+                    self.waitFor(transport: publisher, state: .connected).wait()
                 }
             }.then(on: .sdk) {
                 // always check if there are queued requests
@@ -371,9 +371,9 @@ private extension Engine {
 
         return retry(on: .sdk,
                      attempts: 3,
-                     delay: .quickReconnectDelay,
+                     delay: .defaultQuickReconnectRetry,
                      condition: { triesLeft, _ in
-                        self.log("Re-connecting in \(TimeInterval.quickReconnectDelay)seconds, \(triesLeft) tries left...")
+                        self.log("Re-connecting in \(TimeInterval.defaultQuickReconnectRetry)seconds, \(triesLeft) tries left...")
                         // only retry if still reconnecting state (not disconnected)
                         return self.connectionState.isReconnecting
                      }, _: {
@@ -456,10 +456,9 @@ internal extension Engine {
             self.signalClient.add(delegate: signalDelegate!)
             listen.fulfill(())
         }
-        // convert to timed-promise
-        .timeout(.defaultConnect)
 
-        return (listen, wait)
+        // convert to a timed-promise only after called
+        return (listen, { wait.timeout(.defaultPublisherDataChannelOpen) })
     }
 
     func waitFor(transport: Transport?,
@@ -507,10 +506,9 @@ internal extension Engine {
             self.signalClient.add(delegate: signalDelegate!)
             listen.fulfill(())
         }
-        // convert to timed-promise
-        .timeout(.defaultConnect)
 
-        return (listen, wait)
+        // convert to a timed-promise only after called
+        return (listen, { wait.timeout(.defaultTransportState) })
     }
 
     func waitFor(publishLocalTrackWith cid: String) -> WaitPromises<Livekit_TrackInfo> {
@@ -542,10 +540,9 @@ internal extension Engine {
             self.signalClient.add(delegate: signalDelegate!)
             listen.fulfill(())
         }
-        // convert to timed-promise
-        .timeout(.defaultPublish)
 
-        return (listen, wait)
+        // convert to a timed-promise only after called
+        return (listen, { wait.timeout(.defaultPublish) })
     }
 }
 

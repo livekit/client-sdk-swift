@@ -50,7 +50,7 @@ public class LocalVideoTrack: LocalTrack, VideoTrack {
         }.then {
             self.capturer.startCapture()
         }.then {
-            wait.wait
+            wait.wait()
         }
     }
 
