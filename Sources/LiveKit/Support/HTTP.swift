@@ -33,7 +33,7 @@ internal class HTTP: NSObject, URLSessionDelegate {
 
             let request = URLRequest(url: url,
                                      cachePolicy: .reloadIgnoringLocalAndRemoteCacheData,
-                                     timeoutInterval: .defaultConnect)
+                                     timeoutInterval: .defaultHTTPConnect)
 
             let task = self.session.dataTask(with: request) { data, response, error in
                 if let error = error {
