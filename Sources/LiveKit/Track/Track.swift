@@ -65,6 +65,8 @@ public class Track: MulticastDelegate<TrackDelegate> {
         }
     }
 
+    internal let videoViews = NSHashTable<VideoView>.weakObjects()
+
     init(name: String, kind: Kind, source: Source, track: RTCMediaStreamTrack) {
         self.name = name
         self.kind = kind
@@ -72,14 +74,14 @@ public class Track: MulticastDelegate<TrackDelegate> {
         mediaTrack = track
     }
 
+    deinit {
+        log()
+    }
+
     // will fail if already started (to prevent duplicate code execution)
     internal func start() -> Promise<Void> {
         guard state != .started else {
             return Promise(TrackError.state(message: "Already started"))
-        }
-
-        if let videoTrack = mediaTrack as? RTCVideoTrack {
-            DispatchQueue.webRTC.sync { videoTrack.add(self) }
         }
 
         self.state = .started
@@ -90,10 +92,6 @@ public class Track: MulticastDelegate<TrackDelegate> {
     public func stop() -> Promise<Void> {
         guard state != .stopped else {
             return Promise(TrackError.state(message: "Already stopped"))
-        }
-
-        if let videoTrack = mediaTrack as? RTCVideoTrack {
-            DispatchQueue.webRTC.sync { videoTrack.remove(self) }
         }
 
         self.state = .stopped
@@ -140,41 +138,30 @@ internal extension Track {
     }
 }
 
-// MARK: - Private
+// MARK: - Internal
 
-private extension Track {
+internal extension Track {
 
-    func set(dimensions newValue: Dimensions?) {
-        guard self.dimensions != newValue else { return }
-        self.dimensions = newValue
+    // returns true when value is updated
+    func set(dimensions newValue: Dimensions?) -> Bool {
+        guard self.dimensions != newValue else { return false }
 
-        guard let videoTrack = self as? VideoTrack else { return }
-        notify { $0.track(videoTrack, didUpdate: newValue) }
-    }
-
-    func set(videoFrame newValue: RTCVideoFrame?) {
-        guard self.videoFrame != newValue else { return }
-        self.videoFrame = newValue
-    }
-}
-
-extension Track: RTCVideoRenderer {
-
-    // not used
-    public func setSize(_ size: CGSize) {}
-
-    public func renderFrame(_ frame: RTCVideoFrame?) {
-
-        if let frame = frame {
-            let dimensions = Dimensions(width: frame.width,
-                                        height: frame.height)
-                .apply(rotation: frame.rotation)
-
-            set(dimensions: dimensions)
-        } else {
-            set(dimensions: nil)
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            self.dimensions = newValue
         }
 
-        set(videoFrame: frame)
+        guard let videoTrack = self as? VideoTrack else { return true }
+        notify { $0.track(videoTrack, didUpdate: newValue) }
+
+        return true
+    }
+
+    // returns true when value is updated
+    func set(videoFrame newValue: RTCVideoFrame?) -> Bool {
+        guard self.videoFrame != newValue else { return false }
+        self.videoFrame = newValue
+
+        return true
     }
 }

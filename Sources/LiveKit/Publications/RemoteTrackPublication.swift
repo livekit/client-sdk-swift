@@ -25,8 +25,6 @@ public enum SubscriptionState {
 }
 
 public class RemoteTrackPublication: TrackPublication {
-    // user's preference to subscribe or not
-    private var preferSubscribed: Bool?
 
     public private(set) var subscriptionAllowed = true
 
@@ -34,25 +32,9 @@ public class RemoteTrackPublication: TrackPublication {
         trackSettings.enabled
     }
 
-    private var metadataMuted: Bool = false
-
     override public var muted: Bool {
         track?.muted ?? metadataMuted
     }
-
-    private var trackSettings = TrackSettings() {
-        didSet {
-            guard oldValue != trackSettings else { return }
-            log("did update trackSettings: \(trackSettings)")
-            // TODO: emit event when trackSettings has been updated by adaptiveStream.
-        }
-    }
-
-    #if LK_FEATURE_ADAPTIVESTREAM
-    private var videoViewVisibilities = [Int: VideoViewVisibility]()
-    private weak var pendingDebounceFunc: DispatchWorkItem?
-    private var debouncedRecomputeVideoViewVisibilities: DebouncFunc?
-    #endif
 
     public internal(set) var streamState: StreamState = .paused {
         didSet {
@@ -63,6 +45,23 @@ public class RemoteTrackPublication: TrackPublication {
         }
     }
 
+    // user's preference to subscribe or not
+    private var preferSubscribed: Bool?
+
+    private var metadataMuted: Bool = false
+
+    private var trackSettings = TrackSettings() {
+        didSet {
+            guard oldValue != trackSettings else { return }
+            log("did update trackSettings: \(trackSettings)")
+            // TODO: emit event when trackSettings has been updated by adaptiveStream.
+        }
+    }
+
+    // adaptiveStream
+    // this must be on .main queue
+    private var asTimer = DispatchQueueTimer(timeInterval: 0.3, queue: .main)
+
     override init(info: Livekit_TrackInfo,
                   track: Track? = nil,
                   participant: Participant) {
@@ -70,13 +69,13 @@ public class RemoteTrackPublication: TrackPublication {
         super.init(info: info,
                    track: track,
                    participant: participant)
+
+        asTimer.handler = { [weak self] in self?.onAdaptiveStreamTimer() }
     }
 
     deinit {
-        #if LK_FEATURE_ADAPTIVESTREAM
-        // cancel the pending debounce func
-        pendingDebounceFunc?.cancel()
-        #endif
+        log()
+        asTimer.suspend()
     }
 
     override func updateFromInfo(info: Livekit_TrackInfo) {
@@ -134,33 +133,15 @@ public class RemoteTrackPublication: TrackPublication {
     internal override func set(track newValue: Track?) -> Track? {
         let oldValue = super.set(track: newValue)
         if newValue != oldValue {
-            #if LK_FEATURE_ADAPTIVESTREAM
-            // always cancel the pending debounce func
-            pendingDebounceFunc?.cancel()
-            videoViewVisibilities.removeAll()
-            #endif
+            // always suspend adaptiveStream timer first
+            asTimer.suspend()
 
             if let newValue = newValue {
 
-                #if LK_FEATURE_ADAPTIVESTREAM
-                // only if is video track
-                if newValue.kind == .video {
-
-                    if debouncedRecomputeVideoViewVisibilities == nil {
-                        // create debounce func
-                        debouncedRecomputeVideoViewVisibilities = Utils.createDebounceFunc(wait: 2,
-                                                                                           onCreateWorkItem: { [weak self] in
-                                                                                            self?.pendingDebounceFunc = $0
-                                                                                           }, fnc: { [weak self] in
-                                                                                            self?.recomputeVideoViewVisibilities()
-                                                                                           })
-
-                    }
-
-                    // initial trigger
-                    shouldComputeVideoViewVisibilities()
+                // start adaptiveStream timer only if it's a video track
+                if (participant?.room.options.adaptiveStream ?? false), newValue.kind == .video {
+                    asTimer.restart()
                 }
-                #endif
 
                 // if new Track has been set to this RemoteTrackPublication,
                 // update the Track's muted state from the latest info.
@@ -176,27 +157,6 @@ public class RemoteTrackPublication: TrackPublication {
         }
         return oldValue
     }
-
-    #if LK_FEATURE_ADAPTIVESTREAM
-
-    // MARK: - TrackDelegate
-
-    override public func track(_ track: VideoTrack,
-                               videoView: VideoView,
-                               didLayout size: CGSize) {
-
-        videoViewVisibilities[videoView.hash] = VideoViewVisibility(visible: true,
-                                                                    size: size)
-        shouldComputeVideoViewVisibilities()
-    }
-
-    override public func track(_ track: VideoTrack,
-                               didDetach videoView: VideoView) {
-
-        videoViewVisibilities.removeValue(forKey: videoView.hash)
-        shouldComputeVideoViewVisibilities()
-    }
-    #endif
 
     // MARK: - Suspend/Resume
 
@@ -277,76 +237,6 @@ internal extension RemoteTrackPublication {
     }
 }
 
-#if LK_FEATURE_ADAPTIVESTREAM
-
-// MARK: - Adaptive Stream
-
-extension RemoteTrackPublication {
-
-    private func hasVisibleVideoViews() -> Bool {
-        // not visible if no entry
-        if videoViewVisibilities.isEmpty { return false }
-        // at least 1 entry should be visible
-        return videoViewVisibilities.values.first(where: { $0.visible }) != nil
-    }
-
-    private func shouldComputeVideoViewVisibilities() {
-        log()
-
-        guard let participant = participant else {
-            log("Participant is nil", .warning)
-            return
-        }
-
-        guard participant.room.options.adaptiveStream else {
-            // adaptiveStream is turned off
-            return
-        }
-
-        guard let track = track, track.kind == .video else {
-            log("Track is not a video track", .warning)
-            return
-        }
-
-        // decide whether to debounce or immediately compute video view visibilities
-        if trackSettings.enabled == false, hasVisibleVideoViews() {
-            // immediately compute (quick enable)
-            log("Attempting quick enable (no deboucne)")
-            pendingDebounceFunc?.cancel()
-            recomputeVideoViewVisibilities()
-        } else {
-            debouncedRecomputeVideoViewVisibilities?()
-        }
-    }
-
-    private func recomputeVideoViewVisibilities() {
-        log()
-
-        guard let track = track, track.kind == .video else {
-            log("Track is not a video track", .warning)
-            return
-        }
-
-        // set internal enabled var
-        let enabled = hasVisibleVideoViews()
-        var dimensions: Dimensions = .zero
-
-        // compute the largest video view size
-        if enabled, let maxSize = videoViewVisibilities.values.largestVideoViewSize() {
-            dimensions = Dimensions(width: Int32(ceil(maxSize.width)),
-                                    height: Int32(ceil(maxSize.height)))
-        }
-
-        let newSettings = trackSettings.copyWith(enabled: enabled,
-                                                 dimensions: dimensions)
-
-        send(trackSettings: newSettings).catch { error in
-            self.log("Failed to send track settings, error: \(error)", .error)
-        }
-    }
-}
-#endif
-
 // MARK: - TrackSettings
 
 extension RemoteTrackPublication {
@@ -380,23 +270,23 @@ extension RemoteTrackPublication {
 
 // MARK: - Adaptive Stream
 
-#if LK_FEATURE_ADAPTIVESTREAM
+internal extension Collection where Element == VideoView {
 
-struct VideoViewVisibility {
-    let visible: Bool
-    let size: CGSize
-}
+    func hasVisible() -> Bool {
+        // not visible if no entry
+        if isEmpty { return false }
+        // at least 1 entry should be visible
+        return contains { $0.isVisible }
+    }
 
-extension Sequence where Element == VideoViewVisibility {
-
-    func largestVideoViewSize() -> CGSize? {
+    func largestSize() -> CGSize? {
 
         func maxCGSize(_ s1: CGSize, _ s2: CGSize) -> CGSize {
             CGSize(width: Swift.max(s1.width, s2.width),
                    height: Swift.max(s1.height, s2.height))
         }
 
-        return map({ $0.size }).reduce(into: nil as CGSize?, { previous, current in
+        return filter { $0.isVisible }.compactMap { $0.rendererSize }.reduce(into: nil as CGSize?, { previous, current in
             guard let unwrappedPrevious = previous else {
                 previous = current
                 return
@@ -406,4 +296,45 @@ extension Sequence where Element == VideoViewVisibility {
     }
 }
 
-#endif
+extension RemoteTrackPublication {
+
+    // executed on .main
+    private func onAdaptiveStreamTimer() {
+
+        // this should never happen
+        assert(Thread.current.isMainThread, "this method must be called from main thread")
+
+        // suspend timer first
+        asTimer.suspend()
+
+        let asViews = track?.videoViews.allObjects ?? []
+
+        if asViews.count > 1 {
+            log("multiple VideoViews attached, count: \(asViews.count), trackId: \(track?.sid ?? "") views: (\(asViews.map { "\($0.hashValue)" }.joined(separator: ", ")))", .warning)
+        }
+
+        let enabled = asViews.hasVisible()
+        var dimensions: Dimensions = .zero
+
+        // compute the largest video view size
+        if enabled, let maxSize = asViews.largestSize() {
+            dimensions = Dimensions(width: Int32(ceil(maxSize.width)),
+                                    height: Int32(ceil(maxSize.height)))
+        }
+
+        let newSettings = trackSettings.copyWith(enabled: enabled,
+                                                 dimensions: dimensions)
+
+        guard self.trackSettings != newSettings else {
+            // no settings updated
+            asTimer.resume()
+            return
+        }
+
+        send(trackSettings: newSettings).catch(on: .main) { [weak self] error in
+            self?.log("Failed to send track settings, error: \(error)", .error)
+        }.always(on: .main) { [weak self] in
+            self?.asTimer.restart()
+        }
+    }
+}

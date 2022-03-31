@@ -24,11 +24,11 @@ import Promises
 /// > Note: `NSHashTable` may not immediately deinit the un-referenced object, due to Apple's implementation, therefore `.count` is unreliable.
 public class MulticastDelegate<T>: NSObject, Loggable {
 
-    private let queue: DispatchQueue
+    internal let multicastQueue: DispatchQueue
     private let set = NSHashTable<AnyObject>.weakObjects()
 
     init(label: String = "livekit.multicast", qos: DispatchQoS = .default) {
-        self.queue = DispatchQueue(label: label, qos: qos)
+        self.multicastQueue = DispatchQueue(label: label, qos: qos)
     }
 
     /// Add a single delegate.
@@ -39,7 +39,7 @@ public class MulticastDelegate<T>: NSObject, Loggable {
             return
         }
 
-        queue.sync { set.add(delegate) }
+        multicastQueue.sync { set.add(delegate) }
     }
 
     /// Remove a single delegate.
@@ -52,13 +52,13 @@ public class MulticastDelegate<T>: NSObject, Loggable {
             return
         }
 
-        queue.sync { set.remove(delegate) }
+        multicastQueue.sync { set.remove(delegate) }
     }
 
     internal func notify(_ fnc: @escaping (T) -> Void) {
 
-        queue.async {
-            for delegate in self.set.objectEnumerator() {
+        multicastQueue.async {
+            for delegate in self.set.allObjects {
                 guard let delegate = delegate as? T else {
                     self.log("MulticastDelegate: skipping notify for \(delegate), not a type of \(T.self)", .info)
                     continue
@@ -74,9 +74,9 @@ public class MulticastDelegate<T>: NSObject, Loggable {
                          function: String = #function,
                          line: UInt = #line) {
 
-        queue.async {
+        multicastQueue.async {
             var isHandled: Bool = false
-            for delegate in self.set.objectEnumerator() {
+            for delegate in self.set.allObjects {
                 guard let delegate = delegate as? T else {
                     self.log("MulticastDelegate: skipping notify for \(delegate), not a type of \(T.self)", .info)
                     continue
