@@ -282,10 +282,9 @@ internal extension SignalClient {
             self.log("Waiting for join response...")
             listen.fulfill(())
         }
-        // convert to a timed-promise
-        .timeout(.defaultConnect)
 
-        return (listen, wait)
+        // convert to a timed-promise only after called
+        return (listen, { wait.timeout(.defaultJoinResponse) })
     }
 }
 

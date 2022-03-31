@@ -18,9 +18,15 @@ import Foundation
 
 /// Default timeout `TimeInterval`s used throughout the SDK.
 internal extension TimeInterval {
-    static let captureStart: Self = 5
-    static let defaultConnect: Self = 15
+    static let defaultCaptureStart: Self = 5
     static let defaultConnectivity: Self = 10
     static let defaultPublish: Self = 10
-    static let quickReconnectDelay: Self = 3
+    static let defaultQuickReconnectRetry: Self = 2
+    // the following 3 timeouts are used for a typical connect sequence
+    static let defaultSocketConnect: Self = 10
+    static let defaultJoinResponse: Self = 7
+    static let defaultTransportState: Self = 10
+    // used for validation mode
+    static let defaultHTTPConnect: Self = 5
+    static let defaultPublisherDataChannelOpen: Self = 7
 }

@@ -66,7 +66,7 @@ internal extension VideoCapturer {
     func waitForDimensions(allowCurrent: Bool = true) -> WaitPromises<Void> {
 
         if allowCurrent, dimensions != nil {
-            return (Promise(()), Promise(()))
+            return (Promise(()), { Promise(()) })
         }
 
         let listen = Promise<Void>.pending()
@@ -84,10 +84,9 @@ internal extension VideoCapturer {
             self.log("Waiting for dimensions...")
             listen.fulfill(())
         }
-        // convert to a timed-promise
-        .timeout(.captureStart)
 
-        return (listen, wait)
+        // convert to a timed-promise only after called
+        return (listen, { wait.timeout(.defaultCaptureStart) })
     }
 }
 
