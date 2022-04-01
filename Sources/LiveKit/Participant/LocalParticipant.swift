@@ -325,6 +325,18 @@ public class LocalParticipant: Participant {
             sender.parameters = parameters
         }
     }
+
+    internal override func set(permissions newValue: ParticipantPermissions) -> Bool {
+
+        let didUpdate = super.set(permissions: newValue)
+
+        if didUpdate {
+            notify { $0.participant(self, didUpdate: newValue) }
+            room.notify { $0.room(self.room, participant: self, didUpdate: newValue) }
+        }
+
+        return didUpdate
+    }
 }
 
 // MARK: - Session Migration
