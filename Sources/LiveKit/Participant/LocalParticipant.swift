@@ -273,6 +273,20 @@ public class LocalParticipant: Participant {
                                                                          trackPermissions: trackPermissions)
     }
 
+    internal func onUnpublishTrack(trackSid: String) {
+
+        guard let publication = tracks[trackSid] as? LocalTrackPublication else {
+            log("unknown track publication", .warning)
+            return
+        }
+
+        unpublish(publication: publication).then { [weak self] _ in
+            self?.log("unpublished track(\(trackSid)")
+        }.catch { [weak self] error in
+            self?.log("failed to unpublish track(\(trackSid), error: \(error)", .warning)
+        }
+    }
+
     internal func onSubscribedQualitiesUpdate(trackSid: String, subscribedQualities: [Livekit_SubscribedQuality]) {
 
         if !room.options.dynacast {
