@@ -37,7 +37,7 @@ public class Stopwatch {
     }
 
     internal func clear() {
-        splits.removeAll()
+        splits = []
         start = ProcessInfo.processInfo.systemUptime
     }
 

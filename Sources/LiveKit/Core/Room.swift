@@ -132,8 +132,8 @@ private extension Room {
                 self.serverVersion = nil
                 self.serverRegion = nil
                 self.localParticipant = nil
-                self.remoteParticipants.removeAll()
-                self.activeSpeakers.removeAll()
+                self.remoteParticipants = [:]
+                self.activeSpeakers = []
             }
     }
 
