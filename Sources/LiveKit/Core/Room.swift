@@ -161,88 +161,6 @@ private extension Room {
             self.notify { $0.room(self, participantDidLeave: participant) }
         }
     }
-
-    func onSignalSpeakersUpdate(_ speakers: [Livekit_SpeakerInfo]) {
-        var lastSpeakers = activeSpeakers.reduce(into: [Sid: Participant]()) { $0[$1.sid] = $1 }
-        for speaker in speakers {
-
-            guard let participant = speaker.sid == localParticipant?.sid ? localParticipant : remoteParticipants[speaker.sid] else {
-                continue
-            }
-
-            participant.audioLevel = speaker.level
-            participant.isSpeaking = speaker.active
-            if speaker.active {
-                lastSpeakers[speaker.sid] = participant
-            } else {
-                lastSpeakers.removeValue(forKey: speaker.sid)
-            }
-        }
-
-        let activeSpeakers = lastSpeakers.values.sorted(by: { $1.audioLevel > $0.audioLevel })
-        self.activeSpeakers = activeSpeakers
-        notify { $0.room(self, didUpdate: activeSpeakers)}
-    }
-
-    func onEngineSpeakersUpdate(_ speakers: [Livekit_SpeakerInfo]) {
-        var activeSpeakers: [Participant] = []
-        var seenSids = [String: Bool]()
-        for speaker in speakers {
-            seenSids[speaker.sid] = true
-            if let localParticipant = localParticipant,
-               speaker.sid == localParticipant.sid {
-                localParticipant.audioLevel = speaker.level
-                localParticipant.isSpeaking = true
-                activeSpeakers.append(localParticipant)
-            } else {
-                if let participant = remoteParticipants[speaker.sid] {
-                    participant.audioLevel = speaker.level
-                    participant.isSpeaking = true
-                    activeSpeakers.append(participant)
-                }
-            }
-        }
-
-        if let localParticipant = localParticipant, seenSids[localParticipant.sid] == nil {
-            localParticipant.audioLevel = 0.0
-            localParticipant.isSpeaking = false
-        }
-        for participant in remoteParticipants.values {
-            if seenSids[participant.sid] == nil {
-                participant.audioLevel = 0.0
-                participant.isSpeaking = false
-            }
-        }
-        self.activeSpeakers = activeSpeakers
-        notify { $0.room(self, didUpdate: activeSpeakers) }
-    }
-
-    func onConnectionQualityUpdate(_ connectionQuality: [Livekit_ConnectionQualityInfo]) {
-
-        for entry in connectionQuality {
-            if let localParticipant = localParticipant,
-               entry.participantSid == localParticipant.sid {
-                // update for LocalParticipant
-                localParticipant.connectionQuality = entry.quality.toLKType()
-            } else if let participant = remoteParticipants[entry.participantSid] {
-                // udpate for RemoteParticipant
-                participant.connectionQuality = entry.quality.toLKType()
-            }
-        }
-    }
-
-    func onSubscribedQualitiesUpdate(trackSid: String, subscribedQualities: [Livekit_SubscribedQuality]) {
-        localParticipant?.onSubscribedQualitiesUpdate(trackSid: trackSid, subscribedQualities: subscribedQualities)
-    }
-
-    func onSubscriptionPermissionUpdate(permissionUpdate: Livekit_SubscriptionPermissionUpdate) {
-        guard let participant = remoteParticipants[permissionUpdate.participantSid],
-              let publication = participant.getTrackPublication(sid: permissionUpdate.trackSid) else {
-            return
-        }
-
-        publication.set(subscriptionAllowed: permissionUpdate.allowed)
-    }
 }
 
 // MARK: - Internal
@@ -344,8 +262,8 @@ extension Room: SignalClientDelegate {
     func signalClient(_ signalClient: SignalClient, didUpdate trackSid: String, subscribedQualities: [Livekit_SubscribedQuality]) -> Bool {
         log()
 
-        onSubscribedQualitiesUpdate(trackSid: trackSid,
-                                    subscribedQualities: subscribedQualities)
+        guard let localParticipant = localParticipant else { return true }
+        localParticipant.onSubscribedQualitiesUpdate(trackSid: trackSid, subscribedQualities: subscribedQualities)
         return true
     }
 
@@ -379,14 +297,43 @@ extension Room: SignalClientDelegate {
     func signalClient(_ signalClient: SignalClient, didUpdate speakers: [Livekit_SpeakerInfo]) -> Bool {
         log("speakers: \(speakers)", .trace)
 
-        onSignalSpeakersUpdate(speakers)
+        var lastSpeakers = activeSpeakers.reduce(into: [Sid: Participant]()) { $0[$1.sid] = $1 }
+        for speaker in speakers {
+
+            guard let participant = speaker.sid == localParticipant?.sid ? localParticipant : remoteParticipants[speaker.sid] else {
+                continue
+            }
+
+            participant.audioLevel = speaker.level
+            participant.isSpeaking = speaker.active
+            if speaker.active {
+                lastSpeakers[speaker.sid] = participant
+            } else {
+                lastSpeakers.removeValue(forKey: speaker.sid)
+            }
+        }
+
+        let activeSpeakers = lastSpeakers.values.sorted(by: { $1.audioLevel > $0.audioLevel })
+        self.activeSpeakers = activeSpeakers
+        notify { $0.room(self, didUpdate: activeSpeakers)}
+
         return true
     }
 
     func signalClient(_ signalClient: SignalClient, didUpdate connectionQuality: [Livekit_ConnectionQualityInfo]) -> Bool {
         log("connectionQuality: \(connectionQuality)", .trace)
 
-        onConnectionQualityUpdate(connectionQuality)
+        for entry in connectionQuality {
+            if let localParticipant = localParticipant,
+               entry.participantSid == localParticipant.sid {
+                // update for LocalParticipant
+                localParticipant.connectionQuality = entry.quality.toLKType()
+            } else if let participant = remoteParticipants[entry.participantSid] {
+                // udpate for RemoteParticipant
+                participant.connectionQuality = entry.quality.toLKType()
+            }
+        }
+
         return true
     }
 
@@ -410,7 +357,13 @@ extension Room: SignalClientDelegate {
     func signalClient(_ signalClient: SignalClient, didUpdate subscriptionPermission: Livekit_SubscriptionPermissionUpdate) -> Bool {
         log("subscriptionPermission: \(subscriptionPermission)")
 
-        onSubscriptionPermissionUpdate(permissionUpdate: subscriptionPermission)
+        guard let participant = remoteParticipants[subscriptionPermission.participantSid],
+              let publication = participant.getTrackPublication(sid: subscriptionPermission.trackSid) else {
+            return true
+        }
+
+        publication.set(subscriptionAllowed: subscriptionPermission.allowed)
+
         return true
     }
 
@@ -475,7 +428,37 @@ extension Room: EngineDelegate {
     }
 
     func engine(_ engine: Engine, didUpdate speakers: [Livekit_SpeakerInfo]) {
-        onEngineSpeakersUpdate(speakers)
+
+        var activeSpeakers: [Participant] = []
+        var seenSids = [String: Bool]()
+        for speaker in speakers {
+            seenSids[speaker.sid] = true
+            if let localParticipant = localParticipant,
+               speaker.sid == localParticipant.sid {
+                localParticipant.audioLevel = speaker.level
+                localParticipant.isSpeaking = true
+                activeSpeakers.append(localParticipant)
+            } else {
+                if let participant = remoteParticipants[speaker.sid] {
+                    participant.audioLevel = speaker.level
+                    participant.isSpeaking = true
+                    activeSpeakers.append(participant)
+                }
+            }
+        }
+
+        if let localParticipant = localParticipant, seenSids[localParticipant.sid] == nil {
+            localParticipant.audioLevel = 0.0
+            localParticipant.isSpeaking = false
+        }
+        for participant in remoteParticipants.values {
+            if seenSids[participant.sid] == nil {
+                participant.audioLevel = 0.0
+                participant.isSpeaking = false
+            }
+        }
+        self.activeSpeakers = activeSpeakers
+        notify { $0.room(self, didUpdate: activeSpeakers) }
     }
 
     func engine(_ engine: Engine, didUpdate connectionState: ConnectionState, oldValue: ConnectionState) {
