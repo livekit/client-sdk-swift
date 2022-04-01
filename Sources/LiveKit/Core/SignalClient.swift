@@ -118,12 +118,12 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
 
         requestDispatchQueue.async { [weak self] in
             guard let self = self else { return }
-            self.requestQueue.removeAll()
+            self.requestQueue = []
         }
 
         responseDispatchQueue.async { [weak self] in
             guard let self = self else { return }
-            self.responseQueue.removeAll()
+            self.responseQueue = []
             self.responseQueueState = .resumed
         }
     }
@@ -314,7 +314,7 @@ internal extension SignalClient {
             // send requests in sequential order
             let promises = self.responseQueue.reduce(into: Promise(())) { result, response in result.then(on: .sdk) { self.onSignalResponse(response) } }
             // clear the queue
-            self.responseQueue.removeAll()
+            self.responseQueue = []
 
             // resolve promise in this queue
             try awaitPromise(promises)
@@ -346,7 +346,7 @@ internal extension SignalClient {
             // send requests in sequential order
             let promises = self.requestQueue.reduce(into: Promise(())) { result, request in result.then(on: .sdk) { safeSend(request) } }
             // clear the queue
-            self.requestQueue.removeAll()
+            self.requestQueue = []
 
             // resolve promise in this queue
             try awaitPromise(promises)

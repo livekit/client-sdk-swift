@@ -125,7 +125,7 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
             self.pendingCandidates.map { self.addIceCandidatePromise($0) }.all(on: .sdk)
         }.then(on: .sdk) { () -> Promise<Void> in
 
-            self.pendingCandidates.removeAll()
+            self.pendingCandidates = []
             self.restartingIce = false
 
             if self.renegotiate {
