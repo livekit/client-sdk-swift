@@ -449,6 +449,15 @@ struct Livekit_SignalResponse {
     set {message = .refreshToken(newValue)}
   }
 
+  /// server initiated track unpublish
+  var trackUnpublished: Livekit_TrackUnpublishedResponse {
+    get {
+      if case .trackUnpublished(let v)? = message {return v}
+      return Livekit_TrackUnpublishedResponse()
+    }
+    set {message = .trackUnpublished(newValue)}
+  }
+
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   enum OneOf_Message: Equatable {
@@ -483,6 +492,8 @@ struct Livekit_SignalResponse {
     case subscriptionPermissionUpdate(Livekit_SubscriptionPermissionUpdate)
     /// update the token the client was using, to prevent an active client from using an expired token
     case refreshToken(String)
+    /// server initiated track unpublish
+    case trackUnpublished(Livekit_TrackUnpublishedResponse)
 
   #if !swift(>=4.1)
     static func ==(lhs: Livekit_SignalResponse.OneOf_Message, rhs: Livekit_SignalResponse.OneOf_Message) -> Bool {
@@ -548,6 +559,10 @@ struct Livekit_SignalResponse {
       }()
       case (.refreshToken, .refreshToken): return {
         guard case .refreshToken(let l) = lhs, case .refreshToken(let r) = rhs else { preconditionFailure() }
+        return l == r
+      }()
+      case (.trackUnpublished, .trackUnpublished): return {
+        guard case .trackUnpublished(let l) = lhs, case .trackUnpublished(let r) = rhs else { preconditionFailure() }
         return l == r
       }()
       default: return false
@@ -712,6 +727,18 @@ struct Livekit_TrackPublishedResponse {
   init() {}
 
   fileprivate var _track: Livekit_TrackInfo? = nil
+}
+
+struct Livekit_TrackUnpublishedResponse {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  var trackSid: String = String()
+
+  var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  init() {}
 }
 
 struct Livekit_SessionDescription {
@@ -1124,6 +1151,43 @@ struct Livekit_SimulateScenario {
   init() {}
 }
 
+#if swift(>=5.5) && canImport(_Concurrency)
+extension Livekit_SignalTarget: @unchecked Sendable {}
+extension Livekit_StreamState: @unchecked Sendable {}
+extension Livekit_SignalRequest: @unchecked Sendable {}
+extension Livekit_SignalRequest.OneOf_Message: @unchecked Sendable {}
+extension Livekit_SignalResponse: @unchecked Sendable {}
+extension Livekit_SignalResponse.OneOf_Message: @unchecked Sendable {}
+extension Livekit_AddTrackRequest: @unchecked Sendable {}
+extension Livekit_TrickleRequest: @unchecked Sendable {}
+extension Livekit_MuteTrackRequest: @unchecked Sendable {}
+extension Livekit_JoinResponse: @unchecked Sendable {}
+extension Livekit_TrackPublishedResponse: @unchecked Sendable {}
+extension Livekit_TrackUnpublishedResponse: @unchecked Sendable {}
+extension Livekit_SessionDescription: @unchecked Sendable {}
+extension Livekit_ParticipantUpdate: @unchecked Sendable {}
+extension Livekit_UpdateSubscription: @unchecked Sendable {}
+extension Livekit_UpdateTrackSettings: @unchecked Sendable {}
+extension Livekit_LeaveRequest: @unchecked Sendable {}
+extension Livekit_UpdateVideoLayers: @unchecked Sendable {}
+extension Livekit_ICEServer: @unchecked Sendable {}
+extension Livekit_SpeakersChanged: @unchecked Sendable {}
+extension Livekit_RoomUpdate: @unchecked Sendable {}
+extension Livekit_ConnectionQualityInfo: @unchecked Sendable {}
+extension Livekit_ConnectionQualityUpdate: @unchecked Sendable {}
+extension Livekit_StreamStateInfo: @unchecked Sendable {}
+extension Livekit_StreamStateUpdate: @unchecked Sendable {}
+extension Livekit_SubscribedQuality: @unchecked Sendable {}
+extension Livekit_SubscribedQualityUpdate: @unchecked Sendable {}
+extension Livekit_TrackPermission: @unchecked Sendable {}
+extension Livekit_SubscriptionPermission: @unchecked Sendable {}
+extension Livekit_SubscriptionPermissionUpdate: @unchecked Sendable {}
+extension Livekit_SyncState: @unchecked Sendable {}
+extension Livekit_DataChannelInfo: @unchecked Sendable {}
+extension Livekit_SimulateScenario: @unchecked Sendable {}
+extension Livekit_SimulateScenario.OneOf_Scenario: @unchecked Sendable {}
+#endif  // swift(>=5.5) && canImport(_Concurrency)
+
 // MARK: - Code below here is support for the SwiftProtobuf runtime.
 
 fileprivate let _protobuf_package = "livekit"
@@ -1410,6 +1474,7 @@ extension Livekit_SignalResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageI
     14: .standard(proto: "subscribed_quality_update"),
     15: .standard(proto: "subscription_permission_update"),
     16: .standard(proto: "refresh_token"),
+    17: .standard(proto: "track_unpublished"),
   ]
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -1608,6 +1673,19 @@ extension Livekit_SignalResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageI
           self.message = .refreshToken(v)
         }
       }()
+      case 17: try {
+        var v: Livekit_TrackUnpublishedResponse?
+        var hadOneofValue = false
+        if let current = self.message {
+          hadOneofValue = true
+          if case .trackUnpublished(let m) = current {v = m}
+        }
+        try decoder.decodeSingularMessageField(value: &v)
+        if let v = v {
+          if hadOneofValue {try decoder.handleConflictingOneOf()}
+          self.message = .trackUnpublished(v)
+        }
+      }()
       default: break
       }
     }
@@ -1678,6 +1756,10 @@ extension Livekit_SignalResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageI
     case .refreshToken?: try {
       guard case .refreshToken(let v)? = self.message else { preconditionFailure() }
       try visitor.visitSingularStringField(value: v, fieldNumber: 16)
+    }()
+    case .trackUnpublished?: try {
+      guard case .trackUnpublished(let v)? = self.message else { preconditionFailure() }
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 17)
     }()
     case nil: break
     }
@@ -2016,6 +2098,38 @@ extension Livekit_TrackPublishedResponse: SwiftProtobuf.Message, SwiftProtobuf._
   static func ==(lhs: Livekit_TrackPublishedResponse, rhs: Livekit_TrackPublishedResponse) -> Bool {
     if lhs.cid != rhs.cid {return false}
     if lhs._track != rhs._track {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+extension Livekit_TrackUnpublishedResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  static let protoMessageName: String = _protobuf_package + ".TrackUnpublishedResponse"
+  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
+    1: .standard(proto: "track_sid"),
+  ]
+
+  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularStringField(value: &self.trackSid) }()
+      default: break
+      }
+    }
+  }
+
+  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    if !self.trackSid.isEmpty {
+      try visitor.visitSingularStringField(value: self.trackSid, fieldNumber: 1)
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  static func ==(lhs: Livekit_TrackUnpublishedResponse, rhs: Livekit_TrackUnpublishedResponse) -> Bool {
+    if lhs.trackSid != rhs.trackSid {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
