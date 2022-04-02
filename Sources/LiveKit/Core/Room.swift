@@ -409,7 +409,7 @@ extension Room: SignalClientDelegate {
 
         guard let localParticipant = localParticipant,
               let publication = localParticipant.tracks[localTrack.trackSid] as? LocalTrackPublication else {
-            log("unknown track publication not found", .warning)
+            log("track publication not found", .warning)
             return true
         }
 
