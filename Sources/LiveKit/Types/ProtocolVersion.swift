@@ -22,6 +22,7 @@ public enum ProtocolVersion {
     case v4
     case v5
     case v6
+    case v7
 }
 
 extension ProtocolVersion: CustomStringConvertible {
@@ -33,6 +34,7 @@ extension ProtocolVersion: CustomStringConvertible {
         case .v4: return "4"
         case .v5: return "5"
         case .v6: return "6"
+        case .v7: return "7"
         }
     }
 }

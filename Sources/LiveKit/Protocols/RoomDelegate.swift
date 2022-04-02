@@ -69,6 +69,8 @@ public protocol RoomDelegate: AnyObject {
     /// Same with ``ParticipantDelegate/participant(_:didUpdate:)-84m89``.
     func room(_ room: Room, participant: Participant, didUpdate publication: TrackPublication, muted: Bool)
 
+    func room(_ room: Room, participant: Participant, didUpdate permissions: ParticipantPermissions)
+
     /// Same with ``ParticipantDelegate/participant(_:didUpdate:streamState:)-1lu8t``.
     func room(_ room: Room, participant: RemoteParticipant, didUpdate publication: RemoteTrackPublication, streamState: StreamState)
 
@@ -113,6 +115,7 @@ public extension RoomDelegate {
     func room(_ room: Room, didUpdate metadata: String?) {}
     func room(_ room: Room, participant: Participant, didUpdate metadata: String?) {}
     func room(_ room: Room, participant: Participant, didUpdate publication: TrackPublication, muted: Bool) {}
+    func room(_ room: Room, participant: Participant, didUpdate permissions: ParticipantPermissions) {}
     func room(_ room: Room, participant: RemoteParticipant, didUpdate publication: RemoteTrackPublication, streamState: StreamState) {}
     func room(_ room: Room, participant: Participant, didUpdate connectionQuality: ConnectionQuality) {}
     func room(_ room: Room, participant: RemoteParticipant, didPublish publication: RemoteTrackPublication) {}

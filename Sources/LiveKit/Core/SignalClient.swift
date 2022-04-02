@@ -231,6 +231,9 @@ private extension SignalClient {
         case .trackPublished(let trackPublished):
             notify { $0.signalClient(self, didPublish: trackPublished) }
 
+        case .trackUnpublished(let trackUnpublished):
+            notify { $0.signalClient(self, didUnpublish: trackUnpublished) }
+
         case .speakersChanged(let speakers):
             notify { $0.signalClient(self, didUpdate: speakers.speakers) }
 

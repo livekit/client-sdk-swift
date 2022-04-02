@@ -48,6 +48,8 @@ public class Participant: MulticastDelegate<ParticipantDelegate> {
         }
     }
 
+    public internal(set) var permissions = ParticipantPermissions()
+
     public private(set) var joinedAt: Date?
     public internal(set) var tracks = [String: TrackPublication]()
 
@@ -59,7 +61,7 @@ public class Participant: MulticastDelegate<ParticipantDelegate> {
         tracks.values.filter { $0.kind == .video }
     }
 
-    var info: Livekit_ParticipantInfo?
+    internal var info: Livekit_ParticipantInfo?
 
     // Reference to the Room this Participant belongs to
     public let room: Room
@@ -80,17 +82,29 @@ public class Participant: MulticastDelegate<ParticipantDelegate> {
         Promise(())
     }
 
-    func addTrack(publication: TrackPublication) {
+    internal func addTrack(publication: TrackPublication) {
         tracks[publication.sid] = publication
         publication.track?.sid = publication.sid
     }
 
-    func updateFromInfo(info: Livekit_ParticipantInfo) {
+    internal func updateFromInfo(info: Livekit_ParticipantInfo) {
         self.identity = info.identity
         self.name = info.name
         self.metadata = info.metadata
+        self.permissions = info.permission.toLKType()
         self.joinedAt = Date(timeIntervalSince1970: TimeInterval(info.joinedAt))
         self.info = info
+    }
+
+    internal func set(permissions newValue: ParticipantPermissions) -> Bool {
+
+        guard self.permissions != newValue else {
+            // no change
+            return false
+        }
+
+        self.permissions = newValue
+        return true
     }
 }
 
@@ -110,12 +124,12 @@ extension Participant {
         !(getTrackPublication(source: .screenShareVideo)?.muted ?? true)
     }
 
-    func getTrackPublication(name: String) -> TrackPublication? {
+    internal func getTrackPublication(name: String) -> TrackPublication? {
         tracks.values.first(where: { $0.name == name })
     }
 
     /// find the first publication matching `source` or any compatible.
-    func getTrackPublication(source: Track.Source) -> TrackPublication? {
+    internal func getTrackPublication(source: Track.Source) -> TrackPublication? {
         // if source is unknown return nil
         guard source != .unknown else { return nil }
         // try to find a Publication with matching source
@@ -138,15 +152,15 @@ extension Participant {
 
 // MARK: - Equality
 
-extension Participant {
+public extension Participant {
 
-    public override var hash: Int {
+    override var hash: Int {
         var hasher = Hasher()
         hasher.combine(sid)
         return hasher.finalize()
     }
 
-    public override func isEqual(_ object: Any?) -> Bool {
+    override func isEqual(_ object: Any?) -> Bool {
         guard let other = object as? Participant else {
             return false
         }

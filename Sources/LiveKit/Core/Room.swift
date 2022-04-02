@@ -403,6 +403,24 @@ extension Room: SignalClientDelegate {
         }
         return true
     }
+
+    func signalClient(_ signalClient: SignalClient, didUnpublish localTrack: Livekit_TrackUnpublishedResponse) -> Bool {
+        log()
+
+        guard let localParticipant = localParticipant,
+              let publication = localParticipant.tracks[localTrack.trackSid] as? LocalTrackPublication else {
+            log("track publication not found", .warning)
+            return true
+        }
+
+        localParticipant.unpublish(publication: publication).then { [weak self] _ in
+            self?.log("unpublished track(\(localTrack.trackSid)")
+        }.catch { [weak self] error in
+            self?.log("failed to unpublish track(\(localTrack.trackSid), error: \(error)", .warning)
+        }
+
+        return true
+    }
 }
 
 // MARK: - EngineDelegate
