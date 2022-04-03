@@ -91,9 +91,9 @@ public class Participant: MulticastDelegate<ParticipantDelegate> {
         self.identity = info.identity
         self.name = info.name
         self.metadata = info.metadata
-        self.permissions = info.permission.toLKType()
         self.joinedAt = Date(timeIntervalSince1970: TimeInterval(info.joinedAt))
         self.info = info
+        set(permissions: info.permission.toLKType())
     }
 
     internal func set(permissions newValue: ParticipantPermissions) -> Bool {
