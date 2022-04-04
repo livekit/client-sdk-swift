@@ -20,7 +20,9 @@ import Promises
 public class Track: MulticastDelegate<TrackDelegate> {
 
     public static let cameraName = "camera"
-    public static let screenShareName = "screenshare"
+    public static let microphoneName = "microphone"
+    public static let screenShareVideoName = "screen_share"
+    public static let screenShareAudioName = "screen_share_audio"
 
     public enum Kind {
         case audio

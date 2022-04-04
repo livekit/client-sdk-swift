@@ -81,11 +81,12 @@ public class InAppScreenCapturer: VideoCapturer {
 extension LocalVideoTrack {
     /// Creates a track that captures in-app screen only (due to limitation of ReplayKit)
     @available(macOS 11.0, iOS 11.0, *)
-    public static func createInAppScreenShareTrack(options: ScreenShareCaptureOptions = ScreenShareCaptureOptions()) -> LocalVideoTrack {
+    public static func createInAppScreenShareTrack(name: String = Track.screenShareVideoName,
+                                                   options: ScreenShareCaptureOptions = ScreenShareCaptureOptions()) -> LocalVideoTrack {
         let videoSource = Engine.createVideoSource(forScreenShare: true)
         let capturer = InAppScreenCapturer(delegate: videoSource, options: options)
         return LocalVideoTrack(
-            name: Track.screenShareName,
+            name: name,
             source: .screenShareVideo,
             capturer: capturer,
             videoSource: videoSource

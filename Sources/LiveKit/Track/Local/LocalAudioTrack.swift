@@ -30,7 +30,7 @@ public class LocalAudioTrack: LocalTrack, AudioTrack {
                    track: track)
     }
 
-    public static func createTrack(name: String,
+    public static func createTrack(name: String = Track.microphoneName,
                                    options: AudioCaptureOptions? = nil) -> LocalAudioTrack {
 
         let options = options ?? AudioCaptureOptions()

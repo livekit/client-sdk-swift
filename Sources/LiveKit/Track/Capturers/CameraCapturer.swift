@@ -174,11 +174,12 @@ public class CameraCapturer: VideoCapturer {
 
 extension LocalVideoTrack {
 
-    public static func createCameraTrack(options: CameraCaptureOptions = CameraCaptureOptions()) -> LocalVideoTrack {
+    public static func createCameraTrack(name: String = Track.cameraName,
+                                         options: CameraCaptureOptions = CameraCaptureOptions()) -> LocalVideoTrack {
         let videoSource = Engine.createVideoSource(forScreenShare: false)
         let capturer = CameraCapturer(delegate: videoSource, options: options)
         return LocalVideoTrack(
-            name: Track.cameraName,
+            name: name,
             source: .camera,
             capturer: capturer,
             videoSource: videoSource

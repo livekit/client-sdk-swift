@@ -232,12 +232,13 @@ extension MacOSScreenCapturer: AVCaptureVideoDataOutputSampleBufferDelegate {
 
 extension LocalVideoTrack {
     /// Creates a track that captures the whole desktop screen
-    public static func createMacOSScreenShareTrack(source: ScreenShareSource = .mainDisplay,
+    public static func createMacOSScreenShareTrack(name: String = Track.screenShareVideoName,
+                                                   source: ScreenShareSource = .mainDisplay,
                                                    options: ScreenShareCaptureOptions = ScreenShareCaptureOptions()) -> LocalVideoTrack {
         let videoSource = Engine.createVideoSource(forScreenShare: true)
         let capturer = MacOSScreenCapturer(delegate: videoSource, source: source, options: options)
         return LocalVideoTrack(
-            name: Track.screenShareName,
+            name: name,
             source: .screenShareVideo,
             capturer: capturer,
             videoSource: videoSource
