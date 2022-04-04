@@ -242,6 +242,16 @@ extension RemoteTrackPublication {
             self.trackSettings = trackSettings
         }
     }
+
+    internal func engineConnectionState() -> ConnectionState {
+
+        guard let participant = participant else {
+            log("Participant is nil", .warning)
+            return .disconnected(reason: .sdk)
+        }
+
+        return participant.room.engine.connectionState
+    }
 }
 
 // MARK: - Adaptive Stream
@@ -282,6 +292,12 @@ extension RemoteTrackPublication {
 
         // suspend timer first
         asTimer.suspend()
+
+        // don't continue if the engine is disconnected
+        guard !engineConnectionState().isDisconnected else {
+            log("engine is disconnected")
+            return
+        }
 
         let asViews = track?.videoViews.allObjects ?? []
 

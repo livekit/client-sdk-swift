@@ -96,6 +96,7 @@ public class Participant: MulticastDelegate<ParticipantDelegate> {
         set(permissions: info.permission.toLKType())
     }
 
+    @discardableResult
     internal func set(permissions newValue: ParticipantPermissions) -> Bool {
 
         guard self.permissions != newValue else {

@@ -76,6 +76,11 @@ extension ConnectionState: Equatable {
         return true
     }
 
+    public var isDisconnected: Bool {
+        guard case .disconnected = self else { return false }
+        return true
+    }
+
     public var isReconnecting: Bool {
         return reconnectingWithMode != nil
     }

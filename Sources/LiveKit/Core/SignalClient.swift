@@ -259,8 +259,6 @@ private extension SignalClient {
             notify { $0.signalClient(self, didUpdate: permissionUpdate) }
         case .refreshToken(let token):
             notify { $0.signalClient(self, didUpdate: token) }
-        @unknown default:
-            log("unknown message: \(message)")
         }
     }
 }
