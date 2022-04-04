@@ -128,7 +128,7 @@ public class CameraCapturer: VideoCapturer {
         if let videoSource = delegate as? RTCVideoSource,
            selectedFormat.value != options.dimensions {
 
-            self.log("adaptOutputFormat to: \(options.dimensions) fps: \(self.options.fps)")
+            // self.log("adaptOutputFormat to: \(options.dimensions) fps: \(self.options.fps)")
             videoSource.adaptOutputFormat(toWidth: options.dimensions.width,
                                           height: options.dimensions.height,
                                           fps: Int32(options.fps))
