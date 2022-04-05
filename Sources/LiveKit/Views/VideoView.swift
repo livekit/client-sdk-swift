@@ -452,6 +452,9 @@ extension VideoView {
             #endif
         }
 
+        // default to hidden until first frame is rendered
+        result.isHidden = true
+
         return result
     }
 }
