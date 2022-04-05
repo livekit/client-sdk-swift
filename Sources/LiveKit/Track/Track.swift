@@ -68,6 +68,8 @@ public class Track: MulticastDelegate<TrackDelegate> {
     }
 
     internal let videoViews = NSHashTable<VideoView>.weakObjects()
+    // queue used to access cached videoFrame
+    internal let videoFrameQueue = DispatchQueue(label: "LiveKitSDK.Track.videoFrame", qos: .userInitiated)
 
     init(name: String, kind: Kind, source: Source, track: RTCMediaStreamTrack) {
         self.name = name
@@ -160,10 +162,11 @@ internal extension Track {
     }
 
     // returns true when value is updated
-    func set(videoFrame newValue: RTCVideoFrame?) -> Bool {
-        guard self.videoFrame != newValue else { return false }
-        self.videoFrame = newValue
-
-        return true
+    func set(videoFrame newValue: RTCVideoFrame?) {
+        videoFrameQueue.async { [weak self] in
+            guard let self = self else { return }
+            guard self.videoFrame != newValue else { return }
+            self.videoFrame = newValue
+        }
     }
 }
