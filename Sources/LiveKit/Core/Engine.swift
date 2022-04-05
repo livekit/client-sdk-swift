@@ -664,7 +664,7 @@ extension Engine: TransportDelegate {
 
         if connectionState.isConnected {
             // Attempt re-connect if primary transport failed
-            if transport.primary, [.disconnected, .failed].contains(state) {
+            if (transport.primary || transport.target == .publisher) && [.disconnected, .failed].contains(state) {
                 startReconnect()
             }
         }
