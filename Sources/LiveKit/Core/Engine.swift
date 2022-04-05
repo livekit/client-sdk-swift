@@ -663,8 +663,8 @@ extension Engine: TransportDelegate {
         log("target: \(transport.target), state: \(state)")
 
         if connectionState.isConnected {
-            // Attempt re-connect if primary transport failed
-            if (transport.primary || transport.target == .publisher) && [.disconnected, .failed].contains(state) {
+            // Attempt re-connect if primary or publisher transport failed
+            if (transport.primary || (hasPublished && transport.target == .publisher)) && [.disconnected, .failed].contains(state) {
                 startReconnect()
             }
         }
