@@ -244,6 +244,7 @@ private extension Engine {
             return promises.all(on: .sdk).then(on: .sdk) {
                 self.publisher = nil
                 self.subscriber = nil
+                self.hasPublished = false
             }
         }
 
@@ -661,9 +662,11 @@ extension Engine: TransportDelegate {
     func transport(_ transport: Transport, didUpdate state: RTCPeerConnectionState) {
         log("target: \(transport.target), state: \(state)")
 
-        // Attempt re-connect if primary transport failed
-        if transport.primary, state == .failed {
-            startReconnect()
+        if connectionState.isConnected {
+            // Attempt re-connect if primary or publisher transport failed
+            if (transport.primary || (hasPublished && transport.target == .publisher)) && [.disconnected, .failed].contains(state) {
+                startReconnect()
+            }
         }
     }
 
