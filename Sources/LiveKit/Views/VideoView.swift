@@ -302,7 +302,7 @@ private extension VideoView {
             log("Renderer: attaching...")
 
             if let frame = track.videoFrame {
-                log("rendering cached frame")
+                log("rendering cached frame \(frame.hashValue)")
                 renderFrame(frame)
             }
 
@@ -387,7 +387,7 @@ extension VideoView: RTCVideoRenderer {
             DispatchQueue.main.async { [weak self] in
                 guard let self = self else { return }
                 self.nativeRenderer.isHidden = false
-                self.setNeedsLayout()
+                self.markNeedsLayout()
             }
         }
     }
