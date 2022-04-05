@@ -69,7 +69,7 @@ public class Track: MulticastDelegate<TrackDelegate> {
 
     internal let videoViews = NSHashTable<VideoView>.weakObjects()
     // queue used to access cached videoFrame
-    internal let videoFrameQueue = DispatchQueue(label: "LiveKitSDK.Track.videoFrame", qos: .userInteractive)
+    internal let videoFrameQueue = DispatchQueue(label: "LiveKitSDK.Track.videoFrame", qos: .userInitiated)
 
     init(name: String, kind: Kind, source: Source, track: RTCMediaStreamTrack) {
         self.name = name
