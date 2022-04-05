@@ -160,6 +160,7 @@ internal extension Track {
     }
 
     // returns true when value is updated
+    @discardableResult
     func set(videoFrame newValue: RTCVideoFrame?) -> Bool {
         guard self.videoFrame != newValue else { return false }
         self.videoFrame = newValue

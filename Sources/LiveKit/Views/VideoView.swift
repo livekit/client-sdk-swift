@@ -124,12 +124,6 @@ public class VideoView: NativeView, Loggable {
                     guard let track = track else { return }
                     delegate.track(track, didAttach: self)
                 }
-
-            } else {
-                // if nil is set, clear out the renderer
-                // DispatchQueue.webRTC.sync { nativeRenderer.renderFrame(nil) }
-                log("clearing renderState")
-                renderState = []
             }
 
             syncRendererAttach()
@@ -194,8 +188,8 @@ public class VideoView: NativeView, Loggable {
     override func shouldLayout() {
         super.shouldLayout()
 
-        // this should never happen
-        assert(Thread.current.isMainThread, "shouldLayout must be called from main thread")
+        // should always be on main thread
+        assert(Thread.current.isMainThread, "must be called on main thread")
 
         defer {
             let size = self.frame.size
@@ -293,6 +287,9 @@ private extension VideoView {
 
     private func syncRendererAttach() {
 
+        // should always be on main thread
+        assert(Thread.current.isMainThread, "must be called on main thread")
+
         let shouldAttach = (track != nil && isEnabled && !isHidden)
 
         guard let track = track else {
@@ -303,10 +300,19 @@ private extension VideoView {
 
         if shouldAttach {
             log("Renderer: attaching...")
+
+            if let frame = track.videoFrame {
+                log("rendering cached frame")
+                renderFrame(frame)
+            }
+
             track.add(videoView: self)
+
         } else {
             log("Renderer: detaching...")
             track.remove(videoView: self)
+            nativeRenderer.isHidden = true
+            renderState = []
         }
 
         // toggle MTKView's isPaused property
@@ -367,13 +373,22 @@ extension VideoView: RTCVideoRenderer {
         }
 
         nativeRenderer.renderFrame(frame)
-        // track?.set(videoFrame: frame)
+
+        // TODO: doesn't need to be main thread
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self, let track = self.track else { return }
+            track.set(videoFrame: frame)
+        }
 
         // layout after first frame has been rendered
         if !renderState.contains(.didRenderFirstFrame) {
             renderState.insert(.didRenderFirstFrame)
             log("Did render first frame")
-            safeMarkNeedsLayout()
+            DispatchQueue.main.async { [weak self] in
+                guard let self = self else { return }
+                self.nativeRenderer.isHidden = false
+                self.setNeedsLayout()
+            }
         }
     }
 }
