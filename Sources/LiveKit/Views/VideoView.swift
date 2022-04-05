@@ -301,9 +301,12 @@ private extension VideoView {
         if shouldAttach {
             log("Renderer: attaching...")
 
-            if let frame = track.videoFrame {
-                log("rendering cached frame \(frame.hashValue)")
-                renderFrame(frame)
+            track.videoFrameQueue.async { [weak self] in
+                guard let self = self else { return }
+                if let frame = track.videoFrame {
+                    self.log("rendering cached frame \(frame.hashValue)")
+                    self.renderFrame(frame)
+                }
             }
 
             track.add(videoView: self)
@@ -374,11 +377,8 @@ extension VideoView: RTCVideoRenderer {
 
         nativeRenderer.renderFrame(frame)
 
-        // TODO: doesn't need to be main thread
-        DispatchQueue.main.async { [weak self] in
-            guard let self = self, let track = self.track else { return }
-            track.set(videoFrame: frame)
-        }
+        // cache last rendered frame
+        track?.set(videoFrame: frame)
 
         // layout after first frame has been rendered
         if !renderState.contains(.didRenderFirstFrame) {
