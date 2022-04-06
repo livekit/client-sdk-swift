@@ -105,6 +105,27 @@ extension RoomViewController: RoomDelegate {
 }
 ```
 
+# ScrollView performance
+
+It is recommended to turn off rendering of `VideoView`s that scroll off the screen and isn't visible by setting `false` to `isEnabled` property and `true` when it will re-appear to save CPU resources.
+
+The following is an example for `UICollectionView` (UIKit), implement `UICollectionViewDelegate` and use `willDisplay` / `didEndDisplaying` to update the `isEnabled` property.
+
+```swift
+extension YourViewController: UICollectionViewDelegate {
+
+   func collectionView(_ collectionView: UICollectionView, willDisplay cell: UICollectionViewCell, forItemAt indexPath: IndexPath) {
+        guard let yourCell = cell as? YourCell else { return }
+        yourCell.videoView.isEnabled = true
+    }
+
+    func collectionView(_ collectionView: UICollectionView, didEndDisplaying cell: UICollectionViewCell, forItemAt indexPath: IndexPath) {
+        guard let yourCell = cell as? YourCell else { return }
+        yourCell.videoView.isEnabled = false
+    }
+}
+```
+
 # Getting help / Contributing
 
 Please join us on [Slack](https://join.slack.com/t/livekit-users/shared_invite/zt-rrdy5abr-5pZ1wW8pXEkiQxBzFiXPUg) to get help from our [devs](https://github.com/orgs/livekit/teams/devs/members) / community members. We welcome your contributions(PRs) and details can be discussed there.
