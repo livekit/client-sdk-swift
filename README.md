@@ -9,6 +9,8 @@ Docs and guides are at [https://docs.livekit.io](https://docs.livekit.io).
 
 There is full source code of a [iOS/macOS Swift UI Example App](https://github.com/livekit/client-example-swift).
 
+For minimal examples view this repo 👉 [Swift SDK Examples](https://github.com/livekit/client-example-collection-swift)
+
 ## Installation
 
 LiveKit for Swift is available as a Swift Package.
