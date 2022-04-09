@@ -282,12 +282,17 @@ internal extension SignalClient {
             // not required to clean up since weak reference
             self.add(delegate: delegate!)
 
-            self.log("Waiting for join response...")
+            self.log("[wait] listening for join response...")
             listen.fulfill(())
         }
 
+        let waitFunc = { () -> Promise<Livekit_JoinResponse> in
+            self.log("[wait] waiting for join response...")
+            return wait.timeout(.defaultJoinResponse)
+        }
+
         // convert to a timed-promise only after called
-        return (listen, { wait.timeout(.defaultJoinResponse) })
+        return (listen, waitFunc)
     }
 }
 

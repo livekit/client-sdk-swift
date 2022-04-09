@@ -455,11 +455,18 @@ internal extension Engine {
                 }
             )
             self.signalClient.add(delegate: signalDelegate!)
+
+            self.log("[wait] listening for publisher DC open...")
             listen.fulfill(())
         }
 
+        let waitFunc = { () -> Promise<Void> in
+            self.log("[wait] waiting for publisher DC open...")
+            return wait.timeout(.defaultPublisherDataChannelOpen)
+        }
+
         // convert to a timed-promise only after called
-        return (listen, { wait.timeout(.defaultPublisherDataChannelOpen) })
+        return (listen, waitFunc)
     }
 
     func waitFor(transport: Transport?,
@@ -505,11 +512,18 @@ internal extension Engine {
                 }
             )
             self.signalClient.add(delegate: signalDelegate!)
+
+            self.log("[wait] listening for transport state...")
             listen.fulfill(())
         }
 
+        let waitFunc = { () -> Promise<Void> in
+            self.log("[wait] waiting for transport state...")
+            return wait.timeout(.defaultTransportState)
+        }
+
         // convert to a timed-promise only after called
-        return (listen, { wait.timeout(.defaultTransportState) })
+        return (listen, waitFunc)
     }
 
     func waitFor(publishLocalTrackWith cid: String) -> WaitPromises<Livekit_TrackInfo> {
@@ -539,11 +553,18 @@ internal extension Engine {
                 }
             )
             self.signalClient.add(delegate: signalDelegate!)
+
+            self.log("[wait] listening for publish...")
             listen.fulfill(())
         }
 
+        let waitFunc = { () -> Promise<Livekit_TrackInfo> in
+            self.log("[wait] waiting for publish...")
+            return wait.timeout(.defaultPublish)
+        }
+
         // convert to a timed-promise only after called
-        return (listen, { wait.timeout(.defaultPublish) })
+        return (listen, waitFunc)
     }
 }
 

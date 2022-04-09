@@ -82,11 +82,18 @@ internal extension VideoCapturer {
             // not required to clean up since weak reference
             self.add(delegate: delegate!)
             self.log("Waiting for dimensions...")
+
+            self.log("[wait] listening for dimensions resolve...")
             listen.fulfill(())
         }
 
+        let waitFunc = { () -> Promise<Void> in
+            self.log("[wait] waiting for dimensions resolve...")
+            return wait.timeout(.defaultCaptureStart)
+        }
+
         // convert to a timed-promise only after called
-        return (listen, { wait.timeout(.defaultCaptureStart) })
+        return (listen, waitFunc)
     }
 }
 
