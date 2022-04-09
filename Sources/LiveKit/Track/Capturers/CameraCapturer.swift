@@ -165,9 +165,9 @@ public class CameraCapturer: VideoCapturer {
 
     public override func stopCapture() -> Promise<Bool> {
 
-        super.stopCapture().then(on: .sdk) { [weak self] didStop -> Promise<Bool> in
+        super.stopCapture().then(on: .sdk) { didStop -> Promise<Bool> in
 
-            guard let self = self, didStop else {
+            guard didStop else {
                 // already stopped
                 return Promise(false)
             }
