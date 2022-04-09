@@ -31,9 +31,9 @@ public class InAppScreenCapturer: VideoCapturer {
 
     public override func startCapture() -> Promise<Bool> {
 
-        super.startCapture().then(on: .sdk) { [weak self] didStart -> Promise<Bool> in
+        super.startCapture().then(on: .sdk) {didStart -> Promise<Bool> in
 
-            guard let self = self, didStart else {
+            guard didStart else {
                 // already started
                 return Promise(false)
             }
@@ -71,13 +71,15 @@ public class InAppScreenCapturer: VideoCapturer {
     }
 
     public override func stopCapture() -> Promise<Bool> {
-        return super.stopCapture().then(on: .sdk) { didStop -> Promise<Bool> in
-            Promise<Bool>(on: .sdk) { resolve, fail in
 
-                guard didStop else {
-                    resolve(false)
-                    return
-                }
+        super.stopCapture().then(on: .sdk) { didStop -> Promise<Bool> in
+
+            guard didStop else {
+                // already stopped
+                return Promise(false)
+            }
+
+            return Promise<Bool>(on: .sdk) { resolve, fail in
 
                 RPScreenRecorder.shared().stopCapture { error in
                     if let error = error {

@@ -77,9 +77,9 @@ public class CameraCapturer: VideoCapturer {
 
     public override func startCapture() -> Promise<Bool> {
 
-        super.startCapture().then(on: .sdk) { [weak self] didStart -> Promise<Bool> in
+        super.startCapture().then(on: .sdk) { didStart -> Promise<Bool> in
 
-            guard let self = self, didStart else {
+            guard didStart else {
                 // already started
                 return Promise(false)
             }
