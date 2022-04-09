@@ -133,9 +133,9 @@ public class VideoCapturer: MulticastDelegate<VideoCapturerDelegate>, VideoCaptu
     // returns true if state updated
     public func startCapture() -> Promise<Bool> {
 
-        Promise(on: .sdk) { [weak self] () -> Bool in
+        Promise(on: .sdk) { () -> Bool in
 
-            guard let self = self, self.state != .started else {
+            guard self.state != .started else {
                 // already started
                 return false
             }
@@ -149,9 +149,9 @@ public class VideoCapturer: MulticastDelegate<VideoCapturerDelegate>, VideoCaptu
     // returns true if state updated
     public func stopCapture() -> Promise<Bool> {
 
-        Promise(on: .sdk) { [weak self] () -> Bool in
+        Promise(on: .sdk) { () -> Bool in
 
-            guard let self = self, self.state != .stopped else {
+            guard self.state != .stopped else {
                 // already stopped
                 return false
             }
