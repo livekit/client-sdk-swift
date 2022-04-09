@@ -53,9 +53,9 @@ public class LocalTrack: Track {
     // returns true if state updated
     internal func onPublish() -> Promise<Bool> {
 
-        Promise<Bool>(on: .sdk) { [weak self] () -> Bool in
+        Promise<Bool>(on: .sdk) { () -> Bool in
 
-            guard let self = self, self.publishState != .published else {
+            guard self.publishState != .published else {
                 // already published
                 return false
             }
@@ -68,9 +68,9 @@ public class LocalTrack: Track {
     // returns true if state updated
     internal func onUnpublish() -> Promise<Bool> {
 
-        Promise<Bool>(on: .sdk) { [weak self] () -> Bool in
+        Promise<Bool>(on: .sdk) { () -> Bool in
 
-            guard let self = self, self.publishState != .unpublished else {
+            guard self.publishState != .unpublished else {
                 // already unpublished
                 return false
             }
