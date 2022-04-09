@@ -38,29 +38,3 @@ extension EngineDelegate {
     func engine(_ engine: Engine, didUpdate dataChannel: RTCDataChannel, state: RTCDataChannelState) {}
     func engine(_ engine: Engine, didGenerate stats: [TrackStats], target: Livekit_SignalTarget) {}
 }
-
-// MARK: - Closures
-
-class EngineDelegateClosures: NSObject, EngineDelegate, Loggable {
-
-    typealias DidUpdateDataChannelState = (_ engine: Engine,
-                                           _ dataChannel: RTCDataChannel,
-                                           _ state: RTCDataChannelState) -> Void
-
-    let didUpdateDataChannelState: DidUpdateDataChannelState?
-
-    init(didUpdateDataChannelState: DidUpdateDataChannelState? = nil) {
-
-        self.didUpdateDataChannelState = didUpdateDataChannelState
-        super.init()
-        log()
-    }
-
-    deinit {
-        log()
-    }
-
-    func engine(_ engine: Engine, didUpdate dataChannel: RTCDataChannel, state: RTCDataChannelState) {
-        didUpdateDataChannelState?(engine, dataChannel, state)
-    }
-}

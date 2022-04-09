@@ -144,6 +144,10 @@ public class LocalParticipant: Participant {
             self.room.notify { $0.room(self.room, localParticipant: self, didPublish: publication) }
 
             return publication
+
+        }.catch(on: .sdk) { _ in
+            // stop the track
+            track.stop()
         }
     }
 

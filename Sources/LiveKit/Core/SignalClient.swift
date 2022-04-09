@@ -46,6 +46,9 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
     private var webSocket: WebSocket?
     private var latestJoinResponse: Livekit_JoinResponse?
 
+    internal let joinResponseCompleter = Completer<Livekit_JoinResponse>()
+    private var _completersForAddTrack = [String: Completer<Livekit_TrackInfo>]()
+
     deinit {
         log()
     }
@@ -115,6 +118,13 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
         }
 
         latestJoinResponse = nil
+        joinResponseCompleter.set(value: nil)
+
+        for completer in _completersForAddTrack.values {
+            completer.set(value: nil)
+        }
+        // clear
+        _completersForAddTrack = [:]
 
         requestDispatchQueue.async { [weak self] in
             guard let self = self else { return }
@@ -126,6 +136,17 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
             self.responseQueue = []
             self.responseQueueState = .resumed
         }
+    }
+
+    func completer(for trackCid: String) -> Completer<Livekit_TrackInfo> {
+
+        if let completer = _completersForAddTrack[trackCid] {
+            return completer
+        }
+
+        let completer = Completer<Livekit_TrackInfo>()
+        _completersForAddTrack[trackCid] = completer
+        return completer
     }
 }
 
@@ -208,6 +229,7 @@ private extension SignalClient {
             responseQueueState = .suspended
             latestJoinResponse = joinResponse
             notify { $0.signalClient(self, didReceive: joinResponse) }
+            joinResponseCompleter.set(value: joinResponse)
 
         case .answer(let sd):
             notify { $0.signalClient(self, didReceiveAnswer: sd.toRTCType()) }
@@ -230,6 +252,8 @@ private extension SignalClient {
 
         case .trackPublished(let trackPublished):
             notify { $0.signalClient(self, didPublish: trackPublished) }
+            // complete
+            completer(for: trackPublished.cid).set(value: trackPublished.track)
 
         case .trackUnpublished(let trackUnpublished):
             notify { $0.signalClient(self, didUnpublish: trackUnpublished) }
@@ -260,39 +284,6 @@ private extension SignalClient {
         case .refreshToken(let token):
             notify { $0.signalClient(self, didUpdate: token) }
         }
-    }
-}
-
-// MARK: - Wait extension
-
-internal extension SignalClient {
-
-    func waitForJoinResponse() -> WaitPromises<Livekit_JoinResponse> {
-
-        let listen = Promise<Void>.pending()
-        let wait = Promise<Livekit_JoinResponse>(on: .sdk) { resolve, _ in
-            // create temporary delegate
-            var delegate: SignalClientDelegateClosures?
-            delegate = SignalClientDelegateClosures(didReceiveJoinResponse: { _, joinResponse in
-                // wait until connected
-                resolve(joinResponse)
-                delegate = nil
-                return true
-            })
-            // not required to clean up since weak reference
-            self.add(delegate: delegate!)
-
-            self.log("[wait] listening for join response...")
-            listen.fulfill(())
-        }
-
-        let waitFunc = { () -> Promise<Livekit_JoinResponse> in
-            self.log("[wait] waiting for join response...")
-            return wait.timeout(.defaultJoinResponse)
-        }
-
-        // convert to a timed-promise only after called
-        return (listen, waitFunc)
     }
 }
 

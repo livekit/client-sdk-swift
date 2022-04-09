@@ -53,6 +53,12 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
 
     internal let connectStopwatch = Stopwatch(label: "connect")
 
+    internal let primaryTransportConnectedCompleter = Completer<Void>()
+    internal let publisherTransportConnectedCompleter = Completer<Void>()
+
+    internal let publisherReliableDCOpenCompleter = Completer<Void>()
+    internal let publisherLossyDCOpenCompleter = Completer<Void>()
+
     init(connectOptions: ConnectOptions,
          roomOptions: RoomOptions) {
 
@@ -108,6 +114,15 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
 
         connectionState = .disconnected(reason: reason)
         signalClient.cleanUp(reason: reason)
+
+        for completer in [primaryTransportConnectedCompleter,
+                          publisherTransportConnectedCompleter,
+                          publisherReliableDCOpenCompleter,
+                          publisherLossyDCOpenCompleter] {
+            // reset completer
+            completer.set(value: nil)
+        }
+
         connectStopwatch.clear()
 
         return cleanUpRTC()
@@ -121,16 +136,14 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
 
         // TODO: Check if cid already published
 
-        let promises = waitFor(publishLocalTrackWith: cid)
+        let completer = signalClient.completer(for: cid)
 
-        return promises.listen.then(on: .sdk) {
-            self.signalClient.sendAddTrack(cid: cid,
-                                           name: name,
-                                           type: kind,
-                                           source: source, populator)
-        }.then(on: .sdk) {
-            return promises.wait()
-        }
+        return signalClient.sendAddTrack(cid: cid,
+                                         name: name,
+                                         type: kind,
+                                         source: source, populator).then(on: .sdk) {
+                                            completer.wait(on: .sdk, .defaultPublish)
+                                         }
     }
 
     func publisherShouldNegotiate() {
@@ -161,15 +174,10 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
                 publisherShouldNegotiate()
             }
 
-            let waitTransport = waitFor(transport: publisher, state: .connected)
-            let waitDC = waitForPublisherDataChannelOpen(reliability: reliability)
-            let listenBoth = [waitTransport.listen, waitDC.listen].all(on: .sdk)
+            let dcOpenCompleter = reliability == .reliable ? publisherReliableDCOpenCompleter : publisherLossyDCOpenCompleter
 
-            return listenBoth.then(on: .sdk) { _ in
-                waitTransport.wait()
-            }.then(on: .sdk) {
-                waitDC.wait()
-            }
+            return [self.publisherTransportConnectedCompleter.wait(on: .sdk, .defaultTransportState),
+                    dcOpenCompleter.wait(on: .sdk, .defaultPublisherDataChannelOpen)] .all(on: .sdk)
         }
 
         return ensurePublisherConnected().then(on: .sdk) { () -> Void in
@@ -259,26 +267,24 @@ private extension Engine {
     func fullConnectSequence(_ url: String,
                              _ token: String) -> Promise<Void> {
 
-        let joinPromises = signalClient.waitForJoinResponse()
-
-        return joinPromises.listen.then(on: .sdk) {
-            self.signalClient.connect(url,
-                                      token,
-                                      connectOptions: self.connectOptions)
-        }.then(on: .sdk) {
-            joinPromises.wait()
-        }.then(on: .sdk) { _ in
-            self.connectStopwatch.split(label: "signal")
-        }.then(on: .sdk) { jr in
-            self.configureTransports(joinResponse: jr)
-        }.then(on: .sdk) {
-            self.signalClient.resumeResponseQueue()
-        }.then(on: .sdk) {
-            self.waitFor(transport: self.primary, state: .connected).wait()
-        }.then(on: .sdk) {
-            self.connectStopwatch.split(label: "engine")
-            self.log("\(self.connectStopwatch)")
-        }
+        return self.signalClient.connect(url,
+                                         token,
+                                         connectOptions: self.connectOptions)
+            .then(on: .sdk) {
+                // wait for joinResponse
+                self.signalClient.joinResponseCompleter.wait(on: .sdk, .defaultJoinResponse)
+            }.then(on: .sdk) { _ in
+                self.connectStopwatch.split(label: "signal")
+            }.then(on: .sdk) { jr in
+                self.configureTransports(joinResponse: jr)
+            }.then(on: .sdk) {
+                self.signalClient.resumeResponseQueue()
+            }.then(on: .sdk) {
+                self.primaryTransportConnectedCompleter.wait(on: .sdk, .defaultTransportState)
+            }.then(on: .sdk) {
+                self.connectStopwatch.split(label: "engine")
+                self.log("\(self.connectStopwatch)")
+            }
     }
 
     @discardableResult
@@ -329,7 +335,7 @@ private extension Engine {
                 checkShouldContinue()
             }.then(on: .sdk) {
                 // Wait for primary transport to connect (if not already)
-                self.waitFor(transport: self.primary, state: .connected).wait()
+                self.primaryTransportConnectedCompleter.wait(on: .sdk, .defaultTransportState)
             }.then(on: .sdk) {
                 checkShouldContinue()
             }.then(on: .sdk) { () -> Promise<Void> in
@@ -342,7 +348,7 @@ private extension Engine {
                 }
 
                 return publisher.createAndSendOffer(iceRestart: true).then(on: .sdk) {
-                    self.waitFor(transport: publisher, state: .connected).wait()
+                    self.publisherTransportConnectedCompleter.wait(on: .sdk, .defaultTransportState)
                 }
             }.then(on: .sdk) {
                 // always check if there are queued requests
@@ -407,164 +413,6 @@ internal extension Engine {
         [publisherDataChannel(for: .lossy), publisherDataChannel(for: .reliable)]
             .compactMap { $0 }
             .map { $0.toLKInfoType() }
-    }
-}
-
-// MARK: - Wait extensions
-
-internal extension Engine {
-
-    func waitForPublisherDataChannelOpen(reliability: Reliability, allowCurrentValue: Bool = true) -> WaitPromises<Void> {
-
-        let listen = Promise<Void>(())
-        let wait = Promise<Void>(on: .sdk) { resolve, fail in
-
-            guard let dcPublisher = self.publisherDataChannel(for: reliability) else {
-                fail(EngineError.state(message: "publisher data channel is nil"))
-                listen.fulfill(())
-                return
-            }
-
-            if allowCurrentValue, dcPublisher.readyState == .open {
-                self.log("dataChannel already open")
-                resolve(())
-                listen.fulfill(())
-                return
-            }
-
-            // create temporary delegate
-            var engineDelegate: EngineDelegateClosures?
-            engineDelegate = EngineDelegateClosures(
-                didUpdateDataChannelState: { _, dataChannel, state in
-                    if dataChannel == dcPublisher, state == .open {
-                        resolve(())
-                        engineDelegate = nil
-                    }
-                }
-            )
-            self.add(delegate: engineDelegate!)
-            // detect signal close while waiting
-            var signalDelegate: SignalClientDelegateClosures?
-            signalDelegate = SignalClientDelegateClosures(
-                didUpdateConnectionState: { _, state in
-                    if case .disconnected = state {
-                        fail(SignalClientError.close(message: "Socket closed while waiting for ice-connect"))
-                        signalDelegate = nil
-                    }
-                    return true
-                }
-            )
-            self.signalClient.add(delegate: signalDelegate!)
-
-            self.log("[wait] listening for publisher DC open...")
-            listen.fulfill(())
-        }
-
-        let waitFunc = { () -> Promise<Void> in
-            self.log("[wait] waiting for publisher DC open...")
-            return wait.timeout(.defaultPublisherDataChannelOpen)
-        }
-
-        // convert to a timed-promise only after called
-        return (listen, waitFunc)
-    }
-
-    func waitFor(transport: Transport?,
-                 state: RTCPeerConnectionState,
-                 allowCurrentValue: Bool = true) -> WaitPromises<Void> {
-
-        let listen = Promise<Void>.pending()
-        let wait = Promise<Void>(on: .sdk) { resolve, fail in
-
-            guard let transport = transport else {
-                fail(EngineError.state(message: "transport is nil"))
-                listen.fulfill(())
-                return
-            }
-
-            if allowCurrentValue, transport.connectionState == state {
-                self.log("\(transport) already connected")
-                resolve(())
-                listen.fulfill(())
-                return
-            }
-
-            // create temporary delegate
-            var transportDelegate: TransportDelegateClosures?
-            transportDelegate = TransportDelegateClosures(
-                onDidUpdateState: { target, newState in
-                    if transport == target, newState == state {
-                        resolve(())
-                        transportDelegate = nil
-                    }
-                }
-            )
-            transport.add(delegate: transportDelegate!)
-            // detect signal close while waiting
-            var signalDelegate: SignalClientDelegateClosures?
-            signalDelegate = SignalClientDelegateClosures(
-                didUpdateConnectionState: { _, state in
-                    if case .disconnected = state {
-                        fail(SignalClientError.close(message: "Socket closed while waiting for ice-connect"))
-                        signalDelegate = nil
-                    }
-                    return true
-                }
-            )
-            self.signalClient.add(delegate: signalDelegate!)
-
-            self.log("[wait] listening for transport state...")
-            listen.fulfill(())
-        }
-
-        let waitFunc = { () -> Promise<Void> in
-            self.log("[wait] waiting for transport state...")
-            return wait.timeout(.defaultTransportState)
-        }
-
-        // convert to a timed-promise only after called
-        return (listen, waitFunc)
-    }
-
-    func waitFor(publishLocalTrackWith cid: String) -> WaitPromises<Livekit_TrackInfo> {
-
-        let listen = Promise<Void>.pending()
-        let wait = Promise<Livekit_TrackInfo>(on: .sdk) { resolve, fail in
-            // create temporary delegate
-            var signalDelegate: SignalClientDelegateClosures?
-            signalDelegate = SignalClientDelegateClosures(
-                // This promise we be considered failed if signal disconnects while waiting.
-                // still it will attempt to re-connect.
-                didUpdateConnectionState: { _, state in
-                    if case .disconnected = state {
-                        fail(SignalClientError.close(message: "Socket closed while waiting for ice-connect"))
-                        signalDelegate = nil
-                    }
-                    return true
-                },
-                didPublishLocalTrack: { _, response in
-                    self.log("didPublishLocalTrack", type: SignalClientDelegateClosures.self)
-                    if response.cid == cid {
-                        // complete when track info received
-                        resolve(response.track)
-                        signalDelegate = nil
-                    }
-                    return true
-                }
-            )
-            self.signalClient.add(delegate: signalDelegate!)
-
-            self.log("[wait] listening for publish...")
-            listen.fulfill(())
-        }
-
-        let waitFunc = { () -> Promise<Livekit_TrackInfo> in
-            self.log("[wait] waiting for publish...")
-            return wait.timeout(.defaultPublish)
-        }
-
-        // convert to a timed-promise only after called
-        return (listen, waitFunc)
     }
 }
 
@@ -651,6 +499,14 @@ extension Engine: RTCDataChannelDelegate {
     func dataChannelDidChangeState(_ dataChannel: RTCDataChannel) {
         notify { $0.engine(self, didUpdate: dataChannel, state: dataChannel.readyState) }
 
+        if dataChannel.readyState == .open {
+            if dataChannel == dcReliablePub {
+                publisherReliableDCOpenCompleter.set(value: ())
+            } else if dataChannel == dcLossyPub {
+                publisherLossyDCOpenCompleter.set(value: ())
+            }
+        }
+
         self.log("dataChannel.\(dataChannel.label) didChangeState : \(dataChannel.channelId)")
     }
 
@@ -682,6 +538,18 @@ extension Engine: TransportDelegate {
 
     func transport(_ transport: Transport, didUpdate state: RTCPeerConnectionState) {
         log("target: \(transport.target), state: \(state)")
+
+        if case .connected = state {
+            // primary connected
+            if transport.primary {
+                primaryTransportConnectedCompleter.set(value: ())
+            }
+
+            // publisher connected
+            if case .publisher = transport.target {
+                publisherTransportConnectedCompleter.set(value: (()))
+            }
+        }
 
         if connectionState.isConnected {
             // Attempt re-connect if primary or publisher transport failed
