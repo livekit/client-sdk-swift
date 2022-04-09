@@ -85,9 +85,9 @@ public class Track: MulticastDelegate<TrackDelegate> {
     // returns true if updated state
     internal func start() -> Promise<Bool> {
 
-        Promise(on: .sdk) { [weak self] () -> Bool in
+        Promise(on: .sdk) { () -> Bool in
 
-            guard let self = self, self.state != .started else {
+            guard self.state != .started else {
                 // already started
                 return false
             }
@@ -100,9 +100,9 @@ public class Track: MulticastDelegate<TrackDelegate> {
     // returns true if updated state
     public func stop() -> Promise<Bool> {
 
-        Promise(on: .sdk) { [weak self] () -> Bool in
+        Promise(on: .sdk) { () -> Bool in
 
-            guard let self = self, self.state != .stopped else {
+            guard self.state != .stopped else {
                 // already stopped
                 return false
             }
@@ -114,9 +114,9 @@ public class Track: MulticastDelegate<TrackDelegate> {
 
     internal func enable() -> Promise<Bool> {
 
-        Promise(on: .sdk) { [weak self] () -> Bool in
+        Promise(on: .sdk) { () -> Bool in
 
-            guard let self = self, !self.mediaTrack.isEnabled else {
+            guard !self.mediaTrack.isEnabled else {
                 // already enabled
                 return false
             }
@@ -128,9 +128,9 @@ public class Track: MulticastDelegate<TrackDelegate> {
 
     internal func disable() -> Promise<Bool> {
 
-        Promise(on: .sdk) { [weak self] () -> Bool in
+        Promise(on: .sdk) { () -> Bool in
 
-            guard let self = self, self.mediaTrack.isEnabled else {
+            guard self.mediaTrack.isEnabled else {
                 // already disabled
                 return false
             }
