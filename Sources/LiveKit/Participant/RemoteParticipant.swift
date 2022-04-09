@@ -112,7 +112,7 @@ public class RemoteParticipant: Participant {
         publication.set(track: track)
         track.sid = publication.sid
         addTrack(publication: publication)
-        return track.start().then(on: .sdk) {
+        return track.start().then(on: .sdk) { _ -> Void in
             self.notify { $0.participant(self, didSubscribe: publication, track: track) }
             self.room.notify { $0.room(self.room, participant: self, didSubscribe: publication, track: track) }
         }
@@ -146,15 +146,13 @@ public class RemoteParticipant: Participant {
             return notifyUnpublish()
         }
 
-        return track.stop()
-            .recover(on: .sdk) { self.log("Failed to stop track, error: \($0)") }
-            .then(on: .sdk) {
-                guard shouldNotify else { return }
-                // notify unsubscribe
-                self.notify { $0.participant(self, didUnsubscribe: publication, track: track) }
-                self.room.notify { $0.room(self.room, participant: self, didUnsubscribe: publication, track: track) }
-            }.then(on: .sdk) {
-                notifyUnpublish()
-            }
+        return track.stop().then(on: .sdk) { _ -> Void in
+            guard shouldNotify else { return }
+            // notify unsubscribe
+            self.notify { $0.participant(self, didUnsubscribe: publication, track: track) }
+            self.room.notify { $0.room(self.room, participant: self, didUnsubscribe: publication, track: track) }
+        }.then(on: .sdk) {
+            notifyUnpublish()
+        }
     }
 }

@@ -163,9 +163,14 @@ public class MacOSScreenCapturer: VideoCapturer {
 
     }
 
-    public override func startCapture() -> Promise<Void> {
-        log()
-        return super.startCapture().then(on: .sdk) { () -> Void in
+    public override func startCapture() -> Promise<Bool> {
+
+        super.startCapture().then(on: .sdk) { [weak self] didStart -> Bool in
+
+            guard let self = self, didStart else {
+                // already started
+                return false
+            }
 
             if case .display(let displayID) = self.source {
 
@@ -190,16 +195,20 @@ public class MacOSScreenCapturer: VideoCapturer {
             } else if case .window = self.source {
                 self.startDispatchSourceTimer()
             }
+
+            return true
         }
     }
 
-    public override func stopCapture() -> Promise<Void> {
+    public override func stopCapture() -> Promise<Bool> {
         log()
-        return super.stopCapture().then(on: .sdk) {
-            if case .display = self.source {
-                self.session.stopRunning()
-            } else if case .window = self.source {
-                self.stopDispatchSourceTimer()
+        return super.stopCapture().then(on: .sdk) { didStop in
+            if didStop {
+                if case .display = self.source {
+                    self.session.stopRunning()
+                } else if case .window = self.source {
+                    self.stopDispatchSourceTimer()
+                }
             }
         }
     }
