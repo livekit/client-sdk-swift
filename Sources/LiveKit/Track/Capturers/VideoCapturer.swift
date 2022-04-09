@@ -116,8 +116,6 @@ public class VideoCapturer: MulticastDelegate<VideoCapturerDelegate>, VideoCaptu
 
     internal weak var delegate: RTCVideoCapturerDelegate?
 
-    internal let dimensionsResolved = Promise<Dimensions>.pending()
-
     public internal(set) var dimensions: Dimensions? {
         didSet {
             guard oldValue != dimensions else { return }
