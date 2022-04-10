@@ -47,7 +47,7 @@ open class ObservableRoom: ObservableObject, RoomDelegate, Loggable {
     }
 
     @discardableResult
-    public func switchCameraPosition() -> Promise<Void> {
+    public func switchCameraPosition() -> Promise<Bool> {
 
         guard case .published(let publication) = self.cameraTrackState,
               let track = publication.track as? LocalVideoTrack,

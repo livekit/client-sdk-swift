@@ -19,16 +19,16 @@ import Promises
 public class RemoteTrack: Track {
 
     @discardableResult
-    override func start() -> Promise<Void> {
-        super.start().then(on: .sdk) {
-            super.enable()
+    override func start() -> Promise<Bool> {
+        super.start().then(on: .sdk) { didStart in
+            self.enable().then { _ in didStart }
         }
     }
 
     @discardableResult
-    override public func stop() -> Promise<Void> {
-        super.stop().then(on: .sdk) {
-            super.disable()
+    override public func stop() -> Promise<Bool> {
+        super.stop().then(on: .sdk) { didStop in
+            super.disable().then { _ in didStop }
         }
     }
 }

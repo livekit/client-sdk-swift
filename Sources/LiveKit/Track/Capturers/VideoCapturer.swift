@@ -130,40 +130,40 @@ public class VideoCapturer: MulticastDelegate<VideoCapturerDelegate>, VideoCaptu
         self.delegate = delegate
     }
 
-    // will fail if already started (to prevent duplicate code execution)
-    public func startCapture() -> Promise<Void> {
+    // returns true if state updated
+    public func startCapture() -> Promise<Bool> {
 
-        Promise(on: .sdk) { () -> Void in
+        Promise(on: .sdk) { () -> Bool in
 
             guard self.state != .started else {
-                self.log("Capturer already started", .warning)
-                throw TrackError.state(message: "Already started")
+                // already started
+                return false
             }
 
             self.state = .started
             self.notify { $0.capturer(self, didUpdate: .started) }
+            return true
         }
     }
 
-    // will fail if already stopped (to prevent duplicate code execution)
-    public func stopCapture() -> Promise<Void> {
+    // returns true if state updated
+    public func stopCapture() -> Promise<Bool> {
 
-        Promise(on: .sdk) { () -> Void in
+        Promise(on: .sdk) { () -> Bool in
 
             guard self.state != .stopped else {
-                self.log("Capturer already stopped", .warning)
-                throw TrackError.state(message: "Already stopped")
+                // already stopped
+                return false
             }
 
             self.state = .stopped
             self.notify { $0.capturer(self, didUpdate: .stopped) }
+            return true
         }
     }
 
-    public func restartCapture() -> Promise<Void> {
-        stopCapture().recover { _ in
-            self.log("Capturer was already stopped", .warning)
-        }.then(on: .sdk) {
+    public func restartCapture() -> Promise<Bool> {
+        stopCapture().then(on: .sdk) { _ -> Promise<Bool> in
             self.startCapture()
         }
     }

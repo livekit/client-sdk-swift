@@ -42,22 +42,23 @@ public class LocalVideoTrack: LocalTrack, VideoTrack {
     }
 
     @discardableResult
-    public override func start() -> Promise<Void> {
+    public override func start() -> Promise<Bool> {
         let wait = self.capturer.waitForDimensions()
-        return super.start().then(on: .sdk) {
-        }.then {
-            wait.listen
-        }.then {
-            self.capturer.startCapture()
-        }.then {
-            wait.wait()
+        return super.start().then(on: .sdk) { didStart in
+            wait.listen.then(on: .sdk) {
+                self.capturer.startCapture()
+            }.then(on: .sdk) { _ in
+                wait.wait()
+            }.then(on: .sdk) {
+                didStart
+            }
         }
     }
 
     @discardableResult
-    public override func stop() -> Promise<Void> {
-        super.stop().then(on: .sdk) {
-            self.capturer.stopCapture()
+    public override func stop() -> Promise<Bool> {
+        super.stop().then(on: .sdk) { didStop in
+            self.capturer.stopCapture().then(on: .sdk) { _ in didStop }
         }
     }
 }
@@ -77,7 +78,7 @@ extension RTCRtpEncodingParameters {
 extension LocalVideoTrack {
 
     @available(*, deprecated, message: "Use CameraCapturer's methods instead to switch cameras")
-    public func restartTrack(options: CameraCaptureOptions = CameraCaptureOptions()) -> Promise<Void> {
+    public func restartTrack(options: CameraCaptureOptions = CameraCaptureOptions()) -> Promise<Bool> {
         guard let capturer = capturer as? CameraCapturer else {
             return Promise(TrackError.state(message: "Must be an CameraCapturer"))
         }

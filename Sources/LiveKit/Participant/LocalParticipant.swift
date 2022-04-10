@@ -58,98 +58,93 @@ public class LocalParticipant: Participant {
             return Promise(TrackError.publish(message: "Unknown LocalTrack type"))
         }
 
-        let transInit = DispatchQueue.webRTC.sync { RTCRtpTransceiverInit() }
-        transInit.direction = .sendOnly
-
         // try to start the track
-        return track.start()
-            .recover { (error) -> Void in
-                self.log("Failed to start track with error \(error)", .warning)
-                // start() will fail if it's already started.
-                // but for this case we will allow it, throw for any other error.
-                guard case TrackError.state = error else { throw error }
-            }.then(on: .sdk) { () -> Promise<Livekit_TrackInfo> in
+        return track.start().then(on: .sdk) { _ -> Promise<(RTCRtpTransceiverInit, Livekit_TrackInfo)> in
+            //
+            let transInit = DispatchQueue.webRTC.sync { RTCRtpTransceiverInit() }
+            transInit.direction = .sendOnly
 
-                var videoLayers: [Livekit_VideoLayer] = []
+            var videoLayers: [Livekit_VideoLayer] = []
+
+            if let track = track as? LocalVideoTrack {
+                // track.start() should only complete when it generates at least 1 frame which then can determine dimensions
+                // assert(track.capturer.dimensions != nil, "VideoCapturer's dimensions should be determined at this point")
+
+                guard let dimensions = track.capturer.dimensions else {
+                    throw TrackError.publish(message: "VideoCapturer dimensions are unknown")
+                }
+
+                let publishOptions = (publishOptions as? VideoPublishOptions) ?? self.room.options.defaultVideoPublishOptions
+
+                self.log("Capturer dimensions: \(String(describing: track.capturer.dimensions))")
+
+                let encodings = Utils.computeEncodings(dimensions: dimensions,
+                                                       publishOptions: publishOptions,
+                                                       isScreenShare: track.source == .screenShareVideo)
+
+                self.log("Using encodings \(encodings)")
+                transInit.sendEncodings = encodings
+
+                videoLayers = dimensions.videoLayers(for: encodings)
+
+                self.log("Using encodings layers: \(videoLayers.map { String(describing: $0) }.joined(separator: ", "))")
+            }
+            // request a new track to the server
+            return self.room.engine.addTrack(cid: track.mediaTrack.trackId,
+                                             name: track.name,
+                                             kind: track.kind.toPBType(),
+                                             source: track.source.toPBType()) {
 
                 if let track = track as? LocalVideoTrack {
-                    // track.start() should only complete when it generates at least 1 frame which then can determine dimensions
-                    // assert(track.capturer.dimensions != nil, "VideoCapturer's dimensions should be determined at this point")
+                    // additional params for Video
 
-                    guard let dimensions = track.capturer.dimensions else {
-                        throw TrackError.publish(message: "VideoCapturer dimensions are unknown")
+                    if let dimensions = track.capturer.dimensions {
+                        $0.width = UInt32(dimensions.width)
+                        $0.height = UInt32(dimensions.height)
                     }
 
-                    let publishOptions = (publishOptions as? VideoPublishOptions) ?? self.room.options.defaultVideoPublishOptions
+                    $0.layers = videoLayers
 
-                    self.log("Capturer dimensions: \(String(describing: track.capturer.dimensions))")
-
-                    let encodings = Utils.computeEncodings(dimensions: dimensions,
-                                                           publishOptions: publishOptions,
-                                                           isScreenShare: track.source == .screenShareVideo)
-
-                    self.log("Using encodings \(encodings)")
-                    transInit.sendEncodings = encodings
-
-                    videoLayers = dimensions.videoLayers(for: encodings)
-
-                    self.log("Using encodings layers: \(videoLayers.map { String(describing: $0) }.joined(separator: ", "))")
+                } else if track is LocalAudioTrack {
+                    // additional params for Audio
+                    let publishOptions = (publishOptions as? AudioPublishOptions) ?? self.room.options.defaultAudioPublishOptions
+                    $0.disableDtx = !publishOptions.dtx
                 }
-                // request a new track to the server
-                return self.room.engine.addTrack(cid: track.mediaTrack.trackId,
-                                                 name: track.name,
-                                                 kind: track.kind.toPBType(),
-                                                 source: track.source.toPBType()) {
+            }.then { (transInit, $0) }
 
-                    if let track = track as? LocalVideoTrack {
-                        // additional params for Video
+        }.then(on: .sdk) { (transInit, trackInfo) -> Promise<(RTCRtpTransceiver, Livekit_TrackInfo)> in
+            // add transceiver to pc
+            publisher.addTransceiver(with: track.mediaTrack,
+                                     transceiverInit: transInit).then(on: .sdk) { transceiver in
+                                        // pass down trackInfo and created transceiver
+                                        (transceiver, trackInfo)
+                                     }
+        }.then(on: .sdk) { params in
+            track.onPublish().then { _ in params }
+        }.then(on: .sdk) { (transceiver, trackInfo) -> LocalTrackPublication in
 
-                        if let dimensions = track.capturer.dimensions {
-                            $0.width = UInt32(dimensions.width)
-                            $0.height = UInt32(dimensions.height)
-                        }
+            // store publishOptions used for this track
+            track.publishOptions = publishOptions
+            track.transceiver = transceiver
 
-                        $0.layers = videoLayers
+            // disable degradationPreference
+            let params = transceiver.sender.parameters
+            params.degradationPreference = NSNumber(value: RTCDegradationPreference.disabled.rawValue)
+            // changing params directly doesn't work so we need to update params
+            // and set it back to sender.parameters
+            transceiver.sender.parameters = params
 
-                    } else if track is LocalAudioTrack {
-                        // additional params for Audio
-                        let publishOptions = (publishOptions as? AudioPublishOptions) ?? self.room.options.defaultAudioPublishOptions
-                        $0.disableDtx = !publishOptions.dtx
-                    }
-                }
-            }.then(on: .sdk) { (trackInfo) -> Promise<(RTCRtpTransceiver, Livekit_TrackInfo)> in
-                // add transceiver to pc
-                publisher.addTransceiver(with: track.mediaTrack,
-                                         transceiverInit: transInit).then(on: .sdk) { transceiver in
-                                            // pass down trackInfo and created transceiver
-                                            (transceiver, trackInfo)
-                                         }
-            }.then(on: .sdk) { params in
-                track.publish().then { params }
-            }.then(on: .sdk) { (transceiver, trackInfo) -> LocalTrackPublication in
+            self.room.engine.publisherShouldNegotiate()
 
-                // store publishOptions used for this track
-                track.publishOptions = publishOptions
-                track.transceiver = transceiver
+            let publication = LocalTrackPublication(info: trackInfo, track: track, participant: self)
+            self.addTrack(publication: publication)
 
-                // disable degradationPreference
-                let params = transceiver.sender.parameters
-                params.degradationPreference = NSNumber(value: RTCDegradationPreference.disabled.rawValue)
-                // changing params directly doesn't work so we need to update params
-                // and set it back to sender.parameters
-                transceiver.sender.parameters = params
+            // notify didPublish
+            self.notify { $0.localParticipant(self, didPublish: publication) }
+            self.room.notify { $0.room(self.room, localParticipant: self, didPublish: publication) }
 
-                self.room.engine.publisherShouldNegotiate()
-
-                let publication = LocalTrackPublication(info: trackInfo, track: track, participant: self)
-                self.addTrack(publication: publication)
-
-                // notify didPublish
-                self.notify { $0.localParticipant(self, didPublish: publication) }
-                self.room.notify { $0.room(self.room, localParticipant: self, didPublish: publication) }
-
-                return publication
-            }
+            return publication
+        }
     }
 
     /// publish a new audio track to the Room
@@ -196,31 +191,29 @@ public class LocalParticipant: Participant {
         }
 
         // build a conditional promise to stop track if required by option
-        func stopTrackIfRequired() -> Promise<Void> {
+        func stopTrackIfRequired() -> Promise<Bool> {
             if room.options.stopLocalTrackOnUnpublish {
                 return track.stop()
             }
             // Do nothing
-            return Promise(())
+            return Promise(false)
         }
 
         // wait for track to stop
-        return stopTrackIfRequired()
-            .recover { error in self.log("stopTrackIfRequired() did throw \(error)", .warning) }
-            .then(on: .sdk) { () -> Promise<Void> in
+        return stopTrackIfRequired().then(on: .sdk) { _ -> Promise<Void> in
 
-                guard let publisher = self.room.engine.publisher, let sender = track.sender else {
-                    return Promise(())
-                }
-
-                return publisher.removeTrack(sender).then(on: .sdk) {
-                    self.room.engine.publisherShouldNegotiate()
-                }
-            }.then(on: .sdk) {
-                track.unpublish()
-            }.then(on: .sdk) { () -> Promise<Void> in
-                notifyDidUnpublish()
+            guard let publisher = self.room.engine.publisher, let sender = track.sender else {
+                return Promise(())
             }
+
+            return publisher.removeTrack(sender).then(on: .sdk) {
+                self.room.engine.publisherShouldNegotiate()
+            }
+        }.then(on: .sdk) {
+            track.onUnpublish()
+        }.then(on: .sdk) { _ -> Promise<Void> in
+            notifyDidUnpublish()
+        }
     }
 
     /**

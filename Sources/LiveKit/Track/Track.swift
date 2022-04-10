@@ -82,35 +82,61 @@ public class Track: MulticastDelegate<TrackDelegate> {
         log()
     }
 
-    // will fail if already started (to prevent duplicate code execution)
-    internal func start() -> Promise<Void> {
-        guard state != .started else {
-            return Promise(TrackError.state(message: "Already started"))
-        }
+    // returns true if updated state
+    internal func start() -> Promise<Bool> {
 
-        self.state = .started
-        return Promise(())
+        Promise(on: .sdk) { () -> Bool in
+
+            guard self.state != .started else {
+                // already started
+                return false
+            }
+
+            self.state = .started
+            return true
+        }
     }
 
-    // will fail if already stopped (to prevent duplicate code execution)
-    public func stop() -> Promise<Void> {
-        guard state != .stopped else {
-            return Promise(TrackError.state(message: "Already stopped"))
-        }
+    // returns true if updated state
+    public func stop() -> Promise<Bool> {
 
-        self.state = .stopped
-        return Promise(())
+        Promise(on: .sdk) { () -> Bool in
+
+            guard self.state != .stopped else {
+                // already stopped
+                return false
+            }
+
+            self.state = .stopped
+            return true
+        }
     }
 
-    internal func enable() -> Promise<Void> {
-        Promise(on: .sdk) {
+    internal func enable() -> Promise<Bool> {
+
+        Promise(on: .sdk) { () -> Bool in
+
+            guard !self.mediaTrack.isEnabled else {
+                // already enabled
+                return false
+            }
+
             self.mediaTrack.isEnabled = true
+            return true
         }
     }
 
-    internal func disable() -> Promise<Void> {
-        Promise(on: .sdk) {
+    internal func disable() -> Promise<Bool> {
+
+        Promise(on: .sdk) { () -> Bool in
+
+            guard self.mediaTrack.isEnabled else {
+                // already disabled
+                return false
+            }
+
             self.mediaTrack.isEnabled = false
+            return true
         }
     }
 
