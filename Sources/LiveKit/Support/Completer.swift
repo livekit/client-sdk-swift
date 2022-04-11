@@ -17,24 +17,39 @@
 import Foundation
 import Promises
 
-internal class Completer<Value> {
+internal class Completer<Value: Equatable> {
 
     private var promise = Promise<Value>.pending()
+    private var oldValue: Value?
 
     public func set(value: Value?) {
 
-        guard let value = value else {
-            // reject existing promise
-            promise.reject(InternalError.state(message: "resetting pending promise"))
-            // create new pending promise
-            promise = Promise<Value>.pending()
+        guard oldValue != value else {
+            // value did not update
             return
         }
 
+        // reset if nil
+        guard let value = value else {
+            reset()
+            return
+        }
+
+        // update the oldValue
+        oldValue = value
         promise.fulfill(value)
     }
 
     public func wait(on queue: DispatchQueue, _ interval: TimeInterval) -> Promise<Value> {
         promise.timeout(on: queue, interval)
+    }
+
+    public func reset() {
+        // reject existing promise
+        promise.reject(InternalError.state(message: "resetting pending promise"))
+        // create new pending promise
+        promise = Promise<Value>.pending()
+        // reset oldValue
+        oldValue = nil
     }
 }

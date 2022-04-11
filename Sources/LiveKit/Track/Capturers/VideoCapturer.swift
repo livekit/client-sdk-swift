@@ -103,7 +103,7 @@ public class VideoCapturer: MulticastDelegate<VideoCapturerDelegate>, VideoCaptu
 
             self.state = .stopped
             self.notify { $0.capturer(self, didUpdate: .stopped) }
-            self.dimensionsCompleter.set(value: nil)
+            self.dimensionsCompleter.reset()
             return true
         }
     }

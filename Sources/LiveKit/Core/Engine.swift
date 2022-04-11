@@ -53,11 +53,24 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
 
     internal let connectStopwatch = Stopwatch(label: "connect")
 
-    internal let primaryTransportConnectedCompleter = Completer<Void>()
-    internal let publisherTransportConnectedCompleter = Completer<Void>()
+    internal let primaryTransportConnectedCompleter = Completer<Bool>()
+    internal let publisherTransportConnectedCompleter = Completer<Bool>()
 
-    internal let publisherReliableDCOpenCompleter = Completer<Void>()
-    internal let publisherLossyDCOpenCompleter = Completer<Void>()
+    internal let publisherReliableDCOpenCompleter = Completer<Bool>()
+    internal let publisherLossyDCOpenCompleter = Completer<Bool>()
+
+    internal func publisherDCCompleter(for reliability: Reliability) -> Completer<Bool> {
+        reliability == .reliable ? publisherReliableDCOpenCompleter : publisherLossyDCOpenCompleter
+    }
+
+    internal func publisherDCCompleter(for dataChannel: RTCDataChannel) -> Completer<Bool>? {
+        if dataChannel == dcReliablePub {
+            return publisherReliableDCOpenCompleter
+        } else if dataChannel == dcLossyPub {
+            return publisherLossyDCOpenCompleter
+        }
+        return nil
+    }
 
     init(connectOptions: ConnectOptions,
          roomOptions: RoomOptions) {
@@ -120,7 +133,7 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
                           publisherReliableDCOpenCompleter,
                           publisherLossyDCOpenCompleter] {
             // reset completer
-            completer.set(value: nil)
+            completer.reset()
         }
 
         connectStopwatch.clear()
@@ -174,10 +187,9 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
                 publisherShouldNegotiate()
             }
 
-            let dcOpenCompleter = reliability == .reliable ? publisherReliableDCOpenCompleter : publisherLossyDCOpenCompleter
-
-            return [self.publisherTransportConnectedCompleter.wait(on: .sdk, .defaultTransportState),
-                    dcOpenCompleter.wait(on: .sdk, .defaultPublisherDataChannelOpen)] .all(on: .sdk)
+            return all([self.publisherTransportConnectedCompleter.wait(on: .sdk, .defaultTransportState),
+                        publisherDCCompleter(for: reliability).wait(on: .sdk, .defaultPublisherDataChannelOpen)]).then { _ in
+                        }
         }
 
         return ensurePublisherConnected().then(on: .sdk) { () -> Void in
@@ -281,7 +293,7 @@ private extension Engine {
                 self.signalClient.resumeResponseQueue()
             }.then(on: .sdk) {
                 self.primaryTransportConnectedCompleter.wait(on: .sdk, .defaultTransportState)
-            }.then(on: .sdk) {
+            }.then(on: .sdk) { _ -> Void in
                 self.connectStopwatch.split(label: "engine")
                 self.log("\(self.connectStopwatch)")
             }
@@ -336,7 +348,7 @@ private extension Engine {
             }.then(on: .sdk) {
                 // Wait for primary transport to connect (if not already)
                 self.primaryTransportConnectedCompleter.wait(on: .sdk, .defaultTransportState)
-            }.then(on: .sdk) {
+            }.then(on: .sdk) { _ in
                 checkShouldContinue()
             }.then(on: .sdk) { () -> Promise<Void> in
 
@@ -349,7 +361,7 @@ private extension Engine {
 
                 return publisher.createAndSendOffer(iceRestart: true).then(on: .sdk) {
                     self.publisherTransportConnectedCompleter.wait(on: .sdk, .defaultTransportState)
-                }
+                }.then(on: .sdk) { _ in }
             }.then(on: .sdk) {
                 // always check if there are queued requests
                 self.signalClient.sendQueuedRequests()
@@ -497,14 +509,11 @@ extension Engine: SignalClientDelegate {
 extension Engine: RTCDataChannelDelegate {
 
     func dataChannelDidChangeState(_ dataChannel: RTCDataChannel) {
+        // notify new state
         notify { $0.engine(self, didUpdate: dataChannel, state: dataChannel.readyState) }
 
-        if dataChannel.readyState == .open {
-            if dataChannel == dcReliablePub {
-                publisherReliableDCOpenCompleter.set(value: ())
-            } else if dataChannel == dcLossyPub {
-                publisherLossyDCOpenCompleter.set(value: ())
-            }
+        if let completer = publisherDCCompleter(for: dataChannel) {
+            completer.set(value: dataChannel.readyState == .open ? true : nil)
         }
 
         self.log("dataChannel.\(dataChannel.label) didChangeState : \(dataChannel.channelId)")
@@ -539,16 +548,14 @@ extension Engine: TransportDelegate {
     func transport(_ transport: Transport, didUpdate state: RTCPeerConnectionState) {
         log("target: \(transport.target), state: \(state)")
 
-        if case .connected = state {
-            // primary connected
-            if transport.primary {
-                primaryTransportConnectedCompleter.set(value: ())
-            }
+        // primary connected
+        if transport.primary {
+            primaryTransportConnectedCompleter.set(value: .connected == state ? true : nil)
+        }
 
-            // publisher connected
-            if case .publisher = transport.target {
-                publisherTransportConnectedCompleter.set(value: (()))
-            }
+        // publisher connected
+        if case .publisher = transport.target {
+            publisherTransportConnectedCompleter.set(value: .connected == state ? true : nil)
         }
 
         if connectionState.isConnected {

@@ -118,10 +118,10 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
         }
 
         latestJoinResponse = nil
-        joinResponseCompleter.set(value: nil)
+        joinResponseCompleter.reset()
 
         for completer in _completersForAddTrack.values {
-            completer.set(value: nil)
+            completer.reset()
         }
         // clear
         _completersForAddTrack = [:]
