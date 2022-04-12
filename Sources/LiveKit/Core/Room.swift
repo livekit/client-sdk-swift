@@ -21,11 +21,12 @@ import WebRTC
 
 public class Room: MulticastDelegate<RoomDelegate> {
 
-    public private(set) var sid: Sid?
-    public private(set) var name: String?
-    public private(set) var metadata: String?
-    public private(set) var serverVersion: String?
-    public private(set) var serverRegion: String?
+    @Atomic public private(set) var sid: Sid?
+    @Atomic public private(set) var name: String?
+    @Atomic public private(set) var metadata: String?
+    @Atomic public private(set) var serverVersion: String?
+    @Atomic public private(set) var serverRegion: String?
+
     public private(set) var localParticipant: LocalParticipant?
     public private(set) var remoteParticipants = [Sid: RemoteParticipant]()
     public private(set) var activeSpeakers: [Participant] = []

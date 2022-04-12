@@ -36,13 +36,13 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
     private(set) var dcReliableSub: RTCDataChannel?
     private(set) var dcLossySub: RTCDataChannel?
 
-    private(set) var url: String?
-    private(set) var token: String?
+    @Atomic private(set) var url: String?
+    @Atomic private(set) var token: String?
 
     private(set) var connectOptions: ConnectOptions
     private(set) var roomOptions: RoomOptions
 
-    private(set) var connectionState: ConnectionState = .disconnected(reason: .sdk) {
+    @Atomic private(set) var connectionState: ConnectionState = .disconnected(reason: .sdk) {
         // automatically notify changes
         didSet {
             guard oldValue != connectionState else { return }
