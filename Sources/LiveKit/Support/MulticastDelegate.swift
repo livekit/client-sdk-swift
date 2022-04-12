@@ -28,7 +28,7 @@ public class MulticastDelegate<T>: NSObject, Loggable {
     private let set = NSHashTable<AnyObject>.weakObjects()
 
     init(label: String = "livekit.multicast", qos: DispatchQoS = .default) {
-        self.multicastQueue = DispatchQueue(label: label, qos: qos)
+        self.multicastQueue = DispatchQueue(label: label, qos: qos, attributes: [.concurrent])
     }
 
     /// Add a single delegate.
@@ -39,7 +39,7 @@ public class MulticastDelegate<T>: NSObject, Loggable {
             return
         }
 
-        multicastQueue.sync { set.add(delegate) }
+        multicastQueue.async(flags: .barrier) { self.set.add(delegate) }
     }
 
     /// Remove a single delegate.
@@ -52,13 +52,13 @@ public class MulticastDelegate<T>: NSObject, Loggable {
             return
         }
 
-        multicastQueue.sync { set.remove(delegate) }
+        multicastQueue.async(flags: .barrier) { self.set.remove(delegate) }
     }
 
     internal func notify(_ fnc: @escaping (T) -> Void) {
 
-        multicastQueue.async {
-            for delegate in self.set.allObjects {
+        multicastQueue.sync {
+            for delegate in set.allObjects {
                 guard let delegate = delegate as? T else {
                     self.log("MulticastDelegate: skipping notify for \(delegate), not a type of \(T.self)", .info)
                     continue
@@ -70,24 +70,30 @@ public class MulticastDelegate<T>: NSObject, Loggable {
     }
 
     /// At least one delegate must return `true`, otherwise a `warning` will be logged
+    /// returns true if all delegates returned true
+    @discardableResult
     internal func notify(_ fnc: @escaping (T) -> Bool,
                          function: String = #function,
-                         line: UInt = #line) {
+                         line: UInt = #line) -> Bool {
 
-        multicastQueue.async {
-            var isHandled: Bool = false
-            for delegate in self.set.allObjects {
+        multicastQueue.sync {
+            var counter: Int = 0
+            for delegate in set.allObjects {
                 guard let delegate = delegate as? T else {
                     self.log("MulticastDelegate: skipping notify for \(delegate), not a type of \(T.self)", .info)
                     continue
                 }
 
-                if fnc(delegate) { isHandled = true }
+                if fnc(delegate) { counter += 1 }
             }
+
+            let isHandled = counter == set.allObjects.count
 
             if !isHandled {
                 self.log("Notify was not handled, called from \(function) line \(line)", .warning)
             }
+
+            return isHandled
         }
     }
 }
