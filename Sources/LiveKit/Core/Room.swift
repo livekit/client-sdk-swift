@@ -27,13 +27,9 @@ public class Room: MulticastDelegate<RoomDelegate> {
     public var serverVersion: String? { $state.serverVersion }
     public var serverRegion: String? { $state.serverRegion }
 
-    public private(set) var localParticipant: LocalParticipant?
+    public var localParticipant: LocalParticipant? { $state.localParticipant }
     public private(set) var remoteParticipants = [Sid: RemoteParticipant]()
     public private(set) var activeSpeakers: [Participant] = []
-
-    // Reference to Engine
-    internal let engine: Engine
-    internal private(set) var options: RoomOptions
 
     // expose engine's vars
     public var connectionState: ConnectionState { engine.connectionState }
@@ -41,12 +37,18 @@ public class Room: MulticastDelegate<RoomDelegate> {
     public var token: String? { engine.token }
     public var connectStopwatch: Stopwatch { engine.connectStopwatch }
 
+    // Reference to Engine
+    internal let engine: Engine
+    internal private(set) var options: RoomOptions
+
     internal struct State {
         var sid: String?
         var name: String?
         var metadata: String?
         var serverVersion: String?
         var serverRegion: String?
+
+        var localParticipant: LocalParticipant?
     }
 
     @Atomic private var state = State()
@@ -139,9 +141,7 @@ private extension Room {
             }.then(on: .sdk) {
                 // reset state
                 self.$state.mutate { $0 = State() }
-                // self.state = MutableState()
 
-                self.localParticipant = nil
                 self.remoteParticipants = [:]
                 self.activeSpeakers = []
             }
@@ -291,11 +291,12 @@ extension Room: SignalClientDelegate {
             $0.metadata = joinResponse.room.metadata
             $0.serverVersion = joinResponse.serverVersion
             $0.serverRegion = joinResponse.serverRegion.isEmpty ? nil : joinResponse.serverRegion
+
+            if joinResponse.hasParticipant {
+                $0.localParticipant = LocalParticipant(from: joinResponse.participant, room: self)
+            }
         }
 
-        if joinResponse.hasParticipant {
-            localParticipant = LocalParticipant(from: joinResponse.participant, room: self)
-        }
         if !joinResponse.otherParticipants.isEmpty {
             for otherParticipant in joinResponse.otherParticipants {
                 _ = getOrCreateRemoteParticipant(sid: otherParticipant.sid, info: otherParticipant)
