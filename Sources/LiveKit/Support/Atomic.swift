@@ -19,7 +19,10 @@ import Foundation
 @propertyWrapper
 public class Atomic<Value> {
 
-    private let queue = DispatchQueue(label: "LiveKitSDK.atomic-wrapper", qos: .default)
+    // use concurrent queue to allow multiple reads and block writes with barrier.
+    private let queue = DispatchQueue(label: "LiveKitSDK.atomic-wrapper", qos: .default,
+                                      attributes: [.concurrent])
+
     private var value: Value
 
     public init(wrappedValue: Value) {
@@ -31,11 +34,14 @@ public class Atomic<Value> {
     }
 
     public var wrappedValue: Value {
+        // concurrent read
         get { queue.sync { value } }
-        set { queue.sync { value = newValue } }
+        // blocking
+        set { queue.sync(flags: .barrier) { value = newValue } }
     }
 
     public func mutate<Result>(_ mutation: (inout Value) -> Result) -> Result {
-        queue.sync { mutation(&value) }
+        // blocking
+        queue.sync(flags: .barrier) { mutation(&value) }
     }
 }
