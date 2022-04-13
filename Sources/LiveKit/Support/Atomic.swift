@@ -34,7 +34,8 @@ public final class Atomic<Value> {
         // concurrent read
         get { queue.sync { value } }
         // blocking
-        set { queue.sync(flags: .barrier) { value = newValue } }
+        // queue.sync(flags: .barrier) { value = newValue }
+        set { fatalError("use mutate() to mutate this value") }
     }
 
     public var projectedValue: Atomic<Value> { self }
