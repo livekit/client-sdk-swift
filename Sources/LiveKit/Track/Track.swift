@@ -83,6 +83,7 @@ public class Track: MulticastDelegate<TrackDelegate> {
     }
 
     // returns true if updated state
+    @discardableResult
     internal func start() -> Promise<Bool> {
 
         Promise(on: .sdk) { () -> Bool in
@@ -98,6 +99,7 @@ public class Track: MulticastDelegate<TrackDelegate> {
     }
 
     // returns true if updated state
+    @discardableResult
     public func stop() -> Promise<Bool> {
 
         Promise(on: .sdk) { () -> Bool in

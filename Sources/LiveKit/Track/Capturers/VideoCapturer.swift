@@ -38,65 +38,6 @@ public extension VideoCapturerDelegate {
     func capturer(_ capturer: VideoCapturer, didUpdate state: VideoCapturer.State) {}
 }
 
-// MARK: - Closures
-
-class VideoCapturerDelegateClosures: NSObject, VideoCapturerDelegate, Loggable {
-
-    typealias DidUpdateDimensions = (VideoCapturer, Dimensions?) -> Void
-
-    let didUpdateDimensions: DidUpdateDimensions?
-
-    init(didUpdateDimensions: DidUpdateDimensions? = nil) {
-        self.didUpdateDimensions = didUpdateDimensions
-        super.init()
-        log()
-    }
-
-    deinit {
-        log()
-    }
-
-    func capturer(_ capturer: VideoCapturer, didUpdate dimensions: Dimensions?) {
-        didUpdateDimensions?(capturer, dimensions)
-    }
-}
-
-internal extension VideoCapturer {
-
-    func waitForDimensions(allowCurrent: Bool = true) -> WaitPromises<Void> {
-
-        if allowCurrent, dimensions != nil {
-            return (Promise(()), { Promise(()) })
-        }
-
-        let listen = Promise<Void>.pending()
-        let wait = Promise<Void>(on: .sdk) { resolve, _ in
-            // create temporary delegate
-            var delegate: VideoCapturerDelegateClosures?
-            delegate = VideoCapturerDelegateClosures(didUpdateDimensions: { _, _ in
-                // wait until connected
-                resolve(())
-                self.log("Dimensions resolved...")
-                delegate = nil
-            })
-            // not required to clean up since weak reference
-            self.add(delegate: delegate!)
-            self.log("Waiting for dimensions...")
-
-            self.log("[wait] listening for dimensions resolve...")
-            listen.fulfill(())
-        }
-
-        let waitFunc = { () -> Promise<Void> in
-            self.log("[wait] waiting for dimensions resolve...")
-            return wait.timeout(.defaultCaptureStart)
-        }
-
-        // convert to a timed-promise only after called
-        return (listen, waitFunc)
-    }
-}
-
 // Intended to be a base class for video capturers
 public class VideoCapturer: MulticastDelegate<VideoCapturerDelegate>, VideoCapturerProtocol {
 
@@ -116,11 +57,15 @@ public class VideoCapturer: MulticastDelegate<VideoCapturerDelegate>, VideoCaptu
 
     internal weak var delegate: RTCVideoCapturerDelegate?
 
+    internal let dimensionsCompleter = Completer<Dimensions>()
+
     public internal(set) var dimensions: Dimensions? {
         didSet {
             guard oldValue != dimensions else { return }
             log("\(String(describing: oldValue)) -> \(String(describing: dimensions))")
             notify { $0.capturer(self, didUpdate: self.dimensions) }
+
+            dimensionsCompleter.set(value: dimensions)
         }
     }
 
@@ -158,6 +103,7 @@ public class VideoCapturer: MulticastDelegate<VideoCapturerDelegate>, VideoCaptu
 
             self.state = .stopped
             self.notify { $0.capturer(self, didUpdate: .stopped) }
+            self.dimensionsCompleter.reset()
             return true
         }
     }
