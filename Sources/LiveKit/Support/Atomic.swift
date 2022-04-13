@@ -17,7 +17,8 @@
 import Foundation
 
 @propertyWrapper
-public class Atomic<Value> {
+@dynamicMemberLookup
+public final class Atomic<Value> {
 
     // use concurrent queue to allow multiple reads and block writes with barrier.
     private let queue = DispatchQueue(label: "LiveKitSDK.atomic-wrapper", qos: .default,
@@ -25,12 +26,8 @@ public class Atomic<Value> {
 
     private var value: Value
 
-    public init(wrappedValue: Value) {
-        self.value = wrappedValue
-    }
-
-    public var projectedValue: Atomic<Value> {
-        return self
+    public init(wrappedValue value: Value) {
+        self.value = value
     }
 
     public var wrappedValue: Value {
@@ -40,8 +37,19 @@ public class Atomic<Value> {
         set { queue.sync(flags: .barrier) { value = newValue } }
     }
 
-    public func mutate<Result>(_ mutation: (inout Value) -> Result) -> Result {
+    public var projectedValue: Atomic<Value> { self }
+
+    public func mutate<Result>(_ mutation: (inout Value) throws -> Result) rethrows -> Result {
         // blocking
-        queue.sync(flags: .barrier) { mutation(&value) }
+        try queue.sync(flags: .barrier) { try mutation(&value) }
+    }
+
+    subscript<Property>(dynamicMember keyPath: WritableKeyPath<Value, Property>) -> Property {
+        get { queue.sync { value[keyPath: keyPath] } }
+        set { queue.sync(flags: .barrier) { value[keyPath: keyPath] = newValue } }
+    }
+
+    subscript<Property>(dynamicMember keyPath: KeyPath<Value, Property>) -> Property {
+        queue.sync { value[keyPath: keyPath] }
     }
 }

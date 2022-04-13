@@ -21,11 +21,11 @@ import WebRTC
 
 public class Room: MulticastDelegate<RoomDelegate> {
 
-    @Atomic public private(set) var sid: Sid?
-    @Atomic public private(set) var name: String?
-    @Atomic public private(set) var metadata: String?
-    @Atomic public private(set) var serverVersion: String?
-    @Atomic public private(set) var serverRegion: String?
+    public var sid: Sid? { $state.sid }
+    public var name: String? { $state.name }
+    public var metadata: String? { $state.metadata }
+    public var serverVersion: String? { $state.serverVersion }
+    public var serverRegion: String? { $state.serverRegion }
 
     public private(set) var localParticipant: LocalParticipant?
     public private(set) var remoteParticipants = [Sid: RemoteParticipant]()
@@ -40,6 +40,16 @@ public class Room: MulticastDelegate<RoomDelegate> {
     public var url: String? { engine.url }
     public var token: String? { engine.token }
     public var connectStopwatch: Stopwatch { engine.connectStopwatch }
+
+    internal struct State {
+        var sid: String?
+        var name: String?
+        var metadata: String?
+        var serverVersion: String?
+        var serverRegion: String?
+    }
+
+    @Atomic private var state = State()
 
     public init(delegate: RoomDelegate? = nil,
                 connectOptions: ConnectOptions = ConnectOptions(),
@@ -127,11 +137,10 @@ private extension Room {
                 cleanUpParticipants()
             }.recover(on: .sdk) { self.log("Failed to stop all tracks, error: \($0)")
             }.then(on: .sdk) {
-                self.sid = nil
-                self.name = nil
-                self.metadata = nil
-                self.serverVersion = nil
-                self.serverRegion = nil
+                // reset state
+                self.$state.mutate { $0 = State() }
+                // self.state = MutableState()
+
                 self.localParticipant = nil
                 self.remoteParticipants = [:]
                 self.activeSpeakers = []
@@ -170,7 +179,11 @@ internal extension Room {
 
     func set(metadata: String?) {
         guard self.metadata != metadata else { return }
-        self.metadata = metadata
+
+        self.$state.mutate { state in
+            state.metadata = metadata
+        }
+
         notify { $0.room(self, didUpdate: metadata) }
     }
 }
@@ -272,11 +285,13 @@ extension Room: SignalClientDelegate {
 
         log("Server version: \(joinResponse.serverVersion), region: \(joinResponse.serverRegion)", .info)
 
-        sid = joinResponse.room.sid
-        name = joinResponse.room.name
-        metadata = joinResponse.room.metadata
-        serverVersion = joinResponse.serverVersion
-        serverRegion = joinResponse.serverRegion.isEmpty ? nil : joinResponse.serverRegion
+        $state.mutate {
+            $0.sid = joinResponse.room.sid
+            $0.name = joinResponse.room.name
+            $0.metadata = joinResponse.room.metadata
+            $0.serverVersion = joinResponse.serverVersion
+            $0.serverRegion = joinResponse.serverRegion.isEmpty ? nil : joinResponse.serverRegion
+        }
 
         if joinResponse.hasParticipant {
             localParticipant = LocalParticipant(from: joinResponse.participant, room: self)
