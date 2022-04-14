@@ -70,7 +70,7 @@ public class MulticastDelegate<T>: NSObject, Loggable {
     }
 
     /// At least one delegate must return `true`, otherwise a `warning` will be logged
-    /// returns true if all delegates returned true
+    /// returns true if was handled by at least one delegate
     @discardableResult
     internal func notify(_ fnc: @escaping (T) -> Bool,
                          function: String = #function,
@@ -87,13 +87,13 @@ public class MulticastDelegate<T>: NSObject, Loggable {
                 if fnc(delegate) { counter += 1 }
             }
 
-            let isHandled = counter == set.allObjects.count
+            let wasHandled = counter > 0
 
-            if !isHandled {
+            if !wasHandled {
                 self.log("Notify was not handled, called from \(function) line \(line)", .warning)
             }
 
-            return isHandled
+            return wasHandled
         }
     }
 }
