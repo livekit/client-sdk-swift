@@ -17,21 +17,20 @@
 import Foundation
 import Promises
 
-internal class Completer<Value: Equatable> {
+internal class Completer<Value> {
 
     private var promise = Promise<Value>.pending()
     private var oldValue: Value?
 
     public func set(value: Value?) {
 
-        guard oldValue != value else {
-            // value did not update
-            return
-        }
-
-        // reset if nil
         guard let value = value else {
-            reset()
+
+            // reset if oldValue exists and newValue is nil
+            if oldValue != nil {
+                reset()
+            }
+
             return
         }
 
