@@ -408,7 +408,7 @@ extension LocalParticipant {
                 let localTrack = LocalVideoTrack.createCameraTrack(options: room.options.defaultCameraCaptureOptions)
                 return publishVideoTrack(track: localTrack).then(on: .sdk) { return $0 }
             } else if source == .microphone {
-                let localTrack = LocalAudioTrack.createTrack(name: "", options: room.options.defaultAudioCaptureOptions)
+                let localTrack = LocalAudioTrack.createTrack(options: room.options.defaultAudioCaptureOptions)
                 return publishAudioTrack(track: localTrack).then(on: .sdk) { return $0 }
             } else if source == .screenShareVideo {
 
