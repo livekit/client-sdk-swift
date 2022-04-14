@@ -153,6 +153,11 @@ public class Track: MulticastDelegate<TrackDelegate> {
         guard muted != self.muted else { return }
         self.muted = muted
 
+        if muted {
+            // clear video frame cache if muted
+            set(videoFrame: nil)
+        }
+
         if shouldNotify {
             notify { $0.track(self, didUpdate: muted, shouldSendSignal: shouldSendSignal) }
         }
