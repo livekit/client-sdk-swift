@@ -41,15 +41,13 @@ public class LocalVideoTrack: LocalTrack, VideoTrack {
                    track: rtcTrack)
     }
 
-    @discardableResult
-    public override func start() -> Promise<Bool> {
+    override public func start() -> Promise<Bool> {
         super.start().then(on: .sdk) { didStart in
             self.capturer.startCapture().then(on: .sdk) { _ in didStart }
         }
     }
 
-    @discardableResult
-    public override func stop() -> Promise<Bool> {
+    override public func stop() -> Promise<Bool> {
         super.stop().then(on: .sdk) { didStop in
             self.capturer.stopCapture().then(on: .sdk) { _ in didStop }
         }

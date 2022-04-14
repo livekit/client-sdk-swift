@@ -152,7 +152,9 @@ public class LocalParticipant: Participant {
 
         }.catch(on: .sdk) { _ in
             // stop the track
-            track.stop()
+            track.stop().catch { _ in
+                self.log("Failed to stop track", .warning)
+            }
         }
     }
 
