@@ -59,7 +59,13 @@ public class LocalParticipant: Participant {
         }
 
         // try to start the track
-        return track.start().then(on: .sdk) { _ -> Promise<(RTCRtpTransceiverInit, Livekit_TrackInfo)> in
+        return track.start().then(on: .sdk) { _ -> Promise<Dimensions?> in
+            // ensure dimensions are resolved for VideoTracks
+            guard let track = track as? LocalVideoTrack else { return Promise(nil) }
+            // wait for dimensions
+            return track.capturer.dimensionsCompleter.wait(on: .sdk, .defaultCaptureStart).then(on: .sdk) { $0 }
+
+        }.then(on: .sdk) { dimensions -> Promise<(RTCRtpTransceiverInit, Livekit_TrackInfo)> in
             //
             let transInit = DispatchQueue.webRTC.sync { RTCRtpTransceiverInit() }
             transInit.direction = .sendOnly
@@ -67,10 +73,9 @@ public class LocalParticipant: Participant {
             var videoLayers: [Livekit_VideoLayer] = []
 
             if let track = track as? LocalVideoTrack {
-                // track.start() should only complete when it generates at least 1 frame which then can determine dimensions
-                // assert(track.capturer.dimensions != nil, "VideoCapturer's dimensions should be determined at this point")
 
-                guard let dimensions = track.capturer.dimensions else {
+                // "VideoCapturer's dimensions should be determined at this point"
+                guard let dimensions = dimensions else {
                     throw TrackError.publish(message: "VideoCapturer dimensions are unknown")
                 }
 
