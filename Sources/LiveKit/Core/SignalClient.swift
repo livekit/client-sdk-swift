@@ -251,7 +251,8 @@ private extension SignalClient {
             notify { $0.signalClient(self, didUpdate: update.room) }
 
         case .trackPublished(let trackPublished):
-            notify { $0.signalClient(self, didPublish: trackPublished) }
+            // not required to be handled because we use completer pattern for this case
+            notify(requiresHandle: false) { $0.signalClient(self, didPublish: trackPublished) }
             // complete
             completer(for: trackPublished.cid).set(value: trackPublished.track)
 
