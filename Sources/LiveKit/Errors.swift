@@ -63,11 +63,13 @@ public enum EngineError: LiveKitError {
     // WebRTC lib returned error
     case webRTC(message: String?, Error? = nil)
     case state(message: String? = nil)
+    case timedOut(message: String? = nil)
 
     public var description: String {
         switch self {
         case .webRTC(let message, _): return buildDescription("webRTC", message)
         case .state(let message): return buildDescription("state", message)
+        case .timedOut(let message): return buildDescription("timedOut", message)
         }
     }
 }
@@ -79,6 +81,7 @@ public enum TrackError: LiveKitError {
     case capturer(message: String? = nil)
     case publish(message: String? = nil)
     case unpublish(message: String? = nil)
+    case timedOut(message: String? = nil)
 
     public var description: String {
         switch self {
@@ -88,6 +91,7 @@ public enum TrackError: LiveKitError {
         case .capturer(let message): return buildDescription("capturer", message)
         case .publish(let message): return buildDescription("publish", message)
         case .unpublish(let message): return buildDescription("unpublish", message)
+        case .timedOut(let message): return buildDescription("timedOut", message)
         }
     }
 }
@@ -97,6 +101,7 @@ public enum SignalClientError: LiveKitError {
     case socketError(rawError: Error?)
     case close(message: String? = nil)
     case connect(message: String? = nil)
+    case timedOut(message: String? = nil)
 
     public var description: String {
         switch self {
@@ -104,6 +109,7 @@ public enum SignalClientError: LiveKitError {
         case .socketError(let rawError): return buildDescription("socketError", rawError != nil ? "rawError: \(rawError!.localizedDescription)" : nil)
         case .close(let message): return buildDescription("close", message)
         case .connect(let message): return buildDescription("connect", message)
+        case .timedOut(let message): return buildDescription("timedOut", message)
         }
     }
 }
@@ -116,6 +122,17 @@ public enum NetworkError: LiveKitError {
         switch self {
         case .disconnected(let message, _): return buildDescription("disconnected", message)
         case .response(let message): return buildDescription("response", message)
+        }
+    }
+}
+
+public enum TransportError: LiveKitError {
+
+    case timedOut(message: String? = nil)
+
+    public var description: String {
+        switch self {
+        case .timedOut(let message): return buildDescription("timedOut", message)
         }
     }
 }

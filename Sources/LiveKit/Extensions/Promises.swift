@@ -23,3 +23,20 @@ extension Sequence where Element == Promise<Void> {
         Promises.all(on: queue, self).then(on: queue) { _ in }
     }
 }
+
+internal extension Promise {
+
+    typealias OnTimeout = () -> Error
+
+    func timeout(on queue: DispatchQueue = .promises, _ interval: TimeInterval, `throw` _throw: @escaping OnTimeout) -> Promise {
+
+        self.timeout(on: queue, interval).recover(on: queue) { error -> Promise in
+            // if this is a timedOut error...
+            if let error = error as? PromiseError, case .timedOut = error {
+                throw _throw()
+            }
+            // re-throw
+            throw error
+        }
+    }
+}

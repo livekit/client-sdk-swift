@@ -63,7 +63,9 @@ public class LocalParticipant: Participant {
             // ensure dimensions are resolved for VideoTracks
             guard let track = track as? LocalVideoTrack else { return Promise(nil) }
             // wait for dimensions
-            return track.capturer.dimensionsCompleter.wait(on: .sdk, .defaultCaptureStart).then(on: .sdk) { $0 }
+            return track.capturer.dimensionsCompleter.wait(on: .sdk,
+                                                           .defaultCaptureStart,
+                                                           throw: { TrackError.timedOut(message: "unable to resolve dimensions") }).then(on: .sdk) { $0 }
 
         }.then(on: .sdk) { dimensions -> Promise<(RTCRtpTransceiverInit, Livekit_TrackInfo)> in
             //

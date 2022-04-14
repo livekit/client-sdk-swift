@@ -39,8 +39,8 @@ internal class Completer<Value> {
         promise.fulfill(value)
     }
 
-    public func wait(on queue: DispatchQueue, _ interval: TimeInterval) -> Promise<Value> {
-        promise.timeout(on: queue, interval)
+    public func wait(on queue: DispatchQueue, _ interval: TimeInterval, throw: @escaping Promise.OnTimeout) -> Promise<Value> {
+        promise.timeout(on: queue, interval, throw: `throw`)
     }
 
     public func reset() {
