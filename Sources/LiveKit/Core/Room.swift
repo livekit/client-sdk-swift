@@ -82,7 +82,10 @@ public class Room: MulticastDelegate<RoomDelegate> {
         // monitor.start(queue: monitorQueue)
         return engine.connect(url, token,
                               connectOptions: connectOptions,
-                              roomOptions: roomOptions).then(on: .sdk) { self }
+                              roomOptions: roomOptions).then(on: .sdk) { () -> Room in
+                                self.log("connected to \(String(describing: self)) \(String(describing: self.localParticipant))", .info)
+                                return self
+                              }
     }
 
     @discardableResult
