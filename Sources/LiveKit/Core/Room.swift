@@ -583,7 +583,7 @@ extension Room: AppStateDelegate {
 
         guard !promises.isEmpty else { return }
 
-        all(promises).then { _ in
+        promises.all(on: .sdk).then {
             self.log("suspended all video tracks")
         }
     }
@@ -595,7 +595,7 @@ extension Room: AppStateDelegate {
 
         guard !promises.isEmpty else { return }
 
-        all(promises).then { _ in
+        promises.all(on: .sdk).then {
             self.log("resumed all video tracks")
         }
     }

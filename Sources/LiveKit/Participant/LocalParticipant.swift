@@ -368,6 +368,7 @@ extension LocalParticipant {
                 return self.publish(track: track, publishOptions: track.publishOptions)
             }.compactMap { $0 }
 
+            // TODO: use .all extension
             return all(on: .sdk, promises).then(on: .sdk) { _ in }
         }
     }
