@@ -171,7 +171,7 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
         }
 
         state.mutate { $0.hasPublished = true }
-        
+
         publisher.negotiate()
     }
 
