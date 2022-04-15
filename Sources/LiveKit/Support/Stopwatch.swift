@@ -16,7 +16,7 @@
 
 import Foundation
 
-public class Stopwatch {
+public struct Stopwatch {
 
     public struct Entry {
         let label: String
@@ -32,11 +32,11 @@ public class Stopwatch {
         self.start = ProcessInfo.processInfo.systemUptime
     }
 
-    internal func split(label: String = "") {
+    internal mutating func split(label: String = "") {
         splits.append(Entry(label: label, time: ProcessInfo.processInfo.systemUptime))
     }
 
-    internal func clear() {
+    internal mutating func clear() {
         splits = []
         start = ProcessInfo.processInfo.systemUptime
     }

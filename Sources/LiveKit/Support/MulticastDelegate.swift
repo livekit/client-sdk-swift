@@ -69,6 +69,20 @@ public class MulticastDelegate<T>: NSObject, Loggable {
         }
     }
 
+    internal func notifyAsync(_ fnc: @escaping (T) -> Void) {
+
+        multicastQueue.async {
+            for delegate in self.set.allObjects {
+                guard let delegate = delegate as? T else {
+                    self.log("MulticastDelegate: skipping notify for \(delegate), not a type of \(T.self)", .info)
+                    continue
+                }
+
+                fnc(delegate)
+            }
+        }
+    }
+
     /// At least one delegate must return `true`, otherwise a `warning` will be logged
     /// returns true if was handled by at least one delegate
     @discardableResult

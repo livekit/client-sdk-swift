@@ -16,6 +16,8 @@
 
 import Foundation
 
+internal typealias OnStateMutate<Value> = (_ oldValue: Value, _ newValue: Value) -> Void
+
 @dynamicMemberLookup
 internal final class StateSync<Value> {
 
@@ -25,6 +27,7 @@ internal final class StateSync<Value> {
 
     // actual value
     private var _value: Value
+    public var onMutate: OnStateMutate<Value>?
 
     public init(_ value: Value) {
         self._value = value
@@ -33,7 +36,12 @@ internal final class StateSync<Value> {
     // mutate
     public func mutate<Result>(_ mutation: (inout Value) throws -> Result) rethrows -> Result {
         // blocking
-        try queue.sync(flags: .barrier) { try mutation(&_value) }
+        try queue.sync(flags: .barrier) {
+            let oldValue = _value
+            let result = try mutation(&_value)
+            onMutate?(oldValue, _value)
+            return result
+        }
     }
 
     // read only

@@ -23,7 +23,7 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
 
     let signalClient = SignalClient()
 
-    private(set) var hasPublished: Bool = false
+    // private(set) var hasPublished: Bool = false
     private(set) var publisher: Transport?
     private(set) var subscriber: Transport?
     private(set) var subscriberPrimary: Bool = false
@@ -36,22 +36,13 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
     private(set) var dcReliableSub: RTCDataChannel?
     private(set) var dcLossySub: RTCDataChannel?
 
-    private(set) var url: String?
-    private(set) var token: String?
+    public var url: String? { state.url }
+    public var token: String? { state.token }
+    public var connectionState: ConnectionState { state.connectionState }
+    public var connectStopwatch: Stopwatch { state.connectStopwatch }
 
     private(set) var connectOptions: ConnectOptions
     private(set) var roomOptions: RoomOptions
-
-    private(set) var connectionState: ConnectionState = .disconnected(reason: .sdk) {
-        // automatically notify changes
-        didSet {
-            guard oldValue != connectionState else { return }
-            log("\(oldValue) -> \(self.connectionState)")
-            notify { $0.engine(self, didUpdate: self.connectionState, oldValue: oldValue) }
-        }
-    }
-
-    internal let connectStopwatch = Stopwatch(label: "connect")
 
     internal let primaryTransportConnectedCompleter = Completer<Void>()
     internal let publisherTransportConnectedCompleter = Completer<Void>()
@@ -72,12 +63,23 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
         return nil
     }
 
+    internal struct State {
+        var url: String?
+        var token: String?
+        var connectionState: ConnectionState = .disconnected(reason: .sdk)
+        var connectStopwatch = Stopwatch(label: "connect")
+        var hasPublished: Bool = false
+    }
+
+    private var state = StateSync(State())
+
     init(connectOptions: ConnectOptions,
          roomOptions: RoomOptions) {
 
         self.connectOptions = connectOptions
         self.roomOptions = roomOptions
         super.init()
+        self.state.onMutate = onStateMutate(oldState:newState:)
 
         signalClient.add(delegate: self)
         ConnectivityListener.shared.add(delegate: self)
@@ -99,7 +101,7 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
         self.roomOptions = roomOptions ?? self.roomOptions
 
         return cleanUp(reason: .sdk).then(on: .sdk) {
-            self.connectionState = .connecting(.normal)
+            self.state.mutate { $0.connectionState = .connecting(.normal) }
         }.then(on: .sdk) {
             self.fullConnectSequence(url, token)
         }.then(on: .sdk) {
@@ -107,9 +109,11 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
             self.log("Connect sequence completed")
 
             // update internal vars (only if connect succeeded)
-            self.url = url
-            self.token = token
-            self.connectionState = .connected(.normal)
+            self.state.mutate {
+                $0.url = url
+                $0.token = token
+                $0.connectionState = .connected(.normal)
+            }
 
         }.catch(on: .sdk) { error in
             self.cleanUp(reason: .network(error: error))
@@ -122,10 +126,9 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
 
         log("reason: \(reason)")
 
-        url = nil
-        token = nil
+        // reset state
+        state.mutate { $0 = State(connectionState: .disconnected(reason: reason)) }
 
-        connectionState = .disconnected(reason: reason)
         signalClient.cleanUp(reason: reason)
 
         for completer in [primaryTransportConnectedCompleter,
@@ -135,8 +138,6 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
             // reset completer
             completer.reset()
         }
-
-        connectStopwatch.clear()
 
         return cleanUpRTC()
     }
@@ -169,7 +170,8 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
             return
         }
 
-        hasPublished = true
+        state.mutate { $0.hasPublished = true }
+        
         publisher.negotiate()
     }
 
@@ -223,6 +225,15 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
 
 private extension Engine {
 
+    func onStateMutate(oldState: State, newState: State) {
+        // this is on sync thread
+
+        if oldState.connectionState != newState.connectionState {
+            log("\(oldState.connectionState) -> \(newState.connectionState)")
+            notifyAsync { $0.engine(self, didUpdate: newState.connectionState, oldValue: oldState.connectionState) }
+        }
+    }
+
     func publisherDataChannel(for reliability: Reliability) -> RTCDataChannel? {
         reliability == .reliable ? dcReliablePub : dcLossyPub
     }
@@ -270,7 +281,7 @@ private extension Engine {
             return promises.all(on: .sdk).then(on: .sdk) {
                 self.publisher = nil
                 self.subscriber = nil
-                self.hasPublished = false
+                self.state.mutate { $0.hasPublished = false }
             }
         }
 
@@ -294,7 +305,7 @@ private extension Engine {
                                                              .defaultJoinResponse,
                                                              throw: { SignalClientError.timedOut(message: "failed to receive join response") })
             }.then(on: .sdk) { _ in
-                self.connectStopwatch.split(label: "signal")
+                self.state.mutate { $0.connectStopwatch.split(label: "signal") }
             }.then(on: .sdk) { jr in
                 self.configureTransports(joinResponse: jr)
             }.then(on: .sdk) {
@@ -304,7 +315,7 @@ private extension Engine {
                                                              .defaultTransportState,
                                                              throw: { TransportError.timedOut(message: "primary transport didn't connect") })
             }.then(on: .sdk) {
-                self.connectStopwatch.split(label: "engine")
+                self.state.mutate { $0.connectStopwatch.split(label: "engine") }
                 self.log("\(self.connectStopwatch)")
             }
     }
@@ -367,7 +378,7 @@ private extension Engine {
                 self.subscriber?.restartingIce = true
 
                 // only if published, continue...
-                guard let publisher = self.publisher, self.hasPublished else {
+                guard let publisher = self.publisher, self.state.hasPublished else {
                     return Promise(())
                 }
 
@@ -401,7 +412,7 @@ private extension Engine {
             }
         }
 
-        connectionState = .connecting(.reconnect(.quick))
+        state.mutate { $0.connectionState = .connecting(.reconnect(.quick)) }
 
         return retry(on: .sdk,
                      attempts: 3,
@@ -415,13 +426,13 @@ private extension Engine {
                         quickReconnectSequence()
                      }).recover(on: .sdk) { (_) -> Promise<Void> in
                         // try full re-connect (only if quick re-connect failed)
-                        self.connectionState = .connecting(.reconnect(.full))
+                        self.state.mutate { $0.connectionState = .connecting(.reconnect(.full)) }
                         return fullReconnectSequence()
                      }.then(on: .sdk) {
                         // re-connect sequence successful
                         self.log("Re-connect sequence completed")
                         let previousMode = self.connectionState.reconnectingWithMode
-                        self.connectionState = .connected(.reconnect(previousMode ?? .quick))
+                        self.state.mutate { $0.connectionState = .connected(.reconnect(previousMode ?? .quick)) }
                      }.catch(on: .sdk) { _ in
                         self.log("Re-connect sequence failed")
                         // finally disconnect if all attempts fail
@@ -514,7 +525,10 @@ extension Engine: SignalClientDelegate {
     }
 
     func signalClient(_ signalClient: SignalClient, didUpdate token: String) -> Bool {
-        self.token = token
+
+        // update token
+        state.mutate { $0.token = token }
+
         return true
     }
 }
@@ -575,7 +589,7 @@ extension Engine: TransportDelegate {
 
         if connectionState.isConnected {
             // Attempt re-connect if primary or publisher transport failed
-            if (transport.primary || (hasPublished && transport.target == .publisher)) && [.disconnected, .failed].contains(state) {
+            if (transport.primary || (self.state.hasPublished && transport.target == .publisher)) && [.disconnected, .failed].contains(state) {
                 startReconnect()
             }
         }
