@@ -18,17 +18,40 @@ import Foundation
 
 extension TrackSettings: CustomStringConvertible {
 
-    var description: String {
+    public var description: String {
         "TrackSettings(enabled: \(enabled), dimensions: \(dimensions), videoQuality: \(videoQuality))"
     }
 }
 
 extension Livekit_VideoLayer: CustomStringConvertible {
 
-    var description: String {
+    public var description: String {
         "VideoLayer(quality: \(quality), dimensions: \(width)x\(height), bitrate: \(bitrate))"
     }
 }
+
+extension TrackPublication: CustomStringConvertible {
+
+    public var description: String {
+        "\(String(describing: type(of: self)))(sid: \(sid), kind: \(kind), source: \(source))"
+    }
+}
+
+extension Livekit_AddTrackRequest: CustomStringConvertible {
+
+    public var description: String {
+        "AddTrackRequest(cid: \(cid), name: \(name), type: \(type), source: \(source), width: \(width), height: \(height), muted: \(muted))"
+    }
+}
+
+extension Livekit_TrackInfo: CustomStringConvertible {
+
+    public var description: String {
+        "TrackInfo(sid: \(sid), name: \(name), type: \(type), source: \(source), width: \(width), height: \(height), muted: \(muted))"
+    }
+}
+
+// MARK: - NSObject
 
 extension Room {
 
@@ -41,5 +64,12 @@ extension Participant {
 
     public override var description: String {
         "\(String(describing: type(of: self)))(sid: \(sid))"
+    }
+}
+
+extension Track {
+
+    public override var description: String {
+        "\(String(describing: type(of: self)))(sid: \(sid ?? "nil"), name: \(name), source: \(source))"
     }
 }

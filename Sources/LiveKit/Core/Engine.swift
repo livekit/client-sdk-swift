@@ -141,11 +141,12 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
         return cleanUpRTC()
     }
 
-    func addTrack(cid: String,
-                  name: String,
-                  kind: Livekit_TrackType,
-                  source: Livekit_TrackSource = .unknown,
-                  _ populator: @escaping (inout Livekit_AddTrackRequest) -> Void) -> Promise<Livekit_TrackInfo> {
+    // sends addTrack request and waits for the trackInfo
+    func sendAndWaitAddTrackRequest<R>(cid: String,
+                                       name: String,
+                                       kind: Livekit_TrackType,
+                                       source: Livekit_TrackSource = .unknown,
+                                       _ populator: @escaping SignalClient.AddTrackRequestPopulator<R>) -> Promise<(result: R, trackInfo: Livekit_TrackInfo)> {
 
         // TODO: Check if cid already published
 
@@ -154,10 +155,10 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
         return signalClient.sendAddTrack(cid: cid,
                                          name: name,
                                          type: kind,
-                                         source: source, populator).then(on: .sdk) {
+                                         source: source, populator).then(on: .sdk) { populateResult in
                                             completer.wait(on: .sdk,
                                                            .defaultPublish,
-                                                           throw: { EngineError.timedOut(message: "server didn't respond to addTrack request") })
+                                                           throw: { EngineError.timedOut(message: "server didn't respond to addTrack request") }).then(on: .sdk) { (result: populateResult, trackInfo: $0) }
                                          }
     }
 
