@@ -16,6 +16,32 @@
 
 import Foundation
 
+@dynamicMemberLookup
+internal final class StateSync<Value> {
+
+    // use concurrent queue to allow multiple reads and block writes with barrier.
+    private let queue = DispatchQueue(label: "LiveKitSDK.state", qos: .default,
+                                      attributes: [.concurrent])
+
+    // actual value
+    private var _value: Value
+
+    public init(_ value: Value) {
+        self._value = value
+    }
+
+    // mutate
+    public func mutate<Result>(_ mutation: (inout Value) throws -> Result) rethrows -> Result {
+        // blocking
+        try queue.sync(flags: .barrier) { try mutation(&_value) }
+    }
+
+    // read only
+    subscript<Property>(dynamicMember keyPath: KeyPath<Value, Property>) -> Property {
+        queue.sync { _value[keyPath: keyPath] }
+    }
+}
+
 @propertyWrapper
 @dynamicMemberLookup
 public final class Atomic<Value> {
