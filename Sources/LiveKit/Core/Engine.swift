@@ -21,40 +21,41 @@ import Network
 
 internal class Engine: MulticastDelegate<EngineDelegate> {
 
-    let signalClient = SignalClient()
-
-    // private(set) var hasPublished: Bool = false
-    private(set) var publisher: Transport?
-    private(set) var subscriber: Transport?
-    private(set) var subscriberPrimary: Bool = false
-    private var primary: Transport? {
-        subscriberPrimary ? subscriber : publisher
-    }
-
-    private(set) var dcReliablePub: RTCDataChannel?
-    private(set) var dcLossyPub: RTCDataChannel?
-    private(set) var dcReliableSub: RTCDataChannel?
-    private(set) var dcLossySub: RTCDataChannel?
+    public let signalClient = SignalClient()
 
     public var url: String? { state.url }
     public var token: String? { state.token }
     public var connectionState: ConnectionState { state.connectionState }
     public var connectStopwatch: Stopwatch { state.connectStopwatch }
 
+    // private(set) var hasPublished: Bool = false
+    private(set) var publisher: Transport?
+    private(set) var subscriber: Transport?
+
     private(set) var connectOptions: ConnectOptions
     private(set) var roomOptions: RoomOptions
 
-    internal let primaryTransportConnectedCompleter = Completer<Void>()
-    internal let publisherTransportConnectedCompleter = Completer<Void>()
+    private var subscriberPrimary: Bool = false
+    private var primary: Transport? {
+        subscriberPrimary ? subscriber : publisher
+    }
 
-    internal let publisherReliableDCOpenCompleter = Completer<Void>()
-    internal let publisherLossyDCOpenCompleter = Completer<Void>()
+    private var dcReliablePub: RTCDataChannel?
+    private var dcLossyPub: RTCDataChannel?
+    private var dcReliableSub: RTCDataChannel?
+    private var dcLossySub: RTCDataChannel?
 
-    internal func publisherDCCompleter(for reliability: Reliability) -> Completer<Void> {
+    private let primaryTransportConnectedCompleter = Completer<Void>()
+    private let publisherTransportConnectedCompleter = Completer<Void>()
+
+    private let publisherReliableDCOpenCompleter = Completer<Void>()
+    private let publisherLossyDCOpenCompleter = Completer<Void>()
+
+    private func publisherDCCompleter(for reliability: Reliability) -> Completer<Void> {
         reliability == .reliable ? publisherReliableDCOpenCompleter : publisherLossyDCOpenCompleter
     }
 
-    internal func publisherDCCompleter(for dataChannel: RTCDataChannel) -> Completer<Void>? {
+    private func publisherDCCompleter(for dataChannel: RTCDataChannel) -> Completer<Void>? {
         if dataChannel == dcReliablePub {
             return publisherReliableDCOpenCompleter
         } else if dataChannel == dcLossyPub {

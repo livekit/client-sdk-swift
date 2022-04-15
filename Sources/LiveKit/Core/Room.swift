@@ -47,9 +47,9 @@ public class Room: MulticastDelegate<RoomDelegate> {
     public var activeSpeakers: [Participant] { state.activeSpeakers }
 
     // expose engine's vars
-    public var connectionState: ConnectionState { engine.connectionState }
     public var url: String? { engine.url }
     public var token: String? { engine.token }
+    public var connectionState: ConnectionState { engine.connectionState }
     public var connectStopwatch: Stopwatch { engine.connectStopwatch }
 
     // Reference to Engine
