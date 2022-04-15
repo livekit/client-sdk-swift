@@ -138,9 +138,18 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
         }
     }
 
-    func completer(for trackCid: String) -> Completer<Livekit_TrackInfo> {
+    func completeCompleter(forAddTrackRequest trackCid: String, trackInfo: Livekit_TrackInfo) {
 
         if let completer = _completersForAddTrack[trackCid] {
+            completer.set(value: trackInfo)
+        }
+    }
+
+    func prepareCompleter(forAddTrackRequest trackCid: String) -> Completer<Livekit_TrackInfo> {
+
+        if let completer = _completersForAddTrack[trackCid] {
+            // reset if already exists
+            completer.reset()
             return completer
         }
 
@@ -254,7 +263,7 @@ private extension SignalClient {
             // not required to be handled because we use completer pattern for this case
             notify(requiresHandle: false) { $0.signalClient(self, didPublish: trackPublished) }
             // complete
-            completer(for: trackPublished.cid).set(value: trackPublished.track)
+            completeCompleter(forAddTrackRequest: trackPublished.cid, trackInfo: trackPublished.track)
 
         case .trackUnpublished(let trackUnpublished):
             notify { $0.signalClient(self, didUnpublish: trackUnpublished) }

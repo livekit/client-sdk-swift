@@ -149,7 +149,7 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
 
         // TODO: Check if cid already published
 
-        let completer = signalClient.completer(for: cid)
+        let completer = signalClient.prepareCompleter(forAddTrackRequest: cid)
 
         return signalClient.sendAddTrack(cid: cid,
                                          name: name,
