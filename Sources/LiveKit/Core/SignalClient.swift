@@ -138,9 +138,18 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
         }
     }
 
-    func completer(for trackCid: String) -> Completer<Livekit_TrackInfo> {
+    func completeCompleter(forAddTrackRequest trackCid: String, trackInfo: Livekit_TrackInfo) {
 
         if let completer = _completersForAddTrack[trackCid] {
+            completer.set(value: trackInfo)
+        }
+    }
+
+    func prepareCompleter(forAddTrackRequest trackCid: String) -> Completer<Livekit_TrackInfo> {
+
+        if let completer = _completersForAddTrack[trackCid] {
+            // reset if already exists
+            completer.reset()
             return completer
         }
 
@@ -251,9 +260,12 @@ private extension SignalClient {
             notify { $0.signalClient(self, didUpdate: update.room) }
 
         case .trackPublished(let trackPublished):
-            notify { $0.signalClient(self, didPublish: trackPublished) }
+            // not required to be handled because we use completer pattern for this case
+            notify(requiresHandle: false) { $0.signalClient(self, didPublish: trackPublished) }
+
+            self.log("[publish] resolving completer for cid: \(trackPublished.cid)")
             // complete
-            completer(for: trackPublished.cid).set(value: trackPublished.track)
+            completeCompleter(forAddTrackRequest: trackPublished.cid, trackInfo: trackPublished.track)
 
         case .trackUnpublished(let trackUnpublished):
             notify { $0.signalClient(self, didUnpublish: trackUnpublished) }
@@ -397,24 +409,35 @@ internal extension SignalClient {
         return sendRequest(r)
     }
 
-    func sendAddTrack(cid: String,
-                      name: String,
-                      type: Livekit_TrackType,
-                      source: Livekit_TrackSource = .unknown,
-                      _ populator: (inout Livekit_AddTrackRequest) -> Void) -> Promise<Void> {
+    typealias AddTrackRequestPopulator<R> = (inout Livekit_AddTrackRequest) throws -> R
+
+    func sendAddTrack<T>(cid: String,
+                         name: String,
+                         type: Livekit_TrackType,
+                         source: Livekit_TrackSource = .unknown,
+                         _ populator: AddTrackRequestPopulator<T>) -> Promise<T> {
         log()
 
-        let r = Livekit_SignalRequest.with {
-            $0.addTrack = Livekit_AddTrackRequest.with {
-                populator(&$0)
+        do {
+            var addTrackRequest = Livekit_AddTrackRequest.with {
                 $0.cid = cid
                 $0.name = name
                 $0.type = type
                 $0.source = source
             }
-        }
 
-        return sendRequest(r)
+            let populateResult = try populator(&addTrackRequest)
+
+            let request = Livekit_SignalRequest.with {
+                $0.addTrack = addTrackRequest
+            }
+
+            return sendRequest(request).then(on: .sdk) { populateResult }
+
+        } catch let error {
+            // the populator block throwed
+            return Promise(error)
+        }
     }
 
     func sendUpdateTrackSettings(sid: Sid, settings: TrackSettings) -> Promise<Void> {

@@ -70,13 +70,14 @@ public class MulticastDelegate<T>: NSObject, Loggable {
     }
 
     /// At least one delegate must return `true`, otherwise a `warning` will be logged
-    /// returns true if all delegates returned true
+    /// returns true if was handled by at least one delegate
     @discardableResult
-    internal func notify(_ fnc: @escaping (T) -> Bool,
+    internal func notify(requiresHandle: Bool = true,
                          function: String = #function,
-                         line: UInt = #line) -> Bool {
+                         line: UInt = #line,
+                         _ fnc: @escaping (T) -> Bool) -> Bool {
 
-        multicastQueue.sync {
+        let wasHandled = multicastQueue.sync { () -> Bool in
             var counter: Int = 0
             for delegate in set.allObjects {
                 guard let delegate = delegate as? T else {
@@ -87,14 +88,12 @@ public class MulticastDelegate<T>: NSObject, Loggable {
                 if fnc(delegate) { counter += 1 }
             }
 
-            let isHandled = counter == set.allObjects.count
-
-            if !isHandled {
-                self.log("Notify was not handled, called from \(function) line \(line)", .warning)
-            }
-
-            return isHandled
+            return counter > 0
         }
+
+        assert(!(requiresHandle && !wasHandled), "notify() was not handled by the delegate, called from \(function) line \(line)")
+
+        return wasHandled
     }
 }
 

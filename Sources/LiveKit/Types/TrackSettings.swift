@@ -46,10 +46,3 @@ extension TrackSettings: Equatable {
             && lhs.videoQuality == rhs.videoQuality
     }
 }
-
-extension TrackSettings: CustomStringConvertible {
-
-    var description: String {
-        "TrackSettings(enabled: \(enabled), dimensions: \(dimensions), videoQuality: \(videoQuality))"
-    }
-}

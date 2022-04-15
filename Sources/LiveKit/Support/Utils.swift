@@ -249,10 +249,3 @@ internal extension MutableCollection {
         }
     }
 }
-
-extension Livekit_VideoLayer: CustomStringConvertible {
-
-    var description: String {
-        "VideoLayer(quality: \(quality), dimensions: \(width)x\(height), bitrate: \(bitrate))"
-    }
-}

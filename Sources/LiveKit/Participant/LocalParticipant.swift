@@ -46,6 +46,8 @@ public class LocalParticipant: Participant {
     internal func publish(track: LocalTrack,
                           publishOptions: PublishOptions? = nil) -> Promise<LocalTrackPublication> {
 
+        log("[publish] \(track) options: \(String(describing: publishOptions ?? nil))...", .info)
+
         guard let publisher = room.engine.publisher else {
             return Promise(EngineError.state(message: "publisher is null"))
         }
@@ -59,68 +61,76 @@ public class LocalParticipant: Participant {
         }
 
         // try to start the track
-        return track.start().then(on: .sdk) { _ -> Promise<(RTCRtpTransceiverInit, Livekit_TrackInfo)> in
-            //
-            let transInit = DispatchQueue.webRTC.sync { RTCRtpTransceiverInit() }
-            transInit.direction = .sendOnly
+        return track.start().then(on: .sdk) { _ -> Promise<Dimensions?> in
+            // ensure dimensions are resolved for VideoTracks
+            guard let track = track as? LocalVideoTrack else { return Promise(nil) }
 
-            var videoLayers: [Livekit_VideoLayer] = []
+            self.log("[publish] waiting for dimensions to resolve...")
 
-            if let track = track as? LocalVideoTrack {
-                // track.start() should only complete when it generates at least 1 frame which then can determine dimensions
-                // assert(track.capturer.dimensions != nil, "VideoCapturer's dimensions should be determined at this point")
+            // wait for dimensions
+            return track.capturer.dimensionsCompleter.wait(on: .sdk,
+                                                           .defaultCaptureStart,
+                                                           throw: { TrackError.timedOut(message: "unable to resolve dimensions") }).then(on: .sdk) { $0 }
 
-                guard let dimensions = track.capturer.dimensions else {
-                    throw TrackError.publish(message: "VideoCapturer dimensions are unknown")
-                }
-
-                let publishOptions = (publishOptions as? VideoPublishOptions) ?? self.room.options.defaultVideoPublishOptions
-
-                self.log("Capturer dimensions: \(String(describing: track.capturer.dimensions))")
-
-                let encodings = Utils.computeEncodings(dimensions: dimensions,
-                                                       publishOptions: publishOptions,
-                                                       isScreenShare: track.source == .screenShareVideo)
-
-                self.log("Using encodings \(encodings)")
-                transInit.sendEncodings = encodings
-
-                videoLayers = dimensions.videoLayers(for: encodings)
-
-                self.log("Using encodings layers: \(videoLayers.map { String(describing: $0) }.joined(separator: ", "))")
-            }
+        }.then(on: .sdk) { dimensions -> Promise<(result: RTCRtpTransceiverInit, trackInfo: Livekit_TrackInfo)> in
             // request a new track to the server
-            return self.room.engine.addTrack(cid: track.mediaTrack.trackId,
-                                             name: track.name,
-                                             kind: track.kind.toPBType(),
-                                             source: track.source.toPBType()) {
+            self.room.engine.sendAndWaitAddTrackRequest(cid: track.mediaTrack.trackId,
+                                                        name: track.name,
+                                                        kind: track.kind.toPBType(),
+                                                        source: track.source.toPBType()) { populator in
+
+                let transInit = DispatchQueue.webRTC.sync { RTCRtpTransceiverInit() }
+                transInit.direction = .sendOnly
 
                 if let track = track as? LocalVideoTrack {
-                    // additional params for Video
 
-                    if let dimensions = track.capturer.dimensions {
-                        $0.width = UInt32(dimensions.width)
-                        $0.height = UInt32(dimensions.height)
+                    guard let dimensions = dimensions else {
+                        throw TrackError.publish(message: "VideoCapturer dimensions are unknown")
                     }
 
-                    $0.layers = videoLayers
+                    self.log("[publish] computing encode settings with dimensions: \(dimensions)...")
+
+                    let publishOptions = (publishOptions as? VideoPublishOptions) ?? self.room.options.defaultVideoPublishOptions
+
+                    let encodings = Utils.computeEncodings(dimensions: dimensions,
+                                                           publishOptions: publishOptions,
+                                                           isScreenShare: track.source == .screenShareVideo)
+
+                    self.log("[publish] using encodings: \(encodings)")
+                    transInit.sendEncodings = encodings
+
+                    let videoLayers = dimensions.videoLayers(for: encodings)
+
+                    self.log("[publish] using layers: \(videoLayers.map { String(describing: $0) }.joined(separator: ", "))")
+
+                    populator.width = UInt32(dimensions.width)
+                    populator.height = UInt32(dimensions.height)
+                    populator.layers = videoLayers
+
+                    self.log("[publish] requesting add track to server with \(populator)...")
 
                 } else if track is LocalAudioTrack {
                     // additional params for Audio
                     let publishOptions = (publishOptions as? AudioPublishOptions) ?? self.room.options.defaultAudioPublishOptions
-                    $0.disableDtx = !publishOptions.dtx
+                    populator.disableDtx = !publishOptions.dtx
                 }
-            }.then { (transInit, $0) }
 
-        }.then(on: .sdk) { (transInit, trackInfo) -> Promise<(RTCRtpTransceiver, Livekit_TrackInfo)> in
+                return transInit
+            }
+
+        }.then(on: .sdk) { (transInit, trackInfo) -> Promise<(transceiver: RTCRtpTransceiver, trackInfo: Livekit_TrackInfo)> in
+
+            self.log("[publish] server responded trackInfo: \(trackInfo)")
+
             // add transceiver to pc
-            publisher.addTransceiver(with: track.mediaTrack,
-                                     transceiverInit: transInit).then(on: .sdk) { transceiver in
-                                        // pass down trackInfo and created transceiver
-                                        (transceiver, trackInfo)
-                                     }
-        }.then(on: .sdk) { params in
-            track.onPublish().then { _ in params }
+            return publisher.addTransceiver(with: track.mediaTrack,
+                                            transceiverInit: transInit).then(on: .sdk) { transceiver in
+                                                // pass down trackInfo and created transceiver
+                                                (transceiver, trackInfo)
+                                            }
+        }.then(on: .sdk) { params -> Promise<(RTCRtpTransceiver, trackInfo: Livekit_TrackInfo)> in
+            self.log("[publish] added transceiver: \(params.trackInfo)...")
+            return track.onPublish().then { _ in params }
         }.then(on: .sdk) { (transceiver, trackInfo) -> LocalTrackPublication in
 
             // store publishOptions used for this track
@@ -143,11 +153,17 @@ public class LocalParticipant: Participant {
             self.notify { $0.localParticipant(self, didPublish: publication) }
             self.room.notify { $0.room(self.room, localParticipant: self, didPublish: publication) }
 
+            self.log("[publish] success \(publication)", .info)
             return publication
 
         }.catch(on: .sdk) { _ in
+
+            self.log("[publish] failed \(track)", .error)
+
             // stop the track
-            track.stop()
+            track.stop().catch { _ in
+                self.log("Failed to stop track", .warning)
+            }
         }
     }
 
@@ -363,6 +379,7 @@ extension LocalParticipant {
                 return self.publish(track: track, publishOptions: track.publishOptions)
             }.compactMap { $0 }
 
+            // TODO: use .all extension
             return all(on: .sdk, promises).then(on: .sdk) { _ in }
         }
     }
@@ -408,7 +425,7 @@ extension LocalParticipant {
                 let localTrack = LocalVideoTrack.createCameraTrack(options: room.options.defaultCameraCaptureOptions)
                 return publishVideoTrack(track: localTrack).then(on: .sdk) { return $0 }
             } else if source == .microphone {
-                let localTrack = LocalAudioTrack.createTrack(name: "", options: room.options.defaultAudioCaptureOptions)
+                let localTrack = LocalAudioTrack.createTrack(options: room.options.defaultAudioCaptureOptions)
                 return publishAudioTrack(track: localTrack).then(on: .sdk) { return $0 }
             } else if source == .screenShareVideo {
 

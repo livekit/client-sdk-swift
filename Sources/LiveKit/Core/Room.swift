@@ -112,7 +112,10 @@ public class Room: MulticastDelegate<RoomDelegate> {
         // monitor.start(queue: monitorQueue)
         return engine.connect(url, token,
                               connectOptions: connectOptions,
-                              roomOptions: roomOptions).then(on: .sdk) { self }
+                              roomOptions: roomOptions).then(on: .sdk) { () -> Room in
+                                self.log("connected to \(String(describing: self)) \(String(describing: self.localParticipant))", .info)
+                                return self
+                              }
     }
 
     @discardableResult
@@ -637,7 +640,7 @@ extension Room: AppStateDelegate {
 
         guard !promises.isEmpty else { return }
 
-        all(promises).then { _ in
+        promises.all(on: .sdk).then {
             self.log("suspended all video tracks")
         }
     }
@@ -649,7 +652,7 @@ extension Room: AppStateDelegate {
 
         guard !promises.isEmpty else { return }
 
-        all(promises).then { _ in
+        promises.all(on: .sdk).then {
             self.log("resumed all video tracks")
         }
     }

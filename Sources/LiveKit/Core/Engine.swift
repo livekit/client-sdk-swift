@@ -53,17 +53,17 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
 
     internal let connectStopwatch = Stopwatch(label: "connect")
 
-    internal let primaryTransportConnectedCompleter = Completer<Bool>()
-    internal let publisherTransportConnectedCompleter = Completer<Bool>()
+    internal let primaryTransportConnectedCompleter = Completer<Void>()
+    internal let publisherTransportConnectedCompleter = Completer<Void>()
 
-    internal let publisherReliableDCOpenCompleter = Completer<Bool>()
-    internal let publisherLossyDCOpenCompleter = Completer<Bool>()
+    internal let publisherReliableDCOpenCompleter = Completer<Void>()
+    internal let publisherLossyDCOpenCompleter = Completer<Void>()
 
-    internal func publisherDCCompleter(for reliability: Reliability) -> Completer<Bool> {
+    internal func publisherDCCompleter(for reliability: Reliability) -> Completer<Void> {
         reliability == .reliable ? publisherReliableDCOpenCompleter : publisherLossyDCOpenCompleter
     }
 
-    internal func publisherDCCompleter(for dataChannel: RTCDataChannel) -> Completer<Bool>? {
+    internal func publisherDCCompleter(for dataChannel: RTCDataChannel) -> Completer<Void>? {
         if dataChannel == dcReliablePub {
             return publisherReliableDCOpenCompleter
         } else if dataChannel == dcLossyPub {
@@ -141,21 +141,24 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
         return cleanUpRTC()
     }
 
-    func addTrack(cid: String,
-                  name: String,
-                  kind: Livekit_TrackType,
-                  source: Livekit_TrackSource = .unknown,
-                  _ populator: @escaping (inout Livekit_AddTrackRequest) -> Void) -> Promise<Livekit_TrackInfo> {
+    // sends addTrack request and waits for the trackInfo
+    func sendAndWaitAddTrackRequest<R>(cid: String,
+                                       name: String,
+                                       kind: Livekit_TrackType,
+                                       source: Livekit_TrackSource = .unknown,
+                                       _ populator: @escaping SignalClient.AddTrackRequestPopulator<R>) -> Promise<(result: R, trackInfo: Livekit_TrackInfo)> {
 
         // TODO: Check if cid already published
 
-        let completer = signalClient.completer(for: cid)
+        let completer = signalClient.prepareCompleter(forAddTrackRequest: cid)
 
         return signalClient.sendAddTrack(cid: cid,
                                          name: name,
                                          type: kind,
-                                         source: source, populator).then(on: .sdk) {
-                                            completer.wait(on: .sdk, .defaultPublish)
+                                         source: source, populator).then(on: .sdk) { populateResult in
+                                            completer.wait(on: .sdk,
+                                                           .defaultPublish,
+                                                           throw: { EngineError.timedOut(message: "server didn't respond to addTrack request") }).then(on: .sdk) { (result: populateResult, trackInfo: $0) }
                                          }
     }
 
@@ -187,9 +190,12 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
                 publisherShouldNegotiate()
             }
 
-            return all([self.publisherTransportConnectedCompleter.wait(on: .sdk, .defaultTransportState),
-                        publisherDCCompleter(for: reliability).wait(on: .sdk, .defaultPublisherDataChannelOpen)]).then { _ in
-                        }
+            return [self.publisherTransportConnectedCompleter.wait(on: .sdk,
+                                                                   .defaultTransportState,
+                                                                   throw: { TransportError.timedOut(message: "publisher didn't connect") }),
+                    publisherDCCompleter(for: reliability).wait(on: .sdk,
+                                                                .defaultPublisherDataChannelOpen,
+                                                                throw: { TransportError.timedOut(message: "publisher dc didn't open") })].all(on: .sdk)
         }
 
         return ensurePublisherConnected().then(on: .sdk) { () -> Void in
@@ -284,7 +290,9 @@ private extension Engine {
                                          connectOptions: self.connectOptions)
             .then(on: .sdk) {
                 // wait for joinResponse
-                self.signalClient.joinResponseCompleter.wait(on: .sdk, .defaultJoinResponse)
+                self.signalClient.joinResponseCompleter.wait(on: .sdk,
+                                                             .defaultJoinResponse,
+                                                             throw: { SignalClientError.timedOut(message: "failed to receive join response") })
             }.then(on: .sdk) { _ in
                 self.connectStopwatch.split(label: "signal")
             }.then(on: .sdk) { jr in
@@ -292,8 +300,10 @@ private extension Engine {
             }.then(on: .sdk) {
                 self.signalClient.resumeResponseQueue()
             }.then(on: .sdk) {
-                self.primaryTransportConnectedCompleter.wait(on: .sdk, .defaultTransportState)
-            }.then(on: .sdk) { _ -> Void in
+                self.primaryTransportConnectedCompleter.wait(on: .sdk,
+                                                             .defaultTransportState,
+                                                             throw: { TransportError.timedOut(message: "primary transport didn't connect") })
+            }.then(on: .sdk) {
                 self.connectStopwatch.split(label: "engine")
                 self.log("\(self.connectStopwatch)")
             }
@@ -347,8 +357,10 @@ private extension Engine {
                 checkShouldContinue()
             }.then(on: .sdk) {
                 // Wait for primary transport to connect (if not already)
-                self.primaryTransportConnectedCompleter.wait(on: .sdk, .defaultTransportState)
-            }.then(on: .sdk) { _ in
+                self.primaryTransportConnectedCompleter.wait(on: .sdk,
+                                                             .defaultTransportState,
+                                                             throw: { TransportError.timedOut(message: "primary transport didn't connect") })
+            }.then(on: .sdk) {
                 checkShouldContinue()
             }.then(on: .sdk) { () -> Promise<Void> in
 
@@ -360,8 +372,11 @@ private extension Engine {
                 }
 
                 return publisher.createAndSendOffer(iceRestart: true).then(on: .sdk) {
-                    self.publisherTransportConnectedCompleter.wait(on: .sdk, .defaultTransportState)
-                }.then(on: .sdk) { _ in }
+                    self.publisherTransportConnectedCompleter.wait(on: .sdk,
+                                                                   .defaultTransportState,
+                                                                   throw: { TransportError.timedOut(message: "publisher transport didn't connect") })
+                }
+
             }.then(on: .sdk) {
                 // always check if there are queued requests
                 self.signalClient.sendQueuedRequests()
@@ -513,7 +528,7 @@ extension Engine: RTCDataChannelDelegate {
         notify { $0.engine(self, didUpdate: dataChannel, state: dataChannel.readyState) }
 
         if let completer = publisherDCCompleter(for: dataChannel) {
-            completer.set(value: dataChannel.readyState == .open ? true : nil)
+            completer.set(value: dataChannel.readyState == .open ? () : nil)
         }
 
         self.log("dataChannel.\(dataChannel.label) didChangeState : \(dataChannel.channelId)")
@@ -550,12 +565,12 @@ extension Engine: TransportDelegate {
 
         // primary connected
         if transport.primary {
-            primaryTransportConnectedCompleter.set(value: .connected == state ? true : nil)
+            primaryTransportConnectedCompleter.set(value: .connected == state ? () : nil)
         }
 
         // publisher connected
         if case .publisher = transport.target {
-            publisherTransportConnectedCompleter.set(value: .connected == state ? true : nil)
+            publisherTransportConnectedCompleter.set(value: .connected == state ? () : nil)
         }
 
         if connectionState.isConnected {

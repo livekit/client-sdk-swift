@@ -29,8 +29,7 @@ class RemoteAudioTrack: RemoteTrack, AudioTrack {
                    track: track)
     }
 
-    @discardableResult
-    override func start() -> Promise<Bool> {
+    override public func start() -> Promise<Bool> {
         super.start().then(on: .sdk) { didStart -> Bool in
             if didStart {
                 AudioManager.shared.trackDidStart(.remote)
@@ -39,7 +38,6 @@ class RemoteAudioTrack: RemoteTrack, AudioTrack {
         }
     }
 
-    @discardableResult
     override public func stop() -> Promise<Bool> {
         super.stop().then(on: .sdk) { didStop -> Bool in
             if didStop {
