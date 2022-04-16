@@ -19,15 +19,20 @@ import Promises
 
 internal class Completer<Value> {
 
-    private var promise = Promise<Value>.pending()
-    private var oldValue: Value?
+    internal struct State {
+        var oldValue: Value?
+        // not a struct but keeping it here will ensure safe access by mutate()
+        let promise = Promise<Value>.pending()
+    }
+
+    private var state = StateSync(State())
 
     public func set(value: Value?) {
 
         guard let value = value else {
 
             // reset if oldValue exists and newValue is nil
-            if oldValue != nil {
+            if state.oldValue != nil {
                 reset()
             }
 
@@ -35,20 +40,23 @@ internal class Completer<Value> {
         }
 
         // update the oldValue
-        oldValue = value
-        promise.fulfill(value)
+        state.mutate {
+            $0.oldValue = value
+            $0.promise.fulfill(value)
+        }
     }
 
     public func wait(on queue: DispatchQueue, _ interval: TimeInterval, throw: @escaping Promise.OnTimeout) -> Promise<Value> {
-        promise.timeout(on: queue, interval, throw: `throw`)
+        state.promise.timeout(on: queue, interval, throw: `throw`)
     }
 
     public func reset() {
-        // reject existing promise
-        promise.reject(InternalError.state(message: "resetting pending promise"))
-        // create new pending promise
-        promise = Promise<Value>.pending()
-        // reset oldValue
-        oldValue = nil
+
+        state.mutate {
+            // reject existing promise
+            $0.promise.reject(InternalError.state(message: "resetting pending promise"))
+            // reset state
+            $0 = State()
+        }
     }
 }
