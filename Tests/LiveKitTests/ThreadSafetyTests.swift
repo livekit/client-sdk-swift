@@ -46,6 +46,7 @@ class ThreadSafetyTests: XCTestCase {
         unsafeState = TestState()
     }
 
+    // this should never crash
     func testSafe() async throws {
 
         for queue in concurrentQueues {
@@ -71,6 +72,7 @@ class ThreadSafetyTests: XCTestCase {
         XCTAssert(safeState.counter == totalBlocks, "counter must be \(totalBlocks)")
     }
 
+    // this will crash
     func testUnsafe() async throws {
 
         for queue in concurrentQueues {
