@@ -24,8 +24,8 @@ class ThreadSafetyTests: XCTestCase {
         var counter = 0
     }
 
-    let queueCount = 10
-    let blockCount = 100
+    let queueCount = 100
+    let blockCount = 1000
     
     let safeState = StateSync(TestState())
     var unsafeState = TestState()
@@ -51,11 +51,23 @@ class ThreadSafetyTests: XCTestCase {
 
         for queue in concurrentQueues {
             for i in 1...blockCount {
+                // perform write
                 queue.async(group: group) {
+                    // random sleep
+                    let interval = 0.1 / Double.random(in: 1...100)
+                    // print("sleeping for \(interval)")
+                    Thread.sleep(forTimeInterval: interval)
+                    
                     self.safeState.mutate {
                         $0.dictionary["key"] = "\(i)"
                         $0.counter += 1
                     }
+                }
+                
+                // perform read
+                queue.async(group: group) {
+                    // expected to be out-of-order since concurrent queue and random sleep
+                    print("current counter value: \(self.safeState.counter)")
                 }
             }
         }
@@ -77,10 +89,22 @@ class ThreadSafetyTests: XCTestCase {
 
         for queue in concurrentQueues {
             for i in 1...blockCount {
+                // perform write
                 queue.async(group: group) {
+                    // random sleep
+                    let interval = 0.1 / Double.random(in: 1...100)
+                    // print("sleeping for \(interval)")
+                    Thread.sleep(forTimeInterval: interval)
+                    
                     // high possibility it will crash here
                     self.unsafeState.dictionary["key"] = "\(i)"
                     self.unsafeState.counter += 1
+                }
+                
+                // perform read
+                queue.async(group: group) {
+                    // expected to be out-of-order since concurrent queue and random sleep
+                    print("current counter value: \(self.safeState.counter)")
                 }
             }
         }
