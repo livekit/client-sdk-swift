@@ -50,6 +50,13 @@ internal final class StateSync<Value> {
     }
 }
 
+extension StateSync: CustomStringConvertible {
+
+    var description: String {
+        "StateSync(\(String(describing: _value)))"
+    }
+}
+
 @propertyWrapper
 @dynamicMemberLookup
 public final class Atomic<Value> {
