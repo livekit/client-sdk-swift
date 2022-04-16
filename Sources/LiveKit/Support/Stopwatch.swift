@@ -36,11 +36,6 @@ public struct Stopwatch {
         splits.append(Entry(label: label, time: ProcessInfo.processInfo.systemUptime))
     }
 
-    internal mutating func clear() {
-        splits = []
-        start = ProcessInfo.processInfo.systemUptime
-    }
-
     public func total() -> TimeInterval {
         guard let last = splits.last else { return 0 }
         return last.time - start
