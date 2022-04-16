@@ -31,12 +31,13 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
     private var pendingCandidates: [RTCIceCandidate] = []
 
     // used for stats timer
-    private var statsTimer = DispatchQueueTimer(timeInterval: 1, queue: .webRTC)
+    private let statsTimer = DispatchQueueTimer(timeInterval: 1, queue: .webRTC)
     private var stats = [String: TrackStats]()
 
-    var restartingIce: Bool = false
-    var renegotiate: Bool = false
-    var onOffer: TransportOnOffer?
+    public var restartingIce: Bool = false
+    public var onOffer: TransportOnOffer?
+
+    private var renegotiate: Bool = false
 
     var connectionState: RTCPeerConnectionState {
         DispatchQueue.webRTC.sync { pc.connectionState }
