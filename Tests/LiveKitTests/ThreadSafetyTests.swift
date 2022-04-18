@@ -36,7 +36,6 @@ class ThreadSafetyTests: XCTestCase {
     override func setUpWithError() throws {
         concurrentQueues = Array(1...queueCount).map { DispatchQueue(label: "testQueue_\($0)", attributes: [.concurrent]) }
     }
-
     
     override func tearDown() async throws {
         //

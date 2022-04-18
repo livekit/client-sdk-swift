@@ -56,7 +56,10 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
 
     init() {
         super.init()
+        
+        // trigger events when state mutates
         self.state.onMutate = { [weak self] oldState, newState in
+            
             guard let self = self else { return }
 
             if oldState.connectionState != newState.connectionState {
