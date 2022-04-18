@@ -428,19 +428,27 @@ extension VideoView {
 
     internal static func createNativeRendererView() -> NativeRendererView {
         let result: NativeRendererView
-        #if os(iOS)
-        // iOS --------------------
-        logger.log("Using RTCMTLVideoView for VideoView's Renderer", type: VideoView.self)
-        let mtlView = RTCMTLVideoView()
-        // use .fit here to match macOS behavior and
-        // manually calculate .fill if necessary
-        mtlView.contentMode = .scaleAspectFit
-        mtlView.videoContentMode = .scaleAspectFit
-        result = mtlView
+        #if targetEnvironment(simulator)
+        // iOS Simulator ---------------
+        logger.log("Using RTCEAGLVideoView for VideoView's Renderer", type: VideoView.self)
+        let eaglView = RTCEAGLVideoView()
+        eaglView.contentMode = .scaleAspectFit
+        result = eaglView
         #else
-        // macOS --------------------
-        logger.log("Using RTCMTLNSVideoView for VideoView's Renderer", type: VideoView.self)
-        result = RTCMTLNSVideoView()
+            #if os(iOS)
+            // iOS --------------------
+            logger.log("Using RTCMTLVideoView for VideoView's Renderer", type: VideoView.self)
+            let mtlView = RTCMTLVideoView()
+            // use .fit here to match macOS behavior and
+            // manually calculate .fill if necessary
+            mtlView.contentMode = .scaleAspectFit
+            mtlView.videoContentMode = .scaleAspectFit
+            result = mtlView
+            #else
+            // macOS --------------------
+            logger.log("Using RTCMTLNSVideoView for VideoView's Renderer", type: VideoView.self)
+            result = RTCMTLNSVideoView()
+            #endif
         #endif
 
         // extra checks for MTKView
