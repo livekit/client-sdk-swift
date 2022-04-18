@@ -20,13 +20,13 @@ public class RemoteTrack: Track {
 
     override public func start() -> Promise<Bool> {
         super.start().then(on: .sdk) { didStart in
-            self.enable().then { _ in didStart }
+            self.enable().then(on: .sdk) { _ in didStart }
         }
     }
 
     override public func stop() -> Promise<Bool> {
         super.stop().then(on: .sdk) { didStop in
-            super.disable().then { _ in didStop }
+            super.disable().then(on: .sdk) { _ in didStop }
         }
     }
 }

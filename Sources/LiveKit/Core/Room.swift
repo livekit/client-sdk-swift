@@ -169,7 +169,7 @@ private extension Room {
             }.then(on: .sdk) {
                 // reset state
                 self.state.mutate { $0 = State() }
-            }.catch { error in
+            }.catch(on: .sdk) { error in
                 // this should never happen
                 self.log("Engine cleanUp failed", .error)
             }
@@ -285,7 +285,7 @@ extension Room: SignalClientDelegate {
 
         if case .quick = self.connectionState.reconnectingWithMode,
            case .quick = connectionState.reconnectedWithMode {
-            sendSyncState().catch { error in
+            sendSyncState().catch(on: .sdk) { error in
                 self.log("Failed to sendSyncState, error: \(error)", .error)
             }
         }
@@ -474,9 +474,9 @@ extension Room: SignalClientDelegate {
             return true
         }
 
-        localParticipant.unpublish(publication: publication).then { [weak self] _ in
+        localParticipant.unpublish(publication: publication).then(on: .sdk) { [weak self] _ in
             self?.log("unpublished track(\(localTrack.trackSid)")
-        }.catch { [weak self] error in
+        }.catch(on: .sdk) { [weak self] error in
             self?.log("failed to unpublish track(\(localTrack.trackSid), error: \(error)", .warning)
         }
 
@@ -567,7 +567,7 @@ extension Room: EngineDelegate {
             if case .reconnect(let rmode) = mode,
                case .full = rmode {
                 log("Should re-publish existing tracks")
-                localParticipant?.republishTracks().catch { error in
+                localParticipant?.republishTracks().catch(on: .sdk) { error in
                     self.log("Failed to republish all track, error: \(error)", .error)
                 }
             }
@@ -586,7 +586,7 @@ extension Room: EngineDelegate {
 
         if connectionState.didReconnect {
             // Re-send track settings on a reconnect
-            sendTrackSettings().catch { error in
+            sendTrackSettings().catch(on: .sdk) { error in
                 self.log("Failed to sendTrackSettings, error: \(error)", .error)
             }
         }
@@ -651,7 +651,7 @@ extension Room: AppStateDelegate {
 
         guard !promises.isEmpty else { return }
 
-        promises.all(on: .sdk).then {
+        promises.all(on: .sdk).then(on: .sdk) {
             self.log("suspended all video tracks")
         }
     }
@@ -663,7 +663,7 @@ extension Room: AppStateDelegate {
 
         guard !promises.isEmpty else { return }
 
-        promises.all(on: .sdk).then {
+        promises.all(on: .sdk).then(on: .sdk) {
             self.log("resumed all video tracks")
         }
     }

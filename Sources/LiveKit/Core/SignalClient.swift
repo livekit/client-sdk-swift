@@ -468,7 +468,7 @@ internal extension SignalClient {
 
             return sendRequest(request).then(on: .sdk) {
                 completer
-            }.then { trackInfo in
+            }.then(on: .sdk) { trackInfo in
                 AddTrackResult(result: populateResult, trackInfo: trackInfo)
             }
 

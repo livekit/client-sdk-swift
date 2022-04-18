@@ -35,7 +35,7 @@ public class RemoteParticipant: Participant {
     }
 
     internal override func cleanUp() -> Promise<Void> {
-        super.cleanUp().then {
+        super.cleanUp().then(on: .sdk) {
             self.unpublishAll(shouldNotify: false)
         }
     }
@@ -77,7 +77,7 @@ public class RemoteParticipant: Participant {
             .map { unpublish(publication: $0) }
 
         // TODO: Return a promise
-        unpublishPromises.all(on: .sdk).catch { error in
+        unpublishPromises.all(on: .sdk).catch(on: .sdk) { error in
             self.log("Failed to unpublish with error: \(error)")
         }
     }

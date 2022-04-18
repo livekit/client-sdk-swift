@@ -109,7 +109,7 @@ public class RemoteTrackPublication: TrackPublication {
             participantSid: participant.sid,
             trackSid: sid,
             subscribed: newValue
-        ).then {
+        ).then(on: .sdk) {
             self.preferSubscribed = newValue
         }
     }
@@ -124,7 +124,7 @@ public class RemoteTrackPublication: TrackPublication {
         // create new settings
         let newSettings = trackSettings.copyWith(enabled: enabled)
         // attempt to set the new settings
-        return checkCanModifyTrackSettings().then {
+        return checkCanModifyTrackSettings().then(on: .sdk) {
             self.send(trackSettings: newSettings)
         }
     }

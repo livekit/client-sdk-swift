@@ -625,7 +625,7 @@ extension Engine: TransportDelegate {
     func transport(_ transport: Transport, didGenerate iceCandidate: RTCIceCandidate) {
         log("didGenerate iceCandidate")
         signalClient.sendCandidate(candidate: iceCandidate,
-                                   target: transport.target).catch { error in
+                                   target: transport.target).catch(on: . sdk) { error in
                                     self.log("Failed to send candidate, error: \(error)", .error)
                                    }
     }

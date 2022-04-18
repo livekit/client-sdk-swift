@@ -34,7 +34,7 @@ public class LocalParticipant: Participant {
     }
 
     internal override func cleanUp() -> Promise<Void> {
-        super.cleanUp().then {
+        super.cleanUp().then(on: .sdk) {
             self.unpublishAll(shouldNotify: false)
         }
     }
@@ -130,7 +130,7 @@ public class LocalParticipant: Participant {
                                             }
         }.then(on: .sdk) { params -> Promise<(RTCRtpTransceiver, trackInfo: Livekit_TrackInfo)> in
             self.log("[publish] added transceiver: \(params.trackInfo)...")
-            return track.onPublish().then { _ in params }
+            return track.onPublish().then(on: .sdk) { _ in params }
         }.then(on: .sdk) { (transceiver, trackInfo) -> LocalTrackPublication in
 
             // store publishOptions used for this track
@@ -161,7 +161,7 @@ public class LocalParticipant: Participant {
             self.log("[publish] failed \(track)", .error)
 
             // stop the track
-            track.stop().catch { _ in
+            track.stop().catch(on: .sdk) { _ in
                 self.log("Failed to stop track", .warning)
             }
         }
