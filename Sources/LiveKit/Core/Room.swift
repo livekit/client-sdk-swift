@@ -147,7 +147,7 @@ private extension Room {
     // Resets state of Room
     @discardableResult
     private func cleanUp(reason: DisconnectReason) -> Promise<Void> {
-        
+
         log("reason: \(reason)")
 
         // Stop all local & remote tracks

@@ -57,7 +57,7 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
         var publisherLossyDCOpenCompleter = Completer<Void>()
     }
 
-    private lazy var state = StateSync(State(), onMutate: onStateMutate(oldState:newState:))
+    private var state = StateSync(State())
 
     init(connectOptions: ConnectOptions,
          roomOptions: RoomOptions) {
@@ -65,6 +65,14 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
         self.connectOptions = connectOptions
         self.roomOptions = roomOptions
         super.init()
+        self.state.onMutate = { [weak self] oldState, newState in
+            guard let self = self else { return }
+
+            if oldState.connectionState != newState.connectionState {
+                self.log("\(oldState.connectionState) -> \(newState.connectionState)")
+                self.notifyAsync { $0.engine(self, didUpdate: newState.connectionState, oldValue: oldState.connectionState) }
+            }
+        }
 
         signalClient.add(delegate: self)
         ConnectivityListener.shared.add(delegate: self)
@@ -211,15 +219,6 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
 // MARK: - Private
 
 private extension Engine {
-
-    func onStateMutate(oldState: State, newState: State) {
-        // this is on sync thread
-
-        if oldState.connectionState != newState.connectionState {
-            log("\(oldState.connectionState) -> \(newState.connectionState)")
-            notifyAsync { $0.engine(self, didUpdate: newState.connectionState, oldValue: oldState.connectionState) }
-        }
-    }
 
     func publisherDataChannel(for reliability: Reliability) -> RTCDataChannel? {
         reliability == .reliable ? dcReliablePub : dcLossyPub

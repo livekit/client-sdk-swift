@@ -33,7 +33,7 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
         var completersForAddTrack = [String: Completer<Livekit_TrackInfo>]()
     }
 
-    internal lazy var state = StateSync(State(), onMutate: onStateMutate(oldState:newState:))
+    internal var state = StateSync(State())
 
     // MARK: - Private
 
@@ -53,6 +53,18 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
 
     private var webSocket: WebSocket?
     private var latestJoinResponse: Livekit_JoinResponse?
+
+    init() {
+        super.init()
+        self.state.onMutate = { [weak self] oldState, newState in
+            guard let self = self else { return }
+
+            if oldState.connectionState != newState.connectionState {
+                self.log("\(oldState.connectionState) -> \(newState.connectionState)")
+                self.notifyAsync {$0.signalClient(self, didUpdate: newState.connectionState, oldValue: oldState.connectionState) }
+            }
+        }
+    }
 
     deinit {
         log()
@@ -178,15 +190,6 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
 // MARK: - Private
 
 private extension SignalClient {
-
-    func onStateMutate(oldState: State, newState: State) {
-        // this is on sync thread
-
-        if oldState.connectionState != newState.connectionState {
-            log("\(oldState.connectionState) -> \(newState.connectionState)")
-            notifyAsync {$0.signalClient(self, didUpdate: newState.connectionState, oldValue: oldState.connectionState) }
-        }
-    }
 
     // send request or enqueue while reconnecting
     func sendRequest(_ request: Livekit_SignalRequest, enqueueIfReconnecting: Bool = true) -> Promise<Void> {
