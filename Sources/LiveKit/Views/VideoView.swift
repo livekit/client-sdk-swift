@@ -41,6 +41,9 @@ public class VideoView: NativeView, Loggable {
 
     public internal(set) var renderState = RenderState() {
         didSet {
+            // should always be on main thread
+            assert(Thread.current.isMainThread, "must be called on main thread")
+
             guard oldValue != renderState else { return }
             guard let track = track else { return }
             track.notify { $0.track(track, videoView: self, didUpdate: self.renderState) }
@@ -61,6 +64,9 @@ public class VideoView: NativeView, Loggable {
     /// Layout ``ContentMode`` of the ``VideoView``.
     public var layoutMode: LayoutMode = .fill {
         didSet {
+            // should always be on main thread
+            assert(Thread.current.isMainThread, "must be called on main thread")
+
             guard oldValue != layoutMode else { return }
             safeMarkNeedsLayout()
         }
@@ -70,6 +76,9 @@ public class VideoView: NativeView, Loggable {
     /// Known Issue: this will not work when os is macOS and ``preferMetal`` is false.
     public var mirrorMode: MirrorMode = .auto {
         didSet {
+            // should always be on main thread
+            assert(Thread.current.isMainThread, "must be called on main thread")
+
             guard oldValue != mirrorMode else { return }
             safeMarkNeedsLayout()
         }
@@ -84,6 +93,9 @@ public class VideoView: NativeView, Loggable {
     /// usually should be equal to `frame.size`
     public internal(set) var viewSize: CGSize {
         didSet {
+            // should always be on main thread
+            assert(Thread.current.isMainThread, "must be called on main thread")
+
             guard oldValue != viewSize else { return }
             // notify viewSize update
             guard let track = track else { return }
@@ -94,6 +106,9 @@ public class VideoView: NativeView, Loggable {
     /// Calls addRenderer and/or removeRenderer internally for convenience.
     public weak var track: VideoTrack? {
         didSet {
+            // should always be on main thread
+            assert(Thread.current.isMainThread, "must be called on main thread")
+
             guard !(oldValue?.isEqual(track) ?? false) else { return }
 
             if let oldValue = oldValue {
@@ -133,6 +148,9 @@ public class VideoView: NativeView, Loggable {
 
     public var isEnabled: Bool = true {
         didSet {
+            // should always be on main thread
+            assert(Thread.current.isMainThread, "must be called on main thread")
+
             guard oldValue != isEnabled else { return }
             syncRendererAttach()
             safeMarkNeedsLayout()
@@ -141,6 +159,9 @@ public class VideoView: NativeView, Loggable {
 
     public override var isHidden: Bool {
         didSet {
+            // should always be on main thread
+            assert(Thread.current.isMainThread, "must be called on main thread")
+
             guard oldValue != isHidden else { return }
             syncRendererAttach()
             safeMarkNeedsLayout()
@@ -161,11 +182,19 @@ public class VideoView: NativeView, Loggable {
 
     // used for adaptiveStream
     internal var rendererSize: CGSize {
-        nativeRenderer.frame.size
+        // should always be on main thread
+        assert(Thread.current.isMainThread, "must be called on main thread")
+
+        return nativeRenderer.frame.size
     }
 
     // whether shoudLayout has already executed
-    internal private(set) var didLayout: Bool = false
+    internal private(set) var didLayout: Bool = false {
+        didSet {
+            // should always be on main thread
+            assert(Thread.current.isMainThread, "must be called on main thread")
+        }
+    }
 
     public init(frame: CGRect = .zero, preferMetal: Bool = true) {
         self.viewSize = frame.size
@@ -287,9 +316,6 @@ private extension VideoView {
 
     private func syncRendererAttach() {
 
-        // should always be on main thread
-        assert(Thread.current.isMainThread, "must be called on main thread")
-
         let shouldAttach = (track != nil && isEnabled && !isHidden)
 
         guard let track = track else {
@@ -380,12 +406,12 @@ extension VideoView: RTCVideoRenderer {
         // cache last rendered frame
         track?.set(videoFrame: frame)
 
-        // layout after first frame has been rendered
-        if !renderState.contains(.didRenderFirstFrame) {
-            renderState.insert(.didRenderFirstFrame)
-            log("Did render first frame")
-            DispatchQueue.main.async { [weak self] in
-                guard let self = self else { return }
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            // layout after first frame has been rendered
+            if !self.renderState.contains(.didRenderFirstFrame) {
+                self.renderState.insert(.didRenderFirstFrame)
+                self.log("Did render first frame")
                 self.nativeRenderer.isHidden = false
                 self.markNeedsLayout()
             }
