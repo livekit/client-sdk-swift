@@ -17,38 +17,50 @@
 import Foundation
 import Promises
 
-internal class Completer<Value> {
+internal struct Completer<Value>: Loggable {
 
-    private var promise = Promise<Value>.pending()
-    private var oldValue: Value?
+    private var value: Value?
+    private var fulfill: ((Value) -> Void)?
+    private var reject: ((Error) -> Void)?
 
-    public func set(value: Value?) {
+    public mutating func set(value newValue: Value?) {
 
-        guard let value = value else {
-
+        guard let newValue = newValue else {
             // reset if oldValue exists and newValue is nil
-            if oldValue != nil {
-                reset()
-            }
-
+            if value != nil { reset() }
             return
         }
 
+        log("[publish] fulfill \(String(describing: newValue)) func: \(String(describing: fulfill))...")
+
         // update the oldValue
-        oldValue = value
-        promise.fulfill(value)
+        value = newValue
+
+        fulfill?(newValue)
+        fulfill = nil
+        reject = nil
     }
 
-    public func wait(on queue: DispatchQueue, _ interval: TimeInterval, throw: @escaping Promise.OnTimeout) -> Promise<Value> {
-        promise.timeout(on: queue, interval, throw: `throw`)
+    public mutating func wait(on queue: DispatchQueue, _ interval: TimeInterval, throw: @escaping Promise.OnTimeout) -> Promise<Value> {
+        log("[publish] wait created...")
+
+        if let value = value {
+            // already resolved
+            return Promise(value)
+        }
+
+        let promise = Promise<Value>.pending()
+        self.fulfill = promise.fulfill(_:)
+        self.reject = promise.reject(_:)
+        return promise.timeout(on: queue, interval, throw: `throw`)
     }
 
-    public func reset() {
+    public mutating func reset() {
         // reject existing promise
-        promise.reject(InternalError.state(message: "resetting pending promise"))
-        // create new pending promise
-        promise = Promise<Value>.pending()
-        // reset oldValue
-        oldValue = nil
+        reject?(InternalError.state(message: "resetting pending promise"))
+
+        fulfill = nil
+        reject = nil
+        value = nil
     }
 }

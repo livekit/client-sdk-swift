@@ -39,7 +39,10 @@ public class MulticastDelegate<T>: NSObject, Loggable {
             return
         }
 
-        multicastQueue.async(flags: .barrier) { self.set.add(delegate) }
+        multicastQueue.async(flags: .barrier) { [weak self] in
+            guard let self = self else { return }
+            self.set.add(delegate)
+        }
     }
 
     /// Remove a single delegate.
@@ -52,7 +55,10 @@ public class MulticastDelegate<T>: NSObject, Loggable {
             return
         }
 
-        multicastQueue.async(flags: .barrier) { self.set.remove(delegate) }
+        multicastQueue.async(flags: .barrier) { [weak self] in
+            guard let self = self else { return }
+            self.set.remove(delegate)
+        }
     }
 
     internal func notify(_ fnc: @escaping (T) -> Void) {
@@ -69,6 +75,42 @@ public class MulticastDelegate<T>: NSObject, Loggable {
         }
     }
 
+    internal func notifyAsync(_ fnc: @escaping (T) -> Void) {
+
+        multicastQueue.async {
+            for delegate in self.set.allObjects {
+                guard let delegate = delegate as? T else {
+                    self.log("MulticastDelegate: skipping notify for \(delegate), not a type of \(T.self)", .info)
+                    continue
+                }
+
+                fnc(delegate)
+            }
+        }
+    }
+
+    /// At least one delegate must return `true`, otherwise a `warning` will be logged
+    /// returns true if was handled by at least one delegate
+    internal func notifyAsync(requiresHandle: Bool = true,
+                              function: String = #function,
+                              line: UInt = #line,
+                              _ fnc: @escaping (T) -> Bool) {
+
+        multicastQueue.async {
+            var counter: Int = 0
+            for delegate in self.set.allObjects {
+                guard let delegate = delegate as? T else {
+                    self.log("MulticastDelegate: skipping notify for \(delegate), not a type of \(T.self)", .info)
+                    continue
+                }
+
+                if fnc(delegate) { counter += 1 }
+            }
+
+            let wasHandled = counter > 0
+            assert(!(requiresHandle && !wasHandled), "notify() was not handled by the delegate, called from \(function) line \(line)")
+        }
+    }
     /// At least one delegate must return `true`, otherwise a `warning` will be logged
     /// returns true if was handled by at least one delegate
     @discardableResult
