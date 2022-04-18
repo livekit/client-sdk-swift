@@ -107,6 +107,11 @@ extension RoomViewController: RoomDelegate {
 }
 ```
 
+# iOS Simulator limitations
+
+- Currently, `VideoView` does not render on iOS simulator.
+- Publishing the camera track is not supported by iOS simulator.
+
 # ScrollView performance
 
 It is recommended to turn off rendering of `VideoView`s that scroll off the screen and isn't visible by setting `false` to `isEnabled` property and `true` when it will re-appear to save CPU resources.
