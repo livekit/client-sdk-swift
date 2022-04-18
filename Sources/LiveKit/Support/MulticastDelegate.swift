@@ -39,7 +39,10 @@ public class MulticastDelegate<T>: NSObject, Loggable {
             return
         }
 
-        multicastQueue.async(flags: .barrier) { self.set.add(delegate) }
+        multicastQueue.async(flags: .barrier) { [weak self] in
+            guard let self = self else { return }
+            self.set.add(delegate)
+        }
     }
 
     /// Remove a single delegate.
@@ -52,7 +55,10 @@ public class MulticastDelegate<T>: NSObject, Loggable {
             return
         }
 
-        multicastQueue.async(flags: .barrier) { self.set.remove(delegate) }
+        multicastQueue.async(flags: .barrier) { [weak self] in
+            guard let self = self else { return }
+            self.set.remove(delegate)
+        }
     }
 
     internal func notify(_ fnc: @escaping (T) -> Void) {
