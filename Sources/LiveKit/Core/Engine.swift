@@ -57,7 +57,7 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
         var publisherLossyDCOpenCompleter = Completer<Void>()
     }
 
-    private var state = StateSync(State())
+    private lazy var state = StateSync(State(), onMutate: onStateMutate(oldState:newState:))
 
     init(connectOptions: ConnectOptions,
          roomOptions: RoomOptions) {
@@ -65,7 +65,6 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
         self.connectOptions = connectOptions
         self.roomOptions = roomOptions
         super.init()
-        self.state.onMutate = onStateMutate(oldState:newState:)
 
         signalClient.add(delegate: self)
         ConnectivityListener.shared.add(delegate: self)

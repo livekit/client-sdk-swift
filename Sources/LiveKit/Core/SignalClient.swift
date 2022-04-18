@@ -21,6 +21,13 @@ import Collections
 
 internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
 
+    enum QueueState {
+        case resumed
+        case suspended
+    }
+
+    public var connectionState: ConnectionState { state.connectionState }
+
     // queue to store requests while reconnecting
     private var requestQueue = [Livekit_SignalRequest]()
     private var responseQueue = [Livekit_SignalResponse]()
@@ -28,30 +35,18 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
     private let requestDispatchQueue = DispatchQueue(label: "LiveKitSDK.signalClient.requestQueue", qos: .default)
     private let responseDispatchQueue = DispatchQueue(label: "LiveKitSDK.signalClient.responseQueue", qos: .default)
 
-    private(set) var connectionState: ConnectionState = .disconnected(reason: .sdk) {
-        didSet {
-            guard oldValue != connectionState else { return }
-            log("\(oldValue) -> \(self.connectionState)")
-            notify { $0.signalClient(self, didUpdate: self.connectionState, oldValue: oldValue) }
-        }
-    }
-
-    enum QueueState {
-        case resumed
-        case suspended
-    }
-
     private(set) var responseQueueState: QueueState = .resumed
 
     private var webSocket: WebSocket?
     private var latestJoinResponse: Livekit_JoinResponse?
 
     internal struct State {
+        var connectionState: ConnectionState = .disconnected(reason: .sdk)
         var joinResponseCompleter = Completer<Livekit_JoinResponse>()
         var completersForAddTrack = [String: Completer<Livekit_TrackInfo>]()
     }
 
-    internal var state = StateSync(State())
+    internal lazy var state = StateSync(State(), onMutate: onStateMutate(oldState:newState:))
 
     deinit {
         log()
@@ -73,7 +68,7 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
             }
             .then(on: .sdk) { url -> Promise<WebSocket> in
                 self.log("Connecting with url: \(url)")
-                self.connectionState = .connecting(connectMode)
+                self.state.mutate { $0.connectionState = .connecting(connectMode) }
                 return WebSocket.connect(url: url,
                                          onMessage: self.onWebSocketMessage,
                                          onDisconnect: { reason in
@@ -82,7 +77,7 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
                                          })
             }.then(on: .sdk) { (webSocket: WebSocket) -> Void in
                 self.webSocket = webSocket
-                self.connectionState = .connected(connectMode)
+                self.state.mutate { $0.connectionState = .connected(connectMode) }
             }.recover(on: .sdk) { error -> Promise<Void> in
                 // Skip validation if reconnect mode
                 if case .reconnect = connectMode { throw error }
@@ -112,7 +107,7 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
     func cleanUp(reason: DisconnectReason) {
         log("reason: \(reason)")
 
-        connectionState = .disconnected(reason: reason)
+        state.mutate { $0.connectionState = .disconnected(reason: reason) }
 
         if let socket = webSocket {
             socket.cleanUp(reason: reason)
@@ -177,6 +172,15 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
 // MARK: - Private
 
 private extension SignalClient {
+
+    func onStateMutate(oldState: State, newState: State) {
+        // this is on sync thread
+
+        if oldState.connectionState != newState.connectionState {
+            log("\(oldState.connectionState) -> \(newState.connectionState)")
+            notifyAsync {$0.signalClient(self, didUpdate: newState.connectionState, oldValue: oldState.connectionState) }
+        }
+    }
 
     // send request or enqueue while reconnecting
     func sendRequest(_ request: Livekit_SignalRequest, enqueueIfReconnecting: Bool = true) -> Promise<Void> {

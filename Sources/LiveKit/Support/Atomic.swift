@@ -29,8 +29,9 @@ internal final class StateSync<Value> {
     private var _value: Value
     public var onMutate: OnStateMutate<Value>?
 
-    public init(_ value: Value) {
+    public init(_ value: Value, onMutate: OnStateMutate<Value>? = nil) {
         self._value = value
+        self.onMutate = onMutate
     }
 
     // mutate
