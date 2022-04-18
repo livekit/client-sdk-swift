@@ -147,7 +147,8 @@ private extension Room {
     // Resets state of Room
     @discardableResult
     private func cleanUp(reason: DisconnectReason) -> Promise<Void> {
-        log()
+        
+        log("reason: \(reason)")
 
         // Stop all local & remote tracks
         func cleanUpParticipants() -> Promise<Void> {
@@ -165,10 +166,12 @@ private extension Room {
         return engine.cleanUp(reason: reason)
             .then(on: .sdk) {
                 cleanUpParticipants()
-            }.recover(on: .sdk) { self.log("Failed to stop all tracks, error: \($0)")
             }.then(on: .sdk) {
                 // reset state
                 self.state.mutate { $0 = State() }
+            }.catch { error in
+                // this should never happen
+                self.log("Engine cleanUp failed", .error)
             }
     }
 
