@@ -74,10 +74,10 @@ public class LocalParticipant: Participant {
 
         }.then(on: .sdk) { dimensions -> Promise<(result: RTCRtpTransceiverInit, trackInfo: Livekit_TrackInfo)> in
             // request a new track to the server
-            self.room.engine.sendAndWaitAddTrackRequest(cid: track.mediaTrack.trackId,
-                                                        name: track.name,
-                                                        kind: track.kind.toPBType(),
-                                                        source: track.source.toPBType()) { populator in
+            self.room.engine.signalClient.sendAddTrack(cid: track.mediaTrack.trackId,
+                                                       name: track.name,
+                                                       type: track.kind.toPBType(),
+                                                       source: track.source.toPBType()) { populator in
 
                 let transInit = DispatchQueue.webRTC.sync { RTCRtpTransceiverInit() }
                 transInit.direction = .sendOnly

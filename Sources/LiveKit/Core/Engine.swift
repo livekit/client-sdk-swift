@@ -137,27 +137,6 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
         return cleanUpRTC()
     }
 
-    // sends addTrack request and waits for the trackInfo
-    func sendAndWaitAddTrackRequest<R>(cid: String,
-                                       name: String,
-                                       kind: Livekit_TrackType,
-                                       source: Livekit_TrackSource = .unknown,
-                                       _ populator: @escaping SignalClient.AddTrackRequestPopulator<R>) -> Promise<(result: R, trackInfo: Livekit_TrackInfo)> {
-
-        // TODO: Check if cid already published
-
-        //        let completer =
-
-        return signalClient.sendAddTrack(cid: cid,
-                                         name: name,
-                                         type: kind,
-                                         source: source, populator).then(on: .sdk) { populateResult in
-                                            let promise = self.signalClient.prepareCompleter(forAddTrackRequest: cid)
-                                            //            let promise = Promise<Livekit_TrackInfo>.pending()
-                                            return promise.then(on: .sdk) { (result: populateResult, trackInfo: $0) }
-                                         }
-    }
-
     func publisherShouldNegotiate() {
 
         guard let publisher = publisher else {

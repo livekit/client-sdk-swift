@@ -441,12 +441,13 @@ internal extension SignalClient {
     }
 
     typealias AddTrackRequestPopulator<R> = (inout Livekit_AddTrackRequest) throws -> R
+    typealias AddTrackResult<R> = (result: R, trackInfo: Livekit_TrackInfo)
 
-    func sendAddTrack<T>(cid: String,
+    func sendAddTrack<R>(cid: String,
                          name: String,
                          type: Livekit_TrackType,
                          source: Livekit_TrackSource = .unknown,
-                         _ populator: AddTrackRequestPopulator<T>) -> Promise<T> {
+                         _ populator: AddTrackRequestPopulator<R>) -> Promise<AddTrackResult<R>> {
         log()
 
         do {
@@ -463,7 +464,13 @@ internal extension SignalClient {
                 $0.addTrack = addTrackRequest
             }
 
-            return sendRequest(request).then(on: .sdk) { populateResult }
+            let completer = prepareCompleter(forAddTrackRequest: cid)
+
+            return sendRequest(request).then(on: .sdk) {
+                completer
+            }.then { trackInfo in
+                AddTrackResult(result: populateResult, trackInfo: trackInfo)
+            }
 
         } catch let error {
             // the populator block throwed
