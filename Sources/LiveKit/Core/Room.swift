@@ -22,7 +22,7 @@ import WebRTC
 public class Room: MulticastDelegate<RoomDelegate> {
 
     // MARK: - Public
-    
+
     public var sid: Sid? { state.sid }
     public var name: String? { state.name }
     public var metadata: String? { state.metadata }
@@ -40,7 +40,7 @@ public class Room: MulticastDelegate<RoomDelegate> {
     public var connectStopwatch: Stopwatch { engine.connectStopwatch }
 
     // MARK: - Internal
-    
+
     // Reference to Engine
     internal let engine: Engine
     internal private(set) var options: RoomOptions
@@ -58,7 +58,7 @@ public class Room: MulticastDelegate<RoomDelegate> {
     }
 
     // MARK: - Private
-    
+
     private var state = StateSync(State())
 
     public init(delegate: RoomDelegate? = nil,

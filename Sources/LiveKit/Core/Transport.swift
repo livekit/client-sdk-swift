@@ -59,7 +59,7 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
     })
 
     // MARK: - Private
-    
+
     private var renegotiate: Bool = false
 
     // forbid direct access to PeerConnection
