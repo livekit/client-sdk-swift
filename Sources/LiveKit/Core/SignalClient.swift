@@ -21,24 +21,11 @@ import Collections
 
 internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
 
-    enum QueueState {
-        case resumed
-        case suspended
-    }
+    // MARK: - Public
 
     public var connectionState: ConnectionState { state.connectionState }
 
-    // queue to store requests while reconnecting
-    private var requestQueue = [Livekit_SignalRequest]()
-    private var responseQueue = [Livekit_SignalResponse]()
-
-    private let requestDispatchQueue = DispatchQueue(label: "LiveKitSDK.signalClient.requestQueue", qos: .default)
-    private let responseDispatchQueue = DispatchQueue(label: "LiveKitSDK.signalClient.responseQueue", qos: .default)
-
-    private(set) var responseQueueState: QueueState = .resumed
-
-    private var webSocket: WebSocket?
-    private var latestJoinResponse: Livekit_JoinResponse?
+    // MARK: - Internal
 
     internal struct State {
         var connectionState: ConnectionState = .disconnected(reason: .sdk)
@@ -47,6 +34,25 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
     }
 
     internal lazy var state = StateSync(State(), onMutate: onStateMutate(oldState:newState:))
+
+    // MARK: - Private
+
+    private enum QueueState {
+        case resumed
+        case suspended
+    }
+
+    // queue to store requests while reconnecting
+    private var requestQueue = [Livekit_SignalRequest]()
+    private var responseQueue = [Livekit_SignalResponse]()
+
+    private let requestDispatchQueue = DispatchQueue(label: "LiveKitSDK.signalClient.requestQueue", qos: .default)
+    private let responseDispatchQueue = DispatchQueue(label: "LiveKitSDK.signalClient.responseQueue", qos: .default)
+
+    private var responseQueueState: QueueState = .resumed
+
+    private var webSocket: WebSocket?
+    private var latestJoinResponse: Livekit_JoinResponse?
 
     deinit {
         log()

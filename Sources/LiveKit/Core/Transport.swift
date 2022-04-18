@@ -23,8 +23,44 @@ internal typealias TransportOnOffer = (RTCSessionDescription) -> Promise<Void>
 
 internal class Transport: MulticastDelegate<TransportDelegate> {
 
-    let target: Livekit_SignalTarget
-    let primary: Bool
+    // MARK: - Public
+
+    public let target: Livekit_SignalTarget
+    public let primary: Bool
+
+    public var restartingIce: Bool = false
+    public var onOffer: TransportOnOffer?
+
+    public var connectionState: RTCPeerConnectionState {
+        DispatchQueue.webRTC.sync { pc.connectionState }
+    }
+
+    public var localDescription: RTCSessionDescription? {
+        DispatchQueue.webRTC.sync { pc.localDescription }
+    }
+
+    public var remoteDescription: RTCSessionDescription? {
+        DispatchQueue.webRTC.sync { pc.remoteDescription }
+    }
+
+    public var signalingState: RTCSignalingState {
+        DispatchQueue.webRTC.sync { pc.signalingState }
+    }
+
+    public var isConnected: Bool {
+        connectionState == .connected
+    }
+
+    // create debounce func
+    public lazy var negotiate = Utils.createDebounceFunc(wait: 0.1, onCreateWorkItem: { [weak self] workItem in
+        self?.debounceWorkItem = workItem
+    }, fnc: { [weak self] in
+        self?.createAndSendOffer()
+    })
+
+    // MARK: - Private
+    
+    private var renegotiate: Bool = false
 
     // forbid direct access to PeerConnection
     private let pc: RTCPeerConnection
@@ -34,40 +70,8 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
     private let statsTimer = DispatchQueueTimer(timeInterval: 1, queue: .webRTC)
     private var stats = [String: TrackStats]()
 
-    public var restartingIce: Bool = false
-    public var onOffer: TransportOnOffer?
-
-    private var renegotiate: Bool = false
-
-    var connectionState: RTCPeerConnectionState {
-        DispatchQueue.webRTC.sync { pc.connectionState }
-    }
-
-    var localDescription: RTCSessionDescription? {
-        DispatchQueue.webRTC.sync { pc.localDescription }
-    }
-
-    var remoteDescription: RTCSessionDescription? {
-        DispatchQueue.webRTC.sync { pc.remoteDescription }
-    }
-
-    var signalingState: RTCSignalingState {
-        DispatchQueue.webRTC.sync { pc.signalingState }
-    }
-
-    var isConnected: Bool {
-        connectionState == .connected
-    }
-
     // keep reference to cancel later
     private var debounceWorkItem: DispatchWorkItem?
-
-    // create debounce func
-    lazy var negotiate = Utils.createDebounceFunc(wait: 0.1, onCreateWorkItem: { [weak self] workItem in
-        self?.debounceWorkItem = workItem
-    }, fnc: { [weak self] in
-        self?.createAndSendOffer()
-    })
 
     init(config: RTCConfiguration,
          target: Livekit_SignalTarget,
@@ -114,9 +118,9 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
             return addIceCandidatePromise(candidate)
         }
 
-        pendingCandidates.append(candidate)
-
-        return Promise(())
+        return Promise(on: .sdk) {
+            self.pendingCandidates.append(candidate)
+        }
     }
 
     @discardableResult

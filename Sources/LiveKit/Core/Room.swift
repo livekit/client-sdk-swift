@@ -19,23 +19,10 @@ import Network
 import Promises
 import WebRTC
 
-extension Room.State {
-
-    @discardableResult
-    mutating func getOrCreateRemoteParticipant(sid: Sid, info: Livekit_ParticipantInfo? = nil, room: Room) -> RemoteParticipant {
-
-        if let participant = remoteParticipants[sid] {
-            return participant
-        }
-
-        let participant = RemoteParticipant(sid: sid, info: info, room: room)
-        remoteParticipants[sid] = participant
-        return participant
-    }
-}
-
 public class Room: MulticastDelegate<RoomDelegate> {
 
+    // MARK: - Public
+    
     public var sid: Sid? { state.sid }
     public var name: String? { state.name }
     public var metadata: String? { state.metadata }
@@ -52,6 +39,8 @@ public class Room: MulticastDelegate<RoomDelegate> {
     public var connectionState: ConnectionState { engine.connectionState }
     public var connectStopwatch: Stopwatch { engine.connectStopwatch }
 
+    // MARK: - Internal
+    
     // Reference to Engine
     internal let engine: Engine
     internal private(set) var options: RoomOptions
@@ -68,6 +57,8 @@ public class Room: MulticastDelegate<RoomDelegate> {
         var activeSpeakers = [Participant]()
     }
 
+    // MARK: - Private
+    
     private var state = StateSync(State())
 
     public init(delegate: RoomDelegate? = nil,
@@ -129,6 +120,23 @@ public class Room: MulticastDelegate<RoomDelegate> {
             .then(on: .sdk) {
                 self.cleanUp(reason: .user)
             }
+    }
+}
+
+// MARK: - Internal
+
+internal extension Room.State {
+
+    @discardableResult
+    mutating func getOrCreateRemoteParticipant(sid: Sid, info: Livekit_ParticipantInfo? = nil, room: Room) -> RemoteParticipant {
+
+        if let participant = remoteParticipants[sid] {
+            return participant
+        }
+
+        let participant = RemoteParticipant(sid: sid, info: info, room: room)
+        remoteParticipants[sid] = participant
+        return participant
     }
 }
 
