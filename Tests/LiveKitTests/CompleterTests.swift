@@ -20,7 +20,7 @@ import XCTest
 class CompleterTests: XCTestCase {
 
     struct TestState {
-        var completer = Completer2<String>()
+        var completer = Completer<String>()
     }
 
     let safeState = StateSync(TestState())
@@ -40,13 +40,16 @@ class CompleterTests: XCTestCase {
 
     func testCompleter1() async throws {
         
-        safeState.mutate { $0.completer.set(value: "resolved") }
+        // safeState.mutate { $0.completer.set(value: "resolved") }
         
         let promise = safeState.mutate { $0.completer.wait(on: concurrentQueues, 3, throw: { EngineError.timedOut(message: "") } ) }
         
         concurrentQueues.async {
             // Thread.sleep(forTimeInterval: 10)
-            self.safeState.mutate { $0.completer.set(value: "done") }
+            self.safeState.mutate {
+                var completer = $0.completer
+                completer.set(value: "done")
+            }
         }
 
         await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in

@@ -130,7 +130,7 @@ public class MacOSScreenCapturer: VideoCapturer {
 
     private func onDispatchSourceTimer() {
 
-        guard case .started = self.state,
+        guard case .started = self.captureState,
               case .window(let windowId) = source else { return }
 
         guard let image = CGWindowListCreateImage(CGRect.null,

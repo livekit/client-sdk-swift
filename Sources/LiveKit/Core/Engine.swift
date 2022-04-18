@@ -45,31 +45,16 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
     private var dcReliableSub: RTCDataChannel?
     private var dcLossySub: RTCDataChannel?
 
-    private let primaryTransportConnectedCompleter = Completer<Void>()
-    private let publisherTransportConnectedCompleter = Completer<Void>()
-
-    private let publisherReliableDCOpenCompleter = Completer<Void>()
-    private let publisherLossyDCOpenCompleter = Completer<Void>()
-
-    private func publisherDCCompleter(for reliability: Reliability) -> Completer<Void> {
-        reliability == .reliable ? publisherReliableDCOpenCompleter : publisherLossyDCOpenCompleter
-    }
-
-    private func publisherDCCompleter(for dataChannel: RTCDataChannel) -> Completer<Void>? {
-        if dataChannel == dcReliablePub {
-            return publisherReliableDCOpenCompleter
-        } else if dataChannel == dcLossyPub {
-            return publisherLossyDCOpenCompleter
-        }
-        return nil
-    }
-
     internal struct State {
         var url: String?
         var token: String?
         var connectionState: ConnectionState = .disconnected(reason: .sdk)
         var connectStopwatch = Stopwatch(label: "connect")
         var hasPublished: Bool = false
+        var primaryTransportConnectedCompleter = Completer<Void>()
+        var publisherTransportConnectedCompleter = Completer<Void>()
+        var publisherReliableDCOpenCompleter = Completer<Void>()
+        var publisherLossyDCOpenCompleter = Completer<Void>()
     }
 
     private var state = StateSync(State())
@@ -128,17 +113,15 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
         log("reason: \(reason)")
 
         // reset state
-        state.mutate { $0 = State(connectionState: .disconnected(reason: reason)) }
+        state.mutate {
+            $0.primaryTransportConnectedCompleter.reset()
+            $0.publisherTransportConnectedCompleter.reset()
+            $0.publisherReliableDCOpenCompleter.reset()
+            $0.publisherLossyDCOpenCompleter.reset()
+            $0 = State(connectionState: .disconnected(reason: reason))
+        }
 
         signalClient.cleanUp(reason: reason)
-
-        for completer in [primaryTransportConnectedCompleter,
-                          publisherTransportConnectedCompleter,
-                          publisherReliableDCOpenCompleter,
-                          publisherLossyDCOpenCompleter] {
-            // reset completer
-            completer.reset()
-        }
 
         return cleanUpRTC()
     }
@@ -152,15 +135,15 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
 
         // TODO: Check if cid already published
 
-        let completer = signalClient.prepareCompleter(forAddTrackRequest: cid)
+        //        let completer =
 
         return signalClient.sendAddTrack(cid: cid,
                                          name: name,
                                          type: kind,
                                          source: source, populator).then(on: .sdk) { populateResult in
-                                            completer.wait(on: .sdk,
-                                                           .defaultPublish,
-                                                           throw: { EngineError.timedOut(message: "server didn't respond to addTrack request") }).then(on: .sdk) { (result: populateResult, trackInfo: $0) }
+                                            let promise = self.signalClient.prepareCompleter(forAddTrackRequest: cid)
+                                            //            let promise = Promise<Livekit_TrackInfo>.pending()
+                                            return promise.then(on: .sdk) { (result: populateResult, trackInfo: $0) }
                                          }
     }
 
@@ -193,12 +176,16 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
                 publisherShouldNegotiate()
             }
 
-            return [self.publisherTransportConnectedCompleter.wait(on: .sdk,
-                                                                   .defaultTransportState,
-                                                                   throw: { TransportError.timedOut(message: "publisher didn't connect") }),
-                    publisherDCCompleter(for: reliability).wait(on: .sdk,
-                                                                .defaultPublisherDataChannelOpen,
-                                                                throw: { TransportError.timedOut(message: "publisher dc didn't open") })].all(on: .sdk)
+            let p1 = state.mutate {
+                $0.publisherTransportConnectedCompleter.wait(on: .sdk, .defaultTransportState, throw: { TransportError.timedOut(message: "publisher didn't connect") })
+            }
+
+            let p2 = state.mutate { state -> Promise<Void> in
+                var completer = reliability == .reliable ? state.publisherReliableDCOpenCompleter : state.publisherLossyDCOpenCompleter
+                return completer.wait(on: .sdk, .defaultPublisherDataChannelOpen, throw: { TransportError.timedOut(message: "publisher dc didn't open") })
+            }
+
+            return [p1, p2].all(on: .sdk)
         }
 
         return ensurePublisherConnected().then(on: .sdk) { () -> Void in
@@ -302,9 +289,9 @@ private extension Engine {
                                          connectOptions: self.connectOptions)
             .then(on: .sdk) {
                 // wait for joinResponse
-                self.signalClient.joinResponseCompleter.wait(on: .sdk,
-                                                             .defaultJoinResponse,
-                                                             throw: { SignalClientError.timedOut(message: "failed to receive join response") })
+                self.signalClient.state.mutate { $0.joinResponseCompleter.wait(on: .sdk,
+                                                                               .defaultJoinResponse,
+                                                                               throw: { SignalClientError.timedOut(message: "failed to receive join response") }) }
             }.then(on: .sdk) { _ in
                 self.state.mutate { $0.connectStopwatch.split(label: "signal") }
             }.then(on: .sdk) { jr in
@@ -312,9 +299,9 @@ private extension Engine {
             }.then(on: .sdk) {
                 self.signalClient.resumeResponseQueue()
             }.then(on: .sdk) {
-                self.primaryTransportConnectedCompleter.wait(on: .sdk,
-                                                             .defaultTransportState,
-                                                             throw: { TransportError.timedOut(message: "primary transport didn't connect") })
+                self.state.mutate { $0.primaryTransportConnectedCompleter.wait(on: .sdk,
+                                                                               .defaultTransportState,
+                                                                               throw: { TransportError.timedOut(message: "primary transport didn't connect") }) }
             }.then(on: .sdk) {
                 self.state.mutate { $0.connectStopwatch.split(label: "engine") }
                 self.log("\(self.connectStopwatch)")
@@ -369,9 +356,9 @@ private extension Engine {
                 checkShouldContinue()
             }.then(on: .sdk) {
                 // Wait for primary transport to connect (if not already)
-                self.primaryTransportConnectedCompleter.wait(on: .sdk,
-                                                             .defaultTransportState,
-                                                             throw: { TransportError.timedOut(message: "primary transport didn't connect") })
+                self.state.mutate { $0.primaryTransportConnectedCompleter.wait(on: .sdk,
+                                                                               .defaultTransportState,
+                                                                               throw: { TransportError.timedOut(message: "primary transport didn't connect") }) }
             }.then(on: .sdk) {
                 checkShouldContinue()
             }.then(on: .sdk) { () -> Promise<Void> in
@@ -384,9 +371,9 @@ private extension Engine {
                 }
 
                 return publisher.createAndSendOffer(iceRestart: true).then(on: .sdk) {
-                    self.publisherTransportConnectedCompleter.wait(on: .sdk,
-                                                                   .defaultTransportState,
-                                                                   throw: { TransportError.timedOut(message: "publisher transport didn't connect") })
+                    self.state.mutate { $0.publisherTransportConnectedCompleter.wait(on: .sdk,
+                                                                                     .defaultTransportState,
+                                                                                     throw: { TransportError.timedOut(message: "publisher transport didn't connect") }) }
                 }
 
             }.then(on: .sdk) {
@@ -542,8 +529,12 @@ extension Engine: RTCDataChannelDelegate {
         // notify new state
         notify { $0.engine(self, didUpdate: dataChannel, state: dataChannel.readyState) }
 
-        if let completer = publisherDCCompleter(for: dataChannel) {
-            completer.set(value: dataChannel.readyState == .open ? () : nil)
+        state.mutate {
+            if dataChannel == dcReliablePub {
+                $0.publisherReliableDCOpenCompleter.set(value: dataChannel.readyState == .open ? () : nil)
+            } else if dataChannel == dcLossyPub {
+                $0.publisherLossyDCOpenCompleter.set(value: dataChannel.readyState == .open ? () : nil)
+            }
         }
 
         self.log("dataChannel.\(dataChannel.label) didChangeState : \(dataChannel.channelId)")
@@ -575,22 +566,22 @@ extension Engine: TransportDelegate {
         notify { $0.engine(self, didGenerate: stats, target: target) }
     }
 
-    func transport(_ transport: Transport, didUpdate state: RTCPeerConnectionState) {
+    func transport(_ transport: Transport, didUpdate pcState: RTCPeerConnectionState) {
         log("target: \(transport.target), state: \(state)")
 
         // primary connected
         if transport.primary {
-            primaryTransportConnectedCompleter.set(value: .connected == state ? () : nil)
+            state.mutate { $0.primaryTransportConnectedCompleter.set(value: .connected == pcState ? () : nil) }
         }
 
         // publisher connected
         if case .publisher = transport.target {
-            publisherTransportConnectedCompleter.set(value: .connected == state ? () : nil)
+            state.mutate { $0.publisherTransportConnectedCompleter.set(value: .connected == pcState ? () : nil) }
         }
 
         if connectionState.isConnected {
             // Attempt re-connect if primary or publisher transport failed
-            if (transport.primary || (self.state.hasPublished && transport.target == .publisher)) && [.disconnected, .failed].contains(state) {
+            if (transport.primary || (state.hasPublished && transport.target == .publisher)) && [.disconnected, .failed].contains(pcState) {
                 startReconnect()
             }
         }

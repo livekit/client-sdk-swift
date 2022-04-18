@@ -397,7 +397,7 @@ extension VideoView: RTCVideoRenderer {
 
 extension VideoView: VideoCapturerDelegate {
 
-    public func capturer(_ capturer: VideoCapturer, didUpdate state: VideoCapturer.State) {
+    public func capturer(_ capturer: VideoCapturer, didUpdate state: VideoCapturer.CapturerState) {
         if case .started = state {
             safeMarkNeedsLayout()
         }

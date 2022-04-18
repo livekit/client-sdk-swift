@@ -30,12 +30,12 @@ extension VideoCapturerProtocol {
 
 public protocol VideoCapturerDelegate: AnyObject {
     func capturer(_ capturer: VideoCapturer, didUpdate dimensions: Dimensions?)
-    func capturer(_ capturer: VideoCapturer, didUpdate state: VideoCapturer.State)
+    func capturer(_ capturer: VideoCapturer, didUpdate state: VideoCapturer.CapturerState)
 }
 
 public extension VideoCapturerDelegate {
     func capturer(_ capturer: VideoCapturer, didUpdate dimensions: Dimensions?) {}
-    func capturer(_ capturer: VideoCapturer, didUpdate state: VideoCapturer.State) {}
+    func capturer(_ capturer: VideoCapturer, didUpdate state: VideoCapturer.CapturerState) {}
 }
 
 // Intended to be a base class for video capturers
@@ -50,26 +50,31 @@ public class VideoCapturer: MulticastDelegate<VideoCapturerDelegate>, VideoCaptu
     /// `kCVPixelFormatType_32ARGB`.
     public static let supportedPixelFormats = DispatchQueue.webRTC.sync { RTCCVPixelBuffer.supportedPixelFormats() }
 
-    public enum State {
+    public enum CapturerState {
         case stopped
         case started
     }
 
     internal weak var delegate: RTCVideoCapturerDelegate?
 
-    internal let dimensionsCompleter = Completer<Dimensions>()
+    internal struct State {
+        var dimensionsCompleter = Completer<Dimensions>()
+    }
+
+    internal var state = StateSync(State())
 
     public internal(set) var dimensions: Dimensions? {
         didSet {
             guard oldValue != dimensions else { return }
-            log("\(String(describing: oldValue)) -> \(String(describing: dimensions))")
+            log("[publish] \(String(describing: oldValue)) -> \(String(describing: dimensions))")
             notify { $0.capturer(self, didUpdate: self.dimensions) }
 
-            dimensionsCompleter.set(value: dimensions)
+            log("[publish] dimensions: \(String(describing: dimensions))")
+            state.mutate { $0.dimensionsCompleter.set(value: dimensions) }
         }
     }
 
-    public private(set) var state: State = .stopped
+    public private(set) var captureState: CapturerState = .stopped
 
     init(delegate: RTCVideoCapturerDelegate) {
         self.delegate = delegate
@@ -80,12 +85,12 @@ public class VideoCapturer: MulticastDelegate<VideoCapturerDelegate>, VideoCaptu
 
         Promise(on: .sdk) { () -> Bool in
 
-            guard self.state != .started else {
+            guard self.captureState != .started else {
                 // already started
                 return false
             }
 
-            self.state = .started
+            self.captureState = .started
             self.notify { $0.capturer(self, didUpdate: .started) }
             return true
         }
@@ -96,14 +101,16 @@ public class VideoCapturer: MulticastDelegate<VideoCapturerDelegate>, VideoCaptu
 
         Promise(on: .sdk) { () -> Bool in
 
-            guard self.state != .stopped else {
+            guard self.captureState != .stopped else {
                 // already stopped
                 return false
             }
 
-            self.state = .stopped
+            self.captureState = .stopped
             self.notify { $0.capturer(self, didUpdate: .stopped) }
-            self.dimensionsCompleter.reset()
+
+            self.state.mutate { $0.dimensionsCompleter.reset() }
+
             return true
         }
     }
