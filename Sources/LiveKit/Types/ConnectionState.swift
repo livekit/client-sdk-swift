@@ -21,30 +21,30 @@ public enum ReconnectMode {
     case full
 }
 
-public enum ConnectMode {
-    case normal
-    case reconnect(_ mode: ReconnectMode)
-}
+// public enum ConnectMode {
+//    case normal
+//    case reconnect(_ mode: ReconnectMode)
+// }
 
-extension ConnectMode: Equatable {
-
-    public static func == (lhs: ConnectMode, rhs: ConnectMode) -> Bool {
-        lhs.isEqual(to: rhs)
-    }
-
-    public func isEqual(to rhs: ConnectMode, includingAssociatedValues: Bool = true) -> Bool {
-        switch (self, rhs) {
-        case (.reconnect(let mode1), .reconnect(let mode2)): return includingAssociatedValues ? mode1 == mode2 : true
-        case (.normal, .normal): return true
-        default: return false
-        }
-    }
-}
+// extension ConnectMode: Equatable {
+//
+//    public static func == (lhs: ConnectMode, rhs: ConnectMode) -> Bool {
+//        lhs.isEqual(to: rhs)
+//    }
+//
+//    public func isEqual(to rhs: ConnectMode, includingAssociatedValues: Bool = true) -> Bool {
+//        switch (self, rhs) {
+//        case (.reconnect(let mode1), .reconnect(let mode2)): return includingAssociatedValues ? mode1 == mode2 : true
+//        case (.normal, .normal): return true
+//        default: return false
+//        }
+//    }
+// }
 
 public enum ConnectionState {
     case disconnected(reason: DisconnectReason? = nil)
-    case connecting(_ mode: ConnectMode)
-    case connected(_ mode: ConnectMode)
+    case connecting
+    case connected
 }
 
 extension ConnectionState: Identifiable {
@@ -56,31 +56,40 @@ extension ConnectionState: Identifiable {
 extension ConnectionState: Equatable {
 
     public static func == (lhs: ConnectionState, rhs: ConnectionState) -> Bool {
-        lhs.isEqual(to: rhs)
-    }
-
-    public func isEqual(to rhs: ConnectionState, includingAssociatedValues: Bool = true) -> Bool {
-        switch (self, rhs) {
-        case (.disconnected(let reason1), .disconnected(let reason2)):
-            if includingAssociatedValues {
-                if let reason1 = reason1, let reason2 = reason2 {
-                    // both non-nil, compare using isEqual
-                    return reason1.isEqual(to: reason2)
-                } else if reason1 == nil, reason2 == nil {
-                    // both nil, is equal
-                    return true
-                }
-                // one of them are nil, not equal
-                return false
-            }
+        // lhs.isEqual(to: rhs, includingAssociatedValues: false)
+        switch (lhs, rhs) {
+        case (.disconnected, .disconnected):
             return true
-        case (.connecting(let mode1), .connecting(let mode2)):
-            return includingAssociatedValues ? mode1.isEqual(to: mode2) : true
-        case (.connected(let mode1), .connected(let mode2)):
-            return includingAssociatedValues ? mode1.isEqual(to: mode2) : true
+        case (.connecting, .connecting):
+            return true
+        case (.connected, .connected):
+            return true
         default: return false
         }
     }
+
+    //    public func isEqual(to rhs: ConnectionState, includingAssociatedValues: Bool = true) -> Bool {
+    //        switch (self, rhs) {
+    //        case (.disconnected(let reason1), .disconnected(let reason2)):
+    //            if includingAssociatedValues {
+    //                if let reason1 = reason1, let reason2 = reason2 {
+    //                    // both non-nil, compare using isEqual
+    //                    return reason1.isEqual(to: reason2)
+    //                } else if reason1 == nil, reason2 == nil {
+    //                    // both nil, is equal
+    //                    return true
+    //                }
+    //                // one of them are nil, not equal
+    //                return false
+    //            }
+    //            return true
+    //        case (.connecting, .connecting):
+    //            return true
+    //        case (.connected, .connected):
+    //            return true
+    //        default: return false
+    //        }
+    //    }
 
     public var isConnected: Bool {
         guard case .connected = self else { return false }
@@ -92,25 +101,25 @@ extension ConnectionState: Equatable {
         return true
     }
 
-    public var isReconnecting: Bool {
-        return reconnectingWithMode != nil
-    }
+    //    public var isReconnecting: Bool {
+    //        return reconnectingWithMode != nil
+    //    }
 
-    public var didReconnect: Bool {
-        return reconnectedWithMode != nil
-    }
+    //    public var didReconnect: Bool {
+    //        return reconnectedWithMode != nil
+    //    }
 
-    public var reconnectingWithMode: ReconnectMode? {
-        guard case .connecting(let c) = self,
-              case .reconnect(let r) = c else { return nil }
-        return r
-    }
+    //    public var reconnectingWithMode: ReconnectMode? {
+    //        guard case .connecting(let c) = self,
+    //              case .reconnect(let r) = c else { return nil }
+    //        return r
+    //    }
 
-    public var reconnectedWithMode: ReconnectMode? {
-        guard case .connected(let c) = self,
-              case .reconnect(let r) = c else { return nil }
-        return r
-    }
+    //    public var reconnectedWithMode: ReconnectMode? {
+    //        guard case .connected(let c) = self,
+    //              case .reconnect(let r) = c else { return nil }
+    //        return r
+    //    }
 
     public var disconnectedWithError: Error? {
         guard case .disconnected(let reason) = self,

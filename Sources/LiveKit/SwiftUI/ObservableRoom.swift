@@ -163,11 +163,6 @@ open class ObservableRoom: ObservableObject, RoomDelegate, Loggable {
 
     open func room(_ room: Room, didUpdate connectionState: ConnectionState, oldValue: ConnectionState) {
 
-        guard !connectionState.isEqual(to: oldValue, includingAssociatedValues: false) else {
-            log("Skipping same conectionState")
-            return
-        }
-
         if case .disconnected = connectionState {
             DispatchQueue.main.async {
                 self.cameraTrackState = .notPublished()

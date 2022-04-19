@@ -275,24 +275,6 @@ internal extension Room {
 
 extension Room: SignalClientDelegate {
 
-    func signalClient(_ signalClient: SignalClient, didUpdate connectionState: ConnectionState, oldValue: ConnectionState) -> Bool {
-        log()
-
-        guard !connectionState.isEqual(to: oldValue, includingAssociatedValues: false) else {
-            log("Skipping same conectionState")
-            return true
-        }
-
-        if case .quick = self.connectionState.reconnectingWithMode,
-           case .quick = connectionState.reconnectedWithMode {
-            sendSyncState().catch(on: .sdk) { error in
-                self.log("Failed to sendSyncState, error: \(error)", .error)
-            }
-        }
-
-        return true
-    }
-
     func signalClient(_ signalClient: SignalClient, didUpdate trackSid: String, subscribedQualities: [Livekit_SubscribedQuality]) -> Bool {
         log()
 
@@ -488,6 +470,33 @@ extension Room: SignalClientDelegate {
 
 extension Room: EngineDelegate {
 
+    func engine(_ engine: Engine, didUpdate dataChannel: RTCDataChannel, state: RTCDataChannelState) {
+        //
+    }
+
+    func engine(_ engine: Engine, didMutate state: Engine.State, oldState: Engine.State) {
+        log()
+
+        if state.connectionState != oldState.connectionState {
+            // connectionState did update
+
+            if case .connected = state.connectionState, state.isReconnect, case .quick = state.reconnectMode {
+                sendSyncState().catch(on: .sdk) { error in
+                    self.log("Failed to sendSyncState, error: \(error)", .error)
+                }
+            }
+
+            if case .connected = state.connectionState, engine.state.isReconnect {
+                // Re-send track settings on a reconnect
+                sendTrackSettings().catch(on: .sdk) { error in
+                    self.log("Failed to sendTrackSettings, error: \(error)", .error)
+                }
+            }
+
+            notify { $0.room(self, didUpdate: state.connectionState, oldValue: oldState.connectionState) }
+        }
+    }
+
     func engine(_ engine: Engine, didGenerate trackStats: [TrackStats], target: Livekit_SignalTarget) {
 
         let allParticipants = ([[localParticipant],
@@ -544,52 +553,6 @@ extension Room: EngineDelegate {
         }
 
         notify { $0.room(self, didUpdate: activeSpeakers) }
-    }
-
-    func engine(_ engine: Engine, didUpdate connectionState: ConnectionState, oldValue: ConnectionState) {
-        log()
-
-        defer { notify { $0.room(self, didUpdate: connectionState, oldValue: oldValue) } }
-
-        guard !connectionState.isEqual(to: oldValue, includingAssociatedValues: false) else {
-            log("Skipping same conectionState")
-            return
-        }
-
-        // Deprecated
-        if case .connected(let mode) = connectionState {
-            var didReconnect = false
-            if case .reconnect = mode { didReconnect = true }
-            // Backward compatibility
-            notify { $0.room(self, didConnect: didReconnect) }
-
-            // Re-publish on full reconnect
-            if case .reconnect(let rmode) = mode,
-               case .full = rmode {
-                log("Should re-publish existing tracks")
-                localParticipant?.republishTracks().catch(on: .sdk) { error in
-                    self.log("Failed to republish all track, error: \(error)", .error)
-                }
-            }
-
-        } else if case .disconnected(let reason) = connectionState {
-            if case .connected = oldValue {
-                // Backward compatibility
-                notify { $0.room(self, didDisconnect: reason?.error ) }
-            } else {
-                // Backward compatibility
-                notify { $0.room(self, didFailToConnect: reason?.error ?? NetworkError.disconnected() ) }
-            }
-
-            cleanUp(reason: reason)
-        }
-
-        if connectionState.didReconnect {
-            // Re-send track settings on a reconnect
-            sendTrackSettings().catch(on: .sdk) { error in
-                self.log("Failed to sendTrackSettings, error: \(error)", .error)
-            }
-        }
     }
 
     func engine(_ engine: Engine, didAdd track: RTCMediaStreamTrack, streams: [RTCMediaStream]) {
