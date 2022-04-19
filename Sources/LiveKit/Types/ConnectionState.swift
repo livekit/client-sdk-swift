@@ -114,14 +114,14 @@ extension ConnectionState: Equatable {
 
     public var disconnectedWithError: Error? {
         guard case .disconnected(let reason) = self,
-              case .network(let error) = reason else { return nil }
+              case .networkError(let error) = reason else { return nil }
         return error
     }
 }
 
 public enum DisconnectReason {
     case user // User initiated
-    case network(error: Error? = nil)
+    case networkError(_ error: Error? = nil)
 }
 
 extension DisconnectReason: Equatable {
@@ -133,14 +133,13 @@ extension DisconnectReason: Equatable {
     public func isEqual(to rhs: DisconnectReason, includingAssociatedValues: Bool = true) -> Bool {
         switch (self, rhs) {
         case (.user, .user): return true
-        case (.network, .network): return true
-        // case (.sdk, .sdk): return true
+        case (.networkError, .networkError): return true
         default: return false
         }
     }
 
     var error: Error? {
-        if case .network(let error) = self {
+        if case .networkError(let error) = self {
             return error
         }
 

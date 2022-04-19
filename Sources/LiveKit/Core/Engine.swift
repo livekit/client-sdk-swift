@@ -115,7 +115,7 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
             }
 
         }.catch(on: .sdk) { error in
-            self.cleanUp(reason: .network(error: error))
+            self.cleanUp(reason: .networkError(error))
         }
     }
 
@@ -407,7 +407,7 @@ private extension Engine {
                      }.catch(on: .sdk) { _ in
                         self.log("Re-connect sequence failed")
                         // finally disconnect if all attempts fail
-                        self.cleanUp(reason: .network())
+                        self.cleanUp(reason: .networkError())
                      }
     }
 
@@ -439,7 +439,7 @@ extension Engine: SignalClientDelegate {
 
         // Attempt re-connect if disconnected(reason: network)
         if case .disconnected(let reason) = connectionState,
-           case .network = reason {
+           case .networkError = reason {
             startReconnect()
         }
 
@@ -451,7 +451,7 @@ extension Engine: SignalClientDelegate {
 
         // Server indicates it's not recoverable
         if !canReconnect {
-            cleanUp(reason: .network())
+            cleanUp(reason: .networkError())
         }
 
         return true

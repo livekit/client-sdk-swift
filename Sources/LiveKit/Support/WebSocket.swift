@@ -152,7 +152,7 @@ internal class WebSocket: NSObject, URLSessionWebSocketDelegate, Loggable {
             return
         }
 
-        cleanUp(reason: .network())
+        cleanUp(reason: .networkError())
     }
 
     internal func urlSession(_ session: URLSession,
@@ -166,6 +166,6 @@ internal class WebSocket: NSObject, URLSessionWebSocketDelegate, Loggable {
         let sdkError = NetworkError.disconnected(message: "WebSocket disconnected",
                                                  rawError: error)
 
-        cleanUp(reason: .network(error: sdkError))
+        cleanUp(reason: .networkError(sdkError))
     }
 }

@@ -121,7 +121,7 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
                     throw SignalClientError.connect(message: string)
                 }
             }.catch(on: .sdk) { _ in
-                self.cleanUp(reason: .network())
+                self.cleanUp(reason: .networkError())
             }
     }
 
