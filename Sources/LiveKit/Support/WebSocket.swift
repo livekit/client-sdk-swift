@@ -20,7 +20,7 @@ import Promises
 internal class WebSocket: NSObject, URLSessionWebSocketDelegate, Loggable {
 
     typealias OnMessage = (URLSessionWebSocketTask.Message) -> Void
-    typealias OnDisconnect = (_ reason: DisconnectReason) -> Void
+    typealias OnDisconnect = (_ reason: DisconnectReason?) -> Void
 
     public var onMessage: OnMessage?
     public var onDisconnect: OnDisconnect?
@@ -76,8 +76,9 @@ internal class WebSocket: NSObject, URLSessionWebSocketDelegate, Loggable {
         return connectPromise!
     }
 
-    internal func cleanUp(reason: DisconnectReason) {
-        log("reason: \(reason)")
+    internal func cleanUp(reason: DisconnectReason?) {
+
+        log("reason: \(String(describing: reason))")
 
         guard !disconnected else {
             log("dispose can be called only once", .warning)

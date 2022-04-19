@@ -48,7 +48,9 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
     internal struct State {
         var url: String?
         var token: String?
-        var connectionState: ConnectionState = .disconnected(reason: .sdk)
+        var isReconnect: Bool = false
+        var reconnectMode: ReconnectMode?
+        var connectionState: ConnectionState = .disconnected()
         var connectStopwatch = Stopwatch(label: "connect")
         var hasPublished: Bool = false
         var primaryTransportConnectedCompleter = Completer<Void>()
@@ -97,7 +99,7 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
         self.connectOptions = connectOptions ?? self.connectOptions
         self.roomOptions = roomOptions ?? self.roomOptions
 
-        return cleanUp(reason: .sdk).then(on: .sdk) {
+        return cleanUp().then(on: .sdk) {
             self.state.mutate { $0.connectionState = .connecting(.normal) }
         }.then(on: .sdk) {
             self.fullConnectSequence(url, token)
@@ -119,9 +121,9 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
 
     // Resets state of Engine
     @discardableResult
-    func cleanUp(reason: DisconnectReason) -> Promise<Void> {
+    func cleanUp(reason: DisconnectReason? = nil) -> Promise<Void> {
 
-        log("reason: \(reason)")
+        log("reason: \(String(describing: reason))")
 
         // reset state
         state.mutate {

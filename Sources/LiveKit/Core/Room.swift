@@ -146,9 +146,9 @@ private extension Room {
 
     // Resets state of Room
     @discardableResult
-    private func cleanUp(reason: DisconnectReason) -> Promise<Void> {
+    private func cleanUp(reason: DisconnectReason? = nil) -> Promise<Void> {
 
-        log("reason: \(reason)")
+        log("reason: \(String(describing: reason))")
 
         // Stop all local & remote tracks
         func cleanUpParticipants() -> Promise<Void> {
@@ -575,10 +575,10 @@ extension Room: EngineDelegate {
         } else if case .disconnected(let reason) = connectionState {
             if case .connected = oldValue {
                 // Backward compatibility
-                notify { $0.room(self, didDisconnect: reason.error ) }
+                notify { $0.room(self, didDisconnect: reason?.error ) }
             } else {
                 // Backward compatibility
-                notify { $0.room(self, didFailToConnect: reason.error ?? NetworkError.disconnected() ) }
+                notify { $0.room(self, didFailToConnect: reason?.error ?? NetworkError.disconnected() ) }
             }
 
             cleanUp(reason: reason)

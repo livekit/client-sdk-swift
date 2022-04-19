@@ -28,7 +28,7 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
     // MARK: - Internal
 
     internal struct State {
-        var connectionState: ConnectionState = .disconnected(reason: .sdk)
+        var connectionState: ConnectionState = .disconnected()
         var joinResponseCompleter = Completer<Livekit_JoinResponse>()
         var completersForAddTrack = [String: Completer<Livekit_TrackInfo>]()
     }
@@ -78,7 +78,7 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
                  connectOptions: ConnectOptions? = nil,
                  connectMode: ConnectMode = .normal) -> Promise<Void> {
 
-        cleanUp(reason: .sdk)
+        cleanUp()
 
         return Utils.buildUrl(url,
                               token,
@@ -125,8 +125,9 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
             }
     }
 
-    func cleanUp(reason: DisconnectReason) {
-        log("reason: \(reason)")
+    func cleanUp(reason: DisconnectReason? = nil) {
+
+        log("reason: \(String(describing: reason))")
 
         state.mutate { $0.connectionState = .disconnected(reason: reason) }
 

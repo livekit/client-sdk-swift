@@ -42,7 +42,7 @@ extension ConnectMode: Equatable {
 }
 
 public enum ConnectionState {
-    case disconnected(reason: DisconnectReason)
+    case disconnected(reason: DisconnectReason? = nil)
     case connecting(_ mode: ConnectMode)
     case connected(_ mode: ConnectMode)
 }
@@ -62,7 +62,18 @@ extension ConnectionState: Equatable {
     public func isEqual(to rhs: ConnectionState, includingAssociatedValues: Bool = true) -> Bool {
         switch (self, rhs) {
         case (.disconnected(let reason1), .disconnected(let reason2)):
-            return includingAssociatedValues ? reason1.isEqual(to: reason2) : true
+            if includingAssociatedValues {
+                if let reason1 = reason1, let reason2 = reason2 {
+                    // both non-nil, compare using isEqual
+                    return reason1.isEqual(to: reason2)
+                } else if reason1 == nil, reason2 == nil {
+                    // both nil, is equal
+                    return true
+                }
+                // one of them are nil, not equal
+                return false
+            }
+            return true
         case (.connecting(let mode1), .connecting(let mode2)):
             return includingAssociatedValues ? mode1.isEqual(to: mode2) : true
         case (.connected(let mode1), .connected(let mode2)):
@@ -102,15 +113,15 @@ extension ConnectionState: Equatable {
     }
 
     public var disconnectedWithError: Error? {
-        guard case .disconnected(let r) = self else { return nil }
-        return r.error
+        guard case .disconnected(let reason) = self,
+              case .network(let error) = reason else { return nil }
+        return error
     }
 }
 
 public enum DisconnectReason {
     case user // User initiated
     case network(error: Error? = nil)
-    case sdk //
 }
 
 extension DisconnectReason: Equatable {
@@ -123,7 +134,7 @@ extension DisconnectReason: Equatable {
         switch (self, rhs) {
         case (.user, .user): return true
         case (.network, .network): return true
-        case (.sdk, .sdk): return true
+        // case (.sdk, .sdk): return true
         default: return false
         }
     }
