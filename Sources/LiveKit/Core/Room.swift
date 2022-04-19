@@ -34,10 +34,11 @@ public class Room: MulticastDelegate<RoomDelegate> {
     public var activeSpeakers: [Participant] { state.activeSpeakers }
 
     // expose engine's vars
-    public var url: String? { engine.url }
-    public var token: String? { engine.token }
-    public var connectionState: ConnectionState { engine.connectionState }
-    public var connectStopwatch: Stopwatch { engine.connectStopwatch }
+    public var url: String? { engine.state.url }
+    public var token: String? { engine.state.token }
+    public var connectionState: ConnectionState { engine.state.connectionState }
+    public var isReconnect: Bool { engine.state.isReconnect }
+    public var connectStopwatch: Stopwatch { engine.state.connectStopwatch }
 
     // MARK: - Internal
 

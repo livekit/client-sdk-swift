@@ -23,11 +23,6 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
 
     public let signalClient = SignalClient()
 
-    public var url: String? { state.url }
-    public var token: String? { state.token }
-    public var connectionState: ConnectionState { state.connectionState }
-    public var connectStopwatch: Stopwatch { state.connectStopwatch }
-
     // private(set) var hasPublished: Bool = false
     private(set) var publisher: Transport?
     private(set) var subscriber: Transport?
@@ -77,7 +72,7 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
             guard let self = self else { return }
 
             if state.connectionState != oldState.connectionState {
-                self.log("\(oldState.connectionState) -> \(state.connectionState)")
+                self.log("connectionState: \(oldState.connectionState) -> \(state.connectionState)")
             }
 
             self.notifyAsync { $0.engine(self, didMutate: state, oldState: oldState) }
@@ -292,19 +287,19 @@ private extension Engine {
                                                                                throw: { TransportError.timedOut(message: "primary transport didn't connect") }) }
             }.then(on: .sdk) {
                 self.state.mutate { $0.connectStopwatch.split(label: "engine") }
-                self.log("\(self.connectStopwatch)")
+                self.log("\(self.state.connectStopwatch)")
             }
     }
 
     @discardableResult
     func startReconnect() -> Promise<Void> {
 
-        guard case .connected = connectionState else {
+        guard case .connected = state.connectionState else {
             log("Must be called with connected state", .warning)
             return Promise(EngineError.state(message: "Must be called with connected state"))
         }
 
-        guard let url = url, let token = token else {
+        guard let url = state.url, let token = state.token else {
             log("url or token is nil", . warning)
             return Promise(EngineError.state(message: "url or token is nil"))
         }
@@ -317,7 +312,7 @@ private extension Engine {
         // Checks if the re-connection sequence should continue
         func checkShouldContinue() -> Promise<Void> {
             // Check if still reconnecting state in case user already disconnected
-            guard case .connecting = self.connectionState, self.state.isReconnect else {
+            guard case .connecting = self.state.connectionState, self.state.isReconnect else {
                 return Promise(EngineError.state(message: "Reconnection has been aborted"))
             }
             // Continune the sequence
@@ -374,8 +369,8 @@ private extension Engine {
                 self.cleanUpRTC()
             }.then(on: .sdk) { () -> Promise<Void> in
 
-                guard let url = self.url,
-                      let token = self.token else {
+                guard let url = self.state.url,
+                      let token = self.state.token else {
                     throw EngineError.state(message: "url or token is nil")
                 }
 
@@ -442,7 +437,7 @@ extension Engine: SignalClientDelegate {
             // connectionState updated
 
             // Attempt re-connect if disconnected(reason: network)
-            if case .disconnected(let reason) = connectionState,
+            if case .disconnected(let reason) = state.connectionState,
                case .networkError = reason {
                 startReconnect()
             }
@@ -567,7 +562,7 @@ extension Engine: TransportDelegate {
             state.mutate { $0.publisherTransportConnectedCompleter.set(value: .connected == pcState ? () : nil) }
         }
 
-        if connectionState.isConnected {
+        if state.connectionState.isConnected {
             // Attempt re-connect if primary or publisher transport failed
             if (transport.primary || (state.hasPublished && transport.target == .publisher)) && [.disconnected, .failed].contains(pcState) {
                 startReconnect()
@@ -670,7 +665,7 @@ extension Engine: ConnectivityListenerDelegate {
         log("didSwitch path: \(path)")
 
         // network has been switched, e.g. wifi <-> cellular
-        if case .connected = connectionState {
+        if case .connected = state.connectionState {
             startReconnect()
         }
     }
