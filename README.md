@@ -107,10 +107,16 @@ extension RoomViewController: RoomDelegate {
 }
 ```
 
+# Thread safety
+
+Since `VideoView` is a UI component, all operations (read/write properties etc) must be performed from the `main` thread.
+
+Other core classes can be accessed from any thread.
+
 # iOS Simulator limitations
 
-- Currently, `VideoView` does not render on iOS simulator.
-- Publishing the camera track is not supported by iOS simulator.
+- Currently, `VideoView` will use OpenGL for iOS Simulator.
+- Publishing the camera track is not supported by iOS Simulator.
 
 # ScrollView performance
 
