@@ -93,12 +93,12 @@ extension DisconnectReason: Equatable {
     }
 }
 
-protocol ReconnectAware {
+protocol ReconnectableState {
     var reconnectMode: ReconnectMode { get }
     var connectionState: ConnectionState { get }
 }
 
-extension ReconnectAware {
+extension ReconnectableState {
 
     var isReconnecting: Bool {
 

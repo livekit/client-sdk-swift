@@ -40,7 +40,7 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
     private var dcReliableSub: RTCDataChannel?
     private var dcLossySub: RTCDataChannel?
 
-    internal struct State: ReconnectAware {
+    internal struct State: ReconnectableState {
         var url: String?
         var token: String?
         var reconnectMode: ReconnectMode = .none

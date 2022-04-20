@@ -27,7 +27,7 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
 
     // MARK: - Internal
 
-    internal struct State: ReconnectAware {
+    internal struct State: ReconnectableState {
         var reconnectMode: ReconnectMode = .none
         var connectionState: ConnectionState = .disconnected()
         var joinResponseCompleter = Completer<Livekit_JoinResponse>()
