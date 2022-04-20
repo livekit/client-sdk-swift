@@ -39,17 +39,6 @@ public class VideoView: NativeView, Loggable {
         static let didSkipUnsafeFrame   = RenderState(rawValue: 1 << 1)
     }
 
-    public internal(set) var renderState = RenderState() {
-        didSet {
-            // should always be on main thread
-            assert(Thread.current.isMainThread, "must be called on main thread")
-
-            guard oldValue != renderState else { return }
-            guard let track = track else { return }
-            track.notify { $0.track(track, videoView: self, didUpdate: self.renderState) }
-        }
-    }
-
     public enum LayoutMode: String, Codable, CaseIterable {
         case fit
         case fill
@@ -168,14 +157,9 @@ public class VideoView: NativeView, Loggable {
         }
     }
 
-    public var showDebugInfo: Bool = false {
-        didSet {
-            // should always be on main thread
-            assert(Thread.current.isMainThread, "must be called on main thread")
-
-            guard oldValue != showDebugInfo else { return }
-            markNeedsLayout()
-        }
+    public var showDebugInfo: Bool {
+        get { state.showDebugInfo }
+        set { state.mutate { $0.showDebugInfo = newValue } }
     }
 
     private var nativeRenderer: NativeRendererView
@@ -191,13 +175,15 @@ public class VideoView: NativeView, Loggable {
         return nativeRenderer.frame.size
     }
 
-    // whether shoudLayout has already executed
-    internal private(set) var didLayout: Bool = false {
-        didSet {
-            // should always be on main thread
-            assert(Thread.current.isMainThread, "must be called on main thread")
-        }
+    // MARK: - Internal
+
+    internal struct State {
+        var showDebugInfo: Bool = false
+        var didLayout: Bool = false
+        var render = RenderState()
     }
+
+    internal var state = StateSync(State())
 
     public init(frame: CGRect = .zero, preferMetal: Bool = true) {
         self.viewSize = frame.size
@@ -207,6 +193,24 @@ public class VideoView: NativeView, Loggable {
         self.clipsToBounds = true
         #endif
         addSubview(nativeRenderer)
+
+        // trigger events when state mutates
+        self.state.onMutate = { [weak self] state, oldState in
+
+            guard let self = self else { return }
+
+            if state.showDebugInfo != oldState.showDebugInfo {
+                DispatchQueue.main.async {
+                    self.markNeedsLayout()
+                }
+            }
+
+            guard let track = self.track else { return }
+
+            if state.render != oldState.render {
+                track.notifyAsync { $0.track(track, videoView: self, didUpdate: state.render) }
+            }
+        }
     }
 
     required init?(coder: NSCoder) {
@@ -226,7 +230,7 @@ public class VideoView: NativeView, Loggable {
         defer {
             let size = self.frame.size
             self.viewSize = size
-            self.didLayout = true
+            state.mutate { $0.didLayout = true }
 
             track?.notify { [weak track] in
                 guard let track = track else { return }
@@ -344,7 +348,7 @@ private extension VideoView {
             log("Renderer: detaching...")
             track.remove(videoView: self)
             nativeRenderer.isHidden = true
-            renderState = []
+            state.mutate { $0.render = [] }
         }
 
         // toggle MTKView's isPaused property
@@ -407,12 +411,12 @@ extension VideoView: RTCVideoRenderer {
         // cache last rendered frame
         track?.set(videoFrame: frame)
 
-        DispatchQueue.main.async { [weak self] in
-            guard let self = self else { return }
+        if !state.render.contains(.didRenderFirstFrame) {
+            state.mutate { $0.render.insert(.didRenderFirstFrame) }
             // layout after first frame has been rendered
-            if !self.renderState.contains(.didRenderFirstFrame) {
-                self.renderState.insert(.didRenderFirstFrame)
-                self.log("Did render first frame")
+            self.log("Did render first frame")
+            DispatchQueue.main.async { [weak self] in
+                guard let self = self else { return }
                 self.nativeRenderer.isHidden = false
                 self.markNeedsLayout()
             }
@@ -438,7 +442,7 @@ extension VideoView: VideoCapturerDelegate {
 internal extension VideoView {
 
     var isVisible: Bool {
-        return didLayout && !isHidden && isEnabled
+        return state.didLayout && !isHidden && isEnabled
     }
 }
 

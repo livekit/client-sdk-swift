@@ -35,6 +35,7 @@ internal final class StateSync<Value> {
     }
 
     // mutate
+    @discardableResult
     public func mutate<Result>(_ mutation: (inout Value) throws -> Result) rethrows -> Result {
         // blocking
         try queue.sync(flags: .barrier) {
