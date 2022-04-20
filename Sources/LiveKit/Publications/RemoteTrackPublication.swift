@@ -247,10 +247,10 @@ extension RemoteTrackPublication {
 
         guard let participant = participant else {
             log("Participant is nil", .warning)
-            return .disconnected(reason: .sdk)
+            return .disconnected()
         }
 
-        return participant.room.engine.connectionState
+        return participant.room.engine.state.connectionState
     }
 }
 

@@ -16,7 +16,7 @@
 
 import Foundation
 
-internal typealias OnStateMutate<Value> = (_ oldValue: Value, _ newValue: Value) -> Void
+internal typealias OnStateMutate<Value> = (_ state: Value, _ oldState: Value) -> Void
 
 @dynamicMemberLookup
 internal final class StateSync<Value> {
@@ -41,7 +41,7 @@ internal final class StateSync<Value> {
         try queue.sync(flags: .barrier) {
             let oldValue = _value
             let result = try mutation(&_value)
-            onMutate?(oldValue, _value)
+            onMutate?(_value, oldValue)
             return result
         }
     }
