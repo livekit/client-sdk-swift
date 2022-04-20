@@ -160,7 +160,7 @@ internal class Utils {
             // only for quick-reconnect
             queryItems.append(URLQueryItem(name: "reconnect", value: .quick == reconnectMode ? "1" : "0"))
             queryItems.append(URLQueryItem(name: "auto_subscribe", value: connectOptions.autoSubscribe ? "1" : "0"))
-            queryItems.append(URLQueryItem(name: "adaptive_stream", value: adaptiveStream ? "1" : ""))
+            queryItems.append(URLQueryItem(name: "adaptive_stream", value: adaptiveStream ? "1" : "0"))
 
             if let publish = connectOptions.publishOnlyMode {
                 queryItems.append(URLQueryItem(name: "publish", value: publish))
