@@ -101,7 +101,7 @@ internal class Utils {
         _ url: String,
         _ token: String,
         connectOptions: ConnectOptions? = nil,
-        isReconnect: Bool = false,
+        reconnectMode: ReconnectMode = .none,
         validate: Bool = false,
         forceSecure: Bool = false
     ) -> Promise<URL> {
@@ -157,7 +157,7 @@ internal class Utils {
             }
 
             // only for quick-reconnect
-            queryItems.append(URLQueryItem(name: "reconnect", value: isReconnect ? "1" : "0"))
+            queryItems.append(URLQueryItem(name: "reconnect", value: .quick == reconnectMode ? "1" : "0"))
 
             queryItems.append(URLQueryItem(name: "auto_subscribe", value: connectOptions.autoSubscribe ? "1" : "0"))
 

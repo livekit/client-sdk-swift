@@ -27,8 +27,8 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
 
     // MARK: - Internal
 
-    internal struct State {
-        var isReconnect: Bool = false
+    internal struct State: ReconnectAware {
+        var reconnectMode: ReconnectMode = .none
         var connectionState: ConnectionState = .disconnected()
         var joinResponseCompleter = Completer<Livekit_JoinResponse>()
         var completersForAddTrack = [String: Completer<Livekit_TrackInfo>]()
@@ -78,6 +78,7 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
     func connect(_ url: String,
                  _ token: String,
                  connectOptions: ConnectOptions? = nil,
+                 reconnectMode: ReconnectMode = .none,
                  isReconnect: Bool = false) -> Promise<Void> {
 
         cleanUp()
@@ -85,14 +86,14 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
         return Utils.buildUrl(url,
                               token,
                               connectOptions: connectOptions,
-                              isReconnect: isReconnect)
+                              reconnectMode: reconnectMode)
             .catch(on: .sdk) { error in
                 self.log("Failed to parse rtc url", .error)
             }
             .then(on: .sdk) { url -> Promise<WebSocket> in
                 self.log("Connecting with url: \(url)")
                 self.state.mutate {
-                    $0.isReconnect = isReconnect
+                    $0.reconnectMode = reconnectMode
                     $0.connectionState = .connecting
                 }
                 return WebSocket.connect(url: url,
@@ -206,7 +207,7 @@ private extension SignalClient {
 
             guard let self = self else { return }
 
-            guard !(self.connectionState == .connecting && self.state.isReconnect && request.canEnqueue() && enqueueIfReconnecting) else {
+            guard !(self.state.isReconnecting && request.canEnqueue() && enqueueIfReconnecting) else {
                 self.log("Queuing request while reconnecting, request: \(request)")
                 self.requestQueue.append(request)
                 // success

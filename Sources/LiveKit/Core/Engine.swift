@@ -40,11 +40,10 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
     private var dcReliableSub: RTCDataChannel?
     private var dcLossySub: RTCDataChannel?
 
-    internal struct State {
+    internal struct State: ReconnectAware {
         var url: String?
         var token: String?
-        var isReconnect: Bool = false
-        var reconnectMode: ReconnectMode?
+        var reconnectMode: ReconnectMode = .none
         var connectionState: ConnectionState = .disconnected()
         var connectStopwatch = Stopwatch(label: "connect")
         var hasPublished: Bool = false
@@ -96,10 +95,7 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
         self.roomOptions = roomOptions ?? self.roomOptions
 
         return cleanUp().then(on: .sdk) {
-            self.state.mutate {
-                $0.isReconnect = false
-                $0.connectionState = .connecting
-            }
+            self.state.mutate { $0.connectionState = .connecting }
         }.then(on: .sdk) {
             self.fullConnectSequence(url, token)
         }.then(on: .sdk) {
@@ -110,7 +106,6 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
             self.state.mutate {
                 $0.url = url
                 $0.token = token
-                $0.isReconnect = false
                 $0.connectionState = .connected
             }
 
@@ -312,7 +307,7 @@ private extension Engine {
         // Checks if the re-connection sequence should continue
         func checkShouldContinue() -> Promise<Void> {
             // Check if still reconnecting state in case user already disconnected
-            guard case .connecting = self.state.connectionState, self.state.isReconnect else {
+            guard self.state.isReconnecting else {
                 return Promise(EngineError.state(message: "Reconnection has been aborted"))
             }
             // Continune the sequence
@@ -379,7 +374,6 @@ private extension Engine {
         }
 
         state.mutate {
-            $0.isReconnect = true
             $0.reconnectMode = .quick
             $0.connectionState = .connecting
         }
@@ -391,7 +385,7 @@ private extension Engine {
                         guard let self = self else { return false }
                         self.log("Re-connecting in \(TimeInterval.defaultQuickReconnectRetry)seconds, \(triesLeft) tries left...")
                         // only retry if still reconnecting state (not disconnected)
-                        return .connecting == self.state.connectionState && self.state.isReconnect
+                        return self.state.isReconnecting
                      }, _: {
                         // try quick re-connect
                         quickReconnectSequence()

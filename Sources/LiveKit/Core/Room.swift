@@ -37,7 +37,7 @@ public class Room: MulticastDelegate<RoomDelegate> {
     public var url: String? { engine.state.url }
     public var token: String? { engine.state.token }
     public var connectionState: ConnectionState { engine.state.connectionState }
-    public var isReconnect: Bool { engine.state.isReconnect }
+    // public var isReconnect: Bool { engine.state.isReconnect }
     public var connectStopwatch: Stopwatch { engine.state.connectStopwatch }
 
     // MARK: - Internal
@@ -481,13 +481,13 @@ extension Room: EngineDelegate {
         if state.connectionState != oldState.connectionState {
             // connectionState did update
 
-            if case .connected = state.connectionState, state.isReconnect, case .quick = state.reconnectMode {
+            if case .connected = state.connectionState, case .quick = state.reconnectMode {
                 sendSyncState().catch(on: .sdk) { error in
                     self.log("Failed to sendSyncState, error: \(error)", .error)
                 }
             }
 
-            if case .connected = state.connectionState, engine.state.isReconnect {
+            if case .connected = state.connectionState, [.quick, .full].contains(engine.state.reconnectMode) {
                 // Re-send track settings on a reconnect
                 sendTrackSettings().catch(on: .sdk) { error in
                     self.log("Failed to sendTrackSettings, error: \(error)", .error)
