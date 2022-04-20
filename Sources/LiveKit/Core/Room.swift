@@ -482,14 +482,15 @@ extension Room: EngineDelegate {
         if state.connectionState != oldState.connectionState {
             // connectionState did update
 
+            // only if quick-reconnect
             if case .connected = state.connectionState, case .quick = state.reconnectMode {
                 sendSyncState().catch(on: .sdk) { error in
                     self.log("Failed to sendSyncState, error: \(error)", .error)
                 }
             }
 
-            if case .connected = state.connectionState, [.quick, .full].contains(engine.state.reconnectMode) {
-                // Re-send track settings on a reconnect
+            // alwayws re-send track settings on a reconnect
+            if state.didReconnect {
                 sendTrackSettings().catch(on: .sdk) { error in
                     self.log("Failed to sendTrackSettings, error: \(error)", .error)
                 }
