@@ -108,4 +108,13 @@ extension ReconnectAware {
 
         return false
     }
+
+    var didReconnect: Bool {
+
+        if case .connected = connectionState, [.full, .quick].contains(reconnectMode) {
+            return true
+        }
+
+        return false
+    }
 }

@@ -37,7 +37,8 @@ public class Room: MulticastDelegate<RoomDelegate> {
     public var url: String? { engine.state.url }
     public var token: String? { engine.state.token }
     public var connectionState: ConnectionState { engine.state.connectionState }
-    // public var isReconnect: Bool { engine.state.isReconnect }
+    public var isReconnecting: Bool { engine.state.isReconnecting }
+    public var didReconnect: Bool { engine.state.didReconnect }
     public var connectStopwatch: Stopwatch { engine.state.connectStopwatch }
 
     // MARK: - Internal
