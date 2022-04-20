@@ -102,6 +102,7 @@ internal class Utils {
         _ token: String,
         connectOptions: ConnectOptions? = nil,
         reconnectMode: ReconnectMode = .none,
+        adaptiveStream: Bool,
         validate: Bool = false,
         forceSecure: Bool = false
     ) -> Promise<URL> {
@@ -158,8 +159,8 @@ internal class Utils {
 
             // only for quick-reconnect
             queryItems.append(URLQueryItem(name: "reconnect", value: .quick == reconnectMode ? "1" : "0"))
-
             queryItems.append(URLQueryItem(name: "auto_subscribe", value: connectOptions.autoSubscribe ? "1" : "0"))
+            queryItems.append(URLQueryItem(name: "adaptive_stream", value: adaptiveStream ? "1" : ""))
 
             if let publish = connectOptions.publishOnlyMode {
                 queryItems.append(URLQueryItem(name: "publish", value: publish))
