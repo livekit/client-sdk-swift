@@ -78,10 +78,11 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
     func connect(_ url: String,
                  _ token: String,
                  connectOptions: ConnectOptions? = nil,
-                 reconnectMode: ReconnectMode = .none,
-                 isReconnect: Bool = false) -> Promise<Void> {
+                 reconnectMode: ReconnectMode) -> Promise<Void> {
 
         cleanUp()
+
+        log("reconnectMode: \(reconnectMode)")
 
         return Utils.buildUrl(url,
                               token,
@@ -107,7 +108,7 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
                 self.state.mutate { $0.connectionState = .connected }
             }.recover(on: .sdk) { error -> Promise<Void> in
                 // Skip validation if reconnect mode
-                if isReconnect { throw error }
+                if reconnectMode != .none { throw error }
                 // Catch first, then throw again after getting validation response
                 // Re-build url with validate mode
                 return Utils.buildUrl(url,

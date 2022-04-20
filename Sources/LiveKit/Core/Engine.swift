@@ -70,8 +70,8 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
 
             guard let self = self else { return }
 
-            if state.connectionState != oldState.connectionState {
-                self.log("connectionState: \(oldState.connectionState) -> \(state.connectionState)")
+            if (state.connectionState != oldState.connectionState) || (state.reconnectMode != oldState.reconnectMode) {
+                self.log("[Engine] connectionState: \(oldState.connectionState) -> \(state.connectionState), reconnectMode: \(oldState.reconnectMode) -> \(state.reconnectMode)")
             }
 
             self.notifyAsync { $0.engine(self, didMutate: state, oldState: oldState) }
@@ -264,7 +264,8 @@ private extension Engine {
 
         return self.signalClient.connect(url,
                                          token,
-                                         connectOptions: self.connectOptions)
+                                         connectOptions: self.connectOptions,
+                                         reconnectMode: state.reconnectMode)
             .then(on: .sdk) {
                 // wait for joinResponse
                 self.signalClient.state.mutate { $0.joinResponseCompleter.wait(on: .sdk,
@@ -324,7 +325,7 @@ private extension Engine {
                 self.signalClient.connect(url,
                                           token,
                                           connectOptions: self.connectOptions,
-                                          isReconnect: true)
+                                          reconnectMode: self.state.reconnectMode)
             }.then(on: .sdk) {
                 checkShouldContinue()
             }.then(on: .sdk) {
