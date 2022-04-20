@@ -68,7 +68,7 @@ public class VideoView: NativeView, Loggable {
             assert(Thread.current.isMainThread, "must be called on main thread")
 
             guard oldValue != layoutMode else { return }
-            safeMarkNeedsLayout()
+            markNeedsLayout()
         }
     }
 
@@ -80,7 +80,7 @@ public class VideoView: NativeView, Loggable {
             assert(Thread.current.isMainThread, "must be called on main thread")
 
             guard oldValue != mirrorMode else { return }
-            safeMarkNeedsLayout()
+            markNeedsLayout()
         }
     }
 
@@ -142,7 +142,7 @@ public class VideoView: NativeView, Loggable {
             }
 
             syncRendererAttach()
-            safeMarkNeedsLayout()
+            markNeedsLayout()
         }
     }
 
@@ -153,7 +153,7 @@ public class VideoView: NativeView, Loggable {
 
             guard oldValue != isEnabled else { return }
             syncRendererAttach()
-            safeMarkNeedsLayout()
+            markNeedsLayout()
         }
     }
 
@@ -164,14 +164,17 @@ public class VideoView: NativeView, Loggable {
 
             guard oldValue != isHidden else { return }
             syncRendererAttach()
-            safeMarkNeedsLayout()
+            markNeedsLayout()
         }
     }
 
     public var showDebugInfo: Bool = false {
         didSet {
+            // should always be on main thread
+            assert(Thread.current.isMainThread, "must be called on main thread")
+
             guard oldValue != showDebugInfo else { return }
-            safeMarkNeedsLayout()
+            markNeedsLayout()
         }
     }
 
@@ -350,12 +353,6 @@ private extension VideoView {
         nativeRenderer.asMetalView?.isPaused = !shouldAttach
     }
 
-    func safeMarkNeedsLayout() {
-        DispatchQueue.main.async { [weak self] in
-            self?.markNeedsLayout()
-        }
-    }
-
     func shouldMirror() -> Bool {
         switch mirrorMode {
         case .auto:
@@ -392,12 +389,16 @@ extension VideoView: RTCVideoRenderer {
             }
 
             if track?.set(dimensions: dimensions) == true {
-                safeMarkNeedsLayout()
+                DispatchQueue.main.async {
+                    self.markNeedsLayout()
+                }
             }
 
         } else {
             if track?.set(dimensions: nil) == true {
-                safeMarkNeedsLayout()
+                DispatchQueue.main.async {
+                    self.markNeedsLayout()
+                }
             }
         }
 
@@ -425,7 +426,9 @@ extension VideoView: VideoCapturerDelegate {
 
     public func capturer(_ capturer: VideoCapturer, didUpdate state: VideoCapturer.CapturerState) {
         if case .started = state {
-            safeMarkNeedsLayout()
+            DispatchQueue.main.async {
+                self.markNeedsLayout()
+            }
         }
     }
 }
