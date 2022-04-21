@@ -78,7 +78,8 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
     func connect(_ url: String,
                  _ token: String,
                  connectOptions: ConnectOptions? = nil,
-                 reconnectMode: ReconnectMode) -> Promise<Void> {
+                 reconnectMode: ReconnectMode,
+                 adaptiveStream: Bool) -> Promise<Void> {
 
         cleanUp()
 
@@ -87,7 +88,8 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
         return Utils.buildUrl(url,
                               token,
                               connectOptions: connectOptions,
-                              reconnectMode: reconnectMode)
+                              reconnectMode: reconnectMode,
+                              adaptiveStream: adaptiveStream)
             .catch(on: .sdk) { error in
                 self.log("Failed to parse rtc url", .error)
             }
@@ -114,6 +116,7 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
                 return Utils.buildUrl(url,
                                       token,
                                       connectOptions: connectOptions,
+                                      adaptiveStream: adaptiveStream,
                                       validate: true
                 ).then(on: .sdk) { url -> Promise<Data> in
                     self.log("Validating with url: \(url)")

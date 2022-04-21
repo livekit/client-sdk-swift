@@ -265,7 +265,8 @@ private extension Engine {
         return self.signalClient.connect(url,
                                          token,
                                          connectOptions: self.connectOptions,
-                                         reconnectMode: state.reconnectMode)
+                                         reconnectMode: state.reconnectMode,
+                                         adaptiveStream: roomOptions.adaptiveStream)
             .then(on: .sdk) {
                 // wait for joinResponse
                 self.signalClient.state.mutate { $0.joinResponseCompleter.wait(on: .sdk,
@@ -325,7 +326,8 @@ private extension Engine {
                 self.signalClient.connect(url,
                                           token,
                                           connectOptions: self.connectOptions,
-                                          reconnectMode: self.state.reconnectMode)
+                                          reconnectMode: self.state.reconnectMode,
+                                          adaptiveStream: self.roomOptions.adaptiveStream)
             }.then(on: .sdk) {
                 checkShouldContinue()
             }.then(on: .sdk) {
