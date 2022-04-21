@@ -51,26 +51,16 @@ public class VideoView: NativeView, Loggable {
     }
 
     /// Layout ``ContentMode`` of the ``VideoView``.
-    public var layoutMode: LayoutMode = .fill {
-        didSet {
-            // should always be on main thread
-            assert(Thread.current.isMainThread, "must be called on main thread")
-
-            guard oldValue != layoutMode else { return }
-            markNeedsLayout()
-        }
+    public var layoutMode: LayoutMode {
+        get { state.layoutMode }
+        set { state.mutate { $0.layoutMode = newValue } }
     }
 
     /// Flips the video horizontally, useful for local VideoViews.
     /// Known Issue: this will not work when os is macOS and ``preferMetal`` is false.
-    public var mirrorMode: MirrorMode = .auto {
-        didSet {
-            // should always be on main thread
-            assert(Thread.current.isMainThread, "must be called on main thread")
-
-            guard oldValue != mirrorMode else { return }
-            markNeedsLayout()
-        }
+    public var mirrorMode: MirrorMode {
+        get { state.mirrorMode }
+        set { state.mutate { $0.mirrorMode = newValue } }
     }
 
     /// OpenGL is deprecated and the SDK prefers to use Metal by default.
@@ -180,6 +170,8 @@ public class VideoView: NativeView, Loggable {
     internal struct State {
         var showDebugInfo: Bool = false
         var didLayout: Bool = false
+        var layoutMode: LayoutMode = .fill
+        var mirrorMode: MirrorMode = .auto
         var render = RenderState()
     }
 
@@ -199,7 +191,9 @@ public class VideoView: NativeView, Loggable {
 
             guard let self = self else { return }
 
-            if state.showDebugInfo != oldState.showDebugInfo {
+            if state.showDebugInfo != oldState.showDebugInfo ||
+                state.layoutMode != oldState.layoutMode ||
+                state.mirrorMode != oldState.mirrorMode {
                 DispatchQueue.main.async {
                     self.markNeedsLayout()
                 }
@@ -239,7 +233,7 @@ public class VideoView: NativeView, Loggable {
         }
 
         #if os(iOS)
-        if showDebugInfo {
+        if state.showDebugInfo {
             let d = track?.dimensions ?? .zero
             let r = createDebugTextView()
             r.text = "\(d.width)x\(d.height)\n" + "isEnabled:\(isEnabled)"
@@ -265,9 +259,9 @@ public class VideoView: NativeView, Loggable {
         let wRatio = size.width / wDim
         let hRatio = size.height / hDim
 
-        if .fill == layoutMode ? hRatio > wRatio : hRatio < wRatio {
+        if .fill == state.layoutMode ? hRatio > wRatio : hRatio < wRatio {
             size.width = size.height / hDim * wDim
-        } else if .fill == layoutMode ? wRatio > hRatio : wRatio < hRatio {
+        } else if .fill == state.layoutMode ? wRatio > hRatio : wRatio < hRatio {
             size.height = size.width / wDim * hDim
         }
 
@@ -358,7 +352,7 @@ private extension VideoView {
     }
 
     func shouldMirror() -> Bool {
-        switch mirrorMode {
+        switch state.mirrorMode {
         case .auto:
             guard let localVideoTrack = track as? LocalVideoTrack,
                   let cameraCapturer = localVideoTrack.capturer as? CameraCapturer,
