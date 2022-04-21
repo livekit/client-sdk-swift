@@ -23,13 +23,13 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
 
     // MARK: - Public
 
-    public var connectionState: ConnectionState { state.connectionState }
+    public var connectionState: ConnectionState { state.connection }
 
     // MARK: - Internal
 
     internal struct State: ReconnectableState {
-        var reconnectMode: ReconnectMode = .none
-        var connectionState: ConnectionState = .disconnected()
+        var reconnectMode: ReconnectMode?
+        var connection: ConnectionState = .disconnected()
         var joinResponseCompleter = Completer<Livekit_JoinResponse>()
         var completersForAddTrack = [String: Completer<Livekit_TrackInfo>]()
     }
@@ -63,8 +63,8 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
 
             guard let self = self else { return }
 
-            if oldState.connectionState != state.connectionState {
-                self.log("\(oldState.connectionState) -> \(state.connectionState)")
+            if oldState.connection != state.connection {
+                self.log("\(oldState.connection) -> \(state.connection)")
             }
 
             self.notifyAsync { $0.signalClient(self, didMutate: state, oldState: oldState) }
@@ -78,12 +78,12 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
     func connect(_ url: String,
                  _ token: String,
                  connectOptions: ConnectOptions? = nil,
-                 reconnectMode: ReconnectMode,
+                 reconnectMode: ReconnectMode? = nil,
                  adaptiveStream: Bool) -> Promise<Void> {
 
         cleanUp()
 
-        log("reconnectMode: \(reconnectMode)")
+        log("reconnectMode: \(String(describing: reconnectMode))")
 
         return Utils.buildUrl(url,
                               token,
@@ -97,7 +97,7 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
                 self.log("Connecting with url: \(url)")
                 self.state.mutate {
                     $0.reconnectMode = reconnectMode
-                    $0.connectionState = .connecting
+                    $0.connection = .connecting
                 }
                 return WebSocket.connect(url: url,
                                          onMessage: self.onWebSocketMessage,
@@ -107,10 +107,10 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
                                          })
             }.then(on: .sdk) { (webSocket: WebSocket) -> Void in
                 self.webSocket = webSocket
-                self.state.mutate { $0.connectionState = .connected }
+                self.state.mutate { $0.connection = .connected }
             }.recover(on: .sdk) { error -> Promise<Void> in
                 // Skip validation if reconnect mode
-                if reconnectMode != .none { throw error }
+                if reconnectMode != nil { throw error }
                 // Catch first, then throw again after getting validation response
                 // Re-build url with validate mode
                 return Utils.buildUrl(url,
@@ -138,7 +138,7 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
 
         log("reason: \(String(describing: reason))")
 
-        state.mutate { $0.connectionState = .disconnected(reason: reason) }
+        state.mutate { $0.connection = .disconnected(reason: reason) }
 
         if let socket = webSocket {
             socket.cleanUp(reason: reason)
@@ -211,7 +211,7 @@ private extension SignalClient {
 
             guard let self = self else { return }
 
-            guard !(self.state.isReconnecting && request.canEnqueue() && enqueueIfReconnecting) else {
+            guard !(self.state.connection.isReconnecting && request.canEnqueue() && enqueueIfReconnecting) else {
                 self.log("Queuing request while reconnecting, request: \(request)")
                 self.requestQueue.append(request)
                 // success

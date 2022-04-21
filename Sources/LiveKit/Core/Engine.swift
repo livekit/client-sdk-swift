@@ -43,8 +43,8 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
     internal struct State: ReconnectableState {
         var url: String?
         var token: String?
-        var reconnectMode: ReconnectMode = .none
-        var connectionState: ConnectionState = .disconnected()
+        var reconnectMode: ReconnectMode?
+        var connection: ConnectionState = .disconnected()
         var connectStopwatch = Stopwatch(label: "connect")
         var hasPublished: Bool = false
         var primaryTransportConnectedCompleter = Completer<Void>()
@@ -70,8 +70,10 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
 
             guard let self = self else { return }
 
-            if (state.connectionState != oldState.connectionState) || (state.reconnectMode != oldState.reconnectMode) {
-                self.log("[Engine] connectionState: \(oldState.connectionState) -> \(state.connectionState), reconnectMode: \(oldState.reconnectMode) -> \(state.reconnectMode)")
+            assert(!(state.connection == .reconnecting && state.reconnectMode == .none), "reconnectMode should not be .none")
+
+            if (state.connection != oldState.connection) || (state.reconnectMode != oldState.reconnectMode) {
+                self.log("[Engine] connectionState: \(oldState.connection) -> \(state.connection), reconnectMode: \(String(describing: state.reconnectMode))")
             }
 
             self.notifyAsync { $0.engine(self, didMutate: state, oldState: oldState) }
@@ -95,7 +97,7 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
         self.roomOptions = roomOptions ?? self.roomOptions
 
         return cleanUp().then(on: .sdk) {
-            self.state.mutate { $0.connectionState = .connecting }
+            self.state.mutate { $0.connection = .connecting }
         }.then(on: .sdk) {
             self.fullConnectSequence(url, token)
         }.then(on: .sdk) {
@@ -106,7 +108,7 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
             self.state.mutate {
                 $0.url = url
                 $0.token = token
-                $0.connectionState = .connected
+                $0.connection = .connected
             }
 
         }.catch(on: .sdk) { error in
@@ -126,7 +128,7 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
             $0.publisherTransportConnectedCompleter.reset()
             $0.publisherReliableDCOpenCompleter.reset()
             $0.publisherLossyDCOpenCompleter.reset()
-            $0 = State(connectionState: .disconnected(reason: reason))
+            $0 = State(connection: .disconnected(reason: reason))
         }
 
         signalClient.cleanUp(reason: reason)
@@ -291,7 +293,7 @@ private extension Engine {
     @discardableResult
     func startReconnect() -> Promise<Void> {
 
-        guard case .connected = state.connectionState else {
+        guard case .connected = state.connection else {
             log("Must be called with connected state", .warning)
             return Promise(EngineError.state(message: "Must be called with connected state"))
         }
@@ -309,7 +311,7 @@ private extension Engine {
         // Checks if the re-connection sequence should continue
         func checkShouldContinue() -> Promise<Void> {
             // Check if still reconnecting state in case user already disconnected
-            guard self.state.isReconnecting else {
+            guard self.state.connection.isReconnecting else {
                 return Promise(EngineError.state(message: "Reconnection has been aborted"))
             }
             // Continune the sequence
@@ -378,7 +380,7 @@ private extension Engine {
 
         state.mutate {
             $0.reconnectMode = .quick
-            $0.connectionState = .connecting
+            $0.connection = .reconnecting
         }
 
         return retry(on: .sdk,
@@ -388,7 +390,7 @@ private extension Engine {
                         guard let self = self else { return false }
                         self.log("Re-connecting in \(TimeInterval.defaultQuickReconnectRetry)seconds, \(triesLeft) tries left...")
                         // only retry if still reconnecting state (not disconnected)
-                        return self.state.isReconnecting
+                        return self.state.connection.isReconnecting
                      }, _: {
                         // try quick re-connect
                         quickReconnectSequence()
@@ -401,7 +403,7 @@ private extension Engine {
                      }.then(on: .sdk) {
                         // re-connect sequence successful
                         self.log("Re-connect sequence completed")
-                        self.state.mutate { $0.connectionState = .connected }
+                        self.state.mutate { $0.connection = .connected }
                      }.catch(on: .sdk) { _ in
                         self.log("Re-connect sequence failed")
                         // finally disconnect if all attempts fail
@@ -430,11 +432,11 @@ extension Engine: SignalClientDelegate {
     func signalClient(_ signalClient: SignalClient, didMutate state: SignalClient.State, oldState: SignalClient.State) -> Bool {
         log()
 
-        if state.connectionState != oldState.connectionState {
+        if state.connection != oldState.connection {
             // connectionState updated
 
             // Attempt re-connect if disconnected(reason: network)
-            if case .disconnected(let reason) = state.connectionState,
+            if case .disconnected(let reason) = state.connection,
                case .networkError = reason {
                 startReconnect()
             }
@@ -559,7 +561,7 @@ extension Engine: TransportDelegate {
             state.mutate { $0.publisherTransportConnectedCompleter.set(value: .connected == pcState ? () : nil) }
         }
 
-        if state.connectionState.isConnected {
+        if state.connection.isConnected {
             // Attempt re-connect if primary or publisher transport failed
             if (transport.primary || (state.hasPublished && transport.target == .publisher)) && [.disconnected, .failed].contains(pcState) {
                 startReconnect()
@@ -662,7 +664,7 @@ extension Engine: ConnectivityListenerDelegate {
         log("didSwitch path: \(path)")
 
         // network has been switched, e.g. wifi <-> cellular
-        if case .connected = state.connectionState {
+        if case .connected = state.connection {
             startReconnect()
         }
     }

@@ -101,7 +101,7 @@ internal class Utils {
         _ url: String,
         _ token: String,
         connectOptions: ConnectOptions? = nil,
-        reconnectMode: ReconnectMode = .none,
+        reconnectMode: ReconnectMode? = nil,
         adaptiveStream: Bool,
         validate: Bool = false,
         forceSecure: Bool = false

@@ -36,8 +36,7 @@ public class Room: MulticastDelegate<RoomDelegate> {
     // expose engine's vars
     public var url: String? { engine.state.url }
     public var token: String? { engine.state.token }
-    public var connectionState: ConnectionState { engine.state.connectionState }
-    public var isReconnecting: Bool { engine.state.isReconnecting }
+    public var connectionState: ConnectionState { engine.state.connection }
     public var didReconnect: Bool { engine.state.didReconnect }
     public var connectStopwatch: Stopwatch { engine.state.connectStopwatch }
 
@@ -479,11 +478,11 @@ extension Room: EngineDelegate {
     func engine(_ engine: Engine, didMutate state: Engine.State, oldState: Engine.State) {
         log()
 
-        if state.connectionState != oldState.connectionState {
+        if state.connection != oldState.connection {
             // connectionState did update
 
             // only if quick-reconnect
-            if case .connected = state.connectionState, case .quick = state.reconnectMode {
+            if case .connected = state.connection, case .quick = state.reconnectMode {
                 sendSyncState().catch(on: .sdk) { error in
                     self.log("Failed to sendSyncState, error: \(error)", .error)
                 }
@@ -496,7 +495,7 @@ extension Room: EngineDelegate {
                 }
             }
 
-            notify { $0.room(self, didUpdate: state.connectionState, oldValue: oldState.connectionState) }
+            notify { $0.room(self, didUpdate: state.connection, oldValue: oldState.connection) }
         }
     }
 

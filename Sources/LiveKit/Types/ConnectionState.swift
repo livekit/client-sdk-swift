@@ -17,7 +17,6 @@
 import Foundation
 
 public enum ReconnectMode {
-    case none
     case quick
     case full
 }
@@ -25,6 +24,7 @@ public enum ReconnectMode {
 public enum ConnectionState {
     case disconnected(reason: DisconnectReason? = nil)
     case connecting
+    case reconnecting
     case connected
 }
 
@@ -38,11 +38,10 @@ extension ConnectionState: Equatable {
 
     public static func == (lhs: ConnectionState, rhs: ConnectionState) -> Bool {
         switch (lhs, rhs) {
-        case (.disconnected, .disconnected):
-            return true
-        case (.connecting, .connecting):
-            return true
-        case (.connected, .connected):
+        case (.disconnected, .disconnected),
+             (.connecting, .connecting),
+             (.reconnecting, .reconnecting),
+             (.connected, .connected):
             return true
         default: return false
         }
@@ -50,6 +49,11 @@ extension ConnectionState: Equatable {
 
     public var isConnected: Bool {
         guard case .connected = self else { return false }
+        return true
+    }
+
+    public var isReconnecting: Bool {
+        guard case .reconnecting = self else { return false }
         return true
     }
 
@@ -94,24 +98,15 @@ extension DisconnectReason: Equatable {
 }
 
 protocol ReconnectableState {
-    var reconnectMode: ReconnectMode { get }
-    var connectionState: ConnectionState { get }
+    var reconnectMode: ReconnectMode? { get }
+    var connection: ConnectionState { get }
 }
 
 extension ReconnectableState {
 
-    var isReconnecting: Bool {
-
-        if case .connecting = connectionState, [.full, .quick].contains(reconnectMode) {
-            return true
-        }
-
-        return false
-    }
-
     var didReconnect: Bool {
 
-        if case .connected = connectionState, [.full, .quick].contains(reconnectMode) {
+        if case .connected = connection, [.full, .quick].contains(reconnectMode) {
             return true
         }
 
