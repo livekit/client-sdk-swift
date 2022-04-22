@@ -194,7 +194,7 @@ public class VideoView: NativeView, Loggable {
             if state.showDebugInfo != oldState.showDebugInfo ||
                 state.layoutMode != oldState.layoutMode ||
                 state.mirrorMode != oldState.mirrorMode {
-                DispatchQueue.main.async {
+                DispatchQueue.mainSafeAsync {
                     self.markNeedsLayout()
                 }
             }
@@ -387,14 +387,14 @@ extension VideoView: RTCVideoRenderer {
             }
 
             if track?.set(dimensions: dimensions) == true {
-                DispatchQueue.main.async {
+                DispatchQueue.mainSafeAsync {
                     self.markNeedsLayout()
                 }
             }
 
         } else {
             if track?.set(dimensions: nil) == true {
-                DispatchQueue.main.async {
+                DispatchQueue.mainSafeAsync {
                     self.markNeedsLayout()
                 }
             }
@@ -409,7 +409,7 @@ extension VideoView: RTCVideoRenderer {
             state.mutate { $0.render.insert(.didRenderFirstFrame) }
             // layout after first frame has been rendered
             self.log("Did render first frame")
-            DispatchQueue.main.async { [weak self] in
+            DispatchQueue.mainSafeAsync { [weak self] in
                 guard let self = self else { return }
                 self.nativeRenderer.isHidden = false
                 self.markNeedsLayout()
@@ -424,7 +424,7 @@ extension VideoView: VideoCapturerDelegate {
 
     public func capturer(_ capturer: VideoCapturer, didUpdate state: VideoCapturer.CapturerState) {
         if case .started = state {
-            DispatchQueue.main.async {
+            DispatchQueue.mainSafeAsync {
                 self.markNeedsLayout()
             }
         }
