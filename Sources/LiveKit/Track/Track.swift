@@ -30,7 +30,7 @@ public class Track: MulticastDelegate<TrackDelegate> {
         case none
     }
 
-    public enum State {
+    public enum TrackState {
         case stopped
         case started
     }
@@ -56,20 +56,28 @@ public class Track: MulticastDelegate<TrackDelegate> {
     }
 
     /// Dimensions of the video (only if video track)
-    public private(set) var dimensions: Dimensions?
+    public var dimensions: Dimensions? {
+        state.dimensions
+    }
+
     /// The last video frame received for this track
     public private(set) var videoFrame: RTCVideoFrame?
 
-    public private(set) var state: State = .stopped {
+    public private(set) var trackState: TrackState = .stopped {
         didSet {
-            guard oldValue != state else { return }
+            guard oldValue != trackState else { return }
             didUpdateState()
         }
     }
 
     internal let videoViews = NSHashTable<VideoView>.weakObjects()
-    // queue used to access cached videoFrame
-    internal let videoFrameQueue = DispatchQueue(label: "LiveKitSDK.Track.videoFrame", qos: .userInitiated)
+
+    internal struct State {
+        var dimensions: Dimensions?
+        var videoFrame: RTCVideoFrame?
+    }
+
+    internal var state = StateSync(State())
 
     init(name: String, kind: Kind, source: Source, track: RTCMediaStreamTrack) {
         self.name = name
@@ -87,12 +95,12 @@ public class Track: MulticastDelegate<TrackDelegate> {
 
         Promise(on: .sdk) { () -> Bool in
 
-            guard self.state != .started else {
+            guard self.trackState != .started else {
                 // already started
                 return false
             }
 
-            self.state = .started
+            self.trackState = .started
             return true
         }
     }
@@ -102,12 +110,12 @@ public class Track: MulticastDelegate<TrackDelegate> {
 
         Promise(on: .sdk) { () -> Bool in
 
-            guard self.state != .stopped else {
+            guard self.trackState != .stopped else {
                 // already stopped
                 return false
             }
 
-            self.state = .stopped
+            self.trackState = .stopped
             return true
         }
     }
@@ -179,12 +187,9 @@ internal extension Track {
 
     // returns true when value is updated
     func set(dimensions newValue: Dimensions?) -> Bool {
-        guard self.dimensions != newValue else { return false }
+        guard self.state.dimensions != newValue else { return false }
 
-        DispatchQueue.main.async { [weak self] in
-            guard let self = self else { return }
-            self.dimensions = newValue
-        }
+        state.mutate { $0.dimensions = newValue }
 
         guard let videoTrack = self as? VideoTrack else { return true }
         notify { $0.track(videoTrack, didUpdate: newValue) }
@@ -194,10 +199,8 @@ internal extension Track {
 
     // returns true when value is updated
     func set(videoFrame newValue: RTCVideoFrame?) {
-        videoFrameQueue.async { [weak self] in
-            guard let self = self else { return }
-            guard self.videoFrame != newValue else { return }
-            self.videoFrame = newValue
-        }
+        guard self.state.videoFrame != newValue else { return }
+
+        state.mutate { $0.videoFrame = newValue }
     }
 }
