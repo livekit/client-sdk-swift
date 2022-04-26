@@ -258,7 +258,7 @@ extension RemoteTrackPublication {
             return .disconnected()
         }
 
-        return participant.room.engine.state.connection
+        return participant.room.engine._state.connection
     }
 }
 

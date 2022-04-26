@@ -23,7 +23,7 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
 
     // MARK: - Public
 
-    public var connectionState: ConnectionState { state.connection }
+    public var connectionState: ConnectionState { _state.connection }
 
     // MARK: - Internal
 
@@ -34,7 +34,7 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
         var completersForAddTrack = [String: Completer<Livekit_TrackInfo>]()
     }
 
-    internal var state = StateSync(State())
+    internal var _state = StateSync(State())
 
     // MARK: - Private
 
@@ -59,7 +59,7 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
         super.init()
 
         // trigger events when state mutates
-        self.state.onMutate = { [weak self] state, oldState in
+        self._state.onMutate = { [weak self] state, oldState in
 
             guard let self = self else { return }
 
@@ -95,7 +95,7 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
             }
             .then(on: .sdk) { url -> Promise<WebSocket> in
                 self.log("Connecting with url: \(url)")
-                self.state.mutate {
+                self._state.mutate {
                     $0.reconnectMode = reconnectMode
                     $0.connection = .connecting
                 }
@@ -107,7 +107,7 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
                                          })
             }.then(on: .sdk) { (webSocket: WebSocket) -> Void in
                 self.webSocket = webSocket
-                self.state.mutate { $0.connection = .connected }
+                self._state.mutate { $0.connection = .connected }
             }.recover(on: .sdk) { error -> Promise<Void> in
                 // Skip validation if reconnect mode
                 if reconnectMode != nil { throw error }
@@ -138,7 +138,7 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
 
         log("reason: \(String(describing: reason))")
 
-        state.mutate { $0.connection = .disconnected(reason: reason) }
+        _state.mutate { $0.connection = .disconnected(reason: reason) }
 
         if let socket = webSocket {
             socket.cleanUp(reason: reason)
@@ -149,7 +149,7 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
 
         latestJoinResponse = nil
 
-        state.mutate {
+        _state.mutate {
             for var completer in $0.completersForAddTrack.values {
                 completer.reset()
             }
@@ -174,7 +174,7 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
 
     func completeCompleter(forAddTrackRequest trackCid: String, trackInfo: Livekit_TrackInfo) {
 
-        state.mutate {
+        _state.mutate {
             if var completer = $0.completersForAddTrack[trackCid] {
                 log("[publish] found the completer resolving...")
                 completer.set(value: trackInfo)
@@ -184,7 +184,7 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
 
     func prepareCompleter(forAddTrackRequest trackCid: String) -> Promise<Livekit_TrackInfo> {
 
-        state.mutate { state -> Promise<Livekit_TrackInfo> in
+        _state.mutate { state -> Promise<Livekit_TrackInfo> in
 
             if state.completersForAddTrack.keys.contains(trackCid) {
                 // reset if already exists
@@ -211,7 +211,7 @@ private extension SignalClient {
 
             guard let self = self else { return }
 
-            guard !(self.state.connection.isReconnecting && request.canEnqueue() && enqueueIfReconnecting) else {
+            guard !(self._state.connection.isReconnecting && request.canEnqueue() && enqueueIfReconnecting) else {
                 self.log("Queuing request while reconnecting, request: \(request)")
                 self.requestQueue.append(request)
                 // success
@@ -281,7 +281,7 @@ private extension SignalClient {
             responseQueueState = .suspended
             latestJoinResponse = joinResponse
             notify { $0.signalClient(self, didReceive: joinResponse) }
-            state.mutate { $0.joinResponseCompleter.set(value: joinResponse) }
+            _state.mutate { $0.joinResponseCompleter.set(value: joinResponse) }
 
         case .answer(let sd):
             notify { $0.signalClient(self, didReceiveAnswer: sd.toRTCType()) }

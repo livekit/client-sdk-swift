@@ -52,15 +52,15 @@ public class VideoView: NativeView, Loggable {
 
     /// Layout ``ContentMode`` of the ``VideoView``.
     public var layoutMode: LayoutMode {
-        get { state.layoutMode }
-        set { state.mutate { $0.layoutMode = newValue } }
+        get { _state.layoutMode }
+        set { _state.mutate { $0.layoutMode = newValue } }
     }
 
     /// Flips the video horizontally, useful for local VideoViews.
     /// Known Issue: this will not work when os is macOS and ``preferMetal`` is false.
     public var mirrorMode: MirrorMode {
-        get { state.mirrorMode }
-        set { state.mutate { $0.mirrorMode = newValue } }
+        get { _state.mirrorMode }
+        set { _state.mutate { $0.mirrorMode = newValue } }
     }
 
     /// OpenGL is deprecated and the SDK prefers to use Metal by default.
@@ -148,8 +148,8 @@ public class VideoView: NativeView, Loggable {
     }
 
     public var showDebugInfo: Bool {
-        get { state.showDebugInfo }
-        set { state.mutate { $0.showDebugInfo = newValue } }
+        get { _state.showDebugInfo }
+        set { _state.mutate { $0.showDebugInfo = newValue } }
     }
 
     private var nativeRenderer: NativeRendererView
@@ -175,7 +175,7 @@ public class VideoView: NativeView, Loggable {
         var render = RenderState()
     }
 
-    internal var state = StateSync(State())
+    internal var _state = StateSync(State())
 
     public init(frame: CGRect = .zero, preferMetal: Bool = true) {
         self.viewSize = frame.size
@@ -187,7 +187,7 @@ public class VideoView: NativeView, Loggable {
         addSubview(nativeRenderer)
 
         // trigger events when state mutates
-        self.state.onMutate = { [weak self] state, oldState in
+        self._state.onMutate = { [weak self] state, oldState in
 
             guard let self = self else { return }
 
@@ -224,7 +224,7 @@ public class VideoView: NativeView, Loggable {
         defer {
             let size = self.frame.size
             self.viewSize = size
-            state.mutate { $0.didLayout = true }
+            _state.mutate { $0.didLayout = true }
 
             track?.notify { [weak track] in
                 guard let track = track else { return }
@@ -233,7 +233,7 @@ public class VideoView: NativeView, Loggable {
         }
 
         #if os(iOS)
-        if state.showDebugInfo {
+        if _state.showDebugInfo {
             let d = track?.dimensions ?? .zero
             let r = createDebugTextView()
             r.text = "\(d.width)x\(d.height)\n" + "isEnabled:\(isEnabled)"
@@ -242,7 +242,7 @@ public class VideoView: NativeView, Loggable {
         #endif
 
         // dimensions are required to continue computation
-        guard let dimensions = track?.state.dimensions else {
+        guard let dimensions = track?._state.dimensions else {
             log("dimensions are nil, cannot layout without dimensions")
             return
         }
@@ -259,9 +259,9 @@ public class VideoView: NativeView, Loggable {
         let wRatio = size.width / wDim
         let hRatio = size.height / hDim
 
-        if .fill == state.layoutMode ? hRatio > wRatio : hRatio < wRatio {
+        if .fill == _state.layoutMode ? hRatio > wRatio : hRatio < wRatio {
             size.width = size.height / hDim * wDim
-        } else if .fill == state.layoutMode ? wRatio > hRatio : wRatio < hRatio {
+        } else if .fill == _state.layoutMode ? wRatio > hRatio : wRatio < hRatio {
             size.height = size.width / wDim * hDim
         }
 
@@ -332,7 +332,7 @@ private extension VideoView {
             log("Renderer: attaching...")
 
             // render cached frame
-            if let frame = track.state.videoFrame {
+            if let frame = track._state.videoFrame {
                 self.log("rendering cached frame \(frame.hashValue)")
                 self.renderFrame(frame)
             }
@@ -343,7 +343,7 @@ private extension VideoView {
             log("Renderer: detaching...")
             track.remove(videoView: self)
             nativeRenderer.isHidden = true
-            state.mutate { $0.render = [] }
+            _state.mutate { $0.render = [] }
         }
 
         // toggle MTKView's isPaused property
@@ -353,7 +353,7 @@ private extension VideoView {
     }
 
     func shouldMirror() -> Bool {
-        switch state.mirrorMode {
+        switch _state.mirrorMode {
         case .auto:
             guard let localVideoTrack = track as? LocalVideoTrack,
                   let cameraCapturer = localVideoTrack.capturer as? CameraCapturer,
@@ -406,8 +406,8 @@ extension VideoView: RTCVideoRenderer {
         // cache last rendered frame
         track?.set(videoFrame: frame)
 
-        if !state.render.contains(.didRenderFirstFrame) {
-            state.mutate { $0.render.insert(.didRenderFirstFrame) }
+        if !_state.render.contains(.didRenderFirstFrame) {
+            _state.mutate { $0.render.insert(.didRenderFirstFrame) }
             // layout after first frame has been rendered
             self.log("Did render first frame")
             DispatchQueue.mainSafeAsync { [weak self] in
@@ -437,7 +437,7 @@ extension VideoView: VideoCapturerDelegate {
 internal extension VideoView {
 
     var isVisible: Bool {
-        return state.didLayout && !isHidden && isEnabled
+        return _state.didLayout && !isHidden && isEnabled
     }
 }
 

@@ -68,9 +68,9 @@ public class LocalParticipant: Participant {
             self.log("[publish] waiting for dimensions to resolve...")
 
             // wait for dimensions
-            return track.capturer.state.mutate { $0.dimensionsCompleter.wait(on: .sdk,
-                                                                             .defaultCaptureStart,
-                                                                             throw: { TrackError.timedOut(message: "unable to resolve dimensions") }) }.then(on: .sdk) { $0 }
+            return track.capturer._state.mutate { $0.dimensionsCompleter.wait(on: .sdk,
+                                                                              .defaultCaptureStart,
+                                                                              throw: { TrackError.timedOut(message: "unable to resolve dimensions") }) }.then(on: .sdk) { $0 }
 
         }.then(on: .sdk) { dimensions -> Promise<(result: RTCRtpTransceiverInit, trackInfo: Livekit_TrackInfo)> in
             // request a new track to the server

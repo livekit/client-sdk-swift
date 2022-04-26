@@ -57,7 +57,7 @@ public class Track: MulticastDelegate<TrackDelegate> {
 
     /// Dimensions of the video (only if video track)
     public var dimensions: Dimensions? {
-        state.dimensions
+        _state.dimensions
     }
 
     /// The last video frame received for this track
@@ -77,7 +77,7 @@ public class Track: MulticastDelegate<TrackDelegate> {
         var videoFrame: RTCVideoFrame?
     }
 
-    internal var state = StateSync(State())
+    internal var _state = StateSync(State())
 
     init(name: String, kind: Kind, source: Source, track: RTCMediaStreamTrack) {
         self.name = name
@@ -187,9 +187,9 @@ internal extension Track {
 
     // returns true when value is updated
     func set(dimensions newValue: Dimensions?) -> Bool {
-        guard self.state.dimensions != newValue else { return false }
+        guard _state.dimensions != newValue else { return false }
 
-        state.mutate { $0.dimensions = newValue }
+        _state.mutate { $0.dimensions = newValue }
 
         guard let videoTrack = self as? VideoTrack else { return true }
         notify { $0.track(videoTrack, didUpdate: newValue) }
@@ -199,8 +199,18 @@ internal extension Track {
 
     // returns true when value is updated
     func set(videoFrame newValue: RTCVideoFrame?) {
-        guard self.state.videoFrame != newValue else { return }
+        guard _state.videoFrame != newValue else { return }
 
-        state.mutate { $0.videoFrame = newValue }
+        _state.mutate { $0.videoFrame = newValue }
+    }
+}
+
+// MARK: - Deprecated
+
+extension Track {
+
+    @available(*, deprecated, renamed: "trackState")
+    public var state: TrackState {
+        self.trackState
     }
 }

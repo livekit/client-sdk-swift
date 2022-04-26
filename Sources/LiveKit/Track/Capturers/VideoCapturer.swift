@@ -61,7 +61,7 @@ public class VideoCapturer: MulticastDelegate<VideoCapturerDelegate>, VideoCaptu
         var dimensionsCompleter = Completer<Dimensions>()
     }
 
-    internal var state = StateSync(State())
+    internal var _state = StateSync(State())
 
     public internal(set) var dimensions: Dimensions? {
         didSet {
@@ -70,7 +70,7 @@ public class VideoCapturer: MulticastDelegate<VideoCapturerDelegate>, VideoCaptu
             notify { $0.capturer(self, didUpdate: self.dimensions) }
 
             log("[publish] dimensions: \(String(describing: dimensions))")
-            state.mutate { $0.dimensionsCompleter.set(value: dimensions) }
+            _state.mutate { $0.dimensionsCompleter.set(value: dimensions) }
         }
     }
 
@@ -109,7 +109,7 @@ public class VideoCapturer: MulticastDelegate<VideoCapturerDelegate>, VideoCaptu
             self.captureState = .stopped
             self.notify { $0.capturer(self, didUpdate: .stopped) }
 
-            self.state.mutate { $0.dimensionsCompleter.reset() }
+            self._state.mutate { $0.dimensionsCompleter.reset() }
 
             return true
         }
