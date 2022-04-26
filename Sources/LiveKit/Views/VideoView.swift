@@ -317,6 +317,9 @@ private extension VideoView {
 
     private func syncRendererAttach() {
 
+        // should always be on main thread
+        assert(Thread.current.isMainThread, "must be called on main thread")
+
         let shouldAttach = (track != nil && isEnabled && !isHidden)
 
         guard let track = track else {
