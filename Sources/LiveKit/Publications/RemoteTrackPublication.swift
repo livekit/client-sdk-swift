@@ -138,8 +138,16 @@ public class RemoteTrackPublication: TrackPublication {
 
             if let newValue = newValue {
 
+                let adaptiveStreamEnabled = (participant?.room.options ?? RoomOptions()).adaptiveStream && .video == newValue.kind
+
+                // reset track settings
+                // track is initially disabled only if adaptive stream and is a video track
+                trackSettings = TrackSettings(enabled: !adaptiveStreamEnabled)
+
+                log("did reset trackSettings: \(trackSettings), kind: \(newValue.kind)")
+
                 // start adaptiveStream timer only if it's a video track
-                if (participant?.room.options.adaptiveStream ?? false), newValue.kind == .video {
+                if adaptiveStreamEnabled {
                     asTimer.restart()
                 }
 
@@ -324,7 +332,7 @@ extension RemoteTrackPublication {
         }
 
         send(trackSettings: newSettings).catch(on: .main) { [weak self] error in
-            self?.log("Failed to send track settings, error: \(error)", .error)
+            self?.log("Failed to send trackSettings, error: \(error)", .error)
         }.always(on: .main) { [weak self] in
             self?.asTimer.restart()
         }

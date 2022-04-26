@@ -20,7 +20,7 @@ internal struct TrackSettings {
     let dimensions: Dimensions
     let videoQuality: VideoQuality
 
-    init(enabled: Bool = true,
+    init(enabled: Bool = false,
          dimensions: Dimensions = .zero,
          videoQuality: VideoQuality = .low) {
 
