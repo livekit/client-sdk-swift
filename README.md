@@ -113,6 +113,9 @@ Since `VideoView` is a UI component, all operations (read/write properties etc) 
 
 Other core classes can be accessed from any thread.
 
+Delegates will be called on the SDK's internal thread.
+Make sure any access to the UI is within the main thread, for example by using `DispatchQueue.main.async`.
+
 # Memory management
 
 It is recommended to use **weak var** when storing references to objects created and managed by the SDK, such as `Participant`, `TrackPublication` etc. These objects are invalid when the `Room` disconnects, and will be released by the SDK. Holding strong reference to these objects will prevent releasing `Room` and other internal objects.
