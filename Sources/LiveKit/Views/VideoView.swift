@@ -242,7 +242,7 @@ public class VideoView: NativeView, Loggable {
         #endif
 
         // dimensions are required to continue computation
-        guard let dimensions = track?.dimensions else {
+        guard let dimensions = track?.state.dimensions else {
             log("dimensions are nil, cannot layout without dimensions")
             return
         }
@@ -317,6 +317,9 @@ private extension VideoView {
 
     private func syncRendererAttach() {
 
+        // should always be on main thread
+        assert(Thread.current.isMainThread, "must be called on main thread")
+
         let shouldAttach = (track != nil && isEnabled && !isHidden)
 
         guard let track = track else {
@@ -328,12 +331,10 @@ private extension VideoView {
         if shouldAttach {
             log("Renderer: attaching...")
 
-            track.videoFrameQueue.async { [weak self] in
-                guard let self = self else { return }
-                if let frame = track.videoFrame {
-                    self.log("rendering cached frame \(frame.hashValue)")
-                    self.renderFrame(frame)
-                }
+            // render cached frame
+            if let frame = track.state.videoFrame {
+                self.log("rendering cached frame \(frame.hashValue)")
+                self.renderFrame(frame)
             }
 
             track.add(videoView: self)
