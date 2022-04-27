@@ -54,6 +54,8 @@ public class TrackPublication: TrackDelegate, Loggable {
         var mimeType: String
         var simulcasted: Bool = false
         var dimensions: Dimensions?
+        //
+        var streamState: StreamState = .paused
     }
 
     internal var _state: StateSync<State>
@@ -77,6 +79,19 @@ public class TrackPublication: TrackDelegate, Loggable {
 
         // listen for events from Track
         track?.add(delegate: self)
+
+        // trigger events when state mutates
+        self._state.onMutate = { [weak self] state, oldState in
+
+            guard let self = self else { return }
+
+            if state.streamState != oldState.streamState {
+                if let participant = self.participant as? RemoteParticipant, let trackPublication = self as? RemoteTrackPublication {
+                    participant.notifyAsync { $0.participant(participant, didUpdate: trackPublication, streamState: state.streamState) }
+                    participant.room.notifyAsync { $0.room(participant.room, participant: participant, didUpdate: trackPublication, streamState: state.streamState) }
+                }
+            }
+        }
     }
 
     internal func updateFromInfo(info: Livekit_TrackInfo) {

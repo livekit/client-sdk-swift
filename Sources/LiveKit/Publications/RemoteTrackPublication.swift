@@ -36,14 +36,7 @@ public class RemoteTrackPublication: TrackPublication {
         track?.muted ?? metadataMuted
     }
 
-    public internal(set) var streamState: StreamState = .paused {
-        didSet {
-            guard oldValue != streamState else { return }
-            guard let participant = self.participant as? RemoteParticipant else { return }
-            participant.notify { $0.participant(participant, didUpdate: self, streamState: self.streamState) }
-            participant.room.notify { $0.room(participant.room, participant: participant, didUpdate: self, streamState: self.streamState) }
-        }
-    }
+    public var streamState: StreamState { _state.streamState }
 
     // user's preference to subscribe or not
     private var preferSubscribed: Bool?

@@ -405,8 +405,9 @@ extension Room: SignalClientDelegate {
             // Try to find RemoteTrackPublication
             guard let trackPublication = participant._state.tracks[update.trackSid] as? RemoteTrackPublication else { continue }
             // Update streamState (and notify)
-            trackPublication.streamState = update.state.toLKType()
+            trackPublication._state.mutate { $0.streamState = update.state.toLKType() }
         }
+
         return true
     }
 
