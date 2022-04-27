@@ -21,44 +21,22 @@ import Promises
 public class Participant: MulticastDelegate<ParticipantDelegate> {
 
     public let sid: Sid
-    public internal(set) var identity: String
-    public internal(set) var name: String
-    public internal(set) var audioLevel: Float = 0.0
-    public internal(set) var isSpeaking: Bool = false {
-        didSet {
-            guard oldValue != isSpeaking else { return }
-            notify { $0.participant(self, didUpdate: self.isSpeaking) }
-            // relavent event for Room doesn't exist yet...
-        }
-    }
-
-    public internal(set) var metadata: String? {
-        didSet {
-            guard oldValue != metadata else { return }
-            notify { $0.participant(self, didUpdate: self.metadata) }
-            room.notify { $0.room(self.room, participant: self, didUpdate: self.metadata) }
-        }
-    }
-
-    public internal(set) var connectionQuality: ConnectionQuality = .unknown {
-        didSet {
-            guard oldValue != connectionQuality else { return }
-            notify { $0.participant(self, didUpdate: self.connectionQuality) }
-            room.notify { $0.room(self.room, participant: self, didUpdate: self.connectionQuality) }
-        }
-    }
-
-    public internal(set) var permissions = ParticipantPermissions()
-
-    public private(set) var joinedAt: Date?
-    public internal(set) var tracks = [String: TrackPublication]()
+    public var identity: String { _state.identity }
+    public var name: String { _state.name }
+    public var audioLevel: Float { _state.audioLevel }
+    public var isSpeaking: Bool { _state.isSpeaking }
+    public var metadata: String? { _state.metadata }
+    public var connectionQuality: ConnectionQuality { _state.connectionQuality }
+    public var permissions: ParticipantPermissions { _state.permissions }
+    public var joinedAt: Date? { _state.joinedAt }
+    public var tracks: [String: TrackPublication] { _state.tracks }
 
     public var audioTracks: [TrackPublication] {
-        tracks.values.filter { $0.kind == .audio }
+        _state.tracks.values.filter { $0.kind == .audio }
     }
 
     public var videoTracks: [TrackPublication] {
-        tracks.values.filter { $0.kind == .video }
+        _state.tracks.values.filter { $0.kind == .video }
     }
 
     internal var info: Livekit_ParticipantInfo?
@@ -66,15 +44,56 @@ public class Participant: MulticastDelegate<ParticipantDelegate> {
     // Reference to the Room this Participant belongs to
     public let room: Room
 
+    // MARK: - Internal
+
+    internal struct State {
+        var identity: String
+        var name: String
+        var audioLevel: Float = 0.0
+        var isSpeaking: Bool = false
+        var metadata: String?
+        var joinedAt: Date?
+        var connectionQuality: ConnectionQuality = .unknown
+        var permissions = ParticipantPermissions()
+        var tracks = [String: TrackPublication]()
+    }
+
+    internal var _state: StateSync<State>
+
     public init(sid: String,
                 identity: String,
                 name: String,
                 room: Room) {
 
         self.sid = sid
-        self.identity = identity
-        self.name = name
         self.room = room
+
+        _state = StateSync(State(
+            identity: identity,
+            name: name
+        ))
+
+        super.init()
+
+        // trigger events when state mutates
+        _state.onMutate = { [weak self] state, oldState in
+
+            guard let self = self else { return }
+
+            if state.isSpeaking != oldState.isSpeaking {
+                self.notifyAsync { $0.participant(self, didUpdate: self.isSpeaking) }
+            }
+
+            if state.metadata != oldState.metadata {
+                self.notifyAsync { $0.participant(self, didUpdate: self.metadata) }
+                self.room.notifyAsync { $0.room(self.room, participant: self, didUpdate: self.metadata) }
+            }
+
+            if state.connectionQuality != oldState.connectionQuality {
+                self.notifyAsync { $0.participant(self, didUpdate: self.connectionQuality) }
+                self.room.notifyAsync { $0.room(self.room, participant: self, didUpdate: self.connectionQuality) }
+            }
+        }
     }
 
     @discardableResult
@@ -83,15 +102,19 @@ public class Participant: MulticastDelegate<ParticipantDelegate> {
     }
 
     internal func addTrack(publication: TrackPublication) {
-        tracks[publication.sid] = publication
+        _state.mutate { $0.tracks[publication.sid] = publication }
         publication.track?.sid = publication.sid
     }
 
     internal func updateFromInfo(info: Livekit_ParticipantInfo) {
-        self.identity = info.identity
-        self.name = info.name
-        self.metadata = info.metadata
-        self.joinedAt = Date(timeIntervalSince1970: TimeInterval(info.joinedAt))
+
+        _state.mutate {
+            $0.identity = info.identity
+            $0.name = info.name
+            $0.metadata = info.metadata
+            $0.joinedAt = Date(timeIntervalSince1970: TimeInterval(info.joinedAt))
+        }
+
         self.info = info
         set(permissions: info.permission.toLKType())
     }
@@ -104,7 +127,8 @@ public class Participant: MulticastDelegate<ParticipantDelegate> {
             return false
         }
 
-        self.permissions = newValue
+        _state.mutate { $0.permissions = newValue }
+
         return true
     }
 }

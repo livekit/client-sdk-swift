@@ -203,7 +203,7 @@ public class LocalParticipant: Participant {
         }
 
         // remove the publication
-        tracks.removeValue(forKey: publication.sid)
+        _state.mutate { $0.tracks.removeValue(forKey: publication.sid) }
 
         // if track is nil, only notify unpublish and return
         guard let track = publication.track as? LocalTrack else {

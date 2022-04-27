@@ -41,7 +41,7 @@ public class RemoteParticipant: Participant {
     }
 
     public func getTrackPublication(sid: Sid) -> RemoteTrackPublication? {
-        return tracks[sid] as? RemoteTrackPublication
+        return _state.tracks[sid] as? RemoteTrackPublication
     }
 
     override func updateFromInfo(info: Livekit_ParticipantInfo) {
@@ -138,7 +138,7 @@ public class RemoteParticipant: Participant {
         }
 
         // remove the publication
-        tracks.removeValue(forKey: publication.sid)
+        _state.mutate { $0.tracks.removeValue(forKey: publication.sid) }
 
         // continue if the publication has a track
         guard let track = publication.track else {

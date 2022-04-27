@@ -184,7 +184,7 @@ private extension Room {
         }
 
         // create array of unpublish promises
-        let promises = participant.tracks.values
+        let promises = participant._state.tracks.values
             .compactMap { $0 as? RemoteTrackPublication }
             .map { participant.unpublish(publication: $0) }
 
@@ -227,7 +227,7 @@ internal extension Room {
         log()
 
         let promises = _state.remoteParticipants.values.map {
-            $0.tracks.values
+            $0._state.tracks.values
                 .compactMap { $0 as? RemoteTrackPublication }
                 .filter { $0.subscribed }
                 .map { $0.sendCurrentTrackSettings() }
@@ -248,7 +248,7 @@ internal extension Room {
         let participantTracks = _state.remoteParticipants.values.map { participant in
             Livekit_ParticipantTracks.with {
                 $0.participantSid = participant.sid
-                $0.trackSids = participant.tracks.values
+                $0.trackSids = participant._state.tracks.values
                     .filter { $0.subscribed != sendUnSub }
                     .map { $0.sid }
             }
@@ -326,8 +326,11 @@ extension Room: SignalClientDelegate {
                     continue
                 }
 
-                participant.audioLevel = speaker.level
-                participant.isSpeaking = speaker.active
+                participant._state.mutate {
+                    $0.audioLevel = speaker.level
+                    $0.isSpeaking = speaker.active
+                }
+
                 if speaker.active {
                     lastSpeakers[speaker.sid] = participant
                 } else {
@@ -348,16 +351,14 @@ extension Room: SignalClientDelegate {
     func signalClient(_ signalClient: SignalClient, didUpdate connectionQuality: [Livekit_ConnectionQualityInfo]) -> Bool {
         log("connectionQuality: \(connectionQuality)", .trace)
 
-        _state.mutate {
-            for entry in connectionQuality {
-                if let localParticipant = $0.localParticipant,
-                   entry.participantSid == localParticipant.sid {
-                    // update for LocalParticipant
-                    localParticipant.connectionQuality = entry.quality.toLKType()
-                } else if let participant = $0.remoteParticipants[entry.participantSid] {
-                    // udpate for RemoteParticipant
-                    participant.connectionQuality = entry.quality.toLKType()
-                }
+        for entry in connectionQuality {
+            if let localParticipant = _state.localParticipant,
+               entry.participantSid == localParticipant.sid {
+                // update for LocalParticipant
+                localParticipant._state.mutate { $0.connectionQuality = entry.quality.toLKType() }
+            } else if let participant = _state.remoteParticipants[entry.participantSid] {
+                // udpate for RemoteParticipant
+                participant._state.mutate { $0.connectionQuality = entry.quality.toLKType() }
             }
         }
 
@@ -367,7 +368,7 @@ extension Room: SignalClientDelegate {
     func signalClient(_ signalClient: SignalClient, didUpdateRemoteMute trackSid: String, muted: Bool) -> Bool {
         log("trackSid: \(trackSid) muted: \(muted)")
 
-        guard let publication = _state.localParticipant?.tracks[trackSid] as? LocalTrackPublication else {
+        guard let publication = _state.localParticipant?._state.tracks[trackSid] as? LocalTrackPublication else {
             // publication was not found but the delegate was handled
             return true
         }
@@ -402,7 +403,7 @@ extension Room: SignalClientDelegate {
             // Try to find RemoteParticipant
             guard let participant = _state.remoteParticipants[update.participantSid] else { continue }
             // Try to find RemoteTrackPublication
-            guard let trackPublication = participant.tracks[update.trackSid] as? RemoteTrackPublication else { continue }
+            guard let trackPublication = participant._state.tracks[update.trackSid] as? RemoteTrackPublication else { continue }
             // Update streamState (and notify)
             trackPublication.streamState = update.state.toLKType()
         }
@@ -452,7 +453,7 @@ extension Room: SignalClientDelegate {
         log()
 
         guard let localParticipant = localParticipant,
-              let publication = localParticipant.tracks[localTrack.trackSid] as? LocalTrackPublication else {
+              let publication = localParticipant._state.tracks[localTrack.trackSid] as? LocalTrackPublication else {
             log("track publication not found", .warning)
             return true
         }
@@ -506,7 +507,7 @@ extension Room: EngineDelegate {
             .joined()
             .compactMap { $0 }
 
-        let allTracks = allParticipants.map { $0.tracks.values.map { $0.track } }.joined()
+        let allTracks = allParticipants.map { $0._state.tracks.values.map { $0.track } }.joined()
             .compactMap { $0 }
 
         // this relies on the last stat entry being the latest
@@ -527,27 +528,35 @@ extension Room: EngineDelegate {
                 seenSids[speaker.sid] = true
                 if let localParticipant = state.localParticipant,
                    speaker.sid == localParticipant.sid {
-                    localParticipant.audioLevel = speaker.level
-                    localParticipant.isSpeaking = true
+                    localParticipant._state.mutate {
+                        $0.audioLevel = speaker.level
+                        $0.isSpeaking = true
+                    }
                     activeSpeakers.append(localParticipant)
                 } else {
                     if let participant = state.remoteParticipants[speaker.sid] {
-                        participant.audioLevel = speaker.level
-                        participant.isSpeaking = true
+                        participant._state.mutate {
+                            $0.audioLevel = speaker.level
+                            $0.isSpeaking = true
+                        }
                         activeSpeakers.append(participant)
                     }
                 }
             }
 
             if let localParticipant = state.localParticipant, seenSids[localParticipant.sid] == nil {
-                localParticipant.audioLevel = 0.0
-                localParticipant.isSpeaking = false
+                localParticipant._state.mutate {
+                    $0.audioLevel = 0.0
+                    $0.isSpeaking = false
+                }
             }
 
             for participant in state.remoteParticipants.values {
                 if seenSids[participant.sid] == nil {
-                    participant.audioLevel = 0.0
-                    participant.isSpeaking = false
+                    participant._state.mutate {
+                        $0.audioLevel = 0.0
+                        $0.isSpeaking = false
+                    }
                 }
             }
 
@@ -586,7 +595,7 @@ extension Room: EngineDelegate {
 
     func engine(_ engine: Engine, didRemove track: RTCMediaStreamTrack) {
         // find the publication
-        guard let publication = _state.remoteParticipants.values.map({ $0.tracks.values }).joined()
+        guard let publication = _state.remoteParticipants.values.map({ $0._state.tracks.values }).joined()
                 .first(where: { $0.sid == track.trackId }) else { return }
         publication.set(track: nil)
     }
