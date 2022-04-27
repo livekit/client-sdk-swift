@@ -52,7 +52,7 @@ public class LocalParticipant: Participant {
             return Promise(EngineError.state(message: "publisher is null"))
         }
 
-        guard tracks.values.first(where: { $0.track === track }) == nil else {
+        guard _state.tracks.values.first(where: { $0.track === track }) == nil else {
             return Promise(TrackError.publish(message: "This track has already been published."))
         }
 
@@ -183,7 +183,7 @@ public class LocalParticipant: Participant {
 
     public func unpublishAll(shouldNotify: Bool = true) -> Promise<Void> {
         // build a list of promises
-        let promises = tracks.values.compactMap { $0 as? LocalTrackPublication }
+        let promises = _state.tracks.values.compactMap { $0 as? LocalTrackPublication }
             .map { unpublish(publication: $0, shouldNotify: shouldNotify) }
         // combine promises to wait all to complete
         return promises.all(on: .sdk)
@@ -357,7 +357,7 @@ public class LocalParticipant: Participant {
 extension LocalParticipant {
 
     internal func publishedTracksInfo() -> [Livekit_TrackPublishedResponse] {
-        tracks.values.filter { $0.track != nil }
+        _state.tracks.values.filter { $0.track != nil }
             .map { publication in
                 Livekit_TrackPublishedResponse.with {
                     $0.cid = publication.track!.mediaTrack.trackId
@@ -370,7 +370,7 @@ extension LocalParticipant {
 
     internal func republishTracks() -> Promise<Void> {
 
-        let mediaTracks = tracks.values.map { $0.track }.compactMap { $0 }
+        let mediaTracks = _state.tracks.values.map { $0.track }.compactMap { $0 }
 
         return unpublishAll().then(on: .sdk) { () -> Promise<Void> in
 

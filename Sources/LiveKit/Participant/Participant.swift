@@ -103,7 +103,7 @@ public class Participant: MulticastDelegate<ParticipantDelegate> {
 
     internal func addTrack(publication: TrackPublication) {
         _state.mutate { $0.tracks[publication.sid] = publication }
-        publication.track?.sid = publication.sid
+        publication.track?._state.mutate { $0.sid = publication.sid }
     }
 
     internal func updateFromInfo(info: Livekit_ParticipantInfo) {
@@ -150,7 +150,7 @@ extension Participant {
     }
 
     internal func getTrackPublication(name: String) -> TrackPublication? {
-        tracks.values.first(where: { $0.name == name })
+        _state.tracks.values.first(where: { $0.name == name })
     }
 
     /// find the first publication matching `source` or any compatible.
@@ -158,11 +158,11 @@ extension Participant {
         // if source is unknown return nil
         guard source != .unknown else { return nil }
         // try to find a Publication with matching source
-        if let result = tracks.values.first(where: { $0.source == source }) {
+        if let result = _state.tracks.values.first(where: { $0.source == source }) {
             return result
         }
         // try to find a compatible Publication
-        if let result = tracks.values.filter({ $0.source == .unknown }).first(where: {
+        if let result = _state.tracks.values.filter({ $0.source == .unknown }).first(where: {
             (source == .microphone && $0.kind == .audio) ||
                 (source == .camera && $0.kind == .video && $0.name != Track.screenShareVideoName) ||
                 (source == .screenShareVideo && $0.kind == .video && $0.name == Track.screenShareVideoName) ||

@@ -45,36 +45,34 @@ public class Track: MulticastDelegate<TrackDelegate> {
 
     public let kind: Track.Kind
     public let source: Track.Source
-    public internal(set) var name: String
-    public internal(set) var sid: Sid?
-    public let mediaTrack: RTCMediaStreamTrack
-    public private(set) var muted: Bool = false
-    public internal(set) var transceiver: RTCRtpTransceiver?
-    public internal(set) var stats: TrackStats?
-    public var sender: RTCRtpSender? {
-        return transceiver?.sender
-    }
+    public let name: String
+
+    public var sid: Sid? { _state.sid }
+    public var muted: Bool { _state.muted }
+    public var stats: TrackStats? { _state.stats }
 
     /// Dimensions of the video (only if video track)
-    public var dimensions: Dimensions? {
-        _state.dimensions
-    }
+    public var dimensions: Dimensions? { _state.dimensions }
 
     /// The last video frame received for this track
-    public private(set) var videoFrame: RTCVideoFrame?
+    public var videoFrame: RTCVideoFrame? { _state.videoFrame }
+    public var trackState: TrackState { _state.trackState }
 
-    public private(set) var trackState: TrackState = .stopped {
-        didSet {
-            guard oldValue != trackState else { return }
-            didUpdateState()
-        }
-    }
+    // MARK: - Internal
 
     internal let videoViews = NSHashTable<VideoView>.weakObjects()
 
+    internal let mediaTrack: RTCMediaStreamTrack
+    internal var transceiver: RTCRtpTransceiver?
+    internal var sender: RTCRtpSender? { transceiver?.sender }
+
     internal struct State {
+        var sid: Sid?
         var dimensions: Dimensions?
         var videoFrame: RTCVideoFrame?
+        var trackState: TrackState = .stopped
+        var muted: Bool = false
+        var stats: TrackStats?
     }
 
     internal var _state = StateSync(State())
@@ -100,7 +98,7 @@ public class Track: MulticastDelegate<TrackDelegate> {
                 return false
             }
 
-            self.trackState = .started
+            self._state.mutate { $0.trackState = .started }
             return true
         }
     }
@@ -115,7 +113,7 @@ public class Track: MulticastDelegate<TrackDelegate> {
                 return false
             }
 
-            self.trackState = .stopped
+            self._state.mutate { $0.trackState = .stopped }
             return true
         }
     }
@@ -148,24 +146,20 @@ public class Track: MulticastDelegate<TrackDelegate> {
         }
     }
 
-    internal func didUpdateState() {
-        //
-    }
-
-    internal func set(muted: Bool,
+    internal func set(muted newValue: Bool,
                       shouldNotify: Bool = true,
                       shouldSendSignal: Bool = false) {
 
-        guard muted != self.muted else { return }
-        self.muted = muted
+        guard _state.muted != newValue else { return }
+        _state.mutate { $0.muted = newValue }
 
-        if muted {
+        if newValue {
             // clear video frame cache if muted
             set(videoFrame: nil)
         }
 
         if shouldNotify {
-            notify { $0.track(self, didUpdate: muted, shouldSendSignal: shouldSendSignal) }
+            notify { $0.track(self, didUpdate: newValue, shouldSendSignal: shouldSendSignal) }
         }
     }
 }
@@ -175,8 +169,8 @@ public class Track: MulticastDelegate<TrackDelegate> {
 internal extension Track {
 
     func set(stats newValue: TrackStats) {
-        guard self.stats != newValue else { return }
-        self.stats = newValue
+        guard _state.stats != newValue else { return }
+        _state.mutate { $0.stats = newValue }
         notify { $0.track(self, didUpdate: newValue) }
     }
 }
@@ -211,6 +205,6 @@ extension Track {
 
     @available(*, deprecated, renamed: "trackState")
     public var state: TrackState {
-        self.trackState
+        self._state.trackState
     }
 }

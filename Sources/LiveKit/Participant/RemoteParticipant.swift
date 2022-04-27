@@ -71,7 +71,7 @@ public class RemoteParticipant: Participant {
             }
         }
 
-        let unpublishPromises = tracks.values
+        let unpublishPromises = _state.tracks.values
             .filter { validTrackPublications[$0.sid] == nil }
             .compactMap { $0 as? RemoteTrackPublication }
             .map { unpublish(publication: $0) }
@@ -110,7 +110,8 @@ public class RemoteParticipant: Participant {
         }
 
         publication.set(track: track)
-        track.sid = publication.sid
+        track._state.mutate { $0.sid = publication.sid }
+
         addTrack(publication: publication)
         return track.start().then(on: .sdk) { _ -> Void in
             self.notify { $0.participant(self, didSubscribe: publication, track: track) }
@@ -120,7 +121,7 @@ public class RemoteParticipant: Participant {
 
     public func unpublishAll(shouldNotify: Bool = true) -> Promise<Void> {
         // build a list of promises
-        let promises = tracks.values.compactMap { $0 as? RemoteTrackPublication }
+        let promises = _state.tracks.values.compactMap { $0 as? RemoteTrackPublication }
             .map { unpublish(publication: $0, shouldNotify: shouldNotify) }
         // combine promises to wait all to complete
         return promises.all(on: .sdk)
