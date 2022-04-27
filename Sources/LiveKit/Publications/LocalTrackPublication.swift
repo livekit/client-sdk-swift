@@ -22,6 +22,9 @@ public class LocalTrackPublication: TrackPublication {
     // indicates whether the track was suspended(muted) by the SDK
     internal var suspended: Bool = false
 
+    // keep reference to cancel later
+    private weak var debounceWorkItem: DispatchWorkItem?
+
     @discardableResult
     public func mute() -> Promise<Void> {
 
@@ -58,9 +61,6 @@ public class LocalTrackPublication: TrackPublication {
 
         return oldValue
     }
-
-    // keep reference to cancel later
-    private weak var debounceWorkItem: DispatchWorkItem?
 
     deinit {
         log()

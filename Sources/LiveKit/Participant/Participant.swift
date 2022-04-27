@@ -68,6 +68,7 @@ public class Participant: MulticastDelegate<ParticipantDelegate> {
         self.sid = sid
         self.room = room
 
+        // initial state
         _state = StateSync(State(
             identity: identity,
             name: name
