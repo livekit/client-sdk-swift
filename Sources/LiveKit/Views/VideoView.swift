@@ -86,7 +86,8 @@ public class VideoView: NativeView, Loggable {
         set { _state.mutate { $0.showDebugInfo = newValue } }
     }
 
-    private var nativeRenderer: NativeRendererView
+    private var nativeRenderer: NativeRendererView?
+
     #if os(iOS)
     private var _debugTextView: UILabel?
     #endif
@@ -118,12 +119,10 @@ public class VideoView: NativeView, Loggable {
         // should always be on main thread
         assert(Thread.current.isMainThread, "must be created on the main thread")
 
-        nativeRenderer = VideoView.createNativeRendererView()
         // initial state
         _state = StateSync(State(viewSize: frame.size))
 
         super.init(frame: frame)
-        addSubview(nativeRenderer)
 
         #if os(iOS)
         clipsToBounds = true
@@ -151,6 +150,17 @@ public class VideoView: NativeView, Loggable {
 
                     // _state.mutate { $0.render = [] }
 
+                    DispatchQueue.main.async { [weak self] in
+
+                        guard let self = self else { return }
+
+                        if let nr = self.nativeRenderer {
+                            self.log("removing nativeRenderer", .trace)
+                            nr.removeFromSuperview()
+                            self.nativeRenderer = nil
+                        }
+                    }
+
                     // CapturerDelegate
                     if let localTrack = track as? LocalVideoTrack {
                         localTrack.capturer.remove(delegate: self)
@@ -173,13 +183,12 @@ public class VideoView: NativeView, Loggable {
                         guard let self = self else { return }
 
                         // re-create renderer on main thread
-                        self.reCreateNativeRenderer()
+                        let nr = self.reCreateNativeRenderer()
 
                         if let frame = track._state.videoFrame, self._state.canRender {
 
-                            self.log("rendering cached frame tack: \(track._state.sid ?? "nil")")
-                            // self.renderFrame(frame)
-                            self.nativeRenderer.renderFrame(frame)
+                            self.log("rendering cached frame tack: \(track._state.sid ?? "nil")", .trace)
+                            nr.renderFrame(frame)
                             self.markNeedsLayout()
                         }
                     }
@@ -279,7 +288,7 @@ public class VideoView: NativeView, Loggable {
                                    width: size.width,
                                    height: size.height)
 
-        nativeRenderer.frame = rendererFrame
+        nativeRenderer?.frame = rendererFrame
 
         if _state.rendererSize != rendererFrame.size {
             // mutate if required
@@ -290,21 +299,24 @@ public class VideoView: NativeView, Loggable {
         // nativeRenderer.layer!.borderColor = NSColor.red.cgColor
         // nativeRenderer.layer!.borderWidth = 3
 
-        if shouldMirror() {
-            #if os(macOS)
-            // this is required for macOS
-            nativeRenderer.set(anchorPoint: CGPoint(x: 0.5, y: 0.5))
-            nativeRenderer.wantsLayer = true
-            nativeRenderer.layer!.sublayerTransform = VideoView.mirrorTransform
-            #elseif os(iOS)
-            nativeRenderer.layer.transform = VideoView.mirrorTransform
-            #endif
-        } else {
-            #if os(macOS)
-            nativeRenderer.layer?.sublayerTransform = CATransform3DIdentity
-            #elseif os(iOS)
-            nativeRenderer.layer.transform = CATransform3DIdentity
-            #endif
+        if let nr = nativeRenderer {
+
+            if shouldMirror() {
+                #if os(macOS)
+                // this is required for macOS
+                nr.set(anchorPoint: CGPoint(x: 0.5, y: 0.5))
+                nr.wantsLayer = true
+                nr.layer!.sublayerTransform = VideoView.mirrorTransform
+                #elseif os(iOS)
+                nr.layer.transform = VideoView.mirrorTransform
+                #endif
+            } else {
+                #if os(macOS)
+                nr.layer?.sublayerTransform = CATransform3DIdentity
+                #elseif os(iOS)
+                nr.layer.transform = CATransform3DIdentity
+                #endif
+            }
         }
     }
 }
@@ -336,21 +348,27 @@ private extension VideoView {
     }
     #endif
 
-    func reCreateNativeRenderer() {
+    func reCreateNativeRenderer() -> NativeRendererView {
         // should always be on main thread
         assert(Thread.current.isMainThread, "must be called on main thread")
 
         let newView = VideoView.createNativeRendererView()
         addSubview(newView)
+
         let oldView = nativeRenderer
         nativeRenderer = newView
-        oldView.removeFromSuperview()
+
+        if let oldView = oldView {
+            oldView.removeFromSuperview()
+        }
 
         #if os(iOS)
         if let view = _debugTextView {
             bringSubviewToFront(view)
         }
         #endif
+
+        return newView
     }
 
     func shouldMirror() -> Bool {
@@ -371,13 +389,14 @@ private extension VideoView {
 extension VideoView: RTCVideoRenderer {
 
     public func setSize(_ size: CGSize) {
-        nativeRenderer.setSize(size)
+        guard let nr = nativeRenderer else { return }
+        nr.setSize(size)
     }
 
     public func renderFrame(_ frame: RTCVideoFrame?) {
 
         // prevent any extra rendering if already !isEnabled etc.
-        guard _state.canRender else {
+        guard _state.canRender, let nr = nativeRenderer else {
             //
             return
         }
@@ -408,20 +427,14 @@ extension VideoView: RTCVideoRenderer {
             }
         }
 
-        nativeRenderer.renderFrame(frame)
+        nr.renderFrame(frame)
 
         // cache last rendered frame
         track?.set(videoFrame: frame)
 
         if !_state.renderState.contains(.didRenderFirstFrame) {
             _state.mutate { $0.renderState.insert(.didRenderFirstFrame) }
-            // layout after first frame has been rendered
             self.log("Did render first frame")
-            DispatchQueue.mainSafeAsync { [weak self] in
-                guard let self = self else { return }
-                self.nativeRenderer.isHidden = false
-                self.markNeedsLayout()
-            }
         }
     }
 }
