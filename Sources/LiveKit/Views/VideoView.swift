@@ -68,20 +68,6 @@ public class VideoView: NativeView, Loggable {
     @available(*, deprecated, message: "Metal is always used")
     public var preferMetal: Bool = true
 
-    /// Size of this view (used to notify delegates)
-    /// usually should be equal to `frame.size`
-    public internal(set) var viewSize: CGSize {
-        didSet {
-            // should always be on main thread
-            assert(Thread.current.isMainThread, "must be called on main thread")
-
-            guard oldValue != viewSize else { return }
-            // notify viewSize update
-            guard let track = track else { return }
-            track.notify { $0.track(track, videoView: self, didUpdate: self.viewSize) }
-        }
-    }
-
     /// Calls addRenderer and/or removeRenderer internally for convenience.
     public weak var track: VideoTrack? {
         get { _state.track }
@@ -166,34 +152,42 @@ public class VideoView: NativeView, Loggable {
     // MARK: - Internal
 
     internal struct State {
+
         weak var track: VideoTrack?
         var isEnabled: Bool = true
         var isHidden: Bool = false
 
-        var showDebugInfo: Bool = false
+        // layout related
+        var viewSize: CGSize
         var didLayout: Bool = false
         var layoutMode: LayoutMode = .fill
+
         var mirrorMode: MirrorMode = .auto
         var renderState = RenderState()
+
+        var showDebugInfo: Bool = false
     }
 
-    internal var _state = StateSync(State())
+    internal var _state: StateSync<State>
 
     public init(frame: CGRect = .zero, preferMetal: Bool = true) {
 
         // should always be on main thread
         assert(Thread.current.isMainThread, "must be called on main thread")
 
-        self.viewSize = frame.size
-        self.nativeRenderer = VideoView.createNativeRendererView()
+        nativeRenderer = VideoView.createNativeRendererView()
+        // initial state
+        _state = StateSync(State(viewSize: frame.size))
+
         super.init(frame: frame)
+
         #if os(iOS)
-        self.clipsToBounds = true
+        clipsToBounds = true
         #endif
         addSubview(nativeRenderer)
 
         // trigger events when state mutates
-        self._state.onMutate = { [weak self] state, oldState in
+        _state.onMutate = { [weak self] state, oldState in
 
             guard let self = self else { return }
 
@@ -201,7 +195,7 @@ public class VideoView: NativeView, Loggable {
                 state.layoutMode != oldState.layoutMode ||
                 state.mirrorMode != oldState.mirrorMode
 
-            let rendererShouldBeAttached = state.rendererShouldBeAttached != oldState.rendererShouldBeAttached
+            let rendererShouldBeAttached = state.canRender != oldState.canRender
             // track was swapped
             let trackDidMutate = !(oldState.track?.isEqual(state.track) ?? false)
 
@@ -224,8 +218,13 @@ public class VideoView: NativeView, Loggable {
             }
 
             // renderState updated
-            if let track = state.track, state.renderState != oldState.renderState {
+            if state.renderState != oldState.renderState, let track = state.track {
                 track.notifyAsync { $0.track(track, videoView: self, didUpdate: state.renderState) }
+            }
+
+            // viewSize updated
+            if state.viewSize != oldState.viewSize, let track = state.track {
+                track.notifyAsync { $0.track(track, videoView: self, didUpdate: state.viewSize) }
             }
 
             if needsLayout {
@@ -251,34 +250,33 @@ public class VideoView: NativeView, Loggable {
         assert(Thread.current.isMainThread, "must be called on main thread")
 
         defer {
-            let size = self.frame.size
-            self.viewSize = size
-            _state.mutate { $0.didLayout = true }
+            let size = frame.size
 
-            track?.notify { [weak track] in
-                guard let track = track else { return }
-                $0.track(track, videoView: self, didLayout: size)
+            _state.mutate {
+                $0.viewSize = size
+                $0.didLayout = true
             }
         }
 
         #if os(iOS)
         if _state.showDebugInfo {
-            let d = track?.dimensions ?? .zero
+            let t = _state.track?.sid ?? "nil"
+            let d = _state.track?.dimensions ?? .zero
             let r = createDebugTextView()
-            r.text = "\(d.width)x\(d.height)\n" + "isEnabled:\(isEnabled)"
+            r.text = "\(t) \(d.width)x\(d.height)\n" + "isEnabled:\(isEnabled)"
             r.sizeToFit()
         }
         #endif
 
         // dimensions are required to continue computation
-        guard let dimensions = track?._state.dimensions else {
+        guard let track = _state.track, let dimensions = track._state.dimensions else {
             log("dimensions are nil, cannot layout without dimensions")
             return
         }
 
-        guard isEnabled, !isHidden else {
+        guard _state.canRender else {
             // skip following layout logic if hidden
-            log("skipping layout logic (!isEnabled or isHidden)...")
+            log("skipping layout logic (!canRender)...")
             return
         }
 
@@ -326,7 +324,7 @@ public class VideoView: NativeView, Loggable {
 
 internal extension VideoView.State {
 
-    var rendererShouldBeAttached: Bool {
+    var canRender: Bool {
         track != nil && isEnabled && !isHidden
     }
 }
@@ -449,7 +447,7 @@ extension VideoView: RTCVideoRenderer {
             }
         }
 
-        DispatchQueue.webRTC.sync { nativeRenderer.renderFrame(frame) }
+        nativeRenderer.renderFrame(frame)
 
         // cache last rendered frame
         track?.set(videoFrame: frame)
