@@ -57,16 +57,10 @@ public class VideoView: NativeView, Loggable {
     }
 
     /// Flips the video horizontally, useful for local VideoViews.
-    /// Known Issue: this will not work when os is macOS and ``preferMetal`` is false.
     public var mirrorMode: MirrorMode {
         get { _state.mirrorMode }
         set { _state.mutate { $0.mirrorMode = newValue } }
     }
-
-    /// OpenGL is deprecated and the SDK prefers to use Metal by default.
-    /// Setting false when creating ``VideoView`` will force to use OpenGL.
-    @available(*, deprecated, message: "Metal is always used")
-    public var preferMetal: Bool = true
 
     /// Calls addRenderer and/or removeRenderer internally for convenience.
     public weak var track: VideoTrack? {
@@ -119,7 +113,7 @@ public class VideoView: NativeView, Loggable {
 
     internal var _state: StateSync<State>
 
-    public init(frame: CGRect = .zero, preferMetal: Bool = true) {
+    public override init(frame: CGRect = .zero) {
 
         // should always be on main thread
         assert(Thread.current.isMainThread, "must be created on the main thread")
@@ -144,11 +138,11 @@ public class VideoView: NativeView, Loggable {
                 state.layoutMode != oldState.layoutMode ||
                 state.mirrorMode != oldState.mirrorMode
 
-            let rendererShouldBeAttached = state.canRender != oldState.canRender
+            let canRenderDidUpdate = state.canRender != oldState.canRender
             // track was swapped
-            let trackDidMutate = !(oldState.track?.isEqual(state.track) ?? false)
+            let trackDidUpdate = !(oldState.track?.isEqual(state.track) ?? false)
 
-            if trackDidMutate || rendererShouldBeAttached {
+            if trackDidUpdate || canRenderDidUpdate {
 
                 // clean up old track
                 if let track = oldState.track {
