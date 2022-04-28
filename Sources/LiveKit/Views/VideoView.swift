@@ -138,21 +138,12 @@ public class VideoView: NativeView, Loggable {
     }
 
     public override var isHidden: Bool {
-        get { super.isHidden }
-        // TODO: Sync with state
-        set { super.isHidden = newValue }
+        get { _state.isHidden }
+        set {
+            _state.mutate { $0.isHidden = newValue }
+            DispatchQueue.mainSafeAsync { super.isHidden = newValue }
+        }
     }
-
-    //    public override var isHidden: Bool {
-    //        didSet {
-    //            // should always be on main thread
-    //            assert(Thread.current.isMainThread, "must be called on main thread")
-    //
-    //            guard oldValue != isHidden else { return }
-    //            syncRendererAttach()
-    //            markNeedsLayout()
-    //        }
-    //    }
 
     public var showDebugInfo: Bool {
         get { _state.showDebugInfo }
