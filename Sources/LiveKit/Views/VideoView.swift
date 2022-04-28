@@ -74,50 +74,6 @@ public class VideoView: NativeView, Loggable {
         set { _state.mutate { $0.track = newValue } }
     }
 
-    //        didSet {
-    //            // should always be on main thread
-    //            assert(Thread.current.isMainThread, "must be called on main thread")
-    //
-    //            guard !(oldValue?.isEqual(track) ?? false) else { return }
-    //
-    //            if let oldValue = oldValue {
-    //
-    //                log("removing previous renderer")
-    //                oldValue.remove(videoView: self)
-    //                nativeRenderer.isHidden = true
-    //                DispatchQueue.webRTC.sync { nativeRenderer.renderFrame(nil) }
-    //                _state.mutate { $0.render = [] }
-    //
-    //                // CapturerDelegate
-    //                if let localTrack = oldValue as? LocalVideoTrack {
-    //                    localTrack.capturer.remove(delegate: self)
-    //                }
-    //
-    //                // notify detach
-    //                oldValue.notify { [weak oldValue] (delegate) -> Void in
-    //                    guard let oldValue = oldValue else { return }
-    //                    delegate.track(oldValue, didDetach: self)
-    //                }
-    //            }
-    //
-    //            if let track = track {
-    //                // CapturerDelegate
-    //                if let localTrack = track as? LocalVideoTrack {
-    //                    localTrack.capturer.add(delegate: self)
-    //                }
-    //
-    //                // notify attach
-    //                track.notify { [weak track] (delegate) -> Void in
-    //                    guard let track = track else { return }
-    //                    delegate.track(track, didAttach: self)
-    //                }
-    //            }
-    //
-    //            syncRendererAttach()
-    //            markNeedsLayout()
-    //        }
-    //    }
-
     public var isEnabled: Bool {
         get { _state.isEnabled }
         set { _state.mutate { $0.isEnabled = newValue } }
@@ -196,14 +152,28 @@ public class VideoView: NativeView, Loggable {
 
                 // clean up old track
                 if let track = oldState.track {
+
                     track.remove(videoView: self)
+
+                    // _state.mutate { $0.render = [] }
+
+                    // CapturerDelegate
+                    if let localTrack = track as? LocalVideoTrack {
+                        localTrack.capturer.remove(delegate: self)
+                    }
+
+                    // notify detach
+                    track.notifyAsync { [weak self, weak track] (delegate) -> Void in
+                        guard let self = self, let track = track else { return }
+                        delegate.track(track, didDetach: self)
+                    }
                 }
 
                 // set new track
                 if let track = state.track {
-                    
+
                     track.add(videoView: self)
-                    
+
                     DispatchQueue.main.async { [weak self] in
 
                         guard let self = self else { return }
@@ -219,6 +189,17 @@ public class VideoView: NativeView, Loggable {
                             self.markNeedsLayout()
                         }
                     }
+
+                    // CapturerDelegate
+                    if let localTrack = track as? LocalVideoTrack {
+                        localTrack.capturer.add(delegate: self)
+                    }
+
+                    // notify attach
+                    track.notifyAsync { [weak self, weak track] (delegate) -> Void in
+                        guard let self = self, let track = track else { return }
+                        delegate.track(track, didAttach: self)
+                    }
                 }
             }
 
@@ -231,6 +212,11 @@ public class VideoView: NativeView, Loggable {
             if state.viewSize != oldState.viewSize, let track = state.track {
                 track.notifyAsync { $0.track(track, videoView: self, didUpdate: state.viewSize) }
             }
+
+            // toggle MTKView's isPaused property
+            // https://developer.apple.com/documentation/metalkit/mtkview/1535973-ispaused
+            // https://developer.apple.com/forums/thread/105252
+            // nativeRenderer.asMetalView?.isPaused = !shouldAttach
 
             if needsLayout {
                 DispatchQueue.mainSafeAsync {
@@ -355,44 +341,6 @@ private extension VideoView {
         return r
     }
     #endif
-
-    //    private func syncRendererAttach() {
-    //
-    //        // should always be on main thread
-    //        assert(Thread.current.isMainThread, "must be called on main thread")
-    //
-    //        let shouldAttach = (track != nil && isEnabled && !isHidden)
-    //
-    //        guard let track = track else {
-    //            // Possibly Track was released first
-    //            log("track is nil")
-    //            return
-    //        }
-    //
-    //        if shouldAttach {
-    //            log("Renderer: attaching...")
-    //
-    //            // render cached frame
-    //            if let frame = track._state.videoFrame {
-    //                self.log("rendering cached frame \(frame.hashValue)")
-    //                self.renderFrame(frame)
-    //            }
-    //
-    //            track.add(videoView: self)
-    //
-    //        } else {
-    //            log("Renderer: detaching...")
-    //            track.remove(videoView: self)
-    //            nativeRenderer.isHidden = true
-    //            DispatchQueue.webRTC.sync { nativeRenderer.renderFrame(nil) }
-    //            _state.mutate { $0.render = [] }
-    //        }
-    //
-    //        // toggle MTKView's isPaused property
-    //        // https://developer.apple.com/documentation/metalkit/mtkview/1535973-ispaused
-    //        // https://developer.apple.com/forums/thread/105252
-    //        nativeRenderer.asMetalView?.isPaused = !shouldAttach
-    //    }
 
     func reCreateNativeRenderer() {
         // should always be on main thread
