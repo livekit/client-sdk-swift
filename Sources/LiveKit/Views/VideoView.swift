@@ -141,14 +141,6 @@ public class VideoView: NativeView, Loggable {
     private var _debugTextView: UILabel?
     #endif
 
-    // used for adaptiveStream
-    internal var rendererSize: CGSize {
-        // should always be on main thread
-        assert(Thread.current.isMainThread, "must be called on main thread")
-
-        return nativeRenderer.frame.size
-    }
-
     // MARK: - Internal
 
     internal struct State {
@@ -159,6 +151,7 @@ public class VideoView: NativeView, Loggable {
 
         // layout related
         var viewSize: CGSize
+        var rendererSize: CGSize = .zero
         var didLayout: Bool = false
         var layoutMode: LayoutMode = .fill
 
@@ -173,25 +166,25 @@ public class VideoView: NativeView, Loggable {
     public init(frame: CGRect = .zero, preferMetal: Bool = true) {
 
         // should always be on main thread
-        assert(Thread.current.isMainThread, "must be called on main thread")
+        assert(Thread.current.isMainThread, "must be created on the main thread")
 
         nativeRenderer = VideoView.createNativeRendererView()
         // initial state
         _state = StateSync(State(viewSize: frame.size))
 
         super.init(frame: frame)
+        addSubview(nativeRenderer)
 
         #if os(iOS)
         clipsToBounds = true
         #endif
-        addSubview(nativeRenderer)
 
         // trigger events when state mutates
         _state.onMutate = { [weak self] state, oldState in
 
             guard let self = self else { return }
 
-            var needsLayout = state.showDebugInfo != oldState.showDebugInfo ||
+            let needsLayout = state.showDebugInfo != oldState.showDebugInfo ||
                 state.layoutMode != oldState.layoutMode ||
                 state.mirrorMode != oldState.mirrorMode
 
@@ -252,9 +245,12 @@ public class VideoView: NativeView, Loggable {
         defer {
             let size = frame.size
 
-            _state.mutate {
-                $0.viewSize = size
-                $0.didLayout = true
+            if _state.viewSize != size || !_state.didLayout {
+                // mutate if required
+                _state.mutate {
+                    $0.viewSize = size
+                    $0.didLayout = true
+                }
             }
         }
 
@@ -264,19 +260,13 @@ public class VideoView: NativeView, Loggable {
             let d = _state.track?.dimensions ?? .zero
             let r = createDebugTextView()
             r.text = "\(t) \(d.width)x\(d.height)\n" + "isEnabled:\(isEnabled)"
-            r.sizeToFit()
+            r.frame = bounds
         }
         #endif
 
         // dimensions are required to continue computation
         guard let track = _state.track, let dimensions = track._state.dimensions else {
             log("dimensions are nil, cannot layout without dimensions")
-            return
-        }
-
-        guard _state.canRender else {
-            // skip following layout logic if hidden
-            log("skipping layout logic (!canRender)...")
             return
         }
 
@@ -292,12 +282,17 @@ public class VideoView: NativeView, Loggable {
             size.height = size.width / wDim * hDim
         }
 
-        // center layout
-        // DispatchQueue.webRTC.sync {
-        nativeRenderer.frame = CGRect(x: -((size.width - frame.size.width) / 2),
-                                      y: -((size.height - frame.size.height) / 2),
-                                      width: size.width,
-                                      height: size.height)
+        let rendererFrame = CGRect(x: -((size.width - frame.size.width) / 2),
+                                   y: -((size.height - frame.size.height) / 2),
+                                   width: size.width,
+                                   height: size.height)
+
+        nativeRenderer.frame = rendererFrame
+
+        if _state.rendererSize != rendererFrame.size {
+            // mutate if required
+            _state.mutate { $0.rendererSize = rendererFrame.size }
+        }
 
         // nativeRenderer.wantsLayer = true
         // nativeRenderer.layer!.borderColor = NSColor.red.cgColor
@@ -336,13 +331,13 @@ private extension VideoView {
     #if os(iOS)
     private func createDebugTextView() -> UILabel {
         if let d = _debugTextView { return d }
-        let r = UILabel(frame: .zero)
+        let r = DebugUILabel(frame: .zero)
         r.numberOfLines = 0
         r.adjustsFontSizeToFitWidth = false
         r.lineBreakMode = .byWordWrapping
         r.textColor = .white
         r.font = .systemFont(ofSize: 11)
-        r.backgroundColor = .black
+        r.backgroundColor = .clear
         addSubview(r)
         _debugTextView = r
         return r
@@ -396,6 +391,10 @@ private extension VideoView {
         let oldView = nativeRenderer
         nativeRenderer = newView
         oldView.removeFromSuperview()
+
+        if let view = _debugTextView {
+            bringSubviewToFront(view)
+        }
     }
 
     func shouldMirror() -> Bool {
@@ -421,6 +420,12 @@ extension VideoView: RTCVideoRenderer {
 
     public func renderFrame(_ frame: RTCVideoFrame?) {
 
+        // prevent any extra rendering if already !isEnabled etc.
+        guard _state.canRender else {
+            //
+            return
+        }
+        
         if let frame = frame {
 
             let dimensions = Dimensions(width: frame.width,
@@ -483,7 +488,7 @@ extension VideoView: VideoCapturerDelegate {
 internal extension VideoView {
 
     var isVisible: Bool {
-        return _state.didLayout && !isHidden && isEnabled
+        _state.didLayout && !isHidden && isEnabled
     }
 }
 
@@ -574,6 +579,15 @@ extension NSView {
             layer.position = position
             layer.anchorPoint = anchorPoint
         }
+    }
+}
+#endif
+
+#if os(iOS)
+private class DebugUILabel: UILabel {
+    override func drawText(in rect: CGRect) {
+        let textRect = super.textRect(forBounds: bounds, limitedToNumberOfLines: numberOfLines)
+        super.drawText(in: textRect)
     }
 }
 #endif
