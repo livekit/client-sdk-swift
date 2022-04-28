@@ -197,7 +197,13 @@ public class VideoView: NativeView, Loggable {
                 // clean up old track
                 if let track = oldState.track {
                     track.remove(videoView: self)
+                }
 
+                // set new track
+                if let track = state.track {
+                    
+                    track.add(videoView: self)
+                    
                     DispatchQueue.main.async { [weak self] in
 
                         guard let self = self else { return }
@@ -213,11 +219,6 @@ public class VideoView: NativeView, Loggable {
                             self.markNeedsLayout()
                         }
                     }
-                }
-
-                // set new track
-                if let track = state.track {
-                    track.add(videoView: self)
                 }
             }
 
@@ -403,9 +404,11 @@ private extension VideoView {
         nativeRenderer = newView
         oldView.removeFromSuperview()
 
+        #if os(iOS)
         if let view = _debugTextView {
             bringSubviewToFront(view)
         }
+        #endif
     }
 
     func shouldMirror() -> Bool {
