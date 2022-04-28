@@ -198,14 +198,25 @@ public class VideoView: NativeView, Loggable {
                 if let track = oldState.track {
                     track.remove(videoView: self)
 
-                    DispatchQueue.main.async {
+                    DispatchQueue.main.async { [weak self] in
+
+                        guard let self = self else { return }
+
+                        // re-create renderer on main thread
                         self.reCreateNativeRenderer()
+
+                        if let frame = track._state.videoFrame, self._state.canRender {
+
+                            self.log("rendering cached frame tack: \(track._state.sid ?? "nil")")
+                            // self.renderFrame(frame)
+                            self.nativeRenderer.renderFrame(frame)
+                            self.markNeedsLayout()
+                        }
                     }
                 }
 
                 // set new track
                 if let track = state.track {
-
                     track.add(videoView: self)
                 }
             }
@@ -425,7 +436,7 @@ extension VideoView: RTCVideoRenderer {
             //
             return
         }
-        
+
         if let frame = frame {
 
             let dimensions = Dimensions(width: frame.width,
