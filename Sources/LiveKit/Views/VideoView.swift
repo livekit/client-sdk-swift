@@ -84,68 +84,75 @@ public class VideoView: NativeView, Loggable {
 
     /// Calls addRenderer and/or removeRenderer internally for convenience.
     public weak var track: VideoTrack? {
-        didSet {
-            // should always be on main thread
-            assert(Thread.current.isMainThread, "must be called on main thread")
-
-            guard !(oldValue?.isEqual(track) ?? false) else { return }
-
-            if let oldValue = oldValue {
-
-                log("removing previous renderer")
-                oldValue.remove(videoView: self)
-
-                // CapturerDelegate
-                if let localTrack = oldValue as? LocalVideoTrack {
-                    localTrack.capturer.remove(delegate: self)
-                }
-
-                // notify detach
-                oldValue.notify { [weak oldValue] (delegate) -> Void in
-                    guard let oldValue = oldValue else { return }
-                    delegate.track(oldValue, didDetach: self)
-                }
-            }
-
-            if let track = track {
-                // CapturerDelegate
-                if let localTrack = track as? LocalVideoTrack {
-                    localTrack.capturer.add(delegate: self)
-                }
-
-                // notify attach
-                track.notify { [weak track] (delegate) -> Void in
-                    guard let track = track else { return }
-                    delegate.track(track, didAttach: self)
-                }
-            }
-
-            syncRendererAttach()
-            markNeedsLayout()
-        }
+        get { _state.track }
+        set { _state.mutate { $0.track = newValue } }
     }
 
-    public var isEnabled: Bool = true {
-        didSet {
-            // should always be on main thread
-            assert(Thread.current.isMainThread, "must be called on main thread")
+    //        didSet {
+    //            // should always be on main thread
+    //            assert(Thread.current.isMainThread, "must be called on main thread")
+    //
+    //            guard !(oldValue?.isEqual(track) ?? false) else { return }
+    //
+    //            if let oldValue = oldValue {
+    //
+    //                log("removing previous renderer")
+    //                oldValue.remove(videoView: self)
+    //                nativeRenderer.isHidden = true
+    //                DispatchQueue.webRTC.sync { nativeRenderer.renderFrame(nil) }
+    //                _state.mutate { $0.render = [] }
+    //
+    //                // CapturerDelegate
+    //                if let localTrack = oldValue as? LocalVideoTrack {
+    //                    localTrack.capturer.remove(delegate: self)
+    //                }
+    //
+    //                // notify detach
+    //                oldValue.notify { [weak oldValue] (delegate) -> Void in
+    //                    guard let oldValue = oldValue else { return }
+    //                    delegate.track(oldValue, didDetach: self)
+    //                }
+    //            }
+    //
+    //            if let track = track {
+    //                // CapturerDelegate
+    //                if let localTrack = track as? LocalVideoTrack {
+    //                    localTrack.capturer.add(delegate: self)
+    //                }
+    //
+    //                // notify attach
+    //                track.notify { [weak track] (delegate) -> Void in
+    //                    guard let track = track else { return }
+    //                    delegate.track(track, didAttach: self)
+    //                }
+    //            }
+    //
+    //            syncRendererAttach()
+    //            markNeedsLayout()
+    //        }
+    //    }
 
-            guard oldValue != isEnabled else { return }
-            syncRendererAttach()
-            markNeedsLayout()
-        }
+    public var isEnabled: Bool {
+        get { _state.isEnabled }
+        set { _state.mutate { $0.isEnabled = newValue } }
     }
 
     public override var isHidden: Bool {
-        didSet {
-            // should always be on main thread
-            assert(Thread.current.isMainThread, "must be called on main thread")
-
-            guard oldValue != isHidden else { return }
-            syncRendererAttach()
-            markNeedsLayout()
-        }
+        get { super.isHidden }
+        // TODO: Sync with state
+        set { super.isHidden = newValue }
     }
+
+    //    public override var isHidden: Bool {
+    //        didSet {
+    //            // should always be on main thread
+    //            assert(Thread.current.isMainThread, "must be called on main thread")
+    //
+    //            guard oldValue != isHidden else { return }
+    //            syncRendererAttach()
+    //            markNeedsLayout()
+    //        }
+    //    }
 
     public var showDebugInfo: Bool {
         get { _state.showDebugInfo }
@@ -168,16 +175,24 @@ public class VideoView: NativeView, Loggable {
     // MARK: - Internal
 
     internal struct State {
+        weak var track: VideoTrack?
+        var isEnabled: Bool = true
+        var isHidden: Bool = false
+
         var showDebugInfo: Bool = false
         var didLayout: Bool = false
         var layoutMode: LayoutMode = .fill
         var mirrorMode: MirrorMode = .auto
-        var render = RenderState()
+        var renderState = RenderState()
     }
 
     internal var _state = StateSync(State())
 
     public init(frame: CGRect = .zero, preferMetal: Bool = true) {
+
+        // should always be on main thread
+        assert(Thread.current.isMainThread, "must be called on main thread")
+
         self.viewSize = frame.size
         self.nativeRenderer = VideoView.createNativeRendererView()
         super.init(frame: frame)
@@ -191,18 +206,41 @@ public class VideoView: NativeView, Loggable {
 
             guard let self = self else { return }
 
-            if state.showDebugInfo != oldState.showDebugInfo ||
+            var needsLayout = state.showDebugInfo != oldState.showDebugInfo ||
                 state.layoutMode != oldState.layoutMode ||
-                state.mirrorMode != oldState.mirrorMode {
-                DispatchQueue.mainSafeAsync {
-                    self.markNeedsLayout()
+                state.mirrorMode != oldState.mirrorMode
+
+            let rendererShouldBeAttached = state.rendererShouldBeAttached != oldState.rendererShouldBeAttached
+            // track was swapped
+            let trackDidMutate = !(oldState.track?.isEqual(state.track) ?? false)
+
+            if trackDidMutate || rendererShouldBeAttached {
+
+                // clean up old track
+                if let track = oldState.track {
+                    track.remove(videoView: self)
+
+                    DispatchQueue.main.async {
+                        self.reCreateNativeRenderer()
+                    }
+                }
+
+                // set new track
+                if let track = state.track {
+
+                    track.add(videoView: self)
                 }
             }
 
-            guard let track = self.track else { return }
+            // renderState updated
+            if let track = state.track, state.renderState != oldState.renderState {
+                track.notifyAsync { $0.track(track, videoView: self, didUpdate: state.renderState) }
+            }
 
-            if state.render != oldState.render {
-                track.notifyAsync { $0.track(track, videoView: self, didUpdate: state.render) }
+            if needsLayout {
+                DispatchQueue.mainSafeAsync {
+                    self.markNeedsLayout()
+                }
             }
         }
     }
@@ -295,6 +333,13 @@ public class VideoView: NativeView, Loggable {
     }
 }
 
+internal extension VideoView.State {
+
+    var rendererShouldBeAttached: Bool {
+        track != nil && isEnabled && !isHidden
+    }
+}
+
 // MARK: - Private
 
 private extension VideoView {
@@ -315,47 +360,59 @@ private extension VideoView {
     }
     #endif
 
-    private func syncRendererAttach() {
+    //    private func syncRendererAttach() {
+    //
+    //        // should always be on main thread
+    //        assert(Thread.current.isMainThread, "must be called on main thread")
+    //
+    //        let shouldAttach = (track != nil && isEnabled && !isHidden)
+    //
+    //        guard let track = track else {
+    //            // Possibly Track was released first
+    //            log("track is nil")
+    //            return
+    //        }
+    //
+    //        if shouldAttach {
+    //            log("Renderer: attaching...")
+    //
+    //            // render cached frame
+    //            if let frame = track._state.videoFrame {
+    //                self.log("rendering cached frame \(frame.hashValue)")
+    //                self.renderFrame(frame)
+    //            }
+    //
+    //            track.add(videoView: self)
+    //
+    //        } else {
+    //            log("Renderer: detaching...")
+    //            track.remove(videoView: self)
+    //            nativeRenderer.isHidden = true
+    //            DispatchQueue.webRTC.sync { nativeRenderer.renderFrame(nil) }
+    //            _state.mutate { $0.render = [] }
+    //        }
+    //
+    //        // toggle MTKView's isPaused property
+    //        // https://developer.apple.com/documentation/metalkit/mtkview/1535973-ispaused
+    //        // https://developer.apple.com/forums/thread/105252
+    //        nativeRenderer.asMetalView?.isPaused = !shouldAttach
+    //    }
 
+    func reCreateNativeRenderer() {
         // should always be on main thread
         assert(Thread.current.isMainThread, "must be called on main thread")
 
-        let shouldAttach = (track != nil && isEnabled && !isHidden)
-
-        guard let track = track else {
-            // Possibly Track was released first
-            log("track is nil")
-            return
-        }
-
-        if shouldAttach {
-            log("Renderer: attaching...")
-
-            // render cached frame
-            if let frame = track._state.videoFrame {
-                self.log("rendering cached frame \(frame.hashValue)")
-                self.renderFrame(frame)
-            }
-
-            track.add(videoView: self)
-
-        } else {
-            log("Renderer: detaching...")
-            track.remove(videoView: self)
-            nativeRenderer.isHidden = true
-            _state.mutate { $0.render = [] }
-        }
-
-        // toggle MTKView's isPaused property
-        // https://developer.apple.com/documentation/metalkit/mtkview/1535973-ispaused
-        // https://developer.apple.com/forums/thread/105252
-        nativeRenderer.asMetalView?.isPaused = !shouldAttach
+        let newView = VideoView.createNativeRendererView()
+        addSubview(newView)
+        let oldView = nativeRenderer
+        nativeRenderer = newView
+        oldView.removeFromSuperview()
     }
 
     func shouldMirror() -> Bool {
         switch _state.mirrorMode {
         case .auto:
-            guard let localVideoTrack = track as? LocalVideoTrack,
+            guard let localVideoTrack = _state.track as? LocalVideoTrack,
                   let cameraCapturer = localVideoTrack.capturer as? CameraCapturer,
                   case .front = cameraCapturer.options.position else { return false }
             return true
@@ -401,13 +458,13 @@ extension VideoView: RTCVideoRenderer {
             }
         }
 
-        nativeRenderer.renderFrame(frame)
+        DispatchQueue.webRTC.sync { nativeRenderer.renderFrame(frame) }
 
         // cache last rendered frame
         track?.set(videoFrame: frame)
 
-        if !_state.render.contains(.didRenderFirstFrame) {
-            _state.mutate { $0.render.insert(.didRenderFirstFrame) }
+        if !_state.renderState.contains(.didRenderFirstFrame) {
+            _state.mutate { $0.renderState.insert(.didRenderFirstFrame) }
             // layout after first frame has been rendered
             self.log("Did render first frame")
             DispatchQueue.mainSafeAsync { [weak self] in
@@ -487,9 +544,6 @@ extension VideoView {
             metal.layerContentsPlacement = .scaleProportionallyToFit
             #endif
         }
-
-        // default to hidden until first frame is rendered
-        result.isHidden = true
 
         return result
     }

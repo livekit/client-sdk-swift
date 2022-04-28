@@ -180,6 +180,7 @@ internal extension Track {
 internal extension Track {
 
     // returns true when value is updated
+    @discardableResult
     func set(dimensions newValue: Dimensions?) -> Bool {
         guard _state.dimensions != newValue else { return false }
 
@@ -191,7 +192,6 @@ internal extension Track {
         return true
     }
 
-    // returns true when value is updated
     func set(videoFrame newValue: RTCVideoFrame?) {
         guard _state.videoFrame != newValue else { return }
 
