@@ -84,6 +84,9 @@ public class Track: MulticastDelegate<TrackDelegate> {
     internal var transceiver: RTCRtpTransceiver?
     internal var sender: RTCRtpSender? { transceiver?.sender }
 
+    // must be on main thread
+    internal var videoViews = [WeakContainer<VideoView>]()
+
     internal struct State {
         var sid: Sid?
         var dimensions: Dimensions?
@@ -91,7 +94,6 @@ public class Track: MulticastDelegate<TrackDelegate> {
         var trackState: TrackState = .stopped
         var muted: Bool = false
         var stats: TrackStats?
-        var videoViews = [WeakContainer<VideoView>]()
     }
 
     internal var _state = StateSync(State())

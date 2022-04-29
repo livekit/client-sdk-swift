@@ -24,37 +24,37 @@ extension VideoTrack {
 
     public func add(videoView: VideoView) {
 
+        // should always be on main thread
+        assert(Thread.current.isMainThread, "must be called on main thread")
+
         guard let videoTrack = self.mediaTrack as? RTCVideoTrack else { return }
 
-        _state.mutateAsync { state in
-
-            guard !state.videoViews.allObjects.contains(videoView) else {
-                self.log("already attached", .warning)
-                return
-            }
-
-            while let otherVideoView = state.videoViews.allObjects.first(where: { $0 != videoView }) {
-                videoTrack.remove(otherVideoView)
-                state.videoViews.remove(weakElement: otherVideoView)
-            }
-
-            assert(state.videoViews.allObjects.count <= 1, "multiple VideoViews attached")
-
-            videoTrack.add(videoView)
-            state.videoViews.add(weakElement: videoView)
+        guard !videoViews.allObjects.contains(videoView) else {
+            self.log("already attached", .warning)
+            return
         }
+
+        while let otherVideoView = videoViews.allObjects.first(where: { $0 != videoView }) {
+            videoTrack.remove(otherVideoView)
+            videoViews.remove(weakElement: otherVideoView)
+        }
+
+        assert(videoViews.allObjects.count <= 1, "multiple VideoViews attached")
+
+        videoTrack.add(videoView)
+        videoViews.add(weakElement: videoView)
     }
 
     public func remove(videoView: VideoView) {
 
-        _state.mutateAsync { state in
+        // should always be on main thread
+        assert(Thread.current.isMainThread, "must be called on main thread")
 
-            state.videoViews.remove(weakElement: videoView)
+        videoViews.remove(weakElement: videoView)
 
-            guard let videoTrack = self.mediaTrack as? RTCVideoTrack else { return }
+        guard let videoTrack = self.mediaTrack as? RTCVideoTrack else { return }
 
-            videoTrack.remove(videoView)
-        }
+        videoTrack.remove(videoView)
     }
 
     @available(*, deprecated, message: "Use add(videoView:) instead")

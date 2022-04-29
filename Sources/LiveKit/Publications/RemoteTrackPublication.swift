@@ -300,7 +300,7 @@ extension RemoteTrackPublication {
             return
         }
 
-        let asViews = track?._state.videoViews.allObjects ?? []
+        let asViews = track?.videoViews.allObjects ?? []
 
         if asViews.count > 1 {
             log("multiple VideoViews attached, count: \(asViews.count), trackId: \(track?.sid ?? "") views: (\(asViews.map { "\($0.hashValue)" }.joined(separator: ", ")))", .warning)

@@ -146,11 +146,11 @@ public class VideoView: NativeView, Loggable {
                 // clean up old track
                 if let track = oldState.track {
 
-                    track.remove(videoView: self)
-
                     DispatchQueue.main.async { [weak self] in
 
                         guard let self = self else { return }
+
+                        track.remove(videoView: self)
 
                         if let nr = self.nativeRenderer {
                             self.log("removing nativeRenderer")
@@ -174,11 +174,11 @@ public class VideoView: NativeView, Loggable {
                 // set new track
                 if let track = state.track {
 
-                    track.add(videoView: self)
-
                     DispatchQueue.main.async { [weak self] in
 
                         guard let self = self else { return }
+
+                        track.add(videoView: self)
 
                         // re-create renderer on main thread
                         let nr = self.reCreateNativeRenderer()
