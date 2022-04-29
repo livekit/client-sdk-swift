@@ -46,6 +46,16 @@ internal final class StateSync<Value> {
         }
     }
 
+    public func mutateAsync(_ mutation: @escaping (inout Value) -> Void) {
+        // blocking
+        queue.async(flags: .barrier) { [weak self] in
+            guard let self = self else { return }
+            let oldValue = self._value
+            mutation(&self._value)
+            self.onMutate?(self._value, oldValue)
+        }
+    }
+
     // read only
     subscript<Property>(dynamicMember keyPath: KeyPath<Value, Property>) -> Property {
         queue.sync { _value[keyPath: keyPath] }

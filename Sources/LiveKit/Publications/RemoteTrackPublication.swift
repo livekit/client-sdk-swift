@@ -273,7 +273,7 @@ internal extension Collection where Element == VideoView {
                    height: Swift.max(s1.height, s2.height))
         }
 
-        return filter { $0.isVisible }.compactMap { $0.rendererSize }.reduce(into: nil as CGSize?, { previous, current in
+        return filter { $0.isVisible }.compactMap { $0._state.rendererSize }.reduce(into: nil as CGSize?, { previous, current in
             guard let unwrappedPrevious = previous else {
                 previous = current
                 return

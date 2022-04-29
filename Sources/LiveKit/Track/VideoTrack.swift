@@ -24,39 +24,37 @@ extension VideoTrack {
 
     public func add(videoView: VideoView) {
 
-        DispatchQueue.main.async { [weak self] in
+        // should always be on main thread
+        assert(Thread.current.isMainThread, "must be called on main thread")
 
-            guard let self = self, let videoTrack = self.mediaTrack as? RTCVideoTrack else { return }
+        guard let videoTrack = self.mediaTrack as? RTCVideoTrack else { return }
 
-            guard !self.videoViews.allObjects.contains(videoView) else {
-                self.log("already attached", .warning)
-                return
-            }
-
-            while let otherVideoView = self.videoViews.allObjects.first(where: { $0 != videoView }) {
-                videoTrack.remove(otherVideoView)
-                self.videoViews.remove(otherVideoView)
-            }
-
-            assert(self.videoViews.allObjects.count <= 1, "multiple VideoViews attached")
-
-            videoTrack.add(videoView)
-            self.videoViews.add(videoView)
+        guard !videoViews.allObjects.contains(videoView) else {
+            self.log("already attached", .warning)
+            return
         }
+
+        while let otherVideoView = videoViews.allObjects.first(where: { $0 != videoView }) {
+            videoTrack.remove(otherVideoView)
+            videoViews.remove(weakElement: otherVideoView)
+        }
+
+        assert(videoViews.allObjects.count <= 1, "multiple VideoViews attached")
+
+        videoTrack.add(videoView)
+        videoViews.add(weakElement: videoView)
     }
 
     public func remove(videoView: VideoView) {
 
-        DispatchQueue.main.async { [weak self] in
+        // should always be on main thread
+        assert(Thread.current.isMainThread, "must be called on main thread")
 
-            guard let self = self else { return }
+        videoViews.remove(weakElement: videoView)
 
-            self.videoViews.remove(videoView)
+        guard let videoTrack = self.mediaTrack as? RTCVideoTrack else { return }
 
-            guard let videoTrack = self.mediaTrack as? RTCVideoTrack else { return }
-
-            videoTrack.remove(videoView)
-        }
+        videoTrack.remove(videoView)
     }
 
     @available(*, deprecated, message: "Use add(videoView:) instead")
