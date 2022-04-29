@@ -26,7 +26,7 @@ extension VideoTrack {
 
         guard let videoTrack = self.mediaTrack as? RTCVideoTrack else { return }
 
-        _state.mutate { state in
+        _state.mutateAsync { state in
 
             guard !state.videoViews.allObjects.contains(videoView) else {
                 self.log("already attached", .warning)
@@ -47,7 +47,7 @@ extension VideoTrack {
 
     public func remove(videoView: VideoView) {
 
-        _state.mutate { state in
+        _state.mutateAsync { state in
 
             state.videoViews.remove(weakElement: videoView)
 
