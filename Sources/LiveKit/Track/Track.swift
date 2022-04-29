@@ -17,6 +17,26 @@
 import WebRTC
 import Promises
 
+struct WeakContainer<Object: AnyObject> {
+    weak var weakObject: Object?
+}
+
+extension Array where Element == WeakContainer<VideoView> {
+
+    var allObjects: [VideoView] {
+        compactMap { $0.weakObject }
+    }
+
+    mutating func add(weakElement: VideoView) {
+        guard !contains(where: { $0.weakObject == weakElement }) else { return }
+        append(WeakContainer(weakObject: weakElement))
+    }
+
+    mutating func remove(weakElement: VideoView) {
+        removeAll { $0.weakObject == weakElement }
+    }
+}
+
 public class Track: MulticastDelegate<TrackDelegate> {
 
     public static let cameraName = "camera"
@@ -60,8 +80,6 @@ public class Track: MulticastDelegate<TrackDelegate> {
 
     // MARK: - Internal
 
-    internal let videoViews = NSHashTable<VideoView>.weakObjects()
-
     internal let mediaTrack: RTCMediaStreamTrack
     internal var transceiver: RTCRtpTransceiver?
     internal var sender: RTCRtpSender? { transceiver?.sender }
@@ -73,6 +91,7 @@ public class Track: MulticastDelegate<TrackDelegate> {
         var trackState: TrackState = .stopped
         var muted: Bool = false
         var stats: TrackStats?
+        var videoViews = [WeakContainer<VideoView>]()
     }
 
     internal var _state = StateSync(State())

@@ -24,34 +24,32 @@ extension VideoTrack {
 
     public func add(videoView: VideoView) {
 
-        DispatchQueue.main.async { [weak self] in
+        guard let videoTrack = self.mediaTrack as? RTCVideoTrack else { return }
 
-            guard let self = self, let videoTrack = self.mediaTrack as? RTCVideoTrack else { return }
+        _state.mutate { state in
 
-            guard !self.videoViews.allObjects.contains(videoView) else {
+            guard !state.videoViews.allObjects.contains(videoView) else {
                 self.log("already attached", .warning)
                 return
             }
 
-            while let otherVideoView = self.videoViews.allObjects.first(where: { $0 != videoView }) {
+            while let otherVideoView = state.videoViews.allObjects.first(where: { $0 != videoView }) {
                 videoTrack.remove(otherVideoView)
-                self.videoViews.remove(otherVideoView)
+                state.videoViews.remove(weakElement: otherVideoView)
             }
 
-            assert(self.videoViews.allObjects.count <= 1, "multiple VideoViews attached")
+            assert(state.videoViews.allObjects.count <= 1, "multiple VideoViews attached")
 
             videoTrack.add(videoView)
-            self.videoViews.add(videoView)
+            state.videoViews.add(weakElement: videoView)
         }
     }
 
     public func remove(videoView: VideoView) {
 
-        DispatchQueue.main.async { [weak self] in
+        _state.mutate { state in
 
-            guard let self = self else { return }
-
-            self.videoViews.remove(videoView)
+            state.videoViews.remove(weakElement: videoView)
 
             guard let videoTrack = self.mediaTrack as? RTCVideoTrack else { return }
 
