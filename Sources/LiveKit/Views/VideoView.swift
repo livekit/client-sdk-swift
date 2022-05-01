@@ -65,7 +65,15 @@ public class VideoView: NativeView, Loggable {
     /// Calls addRenderer and/or removeRenderer internally for convenience.
     public weak var track: VideoTrack? {
         get { _state.track }
-        set { _state.mutate { $0.track = newValue } }
+        set {
+            _state.mutate {
+                let trackDidUpdate = !($0.track?.isEqual(newValue) ?? false)
+                if trackDidUpdate {
+                    $0.renderState = []
+                }
+                $0.track = newValue
+            }
+        }
     }
 
     public var isEnabled: Bool {
@@ -103,6 +111,7 @@ public class VideoView: NativeView, Loggable {
         // layout related
         var viewSize: CGSize
         var rendererSize: CGSize = .zero
+        // var needsLayout: Bool = false
         var didLayout: Bool = false
         var layoutMode: LayoutMode = .fill
 
@@ -133,7 +142,7 @@ public class VideoView: NativeView, Loggable {
 
             guard let self = self else { return }
 
-            let needsLayout = state.showDebugInfo != oldState.showDebugInfo ||
+            var needsLayout = state.showDebugInfo != oldState.showDebugInfo ||
                 state.layoutMode != oldState.layoutMode ||
                 state.mirrorMode != oldState.mirrorMode
 
@@ -142,6 +151,8 @@ public class VideoView: NativeView, Loggable {
             let trackDidUpdate = !(oldState.track?.isEqual(state.track) ?? false)
 
             if trackDidUpdate || canRenderDidUpdate {
+
+                needsLayout = true
 
                 // clean up old track
                 if let track = oldState.track {
@@ -399,6 +410,15 @@ extension VideoView: RTCVideoRenderer {
             return
         }
 
+        var _needsLayout = false
+        defer {
+            if _needsLayout {
+                DispatchQueue.mainSafeAsync {
+                    self.markNeedsLayout()
+                }
+            }
+        }
+
         if let frame = frame {
 
             let dimensions = Dimensions(width: frame.width,
@@ -412,16 +432,12 @@ extension VideoView: RTCVideoRenderer {
             }
 
             if track?.set(dimensions: dimensions) == true {
-                DispatchQueue.mainSafeAsync {
-                    self.markNeedsLayout()
-                }
+                _needsLayout = true
             }
 
         } else {
             if track?.set(dimensions: nil) == true {
-                DispatchQueue.mainSafeAsync {
-                    self.markNeedsLayout()
-                }
+                _needsLayout = true
             }
         }
 
@@ -433,6 +449,7 @@ extension VideoView: RTCVideoRenderer {
         if !_state.renderState.contains(.didRenderFirstFrame) {
             _state.mutate { $0.renderState.insert(.didRenderFirstFrame) }
             self.log("Did render first frame")
+            _needsLayout = true
         }
     }
 }
