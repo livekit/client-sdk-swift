@@ -29,7 +29,7 @@ extension VideoTrack {
 
         guard let videoTrack = self.mediaTrack as? RTCVideoTrack else { return }
 
-        guard !videoViews.allObjects.contains(videoView) else {
+        guard !videoViews.contains(weakElement: videoView) else {
             self.log("already attached", .warning)
             return
         }

@@ -27,8 +27,12 @@ extension Array where Element == WeakContainer<VideoView> {
         compactMap { $0.weakObject }
     }
 
+    func contains(weakElement: VideoView) -> Bool {
+        contains(where: { $0.weakObject == weakElement })
+    }
+
     mutating func add(weakElement: VideoView) {
-        guard !contains(where: { $0.weakObject == weakElement }) else { return }
+        guard !contains(weakElement: weakElement) else { return }
         append(WeakContainer(weakObject: weakElement))
     }
 
