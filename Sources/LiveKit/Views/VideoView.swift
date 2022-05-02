@@ -96,9 +96,7 @@ public class VideoView: NativeView, Loggable {
 
     private var nativeRenderer: NativeRendererView?
 
-    #if os(iOS)
-    private var _debugTextView: UILabel?
-    #endif
+    private var _debugTextView: TextView?
 
     // MARK: - Internal
 
@@ -263,15 +261,13 @@ public class VideoView: NativeView, Loggable {
             }
         }
 
-        #if os(iOS)
         if _state.showDebugInfo {
             let t = _state.track?.sid ?? "nil"
             let d = _state.track?.dimensions ?? .zero
-            let r = createDebugTextView()
+            let r = ensureDebugTextView()
             r.text = "\(t) \(d.width)x\(d.height)\n" + "isEnabled:\(isEnabled)"
             r.frame = bounds
         }
-        #endif
 
         guard let track = _state.track else {
             log("track is nil, cannot layout without track")
@@ -345,21 +341,13 @@ internal extension VideoView.State {
 
 private extension VideoView {
 
-    #if os(iOS)
-    private func createDebugTextView() -> UILabel {
+    private func ensureDebugTextView() -> TextView {
         if let d = _debugTextView { return d }
-        let r = DebugUILabel(frame: .zero)
-        r.numberOfLines = 0
-        r.adjustsFontSizeToFitWidth = false
-        r.lineBreakMode = .byWordWrapping
-        r.textColor = .white
-        r.font = .systemFont(ofSize: 11)
-        r.backgroundColor = .clear
+        let r = TextView()
         addSubview(r)
         _debugTextView = r
         return r
     }
-    #endif
 
     func reCreateNativeRenderer() -> NativeRendererView {
         // should always be on main thread
@@ -375,11 +363,13 @@ private extension VideoView {
             oldView.removeFromSuperview()
         }
 
-        #if os(iOS)
         if let view = _debugTextView {
+            #if os(iOS)
             bringSubviewToFront(view)
+            #elseif os(macOS)
+            addSubview(view)
+            #endif
         }
-        #endif
 
         return newView
     }
@@ -567,15 +557,6 @@ extension NSView {
             layer.position = position
             layer.anchorPoint = anchorPoint
         }
-    }
-}
-#endif
-
-#if os(iOS)
-private class DebugUILabel: UILabel {
-    override func drawText(in rect: CGRect) {
-        let textRect = super.textRect(forBounds: bounds, limitedToNumberOfLines: numberOfLines)
-        super.drawText(in: textRect)
     }
 }
 #endif
