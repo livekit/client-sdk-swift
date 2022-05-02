@@ -248,7 +248,7 @@ extension Transport {
 extension Transport: RTCPeerConnectionDelegate {
 
     internal func peerConnection(_ peerConnection: RTCPeerConnection, didChange state: RTCPeerConnectionState) {
-        log("Did update state \(state) for \(target)")
+        log("did update state \(state) for \(target)")
         notify { $0.transport(self, didUpdate: state) }
     }
 

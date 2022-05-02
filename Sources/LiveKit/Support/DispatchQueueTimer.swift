@@ -48,7 +48,6 @@ internal class DispatchQueueTimer: Loggable {
     }
 
     public func restart() {
-        log("restarting timer...")
         reset()
         resume()
     }

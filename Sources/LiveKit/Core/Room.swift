@@ -383,7 +383,8 @@ extension Room: SignalClientDelegate {
     }
 
     func signalClient(_ signalClient: SignalClient, didUpdate subscriptionPermission: Livekit_SubscriptionPermissionUpdate) -> Bool {
-        log("subscriptionPermission: \(subscriptionPermission)")
+
+        log("did update subscriptionPermission: \(subscriptionPermission)")
 
         guard let participant = _state.remoteParticipants[subscriptionPermission.participantSid],
               let publication = participant.getTrackPublication(sid: subscriptionPermission.trackSid) else {
@@ -397,7 +398,7 @@ extension Room: SignalClientDelegate {
 
     func signalClient(_ signalClient: SignalClient, didUpdate trackStates: [Livekit_StreamStateInfo]) -> Bool {
 
-        log("trackStates: \(trackStates.map { "(\($0.trackSid): \(String(describing: $0.state)))" }.joined(separator: ", "))")
+        log("did update trackStates: \(trackStates.map { "(\($0.trackSid): \(String(describing: $0.state)))" }.joined(separator: ", "))")
 
         for update in trackStates {
             // Try to find RemoteParticipant

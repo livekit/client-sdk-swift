@@ -137,7 +137,7 @@ public class RemoteTrackPublication: TrackPublication {
                 // track is initially disabled only if adaptive stream and is a video track
                 trackSettings = TrackSettings(enabled: !adaptiveStreamEnabled)
 
-                log("did reset trackSettings: \(trackSettings), kind: \(newValue.kind)")
+                log("[adaptiveStream] did reset trackSettings: \(trackSettings), kind: \(newValue.kind)")
 
                 // start adaptiveStream timer only if it's a video track
                 if adaptiveStreamEnabled {
@@ -239,6 +239,8 @@ extension RemoteTrackPublication {
             return Promise(EngineError.state(message: "Participant is nil"))
         }
 
+        log("[adaptiveStream] sending \(trackSettings), sid: \(sid)")
+
         return participant.room.engine.signalClient.sendUpdateTrackSettings(sid: sid, settings: trackSettings).then(on: .sdk) {
             self.trackSettings = trackSettings
         }
@@ -303,7 +305,7 @@ extension RemoteTrackPublication {
         let asViews = track?.videoViews.allObjects ?? []
 
         if asViews.count > 1 {
-            log("multiple VideoViews attached, count: \(asViews.count), trackId: \(track?.sid ?? "") views: (\(asViews.map { "\($0.hashValue)" }.joined(separator: ", ")))", .warning)
+            log("[adaptiveStream] multiple VideoViews attached, count: \(asViews.count), trackId: \(track?.sid ?? "") views: (\(asViews.map { "\($0.hashValue)" }.joined(separator: ", ")))", .warning)
         }
 
         let enabled = asViews.hasVisible()
@@ -325,7 +327,7 @@ extension RemoteTrackPublication {
         }
 
         send(trackSettings: newSettings).catch(on: .main) { [weak self] error in
-            self?.log("Failed to send trackSettings, error: \(error)", .error)
+            self?.log("[adaptiveStream] failed to send trackSettings, error: \(error)", .error)
         }.always(on: .main) { [weak self] in
             self?.asTimer.restart()
         }
