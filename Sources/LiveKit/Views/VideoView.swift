@@ -189,13 +189,12 @@ public class VideoView: NativeView, Loggable {
 
                         guard let self = self else { return }
 
-                        track.add(videoView: self)
-
                         // re-create renderer on main thread
                         let nr = self.reCreateNativeRenderer()
 
-                        if let frame = track._state.videoFrame, self._state.canRender {
+                        track.add(videoView: self)
 
+                        if let frame = track._state.videoFrame, self._state.canRender {
                             self.log("rendering cached frame tack: \(track._state.sid ?? "nil")")
                             nr.renderFrame(frame)
                             self.markNeedsLayout()
@@ -274,9 +273,14 @@ public class VideoView: NativeView, Loggable {
         }
         #endif
 
+        guard let track = _state.track else {
+            log("track is nil, cannot layout without track")
+            return
+        }
+
         // dimensions are required to continue computation
-        guard let track = _state.track, let dimensions = track._state.dimensions else {
-            log("dimensions are nil, cannot layout without dimensions")
+        guard let dimensions = track._state.dimensions else {
+            log("dimensions are nil, cannot layout without dimensions, track: \(track)")
             return
         }
 
