@@ -60,10 +60,10 @@ public class Participant: MulticastDelegate<ParticipantDelegate> {
 
     internal var _state: StateSync<State>
 
-    public init(sid: String,
-                identity: String,
-                name: String,
-                room: Room) {
+    internal init(sid: String,
+                  identity: String,
+                  name: String,
+                  room: Room) {
 
         self.sid = sid
         self.room = room

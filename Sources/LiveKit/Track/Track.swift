@@ -102,7 +102,7 @@ public class Track: MulticastDelegate<TrackDelegate> {
 
     internal var _state = StateSync(State())
 
-    init(name: String, kind: Kind, source: Source, track: RTCMediaStreamTrack) {
+    internal init(name: String, kind: Kind, source: Source, track: RTCMediaStreamTrack) {
         self.name = name
         self.kind = kind
         self.source = source
