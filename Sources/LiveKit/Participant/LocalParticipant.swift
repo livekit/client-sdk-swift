@@ -33,12 +33,6 @@ public class LocalParticipant: Participant {
         updateFromInfo(info: info)
     }
 
-    internal override func cleanUp() -> Promise<Void> {
-        super.cleanUp().then(on: .sdk) {
-            self.unpublishAll(shouldNotify: false)
-        }
-    }
-
     public func getTrackPublication(sid: Sid) -> LocalTrackPublication? {
         return tracks[sid] as? LocalTrackPublication
     }
@@ -181,21 +175,24 @@ public class LocalParticipant: Participant {
         publish(track: track, publishOptions: publishOptions)
     }
 
-    public func unpublishAll(shouldNotify: Bool = true) -> Promise<Void> {
+    public override func unpublishAll(notify _notify: Bool = true) -> Promise<Void> {
         // build a list of promises
         let promises = _state.tracks.values.compactMap { $0 as? LocalTrackPublication }
-            .map { unpublish(publication: $0, shouldNotify: shouldNotify) }
+            .map { unpublish(publication: $0, notify: _notify) }
         // combine promises to wait all to complete
-        return promises.all(on: .sdk)
+        return super.unpublishAll(notify: _notify).then(on: .sdk) {
+            promises.all(on: .sdk)
+        }
     }
 
     /// unpublish an existing published track
     /// this will also stop the track
-    public func unpublish(publication: LocalTrackPublication, shouldNotify: Bool = true) -> Promise<Void> {
+    public func unpublish(publication: LocalTrackPublication, notify _notify: Bool = true) -> Promise<Void> {
 
         func notifyDidUnpublish() -> Promise<Void> {
+
             Promise<Void>(on: .sdk) {
-                guard shouldNotify else { return }
+                guard _notify else { return }
                 // notify unpublish
                 self.notify { $0.localParticipant(self, didUnpublish: publication) }
                 self.room.notify { $0.room(self.room, localParticipant: self, didUnpublish: publication) }

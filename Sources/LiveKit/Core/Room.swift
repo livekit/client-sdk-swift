@@ -36,7 +36,7 @@ public class Room: MulticastDelegate<RoomDelegate> {
     // expose engine's vars
     public var url: String? { engine._state.url }
     public var token: String? { engine._state.token }
-    public var connectionState: ConnectionState { engine._state.connection }
+    public var connectionState: ConnectionState { engine._state.connectionState }
     public var didReconnect: Bool { engine._state.didReconnect }
     public var connectStopwatch: Stopwatch { engine._state.connectStopwatch }
 
@@ -97,7 +97,9 @@ public class Room: MulticastDelegate<RoomDelegate> {
         self.options = roomOptions ?? self.options
 
         log("connecting to room", .info)
+
         guard _state.localParticipant == nil else {
+            log("localParticipant is not nil", .warning)
             return Promise(EngineError.state(message: "localParticipant is not nil"))
         }
 
@@ -151,22 +153,9 @@ private extension Room {
 
         log("reason: \(String(describing: reason))")
 
-        // Stop all local & remote tracks
-        func cleanUpParticipants() -> Promise<Void> {
-
-            let allParticipants = ([[localParticipant],
-                                    _state.remoteParticipants.map { $0.value }] as [[Participant?]])
-                .joined()
-                .compactMap { $0 }
-
-            let cleanUpPromises = allParticipants.map { $0.cleanUp() }
-
-            return cleanUpPromises.all(on: .sdk)
-        }
-
         return engine.cleanUp(reason: reason)
             .then(on: .sdk) {
-                cleanUpParticipants()
+                self.cleanUpParticipants()
             }.then(on: .sdk) {
                 // reset state
                 self._state.mutate { $0 = State() }
@@ -177,20 +166,35 @@ private extension Room {
     }
 
     @discardableResult
+    func cleanUpParticipants(notify _notify: Bool = true) -> Promise<Void> {
+
+        log("notify: \(_notify)")
+
+        // Stop all local & remote tracks
+        let allParticipants = ([[localParticipant],
+                                _state.remoteParticipants.map { $0.value }] as [[Participant?]])
+            .joined()
+            .compactMap { $0 }
+
+        let cleanUpPromises = allParticipants.map { $0.cleanUp(notify: _notify) }
+
+        return cleanUpPromises.all(on: .sdk).then {
+            //
+            self._state.mutate {
+                $0.localParticipant = nil
+                $0.remoteParticipants = [:]
+            }
+        }
+    }
+
+    @discardableResult
     func onParticipantDisconnect(sid: Sid) -> Promise<Void> {
 
         guard let participant = _state.mutate({ $0.remoteParticipants.removeValue(forKey: sid) }) else {
             return Promise(EngineError.state(message: "Participant not found for \(sid)"))
         }
 
-        // create array of unpublish promises
-        let promises = participant._state.tracks.values
-            .compactMap { $0 as? RemoteTrackPublication }
-            .map { participant.unpublish(publication: $0) }
-
-        return promises.all(on: .sdk).then(on: .sdk) {
-            self.notify { $0.room(self, participantDidLeave: participant) }
-        }
+        return participant.cleanUp(notify: true)
     }
 }
 
@@ -276,7 +280,23 @@ internal extension Room {
 
 extension Room: SignalClientDelegate {
 
+    func signalClient(_ signalClient: SignalClient, didReceiveLeave canReconnect: Bool) -> Bool {
+
+        log("canReconnect: \(canReconnect)")
+
+        if canReconnect {
+            // force .full for next reconnect
+            engine._state.mutate { $0.nextPreferredReconnectMode = .full }
+        } else {
+            // server indicates it's not recoverable
+            cleanUp(reason: .networkError())
+        }
+
+        return true
+    }
+
     func signalClient(_ signalClient: SignalClient, didUpdate trackSid: String, subscribedQualities: [Livekit_SubscribedQuality]) -> Bool {
+
         log()
 
         guard let localParticipant = _state.localParticipant else { return true }
@@ -286,7 +306,7 @@ extension Room: SignalClientDelegate {
 
     func signalClient(_ signalClient: SignalClient, didReceive joinResponse: Livekit_JoinResponse) -> Bool {
 
-        log("Server version: \(joinResponse.serverVersion), region: \(joinResponse.serverRegion)", .info)
+        log("server version: \(joinResponse.serverVersion), region: \(joinResponse.serverRegion)", .info)
 
         _state.mutate {
             $0.sid = joinResponse.room.sid
@@ -481,11 +501,11 @@ extension Room: EngineDelegate {
     func engine(_ engine: Engine, didMutate state: Engine.State, oldState: Engine.State) {
         log()
 
-        if state.connection != oldState.connection {
+        if state.connectionState != oldState.connectionState {
             // connectionState did update
 
             // only if quick-reconnect
-            if case .connected = state.connection, case .quick = state.reconnectMode {
+            if case .connected = state.connectionState, case .quick = state.reconnectMode {
                 sendSyncState().catch(on: .sdk) { error in
                     self.log("Failed to sendSyncState, error: \(error)", .error)
                 }
@@ -498,7 +518,12 @@ extension Room: EngineDelegate {
                 }
             }
 
-            notify { $0.room(self, didUpdate: state.connection, oldValue: oldState.connection) }
+            notify { $0.room(self, didUpdate: state.connectionState, oldValue: oldState.connectionState) }
+        }
+
+        if state.connectionState.isReconnecting && state.reconnectMode == .full && oldState.reconnectMode != .full {
+            // started full reconnect
+            cleanUpParticipants(notify: true)
         }
     }
 

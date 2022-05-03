@@ -43,8 +43,10 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
     internal struct State: ReconnectableState {
         var url: String?
         var token: String?
+        // preferred reconnect mode which will be used only for next attempt
+        var nextPreferredReconnectMode: ReconnectMode?
         var reconnectMode: ReconnectMode?
-        var connection: ConnectionState = .disconnected()
+        var connectionState: ConnectionState = .disconnected()
         var connectStopwatch = Stopwatch(label: "connect")
         var hasPublished: Bool = false
         var primaryTransportConnectedCompleter = Completer<Void>()
@@ -70,10 +72,10 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
 
             guard let self = self else { return }
 
-            assert(!(state.connection == .reconnecting && state.reconnectMode == .none), "reconnectMode should not be .none")
+            assert(!(state.connectionState == .reconnecting && state.reconnectMode == .none), "reconnectMode should not be .none")
 
-            if (state.connection != oldState.connection) || (state.reconnectMode != oldState.reconnectMode) {
-                self.log("[Engine] connectionState: \(oldState.connection) -> \(state.connection), reconnectMode: \(String(describing: state.reconnectMode))")
+            if (state.connectionState != oldState.connectionState) || (state.reconnectMode != oldState.reconnectMode) {
+                self.log("[Engine] connectionState: \(oldState.connectionState) -> \(state.connectionState), reconnectMode: \(String(describing: state.reconnectMode))")
             }
 
             self.notifyAsync { $0.engine(self, didMutate: state, oldState: oldState) }
@@ -97,7 +99,7 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
         self.roomOptions = roomOptions ?? self.roomOptions
 
         return cleanUp().then(on: .sdk) {
-            self._state.mutate { $0.connection = .connecting }
+            self._state.mutate { $0.connectionState = .connecting }
         }.then(on: .sdk) {
             self.fullConnectSequence(url, token)
         }.then(on: .sdk) {
@@ -108,7 +110,7 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
             self._state.mutate {
                 $0.url = url
                 $0.token = token
-                $0.connection = .connected
+                $0.connectionState = .connected
             }
 
         }.catch(on: .sdk) { error in
@@ -118,7 +120,8 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
 
     // Resets state of Engine
     @discardableResult
-    func cleanUp(reason: DisconnectReason? = nil) -> Promise<Void> {
+    func cleanUp(reason: DisconnectReason? = nil,
+                 isFullReconnect: Bool = false) -> Promise<Void> {
 
         log("reason: \(String(describing: reason))")
 
@@ -128,7 +131,14 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
             $0.publisherTransportConnectedCompleter.reset()
             $0.publisherReliableDCOpenCompleter.reset()
             $0.publisherLossyDCOpenCompleter.reset()
-            $0 = State(connection: .disconnected(reason: reason))
+
+            // if isFullReconnect, keep connection related states
+            $0 = isFullReconnect ? State(
+                url: $0.url,
+                token: $0.token,
+                nextPreferredReconnectMode: $0.nextPreferredReconnectMode,
+                reconnectMode: $0.reconnectMode,
+                connectionState: $0.connectionState) : State()
         }
 
         signalClient.cleanUp(reason: reason)
@@ -260,7 +270,7 @@ private extension Engine {
             }
     }
 
-    // Connect sequence only, doesn't update internal state
+    // full connect sequence, doesn't update connection state
     func fullConnectSequence(_ url: String,
                              _ token: String) -> Promise<Void> {
 
@@ -293,81 +303,70 @@ private extension Engine {
     @discardableResult
     func startReconnect() -> Promise<Void> {
 
-        guard case .connected = _state.connection else {
-            log("Must be called with connected state", .warning)
+        guard case .connected = _state.connectionState else {
+            log("[reconnect] must be called with connected state", .warning)
             return Promise(EngineError.state(message: "Must be called with connected state"))
         }
 
         guard let url = _state.url, let token = _state.token else {
-            log("url or token is nil", . warning)
+            log("[reconnect] url or token is nil", . warning)
             return Promise(EngineError.state(message: "url or token is nil"))
         }
 
         guard subscriber != nil, publisher != nil else {
-            log("Publisher or Subscriber is nil", .warning)
+            log("[reconnect] publisher or subscriber is nil", .warning)
             return Promise(EngineError.state(message: "Publisher or Subscriber is nil"))
         }
 
-        // Checks if the re-connection sequence should continue
-        func checkShouldContinue() -> Promise<Void> {
-            // Check if still reconnecting state in case user already disconnected
-            guard self._state.connection.isReconnecting else {
-                return Promise(EngineError.state(message: "Reconnection has been aborted"))
-            }
-            // Continune the sequence
-            return Promise(())
-        }
-
-        // "quick" re-connection sequence
+        // quick connect sequence, does not update connection state
         func quickReconnectSequence() -> Promise<Void> {
 
-            log("Starting QUICK reconnect sequence...")
+            log("[reconnect] starting QUICK reconnect sequence...")
             // return Promise(EngineError.state(message: "DEBUG"))
 
-            return checkShouldContinue().then(on: .sdk) {
-                self.signalClient.connect(url,
-                                          token,
-                                          connectOptions: self.connectOptions,
-                                          reconnectMode: self._state.reconnectMode,
-                                          adaptiveStream: self.roomOptions.adaptiveStream)
-            }.then(on: .sdk) {
-                checkShouldContinue()
-            }.then(on: .sdk) {
-                // Wait for primary transport to connect (if not already)
-                self._state.mutate { $0.primaryTransportConnectedCompleter.wait(on: .sdk,
-                                                                                .defaultTransportState,
-                                                                                throw: { TransportError.timedOut(message: "primary transport didn't connect") }) }
-            }.then(on: .sdk) {
-                checkShouldContinue()
-            }.then(on: .sdk) { () -> Promise<Void> in
+            return self.signalClient.connect(url,
+                                             token,
+                                             connectOptions: self.connectOptions,
+                                             reconnectMode: self._state.reconnectMode,
+                                             adaptiveStream: self.roomOptions.adaptiveStream).then(on: .sdk) {
 
-                self.subscriber?.restartingIce = true
+                                                self.log("[reconnect] waiting for socket to connect...")
+                                                // Wait for primary transport to connect (if not already)
+                                                self._state.mutate { $0.primaryTransportConnectedCompleter.wait(on: .sdk,
+                                                                                                                .defaultTransportState,
+                                                                                                                throw: { TransportError.timedOut(message: "primary transport didn't connect") }) }
+                                             }.then(on: .sdk) { () -> Promise<Void> in
 
-                // only if published, continue...
-                guard let publisher = self.publisher, self._state.hasPublished else {
-                    return Promise(())
-                }
+                                                self.subscriber?.restartingIce = true
 
-                return publisher.createAndSendOffer(iceRestart: true).then(on: .sdk) {
-                    self._state.mutate { $0.publisherTransportConnectedCompleter.wait(on: .sdk,
-                                                                                      .defaultTransportState,
-                                                                                      throw: { TransportError.timedOut(message: "publisher transport didn't connect") }) }
-                }
+                                                // only if published, continue...
+                                                guard let publisher = self.publisher, self._state.hasPublished else {
+                                                    return Promise(())
+                                                }
 
-            }.then(on: .sdk) {
-                // always check if there are queued requests
-                self.signalClient.sendQueuedRequests()
-            }
+                                                self.log("[reconnect] waiting for publisher to connect...")
+
+                                                return publisher.createAndSendOffer(iceRestart: true).then(on: .sdk) {
+                                                    self._state.mutate { $0.publisherTransportConnectedCompleter.wait(on: .sdk,
+                                                                                                                      .defaultTransportState,
+                                                                                                                      throw: { TransportError.timedOut(message: "publisher transport didn't connect") }) }
+                                                }
+
+                                             }.then(on: .sdk) { () -> Promise<Void> in
+
+                                                self.log("[reconnect] send queued requests")
+                                                // always check if there are queued requests
+                                                return self.signalClient.sendQueuedRequests()
+                                             }
         }
 
         // "full" re-connection sequence
         // as a last resort, try to do a clean re-connection and re-publish existing tracks
         func fullReconnectSequence() -> Promise<Void> {
-            log("Starting FULL reconnect sequence...")
 
-            return checkShouldContinue().then(on: .sdk) {
-                self.cleanUpRTC()
-            }.then(on: .sdk) { () -> Promise<Void> in
+            log("[reconnect] starting FULL reconnect sequence...")
+
+            return self.cleanUp(isFullReconnect: true).then(on: .sdk) { () -> Promise<Void> in
 
                 guard let url = self._state.url,
                       let token = self._state.token else {
@@ -378,37 +377,46 @@ private extension Engine {
             }
         }
 
-        _state.mutate {
-            $0.reconnectMode = .quick
-            $0.connection = .reconnecting
-        }
-
         return retry(on: .sdk,
                      attempts: 3,
                      delay: .defaultQuickReconnectRetry,
                      condition: { [weak self] triesLeft, _ in
                         guard let self = self else { return false }
-                        self.log("Re-connecting in \(TimeInterval.defaultQuickReconnectRetry)seconds, \(triesLeft) tries left...")
-                        // only retry if still reconnecting state (not disconnected)
-                        return self._state.connection.isReconnecting
-                     }, _: {
-                        // try quick re-connect
-                        quickReconnectSequence()
-                     }).recover(on: .sdk) { (_) -> Promise<Void> in
-                        // try full re-connect (only if quick re-connect failed)
-                        self._state.mutate {
-                            $0.reconnectMode = .full
+
+                        guard case .reconnecting = self._state.connectionState else {
+                            // not reconnecting state anymore
+                            return false
                         }
-                        return fullReconnectSequence()
-                     }.then(on: .sdk) {
-                        // re-connect sequence successful
-                        self.log("Re-connect sequence completed")
-                        self._state.mutate { $0.connection = .connected }
-                     }.catch(on: .sdk) { _ in
-                        self.log("Re-connect sequence failed")
-                        // finally disconnect if all attempts fail
-                        self.cleanUp(reason: .networkError())
-                     }
+
+                        if self._state.reconnectMode == .full {
+                            // full reconnect failed, give up
+                            return false
+                        }
+
+                        self.log("[reconnect] retry in \(TimeInterval.defaultQuickReconnectRetry) seconds, \(triesLeft) tries left...")
+                        // only retry if still reconnecting state (not disconnected)
+                        return true
+                     }, _: { [weak self] in
+                        guard let self = self else { return Promise(()) }
+
+                        self._state.mutate {
+                            $0.connectionState = .reconnecting
+                            $0.reconnectMode = ($0.nextPreferredReconnectMode == .full || $0.reconnectMode == .full) ? .full : .quick
+                            $0.nextPreferredReconnectMode = nil
+                        }
+
+                        return self._state.reconnectMode == .full ? fullReconnectSequence() : quickReconnectSequence()
+
+                     })
+            .then(on: .sdk) {
+                // re-connect sequence successful
+                self.log("[reconnect] sequence completed")
+                self._state.mutate { $0.connectionState = .connected }
+            }.catch(on: .sdk) { error in
+                self.log("[reconnect] sequence failed with error: \(error)")
+                // finally disconnect if all attempts fail
+                self.cleanUp(reason: .networkError())
+            }
     }
 
 }
@@ -432,25 +440,15 @@ extension Engine: SignalClientDelegate {
     func signalClient(_ signalClient: SignalClient, didMutate state: SignalClient.State, oldState: SignalClient.State) -> Bool {
         log()
 
-        if state.connection != oldState.connection {
+        if state.connectionState != oldState.connectionState {
             // connectionState updated
 
             // Attempt re-connect if disconnected(reason: network)
-            if case .disconnected(let reason) = state.connection,
+            if case .disconnected(let reason) = state.connectionState,
                case .networkError = reason {
+                log("[reconnect] starting, reason: socket network error. connectionState: \(_state.connectionState)")
                 startReconnect()
             }
-        }
-
-        return true
-    }
-
-    func signalClient(_ signalClient: SignalClient, didReceiveLeave canReconnect: Bool) -> Bool {
-        log("canReconnect: \(canReconnect)")
-
-        // Server indicates it's not recoverable
-        if !canReconnect {
-            cleanUp(reason: .networkError())
         }
 
         return true
@@ -561,9 +559,10 @@ extension Engine: TransportDelegate {
             _state.mutate { $0.publisherTransportConnectedCompleter.set(value: .connected == pcState ? () : nil) }
         }
 
-        if _state.connection.isConnected {
+        if _state.connectionState.isConnected {
             // Attempt re-connect if primary or publisher transport failed
             if (transport.primary || (_state.hasPublished && transport.target == .publisher)) && [.disconnected, .failed].contains(pcState) {
+                log("[reconnect] starting, reason: transport disconnected or failed")
                 startReconnect()
             }
         }
@@ -664,7 +663,8 @@ extension Engine: ConnectivityListenerDelegate {
         log("didSwitch path: \(path)")
 
         // network has been switched, e.g. wifi <-> cellular
-        if case .connected = _state.connection {
+        if case .connected = _state.connectionState {
+            log("[reconnect] starting, reason: network path changed")
             startReconnect()
         }
     }

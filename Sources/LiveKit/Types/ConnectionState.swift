@@ -99,14 +99,14 @@ extension DisconnectReason: Equatable {
 
 protocol ReconnectableState {
     var reconnectMode: ReconnectMode? { get }
-    var connection: ConnectionState { get }
+    var connectionState: ConnectionState { get }
 }
 
 extension ReconnectableState {
 
     var didReconnect: Bool {
 
-        if case .connected = connection, [.full, .quick].contains(reconnectMode) {
+        if case .connected = connectionState, [.full, .quick].contains(reconnectMode) {
             return true
         }
 

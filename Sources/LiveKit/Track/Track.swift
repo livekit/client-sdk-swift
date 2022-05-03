@@ -172,7 +172,7 @@ public class Track: MulticastDelegate<TrackDelegate> {
     }
 
     internal func set(muted newValue: Bool,
-                      shouldNotify: Bool = true,
+                      notify _notify: Bool = true,
                       shouldSendSignal: Bool = false) {
 
         guard _state.muted != newValue else { return }
@@ -183,7 +183,7 @@ public class Track: MulticastDelegate<TrackDelegate> {
             set(videoFrame: nil)
         }
 
-        if shouldNotify {
+        if _notify {
             notify { $0.track(self, didUpdate: newValue, shouldSendSignal: shouldSendSignal) }
         }
     }

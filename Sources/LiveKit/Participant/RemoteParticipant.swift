@@ -34,12 +34,6 @@ public class RemoteParticipant: Participant {
         }
     }
 
-    internal override func cleanUp() -> Promise<Void> {
-        super.cleanUp().then(on: .sdk) {
-            self.unpublishAll(shouldNotify: false)
-        }
-    }
-
     public func getTrackPublication(sid: Sid) -> RemoteTrackPublication? {
         return _state.tracks[sid] as? RemoteTrackPublication
     }
@@ -86,7 +80,7 @@ public class RemoteParticipant: Participant {
         var track: Track
 
         guard let publication = getTrackPublication(sid: sid) else {
-            log("Could not subscribe to mediaTrack \(sid), unable to locate track publication", .error)
+            log("Could not subscribe to mediaTrack \(sid), unable to locate track publication. existing sids: (\(_state.tracks.keys.joined(separator: ", ")))", .error)
             let error = TrackError.state(message: "Could not find published track with sid: \(sid)")
             notify { $0.participant(self, didFailToSubscribe: sid, error: error) }
             room.notify { $0.room(self.room, participant: self, didFailToSubscribe: sid, error: error) }
@@ -119,19 +113,28 @@ public class RemoteParticipant: Participant {
         }
     }
 
-    public func unpublishAll(shouldNotify: Bool = true) -> Promise<Void> {
-        // build a list of promises
-        let promises = _state.tracks.values.compactMap { $0 as? RemoteTrackPublication }
-            .map { unpublish(publication: $0, shouldNotify: shouldNotify) }
-        // combine promises to wait all to complete
-        return promises.all(on: .sdk)
+    override func cleanUp(notify _notify: Bool = true) -> Promise<Void> {
+        super.cleanUp(notify: _notify).then(on: .sdk) {
+            self.room.notify { $0.room(self.room, participantDidLeave: self) }
+        }
     }
 
-    func unpublish(publication: RemoteTrackPublication, shouldNotify: Bool = true) -> Promise<Void> {
+    public override func unpublishAll(notify _notify: Bool = true) -> Promise<Void> {
+        // build a list of promises
+        let promises = _state.tracks.values.compactMap { $0 as? RemoteTrackPublication }
+            .map { unpublish(publication: $0, notify: _notify) }
+        // combine promises to wait all to complete
+        return super.unpublishAll(notify: _notify).then(on: .sdk) {
+            promises.all(on: .sdk)
+        }
+    }
+
+    internal func unpublish(publication: RemoteTrackPublication, notify _notify: Bool = true) -> Promise<Void> {
 
         func notifyUnpublish() -> Promise<Void> {
+
             Promise<Void>(on: .sdk) {
-                guard shouldNotify else { return }
+                guard _notify else { return }
                 // notify unpublish
                 self.notify { $0.participant(self, didUnpublish: publication) }
                 self.room.notify { $0.room(self.room, participant: self, didUnpublish: publication) }
@@ -148,7 +151,7 @@ public class RemoteParticipant: Participant {
         }
 
         return track.stop().then(on: .sdk) { _ -> Void in
-            guard shouldNotify else { return }
+            guard _notify else { return }
             // notify unsubscribe
             self.notify { $0.participant(self, didUnsubscribe: publication, track: track) }
             self.room.notify { $0.room(self.room, participant: self, didUnsubscribe: publication, track: track) }

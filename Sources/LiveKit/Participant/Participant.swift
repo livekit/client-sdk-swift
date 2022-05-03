@@ -98,7 +98,15 @@ public class Participant: MulticastDelegate<ParticipantDelegate> {
     }
 
     @discardableResult
-    internal func cleanUp() -> Promise<Void> {
+    internal func cleanUp(notify _notify: Bool = true) -> Promise<Void> {
+
+        unpublishAll(notify: _notify).then(on: .sdk) {
+            // reset state
+            self._state.mutate { $0 = State(identity: $0.identity, name: $0.name) }
+        }
+    }
+
+    internal func unpublishAll(notify _notify: Bool = true) -> Promise<Void> {
         Promise(())
     }
 

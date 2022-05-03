@@ -147,7 +147,7 @@ public class RemoteTrackPublication: TrackPublication {
                 // if new Track has been set to this RemoteTrackPublication,
                 // update the Track's muted state from the latest info.
                 newValue.set(muted: metadataMuted,
-                             shouldNotify: false)
+                             notify: false)
             }
 
             if let oldValue = oldValue, newValue == nil,
@@ -253,7 +253,7 @@ extension RemoteTrackPublication {
             return .disconnected()
         }
 
-        return participant.room.engine._state.connection
+        return participant.room.engine._state.connectionState
     }
 }
 
