@@ -680,14 +680,15 @@ extension Engine {
         RTCInitializeSSL()
         let encoderFactory = RTCDefaultVideoEncoderFactory()
         let decoderFactory = RTCDefaultVideoDecoderFactory()
+        let result: RTCPeerConnectionFactory
         #if LK_USING_CUSTOM_WEBRTC_BUILD
         let simulcastFactory = RTCVideoEncoderFactorySimulcast(primary: encoderFactory,
                                                                fallback: encoderFactory)
-        let result: RTCPeerConnectionFactory
+
         result = RTCPeerConnectionFactory(encoderFactory: simulcastFactory,
                                           decoderFactory: decoderFactory)
         #else
-        result = RTCPeerConnectionFactory(encoderFactory: encoderFactory,
+        let result = RTCPeerConnectionFactory(encoderFactory: encoderFactory,
                                           decoderFactory: decoderFactory)
         #endif
         logger.log("PeerConnectionFactory initialized", type: Engine.self)
