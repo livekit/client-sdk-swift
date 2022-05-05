@@ -455,19 +455,29 @@ extension Engine: SignalClientDelegate {
     }
 
     func signalClient(_ signalClient: SignalClient, didReceive iceCandidate: RTCIceCandidate, target: Livekit_SignalTarget) -> Bool {
-        let transport = target == .subscriber ? subscriber : publisher
-        transport?.addIceCandidate(iceCandidate)
+
+        guard let transport = target == .subscriber ? subscriber : publisher else {
+            log("failed to add ice candidate, transport is nil for target: \(target)", .error)
+            return true
+        }
+
+        transport.addIceCandidate(iceCandidate).catch(on: .sdk) { error in
+            self.log("failed to add ice candidate for transport: \(transport), error: \(error)", .error)
+        }
+
         return true
     }
 
     func signalClient(_ signalClient: SignalClient, didReceiveAnswer answer: RTCSessionDescription) -> Bool {
 
         guard let publisher = self.publisher else {
-            log("Publisher is nil", .warning)
+            log("publisher is nil", .error)
             return true
         }
 
-        publisher.setRemoteDescription(answer)
+        publisher.setRemoteDescription(answer).catch(on: .sdk) { error in
+            self.log("failed to set remote description, error: \(error)", .error)
+        }
 
         return true
     }
