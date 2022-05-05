@@ -67,7 +67,7 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
                 self.log("\(oldState.connectionState) -> \(state.connectionState)")
             }
 
-            self.notifyAsync { $0.signalClient(self, didMutate: state, oldState: oldState) }
+            self.notify { $0.signalClient(self, didMutate: state, oldState: oldState) }
         }
     }
 

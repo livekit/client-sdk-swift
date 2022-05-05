@@ -173,7 +173,7 @@ public class VideoView: NativeView, Loggable {
                         }
 
                         // notify detach
-                        track.notifyAsync { [weak self, weak track] (delegate) -> Void in
+                        track.notify { [weak self, weak track] (delegate) -> Void in
                             guard let self = self, let track = track else { return }
                             delegate.track(track, didDetach: self)
                         }
@@ -201,7 +201,7 @@ public class VideoView: NativeView, Loggable {
                         }
 
                         // notify attach
-                        track.notifyAsync { [weak self, weak track] (delegate) -> Void in
+                        track.notify { [weak self, weak track] (delegate) -> Void in
                             guard let self = self, let track = track else { return }
                             delegate.track(track, didAttach: self)
                         }
@@ -211,12 +211,12 @@ public class VideoView: NativeView, Loggable {
 
             // renderState updated
             if state.renderState != oldState.renderState, let track = state.track {
-                track.notifyAsync { $0.track(track, videoView: self, didUpdate: state.renderState) }
+                track.notify { $0.track(track, videoView: self, didUpdate: state.renderState) }
             }
 
             // viewSize updated
             if state.viewSize != oldState.viewSize, let track = state.track {
-                track.notifyAsync { $0.track(track, videoView: self, didUpdate: state.viewSize) }
+                track.notify { $0.track(track, videoView: self, didUpdate: state.viewSize) }
             }
 
             // toggle MTKView's isPaused property

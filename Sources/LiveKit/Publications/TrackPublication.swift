@@ -87,8 +87,8 @@ public class TrackPublication: TrackDelegate, Loggable {
 
             if state.streamState != oldState.streamState {
                 if let participant = self.participant as? RemoteParticipant, let trackPublication = self as? RemoteTrackPublication {
-                    participant.notifyAsync { $0.participant(participant, didUpdate: trackPublication, streamState: state.streamState) }
-                    participant.room.notifyAsync { $0.room(participant.room, participant: participant, didUpdate: trackPublication, streamState: state.streamState) }
+                    participant.notify { $0.participant(participant, didUpdate: trackPublication, streamState: state.streamState) }
+                    participant.room.notify { $0.room(participant.room, participant: participant, didUpdate: trackPublication, streamState: state.streamState) }
                 }
             }
         }

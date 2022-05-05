@@ -78,7 +78,7 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
                 self.log("[Engine] connectionState: \(oldState.connectionState) -> \(state.connectionState), reconnectMode: \(String(describing: state.reconnectMode))")
             }
 
-            self.notifyAsync { $0.engine(self, didMutate: state, oldState: oldState) }
+            self.notify { $0.engine(self, didMutate: state, oldState: oldState) }
         }
 
         log()
