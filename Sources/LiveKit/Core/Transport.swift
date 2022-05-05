@@ -314,10 +314,12 @@ private extension Transport {
                                                        optionalConstraints: nil)
 
             self.pc.offer(for: mediaConstraints) { sd, error in
+
                 guard let sd = sd else {
                     fail(EngineError.webRTC(message: "Failed to create offer", error))
                     return
                 }
+
                 complete(sd)
             }
         }
@@ -328,10 +330,12 @@ private extension Transport {
         Promise<RTCSessionDescription>(on: .webRTC) { complete, fail in
 
             self.pc.setRemoteDescription(sd) { error in
+
                 guard error == nil else {
                     fail(EngineError.webRTC(message: "failed to set remote description", error))
                     return
                 }
+
                 complete(sd)
             }
         }
@@ -342,10 +346,12 @@ private extension Transport {
         Promise<Void>(on: .webRTC) { complete, fail in
 
             self.pc.add(candidate) { error in
+
                 guard error == nil else {
                     fail(EngineError.webRTC(message: "failed to add ice candidate", error))
                     return
                 }
+
                 complete(())
             }
         }
@@ -364,10 +370,12 @@ internal extension Transport {
                                                        optionalConstraints: nil)
 
             self.pc.answer(for: mediaConstraints) { sd, error in
+
                 guard let sd = sd else {
-                    fail(EngineError.webRTC(message: "Failed to create answer", error))
+                    fail(EngineError.webRTC(message: "failed to create answer", error))
                     return
                 }
+
                 complete(sd)
             }
         }
@@ -378,10 +386,12 @@ internal extension Transport {
         Promise<RTCSessionDescription>(on: .webRTC) { complete, fail in
 
             self.pc.setLocalDescription(sd) { error in
+
                 guard error == nil else {
                     fail(EngineError.webRTC(message: "failed to set local description", error))
                     return
                 }
+
                 complete(sd)
             }
         }
@@ -393,7 +403,7 @@ internal extension Transport {
         Promise<RTCRtpTransceiver>(on: .webRTC) { complete, fail in
 
             guard let transceiver = self.pc.addTransceiver(with: track, init: transceiverInit) else {
-                fail(EngineError.webRTC(message: "Failed to add transceiver"))
+                fail(EngineError.webRTC(message: "failed to add transceiver"))
                 return
             }
 
@@ -406,7 +416,7 @@ internal extension Transport {
         Promise<Void>(on: .webRTC) { complete, fail in
 
             guard self.pc.removeTrack(sender) else {
-                fail(EngineError.webRTC(message: "Failed to removeTrack"))
+                fail(EngineError.webRTC(message: "failed to remove track"))
                 return
             }
 

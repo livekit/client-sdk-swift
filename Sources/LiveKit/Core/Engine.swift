@@ -474,12 +474,12 @@ extension Engine: SignalClientDelegate {
 
     func signalClient(_ signalClient: SignalClient, didReceiveOffer offer: RTCSessionDescription) -> Bool {
 
+        log("received offer, creating & sending answer...")
+
         guard let subscriber = self.subscriber else {
-            log("Subscriber is nil", .error)
+            log("failed to send answer, subscriber is nil", .error)
             return true
         }
-
-        log()
 
         subscriber.setRemoteDescription(offer).then(on: .sdk) {
             subscriber.createAnswer()
@@ -487,6 +487,10 @@ extension Engine: SignalClientDelegate {
             subscriber.setLocalDescription(answer)
         }.then(on: .sdk) { answer in
             self.signalClient.sendAnswer(answer: answer)
+        }.then(on: .sdk) {
+            self.log("answer sent to signal")
+        }.catch(on: .sdk) { error in
+            self.log("failed to send answer, error: \(error)", .error)
         }
 
         return true

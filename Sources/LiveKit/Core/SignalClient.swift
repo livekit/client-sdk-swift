@@ -212,25 +212,25 @@ private extension SignalClient {
             guard let self = self else { return }
 
             guard !(self._state.connectionState.isReconnecting && request.canEnqueue() && enqueueIfReconnecting) else {
-                self.log("Queuing request while reconnecting, request: \(request)")
+                self.log("queuing request while reconnecting, request: \(request)")
                 self.requestQueue.append(request)
                 // success
                 return
             }
 
             guard case .connected = self.connectionState else {
-                self.log("Not connected", .error)
+                self.log("not connected", .error)
                 throw SignalClientError.state(message: "Not connected")
             }
 
             // this shouldn't happen
             guard let webSocket = self.webSocket else {
-                self.log("WebSocket is nil", .error)
+                self.log("webSocket is nil", .error)
                 throw SignalClientError.state(message: "WebSocket is nil")
             }
 
             guard let data = try? request.serializedData() else {
-                self.log("Could not serialize data", .error)
+                self.log("could not serialize data", .error)
                 throw InternalError.convert(message: "Could not serialize data")
             }
 
