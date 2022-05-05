@@ -28,7 +28,7 @@ public class MulticastDelegate<T>: NSObject, Loggable {
     private let set = NSHashTable<AnyObject>.weakObjects()
 
     init(label: String = "livekit.multicast", qos: DispatchQoS = .default) {
-        self.multicastQueue = DispatchQueue(label: label, qos: qos, attributes: [.concurrent])
+        self.multicastQueue = DispatchQueue(label: label, qos: qos, attributes: [])
     }
 
     /// Add a single delegate.
@@ -39,7 +39,7 @@ public class MulticastDelegate<T>: NSObject, Loggable {
             return
         }
 
-        multicastQueue.sync(flags: .barrier) { [weak self] in
+        multicastQueue.sync { [weak self] in
             guard let self = self else { return }
             self.set.add(delegate)
         }
@@ -55,7 +55,7 @@ public class MulticastDelegate<T>: NSObject, Loggable {
             return
         }
 
-        multicastQueue.sync(flags: .barrier) { [weak self] in
+        multicastQueue.sync { [weak self] in
             guard let self = self else { return }
             self.set.remove(delegate)
         }
