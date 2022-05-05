@@ -317,7 +317,9 @@ extension RemoteTrackPublication {
         }
 
         let newSettings = trackSettings.copyWith(enabled: enabled,
-                                                 dimensions: dimensions)
+                                                 dimensions: dimensions,
+                                                 // fall back to use .high in case dimensions are .zero when enabled: true
+                                                 videoQuality: (enabled && dimensions == .zero) ? .high : .low)
 
         guard self.trackSettings != newSettings else {
             // no settings updated

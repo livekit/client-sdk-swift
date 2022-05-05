@@ -262,8 +262,9 @@ public class VideoView: NativeView, Loggable {
             let t = _state.track?.sid ?? "nil"
             let d = _state.track?.dimensions ?? .zero
             let c = _state.renderState.contains(.didRenderFirstFrame) ? "true" : "false"
+            let videoViewCount = _state.track?.videoViews.count ?? 0
             let r = ensureDebugTextView()
-            r.text = "\(t)\n" + "\(d.width)x\(d.height)\n" + "isEnabled: \(isEnabled)\n" + "didRenderFirstFrame: \(c)"
+            r.text = "\(t)\n" + "\(d.width)x\(d.height)\n" + "isEnabled: \(isEnabled)\n" + "didRenderFirstFrame: \(c)\n" + "videoViewCount: \(videoViewCount)"
             r.frame = bounds
         }
 
@@ -398,7 +399,7 @@ extension VideoView: RTCVideoRenderer {
 
         // prevent any extra rendering if already !isEnabled etc.
         guard _state.canRender, let nr = nativeRenderer else {
-            //
+            log("canRender is false, skipping render...")
             return
         }
 
@@ -418,7 +419,7 @@ extension VideoView: RTCVideoRenderer {
                 .apply(rotation: frame.rotation)
 
             guard dimensions.isRenderSafe else {
-                log("Skipping render for dimension \(dimensions)", .warning)
+                log("skipping render for dimension \(dimensions)", .warning)
                 // renderState.insert(.didSkipUnsafeFrame)
                 return
             }
