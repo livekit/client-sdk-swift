@@ -241,9 +241,7 @@ extension RemoteTrackPublication {
 
         log("[adaptiveStream] sending \(trackSettings), sid: \(sid)")
 
-        return participant.room.engine.signalClient.sendUpdateTrackSettings(sid: sid, settings: trackSettings).then(on: .sdk) {
-            self.trackSettings = trackSettings
-        }
+        return participant.room.engine.signalClient.sendUpdateTrackSettings(sid: sid, settings: trackSettings)
     }
 
     internal func engineConnectionState() -> ConnectionState {
@@ -326,7 +324,9 @@ extension RemoteTrackPublication {
             return
         }
 
-        send(trackSettings: newSettings).catch(on: .main) { [weak self] error in
+        send(trackSettings: newSettings).then(on: .main) {
+            self.trackSettings = newSettings
+        }.catch(on: .main) { [weak self] error in
             self?.log("[adaptiveStream] failed to send trackSettings, error: \(error)", .error)
         }.always(on: .main) { [weak self] in
             self?.asTimer.restart()
