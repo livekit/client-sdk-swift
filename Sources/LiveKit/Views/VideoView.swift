@@ -108,7 +108,7 @@ public class VideoView: NativeView, Loggable {
 
         // layout related
         var viewSize: CGSize
-        var rendererSize: CGSize = .zero
+        var rendererSize: CGSize?
         // var needsLayout: Bool = false
         var didLayout: Bool = false
         var layoutMode: LayoutMode = .fill
