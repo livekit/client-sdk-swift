@@ -152,10 +152,10 @@ public class VideoView: NativeView, Loggable {
 
                 needsLayout = true
 
-                // clean up old track
-                if let track = oldState.track {
+                DispatchQueue.main.async { [weak self] in
 
-                    DispatchQueue.main.async { [weak self] in
+                    // clean up old track
+                    if let track = oldState.track {
 
                         guard let self = self else { return }
 
@@ -166,24 +166,21 @@ public class VideoView: NativeView, Loggable {
                             nr.removeFromSuperview()
                             self.nativeRenderer = nil
                         }
+
+                        // CapturerDelegate
+                        if let localTrack = track as? LocalVideoTrack {
+                            localTrack.capturer.remove(delegate: self)
+                        }
+
+                        // notify detach
+                        track.notifyAsync { [weak self, weak track] (delegate) -> Void in
+                            guard let self = self, let track = track else { return }
+                            delegate.track(track, didDetach: self)
+                        }
                     }
 
-                    // CapturerDelegate
-                    if let localTrack = track as? LocalVideoTrack {
-                        localTrack.capturer.remove(delegate: self)
-                    }
-
-                    // notify detach
-                    track.notifyAsync { [weak self, weak track] (delegate) -> Void in
-                        guard let self = self, let track = track else { return }
-                        delegate.track(track, didDetach: self)
-                    }
-                }
-
-                // set new track
-                if let track = state.track {
-
-                    DispatchQueue.main.async { [weak self] in
+                    // set new track
+                    if let track = state.track, state.canRender {
 
                         guard let self = self else { return }
 
@@ -192,22 +189,22 @@ public class VideoView: NativeView, Loggable {
 
                         track.add(videoView: self)
 
-                        if let frame = track._state.videoFrame, self._state.canRender {
+                        if let frame = track._state.videoFrame {
                             self.log("rendering cached frame tack: \(track._state.sid ?? "nil")")
                             nr.renderFrame(frame)
                             self.markNeedsLayout()
                         }
-                    }
 
-                    // CapturerDelegate
-                    if let localTrack = track as? LocalVideoTrack {
-                        localTrack.capturer.add(delegate: self)
-                    }
+                        // CapturerDelegate
+                        if let localTrack = track as? LocalVideoTrack {
+                            localTrack.capturer.add(delegate: self)
+                        }
 
-                    // notify attach
-                    track.notifyAsync { [weak self, weak track] (delegate) -> Void in
-                        guard let self = self, let track = track else { return }
-                        delegate.track(track, didAttach: self)
+                        // notify attach
+                        track.notifyAsync { [weak self, weak track] (delegate) -> Void in
+                            guard let self = self, let track = track else { return }
+                            delegate.track(track, didAttach: self)
+                        }
                     }
                 }
             }
@@ -264,8 +261,9 @@ public class VideoView: NativeView, Loggable {
         if _state.showDebugInfo {
             let t = _state.track?.sid ?? "nil"
             let d = _state.track?.dimensions ?? .zero
+            let c = _state.renderState.contains(.didRenderFirstFrame) ? "true" : "false"
             let r = ensureDebugTextView()
-            r.text = "\(t) \(d.width)x\(d.height)\n" + "isEnabled:\(isEnabled)"
+            r.text = "\(t)\n" + "\(d.width)x\(d.height)\n" + "isEnabled: \(isEnabled)\n" + "didRenderFirstFrame: \(c)"
             r.frame = bounds
         }
 
@@ -466,7 +464,7 @@ extension VideoView: VideoCapturerDelegate {
 internal extension VideoView {
 
     var isVisible: Bool {
-        _state.didLayout && !isHidden && isEnabled
+        _state.didLayout && !_state.isHidden && _state.isEnabled
     }
 }
 
