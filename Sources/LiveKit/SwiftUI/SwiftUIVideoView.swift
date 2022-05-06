@@ -52,6 +52,7 @@ public struct SwiftUIVideoView: NativeViewRepresentable {
     let track: VideoTrack
     let layoutMode: VideoView.LayoutMode
     let mirrorMode: VideoView.MirrorMode
+    let debugMode: Bool
 
     @Binding var dimensions: Dimensions?
 
@@ -60,12 +61,14 @@ public struct SwiftUIVideoView: NativeViewRepresentable {
     public init(_ track: VideoTrack,
                 layoutMode: VideoView.LayoutMode = .fill,
                 mirrorMode: VideoView.MirrorMode = .auto,
+                debugMode: Bool = false,
                 dimensions: Binding<Dimensions?> = .constant(nil),
                 trackStats: Binding<TrackStats?> = .constant(nil)) {
 
         self.track = track
         self.layoutMode = layoutMode
         self.mirrorMode = mirrorMode
+        self.debugMode = debugMode
         self._dimensions = dimensions
 
         self.delegateReceiver = SwiftUIVideoViewDelegateReceiver(dimensions: dimensions,
@@ -91,6 +94,7 @@ public struct SwiftUIVideoView: NativeViewRepresentable {
         videoView.track = track
         videoView.layoutMode = layoutMode
         videoView.mirrorMode = mirrorMode
+        videoView.debugMode = debugMode
     }
 
     public static func dismantleView(_ videoView: VideoView, coordinator: ()) {

@@ -89,9 +89,9 @@ public class VideoView: NativeView, Loggable {
         }
     }
 
-    public var showDebugInfo: Bool {
-        get { _state.showDebugInfo }
-        set { _state.mutate { $0.showDebugInfo = newValue } }
+    public var debugMode: Bool {
+        get { _state.debugMode }
+        set { _state.mutate { $0.debugMode = newValue } }
     }
 
     private var nativeRenderer: NativeRendererView?
@@ -116,7 +116,7 @@ public class VideoView: NativeView, Loggable {
         var mirrorMode: MirrorMode = .auto
         var renderState = RenderState()
 
-        var showDebugInfo: Bool = false
+        var debugMode: Bool = false
     }
 
     internal var _state: StateSync<State>
@@ -140,7 +140,7 @@ public class VideoView: NativeView, Loggable {
 
             guard let self = self else { return }
 
-            var needsLayout = state.showDebugInfo != oldState.showDebugInfo ||
+            var needsLayout = state.debugMode != oldState.debugMode ||
                 state.layoutMode != oldState.layoutMode ||
                 state.mirrorMode != oldState.mirrorMode
 
@@ -258,7 +258,7 @@ public class VideoView: NativeView, Loggable {
             }
         }
 
-        if _state.showDebugInfo {
+        if _state.debugMode {
             let t = _state.track?.sid ?? "nil"
             let d = _state.track?.dimensions ?? .zero
             let c = _state.renderState.contains(.didRenderFirstFrame) ? "true" : "false"
