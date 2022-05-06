@@ -225,7 +225,7 @@ extension RemoteTrackPublication {
 
     // Simply send current track settings without any checks
     internal func resetTrackSettings() {
-        let adaptiveStreamEnabled = (participant?.room.options ?? RoomOptions()).adaptiveStream && .video == track?.kind
+        let adaptiveStreamEnabled = (participant?.room.options ?? RoomOptions()).adaptiveStream && .video == kind
         self.trackSettings = TrackSettings(enabled: !adaptiveStreamEnabled)
     }
 
@@ -302,7 +302,7 @@ extension RemoteTrackPublication {
         let asViews = track?.videoViews.allObjects ?? []
 
         if asViews.count > 1 {
-            log("[adaptiveStream] multiple VideoViews attached, count: \(asViews.count), trackId: \(track?.sid ?? "") views: (\(asViews.map { "\($0.hashValue)" }.joined(separator: ", ")))", .warning)
+            log("[adaptiveStream] multiple VideoViews attached, sid: \(sid), count: \(asViews.count), views: (\(asViews.map { "\($0.hashValue)" }.joined(separator: ", ")))", .warning)
         }
 
         let enabled = asViews.hasVisible()
@@ -328,13 +328,13 @@ extension RemoteTrackPublication {
         // log when flipping from enabled -> disabled
         if !newSettings.enabled, trackSettings.enabled {
             let viewsString = asViews.enumerated().map { (i, view) in "view\(i).isVisible: \(view.isVisible)(didLayout: \(view._state.didLayout), isHidden: \(view._state.isHidden), isEnabled: \(view._state.isEnabled))" }.joined(separator: ", ")
-            log("[adaptiveStream] disabling track sid: \(sid), viewCount: \(asViews.count), \(viewsString)")
+            log("[adaptiveStream] disabling sid: \(sid), viewCount: \(asViews.count), \(viewsString)")
         }
 
         send(trackSettings: newSettings).then(on: .main) {
             self.trackSettings = newSettings
         }.catch(on: .main) { [weak self] error in
-            self?.log("[adaptiveStream] failed to send trackSettings, error: \(error)", .error)
+            self?.log("[adaptiveStream] failed to send trackSettings, sid: \(sid) error: \(error)", .error)
         }.always(on: .main) { [weak self] in
             self?.asTimer.restart()
         }
