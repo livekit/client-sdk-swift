@@ -192,7 +192,7 @@ public class VideoView: NativeView, Loggable {
                         if let frame = track._state.videoFrame {
                             self.log("rendering cached frame tack: \(track._state.sid ?? "nil")")
                             nr.renderFrame(frame)
-                            self.markNeedsLayout()
+                            self.setNeedsLayout()
                         }
 
                         // CapturerDelegate
@@ -226,7 +226,7 @@ public class VideoView: NativeView, Loggable {
 
             if needsLayout {
                 DispatchQueue.mainSafeAsync {
-                    self.markNeedsLayout()
+                    self.setNeedsLayout()
                 }
             }
         }
@@ -240,8 +240,8 @@ public class VideoView: NativeView, Loggable {
         log()
     }
 
-    override func shouldLayout() {
-        super.shouldLayout()
+    override func performLayout() {
+        super.performLayout()
 
         // should always be on main thread
         assert(Thread.current.isMainThread, "must be called on main thread")
@@ -407,7 +407,7 @@ extension VideoView: RTCVideoRenderer {
         defer {
             if _needsLayout {
                 DispatchQueue.mainSafeAsync {
-                    self.markNeedsLayout()
+                    self.setNeedsLayout()
                 }
             }
         }
@@ -454,7 +454,7 @@ extension VideoView: VideoCapturerDelegate {
     public func capturer(_ capturer: VideoCapturer, didUpdate state: VideoCapturer.CapturerState) {
         if case .started = state {
             DispatchQueue.mainSafeAsync {
-                self.markNeedsLayout()
+                self.setNeedsLayout()
             }
         }
     }
