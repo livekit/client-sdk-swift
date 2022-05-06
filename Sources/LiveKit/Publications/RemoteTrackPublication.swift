@@ -165,6 +165,18 @@ public class RemoteTrackPublication: TrackPublication {
 
 private extension RemoteTrackPublication {
 
+    var isAdaptiveStreamEnabled: Bool { (participant?.room.options ?? RoomOptions()).adaptiveStream && .video == kind }
+
+    var engineConnectionState: ConnectionState {
+
+        guard let participant = participant else {
+            log("Participant is nil", .warning)
+            return .disconnected()
+        }
+
+        return participant.room.engine._state.connectionState
+    }
+
     var userCanModifyTrackSettings: Bool {
 
         // adaptiveStream must be disabled and must be subscribed
@@ -209,28 +221,16 @@ internal extension RemoteTrackPublication {
 
 // MARK: - TrackSettings
 
-extension RemoteTrackPublication {
-
-    internal var isAdaptiveStreamEnabled: Bool { (participant?.room.options ?? RoomOptions()).adaptiveStream && .video == kind }
-
-    internal var engineConnectionState: ConnectionState {
-
-        guard let participant = participant else {
-            log("Participant is nil", .warning)
-            return .disconnected()
-        }
-
-        return participant.room.engine._state.connectionState
-    }
+internal extension RemoteTrackPublication {
 
     // reset track settings
-    internal func resetTrackSettings() {
+    func resetTrackSettings() {
         // track is initially disabled when adaptive stream is enabled
         _state.mutate { $0.trackSettings = TrackSettings(enabled: !isAdaptiveStreamEnabled) }
     }
 
     // simply send track settings
-    internal func send(trackSettings: TrackSettings) -> Promise<Void> {
+    func send(trackSettings: TrackSettings) -> Promise<Void> {
 
         guard let participant = participant else {
             log("Participant is nil", .warning)
