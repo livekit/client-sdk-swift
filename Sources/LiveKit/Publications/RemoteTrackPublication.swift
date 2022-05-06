@@ -325,6 +325,12 @@ extension RemoteTrackPublication {
             return
         }
 
+        // log when flipping from enabled -> disabled
+        if !newSettings.enabled, trackSettings.enabled {
+            let viewsString = asViews.enumerated().map { (i, view) in "view\(i).isVisible: \(view.isVisible)(didLayout: \(view._state.didLayout), isHidden: \(view._state.isHidden), isEnabled: \(view._state.isEnabled))" }.joined(separator: ", ")
+            log("[adaptiveStream] disabling track sid: \(sid), viewCount: \(asViews.count), \(viewsString)")
+        }
+
         send(trackSettings: newSettings).then(on: .main) {
             self.trackSettings = newSettings
         }.catch(on: .main) { [weak self] error in
