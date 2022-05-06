@@ -37,7 +37,6 @@ public class Room: MulticastDelegate<RoomDelegate> {
     public var url: String? { engine._state.url }
     public var token: String? { engine._state.token }
     public var connectionState: ConnectionState { engine._state.connectionState }
-    public var didReconnect: Bool { engine._state.didReconnect }
     public var connectStopwatch: Stopwatch { engine._state.connectStopwatch }
 
     // MARK: - Internal
@@ -231,10 +230,12 @@ internal extension Room {
 
         log("resetting track settings...")
 
+        // create an array of RemoteTrackPublication
         let remoteTrackPublications = _state.remoteParticipants.values.map {
             $0._state.tracks.values.compactMap { $0 as? RemoteTrackPublication }
         }.joined()
 
+        // reset track settings for all RemoteTrackPublication
         for publication in remoteTrackPublications {
             publication.resetTrackSettings()
         }
