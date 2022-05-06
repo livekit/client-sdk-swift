@@ -27,10 +27,13 @@ extension VideoTrack {
         // should always be on main thread
         assert(Thread.current.isMainThread, "must be called on main thread")
 
-        guard let videoTrack = self.mediaTrack as? RTCVideoTrack else { return }
+        guard let videoTrack = self.mediaTrack as? RTCVideoTrack else {
+            log("mediaTrack is not a RTCVideoTrack", .error)
+            return
+        }
 
         guard !videoViews.contains(weakElement: videoView) else {
-            self.log("already attached", .warning)
+            log("already attached", .warning)
             return
         }
 
@@ -52,7 +55,10 @@ extension VideoTrack {
 
         videoViews.remove(weakElement: videoView)
 
-        guard let videoTrack = self.mediaTrack as? RTCVideoTrack else { return }
+        guard let videoTrack = self.mediaTrack as? RTCVideoTrack else {
+            log("mediaTrack is not a RTCVideoTrack", .error)
+            return
+        }
 
         videoTrack.remove(videoView)
     }

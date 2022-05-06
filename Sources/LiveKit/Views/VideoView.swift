@@ -263,8 +263,9 @@ public class VideoView: NativeView, Loggable {
             let d = _state.track?.dimensions ?? .zero
             let c = _state.renderState.contains(.didRenderFirstFrame) ? "true" : "false"
             let videoViewCount = _state.track?.videoViews.count ?? 0
+            let _didLayout = _state.didLayout
             let r = ensureDebugTextView()
-            r.text = "\(t)\n" + "\(d.width)x\(d.height)\n" + "isEnabled: \(isEnabled)\n" + "didRenderFirstFrame: \(c)\n" + "videoViewCount: \(videoViewCount)"
+            r.text = "VideoView#\(hashValue)\n" + "\(t)\n" + "\(d.width)x\(d.height)\n" + "isEnabled: \(isEnabled)\n" + "didRenderFirstFrame: \(c)\n" + "videoViewCount: \(videoViewCount)\n" + "didLayout: \(_didLayout)"
             r.frame = bounds
         }
 
