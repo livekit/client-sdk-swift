@@ -45,5 +45,5 @@ internal protocol WebSocket {
 
     func connect() -> Promise<WebSocket>
     func send(data: Data) -> Promise<Void>
-    func cleanUp(reason: DisconnectReason)
+    func cleanUp(reason: DisconnectReason?)
 }

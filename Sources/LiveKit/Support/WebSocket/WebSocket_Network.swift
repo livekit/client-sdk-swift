@@ -145,13 +145,13 @@ internal class WebSocket_Network: NSObject, Loggable, WebSocket {
 
         case .waiting(let error):
             log("waiting")
-            cleanUp(reason: .network(error: error))
+            cleanUp(reason: .networkError(error))
         case .failed(let error):
             log("failed")
-            cleanUp(reason: .network(error: error))
+            cleanUp(reason: .networkError(error))
         case .cancelled:
             log("cancelled")
-            cleanUp(reason: .network())
+            cleanUp(reason: .networkError())
 
         @unknown default:
             log("unknown")
@@ -241,7 +241,7 @@ internal class WebSocket_Network: NSObject, Loggable, WebSocket {
         }
     }
 
-    func cleanUp(reason: DisconnectReason) {
+    func cleanUp(reason: DisconnectReason?) {
 
         onMessage = nil
         onDisconnect = nil
