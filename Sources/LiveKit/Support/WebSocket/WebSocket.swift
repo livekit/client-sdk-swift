@@ -22,17 +22,26 @@ enum WebSocketMessage {
     case data(_ data: Data)
 }
 
+enum WebSocketMigrationState {
+    case started
+    case completed
+    case failed(_ error: Error)
+}
+
 internal protocol WebSocket {
 
     typealias OnMessage = (_ message: WebSocketMessage) -> Void
     typealias OnDisconnect = (_ reason: DisconnectReason) -> Void
+    typealias OnDidUpdateMigrationState = (_ state: WebSocketMigrationState) -> Void
 
     var onMessage: OnMessage? { get set }
     var onDisconnect: OnDisconnect? { get set }
+    var onDidUpdateMigrationState: OnDidUpdateMigrationState? { get set }
 
     init (url: URL,
           onMessage: OnMessage?,
-          onDisconnect: OnDisconnect?)
+          onDisconnect: OnDisconnect?,
+          onDidUpdateMigrationState: OnDidUpdateMigrationState?)
 
     func connect() -> Promise<WebSocket>
     func send(data: Data) -> Promise<Void>

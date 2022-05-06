@@ -72,7 +72,8 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
                                                onDisconnect: { reason in
                                                 self.webSocket = nil
                                                 self.cleanUp(reason: reason)
-                                               })
+                                               },
+                                               onDidUpdateMigrationState: self.onWebSocketDidUpdateMigrationState)
                 return socket.connect()
             }.then(on: .sdk) { (webSocket: WebSocket) -> Void in
                 self.webSocket = webSocket
@@ -163,6 +164,10 @@ private extension SignalClient {
             // resolve promise in this queue
             try awaitPromise(webSocket.send(data: data))
         }
+    }
+
+    func onWebSocketDidUpdateMigrationState(state: WebSocketMigrationState) {
+        notify { $0.signalClient(self, didUpdateMigrationState: state) }
     }
 
     func onWebSocketMessage(message: WebSocketMessage) {

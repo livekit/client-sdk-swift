@@ -22,8 +22,9 @@ internal class WebSocket_Network: NSObject, Loggable, WebSocket {
 
     public var onMessage: OnMessage?
     public var onDisconnect: OnDisconnect?
+    public var onDidUpdateMigrationState: OnDidUpdateMigrationState?
 
-    private let connection: NWConnection
+    private var connection: NWConnection
     private let queue = DispatchQueue(label: "LiveKitSDK.webSocket", qos: .default)
 
     private var connectPromise: Promise<WebSocket>?
@@ -35,9 +36,15 @@ internal class WebSocket_Network: NSObject, Loggable, WebSocket {
         return options
     }
 
+    private let endpoint: NWEndpoint
+    private let parameters: NWParameters
+
     required public init(url: URL,
                          onMessage: OnMessage? = nil,
-                         onDisconnect: OnDisconnect? = nil) {
+                         onDisconnect: OnDisconnect? = nil,
+                         onDidUpdateMigrationState: OnDidUpdateMigrationState? = nil) {
+
+        self.endpoint = .url(url)
 
         let params: NWParameters
 
@@ -49,18 +56,78 @@ internal class WebSocket_Network: NSObject, Loggable, WebSocket {
 
         params.defaultProtocolStack.applicationProtocols.insert(Self.defaultOptions, at: 0)
 
-        connection = NWConnection(to: .url(url), using: params)
+        connection = NWConnection(to: endpoint, using: params)
+
+        self.parameters = params
         self.onMessage = onMessage
         self.onDisconnect = onDisconnect
+        self.onDidUpdateMigrationState = onDidUpdateMigrationState
 
         super.init()
 
-        connection.stateUpdateHandler = onStateUpdate
-        connection.betterPathUpdateHandler = onBetterPath
+        connection.stateUpdateHandler = onStateUpdate(_:)
+        connection.betterPathUpdateHandler = onBetterPath(_:)
     }
 
     private func onBetterPath(_ available: Bool) {
         log("available: \(available)")
+        guard available else { return }
+
+        self.onDidUpdateMigrationState?(.started)
+
+        migrateConnection().then(on: queue) { [weak self] in
+            guard let self = self else { return }
+            self.log("socket migration complete")
+            self.onDidUpdateMigrationState?(.completed)
+        }.catch(on: queue) { [weak self] error in
+            // migration failed
+            guard let self = self else { return }
+            self.log("socket migration failed: \(error)")
+            self.onDidUpdateMigrationState?(.failed(error))
+        }
+    }
+
+    private func migrateConnection() -> Promise<Void> {
+
+        let migratedConnection = NWConnection(to: endpoint, using: parameters)
+
+        return Promise(on: queue) { [weak self] complete, fail in
+
+            guard let self = self else { return }
+
+            migratedConnection.stateUpdateHandler = { [weak self] state in
+
+                guard let self = self else { return }
+
+                switch state {
+                case .ready:
+
+                    // cancel previous connection
+                    // self.connection = nil
+
+                    migratedConnection.stateUpdateHandler = self.onStateUpdate(_:)
+                    migratedConnection.betterPathUpdateHandler = self.onBetterPath(_:)
+                    // migratedConnection.viabilityUpdateHandler = self.viabilityDidChange(isViable:)
+                    // let previousConnection = self.connection
+                    self.connection.cancel()
+                    self.connection = migratedConnection
+                    self.receive()
+                    complete(())
+                case .waiting(let error):
+                    fail(error)
+                case .failed(let error):
+                    fail(error)
+                case .setup, .preparing:
+                    break
+                case .cancelled:
+                    fail(NetworkError.disconnected(message: "Cancelled"))
+                @unknown default:
+                    fatalError()
+                }
+            }
+
+            migratedConnection.start(queue: self.queue)
+        }
     }
 
     private func onStateUpdate(_ state: NWConnection.State) {
@@ -176,14 +243,16 @@ internal class WebSocket_Network: NSObject, Loggable, WebSocket {
 
     func cleanUp(reason: DisconnectReason) {
 
+        onMessage = nil
+        onDisconnect = nil
+        onDidUpdateMigrationState = nil
+
         if let promise = connectPromise {
             let sdkError = NetworkError.disconnected(message: "WebSocket disconnected")
             promise.reject(sdkError)
             connectPromise = nil
         }
 
-        onMessage = nil
-        onDisconnect = nil
         connection.cancel()
     }
 }

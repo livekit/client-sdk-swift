@@ -88,7 +88,7 @@ extension ObservableParticipant: Identifiable {
     }
 }
 
-extension ObservableParticipant: Equatable & Hashable {
+extension ObservableParticipant: Equatable, Hashable {
 
     public static func == (lhs: ObservableParticipant, rhs: ObservableParticipant) -> Bool {
         lhs.id == rhs.id

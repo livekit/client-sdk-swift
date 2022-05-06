@@ -550,6 +550,38 @@ internal extension Engine {
 
 extension Engine: SignalClientDelegate {
 
+    func signalClient(_ signalClient: SignalClient, didUpdateMigrationState state: WebSocketMigrationState) -> Bool {
+        //
+        log("state: \(state)")
+
+        return true
+    }
+    //
+    //    func signalClient(_ signalClient: SignalClient, didAttemptConnectionMigration success: Bool) -> Bool {
+    //        //
+    //        if success {
+    //
+    //            self.waitFor(transport: self.primary, state: .connected).wait.then(on: .sdk) { () -> Promise<Void> in
+    //
+    //                self.subscriber?.restartingIce = true
+    //
+    //                // only if published, continue...
+    //                guard let publisher = self.publisher, self.hasPublished else {
+    //                    return Promise(())
+    //                }
+    //
+    //                return publisher.createAndSendOffer(iceRestart: true).then(on: .sdk) {
+    //                    self.waitFor(transport: publisher, state: .connected).wait
+    //                }
+    //            }.then(on: .sdk) {
+    //                // always check if there are queued requests
+    //                self.signalClient.sendQueuedRequests()
+    //            }
+    //        }
+    //
+    //        return true
+    //    }
+
     func signalClient(_ signalClient: SignalClient, didUpdate connectionState: ConnectionState, oldValue: ConnectionState) -> Bool {
         log()
 
