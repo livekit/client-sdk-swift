@@ -119,6 +119,8 @@ public class RemoteTrackPublication: TrackPublication {
         // attempt to set the new settings
         return checkCanModifyTrackSettings().then(on: .sdk) {
             self.send(trackSettings: newSettings)
+        }.then(on: .sdk) {
+            self.trackSettings = newSettings
         }
     }
 
@@ -227,7 +229,7 @@ extension RemoteTrackPublication {
         self.trackSettings = TrackSettings(enabled: !adaptiveStreamEnabled)
     }
 
-    // Send new track settings
+    // simply send track settings
     internal func send(trackSettings: TrackSettings) -> Promise<Void> {
 
         guard let participant = participant else {
