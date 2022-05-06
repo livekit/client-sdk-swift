@@ -47,7 +47,7 @@ open class ObservableRoom: ObservableObject, RoomDelegate, Loggable {
     }
 
     @discardableResult
-    public func switchCameraPosition() -> Promise<Void> {
+    public func switchCameraPosition() -> Promise<Bool> {
 
         guard case .published(let publication) = self.cameraTrackState,
               let track = publication.track as? LocalVideoTrack,
@@ -162,11 +162,6 @@ open class ObservableRoom: ObservableObject, RoomDelegate, Loggable {
     // MARK: - RoomDelegate
 
     open func room(_ room: Room, didUpdate connectionState: ConnectionState, oldValue: ConnectionState) {
-
-        guard !connectionState.isEqual(to: oldValue, includingAssociatedValues: false) else {
-            log("Skipping same conectionState")
-            return
-        }
 
         if case .disconnected = connectionState {
             DispatchQueue.main.async {

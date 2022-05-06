@@ -51,7 +51,7 @@ public class BufferCapturer: VideoCapturer {
             defer { self.dimensions = targetDimensions }
 
             guard let videoSource = self.delegate as? RTCVideoSource else { return }
-            self.log("adaptOutputFormat to: \(targetDimensions) fps: \(self.options.fps)")
+            // self.log("adaptOutputFormat to: \(targetDimensions) fps: \(self.options.fps)")
             videoSource.adaptOutputFormat(toWidth: targetDimensions.width,
                                           height: targetDimensions.height,
                                           fps: Int32(self.options.fps))
@@ -62,7 +62,7 @@ public class BufferCapturer: VideoCapturer {
 extension LocalVideoTrack {
 
     /// Creates a track that can directly capture `CVPixelBuffer` or `CMSampleBuffer` for convienience
-    public static func createBufferTrack(name: String = Track.screenShareName,
+    public static func createBufferTrack(name: String = Track.screenShareVideoName,
                                          source: VideoTrack.Source = .screenShareVideo,
                                          options: BufferCaptureOptions = BufferCaptureOptions()) -> LocalVideoTrack {
         let videoSource = Engine.createVideoSource(forScreenShare: true)

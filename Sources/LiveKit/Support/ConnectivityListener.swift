@@ -75,7 +75,7 @@ internal class ConnectivityListener: MulticastDelegate<ConnectivityListenerDeleg
 
 private extension ConnectivityListener {
 
-    func set(path newValue: NWPath, shouldNotify: Bool = false) {
+    func set(path newValue: NWPath, notify _notify: Bool = false) {
 
         log("status: \(newValue.status), interfaces: \(newValue.availableInterfaces.map({ "\(String(describing: $0.type))-\(String(describing: $0.index))" })), gateways: \(newValue.gateways), activeIp: \(String(describing: newValue.availableInterfaces.first?.ipv4))")
 

@@ -23,50 +23,55 @@ internal typealias TransportOnOffer = (RTCSessionDescription) -> Promise<Void>
 
 internal class Transport: MulticastDelegate<TransportDelegate> {
 
-    let target: Livekit_SignalTarget
-    let primary: Bool
+    // MARK: - Public
+
+    public let target: Livekit_SignalTarget
+    public let primary: Bool
+
+    public var restartingIce: Bool = false
+    public var onOffer: TransportOnOffer?
+
+    public var connectionState: RTCPeerConnectionState {
+        DispatchQueue.webRTC.sync { pc.connectionState }
+    }
+
+    public var localDescription: RTCSessionDescription? {
+        DispatchQueue.webRTC.sync { pc.localDescription }
+    }
+
+    public var remoteDescription: RTCSessionDescription? {
+        DispatchQueue.webRTC.sync { pc.remoteDescription }
+    }
+
+    public var signalingState: RTCSignalingState {
+        DispatchQueue.webRTC.sync { pc.signalingState }
+    }
+
+    public var isConnected: Bool {
+        connectionState == .connected
+    }
+
+    // create debounce func
+    public lazy var negotiate = Utils.createDebounceFunc(wait: 0.1, onCreateWorkItem: { [weak self] workItem in
+        self?.debounceWorkItem = workItem
+    }, fnc: { [weak self] in
+        self?.createAndSendOffer()
+    })
+
+    // MARK: - Private
+
+    private var renegotiate: Bool = false
 
     // forbid direct access to PeerConnection
     private let pc: RTCPeerConnection
     private var pendingCandidates: [RTCIceCandidate] = []
 
     // used for stats timer
-    private var statsTimer = DispatchQueueTimer(timeInterval: 1, queue: .webRTC)
+    private let statsTimer = DispatchQueueTimer(timeInterval: 1, queue: .webRTC)
     private var stats = [String: TrackStats]()
-
-    var restartingIce: Bool = false
-    var renegotiate: Bool = false
-    var onOffer: TransportOnOffer?
-
-    var connectionState: RTCPeerConnectionState {
-        DispatchQueue.webRTC.sync { pc.connectionState }
-    }
-
-    var localDescription: RTCSessionDescription? {
-        DispatchQueue.webRTC.sync { pc.localDescription }
-    }
-
-    var remoteDescription: RTCSessionDescription? {
-        DispatchQueue.webRTC.sync { pc.remoteDescription }
-    }
-
-    var signalingState: RTCSignalingState {
-        DispatchQueue.webRTC.sync { pc.signalingState }
-    }
-
-    var isConnected: Bool {
-        connectionState == .connected
-    }
 
     // keep reference to cancel later
     private var debounceWorkItem: DispatchWorkItem?
-
-    // create debounce func
-    lazy var negotiate = Utils.createDebounceFunc(wait: 0.1, onCreateWorkItem: { [weak self] workItem in
-        self?.debounceWorkItem = workItem
-    }, fnc: { [weak self] in
-        self?.createAndSendOffer()
-    })
 
     init(config: RTCConfiguration,
          target: Livekit_SignalTarget,
@@ -113,9 +118,9 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
             return addIceCandidatePromise(candidate)
         }
 
-        pendingCandidates.append(candidate)
-
-        return Promise(())
+        return Promise(on: .sdk) {
+            self.pendingCandidates.append(candidate)
+        }
     }
 
     @discardableResult
@@ -125,7 +130,7 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
             self.pendingCandidates.map { self.addIceCandidatePromise($0) }.all(on: .sdk)
         }.then(on: .sdk) { () -> Promise<Void> in
 
-            self.pendingCandidates.removeAll()
+            self.pendingCandidates = []
             self.restartingIce = false
 
             if self.renegotiate {
@@ -243,7 +248,7 @@ extension Transport {
 extension Transport: RTCPeerConnectionDelegate {
 
     internal func peerConnection(_ peerConnection: RTCPeerConnection, didChange state: RTCPeerConnectionState) {
-        log("Did update state \(state) for \(target)")
+        log("did update state \(state) for \(target)")
         notify { $0.transport(self, didUpdate: state) }
     }
 
@@ -309,10 +314,12 @@ private extension Transport {
                                                        optionalConstraints: nil)
 
             self.pc.offer(for: mediaConstraints) { sd, error in
+
                 guard let sd = sd else {
                     fail(EngineError.webRTC(message: "Failed to create offer", error))
                     return
                 }
+
                 complete(sd)
             }
         }
@@ -323,10 +330,12 @@ private extension Transport {
         Promise<RTCSessionDescription>(on: .webRTC) { complete, fail in
 
             self.pc.setRemoteDescription(sd) { error in
+
                 guard error == nil else {
                     fail(EngineError.webRTC(message: "failed to set remote description", error))
                     return
                 }
+
                 complete(sd)
             }
         }
@@ -337,10 +346,12 @@ private extension Transport {
         Promise<Void>(on: .webRTC) { complete, fail in
 
             self.pc.add(candidate) { error in
+
                 guard error == nil else {
                     fail(EngineError.webRTC(message: "failed to add ice candidate", error))
                     return
                 }
+
                 complete(())
             }
         }
@@ -359,10 +370,12 @@ internal extension Transport {
                                                        optionalConstraints: nil)
 
             self.pc.answer(for: mediaConstraints) { sd, error in
+
                 guard let sd = sd else {
-                    fail(EngineError.webRTC(message: "Failed to create answer", error))
+                    fail(EngineError.webRTC(message: "failed to create answer", error))
                     return
                 }
+
                 complete(sd)
             }
         }
@@ -373,10 +386,12 @@ internal extension Transport {
         Promise<RTCSessionDescription>(on: .webRTC) { complete, fail in
 
             self.pc.setLocalDescription(sd) { error in
+
                 guard error == nil else {
                     fail(EngineError.webRTC(message: "failed to set local description", error))
                     return
                 }
+
                 complete(sd)
             }
         }
@@ -388,7 +403,7 @@ internal extension Transport {
         Promise<RTCRtpTransceiver>(on: .webRTC) { complete, fail in
 
             guard let transceiver = self.pc.addTransceiver(with: track, init: transceiverInit) else {
-                fail(EngineError.webRTC(message: "Failed to add transceiver"))
+                fail(EngineError.webRTC(message: "failed to add transceiver"))
                 return
             }
 
@@ -401,7 +416,7 @@ internal extension Transport {
         Promise<Void>(on: .webRTC) { complete, fail in
 
             guard self.pc.removeTrack(sender) else {
-                fail(EngineError.webRTC(message: "Failed to removeTrack"))
+                fail(EngineError.webRTC(message: "failed to remove track"))
                 return
             }
 

@@ -23,33 +23,47 @@ public protocol VideoTrack: Track {
 extension VideoTrack {
 
     public func add(videoView: VideoView) {
-        guard let videoTrack = mediaTrack as? RTCVideoTrack else { return }
 
-        DispatchQueue.mainSafeSync {
+        // should always be on main thread
+        assert(Thread.current.isMainThread, "must be called on main thread")
 
-            guard !videoViews.allObjects.contains(videoView) else {
-                log("already attached", .warning)
-                return
-            }
+        guard let videoTrack = self.mediaTrack as? RTCVideoTrack else { return }
 
-            while let otherVideoView = videoViews.allObjects.first(where: { $0 != videoView }) {
-                videoTrack.remove(otherVideoView)
-                videoViews.remove(otherVideoView)
-            }
-
-            assert(videoViews.allObjects.count <= 1, "multiple VideoViews attached")
-
-            videoTrack.add(videoView)
-            videoViews.add(videoView)
+        guard !videoViews.contains(weakElement: videoView) else {
+            self.log("already attached", .warning)
+            return
         }
+
+        while let otherVideoView = videoViews.allObjects.first(where: { $0 != videoView }) {
+            videoTrack.remove(otherVideoView)
+            videoViews.remove(weakElement: otherVideoView)
+        }
+
+        assert(videoViews.allObjects.count <= 1, "multiple VideoViews attached")
+
+        videoTrack.add(videoView)
+        videoViews.add(weakElement: videoView)
     }
 
     public func remove(videoView: VideoView) {
-        guard let videoTrack = mediaTrack as? RTCVideoTrack else { return }
 
-        DispatchQueue.mainSafeSync {
-            videoTrack.remove(videoView)
-            videoViews.remove(videoView)
-        }
+        // should always be on main thread
+        assert(Thread.current.isMainThread, "must be called on main thread")
+
+        videoViews.remove(weakElement: videoView)
+
+        guard let videoTrack = self.mediaTrack as? RTCVideoTrack else { return }
+
+        videoTrack.remove(videoView)
+    }
+
+    @available(*, deprecated, message: "Use add(videoView:) instead")
+    public func add(renderer: VideoView) {
+        add(videoView: renderer)
+    }
+
+    @available(*, deprecated, message: "Use remove(videoView:) instead")
+    public func remove(renderer: VideoView) {
+        remove(videoView: renderer)
     }
 }

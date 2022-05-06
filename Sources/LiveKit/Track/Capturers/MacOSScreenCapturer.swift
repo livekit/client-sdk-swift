@@ -130,7 +130,7 @@ public class MacOSScreenCapturer: VideoCapturer {
 
     private func onDispatchSourceTimer() {
 
-        guard case .started = self.state,
+        guard case .started = self.captureState,
               case .window(let windowId) = source else { return }
 
         guard let image = CGWindowListCreateImage(CGRect.null,
@@ -155,7 +155,7 @@ public class MacOSScreenCapturer: VideoCapturer {
                                     defer { self.dimensions = targetDimensions }
 
                                     guard let videoSource = self.delegate as? RTCVideoSource else { return }
-                                    self.log("adaptOutputFormat to: \(targetDimensions) fps: \(self.options.fps)")
+                                    // self.log("adaptOutputFormat to: \(targetDimensions) fps: \(self.options.fps)")
                                     videoSource.adaptOutputFormat(toWidth: targetDimensions.width,
                                                                   height: targetDimensions.height,
                                                                   fps: Int32(self.options.fps))
@@ -163,9 +163,14 @@ public class MacOSScreenCapturer: VideoCapturer {
 
     }
 
-    public override func startCapture() -> Promise<Void> {
-        log()
-        return super.startCapture().then(on: .sdk) { () -> Void in
+    public override func startCapture() -> Promise<Bool> {
+
+        super.startCapture().then(on: .sdk) { didStart -> Bool in
+
+            guard didStart else {
+                // already started
+                return false
+            }
 
             if case .display(let displayID) = self.source {
 
@@ -190,17 +195,27 @@ public class MacOSScreenCapturer: VideoCapturer {
             } else if case .window = self.source {
                 self.startDispatchSourceTimer()
             }
+
+            return true
         }
     }
 
-    public override func stopCapture() -> Promise<Void> {
+    public override func stopCapture() -> Promise<Bool> {
         log()
-        return super.stopCapture().then(on: .sdk) {
+        return super.stopCapture().then(on: .sdk) { didStop -> Bool in
+
+            guard didStop else {
+                // already stopped
+                return false
+            }
+
             if case .display = self.source {
                 self.session.stopRunning()
             } else if case .window = self.source {
                 self.stopDispatchSourceTimer()
             }
+
+            return true
         }
     }
 }
@@ -222,7 +237,7 @@ extension MacOSScreenCapturer: AVCaptureVideoDataOutputSampleBufferDelegate {
             defer { self.dimensions = targetDimensions }
 
             guard let videoSource = self.delegate as? RTCVideoSource else { return }
-            self.log("adaptOutputFormat to: \(targetDimensions) fps: \(self.options.fps)")
+            // self.log("adaptOutputFormat to: \(targetDimensions) fps: \(self.options.fps)")
             videoSource.adaptOutputFormat(toWidth: targetDimensions.width,
                                           height: targetDimensions.height,
                                           fps: Int32(self.options.fps))
@@ -232,12 +247,13 @@ extension MacOSScreenCapturer: AVCaptureVideoDataOutputSampleBufferDelegate {
 
 extension LocalVideoTrack {
     /// Creates a track that captures the whole desktop screen
-    public static func createMacOSScreenShareTrack(source: ScreenShareSource = .mainDisplay,
+    public static func createMacOSScreenShareTrack(name: String = Track.screenShareVideoName,
+                                                   source: ScreenShareSource = .mainDisplay,
                                                    options: ScreenShareCaptureOptions = ScreenShareCaptureOptions()) -> LocalVideoTrack {
         let videoSource = Engine.createVideoSource(forScreenShare: true)
         let capturer = MacOSScreenCapturer(delegate: videoSource, source: source, options: options)
         return LocalVideoTrack(
-            name: Track.screenShareName,
+            name: name,
             source: .screenShareVideo,
             capturer: capturer,
             videoSource: videoSource

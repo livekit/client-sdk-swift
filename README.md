@@ -9,6 +9,8 @@ Docs and guides are at [https://docs.livekit.io](https://docs.livekit.io).
 
 There is full source code of a [iOS/macOS Swift UI Example App](https://github.com/livekit/client-example-swift).
 
+For minimal examples view this repo 👉 [Swift SDK Examples](https://github.com/livekit/client-example-collection-swift)
+
 ## Installation
 
 LiveKit for Swift is available as a Swift Package.
@@ -101,6 +103,47 @@ extension RoomViewController: RoomDelegate {
         DispatchQueue.main.async {
             remoteVideoView.track = track
         }
+    }
+}
+```
+
+# Thread safety
+
+Since `VideoView` is a UI component, all operations (read/write properties etc) must be performed from the `main` thread.
+
+Other core classes can be accessed from any thread.
+
+Delegates will be called on the SDK's internal thread.
+Make sure any access to the UI is within the main thread, for example by using `DispatchQueue.main.async`.
+
+# Memory management
+
+It is recommended to use **weak var** when storing references to objects created and managed by the SDK, such as `Participant`, `TrackPublication` etc. These objects are invalid when the `Room` disconnects, and will be released by the SDK. Holding strong reference to these objects will prevent releasing `Room` and other internal objects.
+
+`VideoView.track` property does not hold strong reference, so it's not required to set it to `nil`.
+
+# iOS Simulator limitations
+
+- Currently, `VideoView` will use OpenGL for iOS Simulator.
+- Publishing the camera track is not supported by iOS Simulator.
+
+# ScrollView performance
+
+It is recommended to turn off rendering of `VideoView`s that scroll off the screen and isn't visible by setting `false` to `isEnabled` property and `true` when it will re-appear to save CPU resources.
+
+The following is an example for `UICollectionView` (UIKit), implement `UICollectionViewDelegate` and use `willDisplay` / `didEndDisplaying` to update the `isEnabled` property.
+
+```swift
+extension YourViewController: UICollectionViewDelegate {
+
+   func collectionView(_ collectionView: UICollectionView, willDisplay cell: UICollectionViewCell, forItemAt indexPath: IndexPath) {
+        guard let yourCell = cell as? YourCell else { return }
+        yourCell.videoView.isEnabled = true
+    }
+
+    func collectionView(_ collectionView: UICollectionView, didEndDisplaying cell: UICollectionViewCell, forItemAt indexPath: IndexPath) {
+        guard let yourCell = cell as? YourCell else { return }
+        yourCell.videoView.isEnabled = false
     }
 }
 ```

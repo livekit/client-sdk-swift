@@ -19,12 +19,14 @@ import WebRTC
 
 internal protocol SignalClientDelegate: AnyObject {
 
-    func signalClient(_ signalClient: SignalClient, didUpdate connectionState: ConnectionState, oldValue: ConnectionState) -> Bool
+    func signalClient(_ signalClient: SignalClient, didMutate state: SignalClient.State, oldState: SignalClient.State) -> Bool
+
     func signalClient(_ signalClient: SignalClient, didReceive joinResponse: Livekit_JoinResponse) -> Bool
     func signalClient(_ signalClient: SignalClient, didReceiveAnswer answer: RTCSessionDescription) -> Bool
     func signalClient(_ signalClient: SignalClient, didReceiveOffer offer: RTCSessionDescription) -> Bool
     func signalClient(_ signalClient: SignalClient, didReceive iceCandidate: RTCIceCandidate, target: Livekit_SignalTarget) -> Bool
     func signalClient(_ signalClient: SignalClient, didPublish localTrack: Livekit_TrackPublishedResponse) -> Bool
+    func signalClient(_ signalClient: SignalClient, didUnpublish localTrack: Livekit_TrackUnpublishedResponse) -> Bool
     func signalClient(_ signalClient: SignalClient, didUpdate participants: [Livekit_ParticipantInfo]) -> Bool
     func signalClient(_ signalClient: SignalClient, didUpdate room: Livekit_Room) -> Bool
     func signalClient(_ signalClient: SignalClient, didUpdate speakers: [Livekit_SpeakerInfo]) -> Bool
@@ -42,12 +44,14 @@ internal protocol SignalClientDelegate: AnyObject {
 
 extension SignalClientDelegate {
 
-    func signalClient(_ signalClient: SignalClient, didUpdate connectionState: ConnectionState, oldValue: ConnectionState) -> Bool { false }
+    func signalClient(_ signalClient: SignalClient, didMutate state: SignalClient.State, oldState: SignalClient.State) -> Bool { false }
+
     func signalClient(_ signalClient: SignalClient, didReceive joinResponse: Livekit_JoinResponse) -> Bool { false }
     func signalClient(_ signalClient: SignalClient, didReceiveAnswer answer: RTCSessionDescription) -> Bool { false }
     func signalClient(_ signalClient: SignalClient, didReceiveOffer offer: RTCSessionDescription) -> Bool { false }
     func signalClient(_ signalClient: SignalClient, didReceive iceCandidate: RTCIceCandidate, target: Livekit_SignalTarget) -> Bool { false }
     func signalClient(_ signalClient: SignalClient, didPublish localTrack: Livekit_TrackPublishedResponse) -> Bool { false }
+    func signalClient(_ signalClient: SignalClient, didUnpublish localTrack: Livekit_TrackUnpublishedResponse) -> Bool { false }
     func signalClient(_ signalClient: SignalClient, didUpdate participants: [Livekit_ParticipantInfo]) -> Bool { false }
     func signalClient(_ signalClient: SignalClient, didUpdate room: Livekit_Room) -> Bool { false }
     func signalClient(_ signalClient: SignalClient, didUpdate speakers: [Livekit_SpeakerInfo]) -> Bool { false }
@@ -59,44 +63,4 @@ extension SignalClientDelegate {
     func signalClient(_ signalClient: SignalClient, didUpdate token: String) -> Bool { false }
     func signalClient(_ signalClient: SignalClient, didReceiveLeave canReconnect: Bool) -> Bool { false }
     func signalClient(_ signalClient: SignalClient, didUpdateMigrationState state: WebSocketMigrationState) -> Bool { false }
-}
-
-// MARK: - Closures
-
-class SignalClientDelegateClosures: NSObject, SignalClientDelegate, Loggable {
-
-    typealias DidUpdateConnectionState = (SignalClient, ConnectionState) -> Bool
-    typealias DidReceiveJoinResponse = (SignalClient, Livekit_JoinResponse) -> Bool
-    typealias DidPublishLocalTrack = (SignalClient, Livekit_TrackPublishedResponse) -> Bool
-
-    let didUpdateConnectionState: DidUpdateConnectionState?
-    let didReceiveJoinResponse: DidReceiveJoinResponse?
-    let didPublishLocalTrack: DidPublishLocalTrack?
-
-    init(didUpdateConnectionState: DidUpdateConnectionState? = nil,
-         didReceiveJoinResponse: DidReceiveJoinResponse? = nil,
-         didPublishLocalTrack: DidPublishLocalTrack? = nil) {
-
-        self.didUpdateConnectionState = didUpdateConnectionState
-        self.didReceiveJoinResponse = didReceiveJoinResponse
-        self.didPublishLocalTrack = didPublishLocalTrack
-        super.init()
-        log()
-    }
-
-    deinit {
-        log()
-    }
-
-    func signalClient(_ signalClient: SignalClient, didUpdate connectionState: ConnectionState, oldValue: ConnectionState) -> Bool {
-        return didUpdateConnectionState?(signalClient, connectionState) ?? false
-    }
-
-    func signalClient(_ signalClient: SignalClient, didReceive joinResponse: Livekit_JoinResponse) -> Bool {
-        return didReceiveJoinResponse?(signalClient, joinResponse) ?? false
-    }
-
-    func signalClient(_ signalClient: SignalClient, didPublish localTrack: Livekit_TrackPublishedResponse) -> Bool {
-        return didPublishLocalTrack?(signalClient, localTrack) ?? false
-    }
 }

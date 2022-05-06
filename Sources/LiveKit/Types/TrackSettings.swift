@@ -20,7 +20,7 @@ internal struct TrackSettings {
     let dimensions: Dimensions
     let videoQuality: VideoQuality
 
-    init(enabled: Bool = true,
+    init(enabled: Bool = false,
          dimensions: Dimensions = .zero,
          videoQuality: VideoQuality = .low) {
 
@@ -44,12 +44,5 @@ extension TrackSettings: Equatable {
         lhs.enabled == rhs.enabled
             && lhs.dimensions == rhs.dimensions
             && lhs.videoQuality == rhs.videoQuality
-    }
-}
-
-extension TrackSettings: CustomStringConvertible {
-
-    var description: String {
-        "TrackSettings(enabled: \(enabled), dimensions: \(dimensions), videoQuality: \(videoQuality))"
     }
 }

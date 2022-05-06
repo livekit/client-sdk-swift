@@ -62,7 +62,7 @@ public struct ScreenShareCaptureOptions: VideoCaptureOptions {
     public let dimensions: Dimensions
     public let fps: Int
 
-    public init(dimensions: Dimensions = .h720_169,
+    public init(dimensions: Dimensions = .h1080_169,
                 fps: Int = 30) {
 
         self.dimensions = dimensions
@@ -75,7 +75,7 @@ public struct BufferCaptureOptions: VideoCaptureOptions {
     public let dimensions: Dimensions
     public let fps: Int
 
-    public init(dimensions: Dimensions = .h720_169,
+    public init(dimensions: Dimensions = .h1080_169,
                 fps: Int = 30) {
 
         self.dimensions = dimensions

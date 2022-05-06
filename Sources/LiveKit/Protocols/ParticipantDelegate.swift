@@ -46,6 +46,8 @@ public protocol ParticipantDelegate: AnyObject {
     /// `participant` Can be a ``LocalParticipant`` or a ``RemoteParticipant``.
     func participant(_ participant: Participant, didUpdate publication: TrackPublication, muted: Bool)
 
+    func participant(_ participant: Participant, didUpdate permissions: ParticipantPermissions)
+
     /// ``RemoteTrackPublication/streamState`` has updated for the ``RemoteParticipant``.
     func participant(_ participant: RemoteParticipant, didUpdate publication: RemoteTrackPublication, streamState: StreamState)
 
@@ -91,6 +93,7 @@ public extension ParticipantDelegate {
     func participant(_ participant: Participant, didUpdate speaking: Bool) {}
     func participant(_ participant: Participant, didUpdate connectionQuality: ConnectionQuality) {}
     func participant(_ participant: Participant, didUpdate publication: TrackPublication, muted: Bool) {}
+    func participant(_ participant: Participant, didUpdate permissions: ParticipantPermissions) {}
     func participant(_ participant: RemoteParticipant, didUpdate publication: RemoteTrackPublication, streamState: StreamState) {}
     func participant(_ participant: RemoteParticipant, didUpdate publication: RemoteTrackPublication, permission allowed: Bool) {}
     func participant(_ participant: RemoteParticipant, didPublish publication: RemoteTrackPublication) {}

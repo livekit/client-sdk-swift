@@ -36,14 +36,7 @@ public class RemoteTrackPublication: TrackPublication {
         track?.muted ?? metadataMuted
     }
 
-    public internal(set) var streamState: StreamState = .paused {
-        didSet {
-            guard oldValue != streamState else { return }
-            guard let participant = self.participant as? RemoteParticipant else { return }
-            participant.notify { $0.participant(participant, didUpdate: self, streamState: self.streamState) }
-            participant.room.notify { $0.room(participant.room, participant: participant, didUpdate: self, streamState: self.streamState) }
-        }
-    }
+    public var streamState: StreamState { _state.streamState }
 
     // user's preference to subscribe or not
     private var preferSubscribed: Bool?
@@ -109,7 +102,7 @@ public class RemoteTrackPublication: TrackPublication {
             participantSid: participant.sid,
             trackSid: sid,
             subscribed: newValue
-        ).then {
+        ).then(on: .sdk) {
             self.preferSubscribed = newValue
         }
     }
@@ -124,7 +117,7 @@ public class RemoteTrackPublication: TrackPublication {
         // create new settings
         let newSettings = trackSettings.copyWith(enabled: enabled)
         // attempt to set the new settings
-        return checkCanModifyTrackSettings().then {
+        return checkCanModifyTrackSettings().then(on: .sdk) {
             self.send(trackSettings: newSettings)
         }
     }
@@ -138,15 +131,23 @@ public class RemoteTrackPublication: TrackPublication {
 
             if let newValue = newValue {
 
+                let adaptiveStreamEnabled = (participant?.room.options ?? RoomOptions()).adaptiveStream && .video == newValue.kind
+
+                // reset track settings
+                // track is initially disabled only if adaptive stream and is a video track
+                trackSettings = TrackSettings(enabled: !adaptiveStreamEnabled)
+
+                log("[adaptiveStream] did reset trackSettings: \(trackSettings), kind: \(newValue.kind)")
+
                 // start adaptiveStream timer only if it's a video track
-                if (participant?.room.options.adaptiveStream ?? false), newValue.kind == .video {
+                if adaptiveStreamEnabled {
                     asTimer.restart()
                 }
 
                 // if new Track has been set to this RemoteTrackPublication,
                 // update the Track's muted state from the latest info.
                 newValue.set(muted: metadataMuted,
-                             shouldNotify: false)
+                             notify: false)
             }
 
             if let oldValue = oldValue, newValue == nil,
@@ -238,9 +239,19 @@ extension RemoteTrackPublication {
             return Promise(EngineError.state(message: "Participant is nil"))
         }
 
-        return participant.room.engine.signalClient.sendUpdateTrackSettings(sid: sid, settings: trackSettings).then(on: .sdk) {
-            self.trackSettings = trackSettings
+        log("[adaptiveStream] sending \(trackSettings), sid: \(sid)")
+
+        return participant.room.engine.signalClient.sendUpdateTrackSettings(sid: sid, settings: trackSettings)
+    }
+
+    internal func engineConnectionState() -> ConnectionState {
+
+        guard let participant = participant else {
+            log("Participant is nil", .warning)
+            return .disconnected()
         }
+
+        return participant.room.engine._state.connectionState
     }
 }
 
@@ -262,7 +273,8 @@ internal extension Collection where Element == VideoView {
                    height: Swift.max(s1.height, s2.height))
         }
 
-        return filter { $0.isVisible }.compactMap { $0.rendererSize }.reduce(into: nil as CGSize?, { previous, current in
+        // try to use post-layout nativeRenderer's view size or use the VideoView's size
+        return filter { $0.isVisible }.map { $0._state.rendererSize ?? $0._state.viewSize }.reduce(into: nil as CGSize?, { previous, current in
             guard let unwrappedPrevious = previous else {
                 previous = current
                 return
@@ -283,10 +295,16 @@ extension RemoteTrackPublication {
         // suspend timer first
         asTimer.suspend()
 
+        // don't continue if the engine is disconnected
+        guard !engineConnectionState().isDisconnected else {
+            log("engine is disconnected")
+            return
+        }
+
         let asViews = track?.videoViews.allObjects ?? []
 
         if asViews.count > 1 {
-            log("multiple VideoViews attached, count: \(asViews.count), trackId: \(track?.sid ?? "") views: (\(asViews.map { "\($0.hashValue)" }.joined(separator: ", ")))", .warning)
+            log("[adaptiveStream] multiple VideoViews attached, count: \(asViews.count), trackId: \(track?.sid ?? "") views: (\(asViews.map { "\($0.hashValue)" }.joined(separator: ", ")))", .warning)
         }
 
         let enabled = asViews.hasVisible()
@@ -299,7 +317,9 @@ extension RemoteTrackPublication {
         }
 
         let newSettings = trackSettings.copyWith(enabled: enabled,
-                                                 dimensions: dimensions)
+                                                 dimensions: dimensions,
+                                                 // fall back to use .high in case dimensions are .zero when enabled: true
+                                                 videoQuality: (enabled && dimensions == .zero) ? .high : .low)
 
         guard self.trackSettings != newSettings else {
             // no settings updated
@@ -307,8 +327,10 @@ extension RemoteTrackPublication {
             return
         }
 
-        send(trackSettings: newSettings).catch(on: .main) { [weak self] error in
-            self?.log("Failed to send track settings, error: \(error)", .error)
+        send(trackSettings: newSettings).then(on: .main) {
+            self.trackSettings = newSettings
+        }.catch(on: .main) { [weak self] error in
+            self?.log("[adaptiveStream] failed to send trackSettings, error: \(error)", .error)
         }.always(on: .main) { [weak self] in
             self?.asTimer.restart()
         }

@@ -22,6 +22,9 @@ public class LocalTrackPublication: TrackPublication {
     // indicates whether the track was suspended(muted) by the SDK
     internal var suspended: Bool = false
 
+    // keep reference to cancel later
+    private weak var debounceWorkItem: DispatchWorkItem?
+
     @discardableResult
     public func mute() -> Promise<Void> {
 
@@ -59,9 +62,6 @@ public class LocalTrackPublication: TrackPublication {
         return oldValue
     }
 
-    // keep reference to cancel later
-    private weak var debounceWorkItem: DispatchWorkItem?
-
     deinit {
         log()
         debounceWorkItem?.cancel()
@@ -82,7 +82,7 @@ internal extension LocalTrackPublication {
     func suspend() -> Promise<Void> {
         // do nothing if already muted
         guard !muted else { return Promise(()) }
-        return mute().then {
+        return mute().then(on: .sdk) {
             self.suspended = true
         }
     }
@@ -91,7 +91,7 @@ internal extension LocalTrackPublication {
     func resume() -> Promise<Void> {
         // do nothing if was not suspended
         guard suspended else { return Promise(()) }
-        return unmute().then {
+        return unmute().then(on: .sdk) {
             self.suspended = false
         }
     }
@@ -165,7 +165,7 @@ extension LocalTrackPublication {
         self.log("Using encodings layers: \(layers.map { String(describing: $0) }.joined(separator: ", "))")
 
         participant.room.engine.signalClient.sendUpdateVideoLayers(trackSid: track.sid!,
-                                                                   layers: layers).catch { error in
+                                                                   layers: layers).catch(on: .sdk) { error in
                                                                     self.log("Failed to send update video layers", .error)
                                                                    }
     }

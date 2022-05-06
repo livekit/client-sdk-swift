@@ -32,9 +32,9 @@ public class LocalTrack: Track {
         // Already muted
         if muted { return Promise(()) }
 
-        return disable().then(on: .sdk) {
+        return disable().then(on: .sdk) { _ in
             self.stop()
-        }.then(on: .sdk) {
+        }.then(on: .sdk) { _ -> Void in
             self.set(muted: true, shouldSendSignal: true)
         }
     }
@@ -43,32 +43,40 @@ public class LocalTrack: Track {
         // Already un-muted
         if !muted { return Promise(()) }
 
-        return enable().then(on: .sdk) {
+        return enable().then(on: .sdk) { _ in
             self.start()
-        }.then(on: .sdk) {
+        }.then(on: .sdk) { _ -> Void in
             self.set(muted: false, shouldSendSignal: true)
         }
     }
 
-    internal func publish() -> Promise<Void> {
+    // returns true if state updated
+    internal func onPublish() -> Promise<Bool> {
 
-        Promise(on: .sdk) {
+        Promise<Bool>(on: .sdk) { () -> Bool in
+
             guard self.publishState != .published else {
-                throw TrackError.state(message: "Already published")
+                // already published
+                return false
             }
 
             self.publishState = .published
+            return true
         }
     }
 
-    internal func unpublish() -> Promise<Void> {
+    // returns true if state updated
+    internal func onUnpublish() -> Promise<Bool> {
 
-        Promise(on: .sdk) {
+        Promise<Bool>(on: .sdk) { () -> Bool in
+
             guard self.publishState != .unpublished else {
-                throw TrackError.state(message: "Already unpublished")
+                // already unpublished
+                return false
             }
 
             self.publishState = .unpublished
+            return true
         }
     }
 }

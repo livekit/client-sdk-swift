@@ -296,6 +296,31 @@ struct Livekit_Codec {
   init() {}
 }
 
+struct Livekit_ParticipantPermission {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  /// allow participant to subscribe to other tracks in the room
+  var canSubscribe: Bool = false
+
+  /// allow participant to publish new tracks to room
+  var canPublish: Bool = false
+
+  /// allow participant to publish data
+  var canPublishData: Bool = false
+
+  /// indicates that it's hidden to others
+  var hidden: Bool = false
+
+  /// indicates it's a recorder instance
+  var recorder: Bool = false
+
+  var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  init() {}
+}
+
 struct Livekit_ParticipantInfo {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
@@ -314,13 +339,20 @@ struct Livekit_ParticipantInfo {
   /// timestamp when participant joined room, in seconds
   var joinedAt: Int64 = 0
 
-  var hidden: Bool = false
-
-  var recorder: Bool = false
-
   var name: String = String()
 
   var version: UInt32 = 0
+
+  var permission: Livekit_ParticipantPermission {
+    get {return _permission ?? Livekit_ParticipantPermission()}
+    set {_permission = newValue}
+  }
+  /// Returns true if `permission` has been explicitly set.
+  var hasPermission: Bool {return self._permission != nil}
+  /// Clears the value of `permission`. Subsequent reads from it will return its default value.
+  mutating func clearPermission() {self._permission = nil}
+
+  var region: String = String()
 
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
@@ -367,6 +399,8 @@ struct Livekit_ParticipantInfo {
   }
 
   init() {}
+
+  fileprivate var _permission: Livekit_ParticipantPermission? = nil
 }
 
 #if swift(>=4.2)
@@ -741,6 +775,249 @@ struct Livekit_VideoConfiguration {
   init() {}
 }
 
+struct Livekit_RTPStats {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  var startTime: SwiftProtobuf.Google_Protobuf_Timestamp {
+    get {return _storage._startTime ?? SwiftProtobuf.Google_Protobuf_Timestamp()}
+    set {_uniqueStorage()._startTime = newValue}
+  }
+  /// Returns true if `startTime` has been explicitly set.
+  var hasStartTime: Bool {return _storage._startTime != nil}
+  /// Clears the value of `startTime`. Subsequent reads from it will return its default value.
+  mutating func clearStartTime() {_uniqueStorage()._startTime = nil}
+
+  var endTime: SwiftProtobuf.Google_Protobuf_Timestamp {
+    get {return _storage._endTime ?? SwiftProtobuf.Google_Protobuf_Timestamp()}
+    set {_uniqueStorage()._endTime = newValue}
+  }
+  /// Returns true if `endTime` has been explicitly set.
+  var hasEndTime: Bool {return _storage._endTime != nil}
+  /// Clears the value of `endTime`. Subsequent reads from it will return its default value.
+  mutating func clearEndTime() {_uniqueStorage()._endTime = nil}
+
+  var duration: Double {
+    get {return _storage._duration}
+    set {_uniqueStorage()._duration = newValue}
+  }
+
+  var packets: UInt32 {
+    get {return _storage._packets}
+    set {_uniqueStorage()._packets = newValue}
+  }
+
+  var packetRate: Double {
+    get {return _storage._packetRate}
+    set {_uniqueStorage()._packetRate = newValue}
+  }
+
+  var bytes: UInt64 {
+    get {return _storage._bytes}
+    set {_uniqueStorage()._bytes = newValue}
+  }
+
+  var bitrate: Double {
+    get {return _storage._bitrate}
+    set {_uniqueStorage()._bitrate = newValue}
+  }
+
+  var packetsLost: UInt32 {
+    get {return _storage._packetsLost}
+    set {_uniqueStorage()._packetsLost = newValue}
+  }
+
+  var packetLossRate: Double {
+    get {return _storage._packetLossRate}
+    set {_uniqueStorage()._packetLossRate = newValue}
+  }
+
+  var packetLossPercentage: Float {
+    get {return _storage._packetLossPercentage}
+    set {_uniqueStorage()._packetLossPercentage = newValue}
+  }
+
+  var packetsDuplicate: UInt32 {
+    get {return _storage._packetsDuplicate}
+    set {_uniqueStorage()._packetsDuplicate = newValue}
+  }
+
+  var packetDuplicateRate: Double {
+    get {return _storage._packetDuplicateRate}
+    set {_uniqueStorage()._packetDuplicateRate = newValue}
+  }
+
+  var bytesDuplicate: UInt64 {
+    get {return _storage._bytesDuplicate}
+    set {_uniqueStorage()._bytesDuplicate = newValue}
+  }
+
+  var bitrateDuplicate: Double {
+    get {return _storage._bitrateDuplicate}
+    set {_uniqueStorage()._bitrateDuplicate = newValue}
+  }
+
+  var packetsPadding: UInt32 {
+    get {return _storage._packetsPadding}
+    set {_uniqueStorage()._packetsPadding = newValue}
+  }
+
+  var packetPaddingRate: Double {
+    get {return _storage._packetPaddingRate}
+    set {_uniqueStorage()._packetPaddingRate = newValue}
+  }
+
+  var bytesPadding: UInt64 {
+    get {return _storage._bytesPadding}
+    set {_uniqueStorage()._bytesPadding = newValue}
+  }
+
+  var bitratePadding: Double {
+    get {return _storage._bitratePadding}
+    set {_uniqueStorage()._bitratePadding = newValue}
+  }
+
+  var packetsOutOfOrder: UInt32 {
+    get {return _storage._packetsOutOfOrder}
+    set {_uniqueStorage()._packetsOutOfOrder = newValue}
+  }
+
+  var frames: UInt32 {
+    get {return _storage._frames}
+    set {_uniqueStorage()._frames = newValue}
+  }
+
+  var frameRate: Double {
+    get {return _storage._frameRate}
+    set {_uniqueStorage()._frameRate = newValue}
+  }
+
+  var jitterCurrent: Double {
+    get {return _storage._jitterCurrent}
+    set {_uniqueStorage()._jitterCurrent = newValue}
+  }
+
+  var jitterMax: Double {
+    get {return _storage._jitterMax}
+    set {_uniqueStorage()._jitterMax = newValue}
+  }
+
+  var gapHistogram: Dictionary<Int32,UInt32> {
+    get {return _storage._gapHistogram}
+    set {_uniqueStorage()._gapHistogram = newValue}
+  }
+
+  var nacks: UInt32 {
+    get {return _storage._nacks}
+    set {_uniqueStorage()._nacks = newValue}
+  }
+
+  var nackMisses: UInt32 {
+    get {return _storage._nackMisses}
+    set {_uniqueStorage()._nackMisses = newValue}
+  }
+
+  var plis: UInt32 {
+    get {return _storage._plis}
+    set {_uniqueStorage()._plis = newValue}
+  }
+
+  var lastPli: SwiftProtobuf.Google_Protobuf_Timestamp {
+    get {return _storage._lastPli ?? SwiftProtobuf.Google_Protobuf_Timestamp()}
+    set {_uniqueStorage()._lastPli = newValue}
+  }
+  /// Returns true if `lastPli` has been explicitly set.
+  var hasLastPli: Bool {return _storage._lastPli != nil}
+  /// Clears the value of `lastPli`. Subsequent reads from it will return its default value.
+  mutating func clearLastPli() {_uniqueStorage()._lastPli = nil}
+
+  var firs: UInt32 {
+    get {return _storage._firs}
+    set {_uniqueStorage()._firs = newValue}
+  }
+
+  var lastFir: SwiftProtobuf.Google_Protobuf_Timestamp {
+    get {return _storage._lastFir ?? SwiftProtobuf.Google_Protobuf_Timestamp()}
+    set {_uniqueStorage()._lastFir = newValue}
+  }
+  /// Returns true if `lastFir` has been explicitly set.
+  var hasLastFir: Bool {return _storage._lastFir != nil}
+  /// Clears the value of `lastFir`. Subsequent reads from it will return its default value.
+  mutating func clearLastFir() {_uniqueStorage()._lastFir = nil}
+
+  var rttCurrent: UInt32 {
+    get {return _storage._rttCurrent}
+    set {_uniqueStorage()._rttCurrent = newValue}
+  }
+
+  var rttMax: UInt32 {
+    get {return _storage._rttMax}
+    set {_uniqueStorage()._rttMax = newValue}
+  }
+
+  var keyFrames: UInt32 {
+    get {return _storage._keyFrames}
+    set {_uniqueStorage()._keyFrames = newValue}
+  }
+
+  var lastKeyFrame: SwiftProtobuf.Google_Protobuf_Timestamp {
+    get {return _storage._lastKeyFrame ?? SwiftProtobuf.Google_Protobuf_Timestamp()}
+    set {_uniqueStorage()._lastKeyFrame = newValue}
+  }
+  /// Returns true if `lastKeyFrame` has been explicitly set.
+  var hasLastKeyFrame: Bool {return _storage._lastKeyFrame != nil}
+  /// Clears the value of `lastKeyFrame`. Subsequent reads from it will return its default value.
+  mutating func clearLastKeyFrame() {_uniqueStorage()._lastKeyFrame = nil}
+
+  var layerLockPlis: UInt32 {
+    get {return _storage._layerLockPlis}
+    set {_uniqueStorage()._layerLockPlis = newValue}
+  }
+
+  var lastLayerLockPli: SwiftProtobuf.Google_Protobuf_Timestamp {
+    get {return _storage._lastLayerLockPli ?? SwiftProtobuf.Google_Protobuf_Timestamp()}
+    set {_uniqueStorage()._lastLayerLockPli = newValue}
+  }
+  /// Returns true if `lastLayerLockPli` has been explicitly set.
+  var hasLastLayerLockPli: Bool {return _storage._lastLayerLockPli != nil}
+  /// Clears the value of `lastLayerLockPli`. Subsequent reads from it will return its default value.
+  mutating func clearLastLayerLockPli() {_uniqueStorage()._lastLayerLockPli = nil}
+
+  var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  init() {}
+
+  fileprivate var _storage = _StorageClass.defaultInstance
+}
+
+#if swift(>=5.5) && canImport(_Concurrency)
+extension Livekit_TrackType: @unchecked Sendable {}
+extension Livekit_TrackSource: @unchecked Sendable {}
+extension Livekit_VideoQuality: @unchecked Sendable {}
+extension Livekit_ConnectionQuality: @unchecked Sendable {}
+extension Livekit_ClientConfigSetting: @unchecked Sendable {}
+extension Livekit_Room: @unchecked Sendable {}
+extension Livekit_Codec: @unchecked Sendable {}
+extension Livekit_ParticipantPermission: @unchecked Sendable {}
+extension Livekit_ParticipantInfo: @unchecked Sendable {}
+extension Livekit_ParticipantInfo.State: @unchecked Sendable {}
+extension Livekit_TrackInfo: @unchecked Sendable {}
+extension Livekit_VideoLayer: @unchecked Sendable {}
+extension Livekit_DataPacket: @unchecked Sendable {}
+extension Livekit_DataPacket.OneOf_Value: @unchecked Sendable {}
+extension Livekit_DataPacket.Kind: @unchecked Sendable {}
+extension Livekit_ActiveSpeakerUpdate: @unchecked Sendable {}
+extension Livekit_SpeakerInfo: @unchecked Sendable {}
+extension Livekit_UserPacket: @unchecked Sendable {}
+extension Livekit_ParticipantTracks: @unchecked Sendable {}
+extension Livekit_ClientInfo: @unchecked Sendable {}
+extension Livekit_ClientInfo.SDK: @unchecked Sendable {}
+extension Livekit_ClientConfiguration: @unchecked Sendable {}
+extension Livekit_VideoConfiguration: @unchecked Sendable {}
+extension Livekit_RTPStats: @unchecked Sendable {}
+#endif  // swift(>=5.5) && canImport(_Concurrency)
+
 // MARK: - Code below here is support for the SwiftProtobuf runtime.
 
 fileprivate let _protobuf_package = "livekit"
@@ -912,6 +1189,62 @@ extension Livekit_Codec: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementa
   }
 }
 
+extension Livekit_ParticipantPermission: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  static let protoMessageName: String = _protobuf_package + ".ParticipantPermission"
+  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
+    1: .standard(proto: "can_subscribe"),
+    2: .standard(proto: "can_publish"),
+    3: .standard(proto: "can_publish_data"),
+    7: .same(proto: "hidden"),
+    8: .same(proto: "recorder"),
+  ]
+
+  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularBoolField(value: &self.canSubscribe) }()
+      case 2: try { try decoder.decodeSingularBoolField(value: &self.canPublish) }()
+      case 3: try { try decoder.decodeSingularBoolField(value: &self.canPublishData) }()
+      case 7: try { try decoder.decodeSingularBoolField(value: &self.hidden) }()
+      case 8: try { try decoder.decodeSingularBoolField(value: &self.recorder) }()
+      default: break
+      }
+    }
+  }
+
+  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    if self.canSubscribe != false {
+      try visitor.visitSingularBoolField(value: self.canSubscribe, fieldNumber: 1)
+    }
+    if self.canPublish != false {
+      try visitor.visitSingularBoolField(value: self.canPublish, fieldNumber: 2)
+    }
+    if self.canPublishData != false {
+      try visitor.visitSingularBoolField(value: self.canPublishData, fieldNumber: 3)
+    }
+    if self.hidden != false {
+      try visitor.visitSingularBoolField(value: self.hidden, fieldNumber: 7)
+    }
+    if self.recorder != false {
+      try visitor.visitSingularBoolField(value: self.recorder, fieldNumber: 8)
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  static func ==(lhs: Livekit_ParticipantPermission, rhs: Livekit_ParticipantPermission) -> Bool {
+    if lhs.canSubscribe != rhs.canSubscribe {return false}
+    if lhs.canPublish != rhs.canPublish {return false}
+    if lhs.canPublishData != rhs.canPublishData {return false}
+    if lhs.hidden != rhs.hidden {return false}
+    if lhs.recorder != rhs.recorder {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
 extension Livekit_ParticipantInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".ParticipantInfo"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
@@ -921,10 +1254,10 @@ extension Livekit_ParticipantInfo: SwiftProtobuf.Message, SwiftProtobuf._Message
     4: .same(proto: "tracks"),
     5: .same(proto: "metadata"),
     6: .standard(proto: "joined_at"),
-    7: .same(proto: "hidden"),
-    8: .same(proto: "recorder"),
     9: .same(proto: "name"),
     10: .same(proto: "version"),
+    11: .same(proto: "permission"),
+    12: .same(proto: "region"),
   ]
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -939,16 +1272,20 @@ extension Livekit_ParticipantInfo: SwiftProtobuf.Message, SwiftProtobuf._Message
       case 4: try { try decoder.decodeRepeatedMessageField(value: &self.tracks) }()
       case 5: try { try decoder.decodeSingularStringField(value: &self.metadata) }()
       case 6: try { try decoder.decodeSingularInt64Field(value: &self.joinedAt) }()
-      case 7: try { try decoder.decodeSingularBoolField(value: &self.hidden) }()
-      case 8: try { try decoder.decodeSingularBoolField(value: &self.recorder) }()
       case 9: try { try decoder.decodeSingularStringField(value: &self.name) }()
       case 10: try { try decoder.decodeSingularUInt32Field(value: &self.version) }()
+      case 11: try { try decoder.decodeSingularMessageField(value: &self._permission) }()
+      case 12: try { try decoder.decodeSingularStringField(value: &self.region) }()
       default: break
       }
     }
   }
 
   func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    // The use of inline closures is to circumvent an issue where the compiler
+    // allocates stack space for every if/case branch local when no optimizations
+    // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+    // https://github.com/apple/swift-protobuf/issues/1182
     if !self.sid.isEmpty {
       try visitor.visitSingularStringField(value: self.sid, fieldNumber: 1)
     }
@@ -967,17 +1304,17 @@ extension Livekit_ParticipantInfo: SwiftProtobuf.Message, SwiftProtobuf._Message
     if self.joinedAt != 0 {
       try visitor.visitSingularInt64Field(value: self.joinedAt, fieldNumber: 6)
     }
-    if self.hidden != false {
-      try visitor.visitSingularBoolField(value: self.hidden, fieldNumber: 7)
-    }
-    if self.recorder != false {
-      try visitor.visitSingularBoolField(value: self.recorder, fieldNumber: 8)
-    }
     if !self.name.isEmpty {
       try visitor.visitSingularStringField(value: self.name, fieldNumber: 9)
     }
     if self.version != 0 {
       try visitor.visitSingularUInt32Field(value: self.version, fieldNumber: 10)
+    }
+    try { if let v = self._permission {
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 11)
+    } }()
+    if !self.region.isEmpty {
+      try visitor.visitSingularStringField(value: self.region, fieldNumber: 12)
     }
     try unknownFields.traverse(visitor: &visitor)
   }
@@ -989,10 +1326,10 @@ extension Livekit_ParticipantInfo: SwiftProtobuf.Message, SwiftProtobuf._Message
     if lhs.tracks != rhs.tracks {return false}
     if lhs.metadata != rhs.metadata {return false}
     if lhs.joinedAt != rhs.joinedAt {return false}
-    if lhs.hidden != rhs.hidden {return false}
-    if lhs.recorder != rhs.recorder {return false}
     if lhs.name != rhs.name {return false}
     if lhs.version != rhs.version {return false}
+    if lhs._permission != rhs._permission {return false}
+    if lhs.region != rhs.region {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
@@ -1569,6 +1906,354 @@ extension Livekit_VideoConfiguration: SwiftProtobuf.Message, SwiftProtobuf._Mess
 
   static func ==(lhs: Livekit_VideoConfiguration, rhs: Livekit_VideoConfiguration) -> Bool {
     if lhs.hardwareEncoder != rhs.hardwareEncoder {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+extension Livekit_RTPStats: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  static let protoMessageName: String = _protobuf_package + ".RTPStats"
+  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
+    1: .standard(proto: "start_time"),
+    2: .standard(proto: "end_time"),
+    3: .same(proto: "duration"),
+    4: .same(proto: "packets"),
+    5: .standard(proto: "packet_rate"),
+    6: .same(proto: "bytes"),
+    7: .same(proto: "bitrate"),
+    8: .standard(proto: "packets_lost"),
+    9: .standard(proto: "packet_loss_rate"),
+    10: .standard(proto: "packet_loss_percentage"),
+    11: .standard(proto: "packets_duplicate"),
+    12: .standard(proto: "packet_duplicate_rate"),
+    13: .standard(proto: "bytes_duplicate"),
+    14: .standard(proto: "bitrate_duplicate"),
+    15: .standard(proto: "packets_padding"),
+    16: .standard(proto: "packet_padding_rate"),
+    17: .standard(proto: "bytes_padding"),
+    18: .standard(proto: "bitrate_padding"),
+    19: .standard(proto: "packets_out_of_order"),
+    20: .same(proto: "frames"),
+    21: .standard(proto: "frame_rate"),
+    22: .standard(proto: "jitter_current"),
+    23: .standard(proto: "jitter_max"),
+    24: .standard(proto: "gap_histogram"),
+    25: .same(proto: "nacks"),
+    26: .standard(proto: "nack_misses"),
+    27: .same(proto: "plis"),
+    28: .standard(proto: "last_pli"),
+    29: .same(proto: "firs"),
+    30: .standard(proto: "last_fir"),
+    31: .standard(proto: "rtt_current"),
+    32: .standard(proto: "rtt_max"),
+    33: .standard(proto: "key_frames"),
+    34: .standard(proto: "last_key_frame"),
+    35: .standard(proto: "layer_lock_plis"),
+    36: .standard(proto: "last_layer_lock_pli"),
+  ]
+
+  fileprivate class _StorageClass {
+    var _startTime: SwiftProtobuf.Google_Protobuf_Timestamp? = nil
+    var _endTime: SwiftProtobuf.Google_Protobuf_Timestamp? = nil
+    var _duration: Double = 0
+    var _packets: UInt32 = 0
+    var _packetRate: Double = 0
+    var _bytes: UInt64 = 0
+    var _bitrate: Double = 0
+    var _packetsLost: UInt32 = 0
+    var _packetLossRate: Double = 0
+    var _packetLossPercentage: Float = 0
+    var _packetsDuplicate: UInt32 = 0
+    var _packetDuplicateRate: Double = 0
+    var _bytesDuplicate: UInt64 = 0
+    var _bitrateDuplicate: Double = 0
+    var _packetsPadding: UInt32 = 0
+    var _packetPaddingRate: Double = 0
+    var _bytesPadding: UInt64 = 0
+    var _bitratePadding: Double = 0
+    var _packetsOutOfOrder: UInt32 = 0
+    var _frames: UInt32 = 0
+    var _frameRate: Double = 0
+    var _jitterCurrent: Double = 0
+    var _jitterMax: Double = 0
+    var _gapHistogram: Dictionary<Int32,UInt32> = [:]
+    var _nacks: UInt32 = 0
+    var _nackMisses: UInt32 = 0
+    var _plis: UInt32 = 0
+    var _lastPli: SwiftProtobuf.Google_Protobuf_Timestamp? = nil
+    var _firs: UInt32 = 0
+    var _lastFir: SwiftProtobuf.Google_Protobuf_Timestamp? = nil
+    var _rttCurrent: UInt32 = 0
+    var _rttMax: UInt32 = 0
+    var _keyFrames: UInt32 = 0
+    var _lastKeyFrame: SwiftProtobuf.Google_Protobuf_Timestamp? = nil
+    var _layerLockPlis: UInt32 = 0
+    var _lastLayerLockPli: SwiftProtobuf.Google_Protobuf_Timestamp? = nil
+
+    static let defaultInstance = _StorageClass()
+
+    private init() {}
+
+    init(copying source: _StorageClass) {
+      _startTime = source._startTime
+      _endTime = source._endTime
+      _duration = source._duration
+      _packets = source._packets
+      _packetRate = source._packetRate
+      _bytes = source._bytes
+      _bitrate = source._bitrate
+      _packetsLost = source._packetsLost
+      _packetLossRate = source._packetLossRate
+      _packetLossPercentage = source._packetLossPercentage
+      _packetsDuplicate = source._packetsDuplicate
+      _packetDuplicateRate = source._packetDuplicateRate
+      _bytesDuplicate = source._bytesDuplicate
+      _bitrateDuplicate = source._bitrateDuplicate
+      _packetsPadding = source._packetsPadding
+      _packetPaddingRate = source._packetPaddingRate
+      _bytesPadding = source._bytesPadding
+      _bitratePadding = source._bitratePadding
+      _packetsOutOfOrder = source._packetsOutOfOrder
+      _frames = source._frames
+      _frameRate = source._frameRate
+      _jitterCurrent = source._jitterCurrent
+      _jitterMax = source._jitterMax
+      _gapHistogram = source._gapHistogram
+      _nacks = source._nacks
+      _nackMisses = source._nackMisses
+      _plis = source._plis
+      _lastPli = source._lastPli
+      _firs = source._firs
+      _lastFir = source._lastFir
+      _rttCurrent = source._rttCurrent
+      _rttMax = source._rttMax
+      _keyFrames = source._keyFrames
+      _lastKeyFrame = source._lastKeyFrame
+      _layerLockPlis = source._layerLockPlis
+      _lastLayerLockPli = source._lastLayerLockPli
+    }
+  }
+
+  fileprivate mutating func _uniqueStorage() -> _StorageClass {
+    if !isKnownUniquelyReferenced(&_storage) {
+      _storage = _StorageClass(copying: _storage)
+    }
+    return _storage
+  }
+
+  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    _ = _uniqueStorage()
+    try withExtendedLifetime(_storage) { (_storage: _StorageClass) in
+      while let fieldNumber = try decoder.nextFieldNumber() {
+        // The use of inline closures is to circumvent an issue where the compiler
+        // allocates stack space for every case branch when no optimizations are
+        // enabled. https://github.com/apple/swift-protobuf/issues/1034
+        switch fieldNumber {
+        case 1: try { try decoder.decodeSingularMessageField(value: &_storage._startTime) }()
+        case 2: try { try decoder.decodeSingularMessageField(value: &_storage._endTime) }()
+        case 3: try { try decoder.decodeSingularDoubleField(value: &_storage._duration) }()
+        case 4: try { try decoder.decodeSingularUInt32Field(value: &_storage._packets) }()
+        case 5: try { try decoder.decodeSingularDoubleField(value: &_storage._packetRate) }()
+        case 6: try { try decoder.decodeSingularUInt64Field(value: &_storage._bytes) }()
+        case 7: try { try decoder.decodeSingularDoubleField(value: &_storage._bitrate) }()
+        case 8: try { try decoder.decodeSingularUInt32Field(value: &_storage._packetsLost) }()
+        case 9: try { try decoder.decodeSingularDoubleField(value: &_storage._packetLossRate) }()
+        case 10: try { try decoder.decodeSingularFloatField(value: &_storage._packetLossPercentage) }()
+        case 11: try { try decoder.decodeSingularUInt32Field(value: &_storage._packetsDuplicate) }()
+        case 12: try { try decoder.decodeSingularDoubleField(value: &_storage._packetDuplicateRate) }()
+        case 13: try { try decoder.decodeSingularUInt64Field(value: &_storage._bytesDuplicate) }()
+        case 14: try { try decoder.decodeSingularDoubleField(value: &_storage._bitrateDuplicate) }()
+        case 15: try { try decoder.decodeSingularUInt32Field(value: &_storage._packetsPadding) }()
+        case 16: try { try decoder.decodeSingularDoubleField(value: &_storage._packetPaddingRate) }()
+        case 17: try { try decoder.decodeSingularUInt64Field(value: &_storage._bytesPadding) }()
+        case 18: try { try decoder.decodeSingularDoubleField(value: &_storage._bitratePadding) }()
+        case 19: try { try decoder.decodeSingularUInt32Field(value: &_storage._packetsOutOfOrder) }()
+        case 20: try { try decoder.decodeSingularUInt32Field(value: &_storage._frames) }()
+        case 21: try { try decoder.decodeSingularDoubleField(value: &_storage._frameRate) }()
+        case 22: try { try decoder.decodeSingularDoubleField(value: &_storage._jitterCurrent) }()
+        case 23: try { try decoder.decodeSingularDoubleField(value: &_storage._jitterMax) }()
+        case 24: try { try decoder.decodeMapField(fieldType: SwiftProtobuf._ProtobufMap<SwiftProtobuf.ProtobufInt32,SwiftProtobuf.ProtobufUInt32>.self, value: &_storage._gapHistogram) }()
+        case 25: try { try decoder.decodeSingularUInt32Field(value: &_storage._nacks) }()
+        case 26: try { try decoder.decodeSingularUInt32Field(value: &_storage._nackMisses) }()
+        case 27: try { try decoder.decodeSingularUInt32Field(value: &_storage._plis) }()
+        case 28: try { try decoder.decodeSingularMessageField(value: &_storage._lastPli) }()
+        case 29: try { try decoder.decodeSingularUInt32Field(value: &_storage._firs) }()
+        case 30: try { try decoder.decodeSingularMessageField(value: &_storage._lastFir) }()
+        case 31: try { try decoder.decodeSingularUInt32Field(value: &_storage._rttCurrent) }()
+        case 32: try { try decoder.decodeSingularUInt32Field(value: &_storage._rttMax) }()
+        case 33: try { try decoder.decodeSingularUInt32Field(value: &_storage._keyFrames) }()
+        case 34: try { try decoder.decodeSingularMessageField(value: &_storage._lastKeyFrame) }()
+        case 35: try { try decoder.decodeSingularUInt32Field(value: &_storage._layerLockPlis) }()
+        case 36: try { try decoder.decodeSingularMessageField(value: &_storage._lastLayerLockPli) }()
+        default: break
+        }
+      }
+    }
+  }
+
+  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    try withExtendedLifetime(_storage) { (_storage: _StorageClass) in
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every if/case branch local when no optimizations
+      // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+      // https://github.com/apple/swift-protobuf/issues/1182
+      try { if let v = _storage._startTime {
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 1)
+      } }()
+      try { if let v = _storage._endTime {
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 2)
+      } }()
+      if _storage._duration != 0 {
+        try visitor.visitSingularDoubleField(value: _storage._duration, fieldNumber: 3)
+      }
+      if _storage._packets != 0 {
+        try visitor.visitSingularUInt32Field(value: _storage._packets, fieldNumber: 4)
+      }
+      if _storage._packetRate != 0 {
+        try visitor.visitSingularDoubleField(value: _storage._packetRate, fieldNumber: 5)
+      }
+      if _storage._bytes != 0 {
+        try visitor.visitSingularUInt64Field(value: _storage._bytes, fieldNumber: 6)
+      }
+      if _storage._bitrate != 0 {
+        try visitor.visitSingularDoubleField(value: _storage._bitrate, fieldNumber: 7)
+      }
+      if _storage._packetsLost != 0 {
+        try visitor.visitSingularUInt32Field(value: _storage._packetsLost, fieldNumber: 8)
+      }
+      if _storage._packetLossRate != 0 {
+        try visitor.visitSingularDoubleField(value: _storage._packetLossRate, fieldNumber: 9)
+      }
+      if _storage._packetLossPercentage != 0 {
+        try visitor.visitSingularFloatField(value: _storage._packetLossPercentage, fieldNumber: 10)
+      }
+      if _storage._packetsDuplicate != 0 {
+        try visitor.visitSingularUInt32Field(value: _storage._packetsDuplicate, fieldNumber: 11)
+      }
+      if _storage._packetDuplicateRate != 0 {
+        try visitor.visitSingularDoubleField(value: _storage._packetDuplicateRate, fieldNumber: 12)
+      }
+      if _storage._bytesDuplicate != 0 {
+        try visitor.visitSingularUInt64Field(value: _storage._bytesDuplicate, fieldNumber: 13)
+      }
+      if _storage._bitrateDuplicate != 0 {
+        try visitor.visitSingularDoubleField(value: _storage._bitrateDuplicate, fieldNumber: 14)
+      }
+      if _storage._packetsPadding != 0 {
+        try visitor.visitSingularUInt32Field(value: _storage._packetsPadding, fieldNumber: 15)
+      }
+      if _storage._packetPaddingRate != 0 {
+        try visitor.visitSingularDoubleField(value: _storage._packetPaddingRate, fieldNumber: 16)
+      }
+      if _storage._bytesPadding != 0 {
+        try visitor.visitSingularUInt64Field(value: _storage._bytesPadding, fieldNumber: 17)
+      }
+      if _storage._bitratePadding != 0 {
+        try visitor.visitSingularDoubleField(value: _storage._bitratePadding, fieldNumber: 18)
+      }
+      if _storage._packetsOutOfOrder != 0 {
+        try visitor.visitSingularUInt32Field(value: _storage._packetsOutOfOrder, fieldNumber: 19)
+      }
+      if _storage._frames != 0 {
+        try visitor.visitSingularUInt32Field(value: _storage._frames, fieldNumber: 20)
+      }
+      if _storage._frameRate != 0 {
+        try visitor.visitSingularDoubleField(value: _storage._frameRate, fieldNumber: 21)
+      }
+      if _storage._jitterCurrent != 0 {
+        try visitor.visitSingularDoubleField(value: _storage._jitterCurrent, fieldNumber: 22)
+      }
+      if _storage._jitterMax != 0 {
+        try visitor.visitSingularDoubleField(value: _storage._jitterMax, fieldNumber: 23)
+      }
+      if !_storage._gapHistogram.isEmpty {
+        try visitor.visitMapField(fieldType: SwiftProtobuf._ProtobufMap<SwiftProtobuf.ProtobufInt32,SwiftProtobuf.ProtobufUInt32>.self, value: _storage._gapHistogram, fieldNumber: 24)
+      }
+      if _storage._nacks != 0 {
+        try visitor.visitSingularUInt32Field(value: _storage._nacks, fieldNumber: 25)
+      }
+      if _storage._nackMisses != 0 {
+        try visitor.visitSingularUInt32Field(value: _storage._nackMisses, fieldNumber: 26)
+      }
+      if _storage._plis != 0 {
+        try visitor.visitSingularUInt32Field(value: _storage._plis, fieldNumber: 27)
+      }
+      try { if let v = _storage._lastPli {
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 28)
+      } }()
+      if _storage._firs != 0 {
+        try visitor.visitSingularUInt32Field(value: _storage._firs, fieldNumber: 29)
+      }
+      try { if let v = _storage._lastFir {
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 30)
+      } }()
+      if _storage._rttCurrent != 0 {
+        try visitor.visitSingularUInt32Field(value: _storage._rttCurrent, fieldNumber: 31)
+      }
+      if _storage._rttMax != 0 {
+        try visitor.visitSingularUInt32Field(value: _storage._rttMax, fieldNumber: 32)
+      }
+      if _storage._keyFrames != 0 {
+        try visitor.visitSingularUInt32Field(value: _storage._keyFrames, fieldNumber: 33)
+      }
+      try { if let v = _storage._lastKeyFrame {
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 34)
+      } }()
+      if _storage._layerLockPlis != 0 {
+        try visitor.visitSingularUInt32Field(value: _storage._layerLockPlis, fieldNumber: 35)
+      }
+      try { if let v = _storage._lastLayerLockPli {
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 36)
+      } }()
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  static func ==(lhs: Livekit_RTPStats, rhs: Livekit_RTPStats) -> Bool {
+    if lhs._storage !== rhs._storage {
+      let storagesAreEqual: Bool = withExtendedLifetime((lhs._storage, rhs._storage)) { (_args: (_StorageClass, _StorageClass)) in
+        let _storage = _args.0
+        let rhs_storage = _args.1
+        if _storage._startTime != rhs_storage._startTime {return false}
+        if _storage._endTime != rhs_storage._endTime {return false}
+        if _storage._duration != rhs_storage._duration {return false}
+        if _storage._packets != rhs_storage._packets {return false}
+        if _storage._packetRate != rhs_storage._packetRate {return false}
+        if _storage._bytes != rhs_storage._bytes {return false}
+        if _storage._bitrate != rhs_storage._bitrate {return false}
+        if _storage._packetsLost != rhs_storage._packetsLost {return false}
+        if _storage._packetLossRate != rhs_storage._packetLossRate {return false}
+        if _storage._packetLossPercentage != rhs_storage._packetLossPercentage {return false}
+        if _storage._packetsDuplicate != rhs_storage._packetsDuplicate {return false}
+        if _storage._packetDuplicateRate != rhs_storage._packetDuplicateRate {return false}
+        if _storage._bytesDuplicate != rhs_storage._bytesDuplicate {return false}
+        if _storage._bitrateDuplicate != rhs_storage._bitrateDuplicate {return false}
+        if _storage._packetsPadding != rhs_storage._packetsPadding {return false}
+        if _storage._packetPaddingRate != rhs_storage._packetPaddingRate {return false}
+        if _storage._bytesPadding != rhs_storage._bytesPadding {return false}
+        if _storage._bitratePadding != rhs_storage._bitratePadding {return false}
+        if _storage._packetsOutOfOrder != rhs_storage._packetsOutOfOrder {return false}
+        if _storage._frames != rhs_storage._frames {return false}
+        if _storage._frameRate != rhs_storage._frameRate {return false}
+        if _storage._jitterCurrent != rhs_storage._jitterCurrent {return false}
+        if _storage._jitterMax != rhs_storage._jitterMax {return false}
+        if _storage._gapHistogram != rhs_storage._gapHistogram {return false}
+        if _storage._nacks != rhs_storage._nacks {return false}
+        if _storage._nackMisses != rhs_storage._nackMisses {return false}
+        if _storage._plis != rhs_storage._plis {return false}
+        if _storage._lastPli != rhs_storage._lastPli {return false}
+        if _storage._firs != rhs_storage._firs {return false}
+        if _storage._lastFir != rhs_storage._lastFir {return false}
+        if _storage._rttCurrent != rhs_storage._rttCurrent {return false}
+        if _storage._rttMax != rhs_storage._rttMax {return false}
+        if _storage._keyFrames != rhs_storage._keyFrames {return false}
+        if _storage._lastKeyFrame != rhs_storage._lastKeyFrame {return false}
+        if _storage._layerLockPlis != rhs_storage._layerLockPlis {return false}
+        if _storage._lastLayerLockPli != rhs_storage._lastLayerLockPli {return false}
+        return true
+      }
+      if !storagesAreEqual {return false}
+    }
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }

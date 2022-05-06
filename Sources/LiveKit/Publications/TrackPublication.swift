@@ -31,55 +31,85 @@ public class TrackPublication: TrackDelegate, Loggable {
     public let kind: Track.Kind
     public let source: Track.Source
 
-    public internal(set) var name: String
-    public private(set) var track: Track?
-
-    public var muted: Bool {
-        track?.muted ?? false
-    }
+    public var name: String { _state.name }
+    public var track: Track? { _state.track }
+    public var muted: Bool { track?._state.muted ?? false }
 
     /// video-only
-    public internal(set) var dimensions: Dimensions?
-
-    /// video-only
-    public internal(set) var simulcasted: Bool = false
-
+    public var dimensions: Dimensions? { _state.dimensions }
+    public var simulcasted: Bool { _state.simulcasted }
     /// MIME type of the ``Track``.
-    public internal(set) var mimeType: String
+    public var mimeType: String { _state.mimeType }
+    public var subscribed: Bool { _state.track != nil }
+
+    // MARK: - Internal
 
     /// Reference to the ``Participant`` this publication belongs to.
     internal weak var participant: Participant?
-
-    public var subscribed: Bool { return track != nil }
-
     internal private(set) var latestInfo: Livekit_TrackInfo?
+
+    internal struct State {
+        var track: Track?
+        var name: String
+        var mimeType: String
+        var simulcasted: Bool = false
+        var dimensions: Dimensions?
+        //
+        var streamState: StreamState = .paused
+    }
+
+    internal var _state: StateSync<State>
 
     internal init(info: Livekit_TrackInfo,
                   track: Track? = nil,
                   participant: Participant) {
 
+        // initial state
+        _state = StateSync(State(
+            name: info.name,
+            mimeType: info.mimeType
+        ))
+
         self.sid = info.sid
-        self.name = info.name
         self.kind = info.type.toLKType()
         self.source = info.source.toLKType()
-        self.mimeType = info.mimeType
         self.participant = participant
         self.set(track: track)
         updateFromInfo(info: info)
 
         // listen for events from Track
         track?.add(delegate: self)
+
+        // trigger events when state mutates
+        self._state.onMutate = { [weak self] state, oldState in
+
+            guard let self = self else { return }
+
+            if state.streamState != oldState.streamState {
+                if let participant = self.participant as? RemoteParticipant, let trackPublication = self as? RemoteTrackPublication {
+                    participant.notify { $0.participant(participant, didUpdate: trackPublication, streamState: state.streamState) }
+                    participant.room.notify { $0.room(participant.room, participant: participant, didUpdate: trackPublication, streamState: state.streamState) }
+                }
+            }
+        }
     }
 
     internal func updateFromInfo(info: Livekit_TrackInfo) {
-        // only muted and name can conceivably update
-        self.name = info.name
-        self.simulcasted = info.simulcast
-        self.mimeType = info.mimeType
-        if info.type == .video {
-            dimensions = Dimensions(width: Int32(info.width),
-                                    height: Int32(info.height))
+
+        _state.mutate {
+
+            // only muted and name can conceivably update
+            $0.name = info.name
+            $0.simulcasted = info.simulcast
+            $0.mimeType = info.mimeType
+
+            // only for video
+            if info.type == .video {
+                $0.dimensions = Dimensions(width: Int32(info.width),
+                                           height: Int32(info.height))
+            }
         }
+
         self.latestInfo = info
     }
 
@@ -95,17 +125,14 @@ public class TrackPublication: TrackDelegate, Loggable {
         self.track?.remove(delegate: self)
         newValue?.add(delegate: self)
 
-        self.track = newValue
+        _state.mutate { $0.track = newValue }
+
         return oldValue
     }
 
     // MARK: - TrackDelegate
 
     public func track(_ track: VideoTrack, videoView: VideoView, didUpdate size: CGSize) {
-        //
-    }
-
-    public func track(_ track: VideoTrack, videoView: VideoView, didLayout size: CGSize) {
         //
     }
 
@@ -118,6 +145,7 @@ public class TrackPublication: TrackDelegate, Loggable {
     }
 
     public func track(_ track: Track, didUpdate muted: Bool, shouldSendSignal: Bool) {
+
         log("muted: \(muted) shouldSendSignal: \(shouldSendSignal)")
 
         guard let participant = participant else {

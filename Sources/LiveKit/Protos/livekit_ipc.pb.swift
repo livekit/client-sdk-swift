@@ -167,6 +167,16 @@ public struct IPCMessage {
   public init() {}
 }
 
+#if swift(>=5.5) && canImport(_Concurrency)
+extension IPCMessage: @unchecked Sendable {}
+extension IPCMessage.OneOf_Type: @unchecked Sendable {}
+extension IPCMessage.Buffer: @unchecked Sendable {}
+extension IPCMessage.Buffer.OneOf_Type: @unchecked Sendable {}
+extension IPCMessage.Buffer.Video: @unchecked Sendable {}
+extension IPCMessage.Buffer.AudioApp: @unchecked Sendable {}
+extension IPCMessage.Buffer.AudioMic: @unchecked Sendable {}
+#endif  // swift(>=5.5) && canImport(_Concurrency)
+
 // MARK: - Code below here is support for the SwiftProtobuf runtime.
 
 extension IPCMessage: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
