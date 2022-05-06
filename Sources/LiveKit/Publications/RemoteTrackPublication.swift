@@ -124,6 +124,9 @@ public class RemoteTrackPublication: TrackPublication {
 
     @discardableResult
     internal override func set(track newValue: Track?) -> Track? {
+
+        log("RemoteTrackPublication set track: \(String(describing: track))")
+
         let oldValue = super.set(track: newValue)
         if newValue != oldValue {
             // always suspend adaptiveStream timer first
@@ -219,14 +222,9 @@ internal extension RemoteTrackPublication {
 extension RemoteTrackPublication {
 
     // Simply send current track settings without any checks
-    internal func sendCurrentTrackSettings() -> Promise<Void> {
-
-        guard let participant = participant else {
-            log("Participant is nil", .warning)
-            return Promise(EngineError.state(message: "Participant is nil"))
-        }
-
-        return participant.room.engine.signalClient.sendUpdateTrackSettings(sid: sid, settings: self.trackSettings)
+    internal func resetTrackSettings() {
+        let adaptiveStreamEnabled = (participant?.room.options ?? RoomOptions()).adaptiveStream && .video == track?.kind
+        self.trackSettings = TrackSettings(enabled: !adaptiveStreamEnabled)
     }
 
     // Send new track settings

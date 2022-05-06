@@ -227,17 +227,17 @@ extension Room {
 
 internal extension Room {
 
-    func sendTrackSettings() -> Promise<Void> {
-        log()
+    func resetTrackSettings() {
 
-        let promises = _state.remoteParticipants.values.map {
-            $0._state.tracks.values
-                .compactMap { $0 as? RemoteTrackPublication }
-                .filter { $0.subscribed }
-                .map { $0.sendCurrentTrackSettings() }
+        log("resetting track settings...")
+
+        let remoteTrackPublications = _state.remoteParticipants.values.map {
+            $0._state.tracks.values.compactMap { $0 as? RemoteTrackPublication }
         }.joined()
 
-        return promises.all(on: .sdk)
+        for publication in remoteTrackPublications {
+            publication.resetTrackSettings()
+        }
     }
 
     func sendSyncState() -> Promise<Void> {
@@ -511,9 +511,7 @@ extension Room: EngineDelegate {
                     self.log("Failed to sendSyncState, error: \(error)", .error)
                 }
 
-                sendTrackSettings().catch(on: .sdk) { error in
-                    self.log("Failed to sendTrackSettings, error: \(error)", .error)
-                }
+                resetTrackSettings()
             }
 
             notify { $0.room(self, didUpdate: state.connectionState, oldValue: oldState.connectionState) }
