@@ -334,9 +334,11 @@ extension RemoteTrackPublication {
         send(trackSettings: newSettings).then(on: .main) {
             self.trackSettings = newSettings
         }.catch(on: .main) { [weak self] error in
-            self?.log("[adaptiveStream] failed to send trackSettings, sid: \(sid) error: \(error)", .error)
+            guard let self = self else { return }
+            self.log("[adaptiveStream] failed to send trackSettings, sid: \(self.sid) error: \(error)", .error)
         }.always(on: .main) { [weak self] in
-            self?.asTimer.restart()
+            guard let self = self else { return }
+            self.asTimer.restart()
         }
     }
 }
