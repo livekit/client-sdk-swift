@@ -231,8 +231,6 @@ extension RemoteTrackPublication {
 
     // Send new track settings
     internal func send(trackSettings: TrackSettings) -> Promise<Void> {
-        // no-update
-        guard self.trackSettings != trackSettings else { return Promise(()) }
 
         guard let participant = participant else {
             log("Participant is nil", .warning)
