@@ -101,15 +101,3 @@ protocol ReconnectableState {
     var reconnectMode: ReconnectMode? { get }
     var connectionState: ConnectionState { get }
 }
-
-extension ReconnectableState {
-
-    var didReconnect: Bool {
-
-        if case .connected = connectionState, [.full, .quick].contains(reconnectMode) {
-            return true
-        }
-
-        return false
-    }
-}

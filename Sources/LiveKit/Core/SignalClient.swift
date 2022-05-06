@@ -491,12 +491,8 @@ internal extension SignalClient {
     }
 
     func sendUpdateTrackSettings(sid: Sid, settings: TrackSettings) -> Promise<Void> {
-        log("sid: \(sid), settings: \(settings)")
-        // we have to send either width/height or quality. when both are sent, width/height are used.
-        if settings.enabled, settings.dimensions == .zero && settings.videoQuality == .low {
-            assert(false, "either width/height or quality is not set while enabling")
-            log("either width/height or quality is not set while enabling", .warning)
-        }
+
+        log("sending track settings... sid: \(sid), settings: \(settings)")
 
         let r = Livekit_SignalRequest.with {
             $0.trackSetting = Livekit_UpdateTrackSettings.with {

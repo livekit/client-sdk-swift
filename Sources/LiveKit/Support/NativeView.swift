@@ -30,7 +30,6 @@ public class NativeView: NativeViewType {
 
     override init(frame: CGRect) {
         super.init(frame: frame)
-        shouldPrepare()
     }
 
     required init?(coder: NSCoder) {
@@ -40,28 +39,23 @@ public class NativeView: NativeViewType {
     #if os(iOS)
     public override func layoutSubviews() {
         super.layoutSubviews()
-        shouldLayout()
+        performLayout()
     }
     #else
     public override func layout() {
         super.layout()
-        shouldLayout()
+        performLayout()
     }
     #endif
 
-    func markNeedsLayout() {
-        #if os(iOS)
-        setNeedsLayout()
-        #else
+    #if os(macOS)
+    // for compatibility with macOS
+    func setNeedsLayout() {
         needsLayout = true
-        #endif
     }
+    #endif
 
-    func shouldPrepare() {
-        //
-    }
-
-    func shouldLayout() {
+    func performLayout() {
         //
     }
 }

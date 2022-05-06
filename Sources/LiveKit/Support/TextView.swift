@@ -82,8 +82,8 @@ internal class TextView: NativeView {
         fatalError("init(coder:) has not been implemented")
     }
 
-    override func shouldLayout() {
-        super.shouldLayout()
+    override func performLayout() {
+        super.performLayout()
         _textView.frame = bounds
     }
 }
