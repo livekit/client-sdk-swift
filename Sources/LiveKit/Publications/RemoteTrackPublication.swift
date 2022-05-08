@@ -178,13 +178,8 @@ private extension RemoteTrackPublication {
     }
 
     var userCanModifyTrackSettings: Bool {
-
         // adaptiveStream must be disabled and must be subscribed
-        guard let adaptiveStream = self.participant?.room.options.adaptiveStream,
-              !adaptiveStream,
-              subscribed else { return false }
-
-        return true
+        !isAdaptiveStreamEnabled && subscribed
     }
 }
 
