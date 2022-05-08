@@ -313,8 +313,8 @@ public class VideoView: NativeView, Loggable {
             if shouldMirror() {
                 #if os(macOS)
                 // this is required for macOS
-                nr.set(anchorPoint: CGPoint(x: 0.5, y: 0.5))
                 nr.wantsLayer = true
+                nr.set(anchorPoint: CGPoint(x: 0.5, y: 0.5))
                 nr.layer!.sublayerTransform = VideoView.mirrorTransform
                 #elseif os(iOS)
                 nr.layer.transform = VideoView.mirrorTransform
