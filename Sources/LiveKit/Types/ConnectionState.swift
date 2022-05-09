@@ -71,7 +71,7 @@ extension ConnectionState: Equatable {
 
 public enum DisconnectReason {
     case user // User initiated
-    case networkError(_ error: Error? = nil)
+    case networkError(_ error: Error)
 }
 
 extension DisconnectReason: Equatable {

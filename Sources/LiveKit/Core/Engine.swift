@@ -415,7 +415,7 @@ private extension Engine {
             }.catch(on: .sdk) { error in
                 self.log("[reconnect] sequence failed with error: \(error)")
                 // finally disconnect if all attempts fail
-                self.cleanUp(reason: .networkError())
+                self.cleanUp(reason: .networkError(error))
             }
     }
 

@@ -290,7 +290,7 @@ extension Room: SignalClientDelegate {
             engine._state.mutate { $0.nextPreferredReconnectMode = .full }
         } else {
             // server indicates it's not recoverable
-            cleanUp(reason: .networkError())
+            cleanUp(reason: .networkError(NetworkError.disconnected(message: "did receive leave")))
         }
 
         return true
