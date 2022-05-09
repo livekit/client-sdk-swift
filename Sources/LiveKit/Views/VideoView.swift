@@ -67,9 +67,10 @@ public class VideoView: NativeView, Loggable {
         get { _state.track }
         set {
             _state.mutate {
-                let trackDidUpdate = !($0.track?.isEqual(newValue) ?? false)
-                if trackDidUpdate {
+                // reset states if track updated
+                if !Self.track($0.track, isEqualWith: newValue) {
                     $0.renderState = []
+                    $0.rendererSize = nil
                 }
                 $0.track = newValue
             }
@@ -144,7 +145,7 @@ public class VideoView: NativeView, Loggable {
             let shouldRenderDidUpdate = state.shouldRender != oldState.shouldRender
 
             // track was swapped
-            let trackDidUpdate = !(oldState.track?.isEqual(state.track) ?? false)
+            let trackDidUpdate = !Self.track(oldState.track, isEqualWith: state.track)
 
             if trackDidUpdate || shouldRenderDidUpdate {
 
@@ -469,6 +470,15 @@ extension VideoView: VideoCapturerDelegate {
 // MARK: - Internal
 
 internal extension VideoView {
+
+    static func track(_ track1: VideoTrack?, isEqualWith track2: VideoTrack?) -> Bool {
+        // equal if both tracks are nil
+        if track1 == nil, track2 == nil { return true }
+        // not equal if a single track is nil
+        guard let track1 = track1, let track2 = track2 else { return false }
+        // use isEqual
+        return track1.isEqual(track2)
+    }
 
     var isVisible: Bool {
         _state.didLayout && !_state.isHidden && _state.isEnabled
