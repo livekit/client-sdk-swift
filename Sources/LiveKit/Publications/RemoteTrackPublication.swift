@@ -57,7 +57,6 @@ public class RemoteTrackPublication: TrackPublication {
     }
 
     deinit {
-        log()
         asTimer.suspend()
     }
 

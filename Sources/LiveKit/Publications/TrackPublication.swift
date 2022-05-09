@@ -97,6 +97,10 @@ public class TrackPublication: TrackDelegate, Loggable {
         }
     }
 
+    deinit {
+        log("sid: \(sid)")
+    }
+
     internal func updateFromInfo(info: Livekit_TrackInfo) {
 
         _state.mutate {

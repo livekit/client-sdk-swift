@@ -110,7 +110,7 @@ public class Track: MulticastDelegate<TrackDelegate> {
     }
 
     deinit {
-        log()
+        log("sid: \(String(describing: sid))")
     }
 
     // returns true if updated state
