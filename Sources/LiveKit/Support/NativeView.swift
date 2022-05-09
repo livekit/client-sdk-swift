@@ -55,6 +55,12 @@ public class NativeView: NativeViewType {
     }
     #endif
 
+    #if os(macOS)
+    func bringSubviewToFront(_ view: NSView) {
+        addSubview(view)
+    }
+    #endif
+
     func performLayout() {
         //
     }

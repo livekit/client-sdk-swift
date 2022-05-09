@@ -356,22 +356,24 @@ private extension VideoView {
         // should always be on main thread
         assert(Thread.current.isMainThread, "must be called on main thread")
 
+        // create a new rendererView
         let newView = VideoView.createNativeRendererView()
         addSubview(newView)
 
+        // keep the old rendererView
         let oldView = nativeRenderer
         nativeRenderer = newView
 
         if let oldView = oldView {
+            // copy frame from old renderer
+            newView.frame = oldView.frame
+            // remove if existed
             oldView.removeFromSuperview()
         }
 
+        // ensure debug info is most front
         if let view = _debugTextView {
-            #if os(iOS)
             bringSubviewToFront(view)
-            #elseif os(macOS)
-            addSubview(view)
-            #endif
         }
 
         return newView
