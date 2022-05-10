@@ -561,7 +561,7 @@ extension Engine: TransportDelegate {
     }
 
     func transport(_ transport: Transport, didUpdate pcState: RTCPeerConnectionState) {
-        log("target: \(transport.target), state: \(_state)")
+        log("target: \(transport.target), state: \(pcState)")
 
         // primary connected
         if transport.primary {
