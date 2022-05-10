@@ -17,6 +17,7 @@
 import Foundation
 import CoreGraphics
 import Promises
+import WebRTC
 
 public enum SubscriptionState {
     case subscribed
@@ -316,6 +317,11 @@ extension RemoteTrackPublication {
         if oldSettings.enabled, !newSettings.enabled {
             let viewsString = asViews.enumerated().map { (i, view) in "view\(i).isVisible: \(view.isVisible)(didLayout: \(view._state.didLayout), isHidden: \(view._state.isHidden), isEnabled: \(view._state.isEnabled))" }.joined(separator: ", ")
             log("[adaptiveStream] disabling sid: \(sid), viewCount: \(asViews.count), \(viewsString)")
+        }
+        
+        if let videoTrack = track?.mediaTrack as? RTCVideoTrack {
+            log("VideoTrack.shouldReceive: \(enabled)")
+            videoTrack.shouldReceive = enabled
         }
 
         send(trackSettings: newSettings).catch(on: .sdk) { [weak self] error in
