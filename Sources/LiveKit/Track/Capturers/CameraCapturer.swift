@@ -120,16 +120,22 @@ public class CameraCapturer: VideoCapturer {
                 throw TrackError.capturer(message: "Unable to determine format for camera capturer")
             }
 
-            // ensure fps is within range
-            let fpsRange = selectedFormat.key.videoSupportedFrameRateRanges
-                .reduce((min: Int.max, max: 0)) { (min($0.min, Int($1.minFrameRate)), max($0.max, Int($1.maxFrameRate)) ) }
-            self.log("fpsRange: \(fpsRange)")
-
-            guard self.options.fps >= fpsRange.min && self.options.fps <= fpsRange.max else {
-                throw TrackError.capturer(message: "Requested framerate is out of range (\(fpsRange)")
+            guard let fpsRange = selectedFormat.key.fpsRange() else {
+                self.log("unable to resolve fps range", .error)
+                throw TrackError.capturer(message: "Unable to determine supported fps range for format: \(selectedFormat)")
             }
 
-            self.log("Starting camera capturer device: \(device), format: \(selectedFormat), fps: \(self.options.fps)", .info)
+            // default to fps in options
+            var selectedFps = self.options.fps
+
+            if !fpsRange.contains(selectedFps) {
+                // log a warning, but continue
+                self.log("requested fps: \(self.options.fps) is out of range: \(fpsRange) and will be clamped", .warning)
+                // clamp to supported fps range
+                selectedFps = selectedFps.clamped(to: fpsRange)
+            }
+
+            self.log("starting camera capturer device: \(device), format: \(selectedFormat), fps: \(selectedFps)(\(fpsRange))", .info)
 
             // adapt if requested dimensions and camera's dimensions don't match
             if let videoSource = self.delegate as? RTCVideoSource,
@@ -144,7 +150,7 @@ public class CameraCapturer: VideoCapturer {
             // return promise that waits for capturer to start
             return Promise<Bool>(on: .webRTC) { resolve, fail in
                 // start the RTCCameraVideoCapturer
-                self.capturer.startCapture(with: device, format: selectedFormat.key, fps: self.options.fps) { error in
+                self.capturer.startCapture(with: device, format: selectedFormat.key, fps: selectedFps) { error in
                     if let error = error {
                         self.log("CameraCapturer failed to start \(error)", .error)
                         fail(error)
@@ -209,6 +215,45 @@ extension AVCaptureDevice.Position: CustomStringConvertible {
         case .back: return ".back"
         case .unspecified: return ".unspecified"
         default: return "unknown"
+        }
+    }
+}
+
+extension Comparable {
+
+    // clamp a value within the range
+    func clamped(to limits: ClosedRange<Self>) -> Self {
+        return min(max(self, limits.lowerBound), limits.upperBound)
+    }
+}
+
+extension AVFrameRateRange {
+
+    // convert to a ClosedRange
+    func toRange() -> ClosedRange<Int> {
+        Int(minFrameRate)...Int(maxFrameRate)
+    }
+}
+
+extension AVCaptureDevice.Format {
+
+    // merge a ClosedRange
+    internal func merge<T>(_ range1: ClosedRange<T>, _ range2: ClosedRange<T>) -> ClosedRange<T> where T: Comparable {
+        min(range1.lowerBound, range2.lowerBound)...max(range1.upperBound, range2.upperBound)
+    }
+
+    // computes a ClosedRange of supported FPSs for this format
+    func fpsRange() -> ClosedRange<Int>? {
+
+        videoSupportedFrameRateRanges.map { $0.toRange() }.reduce(into: nil as ClosedRange<Int>?) { result, current in
+            // first element
+            guard let previous = result else {
+                result = current
+                return
+            }
+
+            // merge previous element
+            result = merge(previous, current)
         }
     }
 }
