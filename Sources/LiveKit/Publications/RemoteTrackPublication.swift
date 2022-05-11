@@ -27,27 +27,23 @@ public enum SubscriptionState {
 public class RemoteTrackPublication: TrackPublication {
 
     public var subscriptionAllowed: Bool { _state.subscriptionAllowed }
-
     public var enabled: Bool { _state.trackSettings.enabled }
-
-    override public var muted: Bool {
-        track?.muted ?? metadataMuted
-    }
-
+    override public var muted: Bool { track?.muted ?? metadataMuted }
     public var streamState: StreamState { _state.streamState }
+
+    // MARK: - Private
 
     // user's preference to subscribe or not
     private var preferSubscribed: Bool?
-
     private var metadataMuted: Bool = false
 
     // adaptiveStream
     // this must be on .main queue
     private var asTimer = DispatchQueueTimer(timeInterval: 0.3, queue: .main)
 
-    override init(info: Livekit_TrackInfo,
-                  track: Track? = nil,
-                  participant: Participant) {
+    override internal init(info: Livekit_TrackInfo,
+                           track: Track? = nil,
+                           participant: Participant) {
 
         super.init(info: info,
                    track: track,
