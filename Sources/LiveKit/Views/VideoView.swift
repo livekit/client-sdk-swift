@@ -111,7 +111,6 @@ public class VideoView: NativeView, Loggable {
         // layout related
         var viewSize: CGSize
         var rendererSize: CGSize?
-        // var needsLayout: Bool = false
         var didLayout: Bool = false
         var layoutMode: LayoutMode = .fill
 
@@ -151,10 +150,10 @@ public class VideoView: NativeView, Loggable {
 
                 DispatchQueue.main.async { [weak self] in
 
+                    guard let self = self else { return }
+
                     // clean up old track
                     if let track = oldState.track {
-
-                        guard let self = self else { return }
 
                         track.remove(videoView: self)
 
@@ -178,8 +177,6 @@ public class VideoView: NativeView, Loggable {
 
                     // set new track
                     if let track = state.track, state.shouldRender {
-
-                        guard let self = self else { return }
 
                         // re-create renderer on main thread
                         let nr = self.reCreateNativeRenderer()

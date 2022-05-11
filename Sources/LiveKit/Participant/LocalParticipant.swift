@@ -150,13 +150,13 @@ public class LocalParticipant: Participant {
             self.log("[publish] success \(publication)", .info)
             return publication
 
-        }.catch(on: .sdk) { _ in
+        }.catch(on: .sdk) { error in
 
-            self.log("[publish] failed \(track)", .error)
+            self.log("[publish] failed \(track), error: \(error)", .error)
 
             // stop the track
-            track.stop().catch(on: .sdk) { _ in
-                self.log("Failed to stop track", .warning)
+            track.stop().catch(on: .sdk) { error in
+                self.log("[publish] failed to stop track, error: \(error)", .error)
             }
         }
     }

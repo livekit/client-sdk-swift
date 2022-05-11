@@ -18,13 +18,6 @@ import Foundation
 import CoreGraphics
 import Promises
 
-extension TrackPublication: Equatable {
-    // objects are considered equal if sids are the same
-    public static func == (lhs: TrackPublication, rhs: TrackPublication) -> Bool {
-        lhs.sid == rhs.sid
-    }
-}
-
 public class TrackPublication: TrackDelegate, Loggable {
 
     public let sid: Sid
@@ -176,5 +169,14 @@ public class TrackPublication: TrackDelegate, Loggable {
                 participant.notify { $0.participant(participant, didUpdate: self, muted: muted) }
                 participant.room.notify { $0.room(participant.room, participant: participant, didUpdate: self, muted: self.muted) }
             }
+    }
+}
+
+// MARK: - Equatable
+
+extension TrackPublication: Equatable {
+    // objects are considered equal if sids are the same
+    public static func == (lhs: TrackPublication, rhs: TrackPublication) -> Bool {
+        lhs.sid == rhs.sid
     }
 }
