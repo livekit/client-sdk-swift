@@ -237,11 +237,6 @@ extension AVFrameRateRange {
 
 extension AVCaptureDevice.Format {
 
-    // merge a ClosedRange
-    internal func merge<T>(_ range1: ClosedRange<T>, _ range2: ClosedRange<T>) -> ClosedRange<T> where T: Comparable {
-        min(range1.lowerBound, range2.lowerBound)...max(range1.upperBound, range2.upperBound)
-    }
-
     // computes a ClosedRange of supported FPSs for this format
     func fpsRange() -> ClosedRange<Int>? {
 
@@ -253,7 +248,7 @@ extension AVCaptureDevice.Format {
             }
 
             // merge previous element
-            result = merge(previous, current)
+            result = merge(range: previous, with: current)
         }
     }
 }
