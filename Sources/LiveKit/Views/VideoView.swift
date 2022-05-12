@@ -453,7 +453,7 @@ extension VideoView: RTCVideoRenderer {
 
         if !_state.renderState.contains(.didRenderFirstFrame) {
             _state.mutate { $0.renderState.insert(.didRenderFirstFrame) }
-            self.log("did render first frame")
+            self.log("did render first frame, track: \(String(describing: track))")
             _needsLayout = true
         }
     }
