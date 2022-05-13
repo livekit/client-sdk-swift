@@ -275,6 +275,11 @@ public class VideoView: NativeView, Loggable {
             debugView.layer!.borderColor = (_state.shouldRender ? NSColor.green : NSColor.red).withAlphaComponent(0.5).cgColor
             debugView.layer!.borderWidth = 3
             #endif
+        } else {
+            if let debugView = _debugTextView {
+                debugView.removeFromSuperview()
+                _debugTextView = nil
+            }
         }
 
         guard let track = _state.track else {
