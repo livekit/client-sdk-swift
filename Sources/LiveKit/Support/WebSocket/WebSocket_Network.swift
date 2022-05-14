@@ -151,7 +151,8 @@ internal class WebSocket_Network: NSObject, Loggable, WebSocket {
             cleanUp(reason: .networkError(error))
         case .cancelled:
             log("cancelled")
-            cleanUp(reason: .networkError())
+            let sdkError = NetworkError.disconnected(message: "cancelled")
+            cleanUp(reason: .networkError(sdkError))
 
         @unknown default:
             log("unknown")
