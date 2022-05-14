@@ -437,7 +437,7 @@ internal extension Engine {
 
 extension Engine: SignalClientDelegate {
 
-    func signalClient(_ signalClient: SignalClient, didUpdateMigrationState state: WebSocketMigrationState) -> Bool {
+    func signalClient(_ signalClient: SignalClient, didUpdateMigrationState state: WebSocket.MigrationState) -> Bool {
         //
         log("state: \(state)")
 

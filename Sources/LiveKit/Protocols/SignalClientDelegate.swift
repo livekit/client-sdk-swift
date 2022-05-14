@@ -37,7 +37,7 @@ internal protocol SignalClientDelegate: AnyObject {
     func signalClient(_ signalClient: SignalClient, didUpdate subscriptionPermission: Livekit_SubscriptionPermissionUpdate) -> Bool
     func signalClient(_ signalClient: SignalClient, didUpdate token: String) -> Bool
     func signalClient(_ signalClient: SignalClient, didReceiveLeave canReconnect: Bool) -> Bool
-    func signalClient(_ signalClient: SignalClient, didUpdateMigrationState state: WebSocketMigrationState) -> Bool
+    func signalClient(_ signalClient: SignalClient, didUpdateMigrationState state: WebSocket.MigrationState) -> Bool
 }
 
 // MARK: - Optional
@@ -62,5 +62,5 @@ extension SignalClientDelegate {
     func signalClient(_ signalClient: SignalClient, didUpdate subscriptionPermission: Livekit_SubscriptionPermissionUpdate) -> Bool { false }
     func signalClient(_ signalClient: SignalClient, didUpdate token: String) -> Bool { false }
     func signalClient(_ signalClient: SignalClient, didReceiveLeave canReconnect: Bool) -> Bool { false }
-    func signalClient(_ signalClient: SignalClient, didUpdateMigrationState state: WebSocketMigrationState) -> Bool { false }
+    func signalClient(_ signalClient: SignalClient, didUpdateMigrationState state: WebSocket.MigrationState) -> Bool { false }
 }

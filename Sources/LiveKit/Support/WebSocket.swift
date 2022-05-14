@@ -18,7 +18,22 @@ import Foundation
 import Promises
 import Network
 
-internal class WebSocket_Network: NSObject, Loggable, WebSocket {
+internal class WebSocket: NSObject, Loggable {
+
+    enum Message {
+        case string(_ string: String)
+        case data(_ data: Data)
+    }
+
+    enum MigrationState {
+        case started
+        case completed
+        case failed(_ error: Error)
+    }
+
+    typealias OnMessage = (_ message: Message) -> Void
+    typealias OnDisconnect = (_ reason: DisconnectReason) -> Void
+    typealias OnDidUpdateMigrationState = (_ state: MigrationState) -> Void
 
     public var onMessage: OnMessage?
     public var onDisconnect: OnDisconnect?
@@ -196,13 +211,13 @@ internal class WebSocket_Network: NSObject, Loggable, WebSocket {
                     if let data = data, let onMessage = self.onMessage,
                        let string = String(data: data, encoding: .utf8) {
                         print("connection did receive text, count: \(string.count)")
-                        let message = WebSocketMessage.string(string)
+                        let message = WebSocket.Message.string(string)
                         onMessage(message)
                     }
                 case .binary:
                     if let data = data, let onMessage = self.onMessage {
                         print("connection did receive data, count: \(data.count)")
-                        let message = WebSocketMessage.data(data)
+                        let message = WebSocket.Message.data(data)
                         onMessage(message)
                     }
                 case .close:

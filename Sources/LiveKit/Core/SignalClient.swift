@@ -99,13 +99,13 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
                     $0.reconnectMode = reconnectMode
                     $0.connectionState = .connecting
                 }
-                let socket = WebSocket_Network(url: url,
-                                               onMessage: self.onWebSocketMessage,
-                                               onDisconnect: { reason in
-                                                self.webSocket = nil
-                                                self.cleanUp(reason: reason)
-                                               },
-                                               onDidUpdateMigrationState: self.onWebSocketDidUpdateMigrationState)
+                let socket = WebSocket(url: url,
+                                       onMessage: self.onWebSocketMessage,
+                                       onDisconnect: { reason in
+                                        self.webSocket = nil
+                                        self.cleanUp(reason: reason)
+                                       },
+                                       onDidUpdateMigrationState: self.onWebSocketDidUpdateMigrationState)
                 return socket.connect()
             }.then(on: .sdk) { (webSocket: WebSocket) -> Void in
                 self.webSocket = webSocket
@@ -239,11 +239,11 @@ private extension SignalClient {
         }
     }
 
-    func onWebSocketDidUpdateMigrationState(state: WebSocketMigrationState) {
+    func onWebSocketDidUpdateMigrationState(state: WebSocket.MigrationState) {
         notify { $0.signalClient(self, didUpdateMigrationState: state) }
     }
 
-    func onWebSocketMessage(message: WebSocketMessage) {
+    func onWebSocketMessage(message: WebSocket.Message) {
 
         let response: Livekit_SignalResponse?
         switch message {
