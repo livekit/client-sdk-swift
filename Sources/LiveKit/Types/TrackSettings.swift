@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-internal struct TrackSettings {
+internal struct TrackSettings: Equatable {
 
     let enabled: Bool
     let dimensions: Dimensions
@@ -35,14 +35,5 @@ internal struct TrackSettings {
         TrackSettings(enabled: enabled ?? self.enabled,
                       dimensions: dimensions ?? self.dimensions,
                       videoQuality: videoQuality ?? self.videoQuality)
-    }
-}
-
-extension TrackSettings: Equatable {
-
-    static func == (lhs: TrackSettings, rhs: TrackSettings) -> Bool {
-        lhs.enabled == rhs.enabled
-            && lhs.dimensions == rhs.dimensions
-            && lhs.videoQuality == rhs.videoQuality
     }
 }

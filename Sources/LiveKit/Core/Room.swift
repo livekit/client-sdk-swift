@@ -37,7 +37,6 @@ public class Room: MulticastDelegate<RoomDelegate> {
     public var url: String? { engine._state.url }
     public var token: String? { engine._state.token }
     public var connectionState: ConnectionState { engine._state.connectionState }
-    public var didReconnect: Bool { engine._state.didReconnect }
     public var connectStopwatch: Stopwatch { engine._state.connectStopwatch }
 
     // MARK: - Internal
@@ -227,17 +226,19 @@ extension Room {
 
 internal extension Room {
 
-    func sendTrackSettings() -> Promise<Void> {
-        log()
+    func resetTrackSettings() {
 
-        let promises = _state.remoteParticipants.values.map {
-            $0._state.tracks.values
-                .compactMap { $0 as? RemoteTrackPublication }
-                .filter { $0.subscribed }
-                .map { $0.sendCurrentTrackSettings() }
+        log("resetting track settings...")
+
+        // create an array of RemoteTrackPublication
+        let remoteTrackPublications = _state.remoteParticipants.values.map {
+            $0._state.tracks.values.compactMap { $0 as? RemoteTrackPublication }
         }.joined()
 
-        return promises.all(on: .sdk)
+        // reset track settings for all RemoteTrackPublication
+        for publication in remoteTrackPublications {
+            publication.resetTrackSettings()
+        }
     }
 
     func sendSyncState() -> Promise<Void> {
@@ -289,7 +290,7 @@ extension Room: SignalClientDelegate {
             engine._state.mutate { $0.nextPreferredReconnectMode = .full }
         } else {
             // server indicates it's not recoverable
-            cleanUp(reason: .networkError())
+            cleanUp(reason: .networkError(NetworkError.disconnected(message: "did receive leave")))
         }
 
         return true
@@ -499,23 +500,18 @@ extension Room: EngineDelegate {
     }
 
     func engine(_ engine: Engine, didMutate state: Engine.State, oldState: Engine.State) {
-        log()
 
         if state.connectionState != oldState.connectionState {
             // connectionState did update
 
             // only if quick-reconnect
             if case .connected = state.connectionState, case .quick = state.reconnectMode {
+
                 sendSyncState().catch(on: .sdk) { error in
                     self.log("Failed to sendSyncState, error: \(error)", .error)
                 }
-            }
 
-            // alwayws re-send track settings on a reconnect
-            if state.didReconnect {
-                sendTrackSettings().catch(on: .sdk) { error in
-                    self.log("Failed to sendTrackSettings, error: \(error)", .error)
-                }
+                resetTrackSettings()
             }
 
             notify { $0.room(self, didUpdate: state.connectionState, oldValue: oldState.connectionState) }

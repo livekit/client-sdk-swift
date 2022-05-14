@@ -21,8 +21,8 @@ public protocol LiveKitError: Error, CustomStringConvertible {}
 
 extension LiveKitError {
 
-    internal func buildDescription(_ name: String, _ message: String? = nil) -> String {
-        "\(String(describing: type(of: self))).\(name)" + (message != nil ? " \(message!)" : "")
+    internal func buildDescription(_ name: String, _ message: String? = nil, rawError: Error? = nil) -> String {
+        "\(String(describing: type(of: self))).\(name)" + (message != nil ? " \(message!)" : "") + (rawError != nil ? " rawError: \(rawError!.localizedDescription)" : "")
     }
 }
 
@@ -106,7 +106,7 @@ public enum SignalClientError: LiveKitError {
     public var description: String {
         switch self {
         case .state(let message): return buildDescription("state", message)
-        case .socketError(let rawError): return buildDescription("socketError", rawError != nil ? "rawError: \(rawError!.localizedDescription)" : nil)
+        case .socketError(let rawError): return buildDescription("socketError", rawError: rawError)
         case .close(let message): return buildDescription("close", message)
         case .connect(let message): return buildDescription("connect", message)
         case .timedOut(let message): return buildDescription("timedOut", message)
@@ -120,7 +120,7 @@ public enum NetworkError: LiveKitError {
 
     public var description: String {
         switch self {
-        case .disconnected(let message, _): return buildDescription("disconnected", message)
+        case .disconnected(let message, let rawError): return buildDescription("disconnected", message, rawError: rawError)
         case .response(let message): return buildDescription("response", message)
         }
     }

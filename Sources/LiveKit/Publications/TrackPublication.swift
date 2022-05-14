@@ -18,13 +18,6 @@ import Foundation
 import CoreGraphics
 import Promises
 
-extension TrackPublication: Equatable {
-    // objects are considered equal if sids are the same
-    public static func == (lhs: TrackPublication, rhs: TrackPublication) -> Bool {
-        lhs.sid == rhs.sid
-    }
-}
-
 public class TrackPublication: TrackDelegate, Loggable {
 
     public let sid: Sid
@@ -54,8 +47,11 @@ public class TrackPublication: TrackDelegate, Loggable {
         var mimeType: String
         var simulcasted: Bool = false
         var dimensions: Dimensions?
+        // subscription permission
+        var subscriptionAllowed = true
         //
         var streamState: StreamState = .paused
+        var trackSettings = TrackSettings()
     }
 
     internal var _state: StateSync<State>
@@ -92,6 +88,10 @@ public class TrackPublication: TrackDelegate, Loggable {
                 }
             }
         }
+    }
+
+    deinit {
+        log("sid: \(sid)")
     }
 
     internal func updateFromInfo(info: Livekit_TrackInfo) {
@@ -169,5 +169,14 @@ public class TrackPublication: TrackDelegate, Loggable {
                 participant.notify { $0.participant(participant, didUpdate: self, muted: muted) }
                 participant.room.notify { $0.room(participant.room, participant: participant, didUpdate: self, muted: self.muted) }
             }
+    }
+}
+
+// MARK: - Equatable
+
+extension TrackPublication: Equatable {
+    // objects are considered equal if sids are the same
+    public static func == (lhs: TrackPublication, rhs: TrackPublication) -> Bool {
+        lhs.sid == rhs.sid
     }
 }

@@ -31,7 +31,10 @@ public struct CameraCaptureOptions: VideoCaptureOptions {
     public let position: AVCaptureDevice.Position
     public let preferredFormat: AVCaptureDevice.Format?
 
+    /// preferred dimensions for capturing, the SDK may override with a recommended value.
     public let dimensions: Dimensions
+
+    /// preferred fps to use for capturing, the SDK may override with a recommended value.
     public let fps: Int
 
     public init(position: AVCaptureDevice.Position = .front,

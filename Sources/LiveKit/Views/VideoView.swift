@@ -67,15 +67,17 @@ public class VideoView: NativeView, Loggable {
         get { _state.track }
         set {
             _state.mutate {
-                let trackDidUpdate = !($0.track?.isEqual(newValue) ?? false)
-                if trackDidUpdate {
+                // reset states if track updated
+                if !Self.track($0.track, isEqualWith: newValue) {
                     $0.renderState = []
+                    $0.rendererSize = nil
                 }
                 $0.track = newValue
             }
         }
     }
 
+    /// If set to false, rendering will be paused temporarily. Useful for performance optimizations with UICollectionViewCell etc.
     public var isEnabled: Bool {
         get { _state.isEnabled }
         set { _state.mutate { $0.isEnabled = newValue } }
@@ -89,9 +91,9 @@ public class VideoView: NativeView, Loggable {
         }
     }
 
-    public var showDebugInfo: Bool {
-        get { _state.showDebugInfo }
-        set { _state.mutate { $0.showDebugInfo = newValue } }
+    public var debugMode: Bool {
+        get { _state.debugMode }
+        set { _state.mutate { $0.debugMode = newValue } }
     }
 
     private var nativeRenderer: NativeRendererView?
@@ -109,14 +111,13 @@ public class VideoView: NativeView, Loggable {
         // layout related
         var viewSize: CGSize
         var rendererSize: CGSize?
-        // var needsLayout: Bool = false
         var didLayout: Bool = false
         var layoutMode: LayoutMode = .fill
 
         var mirrorMode: MirrorMode = .auto
         var renderState = RenderState()
 
-        var showDebugInfo: Bool = false
+        var debugMode: Bool = false
     }
 
     internal var _state: StateSync<State>
@@ -140,24 +141,19 @@ public class VideoView: NativeView, Loggable {
 
             guard let self = self else { return }
 
-            var needsLayout = state.showDebugInfo != oldState.showDebugInfo ||
-                state.layoutMode != oldState.layoutMode ||
-                state.mirrorMode != oldState.mirrorMode
+            let shouldRenderDidUpdate = state.shouldRender != oldState.shouldRender
 
-            let canRenderDidUpdate = state.canRender != oldState.canRender
             // track was swapped
-            let trackDidUpdate = !(oldState.track?.isEqual(state.track) ?? false)
+            let trackDidUpdate = !Self.track(oldState.track, isEqualWith: state.track)
 
-            if trackDidUpdate || canRenderDidUpdate {
-
-                needsLayout = true
+            if trackDidUpdate || shouldRenderDidUpdate {
 
                 DispatchQueue.main.async { [weak self] in
 
+                    guard let self = self else { return }
+
                     // clean up old track
                     if let track = oldState.track {
-
-                        guard let self = self else { return }
 
                         track.remove(videoView: self)
 
@@ -180,9 +176,7 @@ public class VideoView: NativeView, Loggable {
                     }
 
                     // set new track
-                    if let track = state.track, state.canRender {
-
-                        guard let self = self else { return }
+                    if let track = state.track, state.shouldRender {
 
                         // re-create renderer on main thread
                         let nr = self.reCreateNativeRenderer()
@@ -192,7 +186,7 @@ public class VideoView: NativeView, Loggable {
                         if let frame = track._state.videoFrame {
                             self.log("rendering cached frame tack: \(track._state.sid ?? "nil")")
                             nr.renderFrame(frame)
-                            self.markNeedsLayout()
+                            self.setNeedsLayout()
                         }
 
                         // CapturerDelegate
@@ -224,9 +218,15 @@ public class VideoView: NativeView, Loggable {
             // https://developer.apple.com/forums/thread/105252
             // nativeRenderer.asMetalView?.isPaused = !shouldAttach
 
-            if needsLayout {
+            // layout is required if any of the following vars mutate
+            if state.debugMode != oldState.debugMode ||
+                state.layoutMode != oldState.layoutMode ||
+                state.mirrorMode != oldState.mirrorMode ||
+                shouldRenderDidUpdate || trackDidUpdate {
+
+                // must be on main
                 DispatchQueue.mainSafeAsync {
-                    self.markNeedsLayout()
+                    self.setNeedsLayout()
                 }
             }
         }
@@ -240,8 +240,8 @@ public class VideoView: NativeView, Loggable {
         log()
     }
 
-    override func shouldLayout() {
-        super.shouldLayout()
+    override func performLayout() {
+        super.performLayout()
 
         // should always be on main thread
         assert(Thread.current.isMainThread, "must be called on main thread")
@@ -258,24 +258,38 @@ public class VideoView: NativeView, Loggable {
             }
         }
 
-        if _state.showDebugInfo {
-            let t = _state.track?.sid ?? "nil"
-            let d = _state.track?.dimensions ?? .zero
-            let c = _state.renderState.contains(.didRenderFirstFrame) ? "true" : "false"
-            let videoViewCount = _state.track?.videoViews.count ?? 0
-            let r = ensureDebugTextView()
-            r.text = "\(t)\n" + "\(d.width)x\(d.height)\n" + "isEnabled: \(isEnabled)\n" + "didRenderFirstFrame: \(c)\n" + "videoViewCount: \(videoViewCount)"
-            r.frame = bounds
+        if _state.debugMode {
+            let _trackSid = _state.track?.sid ?? "nil"
+            let _dimensions = _state.track?.dimensions ?? .zero
+            let _didRenderFirstFrame = _state.renderState.contains(.didRenderFirstFrame) ? "true" : "false"
+            let _viewCount = _state.track?.videoViews.count ?? 0
+            let _didLayout = _state.didLayout
+            let debugView = ensureDebugTextView()
+            debugView.text = "#\(hashValue)\n" + "\(_trackSid)\n" + "\(_dimensions.width)x\(_dimensions.height)\n" + "enabled: \(isEnabled)\n" + "firstFrame: \(_didRenderFirstFrame)\n" + "viewCount: \(_viewCount)\n" + "layout: \(_didLayout)"
+            debugView.frame = bounds
+            #if os(iOS)
+            debugView.layer.borderColor = (_state.shouldRender ? UIColor.green : UIColor.red).withAlphaComponent(0.5).cgColor
+            debugView.layer.borderWidth = 3
+            #elseif os(macOS)
+            debugView.wantsLayer = true
+            debugView.layer!.borderColor = (_state.shouldRender ? NSColor.green : NSColor.red).withAlphaComponent(0.5).cgColor
+            debugView.layer!.borderWidth = 3
+            #endif
+        } else {
+            if let debugView = _debugTextView {
+                debugView.removeFromSuperview()
+                _debugTextView = nil
+            }
         }
 
         guard let track = _state.track else {
-            log("track is nil, cannot layout without track")
+            log("track is nil, cannot layout without track", .warning)
             return
         }
 
         // dimensions are required to continue computation
         guard let dimensions = track._state.dimensions else {
-            log("dimensions are nil, cannot layout without dimensions, track: \(track)")
+            log("dimensions are nil, cannot layout without dimensions, track: \(track)", .warning)
             return
         }
 
@@ -312,8 +326,8 @@ public class VideoView: NativeView, Loggable {
             if shouldMirror() {
                 #if os(macOS)
                 // this is required for macOS
-                nr.set(anchorPoint: CGPoint(x: 0.5, y: 0.5))
                 nr.wantsLayer = true
+                nr.set(anchorPoint: CGPoint(x: 0.5, y: 0.5))
                 nr.layer!.sublayerTransform = VideoView.mirrorTransform
                 #elseif os(iOS)
                 nr.layer.transform = VideoView.mirrorTransform
@@ -331,7 +345,8 @@ public class VideoView: NativeView, Loggable {
 
 internal extension VideoView.State {
 
-    var canRender: Bool {
+    // whether if current state should be rendering
+    var shouldRender: Bool {
         track != nil && isEnabled && !isHidden
     }
 }
@@ -341,33 +356,35 @@ internal extension VideoView.State {
 private extension VideoView {
 
     private func ensureDebugTextView() -> TextView {
-        if let d = _debugTextView { return d }
-        let r = TextView()
-        addSubview(r)
-        _debugTextView = r
-        return r
+        if let view = _debugTextView { return view }
+        let view = TextView()
+        addSubview(view)
+        _debugTextView = view
+        return view
     }
 
     func reCreateNativeRenderer() -> NativeRendererView {
         // should always be on main thread
         assert(Thread.current.isMainThread, "must be called on main thread")
 
+        // create a new rendererView
         let newView = VideoView.createNativeRendererView()
         addSubview(newView)
 
+        // keep the old rendererView
         let oldView = nativeRenderer
         nativeRenderer = newView
 
         if let oldView = oldView {
+            // copy frame from old renderer
+            newView.frame = oldView.frame
+            // remove if existed
             oldView.removeFromSuperview()
         }
 
+        // ensure debug info is most front
         if let view = _debugTextView {
-            #if os(iOS)
             bringSubviewToFront(view)
-            #elseif os(macOS)
-            addSubview(view)
-            #endif
         }
 
         return newView
@@ -398,7 +415,7 @@ extension VideoView: RTCVideoRenderer {
     public func renderFrame(_ frame: RTCVideoFrame?) {
 
         // prevent any extra rendering if already !isEnabled etc.
-        guard _state.canRender, let nr = nativeRenderer else {
+        guard _state.shouldRender, let nr = nativeRenderer else {
             log("canRender is false, skipping render...")
             return
         }
@@ -407,7 +424,7 @@ extension VideoView: RTCVideoRenderer {
         defer {
             if _needsLayout {
                 DispatchQueue.mainSafeAsync {
-                    self.markNeedsLayout()
+                    self.setNeedsLayout()
                 }
             }
         }
@@ -441,7 +458,7 @@ extension VideoView: RTCVideoRenderer {
 
         if !_state.renderState.contains(.didRenderFirstFrame) {
             _state.mutate { $0.renderState.insert(.didRenderFirstFrame) }
-            self.log("Did render first frame")
+            self.log("did render first frame, track: \(String(describing: track))")
             _needsLayout = true
         }
     }
@@ -454,7 +471,7 @@ extension VideoView: VideoCapturerDelegate {
     public func capturer(_ capturer: VideoCapturer, didUpdate state: VideoCapturer.CapturerState) {
         if case .started = state {
             DispatchQueue.mainSafeAsync {
-                self.markNeedsLayout()
+                self.setNeedsLayout()
             }
         }
     }
@@ -463,6 +480,15 @@ extension VideoView: VideoCapturerDelegate {
 // MARK: - Internal
 
 internal extension VideoView {
+
+    static func track(_ track1: VideoTrack?, isEqualWith track2: VideoTrack?) -> Bool {
+        // equal if both tracks are nil
+        if track1 == nil, track2 == nil { return true }
+        // not equal if a single track is nil
+        guard let track1 = track1, let track2 = track2 else { return false }
+        // use isEqual
+        return track1.isEqual(track2)
+    }
 
     var isVisible: Bool {
         _state.didLayout && !_state.isHidden && _state.isEnabled

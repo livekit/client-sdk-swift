@@ -26,38 +26,24 @@ public enum SubscriptionState {
 
 public class RemoteTrackPublication: TrackPublication {
 
-    public private(set) var subscriptionAllowed = true
-
-    public var enabled: Bool {
-        trackSettings.enabled
-    }
-
-    override public var muted: Bool {
-        track?.muted ?? metadataMuted
-    }
-
+    public var subscriptionAllowed: Bool { _state.subscriptionAllowed }
+    public var enabled: Bool { _state.trackSettings.enabled }
+    override public var muted: Bool { track?.muted ?? metadataMuted }
     public var streamState: StreamState { _state.streamState }
+
+    // MARK: - Private
 
     // user's preference to subscribe or not
     private var preferSubscribed: Bool?
-
     private var metadataMuted: Bool = false
-
-    private var trackSettings = TrackSettings() {
-        didSet {
-            guard oldValue != trackSettings else { return }
-            log("did update trackSettings: \(trackSettings)")
-            // TODO: emit event when trackSettings has been updated by adaptiveStream.
-        }
-    }
 
     // adaptiveStream
     // this must be on .main queue
     private var asTimer = DispatchQueueTimer(timeInterval: 0.3, queue: .main)
 
-    override init(info: Livekit_TrackInfo,
-                  track: Track? = nil,
-                  participant: Participant) {
+    override internal init(info: Livekit_TrackInfo,
+                           track: Track? = nil,
+                           participant: Participant) {
 
         super.init(info: info,
                    track: track,
@@ -67,7 +53,6 @@ public class RemoteTrackPublication: TrackPublication {
     }
 
     deinit {
-        log()
         asTimer.suspend()
     }
 
@@ -111,19 +96,33 @@ public class RemoteTrackPublication: TrackPublication {
     ///
     /// This is useful when the participant is off screen, you may disable streaming down their video to reduce bandwidth requirements.
     @discardableResult
-    public func set(enabled: Bool) -> Promise<Void> {
+    public func set(enabled newValue: Bool) -> Promise<Void> {
         // no-op if already the desired value
-        guard self.enabled != enabled else { return Promise(()) }
-        // create new settings
-        let newSettings = trackSettings.copyWith(enabled: enabled)
+        guard _state.trackSettings.enabled != newValue else { return Promise(()) }
+
+        guard userCanModifyTrackSettings else { return Promise(TrackError.state(message: "adaptiveStream must be disabled and track must be subscribed")) }
+
+        // keep old settings
+        let oldSettings = _state.trackSettings
+        // update state
+        _state.mutate { $0.trackSettings = $0.trackSettings.copyWith(enabled: newValue) }
         // attempt to set the new settings
-        return checkCanModifyTrackSettings().then(on: .sdk) {
-            self.send(trackSettings: newSettings)
+        return send(trackSettings: _state.trackSettings).catch(on: .sdk) { [weak self] error in
+
+            guard let self = self else { return }
+
+            // revert track settings on failure
+            self._state.mutate { $0.trackSettings = oldSettings }
+
+            self.log("failed to update enabled: \(newValue), sid: \(self.sid), error: \(error)")
         }
     }
 
     @discardableResult
     internal override func set(track newValue: Track?) -> Track? {
+
+        log("RemoteTrackPublication set track: \(String(describing: track))")
+
         let oldValue = super.set(track: newValue)
         if newValue != oldValue {
             // always suspend adaptiveStream timer first
@@ -131,16 +130,13 @@ public class RemoteTrackPublication: TrackPublication {
 
             if let newValue = newValue {
 
-                let adaptiveStreamEnabled = (participant?.room.options ?? RoomOptions()).adaptiveStream && .video == newValue.kind
+                // reset track settings, track is initially disabled only if adaptive stream and is a video track
+                resetTrackSettings()
 
-                // reset track settings
-                // track is initially disabled only if adaptive stream and is a video track
-                trackSettings = TrackSettings(enabled: !adaptiveStreamEnabled)
-
-                log("[adaptiveStream] did reset trackSettings: \(trackSettings), kind: \(newValue.kind)")
+                log("[adaptiveStream] did reset trackSettings: \(_state.trackSettings), kind: \(newValue.kind)")
 
                 // start adaptiveStream timer only if it's a video track
-                if adaptiveStreamEnabled {
+                if isAdaptiveStreamEnabled {
                     asTimer.restart()
                 }
 
@@ -150,12 +146,12 @@ public class RemoteTrackPublication: TrackPublication {
                              notify: false)
             }
 
-            if let oldValue = oldValue, newValue == nil,
-               let participant = participant as? RemoteParticipant {
+            if let oldValue = oldValue, newValue == nil, let participant = participant as? RemoteParticipant {
                 participant.notify { $0.participant(participant, didUnsubscribe: self, track: oldValue) }
                 participant.room.notify { $0.room(participant.room, participant: participant, didUnsubscribe: self, track: oldValue) }
             }
         }
+
         return oldValue
     }
 }
@@ -164,22 +160,21 @@ public class RemoteTrackPublication: TrackPublication {
 
 private extension RemoteTrackPublication {
 
-    func checkCanModifyTrackSettings() -> Promise<Void> {
+    var isAdaptiveStreamEnabled: Bool { (participant?.room.options ?? RoomOptions()).adaptiveStream && .video == kind }
 
-        Promise<Void>(on: .sdk) { () -> Void in
+    var engineConnectionState: ConnectionState {
 
-            guard let adaptiveStream = self.participant?.room.options.adaptiveStream else {
-                throw TrackError.state(message: "The state of AdaptiveStream is unknown")
-            }
-
-            guard !adaptiveStream else {
-                throw TrackError.state(message: "Cannot modify this track setting when using AdaptiveStream")
-            }
-
-            guard self.subscribed else {
-                throw TrackError.state(message: "Cannot modify this track setting when not subscribed")
-            }
+        guard let participant = participant else {
+            log("Participant is nil", .warning)
+            return .disconnected()
         }
+
+        return participant.room.engine._state.connectionState
+    }
+
+    var userCanModifyTrackSettings: Bool {
+        // adaptiveStream must be disabled and must be subscribed
+        !isAdaptiveStreamEnabled && subscribed
     }
 }
 
@@ -205,8 +200,8 @@ internal extension RemoteTrackPublication {
     }
 
     func set(subscriptionAllowed newValue: Bool) {
-        guard self.subscriptionAllowed != newValue else { return }
-        self.subscriptionAllowed = newValue
+        guard _state.subscriptionAllowed != newValue else { return }
+        _state.mutate { $0.subscriptionAllowed = newValue }
 
         guard let participant = self.participant as? RemoteParticipant else { return }
         participant.notify { $0.participant(participant, didUpdate: self, permission: newValue) }
@@ -216,23 +211,16 @@ internal extension RemoteTrackPublication {
 
 // MARK: - TrackSettings
 
-extension RemoteTrackPublication {
+internal extension RemoteTrackPublication {
 
-    // Simply send current track settings without any checks
-    internal func sendCurrentTrackSettings() -> Promise<Void> {
-
-        guard let participant = participant else {
-            log("Participant is nil", .warning)
-            return Promise(EngineError.state(message: "Participant is nil"))
-        }
-
-        return participant.room.engine.signalClient.sendUpdateTrackSettings(sid: sid, settings: self.trackSettings)
+    // reset track settings
+    func resetTrackSettings() {
+        // track is initially disabled when adaptive stream is enabled
+        _state.mutate { $0.trackSettings = TrackSettings(enabled: !isAdaptiveStreamEnabled) }
     }
 
-    // Send new track settings
-    internal func send(trackSettings: TrackSettings) -> Promise<Void> {
-        // no-update
-        guard self.trackSettings != trackSettings else { return Promise(()) }
+    // simply send track settings
+    func send(trackSettings: TrackSettings) -> Promise<Void> {
 
         guard let participant = participant else {
             log("Participant is nil", .warning)
@@ -242,16 +230,6 @@ extension RemoteTrackPublication {
         log("[adaptiveStream] sending \(trackSettings), sid: \(sid)")
 
         return participant.room.engine.signalClient.sendUpdateTrackSettings(sid: sid, settings: trackSettings)
-    }
-
-    internal func engineConnectionState() -> ConnectionState {
-
-        guard let participant = participant else {
-            log("Participant is nil", .warning)
-            return .disconnected()
-        }
-
-        return participant.room.engine._state.connectionState
     }
 }
 
@@ -273,8 +251,9 @@ internal extension Collection where Element == VideoView {
                    height: Swift.max(s1.height, s2.height))
         }
 
-        // try to use post-layout nativeRenderer's view size or use the VideoView's size
-        return filter { $0.isVisible }.map { $0._state.rendererSize ?? $0._state.viewSize }.reduce(into: nil as CGSize?, { previous, current in
+        // use post-layout nativeRenderer's view size otherwise return nil
+        // which results lower layer to be requested (enabled: true, dimensions: 0x0)
+        return filter { $0.isVisible }.compactMap { $0._state.rendererSize }.reduce(into: nil as CGSize?, { previous, current in
             guard let unwrappedPrevious = previous else {
                 previous = current
                 return
@@ -296,7 +275,7 @@ extension RemoteTrackPublication {
         asTimer.suspend()
 
         // don't continue if the engine is disconnected
-        guard !engineConnectionState().isDisconnected else {
+        guard !engineConnectionState.isDisconnected else {
             log("engine is disconnected")
             return
         }
@@ -304,7 +283,7 @@ extension RemoteTrackPublication {
         let asViews = track?.videoViews.allObjects ?? []
 
         if asViews.count > 1 {
-            log("[adaptiveStream] multiple VideoViews attached, count: \(asViews.count), trackId: \(track?.sid ?? "") views: (\(asViews.map { "\($0.hashValue)" }.joined(separator: ", ")))", .warning)
+            log("[adaptiveStream] multiple VideoViews attached, sid: \(sid), count: \(asViews.count), views: (\(asViews.map { "\($0.hashValue)" }.joined(separator: ", ")))", .warning)
         }
 
         let enabled = asViews.hasVisible()
@@ -316,23 +295,33 @@ extension RemoteTrackPublication {
                                     height: Int32(ceil(maxSize.height)))
         }
 
-        let newSettings = trackSettings.copyWith(enabled: enabled,
-                                                 dimensions: dimensions,
-                                                 // fall back to use .high in case dimensions are .zero when enabled: true
-                                                 videoQuality: (enabled && dimensions == .zero) ? .high : .low)
+        let newSettings = _state.trackSettings.copyWith(enabled: enabled, dimensions: dimensions)
 
-        guard self.trackSettings != newSettings else {
+        guard _state.trackSettings != newSettings else {
             // no settings updated
             asTimer.resume()
             return
         }
 
-        send(trackSettings: newSettings).then(on: .main) {
-            self.trackSettings = newSettings
-        }.catch(on: .main) { [weak self] error in
-            self?.log("[adaptiveStream] failed to send trackSettings, error: \(error)", .error)
-        }.always(on: .main) { [weak self] in
-            self?.asTimer.restart()
+        // keep old settings
+        let oldSettings = _state.trackSettings
+        // update state
+        _state.mutate { $0.trackSettings = newSettings }
+
+        // log when flipping from enabled -> disabled
+        if oldSettings.enabled, !newSettings.enabled {
+            let viewsString = asViews.enumerated().map { (i, view) in "view\(i).isVisible: \(view.isVisible)(didLayout: \(view._state.didLayout), isHidden: \(view._state.isHidden), isEnabled: \(view._state.isEnabled))" }.joined(separator: ", ")
+            log("[adaptiveStream] disabling sid: \(sid), viewCount: \(asViews.count), \(viewsString)")
+        }
+
+        send(trackSettings: newSettings).catch(on: .sdk) { [weak self] error in
+            guard let self = self else { return }
+            // revert to old settings on failure
+            self._state.mutate { $0.trackSettings = oldSettings }
+            self.log("[adaptiveStream] failed to send trackSettings, sid: \(self.sid) error: \(error)", .error)
+        }.always(on: .sdk) { [weak self] in
+            guard let self = self else { return }
+            self.asTimer.restart()
         }
     }
 }

@@ -152,7 +152,9 @@ internal class WebSocket_URLSession: NSObject, URLSessionWebSocketDelegate, Logg
             return
         }
 
-        cleanUp(reason: .networkError())
+        let sdkError = NetworkError.disconnected(message: "WebSocket did close with code: \(closeCode) reason: \(String(describing: reason))")
+
+        cleanUp(reason: .networkError(sdkError))
     }
 
     internal func urlSession(_ session: URLSession,
@@ -163,8 +165,7 @@ internal class WebSocket_URLSession: NSObject, URLSessionWebSocketDelegate, Logg
             return
         }
 
-        let sdkError = NetworkError.disconnected(message: "WebSocket disconnected",
-                                                 rawError: error)
+        let sdkError = NetworkError.disconnected(message: "WebSocket disconnected", rawError: error)
 
         cleanUp(reason: .networkError(sdkError))
     }

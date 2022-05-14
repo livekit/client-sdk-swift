@@ -63,6 +63,7 @@ internal class TextView: NativeView {
         _textView.textColor = .white
         _textView.font = .systemFont(ofSize: 11)
         _textView.backgroundColor = .clear
+        _textView.textAlignment = .right
         #elseif os(macOS)
         _textView = NSTextField()
         _textView.drawsBackground = false
@@ -70,6 +71,7 @@ internal class TextView: NativeView {
         _textView.isEditable = false
         _textView.isSelectable = false
         _textView.font = .systemFont(ofSize: 11)
+        _textView.alignment = .right
         #endif
 
         super.init(frame: frame)
@@ -80,8 +82,8 @@ internal class TextView: NativeView {
         fatalError("init(coder:) has not been implemented")
     }
 
-    override func shouldLayout() {
-        super.shouldLayout()
+    override func performLayout() {
+        super.performLayout()
         _textView.frame = bounds
     }
 }

@@ -71,7 +71,7 @@ extension ConnectionState: Equatable {
 
 public enum DisconnectReason {
     case user // User initiated
-    case networkError(_ error: Error? = nil)
+    case networkError(_ error: Error)
 }
 
 extension DisconnectReason: Equatable {
@@ -100,16 +100,4 @@ extension DisconnectReason: Equatable {
 protocol ReconnectableState {
     var reconnectMode: ReconnectMode? { get }
     var connectionState: ConnectionState { get }
-}
-
-extension ReconnectableState {
-
-    var didReconnect: Bool {
-
-        if case .connected = connectionState, [.full, .quick].contains(reconnectMode) {
-            return true
-        }
-
-        return false
-    }
 }
