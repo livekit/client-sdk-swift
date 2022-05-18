@@ -267,6 +267,19 @@ public class VideoView: NativeView, Loggable {
             let debugView = ensureDebugTextView()
             debugView.text = "#\(hashValue)\n" + "\(_trackSid)\n" + "\(_dimensions.width)x\(_dimensions.height)\n" + "enabled: \(isEnabled)\n" + "firstFrame: \(_didRenderFirstFrame)\n" + "viewCount: \(_viewCount)\n" + "layout: \(_didLayout)"
             debugView.frame = bounds
+            #if os(iOS)
+            debugView.layer.borderColor = (_state.shouldRender ? UIColor.green : UIColor.red).withAlphaComponent(0.5).cgColor
+            debugView.layer.borderWidth = 3
+            #elseif os(macOS)
+            debugView.wantsLayer = true
+            debugView.layer!.borderColor = (_state.shouldRender ? NSColor.green : NSColor.red).withAlphaComponent(0.5).cgColor
+            debugView.layer!.borderWidth = 3
+            #endif
+        } else {
+            if let debugView = _debugTextView {
+                debugView.removeFromSuperview()
+                _debugTextView = nil
+            }
         }
 
         guard let track = _state.track else {
@@ -445,7 +458,7 @@ extension VideoView: RTCVideoRenderer {
 
         if !_state.renderState.contains(.didRenderFirstFrame) {
             _state.mutate { $0.renderState.insert(.didRenderFirstFrame) }
-            self.log("Did render first frame")
+            self.log("did render first frame, track: \(String(describing: track))")
             _needsLayout = true
         }
     }

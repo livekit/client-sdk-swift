@@ -500,7 +500,6 @@ extension Room: EngineDelegate {
     }
 
     func engine(_ engine: Engine, didMutate state: Engine.State, oldState: Engine.State) {
-        log()
 
         if state.connectionState != oldState.connectionState {
             // connectionState did update

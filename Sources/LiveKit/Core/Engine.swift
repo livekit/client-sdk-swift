@@ -75,7 +75,7 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
             assert(!(state.connectionState == .reconnecting && state.reconnectMode == .none), "reconnectMode should not be .none")
 
             if (state.connectionState != oldState.connectionState) || (state.reconnectMode != oldState.reconnectMode) {
-                self.log("[Engine] connectionState: \(oldState.connectionState) -> \(state.connectionState), reconnectMode: \(String(describing: state.reconnectMode))")
+                self.log("connectionState: \(oldState.connectionState) -> \(state.connectionState), reconnectMode: \(String(describing: state.reconnectMode))")
             }
 
             self.notify { $0.engine(self, didMutate: state, oldState: oldState) }
@@ -438,10 +438,9 @@ internal extension Engine {
 extension Engine: SignalClientDelegate {
 
     func signalClient(_ signalClient: SignalClient, didMutate state: SignalClient.State, oldState: SignalClient.State) -> Bool {
-        log()
 
+        // connectionState updated
         if state.connectionState != oldState.connectionState {
-            // connectionState updated
 
             // Attempt re-connect if disconnected(reason: network)
             if case .disconnected(let reason) = state.connectionState,
