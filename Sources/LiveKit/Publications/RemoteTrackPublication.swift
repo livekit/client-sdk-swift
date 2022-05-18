@@ -317,7 +317,7 @@ extension RemoteTrackPublication {
         
         if let videoTrack = track?.mediaTrack as? RTCVideoTrack {
             log("VideoTrack.shouldReceive: \(enabled)")
-            videoTrack.shouldReceive = enabled
+            DispatchQueue.webRTC.sync { videoTrack.shouldReceive = enabled }
         }
 
         send(trackSettings: newSettings).catch(on: .sdk) { [weak self] error in
