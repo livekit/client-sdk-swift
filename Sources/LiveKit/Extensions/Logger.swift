@@ -30,7 +30,7 @@ internal typealias ScopedMetadataContainer = [String: ScopedMetadata]
 public extension Loggable {
 
     /// attach logger metadata to this instance that will be automatically included in every log onward
-    func set(scopedMetadata data: ScopedMetadata?, for key: String) {
+    func set(loggerMetadata data: ScopedMetadata?, for key: String) {
         var _data = _scopedMetadata()
         _data[key] = data
         objc_setAssociatedObject(self, &_scopedMetadataKey, _data, .OBJC_ASSOCIATION_RETAIN)
