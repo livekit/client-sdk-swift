@@ -58,6 +58,8 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
     init() {
         super.init()
 
+        log()
+
         // trigger events when state mutates
         self._state.onMutate = { [weak self] state, oldState in
 

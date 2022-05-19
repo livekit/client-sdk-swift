@@ -70,6 +70,8 @@ public class Room: MulticastDelegate<RoomDelegate> {
                              roomOptions: roomOptions)
         super.init()
 
+        log()
+
         // listen to engine & signalClient
         engine.add(delegate: self)
         engine.signalClient.add(delegate: self)

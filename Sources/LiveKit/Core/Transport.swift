@@ -91,6 +91,9 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
         self.pc = pc
 
         super.init()
+
+        log()
+
         DispatchQueue.webRTC.sync { pc.delegate = self }
         add(delegate: delegate)
 
