@@ -85,6 +85,9 @@ public class VideoView: NativeView, Loggable {
         set { _state.mutate { $0.debugMode = newValue } }
     }
 
+    public var isRendering: Bool { _state.isRendering }
+    public var didRenderFirstFrame: Bool { _state.didRenderFirstFrame }
+
     private var nativeRenderer: NativeRendererView?
 
     private var _debugTextView: TextView?
