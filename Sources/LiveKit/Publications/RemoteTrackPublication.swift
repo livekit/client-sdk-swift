@@ -314,7 +314,7 @@ extension RemoteTrackPublication {
             let viewsString = asViews.enumerated().map { (i, view) in "view\(i).isVisible: \(view.isVisible)(didLayout: \(view._state.didLayout), isHidden: \(view._state.isHidden), isEnabled: \(view._state.isEnabled))" }.joined(separator: ", ")
             log("[adaptiveStream] disabling sid: \(sid), viewCount: \(asViews.count), \(viewsString)")
         }
-        
+
         if let videoTrack = track?.mediaTrack as? RTCVideoTrack {
             log("VideoTrack.shouldReceive: \(enabled)")
             DispatchQueue.webRTC.sync { videoTrack.shouldReceive = enabled }

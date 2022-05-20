@@ -64,6 +64,9 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
         self.roomOptions = roomOptions
         super.init()
 
+        // log sdk & os versions
+        log("sdk: \(LiveKit.version), os: \(String(describing: Utils.os()))(\(Utils.osVersionString())), modelId: \(String(describing: Utils.modelIdentifier() ?? "unknown"))")
+
         signalClient.add(delegate: self)
         ConnectivityListener.shared.add(delegate: self)
 
@@ -80,8 +83,6 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
 
             self.notify { $0.engine(self, didMutate: state, oldState: oldState) }
         }
-
-        log()
     }
 
     deinit {
