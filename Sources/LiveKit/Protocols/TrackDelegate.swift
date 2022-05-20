@@ -24,8 +24,8 @@ public protocol TrackDelegate: AnyObject {
     func track(_ track: VideoTrack, didUpdate dimensions: Dimensions?)
     /// Dimensions of the VideoView has updated
     func track(_ track: VideoTrack, videoView: VideoView, didUpdate size: CGSize)
-    /// VideoView updated the render state
-    func track(_ track: VideoTrack, videoView: VideoView, didUpdate renderState: VideoView.RenderState)
+    /// VideoView updated the isRendering property
+    func track(_ track: VideoTrack, videoView: VideoView, didUpdate isRendering: Bool)
     /// A ``VideoView`` was attached to the ``VideoTrack``
     func track(_ track: VideoTrack, didAttach videoView: VideoView)
     /// A ``VideoView`` was detached from the ``VideoTrack``
@@ -41,7 +41,7 @@ public protocol TrackDelegate: AnyObject {
 extension TrackDelegate {
     public func track(_ track: VideoTrack, didUpdate dimensions: Dimensions?) {}
     public func track(_ track: VideoTrack, videoView: VideoView, didUpdate size: CGSize) {}
-    public func track(_ track: VideoTrack, videoView: VideoView, didUpdate renderState: VideoView.RenderState) {}
+    public func track(_ track: VideoTrack, videoView: VideoView, didUpdate isRendering: Bool) {}
     public func track(_ track: VideoTrack, didAttach videoView: VideoView) {}
     public func track(_ track: VideoTrack, didDetach videoView: VideoView) {}
     public func track(_ track: Track, didUpdate muted: Bool, shouldSendSignal: Bool) {}

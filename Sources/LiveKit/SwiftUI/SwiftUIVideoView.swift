@@ -19,17 +19,25 @@ import SwiftUI
 /// This class receives delegate events since a struct can't be used for a delegate
 class SwiftUIVideoViewDelegateReceiver: TrackDelegate, Loggable {
 
+    @Binding var isRendering: Bool
     @Binding var dimensions: Dimensions?
     @Binding var stats: TrackStats?
 
-    init(dimensions: Binding<Dimensions?> = .constant(nil),
-         stats: Binding<TrackStats?> = .constant(nil)) {
+    init(isRendering: Binding<Bool>,
+         dimensions: Binding<Dimensions?>,
+         stats: Binding<TrackStats?>) {
+        self._isRendering = isRendering
         self._dimensions = dimensions
         self._stats = stats
     }
 
-    func track(_ track: VideoTrack,
-               didUpdate dimensions: Dimensions?) {
+    func track(_ track: VideoTrack, videoView: VideoView, didUpdate isRendering: Bool) {
+        DispatchQueue.main.async {
+            self.isRendering = isRendering
+        }
+    }
+
+    func track(_ track: VideoTrack, didUpdate dimensions: Dimensions?) {
         DispatchQueue.main.async {
             self.dimensions = dimensions
         }
@@ -54,6 +62,7 @@ public struct SwiftUIVideoView: NativeViewRepresentable {
     let mirrorMode: VideoView.MirrorMode
     let debugMode: Bool
 
+    @Binding var isRendering: Bool
     @Binding var dimensions: Dimensions?
 
     let delegateReceiver: SwiftUIVideoViewDelegateReceiver
@@ -62,6 +71,7 @@ public struct SwiftUIVideoView: NativeViewRepresentable {
                 layoutMode: VideoView.LayoutMode = .fill,
                 mirrorMode: VideoView.MirrorMode = .auto,
                 debugMode: Bool = false,
+                isRendering: Binding<Bool> = .constant(false),
                 dimensions: Binding<Dimensions?> = .constant(nil),
                 trackStats: Binding<TrackStats?> = .constant(nil)) {
 
@@ -69,9 +79,12 @@ public struct SwiftUIVideoView: NativeViewRepresentable {
         self.layoutMode = layoutMode
         self.mirrorMode = mirrorMode
         self.debugMode = debugMode
+
+        self._isRendering = isRendering
         self._dimensions = dimensions
 
-        self.delegateReceiver = SwiftUIVideoViewDelegateReceiver(dimensions: dimensions,
+        self.delegateReceiver = SwiftUIVideoViewDelegateReceiver(isRendering: isRendering,
+                                                                 dimensions: dimensions,
                                                                  stats: trackStats)
 
         // update binding value

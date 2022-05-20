@@ -22,8 +22,8 @@ internal typealias OnStateMutate<Value> = (_ state: Value, _ oldState: Value) ->
 internal final class StateSync<Value> {
 
     // use concurrent queue to allow multiple reads and block writes with barrier.
-    private let queue = DispatchQueue(label: "LiveKitSDK.state", qos: .default,
-                                      attributes: [.concurrent])
+    let queue = DispatchQueue(label: "LiveKitSDK.state", qos: .default,
+                              attributes: [.concurrent])
 
     // actual value
     private var _value: Value
