@@ -34,7 +34,7 @@ let package = Package(
 }
 ```
 
-### XCode
+### Xcode
 
 Go to Project Settings -> Swift Packages.
 
@@ -42,7 +42,7 @@ Add a new package and enter: `https://github.com/livekit/client-sdk-swift`
 
 ## iOS Usage
 
-LiveKit provides an UIKit based `VideoView` class that renders video tracks. Subscribed audio tracks are automatically played.
+LiveKit provides the UIKit based `VideoView` class that renders video tracks. Subscribed audio tracks are automatically played.
 
 ```swift
 import LiveKit
