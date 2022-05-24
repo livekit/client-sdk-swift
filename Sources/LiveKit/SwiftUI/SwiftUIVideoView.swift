@@ -108,6 +108,11 @@ public struct SwiftUIVideoView: NativeViewRepresentable {
         videoView.layoutMode = layoutMode
         videoView.mirrorMode = mirrorMode
         videoView.debugMode = debugMode
+
+        // update
+        DispatchQueue.main.async {
+            self.isRendering = videoView.isRendering
+        }
     }
 
     public static func dismantleView(_ videoView: VideoView, coordinator: ()) {
