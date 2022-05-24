@@ -50,6 +50,11 @@ public class VideoCapturer: MulticastDelegate<VideoCapturerDelegate>, VideoCaptu
     /// `kCVPixelFormatType_32ARGB`.
     public static let supportedPixelFormats = DispatchQueue.webRTC.sync { RTCCVPixelBuffer.supportedPixelFormats() }
 
+    public static func createTimeStampNs() -> Int64 {
+        let systemTime = ProcessInfo.processInfo.systemUptime
+        return Int64(systemTime * Double(NSEC_PER_SEC))
+    }
+
     public enum CapturerState {
         case stopped
         case started
