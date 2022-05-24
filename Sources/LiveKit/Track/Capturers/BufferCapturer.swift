@@ -39,7 +39,7 @@ public class BufferCapturer: VideoCapturer {
         super.init(delegate: delegate)
     }
 
-    // shortcut
+    /// Capture a ``CMSampleBuffer``.
     public func capture(_ sampleBuffer: CMSampleBuffer) {
 
         delegate?.capturer(capturer, didCapture: sampleBuffer) { sourceDimensions in
@@ -51,7 +51,29 @@ public class BufferCapturer: VideoCapturer {
             defer { self.dimensions = targetDimensions }
 
             guard let videoSource = self.delegate as? RTCVideoSource else { return }
-            // self.log("adaptOutputFormat to: \(targetDimensions) fps: \(self.options.fps)")
+            videoSource.adaptOutputFormat(toWidth: targetDimensions.width,
+                                          height: targetDimensions.height,
+                                          fps: Int32(self.options.fps))
+        }
+    }
+
+    /// Capture a ``CVPixelBuffer``.
+    public func capture(_ pixelBuffer: CVPixelBuffer,
+                        timeStampNs: Int64 = VideoCapturer.createTimeStampNs(),
+                        rotation: RTCVideoRotation = ._0) {
+
+        delegate?.capturer(capturer,
+                           didCapture: pixelBuffer,
+                           timeStampNs: timeStampNs,
+                           rotation: rotation) { sourceDimensions in
+
+            let targetDimensions = sourceDimensions
+                .aspectFit(size: self.options.dimensions.max)
+                .toEncodeSafeDimensions()
+
+            defer { self.dimensions = targetDimensions }
+
+            guard let videoSource = self.delegate as? RTCVideoSource else { return }
             videoSource.adaptOutputFormat(toWidth: targetDimensions.width,
                                           height: targetDimensions.height,
                                           fps: Int32(self.options.fps))
