@@ -32,10 +32,10 @@ public protocol TrackDelegate: AnyObject {
 
 // MARK: - Optional
 
-extension TrackDelegate {
-    public func track(_ track: VideoTrack, didUpdate dimensions: Dimensions?) {}
-    public func track(_ track: VideoTrack, didAttach videoView: VideoView) {}
-    public func track(_ track: VideoTrack, didDetach videoView: VideoView) {}
-    public func track(_ track: Track, didUpdate muted: Bool, shouldSendSignal: Bool) {}
-    public func track(_ track: Track, didUpdate stats: TrackStats) {}
+public extension TrackDelegate {
+    func track(_ track: VideoTrack, didUpdate dimensions: Dimensions?) {}
+    func track(_ track: VideoTrack, didAttach videoView: VideoView) {}
+    func track(_ track: VideoTrack, didDetach videoView: VideoView) {}
+    func track(_ track: Track, didUpdate muted: Bool, shouldSendSignal: Bool) {}
+    func track(_ track: Track, didUpdate stats: TrackStats) {}
 }

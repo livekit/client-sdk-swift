@@ -26,7 +26,7 @@ public protocol VideoViewDelegate: AnyObject {
 
 // MARK: - Optional
 
-extension VideoViewDelegate {
+public extension VideoViewDelegate {
     func videoView(_ videoView: VideoView, didUpdate size: CGSize) {}
     func videoView(_ videoView: VideoView, didUpdate isRendering: Bool) {}
 }
