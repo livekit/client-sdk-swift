@@ -21,7 +21,11 @@ import MetalKit
 /// A ``NativeViewType`` that conforms to ``RTCVideoRenderer``.
 public typealias NativeRendererView = NativeViewType & RTCVideoRenderer
 
-public class VideoView: NativeView, Loggable {
+public class VideoView: NativeView, MulticastDelegateCapable, Loggable {
+
+    public var delegates = MulticastDelegate<DelegateType>()
+
+    public typealias DelegateType = VideoViewDelegate
 
     private static let mirrorTransform = CATransform3DMakeScale(-1.0, 1.0, 1.0)
     private static let _freezeDetectThreshold = 2.0
@@ -202,7 +206,7 @@ public class VideoView: NativeView, Loggable {
             }
 
             // isRendering updated
-            if state.isRendering != oldState.isRendering, let track = state.track {
+            if state.isRendering != oldState.isRendering {
 
                 self.log("isRendering \(oldState.isRendering) -> \(state.isRendering)")
 
@@ -212,12 +216,12 @@ public class VideoView: NativeView, Loggable {
                     self._renderTimer.suspend()
                 }
 
-                track.notify { $0.track(track, videoView: self, didUpdate: state.isRendering) }
+                self.notify { $0.videoView(self, didUpdate: state.isRendering) }
             }
 
             // viewSize updated
-            if state.viewSize != oldState.viewSize, let track = state.track {
-                track.notify { $0.track(track, videoView: self, didUpdate: state.viewSize) }
+            if state.viewSize != oldState.viewSize {
+                self.notify { $0.videoView(self, didUpdate: state.viewSize) }
             }
 
             // toggle MTKView's isPaused property
@@ -282,10 +286,11 @@ public class VideoView: NativeView, Loggable {
             let _trackSid = _state.track?.sid ?? "nil"
             let _dimensions = _state.track?.dimensions ?? .zero
             let _didRenderFirstFrame = _state.didRenderFirstFrame ? "true" : "false"
+            let _isRendering = _state.isRendering ? "true" : "false"
             let _viewCount = _state.track?.videoViews.count ?? 0
             let _didLayout = _state.didLayout
             let debugView = ensureDebugTextView()
-            debugView.text = "#\(hashValue)\n" + "\(_trackSid)\n" + "\(_dimensions.width)x\(_dimensions.height)\n" + "enabled: \(isEnabled)\n" + "firstFrame: \(_didRenderFirstFrame)\n" + "viewCount: \(_viewCount)\n" + "layout: \(_didLayout)"
+            debugView.text = "#\(hashValue)\n" + "\(_trackSid)\n" + "\(_dimensions.width)x\(_dimensions.height)\n" + "enabled: \(isEnabled)\n" + "firstFrame: \(_didRenderFirstFrame)\n" + "isRendering: \(_isRendering)\n" + "viewCount: \(_viewCount)\n" + "layout: \(_didLayout)"
             debugView.frame = bounds
             #if os(iOS)
             debugView.layer.borderColor = (_state.shouldRender ? UIColor.green : UIColor.red).withAlphaComponent(0.5).cgColor

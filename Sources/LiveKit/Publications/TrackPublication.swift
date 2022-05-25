@@ -132,18 +132,6 @@ public class TrackPublication: TrackDelegate, Loggable {
 
     // MARK: - TrackDelegate
 
-    public func track(_ track: VideoTrack, videoView: VideoView, didUpdate size: CGSize) {
-        //
-    }
-
-    public func track(_ track: VideoTrack, didAttach videoView: VideoView) {
-        //
-    }
-
-    public func track(_ track: VideoTrack, didDetach videoView: VideoView) {
-        //
-    }
-
     public func track(_ track: Track, didUpdate muted: Bool, shouldSendSignal: Bool) {
 
         log("muted: \(muted) shouldSendSignal: \(shouldSendSignal)")
