@@ -481,7 +481,7 @@ extension VideoView: RTCVideoRenderer {
         // cache last rendered frame
         track?.set(videoFrame: frame)
 
-        _state.mutate {
+        _state.mutateAsync {
             $0.didRenderFirstFrame = true
             $0.isRendering = true
             $0.renderDate = Date()
