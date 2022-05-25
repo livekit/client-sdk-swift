@@ -16,25 +16,15 @@
 
 import SwiftUI
 
-/// This class receives delegate events since a struct can't be used for a delegate
-class SwiftUIVideoViewDelegateReceiver: TrackDelegate, Loggable {
+/// This class receives ``TrackDelegate`` events since a struct can't be used for a delegate
+internal class TrackDelegateReceiver: TrackDelegate, Loggable {
 
-    @Binding var isRendering: Bool
     @Binding var dimensions: Dimensions?
     @Binding var stats: TrackStats?
 
-    init(isRendering: Binding<Bool>,
-         dimensions: Binding<Dimensions?>,
-         stats: Binding<TrackStats?>) {
-        self._isRendering = isRendering
+    init(dimensions: Binding<Dimensions?>, stats: Binding<TrackStats?>) {
         self._dimensions = dimensions
         self._stats = stats
-    }
-
-    func track(_ track: VideoTrack, videoView: VideoView, didUpdate isRendering: Bool) {
-        DispatchQueue.main.async {
-            self.isRendering = isRendering
-        }
     }
 
     func track(_ track: VideoTrack, didUpdate dimensions: Dimensions?) {
@@ -46,6 +36,22 @@ class SwiftUIVideoViewDelegateReceiver: TrackDelegate, Loggable {
     func track(_ track: Track, didUpdate stats: TrackStats) {
         DispatchQueue.main.async {
             self.stats = stats
+        }
+    }
+}
+
+/// This class receives ``VideoViewDelegate`` events since a struct can't be used for a delegate
+internal class VideoViewDelegateReceiver: VideoViewDelegate, Loggable {
+
+    @Binding var isRendering: Bool
+
+    init(isRendering: Binding<Bool>) {
+        self._isRendering = isRendering
+    }
+
+    func videoView(_ videoView: VideoView, didUpdate isRendering: Bool) {
+        DispatchQueue.main.async {
+            self.isRendering = isRendering
         }
     }
 }
@@ -65,7 +71,8 @@ public struct SwiftUIVideoView: NativeViewRepresentable {
     @Binding var isRendering: Bool
     @Binding var dimensions: Dimensions?
 
-    let delegateReceiver: SwiftUIVideoViewDelegateReceiver
+    let trackDelegateReceiver: TrackDelegateReceiver
+    let videoViewDelegateReceiver: VideoViewDelegateReceiver
 
     public init(_ track: VideoTrack,
                 layoutMode: VideoView.LayoutMode = .fill,
@@ -83,9 +90,10 @@ public struct SwiftUIVideoView: NativeViewRepresentable {
         self._isRendering = isRendering
         self._dimensions = dimensions
 
-        self.delegateReceiver = SwiftUIVideoViewDelegateReceiver(isRendering: isRendering,
-                                                                 dimensions: dimensions,
-                                                                 stats: trackStats)
+        self.trackDelegateReceiver = TrackDelegateReceiver(dimensions: dimensions,
+                                                           stats: trackStats)
+
+        self.videoViewDelegateReceiver = VideoViewDelegateReceiver(isRendering: isRendering)
 
         // update binding value
         DispatchQueue.main.async {
@@ -94,11 +102,12 @@ public struct SwiftUIVideoView: NativeViewRepresentable {
         }
 
         // listen for TrackDelegate
-        track.add(delegate: delegateReceiver)
+        track.add(delegate: trackDelegateReceiver)
     }
 
     public func makeView(context: Context) -> VideoView {
         let view = VideoView()
+        view.add(delegate: videoViewDelegateReceiver)
         updateView(view, context: context)
         return view
     }
