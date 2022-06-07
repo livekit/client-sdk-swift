@@ -17,10 +17,36 @@
 import WebRTC
 import Promises
 
+struct WeakContainer<Object: AnyObject> {
+    weak var weakObject: Object?
+}
+
+extension Array where Element == WeakContainer<VideoView> {
+
+    var allObjects: [VideoView] {
+        compactMap { $0.weakObject }
+    }
+
+    func contains(weakElement: VideoView) -> Bool {
+        contains(where: { $0.weakObject == weakElement })
+    }
+
+    mutating func add(weakElement: VideoView) {
+        guard !contains(weakElement: weakElement) else { return }
+        append(WeakContainer(weakObject: weakElement))
+    }
+
+    mutating func remove(weakElement: VideoView) {
+        removeAll { $0.weakObject == weakElement }
+    }
+}
+
 public class Track: MulticastDelegate<TrackDelegate> {
 
     public static let cameraName = "camera"
-    public static let screenShareName = "screenshare"
+    public static let microphoneName = "microphone"
+    public static let screenShareVideoName = "screen_share"
+    public static let screenShareAudioName = "screen_share_audio"
 
     public enum Kind {
         case audio
@@ -28,7 +54,7 @@ public class Track: MulticastDelegate<TrackDelegate> {
         case none
     }
 
-    public enum State {
+    public enum TrackState {
         case stopped
         case started
     }
@@ -43,80 +69,122 @@ public class Track: MulticastDelegate<TrackDelegate> {
 
     public let kind: Track.Kind
     public let source: Track.Source
-    public internal(set) var name: String
-    public internal(set) var sid: Sid?
-    public let mediaTrack: RTCMediaStreamTrack
-    public private(set) var muted: Bool = false
-    public internal(set) var transceiver: RTCRtpTransceiver?
-    public internal(set) var stats: TrackStats?
-    public var sender: RTCRtpSender? {
-        return transceiver?.sender
-    }
+    public let name: String
+
+    public var sid: Sid? { _state.sid }
+    public var muted: Bool { _state.muted }
+    public var stats: TrackStats? { _state.stats }
 
     /// Dimensions of the video (only if video track)
-    public private(set) var dimensions: Dimensions?
-    /// The last video frame received for this track
-    public private(set) var videoFrame: RTCVideoFrame?
+    public var dimensions: Dimensions? { _state.dimensions }
 
-    public private(set) var state: State = .stopped {
-        didSet {
-            guard oldValue != state else { return }
-            didUpdateState()
-        }
+    /// The last video frame received for this track
+    public var videoFrame: RTCVideoFrame? { _state.videoFrame }
+    public var trackState: TrackState { _state.trackState }
+
+    // MARK: - Internal
+
+    internal let mediaTrack: RTCMediaStreamTrack
+    internal var transceiver: RTCRtpTransceiver?
+    internal var sender: RTCRtpSender? { transceiver?.sender }
+
+    // must be on main thread
+    internal var videoViews = [WeakContainer<VideoView>]()
+
+    internal struct State {
+        var sid: Sid?
+        var dimensions: Dimensions?
+        var videoFrame: RTCVideoFrame?
+        var trackState: TrackState = .stopped
+        var muted: Bool = false
+        var stats: TrackStats?
     }
 
-    init(name: String, kind: Kind, source: Source, track: RTCMediaStreamTrack) {
+    internal var _state = StateSync(State())
+
+    internal init(name: String, kind: Kind, source: Source, track: RTCMediaStreamTrack) {
         self.name = name
         self.kind = kind
         self.source = source
         mediaTrack = track
     }
 
-    // will fail if already started (to prevent duplicate code execution)
-    internal func start() -> Promise<Void> {
-        guard state != .started else {
-            return Promise(TrackError.state(message: "Already started"))
-        }
-
-        self.state = .started
-        return Promise(())
+    deinit {
+        log("sid: \(String(describing: sid))")
     }
 
-    // will fail if already stopped (to prevent duplicate code execution)
-    public func stop() -> Promise<Void> {
-        guard state != .stopped else {
-            return Promise(TrackError.state(message: "Already stopped"))
-        }
+    // returns true if updated state
+    public func start() -> Promise<Bool> {
 
-        self.state = .stopped
-        return Promise(())
+        Promise(on: .sdk) { () -> Bool in
+
+            guard self.trackState != .started else {
+                // already started
+                return false
+            }
+
+            self._state.mutate { $0.trackState = .started }
+            return true
+        }
     }
 
-    internal func enable() -> Promise<Void> {
-        Promise(on: .sdk) {
+    // returns true if updated state
+    public func stop() -> Promise<Bool> {
+
+        Promise(on: .sdk) { () -> Bool in
+
+            guard self.trackState != .stopped else {
+                // already stopped
+                return false
+            }
+
+            self._state.mutate { $0.trackState = .stopped }
+            return true
+        }
+    }
+
+    internal func enable() -> Promise<Bool> {
+
+        Promise(on: .sdk) { () -> Bool in
+
+            guard !self.mediaTrack.isEnabled else {
+                // already enabled
+                return false
+            }
+
             self.mediaTrack.isEnabled = true
+            return true
         }
     }
 
-    internal func disable() -> Promise<Void> {
-        Promise(on: .sdk) {
+    internal func disable() -> Promise<Bool> {
+
+        Promise(on: .sdk) { () -> Bool in
+
+            guard self.mediaTrack.isEnabled else {
+                // already disabled
+                return false
+            }
+
             self.mediaTrack.isEnabled = false
+            return true
         }
     }
 
-    internal func didUpdateState() {
-        //
-    }
-
-    internal func set(muted: Bool,
-                      shouldNotify: Bool = true,
+    internal func set(muted newValue: Bool,
+                      notify _notify: Bool = true,
                       shouldSendSignal: Bool = false) {
 
-        guard muted != self.muted else { return }
-        self.muted = muted
+        guard _state.muted != newValue else { return }
+        _state.mutate { $0.muted = newValue }
 
-        if shouldNotify {
-            notify { $0.track(self, didUpdate: muted, shouldSendSignal: shouldSendSignal) }
+        if newValue {
+            // clear video frame cache if muted
+            set(videoFrame: nil)
+        }
+
+        if _notify {
+            notify { $0.track(self, didUpdate: newValue, shouldSendSignal: shouldSendSignal) }
         }
     }
 }
@@ -126,8 +194,8 @@ public class Track: MulticastDelegate<TrackDelegate> {
 internal extension Track {
 
     func set(stats newValue: TrackStats) {
-        guard self.stats != newValue else { return }
-        self.stats = newValue
+        guard _state.stats != newValue else { return }
+        _state.mutate { $0.stats = newValue }
         notify { $0.track(self, didUpdate: newValue) }
     }
 }
@@ -136,16 +204,32 @@ internal extension Track {
 
 internal extension Track {
 
-    func set(dimensions newValue: Dimensions?) {
-        guard self.dimensions != newValue else { return }
-        self.dimensions = newValue
+    // returns true when value is updated
+    @discardableResult
+    func set(dimensions newValue: Dimensions?) -> Bool {
+        guard _state.dimensions != newValue else { return false }
 
-        guard let videoTrack = self as? VideoTrack else { return }
+        _state.mutate { $0.dimensions = newValue }
+
+        guard let videoTrack = self as? VideoTrack else { return true }
         notify { $0.track(videoTrack, didUpdate: newValue) }
+
+        return true
     }
 
     func set(videoFrame newValue: RTCVideoFrame?) {
-        guard self.videoFrame != newValue else { return }
-        self.videoFrame = newValue
+        guard _state.videoFrame != newValue else { return }
+
+        _state.mutate { $0.videoFrame = newValue }
+    }
+}
+
+// MARK: - Deprecated
+
+extension Track {
+
+    @available(*, deprecated, renamed: "trackState")
+    public var state: TrackState {
+        self._state.trackState
     }
 }

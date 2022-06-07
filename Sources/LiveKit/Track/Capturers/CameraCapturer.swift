@@ -53,7 +53,7 @@ public class CameraCapturer: VideoCapturer {
 
     /// Switches the camera position between `.front` and `.back` if supported by the device.
     @discardableResult
-    public func switchCameraPosition() -> Promise<Void> {
+    public func switchCameraPosition() -> Promise<Bool> {
         // cannot toggle if current position is unknown
         guard position != .unspecified else {
             log("Failed to toggle camera position", .warning)
@@ -64,7 +64,7 @@ public class CameraCapturer: VideoCapturer {
     }
 
     /// Sets the camera's position to `.front` or `.back` when supported
-    public func setCameraPosition(_ position: AVCaptureDevice.Position) -> Promise<Void> {
+    public func setCameraPosition(_ position: AVCaptureDevice.Position) -> Promise<Bool> {
 
         log("setCameraPosition(position: \(position)")
 
@@ -75,69 +75,82 @@ public class CameraCapturer: VideoCapturer {
         return restartCapture()
     }
 
-    public override func startCapture() -> Promise<Void> {
+    public override func startCapture() -> Promise<Bool> {
 
-        let preferredPixelFormat = capturer.preferredOutputPixelFormat()
-        log("CameraCapturer.preferredPixelFormat: \(preferredPixelFormat.toString())")
+        super.startCapture().then(on: .sdk) { didStart -> Promise<Bool> in
 
-        let devices = CameraCapturer.captureDevices()
-        // TODO: FaceTime Camera for macOS uses .unspecified, fall back to first device
+            guard didStart else {
+                // already started
+                return Promise(false)
+            }
 
-        guard let device = devices.first(where: { $0.position == options.position }) ?? devices.first else {
-            log("No camera video capture devices available", .error)
-            return Promise(TrackError.capturer(message: "No camera video capture devices available"))
-        }
+            let preferredPixelFormat = self.capturer.preferredOutputPixelFormat()
+            self.log("CameraCapturer.preferredPixelFormat: \(preferredPixelFormat.toString())")
 
-        // list of all formats in order of dimensions size
-        let formats = DispatchQueue.webRTC.sync { RTCCameraVideoCapturer.supportedFormats(for: device) }
-        // create a dictionary sorted by dimensions size
-        let sortedFormats = OrderedDictionary(uniqueKeysWithValues: formats.map { ($0, CMVideoFormatDescriptionGetDimensions($0.formatDescription)) })
-            .sorted { $0.value.area < $1.value.area }
+            let devices = CameraCapturer.captureDevices()
+            // TODO: FaceTime Camera for macOS uses .unspecified, fall back to first device
 
-        // default to the smallest
-        var selectedFormat = sortedFormats.first
+            guard let device = devices.first(where: { $0.position == self.options.position }) ?? devices.first else {
+                self.log("No camera video capture devices available", .error)
+                throw TrackError.capturer(message: "No camera video capture devices available")
+            }
 
-        // find preferred capture format if specified in options
-        if let preferredFormat = options.preferredFormat,
-           let foundFormat = sortedFormats.first(where: { $0.key == preferredFormat }) {
-            selectedFormat = foundFormat
-        } else {
-            log("formats: \(sortedFormats.map { String(describing: $0.value) }), target: \(options.dimensions)")
-            // find format that satisfies preferred dimensions
-            selectedFormat = sortedFormats.first(where: { $0.value.area >= options.dimensions.area })
-        }
+            // list of all formats in order of dimensions size
+            let formats = DispatchQueue.webRTC.sync { RTCCameraVideoCapturer.supportedFormats(for: device) }
+            // create a dictionary sorted by dimensions size
+            let sortedFormats = OrderedDictionary(uniqueKeysWithValues: formats.map { ($0, CMVideoFormatDescriptionGetDimensions($0.formatDescription)) })
+                .sorted { $0.value.area < $1.value.area }
 
-        // format should be resolved at this point
-        guard let selectedFormat = selectedFormat else {
-            log("Unable to resolve format", .error)
-            return Promise(TrackError.capturer(message: "Unable to determine format for camera capturer"))
-        }
+            // default to the smallest
+            var selectedFormat = sortedFormats.first
 
-        // ensure fps is within range
-        let fpsRange = selectedFormat.key.videoSupportedFrameRateRanges
-            .reduce((min: Int.max, max: 0)) { (min($0.min, Int($1.minFrameRate)), max($0.max, Int($1.maxFrameRate)) ) }
-        log("fpsRange: \(fpsRange)")
+            // find preferred capture format if specified in options
+            if let preferredFormat = self.options.preferredFormat,
+               let foundFormat = sortedFormats.first(where: { $0.key == preferredFormat }) {
+                selectedFormat = foundFormat
+            } else {
+                self.log("formats: \(sortedFormats.map { String(describing: $0.value) }), target: \(self.options.dimensions)")
+                // find format that satisfies preferred dimensions
+                selectedFormat = sortedFormats.first(where: { $0.value.area >= self.options.dimensions.area })
+            }
 
-        guard options.fps >= fpsRange.min && options.fps <= fpsRange.max else {
-            return Promise(TrackError.capturer(message: "Requested framerate is out of range (\(fpsRange)"))
-        }
+            // format should be resolved at this point
+            guard let selectedFormat = selectedFormat else {
+                self.log("Unable to resolve format", .error)
+                throw TrackError.capturer(message: "Unable to determine format for camera capturer")
+            }
 
-        log("Starting camera capturer device: \(device), format: \(selectedFormat), fps: \(options.fps)", .info)
+            guard let fpsRange = selectedFormat.key.fpsRange() else {
+                self.log("unable to resolve fps range", .error)
+                throw TrackError.capturer(message: "Unable to determine supported fps range for format: \(selectedFormat)")
+            }
 
-        // adapt if requested dimensions and camera's dimensions don't match
-        if let videoSource = delegate as? RTCVideoSource,
-           selectedFormat.value != options.dimensions {
+            // default to fps in options
+            var selectedFps = self.options.fps
 
-            self.log("adaptOutputFormat to: \(options.dimensions) fps: \(self.options.fps)")
-            videoSource.adaptOutputFormat(toWidth: options.dimensions.width,
-                                          height: options.dimensions.height,
-                                          fps: Int32(options.fps))
-        }
+            if !fpsRange.contains(selectedFps) {
+                // log a warning, but continue
+                self.log("requested fps: \(self.options.fps) is out of range: \(fpsRange) and will be clamped", .warning)
+                // clamp to supported fps range
+                selectedFps = selectedFps.clamped(to: fpsRange)
+            }
 
-        return super.startCapture().then(on: .sdk) {
+            self.log("starting camera capturer device: \(device), format: \(selectedFormat), fps: \(selectedFps)(\(fpsRange))", .info)
+
+            // adapt if requested dimensions and camera's dimensions don't match
+            if let videoSource = self.delegate as? RTCVideoSource,
+               selectedFormat.value != self.options.dimensions {
+
+                // self.log("adaptOutputFormat to: \(options.dimensions) fps: \(self.options.fps)")
+                videoSource.adaptOutputFormat(toWidth: self.options.dimensions.width,
+                                              height: self.options.dimensions.height,
+                                              fps: Int32(self.options.fps))
+            }
+
             // return promise that waits for capturer to start
-            Promise(on: .webRTC) { resolve, fail in
-                self.capturer.startCapture(with: device, format: selectedFormat.key, fps: self.options.fps) { error in
+            return Promise<Bool>(on: .webRTC) { resolve, fail in
+                // start the RTCCameraVideoCapturer
+                self.capturer.startCapture(with: device, format: selectedFormat.key, fps: selectedFps) { error in
                     if let error = error {
                         self.log("CameraCapturer failed to start \(error)", .error)
                         fail(error)
@@ -150,22 +163,30 @@ public class CameraCapturer: VideoCapturer {
                     self.dimensions = self.options.dimensions
 
                     // successfully started
-                    resolve(())
+                    resolve(true)
                 }
             }
         }
     }
 
-    public override func stopCapture() -> Promise<Void> {
-        return super.stopCapture().then(on: .sdk) {
-            Promise(on: .webRTC) { resolve, _ in
+    public override func stopCapture() -> Promise<Bool> {
+
+        super.stopCapture().then(on: .sdk) { didStop -> Promise<Bool> in
+
+            guard didStop else {
+                // already stopped
+                return Promise(false)
+            }
+
+            return Promise<Bool>(on: .webRTC) { resolve, _ in
+                // stop the RTCCameraVideoCapturer
                 self.capturer.stopCapture {
                     // update internal vars
                     self.device = nil
                     self.dimensions = nil
 
                     // successfully stopped
-                    resolve(())
+                    resolve(true)
                 }
             }
         }
@@ -174,11 +195,12 @@ public class CameraCapturer: VideoCapturer {
 
 extension LocalVideoTrack {
 
-    public static func createCameraTrack(options: CameraCaptureOptions = CameraCaptureOptions()) -> LocalVideoTrack {
+    public static func createCameraTrack(name: String = Track.cameraName,
+                                         options: CameraCaptureOptions = CameraCaptureOptions()) -> LocalVideoTrack {
         let videoSource = Engine.createVideoSource(forScreenShare: false)
         let capturer = CameraCapturer(delegate: videoSource, options: options)
         return LocalVideoTrack(
-            name: Track.cameraName,
+            name: name,
             source: .camera,
             capturer: capturer,
             videoSource: videoSource
@@ -193,6 +215,40 @@ extension AVCaptureDevice.Position: CustomStringConvertible {
         case .back: return ".back"
         case .unspecified: return ".unspecified"
         default: return "unknown"
+        }
+    }
+}
+
+extension Comparable {
+
+    // clamp a value within the range
+    func clamped(to limits: ClosedRange<Self>) -> Self {
+        return min(max(self, limits.lowerBound), limits.upperBound)
+    }
+}
+
+extension AVFrameRateRange {
+
+    // convert to a ClosedRange
+    func toRange() -> ClosedRange<Int> {
+        Int(minFrameRate)...Int(maxFrameRate)
+    }
+}
+
+extension AVCaptureDevice.Format {
+
+    // computes a ClosedRange of supported FPSs for this format
+    func fpsRange() -> ClosedRange<Int>? {
+
+        videoSupportedFrameRateRanges.map { $0.toRange() }.reduce(into: nil as ClosedRange<Int>?) { result, current in
+            // first element
+            guard let previous = result else {
+                result = current
+                return
+            }
+
+            // merge previous element
+            result = merge(range: previous, with: current)
         }
     }
 }

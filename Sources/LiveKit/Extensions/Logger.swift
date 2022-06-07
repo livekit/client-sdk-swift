@@ -18,110 +18,67 @@ import Foundation
 import Logging
 
 /// Allows to extend with custom `log` method which automatically captures current type (class name).
-internal protocol Loggable: Any {
+public protocol Loggable {
 
 }
 
-internal extension Loggable {
+private var _scopedMetadataKey = "scopedMetadata"
+
+public typealias ScopedMetadata = CustomStringConvertible
+internal typealias ScopedMetadataContainer = [String: ScopedMetadata]
+
+public extension Loggable {
+
+    /// attach logger metadata to this instance that will be automatically included in every log onward
+    func set(loggerMetadata data: ScopedMetadata?, for key: String) {
+        var _data = _scopedMetadata()
+        _data[key] = data
+        objc_setAssociatedObject(self, &_scopedMetadataKey, _data, .OBJC_ASSOCIATION_RETAIN)
+    }
+
+    private func _scopedMetadata() -> ScopedMetadataContainer {
+        (objc_getAssociatedObject(self, &_scopedMetadataKey) as? ScopedMetadataContainer) ?? ScopedMetadataContainer()
+    }
 
     /// Automatically captures current type (class name) to ``Logger.Metadata``
-    func log(_ message: Logger.Message? = nil,
-             _ level: Logger.Level = .debug,
-             file: String = #file,
-             type type_: Any.Type? = nil,
-             function: String = #function,
-             line: UInt = #line) {
+    internal func log(_ message: Logger.Message? = nil,
+                      _ level: Logger.Level = .debug,
+                      file: String = #file,
+                      type type_: Any.Type? = nil,
+                      function: String = #function,
+                      line: UInt = #line) {
 
         logger.log(message ?? "",
                    level,
                    file: file,
                    type: type_ ?? type(of: self),
                    function: function,
-                   line: line)
+                   line: line,
+                   metaData: _scopedMetadata())
     }
 }
 
 internal extension Logger {
 
     /// Adds `type` param to capture current type (usually class)
-    func log(_ message: @autoclosure () -> Logger.Message,
+    func log(_ message: Logger.Message,
              _ level: Logger.Level = .debug,
              source: @autoclosure () -> String? = nil,
              file: String = #file,
              type: Any.Type,
              function: String = #function,
-             line: UInt = #line) {
+             line: UInt = #line,
+             metaData: ScopedMetadataContainer = ScopedMetadataContainer()) {
 
-        let metadata: Logger.Metadata  = [
-            "type": .string(String(describing: type))
-        ]
+        func _buildScopedMetadataString() -> String {
+            guard !metaData.isEmpty else { return "" }
+            return " [\(metaData.map { "\($0): \($1)" }.joined(separator: ", "))]"
+        }
 
         log(level: level,
-            message(),
-            metadata: metadata,
-            source: source(),
+            "\(String(describing: type)).\(function) \(message)\(_buildScopedMetadataString())",
             file: file,
             function: function,
             line: line)
-    }
-}
-
-/// ``LogHandler`` which formats log output preferred for debugging the LiveKit SDK.
-public struct LiveKitLogHandler: LogHandler {
-
-    public let label: String
-    public let timeStampFormat = "%Y-%m-%dT%H:%M:%S%z"
-
-    public var logLevel: Logger.Level
-    public var metadata = Logger.Metadata()
-
-    public subscript(metadataKey metadataKey: String) -> Logger.Metadata.Value? {
-        get { self.metadata[metadataKey] }
-        set { self.metadata[metadataKey] = newValue }
-    }
-
-    public init(label: String, level: Logger.Level = .debug) {
-        self.label = label
-        self.logLevel = level
-    }
-
-    public func log(level: Logger.Level,
-                    message: Logger.Message,
-                    metadata: Logger.Metadata?,
-                    source: String,
-                    file: String,
-                    function: String,
-                    line: UInt) {
-
-        var elements: [String] = [
-            label.padding(toLength: 10, withPad: " ", startingAt: 0),
-            // longest level string is `critical` which is 8 characters
-            String(describing: level).uppercased().padding(toLength: 8, withPad: " ", startingAt: 0)
-        ]
-
-        // append type (usually class name) if available
-        if case .string(let type) = metadata?["type"] {
-            elements.append("\(type).\(function)".padding(toLength: 40, withPad: " ", startingAt: 0))
-        }
-
-        let str = String(describing: message)
-        if !str.isEmpty {
-            elements.append(str)
-        }
-
-        // join all elements with a space in between
-        print(elements.joined(separator: " "))
-    }
-
-    private func timestamp() -> String {
-        var buffer = [Int8](repeating: 0, count: 255)
-        var timestamp = time(nil)
-        let localTime = localtime(&timestamp)
-        strftime(&buffer, buffer.count, timeStampFormat, localTime)
-        return buffer.withUnsafeBufferPointer {
-            $0.withMemoryRebound(to: CChar.self) {
-                String(cString: $0.baseAddress!)
-            }
-        }
     }
 }

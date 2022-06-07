@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-internal struct TrackSettings {
+internal struct TrackSettings: Equatable {
 
     let enabled: Bool
     let dimensions: Dimensions
     let videoQuality: VideoQuality
 
-    init(enabled: Bool = true,
+    init(enabled: Bool = false,
          dimensions: Dimensions = .zero,
          videoQuality: VideoQuality = .low) {
 
@@ -35,21 +35,5 @@ internal struct TrackSettings {
         TrackSettings(enabled: enabled ?? self.enabled,
                       dimensions: dimensions ?? self.dimensions,
                       videoQuality: videoQuality ?? self.videoQuality)
-    }
-}
-
-extension TrackSettings: Equatable {
-
-    static func == (lhs: TrackSettings, rhs: TrackSettings) -> Bool {
-        lhs.enabled == rhs.enabled
-            && lhs.dimensions == rhs.dimensions
-            && lhs.videoQuality == rhs.videoQuality
-    }
-}
-
-extension TrackSettings: CustomStringConvertible {
-
-    var description: String {
-        "TrackSettings(enabled: \(enabled), dimensions: \(dimensions), videoQuality: \(videoQuality))"
     }
 }

@@ -14,18 +14,7 @@
  * limitations under the License.
  */
 
-import Foundation
-
-internal extension DispatchQueue {
-
-    static let sdk = DispatchQueue(label: "LiveKitSDK", qos: .userInitiated)
-    static let webRTC = DispatchQueue(label: "LiveKitSDK.webRTC", qos: .default)
-    static let capture = DispatchQueue(label: "LiveKitSDK.capture", qos: .default)
-
-    // if already on main, immediately execute block.
-    // if not on main, schedule async.
-    static func mainSafeAsync(execute work: @escaping () -> Void) {
-        guard !Thread.current.isMainThread else { return work() }
-        return Self.main.async(execute: work)
-    }
+// merge a ClosedRange
+internal func merge<T>(range range1: ClosedRange<T>, with range2: ClosedRange<T>) -> ClosedRange<T> where T: Comparable {
+    min(range1.lowerBound, range2.lowerBound)...max(range1.upperBound, range2.upperBound)
 }

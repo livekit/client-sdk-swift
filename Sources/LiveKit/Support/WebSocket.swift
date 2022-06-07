@@ -20,7 +20,7 @@ import Promises
 internal class WebSocket: NSObject, URLSessionWebSocketDelegate, Loggable {
 
     typealias OnMessage = (URLSessionWebSocketTask.Message) -> Void
-    typealias OnDisconnect = (_ reason: DisconnectReason) -> Void
+    typealias OnDisconnect = (_ reason: DisconnectReason?) -> Void
 
     public var onMessage: OnMessage?
     public var onDisconnect: OnDisconnect?
@@ -63,7 +63,7 @@ internal class WebSocket: NSObject, URLSessionWebSocketDelegate, Loggable {
 
         request = URLRequest(url: url,
                              cachePolicy: .useProtocolCachePolicy,
-                             timeoutInterval: .defaultConnect)
+                             timeoutInterval: .defaultSocketConnect)
 
         self.onMessage = onMessage
         self.onDisconnect = onDisconnect
@@ -76,8 +76,9 @@ internal class WebSocket: NSObject, URLSessionWebSocketDelegate, Loggable {
         return connectPromise!
     }
 
-    internal func cleanUp(reason: DisconnectReason) {
-        log("reason: \(reason)")
+    internal func cleanUp(reason: DisconnectReason?) {
+
+        log("reason: \(String(describing: reason))")
 
         guard !disconnected else {
             log("dispose can be called only once", .warning)
@@ -151,7 +152,9 @@ internal class WebSocket: NSObject, URLSessionWebSocketDelegate, Loggable {
             return
         }
 
-        cleanUp(reason: .network())
+        let sdkError = NetworkError.disconnected(message: "WebSocket did close with code: \(closeCode) reason: \(String(describing: reason))")
+
+        cleanUp(reason: .networkError(sdkError))
     }
 
     internal func urlSession(_ session: URLSession,
@@ -162,9 +165,8 @@ internal class WebSocket: NSObject, URLSessionWebSocketDelegate, Loggable {
             return
         }
 
-        let sdkError = NetworkError.disconnected(message: "WebSocket disconnected",
-                                                 rawError: error)
+        let sdkError = NetworkError.disconnected(message: "WebSocket disconnected", rawError: error)
 
-        cleanUp(reason: .network(error: sdkError))
+        cleanUp(reason: .networkError(sdkError))
     }
 }

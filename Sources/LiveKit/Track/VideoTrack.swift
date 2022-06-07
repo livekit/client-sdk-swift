@@ -22,13 +22,54 @@ public protocol VideoTrack: Track {
 
 extension VideoTrack {
 
-    public func add(renderer: RTCVideoRenderer) {
-        guard let videoTrack = mediaTrack as? RTCVideoTrack else { return }
-        DispatchQueue.webRTC.sync { videoTrack.add(renderer) }
+    public func add(videoView: VideoView) {
+
+        // should always be on main thread
+        assert(Thread.current.isMainThread, "must be called on main thread")
+
+        guard let videoTrack = self.mediaTrack as? RTCVideoTrack else {
+            log("mediaTrack is not a RTCVideoTrack", .error)
+            return
+        }
+
+        guard !videoViews.contains(weakElement: videoView) else {
+            log("already attached", .warning)
+            return
+        }
+
+        while let otherVideoView = videoViews.allObjects.first(where: { $0 != videoView }) {
+            videoTrack.remove(otherVideoView)
+            videoViews.remove(weakElement: otherVideoView)
+        }
+
+        assert(videoViews.allObjects.count <= 1, "multiple VideoViews attached")
+
+        videoTrack.add(videoView)
+        videoViews.add(weakElement: videoView)
     }
 
-    public func remove(renderer: RTCVideoRenderer) {
-        guard let videoTrack = mediaTrack as? RTCVideoTrack else { return }
-        DispatchQueue.webRTC.sync { videoTrack.remove(renderer) }
+    public func remove(videoView: VideoView) {
+
+        // should always be on main thread
+        assert(Thread.current.isMainThread, "must be called on main thread")
+
+        videoViews.remove(weakElement: videoView)
+
+        guard let videoTrack = self.mediaTrack as? RTCVideoTrack else {
+            log("mediaTrack is not a RTCVideoTrack", .error)
+            return
+        }
+
+        videoTrack.remove(videoView)
+    }
+
+    @available(*, deprecated, message: "Use add(videoView:) instead")
+    public func add(renderer: VideoView) {
+        add(videoView: renderer)
+    }
+
+    @available(*, deprecated, message: "Use remove(videoView:) instead")
+    public func remove(renderer: VideoView) {
+        remove(videoView: renderer)
     }
 }

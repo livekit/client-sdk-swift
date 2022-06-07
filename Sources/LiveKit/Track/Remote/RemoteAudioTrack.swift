@@ -29,17 +29,21 @@ class RemoteAudioTrack: RemoteTrack, AudioTrack {
                    track: track)
     }
 
-    @discardableResult
-    override func start() -> Promise<Void> {
-        super.start().then(on: .sdk) {
-            AudioManager.shared.trackDidStart(.remote)
+    override public func start() -> Promise<Bool> {
+        super.start().then(on: .sdk) { didStart -> Bool in
+            if didStart {
+                AudioManager.shared.trackDidStart(.remote)
+            }
+            return didStart
         }
     }
 
-    @discardableResult
-    override public func stop() -> Promise<Void> {
-        super.stop().then(on: .sdk) {
-            AudioManager.shared.trackDidStop(.remote)
+    override public func stop() -> Promise<Bool> {
+        super.stop().then(on: .sdk) { didStop -> Bool in
+            if didStop {
+                AudioManager.shared.trackDidStop(.remote)
+            }
+            return didStop
         }
     }
 }

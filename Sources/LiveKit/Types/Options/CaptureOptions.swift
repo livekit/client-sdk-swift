@@ -31,7 +31,10 @@ public struct CameraCaptureOptions: VideoCaptureOptions {
     public let position: AVCaptureDevice.Position
     public let preferredFormat: AVCaptureDevice.Format?
 
+    /// preferred dimensions for capturing, the SDK may override with a recommended value.
     public let dimensions: Dimensions
+
+    /// preferred fps to use for capturing, the SDK may override with a recommended value.
     public let fps: Int
 
     public init(position: AVCaptureDevice.Position = .front,
@@ -62,7 +65,7 @@ public struct ScreenShareCaptureOptions: VideoCaptureOptions {
     public let dimensions: Dimensions
     public let fps: Int
 
-    public init(dimensions: Dimensions = .h720_169,
+    public init(dimensions: Dimensions = .h1080_169,
                 fps: Int = 30) {
 
         self.dimensions = dimensions
@@ -75,7 +78,7 @@ public struct BufferCaptureOptions: VideoCaptureOptions {
     public let dimensions: Dimensions
     public let fps: Int
 
-    public init(dimensions: Dimensions = .h720_169,
+    public init(dimensions: Dimensions = .h1080_169,
                 fps: Int = 30) {
 
         self.dimensions = dimensions

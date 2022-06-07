@@ -67,15 +67,10 @@ extension RTCVideoCapturerDelegate {
 
     public typealias OnResolveSourceDimensions = (Dimensions) -> Void
 
-    public static func createTimeStamp() -> Int64 {
-        let systemTime = ProcessInfo.processInfo.systemUptime
-        return Int64(systemTime * Double(NSEC_PER_SEC))
-    }
-
     /// capture a `CVPixelBuffer`, all other capture methods call this method internally.
     public func capturer(_ capturer: RTCVideoCapturer,
                          didCapture pixelBuffer: CVPixelBuffer,
-                         timeStampNs: Int64 = createTimeStamp(),
+                         timeStampNs: Int64 = VideoCapturer.createTimeStampNs(),
                          rotation: RTCVideoRotation = ._0,
                          onResolveSourceDimensions: OnResolveSourceDimensions? = nil) {
 

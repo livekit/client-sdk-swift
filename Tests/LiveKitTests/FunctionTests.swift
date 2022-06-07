@@ -14,18 +14,20 @@
  * limitations under the License.
  */
 
-import Foundation
+@testable import LiveKit
+import XCTest
 
-internal extension DispatchQueue {
+//
+// For testing state-less functions
+//
+class FunctionTests: XCTestCase {
 
-    static let sdk = DispatchQueue(label: "LiveKitSDK", qos: .userInitiated)
-    static let webRTC = DispatchQueue(label: "LiveKitSDK.webRTC", qos: .default)
-    static let capture = DispatchQueue(label: "LiveKitSDK.capture", qos: .default)
+    func testRangeMerge() async throws {
+        let range1 = 10...20
+        let range2 = 5...15
 
-    // if already on main, immediately execute block.
-    // if not on main, schedule async.
-    static func mainSafeAsync(execute work: @escaping () -> Void) {
-        guard !Thread.current.isMainThread else { return work() }
-        return Self.main.async(execute: work)
+        let merged = merge(range: range1, with: range2)
+        print("merged: \(merged)")
+        XCTAssert(merged == 5...20)
     }
 }

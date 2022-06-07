@@ -33,13 +33,9 @@ let package = Package(
             ],
             path: "Sources",
             swiftSettings: [
-                // Silence deprecated OpenGL usage.
-                // The SDK prefers to use Metal, OpenGL is only used when Metal is not available.
-                // .unsafeFlags(["-suppress-warnings"]),
                 // Compiler flags used to completely remove code for specific features to isolate issues.
                 // Not defining the flag will turn off the feature.
                 .define("LK_USING_CUSTOM_WEBRTC_BUILD"),
-                .define("LK_FEATURE_ADAPTIVESTREAM"),
                 .define("LK_COMPUTE_VIDEO_SENDER_PARAMETERS")
             ]
         ),

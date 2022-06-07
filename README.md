@@ -9,6 +9,8 @@ Docs and guides are at [https://docs.livekit.io](https://docs.livekit.io).
 
 There is full source code of a [iOS/macOS Swift UI Example App](https://github.com/livekit/client-example-swift).
 
+For minimal examples view this repo 👉 [Swift SDK Examples](https://github.com/livekit/client-example-collection-swift)
+
 ## Installation
 
 LiveKit for Swift is available as a Swift Package.
@@ -21,7 +23,7 @@ Add the dependency and also to your target
 let package = Package(
   ...
   dependencies: [
-    .package(name: "LiveKit", url: "https://github.com/livekit/client-sdk-swift.git", .upToNextMajor("0.9.5")),
+    .package(name: "LiveKit", url: "https://github.com/livekit/client-sdk-swift.git", .upToNextMajor("1.0.0")),
   ],
   targets: [
     .target(
@@ -104,6 +106,86 @@ extension RoomViewController: RoomDelegate {
     }
 }
 ```
+
+# Thread safety
+
+Since `VideoView` is a UI component, all operations (read/write properties etc) must be performed from the `main` thread.
+
+Other core classes can be accessed from any thread.
+
+Delegates will be called on the SDK's internal thread.
+Make sure any access to the UI is within the main thread, for example by using `DispatchQueue.main.async`.
+
+# Memory management
+
+It is recommended to use **weak var** when storing references to objects created and managed by the SDK, such as `Participant`, `TrackPublication` etc. These objects are invalid when the `Room` disconnects, and will be released by the SDK. Holding strong reference to these objects will prevent releasing `Room` and other internal objects.
+
+`VideoView.track` property does not hold strong reference, so it's not required to set it to `nil`.
+
+# iOS Simulator limitations
+
+- Currently, `VideoView` will use OpenGL for iOS Simulator.
+- Publishing the camera track is not supported by iOS Simulator.
+
+# ScrollView performance
+
+It is recommended to turn off rendering of `VideoView`s that scroll off the screen and isn't visible by setting `false` to `isEnabled` property and `true` when it will re-appear to save CPU resources.
+
+`UICollectionViewDelegate`'s `willDisplay` / `didEndDisplaying` has been reported to be unreliable for this purpose. Specifically, in some iOS versions `didEndDisplaying` could get invoked even when the cell is visible.
+
+The following is an alternative method to using `willDisplay` / `didEndDisplaying` :
+```swift
+// 1. define a weak-reference set for all cells
+private var allCells = NSHashTable<ParticipantCell>.weakObjects()
+```
+
+```swift
+// in UICollectionViewDataSource...
+public func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
+
+    let cell = collectionView.dequeueReusableCell(withReuseIdentifier: ParticipantCell.reuseIdentifier, for: indexPath)
+
+    if let cell = cell as? ParticipantCell {
+        // 2. keep weak reference to the cell
+        allCells.add(cell)
+
+        // configure cell etc...
+    }
+
+    return cell
+}
+```
+
+```swift
+// 3. define a func to re-compute and update isEnabled property for cells that visibility changed
+func reComputeVideoViewEnabled() {
+
+    let visibleCells = collectionView.visibleCells.compactMap { $0 as? ParticipantCell }
+    let offScreenCells = allCells.allObjects.filter { !visibleCells.contains($0) }
+
+    for cell in visibleCells.filter({ !$0.videoView.isEnabled }) {
+        print("enabling cell#\(cell.hashValue)")
+        cell.videoView.isEnabled = true
+    }
+
+    for cell in offScreenCells.filter({ $0.videoView.isEnabled }) {
+        print("disabling cell#\(cell.hashValue)")
+        cell.videoView.isEnabled = false
+    }
+}
+```
+
+```swift
+// 4. set a timer to invoke the func
+self.timer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true, block: { [weak self] _ in
+    self?.reComputeVideoViewEnabled()
+})
+
+// alternatively, you can call `reComputeVideoViewEnabled` whenever cell visibility changes (such as scrollViewDidScroll(_:)),
+// but this will be harder to track all cases such as cell reload etc.
+```
+
+For the full example, see 👉 [UIKit Minimal Example](https://github.com/livekit/client-example-collection-swift/tree/main/uikit-minimal)
 
 # Getting help / Contributing
 

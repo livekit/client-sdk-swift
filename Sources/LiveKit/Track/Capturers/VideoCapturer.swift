@@ -30,65 +30,12 @@ extension VideoCapturerProtocol {
 
 public protocol VideoCapturerDelegate: AnyObject {
     func capturer(_ capturer: VideoCapturer, didUpdate dimensions: Dimensions?)
-    func capturer(_ capturer: VideoCapturer, didUpdate state: VideoCapturer.State)
+    func capturer(_ capturer: VideoCapturer, didUpdate state: VideoCapturer.CapturerState)
 }
 
 public extension VideoCapturerDelegate {
     func capturer(_ capturer: VideoCapturer, didUpdate dimensions: Dimensions?) {}
-    func capturer(_ capturer: VideoCapturer, didUpdate state: VideoCapturer.State) {}
-}
-
-// MARK: - Closures
-
-class VideoCapturerDelegateClosures: NSObject, VideoCapturerDelegate, Loggable {
-
-    typealias DidUpdateDimensions = (VideoCapturer, Dimensions?) -> Void
-
-    let didUpdateDimensions: DidUpdateDimensions?
-
-    init(didUpdateDimensions: DidUpdateDimensions? = nil) {
-        self.didUpdateDimensions = didUpdateDimensions
-        super.init()
-        log()
-    }
-
-    deinit {
-        log()
-    }
-
-    func capturer(_ capturer: VideoCapturer, didUpdate dimensions: Dimensions?) {
-        didUpdateDimensions?(capturer, dimensions)
-    }
-}
-
-internal extension VideoCapturer {
-
-    func waitForDimensions(allowCurrent: Bool = true) -> WaitPromises<Void> {
-
-        if allowCurrent, dimensions != nil {
-            return (Promise(()), Promise(()))
-        }
-
-        let listen = Promise<Void>.pending()
-        let wait = Promise<Void>(on: .sdk) { resolve, _ in
-            // create temporary delegate
-            var delegate: VideoCapturerDelegateClosures?
-            delegate = VideoCapturerDelegateClosures(didUpdateDimensions: { _, _ in
-                // wait until connected
-                resolve(())
-                self.log("Dimensions resolved...")
-                delegate = nil
-            })
-            // not required to clean up since weak reference
-            self.add(delegate: delegate!)
-            self.log("Waiting for dimensions...")
-            listen.fulfill(())
-        }
-        // convert to a timed-promise
-        .timeout(.captureStart)
-
-        return (listen, wait)
-    }
+    func capturer(_ capturer: VideoCapturer, didUpdate state: VideoCapturer.CapturerState) {}
 }
 
 // Intended to be a base class for video capturers
@@ -103,61 +50,78 @@ public class VideoCapturer: MulticastDelegate<VideoCapturerDelegate>, VideoCaptu
     /// `kCVPixelFormatType_32ARGB`.
     public static let supportedPixelFormats = DispatchQueue.webRTC.sync { RTCCVPixelBuffer.supportedPixelFormats() }
 
-    public enum State {
+    public static func createTimeStampNs() -> Int64 {
+        let systemTime = ProcessInfo.processInfo.systemUptime
+        return Int64(systemTime * Double(NSEC_PER_SEC))
+    }
+
+    public enum CapturerState {
         case stopped
         case started
     }
 
     internal weak var delegate: RTCVideoCapturerDelegate?
 
+    internal struct State {
+        var dimensionsCompleter = Completer<Dimensions>()
+    }
+
+    internal var _state = StateSync(State())
+
     public internal(set) var dimensions: Dimensions? {
         didSet {
             guard oldValue != dimensions else { return }
-            log("\(String(describing: oldValue)) -> \(String(describing: dimensions))")
+            log("[publish] \(String(describing: oldValue)) -> \(String(describing: dimensions))")
             notify { $0.capturer(self, didUpdate: self.dimensions) }
+
+            log("[publish] dimensions: \(String(describing: dimensions))")
+            _state.mutate { $0.dimensionsCompleter.set(value: dimensions) }
         }
     }
 
-    public private(set) var state: State = .stopped
+    public private(set) var captureState: CapturerState = .stopped
 
     init(delegate: RTCVideoCapturerDelegate) {
         self.delegate = delegate
     }
 
-    // will fail if already started (to prevent duplicate code execution)
-    public func startCapture() -> Promise<Void> {
+    // returns true if state updated
+    public func startCapture() -> Promise<Bool> {
 
-        Promise(on: .sdk) { () -> Void in
+        Promise(on: .sdk) { () -> Bool in
 
-            guard self.state != .started else {
-                self.log("Capturer already started", .warning)
-                throw TrackError.state(message: "Already started")
+            guard self.captureState != .started else {
+                // already started
+                return false
             }
 
-            self.state = .started
+            self.captureState = .started
             self.notify { $0.capturer(self, didUpdate: .started) }
+            return true
         }
     }
 
-    // will fail if already stopped (to prevent duplicate code execution)
-    public func stopCapture() -> Promise<Void> {
+    // returns true if state updated
+    public func stopCapture() -> Promise<Bool> {
 
-        Promise(on: .sdk) { () -> Void in
+        Promise(on: .sdk) { () -> Bool in
 
-            guard self.state != .stopped else {
-                self.log("Capturer already stopped", .warning)
-                throw TrackError.state(message: "Already stopped")
+            guard self.captureState != .stopped else {
+                // already stopped
+                return false
             }
 
-            self.state = .stopped
+            self.captureState = .stopped
             self.notify { $0.capturer(self, didUpdate: .stopped) }
+
+            self._state.mutate { $0.dimensionsCompleter.reset() }
+
+            return true
         }
     }
 
-    public func restartCapture() -> Promise<Void> {
-        stopCapture().recover { _ in
-            self.log("Capturer was already stopped", .warning)
-        }.then(on: .sdk) {
+    public func restartCapture() -> Promise<Bool> {
+        stopCapture().then(on: .sdk) { _ -> Promise<Bool> in
             self.startCapture()
         }
     }
