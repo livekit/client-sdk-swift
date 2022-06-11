@@ -107,6 +107,10 @@ extension RoomViewController: RoomDelegate {
 }
 ```
 
+### Screen Sharing
+
+See [iOS Screen Sharing instructions](https://github.com/livekit/client-sdk-swift/wiki/iOS-Screen-Sharing).
+
 # Thread safety
 
 Since `VideoView` is a UI component, all operations (read/write properties etc) must be performed from the `main` thread.
