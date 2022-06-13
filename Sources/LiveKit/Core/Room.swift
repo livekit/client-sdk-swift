@@ -516,6 +516,13 @@ extension Room: EngineDelegate {
                 resetTrackSettings()
             }
 
+            // re-send track permissions
+            if case .connected = state.connectionState, let localParticipant = localParticipant {
+                localParticipant.sendTrackSubscriptionPermissions().catch(on: .sdk) { error in
+                    self.log("Failed to send track subscription permissions, error: \(error)", .error)
+                }
+            }
+
             notify { $0.room(self, didUpdate: state.connectionState, oldValue: oldState.connectionState) }
         }
 
