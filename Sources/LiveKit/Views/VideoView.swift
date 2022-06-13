@@ -21,23 +21,14 @@ import MetalKit
 /// A ``NativeViewType`` that conforms to ``RTCVideoRenderer``.
 public typealias NativeRendererView = NativeViewType & RTCVideoRenderer
 
-public class VideoView: NativeView, Loggable {
+public class VideoView: NativeView, MulticastDelegateCapable, Loggable {
+
+    public var delegates = MulticastDelegate<DelegateType>()
+
+    public typealias DelegateType = VideoViewDelegate
 
     private static let mirrorTransform = CATransform3DMakeScale(-1.0, 1.0, 1.0)
-
-    /// A set of bool values describing the state of rendering.
-    public struct RenderState: OptionSet {
-        public let rawValue: Int
-        public init(rawValue: Int) {
-            self.rawValue = rawValue
-        }
-
-        /// Received first frame and already rendered to the ``VideoView``.
-        /// This can be used to trigger smooth transition of the UI.
-        static let didRenderFirstFrame  = RenderState(rawValue: 1 << 0)
-        /// ``VideoView`` skipped rendering of a frame that could lead to crashes.
-        static let didSkipUnsafeFrame   = RenderState(rawValue: 1 << 1)
-    }
+    private static let _freezeDetectThreshold = 2.0
 
     public enum LayoutMode: String, Codable, CaseIterable {
         case fit
@@ -69,7 +60,9 @@ public class VideoView: NativeView, Loggable {
             _state.mutate {
                 // reset states if track updated
                 if !Self.track($0.track, isEqualWith: newValue) {
-                    $0.renderState = []
+                    $0.renderDate = nil
+                    $0.didRenderFirstFrame = false
+                    $0.isRendering = false
                     $0.rendererSize = nil
                 }
                 $0.track = newValue
@@ -96,6 +89,9 @@ public class VideoView: NativeView, Loggable {
         set { _state.mutate { $0.debugMode = newValue } }
     }
 
+    public var isRendering: Bool { _state.isRendering }
+    public var didRenderFirstFrame: Bool { _state.didRenderFirstFrame }
+
     private var nativeRenderer: NativeRendererView?
 
     private var _debugTextView: TextView?
@@ -113,14 +109,20 @@ public class VideoView: NativeView, Loggable {
         var rendererSize: CGSize?
         var didLayout: Bool = false
         var layoutMode: LayoutMode = .fill
-
         var mirrorMode: MirrorMode = .auto
-        var renderState = RenderState()
 
         var debugMode: Bool = false
+
+        // render states
+        var renderDate: Date?
+        var didRenderFirstFrame: Bool = false
+        var isRendering: Bool = false
     }
 
     internal var _state: StateSync<State>
+
+    // used for stats timer
+    private lazy var _renderTimer = DispatchQueueTimer(timeInterval: 0.1)
 
     public override init(frame: CGRect = .zero) {
 
@@ -203,14 +205,23 @@ public class VideoView: NativeView, Loggable {
                 }
             }
 
-            // renderState updated
-            if state.renderState != oldState.renderState, let track = state.track {
-                track.notify { $0.track(track, videoView: self, didUpdate: state.renderState) }
+            // isRendering updated
+            if state.isRendering != oldState.isRendering {
+
+                self.log("isRendering \(oldState.isRendering) -> \(state.isRendering)")
+
+                if state.isRendering {
+                    self._renderTimer.restart()
+                } else {
+                    self._renderTimer.suspend()
+                }
+
+                self.notify { $0.videoView(self, didUpdate: state.isRendering) }
             }
 
             // viewSize updated
-            if state.viewSize != oldState.viewSize, let track = state.track {
-                track.notify { $0.track(track, videoView: self, didUpdate: state.viewSize) }
+            if state.viewSize != oldState.viewSize {
+                self.notify { $0.videoView(self, didUpdate: state.viewSize) }
             }
 
             // toggle MTKView's isPaused property
@@ -222,11 +233,24 @@ public class VideoView: NativeView, Loggable {
             if state.debugMode != oldState.debugMode ||
                 state.layoutMode != oldState.layoutMode ||
                 state.mirrorMode != oldState.mirrorMode ||
+                state.didRenderFirstFrame != oldState.didRenderFirstFrame ||
                 shouldRenderDidUpdate || trackDidUpdate {
 
                 // must be on main
                 DispatchQueue.mainSafeAsync {
                     self.setNeedsLayout()
+                }
+            }
+        }
+
+        _renderTimer.handler = { [weak self] in
+
+            guard let self = self else { return }
+
+            if self._state.isRendering, let renderDate = self._state.renderDate {
+                let diff = Date().timeIntervalSince(renderDate)
+                if diff >= Self._freezeDetectThreshold {
+                    self._state.mutate { $0.isRendering = false }
                 }
             }
         }
@@ -261,11 +285,12 @@ public class VideoView: NativeView, Loggable {
         if _state.debugMode {
             let _trackSid = _state.track?.sid ?? "nil"
             let _dimensions = _state.track?.dimensions ?? .zero
-            let _didRenderFirstFrame = _state.renderState.contains(.didRenderFirstFrame) ? "true" : "false"
+            let _didRenderFirstFrame = _state.didRenderFirstFrame ? "true" : "false"
+            let _isRendering = _state.isRendering ? "true" : "false"
             let _viewCount = _state.track?.videoViews.count ?? 0
             let _didLayout = _state.didLayout
             let debugView = ensureDebugTextView()
-            debugView.text = "#\(hashValue)\n" + "\(_trackSid)\n" + "\(_dimensions.width)x\(_dimensions.height)\n" + "enabled: \(isEnabled)\n" + "firstFrame: \(_didRenderFirstFrame)\n" + "viewCount: \(_viewCount)\n" + "layout: \(_didLayout)"
+            debugView.text = "#\(hashValue)\n" + "\(_trackSid)\n" + "\(_dimensions.width)x\(_dimensions.height)\n" + "enabled: \(isEnabled)\n" + "firstFrame: \(_didRenderFirstFrame)\n" + "isRendering: \(_isRendering)\n" + "viewCount: \(_viewCount)\n" + "layout: \(_didLayout)"
             debugView.frame = bounds
             #if os(iOS)
             debugView.layer.borderColor = (_state.shouldRender ? UIColor.green : UIColor.red).withAlphaComponent(0.5).cgColor
@@ -456,10 +481,10 @@ extension VideoView: RTCVideoRenderer {
         // cache last rendered frame
         track?.set(videoFrame: frame)
 
-        if !_state.renderState.contains(.didRenderFirstFrame) {
-            _state.mutate { $0.renderState.insert(.didRenderFirstFrame) }
-            self.log("did render first frame, track: \(String(describing: track))")
-            _needsLayout = true
+        _state.mutateAsync {
+            $0.didRenderFirstFrame = true
+            $0.isRendering = true
+            $0.renderDate = Date()
         }
     }
 }
