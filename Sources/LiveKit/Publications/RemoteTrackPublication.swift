@@ -30,7 +30,6 @@ public class RemoteTrackPublication: TrackPublication {
     public var subscriptionAllowed: Bool { _state.subscriptionAllowed }
     public var enabled: Bool { _state.trackSettings.enabled }
     override public var muted: Bool { track?.muted ?? metadataMuted }
-    public var streamState: StreamState { _state.streamState }
 
     // MARK: - Private
 
