@@ -16,6 +16,7 @@
 
 import WebRTC
 import Promises
+import ReplayKit
 
 public class LocalParticipant: Participant {
 
@@ -446,7 +447,10 @@ extension LocalParticipant {
                 #if os(iOS)
                 // iOS defaults to in-app screen share only since background screen share
                 // requires a broadcast extension (iOS limitation).
-                localTrack = LocalVideoTrack.createInAppScreenShareTrack(options: room.options.defaultScreenShareCaptureOptions)
+                
+                RPSystemBroadcastPickerView.show(for: "io.livekit.example.SwiftSDK.1.BroadcastExt",
+                                                 showsMicrophoneButton: false)
+                localTrack = LocalVideoTrack.createBroadcastScreenCapturerTrack()
                 #elseif os(macOS)
                 localTrack = LocalVideoTrack.createMacOSScreenShareTrack(options: room.options.defaultScreenShareCaptureOptions)
                 #endif
