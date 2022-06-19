@@ -72,7 +72,8 @@ class BroadcastUploadSocketConnection: NSObject {
     }
 
     func writeToStream(buffer: UnsafePointer<UInt8>, maxLength length: Int) -> Int {
-        outputStream?.write(buffer, maxLength: length) ?? 0
+        logger.log(level: .debug, "client stream writeToStream \(length)")
+        return outputStream?.write(buffer, maxLength: length) ?? 0
     }
 }
 
@@ -88,6 +89,7 @@ extension BroadcastUploadSocketConnection: StreamDelegate {
         case .hasBytesAvailable:
             if aStream == inputStream {
                 var buffer: UInt8 = 0
+                logger.log(level: .debug, "client stream hasBytesAvailable")
                 let numberOfBytesRead = inputStream?.read(&buffer, maxLength: 1)
                 if numberOfBytesRead == 0 && aStream.streamStatus == .atEnd {
                     logger.log(level: .debug, "server socket closed")
@@ -97,6 +99,7 @@ extension BroadcastUploadSocketConnection: StreamDelegate {
             }
         case .hasSpaceAvailable:
             if aStream == outputStream {
+                logger.log(level: .debug, "client stream hasSpaceAvailable")
                 streamHasSpaceAvailable?()
             }
         case .errorOccurred:

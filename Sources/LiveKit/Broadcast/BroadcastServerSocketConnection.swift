@@ -11,7 +11,6 @@ import Darwin
 import CHeaders
 
 class BroadcastServerSocketConnection: NSObject {
-    
     private let streamDelegate: StreamDelegate
     
     private let filePath: String
@@ -21,45 +20,64 @@ class BroadcastServerSocketConnection: NSObject {
     private var inputStream: InputStream?
     private var outputStream: OutputStream?
     
+    private var listeningSource: DispatchSourceRead?
     private var networkQueue: DispatchQueue?
     private var shouldKeepRunning = false
 
     init?(filePath path: String, streamDelegate: StreamDelegate) {
+        self.streamDelegate = streamDelegate
         filePath = path
         socketHandle = socket(AF_UNIX, SOCK_STREAM, 0)
-        self.streamDelegate = streamDelegate
 
         guard socketHandle >= 0 else {
             logger.log(level: .debug, "failure: create socket")
             return nil
         }
-        
     }
 
     func open() -> Bool {
         logger.log(level: .debug, "open socket connection")
         
+        guard setupAddress() == true else {
+            logger.log(level: .debug, "failed setting up address")
+            
+            return false
+        }
         logger.log(level: .debug, "socket to \(filePath)")
+        
+        guard bindSocket() == true else {
+            return false
+        }
+        
         guard FileManager.default.fileExists(atPath: filePath) else {
             logger.log(level: .debug, "failure: socket file missing")
             return false
         }
-      
-        guard setupAddress() == true else {
+        guard Darwin.listen(socketHandle, 10) >= 0 else {
+            logger.log(level: .debug, "failure: socket failed listening connection")
             return false
         }
         
-        guard connectSocket() == true else {
-            return false
+        let listeningSource = DispatchSource.makeReadSource(fileDescriptor: socketHandle)
+        listeningSource.setEventHandler {
+            let clientSocket = Darwin.accept(self.socketHandle, nil, nil)
+            
+            guard clientSocket >= 0 else {
+                logger.log(level: .debug, "failure: socket failed accepting connection")
+                return
+            }
+            
+            logger.log(level: .debug, "setupStreams")
+            self.setupStreams()
+            
+            self.inputStream?.open()
+            self.outputStream?.open()
+            
+            logger.log(level: .debug, "streams open")
         }
         
-        logger.log(level: .debug, "setupStreams")
-        setupStreams()
-        
-        inputStream?.open()
-        outputStream?.open()
-        
-        logger.log(level: .debug, "streams open")
+        self.listeningSource = listeningSource
+        listeningSource.resume()
         return true
     }
 
@@ -76,17 +94,15 @@ class BroadcastServerSocketConnection: NSObject {
         outputStream = nil
         
         logger.log(level: .debug, "closing server socket")
+        listeningSource?.cancel()
         Darwin.close(socketHandle)
     }
 
     func writeToStream(buffer: UnsafePointer<UInt8>, maxLength length: Int) -> Int {
         outputStream?.write(buffer, maxLength: length) ?? 0
     }
-}
-
-private extension BroadcastServerSocketConnection {
-  
-    func setupAddress() -> Bool {
+    
+    private func setupAddress() -> Bool {
         var addr = sockaddr_un()
         addr.sun_family = sa_family_t(AF_UNIX);
         guard filePath.count < MemoryLayout.size(ofValue: addr.sun_path) else {
@@ -108,8 +124,9 @@ private extension BroadcastServerSocketConnection {
         return true
     }
 
-    func connectSocket() -> Bool {
+    private func bindSocket() -> Bool {
         guard var addr = address else {
+            logger.log(level: .debug, "failure: no address?")
             return false
         }
         
@@ -127,7 +144,7 @@ private extension BroadcastServerSocketConnection {
         return true
     }
 
-    func setupStreams() {
+    private func setupStreams() {
         var readStream: Unmanaged<CFReadStream>?
         var writeStream: Unmanaged<CFWriteStream>?
 
@@ -143,24 +160,31 @@ private extension BroadcastServerSocketConnection {
         scheduleStreams()
     }
   
-    func scheduleStreams() {
+    private func scheduleStreams() {
+        logger.log(level: .debug, "scheduleStreams")
         shouldKeepRunning = true
         
         networkQueue = DispatchQueue.global(qos: .userInitiated)
         networkQueue?.async { [weak self] in
-            self?.inputStream?.schedule(in: .current, forMode: .common)
-            self?.outputStream?.schedule(in: .current, forMode: .common)
-            RunLoop.current.run()
+            self?.inputStream?.schedule(in: .current, forMode: .default)
+            self?.outputStream?.schedule(in: .current, forMode: .default)
             
+            logger.log(level: .debug, "streams scheduled")
+            logger.log(level: .debug, "streams run once")
             var isRunning = false
                         
             repeat {
+                
+                logger.log(level: .debug, "streams running \(self?.shouldKeepRunning ?? false)")
                 isRunning = self?.shouldKeepRunning ?? false && RunLoop.current.run(mode: .default, before: .distantFuture)
             } while (isRunning)
+            
+            logger.log(level: .debug, "streams stopped")
         }
     }
     
-    func unscheduleStreams() {
+    private func unscheduleStreams() {
+        logger.log(level: .debug, "unscheduleStreams")
         networkQueue?.sync { [weak self] in
             self?.inputStream?.remove(from: .current, forMode: .common)
             self?.outputStream?.remove(from: .current, forMode: .common)
