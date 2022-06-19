@@ -10,8 +10,8 @@ import WebRTC
 import Promises
 
 class BroadcastScreenCapturer : BufferCapturer {
-    private static let kRTCScreensharingSocketFD = "lk_SSFD"
-    private static let kAppGroupIdentifierKey = "lkAppGroupIdentifier"
+    static let kRTCScreensharingSocketFD = "lk_SSFD"
+    static let kAppGroupIdentifierKey = "lkAppGroupIdentifier"
     
     var frameReader: SocketConnectionFrameReader?
     
@@ -30,12 +30,13 @@ class BroadcastScreenCapturer : BufferCapturer {
             }
             
             return Promise { fufill, _ in
-                guard let socketConnection = BroadcastSocketConnection(filePath: filePath)
+                
+                let frameReader = SocketConnectionFrameReader()
+                guard let socketConnection = BroadcastServerSocketConnection(filePath: filePath, streamDelegate: frameReader)
                 else {
                     fufill(false)
                     return
                 }
-                let frameReader = SocketConnectionFrameReader()
                 frameReader.didCapture = { pixelBuffer, rotation in
                     self.capture(pixelBuffer, rotation: rotation)
                     

@@ -18,16 +18,16 @@ class SampleUploader {
     private static var imageContext = CIContext(options: nil)
     
     @Atomic private var isReady = false
-    private var connection: BroadcastSocketConnection
+    private var connection: BroadcastUploadSocketConnection
   
     private var dataToSend: Data?
     private var byteIndex = 0
   
     private let serialQueue: DispatchQueue
     
-    init(connection: BroadcastSocketConnection) {
+    init(connection: BroadcastUploadSocketConnection) {
         self.connection = connection
-        self.serialQueue = DispatchQueue(label: "org.jitsi.meet.broadcast.sampleUploader")
+        self.serialQueue = DispatchQueue(label: "io.livekit.broadcast.sampleUploader")
       
         setupConnection()
     }
@@ -90,7 +90,7 @@ private extension SampleUploader {
                 byteIndex = 0
             }
         } else {
-            print("writeBufferToStream failure")
+            logger.log(level: .debug, "writeBufferToStream failure")
         }
       
         return true
@@ -98,7 +98,7 @@ private extension SampleUploader {
     
     func prepare(sample buffer: CMSampleBuffer) -> Data? {
         guard let imageBuffer = CMSampleBufferGetImageBuffer(buffer) else {
-            print("image buffer not available")
+            logger.log(level: .debug, "image buffer not available")
             return nil
         }
         
@@ -115,7 +115,7 @@ private extension SampleUploader {
         CVPixelBufferUnlockBaseAddress(imageBuffer, .readOnly)
         
         guard let messageData = bufferData else {
-            print("corrupted image buffer")
+            logger.log(level: .debug, "corrupted image buffer")
             return nil
         }
               

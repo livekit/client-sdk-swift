@@ -6,40 +6,60 @@
 //
 
 import ReplayKit
-
+import Promises
+import OSLog
+import Logging
 private enum Constants {
     // the App Group ID value that the app and the broadcast extension targets are setup with. It differs for each app.
-    static let appGroupIdentifier = "io.livekit.example.SwiftSDK.1.BroadcastExt"
+    static let appGroupIdentifier = "group.io.livekit.example.SwiftSDK.1"
 }
 
 open class SampleHandler: RPBroadcastSampleHandler {
     
-    private var clientConnection: BroadcastSocketConnection?
+    internal let broadcastLogger = OSLog(subsystem: "io.livekit.screen-broadcaster",
+                                         category: "Broadcaster")
+    
+    private var clientConnection: BroadcastUploadSocketConnection?
     private var uploader: SampleUploader?
     
     private var frameCount: Int = 0
     
-    var socketFilePath: String {
-      let sharedContainer = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: Constants.appGroupIdentifier)
-        return sharedContainer?.appendingPathComponent("rtc_SSFD").path ?? ""
+    public var appGroupIdentifier: String? {
+        return Bundle.main.infoDictionary?[BroadcastScreenCapturer.kAppGroupIdentifierKey] as? String
     }
     
-    override init() {
-      super.init()
-        if let connection = BroadcastSocketConnection(filePath: socketFilePath) {
-          clientConnection = connection
-          setupConnection()
-          
-          uploader = SampleUploader(connection: connection)
+    public var socketFilePath: String {
+        guard let appGroupIdentifier = appGroupIdentifier,
+              let sharedContainer = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupIdentifier)
+        else {
+            return ""
+        }
+        
+        return sharedContainer.appendingPathComponent(BroadcastScreenCapturer.kRTCScreensharingSocketFD).path
+    }
+    
+    public override init() {
+        super.init()
+        
+        LoggingSystem.bootstrap({ label in
+            let logHandler = LoggingOSLog(label: label, log: self.broadcastLogger)
+            return logHandler
+        })
+        logger.log(level: .debug, "filePath: \(self.socketFilePath)")
+        if let connection = BroadcastUploadSocketConnection(filePath: self.socketFilePath) {
+            self.clientConnection = connection
+            self.setupConnection()
+            
+            self.uploader = SampleUploader(connection: connection)
         }
     }
-
+    
     override public func broadcastStarted(withSetupInfo setupInfo: [String: NSObject]?) {
         // User has requested to start the broadcast. Setup info from the UI extension can be supplied but optional.
-        frameCount = 0
+        self.frameCount = 0
         
         DarwinNotificationCenter.shared.postNotification(.broadcastStarted)
-        openConnection()
+        self.openConnection()
     }
     
     override public func broadcastPaused() {
@@ -71,11 +91,11 @@ open class SampleHandler: RPBroadcastSampleHandler {
 }
 
 private extension SampleHandler {
-  
+    
     func setupConnection() {
         clientConnection?.didClose = { [weak self] error in
-            print("client connection did close \(String(describing: error))")
-          
+            logger.log(level: .debug, "client connection did close \(String(describing: error))")
+            
             if let error = error {
                 self?.finishBroadcastWithError(error)
             } else {

@@ -24,9 +24,11 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-collections.git", .upToNextMajor(from: "1.0.1"))
     ],
     targets: [
+        .systemLibrary(name: "CHeaders"),
         .target(
             name: "LiveKit",
             dependencies: [
+                .target(name: "CHeaders"),
                 "WebRTC", "SwiftProtobuf", "Promises",
                 .product(name: "Logging", package: "swift-log"),
                 .product(name: "Collections", package: "swift-collections")

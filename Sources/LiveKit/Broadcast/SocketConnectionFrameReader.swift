@@ -112,8 +112,8 @@ class SocketConnectionFrameReader: NSObject {
     private static let kMaxReadLength = 10 * 1024
     private var readLength = 0
     
-    private var _connection: BroadcastSocketConnection? = nil
-    private var connection: BroadcastSocketConnection? {
+    private var _connection: BroadcastServerSocketConnection? = nil
+    private var connection: BroadcastServerSocketConnection? {
         get { _connection }
         set {
             if _connection != newValue {
@@ -129,9 +129,8 @@ class SocketConnectionFrameReader: NSObject {
     override init() {
     }
     
-    func startCapture(with connection: BroadcastSocketConnection) {
+    func startCapture(with connection: BroadcastServerSocketConnection) {
         self.connection = connection
-        connection.inputStreamDelegate = self
         message = nil
         
         if(!connection.open()){
@@ -172,7 +171,7 @@ class SocketConnectionFrameReader: NSObject {
         var buffer = [UInt8](repeating: 0, count: readLength)
         let numberOfBytesRead = stream.read(&buffer, maxLength: readLength)
         if numberOfBytesRead < 0 {
-            print("error reading bytes from stream")
+            logger.log(level: .debug, "error reading bytes from stream")
             return
         }
         
@@ -211,14 +210,15 @@ extension SocketConnectionFrameReader: StreamDelegate {
     func stream(_ aStream: Stream, handle eventCode: Stream.Event) {
         switch eventCode {
         case .openCompleted:
-            print("server stream open completed")
+            logger.log(level: .debug, "server stream open completed")
         case .hasBytesAvailable:
+            logger.log(level: .debug, "has bytes")
             readBytes(from: aStream as! InputStream)
         case .endEncountered:
-            print("server stream end encountered")
+            logger.log(level: .debug, "server stream end encountered")
             stopCapture()
         case .errorOccurred:
-            print("server stream error encountered: \(aStream.streamError?.localizedDescription ?? "")")
+            logger.log(level: .debug, "server stream error encountered: \(aStream.streamError?.localizedDescription ?? "")")
         default:
             break
         }
