@@ -212,7 +212,6 @@ extension SocketConnectionFrameReader: StreamDelegate {
         case .openCompleted:
             logger.log(level: .debug, "server stream open completed")
         case .hasBytesAvailable:
-            logger.log(level: .debug, "has bytes")
             readBytes(from: aStream as! InputStream)
         case .endEncountered:
             logger.log(level: .debug, "server stream end encountered")

@@ -68,7 +68,7 @@ class BroadcastServerSocketConnection: NSObject {
             }
             
             logger.log(level: .debug, "setupStreams")
-            self.setupStreams()
+            self.setupStreams(clientSocket: clientSocket)
             
             self.inputStream?.open()
             self.outputStream?.open()
@@ -144,11 +144,11 @@ class BroadcastServerSocketConnection: NSObject {
         return true
     }
 
-    private func setupStreams() {
+    private func setupStreams(clientSocket: Int32) {
         var readStream: Unmanaged<CFReadStream>?
         var writeStream: Unmanaged<CFWriteStream>?
 
-        CFStreamCreatePairWithSocket(kCFAllocatorDefault, socketHandle, &readStream, &writeStream)
+        CFStreamCreatePairWithSocket(kCFAllocatorDefault, clientSocket, &readStream, &writeStream)
 
         inputStream = readStream?.takeRetainedValue()
         inputStream?.delegate = self.streamDelegate
@@ -170,12 +170,9 @@ class BroadcastServerSocketConnection: NSObject {
             self?.outputStream?.schedule(in: .current, forMode: .default)
             
             logger.log(level: .debug, "streams scheduled")
-            logger.log(level: .debug, "streams run once")
             var isRunning = false
                         
             repeat {
-                
-                logger.log(level: .debug, "streams running \(self?.shouldKeepRunning ?? false)")
                 isRunning = self?.shouldKeepRunning ?? false && RunLoop.current.run(mode: .default, before: .distantFuture)
             } while (isRunning)
             
