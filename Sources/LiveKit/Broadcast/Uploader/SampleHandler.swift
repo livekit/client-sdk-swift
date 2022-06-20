@@ -9,15 +9,8 @@ import ReplayKit
 import Promises
 import OSLog
 import Logging
-private enum Constants {
-    // the App Group ID value that the app and the broadcast extension targets are setup with. It differs for each app.
-    static let appGroupIdentifier = "group.io.livekit.example.SwiftSDK.1"
-}
 
 open class SampleHandler: RPBroadcastSampleHandler {
-    
-    internal let broadcastLogger = OSLog(subsystem: "io.livekit.screen-broadcaster",
-                                         category: "Broadcaster")
     
     private var clientConnection: BroadcastUploadSocketConnection?
     private var uploader: SampleUploader?
@@ -41,11 +34,6 @@ open class SampleHandler: RPBroadcastSampleHandler {
     public override init() {
         super.init()
         
-        LoggingSystem.bootstrap({ label in
-            let logHandler = LoggingOSLog(label: label, log: self.broadcastLogger)
-            return logHandler
-        })
-        logger.log(level: .debug, "filePath: \(self.socketFilePath)")
         if let connection = BroadcastUploadSocketConnection(filePath: self.socketFilePath) {
             self.clientConnection = connection
             self.setupConnection()

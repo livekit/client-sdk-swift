@@ -27,7 +27,6 @@ class BroadcastUploadSocketConnection: NSObject {
         filePath = path
         socketHandle = Darwin.socket(AF_UNIX, SOCK_STREAM, 0)
         
-        logger.log(level: .debug, "socket to \(filePath)")
         guard socketHandle != -1 else {
             logger.log(level: .debug, "failure: create socket")
             return nil

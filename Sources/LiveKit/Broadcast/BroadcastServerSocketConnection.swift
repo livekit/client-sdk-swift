@@ -43,7 +43,6 @@ class BroadcastServerSocketConnection: NSObject {
             
             return false
         }
-        logger.log(level: .debug, "socket to \(filePath)")
         
         guard bindSocket() == true else {
             return false
@@ -67,7 +66,6 @@ class BroadcastServerSocketConnection: NSObject {
                 return
             }
             
-            logger.log(level: .debug, "setupStreams")
             self.setupStreams(clientSocket: clientSocket)
             
             self.inputStream?.open()
@@ -161,7 +159,6 @@ class BroadcastServerSocketConnection: NSObject {
     }
   
     private func scheduleStreams() {
-        logger.log(level: .debug, "scheduleStreams")
         shouldKeepRunning = true
         
         networkQueue = DispatchQueue.global(qos: .userInitiated)
