@@ -30,7 +30,18 @@ class BroadcastScreenCapturer : BufferCapturer {
             }
             
             return Promise { fufill, _ in
+                let bounds = UIScreen.main.bounds
+                let width = bounds.size.width
+                let height = bounds.size.height
+                let screenDimension = CMVideoDimensions(width: Int32(width), height: Int32(height))
                 
+                // pre fill dimensions, so that we don't have to wait for the broadcast to start to get actual dimensions.
+                // should be able to safely predict using actual screen dimensions.
+                let targetDimensions = screenDimension
+                    .aspectFit(size: self.options.dimensions.max)
+                    .toEncodeSafeDimensions()
+
+                defer { self.dimensions = targetDimensions }
                 let frameReader = SocketConnectionFrameReader()
                 guard let socketConnection = BroadcastServerSocketConnection(filePath: filePath, streamDelegate: frameReader)
                 else {
