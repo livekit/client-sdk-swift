@@ -104,9 +104,11 @@ private extension SampleUploader {
         
         CVPixelBufferLockBaseAddress(imageBuffer, .readOnly)
         
-        let scaleFactor = 2.0
+        let scaleFactor = 1.0
         let width = CVPixelBufferGetWidth(imageBuffer)/Int(scaleFactor)
         let height = CVPixelBufferGetHeight(imageBuffer)/Int(scaleFactor)
+        
+        
         let orientation = CMGetAttachment(buffer, key: RPVideoSampleOrientationKey as CFString, attachmentModeOut: nil)?.uintValue ?? 0
                                     
         let scaleTransform = CGAffineTransform(scaleX: CGFloat(1.0/scaleFactor), y: CGFloat(1.0/scaleFactor))
