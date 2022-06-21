@@ -104,7 +104,7 @@ public protocol MulticastDelegateCapable {
     var delegates: MulticastDelegate<DelegateType> { get }
     func add(delegate: DelegateType)
     func remove(delegate: DelegateType)
-    func notify(_ fnc: @escaping (DelegateType) throws -> Void) rethrows
+    func notify(_ fnc: @escaping (DelegateType) -> Void)
 }
 
 extension MulticastDelegateCapable {

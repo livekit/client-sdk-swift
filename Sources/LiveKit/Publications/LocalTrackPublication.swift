@@ -25,6 +25,9 @@ public class LocalTrackPublication: TrackPublication {
     // keep reference to cancel later
     private weak var debounceWorkItem: DispatchWorkItem?
 
+    // stream state is always active for local tracks
+    public override var streamState: StreamState { .active }
+
     @discardableResult
     public func mute() -> Promise<Void> {
 

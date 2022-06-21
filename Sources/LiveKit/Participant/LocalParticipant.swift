@@ -22,6 +22,9 @@ public class LocalParticipant: Participant {
     public var localAudioTracks: [LocalTrackPublication] { audioTracks.compactMap { $0 as? LocalTrackPublication } }
     public var localVideoTracks: [LocalTrackPublication] { videoTracks.compactMap { $0 as? LocalTrackPublication } }
 
+    private var allParticipantsAllowed: Bool = true
+    private var trackPermissions: [ParticipantTrackPermission] = []
+
     convenience init(from info: Livekit_ParticipantInfo,
                      room: Room) {
 
@@ -278,6 +281,18 @@ public class LocalParticipant: Participant {
     @discardableResult
     public func setTrackSubscriptionPermissions(allParticipantsAllowed: Bool,
                                                 trackPermissions: [ParticipantTrackPermission] = []) -> Promise<Void> {
+
+        self.allParticipantsAllowed = allParticipantsAllowed
+        self.trackPermissions = trackPermissions
+
+        return sendTrackSubscriptionPermissions()
+    }
+
+    internal func sendTrackSubscriptionPermissions() -> Promise<Void> {
+
+        guard room.engine._state.connectionState == .connected else {
+            return Promise(())
+        }
 
         return room.engine.signalClient.sendUpdateSubscriptionPermission(allParticipants: allParticipantsAllowed,
                                                                          trackPermissions: trackPermissions)

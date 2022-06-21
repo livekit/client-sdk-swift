@@ -27,6 +27,7 @@ public class TrackPublication: TrackDelegate, Loggable {
     public var name: String { _state.name }
     public var track: Track? { _state.track }
     public var muted: Bool { track?._state.muted ?? false }
+    public var streamState: StreamState { _state.streamState }
 
     /// video-only
     public var dimensions: Dimensions? { _state.dimensions }
@@ -131,18 +132,6 @@ public class TrackPublication: TrackDelegate, Loggable {
     }
 
     // MARK: - TrackDelegate
-
-    public func track(_ track: VideoTrack, videoView: VideoView, didUpdate size: CGSize) {
-        //
-    }
-
-    public func track(_ track: VideoTrack, didAttach videoView: VideoView) {
-        //
-    }
-
-    public func track(_ track: VideoTrack, didDetach videoView: VideoView) {
-        //
-    }
 
     public func track(_ track: Track, didUpdate muted: Bool, shouldSendSignal: Bool) {
 

@@ -16,20 +16,18 @@
 
 import SwiftUI
 
-/// This class receives delegate events since a struct can't be used for a delegate
-class SwiftUIVideoViewDelegateReceiver: TrackDelegate, Loggable {
+/// This class receives ``TrackDelegate`` events since a struct can't be used for a delegate
+internal class TrackDelegateReceiver: TrackDelegate, Loggable {
 
     @Binding var dimensions: Dimensions?
     @Binding var stats: TrackStats?
 
-    init(dimensions: Binding<Dimensions?> = .constant(nil),
-         stats: Binding<TrackStats?> = .constant(nil)) {
+    init(dimensions: Binding<Dimensions?>, stats: Binding<TrackStats?>) {
         self._dimensions = dimensions
         self._stats = stats
     }
 
-    func track(_ track: VideoTrack,
-               didUpdate dimensions: Dimensions?) {
+    func track(_ track: VideoTrack, didUpdate dimensions: Dimensions?) {
         DispatchQueue.main.async {
             self.dimensions = dimensions
         }
@@ -38,6 +36,22 @@ class SwiftUIVideoViewDelegateReceiver: TrackDelegate, Loggable {
     func track(_ track: Track, didUpdate stats: TrackStats) {
         DispatchQueue.main.async {
             self.stats = stats
+        }
+    }
+}
+
+/// This class receives ``VideoViewDelegate`` events since a struct can't be used for a delegate
+internal class VideoViewDelegateReceiver: VideoViewDelegate, Loggable {
+
+    @Binding var isRendering: Bool
+
+    init(isRendering: Binding<Bool>) {
+        self._isRendering = isRendering
+    }
+
+    func videoView(_ videoView: VideoView, didUpdate isRendering: Bool) {
+        DispatchQueue.main.async {
+            self.isRendering = isRendering
         }
     }
 }
@@ -54,14 +68,17 @@ public struct SwiftUIVideoView: NativeViewRepresentable {
     let mirrorMode: VideoView.MirrorMode
     let debugMode: Bool
 
+    @Binding var isRendering: Bool
     @Binding var dimensions: Dimensions?
 
-    let delegateReceiver: SwiftUIVideoViewDelegateReceiver
+    let trackDelegateReceiver: TrackDelegateReceiver
+    let videoViewDelegateReceiver: VideoViewDelegateReceiver
 
     public init(_ track: VideoTrack,
                 layoutMode: VideoView.LayoutMode = .fill,
                 mirrorMode: VideoView.MirrorMode = .auto,
                 debugMode: Bool = false,
+                isRendering: Binding<Bool> = .constant(false),
                 dimensions: Binding<Dimensions?> = .constant(nil),
                 trackStats: Binding<TrackStats?> = .constant(nil)) {
 
@@ -69,10 +86,14 @@ public struct SwiftUIVideoView: NativeViewRepresentable {
         self.layoutMode = layoutMode
         self.mirrorMode = mirrorMode
         self.debugMode = debugMode
+
+        self._isRendering = isRendering
         self._dimensions = dimensions
 
-        self.delegateReceiver = SwiftUIVideoViewDelegateReceiver(dimensions: dimensions,
-                                                                 stats: trackStats)
+        self.trackDelegateReceiver = TrackDelegateReceiver(dimensions: dimensions,
+                                                           stats: trackStats)
+
+        self.videoViewDelegateReceiver = VideoViewDelegateReceiver(isRendering: isRendering)
 
         // update binding value
         DispatchQueue.main.async {
@@ -81,11 +102,12 @@ public struct SwiftUIVideoView: NativeViewRepresentable {
         }
 
         // listen for TrackDelegate
-        track.add(delegate: delegateReceiver)
+        track.add(delegate: trackDelegateReceiver)
     }
 
     public func makeView(context: Context) -> VideoView {
         let view = VideoView()
+        view.add(delegate: videoViewDelegateReceiver)
         updateView(view, context: context)
         return view
     }
@@ -95,6 +117,11 @@ public struct SwiftUIVideoView: NativeViewRepresentable {
         videoView.layoutMode = layoutMode
         videoView.mirrorMode = mirrorMode
         videoView.debugMode = debugMode
+
+        // update
+        DispatchQueue.main.async {
+            self.isRendering = videoView.isRendering
+        }
     }
 
     public static func dismantleView(_ videoView: VideoView, coordinator: ()) {
