@@ -710,7 +710,7 @@ extension Engine {
         return result
     }()
 
-    internal static func audioDeviceModule() -> RTCAudioDeviceModule {
+    internal static var audioDeviceModule: RTCAudioDeviceModule {
         factory.audioDeviceModule
     }
 

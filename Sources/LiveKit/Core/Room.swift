@@ -678,7 +678,7 @@ extension Room: AppStateDelegate {
 
 extension Room {
 
-    static public func audioDeviceModule() -> RTCAudioDeviceModule {
-        Engine.audioDeviceModule()
+    static public var audioDeviceModule: RTCAudioDeviceModule {
+        Engine.audioDeviceModule
     }
 }
