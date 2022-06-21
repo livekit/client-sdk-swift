@@ -688,6 +688,10 @@ extension Engine: ConnectivityListenerDelegate {
 
 extension Engine {
 
+    /// Set this to true to bypass initialization of voice processing.
+    /// Must be set before RTCPeerConnectionFactory gets initialized.
+    internal static var bypassVoiceProcessing: Bool = false
+
     // forbid direct access
     private static let factory: RTCPeerConnectionFactory = {
         logger.log("initializing PeerConnectionFactory...", type: Engine.self)
@@ -699,7 +703,8 @@ extension Engine {
         let simulcastFactory = RTCVideoEncoderFactorySimulcast(primary: encoderFactory,
                                                                fallback: encoderFactory)
 
-        result = RTCPeerConnectionFactory(encoderFactory: simulcastFactory,
+        result = RTCPeerConnectionFactory(bypassVoiceProcessing: bypassVoiceProcessing,
+                                          encoderFactory: simulcastFactory,
                                           decoderFactory: decoderFactory)
         #else
         result = RTCPeerConnectionFactory(encoderFactory: encoderFactory,

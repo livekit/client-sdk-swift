@@ -680,3 +680,13 @@ extension Room: AppStateDelegate {
         disconnect()
     }
 }
+
+// MARK: - Devices
+
+extension Room {
+
+    public static var bypassVoiceProcessing: Bool {
+        get { Engine.bypassVoiceProcessing }
+        set { Engine.bypassVoiceProcessing = newValue }
+    }
+}
