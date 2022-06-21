@@ -10,8 +10,9 @@ import WebRTC
 import Promises
 
 class BroadcastScreenCapturer : BufferCapturer {
-    static let kRTCScreensharingSocketFD = "lk_SSFD"
-    static let kAppGroupIdentifierKey = "lkAppGroupIdentifier"
+    static let kRTCScreensharingSocketFD = "rtc_SSFD"
+    static let kAppGroupIdentifierKey = "RTCAppGroupIdentifier"
+    static let kRTCScreenSharingExtension = "RTCScreenSharingExtension"
     
     var frameReader: SocketConnectionFrameReader?
     
@@ -96,9 +97,9 @@ extension LocalVideoTrack {
     @available(iOS 11.0, *)
     public static func createBroadcastScreenCapturerTrack(name: String = Track.screenShareVideoName,
                                                           source: VideoTrack.Source = .screenShareVideo,
-                                                          options: BufferCaptureOptions = BufferCaptureOptions()) -> LocalVideoTrack {
+                                                          options: ScreenShareCaptureOptions = ScreenShareCaptureOptions()) -> LocalVideoTrack {
         let videoSource = Engine.createVideoSource(forScreenShare: true)
-        let capturer = BroadcastScreenCapturer(delegate: videoSource, options: options)
+        let capturer = BroadcastScreenCapturer(delegate: videoSource, options: BufferCaptureOptions(from: options))
         return LocalVideoTrack(
             name: name,
             source: source,

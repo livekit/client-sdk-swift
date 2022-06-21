@@ -10,12 +10,10 @@ import Promises
 import OSLog
 import Logging
 
-open class SampleHandler: RPBroadcastSampleHandler {
+open class LKSampleHandler: RPBroadcastSampleHandler {
     
     private var clientConnection: BroadcastUploadSocketConnection?
     private var uploader: SampleUploader?
-    
-    private var frameCount: Int = 0
     
     public var appGroupIdentifier: String? {
         return Bundle.main.infoDictionary?[BroadcastScreenCapturer.kAppGroupIdentifierKey] as? String
@@ -43,9 +41,7 @@ open class SampleHandler: RPBroadcastSampleHandler {
     }
     
     override public func broadcastStarted(withSetupInfo setupInfo: [String: NSObject]?) {
-        // User has requested to start the broadcast. Setup info from the UI extension can be supplied but optional.
-        self.frameCount = 0
-        
+        // User has requested to start the broadcast. Setup info from the UI extension can be supplied but optional.d
         DarwinNotificationCenter.shared.postNotification(.broadcastStarted)
         self.openConnection()
     }
@@ -67,20 +63,13 @@ open class SampleHandler: RPBroadcastSampleHandler {
     override public func processSampleBuffer(_ sampleBuffer: CMSampleBuffer, with sampleBufferType: RPSampleBufferType) {
         switch sampleBufferType {
         case RPSampleBufferType.video:
-            // very simple mechanism for adjusting frame rate by using every third frame
-            frameCount += 1
-            if frameCount % 3 == 0 {
-                uploader?.send(sample: sampleBuffer)
-            }
+            uploader?.send(sample: sampleBuffer)
         default:
             break
         }
     }
-}
-
-private extension SampleHandler {
     
-    func setupConnection() {
+    private func setupConnection() {
         clientConnection?.didClose = { [weak self] error in
             logger.log(level: .debug, "client connection did close \(String(describing: error))")
             
@@ -95,7 +84,7 @@ private extension SampleHandler {
         }
     }
     
-    func openConnection() {
+    private func openConnection() {
         let queue = DispatchQueue(label: "broadcast.connectTimer")
         let timer = DispatchSource.makeTimerSource(queue: queue)
         timer.schedule(deadline: .now(), repeating: .milliseconds(100), leeway: .milliseconds(500))

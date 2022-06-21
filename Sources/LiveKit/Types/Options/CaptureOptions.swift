@@ -64,12 +64,15 @@ public struct ScreenShareCaptureOptions: VideoCaptureOptions {
 
     public let dimensions: Dimensions
     public let fps: Int
+    public let useBroadcastExtension: Bool
 
     public init(dimensions: Dimensions = .h1080_169,
-                fps: Int = 30) {
-
+                fps: Int = 30,
+                useBroadcastExtension: Bool = false
+    ) {
         self.dimensions = dimensions
         self.fps = fps
+        self.useBroadcastExtension = useBroadcastExtension
     }
 }
 
@@ -80,9 +83,13 @@ public struct BufferCaptureOptions: VideoCaptureOptions {
 
     public init(dimensions: Dimensions = .h1080_169,
                 fps: Int = 30) {
-
         self.dimensions = dimensions
         self.fps = fps
+    }
+    
+    public init(from options: ScreenShareCaptureOptions) {
+        self.dimensions = options.dimensions
+        self.fps = options.fps
     }
 }
 
