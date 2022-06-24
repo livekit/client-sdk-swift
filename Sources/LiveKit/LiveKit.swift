@@ -35,6 +35,7 @@ public class LiveKit {
 
     public static let version = "1.0.0"
 
+    @available(*, deprecated, message: "Use Room.connect() instead")
     public static func connect(
         _ url: String,
         _ token: String,
