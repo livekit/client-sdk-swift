@@ -5,6 +5,8 @@
 //  Created by Alex-Dan Bumbu on 04.06.2021.
 //
 
+#if os(iOS)
+
 import ReplayKit
 import Promises
 import OSLog
@@ -99,3 +101,5 @@ open class LKSampleHandler: RPBroadcastSampleHandler {
         timer.resume()
     }
 }
+
+#endif

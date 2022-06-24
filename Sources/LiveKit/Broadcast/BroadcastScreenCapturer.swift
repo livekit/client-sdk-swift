@@ -5,9 +5,12 @@
 //  Created by Alex-Dan Bumbu on 06/01/2021.
 //
 
+#if os(iOS)
+
 import Foundation
 import WebRTC
 import Promises
+import UIKit
 
 class BroadcastScreenCapturer: BufferCapturer {
     static let kRTCScreensharingSocketFD = "rtc_SSFD"
@@ -94,7 +97,6 @@ class BroadcastScreenCapturer: BufferCapturer {
 
 extension LocalVideoTrack {
     /// Creates a track that captures screen capture from a broadcast upload extension
-    @available(iOS 11.0, *)
     public static func createBroadcastScreenCapturerTrack(name: String = Track.screenShareVideoName,
                                                           source: VideoTrack.Source = .screenShareVideo,
                                                           options: ScreenShareCaptureOptions = ScreenShareCaptureOptions()) -> LocalVideoTrack {
@@ -108,3 +110,5 @@ extension LocalVideoTrack {
         )
     }
 }
+
+#endif

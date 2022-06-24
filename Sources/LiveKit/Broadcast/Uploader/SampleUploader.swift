@@ -6,6 +6,8 @@
 //  Copyright © 2021 8x8, Inc. All rights reserved.
 //
 
+#if os(iOS)
+
 import Foundation
 import ReplayKit
 
@@ -145,3 +147,5 @@ private extension SampleUploader {
         return SampleUploader.imageContext.jpegRepresentation(of: image, colorSpace: colorSpace, options: options)
     }
 }
+
+#endif
