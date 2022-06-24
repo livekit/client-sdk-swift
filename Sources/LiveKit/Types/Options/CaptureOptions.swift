@@ -86,7 +86,7 @@ public struct BufferCaptureOptions: VideoCaptureOptions {
         self.dimensions = dimensions
         self.fps = fps
     }
-    
+
     public init(from options: ScreenShareCaptureOptions) {
         self.dimensions = options.dimensions
         self.fps = options.fps

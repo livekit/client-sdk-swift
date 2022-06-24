@@ -19,14 +19,14 @@ class BroadcastUploadSocketConnection: NSObject {
 
     private var inputStream: InputStream?
     private var outputStream: OutputStream?
-    
+
     private var networkQueue: DispatchQueue?
     private var shouldKeepRunning = false
 
     init?(filePath path: String) {
         filePath = path
         socketHandle = Darwin.socket(AF_UNIX, SOCK_STREAM, 0)
-        
+
         guard socketHandle != -1 else {
             logger.log(level: .debug, "failure: create socket")
             return nil
@@ -40,17 +40,17 @@ class BroadcastUploadSocketConnection: NSObject {
             logger.log(level: .debug, "failure: socket file missing")
             return false
         }
-      
+
         guard setupAddress() == true else {
             return false
         }
-        
+
         guard connectSocket() == true else {
             return false
         }
 
         setupStreams()
-        
+
         inputStream?.open()
         outputStream?.open()
 
@@ -65,7 +65,7 @@ class BroadcastUploadSocketConnection: NSObject {
 
         inputStream?.close()
         outputStream?.close()
-        
+
         inputStream = nil
         outputStream = nil
     }
@@ -113,10 +113,10 @@ extension BroadcastUploadSocketConnection: StreamDelegate {
 }
 
 private extension BroadcastUploadSocketConnection {
-  
+
     func setupAddress() -> Bool {
         var addr = sockaddr_un()
-        addr.sun_family = sa_family_t(AF_UNIX);
+        addr.sun_family = sa_family_t(AF_UNIX)
         guard filePath.count < MemoryLayout.size(ofValue: addr.sun_path) else {
             logger.log(level: .debug, "failure: fd path is too long")
             return false
@@ -127,7 +127,7 @@ private extension BroadcastUploadSocketConnection {
                 strncpy(ptr, $0, filePath.count)
             }
         }
-        
+
         address = addr
         return true
     }
@@ -136,7 +136,7 @@ private extension BroadcastUploadSocketConnection {
         guard var addr = address else {
             return false
         }
-        
+
         let status = withUnsafePointer(to: &addr) { ptr in
             ptr.withMemoryRebound(to: sockaddr.self, capacity: 1) {
                 Darwin.connect(socketHandle, $0, socklen_t(MemoryLayout<sockaddr_un>.size))
@@ -147,7 +147,7 @@ private extension BroadcastUploadSocketConnection {
             logger.log(level: .debug, "failure: \(status)")
             return false
         }
-        
+
         return true
     }
 
@@ -167,33 +167,33 @@ private extension BroadcastUploadSocketConnection {
 
         scheduleStreams()
     }
-  
+
     func scheduleStreams() {
         shouldKeepRunning = true
-        
+
         networkQueue = DispatchQueue.global(qos: .userInitiated)
         networkQueue?.async { [weak self] in
             self?.inputStream?.schedule(in: .current, forMode: .common)
             self?.outputStream?.schedule(in: .current, forMode: .common)
             RunLoop.current.run()
-            
+
             var isRunning = false
-                        
+
             repeat {
                 isRunning = self?.shouldKeepRunning ?? false && RunLoop.current.run(mode: .default, before: .distantFuture)
             } while (isRunning)
         }
     }
-    
+
     func unscheduleStreams() {
         networkQueue?.sync { [weak self] in
             self?.inputStream?.remove(from: .current, forMode: .common)
             self?.outputStream?.remove(from: .current, forMode: .common)
         }
-        
+
         shouldKeepRunning = false
     }
-    
+
     func notifyDidClose(error: Error?) {
         if didClose != nil {
             didClose?(error)

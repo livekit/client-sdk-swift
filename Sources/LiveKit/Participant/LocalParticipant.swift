@@ -446,7 +446,7 @@ extension LocalParticipant {
 
                 #if os(iOS)
                 let options = room.options.defaultScreenShareCaptureOptions
-                if(options.useBroadcastExtension) {
+                if options.useBroadcastExtension {
                     let screenShareExtensionId = Bundle.main.infoDictionary?[BroadcastScreenCapturer.kRTCScreenSharingExtension] as? String
                     RPSystemBroadcastPickerView.show(for: screenShareExtensionId,
                                                      showsMicrophoneButton: false)

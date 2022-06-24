@@ -12,14 +12,14 @@ import CHeaders
 
 class BroadcastServerSocketConnection: NSObject {
     private let streamDelegate: StreamDelegate
-    
+
     private let filePath: String
     private var socketHandle: Int32 = -1
     private var address: sockaddr_un?
 
     private var inputStream: InputStream?
     private var outputStream: OutputStream?
-    
+
     private var listeningSource: DispatchSourceRead?
     private var networkQueue: DispatchQueue?
     private var shouldKeepRunning = false
@@ -37,17 +37,17 @@ class BroadcastServerSocketConnection: NSObject {
 
     func open() -> Bool {
         logger.log(level: .debug, "open socket connection")
-        
+
         guard setupAddress() == true else {
             logger.log(level: .debug, "failed setting up address")
-            
+
             return false
         }
-        
+
         guard bindSocket() == true else {
             return false
         }
-        
+
         guard FileManager.default.fileExists(atPath: filePath) else {
             logger.log(level: .debug, "failure: socket file missing")
             return false
@@ -56,24 +56,24 @@ class BroadcastServerSocketConnection: NSObject {
             logger.log(level: .debug, "failure: socket failed listening connection")
             return false
         }
-        
+
         let listeningSource = DispatchSource.makeReadSource(fileDescriptor: socketHandle)
         listeningSource.setEventHandler {
             let clientSocket = Darwin.accept(self.socketHandle, nil, nil)
-            
+
             guard clientSocket >= 0 else {
                 logger.log(level: .debug, "failure: socket failed accepting connection")
                 return
             }
-            
+
             self.setupStreams(clientSocket: clientSocket)
-            
+
             self.inputStream?.open()
             self.outputStream?.open()
-            
+
             logger.log(level: .debug, "streams open")
         }
-        
+
         self.listeningSource = listeningSource
         listeningSource.resume()
         return true
@@ -87,10 +87,10 @@ class BroadcastServerSocketConnection: NSObject {
 
         inputStream?.close()
         outputStream?.close()
-        
+
         inputStream = nil
         outputStream = nil
-        
+
         logger.log(level: .debug, "closing server socket")
         listeningSource?.cancel()
         Darwin.close(socketHandle)
@@ -99,25 +99,25 @@ class BroadcastServerSocketConnection: NSObject {
     func writeToStream(buffer: UnsafePointer<UInt8>, maxLength length: Int) -> Int {
         outputStream?.write(buffer, maxLength: length) ?? 0
     }
-    
+
     private func setupAddress() -> Bool {
         var addr = sockaddr_un()
-        addr.sun_family = sa_family_t(AF_UNIX);
+        addr.sun_family = sa_family_t(AF_UNIX)
         guard filePath.count < MemoryLayout.size(ofValue: addr.sun_path) else {
             logger.log(level: .debug, "failure: fd path is too long")
             return false
         }
-        
+
         _ = filePath.withCString {
             unlink($0)
         }
-        
+
         _ = withUnsafeMutablePointer(to: &addr.sun_path.0) { ptr in
             filePath.withCString {
                 strncpy(ptr, $0, filePath.count)
             }
         }
-        
+
         address = addr
         return true
     }
@@ -127,7 +127,7 @@ class BroadcastServerSocketConnection: NSObject {
             logger.log(level: .debug, "failure: no address?")
             return false
         }
-        
+
         let status = withUnsafePointer(to: &addr) { ptr in
             ptr.withMemoryRebound(to: sockaddr.self, capacity: 1) {
                 Darwin.bind(socketHandle, $0, socklen_t(MemoryLayout<sockaddr_un>.size))
@@ -138,7 +138,7 @@ class BroadcastServerSocketConnection: NSObject {
             logger.log(level: .debug, "failure: \(status)")
             return false
         }
-        
+
         return true
     }
 
@@ -157,33 +157,33 @@ class BroadcastServerSocketConnection: NSObject {
 
         scheduleStreams()
     }
-  
+
     private func scheduleStreams() {
         shouldKeepRunning = true
-        
+
         networkQueue = DispatchQueue.global(qos: .userInitiated)
         networkQueue?.async { [weak self] in
             self?.inputStream?.schedule(in: .current, forMode: .default)
             self?.outputStream?.schedule(in: .current, forMode: .default)
-            
+
             logger.log(level: .debug, "streams scheduled")
             var isRunning = false
-                        
+
             repeat {
                 isRunning = self?.shouldKeepRunning ?? false && RunLoop.current.run(mode: .default, before: .distantFuture)
             } while (isRunning)
-            
+
             logger.log(level: .debug, "streams stopped")
         }
     }
-    
+
     private func unscheduleStreams() {
         logger.log(level: .debug, "unscheduleStreams")
         networkQueue?.sync { [weak self] in
             self?.inputStream?.remove(from: .current, forMode: .common)
             self?.outputStream?.remove(from: .current, forMode: .common)
         }
-        
+
         shouldKeepRunning = false
     }
 }

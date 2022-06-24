@@ -11,55 +11,55 @@ import OSLog
 import Logging
 
 open class LKSampleHandler: RPBroadcastSampleHandler {
-    
+
     private var clientConnection: BroadcastUploadSocketConnection?
     private var uploader: SampleUploader?
-    
+
     public var appGroupIdentifier: String? {
         return Bundle.main.infoDictionary?[BroadcastScreenCapturer.kAppGroupIdentifierKey] as? String
     }
-    
+
     public var socketFilePath: String {
         guard let appGroupIdentifier = appGroupIdentifier,
               let sharedContainer = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupIdentifier)
         else {
             return ""
         }
-        
+
         return sharedContainer.appendingPathComponent(BroadcastScreenCapturer.kRTCScreensharingSocketFD).path
     }
-    
+
     public override init() {
         super.init()
-        
+
         if let connection = BroadcastUploadSocketConnection(filePath: self.socketFilePath) {
             self.clientConnection = connection
             self.setupConnection()
-            
+
             self.uploader = SampleUploader(connection: connection)
         }
     }
-    
+
     override public func broadcastStarted(withSetupInfo setupInfo: [String: NSObject]?) {
         // User has requested to start the broadcast. Setup info from the UI extension can be supplied but optional.d
         DarwinNotificationCenter.shared.postNotification(.broadcastStarted)
         self.openConnection()
     }
-    
+
     override public func broadcastPaused() {
         // User has requested to pause the broadcast. Samples will stop being delivered.
     }
-    
+
     override public func broadcastResumed() {
         // User has requested to resume the broadcast. Samples delivery will resume.
     }
-    
+
     override public func broadcastFinished() {
         // User has requested to finish the broadcast.
         DarwinNotificationCenter.shared.postNotification(.broadcastStopped)
         clientConnection?.close()
     }
-    
+
     override public func processSampleBuffer(_ sampleBuffer: CMSampleBuffer, with sampleBufferType: RPSampleBufferType) {
         switch sampleBufferType {
         case RPSampleBufferType.video:
@@ -68,11 +68,11 @@ open class LKSampleHandler: RPBroadcastSampleHandler {
             break
         }
     }
-    
+
     private func setupConnection() {
         clientConnection?.didClose = { [weak self] error in
             logger.log(level: .debug, "client connection did close \(String(describing: error))")
-            
+
             if let error = error {
                 self?.finishBroadcastWithError(error)
             } else {
@@ -83,7 +83,7 @@ open class LKSampleHandler: RPBroadcastSampleHandler {
             }
         }
     }
-    
+
     private func openConnection() {
         let queue = DispatchQueue(label: "broadcast.connectTimer")
         let timer = DispatchSource.makeTimerSource(queue: queue)
@@ -92,10 +92,10 @@ open class LKSampleHandler: RPBroadcastSampleHandler {
             guard self?.clientConnection?.open() == true else {
                 return
             }
-            
+
             timer.cancel()
         }
-        
+
         timer.resume()
     }
 }
