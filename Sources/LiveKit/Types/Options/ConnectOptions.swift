@@ -33,7 +33,7 @@ public struct ConnectOptions {
     public init(autoSubscribe: Bool = true,
                 rtcConfiguration: RTCConfiguration = .liveKitDefault(),
                 publishOnlyMode: String? = nil,
-                protocolVersion: ProtocolVersion = .v7) {
+                protocolVersion: ProtocolVersion = .v8) {
 
         self.autoSubscribe = autoSubscribe
         self.rtcConfiguration = rtcConfiguration
