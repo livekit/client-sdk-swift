@@ -354,6 +354,10 @@ struct Livekit_ParticipantInfo {
 
   var region: String = String()
 
+  /// indicates the participant has an active publisher connection
+  /// and can publish to the server
+  var isPublisher: Bool = false
+
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   enum State: SwiftProtobuf.Enum {
@@ -417,6 +421,24 @@ extension Livekit_ParticipantInfo.State: CaseIterable {
 
 #endif  // swift(>=4.2)
 
+struct Livekit_SimulcastCodecInfo {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  var mimeType: String = String()
+
+  var mid: String = String()
+
+  var cid: String = String()
+
+  var layers: [Livekit_VideoLayer] = []
+
+  var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  init() {}
+}
+
 struct Livekit_TrackInfo {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
@@ -452,6 +474,8 @@ struct Livekit_TrackInfo {
   var mimeType: String = String()
 
   var mid: String = String()
+
+  var codecs: [Livekit_SimulcastCodecInfo] = []
 
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
@@ -755,12 +779,22 @@ struct Livekit_ClientConfiguration {
 
   var resumeConnection: Livekit_ClientConfigSetting = .unset
 
+  var disabledCodecs: Livekit_DisabledCodecs {
+    get {return _disabledCodecs ?? Livekit_DisabledCodecs()}
+    set {_disabledCodecs = newValue}
+  }
+  /// Returns true if `disabledCodecs` has been explicitly set.
+  var hasDisabledCodecs: Bool {return self._disabledCodecs != nil}
+  /// Clears the value of `disabledCodecs`. Subsequent reads from it will return its default value.
+  mutating func clearDisabledCodecs() {self._disabledCodecs = nil}
+
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   init() {}
 
   fileprivate var _video: Livekit_VideoConfiguration? = nil
   fileprivate var _screen: Livekit_VideoConfiguration? = nil
+  fileprivate var _disabledCodecs: Livekit_DisabledCodecs? = nil
 }
 
 struct Livekit_VideoConfiguration {
@@ -769,6 +803,18 @@ struct Livekit_VideoConfiguration {
   // methods supported on all messages.
 
   var hardwareEncoder: Livekit_ClientConfigSetting = .unset
+
+  var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  init() {}
+}
+
+struct Livekit_DisabledCodecs {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  var codecs: [Livekit_Codec] = []
 
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
@@ -913,9 +959,19 @@ struct Livekit_RTPStats {
     set {_uniqueStorage()._nacks = newValue}
   }
 
+  var nackAcks: UInt32 {
+    get {return _storage._nackAcks}
+    set {_uniqueStorage()._nackAcks = newValue}
+  }
+
   var nackMisses: UInt32 {
     get {return _storage._nackMisses}
     set {_uniqueStorage()._nackMisses = newValue}
+  }
+
+  var nackRepeated: UInt32 {
+    get {return _storage._nackRepeated}
+    set {_uniqueStorage()._nackRepeated = newValue}
   }
 
   var plis: UInt32 {
@@ -1002,6 +1058,7 @@ extension Livekit_Codec: @unchecked Sendable {}
 extension Livekit_ParticipantPermission: @unchecked Sendable {}
 extension Livekit_ParticipantInfo: @unchecked Sendable {}
 extension Livekit_ParticipantInfo.State: @unchecked Sendable {}
+extension Livekit_SimulcastCodecInfo: @unchecked Sendable {}
 extension Livekit_TrackInfo: @unchecked Sendable {}
 extension Livekit_VideoLayer: @unchecked Sendable {}
 extension Livekit_DataPacket: @unchecked Sendable {}
@@ -1015,6 +1072,7 @@ extension Livekit_ClientInfo: @unchecked Sendable {}
 extension Livekit_ClientInfo.SDK: @unchecked Sendable {}
 extension Livekit_ClientConfiguration: @unchecked Sendable {}
 extension Livekit_VideoConfiguration: @unchecked Sendable {}
+extension Livekit_DisabledCodecs: @unchecked Sendable {}
 extension Livekit_RTPStats: @unchecked Sendable {}
 #endif  // swift(>=5.5) && canImport(_Concurrency)
 
@@ -1258,6 +1316,7 @@ extension Livekit_ParticipantInfo: SwiftProtobuf.Message, SwiftProtobuf._Message
     10: .same(proto: "version"),
     11: .same(proto: "permission"),
     12: .same(proto: "region"),
+    13: .standard(proto: "is_publisher"),
   ]
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -1276,6 +1335,7 @@ extension Livekit_ParticipantInfo: SwiftProtobuf.Message, SwiftProtobuf._Message
       case 10: try { try decoder.decodeSingularUInt32Field(value: &self.version) }()
       case 11: try { try decoder.decodeSingularMessageField(value: &self._permission) }()
       case 12: try { try decoder.decodeSingularStringField(value: &self.region) }()
+      case 13: try { try decoder.decodeSingularBoolField(value: &self.isPublisher) }()
       default: break
       }
     }
@@ -1316,6 +1376,9 @@ extension Livekit_ParticipantInfo: SwiftProtobuf.Message, SwiftProtobuf._Message
     if !self.region.isEmpty {
       try visitor.visitSingularStringField(value: self.region, fieldNumber: 12)
     }
+    if self.isPublisher != false {
+      try visitor.visitSingularBoolField(value: self.isPublisher, fieldNumber: 13)
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -1330,6 +1393,7 @@ extension Livekit_ParticipantInfo: SwiftProtobuf.Message, SwiftProtobuf._Message
     if lhs.version != rhs.version {return false}
     if lhs._permission != rhs._permission {return false}
     if lhs.region != rhs.region {return false}
+    if lhs.isPublisher != rhs.isPublisher {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
@@ -1342,6 +1406,56 @@ extension Livekit_ParticipantInfo.State: SwiftProtobuf._ProtoNameProviding {
     2: .same(proto: "ACTIVE"),
     3: .same(proto: "DISCONNECTED"),
   ]
+}
+
+extension Livekit_SimulcastCodecInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  static let protoMessageName: String = _protobuf_package + ".SimulcastCodecInfo"
+  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
+    1: .standard(proto: "mime_type"),
+    2: .same(proto: "mid"),
+    3: .same(proto: "cid"),
+    4: .same(proto: "layers"),
+  ]
+
+  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularStringField(value: &self.mimeType) }()
+      case 2: try { try decoder.decodeSingularStringField(value: &self.mid) }()
+      case 3: try { try decoder.decodeSingularStringField(value: &self.cid) }()
+      case 4: try { try decoder.decodeRepeatedMessageField(value: &self.layers) }()
+      default: break
+      }
+    }
+  }
+
+  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    if !self.mimeType.isEmpty {
+      try visitor.visitSingularStringField(value: self.mimeType, fieldNumber: 1)
+    }
+    if !self.mid.isEmpty {
+      try visitor.visitSingularStringField(value: self.mid, fieldNumber: 2)
+    }
+    if !self.cid.isEmpty {
+      try visitor.visitSingularStringField(value: self.cid, fieldNumber: 3)
+    }
+    if !self.layers.isEmpty {
+      try visitor.visitRepeatedMessageField(value: self.layers, fieldNumber: 4)
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  static func ==(lhs: Livekit_SimulcastCodecInfo, rhs: Livekit_SimulcastCodecInfo) -> Bool {
+    if lhs.mimeType != rhs.mimeType {return false}
+    if lhs.mid != rhs.mid {return false}
+    if lhs.cid != rhs.cid {return false}
+    if lhs.layers != rhs.layers {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
 }
 
 extension Livekit_TrackInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
@@ -1359,6 +1473,7 @@ extension Livekit_TrackInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImplem
     10: .same(proto: "layers"),
     11: .standard(proto: "mime_type"),
     12: .same(proto: "mid"),
+    13: .same(proto: "codecs"),
   ]
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -1379,6 +1494,7 @@ extension Livekit_TrackInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImplem
       case 10: try { try decoder.decodeRepeatedMessageField(value: &self.layers) }()
       case 11: try { try decoder.decodeSingularStringField(value: &self.mimeType) }()
       case 12: try { try decoder.decodeSingularStringField(value: &self.mid) }()
+      case 13: try { try decoder.decodeRepeatedMessageField(value: &self.codecs) }()
       default: break
       }
     }
@@ -1421,6 +1537,9 @@ extension Livekit_TrackInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImplem
     if !self.mid.isEmpty {
       try visitor.visitSingularStringField(value: self.mid, fieldNumber: 12)
     }
+    if !self.codecs.isEmpty {
+      try visitor.visitRepeatedMessageField(value: self.codecs, fieldNumber: 13)
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -1437,6 +1556,7 @@ extension Livekit_TrackInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImplem
     if lhs.layers != rhs.layers {return false}
     if lhs.mimeType != rhs.mimeType {return false}
     if lhs.mid != rhs.mid {return false}
+    if lhs.codecs != rhs.codecs {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
@@ -1837,6 +1957,7 @@ extension Livekit_ClientConfiguration: SwiftProtobuf.Message, SwiftProtobuf._Mes
     1: .same(proto: "video"),
     2: .same(proto: "screen"),
     3: .standard(proto: "resume_connection"),
+    4: .standard(proto: "disabled_codecs"),
   ]
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -1848,6 +1969,7 @@ extension Livekit_ClientConfiguration: SwiftProtobuf.Message, SwiftProtobuf._Mes
       case 1: try { try decoder.decodeSingularMessageField(value: &self._video) }()
       case 2: try { try decoder.decodeSingularMessageField(value: &self._screen) }()
       case 3: try { try decoder.decodeSingularEnumField(value: &self.resumeConnection) }()
+      case 4: try { try decoder.decodeSingularMessageField(value: &self._disabledCodecs) }()
       default: break
       }
     }
@@ -1867,6 +1989,9 @@ extension Livekit_ClientConfiguration: SwiftProtobuf.Message, SwiftProtobuf._Mes
     if self.resumeConnection != .unset {
       try visitor.visitSingularEnumField(value: self.resumeConnection, fieldNumber: 3)
     }
+    try { if let v = self._disabledCodecs {
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 4)
+    } }()
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -1874,6 +1999,7 @@ extension Livekit_ClientConfiguration: SwiftProtobuf.Message, SwiftProtobuf._Mes
     if lhs._video != rhs._video {return false}
     if lhs._screen != rhs._screen {return false}
     if lhs.resumeConnection != rhs.resumeConnection {return false}
+    if lhs._disabledCodecs != rhs._disabledCodecs {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
@@ -1911,6 +2037,38 @@ extension Livekit_VideoConfiguration: SwiftProtobuf.Message, SwiftProtobuf._Mess
   }
 }
 
+extension Livekit_DisabledCodecs: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  static let protoMessageName: String = _protobuf_package + ".DisabledCodecs"
+  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
+    1: .same(proto: "codecs"),
+  ]
+
+  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeRepeatedMessageField(value: &self.codecs) }()
+      default: break
+      }
+    }
+  }
+
+  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    if !self.codecs.isEmpty {
+      try visitor.visitRepeatedMessageField(value: self.codecs, fieldNumber: 1)
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  static func ==(lhs: Livekit_DisabledCodecs, rhs: Livekit_DisabledCodecs) -> Bool {
+    if lhs.codecs != rhs.codecs {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
 extension Livekit_RTPStats: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".RTPStats"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
@@ -1939,7 +2097,9 @@ extension Livekit_RTPStats: SwiftProtobuf.Message, SwiftProtobuf._MessageImpleme
     23: .standard(proto: "jitter_max"),
     24: .standard(proto: "gap_histogram"),
     25: .same(proto: "nacks"),
+    37: .standard(proto: "nack_acks"),
     26: .standard(proto: "nack_misses"),
+    38: .standard(proto: "nack_repeated"),
     27: .same(proto: "plis"),
     28: .standard(proto: "last_pli"),
     29: .same(proto: "firs"),
@@ -1978,7 +2138,9 @@ extension Livekit_RTPStats: SwiftProtobuf.Message, SwiftProtobuf._MessageImpleme
     var _jitterMax: Double = 0
     var _gapHistogram: Dictionary<Int32,UInt32> = [:]
     var _nacks: UInt32 = 0
+    var _nackAcks: UInt32 = 0
     var _nackMisses: UInt32 = 0
+    var _nackRepeated: UInt32 = 0
     var _plis: UInt32 = 0
     var _lastPli: SwiftProtobuf.Google_Protobuf_Timestamp? = nil
     var _firs: UInt32 = 0
@@ -2020,7 +2182,9 @@ extension Livekit_RTPStats: SwiftProtobuf.Message, SwiftProtobuf._MessageImpleme
       _jitterMax = source._jitterMax
       _gapHistogram = source._gapHistogram
       _nacks = source._nacks
+      _nackAcks = source._nackAcks
       _nackMisses = source._nackMisses
+      _nackRepeated = source._nackRepeated
       _plis = source._plis
       _lastPli = source._lastPli
       _firs = source._firs
@@ -2085,6 +2249,8 @@ extension Livekit_RTPStats: SwiftProtobuf.Message, SwiftProtobuf._MessageImpleme
         case 34: try { try decoder.decodeSingularMessageField(value: &_storage._lastKeyFrame) }()
         case 35: try { try decoder.decodeSingularUInt32Field(value: &_storage._layerLockPlis) }()
         case 36: try { try decoder.decodeSingularMessageField(value: &_storage._lastLayerLockPli) }()
+        case 37: try { try decoder.decodeSingularUInt32Field(value: &_storage._nackAcks) }()
+        case 38: try { try decoder.decodeSingularUInt32Field(value: &_storage._nackRepeated) }()
         default: break
         }
       }
@@ -2205,6 +2371,12 @@ extension Livekit_RTPStats: SwiftProtobuf.Message, SwiftProtobuf._MessageImpleme
       try { if let v = _storage._lastLayerLockPli {
         try visitor.visitSingularMessageField(value: v, fieldNumber: 36)
       } }()
+      if _storage._nackAcks != 0 {
+        try visitor.visitSingularUInt32Field(value: _storage._nackAcks, fieldNumber: 37)
+      }
+      if _storage._nackRepeated != 0 {
+        try visitor.visitSingularUInt32Field(value: _storage._nackRepeated, fieldNumber: 38)
+      }
     }
     try unknownFields.traverse(visitor: &visitor)
   }
@@ -2239,7 +2411,9 @@ extension Livekit_RTPStats: SwiftProtobuf.Message, SwiftProtobuf._MessageImpleme
         if _storage._jitterMax != rhs_storage._jitterMax {return false}
         if _storage._gapHistogram != rhs_storage._gapHistogram {return false}
         if _storage._nacks != rhs_storage._nacks {return false}
+        if _storage._nackAcks != rhs_storage._nackAcks {return false}
         if _storage._nackMisses != rhs_storage._nackMisses {return false}
+        if _storage._nackRepeated != rhs_storage._nackRepeated {return false}
         if _storage._plis != rhs_storage._plis {return false}
         if _storage._lastPli != rhs_storage._lastPli {return false}
         if _storage._firs != rhs_storage._firs {return false}
