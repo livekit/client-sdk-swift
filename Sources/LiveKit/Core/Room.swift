@@ -91,6 +91,8 @@ public class Room: MulticastDelegate<RoomDelegate> {
     @discardableResult
     public func connect(_ url: String,
                         _ token: String,
+                        publishCamera: Bool = false,
+                        publishMic: Bool = false,
                         connectOptions: ConnectOptions? = nil,
                         roomOptions: RoomOptions? = nil) -> Promise<Room> {
 
