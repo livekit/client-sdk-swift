@@ -104,6 +104,7 @@ public class RemoteParticipant: Participant {
         }
 
         publication.set(track: track)
+        publication.set(subscriptionAllowed: true)
         track._state.mutate { $0.sid = publication.sid }
 
         addTrack(publication: publication)
