@@ -210,7 +210,9 @@ internal extension Room {
             state.metadata = metadata
         }
 
-        notify { $0.room(self, didUpdate: metadata) }
+        notify(label: { "room.didUpdate metadata: \(metadata ?? "nil")" }) {
+            $0.room(self, didUpdate: metadata)
+        }
     }
 }
 
@@ -366,7 +368,9 @@ extension Room: SignalClientDelegate {
             return state.activeSpeakers
         }
 
-        notify { $0.room(self, didUpdate: activeSpeakers) }
+        notify(label: { "room.didUpdate speakers: \(speakers)" }) {
+            $0.room(self, didUpdate: activeSpeakers)
+        }
 
         return true
     }
@@ -468,7 +472,9 @@ extension Room: SignalClientDelegate {
         }
 
         for participant in newParticipants {
-            notify { $0.room(self, participantDidJoin: participant) }
+            notify(label: { "room.participantDidJoin participant: \(participant)" }) {
+                $0.room(self, participantDidJoin: participant)
+            }
         }
 
         return true
@@ -523,7 +529,9 @@ extension Room: EngineDelegate {
                 }
             }
 
-            notify { $0.room(self, didUpdate: state.connectionState, oldValue: oldState.connectionState) }
+            notify(label: { "room.didUpdate connectionState: \(state.connectionState) oldValue: \(oldState.connectionState)" }) {
+                $0.room(self, didUpdate: state.connectionState, oldValue: oldState.connectionState)
+            }
         }
 
         if state.connectionState.isReconnecting && state.reconnectMode == .full && oldState.reconnectMode != .full {
@@ -595,7 +603,9 @@ extension Room: EngineDelegate {
             return activeSpeakers
         }
 
-        notify { $0.room(self, didUpdate: activeSpeakers) }
+        notify(label: { "room.didUpdate speakers: \(activeSpeakers)" }) {
+            $0.room(self, didUpdate: activeSpeakers)
+        }
     }
 
     func engine(_ engine: Engine, didAdd track: RTCMediaStreamTrack, streams: [RTCMediaStream]) {
@@ -636,8 +646,10 @@ extension Room: EngineDelegate {
         // participant could be null if data broadcasted from server
         let participant = _state.remoteParticipants[userPacket.participantSid]
 
-        notify { $0.room(self, participant: participant, didReceive: userPacket.payload) }
-        participant?.notify { [weak participant] (delegate) -> Void in
+        notify(label: { "room.didReceive data: \(userPacket.payload)" }) {
+            $0.room(self, participant: participant, didReceive: userPacket.payload)
+        }
+        participant?.notify(label: { "participant.didReceive data: \(userPacket.payload)" }) { [weak participant] (delegate) -> Void in
             guard let participant = participant else { return }
             delegate.participant(participant, didReceive: userPacket.payload)
         }

@@ -184,7 +184,9 @@ public class Track: MulticastDelegate<TrackDelegate> {
         }
 
         if _notify {
-            notify { $0.track(self, didUpdate: newValue, shouldSendSignal: shouldSendSignal) }
+            notify(label: { "track.didUpdate muted: \(newValue)" }) {
+                $0.track(self, didUpdate: newValue, shouldSendSignal: shouldSendSignal)
+            }
         }
     }
 }
@@ -212,7 +214,9 @@ internal extension Track {
         _state.mutate { $0.dimensions = newValue }
 
         guard let videoTrack = self as? VideoTrack else { return true }
-        notify { $0.track(videoTrack, didUpdate: newValue) }
+        notify(label: { "track.didUpdate dimensions: \(newValue == nil ? "nil" : String(describing: newValue))" }) {
+            $0.track(videoTrack, didUpdate: newValue)
+        }
 
         return true
     }

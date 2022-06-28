@@ -24,6 +24,8 @@ import Promises
 /// > Note: `NSHashTable` may not immediately deinit the un-referenced object, due to Apple's implementation, therefore `.count` is unreliable.
 public class MulticastDelegate<T>: NSObject, Loggable {
 
+    public typealias CaptureLabelFunc = () -> String
+
     internal let multicastQueue: DispatchQueue
     private let set = NSHashTable<AnyObject>.weakObjects()
 
@@ -61,9 +63,16 @@ public class MulticastDelegate<T>: NSObject, Loggable {
         }
     }
 
-    internal func notify(_ fnc: @escaping (T) -> Void) {
+    /// Notify delegates inside the queue.
+    /// Label is captured inside the queue for thread safety reasons.
+    internal func notify(label: CaptureLabelFunc? = nil, _ fnc: @escaping (T) -> Void) {
 
         multicastQueue.async {
+
+            if let label = label {
+                self.log("[notify] \(label())", .debug)
+            }
+
             for delegate in self.set.allObjects {
                 guard let delegate = delegate as? T else {
                     self.log("MulticastDelegate: skipping notify for \(delegate), not a type of \(T.self)", .info)
@@ -80,9 +89,15 @@ public class MulticastDelegate<T>: NSObject, Loggable {
     internal func notify(requiresHandle: Bool = true,
                          function: String = #function,
                          line: UInt = #line,
+                         label: CaptureLabelFunc? = nil,
                          _ fnc: @escaping (T) -> Bool) {
 
         multicastQueue.async {
+
+            if let label = label {
+                self.log("[notify] \(label())", .debug)
+            }
+
             var counter: Int = 0
             for delegate in self.set.allObjects {
                 guard let delegate = delegate as? T else {
@@ -104,7 +119,7 @@ public protocol MulticastDelegateCapable {
     var delegates: MulticastDelegate<DelegateType> { get }
     func add(delegate: DelegateType)
     func remove(delegate: DelegateType)
-    func notify(_ fnc: @escaping (DelegateType) -> Void)
+    func notify(label: MulticastDelegate.CaptureLabelFunc?, _ fnc: @escaping (DelegateType) -> Void)
 }
 
 extension MulticastDelegateCapable {
@@ -117,7 +132,8 @@ extension MulticastDelegateCapable {
         delegates.remove(delegate: delegate)
     }
 
-    public func notify(_ fnc: @escaping (DelegateType) -> Void) {
-        delegates.notify(fnc)
+    public func notify(label: MulticastDelegate.CaptureLabelFunc? = nil,
+                       _ fnc: @escaping (DelegateType) -> Void) {
+        delegates.notify(label: label, fnc)
     }
 }
