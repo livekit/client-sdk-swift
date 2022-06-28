@@ -24,8 +24,6 @@ import Promises
 /// > Note: `NSHashTable` may not immediately deinit the un-referenced object, due to Apple's implementation, therefore `.count` is unreliable.
 public class MulticastDelegate<T>: NSObject, Loggable {
 
-    public typealias CaptureLabelFunc = () -> String
-
     internal let multicastQueue: DispatchQueue
     private let set = NSHashTable<AnyObject>.weakObjects()
 
@@ -65,7 +63,7 @@ public class MulticastDelegate<T>: NSObject, Loggable {
 
     /// Notify delegates inside the queue.
     /// Label is captured inside the queue for thread safety reasons.
-    internal func notify(label: CaptureLabelFunc? = nil, _ fnc: @escaping (T) -> Void) {
+    internal func notify(label: (() -> String)? = nil, _ fnc: @escaping (T) -> Void) {
 
         multicastQueue.async {
 
@@ -89,7 +87,7 @@ public class MulticastDelegate<T>: NSObject, Loggable {
     internal func notify(requiresHandle: Bool = true,
                          function: String = #function,
                          line: UInt = #line,
-                         label: CaptureLabelFunc? = nil,
+                         label: (() -> String)? = nil,
                          _ fnc: @escaping (T) -> Bool) {
 
         multicastQueue.async {
@@ -119,7 +117,7 @@ public protocol MulticastDelegateCapable {
     var delegates: MulticastDelegate<DelegateType> { get }
     func add(delegate: DelegateType)
     func remove(delegate: DelegateType)
-    func notify(label: MulticastDelegate.CaptureLabelFunc?, _ fnc: @escaping (DelegateType) -> Void)
+    func notify(label: (() -> String)?, _ fnc: @escaping (DelegateType) -> Void)
 }
 
 extension MulticastDelegateCapable {
@@ -132,7 +130,7 @@ extension MulticastDelegateCapable {
         delegates.remove(delegate: delegate)
     }
 
-    public func notify(label: MulticastDelegate.CaptureLabelFunc? = nil,
+    public func notify(label: (() -> String)? = nil,
                        _ fnc: @escaping (DelegateType) -> Void) {
         delegates.notify(label: label, fnc)
     }
