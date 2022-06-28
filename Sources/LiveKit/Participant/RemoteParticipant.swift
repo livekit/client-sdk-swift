@@ -39,7 +39,7 @@ public class RemoteParticipant: Participant {
     }
 
     override func updateFromInfo(info: Livekit_ParticipantInfo) {
-        let hadInfo = self.info != nil
+
         super.updateFromInfo(info: info)
 
         var validTrackPublications = [String: RemoteTrackPublication]()
@@ -57,15 +57,13 @@ public class RemoteParticipant: Participant {
             validTrackPublications[trackInfo.sid] = publication!
         }
 
-        if hadInfo {
-            // ensure we are updating only tracks published since joining
-            for publication in newTrackPublications.values {
-                notify(label: { "participant.didPublish \(publication)" }) {
-                    $0.participant(self, didPublish: publication)
-                }
-                room.notify(label: { "room.didPublish \(publication)" }) {
-                    $0.room(self.room, participant: self, didPublish: publication)
-                }
+        // always emit events for new publications, Room will not forward them unless it's ready
+        for publication in newTrackPublications.values {
+            notify(label: { "participant.didPublish \(publication)" }) {
+                $0.participant(self, didPublish: publication)
+            }
+            room.notify(label: { "room.didPublish \(publication)" }) {
+                $0.room(self.room, participant: self, didPublish: publication)
             }
         }
 
