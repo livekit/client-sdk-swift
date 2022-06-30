@@ -57,6 +57,13 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
 
     internal var _state = StateSync(State())
 
+    // MARK: - Private
+
+    private var _blockProcessQueue = DispatchQueue(label: "LiveKitSDK.engine.pendingBlocks",
+                                                   qos: .default)
+
+    private var _queuedBlocks = [() -> Void]()
+
     init(connectOptions: ConnectOptions,
          roomOptions: RoomOptions) {
 
@@ -81,6 +88,19 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
                 self.log("connectionState: \(oldState.connectionState) -> \(state.connectionState), reconnectMode: \(String(describing: state.reconnectMode))")
             }
 
+            // connectionState updated
+            if state.connectionState != oldState.connectionState {
+                // connected
+                if case .connected = state.connectionState {
+                    // execute pending blocks
+                    self.executeQueuedBlocks()
+                } else {
+                    // make sure pending blocks are cleared
+                    self.clearQueuedBlock()
+                }
+            }
+
+            // notify state mutated
             self.notify { $0.engine(self, didMutate: state, oldState: oldState) }
         }
     }
@@ -205,6 +225,54 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
             guard channel.sendData(rtcData) else {
                 throw EngineError.webRTC(message: "DataChannel.sendData returned false")
             }
+        }
+    }
+}
+
+// MARK: - Pending blocks
+
+internal extension Engine {
+
+    func executeWhenConnected(_ block: @escaping @convention(block) () -> Void) {
+
+        if case .connected = _state.connectionState {
+            // execute immediately
+            block()
+        } else {
+            // not connected, enqueue...
+            log("enqueuing block...")
+
+            _blockProcessQueue.async { [weak self] in
+                guard let self = self else { return }
+                self._queuedBlocks.append(block)
+            }
+        }
+    }
+
+    private func clearQueuedBlock() {
+
+        _blockProcessQueue.async { [weak self] in
+            guard let self = self else { return }
+            // clear
+            let count = self._queuedBlocks.count
+            self._queuedBlocks = []
+            self.log("cleared pending blocks (\(count) -> 0)...")
+        }
+    }
+
+    private func executeQueuedBlocks() {
+
+        _blockProcessQueue.async { [weak self] in
+            guard let self = self else { return }
+
+            self.log("execute pending blocks (\(self._queuedBlocks.count))...")
+
+            for block in self._queuedBlocks {
+                block()
+            }
+
+            // clear
+            self._queuedBlocks = []
         }
     }
 }
