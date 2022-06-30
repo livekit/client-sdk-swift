@@ -96,7 +96,7 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
                     self.executeQueuedBlocks()
                 } else {
                     // make sure pending blocks are cleared
-                    self.clearQueuedBlock()
+                    self.clearQueuedBlocks()
                 }
             }
 
@@ -249,7 +249,7 @@ internal extension Engine {
         }
     }
 
-    private func clearQueuedBlock() {
+    private func clearQueuedBlocks() {
 
         _blockProcessQueue.async { [weak self] in
             guard let self = self else { return }
