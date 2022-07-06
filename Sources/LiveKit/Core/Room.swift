@@ -210,7 +210,7 @@ internal extension Room {
             state.metadata = metadata
         }
 
-        engine.executeWhenConnected { [weak self] in
+        engine.executeIfConnected { [weak self] in
             guard let self = self else { return }
 
             self.notify(label: { "room.didUpdate metadata: \(metadata ?? "nil")" }) {
@@ -372,7 +372,7 @@ extension Room: SignalClientDelegate {
             return state.activeSpeakers
         }
 
-        engine.executeWhenConnected { [weak self] in
+        engine.executeIfConnected { [weak self] in
             guard let self = self else { return }
 
             self.notify(label: { "room.didUpdate speakers: \(speakers)" }) {
@@ -481,7 +481,7 @@ extension Room: SignalClientDelegate {
 
         for participant in newParticipants {
 
-            engine.executeWhenConnected { [weak self] in
+            engine.executeIfConnected { [weak self] in
                 guard let self = self else { return }
 
                 self.notify(label: { "room.participantDidJoin participant: \(participant)" }) {
@@ -616,7 +616,7 @@ extension Room: EngineDelegate {
             return activeSpeakers
         }
 
-        engine.executeWhenConnected { [weak self] in
+        engine.executeIfConnected { [weak self] in
             guard let self = self else { return }
 
             self.notify(label: { "room.didUpdate speakers: \(activeSpeakers)" }) {
@@ -663,7 +663,7 @@ extension Room: EngineDelegate {
         // participant could be null if data broadcasted from server
         let participant = _state.remoteParticipants[userPacket.participantSid]
 
-        engine.executeWhenConnected { [weak self] in
+        engine.executeIfConnected { [weak self] in
             guard let self = self else { return }
 
             self.notify(label: { "room.didReceive data: \(userPacket.payload)" }) {

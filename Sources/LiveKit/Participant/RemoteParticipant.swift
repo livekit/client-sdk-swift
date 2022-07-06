@@ -60,7 +60,7 @@ public class RemoteParticipant: Participant {
         // always emit events for new publications, Room will not forward them unless it's ready
         for publication in newTrackPublications.values {
 
-            room.engine.executeWhenConnected { [weak self] in
+            room.engine.executeIfConnected { [weak self] in
                 guard let self = self else { return }
 
                 self.notify(label: { "participant.didPublish \(publication)" }) {
