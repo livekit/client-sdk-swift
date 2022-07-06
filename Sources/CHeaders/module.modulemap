@@ -1,0 +1,4 @@
+module CHeaders {
+  header "Header.h"
+  export *
+}

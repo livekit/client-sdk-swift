@@ -171,7 +171,7 @@ public class VideoView: NativeView, MulticastDelegateCapable, Loggable {
                         }
 
                         // notify detach
-                        track.notify { [weak self, weak track] (delegate) -> Void in
+                        track.notify(label: { "track.didDetach videoView: \(self)" }) { [weak self, weak track] (delegate) -> Void in
                             guard let self = self, let track = track else { return }
                             delegate.track(track, didDetach: self)
                         }
@@ -197,7 +197,7 @@ public class VideoView: NativeView, MulticastDelegateCapable, Loggable {
                         }
 
                         // notify attach
-                        track.notify { [weak self, weak track] (delegate) -> Void in
+                        track.notify(label: { "track.didAttach videoView: \(self)" }) { [weak self, weak track] (delegate) -> Void in
                             guard let self = self, let track = track else { return }
                             delegate.track(track, didAttach: self)
                         }
@@ -216,12 +216,16 @@ public class VideoView: NativeView, MulticastDelegateCapable, Loggable {
                     self._renderTimer.suspend()
                 }
 
-                self.notify { $0.videoView(self, didUpdate: state.isRendering) }
+                self.notify(label: { "videoView.didUpdate isRendering: \(state.isRendering)" }) {
+                    $0.videoView(self, didUpdate: state.isRendering)
+                }
             }
 
             // viewSize updated
             if state.viewSize != oldState.viewSize {
-                self.notify { $0.videoView(self, didUpdate: state.viewSize) }
+                self.notify(label: { "videoView.didUpdate viewSize: \(state.viewSize)" }) {
+                    $0.videoView(self, didUpdate: state.viewSize)
+                }
             }
 
             // toggle MTKView's isPaused property

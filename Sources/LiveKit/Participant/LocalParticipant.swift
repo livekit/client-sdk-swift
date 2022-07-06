@@ -16,6 +16,7 @@
 
 import WebRTC
 import Promises
+import ReplayKit
 
 public class LocalParticipant: Participant {
 
@@ -147,8 +148,12 @@ public class LocalParticipant: Participant {
             self.addTrack(publication: publication)
 
             // notify didPublish
-            self.notify { $0.localParticipant(self, didPublish: publication) }
-            self.room.notify { $0.room(self.room, localParticipant: self, didPublish: publication) }
+            self.notify(label: { "localParticipant.didPublish \(publication)" }) {
+                $0.localParticipant(self, didPublish: publication)
+            }
+            self.room.notify(label: { "localParticipant.didPublish \(publication)" }) {
+                $0.room(self.room, localParticipant: self, didPublish: publication)
+            }
 
             self.log("[publish] success \(publication)", .info)
             return publication
@@ -197,8 +202,12 @@ public class LocalParticipant: Participant {
             Promise<Void>(on: .sdk) {
                 guard _notify else { return }
                 // notify unpublish
-                self.notify { $0.localParticipant(self, didUnpublish: publication) }
-                self.room.notify { $0.room(self.room, localParticipant: self, didUnpublish: publication) }
+                self.notify(label: { "localParticipant.didUnpublish \(publication)" }) {
+                    $0.localParticipant(self, didUnpublish: publication)
+                }
+                self.room.notify(label: { "room.didUnpublish \(publication)" }) {
+                    $0.room(self.room, localParticipant: self, didUnpublish: publication)
+                }
             }
         }
 
@@ -356,8 +365,12 @@ public class LocalParticipant: Participant {
         let didUpdate = super.set(permissions: newValue)
 
         if didUpdate {
-            notify { $0.participant(self, didUpdate: newValue) }
-            room.notify { $0.room(self.room, participant: self, didUpdate: newValue) }
+            notify(label: { "participant.didUpdate permissions: \(newValue)" }) {
+                $0.participant(self, didUpdate: newValue)
+            }
+            room.notify(label: { "room.didUpdate permissions: \(newValue)" }) {
+                $0.room(self.room, participant: self, didUpdate: newValue)
+            }
         }
 
         return didUpdate
@@ -444,9 +457,15 @@ extension LocalParticipant {
                 var localTrack: LocalVideoTrack?
 
                 #if os(iOS)
-                // iOS defaults to in-app screen share only since background screen share
-                // requires a broadcast extension (iOS limitation).
-                localTrack = LocalVideoTrack.createInAppScreenShareTrack(options: room.options.defaultScreenShareCaptureOptions)
+                let options = room.options.defaultScreenShareCaptureOptions
+                if options.useBroadcastExtension {
+                    let screenShareExtensionId = Bundle.main.infoDictionary?[BroadcastScreenCapturer.kRTCScreenSharingExtension] as? String
+                    RPSystemBroadcastPickerView.show(for: screenShareExtensionId,
+                                                     showsMicrophoneButton: false)
+                    localTrack = LocalVideoTrack.createBroadcastScreenCapturerTrack(options: options)
+                } else {
+                    localTrack = LocalVideoTrack.createInAppScreenShareTrack(options: options)
+                }
                 #elseif os(macOS)
                 localTrack = LocalVideoTrack.createMacOSScreenShareTrack(options: room.options.defaultScreenShareCaptureOptions)
                 #endif

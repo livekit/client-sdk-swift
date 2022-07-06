@@ -24,9 +24,11 @@ let package = Package(
     ],
     targets: [
         .binaryTarget(name: "WebRTC", path: "WebRTC.xcframework"),
+        .systemLibrary(name: "CHeaders"),
         .target(
             name: "LiveKit",
             dependencies: [
+                .target(name: "CHeaders"),
                 "WebRTC", "SwiftProtobuf", "Promises",
                 .product(name: "Logging", package: "swift-log"),
                 .product(name: "Collections", package: "swift-collections")

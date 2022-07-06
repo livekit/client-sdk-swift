@@ -82,17 +82,27 @@ public class Participant: MulticastDelegate<ParticipantDelegate> {
             guard let self = self else { return }
 
             if state.isSpeaking != oldState.isSpeaking {
-                self.notify { $0.participant(self, didUpdate: self.isSpeaking) }
+                self.notify(label: { "participant.didUpdate isSpeaking: \(self.isSpeaking)" }) {
+                    $0.participant(self, didUpdate: self.isSpeaking)
+                }
             }
 
             if state.metadata != oldState.metadata {
-                self.notify { $0.participant(self, didUpdate: self.metadata) }
-                self.room.notify { $0.room(self.room, participant: self, didUpdate: self.metadata) }
+                self.notify(label: { "participant.didUpdate metadata: \(self.metadata ?? "nil")" }) {
+                    $0.participant(self, didUpdate: self.metadata)
+                }
+                self.room.notify(label: { "room.didUpdate metadata: \(self.metadata ?? "nil")" }) {
+                    $0.room(self.room, participant: self, didUpdate: self.metadata)
+                }
             }
 
             if state.connectionQuality != oldState.connectionQuality {
-                self.notify { $0.participant(self, didUpdate: self.connectionQuality) }
-                self.room.notify { $0.room(self.room, participant: self, didUpdate: self.connectionQuality) }
+                self.notify(label: { "participant.didUpdate connectionQuality: \(self.connectionQuality)" }) {
+                    $0.participant(self, didUpdate: self.connectionQuality)
+                }
+                self.room.notify(label: { "room.didUpdate connectionQuality: \(self.connectionQuality)" }) {
+                    $0.room(self.room, participant: self, didUpdate: self.connectionQuality)
+                }
             }
         }
     }

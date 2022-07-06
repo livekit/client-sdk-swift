@@ -84,8 +84,12 @@ public class TrackPublication: TrackDelegate, Loggable {
 
             if state.streamState != oldState.streamState {
                 if let participant = self.participant as? RemoteParticipant, let trackPublication = self as? RemoteTrackPublication {
-                    participant.notify { $0.participant(participant, didUpdate: trackPublication, streamState: state.streamState) }
-                    participant.room.notify { $0.room(participant.room, participant: participant, didUpdate: trackPublication, streamState: state.streamState) }
+                    participant.notify(label: { "participant.didUpdate \(trackPublication) streamState: \(state.streamState)" }) {
+                        $0.participant(participant, didUpdate: trackPublication, streamState: state.streamState)
+                    }
+                    participant.room.notify(label: { "room.didUpdate \(trackPublication) streamState: \(state.streamState)" }) {
+                        $0.room(participant.room, participant: participant, didUpdate: trackPublication, streamState: state.streamState)
+                    }
                 }
             }
         }
@@ -155,8 +159,12 @@ public class TrackPublication: TrackDelegate, Loggable {
         sendSignal()
             .recover(on: .sdk) { self.log("Failed to stop all tracks, error: \($0)") }
             .then(on: .sdk) {
-                participant.notify { $0.participant(participant, didUpdate: self, muted: muted) }
-                participant.room.notify { $0.room(participant.room, participant: participant, didUpdate: self, muted: self.muted) }
+                participant.notify {
+                    $0.participant(participant, didUpdate: self, muted: muted)
+                }
+                participant.room.notify {
+                    $0.room(participant.room, participant: participant, didUpdate: self, muted: self.muted)
+                }
             }
     }
 }

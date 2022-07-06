@@ -42,9 +42,7 @@ internal protocol SignalClientDelegate: AnyObject {
 // MARK: - Optional
 
 extension SignalClientDelegate {
-
     func signalClient(_ signalClient: SignalClient, didMutate state: SignalClient.State, oldState: SignalClient.State) -> Bool { false }
-
     func signalClient(_ signalClient: SignalClient, didReceive joinResponse: Livekit_JoinResponse) -> Bool { false }
     func signalClient(_ signalClient: SignalClient, didReceiveAnswer answer: RTCSessionDescription) -> Bool { false }
     func signalClient(_ signalClient: SignalClient, didReceiveOffer offer: RTCSessionDescription) -> Bool { false }

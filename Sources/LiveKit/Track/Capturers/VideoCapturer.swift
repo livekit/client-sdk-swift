@@ -96,7 +96,11 @@ public class VideoCapturer: MulticastDelegate<VideoCapturerDelegate>, VideoCaptu
             }
 
             self.captureState = .started
-            self.notify { $0.capturer(self, didUpdate: .started) }
+
+            self.notify(label: { "capturer.didUpdate state: \(CapturerState.started)" }) {
+                $0.capturer(self, didUpdate: .started)
+            }
+
             return true
         }
     }
@@ -112,7 +116,9 @@ public class VideoCapturer: MulticastDelegate<VideoCapturerDelegate>, VideoCaptu
             }
 
             self.captureState = .stopped
-            self.notify { $0.capturer(self, didUpdate: .stopped) }
+            self.notify(label: { "capturer.didUpdate state: \(CapturerState.stopped)" }) {
+                $0.capturer(self, didUpdate: .stopped)
+            }
 
             self._state.mutate { $0.dimensionsCompleter.reset() }
 
