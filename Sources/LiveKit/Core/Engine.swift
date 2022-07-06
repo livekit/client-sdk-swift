@@ -57,8 +57,6 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
 
     internal var _state = StateSync(State())
 
-    // MARK: - Private
-
     init(connectOptions: ConnectOptions,
          roomOptions: RoomOptions) {
 
@@ -83,7 +81,6 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
                 self.log("connectionState: \(oldState.connectionState) -> \(state.connectionState), reconnectMode: \(String(describing: state.reconnectMode))")
             }
 
-            // notify state mutated
             self.notify { $0.engine(self, didMutate: state, oldState: oldState) }
         }
     }
