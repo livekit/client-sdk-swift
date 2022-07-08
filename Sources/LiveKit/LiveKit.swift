@@ -44,7 +44,7 @@ public class LiveKit {
         roomOptions: RoomOptions = RoomOptions()) -> Promise<Room> {
 
         let room = Room(delegate: delegate,
-                        // Override with protocol v7 when using this deprecated method
+                        // Override with protocol v7 or lower when using this deprecated method
                         connectOptions: connectOptions.protocolVersion >= .v8 ? connectOptions.copyWith(protocolVersion: .v7) : connectOptions,
                         roomOptions: roomOptions)
 
