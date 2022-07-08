@@ -35,6 +35,7 @@ public class LiveKit {
 
     public static let version = "1.0.0"
 
+    @available(*, deprecated, message: "Use Room.connect() instead, latest protocol version is not supported with this method.")
     public static func connect(
         _ url: String,
         _ token: String,
@@ -43,7 +44,8 @@ public class LiveKit {
         roomOptions: RoomOptions = RoomOptions()) -> Promise<Room> {
 
         let room = Room(delegate: delegate,
-                        connectOptions: connectOptions,
+                        // Override with protocol v7 or lower when using this deprecated method
+                        connectOptions: connectOptions.protocolVersion >= .v8 ? connectOptions.copyWith(protocolVersion: .v7) : connectOptions,
                         roomOptions: roomOptions)
 
         return room.connect(url, token)
