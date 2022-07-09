@@ -16,25 +16,30 @@
 
 import Foundation
 
-public enum ProtocolVersion {
-    case v2
-    case v3
-    case v4
-    case v5
-    case v6
-    case v7
+public enum ProtocolVersion: Int, RawRepresentable {
+    case v2 = 2
+    case v3 = 3
+    case v4 = 4
+    case v5 = 5
+    case v6 = 6
+    case v7 = 7
+    case v8 = 8
 }
+
+// MARK: - Comparable
+
+extension ProtocolVersion: Comparable {
+
+    public static func < (lhs: Self, rhs: Self) -> Bool {
+        lhs.rawValue < rhs.rawValue
+    }
+}
+
+// MARK: - CustomStringConvertible
 
 extension ProtocolVersion: CustomStringConvertible {
 
     public var description: String {
-        switch self {
-        case .v2: return "2"
-        case .v3: return "3"
-        case .v4: return "4"
-        case .v5: return "5"
-        case .v6: return "6"
-        case .v7: return "7"
-        }
+        String(self.rawValue)
     }
 }
