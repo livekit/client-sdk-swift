@@ -294,10 +294,6 @@ extension RemoteTrackPublication {
 
         let asViews = track?.videoViews.allObjects ?? []
 
-        if asViews.count > 1 {
-            log("[adaptiveStream] multiple VideoViews attached, sid: \(sid), count: \(asViews.count), views: (\(asViews.map { "\($0.hashValue)" }.joined(separator: ", ")))", .warning)
-        }
-
         let enabled = asViews.hasVisible()
         var dimensions: Dimensions = .zero
 

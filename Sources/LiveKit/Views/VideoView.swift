@@ -299,7 +299,7 @@ public class VideoView: NativeView, MulticastDelegateCapable, Loggable {
             let _dimensions = _state.track?.dimensions ?? .zero
             let _didRenderFirstFrame = _state.didRenderFirstFrame ? "true" : "false"
             let _isRendering = _state.isRendering ? "true" : "false"
-            let _viewCount = _state.track?.videoViews.count ?? 0
+            let _viewCount = _state.track?.videoViews.allObjects.count ?? 0
             let _didLayout = _state.didLayout
             let debugView = ensureDebugTextView()
             debugView.text = "#\(hashValue)\n" + "\(_trackSid)\n" + "\(_dimensions.width)x\(_dimensions.height)\n" + "enabled: \(isEnabled)\n" + "firstFrame: \(_didRenderFirstFrame)\n" + "isRendering: \(_isRendering)\n" + "viewCount: \(_viewCount)\n" + "layout: \(_didLayout)"
