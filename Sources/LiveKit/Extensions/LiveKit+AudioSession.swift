@@ -36,8 +36,8 @@ extension LiveKit {
     ///
     /// View ``defaultShouldConfigureAudioSessionFunc(newState:oldState:)`` for the default implementation.
     ///
-    @available(*, deprecated, message: "")
-    public static var onShouldConfigureAudioSession: ShouldConfigureAudioSessionFunc = AudioManager.defaultShouldConfigureAudioSessionFunc
+    // @available(*, deprecated, message: "")
+    // public static var onShouldConfigureAudioSession: ShouldConfigureAudioSessionFunc = AudioManager.defaultShouldConfigureAudioSessionFunc
 
     #endif
 }

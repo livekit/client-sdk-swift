@@ -34,7 +34,6 @@ public class AudioManager: Loggable {
     public struct AudioManagerState {
         var localTracksCount: Int = 0
         var remoteTracksCount: Int = 0
-        var audioTrackState: State = .none
         var preferSpeakerOutput: Bool = true
     }
 
@@ -48,25 +47,20 @@ public class AudioManager: Loggable {
     //        }
     //    }
 
-    public var audioTrackState: State {
-
-        _state.read { state in
-
-            if state.localTracksCount > 0 && state.remoteTracksCount == 0 {
-                return .localOnly
-            } else if state.localTracksCount == 0 && state.remoteTracksCount > 0 {
-                return .remoteOnly
-            } else if state.localTracksCount > 0 && state.remoteTracksCount > 0 {
-                return .localAndRemote
-            }
-
-            return .none
-        }
-    }
+    //    public var audioTrackState: State {
+    //
+    //        _state.read { state in
+    //
+    //
+    //        }
+    //    }
 
     public var localTracksCount: Int { _state.localTracksCount }
     public var remoteTracksCount: Int { _state.remoteTracksCount }
-    public var preferSpeakerOutput: Bool { _state.preferSpeakerOutput }
+    public var preferSpeakerOutput: Bool {
+        get { _state.preferSpeakerOutput }
+        set { _state.mutate { $0.preferSpeakerOutput = newValue } }
+    }
 
     // MARK: - Internal
 
@@ -79,6 +73,7 @@ public class AudioManager: Loggable {
 
     private var _state = StateSync(AudioManagerState())
 
+    private let configureQueue = DispatchQueue(label: "LiveKitSDK.AudioManager.configure", qos: .default)
     private let notificationQueue = OperationQueue()
     private var routeChangeObserver: NSObjectProtocol?
 
@@ -103,11 +98,17 @@ public class AudioManager: Loggable {
                 self.log("newDeviceAvailable")
             case .categoryChange:
                 self.log("categoryChange")
-                let session = RTCAudioSession.sharedInstance()
+
+                let session: RTCAudioSession = DispatchQueue.webRTC.sync {
+                    let result = RTCAudioSession.sharedInstance()
+                    result.lockForConfiguration()
+                    return result
+                }
+
+                defer { DispatchQueue.webRTC.sync { session.unlockForConfiguration() } }
+
                 do {
-                    session.lockForConfiguration()
-                    defer { session.unlockForConfiguration() }
-                    try session.overrideOutputAudioPort(self.preferSpeakerOutput ? .speaker : .none)
+                    try session.overrideOutputAudioPort(self._state.preferSpeakerOutput ? .speaker : .none)
                 } catch let error {
                     self.log("failed to update output with error: \(error)")
                 }
@@ -117,9 +118,11 @@ public class AudioManager: Loggable {
         #endif
 
         // trigger events when state mutates
-        _state.onMutate = { [weak self] _, _ in
+        _state.onMutate = { [weak self] newState, oldState in
             guard let self = self else { return }
-            //
+            self.configureQueue.async {
+                self.reconfigureAudioSession(newState: newState, oldState: oldState)
+            }
         }
     }
 
@@ -146,6 +149,14 @@ public class AudioManager: Loggable {
         }
     }
 
+    private func reconfigureAudioSession(newState: AudioManagerState,
+                                         oldState: AudioManagerState) {
+        log("\(oldState) -> \(newState)")
+        defaultShouldConfigureAudioSessionFunc(newState: newState,
+                                               oldState: oldState)
+    }
+
+    #if os(iOS)
     /// Configure the `RTCAudioSession` of `WebRTC` framework.
     ///
     /// > Note: It is recommended to use `RTCAudioSessionConfiguration.webRTC()` to obtain an instance of `RTCAudioSessionConfiguration` instead of instantiating directly.
@@ -158,21 +169,21 @@ public class AudioManager: Loggable {
     public func configureAudioSession(_ configuration: RTCAudioSessionConfiguration,
                                       setActive: Bool? = nil) {
 
-        let audioSession: RTCAudioSession = DispatchQueue.webRTC.sync {
+        let session: RTCAudioSession = DispatchQueue.webRTC.sync {
             let result = RTCAudioSession.sharedInstance()
             result.lockForConfiguration()
             return result
         }
 
-        defer { DispatchQueue.webRTC.sync { audioSession.unlockForConfiguration() } }
+        defer { DispatchQueue.webRTC.sync { session.unlockForConfiguration() } }
 
         do {
             logger.log("configuring audio session with category: \(configuration.category), mode: \(configuration.mode), setActive: \(String(describing: setActive))", type: LiveKit.self)
 
             if let setActive = setActive {
-                try DispatchQueue.webRTC.sync { try audioSession.setConfiguration(configuration, active: setActive) }
+                try DispatchQueue.webRTC.sync { try session.setConfiguration(configuration, active: setActive) }
             } else {
-                try DispatchQueue.webRTC.sync { try audioSession.setConfiguration(configuration) }
+                try DispatchQueue.webRTC.sync { try session.setConfiguration(configuration) }
             }
         } catch let error {
             logger.log("Failed to configureAudioSession with error: \(error)", .error, type: LiveKit.self)
@@ -180,34 +191,60 @@ public class AudioManager: Loggable {
     }
 
     /// The default implementation when audio session configuration is requested by the SDK.
-    public static func defaultShouldConfigureAudioSessionFunc(newState: AudioManager.State,
-                                                              oldState: AudioManager.State) {
+    public func defaultShouldConfigureAudioSessionFunc(newState: AudioManagerState,
+                                                       oldState: AudioManagerState) {
 
         let config = DispatchQueue.webRTC.sync { RTCAudioSessionConfiguration.webRTC() }
 
-        switch newState {
+        var categoryOptions: AVAudioSession.CategoryOptions = []
+
+        switch newState.audioTrackState {
         case .remoteOnly:
             config.category = AVAudioSession.Category.playback.rawValue
             config.mode = AVAudioSession.Mode.spokenAudio.rawValue
-            config.categoryOptions = AVAudioSession.CategoryOptions.duckOthers
         case .localOnly, .localAndRemote:
             config.category = AVAudioSession.Category.playAndRecord.rawValue
             config.mode = AVAudioSession.Mode.videoChat.rawValue
-            config.categoryOptions = AVAudioSession.CategoryOptions.duckOthers
+
+            categoryOptions = [.allowBluetooth, .allowBluetoothA2DP]
+
+            if newState.preferSpeakerOutput {
+                categoryOptions.insert(.defaultToSpeaker)
+            }
+
         default:
             config.category = AVAudioSession.Category.soloAmbient.rawValue
             config.mode = AVAudioSession.Mode.default.rawValue
         }
 
+        config.categoryOptions = categoryOptions
+
         var setActive: Bool?
-        if newState != .none, oldState == .none {
+        if newState.audioTrackState != .none, oldState.audioTrackState == .none {
             // activate audio session when there is any local/remote audio track
             setActive = true
-        } else if newState == .none, oldState != .none {
+        } else if newState.audioTrackState == .none, oldState.audioTrackState != .none {
             // deactivate audio session when there are no more local/remote audio tracks
             setActive = false
         }
 
         AudioManager.shared.configureAudioSession(config, setActive: setActive)
+    }
+    #endif
+}
+
+extension AudioManager.AudioManagerState {
+
+    public var audioTrackState: AudioManager.State {
+
+        if localTracksCount > 0 && remoteTracksCount == 0 {
+            return .localOnly
+        } else if localTracksCount == 0 && remoteTracksCount > 0 {
+            return .remoteOnly
+        } else if localTracksCount > 0 && remoteTracksCount > 0 {
+            return .localAndRemote
+        }
+
+        return .none
     }
 }
