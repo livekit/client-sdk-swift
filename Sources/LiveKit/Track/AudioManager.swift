@@ -20,6 +20,10 @@ import WebRTC
 // Audio Session Configuration related
 public class AudioManager: Loggable {
 
+    // MARK: - Public
+
+    public static let shared = AudioManager()
+
     public enum State {
         case none
         case localOnly
@@ -27,13 +31,7 @@ public class AudioManager: Loggable {
         case localAndRemote
     }
 
-    internal enum `Type` {
-        case local
-        case remote
-    }
-
-    public static let shared = AudioManager()
-
+    // TODO: Thread safety concerns
     public private(set) var state: State = .none {
         didSet {
             guard oldValue != state else { return }
@@ -52,8 +50,61 @@ public class AudioManager: Loggable {
         didSet { recomputeState() }
     }
 
+    public var preferSpeakerOutput: Bool = true
+
+    // MARK: - Internal
+
+    internal enum `Type` {
+        case local
+        case remote
+    }
+
+    // MARK: - Private
+
+    private let notificationQueue = OperationQueue()
+    private var routeChangeObserver: NSObjectProtocol?
+
     // Singleton
-    private init() {}
+    private init() {
+
+        #if os(iOS)
+        //
+        routeChangeObserver = NotificationCenter.default.addObserver(forName: AVAudioSession.routeChangeNotification,
+                                                                     object: nil,
+                                                                     queue: notificationQueue) { [weak self] notification in
+            //
+            guard let self = self else { return }
+            self.log("AVAudioSession.routeChangeNotification \(String(describing: notification.userInfo))")
+
+            guard let number = notification.userInfo?[AVAudioSessionRouteChangeReasonKey] as? NSNumber?,
+                  let uint = number?.uintValue,
+                  let reason = AVAudioSession.RouteChangeReason(rawValue: uint)  else { return }
+
+            switch reason {
+            case .newDeviceAvailable:
+                self.log("newDeviceAvailable")
+            case .categoryChange:
+                self.log("categoryChange")
+                let session = RTCAudioSession.sharedInstance()
+                do {
+                    session.lockForConfiguration()
+                    defer { session.unlockForConfiguration() }
+                    try session.overrideOutputAudioPort(self.preferSpeakerOutput ? .speaker : .none)
+                } catch let error {
+                    self.log("failed to update output with error: \(error)")
+                }
+            default: break
+            }
+        }
+        #endif
+    }
+
+    deinit {
+
+        if let observer = routeChangeObserver {
+            NotificationCenter.default.removeObserver(observer)
+        }
+    }
 
     internal func trackDidStart(_ type: Type) {
         if type == .local { localTracksCount += 1 }
