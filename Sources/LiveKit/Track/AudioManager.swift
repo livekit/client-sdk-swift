@@ -177,7 +177,7 @@ public class AudioManager: Loggable {
 
         do {
             logger.log("preferSpeakerOutput: \(preferSpeakerOutput)", type: AudioManager.self)
-            try DispatchQueue.webRTC.sync { try session.overrideOutputAudioPort(.none) }
+            try DispatchQueue.webRTC.sync { try session.overrideOutputAudioPort(preferSpeakerOutput ? .speaker : .none) }
         } catch let error {
             logger.log("Failed to overrideOutputAudioPort with error: \(error)", .error, type: AudioManager.self)
         }
