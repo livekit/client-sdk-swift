@@ -128,7 +128,7 @@ public class AudioManager: Loggable {
 
         #if os(iOS)
         if let _deprecatedFunc = LiveKit.onShouldConfigureAudioSession {
-            _deprecatedFunc(newState.audioTrackState, oldState.audioTrackState)
+            _deprecatedFunc(newState.trackState, oldState.trackState)
         } else {
             defaultShouldConfigureAudioSessionFunc(newState: newState,
                                                    oldState: oldState)
@@ -187,7 +187,7 @@ public class AudioManager: Loggable {
 
         var categoryOptions: AVAudioSession.CategoryOptions = []
 
-        switch newState.audioTrackState {
+        switch newState.trackState {
         case .remoteOnly:
             config.category = AVAudioSession.Category.playback.rawValue
             config.mode = AVAudioSession.Mode.spokenAudio.rawValue
@@ -209,10 +209,10 @@ public class AudioManager: Loggable {
         config.categoryOptions = categoryOptions
 
         var setActive: Bool?
-        if newState.audioTrackState != .none, oldState.audioTrackState == .none {
+        if newState.trackState != .none, oldState.trackState == .none {
             // activate audio session when there is any local/remote audio track
             setActive = true
-        } else if newState.audioTrackState == .none, oldState.audioTrackState != .none {
+        } else if newState.trackState == .none, oldState.trackState != .none {
             // deactivate audio session when there are no more local/remote audio tracks
             setActive = false
         }
@@ -226,7 +226,7 @@ public class AudioManager: Loggable {
 
 extension AudioManager.State {
 
-    public var audioTrackState: AudioManager.TrackState {
+    public var trackState: AudioManager.TrackState {
 
         if localTracksCount > 0 && remoteTracksCount == 0 {
             return .localOnly
