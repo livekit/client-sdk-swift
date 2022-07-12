@@ -24,17 +24,17 @@ public class AudioManager: Loggable {
 
     public static let shared = AudioManager()
 
-    public typealias ConfigureAudioSessionFunc = (_ newState: AudioManagerState,
-                                                  _ oldState: AudioManagerState) -> Void
+    public typealias ConfigureAudioSessionFunc = (_ newState: State,
+                                                  _ oldState: State) -> Void
 
-    public enum State {
+    public enum TrackState {
         case none
         case localOnly
         case remoteOnly
         case localAndRemote
     }
 
-    public struct AudioManagerState {
+    public struct State {
         var localTracksCount: Int = 0
         var remoteTracksCount: Int = 0
         var preferSpeakerOutput: Bool = false
@@ -56,7 +56,7 @@ public class AudioManager: Loggable {
 
     // MARK: - Private
 
-    private var _state = StateSync(AudioManagerState())
+    private var _state = StateSync(State())
 
     private let configureQueue = DispatchQueue(label: "LiveKitSDK.AudioManager.configure", qos: .default)
     private let notificationQueue = OperationQueue()
@@ -118,8 +118,8 @@ public class AudioManager: Loggable {
         }
     }
 
-    private func configureAudioSession(newState: AudioManagerState,
-                                       oldState: AudioManagerState) {
+    private func configureAudioSession(newState: State,
+                                       oldState: State) {
         log("\(oldState) -> \(newState)")
 
         #if os(iOS)
@@ -176,8 +176,8 @@ public class AudioManager: Loggable {
     }
 
     /// The default implementation when audio session configuration is requested by the SDK.
-    public func defaultShouldConfigureAudioSessionFunc(newState: AudioManagerState,
-                                                       oldState: AudioManagerState) {
+    public func defaultShouldConfigureAudioSessionFunc(newState: State,
+                                                       oldState: State) {
 
         let config = DispatchQueue.webRTC.sync { RTCAudioSessionConfiguration.webRTC() }
 
@@ -220,9 +220,9 @@ public class AudioManager: Loggable {
     #endif
 }
 
-extension AudioManager.AudioManagerState {
+extension AudioManager.State {
 
-    public var audioTrackState: AudioManager.State {
+    public var audioTrackState: AudioManager.TrackState {
 
         if localTracksCount > 0 && remoteTracksCount == 0 {
             return .localOnly
