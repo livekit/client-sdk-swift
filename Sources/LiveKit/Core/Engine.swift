@@ -105,10 +105,9 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
 
                 self.log("[execution control] processing pending entries (\(self._queuedBlocks.count))...")
 
-                // clear out pending blocks that match clear condition
-                self._queuedBlocks.removeAll { $0.removeCondition(state, oldState) }
-
                 self._queuedBlocks.removeAll { entry in
+                    // clear out pending blocks that match clear condition
+                    guard !entry.removeCondition(state, oldState) else { return true }
                     // don't remove if doesn't match condition
                     guard entry.executeCondition(state, oldState) else { return false }
 
