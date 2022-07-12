@@ -69,15 +69,6 @@ internal final class StateSync<Value> {
         // concurrent
         queue.sync { _value[keyPath: keyPath] }
     }
-
-    // block read
-    @discardableResult
-    public func read<Result>(_ block: (Value) throws -> Result) rethrows -> Result {
-        // concurrent
-        try queue.sync {
-            try block(_value)
-        }
-    }
 }
 
 extension StateSync: CustomStringConvertible {
