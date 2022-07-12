@@ -42,19 +42,18 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
 
     // MARK: - Execution control
 
-    internal typealias StateCondition = (_ newState: State, _ oldState: State?) -> Bool
-    internal typealias ExecuteBlock = () -> Void
+    internal typealias ConditionEvalFunc = (_ newState: State, _ oldState: State?) -> Bool
 
-    private struct Entry {
-        let executeCondition: StateCondition
-        let removeCondition: StateCondition
-        let block: ExecuteBlock
+    private struct ConditionalExecutionEntry {
+        let executeCondition: ConditionEvalFunc
+        let removeCondition: ConditionEvalFunc
+        let block: () -> Void
     }
 
     private var _blockProcessQueue = DispatchQueue(label: "LiveKitSDK.engine.pendingBlocks",
                                                    qos: .default)
 
-    private var _queuedBlocks = [Entry]()
+    private var _queuedBlocks = [ConditionalExecutionEntry]()
 
     internal struct State: ReconnectableState {
         var url: String?
@@ -256,9 +255,9 @@ internal extension Engine {
         }
     }
 
-    func execute(when condition: @escaping StateCondition,
-                 removeWhen removeCondition: @escaping StateCondition,
-                 _ block: @escaping ExecuteBlock) {
+    func execute(when condition: @escaping ConditionEvalFunc,
+                 removeWhen removeCondition: @escaping ConditionEvalFunc,
+                 _ block: @escaping () -> Void) {
 
         // already matches condition, execute immediately
         if _state.read({ condition($0, nil) }) {
@@ -271,9 +270,9 @@ internal extension Engine {
                 // create an entry and enqueue block
                 self.log("[execution control] enqueuing entry...")
 
-                let entry = Entry(executeCondition: condition,
-                                  removeCondition: removeCondition,
-                                  block: block)
+                let entry = ConditionalExecutionEntry(executeCondition: condition,
+                                                      removeCondition: removeCondition,
+                                                      block: block)
 
                 self._queuedBlocks.append(entry)
             }
