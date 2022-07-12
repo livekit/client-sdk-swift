@@ -40,6 +40,22 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
     private var dcReliableSub: RTCDataChannel?
     private var dcLossySub: RTCDataChannel?
 
+    // MARK: - Execution control
+
+    internal typealias StateCondition = (_ newState: State, _ oldState: State?) -> Bool
+    internal typealias ExecuteBlock = () -> Void
+
+    private struct Entry {
+        let executeCondition: StateCondition
+        let removeCondition: StateCondition
+        let block: ExecuteBlock
+    }
+
+    private var _blockProcessQueue = DispatchQueue(label: "LiveKitSDK.engine.pendingBlocks",
+                                                   qos: .default)
+
+    private var _queuedBlocks = [Entry]()
+
     internal struct State: ReconnectableState {
         var url: String?
         var token: String?
@@ -82,6 +98,26 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
             }
 
             self.notify { $0.engine(self, didMutate: state, oldState: oldState) }
+
+            // execution control
+            self._blockProcessQueue.async { [weak self] in
+                guard let self = self, !self._queuedBlocks.isEmpty else { return }
+
+                self.log("[execution control] processing pending entries (\(self._queuedBlocks.count))...")
+
+                // clear out pending blocks that match clear condition
+                self._queuedBlocks.removeAll { $0.removeCondition(state, oldState) }
+
+                self._queuedBlocks.removeAll { entry in
+                    // don't remove if doesn't match condition
+                    guard entry.executeCondition(state, oldState) else { return false }
+
+                    self.log("[execution control] condition matching block...")
+                    entry.block()
+                    // remove this block
+                    return true
+                }
+            }
         }
     }
 
@@ -209,7 +245,7 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
     }
 }
 
-// MARK: - Pending blocks
+// MARK: - Execution control (Internal)
 
 internal extension Engine {
 
@@ -218,6 +254,30 @@ internal extension Engine {
         if case .connected = _state.connectionState {
             // execute immediately
             block()
+        }
+    }
+
+    func execute(when condition: @escaping StateCondition,
+                 removeWhen removeCondition: @escaping StateCondition,
+                 _ block: @escaping ExecuteBlock) {
+
+        // already matches condition, execute immediately
+        if _state.read({ condition($0, nil) }) {
+            log("[execution control] executing immediately...")
+            block()
+        } else {
+            _blockProcessQueue.async { [weak self] in
+                guard let self = self else { return }
+
+                // create an entry and enqueue block
+                self.log("[execution control] enqueuing entry...")
+
+                let entry = Entry(executeCondition: condition,
+                                  removeCondition: removeCondition,
+                                  block: block)
+
+                self._queuedBlocks.append(entry)
+            }
         }
     }
 }
@@ -660,7 +720,14 @@ extension Engine: TransportDelegate {
     func transport(_ transport: Transport, didAdd track: RTCMediaStreamTrack, streams: [RTCMediaStream]) {
         log("did add track")
         if transport.target == .subscriber {
-            notify { $0.engine(self, didAdd: track, streams: streams) }
+
+            // execute block when connected
+            execute(when: { state, _ in state.connectionState == .connected },
+                    // always remove this block when disconnected
+                    removeWhen: { state, _ in state.connectionState == .disconnected() }) { [weak self] in
+                guard let self = self else { return }
+                self.notify { $0.engine(self, didAdd: track, streams: streams) }
+            }
         }
     }
 
