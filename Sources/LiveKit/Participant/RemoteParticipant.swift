@@ -57,11 +57,10 @@ public class RemoteParticipant: Participant {
             validTrackPublications[trackInfo.sid] = publication!
         }
 
-        // always emit events for new publications, Room will not forward them unless it's ready
-        for publication in newTrackPublications.values {
+        room.engine.executeIfConnected { [weak self] in
+            guard let self = self else { return }
 
-            room.engine.executeIfConnected { [weak self] in
-                guard let self = self else { return }
+            for publication in newTrackPublications.values {
 
                 self.notify(label: { "participant.didPublish \(publication)" }) {
                     $0.participant(self, didPublish: publication)
