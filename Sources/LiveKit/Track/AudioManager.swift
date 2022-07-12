@@ -57,10 +57,12 @@ public class AudioManager: Loggable {
     // MARK: - Private
 
     private var _state = StateSync(State())
-
     private let configureQueue = DispatchQueue(label: "LiveKitSDK.AudioManager.configure", qos: .default)
+
+    #if os(iOS)
     private let notificationQueue = OperationQueue()
     private var routeChangeObserver: NSObjectProtocol?
+    #endif
 
     // Singleton
     private init() {
@@ -96,10 +98,12 @@ public class AudioManager: Loggable {
     }
 
     deinit {
+        #if os(iOS)
         // remove the route change observer
         if let observer = routeChangeObserver {
             NotificationCenter.default.removeObserver(observer)
         }
+        #endif
     }
 
     internal func trackDidStart(_ type: Type) {
