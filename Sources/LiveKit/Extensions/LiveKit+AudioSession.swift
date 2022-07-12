@@ -20,6 +20,7 @@ import WebRTC
 /// - Parameters:
 ///   - newState: The new state of audio tracks
 ///   - oldState: The previous state of audio tracks
+@available(*, deprecated, message: "")
 public typealias ShouldConfigureAudioSessionFunc = (_ newState: AudioManager.State,
                                                     _ oldState: AudioManager.State) -> Void
 
@@ -36,8 +37,8 @@ extension LiveKit {
     ///
     /// View ``defaultShouldConfigureAudioSessionFunc(newState:oldState:)`` for the default implementation.
     ///
-    // @available(*, deprecated, message: "")
-    // public static var onShouldConfigureAudioSession: ShouldConfigureAudioSessionFunc = AudioManager.defaultShouldConfigureAudioSessionFunc
+    @available(*, deprecated, message: "")
+    public static var onShouldConfigureAudioSession: ShouldConfigureAudioSessionFunc?
 
     #endif
 }

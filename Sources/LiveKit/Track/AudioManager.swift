@@ -24,6 +24,9 @@ public class AudioManager: Loggable {
 
     public static let shared = AudioManager()
 
+    public typealias ConfigureAudioSessionFunc = (_ newState: AudioManagerState,
+                                                  _ oldState: AudioManagerState) -> Void
+
     public enum State {
         case none
         case localOnly
@@ -34,26 +37,8 @@ public class AudioManager: Loggable {
     public struct AudioManagerState {
         var localTracksCount: Int = 0
         var remoteTracksCount: Int = 0
-        var preferSpeakerOutput: Bool = true
+        var preferSpeakerOutput: Bool = false
     }
-
-    //    public private(set) var state: State = .none {
-    //        didSet {
-    //            guard oldValue != state else { return }
-    //            log("AudioManager.state didUpdate \(oldValue) -> \(state)")
-    //            #if os(iOS)
-    //            LiveKit.onShouldConfigureAudioSession(state, oldValue)
-    //            #endif
-    //        }
-    //    }
-
-    //    public var audioTrackState: State {
-    //
-    //        _state.read { state in
-    //
-    //
-    //        }
-    //    }
 
     public var localTracksCount: Int { _state.localTracksCount }
     public var remoteTracksCount: Int { _state.remoteTracksCount }
@@ -96,22 +81,6 @@ public class AudioManager: Loggable {
             switch reason {
             case .newDeviceAvailable:
                 self.log("newDeviceAvailable")
-            case .categoryChange:
-                self.log("categoryChange")
-
-                let session: RTCAudioSession = DispatchQueue.webRTC.sync {
-                    let result = RTCAudioSession.sharedInstance()
-                    result.lockForConfiguration()
-                    return result
-                }
-
-                defer { DispatchQueue.webRTC.sync { session.unlockForConfiguration() } }
-
-                do {
-                    try session.overrideOutputAudioPort(self._state.preferSpeakerOutput ? .speaker : .none)
-                } catch let error {
-                    self.log("failed to update output with error: \(error)")
-                }
             default: break
             }
         }
@@ -121,7 +90,7 @@ public class AudioManager: Loggable {
         _state.onMutate = { [weak self] newState, oldState in
             guard let self = self else { return }
             self.configureQueue.async {
-                self.reconfigureAudioSession(newState: newState, oldState: oldState)
+                self.configureAudioSession(newState: newState, oldState: oldState)
             }
         }
     }
@@ -149,11 +118,18 @@ public class AudioManager: Loggable {
         }
     }
 
-    private func reconfigureAudioSession(newState: AudioManagerState,
-                                         oldState: AudioManagerState) {
+    private func configureAudioSession(newState: AudioManagerState,
+                                       oldState: AudioManagerState) {
         log("\(oldState) -> \(newState)")
-        defaultShouldConfigureAudioSessionFunc(newState: newState,
-                                               oldState: oldState)
+
+        #if os(iOS)
+        if let _deprecatedFunc = LiveKit.onShouldConfigureAudioSession {
+            _deprecatedFunc(newState.audioTrackState, oldState.audioTrackState)
+        } else {
+            defaultShouldConfigureAudioSessionFunc(newState: newState,
+                                                   oldState: oldState)
+        }
+        #endif
     }
 
     #if os(iOS)
@@ -167,7 +143,8 @@ public class AudioManager: Loggable {
     ///   - configuration: A configured RTCAudioSessionConfiguration
     ///   - setActive: passing true/false will call `AVAudioSession.setActive` internally
     public func configureAudioSession(_ configuration: RTCAudioSessionConfiguration,
-                                      setActive: Bool? = nil) {
+                                      setActive: Bool? = nil,
+                                      preferSpeakerOutput: Bool = true) {
 
         let session: RTCAudioSession = DispatchQueue.webRTC.sync {
             let result = RTCAudioSession.sharedInstance()
@@ -178,15 +155,23 @@ public class AudioManager: Loggable {
         defer { DispatchQueue.webRTC.sync { session.unlockForConfiguration() } }
 
         do {
-            logger.log("configuring audio session with category: \(configuration.category), mode: \(configuration.mode), setActive: \(String(describing: setActive))", type: LiveKit.self)
+            logger.log("configuring audio session with category: \(configuration.category), mode: \(configuration.mode), setActive: \(String(describing: setActive))", type: AudioManager.self)
 
             if let setActive = setActive {
                 try DispatchQueue.webRTC.sync { try session.setConfiguration(configuration, active: setActive) }
             } else {
                 try DispatchQueue.webRTC.sync { try session.setConfiguration(configuration) }
             }
+
         } catch let error {
-            logger.log("Failed to configureAudioSession with error: \(error)", .error, type: LiveKit.self)
+            logger.log("Failed to configureAudioSession with error: \(error)", .error, type: AudioManager.self)
+        }
+
+        do {
+            logger.log("preferSpeakerOutput: \(preferSpeakerOutput)", type: AudioManager.self)
+            try DispatchQueue.webRTC.sync { try session.overrideOutputAudioPort(.none) }
+        } catch let error {
+            logger.log("Failed to overrideOutputAudioPort with error: \(error)", .error, type: AudioManager.self)
         }
     }
 
@@ -202,7 +187,7 @@ public class AudioManager: Loggable {
         case .remoteOnly:
             config.category = AVAudioSession.Category.playback.rawValue
             config.mode = AVAudioSession.Mode.spokenAudio.rawValue
-        case .localOnly, .localAndRemote:
+        case  .localOnly, .localAndRemote:
             config.category = AVAudioSession.Category.playAndRecord.rawValue
             config.mode = AVAudioSession.Mode.videoChat.rawValue
 
@@ -228,7 +213,9 @@ public class AudioManager: Loggable {
             setActive = false
         }
 
-        AudioManager.shared.configureAudioSession(config, setActive: setActive)
+        configureAudioSession(config,
+                              setActive: setActive,
+                              preferSpeakerOutput: newState.preferSpeakerOutput)
     }
     #endif
 }
