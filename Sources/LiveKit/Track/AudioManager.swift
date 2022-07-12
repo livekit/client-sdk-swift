@@ -27,6 +27,8 @@ public class AudioManager: Loggable {
     public typealias ConfigureAudioSessionFunc = (_ newState: State,
                                                   _ oldState: State) -> Void
 
+    public var customConfigureFunc: ConfigureAudioSessionFunc?
+
     public enum TrackState {
         case none
         case localOnly
@@ -129,6 +131,8 @@ public class AudioManager: Loggable {
         #if os(iOS)
         if let _deprecatedFunc = LiveKit.onShouldConfigureAudioSession {
             _deprecatedFunc(newState.trackState, oldState.trackState)
+        } else if let customConfigureFunc = customConfigureFunc {
+            customConfigureFunc(newState, oldState)
         } else {
             defaultShouldConfigureAudioSessionFunc(newState: newState,
                                                    oldState: oldState)
