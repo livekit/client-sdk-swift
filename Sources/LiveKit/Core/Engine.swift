@@ -40,6 +40,21 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
     private var dcReliableSub: RTCDataChannel?
     private var dcLossySub: RTCDataChannel?
 
+    // MARK: - Execution control
+
+    internal typealias ConditionEvalFunc = (_ newState: State, _ oldState: State?) -> Bool
+
+    private struct ConditionalExecutionEntry {
+        let executeCondition: ConditionEvalFunc
+        let removeCondition: ConditionEvalFunc
+        let block: () -> Void
+    }
+
+    private var _blockProcessQueue = DispatchQueue(label: "LiveKitSDK.engine.pendingBlocks",
+                                                   qos: .default)
+
+    private var _queuedBlocks = [ConditionalExecutionEntry]()
+
     internal struct State: ReconnectableState {
         var url: String?
         var token: String?
@@ -82,6 +97,25 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
             }
 
             self.notify { $0.engine(self, didMutate: state, oldState: oldState) }
+
+            // execution control
+            self._blockProcessQueue.async { [weak self] in
+                guard let self = self, !self._queuedBlocks.isEmpty else { return }
+
+                self.log("[execution control] processing pending entries (\(self._queuedBlocks.count))...")
+
+                self._queuedBlocks.removeAll { entry in
+                    // return and remove this entry if matches remove condition
+                    guard !entry.removeCondition(state, oldState) else { return true }
+                    // return but don't remove this entry if doesn't match execute condition
+                    guard entry.executeCondition(state, oldState) else { return false }
+
+                    self.log("[execution control] condition matching block...")
+                    entry.block()
+                    // remove this entry
+                    return true
+                }
+            }
         }
     }
 
@@ -204,6 +238,43 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
 
             guard channel.sendData(rtcData) else {
                 throw EngineError.webRTC(message: "DataChannel.sendData returned false")
+            }
+        }
+    }
+}
+
+// MARK: - Execution control (Internal)
+
+internal extension Engine {
+
+    func executeIfConnected(_ block: @escaping @convention(block) () -> Void) {
+
+        if case .connected = _state.connectionState {
+            // execute immediately
+            block()
+        }
+    }
+
+    func execute(when condition: @escaping ConditionEvalFunc,
+                 removeWhen removeCondition: @escaping ConditionEvalFunc,
+                 _ block: @escaping () -> Void) {
+
+        // already matches condition, execute immediately
+        if _state.read({ condition($0, nil) }) {
+            log("[execution control] executing immediately...")
+            block()
+        } else {
+            _blockProcessQueue.async { [weak self] in
+                guard let self = self else { return }
+
+                // create an entry and enqueue block
+                self.log("[execution control] enqueuing entry...")
+
+                let entry = ConditionalExecutionEntry(executeCondition: condition,
+                                                      removeCondition: removeCondition,
+                                                      block: block)
+
+                self._queuedBlocks.append(entry)
             }
         }
     }
@@ -647,7 +718,14 @@ extension Engine: TransportDelegate {
     func transport(_ transport: Transport, didAdd track: RTCMediaStreamTrack, streams: [RTCMediaStream]) {
         log("did add track")
         if transport.target == .subscriber {
-            notify { $0.engine(self, didAdd: track, streams: streams) }
+
+            // execute block when connected
+            execute(when: { state, _ in state.connectionState == .connected },
+                    // always remove this block when disconnected
+                    removeWhen: { state, _ in state.connectionState == .disconnected() }) { [weak self] in
+                guard let self = self else { return }
+                self.notify { $0.engine(self, didAdd: track, streams: streams) }
+            }
         }
     }
 
