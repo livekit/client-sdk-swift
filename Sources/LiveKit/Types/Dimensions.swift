@@ -125,9 +125,8 @@ extension Dimensions {
 
             result.append(parameters)
         }
-        return VideoQuality.rids.map { rid in
-            return result.first(where: { $0.rid == rid }) ?? Engine.createRtpEncodingParameters(rid: rid, active: false)
-        }
+
+        return VideoQuality.rids.compactMap { rid in result.first(where: { $0.rid == rid }) }
     }
 
     func computeSuggestedPresetIndex(in presets: [VideoParameters]) -> Int {
