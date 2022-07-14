@@ -16,24 +16,24 @@
 
 import SwiftUI
 import WebRTC
-import OrderedCollections
 import Promises
 
 open class ObservableRoom: ObservableObject, RoomDelegate, Loggable {
 
     public let room: Room
 
-    public var remoteParticipants: OrderedDictionary<Sid, ObservableParticipant> {
-        OrderedDictionary(uniqueKeysWithValues: room.remoteParticipants.map { (sid, participant) in (sid, ObservableParticipant(participant)) })
+    public var remoteParticipants: [Sid: ObservableParticipant] {
+        Dictionary(uniqueKeysWithValues: room.remoteParticipants.map { (sid, participant) in (sid, ObservableParticipant(participant)) })
     }
 
-    public var allParticipants: OrderedDictionary<Sid, ObservableParticipant> {
+    public var allParticipants: [Sid: ObservableParticipant] {
         var result = remoteParticipants
+
         if let localParticipant = room.localParticipant {
             result.updateValue(ObservableParticipant(localParticipant),
-                               forKey: localParticipant.sid,
-                               insertingAt: 0)
+                               forKey: localParticipant.sid)
         }
+
         return result
     }
 

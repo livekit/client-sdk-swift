@@ -18,7 +18,6 @@ import Foundation
 import WebRTC
 import Promises
 import ReplayKit
-import OrderedCollections
 
 public class CameraCapturer: VideoCapturer {
 
@@ -97,21 +96,21 @@ public class CameraCapturer: VideoCapturer {
 
             // list of all formats in order of dimensions size
             let formats = DispatchQueue.webRTC.sync { RTCCameraVideoCapturer.supportedFormats(for: device) }
-            // create a dictionary sorted by dimensions size
-            let sortedFormats = OrderedDictionary(uniqueKeysWithValues: formats.map { ($0, CMVideoFormatDescriptionGetDimensions($0.formatDescription)) })
-                .sorted { $0.value.area < $1.value.area }
+            // create an array of sorted touples by dimensions size
+            let sortedFormats = formats.map({ (format: $0, dimensions: CMVideoFormatDescriptionGetDimensions($0.formatDescription)) })
+                .sorted { $0.dimensions.area < $1.dimensions.area }
 
             // default to the smallest
             var selectedFormat = sortedFormats.first
 
             // find preferred capture format if specified in options
             if let preferredFormat = self.options.preferredFormat,
-               let foundFormat = sortedFormats.first(where: { $0.key == preferredFormat }) {
+               let foundFormat = sortedFormats.first(where: { $0.format == preferredFormat }) {
                 selectedFormat = foundFormat
             } else {
-                self.log("formats: \(sortedFormats.map { String(describing: $0.value) }), target: \(self.options.dimensions)")
+                self.log("formats: \(sortedFormats.map { String(describing: $0.dimensions) }), target: \(self.options.dimensions)")
                 // find format that satisfies preferred dimensions
-                selectedFormat = sortedFormats.first(where: { $0.value.area >= self.options.dimensions.area })
+                selectedFormat = sortedFormats.first(where: { $0.dimensions.area >= self.options.dimensions.area })
             }
 
             // format should be resolved at this point
@@ -120,7 +119,7 @@ public class CameraCapturer: VideoCapturer {
                 throw TrackError.capturer(message: "Unable to determine format for camera capturer")
             }
 
-            guard let fpsRange = selectedFormat.key.fpsRange() else {
+            guard let fpsRange = selectedFormat.format.fpsRange() else {
                 self.log("unable to resolve fps range", .error)
                 throw TrackError.capturer(message: "Unable to determine supported fps range for format: \(selectedFormat)")
             }
@@ -139,7 +138,7 @@ public class CameraCapturer: VideoCapturer {
 
             // adapt if requested dimensions and camera's dimensions don't match
             if let videoSource = self.delegate as? RTCVideoSource,
-               selectedFormat.value != self.options.dimensions {
+               selectedFormat.dimensions != self.options.dimensions {
 
                 // self.log("adaptOutputFormat to: \(options.dimensions) fps: \(self.options.fps)")
                 videoSource.adaptOutputFormat(toWidth: self.options.dimensions.width,
@@ -150,7 +149,7 @@ public class CameraCapturer: VideoCapturer {
             // return promise that waits for capturer to start
             return Promise<Bool>(on: .webRTC) { resolve, fail in
                 // start the RTCCameraVideoCapturer
-                self.capturer.startCapture(with: device, format: selectedFormat.key, fps: selectedFps) { error in
+                self.capturer.startCapture(with: device, format: selectedFormat.format, fps: selectedFps) { error in
                     if let error = error {
                         self.log("CameraCapturer failed to start \(error)", .error)
                         fail(error)

@@ -31,7 +31,6 @@ let package = Package(
                 .target(name: "CHeaders"),
                 "WebRTC", "SwiftProtobuf", "Promises",
                 .product(name: "Logging", package: "swift-log"),
-                .product(name: "Collections", package: "swift-collections")
             ],
             path: "Sources",
             swiftSettings: [

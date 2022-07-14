@@ -17,7 +17,6 @@
 import Foundation
 import Promises
 import WebRTC
-import Collections
 
 internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
 
