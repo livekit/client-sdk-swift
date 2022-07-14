@@ -306,7 +306,7 @@ extension Room: SignalClientDelegate {
 
     func signalClient(_ signalClient: SignalClient, didUpdate trackSid: String, subscribedQualities: [Livekit_SubscribedQuality]) -> Bool {
 
-        log()
+        log("qualities: \(subscribedQualities.map({ String(describing: $0) }).joined(separator: ", "))")
 
         guard let localParticipant = _state.localParticipant else { return true }
         localParticipant.onSubscribedQualitiesUpdate(trackSid: trackSid, subscribedQualities: subscribedQualities)
