@@ -63,6 +63,7 @@ extension CGImagePropertyOrientation {
     }
 }
 
+@available(iOS 11.0, *)
 extension RTCVideoCapturerDelegate {
 
     public typealias OnResolveSourceDimensions = (Dimensions) -> Void

@@ -27,6 +27,7 @@ import Promises
 /// > Note: At least one frame must be captured before publishing the track or the publish will timeout,
 /// since dimensions must be resolved at the time of publishing (to compute video parameters).
 ///
+@available(iOS 11.0, *)
 public class BufferCapturer: VideoCapturer {
 
     private let capturer = Engine.createVideoCapturer()
@@ -81,6 +82,7 @@ public class BufferCapturer: VideoCapturer {
     }
 }
 
+@available(iOS 11.0, *)
 extension LocalVideoTrack {
 
     /// Creates a track that can directly capture `CVPixelBuffer` or `CMSampleBuffer` for convienience

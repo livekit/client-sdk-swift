@@ -12,6 +12,7 @@ import WebRTC
 import Promises
 import UIKit
 
+@available(iOS 11.0, *)
 class BroadcastScreenCapturer: BufferCapturer {
     static let kRTCScreensharingSocketFD = "rtc_SSFD"
     static let kAppGroupIdentifierKey = "RTCAppGroupIdentifier"
@@ -95,6 +96,7 @@ class BroadcastScreenCapturer: BufferCapturer {
 
 }
 
+@available(iOS 11.0, *)
 extension LocalVideoTrack {
     /// Creates a track that captures screen capture from a broadcast upload extension
     public static func createBroadcastScreenCapturerTrack(name: String = Track.screenShareVideoName,

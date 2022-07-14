@@ -9,9 +9,9 @@
 
 import ReplayKit
 import Promises
-import OSLog
 import Logging
 
+@available(iOS 11.0, *)
 open class LKSampleHandler: RPBroadcastSampleHandler {
 
     private var clientConnection: BroadcastUploadSocketConnection?

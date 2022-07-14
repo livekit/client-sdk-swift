@@ -15,6 +15,7 @@ private enum Constants {
     static let bufferMaxLength = 10240
 }
 
+@available(iOS 11.0, *)
 class SampleUploader {
 
     private static var imageContext = CIContext(options: nil)
@@ -52,6 +53,7 @@ class SampleUploader {
     }
 }
 
+@available(iOS 11.0, *)
 private extension SampleUploader {
 
     func setupConnection() {

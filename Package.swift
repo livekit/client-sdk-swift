@@ -6,7 +6,7 @@ import PackageDescription
 let package = Package(
     name: "LiveKit",
     platforms: [
-        .iOS(.v13),
+        .iOS(.v11),
         .macOS(.v10_15)
     ],
     products: [
@@ -17,11 +17,12 @@ let package = Package(
         )
     ],
     dependencies: [
-        .package(name: "WebRTC", url: "https://github.com/webrtc-sdk/Specs.git", .exact("97.4692.05")),
+        .package(name: "WebRTC", url: "https://github.d com/webrtc-sdk/Specs.git", .exact("97.4692.05")),
         .package(name: "SwiftProtobuf", url: "https://github.com/apple/swift-protobuf.git", .upToNextMajor(from: "1.18.0")),
         .package(name: "Promises", url: "https://github.com/google/promises.git", .upToNextMajor(from: "2.0.0")),
         .package(url: "https://github.com/apple/swift-log.git", .upToNextMajor(from: "1.4.2")),
-        .package(url: "https://github.com/apple/swift-collections.git", .upToNextMajor(from: "1.0.1"))
+        .package(url: "https://github.com/apple/swift-collections.git", .upToNextMajor(from: "1.0.1")),
+		.package(url: "https://github.com/daltoniam/Starscream", .upToNextMajor(from: "3.1.1"))
     ],
     targets: [
         .systemLibrary(name: "CHeaders"),

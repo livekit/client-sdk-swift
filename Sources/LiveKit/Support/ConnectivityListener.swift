@@ -17,18 +17,22 @@
 import Foundation
 import Network
 
-internal protocol ConnectivityListenerDelegate: AnyObject {
 
+internal protocol ConnectivityListenerDelegate: AnyObject {
+	@available(iOS 12.0, *)
     func connectivityListener(_: ConnectivityListener, didUpdate hasConnectivity: Bool)
     // network remains to have connectivity but path changed
+	@available(iOS 12.0, *)
     func connectivityListener(_: ConnectivityListener, didSwitch path: NWPath)
 }
 
+@available(iOS 12.0, *)
 internal extension ConnectivityListenerDelegate {
     func connectivityListener(_: ConnectivityListener, didUpdate hasConnectivity: Bool) {}
     func connectivityListener(_: ConnectivityListener, didSwitch path: NWPath) {}
 }
 
+@available(iOS 12.0, *)
 internal class ConnectivityListener: MulticastDelegate<ConnectivityListenerDelegate> {
 
     static let shared = ConnectivityListener()
@@ -73,11 +77,17 @@ internal class ConnectivityListener: MulticastDelegate<ConnectivityListenerDeleg
     }
 }
 
+@available(iOS 12.0, *)
 private extension ConnectivityListener {
 
-    func set(path newValue: NWPath, notify _notify: Bool = false) {
-
-        log("status: \(newValue.status), interfaces: \(newValue.availableInterfaces.map({ "\(String(describing: $0.type))-\(String(describing: $0.index))" })), gateways: \(newValue.gateways), activeIp: \(String(describing: newValue.availableInterfaces.first?.ipv4))")
+	@available(iOS 12.0, *)
+	func set(path newValue: NWPath, notify _notify: Bool = false) {
+		
+		if #available(iOS 13.0, *) {
+			log("status: \(newValue.status), interfaces: \(newValue.availableInterfaces.map({ "\(String(describing: $0.type))-\(String(describing: $0.index))" })), gateways: \(newValue.gateways), activeIp: \(String(describing: newValue.availableInterfaces.first?.ipv4))")
+		} else {
+			// Fallback on earlier versions
+		}
 
         // check if different path
         guard newValue != self.path else { return }
@@ -133,6 +143,7 @@ private extension ConnectivityListener {
     }
 }
 
+@available(iOS 12.0, *)
 internal extension NWPath {
 
     func isSatisfied() -> Bool {
@@ -141,6 +152,7 @@ internal extension NWPath {
     }
 }
 
+@available(iOS 12.0, *)
 internal extension NWInterface {
 
     func address(family: Int32) -> String? {

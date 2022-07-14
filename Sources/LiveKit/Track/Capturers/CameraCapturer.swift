@@ -17,8 +17,6 @@
 import Foundation
 import WebRTC
 import Promises
-import ReplayKit
-import OrderedCollections
 
 public class CameraCapturer: VideoCapturer {
 

@@ -83,7 +83,11 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
         log("sdk: \(LiveKit.version), os: \(String(describing: Utils.os()))(\(Utils.osVersionString())), modelId: \(String(describing: Utils.modelIdentifier() ?? "unknown"))")
 
         signalClient.add(delegate: self)
-        ConnectivityListener.shared.add(delegate: self)
+		if #available(iOS 12.0, *) {
+			ConnectivityListener.shared.add(delegate: self)
+		} else {
+			// Fallback on earlier versions
+		}
 
         // trigger events when state mutates
         self._state.onMutate = { [weak self] state, oldState in
@@ -749,6 +753,7 @@ extension Engine: TransportDelegate {
 
 // MARK: - ConnectivityListenerDelegate
 
+@available(iOS 12.0, *)
 extension Engine: ConnectivityListenerDelegate {
 
     func connectivityListener(_: ConnectivityListener, didSwitch path: NWPath) {

@@ -453,26 +453,33 @@ extension LocalParticipant {
                 let localTrack = LocalAudioTrack.createTrack(options: room.options.defaultAudioCaptureOptions)
                 return publishAudioTrack(track: localTrack).then(on: .sdk) { return $0 }
             } else if source == .screenShareVideo {
-
                 var localTrack: LocalVideoTrack?
 
-                #if os(iOS)
-                let options = room.options.defaultScreenShareCaptureOptions
-                if options.useBroadcastExtension {
-                    let screenShareExtensionId = Bundle.main.infoDictionary?[BroadcastScreenCapturer.kRTCScreenSharingExtension] as? String
-                    RPSystemBroadcastPickerView.show(for: screenShareExtensionId,
-                                                     showsMicrophoneButton: false)
-                    localTrack = LocalVideoTrack.createBroadcastScreenCapturerTrack(options: options)
-                } else {
-                    localTrack = LocalVideoTrack.createInAppScreenShareTrack(options: options)
-                }
-                #elseif os(macOS)
-                localTrack = LocalVideoTrack.createMacOSScreenShareTrack(options: room.options.defaultScreenShareCaptureOptions)
-                #endif
+				if #available(iOS 12.0, *) {
+#if os(iOS)
+					let options = room.options.defaultScreenShareCaptureOptions
+					if options.useBroadcastExtension {
+						let screenShareExtensionId = Bundle.main.infoDictionary?[BroadcastScreenCapturer.kRTCScreenSharingExtension] as? String
+						RPSystemBroadcastPickerView.show(for: screenShareExtensionId,
+														 showsMicrophoneButton: false)
+						localTrack = LocalVideoTrack.createBroadcastScreenCapturerTrack(options: options)
+					} else {
+						localTrack = LocalVideoTrack.createInAppScreenShareTrack(options: options)
+					}
+#elseif os(macOS)
+					localTrack = LocalVideoTrack.createMacOSScreenShareTrack(options: room.options.defaultScreenShareCaptureOptions)
+#endif
+					if let localTrack = localTrack {
+						return publishVideoTrack(track: localTrack).then(on: .sdk) { publication in return publication }
+					} else {
+						Promise(EngineError.state())
+					}
+				} else {
+					// Fallback on earlier versions
+					return Promise(EngineError.state())
+				}
 
-                if let localTrack = localTrack {
-                    return publishVideoTrack(track: localTrack).then(on: .sdk) { publication in return publication }
-                }
+                
             }
         }
 

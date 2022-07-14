@@ -17,7 +17,7 @@
 import Foundation
 import Promises
 import WebRTC
-import Collections
+import Starscream
 
 internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
 
@@ -52,7 +52,7 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
 
     private var responseQueueState: QueueState = .resumed
 
-    private var webSocket: WebSocket?
+    private var webSocket: SocketClient?
     private var latestJoinResponse: Livekit_JoinResponse?
 
     init() {
@@ -95,19 +95,19 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
             .catch(on: .sdk) { error in
                 self.log("Failed to parse rtc url", .error)
             }
-            .then(on: .sdk) { url -> Promise<WebSocket> in
+            .then(on: .sdk) { url -> Promise<SocketClient> in
                 self.log("Connecting with url: \(url)")
                 self._state.mutate {
                     $0.reconnectMode = reconnectMode
                     $0.connectionState = .connecting
                 }
-                return WebSocket.connect(url: url,
+                return SocketClient.connect(url: url,
                                          onMessage: self.onWebSocketMessage,
                                          onDisconnect: { reason in
                                             self.webSocket = nil
                                             self.cleanUp(reason: reason)
                                          })
-            }.then(on: .sdk) { (webSocket: WebSocket) -> Void in
+            }.then(on: .sdk) { (webSocket: SocketClient) -> Void in
                 self.webSocket = webSocket
                 self._state.mutate { $0.connectionState = .connected }
             }.recover(on: .sdk) { error -> Promise<Void> in
@@ -241,13 +241,13 @@ private extension SignalClient {
         }
     }
 
-    func onWebSocketMessage(message: URLSessionWebSocketTask.Message) {
+	func onWebSocketMessage(message: Any) {
 
         var response: Livekit_SignalResponse?
 
-        if case .data(let data) = message {
+        if let data = message as? Data {
             response = try? Livekit_SignalResponse(contiguousBytes: data)
-        } else if case .string(let string) = message {
+        } else if let string = message as? String {
             response = try? Livekit_SignalResponse(jsonString: string)
         }
 
