@@ -401,6 +401,8 @@ extension LocalParticipant {
 
             let promises = mediaTracks.map { track -> Promise<LocalTrackPublication>? in
                 guard let track = track as? LocalTrack else { return nil }
+                // don't re-publish muted tracks
+                guard !track.muted else { return nil }
                 return self.publish(track: track, publishOptions: track.publishOptions)
             }.compactMap { $0 }
 
