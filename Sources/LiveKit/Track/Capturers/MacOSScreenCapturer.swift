@@ -224,8 +224,8 @@ public class MacOSScreenCapturer: VideoCapturer {
 
 extension MacOSScreenCapturer: AVCaptureVideoDataOutputSampleBufferDelegate {
 
-    public func captureOutput(_ output: AVCaptureOutput, didOutput
-                                sampleBuffer: CMSampleBuffer,
+    public func captureOutput(_ output: AVCaptureOutput,
+                              didOutput sampleBuffer: CMSampleBuffer,
                               from connection: AVCaptureConnection) {
 
         delegate?.capturer(capturer, didCapture: sampleBuffer) { sourceDimensions in
@@ -238,6 +238,7 @@ extension MacOSScreenCapturer: AVCaptureVideoDataOutputSampleBufferDelegate {
 
             guard let videoSource = self.delegate as? RTCVideoSource else { return }
             // self.log("adaptOutputFormat to: \(targetDimensions) fps: \(self.options.fps)")
+
             videoSource.adaptOutputFormat(toWidth: targetDimensions.width,
                                           height: targetDimensions.height,
                                           fps: Int32(self.options.fps))

@@ -51,6 +51,13 @@ extension Livekit_TrackInfo: CustomStringConvertible {
     }
 }
 
+extension Livekit_SubscribedQuality: CustomStringConvertible {
+
+    public var description: String {
+        "SubscribedQuality(quality: \(quality), enabled: \(enabled))"
+    }
+}
+
 // MARK: - NSObject
 
 extension Room {

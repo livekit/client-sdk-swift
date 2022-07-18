@@ -66,12 +66,14 @@ internal extension VideoParameters {
         }
 
         let layers = [Layer(scaleDownBy: 2, fps: 3)]
+
         return layers.map {
-            VideoParameters(dimensions: Dimensions(width: Int32((Double(dimensions.width) / $0.scaleDownBy).rounded(.down)),
-                                                   height: Int32((Double(dimensions.height) / $0.scaleDownBy).rounded(.down))),
-                            encoding: VideoEncoding(maxBitrate: Swift.max(150_000,
-                                                                          Int((Double(encoding.maxBitrate) / (pow(Double($0.scaleDownBy), 2) * (Double(encoding.maxFps) / Double($0.fps)))).rounded(.down))),
-                                                    maxFps: 3))
+            let dimensions = Dimensions(width: Int32((Double(dimensions.width) / $0.scaleDownBy).rounded(.down)),
+                                        height: Int32((Double(dimensions.height) / $0.scaleDownBy).rounded(.down)))
+            let bitrate2 = Int((Double(encoding.maxBitrate) / (pow(Double($0.scaleDownBy), 2) * (Double(encoding.maxFps) / Double($0.fps)))).rounded(.down))
+            let encoding = VideoEncoding(maxBitrate: Swift.max(150_000, bitrate2), maxFps: $0.fps)
+
+            return VideoParameters(dimensions: dimensions, encoding: encoding)
         }
     }
 
