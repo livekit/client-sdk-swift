@@ -382,7 +382,6 @@ private extension Engine {
         func quickReconnectSequence() -> Promise<Void> {
 
             log("[reconnect] starting QUICK reconnect sequence...")
-            // return Promise(EngineError.state(message: "DEBUG"))
 
             return self.signalClient.connect(url,
                                              token,
