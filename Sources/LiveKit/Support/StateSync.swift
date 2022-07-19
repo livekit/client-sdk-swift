@@ -66,6 +66,7 @@ internal final class StateSync<Value> {
 
     // read only
     subscript<Property>(dynamicMember keyPath: KeyPath<Value, Property>) -> Property {
+        // concurrent
         queue.sync { _value[keyPath: keyPath] }
     }
 }
