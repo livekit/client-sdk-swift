@@ -72,6 +72,9 @@ public class Room: MulticastDelegate<RoomDelegate> {
 
         log()
 
+        // weak ref
+        engine.room = self
+
         // listen to engine & signalClient
         engine.add(delegate: self)
         engine.signalClient.add(delegate: self)
@@ -148,24 +151,6 @@ internal extension Room.State {
 
 private extension Room {
 
-    // Resets state of Room
-    @discardableResult
-    private func cleanUp(reason: DisconnectReason? = nil) -> Promise<Void> {
-
-        log("reason: \(String(describing: reason))")
-
-        return engine.cleanUp(reason: reason)
-            .then(on: .sdk) {
-                self.cleanUpParticipants()
-            }.then(on: .sdk) {
-                // reset state
-                self._state.mutate { $0 = State() }
-            }.catch(on: .sdk) { error in
-                // this should never happen
-                self.log("Engine cleanUp failed", .error)
-            }
-    }
-
     @discardableResult
     func cleanUpParticipants(notify _notify: Bool = true) -> Promise<Void> {
 
@@ -179,7 +164,7 @@ private extension Room {
 
         let cleanUpPromises = allParticipants.map { $0.cleanUp(notify: _notify) }
 
-        return cleanUpPromises.all(on: .sdk).then {
+        return cleanUpPromises.all(on: .sdk).then(on: .sdk) {
             //
             self._state.mutate {
                 $0.localParticipant = nil
@@ -202,6 +187,43 @@ private extension Room {
 // MARK: - Internal
 
 internal extension Room {
+
+    // Resets state of Room
+    @discardableResult
+    func cleanUp(reason: DisconnectReason? = nil,
+                 isFullReconnect: Bool = false) -> Promise<Void> {
+
+        log("reason: \(String(describing: reason))")
+
+        // cleanUp engine
+
+        engine._state.mutate {
+            $0.primaryTransportConnectedCompleter.reset()
+            $0.publisherTransportConnectedCompleter.reset()
+            $0.publisherReliableDCOpenCompleter.reset()
+            $0.publisherLossyDCOpenCompleter.reset()
+
+            // if isFullReconnect, keep connection related states
+            $0 = isFullReconnect ? Engine.State(
+                url: $0.url,
+                token: $0.token,
+                nextPreferredReconnectMode: $0.nextPreferredReconnectMode,
+                reconnectMode: $0.reconnectMode,
+                connectionState: $0.connectionState) : Engine.State()
+        }
+
+        engine.signalClient.cleanUp(reason: reason)
+
+        return engine.cleanUpRTC().then(on: .sdk) {
+            self.cleanUpParticipants()
+        }.then(on: .sdk) {
+            // reset state
+            self._state.mutate { $0 = State() }
+        }.catch(on: .sdk) { error in
+            // this should never happen
+            self.log("Room cleanUp failed", .error)
+        }
+    }
 
     func set(metadata: String?) {
         guard self.metadata != metadata else { return }
