@@ -195,7 +195,7 @@ internal extension Room {
 
         log("reason: \(String(describing: reason))")
 
-        // cleanUp engine
+        // start Engine cleanUp sequence
 
         engine._state.mutate {
             $0.primaryTransportConnectedCompleter.reset()
@@ -221,7 +221,7 @@ internal extension Room {
             self._state.mutate { $0 = State() }
         }.catch(on: .sdk) { error in
             // this should never happen
-            self.log("Room cleanUp failed", .error)
+            self.log("Room cleanUp failed with error: \(error)", .error)
         }
     }
 

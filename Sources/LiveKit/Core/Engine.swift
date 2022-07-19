@@ -155,14 +155,17 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
         }
     }
 
-    // call Room's cleanUp
+    // cleanUp (reset) both Room & Engine's state
     @discardableResult
     func cleanUp(reason: DisconnectReason? = nil,
                  isFullReconnect: Bool = false) -> Promise<Void> {
 
-        Promise<Void> { [weak self] () -> Promise<Void> in
+        Promise<Void>(on: .sdk) { [weak self] () -> Promise<Void> in
             guard let self = self,
+                  // this should never happen since Engine is owned by Room
                   let room = self.room else { throw EngineError.state(message: "Room is nil") }
+
+            // call Room's cleanUp
             return room.cleanUp(reason: reason, isFullReconnect: isFullReconnect)
         }
     }
@@ -423,7 +426,7 @@ private extension Engine {
 
             log("[reconnect] starting FULL reconnect sequence...")
 
-            return self.cleanUp(isFullReconnect: true).then(on: .sdk) { () -> Promise<Void> in
+            return cleanUp(isFullReconnect: true).then(on: .sdk) { () -> Promise<Void> in
 
                 guard let url = self._state.url,
                       let token = self._state.token else {
