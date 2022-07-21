@@ -82,6 +82,25 @@ public class Room: MulticastDelegate<RoomDelegate> {
 
         // listen to app states
         AppStateListener.shared.add(delegate: self)
+
+        // trigger events when state mutates
+        _state.onMutate = { [weak self] state, oldState in
+
+            guard let self = self else { return }
+
+            // metadata updated
+            if let metadata = state.metadata, metadata != oldState.metadata, (oldState.metadata == nil && !metadata.isEmpty) {
+
+                self.engine.executeIfConnected { [weak self] in
+
+                    guard let self = self else { return }
+
+                    self.notify(label: { "room.didUpdate metadata: \(metadata)" }) {
+                        $0.room(self, didUpdate: metadata)
+                    }
+                }
+            }
+        }
     }
 
     deinit {
@@ -196,27 +215,6 @@ private extension Room {
         }
 
         return participant.cleanUp(notify: true)
-    }
-}
-
-// MARK: - Internal
-
-internal extension Room {
-
-    func set(metadata: String?) {
-        guard self.metadata != metadata else { return }
-
-        self._state.mutate { state in
-            state.metadata = metadata
-        }
-
-        engine.executeIfConnected { [weak self] in
-            guard let self = self else { return }
-
-            self.notify(label: { "room.didUpdate metadata: \(metadata ?? "nil")" }) {
-                $0.room(self, didUpdate: metadata)
-            }
-        }
     }
 }
 
@@ -339,7 +337,7 @@ extension Room: SignalClientDelegate {
     }
 
     func signalClient(_ signalClient: SignalClient, didUpdate room: Livekit_Room) -> Bool {
-        set(metadata: room.metadata)
+        _state.mutate { $0.metadata = room.metadata }
         return true
     }
 

@@ -87,12 +87,13 @@ public class Participant: MulticastDelegate<ParticipantDelegate> {
                 }
             }
 
-            if state.metadata != oldState.metadata {
-                self.notify(label: { "participant.didUpdate metadata: \(self.metadata ?? "nil")" }) {
-                    $0.participant(self, didUpdate: self.metadata)
+            // metadata updated
+            if let metadata = state.metadata, metadata != oldState.metadata, !metadata.isEmpty {
+                self.notify(label: { "participant.didUpdate metadata: \(metadata)" }) {
+                    $0.participant(self, didUpdate: metadata)
                 }
-                self.room.notify(label: { "room.didUpdate metadata: \(self.metadata ?? "nil")" }) {
-                    $0.room(self.room, participant: self, didUpdate: self.metadata)
+                self.room.notify(label: { "room.didUpdate metadata: \(metadata)" }) {
+                    $0.room(self.room, participant: self, didUpdate: metadata)
                 }
             }
 
