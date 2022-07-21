@@ -88,7 +88,10 @@ public class Participant: MulticastDelegate<ParticipantDelegate> {
             }
 
             // metadata updated
-            if let metadata = state.metadata, metadata != oldState.metadata, !metadata.isEmpty {
+            if let metadata = state.metadata, metadata != oldState.metadata,
+               // don't notify if empty string (first time only)
+               (oldState.metadata == nil ? !metadata.isEmpty : true) {
+
                 self.notify(label: { "participant.didUpdate metadata: \(metadata)" }) {
                     $0.participant(self, didUpdate: metadata)
                 }

@@ -89,7 +89,9 @@ public class Room: MulticastDelegate<RoomDelegate> {
             guard let self = self else { return }
 
             // metadata updated
-            if let metadata = state.metadata, metadata != oldState.metadata, (oldState.metadata == nil && !metadata.isEmpty) {
+            if let metadata = state.metadata, metadata != oldState.metadata,
+               // don't notify if empty string (first time only)
+               (oldState.metadata == nil ? !metadata.isEmpty : true) {
 
                 self.engine.executeIfConnected { [weak self] in
 
