@@ -22,6 +22,14 @@ open class ObservableRoom: ObservableObject, RoomDelegate, Loggable {
 
     public let room: Room
 
+    public var connectionState: ConnectionState {
+        room.connectionState
+    }
+
+    public var metadata: String? {
+        room.metadata
+    }
+
     public var remoteParticipants: [Sid: ObservableParticipant] {
         Dictionary(uniqueKeysWithValues: room.remoteParticipants.map { (sid, participant) in (sid, ObservableParticipant(participant)) })
     }
@@ -163,13 +171,13 @@ open class ObservableRoom: ObservableObject, RoomDelegate, Loggable {
 
     open func room(_ room: Room, didUpdate connectionState: ConnectionState, oldValue: ConnectionState) {
 
-        if case .disconnected = connectionState {
-            DispatchQueue.main.async {
+        DispatchQueue.main.async {
+            if case .disconnected = connectionState {
                 self.cameraTrackState = .notPublished()
                 self.microphoneTrackState = .notPublished()
                 self.screenShareTrackState = .notPublished()
-                self.objectWillChange.send()
             }
+            self.objectWillChange.send()
         }
     }
 
@@ -183,11 +191,14 @@ open class ObservableRoom: ObservableObject, RoomDelegate, Loggable {
         DispatchQueue.main.async { self.objectWillChange.send() }
     }
 
+    open func room(_ room: Room, participant: Participant, didUpdate metadata: String?) {
+        DispatchQueue.main.async { self.objectWillChange.send() }
+    }
+
     open func room(_ room: Room, didConnect isReconnect: Bool) {}
     open func room(_ room: Room, didFailToConnect error: Error) {}
     open func room(_ room: Room, didDisconnect error: Error?) {}
     open func room(_ room: Room, didUpdate speakers: [Participant]) {}
-    open func room(_ room: Room, participant: Participant, didUpdate metadata: String?) {}
     open func room(_ room: Room, participant: Participant, didUpdate publication: TrackPublication, muted: Bool) {}
     open func room(_ room: Room, participant: RemoteParticipant, didUpdate publication: RemoteTrackPublication, streamState: StreamState) {}
     open func room(_ room: Room, participant: Participant, didUpdate connectionQuality: ConnectionQuality) {}
