@@ -85,6 +85,27 @@ public class Room: MulticastDelegate<RoomDelegate> {
 
         // listen to app states
         AppStateListener.shared.add(delegate: self)
+
+        // trigger events when state mutates
+        _state.onMutate = { [weak self] state, oldState in
+
+            guard let self = self else { return }
+
+            // metadata updated
+            if let metadata = state.metadata, metadata != oldState.metadata,
+               // don't notify if empty string (first time only)
+               (oldState.metadata == nil ? !metadata.isEmpty : true) {
+
+                self.engine.executeIfConnected { [weak self] in
+
+                    guard let self = self else { return }
+
+                    self.notify(label: { "room.didUpdate metadata: \(metadata)" }) {
+                        $0.room(self, didUpdate: metadata)
+                    }
+                }
+            }
+        }
     }
 
     deinit {
@@ -181,64 +202,6 @@ private extension Room {
         }
 
         return participant.cleanUp(notify: true)
-    }
-}
-
-// MARK: - Internal
-
-internal extension Room {
-
-    // Resets state of Room
-    @discardableResult
-    func cleanUp(reason: DisconnectReason? = nil,
-                 isFullReconnect: Bool = false) -> Promise<Void> {
-
-        log("reason: \(String(describing: reason))")
-
-        // start Engine cleanUp sequence
-
-        engine._state.mutate {
-            $0.primaryTransportConnectedCompleter.reset()
-            $0.publisherTransportConnectedCompleter.reset()
-            $0.publisherReliableDCOpenCompleter.reset()
-            $0.publisherLossyDCOpenCompleter.reset()
-
-            // if isFullReconnect, keep connection related states
-            $0 = isFullReconnect ? Engine.State(
-                url: $0.url,
-                token: $0.token,
-                nextPreferredReconnectMode: $0.nextPreferredReconnectMode,
-                reconnectMode: $0.reconnectMode,
-                connectionState: $0.connectionState) : Engine.State()
-        }
-
-        engine.signalClient.cleanUp(reason: reason)
-
-        return engine.cleanUpRTC().then(on: .sdk) {
-            self.cleanUpParticipants()
-        }.then(on: .sdk) {
-            // reset state
-            self._state.mutate { $0 = State() }
-        }.catch(on: .sdk) { error in
-            // this should never happen
-            self.log("Room cleanUp failed with error: \(error)", .error)
-        }
-    }
-
-    func set(metadata: String?) {
-        guard self.metadata != metadata else { return }
-
-        self._state.mutate { state in
-            state.metadata = metadata
-        }
-
-        engine.executeIfConnected { [weak self] in
-            guard let self = self else { return }
-
-            self.notify(label: { "room.didUpdate metadata: \(metadata ?? "nil")" }) {
-                $0.room(self, didUpdate: metadata)
-            }
-        }
     }
 }
 
@@ -361,7 +324,7 @@ extension Room: SignalClientDelegate {
     }
 
     func signalClient(_ signalClient: SignalClient, didUpdate room: Livekit_Room) -> Bool {
-        set(metadata: room.metadata)
+        _state.mutate { $0.metadata = room.metadata }
         return true
     }
 
