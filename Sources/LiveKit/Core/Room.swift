@@ -153,6 +153,48 @@ public class Room: MulticastDelegate<RoomDelegate> {
 
 // MARK: - Internal
 
+internal extension Room {
+
+    // Resets state of Room
+    @discardableResult
+    func cleanUp(reason: DisconnectReason? = nil,
+                 isFullReconnect: Bool = false) -> Promise<Void> {
+
+        log("reason: \(String(describing: reason))")
+
+        // start Engine cleanUp sequence
+
+        engine._state.mutate {
+            $0.primaryTransportConnectedCompleter.reset()
+            $0.publisherTransportConnectedCompleter.reset()
+            $0.publisherReliableDCOpenCompleter.reset()
+            $0.publisherLossyDCOpenCompleter.reset()
+
+            // if isFullReconnect, keep connection related states
+            $0 = isFullReconnect ? Engine.State(
+                url: $0.url,
+                token: $0.token,
+                nextPreferredReconnectMode: $0.nextPreferredReconnectMode,
+                reconnectMode: $0.reconnectMode,
+                connectionState: $0.connectionState) : Engine.State()
+        }
+
+        engine.signalClient.cleanUp(reason: reason)
+
+        return engine.cleanUpRTC().then(on: .sdk) {
+            self.cleanUpParticipants()
+        }.then(on: .sdk) {
+            // reset state
+            self._state.mutate { $0 = State() }
+        }.catch(on: .sdk) { error in
+            // this should never happen
+            self.log("Room cleanUp failed with error: \(error)", .error)
+        }
+    }
+}
+
+// MARK: - Internal
+
 internal extension Room.State {
 
     @discardableResult
