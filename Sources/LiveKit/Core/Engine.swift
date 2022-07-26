@@ -23,7 +23,6 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
 
     public let signalClient = SignalClient()
 
-    // private(set) var hasPublished: Bool = false
     private(set) var publisher: Transport?
     private(set) var subscriber: Transport?
 
@@ -71,6 +70,9 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
     }
 
     internal var _state = StateSync(State())
+
+    // weak ref to Room
+    internal weak var room: Room?
 
     init(connectOptions: ConnectOptions,
          roomOptions: RoomOptions) {
@@ -153,32 +155,53 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
         }
     }
 
-    // Resets state of Engine
+    // cleanUp (reset) both Room & Engine's state
     @discardableResult
     func cleanUp(reason: DisconnectReason? = nil,
                  isFullReconnect: Bool = false) -> Promise<Void> {
 
-        log("reason: \(String(describing: reason))")
+        // this should never happen since Engine is owned by Room
+        guard let room = self.room else { return Promise(EngineError.state(message: "Room is nil")) }
 
-        // reset state
-        _state.mutate {
-            $0.primaryTransportConnectedCompleter.reset()
-            $0.publisherTransportConnectedCompleter.reset()
-            $0.publisherReliableDCOpenCompleter.reset()
-            $0.publisherLossyDCOpenCompleter.reset()
+        // call Room's cleanUp
+        return room.cleanUp(reason: reason, isFullReconnect: isFullReconnect)
+    }
 
-            // if isFullReconnect, keep connection related states
-            $0 = isFullReconnect ? State(
-                url: $0.url,
-                token: $0.token,
-                nextPreferredReconnectMode: $0.nextPreferredReconnectMode,
-                reconnectMode: $0.reconnectMode,
-                connectionState: $0.connectionState) : State()
+    // Resets state of transports
+    func cleanUpRTC() -> Promise<Void> {
+
+        func closeAllDataChannels() -> Promise<Void> {
+
+            let promises = [dcReliablePub, dcLossyPub, dcReliableSub, dcLossySub]
+                .compactMap { $0 }
+                .map { dc in Promise<Void>(on: .webRTC) { dc.close() } }
+
+            return promises.all(on: .sdk).then(on: .sdk) {
+                self.dcReliablePub = nil
+                self.dcLossyPub = nil
+                self.dcReliableSub = nil
+                self.dcLossySub = nil
+            }
         }
 
-        signalClient.cleanUp(reason: reason)
+        func closeAllTransports() -> Promise<Void> {
 
-        return cleanUpRTC()
+            let promises = [publisher, subscriber]
+                .compactMap { $0 }
+                .map { $0.close() }
+
+            return promises.all(on: .sdk).then(on: .sdk) {
+                self.publisher = nil
+                self.subscriber = nil
+                self._state.mutate { $0.hasPublished = false }
+            }
+        }
+
+        return closeAllDataChannels()
+            .recover(on: .sdk) { self.log("Failed to close data channels, error: \($0)") }
+            .then(on: .sdk) {
+                closeAllTransports()
+            }
     }
 
     func publisherShouldNegotiate() {
@@ -304,44 +327,6 @@ private extension Engine {
         }
     }
 
-    // Resets state of transports
-    @discardableResult
-    func cleanUpRTC() -> Promise<Void> {
-
-        func closeAllDataChannels() -> Promise<Void> {
-
-            let promises = [dcReliablePub, dcLossyPub, dcReliableSub, dcLossySub]
-                .compactMap { $0 }
-                .map { dc in Promise<Void>(on: .webRTC) { dc.close() } }
-
-            return promises.all(on: .sdk).then(on: .sdk) {
-                self.dcReliablePub = nil
-                self.dcLossyPub = nil
-                self.dcReliableSub = nil
-                self.dcLossySub = nil
-            }
-        }
-
-        func closeAllTransports() -> Promise<Void> {
-
-            let promises = [publisher, subscriber]
-                .compactMap { $0 }
-                .map { $0.close() }
-
-            return promises.all(on: .sdk).then(on: .sdk) {
-                self.publisher = nil
-                self.subscriber = nil
-                self._state.mutate { $0.hasPublished = false }
-            }
-        }
-
-        return closeAllDataChannels()
-            .recover(on: .sdk) { self.log("Failed to close data channels, error: \($0)") }
-            .then(on: .sdk) {
-                closeAllTransports()
-            }
-    }
-
     // full connect sequence, doesn't update connection state
     func fullConnectSequence(_ url: String,
                              _ token: String) -> Promise<Void> {
@@ -394,7 +379,6 @@ private extension Engine {
         func quickReconnectSequence() -> Promise<Void> {
 
             log("[reconnect] starting QUICK reconnect sequence...")
-            // return Promise(EngineError.state(message: "DEBUG"))
 
             return self.signalClient.connect(url,
                                              token,
@@ -438,7 +422,7 @@ private extension Engine {
 
             log("[reconnect] starting FULL reconnect sequence...")
 
-            return self.cleanUp(isFullReconnect: true).then(on: .sdk) { () -> Promise<Void> in
+            return cleanUp(isFullReconnect: true).then(on: .sdk) { () -> Promise<Void> in
 
                 guard let url = self._state.url,
                       let token = self._state.token else {
