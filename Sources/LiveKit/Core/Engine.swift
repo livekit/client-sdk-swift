@@ -21,40 +21,11 @@ import Network
 
 internal class Engine: MulticastDelegate<EngineDelegate> {
 
-    public let signalClient = SignalClient()
+    // MARK: - Public
 
-    private(set) var publisher: Transport?
-    private(set) var subscriber: Transport?
+    public typealias ConditionEvalFunc = (_ newState: State, _ oldState: State?) -> Bool
 
-    private(set) var connectOptions: ConnectOptions
-    private(set) var roomOptions: RoomOptions
-
-    private var subscriberPrimary: Bool = false
-    private var primary: Transport? {
-        subscriberPrimary ? subscriber : publisher
-    }
-
-    private var dcReliablePub: RTCDataChannel?
-    private var dcLossyPub: RTCDataChannel?
-    private var dcReliableSub: RTCDataChannel?
-    private var dcLossySub: RTCDataChannel?
-
-    // MARK: - Execution control
-
-    internal typealias ConditionEvalFunc = (_ newState: State, _ oldState: State?) -> Bool
-
-    private struct ConditionalExecutionEntry {
-        let executeCondition: ConditionEvalFunc
-        let removeCondition: ConditionEvalFunc
-        let block: () -> Void
-    }
-
-    private var _blockProcessQueue = DispatchQueue(label: "LiveKitSDK.engine.pendingBlocks",
-                                                   qos: .default)
-
-    private var _queuedBlocks = [ConditionalExecutionEntry]()
-
-    internal struct State: ReconnectableState {
+    public struct State: ReconnectableState {
         var url: String?
         var token: String?
         // preferred reconnect mode which will be used only for next attempt
@@ -69,10 +40,39 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
         var publisherLossyDCOpenCompleter = Completer<Void>()
     }
 
-    internal var _state = StateSync(State())
+    public var _state = StateSync(State())
+
+    public let signalClient = SignalClient()
+
+    public private(set) var publisher: Transport?
+    public private(set) var subscriber: Transport?
+
+    public private(set) var connectOptions: ConnectOptions
+    public private(set) var roomOptions: RoomOptions
 
     // weak ref to Room
-    internal weak var room: Room?
+    public weak var room: Room?
+
+    // MARK: - Private
+
+    private struct ConditionalExecutionEntry {
+        let executeCondition: ConditionEvalFunc
+        let removeCondition: ConditionEvalFunc
+        let block: () -> Void
+    }
+
+    private var subscriberPrimary: Bool = false
+    private var primary: Transport? { subscriberPrimary ? subscriber : publisher }
+
+    private var dcReliablePub: RTCDataChannel?
+    private var dcLossyPub: RTCDataChannel?
+    private var dcReliableSub: RTCDataChannel?
+    private var dcLossySub: RTCDataChannel?
+
+    private var _blockProcessQueue = DispatchQueue(label: "LiveKitSDK.engine.pendingBlocks",
+                                                   qos: .default)
+
+    private var _queuedBlocks = [ConditionalExecutionEntry]()
 
     init(connectOptions: ConnectOptions,
          roomOptions: RoomOptions) {
@@ -748,11 +748,11 @@ extension Engine: ConnectivityListenerDelegate {
 
 // MARK: Engine - Factory methods
 
-extension Engine {
+internal extension Engine {
 
     /// Set this to true to bypass initialization of voice processing.
     /// Must be set before RTCPeerConnectionFactory gets initialized.
-    internal static var bypassVoiceProcessing: Bool = false
+    static var bypassVoiceProcessing: Bool = false
 
     // forbid direct access
     private static let factory: RTCPeerConnectionFactory = {
@@ -776,14 +776,14 @@ extension Engine {
         return result
     }()
 
-    internal static func createPeerConnection(_ configuration: RTCConfiguration,
-                                              constraints: RTCMediaConstraints) -> RTCPeerConnection? {
+    static func createPeerConnection(_ configuration: RTCConfiguration,
+                                     constraints: RTCMediaConstraints) -> RTCPeerConnection? {
         DispatchQueue.webRTC.sync { factory.peerConnection(with: configuration,
                                                            constraints: constraints,
                                                            delegate: nil) }
     }
 
-    internal static func createVideoSource(forScreenShare: Bool) -> RTCVideoSource {
+    static func createVideoSource(forScreenShare: Bool) -> RTCVideoSource {
         #if LK_USING_CUSTOM_WEBRTC_BUILD
         DispatchQueue.webRTC.sync { factory.videoSource() }
         #else
@@ -791,48 +791,48 @@ extension Engine {
         #endif
     }
 
-    internal static func createVideoTrack(source: RTCVideoSource) -> RTCVideoTrack {
+    static func createVideoTrack(source: RTCVideoSource) -> RTCVideoTrack {
         DispatchQueue.webRTC.sync { factory.videoTrack(with: source,
                                                        trackId: UUID().uuidString) }
     }
 
-    internal static func createAudioSource(_ constraints: RTCMediaConstraints?) -> RTCAudioSource {
+    static func createAudioSource(_ constraints: RTCMediaConstraints?) -> RTCAudioSource {
         DispatchQueue.webRTC.sync { factory.audioSource(with: constraints) }
     }
 
-    internal static func createAudioTrack(source: RTCAudioSource) -> RTCAudioTrack {
+    static func createAudioTrack(source: RTCAudioSource) -> RTCAudioTrack {
         DispatchQueue.webRTC.sync { factory.audioTrack(with: source,
                                                        trackId: UUID().uuidString) }
     }
 
-    internal static func createDataChannelConfiguration(ordered: Bool = true,
-                                                        maxRetransmits: Int32 = -1) -> RTCDataChannelConfiguration {
+    static func createDataChannelConfiguration(ordered: Bool = true,
+                                               maxRetransmits: Int32 = -1) -> RTCDataChannelConfiguration {
         let result = DispatchQueue.webRTC.sync { RTCDataChannelConfiguration() }
         result.isOrdered = ordered
         result.maxRetransmits = maxRetransmits
         return result
     }
 
-    internal static func createDataBuffer(data: Data) -> RTCDataBuffer {
+    static func createDataBuffer(data: Data) -> RTCDataBuffer {
         DispatchQueue.webRTC.sync { RTCDataBuffer(data: data, isBinary: true) }
     }
 
-    internal static func createIceCandidate(fromJsonString: String) throws -> RTCIceCandidate {
+    static func createIceCandidate(fromJsonString: String) throws -> RTCIceCandidate {
         try DispatchQueue.webRTC.sync { try RTCIceCandidate(fromJsonString: fromJsonString) }
     }
 
-    internal static func createSessionDescription(type: RTCSdpType, sdp: String) -> RTCSessionDescription {
+    static func createSessionDescription(type: RTCSdpType, sdp: String) -> RTCSessionDescription {
         DispatchQueue.webRTC.sync { RTCSessionDescription(type: type, sdp: sdp) }
     }
 
-    internal static func createVideoCapturer() -> RTCVideoCapturer {
+    static func createVideoCapturer() -> RTCVideoCapturer {
         DispatchQueue.webRTC.sync { RTCVideoCapturer() }
     }
 
-    internal static func createRtpEncodingParameters(rid: String? = nil,
-                                                     encoding: VideoEncoding? = nil,
-                                                     scaleDown: Double = 1.0,
-                                                     active: Bool = true) -> RTCRtpEncodingParameters {
+    static func createRtpEncodingParameters(rid: String? = nil,
+                                            encoding: VideoEncoding? = nil,
+                                            scaleDown: Double = 1.0,
+                                            active: Bool = true) -> RTCRtpEncodingParameters {
 
         let result = DispatchQueue.webRTC.sync { RTCRtpEncodingParameters() }
 
