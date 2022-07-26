@@ -188,8 +188,6 @@ internal class Utils {
         }
     }
 
-    #if LK_COMPUTE_VIDEO_SENDER_PARAMETERS
-
     internal static func computeEncodings(
         dimensions: Dimensions,
         publishOptions: VideoPublishOptions?,
@@ -225,7 +223,6 @@ internal class Utils {
 
         return dimensions.encodings(from: resultPresets)
     }
-    #endif
 }
 
 internal extension Collection {

@@ -35,8 +35,7 @@ let package = Package(
             swiftSettings: [
                 // Compiler flags used to completely remove code for specific features to isolate issues.
                 // Not defining the flag will turn off the feature.
-                .define("LK_USING_CUSTOM_WEBRTC_BUILD"),
-                .define("LK_COMPUTE_VIDEO_SENDER_PARAMETERS")
+                .define("LK_USING_CUSTOM_WEBRTC_BUILD")
             ]
         ),
         .testTarget(
