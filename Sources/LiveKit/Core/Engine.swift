@@ -160,14 +160,11 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
     func cleanUp(reason: DisconnectReason? = nil,
                  isFullReconnect: Bool = false) -> Promise<Void> {
 
-        Promise<Void>(on: .sdk) { [weak self] () -> Promise<Void> in
-            guard let self = self,
-                  // this should never happen since Engine is owned by Room
-                  let room = self.room else { throw EngineError.state(message: "Room is nil") }
+        // this should never happen since Engine is owned by Room
+        guard let room = self.room else { return Promise(EngineError.state(message: "Room is nil")) }
 
-            // call Room's cleanUp
-            return room.cleanUp(reason: reason, isFullReconnect: isFullReconnect)
-        }
+        // call Room's cleanUp
+        return room.cleanUp(reason: reason, isFullReconnect: isFullReconnect)
     }
 
     // Resets state of transports
