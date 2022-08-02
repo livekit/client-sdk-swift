@@ -17,30 +17,6 @@
 import WebRTC
 import Promises
 
-struct WeakContainer<Object: AnyObject> {
-    weak var weakObject: Object?
-}
-
-extension Array where Element == WeakContainer<VideoView> {
-
-    var allObjects: [VideoView] {
-        compactMap { $0.weakObject }
-    }
-
-    func contains(weakElement: VideoView) -> Bool {
-        contains(where: { $0.weakObject == weakElement })
-    }
-
-    mutating func add(weakElement: VideoView) {
-        guard !contains(weakElement: weakElement) else { return }
-        append(WeakContainer(weakObject: weakElement))
-    }
-
-    mutating func remove(weakElement: VideoView) {
-        removeAll { $0.weakObject == weakElement }
-    }
-}
-
 public class Track: MulticastDelegate<TrackDelegate> {
 
     public static let cameraName = "camera"
@@ -88,8 +64,8 @@ public class Track: MulticastDelegate<TrackDelegate> {
     internal var transceiver: RTCRtpTransceiver?
     internal var sender: RTCRtpSender? { transceiver?.sender }
 
-    // must be on main thread
-    internal var videoViews = [WeakContainer<VideoView>]()
+    // Weak reference to all VideoViews attached to this track. Must be accessed from main thread.
+    internal var videoViews = NSHashTable<VideoView>.weakObjects()
 
     internal struct State {
         var sid: Sid?

@@ -21,26 +21,11 @@ import Network
 
 internal class Engine: MulticastDelegate<EngineDelegate> {
 
-    public let signalClient = SignalClient()
+    // MARK: - Public
 
-    // private(set) var hasPublished: Bool = false
-    private(set) var publisher: Transport?
-    private(set) var subscriber: Transport?
+    public typealias ConditionEvalFunc = (_ newState: State, _ oldState: State?) -> Bool
 
-    private(set) var connectOptions: ConnectOptions
-    private(set) var roomOptions: RoomOptions
-
-    private var subscriberPrimary: Bool = false
-    private var primary: Transport? {
-        subscriberPrimary ? subscriber : publisher
-    }
-
-    private var dcReliablePub: RTCDataChannel?
-    private var dcLossyPub: RTCDataChannel?
-    private var dcReliableSub: RTCDataChannel?
-    private var dcLossySub: RTCDataChannel?
-
-    internal struct State: ReconnectableState {
+    public struct State: ReconnectableState {
         var url: String?
         var token: String?
         // preferred reconnect mode which will be used only for next attempt
@@ -55,7 +40,39 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
         var publisherLossyDCOpenCompleter = Completer<Void>()
     }
 
-    internal var _state = StateSync(State())
+    public var _state = StateSync(State())
+
+    public let signalClient = SignalClient()
+
+    public private(set) var publisher: Transport?
+    public private(set) var subscriber: Transport?
+
+    public private(set) var connectOptions: ConnectOptions
+    public private(set) var roomOptions: RoomOptions
+
+    // weak ref to Room
+    public weak var room: Room?
+
+    // MARK: - Private
+
+    private struct ConditionalExecutionEntry {
+        let executeCondition: ConditionEvalFunc
+        let removeCondition: ConditionEvalFunc
+        let block: () -> Void
+    }
+
+    private var subscriberPrimary: Bool = false
+    private var primary: Transport? { subscriberPrimary ? subscriber : publisher }
+
+    private var dcReliablePub: RTCDataChannel?
+    private var dcLossyPub: RTCDataChannel?
+    private var dcReliableSub: RTCDataChannel?
+    private var dcLossySub: RTCDataChannel?
+
+    private var _blockProcessQueue = DispatchQueue(label: "LiveKitSDK.engine.pendingBlocks",
+                                                   qos: .default)
+
+    private var _queuedBlocks = [ConditionalExecutionEntry]()
 
     init(connectOptions: ConnectOptions,
          roomOptions: RoomOptions) {
@@ -82,6 +99,25 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
             }
 
             self.notify { $0.engine(self, didMutate: state, oldState: oldState) }
+
+            // execution control
+            self._blockProcessQueue.async { [weak self] in
+                guard let self = self, !self._queuedBlocks.isEmpty else { return }
+
+                self.log("[execution control] processing pending entries (\(self._queuedBlocks.count))...")
+
+                self._queuedBlocks.removeAll { entry in
+                    // return and remove this entry if matches remove condition
+                    guard !entry.removeCondition(state, oldState) else { return true }
+                    // return but don't remove this entry if doesn't match execute condition
+                    guard entry.executeCondition(state, oldState) else { return false }
+
+                    self.log("[execution control] condition matching block...")
+                    entry.block()
+                    // remove this entry
+                    return true
+                }
+            }
         }
     }
 
@@ -119,32 +155,53 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
         }
     }
 
-    // Resets state of Engine
+    // cleanUp (reset) both Room & Engine's state
     @discardableResult
     func cleanUp(reason: DisconnectReason? = nil,
                  isFullReconnect: Bool = false) -> Promise<Void> {
 
-        log("reason: \(String(describing: reason))")
+        // this should never happen since Engine is owned by Room
+        guard let room = self.room else { return Promise(EngineError.state(message: "Room is nil")) }
 
-        // reset state
-        _state.mutate {
-            $0.primaryTransportConnectedCompleter.reset()
-            $0.publisherTransportConnectedCompleter.reset()
-            $0.publisherReliableDCOpenCompleter.reset()
-            $0.publisherLossyDCOpenCompleter.reset()
+        // call Room's cleanUp
+        return room.cleanUp(reason: reason, isFullReconnect: isFullReconnect)
+    }
 
-            // if isFullReconnect, keep connection related states
-            $0 = isFullReconnect ? State(
-                url: $0.url,
-                token: $0.token,
-                nextPreferredReconnectMode: $0.nextPreferredReconnectMode,
-                reconnectMode: $0.reconnectMode,
-                connectionState: $0.connectionState) : State()
+    // Resets state of transports
+    func cleanUpRTC() -> Promise<Void> {
+
+        func closeAllDataChannels() -> Promise<Void> {
+
+            let promises = [dcReliablePub, dcLossyPub, dcReliableSub, dcLossySub]
+                .compactMap { $0 }
+                .map { dc in Promise<Void>(on: .webRTC) { dc.close() } }
+
+            return promises.all(on: .sdk).then(on: .sdk) {
+                self.dcReliablePub = nil
+                self.dcLossyPub = nil
+                self.dcReliableSub = nil
+                self.dcLossySub = nil
+            }
         }
 
-        signalClient.cleanUp(reason: reason)
+        func closeAllTransports() -> Promise<Void> {
 
-        return cleanUpRTC()
+            let promises = [publisher, subscriber]
+                .compactMap { $0 }
+                .map { $0.close() }
+
+            return promises.all(on: .sdk).then(on: .sdk) {
+                self.publisher = nil
+                self.subscriber = nil
+                self._state.mutate { $0.hasPublished = false }
+            }
+        }
+
+        return closeAllDataChannels()
+            .recover(on: .sdk) { self.log("Failed to close data channels, error: \($0)") }
+            .then(on: .sdk) {
+                closeAllTransports()
+            }
     }
 
     func publisherShouldNegotiate() {
@@ -209,6 +266,43 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
     }
 }
 
+// MARK: - Execution control (Internal)
+
+internal extension Engine {
+
+    func executeIfConnected(_ block: @escaping @convention(block) () -> Void) {
+
+        if case .connected = _state.connectionState {
+            // execute immediately
+            block()
+        }
+    }
+
+    func execute(when condition: @escaping ConditionEvalFunc,
+                 removeWhen removeCondition: @escaping ConditionEvalFunc,
+                 _ block: @escaping () -> Void) {
+
+        // already matches condition, execute immediately
+        if _state.read({ condition($0, nil) }) {
+            log("[execution control] executing immediately...")
+            block()
+        } else {
+            _blockProcessQueue.async { [weak self] in
+                guard let self = self else { return }
+
+                // create an entry and enqueue block
+                self.log("[execution control] enqueuing entry...")
+
+                let entry = ConditionalExecutionEntry(executeCondition: condition,
+                                                      removeCondition: removeCondition,
+                                                      block: block)
+
+                self._queuedBlocks.append(entry)
+            }
+        }
+    }
+}
+
 // MARK: - Private
 
 private extension Engine {
@@ -231,44 +325,6 @@ private extension Engine {
         default:
             log("Unknown data channel label \(dataChannel.label)", .warning)
         }
-    }
-
-    // Resets state of transports
-    @discardableResult
-    func cleanUpRTC() -> Promise<Void> {
-
-        func closeAllDataChannels() -> Promise<Void> {
-
-            let promises = [dcReliablePub, dcLossyPub, dcReliableSub, dcLossySub]
-                .compactMap { $0 }
-                .map { dc in Promise<Void>(on: .webRTC) { dc.close() } }
-
-            return promises.all(on: .sdk).then(on: .sdk) {
-                self.dcReliablePub = nil
-                self.dcLossyPub = nil
-                self.dcReliableSub = nil
-                self.dcLossySub = nil
-            }
-        }
-
-        func closeAllTransports() -> Promise<Void> {
-
-            let promises = [publisher, subscriber]
-                .compactMap { $0 }
-                .map { $0.close() }
-
-            return promises.all(on: .sdk).then(on: .sdk) {
-                self.publisher = nil
-                self.subscriber = nil
-                self._state.mutate { $0.hasPublished = false }
-            }
-        }
-
-        return closeAllDataChannels()
-            .recover(on: .sdk) { self.log("Failed to close data channels, error: \($0)") }
-            .then(on: .sdk) {
-                closeAllTransports()
-            }
     }
 
     // full connect sequence, doesn't update connection state
@@ -323,7 +379,6 @@ private extension Engine {
         func quickReconnectSequence() -> Promise<Void> {
 
             log("[reconnect] starting QUICK reconnect sequence...")
-            // return Promise(EngineError.state(message: "DEBUG"))
 
             return self.signalClient.connect(url,
                                              token,
@@ -367,7 +422,7 @@ private extension Engine {
 
             log("[reconnect] starting FULL reconnect sequence...")
 
-            return self.cleanUp(isFullReconnect: true).then(on: .sdk) { () -> Promise<Void> in
+            return cleanUp(isFullReconnect: true).then(on: .sdk) { () -> Promise<Void> in
 
                 guard let url = self._state.url,
                       let token = self._state.token else {
@@ -647,7 +702,14 @@ extension Engine: TransportDelegate {
     func transport(_ transport: Transport, didAdd track: RTCMediaStreamTrack, streams: [RTCMediaStream]) {
         log("did add track")
         if transport.target == .subscriber {
-            notify { $0.engine(self, didAdd: track, streams: streams) }
+
+            // execute block when connected
+            execute(when: { state, _ in state.connectionState == .connected },
+                    // always remove this block when disconnected
+                    removeWhen: { state, _ in state.connectionState == .disconnected() }) { [weak self] in
+                guard let self = self else { return }
+                self.notify { $0.engine(self, didAdd: track, streams: streams) }
+            }
         }
     }
 
@@ -686,11 +748,11 @@ extension Engine: ConnectivityListenerDelegate {
 
 // MARK: Engine - Factory methods
 
-extension Engine {
+internal extension Engine {
 
     /// Set this to true to bypass initialization of voice processing.
     /// Must be set before RTCPeerConnectionFactory gets initialized.
-    internal static var bypassVoiceProcessing: Bool = false
+    static var bypassVoiceProcessing: Bool = false
 
     // forbid direct access
     private static let factory: RTCPeerConnectionFactory = {
@@ -719,14 +781,14 @@ extension Engine {
         factory.audioDeviceModule
     }
 
-    internal static func createPeerConnection(_ configuration: RTCConfiguration,
-                                              constraints: RTCMediaConstraints) -> RTCPeerConnection? {
+    static func createPeerConnection(_ configuration: RTCConfiguration,
+                                     constraints: RTCMediaConstraints) -> RTCPeerConnection? {
         DispatchQueue.webRTC.sync { factory.peerConnection(with: configuration,
                                                            constraints: constraints,
                                                            delegate: nil) }
     }
 
-    internal static func createVideoSource(forScreenShare: Bool) -> RTCVideoSource {
+    static func createVideoSource(forScreenShare: Bool) -> RTCVideoSource {
         #if LK_USING_CUSTOM_WEBRTC_BUILD
         DispatchQueue.webRTC.sync { factory.videoSource() }
         #else
@@ -734,48 +796,48 @@ extension Engine {
         #endif
     }
 
-    internal static func createVideoTrack(source: RTCVideoSource) -> RTCVideoTrack {
+    static func createVideoTrack(source: RTCVideoSource) -> RTCVideoTrack {
         DispatchQueue.webRTC.sync { factory.videoTrack(with: source,
                                                        trackId: UUID().uuidString) }
     }
 
-    internal static func createAudioSource(_ constraints: RTCMediaConstraints?) -> RTCAudioSource {
+    static func createAudioSource(_ constraints: RTCMediaConstraints?) -> RTCAudioSource {
         DispatchQueue.webRTC.sync { factory.audioSource(with: constraints) }
     }
 
-    internal static func createAudioTrack(source: RTCAudioSource) -> RTCAudioTrack {
+    static func createAudioTrack(source: RTCAudioSource) -> RTCAudioTrack {
         DispatchQueue.webRTC.sync { factory.audioTrack(with: source,
                                                        trackId: UUID().uuidString) }
     }
 
-    internal static func createDataChannelConfiguration(ordered: Bool = true,
-                                                        maxRetransmits: Int32 = -1) -> RTCDataChannelConfiguration {
+    static func createDataChannelConfiguration(ordered: Bool = true,
+                                               maxRetransmits: Int32 = -1) -> RTCDataChannelConfiguration {
         let result = DispatchQueue.webRTC.sync { RTCDataChannelConfiguration() }
         result.isOrdered = ordered
         result.maxRetransmits = maxRetransmits
         return result
     }
 
-    internal static func createDataBuffer(data: Data) -> RTCDataBuffer {
+    static func createDataBuffer(data: Data) -> RTCDataBuffer {
         DispatchQueue.webRTC.sync { RTCDataBuffer(data: data, isBinary: true) }
     }
 
-    internal static func createIceCandidate(fromJsonString: String) throws -> RTCIceCandidate {
+    static func createIceCandidate(fromJsonString: String) throws -> RTCIceCandidate {
         try DispatchQueue.webRTC.sync { try RTCIceCandidate(fromJsonString: fromJsonString) }
     }
 
-    internal static func createSessionDescription(type: RTCSdpType, sdp: String) -> RTCSessionDescription {
+    static func createSessionDescription(type: RTCSdpType, sdp: String) -> RTCSessionDescription {
         DispatchQueue.webRTC.sync { RTCSessionDescription(type: type, sdp: sdp) }
     }
 
-    internal static func createVideoCapturer() -> RTCVideoCapturer {
+    static func createVideoCapturer() -> RTCVideoCapturer {
         DispatchQueue.webRTC.sync { RTCVideoCapturer() }
     }
 
-    internal static func createRtpEncodingParameters(rid: String? = nil,
-                                                     encoding: VideoEncoding? = nil,
-                                                     scaleDown: Double = 1.0,
-                                                     active: Bool = true) -> RTCRtpEncodingParameters {
+    static func createRtpEncodingParameters(rid: String? = nil,
+                                            encoding: VideoEncoding? = nil,
+                                            scaleDown: Double = 1.0,
+                                            active: Bool = true) -> RTCRtpEncodingParameters {
 
         let result = DispatchQueue.webRTC.sync { RTCRtpEncodingParameters() }
 

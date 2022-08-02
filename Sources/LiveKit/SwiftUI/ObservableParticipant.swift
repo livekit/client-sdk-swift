@@ -164,6 +164,10 @@ open class ObservableParticipant: ObservableObject {
         participant.isSpeaking
     }
 
+    public var joinedAt: Date? {
+        participant.joinedAt
+    }
+
     public var connectionQuality: ConnectionQuality {
         participant.connectionQuality
     }

@@ -48,8 +48,6 @@ public class LocalTrackPublication: TrackPublication {
         return track.unmute()
     }
 
-    #if LK_COMPUTE_VIDEO_SENDER_PARAMETERS
-
     override func set(track newValue: Track?) -> Track? {
         let oldValue = super.set(track: newValue)
 
@@ -76,7 +74,6 @@ public class LocalTrackPublication: TrackPublication {
     }, fnc: { [weak self] in
         self?.recomputeSenderParameters()
     })
-    #endif
 }
 
 internal extension LocalTrackPublication {
@@ -99,8 +96,6 @@ internal extension LocalTrackPublication {
         }
     }
 }
-
-#if LK_COMPUTE_VIDEO_SENDER_PARAMETERS
 
 extension LocalTrackPublication: VideoCapturerDelegate {
 
@@ -173,5 +168,3 @@ extension LocalTrackPublication {
                                                                    }
     }
 }
-
-#endif

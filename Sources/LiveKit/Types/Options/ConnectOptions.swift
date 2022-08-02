@@ -33,11 +33,23 @@ public struct ConnectOptions {
     public init(autoSubscribe: Bool = true,
                 rtcConfiguration: RTCConfiguration = .liveKitDefault(),
                 publishOnlyMode: String? = nil,
-                protocolVersion: ProtocolVersion = .v7) {
+                protocolVersion: ProtocolVersion = .v8) {
 
         self.autoSubscribe = autoSubscribe
         self.rtcConfiguration = rtcConfiguration
         self.publishOnlyMode = publishOnlyMode
         self.protocolVersion = protocolVersion
+    }
+}
+
+public extension ConnectOptions {
+
+    func copyWith(autoSubscribe: Bool? = nil,
+                  rtcConfiguration: RTCConfiguration? = nil,
+                  protocolVersion: ProtocolVersion? = nil) -> ConnectOptions {
+
+        ConnectOptions(autoSubscribe: autoSubscribe ?? self.autoSubscribe,
+                       rtcConfiguration: rtcConfiguration ?? self.rtcConfiguration,
+                       protocolVersion: protocolVersion ?? self.protocolVersion)
     }
 }

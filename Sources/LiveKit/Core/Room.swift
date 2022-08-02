@@ -72,6 +72,9 @@ public class Room: MulticastDelegate<RoomDelegate> {
 
         log()
 
+        // weak ref
+        engine.room = self
+
         // listen to engine & signalClient
         engine.add(delegate: self)
         engine.signalClient.add(delegate: self)
@@ -82,6 +85,27 @@ public class Room: MulticastDelegate<RoomDelegate> {
 
         // listen to app states
         AppStateListener.shared.add(delegate: self)
+
+        // trigger events when state mutates
+        _state.onMutate = { [weak self] state, oldState in
+
+            guard let self = self else { return }
+
+            // metadata updated
+            if let metadata = state.metadata, metadata != oldState.metadata,
+               // don't notify if empty string (first time only)
+               (oldState.metadata == nil ? !metadata.isEmpty : true) {
+
+                self.engine.executeIfConnected { [weak self] in
+
+                    guard let self = self else { return }
+
+                    self.notify(label: { "room.didUpdate metadata: \(metadata)" }) {
+                        $0.room(self, didUpdate: metadata)
+                    }
+                }
+            }
+        }
     }
 
     deinit {
@@ -129,6 +153,48 @@ public class Room: MulticastDelegate<RoomDelegate> {
 
 // MARK: - Internal
 
+internal extension Room {
+
+    // Resets state of Room
+    @discardableResult
+    func cleanUp(reason: DisconnectReason? = nil,
+                 isFullReconnect: Bool = false) -> Promise<Void> {
+
+        log("reason: \(String(describing: reason))")
+
+        // start Engine cleanUp sequence
+
+        engine._state.mutate {
+            $0.primaryTransportConnectedCompleter.reset()
+            $0.publisherTransportConnectedCompleter.reset()
+            $0.publisherReliableDCOpenCompleter.reset()
+            $0.publisherLossyDCOpenCompleter.reset()
+
+            // if isFullReconnect, keep connection related states
+            $0 = isFullReconnect ? Engine.State(
+                url: $0.url,
+                token: $0.token,
+                nextPreferredReconnectMode: $0.nextPreferredReconnectMode,
+                reconnectMode: $0.reconnectMode,
+                connectionState: $0.connectionState) : Engine.State()
+        }
+
+        engine.signalClient.cleanUp(reason: reason)
+
+        return engine.cleanUpRTC().then(on: .sdk) {
+            self.cleanUpParticipants()
+        }.then(on: .sdk) {
+            // reset state
+            self._state.mutate { $0 = State() }
+        }.catch(on: .sdk) { error in
+            // this should never happen
+            self.log("Room cleanUp failed with error: \(error)", .error)
+        }
+    }
+}
+
+// MARK: - Internal
+
 internal extension Room.State {
 
     @discardableResult
@@ -148,24 +214,6 @@ internal extension Room.State {
 
 private extension Room {
 
-    // Resets state of Room
-    @discardableResult
-    private func cleanUp(reason: DisconnectReason? = nil) -> Promise<Void> {
-
-        log("reason: \(String(describing: reason))")
-
-        return engine.cleanUp(reason: reason)
-            .then(on: .sdk) {
-                self.cleanUpParticipants()
-            }.then(on: .sdk) {
-                // reset state
-                self._state.mutate { $0 = State() }
-            }.catch(on: .sdk) { error in
-                // this should never happen
-                self.log("Engine cleanUp failed", .error)
-            }
-    }
-
     @discardableResult
     func cleanUpParticipants(notify _notify: Bool = true) -> Promise<Void> {
 
@@ -179,7 +227,7 @@ private extension Room {
 
         let cleanUpPromises = allParticipants.map { $0.cleanUp(notify: _notify) }
 
-        return cleanUpPromises.all(on: .sdk).then {
+        return cleanUpPromises.all(on: .sdk).then(on: .sdk) {
             //
             self._state.mutate {
                 $0.localParticipant = nil
@@ -196,23 +244,6 @@ private extension Room {
         }
 
         return participant.cleanUp(notify: true)
-    }
-}
-
-// MARK: - Internal
-
-internal extension Room {
-
-    func set(metadata: String?) {
-        guard self.metadata != metadata else { return }
-
-        self._state.mutate { state in
-            state.metadata = metadata
-        }
-
-        notify(label: { "room.didUpdate metadata: \(metadata ?? "nil")" }) {
-            $0.room(self, didUpdate: metadata)
-        }
     }
 }
 
@@ -302,7 +333,7 @@ extension Room: SignalClientDelegate {
 
     func signalClient(_ signalClient: SignalClient, didUpdate trackSid: String, subscribedQualities: [Livekit_SubscribedQuality]) -> Bool {
 
-        log()
+        log("qualities: \(subscribedQualities.map({ String(describing: $0) }).joined(separator: ", "))")
 
         guard let localParticipant = _state.localParticipant else { return true }
         localParticipant.onSubscribedQualitiesUpdate(trackSid: trackSid, subscribedQualities: subscribedQualities)
@@ -335,7 +366,7 @@ extension Room: SignalClientDelegate {
     }
 
     func signalClient(_ signalClient: SignalClient, didUpdate room: Livekit_Room) -> Bool {
-        set(metadata: room.metadata)
+        _state.mutate { $0.metadata = room.metadata }
         return true
     }
 
@@ -368,8 +399,12 @@ extension Room: SignalClientDelegate {
             return state.activeSpeakers
         }
 
-        notify(label: { "room.didUpdate speakers: \(speakers)" }) {
-            $0.room(self, didUpdate: activeSpeakers)
+        engine.executeIfConnected { [weak self] in
+            guard let self = self else { return }
+
+            self.notify(label: { "room.didUpdate speakers: \(speakers)" }) {
+                $0.room(self, didUpdate: activeSpeakers)
+            }
         }
 
         return true
@@ -472,8 +507,13 @@ extension Room: SignalClientDelegate {
         }
 
         for participant in newParticipants {
-            notify(label: { "room.participantDidJoin participant: \(participant)" }) {
-                $0.room(self, participantDidJoin: participant)
+
+            engine.executeIfConnected { [weak self] in
+                guard let self = self else { return }
+
+                self.notify(label: { "room.participantDidJoin participant: \(participant)" }) {
+                    $0.room(self, participantDidJoin: participant)
+                }
             }
         }
 
@@ -603,8 +643,12 @@ extension Room: EngineDelegate {
             return activeSpeakers
         }
 
-        notify(label: { "room.didUpdate speakers: \(activeSpeakers)" }) {
-            $0.room(self, didUpdate: activeSpeakers)
+        engine.executeIfConnected { [weak self] in
+            guard let self = self else { return }
+
+            self.notify(label: { "room.didUpdate speakers: \(activeSpeakers)" }) {
+                $0.room(self, didUpdate: activeSpeakers)
+            }
         }
     }
 
@@ -646,12 +690,19 @@ extension Room: EngineDelegate {
         // participant could be null if data broadcasted from server
         let participant = _state.remoteParticipants[userPacket.participantSid]
 
-        notify(label: { "room.didReceive data: \(userPacket.payload)" }) {
-            $0.room(self, participant: participant, didReceive: userPacket.payload)
-        }
-        participant?.notify(label: { "participant.didReceive data: \(userPacket.payload)" }) { [weak participant] (delegate) -> Void in
-            guard let participant = participant else { return }
-            delegate.participant(participant, didReceive: userPacket.payload)
+        engine.executeIfConnected { [weak self] in
+            guard let self = self else { return }
+
+            self.notify(label: { "room.didReceive data: \(userPacket.payload)" }) {
+                $0.room(self, participant: participant, didReceive: userPacket.payload)
+            }
+
+            if let participant = participant {
+                participant.notify(label: { "participant.didReceive data: \(userPacket.payload)" }) { [weak participant] (delegate) -> Void in
+                    guard let participant = participant else { return }
+                    delegate.participant(participant, didReceive: userPacket.payload)
+                }
+            }
         }
     }
 }

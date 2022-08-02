@@ -56,8 +56,17 @@ internal final class StateSync<Value> {
         }
     }
 
+    // block read
+    public func read<Result>(_ block: (Value) throws -> Result) rethrows -> Result {
+        // concurrent
+        try queue.sync {
+            try block(_value)
+        }
+    }
+
     // read only
     subscript<Property>(dynamicMember keyPath: KeyPath<Value, Property>) -> Property {
+        // concurrent
         queue.sync { _value[keyPath: keyPath] }
     }
 }

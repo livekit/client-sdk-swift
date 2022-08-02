@@ -24,7 +24,7 @@ extension VideoTrack {
 
     public func add(videoView: VideoView) {
 
-        // should always be on main thread
+        // must always be called on main thread
         assert(Thread.current.isMainThread, "must be called on main thread")
 
         guard let videoTrack = self.mediaTrack as? RTCVideoTrack else {
@@ -32,28 +32,16 @@ extension VideoTrack {
             return
         }
 
-        guard !videoViews.contains(weakElement: videoView) else {
-            log("already attached", .warning)
-            return
-        }
-
-        while let otherVideoView = videoViews.allObjects.first(where: { $0 != videoView }) {
-            videoTrack.remove(otherVideoView)
-            videoViews.remove(weakElement: otherVideoView)
-        }
-
-        assert(videoViews.allObjects.count <= 1, "multiple VideoViews attached")
-
         videoTrack.add(videoView)
-        videoViews.add(weakElement: videoView)
+        videoViews.add(videoView)
     }
 
     public func remove(videoView: VideoView) {
 
-        // should always be on main thread
+        // must always be called on main thread
         assert(Thread.current.isMainThread, "must be called on main thread")
 
-        videoViews.remove(weakElement: videoView)
+        videoViews.remove(videoView)
 
         guard let videoTrack = self.mediaTrack as? RTCVideoTrack else {
             log("mediaTrack is not a RTCVideoTrack", .error)
@@ -61,15 +49,5 @@ extension VideoTrack {
         }
 
         videoTrack.remove(videoView)
-    }
-
-    @available(*, deprecated, message: "Use add(videoView:) instead")
-    public func add(renderer: VideoView) {
-        add(videoView: renderer)
-    }
-
-    @available(*, deprecated, message: "Use remove(videoView:) instead")
-    public func remove(renderer: VideoView) {
-        remove(videoView: renderer)
     }
 }

@@ -23,25 +23,32 @@ public typealias NativeRendererView = NativeViewType & RTCVideoRenderer
 
 public class VideoView: NativeView, MulticastDelegateCapable, Loggable {
 
-    public var delegates = MulticastDelegate<DelegateType>()
-
-    public typealias DelegateType = VideoViewDelegate
+    // MARK: - Static
 
     private static let mirrorTransform = CATransform3DMakeScale(-1.0, 1.0, 1.0)
     private static let _freezeDetectThreshold = 2.0
 
+    // MARK: - Public
+
+    public typealias DelegateType = VideoViewDelegate
+    public var delegates = MulticastDelegate<DelegateType>()
+
+    /// Specifies how to render the video withing the ``VideoView``'s bounds.
     public enum LayoutMode: String, Codable, CaseIterable {
+        /// Video will be fully visible within the ``VideoView``.
         case fit
+        /// Video will fully cover up the ``VideoView``.
         case fill
     }
 
     public enum MirrorMode: String, Codable, CaseIterable {
+        /// Will mirror if the track is a front facing camera track.
         case auto
         case off
         case mirror
     }
 
-    /// Layout ``ContentMode`` of the ``VideoView``.
+    /// ``LayoutMode-swift.enum`` of the ``VideoView``.
     public var layoutMode: LayoutMode {
         get { _state.layoutMode }
         set { _state.mutate { $0.layoutMode = newValue } }
@@ -92,10 +99,6 @@ public class VideoView: NativeView, MulticastDelegateCapable, Loggable {
     public var isRendering: Bool { _state.isRendering }
     public var didRenderFirstFrame: Bool { _state.didRenderFirstFrame }
 
-    private var nativeRenderer: NativeRendererView?
-
-    private var _debugTextView: TextView?
-
     // MARK: - Internal
 
     internal struct State {
@@ -120,6 +123,11 @@ public class VideoView: NativeView, MulticastDelegateCapable, Loggable {
     }
 
     internal var _state: StateSync<State>
+
+    // MARK: - Private
+
+    private var nativeRenderer: NativeRendererView?
+    private var _debugTextView: TextView?
 
     // used for stats timer
     private lazy var _renderTimer = DispatchQueueTimer(timeInterval: 0.1)
@@ -291,7 +299,7 @@ public class VideoView: NativeView, MulticastDelegateCapable, Loggable {
             let _dimensions = _state.track?.dimensions ?? .zero
             let _didRenderFirstFrame = _state.didRenderFirstFrame ? "true" : "false"
             let _isRendering = _state.isRendering ? "true" : "false"
-            let _viewCount = _state.track?.videoViews.count ?? 0
+            let _viewCount = _state.track?.videoViews.allObjects.count ?? 0
             let _didLayout = _state.didLayout
             let debugView = ensureDebugTextView()
             debugView.text = "#\(hashValue)\n" + "\(_trackSid)\n" + "\(_dimensions.width)x\(_dimensions.height)\n" + "enabled: \(isEnabled)\n" + "firstFrame: \(_didRenderFirstFrame)\n" + "isRendering: \(_isRendering)\n" + "viewCount: \(_viewCount)\n" + "layout: \(_didLayout)"
