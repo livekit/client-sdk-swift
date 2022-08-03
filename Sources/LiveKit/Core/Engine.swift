@@ -764,7 +764,6 @@ internal extension Engine {
     // forbid direct access
     private static let factory: RTCPeerConnectionFactory = {
         logger.log("initializing PeerConnectionFactory...", type: Engine.self)
-        RTCSetMinDebugLogLevel(.verbose)
         RTCInitializeSSL()
         let encoderFactory = RTCDefaultVideoEncoderFactory()
         let decoderFactory = RTCDefaultVideoDecoderFactory()
