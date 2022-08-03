@@ -784,7 +784,7 @@ internal extension Engine {
         return result
     }()
 
-    internal static var audioDeviceModule: RTCAudioDeviceModule {
+    static var audioDeviceModule: RTCAudioDeviceModule {
         factory.audioDeviceModule
     }
 
