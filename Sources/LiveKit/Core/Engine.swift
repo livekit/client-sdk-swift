@@ -439,30 +439,36 @@ private extension Engine {
                      condition: { [weak self] triesLeft, _ in
                         guard let self = self else { return false }
 
-                        guard case .reconnecting = self._state.connectionState else {
-                            // not reconnecting state anymore
-                            return false
-                        }
+                        // not reconnecting state anymore
+                        guard case .reconnecting = self._state.connectionState else { return false }
 
-                        if self._state.reconnectMode == .full {
-                            // full reconnect failed, give up
-                            return false
-                        }
+                        // full reconnect failed, give up
+                        guard .full != self._state.reconnectMode else { return false }
 
                         self.log("[reconnect] retry in \(TimeInterval.defaultQuickReconnectRetry) seconds, \(triesLeft) tries left...")
-                        // only retry if still reconnecting state (not disconnected)
-                        return true
-                     }, _: { [weak self] in
-                        guard let self = self else { return Promise(()) }
 
-                        self._state.mutate {
-                            $0.connectionState = .reconnecting
-                            $0.reconnectMode = ($0.nextPreferredReconnectMode == .full || $0.reconnectMode == .full) ? .full : .quick
-                            $0.nextPreferredReconnectMode = nil
+                        // try full reconnect for the final attempt
+                        if triesLeft == 1,
+                           self._state.nextPreferredReconnectMode == nil {
+                            self._state.mutate {  $0.nextPreferredReconnectMode = .full }
                         }
 
-                        return self._state.reconnectMode == .full ? fullReconnectSequence() : quickReconnectSequence()
+                        return true
+                     }, _: { [weak self] in
+                        // this should never happen
+                        guard let self = self else { return Promise(EngineError.state(message: "self is nil")) }
 
+                        let mode: ReconnectMode = self._state.mutate {
+
+                            let mode: ReconnectMode = ($0.nextPreferredReconnectMode == .full || $0.reconnectMode == .full) ? .full : .quick
+                            $0.connectionState = .reconnecting
+                            $0.reconnectMode = mode
+                            $0.nextPreferredReconnectMode = nil
+
+                            return mode
+                        }
+
+                        return mode == .full ? fullReconnectSequence() : quickReconnectSequence()
                      })
             .then(on: .sdk) {
                 // re-connect sequence successful
@@ -495,15 +501,16 @@ extension Engine: SignalClientDelegate {
 
     func signalClient(_ signalClient: SignalClient, didMutate state: SignalClient.State, oldState: SignalClient.State) -> Bool {
 
-        // connectionState updated
-        if state.connectionState != oldState.connectionState {
-
-            // Attempt re-connect if disconnected(reason: network)
-            if case .disconnected(let reason) = state.connectionState,
-               case .networkError = reason {
-                log("[reconnect] starting, reason: socket network error. connectionState: \(_state.connectionState)")
-                startReconnect()
-            }
+        // connectionState did update
+        if state.connectionState != oldState.connectionState,
+           // did disconnect
+           case .disconnected(let reason) = state.connectionState,
+           // only attempt re-connect if disconnected(reason: network)
+           case .networkError = reason,
+           // engine is currently connected state
+           case .connected = _state.connectionState {
+            log("[reconnect] starting, reason: socket network error. connectionState: \(_state.connectionState)")
+            startReconnect()
         }
 
         return true
