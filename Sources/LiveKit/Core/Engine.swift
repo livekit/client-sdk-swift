@@ -757,8 +757,9 @@ extension Engine: ConnectivityListenerDelegate {
 
 private extension Array where Element: RTCVideoCodecInfo {
 
-    func swapH264Codec() -> [RTCVideoCodecInfo] {
-        // 42e032
+    func rewriteCodecsIfNeeded() -> [RTCVideoCodecInfo] {
+        #if os(macOS)
+        // rewrite H264's profileLevelId to 42e032 only for macOS
         guard let profileLevelId = RTCH264ProfileLevelId(profile: .constrainedBaseline, level: .level5) else {
             // this should never happen
             logger.log("failed to generate profileLevelId", .error, type: Engine.self)
@@ -775,27 +776,31 @@ private extension Array where Element: RTCVideoCodecInfo {
         let codecs = map { $0.name == kRTCVideoCodecH264Name ? newH264 : $0 }
         logger.log("supportedCodecs: \(codecs.map({ "\($0.name) - \($0.parameters)" }).joined(separator: ", "))", type: Engine.self)
         return codecs
+        #else
+        // no-op
+        return self
+        #endif
     }
 }
 
 private class VideoEncoderFactory: RTCDefaultVideoEncoderFactory {
 
     override func supportedCodecs() -> [RTCVideoCodecInfo] {
-        super.supportedCodecs().swapH264Codec()
+        super.supportedCodecs().rewriteCodecsIfNeeded()
     }
 }
 
 private class VideoDecoderFactory: RTCDefaultVideoDecoderFactory {
 
     override func supportedCodecs() -> [RTCVideoCodecInfo] {
-        super.supportedCodecs().swapH264Codec()
+        super.supportedCodecs().rewriteCodecsIfNeeded()
     }
 }
 
 private class VideoEncoderFactorySimulcast: RTCVideoEncoderFactorySimulcast {
 
     override func supportedCodecs() -> [RTCVideoCodecInfo] {
-        super.supportedCodecs().swapH264Codec()
+        super.supportedCodecs().rewriteCodecsIfNeeded()
     }
 }
 
