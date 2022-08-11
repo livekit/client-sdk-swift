@@ -755,6 +755,32 @@ extension Engine: ConnectivityListenerDelegate {
 
 // MARK: Engine - Factory methods
 
+private class VideoEncoderFactory: RTCDefaultVideoEncoderFactory {
+
+    override class func supportedCodecs() -> [RTCVideoCodecInfo] {
+        // get default supportedCodecs
+        let parentCodecs = super.supportedCodecs()
+
+        // 42e032
+        guard let profileLevelId = RTCH264ProfileLevelId(profile: .constrainedBaseline, level: .level5) else {
+            // this should never happen
+            logger.log("failed to generate profileLevelId", .error, type: Engine.self)
+            return parentCodecs
+        }
+
+        // create a new H264 codec with new profileLevelId
+        let newH264 = RTCVideoCodecInfo(name: kRTCH264CodecName,
+                                        parameters: ["profile-level-id": profileLevelId.hexString,
+                                                     "level-asymmetry-allowed": "1",
+                                                     "packetization-mode": "1"])
+
+        // swap the h264 codec
+        let codecs = super.supportedCodecs().map { $0.name == kRTCVideoCodecH264Name ? newH264 : $0 }
+        print("supportedCodecs: \(codecs.map({ "\($0.name) - \($0.parameters)" }).joined(separator: ", "))")
+        return codecs
+    }
+}
+
 internal extension Engine {
 
     /// Set this to true to bypass initialization of voice processing.
@@ -765,7 +791,7 @@ internal extension Engine {
     private static let factory: RTCPeerConnectionFactory = {
         logger.log("initializing PeerConnectionFactory...", type: Engine.self)
         RTCInitializeSSL()
-        let encoderFactory = RTCDefaultVideoEncoderFactory()
+        let encoderFactory = VideoEncoderFactory()
         let decoderFactory = RTCDefaultVideoDecoderFactory()
         let result: RTCPeerConnectionFactory
         #if LK_USING_CUSTOM_WEBRTC_BUILD
