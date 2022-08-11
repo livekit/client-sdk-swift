@@ -675,7 +675,7 @@ extension Engine: TransportDelegate {
                                            reportStats: self.roomOptions.reportStats)
 
             self.publisher?.onOffer = { offer in
-                self.log("publisher onOffer")
+                self.log("publisher onOffer \(offer.sdp)")
                 return self.signalClient.sendOffer(offer: offer)
             }
 
@@ -755,17 +755,14 @@ extension Engine: ConnectivityListenerDelegate {
 
 // MARK: Engine - Factory methods
 
-private class VideoEncoderFactory: RTCDefaultVideoEncoderFactory {
+private extension Array where Element: RTCVideoCodecInfo {
 
-    override class func supportedCodecs() -> [RTCVideoCodecInfo] {
-        // get default supportedCodecs
-        let parentCodecs = super.supportedCodecs()
-
+    func swapH264Codec() -> [RTCVideoCodecInfo] {
         // 42e032
         guard let profileLevelId = RTCH264ProfileLevelId(profile: .constrainedBaseline, level: .level5) else {
             // this should never happen
             logger.log("failed to generate profileLevelId", .error, type: Engine.self)
-            return parentCodecs
+            return self
         }
 
         // create a new H264 codec with new profileLevelId
@@ -775,9 +772,30 @@ private class VideoEncoderFactory: RTCDefaultVideoEncoderFactory {
                                                      "packetization-mode": "1"])
 
         // swap the h264 codec
-        let codecs = parentCodecs.map { $0.name == kRTCVideoCodecH264Name ? newH264 : $0 }
+        let codecs = map { $0.name == kRTCVideoCodecH264Name ? newH264 : $0 }
         logger.log("supportedCodecs: \(codecs.map({ "\($0.name) - \($0.parameters)" }).joined(separator: ", "))", type: Engine.self)
         return codecs
+    }
+}
+
+private class VideoEncoderFactory: RTCDefaultVideoEncoderFactory {
+
+    override func supportedCodecs() -> [RTCVideoCodecInfo] {
+        super.supportedCodecs().swapH264Codec()
+    }
+}
+
+private class VideoDecoderFactory: RTCDefaultVideoDecoderFactory {
+
+    override func supportedCodecs() -> [RTCVideoCodecInfo] {
+        super.supportedCodecs().swapH264Codec()
+    }
+}
+
+private class VideoEncoderFactorySimulcast: RTCVideoEncoderFactorySimulcast {
+
+    override func supportedCodecs() -> [RTCVideoCodecInfo] {
+        super.supportedCodecs().swapH264Codec()
     }
 }
 
@@ -792,11 +810,11 @@ internal extension Engine {
         logger.log("initializing PeerConnectionFactory...", type: Engine.self)
         RTCInitializeSSL()
         let encoderFactory = VideoEncoderFactory()
-        let decoderFactory = RTCDefaultVideoDecoderFactory()
+        let decoderFactory = VideoDecoderFactory()
         let result: RTCPeerConnectionFactory
         #if LK_USING_CUSTOM_WEBRTC_BUILD
-        let simulcastFactory = RTCVideoEncoderFactorySimulcast(primary: encoderFactory,
-                                                               fallback: encoderFactory)
+        let simulcastFactory = VideoEncoderFactorySimulcast(primary: encoderFactory,
+                                                            fallback: encoderFactory)
 
         result = RTCPeerConnectionFactory(bypassVoiceProcessing: bypassVoiceProcessing,
                                           encoderFactory: simulcastFactory,
