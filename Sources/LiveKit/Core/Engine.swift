@@ -775,7 +775,7 @@ private class VideoEncoderFactory: RTCDefaultVideoEncoderFactory {
                                                      "packetization-mode": "1"])
 
         // swap the h264 codec
-        let codecs = super.supportedCodecs().map { $0.name == kRTCVideoCodecH264Name ? newH264 : $0 }
+        let codecs = parentCodecs.map { $0.name == kRTCVideoCodecH264Name ? newH264 : $0 }
         logger.log("supportedCodecs: \(codecs.map({ "\($0.name) - \($0.parameters)" }).joined(separator: ", "))", type: Engine.self)
         return codecs
     }
