@@ -20,34 +20,43 @@ public protocol VideoTrack: Track {
 
 }
 
+public protocol VideoRenderer: RTCVideoRenderer {
+
+}
+
 extension VideoTrack {
 
-    public func add(videoView: VideoView) {
-
-        // must always be called on main thread
-        assert(Thread.current.isMainThread, "must be called on main thread")
+    public func add(videoRenderer: VideoRenderer) {
 
         guard let videoTrack = self.mediaTrack as? RTCVideoTrack else {
             log("mediaTrack is not a RTCVideoTrack", .error)
             return
         }
 
-        videoTrack.add(videoView)
-        videoViews.add(videoView)
+        // only if it's a VideoView
+        if let videoView = videoRenderer as? VideoView {
+            // must always be called on main thread
+            assert(Thread.current.isMainThread, "must be called on main thread")
+            videoViews.add(videoView)
+        }
+
+        videoTrack.add(videoRenderer)
     }
 
-    public func remove(videoView: VideoView) {
-
-        // must always be called on main thread
-        assert(Thread.current.isMainThread, "must be called on main thread")
-
-        videoViews.remove(videoView)
+    public func remove(videoRenderer: VideoRenderer) {
 
         guard let videoTrack = self.mediaTrack as? RTCVideoTrack else {
             log("mediaTrack is not a RTCVideoTrack", .error)
             return
         }
 
-        videoTrack.remove(videoView)
+        // only if it's a VideoView
+        if let videoView = videoRenderer as? VideoView {
+            // must always be called on main thread
+            assert(Thread.current.isMainThread, "must be called on main thread")
+            videoViews.remove(videoView)
+        }
+
+        videoTrack.remove(videoRenderer)
     }
 }

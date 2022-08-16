@@ -165,7 +165,7 @@ public class VideoView: NativeView, MulticastDelegateCapable, Loggable {
                     // clean up old track
                     if let track = oldState.track {
 
-                        track.remove(videoView: self)
+                        track.remove(videoRenderer: self)
 
                         if let nr = self.nativeRenderer {
                             self.log("removing nativeRenderer")
@@ -191,7 +191,7 @@ public class VideoView: NativeView, MulticastDelegateCapable, Loggable {
                         // re-create renderer on main thread
                         let nr = self.reCreateNativeRenderer()
 
-                        track.add(videoView: self)
+                        track.add(videoRenderer: self)
 
                         if let frame = track._state.videoFrame {
                             self.log("rendering cached frame tack: \(track._state.sid ?? "nil")")
@@ -442,7 +442,7 @@ private extension VideoView {
 
 // MARK: - RTCVideoRenderer
 
-extension VideoView: RTCVideoRenderer {
+extension VideoView: VideoRenderer {
 
     public func setSize(_ size: CGSize) {
         guard let nr = nativeRenderer else { return }
