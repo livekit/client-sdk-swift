@@ -55,7 +55,9 @@ extension CMSampleBuffer {
 
         var timimgInfo  = CMSampleTimingInfo()
         var formatDescription: CMFormatDescription?
-        CMVideoFormatDescriptionCreateForImageBuffer(allocator: kCFAllocatorDefault, imageBuffer: pixelBuffer, formatDescriptionOut: &formatDescription)
+        CMVideoFormatDescriptionCreateForImageBuffer(allocator: kCFAllocatorDefault,
+                                                     imageBuffer: pixelBuffer,
+                                                     formatDescriptionOut: &formatDescription)
 
         let osStatus = CMSampleBufferCreateReadyWithImageBuffer(
             allocator: kCFAllocatorDefault,
@@ -122,6 +124,13 @@ extension CMSampleBuffer {
             print("Cannot create sample buffer")
             return nil
         }
+
+        let attachments: CFArray! = CMSampleBufferGetSampleAttachmentsArray(buffer, createIfNecessary: true)
+        let dictionary = unsafeBitCast(CFArrayGetValueAtIndex(attachments, 0),
+                                       to: CFMutableDictionary.self)
+        let key = Unmanaged.passUnretained(kCMSampleAttachmentKey_DisplayImmediately).toOpaque()
+        let value = Unmanaged.passUnretained(kCFBooleanTrue).toOpaque()
+        CFDictionarySetValue(dictionary, key, value)
 
         return buffer
     }
