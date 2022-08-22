@@ -394,7 +394,9 @@ internal extension SignalClient {
             }
 
             // send requests in sequential order
-            let promises = self.requestQueue.reduce(into: Promise(())) { result, request in result.then(on: .sdk) { safeSend(request) } }
+            let promises = self.requestQueue.reduce(into: Promise(())) { result, request in
+                result = result.then(on: .sdk) { safeSend(request) }
+            }
             // clear the queue
             self.requestQueue = []
 
