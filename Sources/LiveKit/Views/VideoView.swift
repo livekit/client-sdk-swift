@@ -61,6 +61,7 @@ public class VideoView: NativeView, MulticastDelegateCapable, Loggable {
     }
 
     /// Force video to be rotated to preferred ``VideoRotation``
+    /// Currently, only for iOS.
     public var rotationOverride: VideoRotation? {
         get { _state.rotationOverride }
         set { _state.mutate { $0.rotationOverride = newValue } }
