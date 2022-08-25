@@ -42,14 +42,14 @@ public class LocalVideoTrack: LocalTrack, VideoTrack {
     }
 
     override public func start() -> Promise<Bool> {
-        super.start().then(on: .sdk) { didStart in
-            self.capturer.startCapture().then(on: .sdk) { _ in didStart }
+        super.start().then(on: queue) { didStart in
+            self.capturer.startCapture().then(on: self.queue) { _ in didStart }
         }
     }
 
     override public func stop() -> Promise<Bool> {
-        super.stop().then(on: .sdk) { didStop in
-            self.capturer.stopCapture().then(on: .sdk) { _ in didStop }
+        super.stop().then(on: queue) { didStop in
+            self.capturer.stopCapture().then(on: self.queue) { _ in didStop }
         }
     }
 }

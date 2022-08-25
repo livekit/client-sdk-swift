@@ -20,6 +20,8 @@ import WebRTC
 
 internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
 
+    private let queue = DispatchQueue(label: "LiveKitSDK.signalClient", qos: .default)
+
     // MARK: - Public
 
     public var connectionState: ConnectionState { _state.connectionState }
@@ -86,15 +88,16 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
 
         log("reconnectMode: \(String(describing: reconnectMode))")
 
-        return Utils.buildUrl(url,
+        return Utils.buildUrl(on: queue,
+                              url,
                               token,
                               connectOptions: connectOptions,
                               reconnectMode: reconnectMode,
                               adaptiveStream: adaptiveStream)
-            .catch(on: .sdk) { error in
+            .catch(on: queue) { error in
                 self.log("Failed to parse rtc url", .error)
             }
-            .then(on: .sdk) { url -> Promise<WebSocket> in
+            .then(on: queue) { url -> Promise<WebSocket> in
                 self.log("Connecting with url: \(url)")
                 self._state.mutate {
                     $0.reconnectMode = reconnectMode
@@ -106,23 +109,24 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
                                             self.webSocket = nil
                                             self.cleanUp(reason: reason)
                                          })
-            }.then(on: .sdk) { (webSocket: WebSocket) -> Void in
+            }.then(on: queue) { (webSocket: WebSocket) -> Void in
                 self.webSocket = webSocket
                 self._state.mutate { $0.connectionState = .connected }
-            }.recover(on: .sdk) { error -> Promise<Void> in
+            }.recover(on: queue) { error -> Promise<Void> in
                 // Skip validation if reconnect mode
                 if reconnectMode != nil { throw error }
                 // Catch first, then throw again after getting validation response
                 // Re-build url with validate mode
-                return Utils.buildUrl(url,
+                return Utils.buildUrl(on: self.queue,
+                                      url,
                                       token,
                                       connectOptions: connectOptions,
                                       adaptiveStream: adaptiveStream,
                                       validate: true
-                ).then(on: .sdk) { url -> Promise<Data> in
+                ).then(on: self.queue) { url -> Promise<Data> in
                     self.log("Validating with url: \(url)")
-                    return HTTP().get(url: url)
-                }.then(on: .sdk) { data in
+                    return HTTP().get(on: self.queue, url: url)
+                }.then(on: self.queue) { data in
                     guard let string = String(data: data, encoding: .utf8) else {
                         throw SignalClientError.connect(message: "Failed to decode string")
                     }
@@ -130,7 +134,7 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
                     // re-throw with validation response
                     throw SignalClientError.connect(message: string)
                 }
-            }.catch(on: .sdk) { error in
+            }.catch(on: queue) { error in
                 self.cleanUp(reason: .networkError(error))
             }
     }
@@ -194,7 +198,7 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
                 state.completersForAddTrack[trackCid] = Completer<Livekit_TrackInfo>()
             }
 
-            return state.completersForAddTrack[trackCid]!.wait(on: .sdk,
+            return state.completersForAddTrack[trackCid]!.wait(on: queue,
                                                                .defaultPublish,
                                                                throw: { EngineError.timedOut(message: "server didn't respond to addTrack request") })
         }
@@ -364,7 +368,7 @@ internal extension SignalClient {
             }
 
             // send requests in sequential order
-            let promises = self.responseQueue.reduce(into: Promise(())) { result, response in result.then(on: .sdk) { self.onSignalResponse(response) } }
+            let promises = self.responseQueue.reduce(into: Promise(())) { result, response in result.then(on: self.queue) { self.onSignalResponse(response) } }
             // clear the queue
             self.responseQueue = []
 
@@ -382,7 +386,7 @@ internal extension SignalClient {
 
         // create a promise that never throws so the send sequence can continue
         func safeSend(_ request: Livekit_SignalRequest) -> Promise<Void> {
-            sendRequest(request, enqueueIfReconnecting: false).recover(on: .sdk) { error in
+            sendRequest(request, enqueueIfReconnecting: false).recover(on: queue) { error in
                 self.log("Failed to send queued request, request: \(request) \(error)", .warning)
             }
         }
@@ -397,7 +401,7 @@ internal extension SignalClient {
 
             // send requests in sequential order
             let promises = self.requestQueue.reduce(into: Promise(())) { result, request in
-                result = result.then(on: .sdk) { safeSend(request) }
+                result = result.then(on: self.queue) { safeSend(request) }
             }
             // clear the queue
             self.requestQueue = []
@@ -439,7 +443,7 @@ internal extension SignalClient {
                 }
             }
 
-        }.then(on: .sdk) {
+        }.then(on: queue) {
             self.sendRequest($0)
         }
     }
@@ -483,9 +487,9 @@ internal extension SignalClient {
 
             let completer = prepareCompleter(forAddTrackRequest: cid)
 
-            return sendRequest(request).then(on: .sdk) {
+            return sendRequest(request).then(on: queue) {
                 completer
-            }.then(on: .sdk) { trackInfo in
+            }.then(on: queue) { trackInfo in
                 AddTrackResult(result: populateResult, trackInfo: trackInfo)
             }
 

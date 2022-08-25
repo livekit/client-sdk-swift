@@ -18,9 +18,7 @@ import Foundation
 
 internal extension DispatchQueue {
 
-    static let sdk = DispatchQueue(label: "LiveKitSDK", qos: .userInitiated)
     static let webRTC = DispatchQueue(label: "LiveKitSDK.webRTC", qos: .default)
-    static let capture = DispatchQueue(label: "LiveKitSDK.capture", qos: .default)
 
     // if already on main, immediately execute block.
     // if not on main, schedule async.

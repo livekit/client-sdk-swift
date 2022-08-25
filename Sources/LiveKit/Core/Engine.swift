@@ -21,6 +21,8 @@ import Network
 
 internal class Engine: MulticastDelegate<EngineDelegate> {
 
+    private let queue = DispatchQueue(label: "LiveKitSDK.engine", qos: .default)
+
     // MARK: - Public
 
     public typealias ConditionEvalFunc = (_ newState: State, _ oldState: State?) -> Bool
@@ -135,11 +137,11 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
         self.connectOptions = connectOptions ?? self.connectOptions
         self.roomOptions = roomOptions ?? self.roomOptions
 
-        return cleanUp().then(on: .sdk) {
+        return cleanUp().then(on: queue) {
             self._state.mutate { $0.connectionState = .connecting }
-        }.then(on: .sdk) {
+        }.then(on: queue) {
             self.fullConnectSequence(url, token)
-        }.then(on: .sdk) {
+        }.then(on: queue) {
             // connect sequence successful
             self.log("Connect sequence completed")
 
@@ -150,7 +152,7 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
                 $0.connectionState = .connected
             }
 
-        }.catch(on: .sdk) { error in
+        }.catch(on: queue) { error in
             self.cleanUp(reason: .networkError(error))
         }
     }
@@ -176,7 +178,7 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
                 .compactMap { $0 }
                 .map { dc in Promise<Void>(on: .webRTC) { dc.close() } }
 
-            return promises.all(on: .sdk).then(on: .sdk) {
+            return promises.all(on: queue).then(on: queue) {
                 self.dcReliablePub = nil
                 self.dcLossyPub = nil
                 self.dcReliableSub = nil
@@ -190,7 +192,7 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
                 .compactMap { $0 }
                 .map { $0.close() }
 
-            return promises.all(on: .sdk).then(on: .sdk) {
+            return promises.all(on: queue).then(on: queue) {
                 self.publisher = nil
                 self.subscriber = nil
                 self._state.mutate { $0.hasPublished = false }
@@ -198,8 +200,8 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
         }
 
         return closeAllDataChannels()
-            .recover(on: .sdk) { self.log("Failed to close data channels, error: \($0)") }
-            .then(on: .sdk) {
+            .recover(on: queue) { self.log("Failed to close data channels, error: \($0)") }
+            .then(on: queue) {
                 closeAllTransports()
             }
     }
@@ -234,18 +236,18 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
             }
 
             let p1 = _state.mutate {
-                $0.publisherTransportConnectedCompleter.wait(on: .sdk, .defaultTransportState, throw: { TransportError.timedOut(message: "publisher didn't connect") })
+                $0.publisherTransportConnectedCompleter.wait(on: queue, .defaultTransportState, throw: { TransportError.timedOut(message: "publisher didn't connect") })
             }
 
             let p2 = _state.mutate { state -> Promise<Void> in
                 var completer = reliability == .reliable ? state.publisherReliableDCOpenCompleter : state.publisherLossyDCOpenCompleter
-                return completer.wait(on: .sdk, .defaultPublisherDataChannelOpen, throw: { TransportError.timedOut(message: "publisher dc didn't open") })
+                return completer.wait(on: queue, .defaultPublisherDataChannelOpen, throw: { TransportError.timedOut(message: "publisher dc didn't open") })
             }
 
-            return [p1, p2].all(on: .sdk)
+            return [p1, p2].all(on: queue)
         }
 
-        return ensurePublisherConnected().then(on: .sdk) { () -> Void in
+        return ensurePublisherConnected().then(on: queue) { () -> Void in
 
             let packet = Livekit_DataPacket.with {
                 $0.kind = reliability.toPBType()
@@ -336,22 +338,22 @@ private extension Engine {
                                          connectOptions: self.connectOptions,
                                          reconnectMode: _state.reconnectMode,
                                          adaptiveStream: roomOptions.adaptiveStream)
-            .then(on: .sdk) {
+            .then(on: queue) {
                 // wait for joinResponse
-                self.signalClient._state.mutate { $0.joinResponseCompleter.wait(on: .sdk,
+                self.signalClient._state.mutate { $0.joinResponseCompleter.wait(on: self.queue,
                                                                                 .defaultJoinResponse,
                                                                                 throw: { SignalClientError.timedOut(message: "failed to receive join response") }) }
-            }.then(on: .sdk) { _ in
+            }.then(on: queue) { _ in
                 self._state.mutate { $0.connectStopwatch.split(label: "signal") }
-            }.then(on: .sdk) { jr in
+            }.then(on: queue) { jr in
                 self.configureTransports(joinResponse: jr)
-            }.then(on: .sdk) {
+            }.then(on: queue) {
                 self.signalClient.resumeResponseQueue()
-            }.then(on: .sdk) {
-                self._state.mutate { $0.primaryTransportConnectedCompleter.wait(on: .sdk,
+            }.then(on: queue) {
+                self._state.mutate { $0.primaryTransportConnectedCompleter.wait(on: self.queue,
                                                                                 .defaultTransportState,
                                                                                 throw: { TransportError.timedOut(message: "primary transport didn't connect") }) }
-            }.then(on: .sdk) {
+            }.then(on: queue) {
                 self._state.mutate { $0.connectStopwatch.split(label: "engine") }
                 self.log("\(self._state.connectStopwatch)")
             }
@@ -384,14 +386,14 @@ private extension Engine {
                                              token,
                                              connectOptions: self.connectOptions,
                                              reconnectMode: self._state.reconnectMode,
-                                             adaptiveStream: self.roomOptions.adaptiveStream).then(on: .sdk) {
+                                             adaptiveStream: self.roomOptions.adaptiveStream).then(on: queue) {
 
                                                 self.log("[reconnect] waiting for socket to connect...")
                                                 // Wait for primary transport to connect (if not already)
-                                                self._state.mutate { $0.primaryTransportConnectedCompleter.wait(on: .sdk,
+                                                self._state.mutate { $0.primaryTransportConnectedCompleter.wait(on: self.queue,
                                                                                                                 .defaultTransportState,
                                                                                                                 throw: { TransportError.timedOut(message: "primary transport didn't connect") }) }
-                                             }.then(on: .sdk) { () -> Promise<Void> in
+                                             }.then(on: queue) { () -> Promise<Void> in
 
                                                 self.subscriber?.restartingIce = true
 
@@ -402,13 +404,13 @@ private extension Engine {
 
                                                 self.log("[reconnect] waiting for publisher to connect...")
 
-                                                return publisher.createAndSendOffer(iceRestart: true).then(on: .sdk) {
-                                                    self._state.mutate { $0.publisherTransportConnectedCompleter.wait(on: .sdk,
+                                                return publisher.createAndSendOffer(iceRestart: true).then(on: self.queue) {
+                                                    self._state.mutate { $0.publisherTransportConnectedCompleter.wait(on: self.queue,
                                                                                                                       .defaultTransportState,
                                                                                                                       throw: { TransportError.timedOut(message: "publisher transport didn't connect") }) }
                                                 }
 
-                                             }.then(on: .sdk) { () -> Promise<Void> in
+                                             }.then(on: queue) { () -> Promise<Void> in
 
                                                 self.log("[reconnect] send queued requests")
                                                 // always check if there are queued requests
@@ -422,7 +424,7 @@ private extension Engine {
 
             log("[reconnect] starting FULL reconnect sequence...")
 
-            return cleanUp(isFullReconnect: true).then(on: .sdk) { () -> Promise<Void> in
+            return cleanUp(isFullReconnect: true).then(on: queue) { () -> Promise<Void> in
 
                 guard let url = self._state.url,
                       let token = self._state.token else {
@@ -433,7 +435,7 @@ private extension Engine {
             }
         }
 
-        return retry(on: .sdk,
+        return retry(on: queue,
                      attempts: 3,
                      delay: .defaultQuickReconnectRetry,
                      condition: { [weak self] triesLeft, _ in
@@ -470,11 +472,11 @@ private extension Engine {
 
                         return mode == .full ? fullReconnectSequence() : quickReconnectSequence()
                      })
-            .then(on: .sdk) {
+            .then(on: queue) {
                 // re-connect sequence successful
                 self.log("[reconnect] sequence completed")
                 self._state.mutate { $0.connectionState = .connected }
-            }.catch(on: .sdk) { error in
+            }.catch(on: queue) { error in
                 self.log("[reconnect] sequence failed with error: \(error)")
                 // finally disconnect if all attempts fail
                 self.cleanUp(reason: .networkError(error))
@@ -523,7 +525,7 @@ extension Engine: SignalClientDelegate {
             return true
         }
 
-        transport.addIceCandidate(iceCandidate).catch(on: .sdk) { error in
+        transport.addIceCandidate(iceCandidate).catch(on: queue) { error in
             self.log("failed to add ice candidate for transport: \(transport), error: \(error)", .error)
         }
 
@@ -537,7 +539,7 @@ extension Engine: SignalClientDelegate {
             return true
         }
 
-        publisher.setRemoteDescription(answer).catch(on: .sdk) { error in
+        publisher.setRemoteDescription(answer).catch(on: queue) { error in
             self.log("failed to set remote description, error: \(error)", .error)
         }
 
@@ -553,15 +555,15 @@ extension Engine: SignalClientDelegate {
             return true
         }
 
-        subscriber.setRemoteDescription(offer).then(on: .sdk) {
+        subscriber.setRemoteDescription(offer).then(on: queue) {
             subscriber.createAnswer()
-        }.then(on: .sdk) { answer in
+        }.then(on: queue) { answer in
             subscriber.setLocalDescription(answer)
-        }.then(on: .sdk) { answer in
+        }.then(on: queue) { answer in
             self.signalClient.sendAnswer(answer: answer)
-        }.then(on: .sdk) {
+        }.then(on: queue) {
             self.log("answer sent to signal")
-        }.catch(on: .sdk) { error in
+        }.catch(on: queue) { error in
             self.log("failed to send answer, error: \(error)", .error)
         }
 
@@ -646,7 +648,7 @@ extension Engine: TransportDelegate {
 
     private func configureTransports(joinResponse: Livekit_JoinResponse) -> Promise<Void> {
 
-        Promise<Void>(on: .sdk) { () -> Void in
+        Promise<Void>(on: queue) { () -> Void in
 
             self.log("configuring transports...")
 
@@ -701,7 +703,7 @@ extension Engine: TransportDelegate {
     func transport(_ transport: Transport, didGenerate iceCandidate: RTCIceCandidate) {
         log("didGenerate iceCandidate")
         signalClient.sendCandidate(candidate: iceCandidate,
-                                   target: transport.target).catch(on: . sdk) { error in
+                                   target: transport.target).catch(on: queue) { error in
                                     self.log("Failed to send candidate, error: \(error)", .error)
                                    }
     }

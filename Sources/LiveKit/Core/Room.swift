@@ -21,6 +21,8 @@ import WebRTC
 
 public class Room: MulticastDelegate<RoomDelegate> {
 
+    internal let queue = DispatchQueue(label: "LiveKitSDK.room", qos: .default)
+
     // MARK: - Public
 
     public var sid: Sid? { _state.sid }
@@ -131,7 +133,7 @@ public class Room: MulticastDelegate<RoomDelegate> {
         // monitor.start(queue: monitorQueue)
         return engine.connect(url, token,
                               connectOptions: connectOptions,
-                              roomOptions: roomOptions).then(on: .sdk) { () -> Room in
+                              roomOptions: roomOptions).then(on: queue) { () -> Room in
                                 self.log("connected to \(String(describing: self)) \(String(describing: self.localParticipant))", .info)
                                 return self
                               }
@@ -144,8 +146,8 @@ public class Room: MulticastDelegate<RoomDelegate> {
         if case .disconnected = connectionState { return Promise(()) }
 
         return engine.signalClient.sendLeave()
-            .recover(on: .sdk) { self.log("Failed to send leave, error: \($0)") }
-            .then(on: .sdk) {
+            .recover(on: queue) { self.log("Failed to send leave, error: \($0)") }
+            .then(on: queue) {
                 self.cleanUp(reason: .user)
             }
     }
@@ -181,12 +183,12 @@ internal extension Room {
 
         engine.signalClient.cleanUp(reason: reason)
 
-        return engine.cleanUpRTC().then(on: .sdk) {
+        return engine.cleanUpRTC().then(on: queue) {
             self.cleanUpParticipants()
-        }.then(on: .sdk) {
+        }.then(on: queue) {
             // reset state
             self._state.mutate { $0 = State() }
-        }.catch(on: .sdk) { error in
+        }.catch(on: queue) { error in
             // this should never happen
             self.log("Room cleanUp failed with error: \(error)", .error)
         }
@@ -227,7 +229,7 @@ private extension Room {
 
         let cleanUpPromises = allParticipants.map { $0.cleanUp(notify: _notify) }
 
-        return cleanUpPromises.all(on: .sdk).then(on: .sdk) {
+        return cleanUpPromises.all(on: queue).then(on: queue) {
             //
             self._state.mutate {
                 $0.localParticipant = nil
@@ -529,9 +531,9 @@ extension Room: SignalClientDelegate {
             return true
         }
 
-        localParticipant.unpublish(publication: publication).then(on: .sdk) { [weak self] _ in
+        localParticipant.unpublish(publication: publication).then(on: queue) { [weak self] _ in
             self?.log("unpublished track(\(localTrack.trackSid)")
-        }.catch(on: .sdk) { [weak self] error in
+        }.catch(on: queue) { [weak self] error in
             self?.log("failed to unpublish track(\(localTrack.trackSid), error: \(error)", .warning)
         }
 
@@ -555,7 +557,7 @@ extension Room: EngineDelegate {
             // only if quick-reconnect
             if case .connected = state.connectionState, case .quick = state.reconnectMode {
 
-                sendSyncState().catch(on: .sdk) { error in
+                sendSyncState().catch(on: queue) { error in
                     self.log("Failed to sendSyncState, error: \(error)", .error)
                 }
 
@@ -564,7 +566,7 @@ extension Room: EngineDelegate {
 
             // re-send track permissions
             if case .connected = state.connectionState, let localParticipant = localParticipant {
-                localParticipant.sendTrackSubscriptionPermissions().catch(on: .sdk) { error in
+                localParticipant.sendTrackSubscriptionPermissions().catch(on: queue) { error in
                     self.log("Failed to send track subscription permissions, error: \(error)", .error)
                 }
             }
@@ -720,7 +722,7 @@ extension Room: AppStateDelegate {
 
         guard !promises.isEmpty else { return }
 
-        promises.all(on: .sdk).then(on: .sdk) {
+        promises.all(on: queue).then(on: queue) {
             self.log("suspended all video tracks")
         }
     }
@@ -732,7 +734,7 @@ extension Room: AppStateDelegate {
 
         guard !promises.isEmpty else { return }
 
-        promises.all(on: .sdk).then(on: .sdk) {
+        promises.all(on: queue).then(on: queue) {
             self.log("resumed all video tracks")
         }
     }
