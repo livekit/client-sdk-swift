@@ -176,7 +176,10 @@ internal extension Room {
                 token: $0.token,
                 nextPreferredReconnectMode: $0.nextPreferredReconnectMode,
                 reconnectMode: $0.reconnectMode,
-                connectionState: $0.connectionState) : Engine.State()
+                connectionState: $0.connectionState
+            ) : Engine.State(
+                connectionState: .disconnected(reason: reason)
+            )
         }
 
         engine.signalClient.cleanUp(reason: reason)
