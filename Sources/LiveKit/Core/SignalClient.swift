@@ -307,7 +307,7 @@ private extension SignalClient {
             // not required to be handled because we use completer pattern for this case
             notify(requiresHandle: false) { $0.signalClient(self, didPublish: trackPublished) }
 
-            self.log("[publish] resolving completer for cid: \(trackPublished.cid)")
+            log("[publish] resolving completer for cid: \(trackPublished.cid)")
             // complete
             completeCompleter(forAddTrackRequest: trackPublished.cid, trackInfo: trackPublished.track)
 
@@ -339,6 +339,8 @@ private extension SignalClient {
             notify { $0.signalClient(self, didUpdate: permissionUpdate) }
         case .refreshToken(let token):
             notify { $0.signalClient(self, didUpdate: token) }
+        case .pong(let r):
+            log("pong: \(r)")
         }
     }
 }
