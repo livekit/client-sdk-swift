@@ -97,6 +97,20 @@ internal class Utils {
         #endif
     }
 
+    internal static func networkTypeString() -> String? {
+        // wifi, wired, cellular, vpn, empty if not known
+        guard let interface = ConnectivityListener.shared.activeInterfaceType() else {
+            return nil
+        }
+
+        switch interface {
+        case .wifi: return "wifi"
+        case .cellular: return "cellular"
+        case .wiredEthernet: return "wired"
+        default: return nil
+        }
+    }
+
     internal static func buildUrl(
         _ url: String,
         _ token: String,
@@ -155,6 +169,10 @@ internal class Utils {
 
             if let modelIdentifier = modelIdentifier() {
                 queryItems.append(URLQueryItem(name: "device_model", value: modelIdentifier))
+            }
+
+            if let network = networkTypeString() {
+                queryItems.append(URLQueryItem(name: "network", value: network))
             }
 
             // only for quick-reconnect
