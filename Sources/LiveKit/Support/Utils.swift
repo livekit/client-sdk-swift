@@ -112,7 +112,7 @@ internal class Utils {
     }
 
     internal static func buildUrl(
-        on: DispatchQueue,
+        on queue: DispatchQueue,
         _ url: String,
         _ token: String,
         connectOptions: ConnectOptions? = nil,
@@ -122,7 +122,7 @@ internal class Utils {
         forceSecure: Bool = false
     ) -> Promise<URL> {
 
-        Promise(on: on) { () -> URL in
+        Promise(on: queue) { () -> URL in
             // use default options if nil
             let connectOptions = connectOptions ?? ConnectOptions()
 
@@ -195,7 +195,7 @@ internal class Utils {
         }
     }
 
-    internal static func createDebounceFunc(on: DispatchQueue,
+    internal static func createDebounceFunc(on queue: DispatchQueue,
                                             wait: TimeInterval,
                                             onCreateWorkItem: ((DispatchWorkItem) -> Void)? = nil,
                                             fnc: @escaping @convention(block) () -> Void) -> DebouncFunc {
@@ -204,7 +204,7 @@ internal class Utils {
             workItem?.cancel()
             workItem = DispatchWorkItem { fnc() }
             onCreateWorkItem?(workItem!)
-            on.asyncAfter(deadline: .now() + wait, execute: workItem!)
+            queue.asyncAfter(deadline: .now() + wait, execute: workItem!)
         }
     }
 
