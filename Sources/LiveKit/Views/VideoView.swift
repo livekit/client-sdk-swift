@@ -60,6 +60,13 @@ public class VideoView: NativeView, MulticastDelegateCapable, Loggable {
         set { _state.mutate { $0.mirrorMode = newValue } }
     }
 
+    /// Force video to be rotated to preferred ``VideoRotation``
+    /// Currently, only for iOS.
+    public var rotationOverride: VideoRotation? {
+        get { _state.rotationOverride }
+        set { _state.mutate { $0.rotationOverride = newValue } }
+    }
+
     /// Calls addRenderer and/or removeRenderer internally for convenience.
     public weak var track: VideoTrack? {
         get { _state.track }
@@ -113,6 +120,7 @@ public class VideoView: NativeView, MulticastDelegateCapable, Loggable {
         var didLayout: Bool = false
         var layoutMode: LayoutMode = .fill
         var mirrorMode: MirrorMode = .auto
+        var rotationOverride: VideoRotation? // = ._90
 
         var debugMode: Bool = false
 
@@ -245,6 +253,7 @@ public class VideoView: NativeView, MulticastDelegateCapable, Loggable {
             if state.debugMode != oldState.debugMode ||
                 state.layoutMode != oldState.layoutMode ||
                 state.mirrorMode != oldState.mirrorMode ||
+                state.rotationOverride != oldState.rotationOverride ||
                 state.didRenderFirstFrame != oldState.didRenderFirstFrame ||
                 shouldRenderDidUpdate || trackDidUpdate {
 
@@ -347,8 +356,6 @@ public class VideoView: NativeView, MulticastDelegateCapable, Loggable {
                                    width: size.width,
                                    height: size.height)
 
-        nativeRenderer?.frame = rendererFrame
-
         if _state.rendererSize != rendererFrame.size {
             // mutate if required
             _state.mutate { $0.rendererSize = rendererFrame.size }
@@ -358,24 +365,35 @@ public class VideoView: NativeView, MulticastDelegateCapable, Loggable {
         // nativeRenderer.layer!.borderColor = NSColor.red.cgColor
         // nativeRenderer.layer!.borderWidth = 3
 
-        if let nr = nativeRenderer {
+        guard let nativeRenderer = nativeRenderer else { return }
 
-            if shouldMirror() {
-                #if os(macOS)
-                // this is required for macOS
-                nr.wantsLayer = true
-                nr.set(anchorPoint: CGPoint(x: 0.5, y: 0.5))
-                nr.layer!.sublayerTransform = VideoView.mirrorTransform
-                #elseif os(iOS)
-                nr.layer.transform = VideoView.mirrorTransform
-                #endif
+        nativeRenderer.frame = rendererFrame
+
+        #if os(iOS)
+        if let mtlVideoView = nativeRenderer as? RTCMTLVideoView {
+            if let rotationOverride = _state.rotationOverride {
+                mtlVideoView.rotationOverride = NSNumber(value: rotationOverride.rawValue)
             } else {
-                #if os(macOS)
-                nr.layer?.sublayerTransform = CATransform3DIdentity
-                #elseif os(iOS)
-                nr.layer.transform = CATransform3DIdentity
-                #endif
+                mtlVideoView.rotationOverride = nil
             }
+        }
+        #endif
+
+        if shouldMirror() {
+            #if os(macOS)
+            // this is required for macOS
+            nativeRenderer.wantsLayer = true
+            nativeRenderer.set(anchorPoint: CGPoint(x: 0.5, y: 0.5))
+            nativeRenderer.layer!.sublayerTransform = VideoView.mirrorTransform
+            #elseif os(iOS)
+            nativeRenderer.layer.transform = VideoView.mirrorTransform
+            #endif
+        } else {
+            #if os(macOS)
+            nativeRenderer.layer?.sublayerTransform = CATransform3DIdentity
+            #elseif os(iOS)
+            nativeRenderer.layer.transform = CATransform3DIdentity
+            #endif
         }
     }
 }
@@ -468,9 +486,15 @@ extension VideoView: RTCVideoRenderer {
 
         if let frame = frame {
 
+            #if os(iOS)
+            let rotation = _state.rotationOverride ?? frame.rotation
+            #elseif os(macOS)
+            let rotation = frame.rotation
+            #endif
+
             let dimensions = Dimensions(width: frame.width,
                                         height: frame.height)
-                .apply(rotation: frame.rotation)
+                .apply(rotation: rotation)
 
             guard dimensions.isRenderSafe else {
                 log("skipping render for dimension \(dimensions)", .warning)
@@ -566,7 +590,8 @@ extension VideoView {
         #else
         // macOS --------------------
         logger.log("Using RTCMTLNSVideoView for VideoView's Renderer", type: VideoView.self)
-        result = RTCMTLNSVideoView()
+        let mtlView = RTCMTLNSVideoView()
+        result = mtlView
         #endif
         #endif
 
