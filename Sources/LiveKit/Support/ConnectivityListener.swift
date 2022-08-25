@@ -75,6 +75,16 @@ internal class ConnectivityListener: MulticastDelegate<ConnectivityListenerDeleg
     }
 }
 
+internal extension ConnectivityListener {
+
+    func activeInterfaceType() -> NWInterface.InterfaceType? {
+        let path = monitor.currentPath
+        return path.availableInterfaces.filter {
+            path.usesInterfaceType($0.type)
+        }.first?.type
+    }
+}
+
 private extension ConnectivityListener {
 
     func set(path newValue: NWPath, notify _notify: Bool = false) {
