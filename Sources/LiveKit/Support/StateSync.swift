@@ -34,39 +34,49 @@ internal final class StateSync<Value> {
         self.onMutate = onMutate
     }
 
-    // mutate
+    // mutate sync (blocking)
     @discardableResult
-    public func mutate<Result>(_ mutation: (inout Value) throws -> Result) rethrows -> Result {
-        // blocking
+    public func mutate<Result>(_ block: (inout Value) throws -> Result) rethrows -> Result {
         try queue.sync(flags: .barrier) {
             let oldValue = _value
-            let result = try mutation(&_value)
+            let result = try block(&_value)
             onMutate?(_value, oldValue)
             return result
         }
     }
 
-    public func mutateAsync(_ mutation: @escaping (inout Value) -> Void) {
-        // blocking
+    // mutate async (blocking)
+    public func mutateAsync(_ block: @escaping (inout Value) -> Void) {
         queue.async(flags: .barrier) { [weak self] in
             guard let self = self else { return }
             let oldValue = self._value
-            mutation(&self._value)
+            block(&self._value)
             self.onMutate?(self._value, oldValue)
         }
     }
 
-    // block read
+    // read sync and return copy (concurrent)
+    public func readCopy() -> Value {
+        queue.sync { _value }
+    }
+
+    // read sync (concurrent)
     public func read<Result>(_ block: (Value) throws -> Result) rethrows -> Result {
-        // concurrent
         try queue.sync {
             try block(_value)
         }
     }
 
-    // read only
+    // read async (concurrent)
+    public func readAsync(_ block: @escaping (Value) -> Void) {
+        queue.async { [weak self] in
+            guard let self = self else { return }
+            block(self._value)
+        }
+    }
+
+    // property read sync (concurrent)
     subscript<Property>(dynamicMember keyPath: KeyPath<Value, Property>) -> Property {
-        // concurrent
         queue.sync { _value[keyPath: keyPath] }
     }
 }
