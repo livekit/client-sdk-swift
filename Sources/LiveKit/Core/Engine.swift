@@ -50,7 +50,6 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
     public private(set) var subscriber: Transport?
 
     public private(set) var connectOptions: ConnectOptions
-    public private(set) var roomOptions: RoomOptions
 
     // weak ref to Room
     public weak var room: Room?
@@ -76,11 +75,10 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
 
     private var _queuedBlocks = [ConditionalExecutionEntry]()
 
-    init(connectOptions: ConnectOptions,
-         roomOptions: RoomOptions) {
+    init(connectOptions: ConnectOptions) {
 
         self.connectOptions = connectOptions
-        self.roomOptions = roomOptions
+
         super.init()
 
         // log sdk & os versions
@@ -130,12 +128,10 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
     // Connect sequence, resets existing state
     func connect(_ url: String,
                  _ token: String,
-                 connectOptions: ConnectOptions? = nil,
-                 roomOptions: RoomOptions? = nil) -> Promise<Void> {
+                 connectOptions: ConnectOptions? = nil) -> Promise<Void> {
 
         // update options if specified
         self.connectOptions = connectOptions ?? self.connectOptions
-        self.roomOptions = roomOptions ?? self.roomOptions
 
         return cleanUp().then(on: queue) {
             self._state.mutate { $0.connectionState = .connecting }
@@ -333,11 +329,14 @@ private extension Engine {
     func fullConnectSequence(_ url: String,
                              _ token: String) -> Promise<Void> {
 
+        // this should never happen since Engine is owned by Room
+        guard let room = self.room else { return Promise(EngineError.state(message: "Room is nil")) }
+
         return self.signalClient.connect(url,
                                          token,
                                          connectOptions: self.connectOptions,
                                          reconnectMode: _state.reconnectMode,
-                                         adaptiveStream: roomOptions.adaptiveStream)
+                                         adaptiveStream: room._state.options.adaptiveStream)
             .then(on: queue) {
                 // wait for joinResponse
                 self.signalClient._state.mutate { $0.joinResponseCompleter.wait(on: self.queue,
@@ -382,11 +381,14 @@ private extension Engine {
 
             log("[reconnect] starting QUICK reconnect sequence...")
 
+            // this should never happen since Engine is owned by Room
+            guard let room = self.room else { return Promise(EngineError.state(message: "Room is nil")) }
+
             return self.signalClient.connect(url,
                                              token,
                                              connectOptions: self.connectOptions,
                                              reconnectMode: self._state.reconnectMode,
-                                             adaptiveStream: self.roomOptions.adaptiveStream).then(on: queue) {
+                                             adaptiveStream: room._state.options.adaptiveStream).then(on: queue) {
 
                                                 self.log("[reconnect] waiting for socket to connect...")
                                                 // Wait for primary transport to connect (if not already)
@@ -652,6 +654,9 @@ extension Engine: TransportDelegate {
 
             self.log("configuring transports...")
 
+            // this should never happen since Engine is owned by Room
+            guard let room = self.room else { throw EngineError.state(message: "Room is nil") }
+
             guard self.subscriber == nil, self.publisher == nil else {
                 self.log("transports already configured")
                 return
@@ -668,13 +673,13 @@ extension Engine: TransportDelegate {
                                             target: .subscriber,
                                             primary: self.subscriberPrimary,
                                             delegate: self,
-                                            reportStats: self.roomOptions.reportStats)
+                                            reportStats: room._state.options.reportStats)
 
             self.publisher = try Transport(config: self.connectOptions.rtcConfiguration,
                                            target: .publisher,
                                            primary: !self.subscriberPrimary,
                                            delegate: self,
-                                           reportStats: self.roomOptions.reportStats)
+                                           reportStats: room._state.options.reportStats)
 
             self.publisher?.onOffer = { offer in
                 self.log("publisher onOffer \(offer.sdp)")

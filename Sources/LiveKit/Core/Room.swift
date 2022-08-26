@@ -67,9 +67,7 @@ public class Room: MulticastDelegate<RoomDelegate> {
                 roomOptions: RoomOptions = RoomOptions()) {
 
         self._state = StateSync(State(options: roomOptions))
-
-        self.engine = Engine(connectOptions: connectOptions,
-                             roomOptions: roomOptions)
+        self.engine = Engine(connectOptions: connectOptions)
         super.init()
 
         log()
@@ -136,8 +134,7 @@ public class Room: MulticastDelegate<RoomDelegate> {
 
         // monitor.start(queue: monitorQueue)
         return engine.connect(url, token,
-                              connectOptions: connectOptions,
-                              roomOptions: roomOptions).then(on: queue) { () -> Room in
+                              connectOptions: connectOptions).then(on: queue) { () -> Room in
                                 self.log("connected to \(String(describing: self)) \(String(describing: state.localParticipant))", .info)
                                 return self
                               }
