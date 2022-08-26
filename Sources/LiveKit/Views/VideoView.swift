@@ -310,7 +310,7 @@ public class VideoView: NativeView, MulticastDelegateCapable, Loggable {
             let _dimensions = state.track?.dimensions ?? .zero
             let _didRenderFirstFrame = state.didRenderFirstFrame ? "true" : "false"
             let _isRendering = state.isRendering ? "true" : "false"
-            let _viewCount = state.track?.videoViews.allObjects.count ?? 0
+            let _viewCount = state.track?.videoRenderers.allObjects.count ?? 0
             let debugView = ensureDebugTextView()
             debugView.text = "#\(hashValue)\n" + "\(_trackSid)\n" + "\(_dimensions.width)x\(_dimensions.height)\n" + "enabled: \(isEnabled)\n" + "firstFrame: \(_didRenderFirstFrame)\n" + "isRendering: \(_isRendering)\n" + "viewCount: \(_viewCount)\n"
             debugView.frame = bounds
@@ -463,6 +463,14 @@ private extension VideoView {
 
 extension VideoView: VideoRenderer {
 
+    public var adaptiveStreamIsEnabled: Bool {
+        _state.read { $0.didLayout && !$0.isHidden && $0.isEnabled }
+    }
+
+    public var adaptiveStreamSize: CGSize {
+        _state.rendererSize ?? .zero
+    }
+
     public func setSize(_ size: CGSize) {
         guard let nr = nativeRenderer else { return }
         nr.setSize(size)
@@ -553,10 +561,6 @@ internal extension VideoView {
         guard let track1 = track1, let track2 = track2 else { return false }
         // use isEqual
         return track1.isEqual(track2)
-    }
-
-    var isVisible: Bool {
-        _state.read { $0.didLayout && !$0.isHidden && $0.isEnabled }
     }
 }
 

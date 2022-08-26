@@ -247,13 +247,13 @@ internal extension RemoteTrackPublication {
 
 // MARK: - Adaptive Stream
 
-internal extension Collection where Element == VideoView {
+internal extension Collection where Element == VideoRenderer {
 
-    func hasVisible() -> Bool {
+    func containsOneOrMoreAdaptiveStreamEnabledRenderers() -> Bool {
         // not visible if no entry
         if isEmpty { return false }
         // at least 1 entry should be visible
-        return contains { $0.isVisible }
+        return contains { $0.adaptiveStreamIsEnabled }
     }
 
     func largestSize() -> CGSize? {
@@ -265,13 +265,15 @@ internal extension Collection where Element == VideoView {
 
         // use post-layout nativeRenderer's view size otherwise return nil
         // which results lower layer to be requested (enabled: true, dimensions: 0x0)
-        return filter { $0.isVisible }.compactMap { $0._state.rendererSize }.reduce(into: nil as CGSize?, { previous, current in
-            guard let unwrappedPrevious = previous else {
-                previous = current
-                return
-            }
-            previous = maxCGSize(unwrappedPrevious, current)
-        })
+        return filter { $0.adaptiveStreamIsEnabled }
+            .compactMap { $0.adaptiveStreamSize != .zero ? $0.adaptiveStreamSize : nil }
+            .reduce(into: nil as CGSize?, { previous, current in
+                guard let unwrappedPrevious = previous else {
+                    previous = current
+                    return
+                }
+                previous = maxCGSize(unwrappedPrevious, current)
+            })
     }
 }
 
@@ -292,13 +294,12 @@ extension RemoteTrackPublication {
             return
         }
 
-        let asViews = track?.videoViews.allObjects ?? []
-
-        let enabled = asViews.hasVisible()
+        let videoRenderers = track?.videoRenderers.allObjects ?? []
+        let enabled = videoRenderers.containsOneOrMoreAdaptiveStreamEnabledRenderers()
         var dimensions: Dimensions = .zero
 
         // compute the largest video view size
-        if enabled, let maxSize = asViews.largestSize() {
+        if enabled, let maxSize = videoRenderers.largestSize() {
             dimensions = Dimensions(width: Int32(ceil(maxSize.width)),
                                     height: Int32(ceil(maxSize.height)))
         }
@@ -318,8 +319,8 @@ extension RemoteTrackPublication {
 
         // log when flipping from enabled -> disabled
         if oldSettings.enabled, !newSettings.enabled {
-            let viewsString = asViews.enumerated().map { (i, view) in "view\(i).isVisible: \(view.isVisible)(didLayout: \(view._state.didLayout), isHidden: \(view._state.isHidden), isEnabled: \(view._state.isEnabled))" }.joined(separator: ", ")
-            log("[adaptiveStream] disabling sid: \(sid), viewCount: \(asViews.count), \(viewsString)")
+            let viewsString = videoRenderers.enumerated().map { (i, v) in "videoRenderer\(i)(adaptiveStreamIsEnabled: \(v.adaptiveStreamIsEnabled), adaptiveStreamSize: \(v.adaptiveStreamSize))" }.joined(separator: ", ")
+            log("[adaptiveStream] disabling sid: \(sid), videoRenderersCount: \(videoRenderers.count), \(viewsString)")
         }
 
         if let videoTrack = track?.mediaTrack as? RTCVideoTrack {

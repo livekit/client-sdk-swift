@@ -20,8 +20,13 @@ public protocol VideoTrack: Track {
 
 }
 
-public protocol VideoRenderer: RTCVideoRenderer {
-
+@objc public protocol VideoRenderer: RTCVideoRenderer {
+    /// Whether this ``VideoRenderer`` should be considered visible or not for AdaptiveStream.
+    /// This will be invoked on the .main thread.
+    var adaptiveStreamIsEnabled: Bool { get }
+    /// The size used for AdaptiveStream computation. Return .zero if size is unknown yet.
+    /// This will be invoked on the .main thread.
+    var adaptiveStreamSize: CGSize { get }
 }
 
 extension VideoTrack {
@@ -33,13 +38,10 @@ extension VideoTrack {
             return
         }
 
-        // only if it's a VideoView
-        if let videoView = videoRenderer as? VideoView {
-            // must always be called on main thread
-            assert(Thread.current.isMainThread, "must be called on main thread")
-            videoViews.add(videoView)
-        }
+        // must always be called on main thread
+        assert(Thread.current.isMainThread, "must be called on main thread")
 
+        videoRenderers.add(videoRenderer)
         videoTrack.add(videoRenderer)
     }
 
@@ -50,13 +52,10 @@ extension VideoTrack {
             return
         }
 
-        // only if it's a VideoView
-        if let videoView = videoRenderer as? VideoView {
-            // must always be called on main thread
-            assert(Thread.current.isMainThread, "must be called on main thread")
-            videoViews.remove(videoView)
-        }
+        // must always be called on main thread
+        assert(Thread.current.isMainThread, "must be called on main thread")
 
+        videoRenderers.remove(videoRenderer)
         videoTrack.remove(videoRenderer)
     }
 }

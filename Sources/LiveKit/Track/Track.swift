@@ -67,7 +67,7 @@ public class Track: MulticastDelegate<TrackDelegate> {
     internal var sender: RTCRtpSender? { transceiver?.sender }
 
     // Weak reference to all VideoViews attached to this track. Must be accessed from main thread.
-    internal var videoViews = NSHashTable<VideoView>.weakObjects()
+    internal var videoRenderers = NSHashTable<VideoRenderer>.weakObjects()
 
     internal struct State {
         var sid: Sid?
