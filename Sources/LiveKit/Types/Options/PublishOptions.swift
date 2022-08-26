@@ -20,7 +20,7 @@ public protocol PublishOptions {
     var name: String? { get }
 }
 
-public struct VideoPublishOptions: PublishOptions {
+public struct VideoPublishOptions: PublishOptions, Equatable {
 
     public let name: String?
     /// preferred encoding parameters
@@ -50,7 +50,7 @@ public struct VideoPublishOptions: PublishOptions {
     }
 }
 
-public struct AudioPublishOptions: PublishOptions {
+public struct AudioPublishOptions: PublishOptions, Equatable {
 
     public let name: String?
     public let bitrate: Int?
@@ -66,7 +66,7 @@ public struct AudioPublishOptions: PublishOptions {
     }
 }
 
-public struct DataPublishOptions: PublishOptions {
+public struct DataPublishOptions: PublishOptions, Equatable {
 
     public let name: String?
 

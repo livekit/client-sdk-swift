@@ -16,7 +16,7 @@
 
 import Foundation
 
-public struct RoomOptions {
+public struct RoomOptions: Equatable {
     // default options for capturing
     public let defaultCameraCaptureOptions: CameraCaptureOptions
     public let defaultScreenShareCaptureOptions: ScreenShareCaptureOptions
