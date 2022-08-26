@@ -20,6 +20,8 @@ import Promises
 
 public class Participant: MulticastDelegate<ParticipantDelegate> {
 
+    internal let queue = DispatchQueue(label: "LiveKitSDK.participant", qos: .default)
+
     public let sid: Sid
     public var identity: String { _state.identity }
     public var name: String { _state.name }
@@ -114,7 +116,7 @@ public class Participant: MulticastDelegate<ParticipantDelegate> {
     @discardableResult
     internal func cleanUp(notify _notify: Bool = true) -> Promise<Void> {
 
-        unpublishAll(notify: _notify).then(on: .sdk) {
+        unpublishAll(notify: _notify).then(on: queue) {
             // reset state
             self._state.mutate { $0 = State(identity: $0.identity, name: $0.name) }
         }

@@ -32,9 +32,9 @@ public class LocalTrack: Track {
         // Already muted
         if muted { return Promise(()) }
 
-        return disable().then(on: .sdk) { _ in
+        return disable().then(on: queue) { _ in
             self.stop()
-        }.then(on: .sdk) { _ -> Void in
+        }.then(on: queue) { _ -> Void in
             self.set(muted: true, shouldSendSignal: true)
         }
     }
@@ -43,9 +43,9 @@ public class LocalTrack: Track {
         // Already un-muted
         if !muted { return Promise(()) }
 
-        return enable().then(on: .sdk) { _ in
+        return enable().then(on: queue) { _ in
             self.start()
-        }.then(on: .sdk) { _ -> Void in
+        }.then(on: queue) { _ -> Void in
             self.set(muted: false, shouldSendSignal: true)
         }
     }
@@ -53,7 +53,7 @@ public class LocalTrack: Track {
     // returns true if state updated
     internal func onPublish() -> Promise<Bool> {
 
-        Promise<Bool>(on: .sdk) { () -> Bool in
+        Promise<Bool>(on: queue) { () -> Bool in
 
             guard self.publishState != .published else {
                 // already published
@@ -68,7 +68,7 @@ public class LocalTrack: Track {
     // returns true if state updated
     internal func onUnpublish() -> Promise<Bool> {
 
-        Promise<Bool>(on: .sdk) { () -> Bool in
+        Promise<Bool>(on: queue) { () -> Bool in
 
             guard self.publishState != .unpublished else {
                 // already unpublished
