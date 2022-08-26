@@ -18,7 +18,7 @@ import Foundation
 import WebRTC
 
 /// Options used when establishing a connection.
-public struct ConnectOptions {
+public struct ConnectOptions: Equatable {
 
     /// Automatically subscribe to ``RemoteParticipant``'s tracks.
     /// Defaults to true.

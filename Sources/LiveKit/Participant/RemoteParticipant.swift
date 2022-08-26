@@ -77,7 +77,7 @@ public class RemoteParticipant: Participant {
             .map { unpublish(publication: $0) }
 
         // TODO: Return a promise
-        unpublishPromises.all(on: .sdk).catch(on: .sdk) { error in
+        unpublishPromises.all(on: queue).catch(on: queue) { error in
             self.log("Failed to unpublish with error: \(error)")
         }
     }
@@ -122,7 +122,7 @@ public class RemoteParticipant: Participant {
         track._state.mutate { $0.sid = publication.sid }
 
         addTrack(publication: publication)
-        return track.start().then(on: .sdk) { _ -> Void in
+        return track.start().then(on: queue) { _ -> Void in
             self.notify(label: { "participant.didSubscribe \(publication)" }) {
                 $0.participant(self, didSubscribe: publication, track: track)
             }
@@ -133,7 +133,7 @@ public class RemoteParticipant: Participant {
     }
 
     override func cleanUp(notify _notify: Bool = true) -> Promise<Void> {
-        super.cleanUp(notify: _notify).then(on: .sdk) {
+        super.cleanUp(notify: _notify).then(on: queue) {
             self.room.notify(label: { "room.participantDidLeave" }) {
                 $0.room(self.room, participantDidLeave: self)
             }
@@ -145,8 +145,8 @@ public class RemoteParticipant: Participant {
         let promises = _state.tracks.values.compactMap { $0 as? RemoteTrackPublication }
             .map { unpublish(publication: $0, notify: _notify) }
         // combine promises to wait all to complete
-        return super.unpublishAll(notify: _notify).then(on: .sdk) {
-            promises.all(on: .sdk)
+        return super.unpublishAll(notify: _notify).then(on: queue) {
+            promises.all(on: self.queue)
         }
     }
 
@@ -154,7 +154,7 @@ public class RemoteParticipant: Participant {
 
         func notifyUnpublish() -> Promise<Void> {
 
-            Promise<Void>(on: .sdk) { [weak self] in
+            Promise<Void>(on: queue) { [weak self] in
                 guard let self = self, _notify else { return }
                 // notify unpublish
                 self.notify(label: { "participant.didUnpublish \(publication)" }) {
@@ -175,7 +175,7 @@ public class RemoteParticipant: Participant {
             return notifyUnpublish()
         }
 
-        return track.stop().then(on: .sdk) { _ -> Void in
+        return track.stop().then(on: queue) { _ -> Void in
             guard _notify else { return }
             // notify unsubscribe
             self.notify(label: { "participant.didUnsubscribe \(publication)" }) {
@@ -184,7 +184,7 @@ public class RemoteParticipant: Participant {
             self.room.notify(label: { "room.didUnsubscribe \(publication)" }) {
                 $0.room(self.room, participant: self, didUnsubscribe: publication, track: track)
             }
-        }.then(on: .sdk) {
+        }.then(on: queue) {
             notifyUnpublish()
         }
     }

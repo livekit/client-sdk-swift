@@ -87,7 +87,7 @@ public class RemoteTrackPublication: TrackPublication {
             participantSid: participant.sid,
             trackSid: sid,
             subscribed: newValue
-        ).then(on: .sdk) {
+        ).then(on: queue) {
             self.preferSubscribed = newValue
         }
     }
@@ -107,7 +107,7 @@ public class RemoteTrackPublication: TrackPublication {
         // update state
         _state.mutate { $0.trackSettings = $0.trackSettings.copyWith(enabled: newValue) }
         // attempt to set the new settings
-        return send(trackSettings: _state.trackSettings).catch(on: .sdk) { [weak self] error in
+        return send(trackSettings: _state.trackSettings).catch(on: queue) { [weak self] error in
 
             guard let self = self else { return }
 
@@ -164,7 +164,7 @@ public class RemoteTrackPublication: TrackPublication {
 
 private extension RemoteTrackPublication {
 
-    var isAdaptiveStreamEnabled: Bool { (participant?.room.options ?? RoomOptions()).adaptiveStream && .video == kind }
+    var isAdaptiveStreamEnabled: Bool { (participant?.room._state.options ?? RoomOptions()).adaptiveStream && .video == kind }
 
     var engineConnectionState: ConnectionState {
 
@@ -327,12 +327,12 @@ extension RemoteTrackPublication {
             DispatchQueue.webRTC.sync { videoTrack.shouldReceive = enabled }
         }
 
-        send(trackSettings: newSettings).catch(on: .sdk) { [weak self] error in
+        send(trackSettings: newSettings).catch(on: queue) { [weak self] error in
             guard let self = self else { return }
             // revert to old settings on failure
             self._state.mutate { $0.trackSettings = oldSettings }
             self.log("[adaptiveStream] failed to send trackSettings, sid: \(self.sid) error: \(error)", .error)
-        }.always(on: .sdk) { [weak self] in
+        }.always(on: queue) { [weak self] in
             guard let self = self else { return }
             self.asTimer.restart()
         }

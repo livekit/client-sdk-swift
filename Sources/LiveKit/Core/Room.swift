@@ -21,6 +21,8 @@ import WebRTC
 
 public class Room: MulticastDelegate<RoomDelegate> {
 
+    internal let queue = DispatchQueue(label: "LiveKitSDK.room", qos: .default)
+
     // MARK: - Public
 
     public var sid: Sid? { _state.sid }
@@ -43,9 +45,10 @@ public class Room: MulticastDelegate<RoomDelegate> {
 
     // Reference to Engine
     internal let engine: Engine
-    internal private(set) var options: RoomOptions
 
     internal struct State {
+        var options: RoomOptions
+
         var sid: String?
         var name: String?
         var metadata: String?
@@ -57,17 +60,14 @@ public class Room: MulticastDelegate<RoomDelegate> {
         var activeSpeakers = [Participant]()
     }
 
-    // MARK: - Private
-
-    private var _state = StateSync(State())
+    internal var _state: StateSync<State>
 
     public init(delegate: RoomDelegate? = nil,
                 connectOptions: ConnectOptions = ConnectOptions(),
                 roomOptions: RoomOptions = RoomOptions()) {
 
-        self.options = roomOptions
-        self.engine = Engine(connectOptions: connectOptions,
-                             roomOptions: roomOptions)
+        self._state = StateSync(State(options: roomOptions))
+        self.engine = Engine(connectOptions: connectOptions)
         super.init()
 
         log()
@@ -118,21 +118,24 @@ public class Room: MulticastDelegate<RoomDelegate> {
                         connectOptions: ConnectOptions? = nil,
                         roomOptions: RoomOptions? = nil) -> Promise<Room> {
 
-        // update options if specified
-        self.options = roomOptions ?? self.options
+        log("connecting to room...", .info)
 
-        log("connecting to room", .info)
+        let state = _state.readCopy()
 
-        guard _state.localParticipant == nil else {
+        guard state.localParticipant == nil else {
             log("localParticipant is not nil", .warning)
             return Promise(EngineError.state(message: "localParticipant is not nil"))
         }
 
+        // update options if specified
+        if let roomOptions = roomOptions, roomOptions != state.options {
+            _state.mutate { $0.options = roomOptions }
+        }
+
         // monitor.start(queue: monitorQueue)
         return engine.connect(url, token,
-                              connectOptions: connectOptions,
-                              roomOptions: roomOptions).then(on: .sdk) { () -> Room in
-                                self.log("connected to \(String(describing: self)) \(String(describing: self.localParticipant))", .info)
+                              connectOptions: connectOptions).then(on: queue) { () -> Room in
+                                self.log("connected to \(String(describing: self)) \(String(describing: state.localParticipant))", .info)
                                 return self
                               }
     }
@@ -144,8 +147,8 @@ public class Room: MulticastDelegate<RoomDelegate> {
         if case .disconnected = connectionState { return Promise(()) }
 
         return engine.signalClient.sendLeave()
-            .recover(on: .sdk) { self.log("Failed to send leave, error: \($0)") }
-            .then(on: .sdk) {
+            .recover(on: queue) { self.log("Failed to send leave, error: \($0)") }
+            .then(on: queue) {
                 self.cleanUp(reason: .user)
             }
     }
@@ -172,21 +175,26 @@ internal extension Room {
 
             // if isFullReconnect, keep connection related states
             $0 = isFullReconnect ? Engine.State(
+                connectOptions: $0.connectOptions,
                 url: $0.url,
                 token: $0.token,
                 nextPreferredReconnectMode: $0.nextPreferredReconnectMode,
                 reconnectMode: $0.reconnectMode,
-                connectionState: $0.connectionState) : Engine.State()
+                connectionState: $0.connectionState
+            ) : Engine.State(
+                connectOptions: $0.connectOptions,
+                connectionState: .disconnected(reason: reason)
+            )
         }
 
         engine.signalClient.cleanUp(reason: reason)
 
-        return engine.cleanUpRTC().then(on: .sdk) {
+        return engine.cleanUpRTC().then(on: queue) {
             self.cleanUpParticipants()
-        }.then(on: .sdk) {
+        }.then(on: queue) {
             // reset state
-            self._state.mutate { $0 = State() }
-        }.catch(on: .sdk) { error in
+            self._state.mutate { $0 = State(options: $0.options) }
+        }.catch(on: queue) { error in
             // this should never happen
             self.log("Room cleanUp failed with error: \(error)", .error)
         }
@@ -227,7 +235,7 @@ private extension Room {
 
         let cleanUpPromises = allParticipants.map { $0.cleanUp(notify: _notify) }
 
-        return cleanUpPromises.all(on: .sdk).then(on: .sdk) {
+        return cleanUpPromises.all(on: queue).then(on: queue) {
             //
             self._state.mutate {
                 $0.localParticipant = nil
@@ -284,7 +292,7 @@ internal extension Room {
             return Promise(())
         }
 
-        let sendUnSub = engine.connectOptions.autoSubscribe
+        let sendUnSub = engine._state.connectOptions.autoSubscribe
         let participantTracks = _state.remoteParticipants.values.map { participant in
             Livekit_ParticipantTracks.with {
                 $0.participantSid = participant.sid
@@ -529,9 +537,9 @@ extension Room: SignalClientDelegate {
             return true
         }
 
-        localParticipant.unpublish(publication: publication).then(on: .sdk) { [weak self] _ in
+        localParticipant.unpublish(publication: publication).then(on: queue) { [weak self] _ in
             self?.log("unpublished track(\(localTrack.trackSid)")
-        }.catch(on: .sdk) { [weak self] error in
+        }.catch(on: queue) { [weak self] error in
             self?.log("failed to unpublish track(\(localTrack.trackSid), error: \(error)", .warning)
         }
 
@@ -555,7 +563,7 @@ extension Room: EngineDelegate {
             // only if quick-reconnect
             if case .connected = state.connectionState, case .quick = state.reconnectMode {
 
-                sendSyncState().catch(on: .sdk) { error in
+                sendSyncState().catch(on: queue) { error in
                     self.log("Failed to sendSyncState, error: \(error)", .error)
                 }
 
@@ -564,7 +572,7 @@ extension Room: EngineDelegate {
 
             // re-send track permissions
             if case .connected = state.connectionState, let localParticipant = localParticipant {
-                localParticipant.sendTrackSubscriptionPermissions().catch(on: .sdk) { error in
+                localParticipant.sendTrackSubscriptionPermissions().catch(on: queue) { error in
                     self.log("Failed to send track subscription permissions, error: \(error)", .error)
                 }
             }
@@ -713,14 +721,14 @@ extension Room: AppStateDelegate {
 
     func appDidEnterBackground() {
 
-        guard options.suspendLocalVideoTracksInBackground else { return }
+        guard _state.options.suspendLocalVideoTracksInBackground else { return }
 
         guard let localParticipant = localParticipant else { return }
         let promises = localParticipant.localVideoTracks.map { $0.suspend() }
 
         guard !promises.isEmpty else { return }
 
-        promises.all(on: .sdk).then(on: .sdk) {
+        promises.all(on: queue).then(on: queue) {
             self.log("suspended all video tracks")
         }
     }
@@ -732,7 +740,7 @@ extension Room: AppStateDelegate {
 
         guard !promises.isEmpty else { return }
 
-        promises.all(on: .sdk).then(on: .sdk) {
+        promises.all(on: queue).then(on: queue) {
             self.log("resumed all video tracks")
         }
     }

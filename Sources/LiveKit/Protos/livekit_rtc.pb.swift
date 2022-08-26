@@ -104,6 +104,7 @@ enum Livekit_CandidateProtocol: SwiftProtobuf.Enum {
   typealias RawValue = Int
   case udp // = 0
   case tcp // = 1
+  case tls // = 2
   case UNRECOGNIZED(Int)
 
   init() {
@@ -114,6 +115,7 @@ enum Livekit_CandidateProtocol: SwiftProtobuf.Enum {
     switch rawValue {
     case 0: self = .udp
     case 1: self = .tcp
+    case 2: self = .tls
     default: self = .UNRECOGNIZED(rawValue)
     }
   }
@@ -122,6 +124,7 @@ enum Livekit_CandidateProtocol: SwiftProtobuf.Enum {
     switch self {
     case .udp: return 0
     case .tcp: return 1
+    case .tls: return 2
     case .UNRECOGNIZED(let i): return i
     }
   }
@@ -135,6 +138,7 @@ extension Livekit_CandidateProtocol: CaseIterable {
   static var allCases: [Livekit_CandidateProtocol] = [
     .udp,
     .tcp,
+    .tls,
   ]
 }
 
@@ -255,6 +259,15 @@ struct Livekit_SignalRequest {
     set {message = .simulate(newValue)}
   }
 
+  /// client triggered ping to server
+  var ping: Int64 {
+    get {
+      if case .ping(let v)? = message {return v}
+      return 0
+    }
+    set {message = .ping(newValue)}
+  }
+
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   enum OneOf_Message: Equatable {
@@ -282,6 +295,8 @@ struct Livekit_SignalRequest {
     case syncState(Livekit_SyncState)
     /// Simulate conditions, for client validations
     case simulate(Livekit_SimulateScenario)
+    /// client triggered ping to server
+    case ping(Int64)
 
   #if !swift(>=4.1)
     static func ==(lhs: Livekit_SignalRequest.OneOf_Message, rhs: Livekit_SignalRequest.OneOf_Message) -> Bool {
@@ -335,6 +350,10 @@ struct Livekit_SignalRequest {
       }()
       case (.simulate, .simulate): return {
         guard case .simulate(let l) = lhs, case .simulate(let r) = rhs else { preconditionFailure() }
+        return l == r
+      }()
+      case (.ping, .ping): return {
+        guard case .ping(let l) = lhs, case .ping(let r) = rhs else { preconditionFailure() }
         return l == r
       }()
       default: return false
@@ -498,6 +517,15 @@ struct Livekit_SignalResponse {
     set {message = .trackUnpublished(newValue)}
   }
 
+  /// respond to ping
+  var pong: Int64 {
+    get {
+      if case .pong(let v)? = message {return v}
+      return 0
+    }
+    set {message = .pong(newValue)}
+  }
+
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   enum OneOf_Message: Equatable {
@@ -534,6 +562,8 @@ struct Livekit_SignalResponse {
     case refreshToken(String)
     /// server initiated track unpublish
     case trackUnpublished(Livekit_TrackUnpublishedResponse)
+    /// respond to ping
+    case pong(Int64)
 
   #if !swift(>=4.1)
     static func ==(lhs: Livekit_SignalResponse.OneOf_Message, rhs: Livekit_SignalResponse.OneOf_Message) -> Bool {
@@ -603,6 +633,10 @@ struct Livekit_SignalResponse {
       }()
       case (.trackUnpublished, .trackUnpublished): return {
         guard case .trackUnpublished(let l) = lhs, case .trackUnpublished(let r) = rhs else { preconditionFailure() }
+        return l == r
+      }()
+      case (.pong, .pong): return {
+        guard case .pong(let l) = lhs, case .pong(let r) = rhs else { preconditionFailure() }
         return l == r
       }()
       default: return false
@@ -723,6 +757,7 @@ struct Livekit_JoinResponse {
     set {_uniqueStorage()._otherParticipants = newValue}
   }
 
+  /// deprecated. use server_info.version instead.
   var serverVersion: String {
     get {return _storage._serverVersion}
     set {_uniqueStorage()._serverVersion = newValue}
@@ -755,10 +790,30 @@ struct Livekit_JoinResponse {
   /// Clears the value of `clientConfiguration`. Subsequent reads from it will return its default value.
   mutating func clearClientConfiguration() {_uniqueStorage()._clientConfiguration = nil}
 
+  /// deprecated. use server_info.region instead.
   var serverRegion: String {
     get {return _storage._serverRegion}
     set {_uniqueStorage()._serverRegion = newValue}
   }
+
+  var pingTimeout: Int32 {
+    get {return _storage._pingTimeout}
+    set {_uniqueStorage()._pingTimeout = newValue}
+  }
+
+  var pingInterval: Int32 {
+    get {return _storage._pingInterval}
+    set {_uniqueStorage()._pingInterval = newValue}
+  }
+
+  var serverInfo: Livekit_ServerInfo {
+    get {return _storage._serverInfo ?? Livekit_ServerInfo()}
+    set {_uniqueStorage()._serverInfo = newValue}
+  }
+  /// Returns true if `serverInfo` has been explicitly set.
+  var hasServerInfo: Bool {return _storage._serverInfo != nil}
+  /// Clears the value of `serverInfo`. Subsequent reads from it will return its default value.
+  mutating func clearServerInfo() {_uniqueStorage()._serverInfo = nil}
 
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
@@ -877,6 +932,8 @@ struct Livekit_LeaveRequest {
   /// sent when server initiates the disconnect due to server-restart
   /// indicates clients should attempt full-reconnect sequence
   var canReconnect: Bool = false
+
+  var reason: Livekit_DisconnectReason = .unknownReason
 
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
@@ -1310,6 +1367,7 @@ extension Livekit_CandidateProtocol: SwiftProtobuf._ProtoNameProviding {
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     0: .same(proto: "UDP"),
     1: .same(proto: "TCP"),
+    2: .same(proto: "TLS"),
   ]
 }
 
@@ -1328,6 +1386,7 @@ extension Livekit_SignalRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageIm
     11: .standard(proto: "subscription_permission"),
     12: .standard(proto: "sync_state"),
     13: .same(proto: "simulate"),
+    14: .same(proto: "ping"),
   ]
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -1492,6 +1551,14 @@ extension Livekit_SignalRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageIm
           self.message = .simulate(v)
         }
       }()
+      case 14: try {
+        var v: Int64?
+        try decoder.decodeSingularInt64Field(value: &v)
+        if let v = v {
+          if self.message != nil {try decoder.handleConflictingOneOf()}
+          self.message = .ping(v)
+        }
+      }()
       default: break
       }
     }
@@ -1551,6 +1618,10 @@ extension Livekit_SignalRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageIm
       guard case .simulate(let v)? = self.message else { preconditionFailure() }
       try visitor.visitSingularMessageField(value: v, fieldNumber: 13)
     }()
+    case .ping?: try {
+      guard case .ping(let v)? = self.message else { preconditionFailure() }
+      try visitor.visitSingularInt64Field(value: v, fieldNumber: 14)
+    }()
     case nil: break
     }
     try unknownFields.traverse(visitor: &visitor)
@@ -1582,6 +1653,7 @@ extension Livekit_SignalResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageI
     15: .standard(proto: "subscription_permission_update"),
     16: .standard(proto: "refresh_token"),
     17: .standard(proto: "track_unpublished"),
+    18: .same(proto: "pong"),
   ]
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -1793,6 +1865,14 @@ extension Livekit_SignalResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageI
           self.message = .trackUnpublished(v)
         }
       }()
+      case 18: try {
+        var v: Int64?
+        try decoder.decodeSingularInt64Field(value: &v)
+        if let v = v {
+          if self.message != nil {try decoder.handleConflictingOneOf()}
+          self.message = .pong(v)
+        }
+      }()
       default: break
       }
     }
@@ -1867,6 +1947,10 @@ extension Livekit_SignalResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageI
     case .trackUnpublished?: try {
       guard case .trackUnpublished(let v)? = self.message else { preconditionFailure() }
       try visitor.visitSingularMessageField(value: v, fieldNumber: 17)
+    }()
+    case .pong?: try {
+      guard case .pong(let v)? = self.message else { preconditionFailure() }
+      try visitor.visitSingularInt64Field(value: v, fieldNumber: 18)
     }()
     case nil: break
     }
@@ -2104,6 +2188,9 @@ extension Livekit_JoinResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageImp
     7: .standard(proto: "alternative_url"),
     8: .standard(proto: "client_configuration"),
     9: .standard(proto: "server_region"),
+    10: .standard(proto: "ping_timeout"),
+    11: .standard(proto: "ping_interval"),
+    12: .standard(proto: "server_info"),
   ]
 
   fileprivate class _StorageClass {
@@ -2116,6 +2203,9 @@ extension Livekit_JoinResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageImp
     var _alternativeURL: String = String()
     var _clientConfiguration: Livekit_ClientConfiguration? = nil
     var _serverRegion: String = String()
+    var _pingTimeout: Int32 = 0
+    var _pingInterval: Int32 = 0
+    var _serverInfo: Livekit_ServerInfo? = nil
 
     static let defaultInstance = _StorageClass()
 
@@ -2131,6 +2221,9 @@ extension Livekit_JoinResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageImp
       _alternativeURL = source._alternativeURL
       _clientConfiguration = source._clientConfiguration
       _serverRegion = source._serverRegion
+      _pingTimeout = source._pingTimeout
+      _pingInterval = source._pingInterval
+      _serverInfo = source._serverInfo
     }
   }
 
@@ -2158,6 +2251,9 @@ extension Livekit_JoinResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageImp
         case 7: try { try decoder.decodeSingularStringField(value: &_storage._alternativeURL) }()
         case 8: try { try decoder.decodeSingularMessageField(value: &_storage._clientConfiguration) }()
         case 9: try { try decoder.decodeSingularStringField(value: &_storage._serverRegion) }()
+        case 10: try { try decoder.decodeSingularInt32Field(value: &_storage._pingTimeout) }()
+        case 11: try { try decoder.decodeSingularInt32Field(value: &_storage._pingInterval) }()
+        case 12: try { try decoder.decodeSingularMessageField(value: &_storage._serverInfo) }()
         default: break
         }
       }
@@ -2197,6 +2293,15 @@ extension Livekit_JoinResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageImp
       if !_storage._serverRegion.isEmpty {
         try visitor.visitSingularStringField(value: _storage._serverRegion, fieldNumber: 9)
       }
+      if _storage._pingTimeout != 0 {
+        try visitor.visitSingularInt32Field(value: _storage._pingTimeout, fieldNumber: 10)
+      }
+      if _storage._pingInterval != 0 {
+        try visitor.visitSingularInt32Field(value: _storage._pingInterval, fieldNumber: 11)
+      }
+      try { if let v = _storage._serverInfo {
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 12)
+      } }()
     }
     try unknownFields.traverse(visitor: &visitor)
   }
@@ -2215,6 +2320,9 @@ extension Livekit_JoinResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageImp
         if _storage._alternativeURL != rhs_storage._alternativeURL {return false}
         if _storage._clientConfiguration != rhs_storage._clientConfiguration {return false}
         if _storage._serverRegion != rhs_storage._serverRegion {return false}
+        if _storage._pingTimeout != rhs_storage._pingTimeout {return false}
+        if _storage._pingInterval != rhs_storage._pingInterval {return false}
+        if _storage._serverInfo != rhs_storage._serverInfo {return false}
         return true
       }
       if !storagesAreEqual {return false}
@@ -2472,6 +2580,7 @@ extension Livekit_LeaveRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImp
   static let protoMessageName: String = _protobuf_package + ".LeaveRequest"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     1: .standard(proto: "can_reconnect"),
+    2: .same(proto: "reason"),
   ]
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -2481,6 +2590,7 @@ extension Livekit_LeaveRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImp
       // enabled. https://github.com/apple/swift-protobuf/issues/1034
       switch fieldNumber {
       case 1: try { try decoder.decodeSingularBoolField(value: &self.canReconnect) }()
+      case 2: try { try decoder.decodeSingularEnumField(value: &self.reason) }()
       default: break
       }
     }
@@ -2490,11 +2600,15 @@ extension Livekit_LeaveRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImp
     if self.canReconnect != false {
       try visitor.visitSingularBoolField(value: self.canReconnect, fieldNumber: 1)
     }
+    if self.reason != .unknownReason {
+      try visitor.visitSingularEnumField(value: self.reason, fieldNumber: 2)
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
   static func ==(lhs: Livekit_LeaveRequest, rhs: Livekit_LeaveRequest) -> Bool {
     if lhs.canReconnect != rhs.canReconnect {return false}
+    if lhs.reason != rhs.reason {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }

@@ -81,6 +81,7 @@ extension MacOSScreenCapturer {
 
 public class MacOSScreenCapturer: VideoCapturer {
 
+    private let capture = DispatchQueue(label: "LiveKitSDK.macOSScreenCapturer", qos: .default)
     private let capturer = Engine.createVideoCapturer()
 
     // TODO: Make it possible to change dynamically
@@ -94,7 +95,7 @@ public class MacOSScreenCapturer: VideoCapturer {
             kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_420YpCbCr8BiPlanarFullRange
         ]
         session.addOutput(output)
-        output.setSampleBufferDelegate(self, queue: .capture)
+        output.setSampleBufferDelegate(self, queue: capture)
         return session
     }()
 
@@ -104,7 +105,7 @@ public class MacOSScreenCapturer: VideoCapturer {
     private func startDispatchSourceTimer() {
         stopDispatchSourceTimer()
         let timeInterval: TimeInterval = 1 / Double(options.fps)
-        dispatchSourceTimer = DispatchQueueTimer(timeInterval: timeInterval, queue: .capture)
+        dispatchSourceTimer = DispatchQueueTimer(timeInterval: timeInterval, queue: capture)
         dispatchSourceTimer?.handler = onDispatchSourceTimer
         dispatchSourceTimer?.resume()
     }
@@ -165,7 +166,7 @@ public class MacOSScreenCapturer: VideoCapturer {
 
     public override func startCapture() -> Promise<Bool> {
 
-        super.startCapture().then(on: .sdk) { didStart -> Bool in
+        super.startCapture().then(on: queue) { didStart -> Bool in
 
             guard didStart else {
                 // already started
@@ -201,8 +202,8 @@ public class MacOSScreenCapturer: VideoCapturer {
     }
 
     public override func stopCapture() -> Promise<Bool> {
-        log()
-        return super.stopCapture().then(on: .sdk) { didStop -> Bool in
+
+        super.stopCapture().then(on: queue) { didStop -> Bool in
 
             guard didStop else {
                 // already stopped

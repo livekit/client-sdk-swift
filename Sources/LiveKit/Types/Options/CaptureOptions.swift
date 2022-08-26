@@ -26,7 +26,7 @@ public protocol VideoCaptureOptions: CaptureOptions {
     var fps: Int { get }
 }
 
-public struct CameraCaptureOptions: VideoCaptureOptions {
+public struct CameraCaptureOptions: VideoCaptureOptions, Equatable {
 
     public let position: AVCaptureDevice.Position
     public let preferredFormat: AVCaptureDevice.Format?
@@ -60,7 +60,7 @@ public struct CameraCaptureOptions: VideoCaptureOptions {
     }
 }
 
-public struct ScreenShareCaptureOptions: VideoCaptureOptions {
+public struct ScreenShareCaptureOptions: VideoCaptureOptions, Equatable {
 
     public let dimensions: Dimensions
     public let fps: Int
@@ -76,7 +76,7 @@ public struct ScreenShareCaptureOptions: VideoCaptureOptions {
     }
 }
 
-public struct BufferCaptureOptions: VideoCaptureOptions {
+public struct BufferCaptureOptions: VideoCaptureOptions, Equatable {
 
     public let dimensions: Dimensions
     public let fps: Int
@@ -93,7 +93,7 @@ public struct BufferCaptureOptions: VideoCaptureOptions {
     }
 }
 
-public struct AudioCaptureOptions: CaptureOptions {
+public struct AudioCaptureOptions: CaptureOptions, Equatable {
 
     public let echoCancellation: Bool
     public let noiseSuppression: Bool

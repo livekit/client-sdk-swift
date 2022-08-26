@@ -60,6 +60,13 @@ public class VideoView: NativeView, MulticastDelegateCapable, Loggable {
         set { _state.mutate { $0.mirrorMode = newValue } }
     }
 
+    /// Force video to be rotated to preferred ``VideoRotation``
+    /// Currently, only for iOS.
+    public var rotationOverride: VideoRotation? {
+        get { _state.rotationOverride }
+        set { _state.mutate { $0.rotationOverride = newValue } }
+    }
+
     /// Calls addRenderer and/or removeRenderer internally for convenience.
     public weak var track: VideoTrack? {
         get { _state.track }
@@ -113,6 +120,7 @@ public class VideoView: NativeView, MulticastDelegateCapable, Loggable {
         var didLayout: Bool = false
         var layoutMode: LayoutMode = .fill
         var mirrorMode: MirrorMode = .auto
+        var rotationOverride: VideoRotation?
 
         var debugMode: Bool = false
 
@@ -245,6 +253,7 @@ public class VideoView: NativeView, MulticastDelegateCapable, Loggable {
             if state.debugMode != oldState.debugMode ||
                 state.layoutMode != oldState.layoutMode ||
                 state.mirrorMode != oldState.mirrorMode ||
+                state.rotationOverride != oldState.rotationOverride ||
                 state.didRenderFirstFrame != oldState.didRenderFirstFrame ||
                 shouldRenderDidUpdate || trackDidUpdate {
 
@@ -282,34 +291,35 @@ public class VideoView: NativeView, MulticastDelegateCapable, Loggable {
         // should always be on main thread
         assert(Thread.current.isMainThread, "must be called on main thread")
 
-        defer {
-            let size = frame.size
+        let state = _state.readCopy()
 
-            if _state.viewSize != size || !_state.didLayout {
+        defer {
+            let viewSize = frame.size
+
+            if state.viewSize != viewSize || !state.didLayout {
                 // mutate if required
-                _state.mutate {
-                    $0.viewSize = size
+                _state.mutateAsync {
+                    $0.viewSize = viewSize
                     $0.didLayout = true
                 }
             }
         }
 
-        if _state.debugMode {
-            let _trackSid = _state.track?.sid ?? "nil"
-            let _dimensions = _state.track?.dimensions ?? .zero
-            let _didRenderFirstFrame = _state.didRenderFirstFrame ? "true" : "false"
-            let _isRendering = _state.isRendering ? "true" : "false"
-            let _viewCount = _state.track?.videoViews.allObjects.count ?? 0
-            let _didLayout = _state.didLayout
+        if state.debugMode {
+            let _trackSid = state.track?.sid ?? "nil"
+            let _dimensions = state.track?.dimensions ?? .zero
+            let _didRenderFirstFrame = state.didRenderFirstFrame ? "true" : "false"
+            let _isRendering = state.isRendering ? "true" : "false"
+            let _viewCount = state.track?.videoViews.allObjects.count ?? 0
             let debugView = ensureDebugTextView()
-            debugView.text = "#\(hashValue)\n" + "\(_trackSid)\n" + "\(_dimensions.width)x\(_dimensions.height)\n" + "enabled: \(isEnabled)\n" + "firstFrame: \(_didRenderFirstFrame)\n" + "isRendering: \(_isRendering)\n" + "viewCount: \(_viewCount)\n" + "layout: \(_didLayout)"
+            debugView.text = "#\(hashValue)\n" + "\(_trackSid)\n" + "\(_dimensions.width)x\(_dimensions.height)\n" + "enabled: \(isEnabled)\n" + "firstFrame: \(_didRenderFirstFrame)\n" + "isRendering: \(_isRendering)\n" + "viewCount: \(_viewCount)\n"
             debugView.frame = bounds
             #if os(iOS)
-            debugView.layer.borderColor = (_state.shouldRender ? UIColor.green : UIColor.red).withAlphaComponent(0.5).cgColor
+            debugView.layer.borderColor = (state.shouldRender ? UIColor.green : UIColor.red).withAlphaComponent(0.5).cgColor
             debugView.layer.borderWidth = 3
             #elseif os(macOS)
             debugView.wantsLayer = true
-            debugView.layer!.borderColor = (_state.shouldRender ? NSColor.green : NSColor.red).withAlphaComponent(0.5).cgColor
+            debugView.layer!.borderColor = (state.shouldRender ? NSColor.green : NSColor.red).withAlphaComponent(0.5).cgColor
             debugView.layer!.borderWidth = 3
             #endif
         } else {
@@ -319,7 +329,7 @@ public class VideoView: NativeView, MulticastDelegateCapable, Loggable {
             }
         }
 
-        guard let track = _state.track else {
+        guard let track = state.track else {
             log("track is nil, cannot layout without track", .warning)
             return
         }
@@ -336,9 +346,9 @@ public class VideoView: NativeView, MulticastDelegateCapable, Loggable {
         let wRatio = size.width / wDim
         let hRatio = size.height / hDim
 
-        if .fill == _state.layoutMode ? hRatio > wRatio : hRatio < wRatio {
+        if .fill == state.layoutMode ? hRatio > wRatio : hRatio < wRatio {
             size.width = size.height / hDim * wDim
-        } else if .fill == _state.layoutMode ? wRatio > hRatio : wRatio < hRatio {
+        } else if .fill == state.layoutMode ? wRatio > hRatio : wRatio < hRatio {
             size.height = size.width / wDim * hDim
         }
 
@@ -347,35 +357,44 @@ public class VideoView: NativeView, MulticastDelegateCapable, Loggable {
                                    width: size.width,
                                    height: size.height)
 
-        nativeRenderer?.frame = rendererFrame
-
-        if _state.rendererSize != rendererFrame.size {
+        if state.rendererSize != rendererFrame.size {
             // mutate if required
-            _state.mutate { $0.rendererSize = rendererFrame.size }
+            _state.mutateAsync { $0.rendererSize = rendererFrame.size }
         }
 
         // nativeRenderer.wantsLayer = true
         // nativeRenderer.layer!.borderColor = NSColor.red.cgColor
         // nativeRenderer.layer!.borderWidth = 3
 
-        if let nr = nativeRenderer {
+        guard let nativeRenderer = nativeRenderer else { return }
 
-            if shouldMirror() {
-                #if os(macOS)
-                // this is required for macOS
-                nr.wantsLayer = true
-                nr.set(anchorPoint: CGPoint(x: 0.5, y: 0.5))
-                nr.layer!.sublayerTransform = VideoView.mirrorTransform
-                #elseif os(iOS)
-                nr.layer.transform = VideoView.mirrorTransform
-                #endif
+        nativeRenderer.frame = rendererFrame
+
+        #if os(iOS)
+        if let mtlVideoView = nativeRenderer as? RTCMTLVideoView {
+            if let rotationOverride = state.rotationOverride {
+                mtlVideoView.rotationOverride = NSNumber(value: rotationOverride.rawValue)
             } else {
-                #if os(macOS)
-                nr.layer?.sublayerTransform = CATransform3DIdentity
-                #elseif os(iOS)
-                nr.layer.transform = CATransform3DIdentity
-                #endif
+                mtlVideoView.rotationOverride = nil
             }
+        }
+        #endif
+
+        if shouldMirror() {
+            #if os(macOS)
+            // this is required for macOS
+            nativeRenderer.wantsLayer = true
+            nativeRenderer.set(anchorPoint: CGPoint(x: 0.5, y: 0.5))
+            nativeRenderer.layer!.sublayerTransform = VideoView.mirrorTransform
+            #elseif os(iOS)
+            nativeRenderer.layer.transform = VideoView.mirrorTransform
+            #endif
+        } else {
+            #if os(macOS)
+            nativeRenderer.layer?.sublayerTransform = CATransform3DIdentity
+            #elseif os(iOS)
+            nativeRenderer.layer.transform = CATransform3DIdentity
+            #endif
         }
     }
 }
@@ -451,8 +470,10 @@ extension VideoView: VideoRenderer {
 
     public func renderFrame(_ frame: RTCVideoFrame?) {
 
+        let state = _state.readCopy()
+
         // prevent any extra rendering if already !isEnabled etc.
-        guard _state.shouldRender, let nr = nativeRenderer else {
+        guard state.shouldRender, let nr = nativeRenderer else {
             log("canRender is false, skipping render...")
             return
         }
@@ -460,7 +481,8 @@ extension VideoView: VideoRenderer {
         var _needsLayout = false
         defer {
             if _needsLayout {
-                DispatchQueue.mainSafeAsync {
+                DispatchQueue.main.async { [weak self] in
+                    guard let self = self else { return }
                     self.setNeedsLayout()
                 }
             }
@@ -468,9 +490,15 @@ extension VideoView: VideoRenderer {
 
         if let frame = frame {
 
+            #if os(iOS)
+            let rotation = state.rotationOverride ?? frame.rotation
+            #elseif os(macOS)
+            let rotation = frame.rotation
+            #endif
+
             let dimensions = Dimensions(width: frame.width,
                                         height: frame.height)
-                .apply(rotation: frame.rotation)
+                .apply(rotation: rotation)
 
             guard dimensions.isRenderSafe else {
                 log("skipping render for dimension \(dimensions)", .warning)
@@ -528,7 +556,7 @@ internal extension VideoView {
     }
 
     var isVisible: Bool {
-        _state.didLayout && !_state.isHidden && _state.isEnabled
+        _state.read { $0.didLayout && !$0.isHidden && $0.isEnabled }
     }
 }
 
@@ -566,7 +594,8 @@ extension VideoView {
         #else
         // macOS --------------------
         logger.log("Using RTCMTLNSVideoView for VideoView's Renderer", type: VideoView.self)
-        result = RTCMTLNSVideoView()
+        let mtlView = RTCMTLNSVideoView()
+        result = mtlView
         #endif
         #endif
 

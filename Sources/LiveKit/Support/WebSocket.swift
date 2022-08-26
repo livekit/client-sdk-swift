@@ -19,13 +19,14 @@ import Promises
 
 internal class WebSocket: NSObject, URLSessionWebSocketDelegate, Loggable {
 
+    private let queue = DispatchQueue(label: "LiveKitSDK.webSocket", qos: .default)
+
     typealias OnMessage = (URLSessionWebSocketTask.Message) -> Void
     typealias OnDisconnect = (_ reason: DisconnectReason?) -> Void
 
     public var onMessage: OnMessage?
     public var onDisconnect: OnDisconnect?
 
-    private let queue = DispatchQueue(label: "LiveKitSDK.webSocket", qos: .default)
     private let operationQueue = OperationQueue()
     private let request: URLRequest
 
@@ -71,6 +72,10 @@ internal class WebSocket: NSObject, URLSessionWebSocketDelegate, Loggable {
         task.resume()
     }
 
+    deinit {
+        log()
+    }
+
     private func connect() -> Promise<WebSocket> {
         connectPromise = Promise<WebSocket>.pending()
         return connectPromise!
@@ -102,7 +107,7 @@ internal class WebSocket: NSObject, URLSessionWebSocketDelegate, Loggable {
 
     public func send(data: Data) -> Promise<Void> {
         let message = URLSessionWebSocketTask.Message.data(data)
-        return Promise(on: .sdk) { resolve, fail in
+        return Promise(on: queue) { resolve, fail in
             self.task.send(message) { error in
                 if let error = error {
                     fail(error)

@@ -43,8 +43,8 @@ internal class ConnectivityListener: MulticastDelegate<ConnectivityListenerDeleg
     public private(set) var ipv4: String?
     public private(set) var path: NWPath?
 
-    private let queue = DispatchQueue(label: "LiveKitSDK.connectivityListener",
-                                      qos: .userInitiated)
+    private let queue = DispatchQueue(label: "LiveKitSDK.connectivityListener", qos: .default)
+
     private let monitor = NWPathMonitor()
 
     // timer and flag used to handle the case when state transitions from:
@@ -56,12 +56,14 @@ internal class ConnectivityListener: MulticastDelegate<ConnectivityListenerDeleg
     private let switchInterval: TimeInterval = 3
 
     private init() {
-        super.init(qos: .userInitiated)
+
+        super.init()
 
         log("initial path: \(monitor.currentPath), has: \(monitor.currentPath.isSatisfied())")
 
-        monitor.pathUpdateHandler = { path in
-            DispatchQueue.sdk.async { self.set(path: path) }
+        monitor.pathUpdateHandler = { [weak self] path in
+            guard let self = self else { return }
+            self.set(path: path)
         }
 
         monitor.start(queue: queue)
@@ -70,6 +72,16 @@ internal class ConnectivityListener: MulticastDelegate<ConnectivityListenerDeleg
     deinit {
         switchNetworkTimer?.invalidate()
         switchNetworkTimer = nil
+    }
+}
+
+internal extension ConnectivityListener {
+
+    func activeInterfaceType() -> NWInterface.InterfaceType? {
+        let path = monitor.currentPath
+        return path.availableInterfaces.filter {
+            path.usesInterfaceType($0.type)
+        }.first?.type
     }
 }
 

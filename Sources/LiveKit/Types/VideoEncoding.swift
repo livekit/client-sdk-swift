@@ -17,7 +17,7 @@
 import Foundation
 import WebRTC
 
-public struct VideoEncoding {
+public struct VideoEncoding: Equatable {
     public var maxBitrate: Int
     public var maxFps: Int
 

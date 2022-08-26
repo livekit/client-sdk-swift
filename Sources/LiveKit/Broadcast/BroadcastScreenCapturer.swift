@@ -20,7 +20,8 @@ class BroadcastScreenCapturer: BufferCapturer {
     var frameReader: SocketConnectionFrameReader?
 
     override func startCapture() -> Promise<Bool> {
-        super.startCapture().then(on: .sdk) {didStart -> Promise<Bool> in
+
+        super.startCapture().then(on: queue) {didStart -> Promise<Bool> in
 
             guard didStart, self.frameReader == nil else {
                 // already started
@@ -64,7 +65,8 @@ class BroadcastScreenCapturer: BufferCapturer {
     }
 
     override func stopCapture() -> Promise<Bool> {
-        super.stopCapture().then(on: .sdk) { didStop -> Promise<Bool> in
+
+        super.stopCapture().then(on: queue) { didStop -> Promise<Bool> in
 
             guard didStop, self.frameReader != nil else {
                 // already stopped

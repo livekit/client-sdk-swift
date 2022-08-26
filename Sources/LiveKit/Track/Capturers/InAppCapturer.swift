@@ -31,14 +31,14 @@ public class InAppScreenCapturer: VideoCapturer {
 
     public override func startCapture() -> Promise<Bool> {
 
-        super.startCapture().then(on: .sdk) {didStart -> Promise<Bool> in
+        super.startCapture().then(on: queue) {didStart -> Promise<Bool> in
 
             guard didStart else {
                 // already started
                 return Promise(false)
             }
 
-            return Promise<Bool>(on: .sdk) { resolve, fail in
+            return Promise<Bool>(on: self.queue) { resolve, fail in
 
                 // TODO: force pixel format kCVPixelFormatType_420YpCbCr8BiPlanarFullRange
                 RPScreenRecorder.shared().startCapture { sampleBuffer, type, _ in
@@ -72,14 +72,14 @@ public class InAppScreenCapturer: VideoCapturer {
 
     public override func stopCapture() -> Promise<Bool> {
 
-        super.stopCapture().then(on: .sdk) { didStop -> Promise<Bool> in
+        super.stopCapture().then(on: queue) { didStop -> Promise<Bool> in
 
             guard didStop else {
                 // already stopped
                 return Promise(false)
             }
 
-            return Promise<Bool>(on: .sdk) { resolve, fail in
+            return Promise<Bool>(on: self.queue) { resolve, fail in
 
                 RPScreenRecorder.shared().stopCapture { error in
                     if let error = error {

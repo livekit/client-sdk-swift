@@ -20,6 +20,8 @@ import Promises
 
 public class TrackPublication: TrackDelegate, Loggable {
 
+    internal let queue = DispatchQueue(label: "LiveKitSDK.publication", qos: .default)
+
     public let sid: Sid
     public let kind: Track.Kind
     public let source: Track.Source
@@ -157,8 +159,8 @@ public class TrackPublication: TrackDelegate, Loggable {
         }
 
         sendSignal()
-            .recover(on: .sdk) { self.log("Failed to stop all tracks, error: \($0)") }
-            .then(on: .sdk) {
+            .recover(on: queue) { self.log("Failed to stop all tracks, error: \($0)") }
+            .then(on: queue) {
                 participant.notify {
                     $0.participant(participant, didUpdate: self, muted: muted)
                 }

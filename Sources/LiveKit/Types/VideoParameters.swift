@@ -43,7 +43,7 @@ extension Collection where Element == VideoParameters {
     }
 }
 
-public struct VideoParameters {
+public struct VideoParameters: Equatable {
 
     public let dimensions: Dimensions
     public let encoding: VideoEncoding

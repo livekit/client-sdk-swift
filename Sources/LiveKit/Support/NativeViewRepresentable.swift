@@ -28,7 +28,7 @@ public typealias NativeViewRepresentableType = NSViewRepresentable
 // multiplatform version of UI/NSViewRepresentable
 protocol NativeViewRepresentable: NativeViewRepresentableType {
     /// The type of view to present.
-    associatedtype ViewType: NativeView
+    associatedtype ViewType: NativeViewType
 
     func makeView(context: Self.Context) -> Self.ViewType
     func updateView(_ nsView: Self.ViewType, context: Self.Context)

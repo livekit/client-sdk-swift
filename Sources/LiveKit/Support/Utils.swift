@@ -97,7 +97,22 @@ internal class Utils {
         #endif
     }
 
+    internal static func networkTypeString() -> String? {
+        // wifi, wired, cellular, vpn, empty if not known
+        guard let interface = ConnectivityListener.shared.activeInterfaceType() else {
+            return nil
+        }
+
+        switch interface {
+        case .wifi: return "wifi"
+        case .cellular: return "cellular"
+        case .wiredEthernet: return "wired"
+        default: return nil
+        }
+    }
+
     internal static func buildUrl(
+        on queue: DispatchQueue,
         _ url: String,
         _ token: String,
         connectOptions: ConnectOptions? = nil,
@@ -107,7 +122,7 @@ internal class Utils {
         forceSecure: Bool = false
     ) -> Promise<URL> {
 
-        Promise(on: .sdk) { () -> URL in
+        Promise(on: queue) { () -> URL in
             // use default options if nil
             let connectOptions = connectOptions ?? ConnectOptions()
 
@@ -157,6 +172,10 @@ internal class Utils {
                 queryItems.append(URLQueryItem(name: "device_model", value: modelIdentifier))
             }
 
+            if let network = networkTypeString() {
+                queryItems.append(URLQueryItem(name: "network", value: network))
+            }
+
             // only for quick-reconnect
             queryItems.append(URLQueryItem(name: "reconnect", value: .quick == reconnectMode ? "1" : "0"))
             queryItems.append(URLQueryItem(name: "auto_subscribe", value: connectOptions.autoSubscribe ? "1" : "0"))
@@ -176,7 +195,8 @@ internal class Utils {
         }
     }
 
-    internal static func createDebounceFunc(wait: TimeInterval,
+    internal static func createDebounceFunc(on queue: DispatchQueue,
+                                            wait: TimeInterval,
                                             onCreateWorkItem: ((DispatchWorkItem) -> Void)? = nil,
                                             fnc: @escaping @convention(block) () -> Void) -> DebouncFunc {
         var workItem: DispatchWorkItem?
@@ -184,7 +204,7 @@ internal class Utils {
             workItem?.cancel()
             workItem = DispatchWorkItem { fnc() }
             onCreateWorkItem?(workItem!)
-            DispatchQueue.sdk.asyncAfter(deadline: .now() + wait, execute: workItem!)
+            queue.asyncAfter(deadline: .now() + wait, execute: workItem!)
         }
     }
 
