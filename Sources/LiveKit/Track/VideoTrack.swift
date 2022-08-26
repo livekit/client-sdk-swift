@@ -23,7 +23,7 @@ public protocol VideoTrack: Track {
 @objc public protocol VideoRenderer: RTCVideoRenderer {
     /// Whether this ``VideoRenderer`` should be considered visible or not for AdaptiveStream.
     /// This will be invoked on the .main thread.
-    var adaptiveStreamIsVisible: Bool { get }
+    var adaptiveStreamIsEnabled: Bool { get }
     /// The size used for AdaptiveStream computation. Return .zero if size is unknown yet.
     /// This will be invoked on the .main thread.
     var adaptiveStreamSize: CGSize { get }

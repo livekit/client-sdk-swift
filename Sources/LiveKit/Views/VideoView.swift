@@ -463,7 +463,7 @@ private extension VideoView {
 
 extension VideoView: VideoRenderer {
 
-    public var adaptiveStreamIsVisible: Bool {
+    public var adaptiveStreamIsEnabled: Bool {
         _state.read { $0.didLayout && !$0.isHidden && $0.isEnabled }
     }
 
