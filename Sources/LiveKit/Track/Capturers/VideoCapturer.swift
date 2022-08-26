@@ -41,6 +41,8 @@ public extension VideoCapturerDelegate {
 // Intended to be a base class for video capturers
 public class VideoCapturer: MulticastDelegate<VideoCapturerDelegate>, VideoCapturerProtocol {
 
+    internal let queue = DispatchQueue(label: "LiveKitSDK.videoCapturer", qos: .default)
+
     /// Array of supported pixel formats that can be used to capture a frame.
     ///
     /// Usually the following formats are supported but it is recommended to confirm at run-time:
@@ -88,7 +90,7 @@ public class VideoCapturer: MulticastDelegate<VideoCapturerDelegate>, VideoCaptu
     // returns true if state updated
     public func startCapture() -> Promise<Bool> {
 
-        Promise(on: .sdk) { () -> Bool in
+        Promise(on: queue) { () -> Bool in
 
             guard self.captureState != .started else {
                 // already started
@@ -108,7 +110,7 @@ public class VideoCapturer: MulticastDelegate<VideoCapturerDelegate>, VideoCaptu
     // returns true if state updated
     public func stopCapture() -> Promise<Bool> {
 
-        Promise(on: .sdk) { () -> Bool in
+        Promise(on: queue) { () -> Bool in
 
             guard self.captureState != .stopped else {
                 // already stopped
@@ -127,7 +129,7 @@ public class VideoCapturer: MulticastDelegate<VideoCapturerDelegate>, VideoCaptu
     }
 
     public func restartCapture() -> Promise<Bool> {
-        stopCapture().then(on: .sdk) { _ -> Promise<Bool> in
+        stopCapture().then(on: queue) { _ -> Promise<Bool> in
             self.startCapture()
         }
     }

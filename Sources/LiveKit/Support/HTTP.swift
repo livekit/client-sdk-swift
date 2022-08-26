@@ -27,9 +27,9 @@ internal class HTTP: NSObject, URLSessionDelegate {
                    delegateQueue: operationQueue)
     }()
 
-    func get(url: URL) -> Promise<Data> {
+    func get(on: DispatchQueue, url: URL) -> Promise<Data> {
 
-        Promise<Data>(on: .sdk) { resolve, fail in
+        Promise<Data>(on: on) { resolve, fail in
 
             let request = URLRequest(url: url,
                                      cachePolicy: .reloadIgnoringLocalAndRemoteCacheData,

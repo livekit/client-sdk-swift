@@ -59,7 +59,7 @@ public class LocalAudioTrack: LocalTrack, AudioTrack {
 
     @discardableResult
     internal override func onPublish() -> Promise<Bool> {
-        super.onPublish().then(on: .sdk) { didPublish -> Bool in
+        super.onPublish().then(on: queue) { didPublish -> Bool in
             if didPublish {
                 AudioManager.shared.trackDidStart(.local)
             }
@@ -69,7 +69,7 @@ public class LocalAudioTrack: LocalTrack, AudioTrack {
 
     @discardableResult
     internal override func onUnpublish() -> Promise<Bool> {
-        super.onUnpublish().then(on: .sdk) { didUnpublish -> Bool in
+        super.onUnpublish().then(on: queue) { didUnpublish -> Bool in
             if didUnpublish {
                 AudioManager.shared.trackDidStop(.local)
             }

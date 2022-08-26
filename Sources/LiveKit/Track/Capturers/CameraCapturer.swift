@@ -76,7 +76,7 @@ public class CameraCapturer: VideoCapturer {
 
     public override func startCapture() -> Promise<Bool> {
 
-        super.startCapture().then(on: .sdk) { didStart -> Promise<Bool> in
+        super.startCapture().then(on: queue) { didStart -> Promise<Bool> in
 
             guard didStart else {
                 // already started
@@ -170,7 +170,7 @@ public class CameraCapturer: VideoCapturer {
 
     public override func stopCapture() -> Promise<Bool> {
 
-        super.stopCapture().then(on: .sdk) { didStop -> Promise<Bool> in
+        super.stopCapture().then(on: queue) { didStop -> Promise<Bool> in
 
             guard didStop else {
                 // already stopped

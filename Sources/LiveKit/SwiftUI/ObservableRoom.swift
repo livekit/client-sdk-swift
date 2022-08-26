@@ -83,7 +83,7 @@ open class ObservableRoom: ObservableObject, RoomDelegate, Loggable {
             self.cameraTrackState = .busy(isPublishing: !self.cameraTrackState.isPublished)
         }
 
-        localParticipant.setCamera(enabled: !cameraTrackState.isPublished).then(on: .sdk) { publication in
+        localParticipant.setCamera(enabled: !cameraTrackState.isPublished).then(on: room.queue) { publication in
             DispatchQueue.main.async {
                 guard let publication = publication else {
                     self.cameraTrackState = .notPublished()
@@ -93,7 +93,7 @@ open class ObservableRoom: ObservableObject, RoomDelegate, Loggable {
                 self.cameraTrackState = .published(publication)
             }
             self.log("Successfully published camera")
-        }.catch(on: .sdk) { error in
+        }.catch(on: room.queue) { error in
             DispatchQueue.main.async {
                 self.cameraTrackState = .notPublished(error: error)
             }
@@ -117,7 +117,7 @@ open class ObservableRoom: ObservableObject, RoomDelegate, Loggable {
             self.screenShareTrackState = .busy(isPublishing: !self.screenShareTrackState.isPublished)
         }
 
-        localParticipant.setScreenShare(enabled: !screenShareTrackState.isPublished).then(on: .sdk) { publication in
+        localParticipant.setScreenShare(enabled: !screenShareTrackState.isPublished).then(on: room.queue) { publication in
             DispatchQueue.main.async {
                 guard let publication = publication else {
                     self.screenShareTrackState = .notPublished()
@@ -126,7 +126,7 @@ open class ObservableRoom: ObservableObject, RoomDelegate, Loggable {
 
                 self.screenShareTrackState = .published(publication)
             }
-        }.catch(on: .sdk) { error in
+        }.catch(on: room.queue) { error in
             DispatchQueue.main.async {
                 self.screenShareTrackState = .notPublished(error: error)
             }
@@ -149,7 +149,7 @@ open class ObservableRoom: ObservableObject, RoomDelegate, Loggable {
             self.microphoneTrackState = .busy(isPublishing: !self.microphoneTrackState.isPublished)
         }
 
-        localParticipant.setMicrophone(enabled: !microphoneTrackState.isPublished).then(on: .sdk) { publication in
+        localParticipant.setMicrophone(enabled: !microphoneTrackState.isPublished).then(on: room.queue) { publication in
             DispatchQueue.main.async {
                 guard let publication = publication else {
                     self.microphoneTrackState = .notPublished()
@@ -159,7 +159,7 @@ open class ObservableRoom: ObservableObject, RoomDelegate, Loggable {
                 self.microphoneTrackState = .published(publication)
             }
             self.log("Successfully published microphone")
-        }.catch(on: .sdk) { error in
+        }.catch(on: room.queue) { error in
             DispatchQueue.main.async {
                 self.microphoneTrackState = .notPublished(error: error)
             }

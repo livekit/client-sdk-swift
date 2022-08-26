@@ -19,6 +19,8 @@ import Promises
 
 public class Track: MulticastDelegate<TrackDelegate> {
 
+    internal let queue = DispatchQueue(label: "LiveKitSDK.track", qos: .default)
+
     public static let cameraName = "camera"
     public static let microphoneName = "microphone"
     public static let screenShareVideoName = "screen_share"
@@ -92,7 +94,7 @@ public class Track: MulticastDelegate<TrackDelegate> {
     // returns true if updated state
     public func start() -> Promise<Bool> {
 
-        Promise(on: .sdk) { () -> Bool in
+        Promise(on: queue) { () -> Bool in
 
             guard self.trackState != .started else {
                 // already started
@@ -107,7 +109,7 @@ public class Track: MulticastDelegate<TrackDelegate> {
     // returns true if updated state
     public func stop() -> Promise<Bool> {
 
-        Promise(on: .sdk) { () -> Bool in
+        Promise(on: queue) { () -> Bool in
 
             guard self.trackState != .stopped else {
                 // already stopped
@@ -121,7 +123,7 @@ public class Track: MulticastDelegate<TrackDelegate> {
 
     internal func enable() -> Promise<Bool> {
 
-        Promise(on: .sdk) { () -> Bool in
+        Promise(on: queue) { () -> Bool in
 
             guard !self.mediaTrack.isEnabled else {
                 // already enabled
@@ -135,7 +137,7 @@ public class Track: MulticastDelegate<TrackDelegate> {
 
     internal func disable() -> Promise<Bool> {
 
-        Promise(on: .sdk) { () -> Bool in
+        Promise(on: queue) { () -> Bool in
 
             guard self.mediaTrack.isEnabled else {
                 // already disabled
