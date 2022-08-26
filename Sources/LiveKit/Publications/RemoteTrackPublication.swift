@@ -253,7 +253,7 @@ internal extension Collection where Element == VideoRenderer {
         // not visible if no entry
         if isEmpty { return false }
         // at least 1 entry should be visible
-        return contains { $0.adaptiveStreamIsEnabled }
+        return contains { $0.adaptiveStreamIsVisible }
     }
 
     func largestSize() -> CGSize? {
@@ -265,7 +265,7 @@ internal extension Collection where Element == VideoRenderer {
 
         // use post-layout nativeRenderer's view size otherwise return nil
         // which results lower layer to be requested (enabled: true, dimensions: 0x0)
-        return filter { $0.adaptiveStreamIsEnabled }
+        return filter { $0.adaptiveStreamIsVisible }
             .compactMap { $0.adaptiveStreamSize != .zero ? $0.adaptiveStreamSize : nil }
             .reduce(into: nil as CGSize?, { previous, current in
                 guard let unwrappedPrevious = previous else {
@@ -319,7 +319,7 @@ extension RemoteTrackPublication {
 
         // log when flipping from enabled -> disabled
         if oldSettings.enabled, !newSettings.enabled {
-            let viewsString = videoRenderers.enumerated().map { (i, v) in "videoRenderer\(i)(adaptiveStreamIsEnabled: \(v.adaptiveStreamIsEnabled), adaptiveStreamSize: \(v.adaptiveStreamSize))" }.joined(separator: ", ")
+            let viewsString = videoRenderers.enumerated().map { (i, v) in "videoRenderer\(i)(adaptiveStreamIsEnabled: \(v.adaptiveStreamIsVisible), adaptiveStreamSize: \(v.adaptiveStreamSize))" }.joined(separator: ", ")
             log("[adaptiveStream] disabling sid: \(sid), videoRenderersCount: \(videoRenderers.count), \(viewsString)")
         }
 
