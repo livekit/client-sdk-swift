@@ -175,12 +175,14 @@ internal extension Room {
 
             // if isFullReconnect, keep connection related states
             $0 = isFullReconnect ? Engine.State(
+                connectOptions: $0.connectOptions,
                 url: $0.url,
                 token: $0.token,
                 nextPreferredReconnectMode: $0.nextPreferredReconnectMode,
                 reconnectMode: $0.reconnectMode,
                 connectionState: $0.connectionState
             ) : Engine.State(
+                connectOptions: $0.connectOptions,
                 connectionState: .disconnected(reason: reason)
             )
         }
@@ -290,7 +292,7 @@ internal extension Room {
             return Promise(())
         }
 
-        let sendUnSub = engine.connectOptions.autoSubscribe
+        let sendUnSub = engine._state.connectOptions.autoSubscribe
         let participantTracks = _state.remoteParticipants.values.map { participant in
             Livekit_ParticipantTracks.with {
                 $0.participantSid = participant.sid

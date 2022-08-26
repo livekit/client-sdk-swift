@@ -28,6 +28,7 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
     public typealias ConditionEvalFunc = (_ newState: State, _ oldState: State?) -> Bool
 
     public struct State: ReconnectableState {
+        var connectOptions: ConnectOptions
         var url: String?
         var token: String?
         // preferred reconnect mode which will be used only for next attempt
@@ -42,14 +43,12 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
         var publisherLossyDCOpenCompleter = Completer<Void>()
     }
 
-    public var _state = StateSync(State())
+    public var _state: StateSync<State>
 
     public let signalClient = SignalClient()
 
     public private(set) var publisher: Transport?
     public private(set) var subscriber: Transport?
-
-    public private(set) var connectOptions: ConnectOptions
 
     // weak ref to Room
     public weak var room: Room?
@@ -77,8 +76,7 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
 
     init(connectOptions: ConnectOptions) {
 
-        self.connectOptions = connectOptions
-
+        self._state = StateSync(State(connectOptions: connectOptions))
         super.init()
 
         // log sdk & os versions
@@ -131,7 +129,9 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
                  connectOptions: ConnectOptions? = nil) -> Promise<Void> {
 
         // update options if specified
-        self.connectOptions = connectOptions ?? self.connectOptions
+        if let connectOptions = connectOptions, connectOptions != _state.connectOptions {
+            _state.mutate { $0.connectOptions = connectOptions }
+        }
 
         return cleanUp().then(on: queue) {
             self._state.mutate { $0.connectionState = .connecting }
@@ -334,7 +334,7 @@ private extension Engine {
 
         return self.signalClient.connect(url,
                                          token,
-                                         connectOptions: self.connectOptions,
+                                         connectOptions: _state.connectOptions,
                                          reconnectMode: _state.reconnectMode,
                                          adaptiveStream: room._state.options.adaptiveStream)
             .then(on: queue) {
@@ -386,8 +386,8 @@ private extension Engine {
 
             return self.signalClient.connect(url,
                                              token,
-                                             connectOptions: self.connectOptions,
-                                             reconnectMode: self._state.reconnectMode,
+                                             connectOptions: _state.connectOptions,
+                                             reconnectMode: _state.reconnectMode,
                                              adaptiveStream: room._state.options.adaptiveStream).then(on: queue) {
 
                                                 self.log("[reconnect] waiting for socket to connect...")
@@ -667,15 +667,15 @@ extension Engine: TransportDelegate {
             self.log("subscriberPrimary: \(joinResponse.subscriberPrimary)")
 
             // update iceServers from joinResponse
-            self.connectOptions.rtcConfiguration.set(iceServers: joinResponse.iceServers)
+            self._state.mutate { $0.connectOptions.rtcConfiguration.set(iceServers: joinResponse.iceServers) }
 
-            self.subscriber = try Transport(config: self.connectOptions.rtcConfiguration,
+            self.subscriber = try Transport(config: self._state.connectOptions.rtcConfiguration,
                                             target: .subscriber,
                                             primary: self.subscriberPrimary,
                                             delegate: self,
                                             reportStats: room._state.options.reportStats)
 
-            self.publisher = try Transport(config: self.connectOptions.rtcConfiguration,
+            self.publisher = try Transport(config: self._state.connectOptions.rtcConfiguration,
                                            target: .publisher,
                                            primary: !self.subscriberPrimary,
                                            delegate: self,
