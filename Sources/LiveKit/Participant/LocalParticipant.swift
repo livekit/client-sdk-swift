@@ -88,7 +88,7 @@ public class LocalParticipant: Participant {
 
                     self.log("[publish] computing encode settings with dimensions: \(dimensions)...")
 
-                    let publishOptions = (publishOptions as? VideoPublishOptions) ?? self.room.options.defaultVideoPublishOptions
+                    let publishOptions = (publishOptions as? VideoPublishOptions) ?? self.room._state.options.defaultVideoPublishOptions
 
                     let encodings = Utils.computeEncodings(dimensions: dimensions,
                                                            publishOptions: publishOptions,
@@ -109,7 +109,7 @@ public class LocalParticipant: Participant {
 
                 } else if track is LocalAudioTrack {
                     // additional params for Audio
-                    let publishOptions = (publishOptions as? AudioPublishOptions) ?? self.room.options.defaultAudioPublishOptions
+                    let publishOptions = (publishOptions as? AudioPublishOptions) ?? self.room._state.options.defaultAudioPublishOptions
                     populator.disableDtx = !publishOptions.dtx
                 }
 
@@ -224,7 +224,7 @@ public class LocalParticipant: Participant {
 
         // build a conditional promise to stop track if required by option
         func stopTrackIfRequired() -> Promise<Bool> {
-            if room.options.stopLocalTrackOnUnpublish {
+            if room._state.options.stopLocalTrackOnUnpublish {
                 return track.stop()
             }
             // Do nothing
@@ -312,7 +312,7 @@ public class LocalParticipant: Participant {
 
     internal func onSubscribedQualitiesUpdate(trackSid: String, subscribedQualities: [Livekit_SubscribedQuality]) {
 
-        if !room.options.dynacast {
+        if !room._state.options.dynacast {
             return
         }
 
@@ -452,10 +452,10 @@ extension LocalParticipant {
         } else if enabled {
             // try to create a new track
             if source == .camera {
-                let localTrack = LocalVideoTrack.createCameraTrack(options: room.options.defaultCameraCaptureOptions)
+                let localTrack = LocalVideoTrack.createCameraTrack(options: room._state.options.defaultCameraCaptureOptions)
                 return publishVideoTrack(track: localTrack).then(on: .sdk) { return $0 }
             } else if source == .microphone {
-                let localTrack = LocalAudioTrack.createTrack(options: room.options.defaultAudioCaptureOptions)
+                let localTrack = LocalAudioTrack.createTrack(options: room._state.options.defaultAudioCaptureOptions)
                 return publishAudioTrack(track: localTrack).then(on: .sdk) { return $0 }
             } else if source == .screenShareVideo {
 
@@ -472,7 +472,7 @@ extension LocalParticipant {
                     localTrack = LocalVideoTrack.createInAppScreenShareTrack(options: options)
                 }
                 #elseif os(macOS)
-                localTrack = LocalVideoTrack.createMacOSScreenShareTrack(options: room.options.defaultScreenShareCaptureOptions)
+                localTrack = LocalVideoTrack.createMacOSScreenShareTrack(options: room._state.options.defaultScreenShareCaptureOptions)
                 #endif
 
                 if let localTrack = localTrack {

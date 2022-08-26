@@ -43,9 +43,10 @@ public class Room: MulticastDelegate<RoomDelegate> {
 
     // Reference to Engine
     internal let engine: Engine
-    internal private(set) var options: RoomOptions
 
     internal struct State {
+        var options: RoomOptions
+
         var sid: String?
         var name: String?
         var metadata: String?
@@ -57,15 +58,14 @@ public class Room: MulticastDelegate<RoomDelegate> {
         var activeSpeakers = [Participant]()
     }
 
-    // MARK: - Private
-
-    private var _state = StateSync(State())
+    internal var _state: StateSync<State>
 
     public init(delegate: RoomDelegate? = nil,
                 connectOptions: ConnectOptions = ConnectOptions(),
                 roomOptions: RoomOptions = RoomOptions()) {
 
-        self.options = roomOptions
+        self._state = StateSync(State(options: roomOptions))
+
         self.engine = Engine(connectOptions: connectOptions,
                              roomOptions: roomOptions)
         super.init()
@@ -118,21 +118,25 @@ public class Room: MulticastDelegate<RoomDelegate> {
                         connectOptions: ConnectOptions? = nil,
                         roomOptions: RoomOptions? = nil) -> Promise<Room> {
 
-        // update options if specified
-        self.options = roomOptions ?? self.options
+        log("connecting to room...", .info)
 
-        log("connecting to room", .info)
+        let state = _state.readCopy()
 
-        guard _state.localParticipant == nil else {
+        guard state.localParticipant == nil else {
             log("localParticipant is not nil", .warning)
             return Promise(EngineError.state(message: "localParticipant is not nil"))
+        }
+
+        // update options if specified
+        if let roomOptions = roomOptions, roomOptions != state.options {
+            _state.mutate { $0.options = roomOptions }
         }
 
         // monitor.start(queue: monitorQueue)
         return engine.connect(url, token,
                               connectOptions: connectOptions,
                               roomOptions: roomOptions).then(on: .sdk) { () -> Room in
-                                self.log("connected to \(String(describing: self)) \(String(describing: self.localParticipant))", .info)
+                                self.log("connected to \(String(describing: self)) \(String(describing: state.localParticipant))", .info)
                                 return self
                               }
     }
@@ -188,7 +192,7 @@ internal extension Room {
             self.cleanUpParticipants()
         }.then(on: .sdk) {
             // reset state
-            self._state.mutate { $0 = State() }
+            self._state.mutate { $0 = State(options: $0.options) }
         }.catch(on: .sdk) { error in
             // this should never happen
             self.log("Room cleanUp failed with error: \(error)", .error)
@@ -716,7 +720,7 @@ extension Room: AppStateDelegate {
 
     func appDidEnterBackground() {
 
-        guard options.suspendLocalVideoTracksInBackground else { return }
+        guard _state.options.suspendLocalVideoTracksInBackground else { return }
 
         guard let localParticipant = localParticipant else { return }
         let promises = localParticipant.localVideoTracks.map { $0.suspend() }
