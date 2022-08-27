@@ -20,34 +20,42 @@ public protocol VideoTrack: Track {
 
 }
 
+@objc public protocol VideoRenderer: RTCVideoRenderer {
+    /// Whether this ``VideoRenderer`` should be considered visible or not for AdaptiveStream.
+    /// This will be invoked on the .main thread.
+    var adaptiveStreamIsEnabled: Bool { get }
+    /// The size used for AdaptiveStream computation. Return .zero if size is unknown yet.
+    /// This will be invoked on the .main thread.
+    var adaptiveStreamSize: CGSize { get }
+}
+
 extension VideoTrack {
 
-    public func add(videoView: VideoView) {
-
-        // must always be called on main thread
-        assert(Thread.current.isMainThread, "must be called on main thread")
+    public func add(videoRenderer: VideoRenderer) {
 
         guard let videoTrack = self.mediaTrack as? RTCVideoTrack else {
             log("mediaTrack is not a RTCVideoTrack", .error)
             return
         }
 
-        videoTrack.add(videoView)
-        videoViews.add(videoView)
+        // must always be called on main thread
+        assert(Thread.current.isMainThread, "must be called on main thread")
+
+        videoRenderers.add(videoRenderer)
+        videoTrack.add(videoRenderer)
     }
 
-    public func remove(videoView: VideoView) {
-
-        // must always be called on main thread
-        assert(Thread.current.isMainThread, "must be called on main thread")
-
-        videoViews.remove(videoView)
+    public func remove(videoRenderer: VideoRenderer) {
 
         guard let videoTrack = self.mediaTrack as? RTCVideoTrack else {
             log("mediaTrack is not a RTCVideoTrack", .error)
             return
         }
 
-        videoTrack.remove(videoView)
+        // must always be called on main thread
+        assert(Thread.current.isMainThread, "must be called on main thread")
+
+        videoRenderers.remove(videoRenderer)
+        videoTrack.remove(videoRenderer)
     }
 }
