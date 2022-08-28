@@ -282,7 +282,7 @@ private extension SignalClient {
         }
 
         switch message {
-        case .join(let joinResponse) :
+        case .join(let joinResponse):
             responseQueueState = .suspended
             latestJoinResponse = joinResponse
             notify { $0.signalClient(self, didReceive: joinResponse) }

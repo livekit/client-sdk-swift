@@ -462,7 +462,7 @@ extension LocalParticipant {
                 var localTrack: LocalVideoTrack?
 
                 #if os(iOS)
-                let options = room.options.defaultScreenShareCaptureOptions
+                let options = room._state.options.defaultScreenShareCaptureOptions
                 if options.useBroadcastExtension {
                     let screenShareExtensionId = Bundle.main.infoDictionary?[BroadcastScreenCapturer.kRTCScreenSharingExtension] as? String
                     RPSystemBroadcastPickerView.show(for: screenShareExtensionId,
