@@ -212,15 +212,15 @@ private extension SignalClient {
     // send request or enqueue while reconnecting
     func sendRequest(_ request: Livekit_SignalRequest, enqueueIfReconnecting: Bool = true) -> Promise<Void> {
 
-        Promise<Void>(on: requestDispatchQueue) { [weak self] () -> Void in
+        Promise<Void>(on: requestDispatchQueue) { [weak self] () -> Promise<Void> in
 
-            guard let self = self else { return }
+            guard let self = self else { return Promise(()) }
 
             guard !(self._state.connectionState.isReconnecting && request.canEnqueue() && enqueueIfReconnecting) else {
                 self.log("queuing request while reconnecting, request: \(request)")
                 self.requestQueue.append(request)
                 // success
-                return
+                return Promise(())
             }
 
             guard case .connected = self.connectionState else {
@@ -239,8 +239,7 @@ private extension SignalClient {
                 throw InternalError.convert(message: "Could not serialize data")
             }
 
-            // resolve promise in this queue
-            try awaitPromise(webSocket.send(data: data))
+            return webSocket.send(data: data)
         }
     }
 
@@ -357,14 +356,14 @@ internal extension SignalClient {
 
         log()
 
-        return Promise<Void>(on: responseDispatchQueue) { () -> Void in
+        return Promise<Void>(on: responseDispatchQueue) { () -> Promise<Void> in
 
             defer { self.responseQueueState = .resumed }
 
             // quickly return if no queued requests
             guard !self.responseQueue.isEmpty else {
                 self.log("No queued response")
-                return
+                return Promise(())
             }
 
             // send requests in sequential order
@@ -375,8 +374,7 @@ internal extension SignalClient {
             // clear the queue
             self.responseQueue = []
 
-            // resolve promise in this queue
-            try awaitPromise(promises)
+            return promises
         }
     }
 }
@@ -394,23 +392,23 @@ internal extension SignalClient {
             }
         }
 
-        return Promise<Void>(on: requestDispatchQueue) { () -> Void in
+        return Promise<Void>(on: requestDispatchQueue) { () -> Promise<Void> in
 
             // quickly return if no queued requests
             guard !self.requestQueue.isEmpty else {
                 self.log("No queued requests")
-                return
+                return Promise(())
             }
 
             // send requests in sequential order
             let promises = self.requestQueue.reduce(into: Promise(())) { result, request in
                 result = result.then(on: self.queue) { safeSend(request) }
             }
+
             // clear the queue
             self.requestQueue = []
 
-            // resolve promise in this queue
-            try awaitPromise(promises)
+            return promises
         }
     }
 
