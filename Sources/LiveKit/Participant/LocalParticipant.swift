@@ -420,11 +420,11 @@ extension LocalParticipant {
 extension LocalParticipant {
 
     public func setCamera(enabled: Bool) -> Promise<LocalTrackPublication?> {
-        return set(source: .camera, enabled: enabled)
+        set(source: .camera, enabled: enabled)
     }
 
     public func setMicrophone(enabled: Bool) -> Promise<LocalTrackPublication?> {
-        return set(source: .microphone, enabled: enabled)
+        set(source: .microphone, enabled: enabled)
     }
 
     /// Enable or disable screen sharing. This has different behavior depending on the platform.
@@ -437,26 +437,25 @@ extension LocalParticipant {
     ///
     /// For advanced usage, you can create a relevant ``LocalVideoTrack`` and call ``LocalParticipant/publishVideoTrack(track:publishOptions:)``.
     public func setScreenShare(enabled: Bool) -> Promise<LocalTrackPublication?> {
-        return set(source: .screenShareVideo, enabled: enabled)
+        set(source: .screenShareVideo, enabled: enabled)
     }
 
     public func set(source: Track.Source, enabled: Bool) -> Promise<LocalTrackPublication?> {
-        let publication = getTrackPublication(source: source)
-        if let publication = publication as? LocalTrackPublication {
-            // publication already exists
+        // attempt to get existing publication
+        if let publication = getTrackPublication(source: source) as? LocalTrackPublication {
             if enabled {
                 return publication.unmute().then(on: queue) { publication }
             } else {
-                return publication.mute().then(on: queue) { nil }
+                return publication.mute().then(on: queue) { publication }
             }
         } else if enabled {
             // try to create a new track
             if source == .camera {
                 let localTrack = LocalVideoTrack.createCameraTrack(options: room._state.options.defaultCameraCaptureOptions)
-                return publishVideoTrack(track: localTrack).then(on: queue) { return $0 }
+                return publishVideoTrack(track: localTrack).then(on: queue) { $0 }
             } else if source == .microphone {
                 let localTrack = LocalAudioTrack.createTrack(options: room._state.options.defaultAudioCaptureOptions)
-                return publishAudioTrack(track: localTrack).then(on: queue) { return $0 }
+                return publishAudioTrack(track: localTrack).then(on: queue) { $0 }
             } else if source == .screenShareVideo {
 
                 var localTrack: LocalVideoTrack?
@@ -481,6 +480,6 @@ extension LocalParticipant {
             }
         }
 
-        return Promise(EngineError.state())
+        return Promise(nil)
     }
 }

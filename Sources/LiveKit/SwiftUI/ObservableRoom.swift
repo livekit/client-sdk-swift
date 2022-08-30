@@ -83,13 +83,9 @@ open class ObservableRoom: ObservableObject, RoomDelegate, Loggable {
             self.cameraTrackState = .busy(isPublishing: !self.cameraTrackState.isPublished)
         }
 
-        localParticipant.setCamera(enabled: !cameraTrackState.isPublished).then(on: room.queue) { publication in
+        localParticipant.setCamera(enabled: !localParticipant.isCameraEnabled()).then(on: room.queue) { publication in
             DispatchQueue.main.async {
-                guard let publication = publication else {
-                    self.cameraTrackState = .notPublished()
-                    return
-                }
-
+                guard let publication = publication else { return }
                 self.cameraTrackState = .published(publication)
             }
             self.log("Successfully published camera")
@@ -117,13 +113,9 @@ open class ObservableRoom: ObservableObject, RoomDelegate, Loggable {
             self.screenShareTrackState = .busy(isPublishing: !self.screenShareTrackState.isPublished)
         }
 
-        localParticipant.setScreenShare(enabled: !screenShareTrackState.isPublished).then(on: room.queue) { publication in
+        localParticipant.setScreenShare(enabled: !localParticipant.isScreenShareEnabled()).then(on: room.queue) { publication in
             DispatchQueue.main.async {
-                guard let publication = publication else {
-                    self.screenShareTrackState = .notPublished()
-                    return
-                }
-
+                guard let publication = publication else { return }
                 self.screenShareTrackState = .published(publication)
             }
         }.catch(on: room.queue) { error in
@@ -149,13 +141,9 @@ open class ObservableRoom: ObservableObject, RoomDelegate, Loggable {
             self.microphoneTrackState = .busy(isPublishing: !self.microphoneTrackState.isPublished)
         }
 
-        localParticipant.setMicrophone(enabled: !microphoneTrackState.isPublished).then(on: room.queue) { publication in
+        localParticipant.setMicrophone(enabled: !localParticipant.isMicrophoneEnabled()).then(on: room.queue) { publication in
             DispatchQueue.main.async {
-                guard let publication = publication else {
-                    self.microphoneTrackState = .notPublished()
-                    return
-                }
-
+                guard let publication = publication else { return }
                 self.microphoneTrackState = .published(publication)
             }
             self.log("Successfully published microphone")
