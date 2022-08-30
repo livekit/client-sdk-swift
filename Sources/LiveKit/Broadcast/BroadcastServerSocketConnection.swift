@@ -8,7 +8,9 @@
 
 import Foundation
 import Darwin
+#if canImport(CHeaders)
 import CHeaders
+#endif
 
 class BroadcastServerSocketConnection: NSObject {
     private let streamDelegate: StreamDelegate

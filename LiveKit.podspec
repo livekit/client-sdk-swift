@@ -14,7 +14,7 @@ Pod::Spec.new do |spec|
   spec.swift_versions = ['4.2', '5']
   spec.source         = { :git => 'https://github.com/livekit/client-sdk-swift.git', :tag => '1.0.3' }
 
-  # spec.source_files   = 'Sources/**/*'
+  spec.source_files   = 'Sources/**/*'
   # spec.source_files = 'Sources/LiveKit/**/*.{swift}',
   #                     'Sources/CHeaders/**/*.{h,modulemap}'
 
