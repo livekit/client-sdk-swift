@@ -168,38 +168,38 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
     // Resets state of transports
     func cleanUpRTC() -> Promise<Void> {
 
-        func closeAllDataChannels() -> Promise<Void> {
+        Promise<Void>(on: queue) { [weak self] () -> Promise<Void> in
 
-            let promises = [dcReliablePub, dcLossyPub, dcReliableSub, dcLossySub]
+            guard let self = self else { return Promise(()) }
+
+            let dataChannels = [self.dcReliablePub,
+                                self.dcLossyPub,
+                                self.dcReliableSub,
+                                self.dcLossySub]
                 .compactMap { $0 }
-                .map { dc in Promise<Void>(on: .webRTC) { dc.close() } }
 
-            return promises.all(on: queue).then(on: queue) {
-                self.dcReliablePub = nil
-                self.dcLossyPub = nil
-                self.dcReliableSub = nil
-                self.dcLossySub = nil
+            // can be async
+            DispatchQueue.webRTC.async {
+                for dataChannel in dataChannels { dataChannel.close() }
             }
-        }
 
-        func closeAllTransports() -> Promise<Void> {
+            self.dcReliablePub = nil
+            self.dcLossyPub = nil
+            self.dcReliableSub = nil
+            self.dcLossySub = nil
 
-            let promises = [publisher, subscriber]
+            let closeTransportPromises = [self.publisher,
+                                          self.subscriber]
                 .compactMap { $0 }
                 .map { $0.close() }
 
-            return promises.all(on: queue).then(on: queue) {
-                self.publisher = nil
-                self.subscriber = nil
-                self._state.mutate { $0.hasPublished = false }
-            }
-        }
+            return closeTransportPromises.all(on: self.queue)
 
-        return closeAllDataChannels()
-            .recover(on: queue) { self.log("Failed to close data channels, error: \($0)") }
-            .then(on: queue) {
-                closeAllTransports()
-            }
+        }.then(on: queue) { _ in
+            self.publisher = nil
+            self.subscriber = nil
+            self._state.mutate { $0.hasPublished = false }
+        }
     }
 
     func publisherShouldNegotiate() {
