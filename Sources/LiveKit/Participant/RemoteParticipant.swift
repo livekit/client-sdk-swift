@@ -145,9 +145,7 @@ public class RemoteParticipant: Participant {
         let promises = _state.tracks.values.compactMap { $0 as? RemoteTrackPublication }
             .map { unpublish(publication: $0, notify: _notify) }
         // combine promises to wait all to complete
-        return super.unpublishAll(notify: _notify).then(on: queue) {
-            promises.all(on: self.queue)
-        }
+        return promises.all(on: queue)
     }
 
     internal func unpublish(publication: RemoteTrackPublication, notify _notify: Bool = true) -> Promise<Void> {

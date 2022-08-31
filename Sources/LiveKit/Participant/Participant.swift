@@ -123,7 +123,7 @@ public class Participant: MulticastDelegate<ParticipantDelegate> {
     }
 
     internal func unpublishAll(notify _notify: Bool = true) -> Promise<Void> {
-        Promise(())
+        fatalError("Unimplemented")
     }
 
     internal func addTrack(publication: TrackPublication) {

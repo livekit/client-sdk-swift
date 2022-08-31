@@ -191,9 +191,7 @@ public class LocalParticipant: Participant {
         let promises = _state.tracks.values.compactMap { $0 as? LocalTrackPublication }
             .map { unpublish(publication: $0, notify: _notify) }
         // combine promises to wait all to complete
-        return super.unpublishAll(notify: _notify).then(on: queue) {
-            promises.all(on: self.queue)
-        }
+        return promises.all(on: queue)
     }
 
     /// unpublish an existing published track
