@@ -188,18 +188,26 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
     }
 
     func close() -> Promise<Void> {
-        // prevent debounced negotiate firing
-        debounceWorkItem?.cancel()
-        statsTimer.suspend()
 
-        return Promise(on: .webRTC) { [pc] in
-            // Stop listening to delegate
-            pc.delegate = nil
-            // Remove all senders (if any)
-            for sender in pc.senders {
-                pc.removeTrack(sender)
+        Promise(on: queue) { [weak self] in
+
+            guard let self = self else { return }
+
+            // prevent debounced negotiate firing
+            self.debounceWorkItem?.cancel()
+            self.statsTimer.suspend()
+
+            // can be async
+            DispatchQueue.webRTC.async {
+                // Stop listening to delegate
+                self.pc.delegate = nil
+                // Remove all senders (if any)
+                for sender in self.pc.senders {
+                    self.pc.removeTrack(sender)
+                }
+
+                self.pc.close()
             }
-            pc.close()
         }
     }
 }
