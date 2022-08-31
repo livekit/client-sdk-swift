@@ -107,7 +107,9 @@ public class MulticastDelegate<T>: NSObject, Loggable {
             }
 
             let wasHandled = counter > 0
-            assert(!(requiresHandle && !wasHandled), "notify() was not handled by the delegate, called from \(function) line \(line)")
+            if !(requiresHandle && !wasHandled) {
+                self.log("notify() was not handled by the delegate, called from \(function) line \(line)", .warning)
+            }
         }
     }
 }
