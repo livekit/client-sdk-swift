@@ -212,6 +212,8 @@ public class LocalParticipant: Participant {
             }
         }
 
+        let engine = self.room.engine
+
         // remove the publication
         _state.mutate { $0.tracks.removeValue(forKey: publication.sid) }
 
@@ -229,15 +231,16 @@ public class LocalParticipant: Participant {
             return Promise(false)
         }
 
-        // wait for track to stop
-        return stopTrackIfRequired().then(on: queue) { _ -> Promise<Void> in
+        // wait for track to stop (if required)
+        // engine.publisher must be accessed from engine.queue
+        return stopTrackIfRequired().then(on: engine.queue) { _ -> Promise<Void> in
 
-            guard let publisher = self.room.engine.publisher, let sender = track.sender else {
+            guard let publisher = engine.publisher, let sender = track.sender else {
                 return Promise(())
             }
 
             return publisher.removeTrack(sender).then(on: self.queue) {
-                self.room.engine.publisherShouldNegotiate()
+                engine.publisherShouldNegotiate()
             }
         }.then(on: queue) {
             track.onUnpublish()

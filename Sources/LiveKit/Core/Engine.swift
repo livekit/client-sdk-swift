@@ -21,7 +21,7 @@ import Network
 
 internal class Engine: MulticastDelegate<EngineDelegate> {
 
-    private let queue = DispatchQueue(label: "LiveKitSDK.engine", qos: .default)
+    internal let queue = DispatchQueue(label: "LiveKitSDK.engine", qos: .default)
 
     // MARK: - Public
 
@@ -202,16 +202,20 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
         }
     }
 
-    func publisherShouldNegotiate() {
+    @discardableResult
+    func publisherShouldNegotiate() -> Promise<Void> {
 
-        guard let publisher = publisher else {
-            log("negotiate() publisher is nil")
-            return
+        Promise<Void>(on: queue) { [weak self] in
+
+            guard let self = self,
+                  let publisher = self.publisher else {
+                throw EngineError.state(message: "self or publisher is nil")
+            }
+
+            self._state.mutate { $0.hasPublished = true }
+
+            publisher.negotiate()
         }
-
-        _state.mutate { $0.hasPublished = true }
-
-        publisher.negotiate()
     }
 
     func send(userPacket: Livekit_UserPacket,
