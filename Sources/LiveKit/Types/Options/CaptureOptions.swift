@@ -42,6 +42,15 @@ import WebRTC
     /// preferred fps to use for capturing, the SDK may override with a recommended value.
     @objc public let fps: Int
 
+    @objc
+    public override init() {
+        self.position = .front
+        self.preferredFormat = nil
+        self.dimensions = .h720_169
+        self.fps = 30
+    }
+
+    @objc
     public init(position: AVCaptureDevice.Position = .front,
                 preferredFormat: AVCaptureDevice.Format? = nil,
                 dimensions: Dimensions = .h720_169,

@@ -68,6 +68,7 @@ public typealias NativeRendererView = NativeViewType & RTCVideoRenderer
     }
 
     /// Calls addRenderer and/or removeRenderer internally for convenience.
+    @objc
     public weak var track: VideoTrack? {
         get { _state.track }
         set {

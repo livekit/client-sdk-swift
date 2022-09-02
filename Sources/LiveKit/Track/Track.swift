@@ -30,18 +30,21 @@ import Promises
     public static let screenShareVideoName = "screen_share"
     public static let screenShareAudioName = "screen_share_audio"
 
-    public enum Kind {
+    @objc(TrackKind)
+    public enum Kind: Int, Codable {
         case audio
         case video
         case none
     }
 
-    public enum TrackState {
+    @objc(TrackState)
+    public enum TrackState: Int, Codable {
         case stopped
         case started
     }
 
-    public enum Source {
+    @objc(TrackSource)
+    public enum Source: Int, Codable {
         case unknown
         case camera
         case microphone
@@ -61,20 +64,20 @@ import Promises
     /// Only for ``LocalTrack``s.
     public internal(set) var publishOptions: PublishOptions?
 
-    public let kind: Track.Kind
-    public let source: Track.Source
+    @objc public let kind: Track.Kind
+    @objc public let source: Track.Source
     @objc public let name: String
 
     @objc public var sid: Sid? { _state.sid }
-    public var muted: Bool { _state.muted }
-    public var stats: TrackStats? { _state.stats }
+    @objc public var muted: Bool { _state.muted }
+    @objc public var stats: TrackStats? { _state.stats }
 
     /// Dimensions of the video (only if video track)
-    public var dimensions: Dimensions? { _state.dimensions }
+    @objc public var dimensions: Dimensions? { _state.dimensions }
 
     /// The last video frame received for this track
     public var videoFrame: RTCVideoFrame? { _state.videoFrame }
-    public var trackState: TrackState { _state.trackState }
+    @objc public var trackState: TrackState { _state.trackState }
 
     // MARK: - Internal
 
@@ -106,16 +109,6 @@ import Promises
     deinit {
         log("sid: \(String(describing: sid))")
     }
-
-    //    override public func start() -> Promise<Bool> {
-    //        super.start().then(on: queue) { didStart in
-    //            self.enable().then(on: self.queue) { _ in didStart }
-    //        }
-    //    }
-    //
-    //    override public func stop() -> Promise<Bool> {
-    //        super.stop()
-    //    }
 
     // returns true if updated state
     public func start() -> Promise<Bool> {
@@ -329,5 +322,15 @@ extension Track {
         }.then(on: queue) { _ -> Void in
             self.set(muted: false, shouldSendSignal: true)
         }
+    }
+}
+
+// MARK: - Objective-C Support
+
+extension Track {
+
+    @objc
+    public func start() -> Promise<Bool>.ObjCPromise<NSNumber> {
+        start().asObjCPromise()
     }
 }

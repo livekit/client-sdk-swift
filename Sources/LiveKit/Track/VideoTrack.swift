@@ -16,21 +16,26 @@
 
 import WebRTC
 
-@objc public class VideoTrack: Track {
+@objc
+public class VideoTrack: Track {
 
 }
 
-@objc public protocol VideoRenderer: RTCVideoRenderer {
+@objc
+public protocol VideoRenderer: RTCVideoRenderer {
     /// Whether this ``VideoRenderer`` should be considered visible or not for AdaptiveStream.
     /// This will be invoked on the .main thread.
+    @objc
     var adaptiveStreamIsEnabled: Bool { get }
     /// The size used for AdaptiveStream computation. Return .zero if size is unknown yet.
     /// This will be invoked on the .main thread.
+    @objc
     var adaptiveStreamSize: CGSize { get }
 }
 
-@objc extension VideoTrack {
+extension VideoTrack {
 
+    @objc
     public func add(videoRenderer: VideoRenderer) {
 
         guard let videoTrack = self.mediaTrack as? RTCVideoTrack else {
@@ -45,6 +50,7 @@ import WebRTC
         videoTrack.add(videoRenderer)
     }
 
+    @objc
     public func remove(videoRenderer: VideoRenderer) {
 
         guard let videoTrack = self.mediaTrack as? RTCVideoTrack else {
