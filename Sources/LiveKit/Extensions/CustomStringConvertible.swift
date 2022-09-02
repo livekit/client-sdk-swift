@@ -30,9 +30,9 @@ extension Livekit_VideoLayer: CustomStringConvertible {
     }
 }
 
-extension TrackPublication: CustomStringConvertible {
+extension TrackPublication {
 
-    public var description: String {
+    public override var description: String {
         "\(String(describing: type(of: self)))(sid: \(sid), kind: \(kind), source: \(source))"
     }
 }

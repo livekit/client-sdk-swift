@@ -18,7 +18,7 @@ import Foundation
 import CoreGraphics
 import Promises
 
-public class TrackPublication: TrackDelegate, Loggable {
+@objc public class TrackPublication: NSObject, TrackDelegate, Loggable {
 
     internal let queue = DispatchQueue(label: "LiveKitSDK.publication", qos: .default)
 
@@ -73,6 +73,9 @@ public class TrackPublication: TrackDelegate, Loggable {
         self.kind = info.type.toLKType()
         self.source = info.source.toLKType()
         self.participant = participant
+
+        super.init()
+
         self.set(track: track)
         updateFromInfo(info: info)
 
@@ -173,7 +176,7 @@ public class TrackPublication: TrackDelegate, Loggable {
 
 // MARK: - Equatable
 
-extension TrackPublication: Equatable {
+extension TrackPublication {
     // objects are considered equal if sids are the same
     public static func == (lhs: TrackPublication, rhs: TrackPublication) -> Bool {
         lhs.sid == rhs.sid

@@ -25,7 +25,7 @@ import WebRTC
     case unsubscribed
 }
 
-public class RemoteTrackPublication: TrackPublication {
+@objc public class RemoteTrackPublication: TrackPublication {
 
     public var subscriptionAllowed: Bool { _state.subscriptionAllowed }
     public var enabled: Bool { _state.trackSettings.enabled }

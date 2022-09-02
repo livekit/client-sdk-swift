@@ -14,7 +14,9 @@
  * limitations under the License.
  */
 
-public struct ParticipantPermissions: Equatable {
+import Foundation
+
+@objc public class ParticipantPermissions: NSObject {
 
     /// ``Participant`` can subscribe to tracks in the room
     public let canSubscribe: Bool

@@ -17,7 +17,7 @@
 import Foundation
 import Promises
 
-public class LocalTrackPublication: TrackPublication {
+@objc public class LocalTrackPublication: TrackPublication {
 
     // indicates whether the track was suspended(muted) by the SDK
     internal var suspended: Bool = false
