@@ -16,7 +16,7 @@
 
 import Foundation
 
-public enum ProtocolVersion: Int, RawRepresentable {
+@objc public enum ProtocolVersion: Int, RawRepresentable {
     case v2 = 2
     case v3 = 3
     case v4 = 4

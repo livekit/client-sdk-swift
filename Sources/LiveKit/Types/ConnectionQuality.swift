@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-public enum ConnectionQuality {
+@objc public enum ConnectionQuality: Int {
     case unknown
     case poor
     case good
