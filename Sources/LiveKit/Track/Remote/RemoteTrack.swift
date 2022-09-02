@@ -14,19 +14,9 @@
  * limitations under the License.
  */
 
+import Foundation
 import Promises
 
-public class RemoteTrack: Track {
+@objc public protocol RemoteTrack where Self: Track {
 
-    override public func start() -> Promise<Bool> {
-        super.start().then(on: queue) { didStart in
-            self.enable().then(on: self.queue) { _ in didStart }
-        }
-    }
-
-    override public func stop() -> Promise<Bool> {
-        super.stop().then(on: queue) { didStop in
-            super.disable().then(on: self.queue) { _ in didStop }
-        }
-    }
 }

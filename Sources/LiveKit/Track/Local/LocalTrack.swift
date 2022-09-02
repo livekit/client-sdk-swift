@@ -14,69 +14,9 @@
  * limitations under the License.
  */
 
+import Foundation
 import Promises
 
-public class LocalTrack: Track {
+@objc public protocol LocalTrack where Self: Track {
 
-    public enum PublishState {
-        case unpublished
-        case published
-    }
-
-    public private(set) var publishState: PublishState = .unpublished
-
-    /// ``publishOptions`` used for this track if already published.
-    public internal(set) var publishOptions: PublishOptions?
-
-    public func mute() -> Promise<Void> {
-        // Already muted
-        if muted { return Promise(()) }
-
-        return disable().then(on: queue) { _ in
-            self.stop()
-        }.then(on: queue) { _ -> Void in
-            self.set(muted: true, shouldSendSignal: true)
-        }
-    }
-
-    public func unmute() -> Promise<Void> {
-        // Already un-muted
-        if !muted { return Promise(()) }
-
-        return enable().then(on: queue) { _ in
-            self.start()
-        }.then(on: queue) { _ -> Void in
-            self.set(muted: false, shouldSendSignal: true)
-        }
-    }
-
-    // returns true if state updated
-    internal func onPublish() -> Promise<Bool> {
-
-        Promise<Bool>(on: queue) { () -> Bool in
-
-            guard self.publishState != .published else {
-                // already published
-                return false
-            }
-
-            self.publishState = .published
-            return true
-        }
-    }
-
-    // returns true if state updated
-    internal func onUnpublish() -> Promise<Bool> {
-
-        Promise<Bool>(on: queue) { () -> Bool in
-
-            guard self.publishState != .unpublished else {
-                // already unpublished
-                return false
-            }
-
-            self.publishState = .unpublished
-            return true
-        }
-    }
 }

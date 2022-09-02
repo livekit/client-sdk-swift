@@ -16,7 +16,7 @@
 
 import WebRTC
 
-public protocol AudioTrack: Track {
+@objc public class AudioTrack: Track {
 
 }
 

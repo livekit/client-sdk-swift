@@ -49,11 +49,23 @@ import Promises
         case screenShareAudio
     }
 
+    @objc public enum PublishState: Int {
+        case unpublished
+        case published
+    }
+
+    /// Only for ``LocalTrack``s.
+    public private(set) var publishState: PublishState = .unpublished
+
+    /// ``publishOptions`` used for this track if already published.
+    /// Only for ``LocalTrack``s.
+    public internal(set) var publishOptions: PublishOptions?
+
     public let kind: Track.Kind
     public let source: Track.Source
-    public let name: String
+    @objc public let name: String
 
-    public var sid: Sid? { _state.sid }
+    @objc public var sid: Sid? { _state.sid }
     public var muted: Bool { _state.muted }
     public var stats: TrackStats? { _state.stats }
 
@@ -95,10 +107,20 @@ import Promises
         log("sid: \(String(describing: sid))")
     }
 
+    //    override public func start() -> Promise<Bool> {
+    //        super.start().then(on: queue) { didStart in
+    //            self.enable().then(on: self.queue) { _ in didStart }
+    //        }
+    //    }
+    //
+    //    override public func stop() -> Promise<Bool> {
+    //        super.stop()
+    //    }
+
     // returns true if updated state
     public func start() -> Promise<Bool> {
 
-        Promise(on: queue) { () -> Bool in
+        let promise = Promise<Bool>(on: queue) { () -> Bool in
 
             guard self.trackState != .started else {
                 // already started
@@ -108,12 +130,19 @@ import Promises
             self._state.mutate { $0.trackState = .started }
             return true
         }
+
+        guard self is RemoteTrack else { return promise }
+
+        // only for RemoteTrack
+        return promise.then(on: queue) { didStart in
+            self.enable().then(on: self.queue) { _ in didStart }
+        }
     }
 
     // returns true if updated state
     public func stop() -> Promise<Bool> {
 
-        Promise(on: queue) { () -> Bool in
+        let promise = Promise<Bool>(on: queue) { () -> Bool in
 
             guard self.trackState != .stopped else {
                 // already stopped
@@ -122,6 +151,12 @@ import Promises
 
             self._state.mutate { $0.trackState = .stopped }
             return true
+        }
+
+        guard self is RemoteTrack else { return promise }
+
+        return promise.then(on: queue) { didStop in
+            self.disable().then(on: self.queue) { _ in didStop }
         }
     }
 
@@ -167,8 +202,40 @@ import Promises
 
         if _notify {
             notify(label: { "track.didUpdate muted: \(newValue)" }) {
-                $0.track(self, didUpdate: newValue, shouldSendSignal: shouldSendSignal)
+                $0.track?(self, didUpdate: newValue, shouldSendSignal: shouldSendSignal)
             }
+        }
+    }
+
+    // MARK: - Local
+
+    // returns true if state updated
+    internal func onPublish() -> Promise<Bool> {
+
+        Promise<Bool>(on: queue) { () -> Bool in
+
+            guard self.publishState != .published else {
+                // already published
+                return false
+            }
+
+            self.publishState = .published
+            return true
+        }
+    }
+
+    // returns true if state updated
+    internal func onUnpublish() -> Promise<Bool> {
+
+        Promise<Bool>(on: queue) { () -> Bool in
+
+            guard self.publishState != .unpublished else {
+                // already unpublished
+                return false
+            }
+
+            self.publishState = .unpublished
+            return true
         }
     }
 }
@@ -180,7 +247,7 @@ internal extension Track {
     func set(stats newValue: TrackStats) {
         guard _state.stats != newValue else { return }
         _state.mutate { $0.stats = newValue }
-        notify { $0.track(self, didUpdate: newValue) }
+        notify { $0.track?(self, didUpdate: newValue) }
     }
 }
 
@@ -197,7 +264,7 @@ internal extension Track {
 
         guard let videoTrack = self as? VideoTrack else { return true }
         notify(label: { "track.didUpdate dimensions: \(newValue == nil ? "nil" : String(describing: newValue))" }) {
-            $0.track(videoTrack, didUpdate: newValue)
+            $0.track?(videoTrack, didUpdate: newValue)
         }
 
         return true
@@ -235,5 +302,32 @@ extension Track {
     func notify(label: (() -> String)? = nil,
                 _ fnc: @escaping (TrackDelegate) -> Void) {
         delegates.notify(label: label, fnc)
+    }
+}
+
+// MARK: - Local
+
+extension Track {
+
+    public func mute() -> Promise<Void> {
+        // Already muted
+        if muted { return Promise(()) }
+
+        return disable().then(on: queue) { _ in
+            self.stop()
+        }.then(on: queue) { _ -> Void in
+            self.set(muted: true, shouldSendSignal: true)
+        }
+    }
+
+    public func unmute() -> Promise<Void> {
+        // Already un-muted
+        if !muted { return Promise(()) }
+
+        return enable().then(on: queue) { _ in
+            self.start()
+        }.then(on: queue) { _ -> Void in
+            self.set(muted: false, shouldSendSignal: true)
+        }
     }
 }

@@ -19,7 +19,7 @@ import CoreGraphics
 import Promises
 import WebRTC
 
-@objc public enum SubscriptionState: Int {
+@objc public enum SubscriptionState: Int, Codable {
     case subscribed
     case notAllowed
     case unsubscribed

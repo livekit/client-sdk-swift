@@ -34,14 +34,14 @@ public typealias NativeRendererView = NativeViewType & RTCVideoRenderer
     public var delegates = MulticastDelegate<DelegateType>()
 
     /// Specifies how to render the video withing the ``VideoView``'s bounds.
-    @objc public enum LayoutMode: Int {
+    @objc public enum LayoutMode: Int, Codable {
         /// Video will be fully visible within the ``VideoView``.
         case fit
         /// Video will fully cover up the ``VideoView``.
         case fill
     }
 
-    @objc public enum MirrorMode: Int {
+    @objc public enum MirrorMode: Int, Codable {
         /// Will mirror if the track is a front facing camera track.
         case auto
         case off
@@ -189,7 +189,7 @@ public typealias NativeRendererView = NativeViewType & RTCVideoRenderer
                         // notify detach
                         track.notify(label: { "track.didDetach videoView: \(self)" }) { [weak self, weak track] (delegate) -> Void in
                             guard let self = self, let track = track else { return }
-                            delegate.track(track, didDetach: self)
+                            delegate.track?(track, didDetach: self)
                         }
                     }
 
@@ -215,7 +215,7 @@ public typealias NativeRendererView = NativeViewType & RTCVideoRenderer
                         // notify attach
                         track.notify(label: { "track.didAttach videoView: \(self)" }) { [weak self, weak track] (delegate) -> Void in
                             guard let self = self, let track = track else { return }
-                            delegate.track(track, didAttach: self)
+                            delegate.track?(track, didAttach: self)
                         }
                     }
                 }

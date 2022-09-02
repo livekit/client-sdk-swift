@@ -16,7 +16,7 @@
 
 import WebRTC
 
-public protocol VideoTrack: Track {
+@objc public class VideoTrack: Track {
 
 }
 
@@ -29,7 +29,7 @@ public protocol VideoTrack: Track {
     var adaptiveStreamSize: CGSize { get }
 }
 
-extension VideoTrack {
+@objc extension VideoTrack {
 
     public func add(videoRenderer: VideoRenderer) {
 
