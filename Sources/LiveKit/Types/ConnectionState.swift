@@ -101,3 +101,25 @@ protocol ReconnectableState {
     var reconnectMode: ReconnectMode? { get }
     var connectionState: ConnectionState { get }
 }
+
+// MARK: - Objective-C Support
+
+@objc(ConnectionState)
+public enum ConnectionStateObjC: Int {
+    case disconnected
+    case connecting
+    case reconnecting
+    case connected
+}
+
+extension ConnectionState {
+
+    func toObjCType() -> ConnectionStateObjC {
+        switch self {
+        case .disconnected: return .disconnected
+        case .connecting: return .connecting
+        case .reconnecting: return .reconnecting
+        case .connected: return .connected
+        }
+    }
+}
