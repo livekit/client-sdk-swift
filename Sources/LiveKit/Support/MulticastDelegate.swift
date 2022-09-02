@@ -122,18 +122,18 @@ public protocol MulticastDelegateCapable {
     func notify(label: (() -> String)?, _ fnc: @escaping (DelegateType) -> Void)
 }
 
-extension MulticastDelegateCapable {
+public extension MulticastDelegateCapable {
 
-    public func add(delegate: DelegateType) {
+    func add(delegate: DelegateType) {
         delegates.add(delegate: delegate)
     }
 
-    public func remove(delegate: DelegateType) {
+    func remove(delegate: DelegateType) {
         delegates.remove(delegate: delegate)
     }
 
-    public func notify(label: (() -> String)? = nil,
-                       _ fnc: @escaping (DelegateType) -> Void) {
+    func notify(label: (() -> String)? = nil,
+                _ fnc: @escaping (DelegateType) -> Void) {
         delegates.notify(label: label, fnc)
     }
 }
