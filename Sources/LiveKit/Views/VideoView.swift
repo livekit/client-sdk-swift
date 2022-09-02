@@ -21,7 +21,7 @@ import MetalKit
 /// A ``NativeViewType`` that conforms to ``RTCVideoRenderer``.
 public typealias NativeRendererView = NativeViewType & RTCVideoRenderer
 
-public class VideoView: NativeView, MulticastDelegateCapable, Loggable {
+@objc public class VideoView: NativeView, MulticastDelegateCapable, Loggable {
 
     // MARK: - Static
 
@@ -34,14 +34,14 @@ public class VideoView: NativeView, MulticastDelegateCapable, Loggable {
     public var delegates = MulticastDelegate<DelegateType>()
 
     /// Specifies how to render the video withing the ``VideoView``'s bounds.
-    public enum LayoutMode: String, Codable, CaseIterable {
+    @objc public enum LayoutMode: Int {
         /// Video will be fully visible within the ``VideoView``.
         case fit
         /// Video will fully cover up the ``VideoView``.
         case fill
     }
 
-    public enum MirrorMode: String, Codable, CaseIterable {
+    @objc public enum MirrorMode: Int {
         /// Will mirror if the track is a front facing camera track.
         case auto
         case off
@@ -49,13 +49,13 @@ public class VideoView: NativeView, MulticastDelegateCapable, Loggable {
     }
 
     /// ``LayoutMode-swift.enum`` of the ``VideoView``.
-    public var layoutMode: LayoutMode {
+    @objc public var layoutMode: LayoutMode {
         get { _state.layoutMode }
         set { _state.mutate { $0.layoutMode = newValue } }
     }
 
     /// Flips the video horizontally, useful for local VideoViews.
-    public var mirrorMode: MirrorMode {
+    @objc public var mirrorMode: MirrorMode {
         get { _state.mirrorMode }
         set { _state.mutate { $0.mirrorMode = newValue } }
     }
@@ -85,12 +85,12 @@ public class VideoView: NativeView, MulticastDelegateCapable, Loggable {
     }
 
     /// If set to false, rendering will be paused temporarily. Useful for performance optimizations with UICollectionViewCell etc.
-    public var isEnabled: Bool {
+    @objc public var isEnabled: Bool {
         get { _state.isEnabled }
         set { _state.mutate { $0.isEnabled = newValue } }
     }
 
-    public override var isHidden: Bool {
+    @objc public override var isHidden: Bool {
         get { _state.isHidden }
         set {
             _state.mutate { $0.isHidden = newValue }
@@ -98,13 +98,13 @@ public class VideoView: NativeView, MulticastDelegateCapable, Loggable {
         }
     }
 
-    public var debugMode: Bool {
+    @objc public var debugMode: Bool {
         get { _state.debugMode }
         set { _state.mutate { $0.debugMode = newValue } }
     }
 
-    public var isRendering: Bool { _state.isRendering }
-    public var didRenderFirstFrame: Bool { _state.didRenderFirstFrame }
+    @objc public var isRendering: Bool { _state.isRendering }
+    @objc public var didRenderFirstFrame: Bool { _state.didRenderFirstFrame }
 
     // MARK: - Internal
 
