@@ -329,8 +329,8 @@ extension Track {
 
 extension Track {
 
-    @objc
-    public func start() -> Promise<Bool>.ObjCPromise<NSNumber> {
+    @objc(start)
+    public func startObjC() -> Promise<Bool>.ObjCPromise<NSNumber> {
         start().asObjCPromise()
     }
 }
