@@ -16,15 +16,21 @@
 
 import Foundation
 
-public struct RoomOptions: Equatable {
-    // default options for capturing
-    public let defaultCameraCaptureOptions: CameraCaptureOptions
-    public let defaultScreenShareCaptureOptions: ScreenShareCaptureOptions
+@objc public class RoomOptions: NSObject {
 
-    public let defaultAudioCaptureOptions: AudioCaptureOptions
+    public static func == (lhs: RoomOptions, rhs: RoomOptions) -> Bool {
+        // TODO: Implement
+        fatalError("Not implemented")
+    }
+
+    // default options for capturing
+    @objc public let defaultCameraCaptureOptions: CameraCaptureOptions
+    @objc public let defaultScreenShareCaptureOptions: ScreenShareCaptureOptions
+
+    @objc public let defaultAudioCaptureOptions: AudioCaptureOptions
     // default options for publishing
-    public let defaultVideoPublishOptions: VideoPublishOptions
-    public let defaultAudioPublishOptions: AudioPublishOptions
+    @objc public let defaultVideoPublishOptions: VideoPublishOptions
+    @objc public let defaultAudioPublishOptions: AudioPublishOptions
 
     /// AdaptiveStream lets LiveKit automatically manage quality of subscribed
     /// video tracks to optimize for bandwidth and CPU.
@@ -34,23 +40,23 @@ public struct RoomOptions: Equatable {
     /// When none of the video elements are visible, it'll temporarily pause
     /// the data flow until they are visible again.
     ///
-    public let adaptiveStream: Bool
+    @objc public let adaptiveStream: Bool
 
     /// Dynamically pauses video layers that are not being consumed by any subscribers,
     /// significantly reducing publishing CPU and bandwidth usage.
     ///
-    public let dynacast: Bool
+    @objc public let dynacast: Bool
 
-    public let stopLocalTrackOnUnpublish: Bool
+    @objc public let stopLocalTrackOnUnpublish: Bool
 
     /// Automatically suspend(mute) video tracks when the app enters background and
     /// resume(unmute) when the app enters foreground again.
-    public let suspendLocalVideoTracksInBackground: Bool
+    @objc public let suspendLocalVideoTracksInBackground: Bool
 
     /// **Experimental**
     /// Report ``TrackStats`` every second to ``TrackDelegate`` for each local and remote tracks.
     /// This may consume slightly more CPU resources.
-    public let reportStats: Bool
+    @objc public let reportStats: Bool
 
     public init(defaultCameraCaptureOptions: CameraCaptureOptions = CameraCaptureOptions(),
                 defaultScreenShareCaptureOptions: ScreenShareCaptureOptions = ScreenShareCaptureOptions(),

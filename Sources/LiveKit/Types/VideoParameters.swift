@@ -43,7 +43,12 @@ extension Collection where Element == VideoParameters {
     }
 }
 
-public struct VideoParameters: Equatable {
+@objc public class VideoParameters: NSObject {
+
+    public static func == (lhs: VideoParameters, rhs: VideoParameters) -> Bool {
+        lhs.dimensions == rhs.dimensions &&
+            lhs.encoding == rhs.encoding
+    }
 
     public let dimensions: Dimensions
     public let encoding: VideoEncoding
@@ -265,11 +270,6 @@ extension VideoParameters: Comparable {
         }
 
         return lhs.dimensions.area < rhs.dimensions.area
-    }
-
-    public static func == (lhs: VideoParameters, rhs: VideoParameters) -> Bool {
-        lhs.dimensions == rhs.dimensions &&
-            lhs.encoding == rhs.encoding
     }
 }
 

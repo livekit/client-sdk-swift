@@ -17,7 +17,13 @@
 import Foundation
 import WebRTC
 
-public struct VideoEncoding: Equatable {
+@objc public class VideoEncoding: NSObject {
+
+    public static func == (lhs: VideoEncoding, rhs: VideoEncoding) -> Bool {
+        // TODO: Implement
+        fatalError("Not implemented")
+    }
+
     public var maxBitrate: Int
     public var maxFps: Int
 

@@ -17,25 +17,30 @@
 import Foundation
 import WebRTC
 
-public protocol CaptureOptions {
+@objc public protocol CaptureOptions {
 
 }
 
-public protocol VideoCaptureOptions: CaptureOptions {
+@objc public protocol VideoCaptureOptions: CaptureOptions {
     var dimensions: Dimensions { get }
     var fps: Int { get }
 }
 
-public struct CameraCaptureOptions: VideoCaptureOptions, Equatable {
+@objc public class CameraCaptureOptions: NSObject, VideoCaptureOptions {
 
-    public let position: AVCaptureDevice.Position
-    public let preferredFormat: AVCaptureDevice.Format?
+    public static func == (lhs: CameraCaptureOptions, rhs: CameraCaptureOptions) -> Bool {
+        // TODO: Implement
+        fatalError("Not implemented")
+    }
+
+    @objc public let position: AVCaptureDevice.Position
+    @objc public let preferredFormat: AVCaptureDevice.Format?
 
     /// preferred dimensions for capturing, the SDK may override with a recommended value.
-    public let dimensions: Dimensions
+    @objc public let dimensions: Dimensions
 
     /// preferred fps to use for capturing, the SDK may override with a recommended value.
-    public let fps: Int
+    @objc public let fps: Int
 
     public init(position: AVCaptureDevice.Position = .front,
                 preferredFormat: AVCaptureDevice.Format? = nil,
@@ -60,26 +65,36 @@ public struct CameraCaptureOptions: VideoCaptureOptions, Equatable {
     }
 }
 
-public struct ScreenShareCaptureOptions: VideoCaptureOptions, Equatable {
+@objc public class ScreenShareCaptureOptions: NSObject, VideoCaptureOptions {
 
-    public let dimensions: Dimensions
-    public let fps: Int
-    public let useBroadcastExtension: Bool
+    public static func == (lhs: ScreenShareCaptureOptions, rhs: ScreenShareCaptureOptions) -> Bool {
+        // TODO: Implement
+        fatalError("Not implemented")
+    }
+
+    @objc public let dimensions: Dimensions
+    @objc public let fps: Int
+    @objc public let useBroadcastExtension: Bool
 
     public init(dimensions: Dimensions = .h1080_169,
                 fps: Int = 30,
-                useBroadcastExtension: Bool = false
-    ) {
+                useBroadcastExtension: Bool = false) {
+
         self.dimensions = dimensions
         self.fps = fps
         self.useBroadcastExtension = useBroadcastExtension
     }
 }
 
-public struct BufferCaptureOptions: VideoCaptureOptions, Equatable {
+@objc public class BufferCaptureOptions: NSObject, VideoCaptureOptions {
 
-    public let dimensions: Dimensions
-    public let fps: Int
+    public static func == (lhs: BufferCaptureOptions, rhs: BufferCaptureOptions) -> Bool {
+        // TODO: Implement
+        fatalError("Not implemented")
+    }
+
+    @objc public let dimensions: Dimensions
+    @objc public let fps: Int
 
     public init(dimensions: Dimensions = .h1080_169,
                 fps: Int = 30) {
@@ -93,15 +108,20 @@ public struct BufferCaptureOptions: VideoCaptureOptions, Equatable {
     }
 }
 
-public struct AudioCaptureOptions: CaptureOptions, Equatable {
+@objc public class AudioCaptureOptions: NSObject, CaptureOptions {
 
-    public let echoCancellation: Bool
-    public let noiseSuppression: Bool
-    public let autoGainControl: Bool
-    public let typingNoiseDetection: Bool
-    public let highpassFilter: Bool
-    public let experimentalNoiseSuppression: Bool = false
-    public let experimentalAutoGainControl: Bool = false
+    public static func == (lhs: AudioCaptureOptions, rhs: AudioCaptureOptions) -> Bool {
+        // TODO: Implement
+        fatalError("Not implemented")
+    }
+
+    @objc public let echoCancellation: Bool
+    @objc public let noiseSuppression: Bool
+    @objc public let autoGainControl: Bool
+    @objc public let typingNoiseDetection: Bool
+    @objc public let highpassFilter: Bool
+    @objc public let experimentalNoiseSuppression: Bool = false
+    @objc public let experimentalAutoGainControl: Bool = false
 
     public init(echoCancellation: Bool = true,
                 noiseSuppression: Bool = false,
