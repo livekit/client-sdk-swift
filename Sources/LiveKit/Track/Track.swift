@@ -17,7 +17,11 @@
 import WebRTC
 import Promises
 
-public class Track: MulticastDelegate<TrackDelegate> {
+@objc public class Track: NSObject, Loggable {
+
+    // MARK: - MulticastDelegate
+
+    private var delegates = MulticastDelegate<TrackDelegate>()
 
     internal let queue = DispatchQueue(label: "LiveKitSDK.track", qos: .default)
 
@@ -213,5 +217,23 @@ extension Track {
     @available(*, deprecated, renamed: "trackState")
     public var state: TrackState {
         self._state.trackState
+    }
+}
+
+// MARK: - MulticastDelegate
+
+extension Track {
+
+    func add(delegate: TrackDelegate) {
+        delegates.add(delegate: delegate)
+    }
+
+    func remove(delegate: TrackDelegate) {
+        delegates.remove(delegate: delegate)
+    }
+
+    func notify(label: (() -> String)? = nil,
+                _ fnc: @escaping (TrackDelegate) -> Void) {
+        delegates.notify(label: label, fnc)
     }
 }
