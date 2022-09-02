@@ -16,7 +16,7 @@
 
 import Foundation
 
-public enum ReconnectMode {
+@objc public enum ReconnectMode: Int {
     case quick
     case full
 }
