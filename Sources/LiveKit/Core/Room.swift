@@ -21,7 +21,7 @@ import WebRTC
 
 @objc public class Room: NSObject, MulticastDelegateCapable, Loggable {
 
-    // MARK: - Public
+    // MARK: - MulticastDelegate
 
     public typealias DelegateType = RoomDelegate
     public var delegates = MulticastDelegate<DelegateType>()

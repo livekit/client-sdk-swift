@@ -18,19 +18,24 @@ import Foundation
 import WebRTC
 import Promises
 
-public class Participant: MulticastDelegate<ParticipantDelegate> {
+@objc public class Participant: NSObject, MulticastDelegateCapable, Loggable {
+
+    // MARK: - MulticastDelegate
+
+    public typealias DelegateType = ParticipantDelegate
+    public var delegates = MulticastDelegate<DelegateType>()
 
     internal let queue = DispatchQueue(label: "LiveKitSDK.participant", qos: .default)
 
-    public let sid: Sid
-    public var identity: String { _state.identity }
-    public var name: String { _state.name }
-    public var audioLevel: Float { _state.audioLevel }
-    public var isSpeaking: Bool { _state.isSpeaking }
-    public var metadata: String? { _state.metadata }
+    @objc public let sid: Sid
+    @objc public var identity: String { _state.identity }
+    @objc public var name: String { _state.name }
+    @objc public var audioLevel: Float { _state.audioLevel }
+    @objc public var isSpeaking: Bool { _state.isSpeaking }
+    @objc public var metadata: String? { _state.metadata }
     public var connectionQuality: ConnectionQuality { _state.connectionQuality }
     public var permissions: ParticipantPermissions { _state.permissions }
-    public var joinedAt: Date? { _state.joinedAt }
+    @objc public var joinedAt: Date? { _state.joinedAt }
     public var tracks: [String: TrackPublication] { _state.tracks }
 
     public var audioTracks: [TrackPublication] {

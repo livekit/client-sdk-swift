@@ -18,7 +18,7 @@ import WebRTC
 import Promises
 import ReplayKit
 
-public class LocalParticipant: Participant {
+@objc public class LocalParticipant: Participant {
 
     public var localAudioTracks: [LocalTrackPublication] { audioTracks.compactMap { $0 as? LocalTrackPublication } }
     public var localVideoTracks: [LocalTrackPublication] { videoTracks.compactMap { $0 as? LocalTrackPublication } }

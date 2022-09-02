@@ -28,7 +28,7 @@ public typealias NativeRendererView = NativeViewType & RTCVideoRenderer
     private static let mirrorTransform = CATransform3DMakeScale(-1.0, 1.0, 1.0)
     private static let _freezeDetectThreshold = 2.0
 
-    // MARK: - Public
+    // MARK: - MulticastDelegate
 
     public typealias DelegateType = VideoViewDelegate
     public var delegates = MulticastDelegate<DelegateType>()
