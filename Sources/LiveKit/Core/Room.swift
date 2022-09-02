@@ -19,25 +19,30 @@ import Network
 import Promises
 import WebRTC
 
-public class Room: MulticastDelegate<RoomDelegate> {
+@objc public class Room: NSObject, MulticastDelegateCapable, Loggable {
+
+    // MARK: - Public
+
+    public typealias DelegateType = RoomDelegate
+    public var delegates = MulticastDelegate<DelegateType>()
 
     internal let queue = DispatchQueue(label: "LiveKitSDK.room", qos: .default)
 
     // MARK: - Public
 
-    public var sid: Sid? { _state.sid }
-    public var name: String? { _state.name }
-    public var metadata: String? { _state.metadata }
-    public var serverVersion: String? { _state.serverVersion }
-    public var serverRegion: String? { _state.serverRegion }
+    @objc public var sid: Sid? { _state.sid }
+    @objc public var name: String? { _state.name }
+    @objc public var metadata: String? { _state.metadata }
+    @objc public var serverVersion: String? { _state.serverVersion }
+    @objc public var serverRegion: String? { _state.serverRegion }
 
     public var localParticipant: LocalParticipant? { _state.localParticipant }
     public var remoteParticipants: [Sid: RemoteParticipant] { _state.remoteParticipants }
     public var activeSpeakers: [Participant] { _state.activeSpeakers }
 
     // expose engine's vars
-    public var url: String? { engine._state.url }
-    public var token: String? { engine._state.token }
+    @objc public var url: String? { engine._state.url }
+    @objc public var token: String? { engine._state.token }
     public var connectionState: ConnectionState { engine._state.connectionState }
     public var connectStopwatch: Stopwatch { engine._state.connectStopwatch }
 
@@ -61,6 +66,15 @@ public class Room: MulticastDelegate<RoomDelegate> {
     }
 
     internal var _state: StateSync<State>
+
+    // MARK: Objective-C Support
+
+    @objc public convenience override init() {
+
+        self.init(delegate: nil,
+                  connectOptions: ConnectOptions(),
+                  roomOptions: RoomOptions())
+    }
 
     public init(delegate: RoomDelegate? = nil,
                 connectOptions: ConnectOptions = ConnectOptions(),
@@ -763,5 +777,20 @@ extension Room {
     public static var bypassVoiceProcessing: Bool {
         get { Engine.bypassVoiceProcessing }
         set { Engine.bypassVoiceProcessing = newValue }
+    }
+}
+
+// MARK: - Objective-C Support
+
+extension Room {
+
+    @objc public func connect(url: String,
+                              token: String,
+                              connectOptions: ConnectOptions? = nil,
+                              roomOptions: RoomOptions? = nil) -> Promise<Room>.ObjCPromise<Room> {
+        connect(url,
+                token,
+                connectOptions: connectOptions,
+                roomOptions: roomOptions).asObjCPromise()
     }
 }
