@@ -18,8 +18,25 @@ import Foundation
 import CoreMedia
 import WebRTC
 
-// use CMVideoDimensions instead of defining our own struct
-public typealias Dimensions = CMVideoDimensions
+@objc public class Dimensions: NSObject {
+
+    public static func == (lhs: Dimensions, rhs: Dimensions) -> Bool {
+        lhs.width == rhs.width && lhs.height == rhs.height
+    }
+
+    @objc public let width: Int32
+    @objc public let height: Int32
+
+    @objc public init(width: Int32, height: Int32) {
+        self.width = width
+        self.height = height
+    }
+
+    public init(from dimensions: CMVideoDimensions) {
+        self.width = dimensions.width
+        self.height = dimensions.height
+    }
+}
 
 // MARK: - Static constants
 
@@ -30,15 +47,6 @@ extension Dimensions {
 
     internal static let renderSafeSize: Int32 = 8
     internal static let encodeSafeSize: Int32 = 16
-}
-
-// MARK: - Equatable
-
-extension Dimensions: Equatable {
-
-    public static func == (lhs: Dimensions, rhs: Dimensions) -> Bool {
-        lhs.width == rhs.width && lhs.height == rhs.height
-    }
 }
 
 // this may cause ambiguity to comparison

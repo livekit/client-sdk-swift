@@ -97,7 +97,7 @@ public class CameraCapturer: VideoCapturer {
             // list of all formats in order of dimensions size
             let formats = DispatchQueue.webRTC.sync { RTCCameraVideoCapturer.supportedFormats(for: device) }
             // create an array of sorted touples by dimensions size
-            let sortedFormats = formats.map({ (format: $0, dimensions: CMVideoFormatDescriptionGetDimensions($0.formatDescription)) })
+            let sortedFormats = formats.map({ (format: $0, dimensions: Dimensions(from: CMVideoFormatDescriptionGetDimensions($0.formatDescription))) })
                 .sorted { $0.dimensions.area < $1.dimensions.area }
 
             // default to the smallest
