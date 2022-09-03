@@ -330,7 +330,14 @@ extension Track {
 extension Track {
 
     @objc(start)
+    @discardableResult
     public func startObjC() -> Promise<Bool>.ObjCPromise<NSNumber> {
         start().asObjCPromise()
+    }
+
+    @objc(stop)
+    @discardableResult
+    public func stopObjC() -> Promise<Bool>.ObjCPromise<NSNumber> {
+        stop().asObjCPromise()
     }
 }
