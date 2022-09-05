@@ -46,18 +46,24 @@ public class Participant: NSObject, MulticastDelegateCapable, Loggable {
     @objc
     public var metadata: String? { _state.metadata }
 
+    @objc
     public var connectionQuality: ConnectionQuality { _state.connectionQuality }
+
+    @objc
     public var permissions: ParticipantPermissions { _state.permissions }
 
     @objc
     public var joinedAt: Date? { _state.joinedAt }
 
+    @objc
     public var tracks: [String: TrackPublication] { _state.tracks }
 
+    @objc
     public var audioTracks: [TrackPublication] {
         _state.tracks.values.filter { $0.kind == .audio }
     }
 
+    @objc
     public var videoTracks: [TrackPublication] {
         _state.tracks.values.filter { $0.kind == .video }
     }

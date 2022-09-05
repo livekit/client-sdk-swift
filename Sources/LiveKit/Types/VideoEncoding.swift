@@ -25,9 +25,13 @@ public class VideoEncoding: NSObject {
         fatalError("Not implemented")
     }
 
+    @objc
     public var maxBitrate: Int
+
+    @objc
     public var maxFps: Int
 
+    @objc
     public init(maxBitrate: Int, maxFps: Int) {
         self.maxBitrate = maxBitrate
         self.maxFps = maxFps

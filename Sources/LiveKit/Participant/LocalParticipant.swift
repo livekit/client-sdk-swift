@@ -21,14 +21,17 @@ import ReplayKit
 @objc
 public class LocalParticipant: Participant {
 
+    @objc
     public var localAudioTracks: [LocalTrackPublication] { audioTracks.compactMap { $0 as? LocalTrackPublication } }
+
+    @objc
     public var localVideoTracks: [LocalTrackPublication] { videoTracks.compactMap { $0 as? LocalTrackPublication } }
 
     private var allParticipantsAllowed: Bool = true
     private var trackPermissions: [ParticipantTrackPermission] = []
 
-    convenience init(from info: Livekit_ParticipantInfo,
-                     room: Room) {
+    internal convenience init(from info: Livekit_ParticipantInfo,
+                              room: Room) {
 
         self.init(sid: info.sid,
                   identity: info.identity,
@@ -38,8 +41,8 @@ public class LocalParticipant: Participant {
         updateFromInfo(info: info)
     }
 
-    public func getTrackPublication(sid: Sid) -> LocalTrackPublication? {
-        return tracks[sid] as? LocalTrackPublication
+    internal func getTrackPublication(sid: Sid) -> LocalTrackPublication? {
+        _state.tracks[sid] as? LocalTrackPublication
     }
 
     internal func publish(track: LocalTrack,

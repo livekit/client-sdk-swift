@@ -21,9 +21,9 @@ import Promises
 @objc
 public class RemoteParticipant: Participant {
 
-    init(sid: Sid,
-         info: Livekit_ParticipantInfo?,
-         room: Room) {
+    internal init(sid: Sid,
+                  info: Livekit_ParticipantInfo?,
+                  room: Room) {
 
         super.init(sid: sid,
                    identity: info?.identity ?? "",
@@ -35,8 +35,8 @@ public class RemoteParticipant: Participant {
         }
     }
 
-    public func getTrackPublication(sid: Sid) -> RemoteTrackPublication? {
-        return _state.tracks[sid] as? RemoteTrackPublication
+    internal func getTrackPublication(sid: Sid) -> RemoteTrackPublication? {
+        _state.tracks[sid] as? RemoteTrackPublication
     }
 
     override func updateFromInfo(info: Livekit_ParticipantInfo) {
@@ -83,7 +83,7 @@ public class RemoteParticipant: Participant {
         }
     }
 
-    func addSubscribedMediaTrack(rtcTrack: RTCMediaStreamTrack, sid: Sid) -> Promise<Void> {
+    internal func addSubscribedMediaTrack(rtcTrack: RTCMediaStreamTrack, sid: Sid) -> Promise<Void> {
         var track: Track
 
         guard let publication = getTrackPublication(sid: sid) else {
@@ -133,7 +133,7 @@ public class RemoteParticipant: Participant {
         }
     }
 
-    override func cleanUp(notify _notify: Bool = true) -> Promise<Void> {
+    internal override func cleanUp(notify _notify: Bool = true) -> Promise<Void> {
         super.cleanUp(notify: _notify).then(on: queue) {
             self.room.notify(label: { "room.participantDidLeave" }) {
                 $0.room(self.room, participantDidLeave: self)

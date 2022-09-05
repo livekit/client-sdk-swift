@@ -20,21 +20,30 @@ import Foundation
 public class ParticipantPermissions: NSObject {
 
     /// ``Participant`` can subscribe to tracks in the room
+    @objc
     public let canSubscribe: Bool
+
     /// ``Participant`` can publish new tracks to room
+    @objc
     public let canPublish: Bool
+
     /// ``Participant`` can publish data
+    @objc
     public let canPublishData: Bool
+
     /// ``Participant`` is hidden to others
+    @objc
     public let hidden: Bool
+
     /// Indicates it's a recorder instance
+    @objc
     public let recorder: Bool
 
-    public init(canSubscribe: Bool = false,
-                canPublish: Bool = false,
-                canPublishData: Bool = false,
-                hidden: Bool = false,
-                recorder: Bool = false) {
+    internal init(canSubscribe: Bool = false,
+                  canPublish: Bool = false,
+                  canPublishData: Bool = false,
+                  hidden: Bool = false,
+                  recorder: Bool = false) {
 
         self.canSubscribe = canSubscribe
         self.canPublish = canPublish

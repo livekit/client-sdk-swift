@@ -53,14 +53,16 @@ public class Room: NSObject, MulticastDelegateCapable, Loggable {
     // expose engine's vars
     @objc
     public var url: String? { engine._state.url }
+
     @objc
     public var token: String? { engine._state.token }
 
     public var connectionState: ConnectionState { engine._state.connectionState }
-    public var connectStopwatch: Stopwatch { engine._state.connectStopwatch }
 
     @objc(connectionState)
     public var connectionStateObjC: ConnectionStateObjC { engine._state.connectionState.toObjCType() }
+
+    public var connectStopwatch: Stopwatch { engine._state.connectStopwatch }
 
     // MARK: - Internal
 
