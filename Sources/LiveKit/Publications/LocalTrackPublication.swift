@@ -49,7 +49,7 @@ public class LocalTrackPublication: TrackPublication {
         return track.unmute()
     }
 
-    override func set(track newValue: Track?) -> Track? {
+    internal override func set(track newValue: Track?) -> Track? {
         let oldValue = super.set(track: newValue)
 
         // listen for VideoCapturerDelegate

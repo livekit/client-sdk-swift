@@ -20,12 +20,11 @@ import Promises
 import WebRTC
 
 @objc
-public class Room: NSObject, MulticastDelegateCapable, Loggable {
+public class Room: NSObject, Loggable {
 
     // MARK: - MulticastDelegate
 
-    public typealias DelegateType = RoomDelegate
-    public var delegates = MulticastDelegate<DelegateType>()
+    private var delegates = MulticastDelegate<RoomDelegateObjC>()
 
     internal let queue = DispatchQueue(label: "LiveKitSDK.room", qos: .default)
 
@@ -46,8 +45,13 @@ public class Room: NSObject, MulticastDelegateCapable, Loggable {
     @objc
     public var serverRegion: String? { _state.serverRegion }
 
+    @objc
     public var localParticipant: LocalParticipant? { _state.localParticipant }
+
+    @objc
     public var remoteParticipants: [Sid: RemoteParticipant] { _state.remoteParticipants }
+
+    @objc
     public var activeSpeakers: [Participant] { _state.activeSpeakers }
 
     // expose engine's vars
@@ -134,7 +138,7 @@ public class Room: NSObject, MulticastDelegateCapable, Loggable {
                     guard let self = self else { return }
 
                     self.notify(label: { "room.didUpdate metadata: \(metadata)" }) {
-                        $0.room(self, didUpdate: metadata)
+                        $0.room?(self, didUpdate: metadata)
                     }
                 }
             }
@@ -444,7 +448,7 @@ extension Room: SignalClientDelegate {
             guard let self = self else { return }
 
             self.notify(label: { "room.didUpdate speakers: \(speakers)" }) {
-                $0.room(self, didUpdate: activeSpeakers)
+                $0.room?(self, didUpdate: activeSpeakers)
             }
         }
 
@@ -553,7 +557,7 @@ extension Room: SignalClientDelegate {
                 guard let self = self else { return }
 
                 self.notify(label: { "room.participantDidJoin participant: \(participant)" }) {
-                    $0.room(self, participantDidJoin: participant)
+                    $0.room?(self, participantDidJoin: participant)
                 }
             }
         }
@@ -611,7 +615,12 @@ extension Room: EngineDelegate {
             }
 
             notify(label: { "room.didUpdate connectionState: \(state.connectionState) oldValue: \(oldState.connectionState)" }) {
-                $0.room(self, didUpdate: state.connectionState, oldValue: oldState.connectionState)
+                // Objective-C support
+                $0.room?(self, didUpdate: state.connectionState.toObjCType(), oldValue: oldState.connectionState.toObjCType())
+                // Swift only
+                if let delegateSwift = $0 as? RoomDelegate {
+                    delegateSwift.room(self, didUpdate: state.connectionState, oldValue: oldState.connectionState)
+                }
             }
         }
 
@@ -688,7 +697,7 @@ extension Room: EngineDelegate {
             guard let self = self else { return }
 
             self.notify(label: { "room.didUpdate speakers: \(activeSpeakers)" }) {
-                $0.room(self, didUpdate: activeSpeakers)
+                $0.room?(self, didUpdate: activeSpeakers)
             }
         }
     }
@@ -735,13 +744,13 @@ extension Room: EngineDelegate {
             guard let self = self else { return }
 
             self.notify(label: { "room.didReceive data: \(userPacket.payload)" }) {
-                $0.room(self, participant: participant, didReceive: userPacket.payload)
+                $0.room?(self, participant: participant, didReceive: userPacket.payload)
             }
 
             if let participant = participant {
                 participant.notify(label: { "participant.didReceive data: \(userPacket.payload)" }) { [weak participant] (delegate) -> Void in
                     guard let participant = participant else { return }
-                    delegate.participant(participant, didReceive: userPacket.payload)
+                    delegate.participant?(participant, didReceive: userPacket.payload)
                 }
             }
         }
@@ -796,6 +805,38 @@ extension Room {
     public static var bypassVoiceProcessing: Bool {
         get { Engine.bypassVoiceProcessing }
         set { Engine.bypassVoiceProcessing = newValue }
+    }
+}
+
+// MARK: - MulticastDelegate
+
+extension Room {
+
+    /// Only for Objective-C.
+    @objc(addDelegate:)
+    @available(swift, obsoleted: 1.0)
+    public func addObjC(delegate: RoomDelegateObjC) {
+        delegates.add(delegate: delegate)
+    }
+
+    /// Only for Objective-C.
+    @objc(removeDelegate:)
+    @available(swift, obsoleted: 1.0)
+    public func removeObjC(delegate: RoomDelegateObjC) {
+        delegates.remove(delegate: delegate)
+    }
+
+    public func add(delegate: RoomDelegate) {
+        delegates.add(delegate: delegate)
+    }
+
+    public func remove(delegate: RoomDelegate) {
+        delegates.remove(delegate: delegate)
+    }
+
+    internal func notify(label: (() -> String)? = nil,
+                         _ fnc: @escaping (RoomDelegateObjC) -> Void) {
+        delegates.notify(label: label, fnc)
     }
 }
 

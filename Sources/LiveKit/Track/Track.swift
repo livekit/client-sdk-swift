@@ -290,24 +290,6 @@ extension Track {
     }
 }
 
-// MARK: - MulticastDelegate
-
-extension Track {
-
-    func add(delegate: TrackDelegate) {
-        delegates.add(delegate: delegate)
-    }
-
-    func remove(delegate: TrackDelegate) {
-        delegates.remove(delegate: delegate)
-    }
-
-    func notify(label: (() -> String)? = nil,
-                _ fnc: @escaping (TrackDelegate) -> Void) {
-        delegates.notify(label: label, fnc)
-    }
-}
-
 // MARK: - Local
 
 extension Track {
@@ -332,6 +314,26 @@ extension Track {
         }.then(on: queue) { _ -> Void in
             self.set(muted: false, shouldSendSignal: true)
         }
+    }
+}
+
+// MARK: - MulticastDelegate
+
+extension Track {
+
+    @objc(addDelegate:)
+    public func add(delegate: TrackDelegate) {
+        delegates.add(delegate: delegate)
+    }
+
+    @objc(removeDelegate:)
+    public func remove(delegate: TrackDelegate) {
+        delegates.remove(delegate: delegate)
+    }
+
+    internal func notify(label: (() -> String)? = nil,
+                         _ fnc: @escaping (TrackDelegate) -> Void) {
+        delegates.notify(label: label, fnc)
     }
 }
 

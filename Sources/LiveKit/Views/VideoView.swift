@@ -22,7 +22,7 @@ import MetalKit
 public typealias NativeRendererView = NativeViewType & RTCVideoRenderer
 
 @objc
-public class VideoView: NativeView, MulticastDelegateCapable, Loggable {
+public class VideoView: NativeView, Loggable {
 
     // MARK: - Static
 
@@ -31,8 +31,7 @@ public class VideoView: NativeView, MulticastDelegateCapable, Loggable {
 
     // MARK: - MulticastDelegate
 
-    public typealias DelegateType = VideoViewDelegate
-    public var delegates = MulticastDelegate<DelegateType>()
+    private var delegates = MulticastDelegate<VideoViewDelegate>()
 
     /// Specifies how to render the video withing the ``VideoView``'s bounds.
     @objc
@@ -245,14 +244,14 @@ public class VideoView: NativeView, MulticastDelegateCapable, Loggable {
                 }
 
                 self.notify(label: { "videoView.didUpdate isRendering: \(state.isRendering)" }) {
-                    $0.videoView(self, didUpdate: state.isRendering)
+                    $0.videoView?(self, didUpdate: state.isRendering)
                 }
             }
 
             // viewSize updated
             if state.viewSize != oldState.viewSize {
                 self.notify(label: { "videoView.didUpdate viewSize: \(state.viewSize)" }) {
-                    $0.videoView(self, didUpdate: state.viewSize)
+                    $0.videoView?(self, didUpdate: state.viewSize)
                 }
             }
 
@@ -573,6 +572,26 @@ internal extension VideoView {
         guard let track1 = track1, let track2 = track2 else { return false }
         // use isEqual
         return track1.isEqual(track2)
+    }
+}
+
+// MARK: - MulticastDelegate
+
+extension VideoView {
+
+    @objc(addDelegate:)
+    public func add(delegate: VideoViewDelegate) {
+        delegates.add(delegate: delegate)
+    }
+
+    @objc(removeDelegate:)
+    public func remove(delegate: VideoViewDelegate) {
+        delegates.remove(delegate: delegate)
+    }
+
+    internal func notify(label: (() -> String)? = nil,
+                         _ fnc: @escaping (VideoViewDelegate) -> Void) {
+        delegates.notify(label: label, fnc)
     }
 }
 

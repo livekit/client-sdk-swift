@@ -43,7 +43,7 @@ public class RemoteTrackPublication: TrackPublication {
     // this must be on .main queue
     private var asTimer = DispatchQueueTimer(timeInterval: 0.3, queue: .main)
 
-    override internal init(info: Livekit_TrackInfo,
+    internal override init(info: Livekit_TrackInfo,
                            track: Track? = nil,
                            participant: Participant) {
 
@@ -64,7 +64,7 @@ public class RemoteTrackPublication: TrackPublication {
         set(metadataMuted: info.muted)
     }
 
-    override public var subscribed: Bool {
+    public override var subscribed: Bool {
         if !subscriptionAllowed { return false }
         return preferSubscribed != false && super.subscribed
     }
@@ -150,10 +150,10 @@ public class RemoteTrackPublication: TrackPublication {
 
             if let oldValue = oldValue, newValue == nil, let participant = participant as? RemoteParticipant {
                 participant.notify(label: { "participant.didUnsubscribe \(self)" }) {
-                    $0.participant(participant, didUnsubscribe: self, track: oldValue)
+                    $0.participant?(participant, didUnsubscribe: self, track: oldValue)
                 }
                 participant.room.notify(label: { "room.didUnsubscribe \(self)" }) {
-                    $0.room(participant.room, participant: participant, didUnsubscribe: self, track: oldValue)
+                    $0.room?(participant.room, participant: participant, didUnsubscribe: self, track: oldValue)
                 }
             }
         }
@@ -201,10 +201,10 @@ internal extension RemoteTrackPublication {
         // if track exists, track will emit the following events
         if track == nil {
             participant.notify(label: { "participant.didUpdate muted: \(newValue)" }) {
-                $0.participant(participant, didUpdate: self, muted: newValue)
+                $0.participant?(participant, didUpdate: self, muted: newValue)
             }
             participant.room.notify(label: { "room.didUpdate muted: \(newValue)" }) {
-                $0.room(participant.room, participant: participant, didUpdate: self, muted: newValue)
+                $0.room?(participant.room, participant: participant, didUpdate: self, muted: newValue)
             }
         }
     }
@@ -215,10 +215,10 @@ internal extension RemoteTrackPublication {
 
         guard let participant = self.participant as? RemoteParticipant else { return }
         participant.notify(label: { "participant.didUpdate permission: \(newValue)" }) {
-            $0.participant(participant, didUpdate: self, permission: newValue)
+            $0.participant?(participant, didUpdate: self, permission: newValue)
         }
         participant.room.notify(label: { "room.didUpdate permission: \(newValue)" }) {
-            $0.room(participant.room, participant: participant, didUpdate: self, permission: newValue)
+            $0.room?(participant.room, participant: participant, didUpdate: self, permission: newValue)
         }
     }
 }

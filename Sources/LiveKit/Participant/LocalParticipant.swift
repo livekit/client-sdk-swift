@@ -156,10 +156,10 @@ public class LocalParticipant: Participant {
 
             // notify didPublish
             self.notify(label: { "localParticipant.didPublish \(publication)" }) {
-                $0.localParticipant(self, didPublish: publication)
+                $0.localParticipant?(self, didPublish: publication)
             }
             self.room.notify(label: { "localParticipant.didPublish \(publication)" }) {
-                $0.room(self.room, localParticipant: self, didPublish: publication)
+                $0.room?(self.room, localParticipant: self, didPublish: publication)
             }
 
             self.log("[publish] success \(publication)", .info)
@@ -208,10 +208,10 @@ public class LocalParticipant: Participant {
                 guard _notify else { return }
                 // notify unpublish
                 self.notify(label: { "localParticipant.didUnpublish \(publication)" }) {
-                    $0.localParticipant(self, didUnpublish: publication)
+                    $0.localParticipant?(self, didUnpublish: publication)
                 }
                 self.room.notify(label: { "room.didUnpublish \(publication)" }) {
-                    $0.room(self.room, localParticipant: self, didUnpublish: publication)
+                    $0.room?(self.room, localParticipant: self, didUnpublish: publication)
                 }
             }
         }
@@ -374,10 +374,10 @@ public class LocalParticipant: Participant {
 
         if didUpdate {
             notify(label: { "participant.didUpdate permissions: \(newValue)" }) {
-                $0.participant(self, didUpdate: newValue)
+                $0.participant?(self, didUpdate: newValue)
             }
             room.notify(label: { "room.didUpdate permissions: \(newValue)" }) {
-                $0.room(self.room, participant: self, didUpdate: newValue)
+                $0.room?(self.room, participant: self, didUpdate: newValue)
             }
         }
 
