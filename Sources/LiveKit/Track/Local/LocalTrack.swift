@@ -17,6 +17,7 @@
 import Foundation
 import Promises
 
-@objc public protocol LocalTrack where Self: Track {
+@objc
+public protocol LocalTrack where Self: Track {
 
 }

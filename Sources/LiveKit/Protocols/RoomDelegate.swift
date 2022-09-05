@@ -16,9 +16,11 @@
 
 import Foundation
 
-// @objc public protocol RoomDelegateObjC: AnyObject {
-//    @objc optional func room(_ room: Room, didUpdate connectionState: ConnectionStateObjC, oldValue: ConnectionStateObjC)
-// }
+@objc
+public protocol RoomDelegateObjC: AnyObject {
+    @objc optional
+    func room(_ room: Room, didUpdate connectionState: ConnectionStateObjC, oldValue: ConnectionStateObjC)
+}
 
 /// ``RoomDelegate`` receives room events as well as ``Participant`` events.
 ///

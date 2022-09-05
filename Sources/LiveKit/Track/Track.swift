@@ -17,7 +17,8 @@
 import WebRTC
 import Promises
 
-@objc public class Track: NSObject, Loggable {
+@objc
+public class Track: NSObject, Loggable {
 
     // MARK: - MulticastDelegate
 
@@ -52,7 +53,8 @@ import Promises
         case screenShareAudio
     }
 
-    @objc public enum PublishState: Int {
+    @objc
+    public enum PublishState: Int {
         case unpublished
         case published
     }
@@ -64,20 +66,28 @@ import Promises
     /// Only for ``LocalTrack``s.
     public internal(set) var publishOptions: PublishOptions?
 
-    @objc public let kind: Track.Kind
-    @objc public let source: Track.Source
-    @objc public let name: String
+    @objc
+    public let kind: Track.Kind
+    @objc
+    public let source: Track.Source
+    @objc
+    public let name: String
 
-    @objc public var sid: Sid? { _state.sid }
-    @objc public var muted: Bool { _state.muted }
-    @objc public var stats: TrackStats? { _state.stats }
+    @objc
+    public var sid: Sid? { _state.sid }
+    @objc
+    public var muted: Bool { _state.muted }
+    @objc
+    public var stats: TrackStats? { _state.stats }
 
     /// Dimensions of the video (only if video track)
-    @objc public var dimensions: Dimensions? { _state.dimensions }
+    @objc
+    public var dimensions: Dimensions? { _state.dimensions }
 
     /// The last video frame received for this track
     public var videoFrame: RTCVideoFrame? { _state.videoFrame }
-    @objc public var trackState: TrackState { _state.trackState }
+    @objc
+    public var trackState: TrackState { _state.trackState }
 
     // MARK: - Internal
 

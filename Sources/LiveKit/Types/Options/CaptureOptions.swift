@@ -17,30 +17,37 @@
 import Foundation
 import WebRTC
 
-@objc public protocol CaptureOptions {
+@objc
+public protocol CaptureOptions {
 
 }
 
-@objc public protocol VideoCaptureOptions: CaptureOptions {
+@objc
+public protocol VideoCaptureOptions: CaptureOptions {
     var dimensions: Dimensions { get }
     var fps: Int { get }
 }
 
-@objc public class CameraCaptureOptions: NSObject, VideoCaptureOptions {
+@objc
+public class CameraCaptureOptions: NSObject, VideoCaptureOptions {
 
     public static func == (lhs: CameraCaptureOptions, rhs: CameraCaptureOptions) -> Bool {
         // TODO: Implement
         fatalError("Not implemented")
     }
 
-    @objc public let position: AVCaptureDevice.Position
-    @objc public let preferredFormat: AVCaptureDevice.Format?
+    @objc
+    public let position: AVCaptureDevice.Position
+    @objc
+    public let preferredFormat: AVCaptureDevice.Format?
 
     /// preferred dimensions for capturing, the SDK may override with a recommended value.
-    @objc public let dimensions: Dimensions
+    @objc
+    public let dimensions: Dimensions
 
     /// preferred fps to use for capturing, the SDK may override with a recommended value.
-    @objc public let fps: Int
+    @objc
+    public let fps: Int
 
     @objc
     public override init() {
@@ -74,16 +81,20 @@ import WebRTC
     }
 }
 
-@objc public class ScreenShareCaptureOptions: NSObject, VideoCaptureOptions {
+@objc
+public class ScreenShareCaptureOptions: NSObject, VideoCaptureOptions {
 
     public static func == (lhs: ScreenShareCaptureOptions, rhs: ScreenShareCaptureOptions) -> Bool {
         // TODO: Implement
         fatalError("Not implemented")
     }
 
-    @objc public let dimensions: Dimensions
-    @objc public let fps: Int
-    @objc public let useBroadcastExtension: Bool
+    @objc
+    public let dimensions: Dimensions
+    @objc
+    public let fps: Int
+    @objc
+    public let useBroadcastExtension: Bool
 
     public init(dimensions: Dimensions = .h1080_169,
                 fps: Int = 30,
@@ -95,15 +106,18 @@ import WebRTC
     }
 }
 
-@objc public class BufferCaptureOptions: NSObject, VideoCaptureOptions {
+@objc
+public class BufferCaptureOptions: NSObject, VideoCaptureOptions {
 
     public static func == (lhs: BufferCaptureOptions, rhs: BufferCaptureOptions) -> Bool {
         // TODO: Implement
         fatalError("Not implemented")
     }
 
-    @objc public let dimensions: Dimensions
-    @objc public let fps: Int
+    @objc
+    public let dimensions: Dimensions
+    @objc
+    public let fps: Int
 
     public init(dimensions: Dimensions = .h1080_169,
                 fps: Int = 30) {
@@ -117,20 +131,28 @@ import WebRTC
     }
 }
 
-@objc public class AudioCaptureOptions: NSObject, CaptureOptions {
+@objc
+public class AudioCaptureOptions: NSObject, CaptureOptions {
 
     public static func == (lhs: AudioCaptureOptions, rhs: AudioCaptureOptions) -> Bool {
         // TODO: Implement
         fatalError("Not implemented")
     }
 
-    @objc public let echoCancellation: Bool
-    @objc public let noiseSuppression: Bool
-    @objc public let autoGainControl: Bool
-    @objc public let typingNoiseDetection: Bool
-    @objc public let highpassFilter: Bool
-    @objc public let experimentalNoiseSuppression: Bool = false
-    @objc public let experimentalAutoGainControl: Bool = false
+    @objc
+    public let echoCancellation: Bool
+    @objc
+    public let noiseSuppression: Bool
+    @objc
+    public let autoGainControl: Bool
+    @objc
+    public let typingNoiseDetection: Bool
+    @objc
+    public let highpassFilter: Bool
+    @objc
+    public let experimentalNoiseSuppression: Bool = false
+    @objc
+    public let experimentalAutoGainControl: Bool = false
 
     public init(echoCancellation: Bool = true,
                 noiseSuppression: Bool = false,

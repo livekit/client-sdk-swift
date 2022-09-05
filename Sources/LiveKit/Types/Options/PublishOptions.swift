@@ -16,28 +16,36 @@
 
 import Foundation
 
-@objc public protocol PublishOptions {
+@objc
+public protocol PublishOptions {
     var name: String? { get }
 }
 
-@objc public class VideoPublishOptions: NSObject, PublishOptions {
+@objc
+public class VideoPublishOptions: NSObject, PublishOptions {
 
     public static func == (lhs: VideoPublishOptions, rhs: VideoPublishOptions) -> Bool {
         // TODO: Implement
         fatalError("Not implemented")
     }
 
-    @objc public let name: String?
+    @objc
+    public let name: String?
     /// preferred encoding parameters
-    @objc public let encoding: VideoEncoding?
+    @objc
+    public let encoding: VideoEncoding?
     /// encoding parameters for for screen share
-    @objc public let screenShareEncoding: VideoEncoding?
+    @objc
+    public let screenShareEncoding: VideoEncoding?
     /// true to enable simulcasting, publishes three tracks at different sizes
-    @objc public let simulcast: Bool
+    @objc
+    public let simulcast: Bool
 
-    @objc public let simulcastLayers: [VideoParameters]
+    @objc
+    public let simulcastLayers: [VideoParameters]
 
-    @objc public let screenShareSimulcastLayers: [VideoParameters]
+    @objc
+    public let screenShareSimulcastLayers: [VideoParameters]
 
     public init(name: String? = nil,
                 encoding: VideoEncoding? = nil,
@@ -55,16 +63,19 @@ import Foundation
     }
 }
 
-@objc public class AudioPublishOptions: NSObject, PublishOptions {
+@objc
+public class AudioPublishOptions: NSObject, PublishOptions {
 
     public static func == (lhs: AudioPublishOptions, rhs: AudioPublishOptions) -> Bool {
         // TODO: Implement
         fatalError("Not implemented")
     }
 
-    @objc public let name: String?
+    @objc
+    public let name: String?
     public let bitrate: Int?
-    @objc public let dtx: Bool
+    @objc
+    public let dtx: Bool
 
     public init(name: String? = nil,
                 bitrate: Int? = nil,
@@ -76,14 +87,16 @@ import Foundation
     }
 }
 
-@objc public class DataPublishOptions: NSObject, PublishOptions {
+@objc
+public class DataPublishOptions: NSObject, PublishOptions {
 
     public static func == (lhs: DataPublishOptions, rhs: DataPublishOptions) -> Bool {
         // TODO: Implement
         fatalError("Not implemented")
     }
 
-    @objc public let name: String?
+    @objc
+    public let name: String?
 
     public init(name: String? = nil) {
 

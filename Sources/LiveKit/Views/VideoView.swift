@@ -21,7 +21,8 @@ import MetalKit
 /// A ``NativeViewType`` that conforms to ``RTCVideoRenderer``.
 public typealias NativeRendererView = NativeViewType & RTCVideoRenderer
 
-@objc public class VideoView: NativeView, MulticastDelegateCapable, Loggable {
+@objc
+public class VideoView: NativeView, MulticastDelegateCapable, Loggable {
 
     // MARK: - Static
 
@@ -34,14 +35,16 @@ public typealias NativeRendererView = NativeViewType & RTCVideoRenderer
     public var delegates = MulticastDelegate<DelegateType>()
 
     /// Specifies how to render the video withing the ``VideoView``'s bounds.
-    @objc public enum LayoutMode: Int, Codable {
+    @objc
+    public enum LayoutMode: Int, Codable {
         /// Video will be fully visible within the ``VideoView``.
         case fit
         /// Video will fully cover up the ``VideoView``.
         case fill
     }
 
-    @objc public enum MirrorMode: Int, Codable {
+    @objc
+    public enum MirrorMode: Int, Codable {
         /// Will mirror if the track is a front facing camera track.
         case auto
         case off
@@ -49,13 +52,15 @@ public typealias NativeRendererView = NativeViewType & RTCVideoRenderer
     }
 
     /// ``LayoutMode-swift.enum`` of the ``VideoView``.
-    @objc public var layoutMode: LayoutMode {
+    @objc
+    public var layoutMode: LayoutMode {
         get { _state.layoutMode }
         set { _state.mutate { $0.layoutMode = newValue } }
     }
 
     /// Flips the video horizontally, useful for local VideoViews.
-    @objc public var mirrorMode: MirrorMode {
+    @objc
+    public var mirrorMode: MirrorMode {
         get { _state.mirrorMode }
         set { _state.mutate { $0.mirrorMode = newValue } }
     }
@@ -86,12 +91,14 @@ public typealias NativeRendererView = NativeViewType & RTCVideoRenderer
     }
 
     /// If set to false, rendering will be paused temporarily. Useful for performance optimizations with UICollectionViewCell etc.
-    @objc public var isEnabled: Bool {
+    @objc
+    public var isEnabled: Bool {
         get { _state.isEnabled }
         set { _state.mutate { $0.isEnabled = newValue } }
     }
 
-    @objc public override var isHidden: Bool {
+    @objc
+    public override var isHidden: Bool {
         get { _state.isHidden }
         set {
             _state.mutate { $0.isHidden = newValue }
@@ -99,13 +106,17 @@ public typealias NativeRendererView = NativeViewType & RTCVideoRenderer
         }
     }
 
-    @objc public var debugMode: Bool {
+    @objc
+    public var debugMode: Bool {
         get { _state.debugMode }
         set { _state.mutate { $0.debugMode = newValue } }
     }
 
-    @objc public var isRendering: Bool { _state.isRendering }
-    @objc public var didRenderFirstFrame: Bool { _state.didRenderFirstFrame }
+    @objc
+    public var isRendering: Bool { _state.isRendering }
+
+    @objc
+    public var didRenderFirstFrame: Bool { _state.didRenderFirstFrame }
 
     // MARK: - Internal
 

@@ -18,7 +18,8 @@ import Foundation
 import WebRTC
 import Promises
 
-@objc public class RemoteParticipant: Participant {
+@objc
+public class RemoteParticipant: Participant {
 
     init(sid: Sid,
          info: Livekit_ParticipantInfo?,

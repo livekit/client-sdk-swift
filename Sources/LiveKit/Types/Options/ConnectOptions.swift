@@ -18,7 +18,8 @@ import Foundation
 import WebRTC
 
 /// Options used when establishing a connection.
-@objc public class ConnectOptions: NSObject {
+@objc
+public class ConnectOptions: NSObject {
 
     public static func == (lhs: ConnectOptions, rhs: ConnectOptions) -> Bool {
         lhs.autoSubscribe == rhs.autoSubscribe &&
@@ -29,25 +30,31 @@ import WebRTC
 
     /// Automatically subscribe to ``RemoteParticipant``'s tracks.
     /// Defaults to true.
-    @objc public let autoSubscribe: Bool
-    @objc public let rtcConfiguration: RTCConfiguration
+    @objc
+    public let autoSubscribe: Bool
+    @objc
+    public let rtcConfiguration: RTCConfiguration
     /// LiveKit server protocol version to use. Generally, it's not recommended to change this.
-    @objc public let protocolVersion: ProtocolVersion
+    @objc
+    public let protocolVersion: ProtocolVersion
     /// Providing a string will make the connection publish-only, suitable for iOS Broadcast Upload Extensions.
     /// The string can be used to identify the publisher.
-    @objc public let publishOnlyMode: String?
+    @objc
+    public let publishOnlyMode: String?
 
-    @objc public override init() {
+    @objc
+    public override init() {
         self.autoSubscribe = true
         self.rtcConfiguration = .liveKitDefault()
         self.publishOnlyMode = nil
         self.protocolVersion = .v8
     }
 
-    @objc public init(autoSubscribe: Bool = true,
-                      rtcConfiguration: RTCConfiguration? = nil,
-                      publishOnlyMode: String? = nil,
-                      protocolVersion: ProtocolVersion = .v8) {
+    @objc
+    public init(autoSubscribe: Bool = true,
+                rtcConfiguration: RTCConfiguration? = nil,
+                publishOnlyMode: String? = nil,
+                protocolVersion: ProtocolVersion = .v8) {
 
         self.autoSubscribe = autoSubscribe
         self.rtcConfiguration = rtcConfiguration ?? .liveKitDefault()

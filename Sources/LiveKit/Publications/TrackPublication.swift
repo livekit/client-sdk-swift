@@ -18,7 +18,8 @@ import Foundation
 import CoreGraphics
 import Promises
 
-@objc public class TrackPublication: NSObject, TrackDelegate, Loggable {
+@objc
+public class TrackPublication: NSObject, TrackDelegate, Loggable {
 
     internal let queue = DispatchQueue(label: "LiveKitSDK.publication", qos: .default)
 

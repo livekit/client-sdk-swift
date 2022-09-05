@@ -52,7 +52,8 @@ public extension TrackStats {
     }
 }
 
-@objc public class TrackStats: NSObject {
+@objc
+public class TrackStats: NSObject {
 
     public static func == (lhs: TrackStats, rhs: TrackStats) -> Bool {
         lhs.created == rhs.created &&

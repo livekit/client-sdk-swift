@@ -17,7 +17,8 @@
 import WebRTC
 import Promises
 
-@objc class RemoteVideoTrack: VideoTrack, RemoteTrack {
+@objc
+class RemoteVideoTrack: VideoTrack, RemoteTrack {
 
     init(name: String,
          source: Track.Source,

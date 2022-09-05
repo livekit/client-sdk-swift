@@ -17,6 +17,7 @@
 import Foundation
 import Promises
 
-@objc public protocol RemoteTrack where Self: Track {
+@objc
+public protocol RemoteTrack where Self: Track {
 
 }

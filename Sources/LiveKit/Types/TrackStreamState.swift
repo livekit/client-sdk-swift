@@ -16,7 +16,8 @@
 
 import WebRTC
 
-@objc public enum StreamState: Int {
+@objc
+public enum StreamState: Int {
     case paused
     case active
 }

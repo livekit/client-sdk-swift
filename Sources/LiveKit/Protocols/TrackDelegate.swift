@@ -17,7 +17,8 @@
 import Foundation
 import WebRTC
 
-@objc public protocol TrackDelegate: AnyObject {
+@objc
+public protocol TrackDelegate: AnyObject {
     /// Dimensions of the video track has updated
     @objc(track:didUpdateDimensions:) optional
     func track(_ track: VideoTrack, didUpdate dimensions: Dimensions?)

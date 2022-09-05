@@ -17,7 +17,8 @@
 import Foundation
 import WebRTC
 
-@objc public class VideoEncoding: NSObject {
+@objc
+public class VideoEncoding: NSObject {
 
     public static func == (lhs: VideoEncoding, rhs: VideoEncoding) -> Bool {
         // TODO: Implement

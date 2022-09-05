@@ -18,16 +18,20 @@ import Foundation
 import CoreMedia
 import WebRTC
 
-@objc public class Dimensions: NSObject {
+@objc
+public class Dimensions: NSObject {
 
     public static func == (lhs: Dimensions, rhs: Dimensions) -> Bool {
         lhs.width == rhs.width && lhs.height == rhs.height
     }
 
-    @objc public let width: Int32
-    @objc public let height: Int32
+    @objc
+    public let width: Int32
+    @objc
+    public let height: Int32
 
-    @objc public init(width: Int32, height: Int32) {
+    @objc
+    public init(width: Int32, height: Int32) {
         self.width = width
         self.height = height
     }

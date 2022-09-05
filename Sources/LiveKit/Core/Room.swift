@@ -19,7 +19,8 @@ import Network
 import Promises
 import WebRTC
 
-@objc public class Room: NSObject, MulticastDelegateCapable, Loggable {
+@objc
+public class Room: NSObject, MulticastDelegateCapable, Loggable {
 
     // MARK: - MulticastDelegate
 
@@ -30,19 +31,30 @@ import WebRTC
 
     // MARK: - Public
 
-    @objc public var sid: Sid? { _state.sid }
-    @objc public var name: String? { _state.name }
-    @objc public var metadata: String? { _state.metadata }
-    @objc public var serverVersion: String? { _state.serverVersion }
-    @objc public var serverRegion: String? { _state.serverRegion }
+    @objc
+    public var sid: Sid? { _state.sid }
+
+    @objc
+    public var name: String? { _state.name }
+
+    @objc
+    public var metadata: String? { _state.metadata }
+
+    @objc
+    public var serverVersion: String? { _state.serverVersion }
+
+    @objc
+    public var serverRegion: String? { _state.serverRegion }
 
     public var localParticipant: LocalParticipant? { _state.localParticipant }
     public var remoteParticipants: [Sid: RemoteParticipant] { _state.remoteParticipants }
     public var activeSpeakers: [Participant] { _state.activeSpeakers }
 
     // expose engine's vars
-    @objc public var url: String? { engine._state.url }
-    @objc public var token: String? { engine._state.token }
+    @objc
+    public var url: String? { engine._state.url }
+    @objc
+    public var token: String? { engine._state.token }
 
     public var connectionState: ConnectionState { engine._state.connectionState }
     public var connectStopwatch: Stopwatch { engine._state.connectStopwatch }
@@ -73,7 +85,8 @@ import WebRTC
 
     // MARK: Objective-C Support
 
-    @objc public convenience override init() {
+    @objc
+    public convenience override init() {
 
         self.init(delegate: nil,
                   connectOptions: ConnectOptions(),
@@ -788,10 +801,11 @@ extension Room {
 
 extension Room {
 
-    @objc public func connect(url: String,
-                              token: String,
-                              connectOptions: ConnectOptions? = nil,
-                              roomOptions: RoomOptions? = nil) -> Promise<Room>.ObjCPromise<Room> {
+    @objc
+    public func connect(url: String,
+                        token: String,
+                        connectOptions: ConnectOptions? = nil,
+                        roomOptions: RoomOptions? = nil) -> Promise<Room>.ObjCPromise<Room> {
         connect(url,
                 token,
                 connectOptions: connectOptions,

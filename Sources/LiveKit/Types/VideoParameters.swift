@@ -43,7 +43,8 @@ extension Collection where Element == VideoParameters {
     }
 }
 
-@objc public class VideoParameters: NSObject {
+@objc
+public class VideoParameters: NSObject {
 
     public static func == (lhs: VideoParameters, rhs: VideoParameters) -> Bool {
         lhs.dimensions == rhs.dimensions &&
