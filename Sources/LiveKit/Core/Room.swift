@@ -63,7 +63,9 @@ public class Room: NSObject, Loggable {
 
     public var connectionState: ConnectionState { engine._state.connectionState }
 
+    /// Only for Objective-C.
     @objc(connectionState)
+    @available(swift, obsoleted: 1.0)
     public var connectionStateObjC: ConnectionStateObjC { engine._state.connectionState.toObjCType() }
 
     public var connectStopwatch: Stopwatch { engine._state.connectStopwatch }
