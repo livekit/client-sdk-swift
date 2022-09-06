@@ -23,11 +23,13 @@ public class CameraCapturer: VideoCapturer {
 
     private let capturer: RTCCameraVideoCapturer
 
+    @objc
     public static func captureDevices() -> [AVCaptureDevice] {
         DispatchQueue.webRTC.sync { RTCCameraVideoCapturer.captureDevices() }
     }
 
     /// Checks whether both front and back capturing devices exist, and can be switched.
+    @objc
     public static func canSwitchPosition() -> Bool {
         let devices = captureDevices()
         return devices.contains(where: { $0.position == .front }) &&
@@ -35,6 +37,7 @@ public class CameraCapturer: VideoCapturer {
     }
 
     /// Current device used for capturing
+    @objc
     public private(set) var device: AVCaptureDevice?
 
     /// Current position of the device
@@ -42,6 +45,7 @@ public class CameraCapturer: VideoCapturer {
         device?.position
     }
 
+    @objc
     public var options: CameraCaptureOptions
 
     init(delegate: RTCVideoCapturerDelegate, options: CameraCaptureOptions) {
@@ -195,12 +199,18 @@ public class CameraCapturer: VideoCapturer {
 extension LocalVideoTrack {
 
     @objc
-    public static func createCameraTrack(name: String = Track.cameraName,
-                                         options: CameraCaptureOptions = CameraCaptureOptions()) -> LocalVideoTrack {
+    public static func createCameraTrack() -> LocalVideoTrack {
+        createCameraTrack(name: nil, options: nil)
+    }
+
+    @objc
+    public static func createCameraTrack(name: String? = nil,
+                                         options: CameraCaptureOptions? = nil) -> LocalVideoTrack {
+
         let videoSource = Engine.createVideoSource(forScreenShare: false)
-        let capturer = CameraCapturer(delegate: videoSource, options: options)
+        let capturer = CameraCapturer(delegate: videoSource, options: options ?? CameraCaptureOptions())
         return LocalVideoTrack(
-            name: name,
+            name: name ?? Track.cameraName,
             source: .camera,
             capturer: capturer,
             videoSource: videoSource
@@ -250,5 +260,21 @@ extension AVCaptureDevice.Format {
             // merge previous element
             result = merge(range: previous, with: current)
         }
+    }
+}
+
+// MARK: - Objective-C Support
+
+extension CameraCapturer {
+
+    @objc
+    @discardableResult
+    public func switchCameraPosition() -> Promise<Bool>.ObjCPromise<NSNumber> {
+        switchCameraPosition().asObjCPromise()
+    }
+
+    @objc
+    public func setCameraPosition(_ position: AVCaptureDevice.Position) -> Promise<Bool>.ObjCPromise<NSNumber> {
+        setCameraPosition(position).asObjCPromise()
     }
 }

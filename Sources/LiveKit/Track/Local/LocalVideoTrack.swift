@@ -22,7 +22,10 @@ import ReplayKit
 @objc
 public class LocalVideoTrack: VideoTrack, LocalTrack {
 
+    @objc
     public internal(set) var capturer: VideoCapturer
+
+    @objc
     public internal(set) var videoSource: RTCVideoSource
 
     internal init(name: String,

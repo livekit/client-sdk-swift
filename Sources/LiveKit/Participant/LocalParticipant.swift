@@ -424,10 +424,12 @@ extension LocalParticipant {
 
 extension LocalParticipant {
 
+    @discardableResult
     public func setCamera(enabled: Bool) -> Promise<LocalTrackPublication?> {
         set(source: .camera, enabled: enabled)
     }
 
+    @discardableResult
     public func setMicrophone(enabled: Bool) -> Promise<LocalTrackPublication?> {
         set(source: .microphone, enabled: enabled)
     }
@@ -441,6 +443,7 @@ extension LocalParticipant {
     /// to capture other screens and windows. See ``MacOSScreenCapturer`` for details.
     ///
     /// For advanced usage, you can create a relevant ``LocalVideoTrack`` and call ``LocalParticipant/publishVideoTrack(track:publishOptions:)``.
+    @discardableResult
     public func setScreenShare(enabled: Bool) -> Promise<LocalTrackPublication?> {
         set(source: .screenShareVideo, enabled: enabled)
     }
@@ -486,5 +489,21 @@ extension LocalParticipant {
         }
 
         return Promise(nil)
+    }
+}
+
+// MARK: - Objective-C Support
+extension LocalParticipant {
+
+    @objc
+    @discardableResult
+    public func setCamera(enabled: Bool) -> Promise<LocalTrackPublication?>.ObjCPromise<LocalTrackPublication> {
+        setCamera(enabled: enabled).asObjCPromise()
+    }
+
+    @objc
+    @discardableResult
+    public func setMicrophone(enabled: Bool) -> Promise<LocalTrackPublication?>.ObjCPromise<LocalTrackPublication> {
+        setMicrophone(enabled: enabled).asObjCPromise()
     }
 }

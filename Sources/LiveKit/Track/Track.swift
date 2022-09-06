@@ -26,9 +26,16 @@ public class Track: NSObject, Loggable {
 
     internal let queue = DispatchQueue(label: "LiveKitSDK.track", qos: .default)
 
+    @objc
     public static let cameraName = "camera"
+
+    @objc
     public static let microphoneName = "microphone"
+
+    @objc
     public static let screenShareVideoName = "screen_share"
+
+    @objc
     public static let screenShareAudioName = "screen_share_audio"
 
     @objc(TrackKind)

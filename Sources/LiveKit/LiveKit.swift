@@ -31,8 +31,10 @@ internal let logger = Logger(label: "LiveKitSDK")
 ///
 /// Download the [Multiplatform SwiftUI Example](https://github.com/livekit/multiplatform-swiftui-example)
 /// to try out the features.
-public class LiveKit {
+@objc
+public class LiveKit: NSObject {
 
+    @objc(sdkVersion)
     public static let version = "1.0.4"
 
     @available(*, deprecated, message: "Use Room.connect() instead, protocol v8 and higher do not support this method")
@@ -49,5 +51,14 @@ public class LiveKit {
                         roomOptions: roomOptions)
 
         return room.connect(url, token)
+    }
+
+    @objc
+    public static func setLoggerStandardOutput() {
+        LoggingSystem.bootstrap({
+            var logHandler = StreamLogHandler.standardOutput(label: $0)
+            logHandler.logLevel = .debug
+            return logHandler
+        })
     }
 }

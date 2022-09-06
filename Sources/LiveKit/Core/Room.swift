@@ -101,12 +101,13 @@ public class Room: NSObject, Loggable {
                   roomOptions: RoomOptions())
     }
 
-    public init(delegate: RoomDelegate? = nil,
-                connectOptions: ConnectOptions = ConnectOptions(),
-                roomOptions: RoomOptions = RoomOptions()) {
+    @objc
+    public init(delegate: RoomDelegateObjC? = nil,
+                connectOptions: ConnectOptions? = nil,
+                roomOptions: RoomOptions? = nil) {
 
-        self._state = StateSync(State(options: roomOptions))
-        self.engine = Engine(connectOptions: connectOptions)
+        self._state = StateSync(State(options: roomOptions ?? RoomOptions()))
+        self.engine = Engine(connectOptions: connectOptions ?? ConnectOptions())
         super.init()
 
         log()
@@ -119,7 +120,8 @@ public class Room: NSObject, Loggable {
         engine.signalClient.add(delegate: self)
 
         if let delegate = delegate {
-            add(delegate: delegate)
+            log("delegate: \(String(describing: delegate))")
+            delegates.add(delegate: delegate)
         }
 
         // listen to app states
@@ -855,5 +857,11 @@ extension Room {
                 token,
                 connectOptions: connectOptions,
                 roomOptions: roomOptions).asObjCPromise()
+    }
+
+    @objc(disconnect)
+    @discardableResult
+    public func disconnectObjC() -> Promise<Void>.ObjCPromise<NSNull> {
+        disconnect().asObjCPromise()
     }
 }
