@@ -19,22 +19,20 @@ import Foundation
 @objc
 public class RoomOptions: NSObject {
 
-    public static func == (lhs: RoomOptions, rhs: RoomOptions) -> Bool {
-        // TODO: Implement
-        fatalError("Not implemented")
-    }
-
     // default options for capturing
     @objc
     public let defaultCameraCaptureOptions: CameraCaptureOptions
+
     @objc
     public let defaultScreenShareCaptureOptions: ScreenShareCaptureOptions
 
     @objc
     public let defaultAudioCaptureOptions: AudioCaptureOptions
+
     // default options for publishing
     @objc
     public let defaultVideoPublishOptions: VideoPublishOptions
+
     @objc
     public let defaultAudioPublishOptions: AudioPublishOptions
 
@@ -90,5 +88,36 @@ public class RoomOptions: NSObject {
         self.stopLocalTrackOnUnpublish = stopLocalTrackOnUnpublish
         self.suspendLocalVideoTracksInBackground = suspendLocalVideoTracksInBackground
         self.reportStats = reportStats
+    }
+
+    // MARK: - Equal
+
+    public override func isEqual(_ object: Any?) -> Bool {
+        guard let other = object as? Self else { return false }
+        return self.defaultCameraCaptureOptions == other.defaultCameraCaptureOptions &&
+            self.defaultScreenShareCaptureOptions == other.defaultScreenShareCaptureOptions &&
+            self.defaultAudioCaptureOptions == other.defaultAudioCaptureOptions &&
+            self.defaultVideoPublishOptions == other.defaultVideoPublishOptions &&
+            self.defaultAudioPublishOptions == other.defaultAudioPublishOptions &&
+            self.adaptiveStream == other.adaptiveStream &&
+            self.dynacast == other.dynacast &&
+            self.stopLocalTrackOnUnpublish == other.stopLocalTrackOnUnpublish &&
+            self.suspendLocalVideoTracksInBackground == other.suspendLocalVideoTracksInBackground &&
+            self.reportStats == other.reportStats
+    }
+
+    public override var hash: Int {
+        var hasher = Hasher()
+        hasher.combine(defaultCameraCaptureOptions)
+        hasher.combine(defaultScreenShareCaptureOptions)
+        hasher.combine(defaultAudioCaptureOptions)
+        hasher.combine(defaultVideoPublishOptions)
+        hasher.combine(defaultAudioPublishOptions)
+        hasher.combine(adaptiveStream)
+        hasher.combine(dynacast)
+        hasher.combine(stopLocalTrackOnUnpublish)
+        hasher.combine(suspendLocalVideoTracksInBackground)
+        hasher.combine(reportStats)
+        return hasher.finalize()
     }
 }

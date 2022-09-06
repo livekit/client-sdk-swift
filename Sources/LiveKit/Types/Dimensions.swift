@@ -21,10 +21,6 @@ import WebRTC
 @objc
 public class Dimensions: NSObject {
 
-    public static func == (lhs: Dimensions, rhs: Dimensions) -> Bool {
-        lhs.width == rhs.width && lhs.height == rhs.height
-    }
-
     @objc
     public let width: Int32
 
@@ -40,6 +36,20 @@ public class Dimensions: NSObject {
     public init(from dimensions: CMVideoDimensions) {
         self.width = dimensions.width
         self.height = dimensions.height
+    }
+
+    // MARK: - Equal
+
+    public override func isEqual(_ object: Any?) -> Bool {
+        guard let other = object as? Self else { return false }
+        return self.width == other.width && self.height == other.height
+    }
+
+    public override var hash: Int {
+        var hasher = Hasher()
+        hasher.combine(width)
+        hasher.combine(height)
+        return hasher.finalize()
     }
 }
 

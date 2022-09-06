@@ -46,11 +46,6 @@ extension Collection where Element == VideoParameters {
 @objc
 public class VideoParameters: NSObject {
 
-    public static func == (lhs: VideoParameters, rhs: VideoParameters) -> Bool {
-        lhs.dimensions == rhs.dimensions &&
-            lhs.encoding == rhs.encoding
-    }
-
     @objc
     public let dimensions: Dimensions
 
@@ -61,6 +56,21 @@ public class VideoParameters: NSObject {
     public init(dimensions: Dimensions, encoding: VideoEncoding) {
         self.dimensions = dimensions
         self.encoding = encoding
+    }
+
+    // MARK: - Equal
+
+    public override func isEqual(_ object: Any?) -> Bool {
+        guard let other = object as? Self else { return false }
+        return self.dimensions == other.dimensions &&
+            self.encoding == other.encoding
+    }
+
+    public override var hash: Int {
+        var hasher = Hasher()
+        hasher.combine(dimensions)
+        hasher.combine(encoding)
+        return hasher.finalize()
     }
 }
 

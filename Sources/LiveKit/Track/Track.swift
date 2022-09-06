@@ -261,6 +261,7 @@ internal extension Track {
     // returns true when value is updated
     @discardableResult
     func set(dimensions newValue: Dimensions?) -> Bool {
+
         guard _state.dimensions != newValue else { return false }
 
         _state.mutate { $0.dimensions = newValue }

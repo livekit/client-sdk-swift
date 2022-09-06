@@ -20,11 +20,6 @@ import WebRTC
 @objc
 public class VideoEncoding: NSObject {
 
-    public static func == (lhs: VideoEncoding, rhs: VideoEncoding) -> Bool {
-        // TODO: Implement
-        fatalError("Not implemented")
-    }
-
     @objc
     public var maxBitrate: Int
 
@@ -35,6 +30,21 @@ public class VideoEncoding: NSObject {
     public init(maxBitrate: Int, maxFps: Int) {
         self.maxBitrate = maxBitrate
         self.maxFps = maxFps
+    }
+
+    // MARK: - Equal
+
+    public override func isEqual(_ object: Any?) -> Bool {
+        guard let other = object as? Self else { return false }
+        return self.maxBitrate == other.maxBitrate &&
+            self.maxFps == other.maxFps
+    }
+
+    public override var hash: Int {
+        var hasher = Hasher()
+        hasher.combine(maxBitrate)
+        hasher.combine(maxFps)
+        return hasher.finalize()
     }
 }
 

@@ -192,13 +192,17 @@ public class TrackPublication: NSObject, TrackDelegate, Loggable {
                 }
             }
     }
-}
 
-// MARK: - Equatable
+    // MARK: - Equal
 
-extension TrackPublication {
-    // objects are considered equal if sids are the same
-    public static func == (lhs: TrackPublication, rhs: TrackPublication) -> Bool {
-        lhs.sid == rhs.sid
+    public override func isEqual(_ object: Any?) -> Bool {
+        guard let other = object as? Self else { return false }
+        return self.sid == other.sid
+    }
+
+    public override var hash: Int {
+        var hasher = Hasher()
+        hasher.combine(sid)
+        return hasher.finalize()
     }
 }

@@ -55,15 +55,31 @@ public extension TrackStats {
 @objc
 public class TrackStats: NSObject {
 
-    public static func == (lhs: TrackStats, rhs: TrackStats) -> Bool {
-        lhs.created == rhs.created &&
-            lhs.ssrc == rhs.ssrc &&
-            lhs.trackId == rhs.trackId  &&
-            lhs.bytesSent == rhs.bytesSent &&
-            lhs.bytesReceived == rhs.bytesReceived &&
-            lhs.codecName == rhs.codecName &&
-            lhs.bpsSent == rhs.bpsSent &&
-            lhs.bpsReceived == rhs.bpsReceived
+    // MARK: - Equal
+
+    public override func isEqual(_ object: Any?) -> Bool {
+        guard let other = object as? Self else { return false }
+        return  self.created == other.created &&
+            self.ssrc == other.ssrc &&
+            self.trackId == other.trackId  &&
+            self.bytesSent == other.bytesSent &&
+            self.bytesReceived == other.bytesReceived &&
+            self.codecName == other.codecName &&
+            self.bpsSent == other.bpsSent &&
+            self.bpsReceived == other.bpsReceived
+    }
+
+    public override var hash: Int {
+        var hasher = Hasher()
+        hasher.combine(created)
+        hasher.combine(ssrc)
+        hasher.combine(trackId)
+        hasher.combine(bytesSent)
+        hasher.combine(bytesReceived)
+        hasher.combine(codecName)
+        hasher.combine(bpsSent)
+        hasher.combine(bpsReceived)
+        return hasher.finalize()
     }
 
     static let keyTypeSSRC = "ssrc"

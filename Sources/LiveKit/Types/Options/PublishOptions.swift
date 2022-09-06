@@ -24,19 +24,17 @@ public protocol PublishOptions {
 @objc
 public class VideoPublishOptions: NSObject, PublishOptions {
 
-    public static func == (lhs: VideoPublishOptions, rhs: VideoPublishOptions) -> Bool {
-        // TODO: Implement
-        fatalError("Not implemented")
-    }
-
     @objc
     public let name: String?
+
     /// preferred encoding parameters
     @objc
     public let encoding: VideoEncoding?
+
     /// encoding parameters for for screen share
     @objc
     public let screenShareEncoding: VideoEncoding?
+
     /// true to enable simulcasting, publishes three tracks at different sizes
     @objc
     public let simulcast: Bool
@@ -61,19 +59,39 @@ public class VideoPublishOptions: NSObject, PublishOptions {
         self.simulcastLayers = simulcastLayers
         self.screenShareSimulcastLayers = screenShareSimulcastLayers
     }
+
+    // MARK: - Equal
+
+    public override func isEqual(_ object: Any?) -> Bool {
+        guard let other = object as? Self else { return false }
+        return self.name == other.name &&
+            self.encoding == other.encoding &&
+            self.screenShareEncoding == other.screenShareEncoding &&
+            self.simulcast == other.simulcast &&
+            self.simulcastLayers == other.simulcastLayers &&
+            self.screenShareSimulcastLayers == other.screenShareSimulcastLayers
+    }
+
+    public override var hash: Int {
+        var hasher = Hasher()
+        hasher.combine(name)
+        hasher.combine(encoding)
+        hasher.combine(screenShareEncoding)
+        hasher.combine(simulcast)
+        hasher.combine(simulcastLayers)
+        hasher.combine(screenShareSimulcastLayers)
+        return hasher.finalize()
+    }
 }
 
 @objc
 public class AudioPublishOptions: NSObject, PublishOptions {
 
-    public static func == (lhs: AudioPublishOptions, rhs: AudioPublishOptions) -> Bool {
-        // TODO: Implement
-        fatalError("Not implemented")
-    }
-
     @objc
     public let name: String?
+
     public let bitrate: Int?
+
     @objc
     public let dtx: Bool
 
@@ -85,15 +103,27 @@ public class AudioPublishOptions: NSObject, PublishOptions {
         self.bitrate = bitrate
         self.dtx = dtx
     }
+
+    // MARK: - Equal
+
+    public override func isEqual(_ object: Any?) -> Bool {
+        guard let other = object as? Self else { return false }
+        return self.name == other.name &&
+            self.bitrate == other.bitrate &&
+            self.dtx == other.dtx
+    }
+
+    public override var hash: Int {
+        var hasher = Hasher()
+        hasher.combine(name)
+        hasher.combine(bitrate)
+        hasher.combine(dtx)
+        return hasher.finalize()
+    }
 }
 
 @objc
 public class DataPublishOptions: NSObject, PublishOptions {
-
-    public static func == (lhs: DataPublishOptions, rhs: DataPublishOptions) -> Bool {
-        // TODO: Implement
-        fatalError("Not implemented")
-    }
 
     @objc
     public let name: String?
@@ -101,5 +131,18 @@ public class DataPublishOptions: NSObject, PublishOptions {
     public init(name: String? = nil) {
 
         self.name = name
+    }
+
+    // MARK: - Equal
+
+    public override func isEqual(_ object: Any?) -> Bool {
+        guard let other = object as? Self else { return false }
+        return self.name == other.name
+    }
+
+    public override var hash: Int {
+        var hasher = Hasher()
+        hasher.combine(name)
+        return hasher.finalize()
     }
 }

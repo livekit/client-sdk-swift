@@ -31,13 +31,9 @@ public protocol VideoCaptureOptions: CaptureOptions {
 @objc
 public class CameraCaptureOptions: NSObject, VideoCaptureOptions {
 
-    public static func == (lhs: CameraCaptureOptions, rhs: CameraCaptureOptions) -> Bool {
-        // TODO: Implement
-        fatalError("Not implemented")
-    }
-
     @objc
     public let position: AVCaptureDevice.Position
+
     @objc
     public let preferredFormat: AVCaptureDevice.Format?
 
@@ -79,20 +75,36 @@ public class CameraCaptureOptions: NSObject, VideoCaptureOptions {
                              dimensions: dimensions ?? self.dimensions,
                              fps: fps ?? self.fps)
     }
+
+    // MARK: - Equal
+
+    public override func isEqual(_ object: Any?) -> Bool {
+        guard let other = object as? Self else { return false }
+        return self.position == other.position &&
+            self.preferredFormat == other.preferredFormat &&
+            self.dimensions == other.dimensions &&
+            self.fps == other.fps
+    }
+
+    public override var hash: Int {
+        var hasher = Hasher()
+        hasher.combine(position)
+        hasher.combine(preferredFormat)
+        hasher.combine(dimensions)
+        hasher.combine(fps)
+        return hasher.finalize()
+    }
 }
 
 @objc
 public class ScreenShareCaptureOptions: NSObject, VideoCaptureOptions {
 
-    public static func == (lhs: ScreenShareCaptureOptions, rhs: ScreenShareCaptureOptions) -> Bool {
-        // TODO: Implement
-        fatalError("Not implemented")
-    }
-
     @objc
     public let dimensions: Dimensions
+
     @objc
     public let fps: Int
+
     @objc
     public let useBroadcastExtension: Bool
 
@@ -104,18 +116,31 @@ public class ScreenShareCaptureOptions: NSObject, VideoCaptureOptions {
         self.fps = fps
         self.useBroadcastExtension = useBroadcastExtension
     }
+
+    // MARK: - Equal
+
+    public override func isEqual(_ object: Any?) -> Bool {
+        guard let other = object as? Self else { return false }
+        return self.dimensions == other.dimensions &&
+            self.fps == other.fps &&
+            self.useBroadcastExtension == other.useBroadcastExtension
+    }
+
+    public override var hash: Int {
+        var hasher = Hasher()
+        hasher.combine(dimensions)
+        hasher.combine(fps)
+        hasher.combine(useBroadcastExtension)
+        return hasher.finalize()
+    }
 }
 
 @objc
 public class BufferCaptureOptions: NSObject, VideoCaptureOptions {
 
-    public static func == (lhs: BufferCaptureOptions, rhs: BufferCaptureOptions) -> Bool {
-        // TODO: Implement
-        fatalError("Not implemented")
-    }
-
     @objc
     public let dimensions: Dimensions
+
     @objc
     public let fps: Int
 
@@ -129,28 +154,44 @@ public class BufferCaptureOptions: NSObject, VideoCaptureOptions {
         self.dimensions = options.dimensions
         self.fps = options.fps
     }
+
+    // MARK: - Equal
+
+    public override func isEqual(_ object: Any?) -> Bool {
+        guard let other = object as? Self else { return false }
+        return self.dimensions == other.dimensions &&
+            self.fps == other.fps
+    }
+
+    public override var hash: Int {
+        var hasher = Hasher()
+        hasher.combine(dimensions)
+        hasher.combine(fps)
+        return hasher.finalize()
+    }
 }
 
 @objc
 public class AudioCaptureOptions: NSObject, CaptureOptions {
 
-    public static func == (lhs: AudioCaptureOptions, rhs: AudioCaptureOptions) -> Bool {
-        // TODO: Implement
-        fatalError("Not implemented")
-    }
-
     @objc
     public let echoCancellation: Bool
+
     @objc
     public let noiseSuppression: Bool
+
     @objc
     public let autoGainControl: Bool
+
     @objc
     public let typingNoiseDetection: Bool
+
     @objc
     public let highpassFilter: Bool
+
     @objc
     public let experimentalNoiseSuppression: Bool = false
+
     @objc
     public let experimentalAutoGainControl: Bool = false
 
@@ -159,10 +200,36 @@ public class AudioCaptureOptions: NSObject, CaptureOptions {
                 autoGainControl: Bool = true,
                 typingNoiseDetection: Bool = true,
                 highpassFilter: Bool = true) {
+
         self.echoCancellation = echoCancellation
         self.noiseSuppression = noiseSuppression
         self.autoGainControl = autoGainControl
         self.typingNoiseDetection = typingNoiseDetection
         self.highpassFilter = highpassFilter
+    }
+
+    // MARK: - Equal
+
+    public override func isEqual(_ object: Any?) -> Bool {
+        guard let other = object as? Self else { return false }
+        return self.echoCancellation == other.echoCancellation &&
+            self.noiseSuppression == other.noiseSuppression &&
+            self.autoGainControl == other.autoGainControl &&
+            self.typingNoiseDetection == other.typingNoiseDetection &&
+            self.highpassFilter == other.highpassFilter &&
+            self.experimentalNoiseSuppression == other.experimentalNoiseSuppression &&
+            self.experimentalAutoGainControl == other.experimentalAutoGainControl
+    }
+
+    public override var hash: Int {
+        var hasher = Hasher()
+        hasher.combine(echoCancellation)
+        hasher.combine(noiseSuppression)
+        hasher.combine(autoGainControl)
+        hasher.combine(typingNoiseDetection)
+        hasher.combine(highpassFilter)
+        hasher.combine(experimentalNoiseSuppression)
+        hasher.combine(experimentalAutoGainControl)
+        return hasher.finalize()
     }
 }
