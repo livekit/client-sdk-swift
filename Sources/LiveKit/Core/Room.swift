@@ -843,25 +843,3 @@ extension Room {
         delegates.notify(label: label, fnc)
     }
 }
-
-// MARK: - Objective-C Support
-
-extension Room {
-
-    @objc
-    public func connect(url: String,
-                        token: String,
-                        connectOptions: ConnectOptions? = nil,
-                        roomOptions: RoomOptions? = nil) -> Promise<Room>.ObjCPromise<Room> {
-        connect(url,
-                token,
-                connectOptions: connectOptions,
-                roomOptions: roomOptions).asObjCPromise()
-    }
-
-    @objc(disconnect)
-    @discardableResult
-    public func disconnectObjC() -> Promise<Void>.ObjCPromise<NSNull> {
-        disconnect().asObjCPromise()
-    }
-}

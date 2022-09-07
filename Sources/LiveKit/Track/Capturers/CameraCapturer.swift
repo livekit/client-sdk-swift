@@ -262,19 +262,3 @@ extension AVCaptureDevice.Format {
         }
     }
 }
-
-// MARK: - Objective-C Support
-
-extension CameraCapturer {
-
-    @objc
-    @discardableResult
-    public func switchCameraPosition() -> Promise<Bool>.ObjCPromise<NSNumber> {
-        switchCameraPosition().asObjCPromise()
-    }
-
-    @objc
-    public func setCameraPosition(_ position: AVCaptureDevice.Position) -> Promise<Bool>.ObjCPromise<NSNumber> {
-        setCameraPosition(position).asObjCPromise()
-    }
-}

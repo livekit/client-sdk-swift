@@ -491,19 +491,3 @@ extension LocalParticipant {
         return Promise(nil)
     }
 }
-
-// MARK: - Objective-C Support
-extension LocalParticipant {
-
-    @objc
-    @discardableResult
-    public func setCamera(enabled: Bool) -> Promise<LocalTrackPublication?>.ObjCPromise<LocalTrackPublication> {
-        setCamera(enabled: enabled).asObjCPromise()
-    }
-
-    @objc
-    @discardableResult
-    public func setMicrophone(enabled: Bool) -> Promise<LocalTrackPublication?>.ObjCPromise<LocalTrackPublication> {
-        setMicrophone(enabled: enabled).asObjCPromise()
-    }
-}
