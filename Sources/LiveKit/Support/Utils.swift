@@ -76,11 +76,10 @@ internal class Utils {
             return nil
         }
 
-        guard let cString = modelData.withUnsafeBytes({ $0.baseAddress?.assumingMemoryBound(to: UInt8.self) }) else {
-            return nil
-        }
-
-        return String(cString: cString)
+        return modelData.withUnsafeBytes({ (pointer: UnsafeRawBufferPointer) -> String? in
+            guard let cString = pointer.baseAddress?.assumingMemoryBound(to: UInt8.self) else { return nil }
+            return String(cString: cString)
+        })
         #elseif os(iOS)
         var systemInfo = utsname()
         uname(&systemInfo)
