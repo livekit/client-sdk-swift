@@ -18,28 +18,29 @@ import Foundation
 
 @objc
 public protocol RoomDelegateObjC: AnyObject {
+
     @objc(room:didUpdateConnectionState:oldConnectionState:) optional
-    func room(_ room: Room, didUpdate connectionState: ConnectionStateObjC, oldValue: ConnectionStateObjC)
+    func room(_ room: Room, didUpdate connectionState: ConnectionStateObjC, oldValue oldConnectionState: ConnectionStateObjC)
 
     /// Successfully connected to the room.
-    @objc optional
+    @objc(room:didConnectIsReconnect:) optional
     func room(_ room: Room, didConnect isReconnect: Bool)
 
     /// Could not connect to the room.
-    @objc optional
+    @objc(room:didFailToConnectWithError:) optional
     func room(_ room: Room, didFailToConnect error: Error)
 
     /// Client disconnected from the room unexpectedly.
-    @objc optional
+    @objc(room:didDisconnectWithError:) optional
     func room(_ room: Room, didDisconnect error: Error?)
 
     /// When a ``RemoteParticipant`` joins after the ``LocalParticipant``.
     /// It will not emit events for participants that are already in the room.
-    @objc optional
+    @objc(room:participantDidJoin:) optional
     func room(_ room: Room, participantDidJoin participant: RemoteParticipant)
 
     /// When a ``RemoteParticipant`` leaves after the ``LocalParticipant`` has joined.
-    @objc optional
+    @objc(room:participantDidLeave:) optional
     func room(_ room: Room, participantDidLeave participant: RemoteParticipant)
 
     /// Active speakers changed.
