@@ -671,7 +671,14 @@ extension Engine: TransportDelegate {
             self.log("subscriberPrimary: \(joinResponse.subscriberPrimary)")
 
             // update iceServers from joinResponse
-            self._state.mutate { $0.connectOptions.rtcConfiguration.set(iceServers: joinResponse.iceServers) }
+            self._state.mutate {
+                $0.connectOptions.rtcConfiguration.set(iceServers: joinResponse.iceServers)
+                if joinResponse.clientConfiguration.forceRelay == .enabled {
+                    $0.connectOptions.rtcConfiguration.iceTransportPolicy = .relay
+                } else {
+                    $0.connectOptions.rtcConfiguration.iceTransportPolicy = .all
+                }
+            }
 
             self.subscriber = try Transport(config: self._state.connectOptions.rtcConfiguration,
                                             target: .subscriber,
