@@ -85,47 +85,63 @@ extension MacOSScreenCapturer {
 
 public class MacOSScreenCapturer: VideoCapturer {
 
-    private let capture = DispatchQueue(label: "LiveKitSDK.macOSScreenCapturer", qos: .default)
+    private let captureQueue = DispatchQueue(label: "LiveKitSDK.macOSScreenCapturer", qos: .default)
     private let capturer = Engine.createVideoCapturer()
 
     // TODO: Make it possible to change dynamically
     public var source: ScreenShareSource
 
+    private var _scStream: Any?
+    @available(macOS 12.3, *)
+    var scStream: SCStream? {
+        get { _scStream as? SCStream }
+        set { _scStream = newValue }
+    }
+
+    // MARK: - Legacy support
+
     // used for display capture
     private lazy var session: AVCaptureSession = {
+
+        if #available(macOS 12.3, *) {
+            // this should never happen
+            fatalError("ScreenCaptureKit should be used for macOS 12.3+")
+        }
+
         let session = AVCaptureSession()
         let output = AVCaptureVideoDataOutput()
         output.videoSettings = [
-            kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_420YpCbCr8BiPlanarFullRange
+            kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
         ]
         session.addOutput(output)
-        output.setSampleBufferDelegate(self, queue: capture)
+        output.setSampleBufferDelegate(self, queue: captureQueue)
         return session
     }()
 
     // used for window capture
     private var dispatchSourceTimer: DispatchQueueTimer?
 
-    private var storedArView: Any?
-    @available(macOS 12.3, *)
-    var arView: SCStream? {
-        get {
-            return storedArView as? SCStream
-        }
-        set(newArView) {
-            storedArView = newArView as Any
-        }
-    }
-
     private func startDispatchSourceTimer() {
+
+        if #available(macOS 12.3, *) {
+            // this should never happen
+            fatalError("ScreenCaptureKit should be used for macOS 12.3+")
+        }
+
         stopDispatchSourceTimer()
         let timeInterval: TimeInterval = 1 / Double(options.fps)
-        dispatchSourceTimer = DispatchQueueTimer(timeInterval: timeInterval, queue: capture)
+        dispatchSourceTimer = DispatchQueueTimer(timeInterval: timeInterval, queue: captureQueue)
         dispatchSourceTimer?.handler = onDispatchSourceTimer
         dispatchSourceTimer?.resume()
     }
 
     private func stopDispatchSourceTimer() {
+
+        if #available(macOS 12.3, *) {
+            // this should never happen
+            fatalError("ScreenCaptureKit should be used for macOS 12.3+")
+        }
+
         if let timer = dispatchSourceTimer {
             timer.suspend()
             dispatchSourceTimer = nil
@@ -145,6 +161,11 @@ public class MacOSScreenCapturer: VideoCapturer {
     }
 
     private func onDispatchSourceTimer() {
+
+        if #available(macOS 12.3, *) {
+            // this should never happen
+            fatalError("ScreenCaptureKit should be used for macOS 12.3+")
+        }
 
         guard case .started = self.captureState,
               case .window(let windowId) = source else { return }
@@ -181,109 +202,133 @@ public class MacOSScreenCapturer: VideoCapturer {
 
     public override func startCapture() -> Promise<Bool> {
 
-        super.startCapture().then(on: queue) { didStart -> Bool in
+        super.startCapture().then(on: queue) { didStart -> Promise<Bool> in
 
             guard didStart else {
                 // already started
-                return false
+                return Promise(false)
             }
 
             if #available(macOS 12.3, *) {
-                //
-                //                let filter = SCContentFilter(desktopIndependentWindow: window)
-                Task {
-                    print("capture: start")
 
-                    do {
-                        //                    let c = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
-                        //                    let display = c.displays.first!
-                        //                        print("capture: display \(display)")
-                        //
-                        //                    let filter = SCContentFilter(display: display, excludingWindows: [])
-                        //                    let configuration = SCStreamConfiguration()
-                        //                    configuration.showsCursor = true
-                        //                    configuration.width = 100
-                        //                    configuration.height = 100
-                        //
-                        let windows: [SCWindow] = try await SCShareableContent.current.windows
+                return Promise<Bool>(on: self.queue) { success, failure in
+                    Task {
 
-                        guard let window = windows.first(where: { $0.owningApplication?.applicationName == "Google Chrome" }) else { return }
+                        do {
 
-                        let filter = SCContentFilter(desktopIndependentWindow: window)
+                            // let windows: [SCWindow] = try await SCShareableContent.current.windows
+                            // let displays: [SCDisplay] = try await SCShareableContent.current.displays
+                            let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
+                            // guard let window = windows.first(where: { $0.owningApplication?.applicationName == "Google Chrome" }) else { return }
 
-                        let configuration = SCStreamConfiguration()
-                        configuration.width = Int(window.frame.width)
-                        configuration.height = Int(window.frame.height)
-                        configuration.scalesToFit = true
-                        // configuration.showsCursor = true
+                            // let filter = SCContentFilter(desktopIndependentWindow: window)
 
-                        let stream = SCStream(filter: filter, configuration: configuration, delegate: nil)
-                        try stream.addStreamOutput(self, type: .screen, sampleHandlerQueue: self.capture)
-                        try await stream.startCapture()
-                        print("capture: started")
+                            let display = content.displays.first!
 
-                        self.storedArView = stream
-                    } catch let error {
-                        print("capture: error: \(error)")
+                            let excludedApps = content.applications.filter { app in
+                                Bundle.main.bundleIdentifier == app.bundleIdentifier
+                            }
+
+                            let filter = SCContentFilter(display: display, excludingApplications: excludedApps, exceptingWindows: [])
+
+                            let configuration = SCStreamConfiguration()
+                            configuration.width = Int(display.width)
+                            configuration.height = Int(display.height)
+                            configuration.scalesToFit = true
+                            configuration.minimumFrameInterval = CMTime(value: 1, timescale: CMTimeScale(15))
+                            configuration.queueDepth = 5
+                            configuration.pixelFormat = kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
+
+                            // configuration.showsCursor = true
+
+                            let stream = SCStream(filter: filter, configuration: configuration, delegate: self)
+                            try stream.addStreamOutput(self, type: .screen, sampleHandlerQueue: self.captureQueue)
+                            try await stream.startCapture()
+                            print("capture: started")
+
+                            self.scStream = stream
+                            success(true)
+
+                        } catch let error {
+                            print("capture: error: \(error)")
+                            failure(error)
+                        }
                     }
                 }
-                //
-                //                let configuration = SCStreamConfiguration()
-                ////                configuration.width = Int(window.frame.width)
-                ////                configuration.height = Int(window.frame.height)
-                //                configuration.showsCursor = true
-                //                let stream = SCStream(filter: filter, configuration: configuration, delegate: nil)
-                //                stream.addStreamOutput(self, type: .screen, sampleHandlerQueue: capture)
-                //                stream.startCapture()
 
             } else {
+
                 // legacy support
 
-                if case .display(let displayID) = self.source {
+                return Promise<Bool>(on: self.queue) { () -> Bool in
 
-                    // clear all previous inputs
-                    for input in self.session.inputs {
-                        self.session.removeInput(input)
+                    if case .display(let displayID) = self.source {
+
+                        // clear all previous inputs
+                        for input in self.session.inputs {
+                            self.session.removeInput(input)
+                        }
+
+                        // try to create a display input
+                        guard let input = AVCaptureScreenInput(displayID: displayID) else {
+                            // fail promise if displayID is invalid
+                            throw TrackError.state(message: "Failed to create screen input with displayID: \(displayID)")
+                        }
+
+                        input.minFrameDuration = CMTimeMake(value: 1, timescale: Int32(self.options.fps))
+                        input.capturesCursor = true
+                        input.capturesMouseClicks = true
+                        self.session.addInput(input)
+
+                        self.session.startRunning()
+
+                    } else if case .window = self.source {
+                        self.startDispatchSourceTimer()
                     }
 
-                    // try to create a display input
-                    guard let input = AVCaptureScreenInput(displayID: displayID) else {
-                        // fail promise if displayID is invalid
-                        throw TrackError.state(message: "Failed to create screen input with displayID: \(displayID)")
-                    }
-
-                    input.minFrameDuration = CMTimeMake(value: 1, timescale: Int32(self.options.fps))
-                    input.capturesCursor = true
-                    input.capturesMouseClicks = true
-                    self.session.addInput(input)
-
-                    self.session.startRunning()
-
-                } else if case .window = self.source {
-                    self.startDispatchSourceTimer()
+                    return true
                 }
             }
-
-            return true
         }
     }
 
     public override func stopCapture() -> Promise<Bool> {
 
-        super.stopCapture().then(on: queue) { didStop -> Bool in
+        super.stopCapture().then(on: queue) { didStop -> Promise<Bool> in
 
             guard didStop else {
                 // already stopped
-                return false
+                return Promise(false)
             }
 
-            if case .display = self.source {
-                self.session.stopRunning()
-            } else if case .window = self.source {
-                self.stopDispatchSourceTimer()
-            }
+            if #available(macOS 12.3, *) {
 
-            return true
+                return Promise<Bool>(on: self.queue) { f, r in
+                    Task {
+                        do {
+                            try await self.scStream?.stopCapture()
+                            f(true)
+                        } catch let error {
+                            r(error)
+                        }
+                    }
+                }
+
+            } else {
+
+                // legacy support
+
+                return Promise<Bool>(on: self.queue) { () -> Bool in
+                    //
+                    if case .display = self.source {
+                        self.session.stopRunning()
+                    } else if case .window = self.source {
+                        self.stopDispatchSourceTimer()
+                    }
+
+                    return true
+                }
+            }
         }
     }
 
@@ -310,6 +355,14 @@ public class MacOSScreenCapturer: VideoCapturer {
 // MARK: - SCStreamOutput
 
 @available(macOS 12.3, *)
+extension MacOSScreenCapturer: SCStreamDelegate {
+
+    public func stream(_ stream: SCStream, didStopWithError error: Error) {
+        print("capture: didStopWithError \(error)")
+    }
+}
+
+@available(macOS 12.3, *)
 extension MacOSScreenCapturer: SCStreamOutput {
 
     public func stream(_ stream: SCStream, didOutputSampleBuffer sampleBuffer: CMSampleBuffer, of type: SCStreamOutputType) {
@@ -325,6 +378,11 @@ extension MacOSScreenCapturer: AVCaptureVideoDataOutputSampleBufferDelegate {
     public func captureOutput(_ output: AVCaptureOutput,
                               didOutput sampleBuffer: CMSampleBuffer,
                               from connection: AVCaptureConnection) {
+
+        if #available(macOS 12.3, *) {
+            // this should never happen
+            fatalError("ScreenCaptureKit should be used for macOS 12.3+")
+        }
 
         capture(sampleBuffer)
     }
@@ -347,3 +405,58 @@ extension LocalVideoTrack {
 }
 
 #endif
+
+@objc protocol MacOSRunningApplication {
+    var bundleIdentifier: String { get }
+    var applicationName: String { get }
+    var processID: pid_t { get }
+}
+
+@available(macOS 12.3, *)
+@objc protocol MacOSWindow {
+    var windowID: CGWindowID { get }
+    var frame: CGRect { get }
+    var title: String? { get }
+    var windowLayer: Int { get }
+    var owningApplication: MacOSRunningApplication? { get }
+    var isOnScreen: Bool { get }
+}
+//
+// @available(macOS 12.3, *)
+// open class SCDisplay : NSObject {
+//
+//    /**
+//     @abstract displayId the CGDirectDisplayID for the SCDisplay
+//     */
+//    open var displayID: CGDirectDisplayID { get }
+//
+//
+//    /**
+//     @abstract width the width, in points, for the SCDisplay
+//     */
+//    open var width: Int { get }
+//
+//
+//    /**
+//     @abstract height the height, in points, for the SCDisplay
+//     */
+//    open var height: Int { get }
+//
+//
+//    /**
+//     @abstract frame the CGRect frame for the SCDisplay
+//     */
+//    open var frame: CGRect { get }
+// }
+
+@available(macOS 12.3, *)
+extension SCRunningApplication: MacOSRunningApplication {
+    //
+}
+
+// @available(macOS 12.3, *)
+// extension SCWindow: MacOSWindow {
+//    var owningApplication: MacOSRunningApplication? {
+//
+//    }
+// }
