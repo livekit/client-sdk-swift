@@ -802,10 +802,12 @@ extension Room: AppStateDelegate {
 
 extension Room {
 
+    @objc
     public static var audioDeviceModule: RTCAudioDeviceModule {
         Engine.audioDeviceModule
     }
 
+    @objc
     public static var bypassVoiceProcessing: Bool {
         get { Engine.bypassVoiceProcessing }
         set { Engine.bypassVoiceProcessing = newValue }

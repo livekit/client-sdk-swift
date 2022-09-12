@@ -160,4 +160,18 @@ extension Track {
 
         stop().asObjCPromise()
     }
+
+    @objc(mute)
+    @discardableResult
+    public func muteObjC() -> Promise<Void>.ObjCPromise<NSNull> {
+
+        mute().asObjCPromise()
+    }
+
+    @objc(unmute)
+    @discardableResult
+    public func unmuteObjC() -> Promise<Void>.ObjCPromise<NSNull> {
+
+        unmute().asObjCPromise()
+    }
 }

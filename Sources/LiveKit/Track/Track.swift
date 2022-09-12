@@ -60,30 +60,36 @@ public class Track: NSObject, Loggable {
         case screenShareAudio
     }
 
-    @objc
+    @objc(PublishState)
     public enum PublishState: Int {
         case unpublished
         case published
     }
 
     /// Only for ``LocalTrack``s.
+    @objc
     public private(set) var publishState: PublishState = .unpublished
 
     /// ``publishOptions`` used for this track if already published.
     /// Only for ``LocalTrack``s.
+    @objc
     public internal(set) var publishOptions: PublishOptions?
 
     @objc
     public let kind: Track.Kind
+
     @objc
     public let source: Track.Source
+
     @objc
     public let name: String
 
     @objc
     public var sid: Sid? { _state.sid }
+
     @objc
     public var muted: Bool { _state.muted }
+
     @objc
     public var stats: TrackStats? { _state.stats }
 
@@ -93,6 +99,7 @@ public class Track: NSObject, Loggable {
 
     /// The last video frame received for this track
     public var videoFrame: RTCVideoFrame? { _state.videoFrame }
+
     @objc
     public var trackState: TrackState { _state.trackState }
 
@@ -221,8 +228,10 @@ public class Track: NSObject, Loggable {
 
     // returns true if state updated
     internal func onPublish() -> Promise<Bool> {
+        // LocalTrack only
+        guard self is LocalTrack else { return Promise(false) }
 
-        Promise<Bool>(on: queue) { () -> Bool in
+        return Promise<Bool>(on: queue) { () -> Bool in
 
             guard self.publishState != .published else {
                 // already published
@@ -236,8 +245,10 @@ public class Track: NSObject, Loggable {
 
     // returns true if state updated
     internal func onUnpublish() -> Promise<Bool> {
+        // LocalTrack only
+        guard self is LocalTrack else { return Promise(false) }
 
-        Promise<Bool>(on: queue) { () -> Bool in
+        return Promise<Bool>(on: queue) { () -> Bool in
 
             guard self.publishState != .unpublished else {
                 // already unpublished
@@ -303,8 +314,8 @@ extension Track {
 extension Track {
 
     public func mute() -> Promise<Void> {
-        // Already muted
-        if muted { return Promise(()) }
+        // LocalTrack only, already muted
+        guard self is LocalTrack, !muted else { return Promise(()) }
 
         return disable().then(on: queue) { _ in
             self.stop()
@@ -314,8 +325,8 @@ extension Track {
     }
 
     public func unmute() -> Promise<Void> {
-        // Already un-muted
-        if !muted { return Promise(()) }
+        // LocalTrack only, already un-muted
+        guard self is LocalTrack, muted else { return Promise(()) }
 
         return enable().then(on: queue) { _ in
             self.start()
