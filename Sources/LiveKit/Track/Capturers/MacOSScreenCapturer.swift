@@ -27,6 +27,7 @@ import ScreenCaptureKit
 public enum ScreenShareSource {
     case display(id: UInt32)
     case window(id: UInt32)
+    case window(id2: String)
 }
 
 #if os(macOS)
@@ -167,8 +168,12 @@ public class MacOSScreenCapturer: VideoCapturer {
             fatalError("ScreenCaptureKit should be used for macOS 12.3+")
         }
 
+        if case let .window(id: UInt32) = source {
+            //
+        }
+        
         guard case .started = self.captureState,
-              case .window(let windowId) = source else { return }
+              case .window(id: let windowId) = source else { return }
 
         guard let image = CGWindowListCreateImage(CGRect.null,
                                                   .optionIncludingWindow,
@@ -406,57 +411,81 @@ extension LocalVideoTrack {
 
 #endif
 
-@objc protocol MacOSRunningApplication {
-    var bundleIdentifier: String { get }
-    var applicationName: String { get }
-    var processID: pid_t { get }
+@objc
+public class MacOSRunningApplication: NSObject {
+    let bundleIdentifier: String
+    let applicationName: String
+    let processID: pid_t
+    let nativeType: Any?
+
+    internal init(bundleIdentifier: String,
+                  applicationName: String,
+                  processID: pid_t,
+                  nativeType: Any?) {
+
+        self.bundleIdentifier = bundleIdentifier
+        self.applicationName = applicationName
+        self.processID = processID
+        self.nativeType = nativeType
+    }
 }
 
-@available(macOS 12.3, *)
-@objc protocol MacOSWindow {
-    var windowID: CGWindowID { get }
-    var frame: CGRect { get }
-    var title: String? { get }
-    var windowLayer: Int { get }
-    var owningApplication: MacOSRunningApplication? { get }
-    var isOnScreen: Bool { get }
+@objc
+public class MacOSWindow: NSObject {
+    let windowID: CGWindowID
+    let frame: CGRect
+    let title: String?
+    let windowLayer: Int
+    let owningApplication: MacOSRunningApplication?
+    let isOnScreen: Bool
+    let nativeType: Any?
+
+    internal init(windowID: CGWindowID,
+                  frame: CGRect,
+                  title: String?,
+                  windowLayer: Int,
+                  owningApplication: MacOSRunningApplication?,
+                  isOnScreen: Bool,
+                  nativeType: Any?) {
+
+        self.windowID = windowID
+        self.frame = frame
+        self.title = title
+        self.windowLayer = windowLayer
+        self.owningApplication = owningApplication
+        self.isOnScreen = isOnScreen
+        self.nativeType = nativeType
+    }
 }
-//
+
+@objc
+public class MacOSDisplay: NSObject {
+    let displayID: CGDirectDisplayID
+    let width: Int
+    let height: Int
+    let frame: CGRect
+    let nativeType: Any?
+
+    internal init(displayID: CGDirectDisplayID,
+                  width: Int,
+                  height: Int,
+                  frame: CGRect,
+                  nativeType: Any?) {
+
+        self.displayID = displayID
+        self.width = width
+        self.height = height
+        self.frame = frame
+        self.nativeType = nativeType
+    }
+}
+
 // @available(macOS 12.3, *)
-// open class SCDisplay : NSObject {
-//
-//    /**
-//     @abstract displayId the CGDirectDisplayID for the SCDisplay
-//     */
-//    open var displayID: CGDirectDisplayID { get }
-//
-//
-//    /**
-//     @abstract width the width, in points, for the SCDisplay
-//     */
-//    open var width: Int { get }
-//
-//
-//    /**
-//     @abstract height the height, in points, for the SCDisplay
-//     */
-//    open var height: Int { get }
-//
-//
-//    /**
-//     @abstract frame the CGRect frame for the SCDisplay
-//     */
-//    open var frame: CGRect { get }
+// extension SCRunningApplication: MacOSRunningApplication {
+//    //
 // }
-
-@available(macOS 12.3, *)
-extension SCRunningApplication: MacOSRunningApplication {
-    //
-}
-
+//
 // @available(macOS 12.3, *)
 // extension SCWindow: MacOSWindow {
-//    var owningApplication: MacOSRunningApplication? {
-//
-//    }
+//    // typealias ReturnType = SCRunningApplication
 // }
