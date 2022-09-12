@@ -43,10 +43,12 @@ extension ConnectionState {
 extension Room {
 
     @objc(connectWithURL:token:connectOptions:roomOptions:)
+    @discardableResult
     public func connect(url: String,
                         token: String,
                         connectOptions: ConnectOptions? = nil,
                         roomOptions: RoomOptions? = nil) -> Promise<Room>.ObjCPromise<Room> {
+
         connect(url,
                 token,
                 connectOptions: connectOptions,
@@ -56,6 +58,7 @@ extension Room {
     @objc(disconnect)
     @discardableResult
     public func disconnectObjC() -> Promise<Void>.ObjCPromise<NSNull> {
+
         disconnect().asObjCPromise()
     }
 }
@@ -65,18 +68,21 @@ extension LocalParticipant {
     @objc(setCameraEnabled:)
     @discardableResult
     public func setCameraObjC(enabled: Bool) -> Promise<LocalTrackPublication?>.ObjCPromise<LocalTrackPublication> {
+
         setCamera(enabled: enabled).asObjCPromise()
     }
 
     @objc(setMicrophoneEnabled:)
     @discardableResult
     public func setMicrophoneObjC(enabled: Bool) -> Promise<LocalTrackPublication?>.ObjCPromise<LocalTrackPublication> {
+
         setMicrophone(enabled: enabled).asObjCPromise()
     }
 
     @objc(setScreenShareEnabled:)
     @discardableResult
     public func setScreenShareObjC(enabled: Bool) -> Promise<LocalTrackPublication?>.ObjCPromise<LocalTrackPublication> {
+
         setScreenShare(enabled: enabled).asObjCPromise()
     }
 
@@ -99,7 +105,26 @@ extension LocalParticipant {
     @objc(unpublishPublication:)
     @discardableResult
     public func unpublishObjC(publication: LocalTrackPublication) -> Promise<Void>.ObjCPromise<NSNull> {
+
         unpublish(publication: publication).asObjCPromise()
+    }
+
+    @objc(publishData:reliability:destination:)
+    @discardableResult
+    public func publishDataObjC(data: Data,
+                                reliability: Reliability = .reliable,
+                                destination: [String] = []) -> Promise<Void>.ObjCPromise<NSNull> {
+
+        publishData(data: data, reliability: reliability, destination: destination).asObjCPromise()
+    }
+
+    @objc(setTrackSubscriptionPermissionsWithAllParticipantsAllowed:trackPermissions:)
+    @discardableResult
+    public func setTrackSubscriptionPermissionsObjC(allParticipantsAllowed: Bool,
+                                                    trackPermissions: [ParticipantTrackPermission] = []) -> Promise<Void>.ObjCPromise<NSNull> {
+
+        setTrackSubscriptionPermissions(allParticipantsAllowed: allParticipantsAllowed,
+                                        trackPermissions: trackPermissions).asObjCPromise()
     }
 }
 
@@ -108,11 +133,14 @@ extension CameraCapturer {
     @objc(switchCameraPosition)
     @discardableResult
     public func switchCameraPositionObjC() -> Promise<Bool>.ObjCPromise<NSNumber> {
+
         switchCameraPosition().asObjCPromise()
     }
 
     @objc(setCameraPosition:)
+    @discardableResult
     public func setCameraPositionObjC(_ position: AVCaptureDevice.Position) -> Promise<Bool>.ObjCPromise<NSNumber> {
+
         setCameraPosition(position).asObjCPromise()
     }
 }
@@ -122,12 +150,14 @@ extension Track {
     @objc(start)
     @discardableResult
     public func startObjC() -> Promise<Bool>.ObjCPromise<NSNumber> {
+
         start().asObjCPromise()
     }
 
     @objc(stop)
     @discardableResult
     public func stopObjC() -> Promise<Bool>.ObjCPromise<NSNumber> {
+
         stop().asObjCPromise()
     }
 }

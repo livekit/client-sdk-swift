@@ -16,6 +16,21 @@
 
 import Foundation
 
+/// ``RoomDelegate`` receives room events as well as ``Participant`` events.
+///
+/// > Important: The thread which the delegate will be called on, is not guranteed to be the `main` thread.
+/// If you will perform any UI update from the delegate, ensure the execution is from the `main` thread.
+///
+/// ## Example usage
+/// ```swift
+/// func room(_ room: Room, localParticipant: LocalParticipant, didPublish publication: LocalTrackPublication) {
+///   DispatchQueue.main.async {
+///     // update UI here
+///     self.localVideoView.isHidden = false
+///   }
+/// }
+/// ```
+/// See the source code of [Swift Example App](https://github.com/livekit/client-example-swift) for more examples.
 @objc
 public protocol RoomDelegateObjC: AnyObject {
 
@@ -111,21 +126,6 @@ public protocol RoomDelegateObjC: AnyObject {
     func room(_ room: Room, participant: RemoteParticipant, didUpdate publication: RemoteTrackPublication, permission allowed: Bool)
 }
 
-/// ``RoomDelegate`` receives room events as well as ``Participant`` events.
-///
-/// > Important: The thread which the delegate will be called on, is not guranteed to be the `main` thread.
-/// If you will perform any UI update from the delegate, ensure the execution is from the `main` thread.
-///
-/// ## Example usage
-/// ```swift
-/// func room(_ room: Room, localParticipant: LocalParticipant, didPublish publication: LocalTrackPublication) {
-///   DispatchQueue.main.async {
-///     // update UI here
-///     self.localVideoView.isHidden = false
-///   }
-/// }
-/// ```
-/// See the source code of [Swift Example App](https://github.com/livekit/client-example-swift) for more examples.
 public protocol RoomDelegate: RoomDelegateObjC {
     /// When the ``ConnectionState`` has updated.
     func room(_ room: Room, didUpdate connectionState: ConnectionState, oldValue: ConnectionState)
