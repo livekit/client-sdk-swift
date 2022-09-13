@@ -56,6 +56,8 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
     private var webSocket: WebSocket?
     private var latestJoinResponse: Livekit_JoinResponse?
 
+    private lazy var pingTimer = DispatchQueueTimer(timeInterval: 1, queue: queue)
+
     init() {
         super.init()
 
@@ -66,11 +68,22 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
 
             guard let self = self else { return }
 
-            if oldState.connectionState != state.connectionState {
+            // connectionState did update
+            if state.connectionState != oldState.connectionState {
                 self.log("\(oldState.connectionState) -> \(state.connectionState)")
+
+                if case .connected = state.connectionState {
+                    self.pingTimer.restart()
+                } else {
+                    self.pingTimer.suspend()
+                }
             }
 
             self.notify { $0.signalClient(self, didMutate: state, oldState: oldState) }
+        }
+
+        pingTimer.handler = { [weak self] in
+            self?.onPingTimer()
         }
     }
 
@@ -202,6 +215,11 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
                                                                .defaultPublish,
                                                                throw: { EngineError.timedOut(message: "server didn't respond to addTrack request") })
         }
+    }
+
+    func onPingTimer() {
+        //
+        sendPing()
     }
 }
 
@@ -343,7 +361,7 @@ private extension SignalClient {
         case .refreshToken(let token):
             notify { $0.signalClient(self, didUpdate: token) }
         case .pong(let r):
-            log("pong: \(r)")
+            log("ping/pong: received from server \(r)")
         }
     }
 }
@@ -584,6 +602,7 @@ internal extension SignalClient {
         return sendRequest(r)
     }
 
+    @discardableResult
     func sendLeave() -> Promise<Void> {
         log()
 
@@ -594,6 +613,7 @@ internal extension SignalClient {
         return sendRequest(r)
     }
 
+    @discardableResult
     func sendSimulate(scenario: SimulateScenario) -> Promise<Void> {
         log()
 
@@ -604,6 +624,17 @@ internal extension SignalClient {
                 if case .serverLeave = scenario { $0.serverLeave = true }
                 if case .speakerUpdate(let secs) = scenario { $0.speakerUpdate = Int32(secs) }
             }
+        }
+
+        return sendRequest(r)
+    }
+
+    @discardableResult
+    func sendPing() -> Promise<Void> {
+        log("ping/pong: sending...")
+
+        let r = Livekit_SignalRequest.with {
+            $0.ping = Int64(Date().timeIntervalSince1970)
         }
 
         return sendRequest(r)
