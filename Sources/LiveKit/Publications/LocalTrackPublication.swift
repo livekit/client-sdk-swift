@@ -36,7 +36,7 @@ public class LocalTrackPublication: TrackPublication {
             return Promise(InternalError.state(message: "track is nil or not a LocalTrack"))
         }
 
-        return track.mute()
+        return track._mute()
     }
 
     @discardableResult
@@ -46,7 +46,7 @@ public class LocalTrackPublication: TrackPublication {
             return Promise(InternalError.state(message: "track is nil or not a LocalTrack"))
         }
 
-        return track.unmute()
+        return track._unmute()
     }
 
     internal override func set(track newValue: Track?) -> Track? {

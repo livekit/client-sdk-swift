@@ -20,7 +20,7 @@ import Promises
 import ReplayKit
 
 @objc
-public class LocalVideoTrack: VideoTrack, LocalTrack {
+public class LocalVideoTrack: Track, LocalTrack, VideoTrack {
 
     @objc
     public internal(set) var capturer: VideoCapturer
@@ -58,13 +58,14 @@ public class LocalVideoTrack: VideoTrack, LocalTrack {
     }
 }
 
-extension RTCRtpEncodingParameters {
-    open override var description: String {
-        return "RTCRtpEncodingParameters(rid: \(rid ?? "nil"), "
-            + "active: \(isActive), "
-            + "scaleResolutionDownBy: \(String(describing: scaleResolutionDownBy)), "
-            + "maxBitrateBps: \(maxBitrateBps == nil ? "nil" : String(describing: maxBitrateBps)), "
-            + "maxFramerate: \(maxFramerate == nil ? "nil" : String(describing: maxFramerate)))"
+extension LocalVideoTrack {
+
+    public func add(videoRenderer: VideoRenderer) {
+        super._add(videoRenderer: videoRenderer)
+    }
+
+    public func remove(videoRenderer: VideoRenderer) {
+        super._remove(videoRenderer: videoRenderer)
     }
 }
 

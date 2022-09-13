@@ -19,7 +19,7 @@ import WebRTC
 import Promises
 
 @objc
-public class LocalAudioTrack: AudioTrack, LocalTrack {
+public class LocalAudioTrack: Track, LocalTrack, AudioTrack {
 
     internal init(name: String,
                   source: Track.Source,

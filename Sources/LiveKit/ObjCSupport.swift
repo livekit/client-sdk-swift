@@ -161,17 +161,41 @@ extension Track {
         stop().asObjCPromise()
     }
 
-    @objc(mute)
     @discardableResult
-    public func muteObjC() -> Promise<Void>.ObjCPromise<NSNull> {
+    internal func muteObjC() -> Promise<Void>.ObjCPromise<NSNull> {
 
-        mute().asObjCPromise()
+        _mute().asObjCPromise()
     }
 
-    @objc(unmute)
     @discardableResult
-    public func unmuteObjC() -> Promise<Void>.ObjCPromise<NSNull> {
+    internal func unmuteObjC() -> Promise<Void>.ObjCPromise<NSNull> {
 
-        unmute().asObjCPromise()
+        _unmute().asObjCPromise()
+    }
+}
+
+extension LocalAudioTrack {
+
+    public func mute() -> Promise<Void>.ObjCPromise<NSNull> {
+
+        super.muteObjC()
+    }
+
+    public func unmute() -> Promise<Void>.ObjCPromise<NSNull> {
+
+        super.unmuteObjC()
+    }
+}
+
+extension LocalVideoTrack {
+
+    public func mute() -> Promise<Void>.ObjCPromise<NSNull> {
+
+        super.muteObjC()
+    }
+
+    public func unmute() -> Promise<Void>.ObjCPromise<NSNull> {
+
+        super.unmuteObjC()
     }
 }

@@ -15,6 +15,7 @@
  */
 
 import Foundation
+import WebRTC
 
 extension TrackSettings: CustomStringConvertible {
 
@@ -78,5 +79,16 @@ extension Track {
 
     public override var description: String {
         "\(String(describing: type(of: self)))(sid: \(sid ?? "nil"), name: \(name), source: \(source))"
+    }
+}
+
+extension RTCRtpEncodingParameters {
+
+    public override var description: String {
+        "RTCRtpEncodingParameters(rid: \(rid ?? "nil"), "
+            + "active: \(isActive), "
+            + "scaleResolutionDownBy: \(String(describing: scaleResolutionDownBy)), "
+            + "maxBitrateBps: \(maxBitrateBps == nil ? "nil" : String(describing: maxBitrateBps)), "
+            + "maxFramerate: \(maxFramerate == nil ? "nil" : String(describing: maxFramerate)))"
     }
 }

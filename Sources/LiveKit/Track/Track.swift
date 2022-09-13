@@ -313,7 +313,10 @@ extension Track {
 
 extension Track {
 
-    public func mute() -> Promise<Void> {
+    // workaround for error:
+    // @objc can only be used with members of classes, @objc protocols, and concrete extensions of classes
+    //
+    internal func _mute() -> Promise<Void> {
         // LocalTrack only, already muted
         guard self is LocalTrack, !muted else { return Promise(()) }
 
@@ -324,7 +327,7 @@ extension Track {
         }
     }
 
-    public func unmute() -> Promise<Void> {
+    internal func _unmute() -> Promise<Void> {
         // LocalTrack only, already un-muted
         guard self is LocalTrack, muted else { return Promise(()) }
 
@@ -333,6 +336,42 @@ extension Track {
         }.then(on: queue) { _ -> Void in
             self.set(muted: false, shouldSendSignal: true)
         }
+    }
+}
+
+// MARK: - VideoTrack
+
+// workaround for error:
+// @objc can only be used with members of classes, @objc protocols, and concrete extensions of classes
+//
+extension Track {
+
+    internal func _add(videoRenderer: VideoRenderer) {
+
+        guard self is VideoTrack, let videoTrack = self.mediaTrack as? RTCVideoTrack else {
+            log("mediaTrack is not a RTCVideoTrack", .error)
+            return
+        }
+
+        // must always be called on main thread
+        assert(Thread.current.isMainThread, "must be called on main thread")
+
+        videoRenderers.add(videoRenderer)
+        videoTrack.add(videoRenderer)
+    }
+
+    internal func _remove(videoRenderer: VideoRenderer) {
+
+        guard self is VideoTrack, let videoTrack = self.mediaTrack as? RTCVideoTrack else {
+            log("mediaTrack is not a RTCVideoTrack", .error)
+            return
+        }
+
+        // must always be called on main thread
+        assert(Thread.current.isMainThread, "must be called on main thread")
+
+        videoRenderers.remove(videoRenderer)
+        videoTrack.remove(videoRenderer)
     }
 }
 

@@ -20,4 +20,17 @@ import Promises
 @objc
 public protocol LocalTrack where Self: Track {
 
+    @objc(publishOptions)
+    var publishOptions: PublishOptions? { get }
+
+    @objc(publishState)
+    var publishState: PublishState { get }
+
+    @objc(mute)
+    @discardableResult
+    func mute() -> Promise<Void>.ObjCPromise<NSNull>
+
+    @objc(unmute)
+    @discardableResult
+    func unmute() -> Promise<Void>.ObjCPromise<NSNull>
 }
