@@ -1,7 +1,7 @@
 
 Pod::Spec.new do |spec|
 
-  spec.name         = 'LiveKit'
+  spec.name         = 'LiveKitClient'
   spec.version      = '1.0.5'
   spec.summary      = 'LiveKit Swift Client SDK. Easily build live audio or video experiences into your mobile app, game or website.'
   spec.homepage     = 'https://github.com/livekit/client-sdk-swift'
