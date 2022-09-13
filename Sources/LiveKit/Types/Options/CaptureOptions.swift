@@ -109,9 +109,8 @@ public class ScreenShareCaptureOptions: NSObject, VideoCaptureOptions {
     public let useBroadcastExtension: Bool
 
     public init(dimensions: Dimensions = .h1080_169,
-                fps: Int = 30,
+                fps: Int = 15,
                 useBroadcastExtension: Bool = false) {
-
         self.dimensions = dimensions
         self.fps = fps
         self.useBroadcastExtension = useBroadcastExtension
@@ -145,7 +144,7 @@ public class BufferCaptureOptions: NSObject, VideoCaptureOptions {
     public let fps: Int
 
     public init(dimensions: Dimensions = .h1080_169,
-                fps: Int = 30) {
+                fps: Int = 15) {
         self.dimensions = dimensions
         self.fps = fps
     }
