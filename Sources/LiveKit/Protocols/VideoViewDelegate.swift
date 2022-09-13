@@ -17,16 +17,12 @@
 import Foundation
 import WebRTC
 
+@objc
 public protocol VideoViewDelegate: AnyObject {
     /// Dimensions of the VideoView itself has updated
+    @objc(videoView:didUpdateSize:) optional
     func videoView(_ videoView: VideoView, didUpdate size: CGSize)
     /// VideoView updated the isRendering property
+    @objc(videoView:didUpdateIsRendering:) optional
     func videoView(_ videoView: VideoView, didUpdate isRendering: Bool)
-}
-
-// MARK: - Optional
-
-public extension VideoViewDelegate {
-    func videoView(_ videoView: VideoView, didUpdate size: CGSize) {}
-    func videoView(_ videoView: VideoView, didUpdate isRendering: Bool) {}
 }

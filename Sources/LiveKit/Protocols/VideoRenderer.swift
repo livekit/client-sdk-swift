@@ -14,14 +14,17 @@
  * limitations under the License.
  */
 
+import Foundation
 import WebRTC
 
 @objc
-public protocol VideoTrack where Self: Track {
-
-    @objc(addVideoRenderer:)
-    func add(videoRenderer: VideoRenderer)
-
-    @objc(removeVideoRenderer:)
-    func remove(videoRenderer: VideoRenderer)
+public protocol VideoRenderer: RTCVideoRenderer {
+    /// Whether this ``VideoRenderer`` should be considered visible or not for AdaptiveStream.
+    /// This will be invoked on the .main thread.
+    @objc
+    var adaptiveStreamIsEnabled: Bool { get }
+    /// The size used for AdaptiveStream computation. Return .zero if size is unknown yet.
+    /// This will be invoked on the .main thread.
+    @objc
+    var adaptiveStreamSize: CGSize { get }
 }

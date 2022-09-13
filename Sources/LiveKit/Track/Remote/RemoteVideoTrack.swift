@@ -17,7 +17,8 @@
 import WebRTC
 import Promises
 
-class RemoteVideoTrack: RemoteTrack, VideoTrack {
+@objc
+class RemoteVideoTrack: Track, RemoteTrack, VideoTrack {
 
     init(name: String,
          source: Track.Source,
@@ -27,5 +28,16 @@ class RemoteVideoTrack: RemoteTrack, VideoTrack {
                    kind: .video,
                    source: source,
                    track: track)
+    }
+}
+
+extension RemoteVideoTrack {
+
+    public func add(videoRenderer: VideoRenderer) {
+        super._add(videoRenderer: videoRenderer)
+    }
+
+    public func remove(videoRenderer: VideoRenderer) {
+        super._remove(videoRenderer: videoRenderer)
     }
 }

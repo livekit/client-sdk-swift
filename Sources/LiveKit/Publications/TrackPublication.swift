@@ -18,24 +18,44 @@ import Foundation
 import CoreGraphics
 import Promises
 
-public class TrackPublication: TrackDelegate, Loggable {
+@objc
+public class TrackPublication: NSObject, TrackDelegate, Loggable {
 
     internal let queue = DispatchQueue(label: "LiveKitSDK.publication", qos: .default)
 
+    @objc
     public let sid: Sid
+
+    @objc
     public let kind: Track.Kind
+
+    @objc
     public let source: Track.Source
 
+    @objc
     public var name: String { _state.name }
+
+    @objc
     public var track: Track? { _state.track }
+
+    @objc
     public var muted: Bool { track?._state.muted ?? false }
+
+    @objc
     public var streamState: StreamState { _state.streamState }
 
     /// video-only
+    @objc
     public var dimensions: Dimensions? { _state.dimensions }
+
+    @objc
     public var simulcasted: Bool { _state.simulcasted }
+
     /// MIME type of the ``Track``.
+    @objc
     public var mimeType: String { _state.mimeType }
+
+    @objc
     public var subscribed: Bool { _state.track != nil }
 
     // MARK: - Internal
@@ -73,6 +93,9 @@ public class TrackPublication: TrackDelegate, Loggable {
         self.kind = info.type.toLKType()
         self.source = info.source.toLKType()
         self.participant = participant
+
+        super.init()
+
         self.set(track: track)
         updateFromInfo(info: info)
 
@@ -87,10 +110,10 @@ public class TrackPublication: TrackDelegate, Loggable {
             if state.streamState != oldState.streamState {
                 if let participant = self.participant as? RemoteParticipant, let trackPublication = self as? RemoteTrackPublication {
                     participant.notify(label: { "participant.didUpdate \(trackPublication) streamState: \(state.streamState)" }) {
-                        $0.participant(participant, didUpdate: trackPublication, streamState: state.streamState)
+                        $0.participant?(participant, didUpdate: trackPublication, streamState: state.streamState)
                     }
                     participant.room.notify(label: { "room.didUpdate \(trackPublication) streamState: \(state.streamState)" }) {
-                        $0.room(participant.room, participant: participant, didUpdate: trackPublication, streamState: state.streamState)
+                        $0.room?(participant.room, participant: participant, didUpdate: trackPublication, streamState: state.streamState)
                     }
                 }
             }
@@ -162,20 +185,24 @@ public class TrackPublication: TrackDelegate, Loggable {
             .recover(on: queue) { self.log("Failed to stop all tracks, error: \($0)") }
             .then(on: queue) {
                 participant.notify {
-                    $0.participant(participant, didUpdate: self, muted: muted)
+                    $0.participant?(participant, didUpdate: self, muted: muted)
                 }
                 participant.room.notify {
-                    $0.room(participant.room, participant: participant, didUpdate: self, muted: self.muted)
+                    $0.room?(participant.room, participant: participant, didUpdate: self, muted: self.muted)
                 }
             }
     }
-}
 
-// MARK: - Equatable
+    // MARK: - Equal
 
-extension TrackPublication: Equatable {
-    // objects are considered equal if sids are the same
-    public static func == (lhs: TrackPublication, rhs: TrackPublication) -> Bool {
-        lhs.sid == rhs.sid
+    public override func isEqual(_ object: Any?) -> Bool {
+        guard let other = object as? Self else { return false }
+        return self.sid == other.sid
+    }
+
+    public override var hash: Int {
+        var hasher = Hasher()
+        hasher.combine(sid)
+        return hasher.finalize()
     }
 }

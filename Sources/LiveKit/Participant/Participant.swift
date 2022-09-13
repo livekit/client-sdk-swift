@@ -18,25 +18,51 @@ import Foundation
 import WebRTC
 import Promises
 
-public class Participant: MulticastDelegate<ParticipantDelegate> {
+@objc
+public class Participant: NSObject, Loggable {
+
+    // MARK: - MulticastDelegate
+
+    private var delegates = MulticastDelegate<ParticipantDelegate>()
 
     internal let queue = DispatchQueue(label: "LiveKitSDK.participant", qos: .default)
 
+    @objc
     public let sid: Sid
+
+    @objc
     public var identity: String { _state.identity }
+
+    @objc
     public var name: String { _state.name }
+
+    @objc
     public var audioLevel: Float { _state.audioLevel }
+
+    @objc
     public var isSpeaking: Bool { _state.isSpeaking }
+
+    @objc
     public var metadata: String? { _state.metadata }
+
+    @objc
     public var connectionQuality: ConnectionQuality { _state.connectionQuality }
+
+    @objc
     public var permissions: ParticipantPermissions { _state.permissions }
+
+    @objc
     public var joinedAt: Date? { _state.joinedAt }
+
+    @objc
     public var tracks: [String: TrackPublication] { _state.tracks }
 
+    @objc
     public var audioTracks: [TrackPublication] {
         _state.tracks.values.filter { $0.kind == .audio }
     }
 
+    @objc
     public var videoTracks: [TrackPublication] {
         _state.tracks.values.filter { $0.kind == .video }
     }
@@ -85,7 +111,7 @@ public class Participant: MulticastDelegate<ParticipantDelegate> {
 
             if state.isSpeaking != oldState.isSpeaking {
                 self.notify(label: { "participant.didUpdate isSpeaking: \(self.isSpeaking)" }) {
-                    $0.participant(self, didUpdate: self.isSpeaking)
+                    $0.participant?(self, didUpdate: self.isSpeaking)
                 }
             }
 
@@ -95,19 +121,19 @@ public class Participant: MulticastDelegate<ParticipantDelegate> {
                (oldState.metadata == nil ? !metadata.isEmpty : true) {
 
                 self.notify(label: { "participant.didUpdate metadata: \(metadata)" }) {
-                    $0.participant(self, didUpdate: metadata)
+                    $0.participant?(self, didUpdate: metadata)
                 }
                 self.room.notify(label: { "room.didUpdate metadata: \(metadata)" }) {
-                    $0.room(self.room, participant: self, didUpdate: metadata)
+                    $0.room?(self.room, participant: self, didUpdate: metadata)
                 }
             }
 
             if state.connectionQuality != oldState.connectionQuality {
                 self.notify(label: { "participant.didUpdate connectionQuality: \(self.connectionQuality)" }) {
-                    $0.participant(self, didUpdate: self.connectionQuality)
+                    $0.participant?(self, didUpdate: self.connectionQuality)
                 }
                 self.room.notify(label: { "room.didUpdate connectionQuality: \(self.connectionQuality)" }) {
-                    $0.room(self.room, participant: self, didUpdate: self.connectionQuality)
+                    $0.room?(self.room, participant: self, didUpdate: self.connectionQuality)
                 }
             }
         }
@@ -215,5 +241,25 @@ public extension Participant {
             return false
         }
         return sid == other.sid
+    }
+}
+
+// MARK: - MulticastDelegate
+
+extension Participant {
+
+    @objc(addDelegate:)
+    public func add(delegate: ParticipantDelegate) {
+        delegates.add(delegate: delegate)
+    }
+
+    @objc(removeDelegate:)
+    public func remove(delegate: ParticipantDelegate) {
+        delegates.remove(delegate: delegate)
+    }
+
+    internal func notify(label: (() -> String)? = nil,
+                         _ fnc: @escaping (ParticipantDelegate) -> Void) {
+        delegates.notify(label: label, fnc)
     }
 }

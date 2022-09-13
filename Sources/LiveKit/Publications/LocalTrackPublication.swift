@@ -17,6 +17,7 @@
 import Foundation
 import Promises
 
+@objc
 public class LocalTrackPublication: TrackPublication {
 
     // indicates whether the track was suspended(muted) by the SDK
@@ -35,7 +36,7 @@ public class LocalTrackPublication: TrackPublication {
             return Promise(InternalError.state(message: "track is nil or not a LocalTrack"))
         }
 
-        return track.mute()
+        return track._mute()
     }
 
     @discardableResult
@@ -45,10 +46,10 @@ public class LocalTrackPublication: TrackPublication {
             return Promise(InternalError.state(message: "track is nil or not a LocalTrack"))
         }
 
-        return track.unmute()
+        return track._unmute()
     }
 
-    override func set(track newValue: Track?) -> Track? {
+    internal override func set(track newValue: Track?) -> Track? {
         let oldValue = super.set(track: newValue)
 
         // listen for VideoCapturerDelegate

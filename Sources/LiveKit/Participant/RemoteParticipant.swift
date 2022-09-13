@@ -18,11 +18,12 @@ import Foundation
 import WebRTC
 import Promises
 
+@objc
 public class RemoteParticipant: Participant {
 
-    init(sid: Sid,
-         info: Livekit_ParticipantInfo?,
-         room: Room) {
+    internal init(sid: Sid,
+                  info: Livekit_ParticipantInfo?,
+                  room: Room) {
 
         super.init(sid: sid,
                    identity: info?.identity ?? "",
@@ -34,8 +35,8 @@ public class RemoteParticipant: Participant {
         }
     }
 
-    public func getTrackPublication(sid: Sid) -> RemoteTrackPublication? {
-        return _state.tracks[sid] as? RemoteTrackPublication
+    internal func getTrackPublication(sid: Sid) -> RemoteTrackPublication? {
+        _state.tracks[sid] as? RemoteTrackPublication
     }
 
     override func updateFromInfo(info: Livekit_ParticipantInfo) {
@@ -63,10 +64,10 @@ public class RemoteParticipant: Participant {
             for publication in newTrackPublications.values {
 
                 self.notify(label: { "participant.didPublish \(publication)" }) {
-                    $0.participant(self, didPublish: publication)
+                    $0.participant?(self, didPublish: publication)
                 }
                 self.room.notify(label: { "room.didPublish \(publication)" }) {
-                    $0.room(self.room, participant: self, didPublish: publication)
+                    $0.room?(self.room, participant: self, didPublish: publication)
                 }
             }
         }
@@ -82,17 +83,17 @@ public class RemoteParticipant: Participant {
         }
     }
 
-    func addSubscribedMediaTrack(rtcTrack: RTCMediaStreamTrack, sid: Sid) -> Promise<Void> {
+    internal func addSubscribedMediaTrack(rtcTrack: RTCMediaStreamTrack, sid: Sid) -> Promise<Void> {
         var track: Track
 
         guard let publication = getTrackPublication(sid: sid) else {
             log("Could not subscribe to mediaTrack \(sid), unable to locate track publication. existing sids: (\(_state.tracks.keys.joined(separator: ", ")))", .error)
             let error = TrackError.state(message: "Could not find published track with sid: \(sid)")
             notify(label: { "participant.didFailToSubscribe trackSid: \(sid)" }) {
-                $0.participant(self, didFailToSubscribe: sid, error: error)
+                $0.participant?(self, didFailToSubscribe: sid, error: error)
             }
             room.notify(label: { "room.didFailToSubscribe trackSid: \(sid)" }) {
-                $0.room(self.room, participant: self, didFailToSubscribe: sid, error: error)
+                $0.room?(self.room, participant: self, didFailToSubscribe: sid, error: error)
             }
             return Promise(error)
         }
@@ -109,10 +110,10 @@ public class RemoteParticipant: Participant {
         default:
             let error = TrackError.type(message: "Unsupported type: \(rtcTrack.kind.description)")
             notify(label: { "participant.didFailToSubscribe trackSid: \(sid)" }) {
-                $0.participant(self, didFailToSubscribe: sid, error: error)
+                $0.participant?(self, didFailToSubscribe: sid, error: error)
             }
             room.notify(label: { "room.didFailToSubscribe trackSid: \(sid)" }) {
-                $0.room(self.room, participant: self, didFailToSubscribe: sid, error: error)
+                $0.room?(self.room, participant: self, didFailToSubscribe: sid, error: error)
             }
             return Promise(error)
         }
@@ -124,18 +125,18 @@ public class RemoteParticipant: Participant {
         addTrack(publication: publication)
         return track.start().then(on: queue) { _ -> Void in
             self.notify(label: { "participant.didSubscribe \(publication)" }) {
-                $0.participant(self, didSubscribe: publication, track: track)
+                $0.participant?(self, didSubscribe: publication, track: track)
             }
             self.room.notify(label: { "room.didSubscribe \(publication)" }) {
-                $0.room(self.room, participant: self, didSubscribe: publication, track: track)
+                $0.room?(self.room, participant: self, didSubscribe: publication, track: track)
             }
         }
     }
 
-    override func cleanUp(notify _notify: Bool = true) -> Promise<Void> {
+    internal override func cleanUp(notify _notify: Bool = true) -> Promise<Void> {
         super.cleanUp(notify: _notify).then(on: queue) {
             self.room.notify(label: { "room.participantDidLeave" }) {
-                $0.room(self.room, participantDidLeave: self)
+                $0.room?(self.room, participantDidLeave: self)
             }
         }
     }
@@ -156,10 +157,10 @@ public class RemoteParticipant: Participant {
                 guard let self = self, _notify else { return }
                 // notify unpublish
                 self.notify(label: { "participant.didUnpublish \(publication)" }) {
-                    $0.participant(self, didUnpublish: publication)
+                    $0.participant?(self, didUnpublish: publication)
                 }
                 self.room.notify(label: { "room.didUnpublish \(publication)" }) {
-                    $0.room(self.room, participant: self, didUnpublish: publication)
+                    $0.room?(self.room, participant: self, didUnpublish: publication)
                 }
             }
         }
@@ -177,10 +178,10 @@ public class RemoteParticipant: Participant {
             guard _notify else { return }
             // notify unsubscribe
             self.notify(label: { "participant.didUnsubscribe \(publication)" }) {
-                $0.participant(self, didUnsubscribe: publication, track: track)
+                $0.participant?(self, didUnsubscribe: publication, track: track)
             }
             self.room.notify(label: { "room.didUnsubscribe \(publication)" }) {
-                $0.room(self.room, participant: self, didUnsubscribe: publication, track: track)
+                $0.room?(self.room, participant: self, didUnsubscribe: publication, track: track)
             }
         }.then(on: queue) {
             notifyUnpublish()

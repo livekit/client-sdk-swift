@@ -66,7 +66,8 @@ internal class iOSDisplayLink: DisplayLink {
 
         var callback: ((DisplayLinkFrame) -> Void)?
 
-        @objc dynamic func frame(_ _displayLink: CADisplayLink) {
+        @objc
+        dynamic func frame(_ _displayLink: CADisplayLink) {
 
             let frame = DisplayLinkFrame(
                 timestamp: _displayLink.timestamp,

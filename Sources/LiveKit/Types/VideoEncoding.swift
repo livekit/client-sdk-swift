@@ -17,13 +17,34 @@
 import Foundation
 import WebRTC
 
-public struct VideoEncoding: Equatable {
+@objc
+public class VideoEncoding: NSObject {
+
+    @objc
     public var maxBitrate: Int
+
+    @objc
     public var maxFps: Int
 
+    @objc
     public init(maxBitrate: Int, maxFps: Int) {
         self.maxBitrate = maxBitrate
         self.maxFps = maxFps
+    }
+
+    // MARK: - Equal
+
+    public override func isEqual(_ object: Any?) -> Bool {
+        guard let other = object as? Self else { return false }
+        return self.maxBitrate == other.maxBitrate &&
+            self.maxFps == other.maxFps
+    }
+
+    public override var hash: Int {
+        var hasher = Hasher()
+        hasher.combine(maxBitrate)
+        hasher.combine(maxFps)
+        return hasher.finalize()
     }
 }
 
