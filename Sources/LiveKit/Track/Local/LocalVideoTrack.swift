@@ -82,3 +82,10 @@ extension LocalVideoTrack {
         return capturer.restartCapture()
     }
 }
+
+extension LocalVideoTrack {
+
+    public var publishOptions: PublishOptions? { super._publishOptions }
+
+    public var publishState: Track.PublishState { super._publishState }
+}

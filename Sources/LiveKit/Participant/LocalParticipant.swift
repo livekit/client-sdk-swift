@@ -136,7 +136,7 @@ public class LocalParticipant: Participant {
         }.then(on: queue) { (transceiver, trackInfo) -> LocalTrackPublication in
 
             // store publishOptions used for this track
-            track.publishOptions = publishOptions
+            track._publishOptions = publishOptions
             track.transceiver = transceiver
 
             // prefer to maintainResolution for screen share

@@ -67,13 +67,11 @@ public class Track: NSObject, Loggable {
     }
 
     /// Only for ``LocalTrack``s.
-    @objc
-    public private(set) var publishState: PublishState = .unpublished
+    internal private(set) var _publishState: PublishState = .unpublished
 
     /// ``publishOptions`` used for this track if already published.
     /// Only for ``LocalTrack``s.
-    @objc
-    public internal(set) var publishOptions: PublishOptions?
+    internal var _publishOptions: PublishOptions?
 
     @objc
     public let kind: Track.Kind
@@ -233,12 +231,12 @@ public class Track: NSObject, Loggable {
 
         return Promise<Bool>(on: queue) { () -> Bool in
 
-            guard self.publishState != .published else {
+            guard self._publishState != .published else {
                 // already published
                 return false
             }
 
-            self.publishState = .published
+            self._publishState = .published
             return true
         }
     }
@@ -250,12 +248,12 @@ public class Track: NSObject, Loggable {
 
         return Promise<Bool>(on: queue) { () -> Bool in
 
-            guard self.publishState != .unpublished else {
+            guard self._publishState != .unpublished else {
                 // already unpublished
                 return false
             }
 
-            self.publishState = .unpublished
+            self._publishState = .unpublished
             return true
         }
     }
