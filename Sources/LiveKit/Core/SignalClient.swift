@@ -619,7 +619,7 @@ internal extension SignalClient {
     }
 
     @discardableResult
-    func sendPing() -> Promise<Void> {
+    private func sendPing() -> Promise<Void> {
         log("ping/pong: sending...")
 
         let r = Livekit_SignalRequest.with {
@@ -630,14 +630,13 @@ internal extension SignalClient {
     }
 }
 
-internal extension SignalClient {
+// MARK: - Server ping/pong logic
+
+private extension SignalClient {
 
     func onPingIntervalTimer() {
 
-        guard let jr = latestJoinResponse,
-              // check server supports ping/pong
-              jr.pingTimeout > 0,
-              jr.pingInterval > 0  else { return }
+        guard let jr = latestJoinResponse else { return }
 
         pingIntervalTimer?.suspend()
         sendPing()
@@ -671,7 +670,7 @@ internal extension SignalClient {
         guard let jr = latestJoinResponse,
               // check server supports ping/pong
               jr.pingTimeout > 0,
-              jr.pingInterval > 0  else { return }
+              jr.pingInterval > 0 else { return }
 
         log("ping/pong starting with interval: \(jr.pingInterval)")
 
