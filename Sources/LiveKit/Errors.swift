@@ -102,6 +102,7 @@ public enum SignalClientError: LiveKitError {
     case close(message: String? = nil)
     case connect(message: String? = nil)
     case timedOut(message: String? = nil)
+    case serverPingTimedOut(message: String? = nil)
 
     public var description: String {
         switch self {
@@ -110,6 +111,7 @@ public enum SignalClientError: LiveKitError {
         case .close(let message): return buildDescription("close", message)
         case .connect(let message): return buildDescription("connect", message)
         case .timedOut(let message): return buildDescription("timedOut", message)
+        case .serverPingTimedOut(let message): return buildDescription("serverPingTimedOut", message)
         }
     }
 }
