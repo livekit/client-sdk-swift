@@ -27,7 +27,7 @@ import ScreenCaptureKit
 public enum ScreenShareSource {
     case display(id: UInt32)
     case window(id: UInt32)
-    case window(id2: String)
+    // case window(id2: String)
 }
 
 #if os(macOS)
@@ -168,10 +168,6 @@ public class MacOSScreenCapturer: VideoCapturer {
             fatalError("ScreenCaptureKit should be used for macOS 12.3+")
         }
 
-        if case let .window(id: UInt32) = source {
-            //
-        }
-        
         guard case .started = self.captureState,
               case .window(id: let windowId) = source else { return }
 
@@ -228,18 +224,21 @@ public class MacOSScreenCapturer: VideoCapturer {
 
                             // let filter = SCContentFilter(desktopIndependentWindow: window)
 
-                            let display = content.displays.first!
+                            let window = content.windows.first { w in
+                                w.owningApplication?.applicationName == "Google Chrome"
+                            }!
 
-                            let excludedApps = content.applications.filter { app in
-                                Bundle.main.bundleIdentifier == app.bundleIdentifier
-                            }
+                            //                            let excludedApps = content.applications.filter { app in
+                            //                                Bundle.main.bundleIdentifier == app.bundleIdentifier
+                            //                            }
 
-                            let filter = SCContentFilter(display: display, excludingApplications: excludedApps, exceptingWindows: [])
+                            // let filter = SCContentFilter(display: display, excludingApplications: excludedApps, exceptingWindows: [])
+                            let filter = SCContentFilter(desktopIndependentWindow: window)
 
                             let configuration = SCStreamConfiguration()
-                            configuration.width = Int(display.width)
-                            configuration.height = Int(display.height)
-                            configuration.scalesToFit = true
+                            configuration.width = Int(window.frame.width * 2)
+                            configuration.height = Int(window.frame.height * 2)
+                            configuration.scalesToFit = false
                             configuration.minimumFrameInterval = CMTime(value: 1, timescale: CMTimeScale(15))
                             configuration.queueDepth = 5
                             configuration.pixelFormat = kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
@@ -337,23 +336,50 @@ public class MacOSScreenCapturer: VideoCapturer {
         }
     }
 
-    private func capture(_ sampleBuffer: CMSampleBuffer) {
+    private func capture(_ sampleBuffer: CMSampleBuffer, cropRect: CGRect? = nil) {
 
-        delegate?.capturer(capturer, didCapture: sampleBuffer) { sourceDimensions in
+        guard let delegate = delegate else { return }
 
-            let targetDimensions = sourceDimensions
-                .aspectFit(size: self.options.dimensions.max)
-                .toEncodeSafeDimensions()
+        // Get the pixel buffer that contains the image data.
+        guard let pixelBuffer = sampleBuffer.imageBuffer else { return }
 
-            defer { self.dimensions = targetDimensions }
+        let timeStamp = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
+        let timeStampNs = Int64(CMTimeGetSeconds(timeStamp) * Double(NSEC_PER_SEC))
 
-            guard let videoSource = self.delegate as? RTCVideoSource else { return }
-            // self.log("adaptOutputFormat to: \(targetDimensions) fps: \(self.options.fps)")
+        let pixelWidth = CVPixelBufferGetWidth(pixelBuffer)
+        let pixelHeight = CVPixelBufferGetHeight(pixelBuffer)
 
-            videoSource.adaptOutputFormat(toWidth: targetDimensions.width,
-                                          height: targetDimensions.height,
-                                          fps: Int32(self.options.fps))
+        DispatchQueue.webRTC.sync {
+
+            let rtcBuffer = RTCCVPixelBuffer(pixelBuffer: pixelBuffer,
+                                             adaptedWidth: Int32(cropRect!.width) * 2,
+                                             adaptedHeight: Int32(cropRect!.height) * 2,
+                                             cropWidth: Int32(cropRect!.width) * 2,
+                                             cropHeight: Int32(cropRect!.height) * 2,
+                                             cropX: Int32(cropRect!.origin.x),
+                                             cropY: Int32(cropRect!.origin.y))
+
+            let rtcFrame = RTCVideoFrame(buffer: rtcBuffer,
+                                         rotation: ._0,
+                                         timeStampNs: timeStampNs)
+
+            delegate.capturer(capturer, didCapture: rtcFrame)
         }
+        //        delegate?.capturer(capturer, didCapture: sampleBuffer) { sourceDimensions in
+        //
+        //            let targetDimensions = sourceDimensions
+        //                .aspectFit(size: self.options.dimensions.max)
+        //                .toEncodeSafeDimensions()
+        //
+        //            defer { self.dimensions = sourceDimensions }
+        //
+        //            guard let videoSource = self.delegate as? RTCVideoSource else { return }
+        //            // self.log("adaptOutputFormat to: \(targetDimensions) fps: \(self.options.fps)")
+        //
+        //            videoSource.adaptOutputFormat(toWidth: targetDimensions.width,
+        //                                          height: targetDimensions.height,
+        //                                          fps: Int32(self.options.fps))
+        //        }
     }
 }
 
@@ -371,8 +397,32 @@ extension MacOSScreenCapturer: SCStreamDelegate {
 extension MacOSScreenCapturer: SCStreamOutput {
 
     public func stream(_ stream: SCStream, didOutputSampleBuffer sampleBuffer: CMSampleBuffer, of type: SCStreamOutputType) {
-        print("capture: got buffer")
-        capture(sampleBuffer)
+
+        guard let attachmentsArray = CMSampleBufferGetSampleAttachmentsArray(sampleBuffer,
+                                                                             createIfNecessary: false) as? [[SCStreamFrameInfo: Any]],
+              let attachments = attachmentsArray.first else { return }
+
+        // Validate the status of the frame. If it isn't `.complete`, return nil.
+        guard let statusRawValue = attachments[SCStreamFrameInfo.status] as? Int,
+              let status = SCFrameStatus(rawValue: statusRawValue),
+              status == .complete else { return }
+
+        //        // Get the pixel buffer that contains the image data.
+        //        guard let pixelBuffer = sampleBuffer.imageBuffer else { return }
+        //
+        //        // Get the backing IOSurface.
+        //        guard let surfaceRef = CVPixelBufferGetIOSurface(pixelBuffer)?.takeUnretainedValue() else { return }
+        //        let surface = unsafeBitCast(surfaceRef, to: IOSurface.self)
+        //
+        // Retrieve the content rectangle, scale, and scale factor.
+        guard let contentRectDict = attachments[.contentRect],
+              let contentRect = CGRect(dictionaryRepresentation: contentRectDict as! CFDictionary),
+              let contentScale = attachments[.contentScale] as? CGFloat,
+              let scaleFactor = attachments[.scaleFactor] as? CGFloat else { return }
+
+        //        print("capture: got surface: \(contentRect) -> \(width)x\(height)")
+
+        capture(sampleBuffer, cropRect: contentRect)
     }
 }
 
