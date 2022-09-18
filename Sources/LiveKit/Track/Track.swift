@@ -392,3 +392,12 @@ extension Track {
         delegates.notify(label: label, fnc)
     }
 }
+
+// MARK: - Identifiable (SwiftUI)
+
+extension Track: Identifiable {
+
+    public var id: String {
+        "\(type(of: self))-\(sid ?? String(hash))"
+    }
+}
