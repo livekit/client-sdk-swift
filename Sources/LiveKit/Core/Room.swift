@@ -19,26 +19,55 @@ import Network
 import Promises
 import WebRTC
 
-public class Room: MulticastDelegate<RoomDelegate> {
+@objc
+public class Room: NSObject, Loggable {
+
+    // MARK: - MulticastDelegate
+
+    private var delegates = MulticastDelegate<RoomDelegateObjC>()
 
     internal let queue = DispatchQueue(label: "LiveKitSDK.room", qos: .default)
 
     // MARK: - Public
 
+    @objc
     public var sid: Sid? { _state.sid }
+
+    @objc
     public var name: String? { _state.name }
+
+    @objc
     public var metadata: String? { _state.metadata }
+
+    @objc
     public var serverVersion: String? { _state.serverVersion }
+
+    @objc
     public var serverRegion: String? { _state.serverRegion }
 
+    @objc
     public var localParticipant: LocalParticipant? { _state.localParticipant }
+
+    @objc
     public var remoteParticipants: [Sid: RemoteParticipant] { _state.remoteParticipants }
+
+    @objc
     public var activeSpeakers: [Participant] { _state.activeSpeakers }
 
     // expose engine's vars
+    @objc
     public var url: String? { engine._state.url }
+
+    @objc
     public var token: String? { engine._state.token }
+
     public var connectionState: ConnectionState { engine._state.connectionState }
+
+    /// Only for Objective-C.
+    @objc(connectionState)
+    @available(swift, obsoleted: 1.0)
+    public var connectionStateObjC: ConnectionStateObjC { engine._state.connectionState.toObjCType() }
+
     public var connectStopwatch: Stopwatch { engine._state.connectStopwatch }
 
     // MARK: - Internal
@@ -62,12 +91,23 @@ public class Room: MulticastDelegate<RoomDelegate> {
 
     internal var _state: StateSync<State>
 
-    public init(delegate: RoomDelegate? = nil,
-                connectOptions: ConnectOptions = ConnectOptions(),
-                roomOptions: RoomOptions = RoomOptions()) {
+    // MARK: Objective-C Support
 
-        self._state = StateSync(State(options: roomOptions))
-        self.engine = Engine(connectOptions: connectOptions)
+    @objc
+    public convenience override init() {
+
+        self.init(delegate: nil,
+                  connectOptions: ConnectOptions(),
+                  roomOptions: RoomOptions())
+    }
+
+    @objc
+    public init(delegate: RoomDelegateObjC? = nil,
+                connectOptions: ConnectOptions? = nil,
+                roomOptions: RoomOptions? = nil) {
+
+        self._state = StateSync(State(options: roomOptions ?? RoomOptions()))
+        self.engine = Engine(connectOptions: connectOptions ?? ConnectOptions())
         super.init()
 
         log()
@@ -80,7 +120,8 @@ public class Room: MulticastDelegate<RoomDelegate> {
         engine.signalClient.add(delegate: self)
 
         if let delegate = delegate {
-            add(delegate: delegate)
+            log("delegate: \(String(describing: delegate))")
+            delegates.add(delegate: delegate)
         }
 
         // listen to app states
@@ -101,7 +142,7 @@ public class Room: MulticastDelegate<RoomDelegate> {
                     guard let self = self else { return }
 
                     self.notify(label: { "room.didUpdate metadata: \(metadata)" }) {
-                        $0.room(self, didUpdate: metadata)
+                        $0.room?(self, didUpdate: metadata)
                     }
                 }
             }
@@ -411,7 +452,7 @@ extension Room: SignalClientDelegate {
             guard let self = self else { return }
 
             self.notify(label: { "room.didUpdate speakers: \(speakers)" }) {
-                $0.room(self, didUpdate: activeSpeakers)
+                $0.room?(self, didUpdate: activeSpeakers)
             }
         }
 
@@ -520,7 +561,7 @@ extension Room: SignalClientDelegate {
                 guard let self = self else { return }
 
                 self.notify(label: { "room.participantDidJoin participant: \(participant)" }) {
-                    $0.room(self, participantDidJoin: participant)
+                    $0.room?(self, participantDidJoin: participant)
                 }
             }
         }
@@ -578,7 +619,12 @@ extension Room: EngineDelegate {
             }
 
             notify(label: { "room.didUpdate connectionState: \(state.connectionState) oldValue: \(oldState.connectionState)" }) {
-                $0.room(self, didUpdate: state.connectionState, oldValue: oldState.connectionState)
+                // Objective-C support
+                $0.room?(self, didUpdate: state.connectionState.toObjCType(), oldValue: oldState.connectionState.toObjCType())
+                // Swift only
+                if let delegateSwift = $0 as? RoomDelegate {
+                    delegateSwift.room(self, didUpdate: state.connectionState, oldValue: oldState.connectionState)
+                }
             }
         }
 
@@ -655,7 +701,7 @@ extension Room: EngineDelegate {
             guard let self = self else { return }
 
             self.notify(label: { "room.didUpdate speakers: \(activeSpeakers)" }) {
-                $0.room(self, didUpdate: activeSpeakers)
+                $0.room?(self, didUpdate: activeSpeakers)
             }
         }
     }
@@ -702,13 +748,13 @@ extension Room: EngineDelegate {
             guard let self = self else { return }
 
             self.notify(label: { "room.didReceive data: \(userPacket.payload)" }) {
-                $0.room(self, participant: participant, didReceive: userPacket.payload)
+                $0.room?(self, participant: participant, didReceive: userPacket.payload)
             }
 
             if let participant = participant {
                 participant.notify(label: { "participant.didReceive data: \(userPacket.payload)" }) { [weak participant] (delegate) -> Void in
                     guard let participant = participant else { return }
-                    delegate.participant(participant, didReceive: userPacket.payload)
+                    delegate.participant?(participant, didReceive: userPacket.payload)
                 }
             }
         }
@@ -756,12 +802,46 @@ extension Room: AppStateDelegate {
 
 extension Room {
 
+    @objc
     public static var audioDeviceModule: RTCAudioDeviceModule {
         Engine.audioDeviceModule
     }
 
+    @objc
     public static var bypassVoiceProcessing: Bool {
         get { Engine.bypassVoiceProcessing }
         set { Engine.bypassVoiceProcessing = newValue }
+    }
+}
+
+// MARK: - MulticastDelegate
+
+extension Room {
+
+    /// Only for Objective-C.
+    @objc(addDelegate:)
+    @available(swift, obsoleted: 1.0)
+    public func addObjC(delegate: RoomDelegateObjC) {
+        delegates.add(delegate: delegate)
+    }
+
+    /// Only for Objective-C.
+    @objc(removeDelegate:)
+    @available(swift, obsoleted: 1.0)
+    public func removeObjC(delegate: RoomDelegateObjC) {
+        delegates.remove(delegate: delegate)
+    }
+
+    public func add(delegate: RoomDelegate) {
+        delegates.add(delegate: delegate)
+    }
+
+    public func remove(delegate: RoomDelegate) {
+        delegates.remove(delegate: delegate)
+    }
+
+    internal func notify(label: (() -> String)? = nil,
+                         _ fnc: @escaping (RoomDelegateObjC) -> Void) {
+        delegates.notify(label: label, fnc)
     }
 }

@@ -16,46 +16,12 @@
 
 import WebRTC
 
-public protocol VideoTrack: Track {
+@objc
+public protocol VideoTrack where Self: Track {
 
-}
+    @objc(addVideoRenderer:)
+    func add(videoRenderer: VideoRenderer)
 
-@objc public protocol VideoRenderer: RTCVideoRenderer {
-    /// Whether this ``VideoRenderer`` should be considered visible or not for AdaptiveStream.
-    /// This will be invoked on the .main thread.
-    var adaptiveStreamIsEnabled: Bool { get }
-    /// The size used for AdaptiveStream computation. Return .zero if size is unknown yet.
-    /// This will be invoked on the .main thread.
-    var adaptiveStreamSize: CGSize { get }
-}
-
-extension VideoTrack {
-
-    public func add(videoRenderer: VideoRenderer) {
-
-        guard let videoTrack = self.mediaTrack as? RTCVideoTrack else {
-            log("mediaTrack is not a RTCVideoTrack", .error)
-            return
-        }
-
-        // must always be called on main thread
-        assert(Thread.current.isMainThread, "must be called on main thread")
-
-        videoRenderers.add(videoRenderer)
-        videoTrack.add(videoRenderer)
-    }
-
-    public func remove(videoRenderer: VideoRenderer) {
-
-        guard let videoTrack = self.mediaTrack as? RTCVideoTrack else {
-            log("mediaTrack is not a RTCVideoTrack", .error)
-            return
-        }
-
-        // must always be called on main thread
-        assert(Thread.current.isMainThread, "must be called on main thread")
-
-        videoRenderers.remove(videoRenderer)
-        videoTrack.remove(videoRenderer)
-    }
+    @objc(removeVideoRenderer:)
+    func remove(videoRenderer: VideoRenderer)
 }

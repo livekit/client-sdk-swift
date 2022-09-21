@@ -18,7 +18,8 @@ import Foundation
 import WebRTC
 import Promises
 
-public class LocalAudioTrack: LocalTrack, AudioTrack {
+@objc
+public class LocalAudioTrack: Track, LocalTrack, AudioTrack {
 
     internal init(name: String,
                   source: Track.Source,
@@ -76,4 +77,11 @@ public class LocalAudioTrack: LocalTrack, AudioTrack {
             return didUnpublish
         }
     }
+}
+
+extension LocalAudioTrack {
+
+    public var publishOptions: PublishOptions? { super._publishOptions }
+
+    public var publishState: Track.PublishState { super._publishState }
 }

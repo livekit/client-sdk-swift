@@ -21,27 +21,29 @@ import MetalKit
 /// A ``NativeViewType`` that conforms to ``RTCVideoRenderer``.
 public typealias NativeRendererView = NativeViewType & RTCVideoRenderer
 
-public class VideoView: NativeView, MulticastDelegateCapable, Loggable {
+@objc
+public class VideoView: NativeView, Loggable {
 
     // MARK: - Static
 
     private static let mirrorTransform = CATransform3DMakeScale(-1.0, 1.0, 1.0)
     private static let _freezeDetectThreshold = 2.0
 
-    // MARK: - Public
+    // MARK: - MulticastDelegate
 
-    public typealias DelegateType = VideoViewDelegate
-    public var delegates = MulticastDelegate<DelegateType>()
+    private var delegates = MulticastDelegate<VideoViewDelegate>()
 
     /// Specifies how to render the video withing the ``VideoView``'s bounds.
-    public enum LayoutMode: String, Codable, CaseIterable {
+    @objc
+    public enum LayoutMode: Int, Codable {
         /// Video will be fully visible within the ``VideoView``.
         case fit
         /// Video will fully cover up the ``VideoView``.
         case fill
     }
 
-    public enum MirrorMode: String, Codable, CaseIterable {
+    @objc
+    public enum MirrorMode: Int, Codable {
         /// Will mirror if the track is a front facing camera track.
         case auto
         case off
@@ -49,12 +51,14 @@ public class VideoView: NativeView, MulticastDelegateCapable, Loggable {
     }
 
     /// ``LayoutMode-swift.enum`` of the ``VideoView``.
+    @objc
     public var layoutMode: LayoutMode {
         get { _state.layoutMode }
         set { _state.mutate { $0.layoutMode = newValue } }
     }
 
     /// Flips the video horizontally, useful for local VideoViews.
+    @objc
     public var mirrorMode: MirrorMode {
         get { _state.mirrorMode }
         set { _state.mutate { $0.mirrorMode = newValue } }
@@ -68,6 +72,7 @@ public class VideoView: NativeView, MulticastDelegateCapable, Loggable {
     }
 
     /// Calls addRenderer and/or removeRenderer internally for convenience.
+    @objc
     public weak var track: VideoTrack? {
         get { _state.track }
         set {
@@ -85,11 +90,13 @@ public class VideoView: NativeView, MulticastDelegateCapable, Loggable {
     }
 
     /// If set to false, rendering will be paused temporarily. Useful for performance optimizations with UICollectionViewCell etc.
+    @objc
     public var isEnabled: Bool {
         get { _state.isEnabled }
         set { _state.mutate { $0.isEnabled = newValue } }
     }
 
+    @objc
     public override var isHidden: Bool {
         get { _state.isHidden }
         set {
@@ -98,12 +105,16 @@ public class VideoView: NativeView, MulticastDelegateCapable, Loggable {
         }
     }
 
+    @objc
     public var debugMode: Bool {
         get { _state.debugMode }
         set { _state.mutate { $0.debugMode = newValue } }
     }
 
+    @objc
     public var isRendering: Bool { _state.isRendering }
+
+    @objc
     public var didRenderFirstFrame: Bool { _state.didRenderFirstFrame }
 
     // MARK: - Internal
@@ -189,7 +200,7 @@ public class VideoView: NativeView, MulticastDelegateCapable, Loggable {
                         // notify detach
                         track.notify(label: { "track.didDetach videoView: \(self)" }) { [weak self, weak track] (delegate) -> Void in
                             guard let self = self, let track = track else { return }
-                            delegate.track(track, didDetach: self)
+                            delegate.track?(track, didDetach: self)
                         }
                     }
 
@@ -215,7 +226,7 @@ public class VideoView: NativeView, MulticastDelegateCapable, Loggable {
                         // notify attach
                         track.notify(label: { "track.didAttach videoView: \(self)" }) { [weak self, weak track] (delegate) -> Void in
                             guard let self = self, let track = track else { return }
-                            delegate.track(track, didAttach: self)
+                            delegate.track?(track, didAttach: self)
                         }
                     }
                 }
@@ -233,14 +244,14 @@ public class VideoView: NativeView, MulticastDelegateCapable, Loggable {
                 }
 
                 self.notify(label: { "videoView.didUpdate isRendering: \(state.isRendering)" }) {
-                    $0.videoView(self, didUpdate: state.isRendering)
+                    $0.videoView?(self, didUpdate: state.isRendering)
                 }
             }
 
             // viewSize updated
             if state.viewSize != oldState.viewSize {
                 self.notify(label: { "videoView.didUpdate viewSize: \(state.viewSize)" }) {
-                    $0.videoView(self, didUpdate: state.viewSize)
+                    $0.videoView?(self, didUpdate: state.viewSize)
                 }
             }
 
@@ -561,6 +572,26 @@ internal extension VideoView {
         guard let track1 = track1, let track2 = track2 else { return false }
         // use isEqual
         return track1.isEqual(track2)
+    }
+}
+
+// MARK: - MulticastDelegate
+
+extension VideoView {
+
+    @objc(addDelegate:)
+    public func add(delegate: VideoViewDelegate) {
+        delegates.add(delegate: delegate)
+    }
+
+    @objc(removeDelegate:)
+    public func remove(delegate: VideoViewDelegate) {
+        delegates.remove(delegate: delegate)
+    }
+
+    internal func notify(label: (() -> String)? = nil,
+                         _ fnc: @escaping (VideoViewDelegate) -> Void) {
+        delegates.notify(label: label, fnc)
     }
 }
 

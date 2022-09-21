@@ -25,7 +25,8 @@ public typealias Sid = String
 // wait: resolves when wait is complete or rejects when timeout
 internal typealias WaitPromises<T> = (listen: Promise<Void>, wait: () -> Promise<T>)
 
-public enum Reliability {
+@objc
+public enum Reliability: Int {
     case reliable
     case lossy
 }

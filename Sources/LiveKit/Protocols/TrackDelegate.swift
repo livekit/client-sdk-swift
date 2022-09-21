@@ -17,25 +17,25 @@
 import Foundation
 import WebRTC
 
+@objc
 public protocol TrackDelegate: AnyObject {
     /// Dimensions of the video track has updated
+    @objc(track:didUpdateDimensions:) optional
     func track(_ track: VideoTrack, didUpdate dimensions: Dimensions?)
+
     /// A ``VideoView`` was attached to the ``VideoTrack``
+    @objc optional
     func track(_ track: VideoTrack, didAttach videoView: VideoView)
+
     /// A ``VideoView`` was detached from the ``VideoTrack``
+    @objc optional
     func track(_ track: VideoTrack, didDetach videoView: VideoView)
+
     /// ``Track/muted`` has updated.
+    @objc(track:didUpdateMuted:shouldSendSignal:) optional
     func track(_ track: Track, didUpdate muted: Bool, shouldSendSignal: Bool)
+
     /// Statistics for the track has been generated.
+    @objc(track:didUpdateStats:) optional
     func track(_ track: Track, didUpdate stats: TrackStats)
-}
-
-// MARK: - Optional
-
-public extension TrackDelegate {
-    func track(_ track: VideoTrack, didUpdate dimensions: Dimensions?) {}
-    func track(_ track: VideoTrack, didAttach videoView: VideoView) {}
-    func track(_ track: VideoTrack, didDetach videoView: VideoView) {}
-    func track(_ track: Track, didUpdate muted: Bool, shouldSendSignal: Bool) {}
-    func track(_ track: Track, didUpdate stats: TrackStats) {}
 }

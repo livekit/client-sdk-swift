@@ -18,27 +18,63 @@ import Foundation
 import WebRTC
 
 /// Options used when establishing a connection.
-public struct ConnectOptions: Equatable {
+@objc
+public class ConnectOptions: NSObject {
 
     /// Automatically subscribe to ``RemoteParticipant``'s tracks.
     /// Defaults to true.
+    @objc
     public let autoSubscribe: Bool
+
+    @objc
     public let rtcConfiguration: RTCConfiguration
-    /// LiveKit server protocol version to use. Generally, it's not recommended to change this.
-    public let protocolVersion: ProtocolVersion
+
     /// Providing a string will make the connection publish-only, suitable for iOS Broadcast Upload Extensions.
     /// The string can be used to identify the publisher.
+    @objc
     public let publishOnlyMode: String?
 
+    /// LiveKit server protocol version to use. Generally, it's not recommended to change this.
+    @objc
+    public let protocolVersion: ProtocolVersion
+
+    @objc
+    public override init() {
+        self.autoSubscribe = true
+        self.rtcConfiguration = .liveKitDefault()
+        self.publishOnlyMode = nil
+        self.protocolVersion = .v8
+    }
+
+    @objc
     public init(autoSubscribe: Bool = true,
-                rtcConfiguration: RTCConfiguration = .liveKitDefault(),
+                rtcConfiguration: RTCConfiguration? = nil,
                 publishOnlyMode: String? = nil,
                 protocolVersion: ProtocolVersion = .v8) {
 
         self.autoSubscribe = autoSubscribe
-        self.rtcConfiguration = rtcConfiguration
+        self.rtcConfiguration = rtcConfiguration ?? .liveKitDefault()
         self.publishOnlyMode = publishOnlyMode
         self.protocolVersion = protocolVersion
+    }
+
+    // MARK: - Equal
+
+    public override func isEqual(_ object: Any?) -> Bool {
+        guard let other = object as? Self else { return false }
+        return self.autoSubscribe == other.autoSubscribe &&
+            self.rtcConfiguration == other.rtcConfiguration &&
+            self.publishOnlyMode == other.publishOnlyMode &&
+            self.protocolVersion == other.protocolVersion
+    }
+
+    public override var hash: Int {
+        var hasher = Hasher()
+        hasher.combine(autoSubscribe)
+        hasher.combine(rtcConfiguration)
+        hasher.combine(publishOnlyMode)
+        hasher.combine(protocolVersion)
+        return hasher.finalize()
     }
 }
 

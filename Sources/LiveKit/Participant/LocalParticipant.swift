@@ -18,16 +18,20 @@ import WebRTC
 import Promises
 import ReplayKit
 
+@objc
 public class LocalParticipant: Participant {
 
+    @objc
     public var localAudioTracks: [LocalTrackPublication] { audioTracks.compactMap { $0 as? LocalTrackPublication } }
+
+    @objc
     public var localVideoTracks: [LocalTrackPublication] { videoTracks.compactMap { $0 as? LocalTrackPublication } }
 
     private var allParticipantsAllowed: Bool = true
     private var trackPermissions: [ParticipantTrackPermission] = []
 
-    convenience init(from info: Livekit_ParticipantInfo,
-                     room: Room) {
+    internal convenience init(from info: Livekit_ParticipantInfo,
+                              room: Room) {
 
         self.init(sid: info.sid,
                   identity: info.identity,
@@ -37,8 +41,8 @@ public class LocalParticipant: Participant {
         updateFromInfo(info: info)
     }
 
-    public func getTrackPublication(sid: Sid) -> LocalTrackPublication? {
-        return tracks[sid] as? LocalTrackPublication
+    internal func getTrackPublication(sid: Sid) -> LocalTrackPublication? {
+        _state.tracks[sid] as? LocalTrackPublication
     }
 
     internal func publish(track: LocalTrack,
@@ -132,7 +136,7 @@ public class LocalParticipant: Participant {
         }.then(on: queue) { (transceiver, trackInfo) -> LocalTrackPublication in
 
             // store publishOptions used for this track
-            track.publishOptions = publishOptions
+            track._publishOptions = publishOptions
             track.transceiver = transceiver
 
             // prefer to maintainResolution for screen share
@@ -152,10 +156,10 @@ public class LocalParticipant: Participant {
 
             // notify didPublish
             self.notify(label: { "localParticipant.didPublish \(publication)" }) {
-                $0.localParticipant(self, didPublish: publication)
+                $0.localParticipant?(self, didPublish: publication)
             }
             self.room.notify(label: { "localParticipant.didPublish \(publication)" }) {
-                $0.room(self.room, localParticipant: self, didPublish: publication)
+                $0.room?(self.room, localParticipant: self, didPublish: publication)
             }
 
             self.log("[publish] success \(publication)", .info)
@@ -204,10 +208,10 @@ public class LocalParticipant: Participant {
                 guard _notify else { return }
                 // notify unpublish
                 self.notify(label: { "localParticipant.didUnpublish \(publication)" }) {
-                    $0.localParticipant(self, didUnpublish: publication)
+                    $0.localParticipant?(self, didUnpublish: publication)
                 }
                 self.room.notify(label: { "room.didUnpublish \(publication)" }) {
-                    $0.room(self.room, localParticipant: self, didUnpublish: publication)
+                    $0.room?(self.room, localParticipant: self, didUnpublish: publication)
                 }
             }
         }
@@ -370,10 +374,10 @@ public class LocalParticipant: Participant {
 
         if didUpdate {
             notify(label: { "participant.didUpdate permissions: \(newValue)" }) {
-                $0.participant(self, didUpdate: newValue)
+                $0.participant?(self, didUpdate: newValue)
             }
             room.notify(label: { "room.didUpdate permissions: \(newValue)" }) {
-                $0.room(self.room, participant: self, didUpdate: newValue)
+                $0.room?(self.room, participant: self, didUpdate: newValue)
             }
         }
 
@@ -420,10 +424,12 @@ extension LocalParticipant {
 
 extension LocalParticipant {
 
+    @discardableResult
     public func setCamera(enabled: Bool) -> Promise<LocalTrackPublication?> {
         set(source: .camera, enabled: enabled)
     }
 
+    @discardableResult
     public func setMicrophone(enabled: Bool) -> Promise<LocalTrackPublication?> {
         set(source: .microphone, enabled: enabled)
     }
@@ -437,6 +443,7 @@ extension LocalParticipant {
     /// to capture other screens and windows. See ``MacOSScreenCapturer`` for details.
     ///
     /// For advanced usage, you can create a relevant ``LocalVideoTrack`` and call ``LocalParticipant/publishVideoTrack(track:publishOptions:)``.
+    @discardableResult
     public func setScreenShare(enabled: Bool) -> Promise<LocalTrackPublication?> {
         set(source: .screenShareVideo, enabled: enabled)
     }

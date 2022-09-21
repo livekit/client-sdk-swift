@@ -52,7 +52,35 @@ public extension TrackStats {
     }
 }
 
-public struct TrackStats: Equatable {
+@objc
+public class TrackStats: NSObject {
+
+    // MARK: - Equal
+
+    public override func isEqual(_ object: Any?) -> Bool {
+        guard let other = object as? Self else { return false }
+        return  self.created == other.created &&
+            self.ssrc == other.ssrc &&
+            self.trackId == other.trackId  &&
+            self.bytesSent == other.bytesSent &&
+            self.bytesReceived == other.bytesReceived &&
+            self.codecName == other.codecName &&
+            self.bpsSent == other.bpsSent &&
+            self.bpsReceived == other.bpsReceived
+    }
+
+    public override var hash: Int {
+        var hasher = Hasher()
+        hasher.combine(created)
+        hasher.combine(ssrc)
+        hasher.combine(trackId)
+        hasher.combine(bytesSent)
+        hasher.combine(bytesReceived)
+        hasher.combine(codecName)
+        hasher.combine(bpsSent)
+        hasher.combine(bpsReceived)
+        return hasher.finalize()
+    }
 
     static let keyTypeSSRC = "ssrc"
     static let keyTrackId = "googTrackId"
@@ -64,10 +92,10 @@ public struct TrackStats: Equatable {
     static let keyCodecName = "googCodecName"
 
     // date and time of this stats created
-    let created = Date()
+    public let created = Date()
 
-    let ssrc: String
-    let trackId: String
+    public let ssrc: String
+    public let trackId: String
 
     // TODO: add more values
     public let bytesSent: Int

@@ -113,27 +113,3 @@ public class MulticastDelegate<T>: NSObject, Loggable {
         }
     }
 }
-
-public protocol MulticastDelegateCapable {
-    associatedtype DelegateType
-    var delegates: MulticastDelegate<DelegateType> { get }
-    func add(delegate: DelegateType)
-    func remove(delegate: DelegateType)
-    func notify(label: (() -> String)?, _ fnc: @escaping (DelegateType) -> Void)
-}
-
-public extension MulticastDelegateCapable {
-
-    func add(delegate: DelegateType) {
-        delegates.add(delegate: delegate)
-    }
-
-    func remove(delegate: DelegateType) {
-        delegates.remove(delegate: delegate)
-    }
-
-    func notify(label: (() -> String)? = nil,
-                _ fnc: @escaping (DelegateType) -> Void) {
-        delegates.notify(label: label, fnc)
-    }
-}

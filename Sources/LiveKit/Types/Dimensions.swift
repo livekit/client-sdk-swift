@@ -18,8 +18,40 @@ import Foundation
 import CoreMedia
 import WebRTC
 
-// use CMVideoDimensions instead of defining our own struct
-public typealias Dimensions = CMVideoDimensions
+@objc
+public class Dimensions: NSObject {
+
+    @objc
+    public let width: Int32
+
+    @objc
+    public let height: Int32
+
+    @objc
+    public init(width: Int32, height: Int32) {
+        self.width = width
+        self.height = height
+    }
+
+    public init(from dimensions: CMVideoDimensions) {
+        self.width = dimensions.width
+        self.height = dimensions.height
+    }
+
+    // MARK: - Equal
+
+    public override func isEqual(_ object: Any?) -> Bool {
+        guard let other = object as? Self else { return false }
+        return self.width == other.width && self.height == other.height
+    }
+
+    public override var hash: Int {
+        var hasher = Hasher()
+        hasher.combine(width)
+        hasher.combine(height)
+        return hasher.finalize()
+    }
+}
 
 // MARK: - Static constants
 
@@ -30,15 +62,6 @@ extension Dimensions {
 
     internal static let renderSafeSize: Int32 = 8
     internal static let encodeSafeSize: Int32 = 16
-}
-
-// MARK: - Equatable
-
-extension Dimensions: Equatable {
-
-    public static func == (lhs: Dimensions, rhs: Dimensions) -> Bool {
-        lhs.width == rhs.width && lhs.height == rhs.height
-    }
 }
 
 // this may cause ambiguity to comparison
@@ -173,28 +196,45 @@ extension Dimensions {
 
 // MARK: - Presets
 
+@objc
 public extension Dimensions {
 
     // 16:9 aspect ratio presets
     static let h90_169 = Dimensions(width: 160, height: 90)
+
     static let h180_169 = Dimensions(width: 320, height: 180)
+
     static let h216_169 = Dimensions(width: 384, height: 216)
+
     static let h360_169 = Dimensions(width: 640, height: 360)
+
     static let h540_169 = Dimensions(width: 960, height: 540)
+
     static let h720_169 = Dimensions(width: 1_280, height: 720)
+
     static let h1080_169 = Dimensions(width: 1_920, height: 1_080)
+
     static let h1440_169 = Dimensions(width: 2_560, height: 1_440)
+
     static let h2160_169 = Dimensions(width: 3_840, height: 2_160)
 
     // 4:3 aspect ratio presets
     static let h120_43 = Dimensions(width: 160, height: 120)
+
     static let h180_43 = Dimensions(width: 240, height: 180)
+
     static let h240_43 = Dimensions(width: 320, height: 240)
+
     static let h360_43 = Dimensions(width: 480, height: 360)
+
     static let h480_43 = Dimensions(width: 640, height: 480)
+
     static let h540_43 = Dimensions(width: 720, height: 540)
+
     static let h720_43 = Dimensions(width: 960, height: 720)
+
     static let h1080_43 = Dimensions(width: 1_440, height: 1_080)
+
     static let h1440_43 = Dimensions(width: 1_920, height: 1_440)
 }
 

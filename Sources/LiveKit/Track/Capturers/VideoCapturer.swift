@@ -28,18 +28,22 @@ extension VideoCapturerProtocol {
     }
 }
 
+@objc
 public protocol VideoCapturerDelegate: AnyObject {
+
+    @objc(capturer:didUpdateDimensions:) optional
     func capturer(_ capturer: VideoCapturer, didUpdate dimensions: Dimensions?)
+
+    @objc(capturer:didUpdateState:) optional
     func capturer(_ capturer: VideoCapturer, didUpdate state: VideoCapturer.CapturerState)
 }
 
-public extension VideoCapturerDelegate {
-    func capturer(_ capturer: VideoCapturer, didUpdate dimensions: Dimensions?) {}
-    func capturer(_ capturer: VideoCapturer, didUpdate state: VideoCapturer.CapturerState) {}
-}
-
 // Intended to be a base class for video capturers
-public class VideoCapturer: MulticastDelegate<VideoCapturerDelegate>, VideoCapturerProtocol {
+public class VideoCapturer: NSObject, Loggable, VideoCapturerProtocol {
+
+    // MARK: - MulticastDelegate
+
+    private var delegates = MulticastDelegate<VideoCapturerDelegate>()
 
     internal let queue = DispatchQueue(label: "LiveKitSDK.videoCapturer", qos: .default)
 
@@ -57,7 +61,8 @@ public class VideoCapturer: MulticastDelegate<VideoCapturerDelegate>, VideoCaptu
         return Int64(systemTime * Double(NSEC_PER_SEC))
     }
 
-    public enum CapturerState {
+    @objc
+    public enum CapturerState: Int {
         case stopped
         case started
     }
@@ -74,7 +79,7 @@ public class VideoCapturer: MulticastDelegate<VideoCapturerDelegate>, VideoCaptu
         didSet {
             guard oldValue != dimensions else { return }
             log("[publish] \(String(describing: oldValue)) -> \(String(describing: dimensions))")
-            notify { $0.capturer(self, didUpdate: self.dimensions) }
+            notify { $0.capturer?(self, didUpdate: self.dimensions) }
 
             log("[publish] dimensions: \(String(describing: dimensions))")
             _state.mutate { $0.dimensionsCompleter.set(value: dimensions) }
@@ -100,7 +105,7 @@ public class VideoCapturer: MulticastDelegate<VideoCapturerDelegate>, VideoCaptu
             self.captureState = .started
 
             self.notify(label: { "capturer.didUpdate state: \(CapturerState.started)" }) {
-                $0.capturer(self, didUpdate: .started)
+                $0.capturer?(self, didUpdate: .started)
             }
 
             return true
@@ -119,7 +124,7 @@ public class VideoCapturer: MulticastDelegate<VideoCapturerDelegate>, VideoCaptu
 
             self.captureState = .stopped
             self.notify(label: { "capturer.didUpdate state: \(CapturerState.stopped)" }) {
-                $0.capturer(self, didUpdate: .stopped)
+                $0.capturer?(self, didUpdate: .stopped)
             }
 
             self._state.mutate { $0.dimensionsCompleter.reset() }
@@ -132,5 +137,25 @@ public class VideoCapturer: MulticastDelegate<VideoCapturerDelegate>, VideoCaptu
         stopCapture().then(on: queue) { _ -> Promise<Bool> in
             self.startCapture()
         }
+    }
+}
+
+// MARK: - MulticastDelegate
+
+extension VideoCapturer {
+
+    @objc(addDelegate:)
+    public func add(delegate: VideoCapturerDelegate) {
+        delegates.add(delegate: delegate)
+    }
+
+    @objc(removeDelegate:)
+    public func remove(delegate: VideoCapturerDelegate) {
+        delegates.remove(delegate: delegate)
+    }
+
+    internal func notify(label: (() -> String)? = nil,
+                         _ fnc: @escaping (VideoCapturerDelegate) -> Void) {
+        delegates.notify(label: label, fnc)
     }
 }

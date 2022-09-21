@@ -14,30 +14,17 @@
  * limitations under the License.
  */
 
+import Foundation
 import WebRTC
-import Promises
 
 @objc
-public class RemoteVideoTrack: Track, RemoteTrack, VideoTrack {
-
-    init(name: String,
-         source: Track.Source,
-         track: RTCMediaStreamTrack) {
-
-        super.init(name: name,
-                   kind: .video,
-                   source: source,
-                   track: track)
-    }
-}
-
-extension RemoteVideoTrack {
-
-    public func add(videoRenderer: VideoRenderer) {
-        super._add(videoRenderer: videoRenderer)
-    }
-
-    public func remove(videoRenderer: VideoRenderer) {
-        super._remove(videoRenderer: videoRenderer)
-    }
+public protocol VideoRenderer: RTCVideoRenderer {
+    /// Whether this ``VideoRenderer`` should be considered visible or not for AdaptiveStream.
+    /// This will be invoked on the .main thread.
+    @objc
+    var adaptiveStreamIsEnabled: Bool { get }
+    /// The size used for AdaptiveStream computation. Return .zero if size is unknown yet.
+    /// This will be invoked on the .main thread.
+    @objc
+    var adaptiveStreamSize: CGSize { get }
 }
