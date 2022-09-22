@@ -313,18 +313,33 @@ public class MacOSScreenCapturer: VideoCapturer {
         let timeStamp = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
         let timeStampNs = Int64(CMTimeGetSeconds(timeStamp) * Double(NSEC_PER_SEC))
 
-        let pixelWidth = CVPixelBufferGetWidth(pixelBuffer)
-        let pixelHeight = CVPixelBufferGetHeight(pixelBuffer)
+        let sourceDimensions: Dimensions
+        if let cropRect = cropRect {
+            // use dimensions from provided rect
+            sourceDimensions = Dimensions(width: Int32((cropRect.width * 2).rounded(.down)),
+                                          height: Int32((cropRect.height * 2).rounded(.down)))
+        } else {
+            // use pixel buffer dimensions
+            sourceDimensions = Dimensions(width: Int32(CVPixelBufferGetWidth(pixelBuffer)),
+                                          height: Int32(CVPixelBufferGetHeight(pixelBuffer)))
+        }
+
+        let targetDimensions = sourceDimensions
+            .aspectFit(size: self.options.dimensions.max)
+            .toEncodeSafeDimensions()
+
+        // notify capturer for dimensions
+        defer { self.dimensions = targetDimensions }
 
         DispatchQueue.webRTC.sync {
 
             let rtcBuffer = RTCCVPixelBuffer(pixelBuffer: pixelBuffer,
-                                             adaptedWidth: Int32(cropRect!.width) * 2,
-                                             adaptedHeight: Int32(cropRect!.height) * 2,
-                                             cropWidth: Int32(cropRect!.width) * 2,
-                                             cropHeight: Int32(cropRect!.height) * 2,
-                                             cropX: Int32(cropRect!.origin.x),
-                                             cropY: Int32(cropRect!.origin.y))
+                                             adaptedWidth: targetDimensions.width,
+                                             adaptedHeight: targetDimensions.height,
+                                             cropWidth: sourceDimensions.width,
+                                             cropHeight: sourceDimensions.height,
+                                             cropX: Int32(cropRect?.origin.x ?? 0),
+                                             cropY: Int32(cropRect?.origin.y ?? 0))
 
             let rtcFrame = RTCVideoFrame(buffer: rtcBuffer,
                                          rotation: ._0,
@@ -332,21 +347,6 @@ public class MacOSScreenCapturer: VideoCapturer {
 
             delegate.capturer(capturer, didCapture: rtcFrame)
         }
-        //        delegate?.capturer(capturer, didCapture: sampleBuffer) { sourceDimensions in
-        //
-        //            let targetDimensions = sourceDimensions
-        //                .aspectFit(size: self.options.dimensions.max)
-        //                .toEncodeSafeDimensions()
-        //
-        //            defer { self.dimensions = sourceDimensions }
-        //
-        //            guard let videoSource = self.delegate as? RTCVideoSource else { return }
-        //            // self.log("adaptOutputFormat to: \(targetDimensions) fps: \(self.options.fps)")
-        //
-        //            videoSource.adaptOutputFormat(toWidth: targetDimensions.width,
-        //                                          height: targetDimensions.height,
-        //                                          fps: Int32(self.options.fps))
-        //        }
     }
 }
 
