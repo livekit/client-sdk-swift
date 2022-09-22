@@ -36,61 +36,14 @@ extension ScreenShareSource {
     public static let mainDisplay: ScreenShareSource = .display(id: CGMainDisplayID())
 }
 
-extension MacOSScreenCapturer {
-
-    public static func sources() -> [ScreenShareSource] {
-        return [displayIDs().map { ScreenShareSource.display(id: $0) },
-                windowIDs().map { ScreenShareSource.window(id: $0) }].flatMap { $0 }
-    }
-
-    // gets a list of window IDs
-    public static func windowIDs(includeCurrentProcess: Bool = false) -> [CGWindowID] {
-
-        let currentPID = ProcessInfo.processInfo.processIdentifier
-
-        let list = CGWindowListCopyWindowInfo([.optionOnScreenOnly,
-                                               .excludeDesktopElements ], kCGNullWindowID)! as Array
-
-        return list
-            .filter {
-                guard let windowLayer = $0.object(forKey: kCGWindowLayer) as? NSNumber,
-                      windowLayer.intValue == 0 else { return false }
-
-                if !includeCurrentProcess {
-                    guard let windowOwnerPid = $0.object(forKey: kCGWindowOwnerPID) as? NSNumber,
-                          windowOwnerPid.intValue != currentPID else { return false }
-                }
-
-                return true
-            }
-            .map { $0.object(forKey: kCGWindowNumber) as? NSNumber }.compactMap { $0 }.map { $0.uint32Value }
-    }
-
-    // gets a list of display IDs
-    public static func displayIDs() -> [CGDirectDisplayID] {
-        var displayCount: UInt32 = 0
-        var activeCount: UInt32 = 0
-
-        guard CGGetActiveDisplayList(0, nil, &displayCount) == .success else {
-            return []
-        }
-
-        var displayIDList = [CGDirectDisplayID](repeating: kCGNullDirectDisplay, count: Int(displayCount))
-        guard CGGetActiveDisplayList(displayCount, &(displayIDList), &activeCount) == .success else {
-            return []
-        }
-
-        return displayIDList
-    }
-}
-
 public class MacOSScreenCapturer: VideoCapturer {
 
     private let captureQueue = DispatchQueue(label: "LiveKitSDK.macOSScreenCapturer", qos: .default)
     private let capturer = Engine.createVideoCapturer()
 
     // TODO: Make it possible to change dynamically
-    public var source: ScreenShareSource
+    public let source: ScreenShareSource?
+    public let scSource: MacOSScreenShareSource?
 
     private var _scStream: Any?
     @available(macOS 12.3, *)
@@ -157,6 +110,16 @@ public class MacOSScreenCapturer: VideoCapturer {
          source: ScreenShareSource,
          options: ScreenShareCaptureOptions) {
         self.source = source
+        self.scSource = nil
+        self.options = options
+        super.init(delegate: delegate)
+    }
+
+    init(delegate: RTCVideoCapturerDelegate,
+         scSource: MacOSScreenShareSource,
+         options: ScreenShareCaptureOptions) {
+        self.source = nil
+        self.scSource = scSource
         self.options = options
         super.init(delegate: delegate)
     }
@@ -212,32 +175,36 @@ public class MacOSScreenCapturer: VideoCapturer {
 
             if #available(macOS 12.3, *) {
 
+                guard let windowSource = self.scSource as? MacOSWindow,
+                      let nativeWindowSource = windowSource.nativeType as? SCWindow else {
+                    return Promise(false)
+                }
+
                 return Promise<Bool>(on: self.queue) { success, failure in
                     Task {
 
                         do {
-
                             // let windows: [SCWindow] = try await SCShareableContent.current.windows
                             // let displays: [SCDisplay] = try await SCShareableContent.current.displays
-                            let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
+                            // let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
                             // guard let window = windows.first(where: { $0.owningApplication?.applicationName == "Google Chrome" }) else { return }
 
                             // let filter = SCContentFilter(desktopIndependentWindow: window)
 
-                            let window = content.windows.first { w in
-                                w.owningApplication?.applicationName == "Google Chrome"
-                            }!
+                            // let window = content.windows.first { w in
+                            // w.owningApplication?.applicationName == "Google Chrome"
+                            // }!
 
-                            //                            let excludedApps = content.applications.filter { app in
-                            //                                Bundle.main.bundleIdentifier == app.bundleIdentifier
-                            //                            }
+                            // let excludedApps = content.applications.filter { app in
+                            // Bundle.main.bundleIdentifier == app.bundleIdentifier
+                            // }
 
                             // let filter = SCContentFilter(display: display, excludingApplications: excludedApps, exceptingWindows: [])
-                            let filter = SCContentFilter(desktopIndependentWindow: window)
+                            let filter = SCContentFilter(desktopIndependentWindow: nativeWindowSource)
 
                             let configuration = SCStreamConfiguration()
-                            configuration.width = Int(window.frame.width * 2)
-                            configuration.height = Int(window.frame.height * 2)
+                            configuration.width = Int(nativeWindowSource.frame.width * 2)
+                            configuration.height = Int(nativeWindowSource.frame.height * 2)
                             configuration.scalesToFit = false
                             configuration.minimumFrameInterval = CMTime(value: 1, timescale: CMTimeScale(15))
                             configuration.queueDepth = 5
@@ -457,9 +424,32 @@ extension LocalVideoTrack {
             videoSource: videoSource
         )
     }
+
+    public static func createMacOSScreenShareTrack(name: String = Track.screenShareVideoName,
+                                                   source: MacOSScreenShareSource,
+                                                   options: ScreenShareCaptureOptions = ScreenShareCaptureOptions()) -> LocalVideoTrack {
+        let videoSource = Engine.createVideoSource(forScreenShare: true)
+        let capturer = MacOSScreenCapturer(delegate: videoSource, scSource: source, options: options)
+        return LocalVideoTrack(
+            name: name,
+            source: .screenShareVideo,
+            capturer: capturer,
+            videoSource: videoSource
+        )
+    }
 }
 
 #endif
+
+public enum MacOSScreenShareSourceType {
+    case any
+    case display
+    case window
+}
+
+public protocol MacOSScreenShareSource {
+
+}
 
 @objc
 public class MacOSRunningApplication: NSObject {
@@ -478,10 +468,19 @@ public class MacOSRunningApplication: NSObject {
         self.processID = processID
         self.nativeType = nativeType
     }
+
+    @available(macOS 12.3, *)
+    internal init?(from scRunningApplication: SCRunningApplication?) {
+        guard let scRunningApplication = scRunningApplication else { return nil }
+        self.bundleIdentifier = scRunningApplication.bundleIdentifier
+        self.applicationName = scRunningApplication.applicationName
+        self.processID = scRunningApplication.processID
+        self.nativeType = scRunningApplication
+    }
 }
 
 @objc
-public class MacOSWindow: NSObject {
+public class MacOSWindow: NSObject, MacOSScreenShareSource {
     let windowID: CGWindowID
     let frame: CGRect
     let title: String?
@@ -506,10 +505,21 @@ public class MacOSWindow: NSObject {
         self.isOnScreen = isOnScreen
         self.nativeType = nativeType
     }
+
+    @available(macOS 12.3, *)
+    internal init(from scWindow: SCWindow) {
+        self.windowID = scWindow.windowID
+        self.frame = scWindow.frame
+        self.title = scWindow.title
+        self.windowLayer = scWindow.windowLayer
+        self.owningApplication = MacOSRunningApplication(from: scWindow.owningApplication)
+        self.isOnScreen = scWindow.isOnScreen
+        self.nativeType = scWindow
+    }
 }
 
 @objc
-public class MacOSDisplay: NSObject {
+public class MacOSDisplay: NSObject, MacOSScreenShareSource {
     let displayID: CGDirectDisplayID
     let width: Int
     let height: Int
@@ -528,6 +538,15 @@ public class MacOSDisplay: NSObject {
         self.frame = frame
         self.nativeType = nativeType
     }
+
+    @available(macOS 12.3, *)
+    internal init(from scDisplay: SCDisplay) {
+        self.displayID = scDisplay.displayID
+        self.width = scDisplay.width
+        self.height = scDisplay.height
+        self.frame = scDisplay.frame
+        self.nativeType = scDisplay
+    }
 }
 
 // @available(macOS 12.3, *)
@@ -539,3 +558,139 @@ public class MacOSDisplay: NSObject {
 // extension SCWindow: MacOSWindow {
 //    // typealias ReturnType = SCRunningApplication
 // }
+
+// MARK: - Enumerate sources
+
+extension MacOSScreenCapturer {
+
+    public static func sources(for type: MacOSScreenShareSourceType) -> Promise<[MacOSScreenShareSource]> {
+
+        if #available(macOS 12.3, *) {
+            return Promise<[MacOSScreenShareSource]> { fulfill, reject in
+                Task {
+                    do {
+                        let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
+                        switch type {
+
+                        case .any:
+                            let displays = content.displays.map { MacOSDisplay(from: $0) }
+                            let windows = content.windows.map { MacOSWindow(from: $0) }
+                            fulfill(displays + windows)
+                        case .display:
+                            let displays = content.displays.map { MacOSDisplay(from: $0) }
+                            fulfill(displays)
+                        case .window:
+                            let windows = content.windows.map { MacOSWindow(from: $0) }
+                            fulfill(windows)
+                        }
+
+                    } catch let error {
+                        reject(error)
+                    }
+                }
+            }
+        } else {
+            // Fallback on earlier versions
+            fatalError()
+        }
+    }
+    public static func displaySources() -> Promise<[MacOSDisplay]> {
+        //
+        // let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
+        // guard let window = windows.first(where: { $0.owningApplication?.applicationName == "Google Chrome" }) else { return }
+        // let filter = SCContentFilter(desktopIndependentWindow: window)
+
+        if #available(macOS 12.3, *) {
+
+            return Promise<[MacOSDisplay]> { fulfill, reject in
+                Task {
+                    do {
+                        let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
+                        let displays = content.displays.map { MacOSDisplay(from: $0) }
+                        fulfill(displays)
+                    } catch let error {
+                        reject(error)
+                    }
+                }
+            }
+        } else {
+            // Fallback on earlier versions
+            fatalError()
+        }
+    }
+
+    public static func windowSources() -> Promise<[MacOSWindow]> {
+
+        if #available(macOS 12.3, *) {
+
+            return Promise<[MacOSWindow]> { fulfill, reject in
+                Task {
+                    do {
+                        let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
+                        let windows = content.windows.map { MacOSWindow(from: $0) }
+                        fulfill(windows)
+                    } catch let error {
+                        reject(error)
+                    }
+                }
+            }
+        } else {
+            // Fallback on earlier versions
+            fatalError()
+        }
+        // guard let window = windows.first(where: { $0.owningApplication?.applicationName == "Google Chrome" }) else { return }
+
+        // let filter = SCContentFilter(desktopIndependentWindow: window)
+
+    }
+}
+
+// MARK: - Enumerate sources (Deprecated)
+
+extension MacOSScreenCapturer {
+
+    public static func sources() -> [ScreenShareSource] {
+        return [displayIDs().map { ScreenShareSource.display(id: $0) },
+                windowIDs().map { ScreenShareSource.window(id: $0) }].flatMap { $0 }
+    }
+
+    // gets a list of window IDs
+    public static func windowIDs(includeCurrentProcess: Bool = false) -> [CGWindowID] {
+
+        let currentPID = ProcessInfo.processInfo.processIdentifier
+
+        let list = CGWindowListCopyWindowInfo([.optionOnScreenOnly,
+                                               .excludeDesktopElements ], kCGNullWindowID)! as Array
+
+        return list
+            .filter {
+                guard let windowLayer = $0.object(forKey: kCGWindowLayer) as? NSNumber,
+                      windowLayer.intValue == 0 else { return false }
+
+                if !includeCurrentProcess {
+                    guard let windowOwnerPid = $0.object(forKey: kCGWindowOwnerPID) as? NSNumber,
+                          windowOwnerPid.intValue != currentPID else { return false }
+                }
+
+                return true
+            }
+            .map { $0.object(forKey: kCGWindowNumber) as? NSNumber }.compactMap { $0 }.map { $0.uint32Value }
+    }
+
+    // gets a list of display IDs
+    public static func displayIDs() -> [CGDirectDisplayID] {
+        var displayCount: UInt32 = 0
+        var activeCount: UInt32 = 0
+
+        guard CGGetActiveDisplayList(0, nil, &displayCount) == .success else {
+            return []
+        }
+
+        var displayIDList = [CGDirectDisplayID](repeating: kCGNullDirectDisplay, count: Int(displayCount))
+        guard CGGetActiveDisplayList(displayCount, &(displayIDList), &activeCount) == .success else {
+            return []
+        }
+
+        return displayIDList
+    }
+}
