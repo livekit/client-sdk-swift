@@ -175,8 +175,7 @@ public class MacOSScreenCapturer: VideoCapturer {
 
             if #available(macOS 12.3, *) {
 
-                guard let windowSource = self.scSource as? MacOSWindow,
-                      let nativeWindowSource = windowSource.nativeType as? SCWindow else {
+                guard let scSource = self.scSource else {
                     return Promise(false)
                 }
 
@@ -184,27 +183,32 @@ public class MacOSScreenCapturer: VideoCapturer {
                     Task {
 
                         do {
-                            // let windows: [SCWindow] = try await SCShareableContent.current.windows
-                            // let displays: [SCDisplay] = try await SCShareableContent.current.displays
-                            // let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
-                            // guard let window = windows.first(where: { $0.owningApplication?.applicationName == "Google Chrome" }) else { return }
+                            let width: Int
+                            let height: Int
+                            let filter: SCContentFilter
 
-                            // let filter = SCContentFilter(desktopIndependentWindow: window)
+                            if let windowSource = scSource as? MacOSWindow,
+                               let nativeWindowSource = windowSource.nativeType as? SCWindow {
+                                filter = SCContentFilter(desktopIndependentWindow: nativeWindowSource)
+                                width = Int(nativeWindowSource.frame.width * 2)
+                                height = Int(nativeWindowSource.frame.height * 2)
+                            } else if let displaySource = scSource as? MacOSDisplay,
+                                      let content = displaySource.scContent as? SCShareableContent,
+                                      let nativeDisplay = displaySource.nativeType as? SCDisplay {
+                                let excludedApps = content.applications.filter { app in
+                                    Bundle.main.bundleIdentifier == app.bundleIdentifier
+                                }
+                                filter = SCContentFilter(display: nativeDisplay, excludingApplications: excludedApps, exceptingWindows: [])
+                                width = Int(nativeDisplay.width * 2)
+                                height = Int(nativeDisplay.height * 2)
 
-                            // let window = content.windows.first { w in
-                            // w.owningApplication?.applicationName == "Google Chrome"
-                            // }!
-
-                            // let excludedApps = content.applications.filter { app in
-                            // Bundle.main.bundleIdentifier == app.bundleIdentifier
-                            // }
-
-                            // let filter = SCContentFilter(display: display, excludingApplications: excludedApps, exceptingWindows: [])
-                            let filter = SCContentFilter(desktopIndependentWindow: nativeWindowSource)
+                            } else {
+                                fatalError()
+                            }
 
                             let configuration = SCStreamConfiguration()
-                            configuration.width = Int(nativeWindowSource.frame.width * 2)
-                            configuration.height = Int(nativeWindowSource.frame.height * 2)
+                            configuration.width = width
+                            configuration.height = height
                             configuration.scalesToFit = false
                             configuration.minimumFrameInterval = CMTime(value: 1, timescale: CMTimeScale(15))
                             configuration.queueDepth = 5
@@ -453,10 +457,11 @@ public protocol MacOSScreenShareSource {
 
 @objc
 public class MacOSRunningApplication: NSObject {
-    let bundleIdentifier: String
-    let applicationName: String
-    let processID: pid_t
-    let nativeType: Any?
+
+    public let bundleIdentifier: String
+    public let applicationName: String
+    public let processID: pid_t
+    public let nativeType: Any?
 
     internal init(bundleIdentifier: String,
                   applicationName: String,
@@ -481,13 +486,14 @@ public class MacOSRunningApplication: NSObject {
 
 @objc
 public class MacOSWindow: NSObject, MacOSScreenShareSource {
-    let windowID: CGWindowID
-    let frame: CGRect
-    let title: String?
-    let windowLayer: Int
-    let owningApplication: MacOSRunningApplication?
-    let isOnScreen: Bool
-    let nativeType: Any?
+
+    public let windowID: CGWindowID
+    public let frame: CGRect
+    public let title: String?
+    public let windowLayer: Int
+    public let owningApplication: MacOSRunningApplication?
+    public let isOnScreen: Bool
+    public let nativeType: Any?
 
     internal init(windowID: CGWindowID,
                   frame: CGRect,
@@ -520,11 +526,14 @@ public class MacOSWindow: NSObject, MacOSScreenShareSource {
 
 @objc
 public class MacOSDisplay: NSObject, MacOSScreenShareSource {
-    let displayID: CGDirectDisplayID
-    let width: Int
-    let height: Int
-    let frame: CGRect
-    let nativeType: Any?
+
+    public let displayID: CGDirectDisplayID
+    public let width: Int
+    public let height: Int
+    public let frame: CGRect
+
+    public let nativeType: Any?
+    public let scContent: Any?
 
     internal init(displayID: CGDirectDisplayID,
                   width: Int,
@@ -537,15 +546,17 @@ public class MacOSDisplay: NSObject, MacOSScreenShareSource {
         self.height = height
         self.frame = frame
         self.nativeType = nativeType
+        self.scContent = nil
     }
 
     @available(macOS 12.3, *)
-    internal init(from scDisplay: SCDisplay) {
+    internal init(from scDisplay: SCDisplay, content: SCShareableContent) {
         self.displayID = scDisplay.displayID
         self.width = scDisplay.width
         self.height = scDisplay.height
         self.frame = scDisplay.frame
         self.nativeType = scDisplay
+        self.scContent = content
     }
 }
 
@@ -570,17 +581,17 @@ extension MacOSScreenCapturer {
                 Task {
                     do {
                         let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
-                        switch type {
+                        let displays = content.displays.map { MacOSDisplay(from: $0, content: content) }
+                        let windows = content.windows
+                            .filter({ $0.owningApplication?.bundleIdentifier != Bundle.main.bundleIdentifier })
+                            .map { MacOSWindow(from: $0) }
 
+                        switch type {
                         case .any:
-                            let displays = content.displays.map { MacOSDisplay(from: $0) }
-                            let windows = content.windows.map { MacOSWindow(from: $0) }
                             fulfill(displays + windows)
                         case .display:
-                            let displays = content.displays.map { MacOSDisplay(from: $0) }
                             fulfill(displays)
                         case .window:
-                            let windows = content.windows.map { MacOSWindow(from: $0) }
                             fulfill(windows)
                         }
 
@@ -606,7 +617,7 @@ extension MacOSScreenCapturer {
                 Task {
                     do {
                         let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
-                        let displays = content.displays.map { MacOSDisplay(from: $0) }
+                        let displays = content.displays.map { MacOSDisplay(from: $0, content: content) }
                         fulfill(displays)
                     } catch let error {
                         reject(error)
