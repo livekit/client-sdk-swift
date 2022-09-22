@@ -183,9 +183,9 @@ public class MacOSScreenCapturer: VideoCapturer {
                     Task {
 
                         do {
+                            let filter: SCContentFilter
                             let width: Int
                             let height: Int
-                            let filter: SCContentFilter
 
                             if let windowSource = scSource as? MacOSWindow,
                                let nativeWindowSource = windowSource.nativeType as? SCWindow {
@@ -201,7 +201,6 @@ public class MacOSScreenCapturer: VideoCapturer {
                                 filter = SCContentFilter(display: nativeDisplay, excludingApplications: excludedApps, exceptingWindows: [])
                                 width = Int(nativeDisplay.width * 2)
                                 height = Int(nativeDisplay.height * 2)
-
                             } else {
                                 fatalError()
                             }
@@ -375,8 +374,21 @@ extension MacOSScreenCapturer: SCStreamOutput {
 
         // Validate the status of the frame. If it isn't `.complete`, return nil.
         guard let statusRawValue = attachments[SCStreamFrameInfo.status] as? Int,
-              let status = SCFrameStatus(rawValue: statusRawValue),
-              status == .complete else { return }
+              let status = SCFrameStatus(rawValue: statusRawValue) else {
+            return
+        }
+
+        print("frame status: \(status)")
+
+        /// @constant SCFrameStatusComplete new frame was generated.
+        /// @constant SCFrameStatusIdle new frame was not generated because the display did not change.
+        /// @constant SCFrameStatusBlank new frame was not generated because the display has gone blank.
+        /// @constant SCFrameStatusSuspended new frame was not generated because updates haves been suspended
+        /// @constant SCFrameStatusStarted new frame that is indicated as the first frame sent after the stream has started.
+        /// @constant SCFrameStatusStopped the stream was stopped.
+        guard status == .complete else {
+            return
+        }
 
         //        // Get the pixel buffer that contains the image data.
         //        guard let pixelBuffer = sampleBuffer.imageBuffer else { return }
