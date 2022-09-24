@@ -212,8 +212,12 @@ public class MacOSScreenCapturer: VideoCapturer {
                             }
 
                             let configuration = SCStreamConfiguration()
-                            configuration.width = width
-                            configuration.height = height
+
+                            let mainDisplay = CGMainDisplayID()
+                            // try to capture in max resolution
+                            configuration.width = CGDisplayPixelsWide(mainDisplay) * 2
+                            configuration.height = CGDisplayPixelsHigh(mainDisplay) * 2
+
                             configuration.scalesToFit = false
                             configuration.minimumFrameInterval = CMTime(value: 1, timescale: CMTimeScale(15))
                             configuration.queueDepth = 5
@@ -285,12 +289,17 @@ public class MacOSScreenCapturer: VideoCapturer {
 
                 return Promise<Bool>(on: self.queue) { [weak self] fullfil, reject in
 
-                    guard let self = self else { return }
+                    guard let self = self,
+                          let stream = self.scStream else {
+                        fullfil(true)
+                        return
+                    }
 
                     Task {
                         do {
                             self.stopFrameResendTimer()
-                            try await self.scStream?.stopCapture()
+                            try await stream.stopCapture()
+                            self.scStream = nil
                             fullfil(true)
                         } catch let error {
                             reject(error)
@@ -351,8 +360,6 @@ public class MacOSScreenCapturer: VideoCapturer {
         // notify capturer for dimensions
         defer { self.dimensions = targetDimensions }
 
-        // DispatchQueue.webRTC.sync {
-
         let rtcBuffer = RTCCVPixelBuffer(pixelBuffer: pixelBuffer,
                                          adaptedWidth: targetDimensions.width,
                                          adaptedHeight: targetDimensions.height,
@@ -367,7 +374,6 @@ public class MacOSScreenCapturer: VideoCapturer {
 
         // feed frame to WebRTC
         delegate.capturer(capturer, didCapture: rtcFrame)
-        // }
 
         // cache last frame
         lastFrame = rtcFrame
@@ -466,8 +472,6 @@ extension MacOSScreenCapturer: SCStreamOutput {
               let contentRect = CGRect(dictionaryRepresentation: contentRectDict as! CFDictionary),
               let contentScale = attachments[.contentScale] as? CGFloat,
               let scaleFactor = attachments[.scaleFactor] as? CGFloat else { return }
-
-        //        print("capture: got surface: \(contentRect) -> \(width)x\(height)")
 
         capture(sampleBuffer, cropRect: contentRect)
     }
