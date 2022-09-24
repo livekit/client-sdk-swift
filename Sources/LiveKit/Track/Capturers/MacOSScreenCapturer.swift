@@ -649,7 +649,14 @@ extension MacOSScreenCapturer {
                         let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
                         let displays = content.displays.map { MacOSDisplay(from: $0, content: content) }
                         let windows = content.windows
-                            .filter({ $0.owningApplication?.bundleIdentifier != Bundle.main.bundleIdentifier })
+                            // remove windows from this app
+                            .filter { $0.owningApplication?.bundleIdentifier != Bundle.main.bundleIdentifier }
+                            // remove windows that don't have an associated .app bundle
+                            .filter { $0.owningApplication != nil && $0.owningApplication?.applicationName != "" }
+                            // remove windows that windowLayer isn't 0
+                            .filter { $0.windowLayer == 0 }
+                            // sort the windows by app name
+                            .sorted { $0.owningApplication?.applicationName ?? "" < $1.owningApplication?.applicationName ?? "" }
                             .map { MacOSWindow(from: $0) }
 
                         switch type {
