@@ -42,7 +42,6 @@ public class MacOSScreenCapturer: VideoCapturer {
     private let capturer = Engine.createVideoCapturer()
 
     // TODO: Make it possible to change dynamically
-    public let source: ScreenShareSource?
     public let scSource: MacOSScreenShareSource?
 
     private var _scStream: Any?
@@ -52,7 +51,14 @@ public class MacOSScreenCapturer: VideoCapturer {
         set { _scStream = newValue }
     }
 
-    // MARK: - Legacy support
+    public private(set) var lastFrame: RTCVideoFrame?
+
+    //
+    private var frameResendTimer: DispatchQueueTimer?
+
+    // MARK: - Legacy support (Deprecated)
+
+    public let source: ScreenShareSource?
 
     // used for display capture
     private lazy var session: AVCaptureSession = {
@@ -72,7 +78,7 @@ public class MacOSScreenCapturer: VideoCapturer {
         return session
     }()
 
-    // used for window capture
+    // used to generate frames for window capture
     private var dispatchSourceTimer: DispatchQueueTimer?
 
     private func startDispatchSourceTimer() {
@@ -277,13 +283,17 @@ public class MacOSScreenCapturer: VideoCapturer {
 
             if #available(macOS 12.3, *) {
 
-                return Promise<Bool>(on: self.queue) { f, r in
+                return Promise<Bool>(on: self.queue) { [weak self] fullfil, reject in
+
+                    guard let self = self else { return }
+
                     Task {
                         do {
+                            self.stopFrameResendTimer()
                             try await self.scStream?.stopCapture()
-                            f(true)
+                            fullfil(true)
                         } catch let error {
-                            r(error)
+                            reject(error)
                         }
                     }
                 }
@@ -306,7 +316,14 @@ public class MacOSScreenCapturer: VideoCapturer {
         }
     }
 
+    // common capture func
     private func capture(_ sampleBuffer: CMSampleBuffer, cropRect: CGRect? = nil) {
+
+        // must be called on captureQueue
+        dispatchPrecondition(condition: .onQueue(captureQueue))
+
+        //
+        stopFrameResendTimer()
 
         guard let delegate = delegate else { return }
 
@@ -334,22 +351,68 @@ public class MacOSScreenCapturer: VideoCapturer {
         // notify capturer for dimensions
         defer { self.dimensions = targetDimensions }
 
-        DispatchQueue.webRTC.sync {
+        // DispatchQueue.webRTC.sync {
 
-            let rtcBuffer = RTCCVPixelBuffer(pixelBuffer: pixelBuffer,
-                                             adaptedWidth: targetDimensions.width,
-                                             adaptedHeight: targetDimensions.height,
-                                             cropWidth: sourceDimensions.width,
-                                             cropHeight: sourceDimensions.height,
-                                             cropX: Int32(cropRect?.origin.x ?? 0),
-                                             cropY: Int32(cropRect?.origin.y ?? 0))
+        let rtcBuffer = RTCCVPixelBuffer(pixelBuffer: pixelBuffer,
+                                         adaptedWidth: targetDimensions.width,
+                                         adaptedHeight: targetDimensions.height,
+                                         cropWidth: sourceDimensions.width,
+                                         cropHeight: sourceDimensions.height,
+                                         cropX: Int32(cropRect?.origin.x ?? 0),
+                                         cropY: Int32(cropRect?.origin.y ?? 0))
 
-            let rtcFrame = RTCVideoFrame(buffer: rtcBuffer,
-                                         rotation: ._0,
-                                         timeStampNs: timeStampNs)
+        let rtcFrame = RTCVideoFrame(buffer: rtcBuffer,
+                                     rotation: ._0,
+                                     timeStampNs: timeStampNs)
 
-            delegate.capturer(capturer, didCapture: rtcFrame)
+        // feed frame to WebRTC
+        delegate.capturer(capturer, didCapture: rtcFrame)
+        // }
+
+        // cache last frame
+        lastFrame = rtcFrame
+        restartFrameResendTimer()
+    }
+}
+
+// MARK: - Frame resend logic
+
+extension MacOSScreenCapturer {
+
+    private func restartFrameResendTimer() {
+
+        stopFrameResendTimer()
+        let timeInterval: TimeInterval = 1 / Double(1 /* 1 fps */)
+        frameResendTimer = DispatchQueueTimer(timeInterval: timeInterval, queue: captureQueue)
+        frameResendTimer?.handler = onFrameResendTimer
+        frameResendTimer?.resume()
+    }
+
+    private func stopFrameResendTimer() {
+
+        if let timer = frameResendTimer {
+            timer.suspend()
+            frameResendTimer = nil
         }
+    }
+
+    private func onFrameResendTimer() {
+
+        // must be called on captureQueue
+        dispatchPrecondition(condition: .onQueue(captureQueue))
+
+        print("\(type(of: self))#\(hash) should resend frame...")
+
+        guard let delegate = delegate,
+              let frame = lastFrame else { return }
+
+        // create a new frame with new time stamp
+        let newFrame = RTCVideoFrame(buffer: frame.buffer,
+                                     rotation: frame.rotation,
+                                     timeStampNs: Self.createTimeStampNs())
+
+        // feed frame to WebRTC
+        delegate.capturer(capturer, didCapture: newFrame)
     }
 }
 
@@ -360,6 +423,7 @@ extension MacOSScreenCapturer: SCStreamDelegate {
 
     public func stream(_ stream: SCStream, didStopWithError error: Error) {
         print("capture: didStopWithError \(error)")
+        stopFrameResendTimer()
     }
 }
 
@@ -572,16 +636,6 @@ public class MacOSDisplay: NSObject, MacOSScreenShareSource {
     }
 }
 
-// @available(macOS 12.3, *)
-// extension SCRunningApplication: MacOSRunningApplication {
-//    //
-// }
-//
-// @available(macOS 12.3, *)
-// extension SCWindow: MacOSWindow {
-//    // typealias ReturnType = SCRunningApplication
-// }
-
 // MARK: - Enumerate sources
 
 extension MacOSScreenCapturer {
@@ -613,7 +667,7 @@ extension MacOSScreenCapturer {
                 }
             }
         } else {
-            // Fallback on earlier versions
+            // TODO: fallback for earlier versions
             return Promise([])
         }
     }
