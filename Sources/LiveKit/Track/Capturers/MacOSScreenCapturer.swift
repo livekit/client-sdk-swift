@@ -614,57 +614,22 @@ extension MacOSScreenCapturer {
             }
         } else {
             // Fallback on earlier versions
-            fatalError()
+            return Promise([])
         }
     }
+
     public static func displaySources() -> Promise<[MacOSDisplay]> {
-        //
-        // let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
-        // guard let window = windows.first(where: { $0.owningApplication?.applicationName == "Google Chrome" }) else { return }
-        // let filter = SCContentFilter(desktopIndependentWindow: window)
-
-        if #available(macOS 12.3, *) {
-
-            return Promise<[MacOSDisplay]> { fulfill, reject in
-                Task {
-                    do {
-                        let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
-                        let displays = content.displays.map { MacOSDisplay(from: $0, content: content) }
-                        fulfill(displays)
-                    } catch let error {
-                        reject(error)
-                    }
-                }
-            }
-        } else {
-            // Fallback on earlier versions
-            fatalError()
+        sources(for: .display).then { sources in
+            // cast
+            sources.compactMap({ $0 as? MacOSDisplay })
         }
     }
 
     public static func windowSources() -> Promise<[MacOSWindow]> {
-
-        if #available(macOS 12.3, *) {
-
-            return Promise<[MacOSWindow]> { fulfill, reject in
-                Task {
-                    do {
-                        let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
-                        let windows = content.windows.map { MacOSWindow(from: $0) }
-                        fulfill(windows)
-                    } catch let error {
-                        reject(error)
-                    }
-                }
-            }
-        } else {
-            // Fallback on earlier versions
-            fatalError()
+        sources(for: .window).then { sources in
+            // cast
+            sources.compactMap({ $0 as? MacOSWindow })
         }
-        // guard let window = windows.first(where: { $0.owningApplication?.applicationName == "Google Chrome" }) else { return }
-
-        // let filter = SCContentFilter(desktopIndependentWindow: window)
-
     }
 }
 
