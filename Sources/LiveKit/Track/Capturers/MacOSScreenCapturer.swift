@@ -24,16 +24,38 @@ import ScreenCaptureKit
 #endif
 
 // currently only used for macOS
+@available(*, deprecated, message: "Use new API with MacOSScreenShareSource")
 public enum ScreenShareSource {
     case display(id: UInt32)
     case window(id: UInt32)
-    // case window(id2: String)
 }
 
 #if os(macOS)
 
+@available(*, deprecated, message: "Use new API with MacOSScreenShareSource")
 extension ScreenShareSource {
     public static let mainDisplay: ScreenShareSource = .display(id: CGMainDisplayID())
+}
+
+enum MacOSScreenCaptureMethod {
+    case screenCaptureKit
+    case legacy
+}
+
+extension MacOSScreenCapturer {
+
+    internal static func computeCaptureMethod(preferredMethod: MacOSScreenCaptureMethod?) -> MacOSScreenCaptureMethod {
+
+        if let method = preferredMethod, case .legacy = method {
+            return .legacy
+        }
+
+        if #available(macOS 12.3, *) {
+            return .screenCaptureKit
+        }
+
+        return .legacy
+    }
 }
 
 public class MacOSScreenCapturer: VideoCapturer {
@@ -42,22 +64,19 @@ public class MacOSScreenCapturer: VideoCapturer {
     private let capturer = Engine.createVideoCapturer()
 
     // TODO: Make it possible to change dynamically
-    public let scSource: MacOSScreenShareSource?
+    public let captureSource: MacOSScreenCaptureSource?
 
-    private var _scStream: Any?
-    @available(macOS 12.3, *)
-    var scStream: SCStream? {
-        get { _scStream as? SCStream }
-        set { _scStream = newValue }
-    }
+    // SCStream
+    private var _captureStream: Any?
 
-    public private(set) var lastFrame: RTCVideoFrame?
-
-    //
+    // cached frame for resending to maintain minimum of 1 fps
+    private var lastFrame: RTCVideoFrame?
     private var frameResendTimer: DispatchQueueTimer?
+    private let captureMethod: MacOSScreenCaptureMethod
 
     // MARK: - Legacy support (Deprecated)
 
+    @available(*, deprecated, message: "Use new API with MacOSScreenShareSource")
     public let source: ScreenShareSource?
 
     // used for display capture
@@ -115,18 +134,22 @@ public class MacOSScreenCapturer: VideoCapturer {
     init(delegate: RTCVideoCapturerDelegate,
          source: ScreenShareSource,
          options: ScreenShareCaptureOptions) {
+
         self.source = source
-        self.scSource = nil
+        self.captureSource = nil
         self.options = options
+        self.captureMethod = Self.computeCaptureMethod(preferredMethod: nil)
         super.init(delegate: delegate)
     }
 
     init(delegate: RTCVideoCapturerDelegate,
-         scSource: MacOSScreenShareSource,
+         captureSource: MacOSScreenCaptureSource,
          options: ScreenShareCaptureOptions) {
+
         self.source = nil
-        self.scSource = scSource
+        self.captureSource = captureSource
         self.options = options
+        self.captureMethod = Self.computeCaptureMethod(preferredMethod: nil)
         super.init(delegate: delegate)
     }
 
@@ -172,41 +195,33 @@ public class MacOSScreenCapturer: VideoCapturer {
 
     public override func startCapture() -> Promise<Bool> {
 
-        super.startCapture().then(on: queue) { didStart -> Promise<Bool> in
+        super.startCapture().then(on: queue) { [weak self] didStart -> Promise<Bool> in
 
-            guard didStart else {
+            guard let self = self, didStart else {
                 // already started
                 return Promise(false)
             }
 
-            if #available(macOS 12.3, *) {
+            if #available(macOS 12.3, *), case .screenCaptureKit = self.captureMethod {
 
-                guard let scSource = self.scSource else {
+                guard let captureSource = self.captureSource else {
                     return Promise(false)
                 }
 
                 return Promise<Bool>(on: self.queue) { success, failure in
                     Task {
-
                         do {
                             let filter: SCContentFilter
-                            let width: Int
-                            let height: Int
-
-                            if let windowSource = scSource as? MacOSWindow,
+                            if let windowSource = captureSource as? MacOSWindow,
                                let nativeWindowSource = windowSource.nativeType as? SCWindow {
                                 filter = SCContentFilter(desktopIndependentWindow: nativeWindowSource)
-                                width = Int(nativeWindowSource.frame.width * 2)
-                                height = Int(nativeWindowSource.frame.height * 2)
-                            } else if let displaySource = scSource as? MacOSDisplay,
+                            } else if let displaySource = captureSource as? MacOSDisplay,
                                       let content = displaySource.scContent as? SCShareableContent,
                                       let nativeDisplay = displaySource.nativeType as? SCDisplay {
                                 let excludedApps = content.applications.filter { app in
                                     Bundle.main.bundleIdentifier == app.bundleIdentifier
                                 }
                                 filter = SCContentFilter(display: nativeDisplay, excludingApplications: excludedApps, exceptingWindows: [])
-                                width = Int(nativeDisplay.width * 2)
-                                height = Int(nativeDisplay.height * 2)
                             } else {
                                 fatalError()
                             }
@@ -230,7 +245,7 @@ public class MacOSScreenCapturer: VideoCapturer {
                             try await stream.startCapture()
                             print("capture: started")
 
-                            self.scStream = stream
+                            self._captureStream = stream
                             success(true)
 
                         } catch let error {
@@ -278,19 +293,19 @@ public class MacOSScreenCapturer: VideoCapturer {
 
     public override func stopCapture() -> Promise<Bool> {
 
-        super.stopCapture().then(on: queue) { didStop -> Promise<Bool> in
+        super.stopCapture().then(on: queue) { [weak self] didStop -> Promise<Bool> in
 
-            guard didStop else {
+            guard let self = self, didStop else {
                 // already stopped
                 return Promise(false)
             }
 
-            if #available(macOS 12.3, *) {
+            if #available(macOS 12.3, *), case .screenCaptureKit = self.captureMethod {
 
                 return Promise<Bool>(on: self.queue) { [weak self] fullfil, reject in
 
                     guard let self = self,
-                          let stream = self.scStream else {
+                          let stream = self._captureStream as? SCStream else {
                         fullfil(true)
                         return
                     }
@@ -299,7 +314,7 @@ public class MacOSScreenCapturer: VideoCapturer {
                         do {
                             self.stopFrameResendTimer()
                             try await stream.stopCapture()
-                            self.scStream = nil
+                            self._captureStream = nil
                             fullfil(true)
                         } catch let error {
                             reject(error)
@@ -510,10 +525,10 @@ extension LocalVideoTrack {
     }
 
     public static func createMacOSScreenShareTrack(name: String = Track.screenShareVideoName,
-                                                   source: MacOSScreenShareSource,
+                                                   source: MacOSScreenCaptureSource,
                                                    options: ScreenShareCaptureOptions = ScreenShareCaptureOptions()) -> LocalVideoTrack {
         let videoSource = Engine.createVideoSource(forScreenShare: true)
-        let capturer = MacOSScreenCapturer(delegate: videoSource, scSource: source, options: options)
+        let capturer = MacOSScreenCapturer(delegate: videoSource, captureSource: source, options: options)
         return LocalVideoTrack(
             name: name,
             source: .screenShareVideo,
@@ -531,7 +546,7 @@ public enum MacOSScreenShareSourceType {
     case window
 }
 
-public protocol MacOSScreenShareSource {
+public protocol MacOSScreenCaptureSource {
 
 }
 
@@ -565,7 +580,7 @@ public class MacOSRunningApplication: NSObject {
 }
 
 @objc
-public class MacOSWindow: NSObject, MacOSScreenShareSource {
+public class MacOSWindow: NSObject, MacOSScreenCaptureSource {
 
     public let windowID: CGWindowID
     public let frame: CGRect
@@ -605,7 +620,7 @@ public class MacOSWindow: NSObject, MacOSScreenShareSource {
 }
 
 @objc
-public class MacOSDisplay: NSObject, MacOSScreenShareSource {
+public class MacOSDisplay: NSObject, MacOSScreenCaptureSource {
 
     public let displayID: CGDirectDisplayID
     public let width: Int
@@ -644,10 +659,10 @@ public class MacOSDisplay: NSObject, MacOSScreenShareSource {
 
 extension MacOSScreenCapturer {
 
-    public static func sources(for type: MacOSScreenShareSourceType) -> Promise<[MacOSScreenShareSource]> {
+    public static func sources(for type: MacOSScreenShareSourceType) -> Promise<[MacOSScreenCaptureSource]> {
 
         if #available(macOS 12.3, *) {
-            return Promise<[MacOSScreenShareSource]> { fulfill, reject in
+            return Promise<[MacOSScreenCaptureSource]> { fulfill, reject in
                 Task {
                     do {
                         let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
