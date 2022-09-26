@@ -37,16 +37,24 @@ extension ScreenShareSource {
     public static let mainDisplay: ScreenShareSource = .display(id: CGMainDisplayID())
 }
 
-public enum MacOSScreenCaptureMethod {
+@objc
+public enum MacOSScreenCapturePreferredMethod: Int {
+    case auto
+    case screenCaptureKit
+    case legacy
+}
+
+@objc
+public enum MacOSScreenCaptureMethod: Int {
     case screenCaptureKit
     case legacy
 }
 
 extension MacOSScreenCapturer {
 
-    internal static func computeCaptureMethod(preferredMethod: MacOSScreenCaptureMethod?) -> MacOSScreenCaptureMethod {
+    internal static func computeCaptureMethod(preferredMethod: MacOSScreenCapturePreferredMethod) -> MacOSScreenCaptureMethod {
 
-        if let method = preferredMethod, case .legacy = method {
+        if case .legacy = preferredMethod {
             return .legacy
         }
 
@@ -123,7 +131,7 @@ public class MacOSScreenCapturer: VideoCapturer {
     init(delegate: RTCVideoCapturerDelegate,
          source: ScreenShareSource,
          options: ScreenShareCaptureOptions,
-         preferredMethod: MacOSScreenCaptureMethod? = nil) {
+         preferredMethod: MacOSScreenCapturePreferredMethod = .auto) {
 
         // compatibility
         self.captureSource = source.toScreenCaptureSource()
@@ -135,7 +143,7 @@ public class MacOSScreenCapturer: VideoCapturer {
     init(delegate: RTCVideoCapturerDelegate,
          captureSource: MacOSScreenCaptureSource,
          options: ScreenShareCaptureOptions,
-         preferredMethod: MacOSScreenCaptureMethod? = nil) {
+         preferredMethod: MacOSScreenCapturePreferredMethod = .auto) {
 
         self.captureSource = captureSource
         self.options = options
@@ -505,7 +513,8 @@ extension LocalVideoTrack {
     public static func createMacOSScreenShareTrack(name: String = Track.screenShareVideoName,
                                                    source: ScreenShareSource = .mainDisplay,
                                                    options: ScreenShareCaptureOptions = ScreenShareCaptureOptions(),
-                                                   preferredMethod: MacOSScreenCaptureMethod? = nil) -> LocalVideoTrack {
+                                                   preferredMethod: MacOSScreenCapturePreferredMethod = .auto) -> LocalVideoTrack {
+
         let videoSource = Engine.createVideoSource(forScreenShare: true)
         let capturer = MacOSScreenCapturer(delegate: videoSource, source: source, options: options, preferredMethod: preferredMethod)
         return LocalVideoTrack(
@@ -516,10 +525,12 @@ extension LocalVideoTrack {
         )
     }
 
+    @objc
     public static func createMacOSScreenShareTrack(name: String = Track.screenShareVideoName,
                                                    source: MacOSScreenCaptureSource,
                                                    options: ScreenShareCaptureOptions = ScreenShareCaptureOptions(),
-                                                   preferredMethod: MacOSScreenCaptureMethod? = nil) -> LocalVideoTrack {
+                                                   preferredMethod: MacOSScreenCapturePreferredMethod = .auto) -> LocalVideoTrack {
+
         let videoSource = Engine.createVideoSource(forScreenShare: true)
         let capturer = MacOSScreenCapturer(delegate: videoSource, captureSource: source, options: options, preferredMethod: preferredMethod)
         return LocalVideoTrack(
@@ -533,13 +544,15 @@ extension LocalVideoTrack {
 
 #endif
 
-public enum MacOSScreenShareSourceType {
+@objc
+public enum MacOSScreenShareSourceType: Int {
     case any
     case display
     case window
 }
 
-public protocol MacOSScreenCaptureSource {
+@objc
+public protocol MacOSScreenCaptureSource: AnyObject {
 
 }
 
@@ -674,7 +687,8 @@ public class MacOSDisplay: NSObject, MacOSScreenCaptureSource {
 extension MacOSWindow {
 
     /// Source is related to current running application
-    var isCurrentApplication: Bool {
+    @objc
+    public var isCurrentApplication: Bool {
         owningApplication?.bundleIdentifier == Bundle.main.bundleIdentifier
     }
 }
@@ -685,7 +699,7 @@ extension MacOSScreenCapturer {
 
     public static func sources(for type: MacOSScreenShareSourceType,
                                includeCurrentApplication: Bool = false,
-                               preferredMethod: MacOSScreenCaptureMethod? = nil) -> Promise<[MacOSScreenCaptureSource]> {
+                               preferredMethod: MacOSScreenCapturePreferredMethod = .auto) -> Promise<[MacOSScreenCaptureSource]> {
 
         return Promise<[MacOSScreenCaptureSource]> { fulfill, reject in
 
