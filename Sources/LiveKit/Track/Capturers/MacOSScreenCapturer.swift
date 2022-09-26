@@ -500,9 +500,10 @@ extension LocalVideoTrack {
     @available(*, deprecated, message: "Use new API with MacOSScreenShareSource")
     public static func createMacOSScreenShareTrack(name: String = Track.screenShareVideoName,
                                                    source: ScreenShareSource = .mainDisplay,
-                                                   options: ScreenShareCaptureOptions = ScreenShareCaptureOptions()) -> LocalVideoTrack {
+                                                   options: ScreenShareCaptureOptions = ScreenShareCaptureOptions(),
+                                                   preferredMethod: MacOSScreenCaptureMethod? = nil) -> LocalVideoTrack {
         let videoSource = Engine.createVideoSource(forScreenShare: true)
-        let capturer = MacOSScreenCapturer(delegate: videoSource, source: source, options: options)
+        let capturer = MacOSScreenCapturer(delegate: videoSource, source: source, options: options, preferredMethod: preferredMethod)
         return LocalVideoTrack(
             name: name,
             source: .screenShareVideo,
@@ -513,9 +514,10 @@ extension LocalVideoTrack {
 
     public static func createMacOSScreenShareTrack(name: String = Track.screenShareVideoName,
                                                    source: MacOSScreenCaptureSource,
-                                                   options: ScreenShareCaptureOptions = ScreenShareCaptureOptions()) -> LocalVideoTrack {
+                                                   options: ScreenShareCaptureOptions = ScreenShareCaptureOptions(),
+                                                   preferredMethod: MacOSScreenCaptureMethod? = nil) -> LocalVideoTrack {
         let videoSource = Engine.createVideoSource(forScreenShare: true)
-        let capturer = MacOSScreenCapturer(delegate: videoSource, captureSource: source, options: options, preferredMethod: .legacy)
+        let capturer = MacOSScreenCapturer(delegate: videoSource, captureSource: source, options: options, preferredMethod: preferredMethod)
         return LocalVideoTrack(
             name: name,
             source: .screenShareVideo,
