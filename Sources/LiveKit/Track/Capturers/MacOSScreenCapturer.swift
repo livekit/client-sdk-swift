@@ -541,8 +541,6 @@ extension LocalVideoTrack {
     }
 }
 
-#endif
-
 @objc
 public enum MacOSScreenShareSourceType: Int {
     case any
@@ -834,3 +832,5 @@ extension MacOSScreenCapturer {
             .map { $0.object(forKey: kCGWindowNumber) as? NSNumber }.compactMap { $0 }.map { $0.uint32Value }
     }
 }
+
+#endif

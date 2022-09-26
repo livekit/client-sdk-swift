@@ -145,6 +145,7 @@ extension CameraCapturer {
     }
 }
 
+#if os(macOS)
 extension MacOSScreenCapturer {
 
     // TODO: figure out how to return NSArray<MacOSScreenCaptureSource>
@@ -158,6 +159,7 @@ extension MacOSScreenCapturer {
                 preferredMethod: preferredMethod).asObjCPromise()
     }
 }
+#endif
 
 extension Track {
 
