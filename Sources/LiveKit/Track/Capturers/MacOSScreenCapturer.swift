@@ -37,7 +37,7 @@ extension ScreenShareSource {
     public static let mainDisplay: ScreenShareSource = .display(id: CGMainDisplayID())
 }
 
-enum MacOSScreenCaptureMethod {
+public enum MacOSScreenCaptureMethod {
     case screenCaptureKit
     case legacy
 }
@@ -189,7 +189,7 @@ public class MacOSScreenCapturer: VideoCapturer {
                 return Promise(false)
             }
 
-            if #available(macOS 12.3, *), case .screenCaptureKit = self.captureMethod, false {
+            if #available(macOS 12.3, *), case .screenCaptureKit = self.captureMethod {
 
                 guard let captureSource = self.captureSource else {
                     return Promise(false)
@@ -677,10 +677,13 @@ extension MacOSWindow {
 extension MacOSScreenCapturer {
 
     public static func sources(for type: MacOSScreenShareSourceType,
-                               includeCurrentApplication: Bool = false) -> Promise<[MacOSScreenCaptureSource]> {
+                               includeCurrentApplication: Bool = false,
+                               preferredMethod: MacOSScreenCaptureMethod? = nil) -> Promise<[MacOSScreenCaptureSource]> {
 
-        if #available(macOS 12.3, *), false {
-            return Promise<[MacOSScreenCaptureSource]> { fulfill, reject in
+        return Promise<[MacOSScreenCaptureSource]> { fulfill, reject in
+
+            if #available(macOS 12.3, *), case .screenCaptureKit = Self.computeCaptureMethod(preferredMethod: preferredMethod) {
+
                 Task {
                     do {
                         let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
@@ -709,11 +712,8 @@ extension MacOSScreenCapturer {
                         reject(error)
                     }
                 }
-            }
-        } else {
-            // TODO: fallback for earlier versions
-
-            return Promise<[MacOSScreenCaptureSource]> { fulfill, _ in
+            } else {
+                // TODO: fallback for earlier versions
 
                 let displays = displayIDs().map { MacOSDisplay(from: $0) }
                 let windows = windowIDs(includeCurrentProcess: includeCurrentApplication).map { MacOSWindow(from: $0) }
@@ -756,8 +756,6 @@ extension MacOSScreenCapturer {
 
     // gets a list of window IDs
     public static func windowIDs(includeCurrentProcess: Bool = false) -> [CGWindowID] {
-
-        let currentPID = ProcessInfo.processInfo.processIdentifier
 
         let list = CGWindowListCopyWindowInfo([.optionOnScreenOnly,
                                                .excludeDesktopElements ], kCGNullWindowID)! as Array
