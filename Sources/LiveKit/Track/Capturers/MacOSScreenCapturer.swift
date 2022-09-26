@@ -229,11 +229,10 @@ public class MacOSScreenCapturer: VideoCapturer {
                             configuration.height = CGDisplayPixelsHigh(mainDisplay) * 2
 
                             configuration.scalesToFit = false
-                            configuration.minimumFrameInterval = CMTime(value: 1, timescale: CMTimeScale(15))
+                            configuration.minimumFrameInterval = CMTime(value: 1, timescale: CMTimeScale(self.options.fps))
                             configuration.queueDepth = 5
                             configuration.pixelFormat = kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
-
-                            // configuration.showsCursor = true
+                            configuration.showsCursor = self.options.showCursor
 
                             let stream = SCStream(filter: filter, configuration: configuration, delegate: self)
                             try stream.addStreamOutput(self, type: .screen, sampleHandlerQueue: self.captureQueue)
