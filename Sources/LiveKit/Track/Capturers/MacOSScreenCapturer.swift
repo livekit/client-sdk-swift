@@ -471,10 +471,14 @@ extension MacOSScreenCapturer: SCStreamOutput {
         // let surface = unsafeBitCast(surfaceRef, to: IOSurface.self)
 
         // Retrieve the content rectangle, scale, and scale factor.
-        guard let contentRectDict = attachments[.contentRect],
-              let contentRect = CGRect(dictionaryRepresentation: contentRectDict as! CFDictionary),
-              let contentScale = attachments[.contentScale] as? CGFloat,
-              let scaleFactor = attachments[.scaleFactor] as? CGFloat else { return }
+
+        // let contentScale = attachments[.contentScale] as? CGFloat,
+        // let scaleFactor = attachments[.scaleFactor] as? CGFloat
+
+        guard let dict = attachments[.contentRect] as? NSDictionary,
+              let contentRect = CGRect(dictionaryRepresentation: dict) else {
+            return
+        }
 
         capture(sampleBuffer, cropRect: contentRect)
     }
@@ -539,6 +543,7 @@ public protocol MacOSScreenCaptureSource {
 
 }
 
+@available(*, deprecated, message: "Use MacOSScreenCaptureSource instead")
 extension ScreenShareSource {
 
     func toScreenCaptureSource() -> MacOSScreenCaptureSource {
@@ -717,8 +722,8 @@ extension MacOSScreenCapturer {
             } else {
                 // TODO: fallback for earlier versions
 
-                let displays = displayIDs().map { MacOSDisplay(from: $0) }
-                let windows = windowIDs(includeCurrentProcess: includeCurrentApplication).map { MacOSWindow(from: $0) }
+                let displays = _displayIDs().map { MacOSDisplay(from: $0) }
+                let windows = _windowIDs(includeCurrentProcess: includeCurrentApplication).map { MacOSWindow(from: $0) }
 
                 switch type {
                 case .any:
@@ -751,14 +756,41 @@ extension MacOSScreenCapturer {
 
 extension MacOSScreenCapturer {
 
+    @available(*, deprecated, message: "Use sources(for:) instead")
     public static func sources() -> [ScreenShareSource] {
         return [displayIDs().map { ScreenShareSource.display(id: $0) },
                 windowIDs().map { ScreenShareSource.window(id: $0) }].flatMap { $0 }
     }
 
-    // gets a list of window IDs
-    public static func windowIDs(includeCurrentProcess: Bool = false) -> [CGWindowID] {
+    @available(*, deprecated, message: "Use sources(for:) instead")
+    public static func displayIDs() -> [CGDirectDisplayID] {
+        _displayIDs()
+    }
 
+    @available(*, deprecated, message: "Use sources(for:) instead")
+    public static func windowIDs(includeCurrentProcess: Bool = false) -> [CGWindowID] {
+        _windowIDs(includeCurrentProcess: includeCurrentProcess)
+    }
+
+    internal static func _displayIDs() -> [CGDirectDisplayID] {
+
+        var displayCount: UInt32 = 0
+        var activeCount: UInt32 = 0
+
+        guard CGGetActiveDisplayList(0, nil, &displayCount) == .success else {
+            return []
+        }
+
+        var displayIDList = [CGDirectDisplayID](repeating: kCGNullDirectDisplay, count: Int(displayCount))
+        guard CGGetActiveDisplayList(displayCount, &(displayIDList), &activeCount) == .success else {
+            return []
+        }
+
+        return displayIDList
+    }
+
+    internal static func _windowIDs(includeCurrentProcess: Bool = false) -> [CGWindowID] {
+        //
         let list = CGWindowListCopyWindowInfo([.optionOnScreenOnly,
                                                .excludeDesktopElements ], kCGNullWindowID)! as Array
 
@@ -787,22 +819,5 @@ extension MacOSScreenCapturer {
                 return true
             }
             .map { $0.object(forKey: kCGWindowNumber) as? NSNumber }.compactMap { $0 }.map { $0.uint32Value }
-    }
-
-    // gets a list of display IDs
-    public static func displayIDs() -> [CGDirectDisplayID] {
-        var displayCount: UInt32 = 0
-        var activeCount: UInt32 = 0
-
-        guard CGGetActiveDisplayList(0, nil, &displayCount) == .success else {
-            return []
-        }
-
-        var displayIDList = [CGDirectDisplayID](repeating: kCGNullDirectDisplay, count: Int(displayCount))
-        guard CGGetActiveDisplayList(displayCount, &(displayIDList), &activeCount) == .success else {
-            return []
-        }
-
-        return displayIDList
     }
 }
