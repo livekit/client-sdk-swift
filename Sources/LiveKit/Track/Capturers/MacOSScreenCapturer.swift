@@ -76,16 +76,10 @@ public class MacOSScreenCapturer: VideoCapturer {
 
     // MARK: - Legacy support (Deprecated)
 
-    @available(*, deprecated, message: "Use new API with MacOSScreenShareSource")
-    public let source: ScreenShareSource?
-
     // used for display capture
     private lazy var session: AVCaptureSession = {
 
-        if #available(macOS 12.3, *) {
-            // this should never happen
-            fatalError("ScreenCaptureKit should be used for macOS 12.3+")
-        }
+        assert(.legacy == captureMethod, "Should be only executed for legacy mode")
 
         let session = AVCaptureSession()
         let output = AVCaptureVideoDataOutput()
@@ -102,10 +96,7 @@ public class MacOSScreenCapturer: VideoCapturer {
 
     private func startDispatchSourceTimer() {
 
-        if #available(macOS 12.3, *) {
-            // this should never happen
-            fatalError("ScreenCaptureKit should be used for macOS 12.3+")
-        }
+        assert(.legacy == captureMethod, "Should be only executed for legacy mode")
 
         stopDispatchSourceTimer()
         let timeInterval: TimeInterval = 1 / Double(options.fps)
@@ -116,10 +107,7 @@ public class MacOSScreenCapturer: VideoCapturer {
 
     private func stopDispatchSourceTimer() {
 
-        if #available(macOS 12.3, *) {
-            // this should never happen
-            fatalError("ScreenCaptureKit should be used for macOS 12.3+")
-        }
+        assert(.legacy == captureMethod, "Should be only executed for legacy mode")
 
         if let timer = dispatchSourceTimer {
             timer.suspend()
@@ -131,43 +119,42 @@ public class MacOSScreenCapturer: VideoCapturer {
     /// It is possible to modify the options but `restartCapture` must be called.
     public var options: ScreenShareCaptureOptions
 
+    @available(*, deprecated, message: "Use new API with MacOSScreenShareSource")
     init(delegate: RTCVideoCapturerDelegate,
          source: ScreenShareSource,
-         options: ScreenShareCaptureOptions) {
+         options: ScreenShareCaptureOptions,
+         preferredMethod: MacOSScreenCaptureMethod? = nil) {
 
-        self.source = source
-        self.captureSource = nil
+        // compatibility
+        self.captureSource = source.toScreenCaptureSource()
         self.options = options
-        self.captureMethod = Self.computeCaptureMethod(preferredMethod: nil)
+        self.captureMethod = Self.computeCaptureMethod(preferredMethod: preferredMethod)
         super.init(delegate: delegate)
     }
 
     init(delegate: RTCVideoCapturerDelegate,
          captureSource: MacOSScreenCaptureSource,
-         options: ScreenShareCaptureOptions) {
+         options: ScreenShareCaptureOptions,
+         preferredMethod: MacOSScreenCaptureMethod? = nil) {
 
-        self.source = nil
         self.captureSource = captureSource
         self.options = options
-        self.captureMethod = Self.computeCaptureMethod(preferredMethod: nil)
+        self.captureMethod = Self.computeCaptureMethod(preferredMethod: preferredMethod)
         super.init(delegate: delegate)
     }
 
     private func onDispatchSourceTimer() {
 
-        if #available(macOS 12.3, *) {
-            // this should never happen
-            fatalError("ScreenCaptureKit should be used for macOS 12.3+")
-        }
+        assert(.legacy == captureMethod, "Should be only executed for legacy mode")
 
         guard case .started = self.captureState,
-              case .window(id: let windowId) = source else { return }
+              let windowSource = captureSource as? MacOSWindow else { return }
 
         guard let image = CGWindowListCreateImage(CGRect.null,
                                                   .optionIncludingWindow,
-                                                  windowId, [.shouldBeOpaque,
-                                                             .bestResolution,
-                                                             .boundsIgnoreFraming]),
+                                                  windowSource.windowID, [.shouldBeOpaque,
+                                                                          .bestResolution,
+                                                                          .boundsIgnoreFraming]),
               let pixelBuffer = image.toPixelBuffer(pixelFormatType: kCVPixelFormatType_32ARGB) else { return }
 
         // TODO: Convert kCVPixelFormatType_32ARGB to kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
@@ -202,7 +189,7 @@ public class MacOSScreenCapturer: VideoCapturer {
                 return Promise(false)
             }
 
-            if #available(macOS 12.3, *), case .screenCaptureKit = self.captureMethod {
+            if #available(macOS 12.3, *), case .screenCaptureKit = self.captureMethod, false {
 
                 guard let captureSource = self.captureSource else {
                     return Promise(false)
@@ -261,7 +248,7 @@ public class MacOSScreenCapturer: VideoCapturer {
 
                 return Promise<Bool>(on: self.queue) { () -> Bool in
 
-                    if case .display(let displayID) = self.source {
+                    if let displaySource = self.captureSource as? MacOSDisplay {
 
                         // clear all previous inputs
                         for input in self.session.inputs {
@@ -269,9 +256,9 @@ public class MacOSScreenCapturer: VideoCapturer {
                         }
 
                         // try to create a display input
-                        guard let input = AVCaptureScreenInput(displayID: displayID) else {
+                        guard let input = AVCaptureScreenInput(displayID: displaySource.displayID) else {
                             // fail promise if displayID is invalid
-                            throw TrackError.state(message: "Failed to create screen input with displayID: \(displayID)")
+                            throw TrackError.state(message: "Failed to create screen input with source: \(displaySource)")
                         }
 
                         input.minFrameDuration = CMTimeMake(value: 1, timescale: Int32(self.options.fps))
@@ -281,7 +268,8 @@ public class MacOSScreenCapturer: VideoCapturer {
 
                         self.session.startRunning()
 
-                    } else if case .window = self.source {
+                    } else if self.captureSource is MacOSWindow {
+                        // window capture mode
                         self.startDispatchSourceTimer()
                     }
 
@@ -328,9 +316,9 @@ public class MacOSScreenCapturer: VideoCapturer {
 
                 return Promise<Bool>(on: self.queue) { () -> Bool in
                     //
-                    if case .display = self.source {
+                    if self.captureSource is MacOSDisplay {
                         self.session.stopRunning()
-                    } else if case .window = self.source {
+                    } else if self.captureSource is MacOSWindow {
                         self.stopDispatchSourceTimer()
                     }
 
@@ -475,13 +463,13 @@ extension MacOSScreenCapturer: SCStreamOutput {
             return
         }
 
-        //        // Get the pixel buffer that contains the image data.
-        //        guard let pixelBuffer = sampleBuffer.imageBuffer else { return }
-        //
-        //        // Get the backing IOSurface.
-        //        guard let surfaceRef = CVPixelBufferGetIOSurface(pixelBuffer)?.takeUnretainedValue() else { return }
-        //        let surface = unsafeBitCast(surfaceRef, to: IOSurface.self)
-        //
+        // Get the pixel buffer that contains the image data.
+        // guard let pixelBuffer = sampleBuffer.imageBuffer else { return }
+
+        // Get the backing IOSurface.
+        // guard let surfaceRef = CVPixelBufferGetIOSurface(pixelBuffer)?.takeUnretainedValue() else { return }
+        // let surface = unsafeBitCast(surfaceRef, to: IOSurface.self)
+
         // Retrieve the content rectangle, scale, and scale factor.
         guard let contentRectDict = attachments[.contentRect],
               let contentRect = CGRect(dictionaryRepresentation: contentRectDict as! CFDictionary),
@@ -500,17 +488,16 @@ extension MacOSScreenCapturer: AVCaptureVideoDataOutputSampleBufferDelegate {
                               didOutput sampleBuffer: CMSampleBuffer,
                               from connection: AVCaptureConnection) {
 
-        if #available(macOS 12.3, *) {
-            // this should never happen
-            fatalError("ScreenCaptureKit should be used for macOS 12.3+")
-        }
+        assert(.legacy == captureMethod, "Should be only executed for legacy mode")
 
         capture(sampleBuffer)
     }
 }
 
 extension LocalVideoTrack {
+
     /// Creates a track that captures the whole desktop screen
+    @available(*, deprecated, message: "Use new API with MacOSScreenShareSource")
     public static func createMacOSScreenShareTrack(name: String = Track.screenShareVideoName,
                                                    source: ScreenShareSource = .mainDisplay,
                                                    options: ScreenShareCaptureOptions = ScreenShareCaptureOptions()) -> LocalVideoTrack {
@@ -528,7 +515,7 @@ extension LocalVideoTrack {
                                                    source: MacOSScreenCaptureSource,
                                                    options: ScreenShareCaptureOptions = ScreenShareCaptureOptions()) -> LocalVideoTrack {
         let videoSource = Engine.createVideoSource(forScreenShare: true)
-        let capturer = MacOSScreenCapturer(delegate: videoSource, captureSource: source, options: options)
+        let capturer = MacOSScreenCapturer(delegate: videoSource, captureSource: source, options: options, preferredMethod: .legacy)
         return LocalVideoTrack(
             name: name,
             source: .screenShareVideo,
@@ -550,24 +537,24 @@ public protocol MacOSScreenCaptureSource {
 
 }
 
+extension ScreenShareSource {
+
+    func toScreenCaptureSource() -> MacOSScreenCaptureSource {
+        switch self {
+        case .window(let id): return MacOSWindow(from: id)
+        case .display(let id): return MacOSDisplay(from: id)
+        }
+    }
+}
+
 @objc
 public class MacOSRunningApplication: NSObject {
 
+    public let processID: pid_t
     public let bundleIdentifier: String
     public let applicationName: String
-    public let processID: pid_t
+
     public let nativeType: Any?
-
-    internal init(bundleIdentifier: String,
-                  applicationName: String,
-                  processID: pid_t,
-                  nativeType: Any?) {
-
-        self.bundleIdentifier = bundleIdentifier
-        self.applicationName = applicationName
-        self.processID = processID
-        self.nativeType = nativeType
-    }
 
     @available(macOS 12.3, *)
     internal init?(from scRunningApplication: SCRunningApplication?) {
@@ -576,6 +563,17 @@ public class MacOSRunningApplication: NSObject {
         self.applicationName = scRunningApplication.applicationName
         self.processID = scRunningApplication.processID
         self.nativeType = scRunningApplication
+    }
+
+    internal init?(from processID: pid_t?) {
+
+        guard let processID = processID,
+              let app = NSRunningApplication(processIdentifier: processID) else { return nil }
+
+        self.processID = processID
+        self.bundleIdentifier = app.bundleIdentifier ?? ""
+        self.applicationName = app.localizedName ?? ""
+        self.nativeType = nil
     }
 }
 
@@ -590,23 +588,6 @@ public class MacOSWindow: NSObject, MacOSScreenCaptureSource {
     public let isOnScreen: Bool
     public let nativeType: Any?
 
-    internal init(windowID: CGWindowID,
-                  frame: CGRect,
-                  title: String?,
-                  windowLayer: Int,
-                  owningApplication: MacOSRunningApplication?,
-                  isOnScreen: Bool,
-                  nativeType: Any?) {
-
-        self.windowID = windowID
-        self.frame = frame
-        self.title = title
-        self.windowLayer = windowLayer
-        self.owningApplication = owningApplication
-        self.isOnScreen = isOnScreen
-        self.nativeType = nativeType
-    }
-
     @available(macOS 12.3, *)
     internal init(from scWindow: SCWindow) {
         self.windowID = scWindow.windowID
@@ -616,6 +597,33 @@ public class MacOSWindow: NSObject, MacOSScreenCaptureSource {
         self.owningApplication = MacOSRunningApplication(from: scWindow.owningApplication)
         self.isOnScreen = scWindow.isOnScreen
         self.nativeType = scWindow
+    }
+
+    internal init(from windowID: CGWindowID) {
+        self.windowID = windowID
+
+        let list = CGWindowListCopyWindowInfo([.optionIncludingWindow], windowID)! as Array
+
+        guard let info = list.first as? NSDictionary else {
+            fatalError("Window information not available")
+        }
+
+        self.frame = {
+
+            guard let dict = info.object(forKey: kCGWindowBounds) as? NSDictionary,
+                  let frame = CGRect.init(dictionaryRepresentation: dict) else {
+                //
+                return CGRect()
+            }
+
+            return frame
+        }()
+
+        self.title = info.object(forKey: kCGWindowName) as? String
+        self.windowLayer = (info.object(forKey: kCGWindowLayer) as? NSNumber)?.intValue ?? 0
+        self.owningApplication = MacOSRunningApplication(from: (info.object(forKey: kCGWindowOwnerPID) as? NSNumber)?.int32Value as? pid_t)
+        self.isOnScreen = (info.object(forKey: kCGWindowIsOnscreen) as? NSNumber)?.boolValue ?? false
+        self.nativeType = nil
     }
 }
 
@@ -630,20 +638,6 @@ public class MacOSDisplay: NSObject, MacOSScreenCaptureSource {
     public let nativeType: Any?
     public let scContent: Any?
 
-    internal init(displayID: CGDirectDisplayID,
-                  width: Int,
-                  height: Int,
-                  frame: CGRect,
-                  nativeType: Any?) {
-
-        self.displayID = displayID
-        self.width = width
-        self.height = height
-        self.frame = frame
-        self.nativeType = nativeType
-        self.scContent = nil
-    }
-
     @available(macOS 12.3, *)
     internal init(from scDisplay: SCDisplay, content: SCShareableContent) {
         self.displayID = scDisplay.displayID
@@ -653,15 +647,39 @@ public class MacOSDisplay: NSObject, MacOSScreenCaptureSource {
         self.nativeType = scDisplay
         self.scContent = content
     }
+
+    // legacy
+    internal init(from displayID: CGDirectDisplayID) {
+        self.displayID = displayID
+        self.width = CGDisplayPixelsWide(displayID)
+        self.height = CGDisplayPixelsHigh(displayID)
+        self.frame = CGRect(x: 0,
+                            y: 0,
+                            width: width,
+                            height: height)
+        self.nativeType = nil
+        self.scContent = nil
+    }
+}
+
+// MARK: - Filter extension
+
+extension MacOSWindow {
+
+    /// Source is related to current running application
+    var isCurrentApplication: Bool {
+        owningApplication?.bundleIdentifier == Bundle.main.bundleIdentifier
+    }
 }
 
 // MARK: - Enumerate sources
 
 extension MacOSScreenCapturer {
 
-    public static func sources(for type: MacOSScreenShareSourceType) -> Promise<[MacOSScreenCaptureSource]> {
+    public static func sources(for type: MacOSScreenShareSourceType,
+                               includeCurrentApplication: Bool = false) -> Promise<[MacOSScreenCaptureSource]> {
 
-        if #available(macOS 12.3, *) {
+        if #available(macOS 12.3, *), false {
             return Promise<[MacOSScreenCaptureSource]> { fulfill, reject in
                 Task {
                     do {
@@ -669,9 +687,9 @@ extension MacOSScreenCapturer {
                         let displays = content.displays.map { MacOSDisplay(from: $0, content: content) }
                         let windows = content.windows
                             // remove windows from this app
-                            .filter { $0.owningApplication?.bundleIdentifier != Bundle.main.bundleIdentifier }
-                            // remove windows that don't have an associated .app bundle
-                            .filter { $0.owningApplication != nil && $0.owningApplication?.applicationName != "" }
+                            .filter { includeCurrentApplication || $0.owningApplication?.bundleIdentifier != Bundle.main.bundleIdentifier }
+                            // remove windows that don't have an associated bundleIdentifier
+                            .filter { $0.owningApplication?.bundleIdentifier != nil }
                             // remove windows that windowLayer isn't 0
                             .filter { $0.windowLayer == 0 }
                             // sort the windows by app name
@@ -694,7 +712,21 @@ extension MacOSScreenCapturer {
             }
         } else {
             // TODO: fallback for earlier versions
-            return Promise([])
+
+            return Promise<[MacOSScreenCaptureSource]> { fulfill, _ in
+
+                let displays = displayIDs().map { MacOSDisplay(from: $0) }
+                let windows = windowIDs(includeCurrentProcess: includeCurrentApplication).map { MacOSWindow(from: $0) }
+
+                switch type {
+                case .any:
+                    fulfill(displays + windows)
+                case .display:
+                    fulfill(displays)
+                case .window:
+                    fulfill(windows)
+                }
+            }
         }
     }
 
@@ -732,12 +764,24 @@ extension MacOSScreenCapturer {
 
         return list
             .filter {
+                // window layer needs to be 0
                 guard let windowLayer = $0.object(forKey: kCGWindowLayer) as? NSNumber,
-                      windowLayer.intValue == 0 else { return false }
+                      windowLayer.intValue == 0 else {
+                    return false
+                }
+
+                // remove windows that don't have an associated bundleIdentifier
+                guard let pid = ($0.object(forKey: kCGWindowOwnerPID) as? NSNumber)?.int32Value as? pid_t,
+                      let app = NSRunningApplication(processIdentifier: pid),
+                      app.bundleIdentifier != nil else {
+                    return false
+                }
 
                 if !includeCurrentProcess {
-                    guard let windowOwnerPid = $0.object(forKey: kCGWindowOwnerPID) as? NSNumber,
-                          windowOwnerPid.intValue != currentPID else { return false }
+                    // remove windows that are from current application
+                    guard app.bundleIdentifier != Bundle.main.bundleIdentifier else {
+                        return false
+                    }
                 }
 
                 return true
