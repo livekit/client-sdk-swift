@@ -1158,6 +1158,7 @@ struct Livekit_SyncState {
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
 
+  /// last subscribe answer before reconnecting
   var answer: Livekit_SessionDescription {
     get {return _answer ?? Livekit_SessionDescription()}
     set {_answer = newValue}
@@ -1180,12 +1181,23 @@ struct Livekit_SyncState {
 
   var dataChannels: [Livekit_DataChannelInfo] = []
 
+  /// last received server side offer before reconnecting
+  var offer: Livekit_SessionDescription {
+    get {return _offer ?? Livekit_SessionDescription()}
+    set {_offer = newValue}
+  }
+  /// Returns true if `offer` has been explicitly set.
+  var hasOffer: Bool {return self._offer != nil}
+  /// Clears the value of `offer`. Subsequent reads from it will return its default value.
+  mutating func clearOffer() {self._offer = nil}
+
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   init() {}
 
   fileprivate var _answer: Livekit_SessionDescription? = nil
   fileprivate var _subscription: Livekit_UpdateSubscription? = nil
+  fileprivate var _offer: Livekit_SessionDescription? = nil
 }
 
 struct Livekit_DataChannelInfo {
@@ -3175,6 +3187,7 @@ extension Livekit_SyncState: SwiftProtobuf.Message, SwiftProtobuf._MessageImplem
     2: .same(proto: "subscription"),
     3: .standard(proto: "publish_tracks"),
     4: .standard(proto: "data_channels"),
+    5: .same(proto: "offer"),
   ]
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -3187,6 +3200,7 @@ extension Livekit_SyncState: SwiftProtobuf.Message, SwiftProtobuf._MessageImplem
       case 2: try { try decoder.decodeSingularMessageField(value: &self._subscription) }()
       case 3: try { try decoder.decodeRepeatedMessageField(value: &self.publishTracks) }()
       case 4: try { try decoder.decodeRepeatedMessageField(value: &self.dataChannels) }()
+      case 5: try { try decoder.decodeSingularMessageField(value: &self._offer) }()
       default: break
       }
     }
@@ -3209,6 +3223,9 @@ extension Livekit_SyncState: SwiftProtobuf.Message, SwiftProtobuf._MessageImplem
     if !self.dataChannels.isEmpty {
       try visitor.visitRepeatedMessageField(value: self.dataChannels, fieldNumber: 4)
     }
+    try { if let v = self._offer {
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 5)
+    } }()
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -3217,6 +3234,7 @@ extension Livekit_SyncState: SwiftProtobuf.Message, SwiftProtobuf._MessageImplem
     if lhs._subscription != rhs._subscription {return false}
     if lhs.publishTracks != rhs.publishTracks {return false}
     if lhs.dataChannels != rhs.dataChannels {return false}
+    if lhs._offer != rhs._offer {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
