@@ -20,6 +20,18 @@ import Promises
 @objc
 class RemoteAudioTrack: Track, RemoteTrack, AudioTrack {
 
+    /// Volume with range 0.0 - 1.0
+    var volume: Double {
+        get {
+            guard let audioTrack = mediaTrack as? RTCAudioTrack else { return 0 }
+            return audioTrack.source.volume / 10
+        }
+        set {
+            guard let audioTrack = mediaTrack as? RTCAudioTrack else { return }
+            audioTrack.source.volume = newValue * 10
+        }
+    }
+
     init(name: String,
          source: Track.Source,
          track: RTCMediaStreamTrack) {
