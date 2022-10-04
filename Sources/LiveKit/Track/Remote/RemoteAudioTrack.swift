@@ -18,10 +18,10 @@ import WebRTC
 import Promises
 
 @objc
-class RemoteAudioTrack: Track, RemoteTrack, AudioTrack {
+public class RemoteAudioTrack: Track, RemoteTrack, AudioTrack {
 
     /// Volume with range 0.0 - 1.0
-    var volume: Double {
+    public var volume: Double {
         get {
             guard let audioTrack = mediaTrack as? RTCAudioTrack else { return 0 }
             return audioTrack.source.volume / 10
