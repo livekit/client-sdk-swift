@@ -151,6 +151,12 @@ public class MacOSScreenCapturer: VideoCapturer {
         super.init(delegate: delegate)
     }
 
+    deinit {
+
+        assert(dispatchSourceTimer == nil, "dispatchSourceTimer is not nil")
+        assert(frameResendTimer == nil, "frameResendTimer is not nil")
+    }
+
     private func onDispatchSourceTimer() {
 
         assert(.legacy == captureMethod, "Should be only executed for legacy mode")
