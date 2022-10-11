@@ -109,7 +109,7 @@ public class MacOSScreenCapturer: VideoCapturer {
         stopDispatchSourceTimer()
         let timeInterval: TimeInterval = 1 / Double(options.fps)
         dispatchSourceTimer = DispatchQueueTimer(timeInterval: timeInterval, queue: captureQueue)
-        dispatchSourceTimer?.handler = onDispatchSourceTimer
+        dispatchSourceTimer?.handler = { [weak self] in self?.onDispatchSourceTimer() }
         dispatchSourceTimer?.resume()
     }
 
@@ -307,14 +307,17 @@ public class MacOSScreenCapturer: VideoCapturer {
 
                     guard let self = self,
                           let stream = self._captureStream as? SCStream else {
-                        fullfil(true)
+                        assert(false, "SCStream is nil")
+                        fullfil(didStop)
                         return
                     }
 
                     Task {
                         do {
+                            print("stop re-send timer")
                             self.stopFrameResendTimer()
                             try await stream.stopCapture()
+                            try stream.removeStreamOutput(self, type: .screen)
                             self._captureStream = nil
                             fullfil(true)
                         } catch let error {
@@ -404,17 +407,19 @@ extension MacOSScreenCapturer {
     private func restartFrameResendTimer() {
 
         stopFrameResendTimer()
+
         let timeInterval: TimeInterval = 1 / Double(1 /* 1 fps */)
-        frameResendTimer = DispatchQueueTimer(timeInterval: timeInterval, queue: captureQueue)
-        frameResendTimer?.handler = onFrameResendTimer
-        frameResendTimer?.resume()
+        let timer = DispatchQueueTimer(timeInterval: timeInterval, queue: self.captureQueue)
+        timer.handler = { [weak self] in self?.onFrameResendTimer() }
+        timer.resume()
+        self.frameResendTimer = timer
     }
 
     private func stopFrameResendTimer() {
 
-        if let timer = frameResendTimer {
+        if let timer = self.frameResendTimer {
             timer.suspend()
-            frameResendTimer = nil
+            self.frameResendTimer = nil
         }
     }
 
@@ -423,7 +428,8 @@ extension MacOSScreenCapturer {
         // must be called on captureQueue
         dispatchPrecondition(condition: .onQueue(captureQueue))
 
-        print("\(type(of: self))#\(hash) should resend frame...")
+        // \(type(of: self))#\(hash)
+        log("resend should resend frame...")
 
         guard let delegate = delegate,
               let frame = lastFrame else { return }
