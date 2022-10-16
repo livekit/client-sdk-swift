@@ -75,7 +75,7 @@ public class MacOSScreenCapturer: VideoCapturer {
     public let captureSource: MacOSScreenCaptureSource?
 
     // SCStream
-    private var _captureStream: Any?
+    private var _scStream: Any?
 
     // cached frame for resending to maintain minimum of 1 fps
     private var lastFrame: RTCVideoFrame?
@@ -245,14 +245,12 @@ public class MacOSScreenCapturer: VideoCapturer {
                             configuration.pixelFormat = kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
                             configuration.showsCursor = self.options.showCursor
 
-                            let stream = SCStream(filter: filter, configuration: configuration, delegate: self)
+                            // Why does SCStream hold strong reference to delegate?
+                            let stream = SCStream(filter: filter, configuration: configuration, delegate: nil)
                             try stream.addStreamOutput(self, type: .screen, sampleHandlerQueue: self.captureQueue)
                             try await stream.startCapture()
-                            print("capture: started")
 
-                            self._captureStream = stream
-
-                            self.restartFrameResendTimer()
+                            self._scStream = stream
 
                             fulfill(true)
 
@@ -314,22 +312,27 @@ public class MacOSScreenCapturer: VideoCapturer {
 
                 if #available(macOS 12.3, *), case .screenCaptureKit = self.captureMethod {
 
-                    // stop resending paused frames
-                    self.stopFrameResendTimer()
-
-                    guard let stream = self._captureStream as? SCStream else {
+                    guard let stream = self._scStream as? SCStream else {
                         assert(false, "SCStream is nil")
                         return fulfill(true)
                     }
 
-                    Task {
-                        do {
-                            try await stream.stopCapture()
-                            try stream.removeStreamOutput(self, type: .screen)
-                            self._captureStream = nil
-                            fulfill(true)
-                        } catch let error {
-                            reject(error)
+                    self.captureQueue.async {
+                        // stop resending paused frames
+                        self.stopFrameResendTimer()
+
+                        self.queue.async {
+                            //
+                            Task {
+                                do {
+                                    try await stream.stopCapture()
+                                    try stream.removeStreamOutput(self, type: .screen)
+                                    self._scStream = nil
+                                    fulfill(true)
+                                } catch let error {
+                                    reject(error)
+                                }
+                            }
                         }
                     }
 
@@ -413,6 +416,8 @@ extension MacOSScreenCapturer {
 
     private func restartFrameResendTimer() {
 
+        dispatchPrecondition(condition: .onQueue(captureQueue))
+
         assert(.screenCaptureKit == captureMethod, "Should be only executed for .screenCaptureKit mode")
 
         stopFrameResendTimer()
@@ -429,6 +434,8 @@ extension MacOSScreenCapturer {
 
     private func stopFrameResendTimer() {
 
+        dispatchPrecondition(condition: .onQueue(captureQueue))
+
         assert(.screenCaptureKit == captureMethod, "Should be only executed for .screenCaptureKit mode")
 
         if let timer = frameResendTimer {
@@ -442,8 +449,6 @@ extension MacOSScreenCapturer {
 
         // must be called on captureQueue
         dispatchPrecondition(condition: .onQueue(captureQueue))
-
-        stopFrameResendTimer()
 
         // must be .started
         guard case .started = captureState else {
@@ -463,27 +468,29 @@ extension MacOSScreenCapturer {
 
         // feed frame to WebRTC
         delegate.capturer(capturer, didCapture: newFrame)
-
-        // restart resend timer
-        restartFrameResendTimer()
     }
 }
 
 // MARK: - SCStreamOutput
 
-@available(macOS 12.3, *)
-extension MacOSScreenCapturer: SCStreamDelegate {
-
-    public func stream(_ stream: SCStream, didStopWithError error: Error) {
-        print("capture: didStopWithError \(error)")
-        stopFrameResendTimer()
-    }
-}
+// @available(macOS 12.3, *)
+// extension MacOSScreenCapturer: SCStreamDelegate {
+//
+//    public func stream(_ stream: SCStream, didStopWithError error: Error) {
+//        print("capture: didStopWithError \(error)")
+//        stopFrameResendTimer()
+//    }
+// }
 
 @available(macOS 12.3, *)
 extension MacOSScreenCapturer: SCStreamOutput {
 
     public func stream(_ stream: SCStream, didOutputSampleBuffer sampleBuffer: CMSampleBuffer, of type: SCStreamOutputType) {
+
+        guard case .started = captureState else {
+            log("Skipping capture since captureState is not .started")
+            return
+        }
 
         guard let attachmentsArray = CMSampleBufferGetSampleAttachmentsArray(sampleBuffer,
                                                                              createIfNecessary: false) as? [[SCStreamFrameInfo: Any]],
@@ -539,6 +546,11 @@ extension MacOSScreenCapturer: AVCaptureVideoDataOutputSampleBufferDelegate {
                               from connection: AVCaptureConnection) {
 
         assert(.legacy == captureMethod, "Should be only executed for legacy mode")
+
+        guard case .started = captureState else {
+            log("Skipping capture since captureState is not .started")
+            return
+        }
 
         capture(sampleBuffer)
     }
