@@ -107,6 +107,7 @@ public class MacOSScreenCapturer: VideoCapturer {
         assert(.legacy == captureMethod, "Should be only executed for legacy mode")
 
         stopDispatchSourceTimer()
+
         let timeInterval: TimeInterval = 1 / Double(options.fps)
         dispatchSourceTimer = DispatchQueueTimer(timeInterval: timeInterval, queue: captureQueue)
         dispatchSourceTimer?.handler = { [weak self] in self?.onDispatchSourceTimer() }
@@ -117,10 +118,13 @@ public class MacOSScreenCapturer: VideoCapturer {
 
         assert(.legacy == captureMethod, "Should be only executed for legacy mode")
 
+        log()
+
         if let timer = dispatchSourceTimer {
             timer.suspend()
-            dispatchSourceTimer = nil
         }
+
+        dispatchSourceTimer = nil
     }
 
     /// The ``ScreenShareCaptureOptions`` used for this capturer.
@@ -152,7 +156,7 @@ public class MacOSScreenCapturer: VideoCapturer {
     }
 
     deinit {
-
+        log()
         assert(dispatchSourceTimer == nil, "dispatchSourceTimer is not nil")
         assert(frameResendTimer == nil, "frameResendTimer is not nil")
     }
@@ -196,20 +200,21 @@ public class MacOSScreenCapturer: VideoCapturer {
 
     public override func startCapture() -> Promise<Bool> {
 
-        super.startCapture().then(on: queue) { [weak self] didStart -> Promise<Bool> in
+        func createStartPromise(_ didStart: Bool) -> Promise<Bool> {
 
-            guard let self = self, didStart else {
+            guard didStart else {
                 // already started
                 return Promise(false)
             }
 
-            if #available(macOS 12.3, *), case .screenCaptureKit = self.captureMethod {
+            return Promise<Bool>(on: self.queue) { fulfill, reject in
 
-                guard let captureSource = self.captureSource else {
-                    return Promise(false)
-                }
+                if #available(macOS 12.3, *), case .screenCaptureKit = self.captureMethod {
 
-                return Promise<Bool>(on: self.queue) { success, failure in
+                    guard let captureSource = self.captureSource else {
+                        return fulfill(false)
+                    }
+
                     Task {
                         do {
                             let filter: SCContentFilter
@@ -246,22 +251,22 @@ public class MacOSScreenCapturer: VideoCapturer {
                             print("capture: started")
 
                             self._captureStream = stream
-                            success(true)
+
+                            self.restartFrameResendTimer()
+
+                            fulfill(true)
 
                         } catch let error {
                             print("capture: error: \(error)")
-                            failure(error)
+                            reject(error)
                         }
                     }
-                }
 
-            } else {
-
-                // legacy support
-
-                return Promise<Bool>(on: self.queue) { () -> Bool in
+                } else {
 
                     if let displaySource = self.captureSource as? MacOSDisplay {
+
+                        // legacy support
 
                         // clear all previous inputs
                         for input in self.session.inputs {
@@ -286,61 +291,67 @@ public class MacOSScreenCapturer: VideoCapturer {
                         self.startDispatchSourceTimer()
                     }
 
-                    return true
+                    return fulfill(true)
                 }
             }
+        }
+
+        return super.startCapture().then(on: queue) { didStart -> Promise<Bool> in
+            createStartPromise(didStart)
         }
     }
 
     public override func stopCapture() -> Promise<Bool> {
 
-        super.stopCapture().then(on: queue) { [weak self] didStop -> Promise<Bool> in
+        func createStopPromise(_ didStop: Bool) -> Promise<Bool> {
 
-            guard let self = self, didStop else {
+            guard didStop else {
                 // already stopped
                 return Promise(false)
             }
 
-            if #available(macOS 12.3, *), case .screenCaptureKit = self.captureMethod {
+            return Promise<Bool>(on: self.queue) { fulfill, reject in
 
-                return Promise<Bool>(on: self.queue) { [weak self] fullfil, reject in
+                if #available(macOS 12.3, *), case .screenCaptureKit = self.captureMethod {
 
-                    guard let self = self,
-                          let stream = self._captureStream as? SCStream else {
+                    // stop resending paused frames
+                    self.stopFrameResendTimer()
+
+                    guard let stream = self._captureStream as? SCStream else {
                         assert(false, "SCStream is nil")
-                        fullfil(didStop)
-                        return
+                        return fulfill(true)
                     }
 
                     Task {
                         do {
-                            print("stop re-send timer")
-                            self.stopFrameResendTimer()
                             try await stream.stopCapture()
                             try stream.removeStreamOutput(self, type: .screen)
                             self._captureStream = nil
-                            fullfil(true)
+                            fulfill(true)
                         } catch let error {
                             reject(error)
                         }
                     }
-                }
 
-            } else {
+                } else {
 
-                // legacy support
+                    self.stopDispatchSourceTimer()
 
-                return Promise<Bool>(on: self.queue) { () -> Bool in
-                    //
+                    // legacy support
+
                     if self.captureSource is MacOSDisplay {
                         self.session.stopRunning()
                     } else if self.captureSource is MacOSWindow {
                         self.stopDispatchSourceTimer()
                     }
 
-                    return true
+                    fulfill(true)
                 }
             }
+        }
+
+        return super.stopCapture().then(on: queue) { didStop -> Promise<Bool> in
+            createStopPromise(didStop)
         }
     }
 
@@ -349,9 +360,6 @@ public class MacOSScreenCapturer: VideoCapturer {
 
         // must be called on captureQueue
         dispatchPrecondition(condition: .onQueue(captureQueue))
-
-        //
-        stopFrameResendTimer()
 
         guard let delegate = delegate else { return }
 
@@ -396,7 +404,6 @@ public class MacOSScreenCapturer: VideoCapturer {
 
         // cache last frame
         lastFrame = rtcFrame
-        restartFrameResendTimer()
     }
 }
 
@@ -406,21 +413,29 @@ extension MacOSScreenCapturer {
 
     private func restartFrameResendTimer() {
 
+        assert(.screenCaptureKit == captureMethod, "Should be only executed for .screenCaptureKit mode")
+
         stopFrameResendTimer()
 
         let timeInterval: TimeInterval = 1 / Double(1 /* 1 fps */)
-        let timer = DispatchQueueTimer(timeInterval: timeInterval, queue: self.captureQueue)
-        timer.handler = { [weak self] in self?.onFrameResendTimer() }
-        timer.resume()
-        self.frameResendTimer = timer
+
+        frameResendTimer = {
+            let timer = DispatchQueueTimer(timeInterval: timeInterval, queue: self.captureQueue)
+            timer.handler = { [weak self] in self?.onFrameResendTimer() }
+            timer.resume()
+            return timer
+        }()
     }
 
     private func stopFrameResendTimer() {
 
-        if let timer = self.frameResendTimer {
+        assert(.screenCaptureKit == captureMethod, "Should be only executed for .screenCaptureKit mode")
+
+        if let timer = frameResendTimer {
             timer.suspend()
-            self.frameResendTimer = nil
         }
+
+        frameResendTimer = nil
     }
 
     private func onFrameResendTimer() {
@@ -428,8 +443,15 @@ extension MacOSScreenCapturer {
         // must be called on captureQueue
         dispatchPrecondition(condition: .onQueue(captureQueue))
 
-        // \(type(of: self))#\(hash)
-        log("resend should resend frame...")
+        stopFrameResendTimer()
+
+        // must be .started
+        guard case .started = captureState else {
+            log("captureState is not .started, resend timer should not trigger.", .warning)
+            return
+        }
+
+        log("#\(hash) resend should resend frame...")
 
         guard let delegate = delegate,
               let frame = lastFrame else { return }
@@ -441,6 +463,9 @@ extension MacOSScreenCapturer {
 
         // feed frame to WebRTC
         delegate.capturer(capturer, didCapture: newFrame)
+
+        // restart resend timer
+        restartFrameResendTimer()
     }
 }
 
@@ -500,6 +525,8 @@ extension MacOSScreenCapturer: SCStreamOutput {
         }
 
         capture(sampleBuffer, cropRect: contentRect)
+
+        restartFrameResendTimer()
     }
 }
 

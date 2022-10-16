@@ -93,7 +93,6 @@ public class VideoCapturer: NSObject, Loggable, VideoCapturerProtocol {
     }
 
     deinit {
-
         assert(captureState == .stopped, "captureState is not .stopped, capturer must be stopped before deinit.")
     }
 
