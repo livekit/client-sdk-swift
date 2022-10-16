@@ -104,6 +104,9 @@ public class MacOSScreenCapturer: VideoCapturer {
 
     private func startDispatchSourceTimer() {
 
+        // must be called on captureQueue
+        dispatchPrecondition(condition: .onQueue(captureQueue))
+
         assert(.legacy == captureMethod, "Should be only executed for legacy mode")
 
         stopDispatchSourceTimer()
@@ -115,6 +118,9 @@ public class MacOSScreenCapturer: VideoCapturer {
     }
 
     private func stopDispatchSourceTimer() {
+
+        // must be called on captureQueue
+        dispatchPrecondition(condition: .onQueue(captureQueue))
 
         assert(.legacy == captureMethod, "Should be only executed for legacy mode")
 
@@ -162,6 +168,9 @@ public class MacOSScreenCapturer: VideoCapturer {
     }
 
     private func onDispatchSourceTimer() {
+
+        // must be called on captureQueue
+        dispatchPrecondition(condition: .onQueue(captureQueue))
 
         assert(.legacy == captureMethod, "Should be only executed for legacy mode")
 
@@ -284,12 +293,19 @@ public class MacOSScreenCapturer: VideoCapturer {
 
                         self.session.startRunning()
 
-                    } else if self.captureSource is MacOSWindow {
-                        // window capture mode
-                        self.startDispatchSourceTimer()
-                    }
+                        fulfill(true)
 
-                    return fulfill(true)
+                    } else if self.captureSource is MacOSWindow {
+
+                        self.captureQueue.async {
+                            // window capture mode
+                            self.startDispatchSourceTimer()
+
+                            self.queue.async {
+                                fulfill(true)
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -338,17 +354,19 @@ public class MacOSScreenCapturer: VideoCapturer {
 
                 } else {
 
-                    self.stopDispatchSourceTimer()
-
                     // legacy support
 
                     if self.captureSource is MacOSDisplay {
                         self.session.stopRunning()
+                        fulfill(true)
                     } else if self.captureSource is MacOSWindow {
-                        self.stopDispatchSourceTimer()
+                        self.captureQueue.async {
+                            self.stopDispatchSourceTimer()
+                            self.queue.async {
+                                fulfill(true)
+                            }
+                        }
                     }
-
-                    fulfill(true)
                 }
             }
         }
