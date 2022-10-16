@@ -473,15 +473,6 @@ extension MacOSScreenCapturer {
 
 // MARK: - SCStreamOutput
 
-// @available(macOS 12.3, *)
-// extension MacOSScreenCapturer: SCStreamDelegate {
-//
-//    public func stream(_ stream: SCStream, didStopWithError error: Error) {
-//        print("capture: didStopWithError \(error)")
-//        stopFrameResendTimer()
-//    }
-// }
-
 @available(macOS 12.3, *)
 extension MacOSScreenCapturer: SCStreamOutput {
 
