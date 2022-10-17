@@ -64,8 +64,7 @@ public class VideoView: NativeView, Loggable {
         set { _state.mutate { $0.mirrorMode = newValue } }
     }
 
-    /// Force video to be rotated to preferred ``VideoRotation``
-    /// Currently, only for iOS.
+    /// Force video to be rotated to preferred ``VideoRotation``.
     public var rotationOverride: VideoRotation? {
         get { _state.rotationOverride }
         set { _state.mutate { $0.rotationOverride = newValue } }
@@ -381,7 +380,6 @@ public class VideoView: NativeView, Loggable {
 
         nativeRenderer.frame = rendererFrame
 
-        #if os(iOS)
         if let mtlVideoView = nativeRenderer as? RTCMTLVideoView {
             if let rotationOverride = state.rotationOverride {
                 mtlVideoView.rotationOverride = NSNumber(value: rotationOverride.rawValue)
@@ -389,7 +387,6 @@ public class VideoView: NativeView, Loggable {
                 mtlVideoView.rotationOverride = nil
             }
         }
-        #endif
 
         if shouldMirror() {
             #if os(macOS)
@@ -509,11 +506,7 @@ extension VideoView: VideoRenderer {
 
         if let frame = frame {
 
-            #if os(iOS)
             let rotation = state.rotationOverride ?? frame.rotation
-            #elseif os(macOS)
-            let rotation = frame.rotation
-            #endif
 
             let dimensions = Dimensions(width: frame.width,
                                         height: frame.height)
