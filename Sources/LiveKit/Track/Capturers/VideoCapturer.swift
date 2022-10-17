@@ -92,6 +92,10 @@ public class VideoCapturer: NSObject, Loggable, VideoCapturerProtocol {
         self.delegate = delegate
     }
 
+    deinit {
+        assert(captureState == .stopped, "captureState is not .stopped, capturer must be stopped before deinit.")
+    }
+
     // returns true if state updated
     public func startCapture() -> Promise<Bool> {
 
