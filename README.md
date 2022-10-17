@@ -1,22 +1,24 @@
-# iOS/macOS Swift SDK for LiveKit
+# Swift Multiplatform (iOS and macOS) SDK for LiveKit
 
-Official Client SDK for [LiveKit](https://github.com/livekit/livekit-server).
-Easily add video & audio capabilities to your iOS/macOS apps.
+This is the official LiveKit Swift client SDK. 
 
-## Docs & Example app
+Together with LiveKit [server](https://github.com/livekit/livekit-server), you can easily add real-time video/audio/data capabilities to your iOS or macOS apps.
 
-Docs and guides are at [https://docs.livekit.io](https://docs.livekit.io).
+<insert gif/image here />
 
-There is full source code of a [iOS/macOS Swift UI Example App](https://github.com/livekit/client-example-swift).
-
-For minimal examples view this repo 👉 [Swift SDK Examples](https://github.com/livekit/client-example-collection-swift)
+## Features
 
 ## Installation
 
-LiveKit for Swift is available as a Swift Package.
+### Requirements
 
-### Package.swift
+### Swift Package Manager
 
+#### XCode
+Go to Project Settings -> Swift Packages.
+Add a new package and enter: `https://github.com/livekit/client-sdk-swift`
+
+#### Package.swift
 Add the dependency and also to your target
 
 ```swift title="Package.swift"
@@ -34,16 +36,11 @@ let package = Package(
 }
 ```
 
-### XCode
+## Quickstart
 
-Go to Project Settings -> Swift Packages.
+### Something Simple with SwiftUI
 
-Add a new package and enter: `https://github.com/livekit/client-sdk-swift`
-
-## iOS Usage
-
-LiveKit provides an UIKit based `VideoView` class that renders video tracks. Subscribed audio tracks are automatically played.
-
+### Something Simple with UIKit
 ```swift
 import LiveKit
 import UIKit
@@ -107,90 +104,22 @@ extension RoomViewController: RoomDelegate {
 }
 ```
 
-### Screen Sharing
+### Something More Advanced
 
-See [iOS Screen Sharing instructions](https://github.com/livekit/client-sdk-swift/wiki/iOS-Screen-Sharing).
+## Documentation
 
-# Thread safety
+LiveKit docs, guides and sample apps are available at [https://docs.livekit.io](https://docs.livekit.io). We also have minimal examples to get you started with Swift, UIKit, or Objective-C here 👉 [Starter Kits](https://github.com/livekit/client-example-collection-swift).
 
-Since `VideoView` is a UI component, all operations (read/write properties etc) must be performed from the `main` thread.
+### Sample Apps
 
-Other core classes can be accessed from any thread.
+- A Zoom-style meeting client for iOS and macOS: [Meet for iOS/macOS](https://github.com/livekit/client-example-swift).
 
-Delegates will be called on the SDK's internal thread.
-Make sure any access to the UI is within the main thread, for example by using `DispatchQueue.main.async`.
+## Community and Support
+There are a few places to keep up with LiveKit updates and get help or advice on issues:
 
-# Memory management
+- [Join the LiveKit Slack](https://livekit.io/join-slack), where community members and the LiveKit core team hang out every day.
+- [Follow @livekitted](https://twitter.com/livekitted) on Twitter
+- Read and sub to the [LiveKit Blog](https://blog.livekit.io)
 
-It is recommended to use **weak var** when storing references to objects created and managed by the SDK, such as `Participant`, `TrackPublication` etc. These objects are invalid when the `Room` disconnects, and will be released by the SDK. Holding strong reference to these objects will prevent releasing `Room` and other internal objects.
-
-`VideoView.track` property does not hold strong reference, so it's not required to set it to `nil`.
-
-# iOS Simulator limitations
-
-- Currently, `VideoView` will use OpenGL for iOS Simulator.
-- Publishing the camera track is not supported by iOS Simulator.
-
-# ScrollView performance
-
-It is recommended to turn off rendering of `VideoView`s that scroll off the screen and isn't visible by setting `false` to `isEnabled` property and `true` when it will re-appear to save CPU resources.
-
-`UICollectionViewDelegate`'s `willDisplay` / `didEndDisplaying` has been reported to be unreliable for this purpose. Specifically, in some iOS versions `didEndDisplaying` could get invoked even when the cell is visible.
-
-The following is an alternative method to using `willDisplay` / `didEndDisplaying` :
-```swift
-// 1. define a weak-reference set for all cells
-private var allCells = NSHashTable<ParticipantCell>.weakObjects()
-```
-
-```swift
-// in UICollectionViewDataSource...
-public func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
-
-    let cell = collectionView.dequeueReusableCell(withReuseIdentifier: ParticipantCell.reuseIdentifier, for: indexPath)
-
-    if let cell = cell as? ParticipantCell {
-        // 2. keep weak reference to the cell
-        allCells.add(cell)
-
-        // configure cell etc...
-    }
-
-    return cell
-}
-```
-
-```swift
-// 3. define a func to re-compute and update isEnabled property for cells that visibility changed
-func reComputeVideoViewEnabled() {
-
-    let visibleCells = collectionView.visibleCells.compactMap { $0 as? ParticipantCell }
-    let offScreenCells = allCells.allObjects.filter { !visibleCells.contains($0) }
-
-    for cell in visibleCells.filter({ !$0.videoView.isEnabled }) {
-        print("enabling cell#\(cell.hashValue)")
-        cell.videoView.isEnabled = true
-    }
-
-    for cell in offScreenCells.filter({ $0.videoView.isEnabled }) {
-        print("disabling cell#\(cell.hashValue)")
-        cell.videoView.isEnabled = false
-    }
-}
-```
-
-```swift
-// 4. set a timer to invoke the func
-self.timer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true, block: { [weak self] _ in
-    self?.reComputeVideoViewEnabled()
-})
-
-// alternatively, you can call `reComputeVideoViewEnabled` whenever cell visibility changes (such as scrollViewDidScroll(_:)),
-// but this will be harder to track all cases such as cell reload etc.
-```
-
-For the full example, see 👉 [UIKit Minimal Example](https://github.com/livekit/client-example-collection-swift/tree/main/uikit-minimal)
-
-# Getting help / Contributing
-
-Please join us on [Slack](https://join.slack.com/t/livekit-users/shared_invite/zt-rrdy5abr-5pZ1wW8pXEkiQxBzFiXPUg) to get help from our [devs](https://github.com/orgs/livekit/teams/devs/members) / community members. We welcome your contributions(PRs) and details can be discussed there.
+## Contributing
+We welcome your contributions toward improving LiveKit! Please join us on Slack to discuss your ideas and/or PRs.
