@@ -150,6 +150,10 @@ public class VideoView: NativeView, Loggable {
     // used for stats timer
     private lazy var _renderTimer = DispatchQueueTimer(timeInterval: 0.1)
 
+    private let _fpsTimer = DispatchQueueTimer(timeInterval: 1, queue: .main)
+    private var _currentFPS: Int = 0
+    private var _frameCount: Int = 0
+
     public override init(frame: CGRect = .zero) {
 
         // should always be on main thread
@@ -272,6 +276,15 @@ public class VideoView: NativeView, Loggable {
                     self.setNeedsLayout()
                 }
             }
+
+            if state.debugMode != oldState.debugMode {
+                // fps timer
+                if state.debugMode {
+                    self._fpsTimer.restart()
+                } else {
+                    self._fpsTimer.suspend()
+                }
+            }
         }
 
         _renderTimer.handler = { [weak self] in
@@ -284,6 +297,16 @@ public class VideoView: NativeView, Loggable {
                     self._state.mutate { $0.isRendering = false }
                 }
             }
+        }
+
+        _fpsTimer.handler = { [weak self] in
+
+            guard let self = self else { return }
+
+            self._currentFPS = self._frameCount
+            self._frameCount = 0
+
+            self.setNeedsLayout()
         }
     }
 
@@ -322,7 +345,7 @@ public class VideoView: NativeView, Loggable {
             let _isRendering = state.isRendering ? "true" : "false"
             let _viewCount = state.track?.videoRenderers.allObjects.count ?? 0
             let debugView = ensureDebugTextView()
-            debugView.text = "#\(hashValue)\n" + "\(_trackSid)\n" + "\(_dimensions.width)x\(_dimensions.height)\n" + "enabled: \(isEnabled)\n" + "firstFrame: \(_didRenderFirstFrame)\n" + "isRendering: \(_isRendering)\n" + "viewCount: \(_viewCount)\n"
+            debugView.text = "#\(hashValue)\n" + "\(_trackSid)\n" + "\(_dimensions.width)x\(_dimensions.height)\n" + "enabled: \(isEnabled)\n" + "firstFrame: \(_didRenderFirstFrame)\n" + "isRendering: \(_isRendering)\n" + "viewCount: \(_viewCount)\n" + "FPS: \(_currentFPS)\n"
             debugView.frame = bounds
             #if os(iOS)
             debugView.layer.borderColor = (state.shouldRender ? UIColor.green : UIColor.red).withAlphaComponent(0.5).cgColor
@@ -537,6 +560,12 @@ extension VideoView: VideoRenderer {
             $0.didRenderFirstFrame = true
             $0.isRendering = true
             $0.renderDate = Date()
+        }
+
+        if _state.debugMode {
+            DispatchQueue.main.async {
+                self._frameCount += 1
+            }
         }
     }
 }
