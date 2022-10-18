@@ -191,6 +191,13 @@ self.timer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true, block: {
 
 For the full example, see 👉 [UIKit Minimal Example](https://github.com/livekit/client-example-collection-swift/tree/main/uikit-minimal)
 
+# Frequently asked questions
+
+### Mic privacy indicator (orange dot) remains on even after muting audio track
+
+You will need to un-publish the LocalAudioTrack for the indicator to turn off.
+More discussion here https://github.com/livekit/client-sdk-swift/issues/140
+
 # Getting help / Contributing
 
 Please join us on [Slack](https://join.slack.com/t/livekit-users/shared_invite/zt-rrdy5abr-5pZ1wW8pXEkiQxBzFiXPUg) to get help from our [devs](https://github.com/orgs/livekit/teams/devs/members) / community members. We welcome your contributions(PRs) and details can be discussed there.
