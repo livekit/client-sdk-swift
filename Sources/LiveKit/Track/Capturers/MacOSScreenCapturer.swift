@@ -752,6 +752,19 @@ extension MacOSWindow {
 
 extension MacOSScreenCapturer {
 
+    /// Convenience method to get a ``MacOSDisplay`` of the main display.
+    public static func mainDisplaySource() -> Promise<MacOSDisplay> {
+        sources(for: .display).then { sources in
+
+            guard let source = sources.compactMap({ $0 as? MacOSDisplay }).first(where: { $0.displayID == CGMainDisplayID() }) else {
+                throw TrackError.state(message: "Main display source not found")
+            }
+
+            return source
+        }
+    }
+
+    /// Enumerate ``MacOSDisplay`` or ``MacOSWindow`` sources.
     public static func sources(for type: MacOSScreenShareSourceType,
                                includeCurrentApplication: Bool = false,
                                preferredMethod: MacOSScreenCapturePreferredMethod = .auto) -> Promise<[MacOSScreenCaptureSource]> {
