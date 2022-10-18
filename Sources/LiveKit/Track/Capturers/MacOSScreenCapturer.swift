@@ -264,7 +264,7 @@ public class MacOSScreenCapturer: VideoCapturer {
                             fulfill(true)
 
                         } catch let error {
-                            print("capture: error: \(error)")
+                            self.log("capture: error: \(error)", .error)
                             reject(error)
                         }
                     }
@@ -474,7 +474,7 @@ extension MacOSScreenCapturer {
             return
         }
 
-        log("#\(hash) resend should resend frame...")
+        log("no movement detected, resending frame...")
 
         guard let delegate = delegate,
               let frame = lastFrame else { return }
@@ -510,8 +510,6 @@ extension MacOSScreenCapturer: SCStreamOutput {
               let status = SCFrameStatus(rawValue: statusRawValue) else {
             return
         }
-
-        print("frame status: \(status)")
 
         /// @constant SCFrameStatusComplete new frame was generated.
         /// @constant SCFrameStatusIdle new frame was not generated because the display did not change.
