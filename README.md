@@ -198,6 +198,11 @@ For the full example, see 👉 [UIKit Minimal Example](https://github.com/liveki
 You will need to un-publish the LocalAudioTrack for the indicator to turn off.
 More discussion here https://github.com/livekit/client-sdk-swift/issues/140
 
+### How to publish camera in 60 FPS ?
+
+* Create a `LocalVideoTrack` by calling `LocalVideoTrack.createCameraTrack(options: CameraCaptureOptions(fps: 60))`.
+* Publish with `LocalParticipant.publishVideoTrack(track: track, publishOptions: VideoPublishOptions(encoding: VideoEncoding(maxFps: 60)))`. 
+
 # Getting help / Contributing
 
 Please join us on [Slack](https://join.slack.com/t/livekit-users/shared_invite/zt-rrdy5abr-5pZ1wW8pXEkiQxBzFiXPUg) to get help from our [devs](https://github.com/orgs/livekit/teams/devs/members) / community members. We welcome your contributions(PRs) and details can be discussed there.
