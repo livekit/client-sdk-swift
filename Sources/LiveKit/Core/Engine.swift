@@ -773,7 +773,6 @@ extension Engine: ConnectivityListenerDelegate {
 
 // MARK: Engine - Factory methods
 
-#if os(macOS)
 private let h264BaselineLevel5: RTCVideoCodecInfo = {
 
     // this should never happen
@@ -788,20 +787,14 @@ private let h264BaselineLevel5: RTCVideoCodecInfo = {
                                           "level-asymmetry-allowed": "1",
                                           "packetization-mode": "1"])
 }()
-#endif
 
 private extension Array where Element: RTCVideoCodecInfo {
 
     func rewriteCodecsIfNeeded() -> [RTCVideoCodecInfo] {
-        #if os(macOS)
-        // rewrite H264's profileLevelId to 42e032 only for macOS
+        // rewrite H264's profileLevelId to 42e032
         let codecs = map { $0.name == kRTCVideoCodecH264Name ? h264BaselineLevel5 : $0 }
         logger.log("supportedCodecs: \(codecs.map({ "\($0.name) - \($0.parameters)" }).joined(separator: ", "))", type: Engine.self)
         return codecs
-        #else
-        // no-op
-        return self
-        #endif
     }
 }
 
