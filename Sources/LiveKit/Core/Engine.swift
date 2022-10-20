@@ -501,6 +501,55 @@ internal extension Engine {
             .compactMap { $0 }
             .map { $0.toLKInfoType() }
     }
+
+    func sendSyncState() -> Promise<Void> {
+
+        guard let room = room else {
+            // this should never happen
+            log("Room is nil", .error)
+            return Promise(())
+        }
+
+        guard let subscriber = subscriber,
+              let localDescription = subscriber.localDescription else {
+            // No-op
+            return Promise(())
+        }
+
+        let previousAnswer = subscriber.localDescription
+        let previousOffer = subscriber.remoteDescription
+        
+        // 1. autosubscribe on, so subscribed tracks = all tracks - unsub tracks,
+        //    in this case, we send unsub tracks, so server add all tracks to this
+        //    subscribe pc and unsub special tracks from it.
+        // 2. autosubscribe off, we send subscribed tracks.
+        
+        let autoSubscribe = _state.connectOptions.autoSubscribe
+        let trackSids = room._state.remoteParticipants.values.map { participant in
+            Livekit_ParticipantTracks.with {
+                $0.participantSid = participant.sid
+                $0.trackSids = participant._state.tracks.values
+                    .filter { $0.subscribed != autoSubscribe }
+                    .map { $0.sid }
+            }
+        }
+
+        // Backward compatibility
+        let trackSids = trackSids.map { $0.trackSids }.flatMap { $0 }
+
+        log("trackSids: \(trackSids)")
+
+        let subscription = Livekit_UpdateSubscription.with {
+            $0.trackSids = trackSids // Deprecated
+            $0.participantTracks = []
+            $0.subscribe = !autoSubscribe
+        }
+
+        return signalClient.sendSyncState(answer: localDescription.toPBType(),
+                                          subscription: subscription,
+                                          publishTracks: room._state.localParticipant?.publishedTracksInfo(),
+                                          dataChannels: dataChannelInfo())
+    }
 }
 
 // MARK: - SignalClientDelegate
