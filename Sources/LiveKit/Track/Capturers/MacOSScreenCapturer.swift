@@ -221,7 +221,8 @@ public class MacOSScreenCapturer: VideoCapturer {
                 if #available(macOS 12.3, *), case .screenCaptureKit = self.captureMethod {
 
                     guard let captureSource = self.captureSource else {
-                        return fulfill(false)
+                        fulfill(false)
+                        return
                     }
 
                     Task {
@@ -238,7 +239,8 @@ public class MacOSScreenCapturer: VideoCapturer {
                                 }
                                 filter = SCContentFilter(display: nativeDisplay, excludingApplications: excludedApps, exceptingWindows: [])
                             } else {
-                                fatalError()
+                                reject(TrackError.capturer(message: "Unable to resolve SCContentFilter"))
+                                return
                             }
 
                             let configuration = SCStreamConfiguration()
@@ -283,7 +285,7 @@ public class MacOSScreenCapturer: VideoCapturer {
                         // try to create a display input
                         guard let input = AVCaptureScreenInput(displayID: displaySource.displayID) else {
                             // fail promise if displayID is invalid
-                            throw TrackError.state(message: "Failed to create screen input with source: \(displaySource)")
+                            throw TrackError.capturer(message: "Failed to create screen input with source: \(displaySource)")
                         }
 
                         input.minFrameDuration = CMTimeMake(value: 1, timescale: Int32(self.options.fps))
@@ -330,7 +332,8 @@ public class MacOSScreenCapturer: VideoCapturer {
 
                     guard let stream = self._scStream as? SCStream else {
                         assert(false, "SCStream is nil")
-                        return fulfill(true)
+                        fulfill(true)
+                        return
                     }
 
                     self.captureQueue.async {
@@ -757,7 +760,7 @@ extension MacOSScreenCapturer {
         sources(for: .display).then { sources in
 
             guard let source = sources.compactMap({ $0 as? MacOSDisplay }).first(where: { $0.displayID == CGMainDisplayID() }) else {
-                throw TrackError.state(message: "Main display source not found")
+                throw TrackError.capturer(message: "Main display source not found")
             }
 
             return source
