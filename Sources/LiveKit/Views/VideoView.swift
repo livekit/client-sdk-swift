@@ -663,6 +663,10 @@ extension VideoView {
             #elseif os(macOS)
             metal.layerContentsPlacement = .scaleProportionallyToFit
             #endif
+            // ensure it's capable of rendering 60fps
+            // https://developer.apple.com/documentation/metalkit/mtkview/1536027-preferredframespersecond
+            logger.log("preferredFramesPerSecond = 60", type: VideoView.self)
+            metal.preferredFramesPerSecond = 60
         }
 
         return result
