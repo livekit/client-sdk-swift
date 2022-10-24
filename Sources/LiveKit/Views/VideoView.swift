@@ -639,21 +639,13 @@ extension VideoView {
         eaglView.contentMode = .scaleAspectFit
         result = eaglView
         #else
-        #if os(iOS)
-        // iOS --------------------
-        logger.log("Using RTCMTLVideoView for VideoView's Renderer", type: VideoView.self)
         let mtlView = RTCMTLVideoView()
-        // use .fit here to match macOS behavior and
-        // manually calculate .fill if necessary
+        logger.log("Using RTCMTLVideoView for VideoView's Renderer", type: VideoView.self)
+        #if os(iOS)
         mtlView.contentMode = .scaleAspectFit
         mtlView.videoContentMode = .scaleAspectFit
-        result = mtlView
-        #else
-        // macOS --------------------
-        logger.log("Using RTCMTLNSVideoView for VideoView's Renderer", type: VideoView.self)
-        let mtlView = RTCMTLNSVideoView()
-        result = mtlView
         #endif
+        result = mtlView
         #endif
 
         // extra checks for MTKView
@@ -663,6 +655,10 @@ extension VideoView {
             #elseif os(macOS)
             metal.layerContentsPlacement = .scaleProportionallyToFit
             #endif
+            // ensure it's capable of rendering 60fps
+            // https://developer.apple.com/documentation/metalkit/mtkview/1536027-preferredframespersecond
+            logger.log("preferredFramesPerSecond = 60", type: VideoView.self)
+            metal.preferredFramesPerSecond = 60
         }
 
         return result
