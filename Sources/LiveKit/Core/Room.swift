@@ -304,6 +304,18 @@ extension Room {
     public func sendSimulate(scenario: SimulateScenario) -> Promise<Void> {
         engine.signalClient.sendSimulate(scenario: scenario)
     }
+    
+    public func waitForPrimaryTransportConnect() -> Promise<Void> {
+        engine._state.mutate {
+            $0.primaryTransportConnectedCompleter.wait(on: queue, .defaultTransportState, throw: { TransportError.timedOut(message: "primary transport didn't connect") })
+        }
+    }
+    
+    public func waitForPublisherTransportConnect() -> Promise<Void> {
+        engine._state.mutate {
+            $0.publisherTransportConnectedCompleter.wait(on: queue, .defaultTransportState, throw: { TransportError.timedOut(message: "publisher transport didn't connect") })
+        }
+    }
 }
 
 // MARK: - Session Migration
