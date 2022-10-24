@@ -569,10 +569,6 @@ extension Room: EngineDelegate {
             // only if quick-reconnect
             if case .connected = state.connectionState, case .quick = state.reconnectMode {
 
-                engine.sendSyncState().catch(on: queue) { error in
-                    self.log("Failed to sendSyncState, error: \(error)", .error)
-                }
-
                 resetTrackSettings()
             }
 
