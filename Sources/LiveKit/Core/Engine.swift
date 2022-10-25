@@ -399,6 +399,9 @@ private extension Engine {
                                                 self._state.mutate { $0.primaryTransportConnectedCompleter.wait(on: self.queue,
                                                                                                                 .defaultTransportState,
                                                                                                                 throw: { TransportError.timedOut(message: "primary transport didn't connect") }) }
+                                             }.then(on: queue) {
+                                                // send SyncState before offer
+                                                self.sendSyncState()
                                              }.then(on: queue) { () -> Promise<Void> in
 
                                                 self.subscriber?.restartingIce = true
@@ -500,6 +503,49 @@ internal extension Engine {
         [publisherDataChannel(for: .lossy), publisherDataChannel(for: .reliable)]
             .compactMap { $0 }
             .map { $0.toLKInfoType() }
+    }
+
+    func sendSyncState() -> Promise<Void> {
+
+        guard let room = room else {
+            // this should never happen
+            log("Room is nil", .error)
+            return Promise(())
+        }
+
+        guard let subscriber = subscriber,
+              let previousAnswer = subscriber.localDescription else {
+            // No-op
+            return Promise(())
+        }
+
+        let previousOffer = subscriber.remoteDescription
+
+        // 1. autosubscribe on, so subscribed tracks = all tracks - unsub tracks,
+        //    in this case, we send unsub tracks, so server add all tracks to this
+        //    subscribe pc and unsub special tracks from it.
+        // 2. autosubscribe off, we send subscribed tracks.
+
+        let autoSubscribe = _state.connectOptions.autoSubscribe
+        let trackSids = room._state.remoteParticipants.values.flatMap { participant in
+            participant._state.tracks.values
+                .filter { $0.subscribed != autoSubscribe }
+                .map { $0.sid }
+        }
+
+        log("trackSids: \(trackSids)")
+
+        let subscription = Livekit_UpdateSubscription.with {
+            $0.trackSids = trackSids
+            $0.participantTracks = []
+            $0.subscribe = !autoSubscribe
+        }
+
+        return signalClient.sendSyncState(answer: previousAnswer.toPBType(),
+                                          offer: previousOffer?.toPBType(),
+                                          subscription: subscription,
+                                          publishTracks: room._state.localParticipant?.publishedTracksInfo(),
+                                          dataChannels: dataChannelInfo())
     }
 }
 
