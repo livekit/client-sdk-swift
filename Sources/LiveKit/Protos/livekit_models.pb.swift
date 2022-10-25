@@ -541,6 +541,11 @@ struct Livekit_TrackInfo {
 
   var codecs: [Livekit_SimulcastCodecInfo] = []
 
+  var stereo: Bool = false
+
+  /// true if RED (Redundant Encoding) is disabled for audio
+  var disableRed: Bool = false
+
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   init() {}
@@ -1653,6 +1658,8 @@ extension Livekit_TrackInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImplem
     11: .standard(proto: "mime_type"),
     12: .same(proto: "mid"),
     13: .same(proto: "codecs"),
+    14: .same(proto: "stereo"),
+    15: .standard(proto: "disable_red"),
   ]
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -1674,6 +1681,8 @@ extension Livekit_TrackInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImplem
       case 11: try { try decoder.decodeSingularStringField(value: &self.mimeType) }()
       case 12: try { try decoder.decodeSingularStringField(value: &self.mid) }()
       case 13: try { try decoder.decodeRepeatedMessageField(value: &self.codecs) }()
+      case 14: try { try decoder.decodeSingularBoolField(value: &self.stereo) }()
+      case 15: try { try decoder.decodeSingularBoolField(value: &self.disableRed) }()
       default: break
       }
     }
@@ -1719,6 +1728,12 @@ extension Livekit_TrackInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImplem
     if !self.codecs.isEmpty {
       try visitor.visitRepeatedMessageField(value: self.codecs, fieldNumber: 13)
     }
+    if self.stereo != false {
+      try visitor.visitSingularBoolField(value: self.stereo, fieldNumber: 14)
+    }
+    if self.disableRed != false {
+      try visitor.visitSingularBoolField(value: self.disableRed, fieldNumber: 15)
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -1736,6 +1751,8 @@ extension Livekit_TrackInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImplem
     if lhs.mimeType != rhs.mimeType {return false}
     if lhs.mid != rhs.mid {return false}
     if lhs.codecs != rhs.codecs {return false}
+    if lhs.stereo != rhs.stereo {return false}
+    if lhs.disableRed != rhs.disableRed {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
