@@ -519,7 +519,6 @@ internal extension Engine {
             return Promise(())
         }
 
-        // let previousAnswer = subscriber.localDescription
         let previousOffer = subscriber.remoteDescription
 
         // 1. autosubscribe on, so subscribed tracks = all tracks - unsub tracks,
