@@ -111,7 +111,6 @@ internal class Utils {
     }
 
     internal static func buildUrl(
-        on queue: DispatchQueue,
         _ url: String,
         _ token: String,
         connectOptions: ConnectOptions? = nil,
@@ -119,79 +118,69 @@ internal class Utils {
         adaptiveStream: Bool,
         validate: Bool = false,
         forceSecure: Bool = false
-    ) -> Promise<URL> {
+    ) -> URL? {
 
-        Promise(on: queue) { () -> URL in
-            // use default options if nil
-            let connectOptions = connectOptions ?? ConnectOptions()
+        // use default options if nil
+        let connectOptions = connectOptions ?? ConnectOptions()
 
-            guard let parsedUrl = URL(string: url) else {
-                throw InternalError.parse(message: "Failed to parse url")
-            }
+        guard let parsedUrl = URL(string: url) else { return nil }
 
-            let components = URLComponents(url: parsedUrl, resolvingAgainstBaseURL: false)
+        let components = URLComponents(url: parsedUrl, resolvingAgainstBaseURL: false)
 
-            guard var builder = components else {
-                throw InternalError.parse(message: "Failed to parse url components")
-            }
+        guard var builder = components else { return nil }
 
-            let useSecure = parsedUrl.isSecure || forceSecure
-            let httpScheme = useSecure ? "https" : "http"
-            let wsScheme = useSecure ? "wss" : "ws"
-            let lastPathSegment = validate ? "validate" : "rtc"
+        let useSecure = parsedUrl.isSecure || forceSecure
+        let httpScheme = useSecure ? "https" : "http"
+        let wsScheme = useSecure ? "wss" : "ws"
+        let lastPathSegment = validate ? "validate" : "rtc"
 
-            var pathSegments = parsedUrl.pathComponents
-            // strip empty & slashes
-            pathSegments.removeAll(where: { $0.isEmpty || $0 == "/" })
+        var pathSegments = parsedUrl.pathComponents
+        // strip empty & slashes
+        pathSegments.removeAll(where: { $0.isEmpty || $0 == "/" })
 
-            // if already ending with `rtc` or `validate`
-            // and is not a dir, remove it
-            if !parsedUrl.hasDirectoryPath
-                && !pathSegments.isEmpty
-                && ["rtc", "validate"].contains(pathSegments.last!) {
-                pathSegments.removeLast()
-            }
-            // add the correct segment
-            pathSegments.append(lastPathSegment)
-
-            builder.scheme = validate ? httpScheme : wsScheme
-            builder.path = "/" + pathSegments.joined(separator: "/")
-
-            var queryItems = [
-                URLQueryItem(name: "access_token", value: token),
-                URLQueryItem(name: "protocol", value: connectOptions.protocolVersion.description),
-                URLQueryItem(name: "sdk", value: "swift"),
-                URLQueryItem(name: "version", value: LiveKit.version),
-                // Additional client info
-                URLQueryItem(name: "os", value: String(describing: os())),
-                URLQueryItem(name: "os_version", value: osVersionString())
-            ]
-
-            if let modelIdentifier = modelIdentifier() {
-                queryItems.append(URLQueryItem(name: "device_model", value: modelIdentifier))
-            }
-
-            if let network = networkTypeString() {
-                queryItems.append(URLQueryItem(name: "network", value: network))
-            }
-
-            // only for quick-reconnect
-            queryItems.append(URLQueryItem(name: "reconnect", value: .quick == reconnectMode ? "1" : "0"))
-            queryItems.append(URLQueryItem(name: "auto_subscribe", value: connectOptions.autoSubscribe ? "1" : "0"))
-            queryItems.append(URLQueryItem(name: "adaptive_stream", value: adaptiveStream ? "1" : "0"))
-
-            if let publish = connectOptions.publishOnlyMode {
-                queryItems.append(URLQueryItem(name: "publish", value: publish))
-            }
-
-            builder.queryItems = queryItems
-
-            guard let builtUrl = builder.url else {
-                throw InternalError.convert(message: "Failed to convert components to url \(builder)")
-            }
-
-            return builtUrl
+        // if already ending with `rtc` or `validate`
+        // and is not a dir, remove it
+        if !parsedUrl.hasDirectoryPath
+            && !pathSegments.isEmpty
+            && ["rtc", "validate"].contains(pathSegments.last!) {
+            pathSegments.removeLast()
         }
+        // add the correct segment
+        pathSegments.append(lastPathSegment)
+
+        builder.scheme = validate ? httpScheme : wsScheme
+        builder.path = "/" + pathSegments.joined(separator: "/")
+
+        var queryItems = [
+            URLQueryItem(name: "access_token", value: token),
+            URLQueryItem(name: "protocol", value: connectOptions.protocolVersion.description),
+            URLQueryItem(name: "sdk", value: "swift"),
+            URLQueryItem(name: "version", value: LiveKit.version),
+            // Additional client info
+            URLQueryItem(name: "os", value: String(describing: os())),
+            URLQueryItem(name: "os_version", value: osVersionString())
+        ]
+
+        if let modelIdentifier = modelIdentifier() {
+            queryItems.append(URLQueryItem(name: "device_model", value: modelIdentifier))
+        }
+
+        if let network = networkTypeString() {
+            queryItems.append(URLQueryItem(name: "network", value: network))
+        }
+
+        // only for quick-reconnect
+        queryItems.append(URLQueryItem(name: "reconnect", value: .quick == reconnectMode ? "1" : "0"))
+        queryItems.append(URLQueryItem(name: "auto_subscribe", value: connectOptions.autoSubscribe ? "1" : "0"))
+        queryItems.append(URLQueryItem(name: "adaptive_stream", value: adaptiveStream ? "1" : "0"))
+
+        if let publish = connectOptions.publishOnlyMode {
+            queryItems.append(URLQueryItem(name: "publish", value: publish))
+        }
+
+        builder.queryItems = queryItems
+
+        return builder.url
     }
 
     internal static func createDebounceFunc(on queue: DispatchQueue,

@@ -78,7 +78,7 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
         log()
     }
 
-    func connect(_ url: String,
+    func connect(_ urlString: String,
                  _ token: String,
                  connectOptions: ConnectOptions? = nil,
                  reconnectMode: ReconnectMode? = nil,
@@ -88,28 +88,29 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
 
         log("reconnectMode: \(String(describing: reconnectMode))")
 
-        return Utils.buildUrl(on: queue,
-                              url,
-                              token,
-                              connectOptions: connectOptions,
-                              reconnectMode: reconnectMode,
-                              adaptiveStream: adaptiveStream)
-            .catch(on: queue) { error in
-                self.log("Failed to parse rtc url", .error)
-            }
-            .then(on: queue) { url -> Promise<WebSocket> in
-                self.log("Connecting with url: \(url)")
-                self._state.mutate {
-                    $0.reconnectMode = reconnectMode
-                    $0.connectionState = .connecting
-                }
-                return WebSocket.connect(url: url,
-                                         onMessage: self.onWebSocketMessage,
-                                         onDisconnect: { reason in
-                                            self.webSocket = nil
-                                            self.cleanUp(reason: reason)
-                                         })
-            }.then(on: queue) { (webSocket: WebSocket) -> Void in
+        guard let url = Utils.buildUrl(urlString,
+                                       token,
+                                       connectOptions: connectOptions,
+                                       reconnectMode: reconnectMode,
+                                       adaptiveStream: adaptiveStream) else {
+
+            return Promise(InternalError.parse(message: "Failed to parse url"))
+        }
+
+        log("Connecting with url: \(urlString)")
+
+        self._state.mutate {
+            $0.reconnectMode = reconnectMode
+            $0.connectionState = .connecting
+        }
+
+        return WebSocket.connect(url: url,
+                                 onMessage: self.onWebSocketMessage,
+                                 onDisconnect: { reason in
+                                    self.webSocket = nil
+                                    self.cleanUp(reason: reason)
+                                 })
+            .then(on: queue) { (webSocket: WebSocket) -> Void in
                 self.webSocket = webSocket
                 self._state.mutate { $0.connectionState = .connected }
             }.recover(on: queue) { error -> Promise<Void> in
@@ -117,16 +118,18 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
                 if reconnectMode != nil { throw error }
                 // Catch first, then throw again after getting validation response
                 // Re-build url with validate mode
-                return Utils.buildUrl(on: self.queue,
-                                      url,
-                                      token,
-                                      connectOptions: connectOptions,
-                                      adaptiveStream: adaptiveStream,
-                                      validate: true
-                ).then(on: self.queue) { url -> Promise<Data> in
-                    self.log("Validating with url: \(url)")
-                    return HTTP().get(on: self.queue, url: url)
-                }.then(on: self.queue) { data in
+                guard let validateUrl = Utils.buildUrl(urlString,
+                                                       token,
+                                                       connectOptions: connectOptions,
+                                                       adaptiveStream: adaptiveStream,
+                                                       validate: true) else {
+
+                    return Promise(InternalError.parse(message: "Failed to parse validation url"))
+                }
+
+                self.log("Validating with url: \(validateUrl)")
+
+                return HTTP().get(on: self.queue, url: validateUrl).then(on: self.queue) { data in
                     guard let string = String(data: data, encoding: .utf8) else {
                         throw SignalClientError.connect(message: "Failed to decode string")
                     }
