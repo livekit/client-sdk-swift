@@ -203,6 +203,20 @@ More discussion here https://github.com/livekit/client-sdk-swift/issues/140
 * Create a `LocalVideoTrack` by calling `LocalVideoTrack.createCameraTrack(options: CameraCaptureOptions(fps: 60))`.
 * Publish with `LocalParticipant.publishVideoTrack(track: track, publishOptions: VideoPublishOptions(encoding: VideoEncoding(maxFps: 60)))`. 
 
+# Known issues
+
+### Avoid crashes on macOS Catalina
+
+If your app is targeting macOS Catalina, make sure to do the following to avoid crash (ReplayKit not found):
+
+1. Explicitly add "ReplayKit.framework" to the Build Phases > Link Binary with Libraries section
+2. Set it to Optional
+
+<img width="752" alt="replykit" src="https://user-images.githubusercontent.com/548776/201249295-51d9cb76-32bd-4b10-9f4c-02951d1b2edb.png">
+
+* I am not sure why this is required for ReplayKit at the moment.
+* If you are targeting macOS 11.0+, this is not required.
+
 # Getting help / Contributing
 
 Please join us on [Slack](https://join.slack.com/t/livekit-users/shared_invite/zt-rrdy5abr-5pZ1wW8pXEkiQxBzFiXPUg) to get help from our [devs](https://github.com/orgs/livekit/teams/devs/members) / community members. We welcome your contributions(PRs) and details can be discussed there.
