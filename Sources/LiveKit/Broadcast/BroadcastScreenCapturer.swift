@@ -5,12 +5,15 @@
 //  Created by Alex-Dan Bumbu on 06/01/2021.
 //
 
-#if os(iOS)
-
 import Foundation
 import WebRTC
 import Promises
+
+#if canImport(UIKit)
 import UIKit
+#endif
+
+#if os(iOS)
 
 class BroadcastScreenCapturer: BufferCapturer {
     static let kRTCScreensharingSocketFD = "rtc_SSFD"

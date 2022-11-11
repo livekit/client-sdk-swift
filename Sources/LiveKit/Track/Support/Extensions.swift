@@ -14,8 +14,12 @@
  * limitations under the License.
  */
 
-import WebRTC
+import Foundation
+import CoreImage
+
+#if canImport(ReplayKit)
 import ReplayKit
+#endif
 
 extension CIImage {
 

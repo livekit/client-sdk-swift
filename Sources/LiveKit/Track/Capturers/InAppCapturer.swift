@@ -14,9 +14,13 @@
  * limitations under the License.
  */
 
+import Foundation
 import WebRTC
-import ReplayKit
 import Promises
+
+#if canImport(ReplayKit)
+import ReplayKit
+#endif
 
 @available(macOS 11.0, iOS 11.0, *)
 public class InAppScreenCapturer: VideoCapturer {

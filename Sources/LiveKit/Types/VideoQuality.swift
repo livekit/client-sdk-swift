@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+import Foundation
+
 internal enum VideoQuality {
     case low
     case medium

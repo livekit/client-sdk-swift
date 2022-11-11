@@ -9,7 +9,10 @@
 #if os(iOS)
 
 import Foundation
+
+#if canImport(ReplayKit)
 import ReplayKit
+#endif
 
 private enum Constants {
     static let bufferMaxLength = 10240

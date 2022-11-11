@@ -17,7 +17,10 @@
 import Foundation
 import WebRTC
 import Promises
+
+#if canImport(Network)
 import Network
+#endif
 
 internal class Engine: MulticastDelegate<EngineDelegate> {
 

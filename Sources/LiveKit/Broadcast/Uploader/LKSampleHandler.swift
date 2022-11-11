@@ -7,10 +7,13 @@
 
 #if os(iOS)
 
-import ReplayKit
 import Promises
 import OSLog
 import Logging
+
+#if canImport(ReplayKit)
+import ReplayKit
+#endif
 
 open class LKSampleHandler: RPBroadcastSampleHandler {
 

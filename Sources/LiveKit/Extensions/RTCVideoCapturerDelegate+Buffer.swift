@@ -14,8 +14,12 @@
  * limitations under the License.
  */
 
+import Foundation
 import WebRTC
+
+#if canImport(ReplayKit)
 import ReplayKit
+#endif
 
 extension FixedWidthInteger {
 

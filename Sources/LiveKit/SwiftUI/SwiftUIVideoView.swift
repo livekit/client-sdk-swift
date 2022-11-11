@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+import Foundation
 import SwiftUI
 
 /// This class receives ``TrackDelegate`` events since a struct can't be used for a delegate

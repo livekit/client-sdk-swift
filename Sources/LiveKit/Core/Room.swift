@@ -15,9 +15,12 @@
  */
 
 import Foundation
-import Network
-import Promises
 import WebRTC
+import Promises
+
+#if canImport(Network)
+import Network
+#endif
 
 @objc
 public class Room: NSObject, Loggable {

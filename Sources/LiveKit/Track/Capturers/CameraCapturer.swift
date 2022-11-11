@@ -17,7 +17,10 @@
 import Foundation
 import WebRTC
 import Promises
+
+#if canImport(ReplayKit)
 import ReplayKit
+#endif
 
 public class CameraCapturer: VideoCapturer {
 

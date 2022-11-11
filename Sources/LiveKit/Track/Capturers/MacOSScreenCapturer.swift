@@ -16,7 +16,6 @@
 
 import Foundation
 import WebRTC
-import ReplayKit
 import Promises
 
 #if canImport(ScreenCaptureKit)

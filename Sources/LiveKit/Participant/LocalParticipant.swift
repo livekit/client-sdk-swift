@@ -14,9 +14,13 @@
  * limitations under the License.
  */
 
+import Foundation
 import WebRTC
 import Promises
+
+#if canImport(ReplayKit)
 import ReplayKit
+#endif
 
 @objc
 public class LocalParticipant: Participant {
