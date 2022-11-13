@@ -441,10 +441,9 @@ internal extension Transport {
 
     func dataChannel(for label: String,
                      configuration: RTCDataChannelConfiguration,
-                     delegate: RTCDataChannelDelegate) -> RTCDataChannel? {
+                     delegate: RTCDataChannelDelegate? = nil) -> RTCDataChannel? {
 
-        let result = DispatchQueue.webRTC.sync { pc.dataChannel(forLabel: label,
-                                                                configuration: configuration) }
+        let result = DispatchQueue.webRTC.sync { pc.dataChannel(forLabel: label, configuration: configuration) }
         result?.delegate = delegate
         return result
     }

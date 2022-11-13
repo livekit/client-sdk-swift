@@ -214,8 +214,6 @@ internal extension Room {
         engine._state.mutate {
             $0.primaryTransportConnectedCompleter.reset()
             $0.publisherTransportConnectedCompleter.reset()
-            $0.publisherReliableDCOpenCompleter.reset()
-            $0.publisherLossyDCOpenCompleter.reset()
 
             // if isFullReconnect, keep connection related states
             $0 = isFullReconnect ? Engine.State(
