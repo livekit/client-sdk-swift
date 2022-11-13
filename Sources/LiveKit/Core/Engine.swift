@@ -254,31 +254,21 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
                                                              throw: { TransportError.timedOut(message: "publisher didn't connect") })
             }
 
-            //            let dcOpenCompleter = _state.mutate { state -> Promise<Void> in
-            //                var completer = reliability == .reliable ? state.publisherReliableDCOpenCompleter : state.publisherLossyDCOpenCompleter
-            //                return completer.wait(on: queue, .defaultPublisherDataChannelOpen, throw: { TransportError.timedOut(message: "publisher dc didn't open") })
-            //            }
-
             return publisherConnectCompleter.then {
                 self.log("send data: publisher connected...")
+                // wait for publisherDC to open
                 return self.publisherDC.openCompleter
-            }.then {
-                self.log("send data: dc .open...")
-            }.timeout(5) {
+            }.timeout(.defaultPublisherDataChannelOpen) {
                 // this should not happen since .wait has its own timeouts
                 InternalError.state(message: "ensurePublisherConnected() did not complete")
             }
         }
-
-        log("send data: step 1...")
 
         return ensurePublisherConnected().then(on: queue) { () -> Void in
 
             // at this point publisher should be .connected and dc should be .open
             assert(self.publisher?.isConnected ?? false, "publisher is not .connected")
             assert(self.publisherDC.isOpen, "publisher data channel is not .open")
-
-            self.log("send data: step 2...")
 
             // should return true if successful
             try self.publisherDC.send(userPacket: userPacket, reliability: reliability)
