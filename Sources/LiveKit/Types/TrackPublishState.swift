@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+import Foundation
+
 /// A enum that represents the published state of a ``LocalTrackPublication``.
 public enum TrackPublishState {
     /// Not published yet, has been unpublished, or an error occured while publishing or un-publishing.

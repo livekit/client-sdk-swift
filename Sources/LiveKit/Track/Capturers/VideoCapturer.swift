@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+import Foundation
 import WebRTC
 import Promises
 
@@ -90,6 +91,10 @@ public class VideoCapturer: NSObject, Loggable, VideoCapturerProtocol {
 
     init(delegate: RTCVideoCapturerDelegate) {
         self.delegate = delegate
+    }
+
+    deinit {
+        assert(captureState == .stopped, "captureState is not .stopped, capturer must be stopped before deinit.")
     }
 
     // returns true if state updated

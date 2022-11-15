@@ -14,9 +14,13 @@
  * limitations under the License.
  */
 
+import Foundation
 import WebRTC
 import Promises
+
+#if canImport(ReplayKit)
 import ReplayKit
+#endif
 
 @objc
 public class LocalParticipant: Participant {
@@ -465,10 +469,8 @@ extension LocalParticipant {
                 let localTrack = LocalAudioTrack.createTrack(options: room._state.options.defaultAudioCaptureOptions)
                 return publishAudioTrack(track: localTrack).then(on: queue) { $0 }
             } else if source == .screenShareVideo {
-
-                var localTrack: LocalVideoTrack?
-
                 #if os(iOS)
+                var localTrack: LocalVideoTrack?
                 let options = room._state.options.defaultScreenShareCaptureOptions
                 if options.useBroadcastExtension {
                     let screenShareExtensionId = Bundle.main.infoDictionary?[BroadcastScreenCapturer.kRTCScreenSharingExtension] as? String
@@ -478,13 +480,17 @@ extension LocalParticipant {
                 } else {
                     localTrack = LocalVideoTrack.createInAppScreenShareTrack(options: options)
                 }
-                #elseif os(macOS)
-                localTrack = LocalVideoTrack.createMacOSScreenShareTrack(options: room._state.options.defaultScreenShareCaptureOptions)
-                #endif
 
                 if let localTrack = localTrack {
-                    return publishVideoTrack(track: localTrack).then(on: queue) { publication in return publication }
+                    return publishVideoTrack(track: localTrack).then(on: queue) { $0 }
                 }
+                #elseif os(macOS)
+                return MacOSScreenCapturer.mainDisplaySource().then(on: queue) { mainDisplay in
+                    let track = LocalVideoTrack.createMacOSScreenShareTrack(source: mainDisplay,
+                                                                            options: self.room._state.options.defaultScreenShareCaptureOptions)
+                    return self.publishVideoTrack(track: track)
+                }.then(on: queue) { $0 }
+                #endif
             }
         }
 

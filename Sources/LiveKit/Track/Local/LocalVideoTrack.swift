@@ -17,7 +17,6 @@
 import Foundation
 import WebRTC
 import Promises
-import ReplayKit
 
 @objc
 public class LocalVideoTrack: Track, LocalTrack, VideoTrack {

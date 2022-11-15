@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+import Foundation
 import WebRTC
 import Promises
 
@@ -390,5 +391,14 @@ extension Track {
     internal func notify(label: (() -> String)? = nil,
                          _ fnc: @escaping (TrackDelegate) -> Void) {
         delegates.notify(label: label, fnc)
+    }
+}
+
+// MARK: - Identifiable (SwiftUI)
+
+extension Track: Identifiable {
+
+    public var id: String {
+        "\(type(of: self))-\(sid ?? String(hash))"
     }
 }

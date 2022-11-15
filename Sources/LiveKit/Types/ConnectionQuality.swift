@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+import Foundation
+
 @objc
 public enum ConnectionQuality: Int {
     case unknown

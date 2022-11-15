@@ -64,8 +64,7 @@ public class VideoView: NativeView, Loggable {
         set { _state.mutate { $0.mirrorMode = newValue } }
     }
 
-    /// Force video to be rotated to preferred ``VideoRotation``
-    /// Currently, only for iOS.
+    /// Force video to be rotated to preferred ``VideoRotation``.
     public var rotationOverride: VideoRotation? {
         get { _state.rotationOverride }
         set { _state.mutate { $0.rotationOverride = newValue } }
@@ -101,7 +100,9 @@ public class VideoView: NativeView, Loggable {
         get { _state.isHidden }
         set {
             _state.mutate { $0.isHidden = newValue }
-            DispatchQueue.mainSafeAsync { super.isHidden = newValue }
+            Task.detached { @MainActor in
+                super.isHidden = newValue
+            }
         }
     }
 
@@ -151,10 +152,14 @@ public class VideoView: NativeView, Loggable {
     // used for stats timer
     private lazy var _renderTimer = DispatchQueueTimer(timeInterval: 0.1)
 
+    private let _fpsTimer = DispatchQueueTimer(timeInterval: 1, queue: .main)
+    private var _currentFPS: Int = 0
+    private var _frameCount: Int = 0
+
     public override init(frame: CGRect = .zero) {
 
         // should always be on main thread
-        assert(Thread.current.isMainThread, "must be created on the main thread")
+        assert(Thread.current.isMainThread, "must be on the main thread")
 
         // initial state
         _state = StateSync(State(viewSize: frame.size))
@@ -177,9 +182,7 @@ public class VideoView: NativeView, Loggable {
 
             if trackDidUpdate || shouldRenderDidUpdate {
 
-                DispatchQueue.main.async { [weak self] in
-
-                    guard let self = self else { return }
+                Task.detached { @MainActor in
 
                     // clean up old track
                     if let track = oldState.track {
@@ -230,6 +233,7 @@ public class VideoView: NativeView, Loggable {
                         }
                     }
                 }
+
             }
 
             // isRendering updated
@@ -269,8 +273,17 @@ public class VideoView: NativeView, Loggable {
                 shouldRenderDidUpdate || trackDidUpdate {
 
                 // must be on main
-                DispatchQueue.mainSafeAsync {
+                Task.detached { @MainActor in
                     self.setNeedsLayout()
+                }
+            }
+
+            if state.debugMode != oldState.debugMode {
+                // fps timer
+                if state.debugMode {
+                    self._fpsTimer.restart()
+                } else {
+                    self._fpsTimer.suspend()
                 }
             }
         }
@@ -285,6 +298,16 @@ public class VideoView: NativeView, Loggable {
                     self._state.mutate { $0.isRendering = false }
                 }
             }
+        }
+
+        _fpsTimer.handler = { [weak self] in
+
+            guard let self = self else { return }
+
+            self._currentFPS = self._frameCount
+            self._frameCount = 0
+
+            self.setNeedsLayout()
         }
     }
 
@@ -323,7 +346,7 @@ public class VideoView: NativeView, Loggable {
             let _isRendering = state.isRendering ? "true" : "false"
             let _viewCount = state.track?.videoRenderers.allObjects.count ?? 0
             let debugView = ensureDebugTextView()
-            debugView.text = "#\(hashValue)\n" + "\(_trackSid)\n" + "\(_dimensions.width)x\(_dimensions.height)\n" + "enabled: \(isEnabled)\n" + "firstFrame: \(_didRenderFirstFrame)\n" + "isRendering: \(_isRendering)\n" + "viewCount: \(_viewCount)\n"
+            debugView.text = "#\(hashValue)\n" + "\(_trackSid)\n" + "\(_dimensions.width)x\(_dimensions.height)\n" + "enabled: \(isEnabled)\n" + "firstFrame: \(_didRenderFirstFrame)\n" + "isRendering: \(_isRendering)\n" + "viewCount: \(_viewCount)\n" + "FPS: \(_currentFPS)\n"
             debugView.frame = bounds
             #if os(iOS)
             debugView.layer.borderColor = (state.shouldRender ? UIColor.green : UIColor.red).withAlphaComponent(0.5).cgColor
@@ -381,7 +404,6 @@ public class VideoView: NativeView, Loggable {
 
         nativeRenderer.frame = rendererFrame
 
-        #if os(iOS)
         if let mtlVideoView = nativeRenderer as? RTCMTLVideoView {
             if let rotationOverride = state.rotationOverride {
                 mtlVideoView.rotationOverride = NSNumber(value: rotationOverride.rawValue)
@@ -389,7 +411,6 @@ public class VideoView: NativeView, Loggable {
                 mtlVideoView.rotationOverride = nil
             }
         }
-        #endif
 
         if shouldMirror() {
             #if os(macOS)
@@ -500,8 +521,7 @@ extension VideoView: VideoRenderer {
         var _needsLayout = false
         defer {
             if _needsLayout {
-                DispatchQueue.main.async { [weak self] in
-                    guard let self = self else { return }
+                Task.detached { @MainActor in
                     self.setNeedsLayout()
                 }
             }
@@ -509,11 +529,7 @@ extension VideoView: VideoRenderer {
 
         if let frame = frame {
 
-            #if os(iOS)
             let rotation = state.rotationOverride ?? frame.rotation
-            #elseif os(macOS)
-            let rotation = frame.rotation
-            #endif
 
             let dimensions = Dimensions(width: frame.width,
                                         height: frame.height)
@@ -545,6 +561,12 @@ extension VideoView: VideoRenderer {
             $0.isRendering = true
             $0.renderDate = Date()
         }
+
+        if _state.debugMode {
+            Task.detached { @MainActor in
+                self._frameCount += 1
+            }
+        }
     }
 }
 
@@ -554,7 +576,7 @@ extension VideoView: VideoCapturerDelegate {
 
     public func capturer(_ capturer: VideoCapturer, didUpdate state: VideoCapturer.CapturerState) {
         if case .started = state {
-            DispatchQueue.mainSafeAsync {
+            Task.detached { @MainActor in
                 self.setNeedsLayout()
             }
         }
@@ -617,21 +639,13 @@ extension VideoView {
         eaglView.contentMode = .scaleAspectFit
         result = eaglView
         #else
-        #if os(iOS)
-        // iOS --------------------
-        logger.log("Using RTCMTLVideoView for VideoView's Renderer", type: VideoView.self)
         let mtlView = RTCMTLVideoView()
-        // use .fit here to match macOS behavior and
-        // manually calculate .fill if necessary
+        logger.log("Using RTCMTLVideoView for VideoView's Renderer", type: VideoView.self)
+        #if os(iOS)
         mtlView.contentMode = .scaleAspectFit
         mtlView.videoContentMode = .scaleAspectFit
-        result = mtlView
-        #else
-        // macOS --------------------
-        logger.log("Using RTCMTLNSVideoView for VideoView's Renderer", type: VideoView.self)
-        let mtlView = RTCMTLNSVideoView()
-        result = mtlView
         #endif
+        result = mtlView
         #endif
 
         // extra checks for MTKView
@@ -641,6 +655,10 @@ extension VideoView {
             #elseif os(macOS)
             metal.layerContentsPlacement = .scaleProportionallyToFit
             #endif
+            // ensure it's capable of rendering 60fps
+            // https://developer.apple.com/documentation/metalkit/mtkview/1536027-preferredframespersecond
+            logger.log("preferredFramesPerSecond = 60", type: VideoView.self)
+            metal.preferredFramesPerSecond = 60
         }
 
         return result

@@ -17,7 +17,10 @@
 import Foundation
 import WebRTC
 import Promises
+
+#if canImport(ReplayKit)
 import ReplayKit
+#endif
 
 public class CameraCapturer: VideoCapturer {
 
@@ -112,9 +115,15 @@ public class CameraCapturer: VideoCapturer {
                let foundFormat = sortedFormats.first(where: { $0.format == preferredFormat }) {
                 selectedFormat = foundFormat
             } else {
-                self.log("formats: \(sortedFormats.map { String(describing: $0.dimensions) }), target: \(self.options.dimensions)")
-                // find format that satisfies preferred dimensions
-                selectedFormat = sortedFormats.first(where: { $0.dimensions.area >= self.options.dimensions.area })
+                self.log("formats: \(sortedFormats.map { String(describing: $0.format.fpsRange()) }), target: \(self.options.dimensions)")
+
+                // find format that satisfies preferred dimensions & fps
+                selectedFormat = sortedFormats.first(where: { $0.dimensions.area >= self.options.dimensions.area && $0.format.fpsRange().contains(self.options.fps) })
+
+                // give up FPS if format still not found
+                if selectedFormat == nil {
+                    selectedFormat = sortedFormats.first(where: { $0.dimensions.area >= self.options.dimensions.area })
+                }
             }
 
             // format should be resolved at this point
@@ -123,7 +132,10 @@ public class CameraCapturer: VideoCapturer {
                 throw TrackError.capturer(message: "Unable to determine format for camera capturer")
             }
 
-            guard let fpsRange = selectedFormat.format.fpsRange() else {
+            let fpsRange = selectedFormat.format.fpsRange()
+
+            // this should never happen
+            guard fpsRange != 0...0 else {
                 self.log("unable to resolve fps range", .error)
                 throw TrackError.capturer(message: "Unable to determine supported fps range for format: \(selectedFormat)")
             }
@@ -248,17 +260,10 @@ extension AVFrameRateRange {
 extension AVCaptureDevice.Format {
 
     // computes a ClosedRange of supported FPSs for this format
-    func fpsRange() -> ClosedRange<Int>? {
+    func fpsRange() -> ClosedRange<Int> {
 
-        videoSupportedFrameRateRanges.map { $0.toRange() }.reduce(into: nil as ClosedRange<Int>?) { result, current in
-            // first element
-            guard let previous = result else {
-                result = current
-                return
-            }
-
-            // merge previous element
-            result = merge(range: previous, with: current)
+        videoSupportedFrameRateRanges.map { $0.toRange() }.reduce(into: 0...0) { result, current in
+            result = merge(range: result, with: current)
         }
     }
 }

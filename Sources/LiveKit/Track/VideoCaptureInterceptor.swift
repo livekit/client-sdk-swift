@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+import Foundation
 import WebRTC
 
 public typealias CaptureFunc = (_ capture: RTCVideoFrame) -> Void

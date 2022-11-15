@@ -17,7 +17,10 @@
 import Foundation
 import WebRTC
 import Promises
+
+#if canImport(Network)
 import Network
+#endif
 
 internal class Engine: MulticastDelegate<EngineDelegate> {
 
@@ -39,8 +42,6 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
         var hasPublished: Bool = false
         var primaryTransportConnectedCompleter = Completer<Void>()
         var publisherTransportConnectedCompleter = Completer<Void>()
-        var publisherReliableDCOpenCompleter = Completer<Void>()
-        var publisherLossyDCOpenCompleter = Completer<Void>()
     }
 
     public var _state: StateSync<State>
@@ -64,10 +65,10 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
     private var subscriberPrimary: Bool = false
     private var primary: Transport? { subscriberPrimary ? subscriber : publisher }
 
-    private var dcReliablePub: RTCDataChannel?
-    private var dcLossyPub: RTCDataChannel?
-    private var dcReliableSub: RTCDataChannel?
-    private var dcLossySub: RTCDataChannel?
+    // MARK: - DataChannels
+
+    private var subscriberDC = DataChannelPair(target: .subscriber)
+    private var publisherDC = DataChannelPair(target: .publisher)
 
     private var _blockProcessQueue = DispatchQueue(label: "LiveKitSDK.engine.pendingBlocks",
                                                    qos: .default)
@@ -115,6 +116,17 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
                     // remove this entry
                     return true
                 }
+            }
+        }
+
+        subscriberDC.onDataPacket = { [weak self] (dataPacket: Livekit_DataPacket) in
+
+            guard let self = self else { return }
+
+            switch dataPacket.value {
+            case .speaker(let update): self.notify { $0.engine(self, didUpdate: update.speakers) }
+            case .user(let userPacket): self.notify { $0.engine(self, didReceive: userPacket) }
+            default: return
             }
         }
     }
@@ -170,23 +182,22 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
 
         Promise<Void>(on: queue) { [weak self] () -> Promise<Void> in
 
+            // close data channels
+
             guard let self = self else { return Promise(()) }
 
-            let dataChannels = [self.dcReliablePub,
-                                self.dcLossyPub,
-                                self.dcReliableSub,
-                                self.dcLossySub]
-                .compactMap { $0 }
+            let closeDataChannelPromises = [
+                self.publisherDC.close(),
+                self.subscriberDC.close()
+            ]
 
-            // can be async
-            DispatchQueue.webRTC.async {
-                for dataChannel in dataChannels { dataChannel.close() }
-            }
+            return closeDataChannelPromises.all(on: self.queue)
 
-            self.dcReliablePub = nil
-            self.dcLossyPub = nil
-            self.dcReliableSub = nil
-            self.dcLossySub = nil
+        }.then(on: queue) { [weak self] () -> Promise<Void> in
+
+            // close transports
+
+            guard let self = self else { return Promise(()) }
 
             let closeTransportPromises = [self.publisher,
                                           self.subscriber]
@@ -205,7 +216,9 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
     @discardableResult
     func publisherShouldNegotiate() -> Promise<Void> {
 
-        Promise<Void>(on: queue) { [weak self] in
+        log()
+
+        return Promise<Void>(on: queue) { [weak self] in
 
             guard let self = self,
                   let publisher = self.publisher else {
@@ -235,35 +248,30 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
                 publisherShouldNegotiate()
             }
 
-            let p1 = _state.mutate {
-                $0.publisherTransportConnectedCompleter.wait(on: queue, .defaultTransportState, throw: { TransportError.timedOut(message: "publisher didn't connect") })
+            let publisherConnectCompleter = _state.mutate {
+                $0.publisherTransportConnectedCompleter.wait(on: queue,
+                                                             .defaultTransportState,
+                                                             throw: { TransportError.timedOut(message: "publisher didn't connect") })
             }
 
-            let p2 = _state.mutate { state -> Promise<Void> in
-                var completer = reliability == .reliable ? state.publisherReliableDCOpenCompleter : state.publisherLossyDCOpenCompleter
-                return completer.wait(on: queue, .defaultPublisherDataChannelOpen, throw: { TransportError.timedOut(message: "publisher dc didn't open") })
+            return publisherConnectCompleter.then {
+                self.log("send data: publisher connected...")
+                // wait for publisherDC to open
+                return self.publisherDC.openCompleter
+            }.timeout(.defaultPublisherDataChannelOpen) {
+                // this should not happen since .wait has its own timeouts
+                InternalError.state(message: "ensurePublisherConnected() did not complete")
             }
-
-            return [p1, p2].all(on: queue)
         }
 
         return ensurePublisherConnected().then(on: queue) { () -> Void in
 
-            let packet = Livekit_DataPacket.with {
-                $0.kind = reliability.toPBType()
-                $0.user = userPacket
-            }
+            // at this point publisher should be .connected and dc should be .open
+            assert(self.publisher?.isConnected ?? false, "publisher is not .connected")
+            assert(self.publisherDC.isOpen, "publisher data channel is not .open")
 
-            let serializedData = try packet.serializedData()
-            let rtcData = Engine.createDataBuffer(data: serializedData)
-
-            guard let channel = self.publisherDataChannel(for: reliability) else {
-                throw InternalError.state(message: "Data channel is nil")
-            }
-
-            guard channel.sendData(rtcData) else {
-                throw EngineError.webRTC(message: "DataChannel.sendData returned false")
-            }
+            // should return true if successful
+            try self.publisherDC.send(userPacket: userPacket, reliability: reliability)
         }
     }
 }
@@ -308,26 +316,6 @@ internal extension Engine {
 // MARK: - Private
 
 private extension Engine {
-
-    func publisherDataChannel(for reliability: Reliability) -> RTCDataChannel? {
-        reliability == .reliable ? dcReliablePub : dcLossyPub
-    }
-
-    private func onReceived(dataChannel: RTCDataChannel) {
-
-        log("Server opened data channel \(dataChannel.label)")
-
-        switch dataChannel.label {
-        case RTCDataChannel.labels.reliable:
-            dcReliableSub = dataChannel
-            dcReliableSub?.delegate = self
-        case RTCDataChannel.labels.lossy:
-            dcLossySub = dataChannel
-            dcLossySub?.delegate = self
-        default:
-            log("Unknown data channel label \(dataChannel.label)", .warning)
-        }
-    }
 
     // full connect sequence, doesn't update connection state
     func fullConnectSequence(_ url: String,
@@ -399,6 +387,9 @@ private extension Engine {
                                                 self._state.mutate { $0.primaryTransportConnectedCompleter.wait(on: self.queue,
                                                                                                                 .defaultTransportState,
                                                                                                                 throw: { TransportError.timedOut(message: "primary transport didn't connect") }) }
+                                             }.then(on: queue) {
+                                                // send SyncState before offer
+                                                self.sendSyncState()
                                              }.then(on: queue) { () -> Promise<Void> in
 
                                                 self.subscriber?.restartingIce = true
@@ -495,11 +486,47 @@ private extension Engine {
 
 internal extension Engine {
 
-    func dataChannelInfo() -> [Livekit_DataChannelInfo] {
+    func sendSyncState() -> Promise<Void> {
 
-        [publisherDataChannel(for: .lossy), publisherDataChannel(for: .reliable)]
-            .compactMap { $0 }
-            .map { $0.toLKInfoType() }
+        guard let room = room else {
+            // this should never happen
+            log("Room is nil", .error)
+            return Promise(())
+        }
+
+        guard let subscriber = subscriber,
+              let previousAnswer = subscriber.localDescription else {
+            // No-op
+            return Promise(())
+        }
+
+        let previousOffer = subscriber.remoteDescription
+
+        // 1. autosubscribe on, so subscribed tracks = all tracks - unsub tracks,
+        //    in this case, we send unsub tracks, so server add all tracks to this
+        //    subscribe pc and unsub special tracks from it.
+        // 2. autosubscribe off, we send subscribed tracks.
+
+        let autoSubscribe = _state.connectOptions.autoSubscribe
+        let trackSids = room._state.remoteParticipants.values.flatMap { participant in
+            participant._state.tracks.values
+                .filter { $0.subscribed != autoSubscribe }
+                .map { $0.sid }
+        }
+
+        log("trackSids: \(trackSids)")
+
+        let subscription = Livekit_UpdateSubscription.with {
+            $0.trackSids = trackSids
+            $0.participantTracks = []
+            $0.subscribe = !autoSubscribe
+        }
+
+        return signalClient.sendSyncState(answer: previousAnswer.toPBType(),
+                                          offer: previousOffer?.toPBType(),
+                                          subscription: subscription,
+                                          publishTracks: room._state.localParticipant?.publishedTracksInfo(),
+                                          dataChannels: publisherDC.infos())
     }
 }
 
@@ -585,42 +612,6 @@ extension Engine: SignalClientDelegate {
     }
 }
 
-// MARK: - RTCDataChannelDelegate
-
-extension Engine: RTCDataChannelDelegate {
-
-    func dataChannelDidChangeState(_ dataChannel: RTCDataChannel) {
-        // notify new state
-        notify { $0.engine(self, didUpdate: dataChannel, state: dataChannel.readyState) }
-
-        _state.mutate {
-            if dataChannel == dcReliablePub {
-                $0.publisherReliableDCOpenCompleter.set(value: dataChannel.readyState == .open ? () : nil)
-            } else if dataChannel == dcLossyPub {
-                $0.publisherLossyDCOpenCompleter.set(value: dataChannel.readyState == .open ? () : nil)
-            }
-        }
-
-        self.log("dataChannel.\(dataChannel.label) didChangeState : \(dataChannel.channelId)")
-    }
-
-    func dataChannel(_: RTCDataChannel, didReceiveMessageWith buffer: RTCDataBuffer) {
-
-        guard let dataPacket = try? Livekit_DataPacket(contiguousBytes: buffer.data) else {
-            log("could not decode data message", .error)
-            return
-        }
-
-        switch dataPacket.value {
-        case .speaker(let update):
-            notify { $0.engine(self, didUpdate: update.speakers) }
-        case .user(let userPacket):
-            notify { $0.engine(self, didReceive: userPacket) }
-        default: return
-        }
-    }
-}
-
 // MARK: - TransportDelegate
 
 extension Engine: TransportDelegate {
@@ -680,39 +671,44 @@ extension Engine: TransportDelegate {
                 }
             }
 
-            self.subscriber = try Transport(config: self._state.connectOptions.rtcConfiguration,
-                                            target: .subscriber,
-                                            primary: self.subscriberPrimary,
-                                            delegate: self,
-                                            reportStats: room._state.options.reportStats)
-
-            self.publisher = try Transport(config: self._state.connectOptions.rtcConfiguration,
-                                           target: .publisher,
-                                           primary: !self.subscriberPrimary,
+            let subscriber = try Transport(config: self._state.connectOptions.rtcConfiguration,
+                                           target: .subscriber,
+                                           primary: self.subscriberPrimary,
                                            delegate: self,
                                            reportStats: room._state.options.reportStats)
 
-            self.publisher?.onOffer = { offer in
+            let publisher = try Transport(config: self._state.connectOptions.rtcConfiguration,
+                                          target: .publisher,
+                                          primary: !self.subscriberPrimary,
+                                          delegate: self,
+                                          reportStats: room._state.options.reportStats)
+
+            publisher.onOffer = { offer in
                 self.log("publisher onOffer \(offer.sdp)")
                 return self.signalClient.sendOffer(offer: offer)
             }
 
             // data over pub channel for backwards compatibility
-            self.dcReliablePub = self.publisher?.dataChannel(for: RTCDataChannel.labels.reliable,
-                                                             configuration: Engine.createDataChannelConfiguration(),
-                                                             delegate: self)
 
-            self.dcLossyPub = self.publisher?.dataChannel(for: RTCDataChannel.labels.lossy,
-                                                          configuration: Engine.createDataChannelConfiguration(maxRetransmits: 0),
-                                                          delegate: self)
+            let publisherReliableDC = publisher.dataChannel(for: RTCDataChannel.labels.reliable,
+                                                            configuration: Engine.createDataChannelConfiguration())
 
-            self.log("dataChannel.\(String(describing: self.dcReliablePub?.label)) : \(String(describing: self.dcReliablePub?.channelId))")
-            self.log("dataChannel.\(String(describing: self.dcLossyPub?.label)) : \(String(describing: self.dcLossyPub?.channelId))")
+            let publisherLossyDC = publisher.dataChannel(for: RTCDataChannel.labels.lossy,
+                                                         configuration: Engine.createDataChannelConfiguration(maxRetransmits: 0))
+
+            self.publisherDC.set(reliable: publisherReliableDC)
+            self.publisherDC.set(lossy: publisherLossyDC)
+
+            self.log("dataChannel.\(String(describing: publisherReliableDC?.label)) : \(String(describing: publisherReliableDC?.channelId))")
+            self.log("dataChannel.\(String(describing: publisherLossyDC?.label)) : \(String(describing: publisherLossyDC?.channelId))")
 
             if !self.subscriberPrimary {
                 // lazy negotiation for protocol v3+
                 self.publisherShouldNegotiate()
             }
+
+            self.subscriber = subscriber
+            self.publisher = publisher
         }
     }
 
@@ -745,12 +741,17 @@ extension Engine: TransportDelegate {
     }
 
     func transport(_ transport: Transport, didOpen dataChannel: RTCDataChannel) {
-        log("Did open dataChannel label: \(dataChannel.label)")
-        if subscriberPrimary, transport.target == .subscriber {
-            onReceived(dataChannel: dataChannel)
-        }
 
-        self.log("dataChannel..\(dataChannel.label) : \(dataChannel.channelId)")
+        log("Server opened data channel \(dataChannel.label)(\(dataChannel.readyState))")
+
+        if subscriberPrimary, transport.target == .subscriber {
+
+            switch dataChannel.label {
+            case RTCDataChannel.labels.reliable: subscriberDC.set(reliable: dataChannel)
+            case RTCDataChannel.labels.lossy: subscriberDC.set(lossy: dataChannel)
+            default: log("Unknown data channel label \(dataChannel.label)", .warning)
+            }
+        }
     }
 
     func transportShouldNegotiate(_ transport: Transport) {}
@@ -773,7 +774,6 @@ extension Engine: ConnectivityListenerDelegate {
 
 // MARK: Engine - Factory methods
 
-#if os(macOS)
 private let h264BaselineLevel5: RTCVideoCodecInfo = {
 
     // this should never happen
@@ -788,20 +788,14 @@ private let h264BaselineLevel5: RTCVideoCodecInfo = {
                                           "level-asymmetry-allowed": "1",
                                           "packetization-mode": "1"])
 }()
-#endif
 
 private extension Array where Element: RTCVideoCodecInfo {
 
     func rewriteCodecsIfNeeded() -> [RTCVideoCodecInfo] {
-        #if os(macOS)
-        // rewrite H264's profileLevelId to 42e032 only for macOS
+        // rewrite H264's profileLevelId to 42e032
         let codecs = map { $0.name == kRTCVideoCodecH264Name ? h264BaselineLevel5 : $0 }
         logger.log("supportedCodecs: \(codecs.map({ "\($0.name) - \($0.parameters)" }).joined(separator: ", "))", type: Engine.self)
         return codecs
-        #else
-        // no-op
-        return self
-        #endif
     }
 }
 

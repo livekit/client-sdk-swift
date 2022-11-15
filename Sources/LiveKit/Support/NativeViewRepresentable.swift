@@ -14,14 +14,18 @@
  * limitations under the License.
  */
 
+import Foundation
 import SwiftUI
 
-#if os(iOS)
+#if canImport(UIKit)
 import UIKit
+#elseif canImport(AppKit)
+import AppKit
+#endif
+
+#if os(iOS)
 public typealias NativeViewRepresentableType = UIViewRepresentable
 #elseif os(macOS)
-// macOS
-import AppKit
 public typealias NativeViewRepresentableType = NSViewRepresentable
 #endif
 

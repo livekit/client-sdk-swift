@@ -105,14 +105,20 @@ public class ScreenShareCaptureOptions: NSObject, VideoCaptureOptions {
     @objc
     public let fps: Int
 
+    /// Only used for macOS
+    @objc
+    public let showCursor: Bool
+
     @objc
     public let useBroadcastExtension: Bool
 
     public init(dimensions: Dimensions = .h1080_169,
                 fps: Int = 15,
+                showCursor: Bool = true,
                 useBroadcastExtension: Bool = false) {
         self.dimensions = dimensions
         self.fps = fps
+        self.showCursor = showCursor
         self.useBroadcastExtension = useBroadcastExtension
     }
 
@@ -122,6 +128,7 @@ public class ScreenShareCaptureOptions: NSObject, VideoCaptureOptions {
         guard let other = object as? Self else { return false }
         return self.dimensions == other.dimensions &&
             self.fps == other.fps &&
+            self.showCursor == other.showCursor &&
             self.useBroadcastExtension == other.useBroadcastExtension
     }
 
@@ -129,6 +136,7 @@ public class ScreenShareCaptureOptions: NSObject, VideoCaptureOptions {
         var hasher = Hasher()
         hasher.combine(dimensions)
         hasher.combine(fps)
+        hasher.combine(showCursor)
         hasher.combine(useBroadcastExtension)
         return hasher.finalize()
     }

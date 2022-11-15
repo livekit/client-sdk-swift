@@ -696,6 +696,11 @@ struct Livekit_AddTrackRequest {
   /// server ID of track, publish new codec to exist track
   var sid: String = String()
 
+  var stereo: Bool = false
+
+  /// true if RED (Redundant Encoding) is disabled for audio
+  var disableRed: Bool = false
+
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   init() {}
@@ -918,6 +923,8 @@ struct Livekit_UpdateTrackSettings {
 
   /// for video, height to receive
   var height: UInt32 = 0
+
+  var fps: UInt32 = 0
 
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
@@ -1158,6 +1165,7 @@ struct Livekit_SyncState {
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
 
+  /// last subscribe answer before reconnecting
   var answer: Livekit_SessionDescription {
     get {return _answer ?? Livekit_SessionDescription()}
     set {_answer = newValue}
@@ -1180,12 +1188,23 @@ struct Livekit_SyncState {
 
   var dataChannels: [Livekit_DataChannelInfo] = []
 
+  /// last received server side offer before reconnecting
+  var offer: Livekit_SessionDescription {
+    get {return _offer ?? Livekit_SessionDescription()}
+    set {_offer = newValue}
+  }
+  /// Returns true if `offer` has been explicitly set.
+  var hasOffer: Bool {return self._offer != nil}
+  /// Clears the value of `offer`. Subsequent reads from it will return its default value.
+  mutating func clearOffer() {self._offer = nil}
+
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   init() {}
 
   fileprivate var _answer: Livekit_SessionDescription? = nil
   fileprivate var _subscription: Livekit_UpdateSubscription? = nil
+  fileprivate var _offer: Livekit_SessionDescription? = nil
 }
 
 struct Livekit_DataChannelInfo {
@@ -2022,6 +2041,8 @@ extension Livekit_AddTrackRequest: SwiftProtobuf.Message, SwiftProtobuf._Message
     9: .same(proto: "layers"),
     10: .standard(proto: "simulcast_codecs"),
     11: .same(proto: "sid"),
+    12: .same(proto: "stereo"),
+    13: .standard(proto: "disable_red"),
   ]
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -2041,6 +2062,8 @@ extension Livekit_AddTrackRequest: SwiftProtobuf.Message, SwiftProtobuf._Message
       case 9: try { try decoder.decodeRepeatedMessageField(value: &self.layers) }()
       case 10: try { try decoder.decodeRepeatedMessageField(value: &self.simulcastCodecs) }()
       case 11: try { try decoder.decodeSingularStringField(value: &self.sid) }()
+      case 12: try { try decoder.decodeSingularBoolField(value: &self.stereo) }()
+      case 13: try { try decoder.decodeSingularBoolField(value: &self.disableRed) }()
       default: break
       }
     }
@@ -2080,6 +2103,12 @@ extension Livekit_AddTrackRequest: SwiftProtobuf.Message, SwiftProtobuf._Message
     if !self.sid.isEmpty {
       try visitor.visitSingularStringField(value: self.sid, fieldNumber: 11)
     }
+    if self.stereo != false {
+      try visitor.visitSingularBoolField(value: self.stereo, fieldNumber: 12)
+    }
+    if self.disableRed != false {
+      try visitor.visitSingularBoolField(value: self.disableRed, fieldNumber: 13)
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -2095,6 +2124,8 @@ extension Livekit_AddTrackRequest: SwiftProtobuf.Message, SwiftProtobuf._Message
     if lhs.layers != rhs.layers {return false}
     if lhs.simulcastCodecs != rhs.simulcastCodecs {return false}
     if lhs.sid != rhs.sid {return false}
+    if lhs.stereo != rhs.stereo {return false}
+    if lhs.disableRed != rhs.disableRed {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
@@ -2528,6 +2559,7 @@ extension Livekit_UpdateTrackSettings: SwiftProtobuf.Message, SwiftProtobuf._Mes
     4: .same(proto: "quality"),
     5: .same(proto: "width"),
     6: .same(proto: "height"),
+    7: .same(proto: "fps"),
   ]
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -2541,6 +2573,7 @@ extension Livekit_UpdateTrackSettings: SwiftProtobuf.Message, SwiftProtobuf._Mes
       case 4: try { try decoder.decodeSingularEnumField(value: &self.quality) }()
       case 5: try { try decoder.decodeSingularUInt32Field(value: &self.width) }()
       case 6: try { try decoder.decodeSingularUInt32Field(value: &self.height) }()
+      case 7: try { try decoder.decodeSingularUInt32Field(value: &self.fps) }()
       default: break
       }
     }
@@ -2562,6 +2595,9 @@ extension Livekit_UpdateTrackSettings: SwiftProtobuf.Message, SwiftProtobuf._Mes
     if self.height != 0 {
       try visitor.visitSingularUInt32Field(value: self.height, fieldNumber: 6)
     }
+    if self.fps != 0 {
+      try visitor.visitSingularUInt32Field(value: self.fps, fieldNumber: 7)
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -2571,6 +2607,7 @@ extension Livekit_UpdateTrackSettings: SwiftProtobuf.Message, SwiftProtobuf._Mes
     if lhs.quality != rhs.quality {return false}
     if lhs.width != rhs.width {return false}
     if lhs.height != rhs.height {return false}
+    if lhs.fps != rhs.fps {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
@@ -3175,6 +3212,7 @@ extension Livekit_SyncState: SwiftProtobuf.Message, SwiftProtobuf._MessageImplem
     2: .same(proto: "subscription"),
     3: .standard(proto: "publish_tracks"),
     4: .standard(proto: "data_channels"),
+    5: .same(proto: "offer"),
   ]
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -3187,6 +3225,7 @@ extension Livekit_SyncState: SwiftProtobuf.Message, SwiftProtobuf._MessageImplem
       case 2: try { try decoder.decodeSingularMessageField(value: &self._subscription) }()
       case 3: try { try decoder.decodeRepeatedMessageField(value: &self.publishTracks) }()
       case 4: try { try decoder.decodeRepeatedMessageField(value: &self.dataChannels) }()
+      case 5: try { try decoder.decodeSingularMessageField(value: &self._offer) }()
       default: break
       }
     }
@@ -3209,6 +3248,9 @@ extension Livekit_SyncState: SwiftProtobuf.Message, SwiftProtobuf._MessageImplem
     if !self.dataChannels.isEmpty {
       try visitor.visitRepeatedMessageField(value: self.dataChannels, fieldNumber: 4)
     }
+    try { if let v = self._offer {
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 5)
+    } }()
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -3217,6 +3259,7 @@ extension Livekit_SyncState: SwiftProtobuf.Message, SwiftProtobuf._MessageImplem
     if lhs._subscription != rhs._subscription {return false}
     if lhs.publishTracks != rhs.publishTracks {return false}
     if lhs.dataChannels != rhs.dataChannels {return false}
+    if lhs._offer != rhs._offer {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }

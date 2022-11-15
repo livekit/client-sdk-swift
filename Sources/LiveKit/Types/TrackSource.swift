@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+import Foundation
+
 extension Livekit_TrackSource {
 
     func toLKType() -> Track.Source {

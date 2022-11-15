@@ -19,11 +19,4 @@ import Foundation
 internal extension DispatchQueue {
 
     static let webRTC = DispatchQueue(label: "LiveKitSDK.webRTC", qos: .default)
-
-    // if already on main, immediately execute block.
-    // if not on main, schedule async.
-    static func mainSafeAsync(execute work: @escaping () -> Void) {
-        guard !Thread.current.isMainThread else { return work() }
-        return Self.main.async(execute: work)
-    }
 }

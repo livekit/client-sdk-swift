@@ -5,12 +5,15 @@
 //  Created by Alex-Dan Bumbu on 06/01/2021.
 //
 
-#if os(iOS)
-
 import Foundation
 import WebRTC
 import Promises
+
+#if canImport(UIKit)
 import UIKit
+#endif
+
+#if os(iOS)
 
 class BroadcastScreenCapturer: BufferCapturer {
     static let kRTCScreensharingSocketFD = "rtc_SSFD"
@@ -38,7 +41,7 @@ class BroadcastScreenCapturer: BufferCapturer {
                 let bounds = UIScreen.main.bounds
                 let width = bounds.size.width
                 let height = bounds.size.height
-                let screenDimension = CMVideoDimensions(width: Int32(width), height: Int32(height))
+                let screenDimension = Dimensions(width: Int32(width), height: Int32(height))
 
                 // pre fill dimensions, so that we don't have to wait for the broadcast to start to get actual dimensions.
                 // should be able to safely predict using actual screen dimensions.

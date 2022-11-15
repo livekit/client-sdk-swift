@@ -15,9 +15,9 @@
  */
 
 import Foundation
-import Logging
-import Promises
 import WebRTC
+import Promises
+import Logging
 
 internal let logger = Logger(label: "LiveKitSDK")
 
@@ -35,7 +35,7 @@ internal let logger = Logger(label: "LiveKitSDK")
 public class LiveKit: NSObject {
 
     @objc(sdkVersion)
-    public static let version = "1.0.5"
+    public static let version = "1.0.7"
 
     @available(*, deprecated, message: "Use Room.connect() instead, protocol v8 and higher do not support this method")
     public static func connect(

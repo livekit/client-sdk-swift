@@ -15,9 +15,12 @@
  */
 
 import Foundation
-import Network
-import Promises
 import WebRTC
+import Promises
+
+#if canImport(Network)
+import Network
+#endif
 
 @objc
 public class Room: NSObject, Loggable {
@@ -211,8 +214,6 @@ internal extension Room {
         engine._state.mutate {
             $0.primaryTransportConnectedCompleter.reset()
             $0.publisherTransportConnectedCompleter.reset()
-            $0.publisherReliableDCOpenCompleter.reset()
-            $0.publisherLossyDCOpenCompleter.reset()
 
             // if isFullReconnect, keep connection related states
             $0 = isFullReconnect ? Engine.State(
@@ -304,6 +305,18 @@ extension Room {
     public func sendSimulate(scenario: SimulateScenario) -> Promise<Void> {
         engine.signalClient.sendSimulate(scenario: scenario)
     }
+
+    public func waitForPrimaryTransportConnect() -> Promise<Void> {
+        engine._state.mutate {
+            $0.primaryTransportConnectedCompleter.wait(on: queue, .defaultTransportState, throw: { TransportError.timedOut(message: "primary transport didn't connect") })
+        }
+    }
+
+    public func waitForPublisherTransportConnect() -> Promise<Void> {
+        engine._state.mutate {
+            $0.publisherTransportConnectedCompleter.wait(on: queue, .defaultTransportState, throw: { TransportError.timedOut(message: "publisher transport didn't connect") })
+        }
+    }
 }
 
 // MARK: - Session Migration
@@ -323,41 +336,6 @@ internal extension Room {
         for publication in remoteTrackPublications {
             publication.resetTrackSettings()
         }
-    }
-
-    func sendSyncState() -> Promise<Void> {
-
-        guard let subscriber = engine.subscriber,
-              let localDescription = subscriber.localDescription else {
-            // No-op
-            return Promise(())
-        }
-
-        let sendUnSub = engine._state.connectOptions.autoSubscribe
-        let participantTracks = _state.remoteParticipants.values.map { participant in
-            Livekit_ParticipantTracks.with {
-                $0.participantSid = participant.sid
-                $0.trackSids = participant._state.tracks.values
-                    .filter { $0.subscribed != sendUnSub }
-                    .map { $0.sid }
-            }
-        }
-
-        // Backward compatibility
-        let trackSids = participantTracks.map { $0.trackSids }.flatMap { $0 }
-
-        log("trackSids: \(trackSids)")
-
-        let subscription = Livekit_UpdateSubscription.with {
-            $0.trackSids = trackSids // Deprecated
-            $0.participantTracks = participantTracks
-            $0.subscribe = !sendUnSub
-        }
-
-        return engine.signalClient.sendSyncState(answer: localDescription.toPBType(),
-                                                 subscription: subscription,
-                                                 publishTracks: _state.localParticipant?.publishedTracksInfo(),
-                                                 dataChannels: engine.dataChannelInfo())
     }
 }
 
@@ -603,10 +581,6 @@ extension Room: EngineDelegate {
 
             // only if quick-reconnect
             if case .connected = state.connectionState, case .quick = state.reconnectMode {
-
-                sendSyncState().catch(on: queue) { error in
-                    self.log("Failed to sendSyncState, error: \(error)", .error)
-                }
 
                 resetTrackSettings()
             }

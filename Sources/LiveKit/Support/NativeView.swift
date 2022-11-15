@@ -14,12 +14,17 @@
  * limitations under the License.
  */
 
-#if os(iOS)
+import Foundation
+
+#if canImport(UIKit)
 import UIKit
+#elseif canImport(AppKit)
+import AppKit
+#endif
+
+#if os(iOS)
 public typealias NativeViewType = UIView
 #elseif os(macOS)
-// macOS
-import AppKit
 public typealias NativeViewType = NSView
 #endif
 
