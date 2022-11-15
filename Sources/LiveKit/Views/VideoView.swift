@@ -100,7 +100,9 @@ public class VideoView: NativeView, Loggable {
         get { _state.isHidden }
         set {
             _state.mutate { $0.isHidden = newValue }
-            DispatchQueue.mainSafeAsync { super.isHidden = newValue }
+            Task.detached { @MainActor in
+                super.isHidden = newValue
+            }
         }
     }
 
@@ -157,7 +159,7 @@ public class VideoView: NativeView, Loggable {
     public override init(frame: CGRect = .zero) {
 
         // should always be on main thread
-        assert(Thread.current.isMainThread, "must be created on the main thread")
+        assert(Thread.current.isMainThread, "must be on the main thread")
 
         // initial state
         _state = StateSync(State(viewSize: frame.size))
@@ -180,9 +182,7 @@ public class VideoView: NativeView, Loggable {
 
             if trackDidUpdate || shouldRenderDidUpdate {
 
-                DispatchQueue.main.async { [weak self] in
-
-                    guard let self = self else { return }
+                Task.detached { @MainActor in
 
                     // clean up old track
                     if let track = oldState.track {
@@ -233,6 +233,7 @@ public class VideoView: NativeView, Loggable {
                         }
                     }
                 }
+
             }
 
             // isRendering updated
@@ -272,7 +273,7 @@ public class VideoView: NativeView, Loggable {
                 shouldRenderDidUpdate || trackDidUpdate {
 
                 // must be on main
-                DispatchQueue.mainSafeAsync {
+                Task.detached { @MainActor in
                     self.setNeedsLayout()
                 }
             }
@@ -520,8 +521,7 @@ extension VideoView: VideoRenderer {
         var _needsLayout = false
         defer {
             if _needsLayout {
-                DispatchQueue.main.async { [weak self] in
-                    guard let self = self else { return }
+                Task.detached { @MainActor in
                     self.setNeedsLayout()
                 }
             }
@@ -563,7 +563,7 @@ extension VideoView: VideoRenderer {
         }
 
         if _state.debugMode {
-            DispatchQueue.main.async {
+            Task.detached { @MainActor in
                 self._frameCount += 1
             }
         }
@@ -576,7 +576,7 @@ extension VideoView: VideoCapturerDelegate {
 
     public func capturer(_ capturer: VideoCapturer, didUpdate state: VideoCapturer.CapturerState) {
         if case .started = state {
-            DispatchQueue.mainSafeAsync {
+            Task.detached { @MainActor in
                 self.setNeedsLayout()
             }
         }
