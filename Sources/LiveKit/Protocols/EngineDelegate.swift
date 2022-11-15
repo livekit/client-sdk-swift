@@ -23,6 +23,5 @@ internal protocol EngineDelegate: AnyObject {
     func engine(_ engine: Engine, didAdd track: RTCMediaStreamTrack, streams: [RTCMediaStream])
     func engine(_ engine: Engine, didRemove track: RTCMediaStreamTrack)
     func engine(_ engine: Engine, didReceive userPacket: Livekit_UserPacket)
-    func engine(_ engine: Engine, didUpdate dataChannel: RTCDataChannel, state: RTCDataChannelState)
     func engine(_ engine: Engine, didGenerate stats: [TrackStats], target: Livekit_SignalTarget)
 }
