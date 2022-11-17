@@ -203,7 +203,7 @@ public class AudioCaptureOptions: NSObject, CaptureOptions {
     public let experimentalAutoGainControl: Bool = false
 
     public init(echoCancellation: Bool = true,
-                noiseSuppression: Bool = false,
+                noiseSuppression: Bool = true,
                 autoGainControl: Bool = true,
                 typingNoiseDetection: Bool = true,
                 highpassFilter: Bool = true) {
