@@ -166,7 +166,7 @@ extension LocalTrackPublication {
         self.log("Using encodings layers: \(layers.map { String(describing: $0) }.joined(separator: ", "))")
 
         participant.room.engine.signalClient.sendUpdateVideoLayers(trackSid: track.sid!,
-                                                                   layers: layers).catch(on: queue) { error in
+                                                                   layers: layers).catch(on: queue) { _ in
                                                                     self.log("Failed to send update video layers", .error)
                                                                    }
     }
