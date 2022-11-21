@@ -546,6 +546,8 @@ struct Livekit_TrackInfo {
   /// true if RED (Redundant Encoding) is disabled for audio
   var disableRed: Bool = false
 
+  var bitrate: UInt32 = 0
+
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   init() {}
@@ -1660,6 +1662,7 @@ extension Livekit_TrackInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImplem
     13: .same(proto: "codecs"),
     14: .same(proto: "stereo"),
     15: .standard(proto: "disable_red"),
+    16: .standard(proto: "bitrate"),
   ]
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -1683,6 +1686,7 @@ extension Livekit_TrackInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImplem
       case 13: try { try decoder.decodeRepeatedMessageField(value: &self.codecs) }()
       case 14: try { try decoder.decodeSingularBoolField(value: &self.stereo) }()
       case 15: try { try decoder.decodeSingularBoolField(value: &self.disableRed) }()
+      case 16: try { try decoder.decodeSingularUInt32Field(value: &self.bitrate) }()
       default: break
       }
     }
@@ -1734,6 +1738,10 @@ extension Livekit_TrackInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImplem
     if self.disableRed != false {
       try visitor.visitSingularBoolField(value: self.disableRed, fieldNumber: 15)
     }
+    if self.bitrate != 0 {
+      try visitor.visitSingularUInt32Field(value: self.bitrate, fieldNumber: 16)
+    }
+      
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -1753,6 +1761,7 @@ extension Livekit_TrackInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImplem
     if lhs.codecs != rhs.codecs {return false}
     if lhs.stereo != rhs.stereo {return false}
     if lhs.disableRed != rhs.disableRed {return false}
+    if lhs.bitrate != rhs.bitrate {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }

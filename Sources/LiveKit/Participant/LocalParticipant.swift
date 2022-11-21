@@ -119,6 +119,7 @@ public class LocalParticipant: Participant {
                     // additional params for Audio
                     let publishOptions = (publishOptions as? AudioPublishOptions) ?? self.room._state.options.defaultAudioPublishOptions
                     populator.disableDtx = !publishOptions.dtx
+                    populator.bitrate = publishOptions.bitrate
                 }
 
                 return transInit

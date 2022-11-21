@@ -90,13 +90,13 @@ public class AudioPublishOptions: NSObject, PublishOptions {
     @objc
     public let name: String?
 
-    public let bitrate: Int?
+    public let bitrate: UInt32
 
     @objc
     public let dtx: Bool
 
     public init(name: String? = nil,
-                bitrate: Int? = nil,
+                bitrate: UInt32 = 0,
                 dtx: Bool = true) {
 
         self.name = name
