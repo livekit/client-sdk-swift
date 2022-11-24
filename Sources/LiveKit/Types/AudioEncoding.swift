@@ -18,44 +18,55 @@ import Foundation
 import WebRTC
 
 @objc
-public class VideoEncoding: NSObject, MediaEncoding {
+public class AudioEncoding: NSObject, MediaEncoding {
 
     @objc
     public var maxBitrate: Int
 
     @objc
-    public var maxFps: Int
-
-    @objc
-    public init(maxBitrate: Int, maxFps: Int) {
+    public init(maxBitrate: Int) {
         self.maxBitrate = maxBitrate
-        self.maxFps = maxFps
     }
 
     // MARK: - Equal
 
     public override func isEqual(_ object: Any?) -> Bool {
         guard let other = object as? Self else { return false }
-        return self.maxBitrate == other.maxBitrate &&
-            self.maxFps == other.maxFps
+        return self.maxBitrate == other.maxBitrate
     }
 
     public override var hash: Int {
         var hasher = Hasher()
         hasher.combine(maxBitrate)
-        hasher.combine(maxFps)
         return hasher.finalize()
     }
 }
 
-extension VideoEncoding: Comparable {
+extension AudioEncoding: Comparable {
 
-    public static func < (lhs: VideoEncoding, rhs: VideoEncoding) -> Bool {
-
-        if lhs.maxBitrate == rhs.maxBitrate {
-            return lhs.maxFps < rhs.maxFps
-        }
-
-        return lhs.maxBitrate < rhs.maxBitrate
+    public static func < (lhs: AudioEncoding, rhs: AudioEncoding) -> Bool {
+        lhs.maxBitrate < rhs.maxBitrate
     }
+}
+
+// MARK: - Presets
+
+@objc
+extension AudioEncoding {
+
+    internal static let presets = [
+        presetTelephone,
+        presetSpeech,
+        presetMusic,
+        presetMusicStereo,
+        presetMusicHighQuality,
+        presetMusicHighQualityStereo
+    ]
+
+    public static let presetTelephone = AudioEncoding(maxBitrate: 12_000)
+    public static let presetSpeech = AudioEncoding(maxBitrate: 20_000)
+    public static let presetMusic = AudioEncoding(maxBitrate: 32_000)
+    public static let presetMusicStereo = AudioEncoding(maxBitrate: 48_000)
+    public static let presetMusicHighQuality = AudioEncoding(maxBitrate: 64_000)
+    public static let presetMusicHighQualityStereo = AudioEncoding(maxBitrate: 96_000)
 }
