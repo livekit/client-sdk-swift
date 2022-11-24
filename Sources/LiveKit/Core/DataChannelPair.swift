@@ -108,10 +108,11 @@ internal class DataChannelPair: NSObject, Loggable {
         let serializedData = try packet.serializedData()
         let rtcData = Engine.createDataBuffer(data: serializedData)
 
-        let result = { switch reliability {
-        case .reliable: return reliableChannel.sendData(rtcData)
-        case .lossy: return lossyChannel.sendData(rtcData)
-        }
+        let result = { () -> Bool in
+            switch reliability {
+                case .reliable: return reliableChannel.sendData(rtcData)
+                case .lossy: return lossyChannel.sendData(rtcData)
+            }
         }()
 
         guard result else {

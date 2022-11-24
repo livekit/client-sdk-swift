@@ -254,7 +254,7 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
                                                              throw: { TransportError.timedOut(message: "publisher didn't connect") })
             }
 
-            return publisherConnectCompleter.then {
+            return publisherConnectCompleter.then { () -> Promise<Void> in
                 self.log("send data: publisher connected...")
                 // wait for publisherDC to open
                 return self.publisherDC.openCompleter
