@@ -118,7 +118,16 @@ public class LocalParticipant: Participant {
                 } else if track is LocalAudioTrack {
                     // additional params for Audio
                     let publishOptions = (publishOptions as? AudioPublishOptions) ?? self.room._state.options.defaultAudioPublishOptions
+
                     populator.disableDtx = !publishOptions.dtx
+
+                    let encoding = publishOptions.encoding ?? AudioEncoding.presetSpeech
+
+                    self.log("[publish] maxBitrate: \(encoding.maxBitrate)")
+
+                    transInit.sendEncodings = [
+                        Engine.createRtpEncodingParameters(encoding: encoding)
+                    ]
                 }
 
                 return transInit
