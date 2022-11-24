@@ -205,11 +205,11 @@ public class AudioManager: Loggable {
             do {
                 self.log("configuring audio session category: \(configuration.category), mode: \(configuration.mode), setActive: \(String(describing: setActive))")
 
-                 if let setActive = setActive {
-                     try session.setConfiguration(configuration, active: setActive)
-                 } else {
+                if let setActive = setActive {
+                    try session.setConfiguration(configuration, active: setActive)
+                } else {
                     try session.setConfiguration(configuration)
-                 }
+                }
 
             } catch let error {
                 self.log("Failed to configure audio session with error: \(error)", .error)
