@@ -41,17 +41,20 @@ public class AudioManager: Loggable {
     public struct State {
         var localTracksCount: Int = 0
         var remoteTracksCount: Int = 0
-        var preferSpeakerOutput: Bool = false
+        var preferSpeakerOutput: Bool = true
     }
 
-    public var localTracksCount: Int { _state.localTracksCount }
-    public var remoteTracksCount: Int { _state.remoteTracksCount }
+    /// Set this to false if you prefer using the device's receiver instead of speaker. Defaults to true.
     public var preferSpeakerOutput: Bool {
         get { _state.preferSpeakerOutput }
         set { _state.mutate { $0.preferSpeakerOutput = newValue } }
     }
 
     // MARK: - Internal
+
+    internal var localTracksCount: Int { _state.localTracksCount }
+
+    internal var remoteTracksCount: Int { _state.remoteTracksCount }
 
     internal enum `Type` {
         case local
@@ -157,21 +160,26 @@ public class AudioManager: Loggable {
             let configuration = RTCAudioSessionConfiguration.webRTC()
             var categoryOptions: AVAudioSession.CategoryOptions = []
 
-            switch newState.trackState {
-            case .remoteOnly:
+            if newState.trackState == .remoteOnly && newState.preferSpeakerOutput {
                 configuration.category = AVAudioSession.Category.playback.rawValue
                 configuration.mode = AVAudioSession.Mode.spokenAudio.rawValue
-            case  .localOnly, .localAndRemote:
+
+            } else if [.localOnly, .localAndRemote].contains(newState.trackState) ||
+                        (newState.trackState == .remoteOnly && !newState.preferSpeakerOutput) {
+
                 configuration.category = AVAudioSession.Category.playAndRecord.rawValue
-                configuration.mode = AVAudioSession.Mode.videoChat.rawValue
+
+                if newState.preferSpeakerOutput {
+                    // use .videoChat if speakerOutput is preferred
+                    configuration.mode = AVAudioSession.Mode.videoChat.rawValue
+                } else {
+                    // use .voiceChat if speakerOutput is not preferred
+                    configuration.mode = AVAudioSession.Mode.voiceChat.rawValue
+                }
 
                 categoryOptions = [.allowBluetooth, .allowBluetoothA2DP]
 
-                if newState.preferSpeakerOutput {
-                    categoryOptions.insert(.defaultToSpeaker)
-                }
-
-            default:
+            } else {
                 configuration.category = AVAudioSession.Category.soloAmbient.rawValue
                 configuration.mode = AVAudioSession.Mode.default.rawValue
             }
@@ -179,6 +187,7 @@ public class AudioManager: Loggable {
             configuration.categoryOptions = categoryOptions
 
             var setActive: Bool?
+
             if newState.trackState != .none, oldState.trackState == .none {
                 // activate audio session when there is any local/remote audio track
                 setActive = true
@@ -194,7 +203,7 @@ public class AudioManager: Loggable {
             defer { session.unlockForConfiguration() }
 
             do {
-                self.log("configuring audio session with category: \(configuration.category), mode: \(configuration.mode), setActive: \(String(describing: setActive))")
+                self.log("configuring audio session category: \(configuration.category), mode: \(configuration.mode), setActive: \(String(describing: setActive))")
 
                 if let setActive = setActive {
                     try session.setConfiguration(configuration, active: setActive)
@@ -203,14 +212,7 @@ public class AudioManager: Loggable {
                 }
 
             } catch let error {
-                self.log("Failed to configureAudioSession with error: \(error)", .error)
-            }
-
-            do {
-                self.log("preferSpeakerOutput: \(newState.preferSpeakerOutput)")
-                try session.overrideOutputAudioPort(newState.preferSpeakerOutput ? .speaker : .none)
-            } catch let error {
-                self.log("Failed to overrideOutputAudioPort with error: \(error)", .error)
+                self.log("Failed to configure audio session with error: \(error)", .error)
             }
         }
     }

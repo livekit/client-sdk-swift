@@ -90,17 +90,19 @@ public class AudioPublishOptions: NSObject, PublishOptions {
     @objc
     public let name: String?
 
-    public let bitrate: Int?
+    /// preferred encoding parameters
+    @objc
+    public let encoding: AudioEncoding?
 
     @objc
     public let dtx: Bool
 
     public init(name: String? = nil,
-                bitrate: Int? = nil,
+                encoding: AudioEncoding? = nil,
                 dtx: Bool = true) {
 
         self.name = name
-        self.bitrate = bitrate
+        self.encoding = encoding
         self.dtx = dtx
     }
 
@@ -109,14 +111,14 @@ public class AudioPublishOptions: NSObject, PublishOptions {
     public override func isEqual(_ object: Any?) -> Bool {
         guard let other = object as? Self else { return false }
         return self.name == other.name &&
-            self.bitrate == other.bitrate &&
+            self.encoding == other.encoding &&
             self.dtx == other.dtx
     }
 
     public override var hash: Int {
         var hasher = Hasher()
         hasher.combine(name)
-        hasher.combine(bitrate)
+        hasher.combine(encoding)
         hasher.combine(dtx)
         return hasher.finalize()
     }

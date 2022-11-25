@@ -254,7 +254,7 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
                                                              throw: { TransportError.timedOut(message: "publisher didn't connect") })
             }
 
-            return publisherConnectCompleter.then {
+            return publisherConnectCompleter.then { () -> Promise<Void> in
                 self.log("send data: publisher connected...")
                 // wait for publisherDC to open
                 return self.publisherDC.openCompleter
@@ -906,19 +906,26 @@ internal extension Engine {
     }
 
     static func createRtpEncodingParameters(rid: String? = nil,
-                                            encoding: VideoEncoding? = nil,
-                                            scaleDown: Double = 1.0,
+                                            encoding: MediaEncoding? = nil,
+                                            scaleDownBy: Double? = nil,
                                             active: Bool = true) -> RTCRtpEncodingParameters {
 
         let result = DispatchQueue.webRTC.sync { RTCRtpEncodingParameters() }
 
         result.isActive = active
         result.rid = rid
-        result.scaleResolutionDownBy = NSNumber(value: scaleDown)
+
+        if let scaleDownBy = scaleDownBy {
+            result.scaleResolutionDownBy = NSNumber(value: scaleDownBy)
+        }
 
         if let encoding = encoding {
-            result.maxFramerate = NSNumber(value: encoding.maxFps)
             result.maxBitrateBps = NSNumber(value: encoding.maxBitrate)
+
+            // VideoEncoding specific
+            if let videoEncoding = encoding as? VideoEncoding {
+                result.maxFramerate = NSNumber(value: videoEncoding.maxFps)
+            }
         }
 
         return result

@@ -31,7 +31,7 @@ internal class AppStateListener: MulticastDelegate<AppStateDelegate> {
     static let shared = AppStateListener()
 
     private init() {
-        super.init(qos: .userInitiated)
+        super.init()
 
         let center = NotificationCenter.default
 
