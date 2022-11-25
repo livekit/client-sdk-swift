@@ -81,7 +81,7 @@ internal class WebSocket: NSObject, URLSessionWebSocketDelegate, Loggable {
         return connectPromise!
     }
 
-    internal func cleanUp(reason: DisconnectReason?) {
+    internal func cleanUp(reason: DisconnectReason?, notify: Bool = true) {
 
         log("reason: \(String(describing: reason))")
 
@@ -102,7 +102,9 @@ internal class WebSocket: NSObject, URLSessionWebSocketDelegate, Loggable {
             connectPromise = nil
         }
 
-        onDisconnect?(reason)
+        if notify {
+            onDisconnect?(reason)
+        }
     }
 
     public func send(data: Data) -> Promise<Void> {

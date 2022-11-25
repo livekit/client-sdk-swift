@@ -56,6 +56,9 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
     private var webSocket: WebSocket?
     private var latestJoinResponse: Livekit_JoinResponse?
 
+    private var pingIntervalTimer: DispatchQueueTimer?
+    private var pingTimeoutTimer: DispatchQueueTimer?
+
     init() {
         super.init()
 
@@ -66,7 +69,8 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
 
             guard let self = self else { return }
 
-            if oldState.connectionState != state.connectionState {
+            // connectionState did update
+            if state.connectionState != oldState.connectionState {
                 self.log("\(oldState.connectionState) -> \(state.connectionState)")
             }
 
@@ -148,8 +152,11 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
 
         _state.mutate { $0.connectionState = .disconnected(reason: reason) }
 
+        pingIntervalTimer = nil
+        pingTimeoutTimer = nil
+
         if let socket = webSocket {
-            socket.cleanUp(reason: reason)
+            socket.cleanUp(reason: reason, notify: false)
             socket.onMessage = nil
             socket.onDisconnect = nil
             self.webSocket = nil
@@ -287,6 +294,7 @@ private extension SignalClient {
         case .join(let joinResponse):
             responseQueueState = .suspended
             latestJoinResponse = joinResponse
+            restartPingTimer()
             notify { $0.signalClient(self, didReceive: joinResponse) }
             _state.mutate { $0.joinResponseCompleter.set(value: joinResponse) }
 
@@ -346,7 +354,7 @@ private extension SignalClient {
         case .refreshToken(let token):
             notify { $0.signalClient(self, didUpdate: token) }
         case .pong(let r):
-            log("pong: \(r)")
+            onReceivedPong(r)
         }
     }
 }
@@ -591,6 +599,7 @@ internal extension SignalClient {
         return sendRequest(r)
     }
 
+    @discardableResult
     func sendLeave() -> Promise<Void> {
         log()
 
@@ -601,6 +610,7 @@ internal extension SignalClient {
         return sendRequest(r)
     }
 
+    @discardableResult
     func sendSimulate(scenario: SimulateScenario) -> Promise<Void> {
         log()
 
@@ -614,6 +624,74 @@ internal extension SignalClient {
         }
 
         return sendRequest(r)
+    }
+
+    @discardableResult
+    private func sendPing() -> Promise<Void> {
+        log("ping/pong: sending...")
+
+        let r = Livekit_SignalRequest.with {
+            $0.ping = Int64(Date().timeIntervalSince1970)
+        }
+
+        return sendRequest(r)
+    }
+}
+
+// MARK: - Server ping/pong logic
+
+private extension SignalClient {
+
+    func onPingIntervalTimer() {
+
+        guard let jr = latestJoinResponse else { return }
+
+        sendPing().then { [weak self] in
+
+            guard let self = self else { return }
+
+            if self.pingTimeoutTimer == nil {
+                // start timeout timer
+
+                self.pingTimeoutTimer = {
+                    let timer = DispatchQueueTimer(timeInterval: TimeInterval(jr.pingTimeout), queue: self.queue)
+                    timer.handler = { [weak self] in
+                        guard let self = self else { return }
+                        self.log("ping/pong timed out", .error)
+                        self.cleanUp(reason: .networkError(SignalClientError.serverPingTimedOut()))
+                    }
+                    timer.resume()
+                    return timer
+                }()
+            }
+        }
+    }
+
+    func onReceivedPong(_ r: Int64) {
+
+        log("ping/pong received pong from server")
+        // clear timeout timer
+        pingTimeoutTimer = nil
+    }
+
+    func restartPingTimer() {
+        // always suspend first
+        pingIntervalTimer = nil
+        pingTimeoutTimer = nil
+        // check received joinResponse already
+        guard let jr = latestJoinResponse,
+              // check server supports ping/pong
+              jr.pingTimeout > 0,
+              jr.pingInterval > 0 else { return }
+
+        log("ping/pong starting with interval: \(jr.pingInterval), timeout: \(jr.pingTimeout)")
+
+        pingIntervalTimer = {
+            let timer = DispatchQueueTimer(timeInterval: TimeInterval(jr.pingInterval), queue: queue)
+            timer.handler = { [weak self] in self?.onPingIntervalTimer() }
+            timer.resume()
+            return timer
+        }()
     }
 }
 
