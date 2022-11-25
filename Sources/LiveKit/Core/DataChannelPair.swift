@@ -110,8 +110,8 @@ internal class DataChannelPair: NSObject, Loggable {
 
         let result = { () -> Bool in
             switch reliability {
-                case .reliable: return reliableChannel.sendData(rtcData)
-                case .lossy: return lossyChannel.sendData(rtcData)
+            case .reliable: return reliableChannel.sendData(rtcData)
+            case .lossy: return lossyChannel.sendData(rtcData)
             }
         }()
 
