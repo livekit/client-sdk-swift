@@ -646,19 +646,25 @@ private extension SignalClient {
 
         guard let jr = latestJoinResponse else { return }
 
-        pingIntervalTimer?.suspend()
-        sendPing()
+        sendPing().then { [weak self] in
 
-        pingTimeoutTimer = {
-            let timer = DispatchQueueTimer(timeInterval: TimeInterval(jr.pingTimeout), queue: queue)
-            timer.handler = { [weak self] in
-                guard let self = self else { return }
-                self.log("ping/pong timed out", .error)
-                self.cleanUp(reason: .networkError(SignalClientError.serverPingTimedOut()))
+            guard let self = self else { return }
+
+            if self.pingTimeoutTimer == nil {
+                // start timeout timer
+
+                self.pingTimeoutTimer = {
+                    let timer = DispatchQueueTimer(timeInterval: TimeInterval(jr.pingTimeout), queue: self.queue)
+                    timer.handler = { [weak self] in
+                        guard let self = self else { return }
+                        self.log("ping/pong timed out", .error)
+                        self.cleanUp(reason: .networkError(SignalClientError.serverPingTimedOut()))
+                    }
+                    timer.resume()
+                    return timer
+                }()
             }
-            timer.resume()
-            return timer
-        }()
+        }
     }
 
     func onReceivedPong(_ r: Int64) {
@@ -666,8 +672,6 @@ private extension SignalClient {
         log("ping/pong received pong from server")
         // clear timeout timer
         pingTimeoutTimer = nil
-        // carry on...
-        pingIntervalTimer?.resume()
     }
 
     func restartPingTimer() {
@@ -680,7 +684,7 @@ private extension SignalClient {
               jr.pingTimeout > 0,
               jr.pingInterval > 0 else { return }
 
-        log("ping/pong starting with interval: \(jr.pingInterval)")
+        log("ping/pong starting with interval: \(jr.pingInterval), timeout: \(jr.pingTimeout)")
 
         pingIntervalTimer = {
             let timer = DispatchQueueTimer(timeInterval: TimeInterval(jr.pingInterval), queue: queue)
