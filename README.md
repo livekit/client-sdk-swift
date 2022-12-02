@@ -79,7 +79,7 @@ class RoomViewController: UIViewController {
             room.localParticipant?.setCamera(enabled: true)
             room.localParticipant?.setMicrophone(enabled: true)
 
-        }.catch { error in 
+        }.catch { error in
             // failed to connect
         }
     }
@@ -95,7 +95,7 @@ extension RoomViewController: RoomDelegate {
             localVideoView.track = track
         }
     }
-    
+
     func room(_ room: Room, participant: RemoteParticipant, didSubscribe publication: RemoteTrackPublication, track: Track) {
         guard let track = track as? VideoTrack else {
           return
@@ -111,7 +111,9 @@ extension RoomViewController: RoomDelegate {
 
 See [iOS Screen Sharing instructions](https://github.com/livekit/client-sdk-swift/wiki/iOS-Screen-Sharing).
 
-# Thread safety
+## Integration Notes
+
+### Thread safety
 
 Since `VideoView` is a UI component, all operations (read/write properties etc) must be performed from the `main` thread.
 
@@ -120,24 +122,32 @@ Other core classes can be accessed from any thread.
 Delegates will be called on the SDK's internal thread.
 Make sure any access to the UI is within the main thread, for example by using `DispatchQueue.main.async`.
 
-# Memory management
+### Memory management
 
 It is recommended to use **weak var** when storing references to objects created and managed by the SDK, such as `Participant`, `TrackPublication` etc. These objects are invalid when the `Room` disconnects, and will be released by the SDK. Holding strong reference to these objects will prevent releasing `Room` and other internal objects.
 
 `VideoView.track` property does not hold strong reference, so it's not required to set it to `nil`.
 
-# iOS Simulator limitations
+### AudioSession management
+
+LiveKit will automatically manage the underlying `AVAudioSession` while connected. The session will be set to `playback` category by default. When a local stream is published, it'll be switched to
+`playAndRecord`. In general, it'll pick sane defaults and do the right thing.
+
+However, if you'd like to customize this behavior, you would override `AudioManager.customConfigureAudioSessionFunc` to manage the underlying session on your own. See [example here](https://github.com/livekit/client-sdk-swift/blob/1f5959f787805a4b364f228ccfb413c1c4944748/Sources/LiveKit/Track/AudioManager.swift#L153) for the default behavior.
+
+### iOS Simulator limitations
 
 - Currently, `VideoView` will use OpenGL for iOS Simulator.
 - Publishing the camera track is not supported by iOS Simulator.
 
-# ScrollView performance
+### ScrollView performance
 
 It is recommended to turn off rendering of `VideoView`s that scroll off the screen and isn't visible by setting `false` to `isEnabled` property and `true` when it will re-appear to save CPU resources.
 
 `UICollectionViewDelegate`'s `willDisplay` / `didEndDisplaying` has been reported to be unreliable for this purpose. Specifically, in some iOS versions `didEndDisplaying` could get invoked even when the cell is visible.
 
 The following is an alternative method to using `willDisplay` / `didEndDisplaying` :
+
 ```swift
 // 1. define a weak-reference set for all cells
 private var allCells = NSHashTable<ParticipantCell>.weakObjects()
@@ -200,8 +210,8 @@ More discussion here https://github.com/livekit/client-sdk-swift/issues/140
 
 ### How to publish camera in 60 FPS ?
 
-* Create a `LocalVideoTrack` by calling `LocalVideoTrack.createCameraTrack(options: CameraCaptureOptions(fps: 60))`.
-* Publish with `LocalParticipant.publishVideoTrack(track: track, publishOptions: VideoPublishOptions(encoding: VideoEncoding(maxFps: 60)))`. 
+- Create a `LocalVideoTrack` by calling `LocalVideoTrack.createCameraTrack(options: CameraCaptureOptions(fps: 60))`.
+- Publish with `LocalParticipant.publishVideoTrack(track: track, publishOptions: VideoPublishOptions(encoding: VideoEncoding(maxFps: 60)))`.
 
 # Known issues
 
@@ -214,8 +224,8 @@ If your app is targeting macOS Catalina, make sure to do the following to avoid 
 
 <img width="752" alt="replykit" src="https://user-images.githubusercontent.com/548776/201249295-51d9cb76-32bd-4b10-9f4c-02951d1b2edb.png">
 
-* I am not sure why this is required for ReplayKit at the moment.
-* If you are targeting macOS 11.0+, this is not required.
+- I am not sure why this is required for ReplayKit at the moment.
+- If you are targeting macOS 11.0+, this is not required.
 
 # Getting help / Contributing
 
