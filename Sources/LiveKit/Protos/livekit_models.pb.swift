@@ -564,7 +564,7 @@ struct Livekit_VideoLayer {
 
   var height: UInt32 = 0
 
-  /// target bitrate, server will measure actual
+  /// target bitrate in bit per second (bps), server will measure actual
   var bitrate: UInt32 = 0
 
   var ssrc: UInt32 = 0

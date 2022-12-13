@@ -143,7 +143,7 @@ extension Dimensions {
             let parameters = Engine.createRtpEncodingParameters(
                 rid: rid,
                 encoding: preset.encoding,
-                scaleDown: Double(max) / Double(preset.dimensions.max)
+                scaleDownBy: Double(max) / Double(preset.dimensions.max)
             )
 
             result.append(parameters)

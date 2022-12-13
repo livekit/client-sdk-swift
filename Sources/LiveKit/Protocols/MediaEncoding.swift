@@ -15,8 +15,10 @@
  */
 
 import Foundation
+import WebRTC
 
-internal extension DispatchQueue {
-
-    static let webRTC = DispatchQueue(label: "LiveKitSDK.webRTC", qos: .default)
+@objc
+public protocol MediaEncoding {
+    //
+    var maxBitrate: Int { get }
 }

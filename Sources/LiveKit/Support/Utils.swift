@@ -207,7 +207,7 @@ internal class Utils {
         let encoding = preferredEncoding ?? dimensions.computeSuggestedPreset(in: dimensions.computeSuggestedPresets(isScreenShare: isScreenShare))
 
         guard publishOptions.simulcast else {
-            return [Engine.createRtpEncodingParameters(encoding: encoding)]
+            return [Engine.createRtpEncodingParameters(encoding: encoding, scaleDownBy: 1)]
         }
 
         let baseParameters = VideoParameters(dimensions: dimensions,

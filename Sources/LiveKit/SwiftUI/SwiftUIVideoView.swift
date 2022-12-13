@@ -29,13 +29,13 @@ internal class TrackDelegateReceiver: TrackDelegate, Loggable {
     }
 
     func track(_ track: VideoTrack, didUpdate dimensions: Dimensions?) {
-        DispatchQueue.main.async {
+        Task.detached { @MainActor in
             self.dimensions = dimensions
         }
     }
 
     func track(_ track: Track, didUpdate stats: TrackStats) {
-        DispatchQueue.main.async {
+        Task.detached { @MainActor in
             self.stats = stats
         }
     }
@@ -51,7 +51,7 @@ internal class VideoViewDelegateReceiver: VideoViewDelegate, Loggable {
     }
 
     func videoView(_ videoView: VideoView, didUpdate isRendering: Bool) {
-        DispatchQueue.main.async {
+        Task.detached { @MainActor in
             self.isRendering = isRendering
         }
     }
@@ -97,7 +97,7 @@ public struct SwiftUIVideoView: NativeViewRepresentable {
         self.videoViewDelegateReceiver = VideoViewDelegateReceiver(isRendering: isRendering)
 
         // update binding value
-        DispatchQueue.main.async {
+        Task.detached { @MainActor in
             dimensions.wrappedValue = track.dimensions
             trackStats.wrappedValue = track.stats
         }
@@ -120,7 +120,7 @@ public struct SwiftUIVideoView: NativeViewRepresentable {
         videoView.debugMode = debugMode
 
         // update
-        DispatchQueue.main.async {
+        Task.detached { @MainActor in
             self.isRendering = videoView.isRendering
         }
     }
