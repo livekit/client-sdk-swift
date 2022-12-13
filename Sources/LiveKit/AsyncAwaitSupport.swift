@@ -110,11 +110,11 @@ public extension LocalParticipant {
     }
 
     func publishData(_ data: Data,
-                            reliability: Reliability = .reliable,
-                            destination: [String] = []) async throws {
-    
+                     reliability: Reliability = .reliable,
+                     destination: [String] = []) async throws {
+
         try await withCheckedThrowingContinuation { continuation in
-            publishData(data: data,reliability: reliability, destination: destination).then { result in
+            publishData(data: data, reliability: reliability, destination: destination).then { result in
                 continuation.resume(returning: result)
             }.catch { error in
                 continuation.resume(throwing: error)
@@ -141,6 +141,19 @@ public extension LocalParticipant {
             }.catch { error in
                 continuation.resume(throwing: error)
             }
+        }
+    }
+
+    func setTrackSubscriptionPermissions(allParticipantsAllowed: Bool,
+                                         trackPermissions: [ParticipantTrackPermission] = []) async throws {
+
+        try await withCheckedThrowingContinuation { continuation in
+            setTrackSubscriptionPermissions(allParticipantsAllowed: allParticipantsAllowed,
+                                            trackPermissions: trackPermissions).then {
+                                                continuation.resume()
+                                            }.catch { error in
+                                                continuation.resume(throwing: error)
+                                            }
         }
     }
 }
