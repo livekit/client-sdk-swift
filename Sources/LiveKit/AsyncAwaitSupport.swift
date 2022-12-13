@@ -21,13 +21,13 @@ import Promises
 // Support for async/await syntax
 // TODO: deprecate use of Promises
 
-extension Room {
+public extension Room {
 
     @discardableResult
-    public func connect(_ url: String,
-                        _ token: String,
-                        connectOptions: ConnectOptions? = nil,
-                        roomOptions: RoomOptions? = nil) async throws -> Room {
+    func connect(_ url: String,
+                 _ token: String,
+                 connectOptions: ConnectOptions? = nil,
+                 roomOptions: RoomOptions? = nil) async throws -> Room {
 
         try await withCheckedThrowingContinuation { continuation in
 
@@ -35,13 +35,99 @@ extension Room {
                     token,
                     connectOptions: connectOptions,
                     roomOptions: roomOptions).then { room in
-
                         continuation.resume(returning: room)
-
                     }.catch { error in
-
                         continuation.resume(throwing: error)
                     }
+        }
+    }
+
+    func disconnect() async throws {
+
+        try await withCheckedThrowingContinuation { continuation in
+            disconnect().then {
+                continuation.resume()
+            }.catch { error in
+                continuation.resume(throwing: error)
+            }
+        }
+    }
+}
+
+public extension LocalParticipant {
+
+    @discardableResult
+    func set(source: Track.Source, enabled: Bool) async throws -> LocalTrackPublication? {
+
+        try await withCheckedThrowingContinuation { continuation in
+            set(source: .camera, enabled: enabled).then { result in
+                continuation.resume(returning: result)
+            }.catch { error in
+                continuation.resume(throwing: error)
+            }
+        }
+    }
+
+    @discardableResult
+    func setCamera(enabled: Bool) async throws -> LocalTrackPublication? {
+        try await set(source: .camera, enabled: enabled)
+    }
+
+    @discardableResult
+    func setMicrophone(enabled: Bool) async throws -> LocalTrackPublication? {
+        try await set(source: .microphone, enabled: enabled)
+    }
+
+    @discardableResult
+    func setScreenShare(enabled: Bool) async throws -> LocalTrackPublication? {
+        try await set(source: .screenShareVideo, enabled: enabled)
+    }
+
+    @discardableResult
+    func publishVideo(track: LocalVideoTrack,
+                      publishOptions: VideoPublishOptions? = nil) async throws -> LocalTrackPublication {
+
+        try await withCheckedThrowingContinuation { continuation in
+            publishVideoTrack(track: track, publishOptions: publishOptions).then { result in
+                continuation.resume(returning: result)
+            }.catch { error in
+                continuation.resume(throwing: error)
+            }
+        }
+    }
+
+    @discardableResult
+    func publishAudio(track: LocalAudioTrack,
+                      publishOptions: AudioPublishOptions? = nil) async throws -> LocalTrackPublication {
+
+        try await withCheckedThrowingContinuation { continuation in
+            publishAudioTrack(track: track, publishOptions: publishOptions).then { result in
+                continuation.resume(returning: result)
+            }.catch { error in
+                continuation.resume(throwing: error)
+            }
+        }
+    }
+
+    func unpublish(publication: LocalTrackPublication, notify: Bool = true) async throws {
+
+        try await withCheckedThrowingContinuation { continuation in
+            unpublish(publication: publication, notify: notify).then {
+                continuation.resume()
+            }.catch { error in
+                continuation.resume(throwing: error)
+            }
+        }
+    }
+
+    func unpublishAll(notify: Bool = true) async throws {
+
+        try await withCheckedThrowingContinuation { continuation in
+            unpublishAll(notify: notify).then {
+                continuation.resume()
+            }.catch { error in
+                continuation.resume(throwing: error)
+            }
         }
     }
 }
