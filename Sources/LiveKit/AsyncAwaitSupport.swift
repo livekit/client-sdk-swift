@@ -84,7 +84,7 @@ public extension LocalParticipant {
     }
 
     @discardableResult
-    func publishVideo(track: LocalVideoTrack,
+    func publishVideo(_ track: LocalVideoTrack,
                       publishOptions: VideoPublishOptions? = nil) async throws -> LocalTrackPublication {
 
         try await withCheckedThrowingContinuation { continuation in
@@ -97,11 +97,24 @@ public extension LocalParticipant {
     }
 
     @discardableResult
-    func publishAudio(track: LocalAudioTrack,
+    func publishAudio(_ track: LocalAudioTrack,
                       publishOptions: AudioPublishOptions? = nil) async throws -> LocalTrackPublication {
 
         try await withCheckedThrowingContinuation { continuation in
             publishAudioTrack(track: track, publishOptions: publishOptions).then { result in
+                continuation.resume(returning: result)
+            }.catch { error in
+                continuation.resume(throwing: error)
+            }
+        }
+    }
+
+    func publishData(_ data: Data,
+                            reliability: Reliability = .reliable,
+                            destination: [String] = []) async throws {
+    
+        try await withCheckedThrowingContinuation { continuation in
+            publishData(data: data,reliability: reliability, destination: destination).then { result in
                 continuation.resume(returning: result)
             }.catch { error in
                 continuation.resume(throwing: error)
