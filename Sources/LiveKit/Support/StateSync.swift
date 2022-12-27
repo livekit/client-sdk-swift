@@ -18,17 +18,6 @@ import Foundation
 
 internal typealias OnStateMutate<Value> = (_ state: Value, _ oldState: Value) -> Void
 
-internal actor StateActor<Value> {
-
-    public var state: Value
-    public var onMutate: OnStateMutate<Value>?
-
-    public init(_ value: Value, onMutate: OnStateMutate<Value>? = nil) {
-        self.state = value
-        self.onMutate = onMutate
-    }
-}
-
 @dynamicMemberLookup
 internal final class StateSync<Value> {
 
