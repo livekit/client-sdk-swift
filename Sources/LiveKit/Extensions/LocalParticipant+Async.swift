@@ -15,44 +15,7 @@
  */
 
 import Foundation
-import WebRTC
 import Promises
-
-// Support for async/await syntax
-// TODO: deprecate use of Promises
-
-public extension Room {
-
-    @discardableResult
-    func connect(_ url: String,
-                 _ token: String,
-                 connectOptions: ConnectOptions? = nil,
-                 roomOptions: RoomOptions? = nil) async throws -> Room {
-
-        try await withCheckedThrowingContinuation { continuation in
-
-            connect(url,
-                    token,
-                    connectOptions: connectOptions,
-                    roomOptions: roomOptions).then { room in
-                        continuation.resume(returning: room)
-                    }.catch { error in
-                        continuation.resume(throwing: error)
-                    }
-        }
-    }
-
-    func disconnect() async throws {
-
-        try await withCheckedThrowingContinuation { continuation in
-            disconnect().then {
-                continuation.resume()
-            }.catch { error in
-                continuation.resume(throwing: error)
-            }
-        }
-    }
-}
 
 public extension LocalParticipant {
 
