@@ -42,6 +42,19 @@ public class AudioManager: Loggable {
         var localTracksCount: Int = 0
         var remoteTracksCount: Int = 0
         var preferSpeakerOutput: Bool = true
+
+        public var trackState: TrackState {
+
+            if localTracksCount > 0 && remoteTracksCount == 0 {
+                return .localOnly
+            } else if localTracksCount == 0 && remoteTracksCount > 0 {
+                return .remoteOnly
+            } else if localTracksCount > 0 && remoteTracksCount > 0 {
+                return .localAndRemote
+            }
+
+            return .none
+        }
     }
 
     /// Set this to false if you prefer using the device's receiver instead of speaker. Defaults to true.
@@ -217,20 +230,4 @@ public class AudioManager: Loggable {
         }
     }
     #endif
-}
-
-extension AudioManager.State {
-
-    public var trackState: AudioManager.TrackState {
-
-        if localTracksCount > 0 && remoteTracksCount == 0 {
-            return .localOnly
-        } else if localTracksCount == 0 && remoteTracksCount > 0 {
-            return .remoteOnly
-        } else if localTracksCount > 0 && remoteTracksCount > 0 {
-            return .localAndRemote
-        }
-
-        return .none
-    }
 }
