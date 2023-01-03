@@ -18,6 +18,7 @@ import Foundation
 import WebRTC
 import Promises
 
+#if os(macOS)
 public extension MacOSScreenCapturer {
 
     static func sources(for type: MacOSScreenShareSourceType,
@@ -36,3 +37,4 @@ public extension MacOSScreenCapturer {
         }
     }
 }
+#endif
