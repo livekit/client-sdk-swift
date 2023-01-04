@@ -16,10 +16,10 @@
 
 import Foundation
 
-internal typealias OnStateMutate<Value> = (_ state: Value, _ oldState: Value) -> Void
-
 @dynamicMemberLookup
 internal final class StateSync<Value> {
+
+    public typealias OnMutate<Value> = (_ state: Value, _ oldState: Value) -> Void
 
     // use concurrent queue to allow multiple reads and block writes with barrier.
     private let queue = DispatchQueue(label: "LiveKitSDK.state", qos: .default,
@@ -27,9 +27,9 @@ internal final class StateSync<Value> {
 
     // actual value
     private var _value: Value
-    public var onMutate: OnStateMutate<Value>?
+    public var onMutate: OnMutate<Value>?
 
-    public init(_ value: Value, onMutate: OnStateMutate<Value>? = nil) {
+    public init(_ value: Value, onMutate: OnMutate<Value>? = nil) {
         self._value = value
         self.onMutate = onMutate
     }

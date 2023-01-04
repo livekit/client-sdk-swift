@@ -24,6 +24,9 @@ import Promises
 /// > Note: `NSHashTable` may not immediately deinit the un-referenced object, due to Apple's implementation, therefore `.count` is unreliable.
 public class MulticastDelegate<T>: NSObject, Loggable {
 
+    public typealias OnNotify = () -> Void
+    internal var onNotify: OnNotify?
+
     internal let multicastQueue: DispatchQueue
     private let set = NSHashTable<AnyObject>.weakObjects()
 
@@ -79,6 +82,8 @@ public class MulticastDelegate<T>: NSObject, Loggable {
 
                 fnc(delegate)
             }
+
+            self.onNotify?()
         }
     }
 
@@ -110,6 +115,8 @@ public class MulticastDelegate<T>: NSObject, Loggable {
             if !(requiresHandle && !wasHandled) {
                 self.log("notify() was not handled by the delegate, called from \(function) line \(line)", .warning)
             }
+
+            self.onNotify?()
         }
     }
 }

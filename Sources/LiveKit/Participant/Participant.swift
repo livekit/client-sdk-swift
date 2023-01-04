@@ -19,7 +19,7 @@ import WebRTC
 import Promises
 
 @objc
-public class Participant: NSObject, Loggable {
+public class Participant: NSObject, ObservableObject, Loggable {
 
     // MARK: - MulticastDelegate
 
@@ -136,6 +136,17 @@ public class Participant: NSObject, Loggable {
                     $0.room?(self.room, participant: self, didUpdate: self.connectionQuality)
                 }
             }
+        }
+
+        delegates.onNotify = { [weak self] in
+
+            guard let self = self else { return }
+
+            Task { @MainActor in
+                self.objectWillChange.send()
+            }
+
+            self.log("Participant.objectWillChange", .debug)
         }
     }
 

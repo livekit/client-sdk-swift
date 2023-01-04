@@ -23,7 +23,7 @@ import Network
 #endif
 
 @objc
-public class Room: NSObject, Loggable {
+public class Room: NSObject, ObservableObject, Loggable {
 
     // MARK: - MulticastDelegate
 
@@ -149,6 +149,17 @@ public class Room: NSObject, Loggable {
                     }
                 }
             }
+        }
+
+        delegates.onNotify = { [weak self] in
+
+            guard let self = self else { return }
+
+            Task { @MainActor in
+                self.objectWillChange.send()
+            }
+
+            self.log("Room.objectWillChange", .debug)
         }
     }
 
