@@ -15,9 +15,28 @@
  */
 
 import Foundation
-import WebRTC
 
 @objc
-public protocol CaptureOptions {
+public class DataPublishOptions: NSObject, PublishOptions {
 
+    @objc
+    public let name: String?
+
+    public init(name: String? = nil) {
+
+        self.name = name
+    }
+
+    // MARK: - Equal
+
+    public override func isEqual(_ object: Any?) -> Bool {
+        guard let other = object as? Self else { return false }
+        return self.name == other.name
+    }
+
+    public override var hash: Int {
+        var hasher = Hasher()
+        hasher.combine(name)
+        return hasher.finalize()
+    }
 }

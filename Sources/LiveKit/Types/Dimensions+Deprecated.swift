@@ -15,9 +15,21 @@
  */
 
 import Foundation
-import WebRTC
 
-@objc
-public protocol CaptureOptions {
+@available(*, deprecated)
+public extension Dimensions {
 
+    // 16:9 aspect ratio presets
+    static let qvga169 = h180_169
+    static let vga169 = h360_169
+    static let qhd169 = h540_169
+    static let hd169 = h720_169
+    static let fhd169 = h1080_169
+
+    // 4:3 aspect ratio presets
+    static let qvga43 = h180_43
+    static let vga43 = h360_43
+    static let qhd43 = h540_43
+    static let hd43 = h720_43
+    static let fhd43 = h1080_43
 }

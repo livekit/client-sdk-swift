@@ -26,9 +26,6 @@ struct IceCandidate: Codable {
         case sdpMLineIndex, sdpMid
         case sdp = "candidate"
     }
-}
-
-extension IceCandidate {
 
     func toJsonString() throws -> String {
         let data = try JSONEncoder().encode(self)

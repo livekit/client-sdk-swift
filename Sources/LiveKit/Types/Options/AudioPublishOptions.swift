@@ -15,35 +15,43 @@
  */
 
 import Foundation
-import WebRTC
 
 @objc
-public class VideoEncoding: NSObject, MediaEncoding {
+public class AudioPublishOptions: NSObject, PublishOptions {
 
     @objc
-    public var maxBitrate: Int
+    public let name: String?
+
+    /// preferred encoding parameters
+    @objc
+    public let encoding: AudioEncoding?
 
     @objc
-    public var maxFps: Int
+    public let dtx: Bool
 
-    @objc
-    public init(maxBitrate: Int, maxFps: Int) {
-        self.maxBitrate = maxBitrate
-        self.maxFps = maxFps
+    public init(name: String? = nil,
+                encoding: AudioEncoding? = nil,
+                dtx: Bool = true) {
+
+        self.name = name
+        self.encoding = encoding
+        self.dtx = dtx
     }
 
     // MARK: - Equal
 
     public override func isEqual(_ object: Any?) -> Bool {
         guard let other = object as? Self else { return false }
-        return self.maxBitrate == other.maxBitrate &&
-            self.maxFps == other.maxFps
+        return self.name == other.name &&
+            self.encoding == other.encoding &&
+            self.dtx == other.dtx
     }
 
     public override var hash: Int {
         var hasher = Hasher()
-        hasher.combine(maxBitrate)
-        hasher.combine(maxFps)
+        hasher.combine(name)
+        hasher.combine(encoding)
+        hasher.combine(dtx)
         return hasher.finalize()
     }
 }

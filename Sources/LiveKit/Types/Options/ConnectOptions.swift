@@ -77,15 +77,3 @@ public class ConnectOptions: NSObject {
         return hasher.finalize()
     }
 }
-
-public extension ConnectOptions {
-
-    func copyWith(autoSubscribe: Bool? = nil,
-                  rtcConfiguration: RTCConfiguration? = nil,
-                  protocolVersion: ProtocolVersion? = nil) -> ConnectOptions {
-
-        ConnectOptions(autoSubscribe: autoSubscribe ?? self.autoSubscribe,
-                       rtcConfiguration: rtcConfiguration ?? self.rtcConfiguration,
-                       protocolVersion: protocolVersion ?? self.protocolVersion)
-    }
-}

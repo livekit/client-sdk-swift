@@ -18,32 +18,37 @@ import Foundation
 import WebRTC
 
 @objc
-public class VideoEncoding: NSObject, MediaEncoding {
+public class BufferCaptureOptions: NSObject, VideoCaptureOptions {
 
     @objc
-    public var maxBitrate: Int
+    public let dimensions: Dimensions
 
     @objc
-    public var maxFps: Int
+    public let fps: Int
 
-    @objc
-    public init(maxBitrate: Int, maxFps: Int) {
-        self.maxBitrate = maxBitrate
-        self.maxFps = maxFps
+    public init(dimensions: Dimensions = .h1080_169,
+                fps: Int = 15) {
+        self.dimensions = dimensions
+        self.fps = fps
+    }
+
+    public init(from options: ScreenShareCaptureOptions) {
+        self.dimensions = options.dimensions
+        self.fps = options.fps
     }
 
     // MARK: - Equal
 
     public override func isEqual(_ object: Any?) -> Bool {
         guard let other = object as? Self else { return false }
-        return self.maxBitrate == other.maxBitrate &&
-            self.maxFps == other.maxFps
+        return self.dimensions == other.dimensions &&
+            self.fps == other.fps
     }
 
     public override var hash: Int {
         var hasher = Hasher()
-        hasher.combine(maxBitrate)
-        hasher.combine(maxFps)
+        hasher.combine(dimensions)
+        hasher.combine(fps)
         return hasher.finalize()
     }
 }

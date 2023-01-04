@@ -18,6 +18,7 @@ import Foundation
 import WebRTC
 
 @objc
-public protocol CaptureOptions {
-
+public protocol VideoCaptureOptions: CaptureOptions {
+    var dimensions: Dimensions { get }
+    var fps: Int { get }
 }

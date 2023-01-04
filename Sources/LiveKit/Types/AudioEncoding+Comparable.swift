@@ -17,7 +17,9 @@
 import Foundation
 import WebRTC
 
-@objc
-public protocol CaptureOptions {
+extension AudioEncoding: Comparable {
 
+    public static func < (lhs: AudioEncoding, rhs: AudioEncoding) -> Bool {
+        lhs.maxBitrate < rhs.maxBitrate
+    }
 }

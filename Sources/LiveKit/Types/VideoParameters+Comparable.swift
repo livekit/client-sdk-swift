@@ -17,7 +17,14 @@
 import Foundation
 import WebRTC
 
-@objc
-public protocol CaptureOptions {
+extension VideoParameters: Comparable {
 
+    public static func < (lhs: VideoParameters, rhs: VideoParameters) -> Bool {
+
+        if lhs.dimensions.area == rhs.dimensions.area {
+            return lhs.encoding < rhs.encoding
+        }
+
+        return lhs.dimensions.area < rhs.dimensions.area
+    }
 }

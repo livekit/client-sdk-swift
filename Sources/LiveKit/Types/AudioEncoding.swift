@@ -42,13 +42,6 @@ public class AudioEncoding: NSObject, MediaEncoding {
     }
 }
 
-extension AudioEncoding: Comparable {
-
-    public static func < (lhs: AudioEncoding, rhs: AudioEncoding) -> Bool {
-        lhs.maxBitrate < rhs.maxBitrate
-    }
-}
-
 // MARK: - Presets
 
 @objc
