@@ -776,6 +776,8 @@ extension Room {
         Engine.audioDeviceModule
     }
 
+    /// Set this to true to bypass initialization of voice processing.
+    /// Must be set before RTCPeerConnectionFactory gets initialized.
     @objc
     public static var bypassVoiceProcessing: Bool {
         get { Engine.bypassVoiceProcessing }

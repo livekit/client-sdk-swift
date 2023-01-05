@@ -774,27 +774,12 @@ extension Engine: ConnectivityListenerDelegate {
 
 // MARK: Engine - Factory methods
 
-private let h264BaselineLevel5: RTCVideoCodecInfo = {
-
-    // this should never happen
-    guard let profileLevelId = RTCH264ProfileLevelId(profile: .constrainedBaseline, level: .level5) else {
-        logger.log("failed to generate profileLevelId", .error, type: Engine.self)
-        fatalError("failed to generate profileLevelId")
-    }
-
-    // create a new H264 codec with new profileLevelId
-    return RTCVideoCodecInfo(name: kRTCH264CodecName,
-                             parameters: ["profile-level-id": profileLevelId.hexString,
-                                          "level-asymmetry-allowed": "1",
-                                          "packetization-mode": "1"])
-}()
-
 private extension Array where Element: RTCVideoCodecInfo {
 
     func rewriteCodecsIfNeeded() -> [RTCVideoCodecInfo] {
         // rewrite H264's profileLevelId to 42e032
-        let codecs = map { $0.name == kRTCVideoCodecH264Name ? h264BaselineLevel5 : $0 }
-        logger.log("supportedCodecs: \(codecs.map({ "\($0.name) - \($0.parameters)" }).joined(separator: ", "))", type: Engine.self)
+        let codecs = map { $0.name == kRTCVideoCodecH264Name ? Engine.h264BaselineLevel5CodecInfo : $0 }
+        // logger.log("supportedCodecs: \(codecs.map({ "\($0.name) - \($0.parameters)" }).joined(separator: ", "))", type: Engine.self)
         return codecs
     }
 }
@@ -822,63 +807,89 @@ private class VideoEncoderFactorySimulcast: RTCVideoEncoderFactorySimulcast {
 
 internal extension Engine {
 
-    /// Set this to true to bypass initialization of voice processing.
-    /// Must be set before RTCPeerConnectionFactory gets initialized.
     static var bypassVoiceProcessing: Bool = false
 
-    // forbid direct access
-    private static let factory: RTCPeerConnectionFactory = {
-        logger.log("initializing PeerConnectionFactory...", type: Engine.self)
-        RTCInitializeSSL()
-        let encoderFactory = VideoEncoderFactory()
-        let decoderFactory = VideoDecoderFactory()
-        let result: RTCPeerConnectionFactory
-        #if LK_USING_CUSTOM_WEBRTC_BUILD
-        let simulcastFactory = VideoEncoderFactorySimulcast(primary: encoderFactory,
-                                                            fallback: encoderFactory)
+    static let h264BaselineLevel5CodecInfo: RTCVideoCodecInfo = {
 
-        result = RTCPeerConnectionFactory(bypassVoiceProcessing: bypassVoiceProcessing,
-                                          encoderFactory: simulcastFactory,
-                                          decoderFactory: decoderFactory)
-        #else
-        result = RTCPeerConnectionFactory(encoderFactory: encoderFactory,
-                                          decoderFactory: decoderFactory)
-        #endif
-        logger.log("PeerConnectionFactory initialized", type: Engine.self)
-        return result
+        // this should never happen
+        guard let profileLevelId = RTCH264ProfileLevelId(profile: .constrainedBaseline, level: .level5) else {
+            logger.log("failed to generate profileLevelId", .error, type: Engine.self)
+            fatalError("failed to generate profileLevelId")
+        }
+
+        // create a new H264 codec with new profileLevelId
+        return RTCVideoCodecInfo(name: kRTCH264CodecName,
+                                 parameters: ["profile-level-id": profileLevelId.hexString,
+                                              "level-asymmetry-allowed": "1",
+                                              "packetization-mode": "1"])
     }()
 
+    // global properties are already lazy
+
+    static private let encoderFactory: RTCVideoEncoderFactory = {
+        let encoderFactory = VideoEncoderFactory()
+        #if LK_USING_CUSTOM_WEBRTC_BUILD
+        return VideoEncoderFactorySimulcast(primary: encoderFactory,
+                                            fallback: encoderFactory)
+
+        #else
+        return encoderFactory
+        #endif
+    }()
+
+    static private let decoderFactory = VideoDecoderFactory()
+
+    static private let peerConnectionFactory: RTCPeerConnectionFactory = {
+
+        logger.log("Initializing SSL...", type: Engine.self)
+
+        RTCInitializeSSL()
+
+        logger.log("Initializing PeerConnectionFactory...", type: Engine.self)
+
+        #if LK_USING_CUSTOM_WEBRTC_BUILD
+        return RTCPeerConnectionFactory(bypassVoiceProcessing: bypassVoiceProcessing,
+                                        encoderFactory: encoderFactory,
+                                        decoderFactory: decoderFactory)
+        #else
+        return RTCPeerConnectionFactory(encoderFactory: encoderFactory,
+                                        decoderFactory: decoderFactory)
+        #endif
+    }()
+
+    // forbid direct access
+
     static var audioDeviceModule: RTCAudioDeviceModule {
-        factory.audioDeviceModule
+        peerConnectionFactory.audioDeviceModule
     }
 
     static func createPeerConnection(_ configuration: RTCConfiguration,
                                      constraints: RTCMediaConstraints) -> RTCPeerConnection? {
-        DispatchQueue.webRTC.sync { factory.peerConnection(with: configuration,
-                                                           constraints: constraints,
-                                                           delegate: nil) }
+        DispatchQueue.webRTC.sync { peerConnectionFactory.peerConnection(with: configuration,
+                                                                         constraints: constraints,
+                                                                         delegate: nil) }
     }
 
     static func createVideoSource(forScreenShare: Bool) -> RTCVideoSource {
         #if LK_USING_CUSTOM_WEBRTC_BUILD
-        DispatchQueue.webRTC.sync { factory.videoSource() }
+        DispatchQueue.webRTC.sync { peerConnectionFactory.videoSource() }
         #else
-        DispatchQueue.webRTC.sync { factory.videoSource(forScreenCast: forScreenShare) }
+        DispatchQueue.webRTC.sync { peerConnectionFactory.videoSource(forScreenCast: forScreenShare) }
         #endif
     }
 
     static func createVideoTrack(source: RTCVideoSource) -> RTCVideoTrack {
-        DispatchQueue.webRTC.sync { factory.videoTrack(with: source,
-                                                       trackId: UUID().uuidString) }
+        DispatchQueue.webRTC.sync { peerConnectionFactory.videoTrack(with: source,
+                                                                     trackId: UUID().uuidString) }
     }
 
     static func createAudioSource(_ constraints: RTCMediaConstraints?) -> RTCAudioSource {
-        DispatchQueue.webRTC.sync { factory.audioSource(with: constraints) }
+        DispatchQueue.webRTC.sync { peerConnectionFactory.audioSource(with: constraints) }
     }
 
     static func createAudioTrack(source: RTCAudioSource) -> RTCAudioTrack {
-        DispatchQueue.webRTC.sync { factory.audioTrack(with: source,
-                                                       trackId: UUID().uuidString) }
+        DispatchQueue.webRTC.sync { peerConnectionFactory.audioTrack(with: source,
+                                                                     trackId: UUID().uuidString) }
     }
 
     static func createDataChannelConfiguration(ordered: Bool = true,
