@@ -25,10 +25,7 @@ public enum TrackPublishState {
     case busy(isPublishing: Bool = true)
     /// Sucessfully published.
     case published(LocalTrackPublication)
-}
 
-/// Convenience extension for ``TrackPublishState``.
-extension TrackPublishState {
     /// Checks whether the state is ``TrackPublishState/published(_:)`` regardless of the error value.
     public var isPublished: Bool {
         guard case .published = self else { return false }

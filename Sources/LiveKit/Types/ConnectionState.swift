@@ -27,6 +27,15 @@ public enum ConnectionState {
     case connecting
     case reconnecting
     case connected
+
+    internal func toObjCType() -> ConnectionStateObjC {
+        switch self {
+        case .disconnected: return .disconnected
+        case .connecting: return .connecting
+        case .reconnecting: return .reconnecting
+        case .connected: return .connected
+        }
+    }
 }
 
 extension ConnectionState: Identifiable {

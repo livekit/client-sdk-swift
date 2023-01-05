@@ -140,6 +140,11 @@ public class VideoView: NativeView, Loggable {
         var renderDate: Date?
         var didRenderFirstFrame: Bool = false
         var isRendering: Bool = false
+
+        // whether if current state should be rendering
+        var shouldRender: Bool {
+            track != nil && isEnabled && !isHidden
+        }
     }
 
     internal var _state: StateSync<State>
@@ -428,14 +433,6 @@ public class VideoView: NativeView, Loggable {
             nativeRenderer.layer.transform = CATransform3DIdentity
             #endif
         }
-    }
-}
-
-internal extension VideoView.State {
-
-    // whether if current state should be rendering
-    var shouldRender: Bool {
-        track != nil && isEnabled && !isHidden
     }
 }
 

@@ -90,6 +90,18 @@ public class Room: NSObject, Loggable {
         var localParticipant: LocalParticipant?
         var remoteParticipants = [Sid: RemoteParticipant]()
         var activeSpeakers = [Participant]()
+
+        @discardableResult
+        mutating func getOrCreateRemoteParticipant(sid: Sid, info: Livekit_ParticipantInfo? = nil, room: Room) -> RemoteParticipant {
+
+            if let participant = remoteParticipants[sid] {
+                return participant
+            }
+
+            let participant = RemoteParticipant(sid: sid, info: info, room: room)
+            remoteParticipants[sid] = participant
+            return participant
+        }
     }
 
     internal var _state: StateSync<State>
@@ -240,23 +252,6 @@ internal extension Room {
             // this should never happen
             self.log("Room cleanUp failed with error: \(error)", .error)
         }
-    }
-}
-
-// MARK: - Internal
-
-internal extension Room.State {
-
-    @discardableResult
-    mutating func getOrCreateRemoteParticipant(sid: Sid, info: Livekit_ParticipantInfo? = nil, room: Room) -> RemoteParticipant {
-
-        if let participant = remoteParticipants[sid] {
-            return participant
-        }
-
-        let participant = RemoteParticipant(sid: sid, info: info, room: room)
-        remoteParticipants[sid] = participant
-        return participant
     }
 }
 
