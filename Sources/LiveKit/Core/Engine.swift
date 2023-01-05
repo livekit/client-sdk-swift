@@ -847,6 +847,9 @@ internal extension Engine {
 
         logger.log("Initializing PeerConnectionFactory...", type: Engine.self)
 
+        logger.log("canEncode H264: \(canEncodeH264 ? "YES" : "NO"), VP8: \(canEncodeVP8 ? "YES" : "NO"), AV1: \(canEncodeAV1 ? "YES" : "NO")", type: Engine.self)
+        logger.log("canDecode H264: \(canDecodeH264 ? "YES" : "NO"), VP8: \(canDecodeVP8 ? "YES" : "NO"), AV1: \(canDecodeAV1 ? "YES" : "NO")", type: Engine.self)
+
         #if LK_USING_CUSTOM_WEBRTC_BUILD
         return RTCPeerConnectionFactory(bypassVoiceProcessing: bypassVoiceProcessing,
                                         encoderFactory: encoderFactory,
@@ -856,6 +859,30 @@ internal extension Engine {
                                         decoderFactory: decoderFactory)
         #endif
     }()
+
+    static var canEncodeH264: Bool {
+        encoderFactory.supportedCodecs().contains { $0.name == kRTCVideoCodecH264Name }
+    }
+
+    static var canDecodeH264: Bool {
+        decoderFactory.supportedCodecs().contains { $0.name == kRTCVideoCodecH264Name }
+    }
+
+    static var canEncodeVP8: Bool {
+        encoderFactory.supportedCodecs().contains { $0.name == "VP8" }
+    }
+
+    static var canDecodeVP8: Bool {
+        decoderFactory.supportedCodecs().contains { $0.name == "VP8" }
+    }
+
+    static var canEncodeAV1: Bool {
+        encoderFactory.supportedCodecs().contains { $0.name == "AV1" }
+    }
+
+    static var canDecodeAV1: Bool {
+        decoderFactory.supportedCodecs().contains { $0.name == "AV1" }
+    }
 
     // forbid direct access
 
