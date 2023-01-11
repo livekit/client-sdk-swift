@@ -148,6 +148,17 @@ public class LocalParticipant: Participant {
             return track.onPublish().then(on: self.queue) { _ in params }
         }.then(on: queue) { (transceiver, trackInfo) -> LocalTrackPublication in
 
+            if track is LocalVideoTrack {
+
+                let publishOptions = (publishOptions as? VideoPublishOptions) ?? self.room._state.options.defaultVideoPublishOptions
+
+                transceiver.codecPreferences = [
+                    publishOptions.preferredCodec.toCodecCapability()
+                ].compactMap { $0 }
+
+                self.log("[publish] codecPreferences: \(transceiver.codecPreferences)...")
+            }
+
             // store publishOptions used for this track
             track._publishOptions = publishOptions
             track.transceiver = transceiver

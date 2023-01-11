@@ -40,12 +40,20 @@ public class VideoPublishOptions: NSObject, PublishOptions {
     @objc
     public let screenShareSimulcastLayers: [VideoParameters]
 
+    @objc
+    public let preferredCodec: PreferredVideoCodec
+
+    @objc
+    public let preferredBackupCodec: PreferredBackupVideoCodec
+
     public init(name: String? = nil,
                 encoding: VideoEncoding? = nil,
                 screenShareEncoding: VideoEncoding? = nil,
                 simulcast: Bool = true,
                 simulcastLayers: [VideoParameters] = [],
-                screenShareSimulcastLayers: [VideoParameters] = []) {
+                screenShareSimulcastLayers: [VideoParameters] = [],
+                preferredCodec: PreferredVideoCodec = .auto,
+                preferredBackupCodec: PreferredBackupVideoCodec = .auto) {
 
         self.name = name
         self.encoding = encoding
@@ -53,6 +61,8 @@ public class VideoPublishOptions: NSObject, PublishOptions {
         self.simulcast = simulcast
         self.simulcastLayers = simulcastLayers
         self.screenShareSimulcastLayers = screenShareSimulcastLayers
+        self.preferredCodec = preferredCodec
+        self.preferredBackupCodec = preferredBackupCodec
     }
 
     // MARK: - Equal
@@ -64,7 +74,9 @@ public class VideoPublishOptions: NSObject, PublishOptions {
             self.screenShareEncoding == other.screenShareEncoding &&
             self.simulcast == other.simulcast &&
             self.simulcastLayers == other.simulcastLayers &&
-            self.screenShareSimulcastLayers == other.screenShareSimulcastLayers
+            self.screenShareSimulcastLayers == other.screenShareSimulcastLayers &&
+            self.preferredCodec == other.preferredCodec &&
+            self.preferredBackupCodec == other.preferredBackupCodec
     }
 
     public override var hash: Int {
@@ -75,6 +87,8 @@ public class VideoPublishOptions: NSObject, PublishOptions {
         hasher.combine(simulcast)
         hasher.combine(simulcastLayers)
         hasher.combine(screenShareSimulcastLayers)
+        hasher.combine(preferredCodec)
+        hasher.combine(preferredBackupCodec)
         return hasher.finalize()
     }
 }

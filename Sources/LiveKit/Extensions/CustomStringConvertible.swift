@@ -93,6 +93,13 @@ extension RTCRtpEncodingParameters {
     }
 }
 
+extension RTCRtpCodecCapability {
+
+    public override var description: String {
+        "RTCRtpCodecCapability(\(mimeType), clockRate: \(clockRate != nil ? String(describing: clockRate!) : "nil"))"
+    }
+}
+
 extension RTCDataChannelState: CustomStringConvertible {
 
     public var description: String {

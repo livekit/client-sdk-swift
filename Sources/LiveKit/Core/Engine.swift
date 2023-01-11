@@ -839,7 +839,7 @@ internal extension Engine {
 
     static private let decoderFactory = VideoDecoderFactory()
 
-    static private let peerConnectionFactory: RTCPeerConnectionFactory = {
+    static internal let peerConnectionFactory: RTCPeerConnectionFactory = {
 
         logger.log("Initializing SSL...", type: Engine.self)
 
@@ -861,27 +861,27 @@ internal extension Engine {
     }()
 
     static var canEncodeH264: Bool {
-        encoderFactory.supportedCodecs().contains { $0.name == kRTCVideoCodecH264Name }
+        encoderFactory.supportedCodecs().contains { $0.name == kRTCH264CodecName }
     }
 
     static var canDecodeH264: Bool {
-        decoderFactory.supportedCodecs().contains { $0.name == kRTCVideoCodecH264Name }
+        decoderFactory.supportedCodecs().contains { $0.name == kRTCH264CodecName }
     }
 
     static var canEncodeVP8: Bool {
-        encoderFactory.supportedCodecs().contains { $0.name == "VP8" }
+        encoderFactory.supportedCodecs().contains { $0.name == kRTCVp8CodecName }
     }
 
     static var canDecodeVP8: Bool {
-        decoderFactory.supportedCodecs().contains { $0.name == "VP8" }
+        decoderFactory.supportedCodecs().contains { $0.name == kRTCVp8CodecName }
     }
 
     static var canEncodeAV1: Bool {
-        encoderFactory.supportedCodecs().contains { $0.name == "AV1" }
+        encoderFactory.supportedCodecs().contains { $0.name == kRTCAv1CodecName }
     }
 
     static var canDecodeAV1: Bool {
-        decoderFactory.supportedCodecs().contains { $0.name == "AV1" }
+        decoderFactory.supportedCodecs().contains { $0.name == kRTCAv1CodecName }
     }
 
     // forbid direct access
@@ -946,6 +946,7 @@ internal extension Engine {
     static func createRtpEncodingParameters(rid: String? = nil,
                                             encoding: MediaEncoding? = nil,
                                             scaleDownBy: Double? = nil,
+                                            scalabilityMode: ScalabilityMode? = nil,
                                             active: Bool = true) -> RTCRtpEncodingParameters {
 
         let result = DispatchQueue.webRTC.sync { RTCRtpEncodingParameters() }
@@ -964,6 +965,10 @@ internal extension Engine {
             if let videoEncoding = encoding as? VideoEncoding {
                 result.maxFramerate = NSNumber(value: videoEncoding.maxFps)
             }
+        }
+
+        if let scalabilityMode = scalabilityMode {
+            result.scalabilityMode = String(describing: scalabilityMode)
         }
 
         return result
