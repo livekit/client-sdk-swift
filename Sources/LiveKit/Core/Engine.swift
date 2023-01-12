@@ -661,25 +661,25 @@ extension Engine: TransportDelegate {
             self.subscriberPrimary = joinResponse.subscriberPrimary
             self.log("subscriberPrimary: \(joinResponse.subscriberPrimary)")
 
-            // update iceServers from joinResponse if no local settings
-            if self._state.connectOptions.rtcConfiguration.iceServers.count == 0 {
-                self._state.mutate {
-                    $0.connectOptions.rtcConfiguration.set(iceServers: joinResponse.iceServers)
-                    if joinResponse.clientConfiguration.forceRelay == .enabled {
-                        $0.connectOptions.rtcConfiguration.iceTransportPolicy = .relay
-                    } else {
-                        $0.connectOptions.rtcConfiguration.iceTransportPolicy = .all
-                    }
-                }
+            // Make a copy, instead of modifying the user-supplied RTCConfiguration object.
+            let rtcConfiguration = RTCConfiguration(copy: self._state.connectOptions.rtcConfiguration)
+
+            if rtcConfiguration.iceServers.isEmpty {
+                // Set iceServers provided by the server
+                rtcConfiguration.iceServers = joinResponse.iceServers.map { $0.toRTCType() }
             }
 
-            let subscriber = try Transport(config: self._state.connectOptions.rtcConfiguration,
+            if joinResponse.clientConfiguration.forceRelay == .enabled {
+                rtcConfiguration.iceTransportPolicy = .relay
+            }
+
+            let subscriber = try Transport(config: rtcConfiguration,
                                            target: .subscriber,
                                            primary: self.subscriberPrimary,
                                            delegate: self,
                                            reportStats: room._state.options.reportStats)
 
-            let publisher = try Transport(config: self._state.connectOptions.rtcConfiguration,
+            let publisher = try Transport(config: rtcConfiguration,
                                           target: .publisher,
                                           primary: !self.subscriberPrimary,
                                           delegate: self,

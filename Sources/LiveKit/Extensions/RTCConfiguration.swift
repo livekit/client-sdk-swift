@@ -36,14 +36,44 @@ extension RTCConfiguration {
         return result
     }
 
-    internal func set(iceServers: [Livekit_ICEServer]) {
-
-        // convert to a list of RTCIceServer
-        let rtcIceServers = iceServers.map { $0.toRTCType() }
-
-        if !rtcIceServers.isEmpty {
-            // set new iceServers if not empty
-            self.iceServers = rtcIceServers
-        }
+    public convenience init(copy configuration: RTCConfiguration) {
+        self.init()
+        self.enableDscp = configuration.enableDscp
+        self.iceServers = configuration.iceServers
+        self.certificate = configuration.certificate
+        self.iceTransportPolicy = configuration.iceTransportPolicy
+        self.bundlePolicy = configuration.bundlePolicy
+        self.rtcpMuxPolicy = configuration.rtcpMuxPolicy
+        self.tcpCandidatePolicy = configuration.tcpCandidatePolicy
+        self.candidateNetworkPolicy = configuration.candidateNetworkPolicy
+        self.continualGatheringPolicy = configuration.continualGatheringPolicy
+        self.disableIPV6 = configuration.disableIPV6
+        self.disableIPV6OnWiFi = configuration.disableIPV6OnWiFi
+        self.maxIPv6Networks = configuration.maxIPv6Networks
+        self.disableLinkLocalNetworks = configuration.disableLinkLocalNetworks
+        self.audioJitterBufferMaxPackets = configuration.audioJitterBufferMaxPackets
+        self.audioJitterBufferFastAccelerate = configuration.audioJitterBufferFastAccelerate
+        self.iceConnectionReceivingTimeout = configuration.iceConnectionReceivingTimeout
+        self.iceBackupCandidatePairPingInterval = configuration.iceBackupCandidatePairPingInterval
+        self.keyType = configuration.keyType
+        self.iceCandidatePoolSize = configuration.iceCandidatePoolSize
+        self.shouldPruneTurnPorts = configuration.shouldPruneTurnPorts
+        self.shouldPresumeWritableWhenFullyRelayed = configuration.shouldPresumeWritableWhenFullyRelayed
+        self.shouldSurfaceIceCandidatesOnIceTransportTypeChanged = configuration.shouldSurfaceIceCandidatesOnIceTransportTypeChanged
+        self.iceCheckMinInterval = configuration.iceCheckMinInterval
+        self.sdpSemantics = configuration.sdpSemantics
+        self.activeResetSrtpParams = configuration.activeResetSrtpParams
+        self.allowCodecSwitching = configuration.allowCodecSwitching
+        self.cryptoOptions = configuration.cryptoOptions
+        self.turnLoggingId = configuration.turnLoggingId
+        self.rtcpAudioReportIntervalMs = configuration.rtcpAudioReportIntervalMs
+        self.rtcpVideoReportIntervalMs = configuration.rtcpVideoReportIntervalMs
+        self.enableImplicitRollback = configuration.enableImplicitRollback
+        self.offerExtmapAllowMixed = configuration.offerExtmapAllowMixed
+        self.iceCheckIntervalStrongConnectivity = configuration.iceCheckIntervalStrongConnectivity
+        self.iceCheckIntervalWeakConnectivity = configuration.iceCheckIntervalWeakConnectivity
+        self.iceUnwritableTimeout = configuration.iceUnwritableTimeout
+        self.iceUnwritableMinChecks = configuration.iceUnwritableMinChecks
+        self.iceInactiveTimeout = configuration.iceInactiveTimeout
     }
 }
