@@ -661,13 +661,15 @@ extension Engine: TransportDelegate {
             self.subscriberPrimary = joinResponse.subscriberPrimary
             self.log("subscriberPrimary: \(joinResponse.subscriberPrimary)")
 
-            // update iceServers from joinResponse
-            self._state.mutate {
-                $0.connectOptions.rtcConfiguration.set(iceServers: joinResponse.iceServers)
-                if joinResponse.clientConfiguration.forceRelay == .enabled {
-                    $0.connectOptions.rtcConfiguration.iceTransportPolicy = .relay
-                } else {
-                    $0.connectOptions.rtcConfiguration.iceTransportPolicy = .all
+            // update iceServers from joinResponse if no local settings
+            if self._state.connectOptions.rtcConfiguration.iceServers.count == 0 {
+                self._state.mutate {
+                    $0.connectOptions.rtcConfiguration.set(iceServers: joinResponse.iceServers)
+                    if joinResponse.clientConfiguration.forceRelay == .enabled {
+                        $0.connectOptions.rtcConfiguration.iceTransportPolicy = .relay
+                    } else {
+                        $0.connectOptions.rtcConfiguration.iceTransportPolicy = .all
+                    }
                 }
             }
 
