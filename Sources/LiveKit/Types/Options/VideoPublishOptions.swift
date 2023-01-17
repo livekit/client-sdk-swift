@@ -46,6 +46,9 @@ public class VideoPublishOptions: NSObject, PublishOptions {
     @objc
     public let preferredBackupCodec: PreferredBackupVideoCodec
 
+    @objc
+    public let backupEncoding: VideoEncoding?
+
     public init(name: String? = nil,
                 encoding: VideoEncoding? = nil,
                 screenShareEncoding: VideoEncoding? = nil,
@@ -53,7 +56,8 @@ public class VideoPublishOptions: NSObject, PublishOptions {
                 simulcastLayers: [VideoParameters] = [],
                 screenShareSimulcastLayers: [VideoParameters] = [],
                 preferredCodec: PreferredVideoCodec = .auto,
-                preferredBackupCodec: PreferredBackupVideoCodec = .auto) {
+                preferredBackupCodec: PreferredBackupVideoCodec = .auto,
+                backupEncoding: VideoEncoding? = nil) {
 
         self.name = name
         self.encoding = encoding
@@ -63,6 +67,7 @@ public class VideoPublishOptions: NSObject, PublishOptions {
         self.screenShareSimulcastLayers = screenShareSimulcastLayers
         self.preferredCodec = preferredCodec
         self.preferredBackupCodec = preferredBackupCodec
+        self.backupEncoding = backupEncoding
     }
 
     // MARK: - Equal
@@ -76,7 +81,8 @@ public class VideoPublishOptions: NSObject, PublishOptions {
             self.simulcastLayers == other.simulcastLayers &&
             self.screenShareSimulcastLayers == other.screenShareSimulcastLayers &&
             self.preferredCodec == other.preferredCodec &&
-            self.preferredBackupCodec == other.preferredBackupCodec
+            self.preferredBackupCodec == other.preferredBackupCodec &&
+            self.backupEncoding == backupEncoding
     }
 
     public override var hash: Int {
@@ -89,6 +95,7 @@ public class VideoPublishOptions: NSObject, PublishOptions {
         hasher.combine(screenShareSimulcastLayers)
         hasher.combine(preferredCodec)
         hasher.combine(preferredBackupCodec)
+        hasher.combine(backupEncoding)
         return hasher.finalize()
     }
 }
