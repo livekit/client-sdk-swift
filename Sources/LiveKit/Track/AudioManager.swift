@@ -58,6 +58,7 @@ public class AudioManager: Loggable {
     }
 
     /// Set this to false if you prefer using the device's receiver instead of speaker. Defaults to true.
+    /// This only works when the audio output is set to the built-in speaker / receiver.
     public var preferSpeakerOutput: Bool {
         get { _state.preferSpeakerOutput }
         set { _state.mutate { $0.preferSpeakerOutput = newValue } }
