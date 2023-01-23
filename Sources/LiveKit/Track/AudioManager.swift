@@ -78,35 +78,8 @@ public class AudioManager: Loggable {
 
     private var _state = StateSync(State())
 
-    #if os(iOS)
-    private let notificationQueue = OperationQueue()
-    private var routeChangeObserver: NSObjectProtocol?
-    #endif
-
     // Singleton
     private init() {
-
-        #if os(iOS)
-        //
-        routeChangeObserver = NotificationCenter.default.addObserver(forName: AVAudioSession.routeChangeNotification,
-                                                                     object: nil,
-                                                                     queue: notificationQueue) { [weak self] notification in
-            //
-            guard let self = self else { return }
-            self.log("AVAudioSession.routeChangeNotification \(String(describing: notification.userInfo))")
-
-            guard let number = notification.userInfo?[AVAudioSessionRouteChangeReasonKey] as? NSNumber?,
-                  let uint = number?.uintValue,
-                  let reason = AVAudioSession.RouteChangeReason(rawValue: uint)  else { return }
-
-            switch reason {
-            case .newDeviceAvailable:
-                self.log("newDeviceAvailable")
-            default: break
-            }
-        }
-        #endif
-
         // trigger events when state mutates
         _state.onMutate = { [weak self] newState, oldState in
             guard let self = self else { return }
@@ -115,12 +88,7 @@ public class AudioManager: Loggable {
     }
 
     deinit {
-        #if os(iOS)
-        // remove the route change observer
-        if let observer = routeChangeObserver {
-            NotificationCenter.default.removeObserver(observer)
-        }
-        #endif
+        //
     }
 
     internal func trackDidStart(_ type: Type) {
