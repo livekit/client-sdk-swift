@@ -61,6 +61,15 @@ public class MulticastDelegate<T>: NSObject, Loggable {
         }
     }
 
+    /// Remove all delegates.
+    public func removeAllDelegates() {
+
+        multicastQueue.sync { [weak self] in
+            guard let self = self else { return }
+            self.set.removeAllObjects()
+        }
+    }
+
     /// Notify delegates inside the queue.
     /// Label is captured inside the queue for thread safety reasons.
     internal func notify(label: (() -> String)? = nil, _ fnc: @escaping (T) -> Void) {
