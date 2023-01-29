@@ -338,7 +338,7 @@ private extension SignalClient {
             notify { $0.signalClient(self, didUpdateRemoteMute: mute.sid, muted: mute.muted) }
 
         case .leave(let leave):
-            notify { $0.signalClient(self, didReceiveLeave: leave.canReconnect) }
+            notify { $0.signalClient(self, didReceiveLeave: leave.canReconnect, reason: leave.reason) }
 
         case .streamStateUpdate(let states):
             notify { $0.signalClient(self, didUpdate: states.streamStates) }
@@ -604,7 +604,10 @@ internal extension SignalClient {
         log()
 
         let r = Livekit_SignalRequest.with {
-            $0.leave = Livekit_LeaveRequest()
+            $0.leave = Livekit_LeaveRequest.with {
+                $0.canReconnect = false
+                $0.reason = .clientInitiated
+            }
         }
 
         return sendRequest(r)
