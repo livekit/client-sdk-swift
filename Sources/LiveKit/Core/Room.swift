@@ -27,7 +27,7 @@ public class Room: NSObject, Loggable {
 
     // MARK: - MulticastDelegate
 
-    private var delegates = MulticastDelegate<RoomDelegateObjC>()
+    internal var delegates = MulticastDelegate<RoomDelegateObjC>()
 
     internal let queue = DispatchQueue(label: "LiveKitSDK.room", qos: .default)
 
@@ -156,7 +156,7 @@ public class Room: NSObject, Loggable {
 
                     guard let self = self else { return }
 
-                    self.notify(label: { "room.didUpdate metadata: \(metadata)" }) {
+                    self.delegates.notify(label: { "room.didUpdate metadata: \(metadata)" }) {
                         $0.room?(self, didUpdate: metadata)
                     }
                 }
@@ -425,7 +425,7 @@ extension Room: SignalClientDelegate {
         engine.executeIfConnected { [weak self] in
             guard let self = self else { return }
 
-            self.notify(label: { "room.didUpdate speakers: \(speakers)" }) {
+            self.delegates.notify(label: { "room.didUpdate speakers: \(speakers)" }) {
                 $0.room?(self, didUpdate: activeSpeakers)
             }
         }
@@ -534,7 +534,7 @@ extension Room: SignalClientDelegate {
             engine.executeIfConnected { [weak self] in
                 guard let self = self else { return }
 
-                self.notify(label: { "room.participantDidJoin participant: \(participant)" }) {
+                self.delegates.notify(label: { "room.participantDidJoin participant: \(participant)" }) {
                     $0.room?(self, participantDidJoin: participant)
                 }
             }
@@ -588,7 +588,7 @@ extension Room: EngineDelegate {
                 }
             }
 
-            notify(label: { "room.didUpdate connectionState: \(state.connectionState) oldValue: \(oldState.connectionState)" }) {
+            delegates.notify(label: { "room.didUpdate connectionState: \(state.connectionState) oldValue: \(oldState.connectionState)" }) {
                 // Objective-C support
                 $0.room?(self, didUpdate: state.connectionState.toObjCType(), oldValue: oldState.connectionState.toObjCType())
                 // Swift only
@@ -670,7 +670,7 @@ extension Room: EngineDelegate {
         engine.executeIfConnected { [weak self] in
             guard let self = self else { return }
 
-            self.notify(label: { "room.didUpdate speakers: \(activeSpeakers)" }) {
+            self.delegates.notify(label: { "room.didUpdate speakers: \(activeSpeakers)" }) {
                 $0.room?(self, didUpdate: activeSpeakers)
             }
         }
@@ -717,12 +717,12 @@ extension Room: EngineDelegate {
         engine.executeIfConnected { [weak self] in
             guard let self = self else { return }
 
-            self.notify(label: { "room.didReceive data: \(userPacket.payload)" }) {
+            self.delegates.notify(label: { "room.didReceive data: \(userPacket.payload)" }) {
                 $0.room?(self, participant: participant, didReceive: userPacket.payload)
             }
 
             if let participant = participant {
-                participant.notify(label: { "participant.didReceive data: \(userPacket.payload)" }) { [weak participant] (delegate) -> Void in
+                participant.delegates.notify(label: { "participant.didReceive data: \(userPacket.payload)" }) { [weak participant] (delegate) -> Void in
                     guard let participant = participant else { return }
                     delegate.participant?(participant, didReceive: userPacket.payload)
                 }
@@ -788,7 +788,20 @@ extension Room {
 
 // MARK: - MulticastDelegate
 
-extension Room {
+extension Room: MulticastDelegateProtocol {
+
+    public func add(delegate: RoomDelegate) {
+        delegates.add(delegate: delegate)
+    }
+
+    public func remove(delegate: RoomDelegate) {
+        delegates.remove(delegate: delegate)
+    }
+
+    @objc
+    public func removeAllDelegates() {
+        delegates.removeAllDelegates()
+    }
 
     /// Only for Objective-C.
     @objc(addDelegate:)
@@ -802,18 +815,5 @@ extension Room {
     @available(swift, obsoleted: 1.0)
     public func removeObjC(delegate: RoomDelegateObjC) {
         delegates.remove(delegate: delegate)
-    }
-
-    public func add(delegate: RoomDelegate) {
-        delegates.add(delegate: delegate)
-    }
-
-    public func remove(delegate: RoomDelegate) {
-        delegates.remove(delegate: delegate)
-    }
-
-    internal func notify(label: (() -> String)? = nil,
-                         _ fnc: @escaping (RoomDelegateObjC) -> Void) {
-        delegates.notify(label: label, fnc)
     }
 }

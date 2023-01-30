@@ -80,7 +80,7 @@ public class VideoCapturer: NSObject, Loggable, VideoCapturerProtocol {
         didSet {
             guard oldValue != dimensions else { return }
             log("[publish] \(String(describing: oldValue)) -> \(String(describing: dimensions))")
-            notify { $0.capturer?(self, didUpdate: self.dimensions) }
+            delegates.notify { $0.capturer?(self, didUpdate: self.dimensions) }
 
             log("[publish] dimensions: \(String(describing: dimensions))")
             _state.mutate { $0.dimensionsCompleter.set(value: dimensions) }
@@ -109,7 +109,7 @@ public class VideoCapturer: NSObject, Loggable, VideoCapturerProtocol {
 
             self.captureState = .started
 
-            self.notify(label: { "capturer.didUpdate state: \(CapturerState.started)" }) {
+            self.delegates.notify(label: { "capturer.didUpdate state: \(CapturerState.started)" }) {
                 $0.capturer?(self, didUpdate: .started)
             }
 
@@ -128,7 +128,7 @@ public class VideoCapturer: NSObject, Loggable, VideoCapturerProtocol {
             }
 
             self.captureState = .stopped
-            self.notify(label: { "capturer.didUpdate state: \(CapturerState.stopped)" }) {
+            self.delegates.notify(label: { "capturer.didUpdate state: \(CapturerState.stopped)" }) {
                 $0.capturer?(self, didUpdate: .stopped)
             }
 
@@ -147,7 +147,7 @@ public class VideoCapturer: NSObject, Loggable, VideoCapturerProtocol {
 
 // MARK: - MulticastDelegate
 
-extension VideoCapturer {
+extension VideoCapturer: MulticastDelegateProtocol {
 
     @objc(addDelegate:)
     public func add(delegate: VideoCapturerDelegate) {
@@ -159,8 +159,8 @@ extension VideoCapturer {
         delegates.remove(delegate: delegate)
     }
 
-    internal func notify(label: (() -> String)? = nil,
-                         _ fnc: @escaping (VideoCapturerDelegate) -> Void) {
-        delegates.notify(label: label, fnc)
+    @objc
+    public func removeAllDelegates() {
+        delegates.removeAllDelegates()
     }
 }

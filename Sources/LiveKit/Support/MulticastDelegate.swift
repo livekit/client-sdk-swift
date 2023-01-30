@@ -17,6 +17,14 @@
 import Foundation
 import Promises
 
+// Workaround for Swift-ObjC limitation around generics.
+public protocol MulticastDelegateProtocol {
+    associatedtype Delegate
+    func add(delegate: Delegate)
+    func remove(delegate: Delegate)
+    func removeAllDelegates()
+}
+
 /// A class that allows to have multiple delegates instead of one.
 ///
 /// Uses `NSHashTable` internally to maintain a set of weak delegates.

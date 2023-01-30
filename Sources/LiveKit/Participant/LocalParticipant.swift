@@ -168,10 +168,10 @@ public class LocalParticipant: Participant {
             self.addTrack(publication: publication)
 
             // notify didPublish
-            self.notify(label: { "localParticipant.didPublish \(publication)" }) {
+            self.delegates.notify(label: { "localParticipant.didPublish \(publication)" }) {
                 $0.localParticipant?(self, didPublish: publication)
             }
-            self.room.notify(label: { "localParticipant.didPublish \(publication)" }) {
+            self.room.delegates.notify(label: { "localParticipant.didPublish \(publication)" }) {
                 $0.room?(self.room, localParticipant: self, didPublish: publication)
             }
 
@@ -220,10 +220,10 @@ public class LocalParticipant: Participant {
             Promise<Void>(on: queue) {
                 guard _notify else { return }
                 // notify unpublish
-                self.notify(label: { "localParticipant.didUnpublish \(publication)" }) {
+                self.delegates.notify(label: { "localParticipant.didUnpublish \(publication)" }) {
                     $0.localParticipant?(self, didUnpublish: publication)
                 }
-                self.room.notify(label: { "room.didUnpublish \(publication)" }) {
+                self.room.delegates.notify(label: { "room.didUnpublish \(publication)" }) {
                     $0.room?(self.room, localParticipant: self, didUnpublish: publication)
                 }
             }
@@ -386,10 +386,10 @@ public class LocalParticipant: Participant {
         let didUpdate = super.set(permissions: newValue)
 
         if didUpdate {
-            notify(label: { "participant.didUpdate permissions: \(newValue)" }) {
+            delegates.notify(label: { "participant.didUpdate permissions: \(newValue)" }) {
                 $0.participant?(self, didUpdate: newValue)
             }
-            room.notify(label: { "room.didUpdate permissions: \(newValue)" }) {
+            room.delegates.notify(label: { "room.didUpdate permissions: \(newValue)" }) {
                 $0.room?(self.room, participant: self, didUpdate: newValue)
             }
         }
