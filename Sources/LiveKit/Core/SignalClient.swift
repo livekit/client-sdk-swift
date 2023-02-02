@@ -649,7 +649,7 @@ private extension SignalClient {
 
         guard let jr = latestJoinResponse else { return }
 
-        sendPing().then { [weak self] in
+        sendPing().then(on: queue) { [weak self] in
 
             guard let self = self else { return }
 

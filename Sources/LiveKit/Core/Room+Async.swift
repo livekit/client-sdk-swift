@@ -30,9 +30,9 @@ public extension Room {
             connect(url,
                     token,
                     connectOptions: connectOptions,
-                    roomOptions: roomOptions).then { room in
+                    roomOptions: roomOptions).then(on: queue) { room in
                         continuation.resume(returning: room)
-                    }.catch { error in
+                    }.catch(on: queue) { error in
                         continuation.resume(throwing: error)
                     }
         }
