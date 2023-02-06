@@ -57,6 +57,7 @@ public class Room: NSObject, Loggable {
     @objc
     public var activeSpeakers: [Participant] { _state.activeSpeakers }
 
+    /// If the current room has a participant with `recorder: true` in its JWT grant.
     @objc
     public var isRecording: Bool { _state.isRecording }
 
