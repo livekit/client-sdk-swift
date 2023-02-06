@@ -39,12 +39,14 @@ public class Room: NSObject, Loggable {
     @objc
     public var name: String? { _state.name }
 
+    /// Room's metadata.
     @objc
     public var metadata: String? { _state.metadata }
 
     @objc
     public var serverVersion: String? { _state.serverVersion }
 
+    /// Region code the client is currently connected to.
     @objc
     public var serverRegion: String? { _state.serverRegion }
 
@@ -57,7 +59,7 @@ public class Room: NSObject, Loggable {
     @objc
     public var activeSpeakers: [Participant] { _state.activeSpeakers }
 
-    /// If the current room has a participant with `recorder: true` in its JWT grant.
+    /// If the current room has a participant with `recorder:true` in its JWT grant.
     @objc
     public var isRecording: Bool { _state.isRecording }
 
@@ -68,6 +70,7 @@ public class Room: NSObject, Loggable {
     @objc
     public var token: String? { engine._state.token }
 
+    /// Current ``ConnectionState`` of the ``Room``.
     public var connectionState: ConnectionState { engine._state.connectionState }
 
     /// Only for Objective-C.
