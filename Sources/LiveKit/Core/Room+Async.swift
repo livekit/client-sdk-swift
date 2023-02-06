@@ -38,15 +38,13 @@ public extension Room {
         }
     }
 
-    func disconnect() async {
+    func disconnect() async throws {
 
-        await withCheckedContinuation { continuation in
-            disconnect().then(on: queue) {
+        try await withCheckedThrowingContinuation { continuation in
+            disconnect().then {
                 continuation.resume()
-            }.catch(on: queue) { _ in
-                // disconnect() shouldn't throw, but resume() in case.
-                // continuation.resume(throwing: error)
-                continuation.resume()
+            }.catch { error in
+                continuation.resume(throwing: error)
             }
         }
     }
