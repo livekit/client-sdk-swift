@@ -69,6 +69,10 @@ public protocol RoomDelegateObjC: AnyObject {
     @objc(room:didUpdateMetadata:) optional
     func room(_ room: Room, didUpdate metadata: String?)
 
+    /// ``Room``'s recording state has been updated.
+    @objc(room:didUpdateIsRecording:) optional
+    func room(_ room: Room, didUpdate isRecording: Bool)
+
     /// Same with ``ParticipantDelegate/participant(_:didUpdate:)-46iut``.
     @objc(room:participant:didUpdateMetadata:) optional
     func room(_ room: Room, participant: Participant, didUpdate metadata: String?)

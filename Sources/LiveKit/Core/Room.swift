@@ -39,12 +39,14 @@ public class Room: NSObject, Loggable {
     @objc
     public var name: String? { _state.name }
 
+    /// Room's metadata.
     @objc
     public var metadata: String? { _state.metadata }
 
     @objc
     public var serverVersion: String? { _state.serverVersion }
 
+    /// Region code the client is currently connected to.
     @objc
     public var serverRegion: String? { _state.serverRegion }
 
@@ -57,6 +59,10 @@ public class Room: NSObject, Loggable {
     @objc
     public var activeSpeakers: [Participant] { _state.activeSpeakers }
 
+    /// If the current room has a participant with `recorder:true` in its JWT grant.
+    @objc
+    public var isRecording: Bool { _state.isRecording }
+
     // expose engine's vars
     @objc
     public var url: String? { engine._state.url }
@@ -64,6 +70,7 @@ public class Room: NSObject, Loggable {
     @objc
     public var token: String? { engine._state.token }
 
+    /// Current ``ConnectionState`` of the ``Room``.
     public var connectionState: ConnectionState { engine._state.connectionState }
 
     /// Only for Objective-C.
@@ -90,6 +97,8 @@ public class Room: NSObject, Loggable {
         var localParticipant: LocalParticipant?
         var remoteParticipants = [Sid: RemoteParticipant]()
         var activeSpeakers = [Participant]()
+
+        var isRecording: Bool = false
 
         @discardableResult
         mutating func getOrCreateRemoteParticipant(sid: Sid, info: Livekit_ParticipantInfo? = nil, room: Room) -> RemoteParticipant {
@@ -152,12 +161,26 @@ public class Room: NSObject, Loggable {
                // don't notify if empty string (first time only)
                (oldState.metadata == nil ? !metadata.isEmpty : true) {
 
+                // proceed only if connected...
                 self.engine.executeIfConnected { [weak self] in
 
                     guard let self = self else { return }
 
                     self.delegates.notify(label: { "room.didUpdate metadata: \(metadata)" }) {
                         $0.room?(self, didUpdate: metadata)
+                    }
+                }
+            }
+
+            // isRecording updated
+            if state.isRecording != oldState.isRecording {
+                // proceed only if connected...
+                self.engine.executeIfConnected { [weak self] in
+
+                    guard let self = self else { return }
+
+                    self.delegates.notify(label: { "room.didUpdate isRecording: \(state.isRecording)" }) {
+                        $0.room?(self, didUpdate: state.isRecording)
                     }
                 }
             }
@@ -373,6 +396,7 @@ extension Room: SignalClientDelegate {
             $0.metadata = joinResponse.room.metadata
             $0.serverVersion = joinResponse.serverVersion
             $0.serverRegion = joinResponse.serverRegion.isEmpty ? nil : joinResponse.serverRegion
+            $0.isRecording = joinResponse.room.activeRecording
 
             if joinResponse.hasParticipant {
                 $0.localParticipant = LocalParticipant(from: joinResponse.participant, room: self)
@@ -389,7 +413,10 @@ extension Room: SignalClientDelegate {
     }
 
     func signalClient(_ signalClient: SignalClient, didUpdate room: Livekit_Room) -> Bool {
-        _state.mutate { $0.metadata = room.metadata }
+        _state.mutate {
+            $0.metadata = room.metadata
+            $0.isRecording = room.activeRecording
+        }
         return true
     }
 
