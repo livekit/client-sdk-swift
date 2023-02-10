@@ -23,7 +23,7 @@ public extension LocalParticipant {
     func set(source: Track.Source, enabled: Bool) async throws -> LocalTrackPublication? {
 
         try await withCheckedThrowingContinuation { continuation in
-            set(source: .camera, enabled: enabled).then(on: queue) { result in
+            set(source: source, enabled: enabled).then(on: queue) { result in
                 continuation.resume(returning: result)
             }.catch(on: queue) { error in
                 continuation.resume(throwing: error)
