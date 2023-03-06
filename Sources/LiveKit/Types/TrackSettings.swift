@@ -21,21 +21,26 @@ internal struct TrackSettings: Equatable {
     let enabled: Bool
     let dimensions: Dimensions
     let videoQuality: VideoQuality
+    let preferredFPS: UInt
 
     init(enabled: Bool = false,
          dimensions: Dimensions = .zero,
-         videoQuality: VideoQuality = .low) {
+         videoQuality: VideoQuality = .low,
+         preferredFPS: UInt = 0) {
 
         self.enabled = enabled
         self.dimensions = dimensions
         self.videoQuality = videoQuality
+        self.preferredFPS = preferredFPS
     }
 
     func copyWith(enabled: Bool? = nil,
                   dimensions: Dimensions? = nil,
-                  videoQuality: VideoQuality? = nil) -> TrackSettings {
+                  videoQuality: VideoQuality? = nil,
+                  preferredFPS: UInt? = nil) -> TrackSettings {
         TrackSettings(enabled: enabled ?? self.enabled,
                       dimensions: dimensions ?? self.dimensions,
-                      videoQuality: videoQuality ?? self.videoQuality)
+                      videoQuality: videoQuality ?? self.videoQuality,
+                      preferredFPS: preferredFPS ?? self.preferredFPS)
     }
 }
