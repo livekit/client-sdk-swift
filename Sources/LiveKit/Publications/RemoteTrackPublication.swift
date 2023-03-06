@@ -112,7 +112,7 @@ public class RemoteTrackPublication: TrackPublication {
 
     /// Set preferred video FPS for this track.
     @discardableResult
-    public func set(preferredVideoFPS newValue: UInt) -> Promise<Void> {
+    public func set(preferredFPS newValue: UInt) -> Promise<Void> {
         // no-op if already the desired value
         let trackSettings = _state.trackSettings
         guard trackSettings.preferredFPS != newValue else { return Promise(()) }
