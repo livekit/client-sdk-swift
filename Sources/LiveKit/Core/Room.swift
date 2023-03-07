@@ -539,15 +539,19 @@ extension Room: SignalClientDelegate {
                     continue
                 }
 
-                let isNewParticipant = $0.remoteParticipants[info.sid] == nil
-                let participant = $0.getOrCreateRemoteParticipant(sid: info.sid, info: info, room: self)
-
                 if info.state == .disconnected {
+                    // when it's disconnected, send updates
                     disconnectedParticipants.append(info.sid)
-                } else if isNewParticipant {
-                    newParticipants.append(participant)
                 } else {
-                    participant.updateFromInfo(info: info)
+
+                    let isNewParticipant = $0.remoteParticipants[info.sid] == nil
+                    let participant = $0.getOrCreateRemoteParticipant(sid: info.sid, info: info, room: self)
+
+                    if isNewParticipant {
+                        newParticipants.append(participant)
+                    } else {
+                        participant.updateFromInfo(info: info)
+                    }
                 }
             }
         }
