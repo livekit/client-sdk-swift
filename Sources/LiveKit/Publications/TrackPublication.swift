@@ -75,6 +75,8 @@ public class TrackPublication: NSObject, TrackDelegate, Loggable {
         //
         var streamState: StreamState = .paused
         var trackSettings = TrackSettings()
+        //
+        var isSendingTrackSettings: Bool = false
     }
 
     internal var _state: StateSync<State>

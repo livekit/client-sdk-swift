@@ -100,24 +100,28 @@ public class RemoteTrackPublication: TrackPublication {
     @discardableResult
     public func set(enabled newValue: Bool) -> Promise<Void> {
         // no-op if already the desired value
-        guard _state.trackSettings.enabled != newValue else { return Promise(()) }
+        let trackSettings = _state.trackSettings
+        guard trackSettings.enabled != newValue else { return Promise(()) }
 
         guard userCanModifyTrackSettings else { return Promise(TrackError.state(message: "adaptiveStream must be disabled and track must be subscribed")) }
 
-        // keep old settings
-        let oldSettings = _state.trackSettings
-        // update state
-        _state.mutate { $0.trackSettings = $0.trackSettings.copyWith(enabled: newValue) }
+        let settings = trackSettings.copyWith(enabled: newValue)
         // attempt to set the new settings
-        return send(trackSettings: _state.trackSettings).catch(on: queue) { [weak self] error in
+        return send(trackSettings: settings)
+    }
 
-            guard let self = self else { return }
+    /// Set preferred video FPS for this track.
+    @discardableResult
+    public func set(preferredFPS newValue: UInt) -> Promise<Void> {
+        // no-op if already the desired value
+        let trackSettings = _state.trackSettings
+        guard trackSettings.preferredFPS != newValue else { return Promise(()) }
 
-            // revert track settings on failure
-            self._state.mutate { $0.trackSettings = oldSettings }
+        guard userCanModifyTrackSettings else { return Promise(TrackError.state(message: "adaptiveStream must be disabled and track must be subscribed")) }
 
-            self.log("failed to update enabled: \(newValue), sid: \(self.sid), error: \(error)")
-        }
+        let settings = trackSettings.copyWith(preferredFPS: newValue)
+        // attempt to set the new settings
+        return send(trackSettings: settings)
     }
 
     @discardableResult
@@ -233,17 +237,48 @@ internal extension RemoteTrackPublication {
         _state.mutate { $0.trackSettings = TrackSettings(enabled: !isAdaptiveStreamEnabled) }
     }
 
-    // simply send track settings
-    func send(trackSettings: TrackSettings) -> Promise<Void> {
+    // attempt to send track settings
+    func send(trackSettings newValue: TrackSettings) -> Promise<Void> {
 
         guard let participant = participant else {
             log("Participant is nil", .warning)
             return Promise(EngineError.state(message: "Participant is nil"))
         }
 
-        log("[adaptiveStream] sending \(trackSettings), sid: \(sid)")
+        log("[adaptiveStream] sending \(newValue), sid: \(sid)")
 
-        return participant.room.engine.signalClient.sendUpdateTrackSettings(sid: sid, settings: trackSettings)
+        let state = _state.readCopy()
+
+        assert(!state.isSendingTrackSettings, "send(trackSettings:) called while previous send not completed")
+
+        if state.isSendingTrackSettings {
+            // Previous send hasn't completed yet...
+            return Promise(EngineError.state(message: "Already busy sending new track settings"))
+        }
+
+        // update state
+        _state.mutate {
+            $0.trackSettings = newValue
+            $0.isSendingTrackSettings = true
+        }
+
+        // attempt to set the new settings
+        return participant.room.engine.signalClient.sendUpdateTrackSettings(sid: sid, settings: newValue)
+            .then(on: queue) { [weak self] _ in
+                guard let self = self else { return }
+                self._state.mutate { $0.isSendingTrackSettings = false }
+            }
+            .catch(on: queue) { [weak self] error in
+                guard let self = self else { return }
+
+                // revert track settings on failure
+                self._state.mutate {
+                    $0.trackSettings = state.trackSettings
+                    $0.isSendingTrackSettings = false
+                }
+
+                self.log("failed to send track settings: \(newValue), sid: \(self.sid), error: \(error)")
+            }
     }
 }
 
