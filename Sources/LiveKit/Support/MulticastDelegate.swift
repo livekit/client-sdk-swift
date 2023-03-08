@@ -90,7 +90,7 @@ public class MulticastDelegate<T>: NSObject, Loggable {
 
             for delegate in self.set.allObjects {
                 guard let delegate = delegate as? T else {
-                    self.log("MulticastDelegate: skipping notify for \(delegate), not a type of \(T.self)", .info)
+                    self.log("MulticastDelegate: skipping notify for \(delegate), not a type of \(T.self)", .warning)
                     continue
                 }
 
@@ -116,7 +116,7 @@ public class MulticastDelegate<T>: NSObject, Loggable {
             var counter: Int = 0
             for delegate in self.set.allObjects {
                 guard let delegate = delegate as? T else {
-                    self.log("MulticastDelegate: skipping notify for \(delegate), not a type of \(T.self)", .info)
+                    self.log("MulticastDelegate: skipping notify for \(delegate), not a type of \(T.self)", .warning)
                     continue
                 }
 
@@ -125,7 +125,7 @@ public class MulticastDelegate<T>: NSObject, Loggable {
 
             let wasHandled = counter > 0
             if !(requiresHandle && !wasHandled) {
-                self.log("notify() was not handled by the delegate, called from \(function) line \(line)", .warning)
+                self.log("notify() was not handled by the delegate, called from \(function) line \(line)", .debug)
             }
         }
     }
