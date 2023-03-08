@@ -338,7 +338,7 @@ private extension SignalClient {
             notify { $0.signalClient(self, didUpdateRemoteMute: mute.sid, muted: mute.muted) }
 
         case .leave(let leave):
-            notify { $0.signalClient(self, didReceiveLeave: leave.canReconnect) }
+            notify { $0.signalClient(self, didReceiveLeave: leave.canReconnect, reason: leave.reason) }
 
         case .streamStateUpdate(let states):
             notify { $0.signalClient(self, didUpdate: states.streamStates) }
@@ -522,6 +522,7 @@ internal extension SignalClient {
                 $0.width = UInt32(settings.dimensions.width)
                 $0.height = UInt32(settings.dimensions.height)
                 $0.quality = settings.videoQuality.toPBType()
+                $0.fps = UInt32(settings.preferredFPS)
             }
         }
 
@@ -604,7 +605,10 @@ internal extension SignalClient {
         log()
 
         let r = Livekit_SignalRequest.with {
-            $0.leave = Livekit_LeaveRequest()
+            $0.leave = Livekit_LeaveRequest.with {
+                $0.canReconnect = false
+                $0.reason = .clientInitiated
+            }
         }
 
         return sendRequest(r)
@@ -646,7 +650,7 @@ private extension SignalClient {
 
         guard let jr = latestJoinResponse else { return }
 
-        sendPing().then { [weak self] in
+        sendPing().then(on: queue) { [weak self] in
 
             guard let self = self else { return }
 

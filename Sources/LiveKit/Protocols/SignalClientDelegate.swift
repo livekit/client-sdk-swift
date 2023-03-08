@@ -36,7 +36,7 @@ internal protocol SignalClientDelegate: AnyObject {
     func signalClient(_ signalClient: SignalClient, didUpdate trackSid: String, subscribedQualities: [Livekit_SubscribedQuality]) -> Bool
     func signalClient(_ signalClient: SignalClient, didUpdate subscriptionPermission: Livekit_SubscriptionPermissionUpdate) -> Bool
     func signalClient(_ signalClient: SignalClient, didUpdate token: String) -> Bool
-    func signalClient(_ signalClient: SignalClient, didReceiveLeave canReconnect: Bool) -> Bool
+    func signalClient(_ signalClient: SignalClient, didReceiveLeave canReconnect: Bool, reason: Livekit_DisconnectReason) -> Bool
 }
 
 // MARK: - Optional
@@ -58,5 +58,5 @@ extension SignalClientDelegate {
     func signalClient(_ signalClient: SignalClient, didUpdate trackSid: String, subscribedQualities: [Livekit_SubscribedQuality]) -> Bool { false }
     func signalClient(_ signalClient: SignalClient, didUpdate subscriptionPermission: Livekit_SubscriptionPermissionUpdate) -> Bool { false }
     func signalClient(_ signalClient: SignalClient, didUpdate token: String) -> Bool { false }
-    func signalClient(_ signalClient: SignalClient, didReceiveLeave canReconnect: Bool) -> Bool { false }
+    func signalClient(_ signalClient: SignalClient, didReceiveLeave canReconnect: Bool, reason: Livekit_DisconnectReason) -> Bool { false }
 }

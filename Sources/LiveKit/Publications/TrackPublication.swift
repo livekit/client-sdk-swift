@@ -75,6 +75,8 @@ public class TrackPublication: NSObject, TrackDelegate, Loggable {
         //
         var streamState: StreamState = .paused
         var trackSettings = TrackSettings()
+        //
+        var isSendingTrackSettings: Bool = false
     }
 
     internal var _state: StateSync<State>
@@ -109,10 +111,10 @@ public class TrackPublication: NSObject, TrackDelegate, Loggable {
 
             if state.streamState != oldState.streamState {
                 if let participant = self.participant as? RemoteParticipant, let trackPublication = self as? RemoteTrackPublication {
-                    participant.notify(label: { "participant.didUpdate \(trackPublication) streamState: \(state.streamState)" }) {
+                    participant.delegates.notify(label: { "participant.didUpdate \(trackPublication) streamState: \(state.streamState)" }) {
                         $0.participant?(participant, didUpdate: trackPublication, streamState: state.streamState)
                     }
-                    participant.room.notify(label: { "room.didUpdate \(trackPublication) streamState: \(state.streamState)" }) {
+                    participant.room.delegates.notify(label: { "room.didUpdate \(trackPublication) streamState: \(state.streamState)" }) {
                         $0.room?(participant.room, participant: participant, didUpdate: trackPublication, streamState: state.streamState)
                     }
                 }
@@ -184,10 +186,10 @@ public class TrackPublication: NSObject, TrackDelegate, Loggable {
         sendSignal()
             .recover(on: queue) { self.log("Failed to stop all tracks, error: \($0)") }
             .then(on: queue) {
-                participant.notify {
+                participant.delegates.notify {
                     $0.participant?(participant, didUpdate: self, muted: muted)
                 }
-                participant.room.notify {
+                participant.room.delegates.notify {
                     $0.room?(participant.room, participant: participant, didUpdate: self, muted: self.muted)
                 }
             }

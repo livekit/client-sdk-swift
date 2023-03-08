@@ -206,7 +206,7 @@ public class VideoView: NativeView, Loggable {
                         }
 
                         // notify detach
-                        track.notify(label: { "track.didDetach videoView: \(self)" }) { [weak self, weak track] (delegate) -> Void in
+                        track.delegates.notify(label: { "track.didDetach videoView: \(self)" }) { [weak self, weak track] (delegate) -> Void in
                             guard let self = self, let track = track else { return }
                             delegate.track?(track, didDetach: self)
                         }
@@ -232,7 +232,7 @@ public class VideoView: NativeView, Loggable {
                         }
 
                         // notify attach
-                        track.notify(label: { "track.didAttach videoView: \(self)" }) { [weak self, weak track] (delegate) -> Void in
+                        track.delegates.notify(label: { "track.didAttach videoView: \(self)" }) { [weak self, weak track] (delegate) -> Void in
                             guard let self = self, let track = track else { return }
                             delegate.track?(track, didAttach: self)
                         }
@@ -252,14 +252,14 @@ public class VideoView: NativeView, Loggable {
                     self._renderTimer.suspend()
                 }
 
-                self.notify(label: { "videoView.didUpdate isRendering: \(state.isRendering)" }) {
+                self.delegates.notify(label: { "videoView.didUpdate isRendering: \(state.isRendering)" }) {
                     $0.videoView?(self, didUpdate: state.isRendering)
                 }
             }
 
             // viewSize updated
             if state.viewSize != oldState.viewSize {
-                self.notify(label: { "videoView.didUpdate viewSize: \(state.viewSize)" }) {
+                self.delegates.notify(label: { "videoView.didUpdate viewSize: \(state.viewSize)" }) {
                     $0.videoView?(self, didUpdate: state.viewSize)
                 }
             }
@@ -596,7 +596,7 @@ internal extension VideoView {
 
 // MARK: - MulticastDelegate
 
-extension VideoView {
+extension VideoView: MulticastDelegateProtocol {
 
     @objc(addDelegate:)
     public func add(delegate: VideoViewDelegate) {
@@ -608,9 +608,9 @@ extension VideoView {
         delegates.remove(delegate: delegate)
     }
 
-    internal func notify(label: (() -> String)? = nil,
-                         _ fnc: @escaping (VideoViewDelegate) -> Void) {
-        delegates.notify(label: label, fnc)
+    @objc
+    public func removeAllDelegates() {
+        delegates.removeAllDelegates()
     }
 }
 

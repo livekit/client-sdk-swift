@@ -23,9 +23,9 @@ public extension LocalParticipant {
     func set(source: Track.Source, enabled: Bool) async throws -> LocalTrackPublication? {
 
         try await withCheckedThrowingContinuation { continuation in
-            set(source: .camera, enabled: enabled).then { result in
+            set(source: source, enabled: enabled).then(on: queue) { result in
                 continuation.resume(returning: result)
-            }.catch { error in
+            }.catch(on: queue) { error in
                 continuation.resume(throwing: error)
             }
         }
@@ -51,9 +51,9 @@ public extension LocalParticipant {
                       publishOptions: VideoPublishOptions? = nil) async throws -> LocalTrackPublication {
 
         try await withCheckedThrowingContinuation { continuation in
-            publishVideoTrack(track: track, publishOptions: publishOptions).then { result in
+            publishVideoTrack(track: track, publishOptions: publishOptions).then(on: queue) { result in
                 continuation.resume(returning: result)
-            }.catch { error in
+            }.catch(on: queue) { error in
                 continuation.resume(throwing: error)
             }
         }
@@ -64,9 +64,9 @@ public extension LocalParticipant {
                       publishOptions: AudioPublishOptions? = nil) async throws -> LocalTrackPublication {
 
         try await withCheckedThrowingContinuation { continuation in
-            publishAudioTrack(track: track, publishOptions: publishOptions).then { result in
+            publishAudioTrack(track: track, publishOptions: publishOptions).then(on: queue) { result in
                 continuation.resume(returning: result)
-            }.catch { error in
+            }.catch(on: queue) { error in
                 continuation.resume(throwing: error)
             }
         }
@@ -77,9 +77,9 @@ public extension LocalParticipant {
                      destination: [String] = []) async throws {
 
         try await withCheckedThrowingContinuation { continuation in
-            publishData(data: data, reliability: reliability, destination: destination).then { result in
+            publishData(data: data, reliability: reliability, destination: destination).then(on: queue) { result in
                 continuation.resume(returning: result)
-            }.catch { error in
+            }.catch(on: queue) { error in
                 continuation.resume(throwing: error)
             }
         }
@@ -88,9 +88,9 @@ public extension LocalParticipant {
     func unpublish(publication: LocalTrackPublication, notify: Bool = true) async throws {
 
         try await withCheckedThrowingContinuation { continuation in
-            unpublish(publication: publication, notify: notify).then {
+            unpublish(publication: publication, notify: notify).then(on: queue) {
                 continuation.resume()
-            }.catch { error in
+            }.catch(on: queue) { error in
                 continuation.resume(throwing: error)
             }
         }
@@ -99,9 +99,9 @@ public extension LocalParticipant {
     func unpublishAll(notify: Bool = true) async throws {
 
         try await withCheckedThrowingContinuation { continuation in
-            unpublishAll(notify: notify).then {
+            unpublishAll(notify: notify).then(on: queue) {
                 continuation.resume()
-            }.catch { error in
+            }.catch(on: queue) { error in
                 continuation.resume(throwing: error)
             }
         }
@@ -112,9 +112,9 @@ public extension LocalParticipant {
 
         try await withCheckedThrowingContinuation { continuation in
             setTrackSubscriptionPermissions(allParticipantsAllowed: allParticipantsAllowed,
-                                            trackPermissions: trackPermissions).then {
+                                            trackPermissions: trackPermissions).then(on: queue) {
                                                 continuation.resume()
-                                            }.catch { error in
+                                            }.catch(on: queue) { error in
                                                 continuation.resume(throwing: error)
                                             }
         }

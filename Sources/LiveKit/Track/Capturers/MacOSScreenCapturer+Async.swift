@@ -29,9 +29,9 @@ public extension MacOSScreenCapturer {
 
             sources(for: type,
                     includeCurrentApplication: includeCurrentApplication,
-                    preferredMethod: preferredMethod).then { result in
+                    preferredMethod: preferredMethod).then(on: queue) { result in
                         continuation.resume(returning: result)
-                    }.catch { error in
+                    }.catch(on: queue) { error in
                         continuation.resume(throwing: error)
                     }
         }

@@ -43,7 +43,7 @@ public class ConnectOptions: NSObject {
         self.autoSubscribe = true
         self.rtcConfiguration = .liveKitDefault()
         self.publishOnlyMode = nil
-        self.protocolVersion = .v8
+        self.protocolVersion = .v9
     }
 
     @objc

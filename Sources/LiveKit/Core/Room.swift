@@ -27,7 +27,7 @@ public class Room: NSObject, Loggable {
 
     // MARK: - MulticastDelegate
 
-    private var delegates = MulticastDelegate<RoomDelegateObjC>()
+    internal var delegates = MulticastDelegate<RoomDelegateObjC>()
 
     internal let queue = DispatchQueue(label: "LiveKitSDK.room", qos: .default)
 
@@ -39,12 +39,14 @@ public class Room: NSObject, Loggable {
     @objc
     public var name: String? { _state.name }
 
+    /// Room's metadata.
     @objc
     public var metadata: String? { _state.metadata }
 
     @objc
     public var serverVersion: String? { _state.serverVersion }
 
+    /// Region code the client is currently connected to.
     @objc
     public var serverRegion: String? { _state.serverRegion }
 
@@ -57,6 +59,10 @@ public class Room: NSObject, Loggable {
     @objc
     public var activeSpeakers: [Participant] { _state.activeSpeakers }
 
+    /// If the current room has a participant with `recorder:true` in its JWT grant.
+    @objc
+    public var isRecording: Bool { _state.isRecording }
+
     // expose engine's vars
     @objc
     public var url: String? { engine._state.url }
@@ -64,6 +70,7 @@ public class Room: NSObject, Loggable {
     @objc
     public var token: String? { engine._state.token }
 
+    /// Current ``ConnectionState`` of the ``Room``.
     public var connectionState: ConnectionState { engine._state.connectionState }
 
     /// Only for Objective-C.
@@ -90,6 +97,8 @@ public class Room: NSObject, Loggable {
         var localParticipant: LocalParticipant?
         var remoteParticipants = [Sid: RemoteParticipant]()
         var activeSpeakers = [Participant]()
+
+        var isRecording: Bool = false
 
         @discardableResult
         mutating func getOrCreateRemoteParticipant(sid: Sid, info: Livekit_ParticipantInfo? = nil, room: Room) -> RemoteParticipant {
@@ -152,12 +161,26 @@ public class Room: NSObject, Loggable {
                // don't notify if empty string (first time only)
                (oldState.metadata == nil ? !metadata.isEmpty : true) {
 
+                // proceed only if connected...
                 self.engine.executeIfConnected { [weak self] in
 
                     guard let self = self else { return }
 
-                    self.notify(label: { "room.didUpdate metadata: \(metadata)" }) {
+                    self.delegates.notify(label: { "room.didUpdate metadata: \(metadata)" }) {
                         $0.room?(self, didUpdate: metadata)
+                    }
+                }
+            }
+
+            // isRecording updated
+            if state.isRecording != oldState.isRecording {
+                // proceed only if connected...
+                self.engine.executeIfConnected { [weak self] in
+
+                    guard let self = self else { return }
+
+                    self.delegates.notify(label: { "room.didUpdate isRecording: \(state.isRecording)" }) {
+                        $0.room?(self, didUpdate: state.isRecording)
                     }
                 }
             }
@@ -204,7 +227,8 @@ public class Room: NSObject, Loggable {
 
         return engine.signalClient.sendLeave()
             .recover(on: queue) { self.log("Failed to send leave, error: \($0)") }
-            .then(on: queue) {
+            .then(on: queue) { [weak self] in
+                guard let self = self else { return }
                 self.cleanUp(reason: .user)
             }
     }
@@ -338,16 +362,16 @@ internal extension Room {
 
 extension Room: SignalClientDelegate {
 
-    func signalClient(_ signalClient: SignalClient, didReceiveLeave canReconnect: Bool) -> Bool {
+    func signalClient(_ signalClient: SignalClient, didReceiveLeave canReconnect: Bool, reason: Livekit_DisconnectReason) -> Bool {
 
-        log("canReconnect: \(canReconnect)")
+        log("canReconnect: \(canReconnect), reason: \(reason)")
 
         if canReconnect {
             // force .full for next reconnect
             engine._state.mutate { $0.nextPreferredReconnectMode = .full }
         } else {
             // server indicates it's not recoverable
-            cleanUp(reason: .networkError(NetworkError.disconnected(message: "did receive leave")))
+            cleanUp(reason: reason.toLKType())
         }
 
         return true
@@ -372,6 +396,7 @@ extension Room: SignalClientDelegate {
             $0.metadata = joinResponse.room.metadata
             $0.serverVersion = joinResponse.serverVersion
             $0.serverRegion = joinResponse.serverRegion.isEmpty ? nil : joinResponse.serverRegion
+            $0.isRecording = joinResponse.room.activeRecording
 
             if joinResponse.hasParticipant {
                 $0.localParticipant = LocalParticipant(from: joinResponse.participant, room: self)
@@ -388,7 +413,10 @@ extension Room: SignalClientDelegate {
     }
 
     func signalClient(_ signalClient: SignalClient, didUpdate room: Livekit_Room) -> Bool {
-        _state.mutate { $0.metadata = room.metadata }
+        _state.mutate {
+            $0.metadata = room.metadata
+            $0.isRecording = room.activeRecording
+        }
         return true
     }
 
@@ -424,7 +452,7 @@ extension Room: SignalClientDelegate {
         engine.executeIfConnected { [weak self] in
             guard let self = self else { return }
 
-            self.notify(label: { "room.didUpdate speakers: \(speakers)" }) {
+            self.delegates.notify(label: { "room.didUpdate speakers: \(speakers)" }) {
                 $0.room?(self, didUpdate: activeSpeakers)
             }
         }
@@ -511,15 +539,19 @@ extension Room: SignalClientDelegate {
                     continue
                 }
 
-                let isNewParticipant = $0.remoteParticipants[info.sid] == nil
-                let participant = $0.getOrCreateRemoteParticipant(sid: info.sid, info: info, room: self)
-
                 if info.state == .disconnected {
+                    // when it's disconnected, send updates
                     disconnectedParticipants.append(info.sid)
-                } else if isNewParticipant {
-                    newParticipants.append(participant)
                 } else {
-                    participant.updateFromInfo(info: info)
+
+                    let isNewParticipant = $0.remoteParticipants[info.sid] == nil
+                    let participant = $0.getOrCreateRemoteParticipant(sid: info.sid, info: info, room: self)
+
+                    if isNewParticipant {
+                        newParticipants.append(participant)
+                    } else {
+                        participant.updateFromInfo(info: info)
+                    }
                 }
             }
         }
@@ -533,7 +565,7 @@ extension Room: SignalClientDelegate {
             engine.executeIfConnected { [weak self] in
                 guard let self = self else { return }
 
-                self.notify(label: { "room.participantDidJoin participant: \(participant)" }) {
+                self.delegates.notify(label: { "room.participantDidJoin participant: \(participant)" }) {
                     $0.room?(self, participantDidJoin: participant)
                 }
             }
@@ -587,7 +619,7 @@ extension Room: EngineDelegate {
                 }
             }
 
-            notify(label: { "room.didUpdate connectionState: \(state.connectionState) oldValue: \(oldState.connectionState)" }) {
+            delegates.notify(label: { "room.didUpdate connectionState: \(state.connectionState) oldValue: \(oldState.connectionState)" }) {
                 // Objective-C support
                 $0.room?(self, didUpdate: state.connectionState.toObjCType(), oldValue: oldState.connectionState.toObjCType())
                 // Swift only
@@ -669,7 +701,7 @@ extension Room: EngineDelegate {
         engine.executeIfConnected { [weak self] in
             guard let self = self else { return }
 
-            self.notify(label: { "room.didUpdate speakers: \(activeSpeakers)" }) {
+            self.delegates.notify(label: { "room.didUpdate speakers: \(activeSpeakers)" }) {
                 $0.room?(self, didUpdate: activeSpeakers)
             }
         }
@@ -716,12 +748,12 @@ extension Room: EngineDelegate {
         engine.executeIfConnected { [weak self] in
             guard let self = self else { return }
 
-            self.notify(label: { "room.didReceive data: \(userPacket.payload)" }) {
+            self.delegates.notify(label: { "room.didReceive data: \(userPacket.payload)" }) {
                 $0.room?(self, participant: participant, didReceive: userPacket.payload)
             }
 
             if let participant = participant {
-                participant.notify(label: { "participant.didReceive data: \(userPacket.payload)" }) { [weak participant] (delegate) -> Void in
+                participant.delegates.notify(label: { "participant.didReceive data: \(userPacket.payload)" }) { [weak participant] (delegate) -> Void in
                     guard let participant = participant else { return }
                     delegate.participant?(participant, didReceive: userPacket.payload)
                 }
@@ -787,7 +819,20 @@ extension Room {
 
 // MARK: - MulticastDelegate
 
-extension Room {
+extension Room: MulticastDelegateProtocol {
+
+    public func add(delegate: RoomDelegate) {
+        delegates.add(delegate: delegate)
+    }
+
+    public func remove(delegate: RoomDelegate) {
+        delegates.remove(delegate: delegate)
+    }
+
+    @objc
+    public func removeAllDelegates() {
+        delegates.removeAllDelegates()
+    }
 
     /// Only for Objective-C.
     @objc(addDelegate:)
@@ -801,18 +846,5 @@ extension Room {
     @available(swift, obsoleted: 1.0)
     public func removeObjC(delegate: RoomDelegateObjC) {
         delegates.remove(delegate: delegate)
-    }
-
-    public func add(delegate: RoomDelegate) {
-        delegates.add(delegate: delegate)
-    }
-
-    public func remove(delegate: RoomDelegate) {
-        delegates.remove(delegate: delegate)
-    }
-
-    internal func notify(label: (() -> String)? = nil,
-                         _ fnc: @escaping (RoomDelegateObjC) -> Void) {
-        delegates.notify(label: label, fnc)
     }
 }
