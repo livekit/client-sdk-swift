@@ -849,7 +849,7 @@ internal extension Engine {
 
         logger.log("Initializing Field trials...", type: Engine.self)
 
-        let fieldTrials = [kRTCFieldTrialUseNWPathMonitor : kRTCFieldTrialEnabledValue]
+        let fieldTrials = [kRTCFieldTrialUseNWPathMonitor: kRTCFieldTrialEnabledValue]
         RTCInitFieldTrialDictionary(fieldTrials)
 
         logger.log("Initializing PeerConnectionFactory...", type: Engine.self)
