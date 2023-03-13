@@ -196,10 +196,11 @@ internal class Utils {
         }
     }
 
-    internal static func computeEncodings(
+    internal static func computeVideoEncodings(
         dimensions: Dimensions,
         publishOptions: VideoPublishOptions?,
-        isScreenShare: Bool = false
+        isScreenShare: Bool = false,
+        isBackup: Bool = false
     ) -> [RTCRtpEncodingParameters] {
 
         let publishOptions = publishOptions ?? VideoPublishOptions()

@@ -18,40 +18,80 @@ import Foundation
 import WebRTC
 
 @objc
-public enum PreferredVideoCodec: Int {
-    case auto = 0
-    case h264 = 1
-    case vp8 = 2
-    case av1 = 3
+public class XVideoCodecBase: NSObject {
 
-    func toCodecCapability() -> RTCRtpCodecCapability? {
-        guard self != .auto else { return nil }
-        let codecCapability = RTCRtpCodecCapability()
-        codecCapability.kind = .video
-        codecCapability.name = String(describing: self)
-        codecCapability.clockRate = NSNumber(value: 90000) // required
-        return codecCapability
+    public let id: String
+
+    internal init(id: String) {
+        self.id = id
     }
 }
 
 @objc
-public enum PreferredBackupVideoCodec: Int {
-    case auto = 0
-    case h264 = 1
-    case vp8 = 2
-
+public class XVideoCodec: XVideoCodecBase {
+    static let h264 = XVideoCodec(id: "h264")
+    static let vp8 = XVideoCodec(id: "vp8")
 }
 
-// MARK: - CustomStringConvertible
+@objc
+public class XBackupVideoCodec: XVideoCodecBase {
+    static let h264 = XBackupVideoCodec(id: "h264")
+    static let vp8 = XBackupVideoCodec(id: "vp8")
+    static let av1 = XBackupVideoCodec(id: "av1")
+}
 
-extension PreferredVideoCodec: CustomStringConvertible {
+let x: XVideoCodecBase = XBackupVideoCodec.av1
+
+@objc
+public enum PreferredVideoCodec: Int, VideoCodec {
+
+    case auto
+    case h264
+    case vp8
+    case av1
+
+    func codecName() -> String? {
+        switch self {
+        case .h264: return "h264"
+        case .vp8: return "vp8"
+        case .av1: return "av1"
+        default: return nil
+        }
+    }
+}
+
+@objc
+public enum PreferredBackupVideoCodec: Int, VideoCodec {
+
+    case auto
+    case h264
+    case vp8
+
+    func codecName() -> String? {
+        switch self {
+        case .h264: return "h264"
+        case .vp8: return "vp8"
+        default: return nil
+        }
+    }
+}
+
+protocol VideoCodec: CustomStringConvertible {
+    func codecName() -> String?
+}
+
+extension VideoCodec {
 
     public var description: String {
-        switch self {
-        case .auto: return "auto"
-        case .h264: return "H264"
-        case .vp8: return "VP8"
-        case .av1: return "AV1"
-        }
+        "VideoCodec(\(codecName() ?? "auto"))"
+    }
+
+    func toCodecCapability() -> RTCRtpCodecCapability? {
+        guard let codecName = codecName() else { return nil }
+        let codecCapability = RTCRtpCodecCapability()
+        codecCapability.kind = .video
+        codecCapability.name = codecName
+        codecCapability.clockRate = NSNumber(value: 90000) // required
+        return codecCapability
     }
 }
