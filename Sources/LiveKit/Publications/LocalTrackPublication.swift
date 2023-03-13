@@ -132,9 +132,9 @@ extension LocalTrackPublication {
         let publishOptions = (track.publishOptions as? VideoPublishOptions) ?? participant.room._state.options.defaultVideoPublishOptions
 
         // re-compute encodings
-        let encodings = Utils.computeEncodings(dimensions: dimensions,
-                                               publishOptions: publishOptions,
-                                               isScreenShare: track.source == .screenShareVideo)
+        let encodings = Utils.computeVideoEncodings(dimensions: dimensions,
+                                                    publishOptions: publishOptions,
+                                                    isScreenShare: track.source == .screenShareVideo)
 
         log("Computed encodings: \(encodings)")
 

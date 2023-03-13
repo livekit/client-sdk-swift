@@ -18,31 +18,6 @@ import Foundation
 import WebRTC
 
 @objc
-public class XVideoCodecBase: NSObject {
-
-    public let id: String
-
-    internal init(id: String) {
-        self.id = id
-    }
-}
-
-@objc
-public class XVideoCodec: XVideoCodecBase {
-    static let h264 = XVideoCodec(id: "h264")
-    static let vp8 = XVideoCodec(id: "vp8")
-}
-
-@objc
-public class XBackupVideoCodec: XVideoCodecBase {
-    static let h264 = XBackupVideoCodec(id: "h264")
-    static let vp8 = XBackupVideoCodec(id: "vp8")
-    static let av1 = XBackupVideoCodec(id: "av1")
-}
-
-let x: XVideoCodecBase = XBackupVideoCodec.av1
-
-@objc
 public enum PreferredVideoCodec: Int, VideoCodec {
 
     case auto

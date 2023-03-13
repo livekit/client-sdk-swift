@@ -98,9 +98,9 @@ public class LocalParticipant: Participant {
 
                     let publishOptions = (publishOptions as? VideoPublishOptions) ?? self.room._state.options.defaultVideoPublishOptions
 
-                    let encodings = Utils.computeEncodings(dimensions: dimensions,
-                                                           publishOptions: publishOptions,
-                                                           isScreenShare: track.source == .screenShareVideo)
+                    let encodings = Utils.computeVideoEncodings(dimensions: dimensions,
+                                                                publishOptions: publishOptions,
+                                                                isScreenShare: track.source == .screenShareVideo)
 
                     self.log("[publish] using encodings: \(encodings)")
                     transInit.sendEncodings = encodings
