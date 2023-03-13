@@ -38,7 +38,7 @@ public enum PreferredVideoCodec: Int, VideoCodec {
 @objc
 public enum PreferredBackupVideoCodec: Int, VideoCodec {
 
-    case auto
+    case off
     case h264
     case vp8
 

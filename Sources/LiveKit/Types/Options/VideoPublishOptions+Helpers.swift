@@ -19,6 +19,6 @@ import Foundation
 internal extension VideoPublishOptions {
 
     var isBackupPublishingEnabled: Bool {
-        preferredBackupCodec != .auto
+        preferredBackupCodec != .off
     }
 }
