@@ -18,7 +18,18 @@ import Foundation
 
 @objc
 public enum ScalabilityMode: Int {
-    case LT3T = 1
+    case L3T3 = 1
+}
+
+// MARK: - StringRepresentable
+
+extension ScalabilityMode: StringRepresentable {
+
+    public var rawStringValue: String {
+        switch self {
+        case .L3T3: return "L3T3"
+        }
+    }
 }
 
 // MARK: - CustomStringConvertible
@@ -26,8 +37,6 @@ public enum ScalabilityMode: Int {
 extension ScalabilityMode: CustomStringConvertible {
 
     public var description: String {
-        switch self {
-        case .LT3T: return "LT3T"
-        }
+        "ScalabilityMode(\(rawStringValue))"
     }
 }

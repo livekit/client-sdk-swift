@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 LiveKit
+ * Copyright 2023 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,14 +16,7 @@
 
 import Foundation
 
-internal extension VideoPublishOptions {
-
-    var isBackupPublishingEnabled: Bool {
-        preferredBackupCodec != .off
-    }
-
-    var suggestedScalabilityMode: ScalabilityMode? {
-        // currently, if codec is AV1 we always use L3T3.
-        preferredCodec == .av1 ? .L3T3 : nil
-    }
+/// Simple workaround for ``RawRepresentable`` and ObjC.
+internal protocol StringRepresentable {
+    var rawStringValue: String { get }
 }
