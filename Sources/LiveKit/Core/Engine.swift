@@ -847,6 +847,11 @@ internal extension Engine {
 
         RTCInitializeSSL()
 
+        logger.log("Initializing Field trials...", type: Engine.self)
+
+        let fieldTrials = [kRTCFieldTrialUseNWPathMonitor: kRTCFieldTrialEnabledValue]
+        RTCInitFieldTrialDictionary(fieldTrials)
+
         logger.log("Initializing PeerConnectionFactory...", type: Engine.self)
 
         logger.log("canEncode H264: \(canEncodeH264 ? "YES" : "NO"), VP8: \(canEncodeVP8 ? "YES" : "NO"), AV1: \(canEncodeAV1 ? "YES" : "NO")", type: Engine.self)

@@ -788,6 +788,8 @@ extension MacOSScreenCapturer {
                             .filter { $0.owningApplication?.bundleIdentifier != nil }
                             // remove windows that windowLayer isn't 0
                             .filter { $0.windowLayer == 0 }
+                            // remove windows that are unusually small
+                            .filter { $0.frame.size.width >= 100 && $0.frame.size.height >= 100 }
                             // sort the windows by app name
                             .sorted { $0.owningApplication?.applicationName ?? "" < $1.owningApplication?.applicationName ?? "" }
                             .map { MacOSWindow(from: $0) }
