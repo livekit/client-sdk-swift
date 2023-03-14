@@ -22,8 +22,15 @@ internal extension VideoPublishOptions {
         preferredBackupCodec != .off
     }
 
-    var suggestedScalabilityMode: ScalabilityMode? {
+    var computedScalabilityMode: ScalabilityMode? {
         // currently, if codec is AV1 we always use L3T3.
         preferredCodec == .av1 ? .L3T3 : nil
+    }
+
+    var computedPreferredCodec: PreferredVideoCodec {
+        if preferredCodec == .av1 && !Engine.canEncodeAV1 {
+            return .auto
+        }
+        return preferredCodec
     }
 }

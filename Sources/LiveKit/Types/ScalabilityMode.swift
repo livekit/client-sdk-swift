@@ -25,7 +25,7 @@ public enum ScalabilityMode: Int {
 
 extension ScalabilityMode: StringRepresentable {
 
-    public var rawStringValue: String {
+    public var rawStringValue: String? {
         switch self {
         case .L3T3: return "L3T3"
         }
@@ -37,6 +37,6 @@ extension ScalabilityMode: StringRepresentable {
 extension ScalabilityMode: CustomStringConvertible {
 
     public var description: String {
-        "ScalabilityMode(\(rawStringValue))"
+        "ScalabilityMode(\(rawStringValue ?? "nil"))"
     }
 }

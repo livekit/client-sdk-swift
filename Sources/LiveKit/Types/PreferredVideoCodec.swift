@@ -25,7 +25,7 @@ public enum PreferredVideoCodec: Int, VideoCodec {
     case vp8
     case av1
 
-    func codecName() -> String? {
+    var rawStringValue: String? {
         switch self {
         case .h264: return "h264"
         case .vp8: return "vp8"
@@ -42,7 +42,7 @@ public enum PreferredBackupVideoCodec: Int, VideoCodec {
     case h264
     case vp8
 
-    func codecName() -> String? {
+    var rawStringValue: String? {
         switch self {
         case .h264: return "h264"
         case .vp8: return "vp8"
@@ -51,22 +51,25 @@ public enum PreferredBackupVideoCodec: Int, VideoCodec {
     }
 }
 
-protocol VideoCodec: CustomStringConvertible {
-    func codecName() -> String?
+protocol VideoCodec: StringRepresentable, CustomStringConvertible {
+
 }
 
 extension VideoCodec {
 
-    public var description: String {
-        "VideoCodec(\(codecName() ?? "auto"))"
-    }
-
     func toCodecCapability() -> RTCRtpCodecCapability? {
-        guard let codecName = codecName() else { return nil }
+        guard let codecName = rawStringValue else { return nil }
         let codecCapability = RTCRtpCodecCapability()
         codecCapability.kind = .video
         codecCapability.name = codecName
         codecCapability.clockRate = NSNumber(value: 90000) // required
         return codecCapability
+    }
+}
+
+extension VideoCodec {
+
+    public var description: String {
+        "VideoCodec(\(rawStringValue ?? "nil"))"
     }
 }

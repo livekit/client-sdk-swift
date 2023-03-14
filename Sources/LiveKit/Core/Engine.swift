@@ -867,29 +867,21 @@ internal extension Engine {
         #endif
     }()
 
-    static var canEncodeH264: Bool {
-        encoderFactory.supportedCodecs().contains { $0.name == kRTCH264CodecName }
-    }
+    static let canEncodeH264 = encoderFactory.supportedCodecs().contains { $0.name == kRTCH264CodecName }
+    static let canDecodeH264 = decoderFactory.supportedCodecs().contains { $0.name == kRTCH264CodecName }
+    static let canEncodeAndDecodeH264 = canEncodeH264 && canDecodeH264
 
-    static var canDecodeH264: Bool {
-        decoderFactory.supportedCodecs().contains { $0.name == kRTCH264CodecName }
-    }
+    static let canEncodeVP8 = encoderFactory.supportedCodecs().contains { $0.name == kRTCVp8CodecName }
+    static let canDecodeVP8 = decoderFactory.supportedCodecs().contains { $0.name == kRTCVp8CodecName }
+    static let canEncodeAndDecodeVP8 = canEncodeVP8 && canDecodeVP8
 
-    static var canEncodeVP8: Bool {
-        encoderFactory.supportedCodecs().contains { $0.name == kRTCVp8CodecName }
-    }
+    static let canEncodeVP9 = encoderFactory.supportedCodecs().contains { $0.name == kRTCVp9CodecName }
+    static let canDecodeVP9 = decoderFactory.supportedCodecs().contains { $0.name == kRTCVp9CodecName }
+    static let canEncodeAndDecodeVP9 = canEncodeVP9 && canDecodeVP9
 
-    static var canDecodeVP8: Bool {
-        decoderFactory.supportedCodecs().contains { $0.name == kRTCVp8CodecName }
-    }
-
-    static var canEncodeAV1: Bool {
-        encoderFactory.supportedCodecs().contains { $0.name == kRTCAv1CodecName }
-    }
-
-    static var canDecodeAV1: Bool {
-        decoderFactory.supportedCodecs().contains { $0.name == kRTCAv1CodecName }
-    }
+    static let canEncodeAV1 = encoderFactory.supportedCodecs().contains { $0.name == kRTCAv1CodecName }
+    static let canDecodeAV1 = decoderFactory.supportedCodecs().contains { $0.name == kRTCAv1CodecName }
+    static let canEncodeAndDecodeAV1 = canEncodeAV1 && canDecodeAV1
 
     // forbid direct access
 
