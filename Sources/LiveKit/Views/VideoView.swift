@@ -628,34 +628,25 @@ extension VideoView {
     }
 
     internal static func createNativeRendererView() -> NativeRendererView {
-        let result: NativeRendererView
-        #if targetEnvironment(simulator)
-        // iOS Simulator ---------------
-        logger.log("Using RTCEAGLVideoView for VideoView's Renderer", type: VideoView.self)
-        let eaglView = RTCEAGLVideoView()
-        eaglView.contentMode = .scaleAspectFit
-        result = eaglView
-        #else
-        let mtlView = RTCMTLVideoView()
         logger.log("Using RTCMTLVideoView for VideoView's Renderer", type: VideoView.self)
+        let result = RTCMTLVideoView()
+
         #if os(iOS)
-        mtlView.contentMode = .scaleAspectFit
-        mtlView.videoContentMode = .scaleAspectFit
-        #endif
-        result = mtlView
+        result.contentMode = .scaleAspectFit
+        result.videoContentMode = .scaleAspectFit
         #endif
 
         // extra checks for MTKView
-        if let metal = result.asMetalView {
+        if let mtkView = result.findMTKView() {
             #if os(iOS)
-            metal.contentMode = .scaleAspectFit
+            mtkView.contentMode = .scaleAspectFit
             #elseif os(macOS)
             metal.layerContentsPlacement = .scaleProportionallyToFit
             #endif
             // ensure it's capable of rendering 60fps
             // https://developer.apple.com/documentation/metalkit/mtkview/1536027-preferredframespersecond
             logger.log("preferredFramesPerSecond = 60", type: VideoView.self)
-            metal.preferredFramesPerSecond = 60
+            mtkView.preferredFramesPerSecond = 60
         }
 
         return result
@@ -666,7 +657,7 @@ extension VideoView {
 
 internal extension NativeViewType {
 
-    var asMetalView: MTKView? {
+    func findMTKView() -> MTKView? {
         subviews.compactMap { $0 as? MTKView }.first
     }
 }
