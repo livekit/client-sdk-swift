@@ -61,7 +61,7 @@ extension VideoCodec {
         guard let codecName = rawStringValue else { return nil }
         let codecCapability = RTCRtpCodecCapability()
         codecCapability.kind = .video
-        codecCapability.name = codecName
+        codecCapability.name = codecName.uppercased() // must be upper case
         codecCapability.clockRate = NSNumber(value: 90000) // required
         return codecCapability
     }
