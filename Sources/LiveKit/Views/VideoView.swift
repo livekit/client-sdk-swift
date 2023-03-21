@@ -641,7 +641,7 @@ extension VideoView {
             #if os(iOS)
             mtkView.contentMode = .scaleAspectFit
             #elseif os(macOS)
-            metal.layerContentsPlacement = .scaleProportionallyToFit
+            mtkView.layerContentsPlacement = .scaleProportionallyToFit
             #endif
             // ensure it's capable of rendering 60fps
             // https://developer.apple.com/documentation/metalkit/mtkview/1536027-preferredframespersecond
