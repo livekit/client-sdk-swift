@@ -21,9 +21,7 @@ internal typealias OnStateMutate<Value> = (_ state: Value, _ oldState: Value) ->
 @dynamicMemberLookup
 internal final class StateSync<Value> {
 
-    // use concurrent queue to allow multiple reads and block writes with barrier.
-    private let queue = DispatchQueue(label: "LiveKitSDK.state", qos: .default,
-                                      attributes: [.concurrent])
+    private let lock = UnfairLock()
 
     // actual value
     private var _value: Value
@@ -34,10 +32,10 @@ internal final class StateSync<Value> {
         self.onMutate = onMutate
     }
 
-    // mutate sync (blocking)
+    // mutate sync
     @discardableResult
     public func mutate<Result>(_ block: (inout Value) throws -> Result) rethrows -> Result {
-        try queue.sync(flags: .barrier) {
+        try lock.sync {
             let oldValue = _value
             let result = try block(&_value)
             onMutate?(_value, oldValue)
@@ -45,39 +43,21 @@ internal final class StateSync<Value> {
         }
     }
 
-    // mutate async (blocking)
-    public func mutateAsync(_ block: @escaping (inout Value) -> Void) {
-        queue.async(flags: .barrier) { [weak self] in
-            guard let self = self else { return }
-            let oldValue = self._value
-            block(&self._value)
-            self.onMutate?(self._value, oldValue)
-        }
-    }
-
-    // read sync and return copy (concurrent)
+    // read sync
     public func readCopy() -> Value {
-        queue.sync { _value }
+        lock.sync { _value }
     }
 
-    // read sync (concurrent)
+    // read sync
     public func read<Result>(_ block: (Value) throws -> Result) rethrows -> Result {
-        try queue.sync {
+        try lock.sync {
             try block(_value)
         }
     }
 
-    // read async (concurrent)
-    public func readAsync(_ block: @escaping (Value) -> Void) {
-        queue.async { [weak self] in
-            guard let self = self else { return }
-            block(self._value)
-        }
-    }
-
-    // property read sync (concurrent)
+    // property read sync
     subscript<Property>(dynamicMember keyPath: KeyPath<Value, Property>) -> Property {
-        queue.sync { _value[keyPath: keyPath] }
+        lock.sync { _value[keyPath: keyPath] }
     }
 }
 
