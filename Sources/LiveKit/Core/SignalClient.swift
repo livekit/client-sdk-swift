@@ -17,6 +17,7 @@
 import Foundation
 import WebRTC
 import Promises
+import Combine
 
 internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
 
@@ -39,6 +40,7 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
     
     enum Errors: Error {
         case alreadyConnected
+        case invalidJoinResponse
     }
 
     // MARK: - Private
@@ -59,14 +61,36 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
 
     private var webSocket: WebSocket?
     private var latestJoinResponse: Livekit_JoinResponse?
+    
+    private var responseSubscriptions: Set<AnyCancellable> = []
+    private let receivedResponses: CurrentValueSubject<Livekit_SignalResponse?, Never>
+    var receivedResponsePublisher: AnyPublisher<Livekit_SignalResponse.OneOf_Message, Never> {
+        receivedResponses
+            .compactMap { [weak self] signalResponse in
+                guard let self else { return nil }
+                guard let message = signalResponse?.message else {
+                    self.log("Failed to decode SignalResponse", .warning)
+                    return nil
+                }
+                return message
+            }
+            .eraseToAnyPublisher()
+    }
+    
+    private let joinResponses: CurrentValueSubject<Livekit_JoinResponse?, Never>
 
     private var pingIntervalTimer: DispatchQueueTimer?
     private var pingTimeoutTimer: DispatchQueueTimer?
 
     init() {
+        receivedResponses = CurrentValueSubject(nil)
+        joinResponses = CurrentValueSubject(nil)
+        
         super.init()
 
         log()
+        
+        joinResponsesSubscription()
 
         // trigger events when state mutates
         self._state.onMutate = { [weak self] state, oldState in
@@ -84,15 +108,34 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
 
     deinit {
         log()
+        responseSubscriptions.removeAll()
+    }
+    
+    private func joinResponsesSubscription() {
+        receivedResponsePublisher
+            .compactMap {
+                guard case .join(let joinResponse) = $0 else { return nil }
+                return joinResponse
+            }
+            .assign(to: \.value, on: joinResponses)
+            .store(in: &responseSubscriptions)
     }
     
     func _joinResponse() async throws -> Livekit_JoinResponse {
-        var completer = _state.joinResponseCompleter
-        let response = try await completer.response(queue: queue, timeout: .defaultJoinResponse, error: SignalClientError.timedOut(message: "failed to receive join response"))
-        _state.mutate {
-            $0.joinResponseCompleter = completer
+        if #available(iOS 15.0, *) {
+            var result: Livekit_JoinResponse?
+            for await joinResponse in joinResponses.values {
+                guard let joinResponse else { continue }
+                result = joinResponse
+                break // << stop at the first valid join response
+            }
+            
+            guard let result else { throw Errors.invalidJoinResponse }
+            return result
+            
+        } else {
+            fatalError()
         }
-        return response
     }
 
     func _connect(urlString: String, token: String, connectOptions: ConnectOptions? = nil, reconnectMode: ReconnectMode? = nil, adaptiveStream: Bool) async throws {
@@ -123,7 +166,8 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
                            validate: true)
         }
         
-        self.queue.sync {
+        self._state.mutate { $0.connectionState = .connected }
+        self.queue.async {
             self.webSocket = websocket
         }
     }
@@ -443,13 +487,15 @@ private extension SignalClient {
             } else {
                 self.onSignalResponse(response)
             }
+            
+            self.receivedResponses.send(response)
         }
     }
 
     func onSignalResponse(_ response: Livekit_SignalResponse) {
 
         guard case .connected = connectionState else {
-            log("Not connected", .warning)
+            log("Not connected, received response though: \(response)", .warning)
             return
         }
 

@@ -64,21 +64,3 @@ internal struct Completer<Value>: Loggable {
         value = nil
     }
 }
-
-extension Completer {
-    
-    mutating func response(queue: DispatchQueue, timeout: TimeInterval, error: Error) async throws -> Value {
-        let result = try await withUnsafeThrowingContinuation { (continuation: UnsafeContinuation<Value, Error>) in
-            self
-                .wait(on: queue, timeout, throw: { error })
-                .then(on: queue) { value in
-                    continuation.resume(returning: value)
-                }
-                .catch(on: queue) { error in
-                    continuation.resume(throwing: error)
-                }
-        }
-        self.set(value: result)
-        return result
-    }
-}

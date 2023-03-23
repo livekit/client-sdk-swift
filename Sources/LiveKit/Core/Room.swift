@@ -295,8 +295,13 @@ internal extension Room {
         }
         
         await engine.signalClient._cleanUp(reason: reason)
+        log("did cleanUp signalClient")
+        
         await engine._cleanupRTC()
+        log("did cleanup RTC engine")
+        
         await _cleanupParticipants()
+        log("did cleanUp participants")
         
         self._state.mutate { $0 = State(options: $0.options) }
     }

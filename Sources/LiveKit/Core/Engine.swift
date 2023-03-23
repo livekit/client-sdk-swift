@@ -17,6 +17,7 @@
 import Foundation
 import WebRTC
 import Promises
+import Combine
 
 #if canImport(Network)
 import Network
@@ -219,14 +220,27 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
 
     func _cleanupRTC() async {
         await withTaskGroup(of: Void.self, body: { [_subscriberDC] group in
-            group.addTask {
-                await _subscriberDC.close()
-            }
-            
             //TODO: - enable once publisher is ready
+//            group.addTask {
+//                await _subscriberDC.close()
+//            }
 //            group.addTask {
 //                await _publisherDC.close()
 //            }
+            
+            group.addTask {
+                await withUnsafeContinuation { continuation in
+                    let closeDataChannelPromises = [
+                        self.publisherDC.close(),
+                        self.subscriberDC.close()
+                    ]
+                    
+                    closeDataChannelPromises.all(on: self.queue)
+                        .then(on: self.queue) {
+                            continuation.resume()
+                        }
+                }
+            }
             
             [publisher, subscriber].forEach { transport in
                 guard let transport else { return }
@@ -277,7 +291,7 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
         }
     }
     
-    func _publisherShouldNegotiate() throws {
+    func _publisherShouldNegotiate() async throws {
         log()
         
         guard let publisher else {
@@ -286,9 +300,9 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
 
         _state.mutate { $0.hasPublished = true }
 
-        queue.async {
-            publisher.negotiate()
-        }
+        //v-- this is the offer ... do we need it?
+        _ = try await publisher._createAndSendOffer()
+        print("negotiated offer...")
     }
 
     @discardableResult
@@ -408,6 +422,8 @@ private extension Engine {
             adaptiveStream: room._state.options.adaptiveStream
         )
         
+        assert(signalClient._state.connectionState == .connected)
+        
         // wait for joinResponse
         let joinResponse = try await signalClient._joinResponse()
         
@@ -458,10 +474,26 @@ private extension Engine {
     
     //WIP: continue here!
     func primaryTransportConnected() async throws {
-        var completer = _state.primaryTransportConnectedCompleter
-        try await completer.response(queue: queue, timeout: .defaultTransportState, error: TransportError.timedOut(message: "primary transport didn't connect"))
-        _state.mutate {
-            $0.primaryTransportConnectedCompleter = completer
+        //TODO: timeout
+        var primaryState: RTCPeerConnectionState?
+        
+        if #available(iOS 15.0, *) {
+            guard let primaryStates = primary?.connectionStatePublisher.values else {
+                throw TransportError.noPrimary(message: "transport is nil")
+            }
+            
+            for await state in primaryStates {
+                guard state == .connected else { continue }
+                primaryState = state
+                break
+            }
+        } else {
+            // Fallback on earlier versions
+            fatalError()
+        }
+        
+        guard let _ = primaryState else {
+            throw TransportError.noPrimary(message: "no state after waiting for primary connection")
         }
     }
 
@@ -738,7 +770,7 @@ extension Engine: TransportDelegate {
 
     func transport(_ transport: Transport, didUpdate pcState: RTCPeerConnectionState) {
         log("target: \(transport.target), state: \(pcState)")
-
+        
         // primary connected
         if transport.primary {
             _state.mutate { $0.primaryTransportConnectedCompleter.set(value: .connected == pcState ? () : nil) }
@@ -796,16 +828,6 @@ extension Engine: TransportDelegate {
                                       primary: !self.subscriberPrimary,
                                       delegate: self,
                                       reportStats: room._state.options.reportStats)
-            
-        await withUnsafeContinuation { (continuation: UnsafeContinuation<Void, Never>) in
-            publisher.onOffer = { offer in
-                self.log("publisher onOffer \(offer.sdp)")
-                defer {
-                    continuation.resume()
-                }
-                return self.signalClient.sendOffer(offer: offer)
-            }
-        }
 
         // data over pub channel for backwards compatibility
 
@@ -819,12 +841,12 @@ extension Engine: TransportDelegate {
 
         self.log("dataChannel.\(String(describing: publisherReliableDC?.label)) : \(String(describing: publisherReliableDC?.channelId))")
         self.log("dataChannel.\(String(describing: publisherLossyDC?.label)) : \(String(describing: publisherLossyDC?.channelId))")
-
+        
         if !self.subscriberPrimary {
             // lazy negotiation for protocol v3+
-            try self._publisherShouldNegotiate()
+            try await self._publisherShouldNegotiate()
         }
-
+                            
         self.subscriber = subscriber
         self.publisher = publisher
     }
