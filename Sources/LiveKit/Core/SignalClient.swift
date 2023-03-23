@@ -806,6 +806,19 @@ internal extension SignalClient {
 
         return sendRequest(r)
     }
+    
+    func sendLeave() async throws {
+        log()
+
+        let request = Livekit_SignalRequest.with {
+            $0.leave = Livekit_LeaveRequest.with {
+                $0.canReconnect = false
+                $0.reason = .clientInitiated
+            }
+        }
+
+        try await _sendRequest(request)
+    }
 
     @discardableResult
     func sendLeave() -> Promise<Void> {

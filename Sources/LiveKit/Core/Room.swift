@@ -190,6 +190,26 @@ public class Room: NSObject, Loggable {
     deinit {
         log()
     }
+    
+    public func _connect(url: String, token: String, connectOptions: ConnectOptions? = nil, roomOptions: RoomOptions? = nil) async throws {
+
+        log("connecting to room...", .info)
+
+        let state = _state.readCopy()
+
+        guard state.localParticipant == nil else {
+            log("localParticipant is not nil", .warning)
+            throw EngineError.state(message: "localParticipant is not nil")
+        }
+
+        // update options if specified
+        if let roomOptions = roomOptions, roomOptions != state.options {
+            _state.mutate { $0.options = roomOptions }
+        }
+
+        try await engine._connect(url: url, token: token, connectOptions: connectOptions)
+        log("connected to \(String(describing: self)) \(String(describing: state.localParticipant))", .info)
+    }
 
     @discardableResult
     public func connect(_ url: String,
@@ -218,6 +238,20 @@ public class Room: NSObject, Loggable {
                                 return self
                               }
     }
+    
+    public func _disconnect() async throws {
+
+        // return if already disconnected state
+        guard case .connected = connectionState else { return }
+
+        do {
+            try await engine.signalClient.sendLeave()
+        } catch {
+            log("Failed to send leave, error: \(error)")
+        }
+        
+        await _cleanUp(reason: .user)
+    }
 
     @discardableResult
     public func disconnect() -> Promise<Void> {
@@ -238,9 +272,32 @@ public class Room: NSObject, Loggable {
 
 internal extension Room {
 
-    func _cleanUp() async {
+    func _cleanUp(reason: DisconnectReason? = nil, isFullReconnect: Bool = false) async {
+        
+        log("reason: \(String(describing: reason))")
+        
+        engine._state.mutate {
+            $0.primaryTransportConnectedCompleter.reset()
+            $0.publisherTransportConnectedCompleter.reset()
+
+            // if isFullReconnect, keep connection related states
+            $0 = isFullReconnect ? Engine.State(
+                connectOptions: $0.connectOptions,
+                url: $0.url,
+                token: $0.token,
+                nextPreferredReconnectMode: $0.nextPreferredReconnectMode,
+                reconnectMode: $0.reconnectMode,
+                connectionState: $0.connectionState
+            ) : Engine.State(
+                connectOptions: $0.connectOptions,
+                connectionState: .disconnected(reason: reason)
+            )
+        }
+        
+        await engine.signalClient._cleanUp(reason: reason)
+        await engine._cleanupRTC()
         await _cleanupParticipants()
-        // reset state
+        
         self._state.mutate { $0 = State(options: $0.options) }
     }
     

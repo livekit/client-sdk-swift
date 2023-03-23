@@ -202,24 +202,7 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
     
     func _cleanUp(reason: DisconnectReason? = nil, isFullReconnect: Bool = false) async throws {
         guard let room else { throw EngineError.state(message: "Room is nil") }
-        
-        //1:
-        _state.mutate {
-            $0.primaryTransportConnectedCompleter.reset()
-            $0.publisherTransportConnectedCompleter.reset()
-            if isFullReconnect == false {
-                $0.connectionState = .disconnected(reason: reason)
-            }
-        }
-        
-        //2:
-        await signalClient._cleanUp(reason: reason)
-        
-        //3:
-        await _cleanupRTC()
-        
-        //4:
-        await room._cleanUp()
+        await room._cleanUp(reason: reason, isFullReconnect: isFullReconnect)
     }
 
     // cleanUp (reset) both Room & Engine's state
@@ -433,6 +416,11 @@ private extension Engine {
         try await self._configureTransports(joinResponse: joinResponse)
         
         await self.signalClient._resumeResponseQueue()
+        
+        try await self.primaryTransportConnected()
+        
+        _state.mutate { $0.connectStopwatch.split(label: "engine") }
+        log("\(_state.connectStopwatch)")
     }
     
     // full connect sequence, doesn't update connection state
@@ -469,14 +457,12 @@ private extension Engine {
     }
     
     //WIP: continue here!
-    func primaryTransportConnected() async throws -> RTCPeerConnectionState {
-//        var completer = _state.primaryTransportConnectedCompleter
-//        let response = try await completer.response(queue: queue, timeout: .defaultTransportState, error: TransportError.timedOut(message: "primary transport didn't connect"))
-//        _state.mutate {
-//            $0.primaryTransportConnectedCompleter = completer
-//        }
-//        return response
-        fatalError()
+    func primaryTransportConnected() async throws {
+        var completer = _state.primaryTransportConnectedCompleter
+        try await completer.response(queue: queue, timeout: .defaultTransportState, error: TransportError.timedOut(message: "primary transport didn't connect"))
+        _state.mutate {
+            $0.primaryTransportConnectedCompleter = completer
+        }
     }
 
     @discardableResult
