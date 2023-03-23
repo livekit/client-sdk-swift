@@ -186,6 +186,26 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
 
         return negotiateSequence()
     }
+    
+    func _close() async {
+        // prevent debounced negotiate firing
+        self.debounceWorkItem?.cancel()
+        self.statsTimer.suspend()
+
+        await withUnsafeContinuation({ continuation in
+            DispatchQueue.webRTC.async {
+                // Stop listening to delegate
+                self.pc.delegate = nil
+                // Remove all senders (if any)
+                for sender in self.pc.senders {
+                    self.pc.removeTrack(sender)
+                }
+                
+                self.pc.close()
+                continuation.resume()
+            }
+        })
+    }
 
     func close() -> Promise<Void> {
 

@@ -238,6 +238,12 @@ public class Room: NSObject, Loggable {
 
 internal extension Room {
 
+    func _cleanUp() async {
+        await _cleanupParticipants()
+        // reset state
+        self._state.mutate { $0 = State(options: $0.options) }
+    }
+    
     // Resets state of Room
     @discardableResult
     func cleanUp(reason: DisconnectReason? = nil,
@@ -275,6 +281,33 @@ internal extension Room {
         }.catch(on: queue) { error in
             // this should never happen
             self.log("Room cleanUp failed with error: \(error)", .error)
+        }
+    }
+    
+    func _cleanupParticipants(notify: Bool = true) async {
+        
+        log("notify: \(notify)")
+        
+        await withTaskGroup(of: Void.self, body: { [localParticipant, _state] group in
+            
+            if let localParticipant {
+                group.addTask {
+                    await localParticipant._cleanUp(notify: notify)
+                }
+            }
+            
+            // Stop all local --^ & remote tracks --v
+            _state.remoteParticipants.values.compactMap { $0 }.forEach { participant in
+                group.addTask {
+                    await participant._cleanUp(notify: notify)
+                }
+            }
+        })
+        
+        //reset state and be done
+        _state.mutate {
+            $0.localParticipant = nil
+            $0.remoteParticipants = [:]
         }
     }
 }
