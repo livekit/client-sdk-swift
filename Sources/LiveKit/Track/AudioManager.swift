@@ -94,7 +94,7 @@ public class AudioManager: Loggable {
 
     internal func trackDidStart(_ type: Type) {
         // async mutation
-        _state.mutateAsync { state in
+        _state.mutate { state in
             if type == .local { state.localTracksCount += 1 }
             if type == .remote { state.remoteTracksCount += 1 }
         }
@@ -102,7 +102,7 @@ public class AudioManager: Loggable {
 
     internal func trackDidStop(_ type: Type) {
         // async mutation
-        _state.mutateAsync { state in
+        _state.mutate { state in
             if type == .local { state.localTracksCount -= 1 }
             if type == .remote { state.remoteTracksCount -= 1 }
         }
