@@ -967,7 +967,7 @@ internal extension Engine {
         }
 
         if let scalabilityMode = scalabilityMode {
-            result.scalabilityMode = String(describing: scalabilityMode)
+            result.scalabilityMode = scalabilityMode.rawStringValue
         }
 
         return result

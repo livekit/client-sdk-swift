@@ -22,12 +22,12 @@ internal typealias OnStateMutate<Value> = (_ state: Value, _ oldState: Value) ->
 
 @dynamicMemberLookup
 internal final class StateSync<Value> {
-    
+
     private let subject: CurrentValueSubject<Value, Never>
     private let lock: UnsafeMutablePointer<os_unfair_lock_s>
-    
+
     public var onMutate: OnStateMutate<Value>?
-    
+
     public var valuePublisher: AnyPublisher<Value, Never> {
         subject.eraseToAnyPublisher()
     }
@@ -38,7 +38,7 @@ internal final class StateSync<Value> {
         lock = UnsafeMutablePointer<os_unfair_lock_s>.allocate(capacity: 1)
         lock.initialize(to: os_unfair_lock())
     }
-    
+
     deinit {
         lock.deallocate()
     }
@@ -48,7 +48,7 @@ internal final class StateSync<Value> {
     public func mutate<Result>(_ block: (inout Value) throws -> Result) rethrows -> Result {
         os_unfair_lock_lock(lock)
         defer { os_unfair_lock_unlock(lock) }
-        
+
         let oldValue = subject.value
         var valueCopy = oldValue
         let result = try block(&valueCopy)
@@ -61,7 +61,7 @@ internal final class StateSync<Value> {
     public func mutateAsync(_ block: @escaping (inout Value) -> Void) {
         os_unfair_lock_lock(lock)
         defer { os_unfair_lock_unlock(lock) }
-        
+
         let oldValue = subject.value
         var valueCopy = oldValue
         block(&valueCopy)
@@ -73,7 +73,7 @@ internal final class StateSync<Value> {
     public func readCopy() -> Value {
         os_unfair_lock_lock(lock)
         defer { os_unfair_lock_unlock(lock) }
-        
+
         return subject.value
     }
 
@@ -81,7 +81,7 @@ internal final class StateSync<Value> {
     public func read<Result>(_ block: (Value) throws -> Result) rethrows -> Result {
         os_unfair_lock_lock(lock)
         defer { os_unfair_lock_unlock(lock) }
-        
+
         return try block(subject.value)
     }
 
@@ -96,7 +96,7 @@ internal final class StateSync<Value> {
     subscript<Property>(dynamicMember keyPath: KeyPath<Value, Property>) -> Property {
         os_unfair_lock_lock(lock)
         defer { os_unfair_lock_unlock(lock) }
-        
+
         return subject.value[keyPath: keyPath]
     }
 }

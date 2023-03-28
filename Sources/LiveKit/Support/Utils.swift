@@ -214,6 +214,25 @@ internal class Utils {
         let baseParameters = VideoParameters(dimensions: dimensions,
                                              encoding: encoding)
 
+        if publishOptions.computedPreferredCodec == .av1 {
+            // Only L3T3
+            assert(publishOptions.computedScalabilityMode == .L3T3, "Currently only L3T3 supported for AV1")
+
+            // svc use first encoding as the original, so we sort encoding from high to low
+            return VideoQuality.rids.reversed().enumerated().map { (i, rid) in
+                let maxBitrate = Int(Double(baseParameters.encoding.maxBitrate) / pow(3, Double(i)))
+                let scaleDownBy = pow(2, Double(i))
+                // print("enumerating: \(i), \(rid), \(maxBitrate)")
+                return Engine.createRtpEncodingParameters(
+                    rid: rid,
+                    encoding: VideoEncoding(maxBitrate: maxBitrate,
+                                            maxFps: baseParameters.encoding.maxFps),
+                    scaleDownBy: scaleDownBy,
+                    scalabilityMode: .L3T3
+                )
+            }
+        }
+
         // get suggested presets for the dimensions
         let preferredPresets = (isScreenShare ? publishOptions.screenShareSimulcastLayers : publishOptions.simulcastLayers)
         let presets = (!preferredPresets.isEmpty ? preferredPresets : baseParameters.defaultSimulcastLayers(isScreenShare: isScreenShare)).sorted { $0 < $1 }
