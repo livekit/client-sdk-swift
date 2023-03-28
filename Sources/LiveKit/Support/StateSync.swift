@@ -15,75 +15,95 @@
  */
 
 import Foundation
+import Combine
+import os.lock
 
 internal typealias OnStateMutate<Value> = (_ state: Value, _ oldState: Value) -> Void
 
 @dynamicMemberLookup
 internal final class StateSync<Value> {
-
-    // use concurrent queue to allow multiple reads and block writes with barrier.
-    private let queue = DispatchQueue(label: "LiveKitSDK.state", qos: .default,
-                                      attributes: [.concurrent])
-
-    // actual value
-    private var _value: Value
+    
+    private let subject: CurrentValueSubject<Value, Never>
+    private let lock: UnsafeMutablePointer<os_unfair_lock_s>
+    
     public var onMutate: OnStateMutate<Value>?
+    
+    public var valuePublisher: AnyPublisher<Value, Never> {
+        subject.eraseToAnyPublisher()
+    }
 
     public init(_ value: Value, onMutate: OnStateMutate<Value>? = nil) {
-        self._value = value
+        self.subject = CurrentValueSubject(value)
         self.onMutate = onMutate
+        lock = UnsafeMutablePointer<os_unfair_lock_s>.allocate(capacity: 1)
+        lock.initialize(to: os_unfair_lock())
+    }
+    
+    deinit {
+        lock.deallocate()
     }
 
     // mutate sync (blocking)
     @discardableResult
     public func mutate<Result>(_ block: (inout Value) throws -> Result) rethrows -> Result {
-        try queue.sync(flags: .barrier) {
-            let oldValue = _value
-            let result = try block(&_value)
-            onMutate?(_value, oldValue)
-            return result
-        }
+        os_unfair_lock_lock(lock)
+        defer { os_unfair_lock_unlock(lock) }
+        
+        let oldValue = subject.value
+        var valueCopy = oldValue
+        let result = try block(&valueCopy)
+        subject.send(valueCopy)
+        onMutate?(valueCopy, oldValue)
+        return result
     }
 
     // mutate async (blocking)
     public func mutateAsync(_ block: @escaping (inout Value) -> Void) {
-        queue.async(flags: .barrier) { [weak self] in
-            guard let self = self else { return }
-            let oldValue = self._value
-            block(&self._value)
-            self.onMutate?(self._value, oldValue)
-        }
+        os_unfair_lock_lock(lock)
+        defer { os_unfair_lock_unlock(lock) }
+        
+        let oldValue = subject.value
+        var valueCopy = oldValue
+        block(&valueCopy)
+        subject.send(valueCopy)
+        onMutate?(valueCopy, oldValue)
     }
 
     // read sync and return copy (concurrent)
     public func readCopy() -> Value {
-        queue.sync { _value }
+        os_unfair_lock_lock(lock)
+        defer { os_unfair_lock_unlock(lock) }
+        
+        return subject.value
     }
 
     // read sync (concurrent)
     public func read<Result>(_ block: (Value) throws -> Result) rethrows -> Result {
-        try queue.sync {
-            try block(_value)
-        }
+        os_unfair_lock_lock(lock)
+        defer { os_unfair_lock_unlock(lock) }
+        
+        return try block(subject.value)
     }
 
     // read async (concurrent)
     public func readAsync(_ block: @escaping (Value) -> Void) {
-        queue.async { [weak self] in
-            guard let self = self else { return }
-            block(self._value)
-        }
+        os_unfair_lock_lock(lock)
+        block(subject.value)
+        os_unfair_lock_unlock(lock)
     }
 
     // property read sync (concurrent)
     subscript<Property>(dynamicMember keyPath: KeyPath<Value, Property>) -> Property {
-        queue.sync { _value[keyPath: keyPath] }
+        os_unfair_lock_lock(lock)
+        defer { os_unfair_lock_unlock(lock) }
+        
+        return subject.value[keyPath: keyPath]
     }
 }
 
 extension StateSync: CustomStringConvertible {
 
     var description: String {
-        "StateSync(\(String(describing: _value)))"
+        "StateSync(\(String(describing: subject.value)))"
     }
 }
