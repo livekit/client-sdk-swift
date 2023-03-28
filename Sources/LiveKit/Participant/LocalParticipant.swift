@@ -152,15 +152,10 @@ public class LocalParticipant: Participant {
             track._publishOptions = publishOptions
             track.transceiver = transceiver
 
-            // prefer to maintainResolution for screen share
-            if case .screenShareVideo = track.source {
-                self.log("[publish] set degradationPreference to .maintainResolution")
-                let params = transceiver.sender.parameters
-                params.degradationPreference = NSNumber(value: RTCDegradationPreference.maintainResolution.rawValue)
-                // changing params directly doesn't work so we need to update params
-                // and set it back to sender.parameters
-                transceiver.sender.parameters = params
-            }
+            // prefer to maintain resolution and drop framerate or bitrate
+            let params = transceiver.sender.parameters
+            params.degradationPreference = NSNumber(value: RTCDegradationPreference.maintainResolution.rawValue)
+            transceiver.sender.parameters = params
 
             self.room.engine.publisherShouldNegotiate()
 
