@@ -337,7 +337,7 @@ public class VideoView: NativeView, Loggable {
 
             if state.viewSize != viewSize || !state.didLayout {
                 // mutate if required
-                _state.mutateAsync {
+                _state.mutate {
                     $0.viewSize = viewSize
                     $0.didLayout = true
                 }
@@ -398,7 +398,7 @@ public class VideoView: NativeView, Loggable {
 
         if state.rendererSize != rendererFrame.size {
             // mutate if required
-            _state.mutateAsync { $0.rendererSize = rendererFrame.size }
+            _state.mutate { $0.rendererSize = rendererFrame.size }
         }
 
         // nativeRenderer.wantsLayer = true
@@ -553,7 +553,7 @@ extension VideoView: VideoRenderer {
         // cache last rendered frame
         track?.set(videoFrame: frame)
 
-        _state.mutateAsync {
+        _state.mutate {
             $0.didRenderFirstFrame = true
             $0.isRendering = true
             $0.renderDate = Date()

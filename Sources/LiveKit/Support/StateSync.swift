@@ -16,7 +16,6 @@
 
 import Foundation
 import Combine
-import os.lock
 
 internal typealias OnStateMutate<Value> = (_ state: Value, _ oldState: Value) -> Void
 
@@ -24,7 +23,7 @@ internal typealias OnStateMutate<Value> = (_ state: Value, _ oldState: Value) ->
 internal final class StateSync<Value> {
 
     private let subject: CurrentValueSubject<Value, Never>
-    private let lock: UnsafeMutablePointer<os_unfair_lock_s>
+    private let lock = UnfairLock()
 
     public var onMutate: OnStateMutate<Value>?
 
@@ -35,69 +34,34 @@ internal final class StateSync<Value> {
     public init(_ value: Value, onMutate: OnStateMutate<Value>? = nil) {
         self.subject = CurrentValueSubject(value)
         self.onMutate = onMutate
-        lock = UnsafeMutablePointer<os_unfair_lock_s>.allocate(capacity: 1)
-        lock.initialize(to: os_unfair_lock())
-    }
-
-    deinit {
-        lock.deallocate()
     }
 
     // mutate sync (blocking)
     @discardableResult
     public func mutate<Result>(_ block: (inout Value) throws -> Result) rethrows -> Result {
-        os_unfair_lock_lock(lock)
-        defer { os_unfair_lock_unlock(lock) }
-
-        let oldValue = subject.value
-        var valueCopy = oldValue
-        let result = try block(&valueCopy)
-        subject.send(valueCopy)
-        onMutate?(valueCopy, oldValue)
-        return result
-    }
-
-    // mutate async (blocking)
-    public func mutateAsync(_ block: @escaping (inout Value) -> Void) {
-        os_unfair_lock_lock(lock)
-        defer { os_unfair_lock_unlock(lock) }
-
-        let oldValue = subject.value
-        var valueCopy = oldValue
-        block(&valueCopy)
-        subject.send(valueCopy)
-        onMutate?(valueCopy, oldValue)
+        try lock.sync {
+            let oldValue = subject.value
+            var valueCopy = oldValue
+            let result = try block(&valueCopy)
+            subject.send(valueCopy)
+            onMutate?(valueCopy, oldValue)
+            return result
+        }
     }
 
     // read sync and return copy (concurrent)
     public func readCopy() -> Value {
-        os_unfair_lock_lock(lock)
-        defer { os_unfair_lock_unlock(lock) }
-
-        return subject.value
+        lock.sync { subject.value }
     }
 
     // read sync (concurrent)
     public func read<Result>(_ block: (Value) throws -> Result) rethrows -> Result {
-        os_unfair_lock_lock(lock)
-        defer { os_unfair_lock_unlock(lock) }
-
-        return try block(subject.value)
-    }
-
-    // read async (concurrent)
-    public func readAsync(_ block: @escaping (Value) -> Void) {
-        os_unfair_lock_lock(lock)
-        block(subject.value)
-        os_unfair_lock_unlock(lock)
+        try lock.sync { try block(subject.value) }
     }
 
     // property read sync (concurrent)
     subscript<Property>(dynamicMember keyPath: KeyPath<Value, Property>) -> Property {
-        os_unfair_lock_lock(lock)
-        defer { os_unfair_lock_unlock(lock) }
-
-        return subject.value[keyPath: keyPath]
+        lock.sync { subject.value[keyPath: keyPath] }
     }
 }
 
