@@ -841,7 +841,7 @@ internal extension Engine {
 
     static private let decoderFactory = VideoDecoderFactory()
 
-    static internal let peerConnectionFactory: RTCPeerConnectionFactory = {
+    static let peerConnectionFactory: RTCPeerConnectionFactory = {
 
         logger.log("Initializing SSL...", type: Engine.self)
 
