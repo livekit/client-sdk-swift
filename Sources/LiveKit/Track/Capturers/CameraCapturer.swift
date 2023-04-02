@@ -115,7 +115,9 @@ public class CameraCapturer: VideoCapturer {
                let foundFormat = sortedFormats.first(where: { $0.format == preferredFormat }) {
                 selectedFormat = foundFormat
             } else {
-                self.log("formats: \(sortedFormats.map { String(describing: $0.format.fpsRange()) }), target: \(self.options.dimensions)")
+                self.log("formats: \(sortedFormats.map { "\(String(describing: $0.format.fpsRange())): \(String(describing: $0.dimensions))" }), target: \(self.options.dimensions)")
+                // a recent macbook pro will have something like:
+                // fps range: 0...30, dimensions: 640x480, 1280x720, 1920x1080, 1080x1920, 1760x1328, 1328x1760, 1552x1552
 
                 // find format that satisfies preferred dimensions & fps
                 selectedFormat = sortedFormats.first(where: { $0.dimensions.area >= self.options.dimensions.area && $0.format.fpsRange().contains(self.options.fps) })
