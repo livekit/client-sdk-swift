@@ -214,20 +214,18 @@ internal class Utils {
         let baseParameters = VideoParameters(dimensions: dimensions,
                                              encoding: encoding)
 
+        // AV1 codec
         if publishOptions.computedPreferredCodec == .av1 {
             // Only L3T3
             assert(publishOptions.computedScalabilityMode == .L3T3, "Currently only L3T3 supported for AV1")
 
             // svc use first encoding as the original, so we sort encoding from high to low
             return VideoQuality.rids.reversed().enumerated().map { (i, rid) in
-                let maxBitrate = Int(Double(baseParameters.encoding.maxBitrate) / pow(3, Double(i)))
-                let scaleDownBy = pow(2, Double(i))
-                // print("enumerating: \(i), \(rid), \(maxBitrate)")
-                return Engine.createRtpEncodingParameters(
+                Engine.createRtpEncodingParameters(
                     rid: rid,
-                    encoding: VideoEncoding(maxBitrate: maxBitrate,
+                    encoding: VideoEncoding(maxBitrate: Int(Double(baseParameters.encoding.maxBitrate) / pow(3, Double(i))),
                                             maxFps: baseParameters.encoding.maxFps),
-                    scaleDownBy: scaleDownBy,
+                    scaleDownBy: pow(2, Double(i)),
                     scalabilityMode: .L3T3
                 )
             }
