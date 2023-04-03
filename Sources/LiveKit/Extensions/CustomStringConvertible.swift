@@ -62,7 +62,7 @@ extension Livekit_SubscribedQuality: CustomStringConvertible {
 extension Dimensions {
 
     public override var description: String {
-       "Dimensions(\(width)x\(height))"
+        "Dimensions(\(width)x\(height))"
     }
 }
 
