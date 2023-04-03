@@ -27,10 +27,25 @@ internal extension VideoPublishOptions {
         preferredCodec == .av1 ? .L3T3 : nil
     }
 
-    var computedPreferredCodec: PreferredVideoCodec {
+    var shouldUseCodec: PreferredVideoCodec {
         if preferredCodec == .av1 && !Engine.canEncodeAV1 {
             return .auto
         }
         return preferredCodec
+    }
+
+    var shouldUseSimulcast: Bool {
+        if preferredCodec == .av1 {
+            return false
+        }
+        return simulcast
+    }
+
+    var shouldUseBackupCodec: Bool {
+        // both are not default values...
+        preferredCodec != .auto &&
+            preferredBackupCodec != .off &&
+            // and they are not the same codec
+            preferredCodec.rawStringValue != preferredBackupCodec.rawStringValue
     }
 }

@@ -204,10 +204,11 @@ internal class Utils {
     ) -> [RTCRtpEncodingParameters] {
 
         let publishOptions = publishOptions ?? VideoPublishOptions()
-        let preferredEncoding: VideoEncoding? = isScreenShare ? publishOptions.screenShareEncoding : publishOptions.encoding
+        let encodingOrBackupEncoding = isBackup ? publishOptions.backupEncoding : publishOptions.encoding
+        let preferredEncoding: VideoEncoding? = isScreenShare ? publishOptions.screenShareEncoding : encodingOrBackupEncoding
         let encoding = preferredEncoding ?? dimensions.computeSuggestedPreset(in: dimensions.computeSuggestedPresets(isScreenShare: isScreenShare))
 
-        guard publishOptions.simulcast else {
+        guard publishOptions.shouldUseSimulcast else {
             return [Engine.createRtpEncodingParameters(encoding: encoding, scaleDownBy: 1)]
         }
 
@@ -215,7 +216,7 @@ internal class Utils {
                                              encoding: encoding)
 
         // AV1 codec
-        if publishOptions.computedPreferredCodec == .av1 {
+        if publishOptions.shouldUseCodec == .av1 {
             // Only L3T3
             assert(publishOptions.computedScalabilityMode == .L3T3, "Currently only L3T3 supported for AV1")
 

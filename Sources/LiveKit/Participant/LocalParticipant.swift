@@ -98,6 +98,30 @@ public class LocalParticipant: Participant {
 
                     let publishOptions = (publishOptions as? VideoPublishOptions) ?? self.room._state.options.defaultVideoPublishOptions
 
+                    var simEncodings: [RTCRtpEncodingParameters]?
+
+                    // if backup codec is enabled
+                    if publishOptions.shouldUseBackupCodec {
+
+                        simEncodings = Utils.computeVideoEncodings(dimensions: dimensions,
+                                                                   publishOptions: publishOptions,
+                                                                   isScreenShare: track.source == .screenShareVideo,
+                                                                   isBackup: true)
+
+                        populator.simulcastCodecs = [
+                            Livekit_SimulcastCodec.with {
+                                $0.codec = publishOptions.preferredCodec.rawStringValue ?? ""
+                                $0.cid = track.mediaTrack.trackId
+                                $0.enableSimulcastLayers = true
+                            },
+                            Livekit_SimulcastCodec.with {
+                                $0.codec = publishOptions.preferredBackupCodec.rawStringValue ?? ""
+                                $0.cid = ""
+                                $0.enableSimulcastLayers = true
+                            }
+                        ]
+                    }
+
                     let encodings = Utils.computeVideoEncodings(dimensions: dimensions,
                                                                 publishOptions: publishOptions,
                                                                 isScreenShare: track.source == .screenShareVideo)
@@ -105,13 +129,9 @@ public class LocalParticipant: Participant {
                     self.log("[publish] using encodings: \(encodings)")
                     transInit.sendEncodings = encodings
 
-                    let videoLayers = dimensions.videoLayers(for: encodings)
-
-                    self.log("[publish] using layers: \(videoLayers.map { String(describing: $0) }.joined(separator: ", "))")
-
                     populator.width = UInt32(dimensions.width)
                     populator.height = UInt32(dimensions.height)
-                    populator.layers = videoLayers
+                    populator.layers = dimensions.videoLayers(for: simEncodings ?? encodings)
 
                     self.log("[publish] requesting add track to server with \(populator)...")
 
