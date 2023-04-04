@@ -348,7 +348,7 @@ private extension SignalClient {
             if latestJoinResponse?.serverVersion == "0.15.1" {
                 return
             }
-            notify { $0.signalClient(self, didUpdate: update.trackSid, subscribedQualities: update.subscribedQualities)}
+            notify { $0.signalClient(self, didUpdate: update.trackSid, subscribedQualities: update.subscribedQualities, subscribedCodecs: update.subscribedCodecs)}
         case .subscriptionPermissionUpdate(let permissionUpdate):
             notify { $0.signalClient(self, didUpdate: permissionUpdate) }
         case .refreshToken(let token):

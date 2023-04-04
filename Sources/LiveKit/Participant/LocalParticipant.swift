@@ -126,7 +126,7 @@ public class LocalParticipant: Participant {
                                                                 publishOptions: publishOptions,
                                                                 isScreenShare: track.source == .screenShareVideo)
 
-                    self.log("[publish] using encodings: \(encodings)")
+                    self.log("[publish] using encodings: \(encodings) simEncodings: \(String(describing: simEncodings))")
                     transInit.sendEncodings = encodings
 
                     populator.width = UInt32(dimensions.width)
@@ -354,7 +354,7 @@ public class LocalParticipant: Participant {
                                                                          trackPermissions: trackPermissions)
     }
 
-    internal func onSubscribedQualitiesUpdate(trackSid: String, subscribedQualities: [Livekit_SubscribedQuality]) {
+    internal func onSubscribedQualitiesUpdate(trackSid: String, subscribedQualities: [Livekit_SubscribedQuality], subscribedCodecs: [Livekit_SubscribedCodec]) {
 
         if !room._state.options.dynacast {
             return
@@ -365,46 +365,7 @@ public class LocalParticipant: Participant {
               let sender = track.transceiver?.sender
         else { return }
 
-        let parameters = sender.parameters
-        let encodings = parameters.encodings
-
-        var hasChanged = false
-        for quality in subscribedQualities {
-
-            var rid: String
-            switch quality.quality {
-            case Livekit_VideoQuality.high: rid = "f"
-            case Livekit_VideoQuality.medium: rid = "h"
-            case Livekit_VideoQuality.low: rid = "q"
-            default: continue
-            }
-
-            guard let encoding = encodings.first(where: { $0.rid == rid }) else {
-                continue
-            }
-
-            if encoding.isActive != quality.enabled {
-                hasChanged = true
-                encoding.isActive = quality.enabled
-                log("setting layer \(quality.quality) to \(quality.enabled)", .info)
-            }
-        }
-
-        // Non simulcast streams don't have rids, handle here.
-        if encodings.count == 1 && subscribedQualities.count >= 1 {
-            let encoding = encodings[0]
-            let quality = subscribedQualities[0]
-
-            if encoding.isActive != quality.enabled {
-                hasChanged = true
-                encoding.isActive = quality.enabled
-                log("setting layer \(quality.quality) to \(quality.enabled)", .info)
-            }
-        }
-
-        if hasChanged {
-            sender.parameters = parameters
-        }
+        sender.setPublishingLayers(subscribedQualities: subscribedQualities)
     }
 
     internal override func set(permissions newValue: ParticipantPermissions) -> Bool {
