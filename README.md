@@ -2,8 +2,10 @@
 
 # iOS/macOS Swift SDK for LiveKit
 
+<!--BEGIN_DESCRIPTION-->
 Official Client SDK for [LiveKit](https://github.com/livekit/livekit-server).
-Easily add video & audio capabilities to your iOS/macOS apps. <!--BEGIN_DESCRIPTION--><!--END_DESCRIPTION-->
+Easily add video & audio capabilities to your iOS/macOS apps.
+<!--END_DESCRIPTION-->
 
 ## Docs & Example app
 
