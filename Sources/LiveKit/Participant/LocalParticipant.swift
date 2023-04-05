@@ -443,8 +443,8 @@ extension LocalParticipant {
     }
 
     @discardableResult
-    public func setMicrophone(enabled: Bool) -> Promise<LocalTrackPublication?> {
-        set(source: .microphone, enabled: enabled)
+    public func setMicrophone(enabled: Bool, captureOptions: AudioCaptureOptions? = nil, publishOptions: AudioPublishOptions? = nil) -> Promise<LocalTrackPublication?> {
+        set(source: .microphone, enabled: enabled, captureOptions: captureOptions, publishOptions: publishOptions)
     }
 
     /// Enable or disable screen sharing. This has different behavior depending on the platform.
