@@ -438,13 +438,13 @@ extension LocalParticipant {
 extension LocalParticipant {
 
     @discardableResult
-    public func setCamera(enabled: Bool) -> Promise<LocalTrackPublication?> {
-        set(source: .camera, enabled: enabled)
+    public func setCamera(enabled: Bool, captureOptions: CameraCaptureOptions? = nil, publishOptions: VideoPublishOptions? = nil) -> Promise<LocalTrackPublication?> {
+        set(source: .camera, enabled: enabled, captureOptions: captureOptions, publishOptions: publishOptions)
     }
 
     @discardableResult
-    public func setMicrophone(enabled: Bool) -> Promise<LocalTrackPublication?> {
-        set(source: .microphone, enabled: enabled)
+    public func setMicrophone(enabled: Bool, captureOptions: AudioCaptureOptions? = nil, publishOptions: AudioPublishOptions? = nil) -> Promise<LocalTrackPublication?> {
+        set(source: .microphone, enabled: enabled, captureOptions: captureOptions, publishOptions: publishOptions)
     }
 
     /// Enable or disable screen sharing. This has different behavior depending on the platform.
@@ -461,7 +461,7 @@ extension LocalParticipant {
         set(source: .screenShareVideo, enabled: enabled)
     }
 
-    public func set(source: Track.Source, enabled: Bool) -> Promise<LocalTrackPublication?> {
+    public func set(source: Track.Source, enabled: Bool, captureOptions: CaptureOptions? = nil, publishOptions: PublishOptions? = nil) -> Promise<LocalTrackPublication?> {
         // attempt to get existing publication
         if let publication = getTrackPublication(source: source) as? LocalTrackPublication {
             if enabled {
@@ -472,15 +472,15 @@ extension LocalParticipant {
         } else if enabled {
             // try to create a new track
             if source == .camera {
-                let localTrack = LocalVideoTrack.createCameraTrack(options: room._state.options.defaultCameraCaptureOptions)
-                return publishVideoTrack(track: localTrack).then(on: queue) { $0 }
+                let localTrack = LocalVideoTrack.createCameraTrack(options: (captureOptions as? CameraCaptureOptions) ?? room._state.options.defaultCameraCaptureOptions)
+                return publishVideoTrack(track: localTrack, publishOptions: publishOptions as? VideoPublishOptions).then(on: queue) { $0 }
             } else if source == .microphone {
-                let localTrack = LocalAudioTrack.createTrack(options: room._state.options.defaultAudioCaptureOptions)
-                return publishAudioTrack(track: localTrack).then(on: queue) { $0 }
+                let localTrack = LocalAudioTrack.createTrack(options: (captureOptions as? AudioCaptureOptions) ?? room._state.options.defaultAudioCaptureOptions)
+                return publishAudioTrack(track: localTrack, publishOptions: publishOptions as? AudioPublishOptions).then(on: queue) { $0 }
             } else if source == .screenShareVideo {
                 #if os(iOS)
                 var localTrack: LocalVideoTrack?
-                let options = room._state.options.defaultScreenShareCaptureOptions
+                let options = (captureOptions as? ScreenShareCaptureOptions) ?? room._state.options.defaultScreenShareCaptureOptions
                 if options.useBroadcastExtension {
                     let screenShareExtensionId = Bundle.main.infoDictionary?[BroadcastScreenCapturer.kRTCScreenSharingExtension] as? String
                     RPSystemBroadcastPickerView.show(for: screenShareExtensionId,
@@ -491,13 +491,13 @@ extension LocalParticipant {
                 }
 
                 if let localTrack = localTrack {
-                    return publishVideoTrack(track: localTrack).then(on: queue) { $0 }
+                    return publishVideoTrack(track: localTrack, publishOptions: publishOptions as? VideoPublishOptions).then(on: queue) { $0 }
                 }
                 #elseif os(macOS)
                 return MacOSScreenCapturer.mainDisplaySource().then(on: queue) { mainDisplay in
                     let track = LocalVideoTrack.createMacOSScreenShareTrack(source: mainDisplay,
-                                                                            options: self.room._state.options.defaultScreenShareCaptureOptions)
-                    return self.publishVideoTrack(track: track)
+                                                                            options: (captureOptions as? ScreenShareCaptureOptions) ?? self.room._state.options.defaultScreenShareCaptureOptions)
+                    return self.publishVideoTrack(track: track, publishOptions: publishOptions as? VideoPublishOptions)
                 }.then(on: queue) { $0 }
                 #endif
             }
