@@ -480,7 +480,7 @@ extension LocalParticipant {
             } else if source == .screenShareVideo {
                 #if os(iOS)
                 var localTrack: LocalVideoTrack?
-                let options = room._state.options.defaultScreenShareCaptureOptions
+                let options = (captureOptions as? ScreenShareCaptureOptions) ?? room._state.options.defaultScreenShareCaptureOptions
                 if options.useBroadcastExtension {
                     let screenShareExtensionId = Bundle.main.infoDictionary?[BroadcastScreenCapturer.kRTCScreenSharingExtension] as? String
                     RPSystemBroadcastPickerView.show(for: screenShareExtensionId,
@@ -491,13 +491,13 @@ extension LocalParticipant {
                 }
 
                 if let localTrack = localTrack {
-                    return publishVideoTrack(track: localTrack).then(on: queue) { $0 }
+                    return publishVideoTrack(track: localTrack, publishOptions: publishOptions as? VideoPublishOptions).then(on: queue) { $0 }
                 }
                 #elseif os(macOS)
                 return MacOSScreenCapturer.mainDisplaySource().then(on: queue) { mainDisplay in
                     let track = LocalVideoTrack.createMacOSScreenShareTrack(source: mainDisplay,
-                                                                            options: self.room._state.options.defaultScreenShareCaptureOptions)
-                    return self.publishVideoTrack(track: track)
+                                                                            options: (captureOptions as? ScreenShareCaptureOptions) ?? self.room._state.options.defaultScreenShareCaptureOptions)
+                    return self.publishVideoTrack(track: track, publishOptions: publishOptions as? VideoPublishOptions)
                 }.then(on: queue) { $0 }
                 #endif
             }
