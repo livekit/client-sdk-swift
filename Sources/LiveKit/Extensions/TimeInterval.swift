@@ -17,11 +17,11 @@
 import Foundation
 
 /// Default timeout `TimeInterval`s used throughout the SDK.
-internal extension TimeInterval {
+public extension TimeInterval {
     static let defaultCaptureStart: Self = 5
     static let defaultConnectivity: Self = 10
     static let defaultPublish: Self = 10
-    static let defaultQuickReconnectRetry: Self = 2
+    static let defaultReconnectAttemptDelay: Self = 2
     // the following 3 timeouts are used for a typical connect sequence
     static let defaultSocketConnect: Self = 10
     static let defaultJoinResponse: Self = 7
