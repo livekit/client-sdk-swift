@@ -19,7 +19,7 @@ import Foundation
 internal extension VideoPublishOptions {
 
     var isBackupPublishingEnabled: Bool {
-        preferredBackupCodec != .off
+        preferredBackupCodec != .none
     }
 
     var computedScalabilityMode: ScalabilityMode? {
@@ -27,9 +27,9 @@ internal extension VideoPublishOptions {
         preferredCodec == .av1 ? .L3T3 : nil
     }
 
-    var shouldUseCodec: PreferredVideoCodec {
+    var shouldUseCodec: VideoCodec {
         if preferredCodec == .av1 && !Engine.canEncodeAV1 {
-            return .auto
+            return .none
         }
         return preferredCodec
     }
@@ -43,8 +43,8 @@ internal extension VideoPublishOptions {
 
     var shouldUseBackupCodec: Bool {
         // both are not default values...
-        preferredCodec != .auto &&
-            preferredBackupCodec != .off &&
+        preferredCodec != .none &&
+            preferredBackupCodec != .none &&
             // and they are not the same codec
             preferredCodec.rawStringValue != preferredBackupCodec.rawStringValue
     }

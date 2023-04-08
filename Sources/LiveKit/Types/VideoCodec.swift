@@ -18,14 +18,14 @@ import Foundation
 import WebRTC
 
 @objc
-public enum PreferredVideoCodec: Int, VideoCodec {
+public enum VideoCodec: Int, StringRepresentable, CustomStringConvertible, CaseIterable, Loggable {
 
-    case auto
+    case none
     case h264
     case vp8
     case av1
 
-    var rawStringValue: String? {
+    public var rawStringValue: String? {
         switch self {
         case .h264: return "h264"
         case .vp8: return "vp8"
@@ -33,37 +33,14 @@ public enum PreferredVideoCodec: Int, VideoCodec {
         default: return nil
         }
     }
-}
 
-@objc
-public enum PreferredBackupVideoCodec: Int, VideoCodec {
-
-    case off
-    case h264
-    case vp8
-
-    var rawStringValue: String? {
-        switch self {
-        case .h264: return "h264"
-        case .vp8: return "vp8"
-        default: return nil
+    public init?(rawStringValue: String) {
+        switch rawStringValue.lowercased() {
+        case "h264": self = .h264
+        case "vp8": self = .vp8
+        case "av1": self = .av1
+        default: self = .none
         }
-    }
-}
-
-protocol VideoCodec: StringRepresentable, CustomStringConvertible {
-
-}
-
-extension VideoCodec {
-
-    func toCodecCapability() -> RTCRtpCodecCapability? {
-        guard let codecName = rawStringValue else { return nil }
-        let codecCapability = RTCRtpCodecCapability()
-        codecCapability.kind = .video
-        codecCapability.name = codecName.uppercased() // must be upper case
-        codecCapability.clockRate = NSNumber(value: 90000) // required
-        return codecCapability
     }
 }
 
