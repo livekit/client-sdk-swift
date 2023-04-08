@@ -883,6 +883,8 @@ internal extension Engine {
     static let canDecodeAV1 = decoderFactory.supportedCodecs().contains { $0.name == kRTCAv1CodecName }
     static let canEncodeAndDecodeAV1 = canEncodeAV1 && canDecodeAV1
 
+    static let videoSenderCapabilities = peerConnectionFactory.rtpSenderCapabilities(for: .video)
+
     // forbid direct access
 
     static var audioDeviceModule: RTCAudioDeviceModule {
