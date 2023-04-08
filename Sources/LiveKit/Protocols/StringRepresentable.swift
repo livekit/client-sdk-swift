@@ -17,6 +17,7 @@
 import Foundation
 
 /// Simple workaround for ``RawRepresentable`` and ObjC.
-internal protocol StringRepresentable {
+public protocol StringRepresentable {
     var rawStringValue: String? { get }
+    init?(rawStringValue: String)
 }
