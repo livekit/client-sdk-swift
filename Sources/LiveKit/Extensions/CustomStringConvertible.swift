@@ -103,7 +103,14 @@ extension RTCRtpEncodingParameters {
 extension RTCRtpCodecCapability {
 
     public override var description: String {
-        "RTCRtpCodecCapability(\(mimeType), clockRate: \(clockRate != nil ? String(describing: clockRate!) : "nil"))"
+        "RTCRtpCodecCapability(\(mimeType), clockRate: \(clockRate != nil ? String(describing: clockRate!) : "nil"), parameters: \(parameters))"
+    }
+}
+
+extension RTCVideoCodecInfo {
+
+    open override var description: String {
+        "RTCVideoCodecInfo(\(name), parameters: \(parameters))"
     }
 }
 
