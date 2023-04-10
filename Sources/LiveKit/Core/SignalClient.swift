@@ -475,18 +475,23 @@ internal extension SignalClient {
 
     typealias AddTrackRequestPopulator<R> = (inout Livekit_AddTrackRequest) throws -> R
     typealias AddTrackResult<R> = (result: R, trackInfo: Livekit_TrackInfo)
+    static let defaultAddTrackPopulator: AddTrackRequestPopulator<Void> = { _ in }
 
     func sendAddTrack<R>(cid: String,
-                         name: String,
+                         name: String? = nil,
+                         sid: String? = nil,
+                         muted: Bool = false,
                          type: Livekit_TrackType,
                          source: Livekit_TrackSource = .unknown,
-                         _ populator: AddTrackRequestPopulator<R>) -> Promise<AddTrackResult<R>> {
+                         _ populator: AddTrackRequestPopulator<R> = defaultAddTrackPopulator) -> Promise<AddTrackResult<R>> {
         log()
 
         do {
             var addTrackRequest = Livekit_AddTrackRequest.with {
                 $0.cid = cid
-                $0.name = name
+                $0.name = name ?? ""
+                $0.sid = sid ?? ""
+                $0.muted = muted
                 $0.type = type
                 $0.source = source
             }
