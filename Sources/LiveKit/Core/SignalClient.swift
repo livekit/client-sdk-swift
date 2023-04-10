@@ -191,7 +191,7 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
 
         _state.mutate {
             if var completer = $0.completersForAddTrack[trackCid] {
-                log("[publish] found the completer resolving...")
+                log("[publish] \(trackInfo) received, resolving completer...")
                 completer.set(value: trackInfo)
             }
         }

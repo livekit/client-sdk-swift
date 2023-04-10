@@ -48,7 +48,23 @@ extension Livekit_AddTrackRequest: CustomStringConvertible {
 extension Livekit_TrackInfo: CustomStringConvertible {
 
     public var description: String {
-        "TrackInfo(sid: \(sid), name: \(name), type: \(type), source: \(source), width: \(width), height: \(height), muted: \(muted))"
+        "TrackInfo(sid: \(sid), " +
+            "name: \(name), " +
+            "type: \(type), " +
+            "source: \(source), " +
+            "width: \(width), " +
+            "height: \(height), " +
+            "muted: \(muted), " +
+            "simulcast: \(simulcast), " +
+            "codecs: \(codecs.map({ String(describing: $0) })), " +
+            "layers: \(layers.map({ String(describing: $0) })))"
+    }
+}
+
+extension Livekit_SimulcastCodecInfo: CustomStringConvertible {
+
+    var description: String {
+        "SimulcastCodecInfo(\(mimeType), cid: \(cid), mid: \(mid), layers: \(layers))"
     }
 }
 
@@ -96,7 +112,8 @@ extension RTCRtpEncodingParameters {
             + "active: \(isActive), "
             + "scaleResolutionDownBy: \(String(describing: scaleResolutionDownBy)), "
             + "maxBitrateBps: \(maxBitrateBps == nil ? "nil" : String(describing: maxBitrateBps)), "
-            + "maxFramerate: \(maxFramerate == nil ? "nil" : String(describing: maxFramerate)))"
+            + "maxFramerate: \(maxFramerate == nil ? "nil" : String(describing: maxFramerate)), "
+            + "scalabilityMode: \(scalabilityMode == nil ? "nil" : String(describing: scalabilityMode)))"
     }
 }
 
