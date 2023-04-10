@@ -50,6 +50,9 @@ open class ObservableRoom: ObservableObject, RoomDelegate, Loggable {
     @Published public var microphoneTrackState: TrackPublishState = .notPublished()
     @Published public var screenShareTrackState: TrackPublishState = .notPublished()
 
+    @Published public var cameraCaptureOptions = CameraCaptureOptions()
+    @Published public var cameraPublishOptions = VideoPublishOptions()
+
     public init(_ room: Room = Room()) {
         self.room = room
         room.add(delegate: self)
@@ -84,18 +87,20 @@ open class ObservableRoom: ObservableObject, RoomDelegate, Loggable {
             self.cameraTrackState = .busy(isPublishing: !self.cameraTrackState.isPublished)
         }
 
-        localParticipant.setCamera(enabled: !localParticipant.isCameraEnabled()).then(on: room.queue) { publication in
-            DispatchQueue.main.async {
-                guard let publication = publication else { return }
-                self.cameraTrackState = .published(publication)
-            }
-            self.log("Successfully published camera")
-        }.catch(on: room.queue) { error in
-            DispatchQueue.main.async {
-                self.cameraTrackState = .notPublished(error: error)
-            }
-            self.log("Failed to publish camera, error: \(error)")
-        }
+        localParticipant.setCamera(enabled: !localParticipant.isCameraEnabled(),
+                                   captureOptions: cameraCaptureOptions,
+                                   publishOptions: cameraPublishOptions).then(on: room.queue) { publication in
+                                    DispatchQueue.main.async {
+                                        guard let publication = publication else { return }
+                                        self.cameraTrackState = .published(publication)
+                                    }
+                                    self.log("Successfully published camera")
+                                   }.catch(on: room.queue) { error in
+                                    DispatchQueue.main.async {
+                                        self.cameraTrackState = .notPublished(error: error)
+                                    }
+                                    self.log("Failed to publish camera, error: \(error)")
+                                   }
     }
 
     public func toggleScreenShareEnabled() {
