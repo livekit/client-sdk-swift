@@ -291,6 +291,24 @@ public class LocalParticipant: Participant {
                                 reliability: reliability)
     }
 
+    @discardableResult
+    public func publishData(data: Data,
+                            reliability: Reliability = .reliable,
+                            options: DataPublishOptions?) -> Promise<Void> {
+
+        let options = options ?? self.room._state.options.defaultDataPublishOptions
+
+        let userPacket = Livekit_UserPacket.with {
+            $0.destinationSids = options.destinations
+            $0.payload = data
+            $0.participantSid = self.sid
+            $0.topic = options.topic ?? ""
+        }
+
+        return room.engine.send(userPacket: userPacket,
+                                reliability: reliability)
+    }
+
     /**
      * Control who can subscribe to LocalParticipant's published tracks.
      *
