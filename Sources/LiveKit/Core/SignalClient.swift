@@ -355,6 +355,10 @@ private extension SignalClient {
             notify { $0.signalClient(self, didUpdate: token) }
         case .pong(let r):
             onReceivedPong(r)
+        case .reconnect:
+            log("received reconnect message")
+        case .pongResp:
+            log("received pongResp message")
         }
     }
 }
