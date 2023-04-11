@@ -355,6 +355,10 @@ private extension SignalClient {
             notify { $0.signalClient(self, didUpdate: token) }
         case .pong(let r):
             onReceivedPong(r)
+        case .reconnect:
+            log("received reconnect message")
+        case .pongResp:
+            log("received pongResp message")
         }
     }
 }
@@ -572,6 +576,20 @@ internal extension SignalClient {
             $0.subscriptionPermission = Livekit_SubscriptionPermission.with {
                 $0.allParticipants = allParticipants
                 $0.trackPermissions = trackPermissions.map({ $0.toPBType() })
+            }
+        }
+
+        return sendRequest(r)
+    }
+
+    func sendUpdateLocalMetadata(_ metadata: String, name: String) -> Promise<Void> {
+
+        log()
+
+        let r = Livekit_SignalRequest.with {
+            $0.updateMetadata = Livekit_UpdateParticipantMetadata.with {
+                $0.metadata = metadata
+                $0.name = name
             }
         }
 
