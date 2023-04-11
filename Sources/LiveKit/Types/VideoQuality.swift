@@ -16,7 +16,7 @@
 
 import Foundation
 
-internal enum VideoQuality {
+public enum VideoQuality {
     case low
     case medium
     case high

@@ -36,7 +36,7 @@ public class RemoteTrackPublication: TrackPublication {
     // MARK: - Private
 
     // user's preference to subscribe or not
-    private var preferSubscribed: Bool?
+    private var preferSubscribed: Bool
     private var metadataMuted: Bool = false
 
     // adaptiveStream
@@ -46,6 +46,8 @@ public class RemoteTrackPublication: TrackPublication {
     internal override init(info: Livekit_TrackInfo,
                            track: Track? = nil,
                            participant: Participant) {
+
+        preferSubscribed = participant.room.engine._state.connectOptions.autoSubscribe
 
         super.init(info: info,
                    track: track,
@@ -115,11 +117,29 @@ public class RemoteTrackPublication: TrackPublication {
     public func set(preferredFPS newValue: UInt) -> Promise<Void> {
         // no-op if already the desired value
         let trackSettings = _state.trackSettings
-        guard trackSettings.preferredFPS != newValue else { return Promise(()) }
+        guard trackSettings.fps != newValue else { return Promise(()) }
 
         guard userCanModifyTrackSettings else { return Promise(TrackError.state(message: "adaptiveStream must be disabled and track must be subscribed")) }
 
-        let settings = trackSettings.copyWith(preferredFPS: newValue)
+        let settings = trackSettings.copyWith(fps: newValue)
+        // attempt to set the new settings
+        return send(trackSettings: settings)
+    }
+
+    /// For tracks that support simulcasting, adjust subscribed quality.
+    ///
+    /// This indicates the highest quality the client can accept. if network
+    /// bandwidth does not allow, server will automatically reduce quality to
+    /// optimize for uninterrupted video.
+    @discardableResult
+    public func set(preferredVideoQuality newValue: VideoQuality) -> Promise<Void> {
+        // no-op if already the desired value
+        let trackSettings = _state.trackSettings
+        guard trackSettings.videoQuality != newValue else { return Promise(()) }
+
+        guard userCanModifyTrackSettings else { return Promise(TrackError.state(message: "adaptiveStream must be disabled and track must be subscribed")) }
+
+        let settings = trackSettings.copyWith(videoQuality: newValue)
         // attempt to set the new settings
         return send(trackSettings: settings)
     }
@@ -184,7 +204,15 @@ private extension RemoteTrackPublication {
 
     var userCanModifyTrackSettings: Bool {
         // adaptiveStream must be disabled and must be subscribed
-        !isAdaptiveStreamEnabled && subscribed
+        if kind == .video && isAdaptiveStreamEnabled {
+            log("Adaptive stream is enabled, cannot change video track settings", .warning)
+            return false
+        }
+        if !(preferSubscribed || subscribed) {
+            log("Cannot update track settings when not subscribed", .warning)
+            return false
+        }
+        return true
     }
 }
 
