@@ -23,7 +23,7 @@ public class DataPublishOptions: NSObject, PublishOptions {
     public let name: String?
 
     @objc
-    public let destinations: [String]
+    public let destinations: [Sid]
 
     @objc
     public let topic: String?

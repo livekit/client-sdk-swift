@@ -294,15 +294,18 @@ public class LocalParticipant: Participant {
     @discardableResult
     public func publishData(data: Data,
                             reliability: Reliability = .reliable,
+                            destinations: [RemoteParticipant]? = nil,
+                            topic: String? = nil,
                             options: DataPublishOptions?) -> Promise<Void> {
 
         let options = options ?? self.room._state.options.defaultDataPublishOptions
+        let destinations = destinations?.map { $0.sid }
 
         let userPacket = Livekit_UserPacket.with {
-            $0.destinationSids = options.destinations
+            $0.destinationSids = destinations ?? options.destinations
             $0.payload = data
             $0.participantSid = self.sid
-            $0.topic = options.topic ?? ""
+            $0.topic = topic ?? options.topic ?? ""
         }
 
         return room.engine.send(userPacket: userPacket,
