@@ -1,7 +1,11 @@
+<!--BEGIN_BANNER_IMAGE--><!--END_BANNER_IMAGE-->
+
 # iOS/macOS Swift SDK for LiveKit
 
+<!--BEGIN_DESCRIPTION-->
 Official Client SDK for [LiveKit](https://github.com/livekit/livekit-server).
 Easily add video & audio capabilities to your iOS/macOS apps.
+<!--END_DESCRIPTION-->
 
 ## Docs & Example app
 
@@ -230,3 +234,5 @@ If your app is targeting macOS Catalina, make sure to do the following to avoid 
 # Getting help / Contributing
 
 Please join us on [Slack](https://join.slack.com/t/livekit-users/shared_invite/zt-rrdy5abr-5pZ1wW8pXEkiQxBzFiXPUg) to get help from our [devs](https://github.com/orgs/livekit/teams/devs/members) / community members. We welcome your contributions(PRs) and details can be discussed there.
+
+<!--BEGIN_REPO_NAV--><!--END_REPO_NAV-->
