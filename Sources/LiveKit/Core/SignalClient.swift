@@ -523,6 +523,7 @@ internal extension SignalClient {
                 $0.height = UInt32(settings.dimensions.height)
                 $0.quality = settings.videoQuality.toPBType()
                 $0.fps = UInt32(settings.preferredFPS)
+                $0.priority = UInt32(settings.subscriptionPriority)
             }
         }
 

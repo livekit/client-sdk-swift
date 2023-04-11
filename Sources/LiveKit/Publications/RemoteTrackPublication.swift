@@ -124,6 +124,18 @@ public class RemoteTrackPublication: TrackPublication {
         return send(trackSettings: settings)
     }
 
+    /// In cases where downstream bandwidth is constrained, setting a priority on a RemoteTrackPublication allows to (de-)prioritize specific tracks
+    @discardableResult
+    public func set(subscriptionPriority newValue: UInt) -> Promise<Void> {
+        // no-op if already the desired value
+        let trackSettings = _state.trackSettings
+        guard trackSettings.subscriptionPriority != newValue else { return Promise(()) }
+
+        let settings = trackSettings.copyWith(subscriptionPriority: newValue)
+        // attempt to set the new settings
+        return send(trackSettings: settings)
+    }
+
     @discardableResult
     internal override func set(track newValue: Track?) -> Track? {
 
