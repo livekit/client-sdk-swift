@@ -266,16 +266,18 @@ public class LocalParticipant: Participant {
         }
     }
 
-    /**
-     publish data to the other participants in the room
-
-     Data is forwarded to each participant in the room. Each payload must not exceed 15k.
-     - Parameter data: Data to send
-     - Parameter reliability: Toggle between sending relialble vs lossy delivery.
-     For data that you need delivery guarantee (such as chat messages), use Reliable.
-     For data that should arrive as quickly as possible, but you are ok with dropped packets, use Lossy.
-     - Parameter destination: SIDs of the participants who will receive the message. If empty, deliver to everyone
-     */
+    /// Publish data to the other participants in the room
+    ///
+    /// Data is forwarded to each participant in the room. Each payload must not exceed 15k.
+    /// - Parameters:
+    ///   - data: Data to send
+    ///   - reliability: Toggle between sending relialble vs lossy delivery.
+    ///     For data that you need delivery guarantee (such as chat messages), use Reliable.
+    ///     For data that should arrive as quickly as possible, but you are ok with dropped packets, use Lossy.
+    ///   - destination: SIDs of the participants who will receive the message. If empty, deliver to everyone
+    ///
+    /// > Notice: Deprecated, use ``publish(data:reliability:destinations:topic:options:)-2581z`` instead.
+    @available(*, deprecated, renamed: "publish(data:reliability:destinations:topic:options:)")
     @discardableResult
     public func publishData(data: Data,
                             reliability: Reliability = .reliable,
@@ -285,6 +287,30 @@ public class LocalParticipant: Participant {
             $0.destinationSids = destination
             $0.payload = data
             $0.participantSid = self.sid
+        }
+
+        return room.engine.send(userPacket: userPacket,
+                                reliability: reliability)
+    }
+
+    ///
+    /// Promise version of ``publish(data:reliability:destinations:topic:options:)-75jme``.
+    ///
+    @discardableResult
+    public func publish(data: Data,
+                        reliability: Reliability = .reliable,
+                        destinations: [RemoteParticipant]? = nil,
+                        topic: String? = nil,
+                        options: DataPublishOptions?) -> Promise<Void> {
+
+        let options = options ?? self.room._state.options.defaultDataPublishOptions
+        let destinations = destinations?.map { $0.sid }
+
+        let userPacket = Livekit_UserPacket.with {
+            $0.destinationSids = destinations ?? options.destinations
+            $0.payload = data
+            $0.participantSid = self.sid
+            $0.topic = topic ?? options.topic ?? ""
         }
 
         return room.engine.send(userPacket: userPacket,

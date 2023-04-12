@@ -85,6 +85,40 @@ public extension LocalParticipant {
         }
     }
 
+    ///
+    /// Publish data to the other participants in the room
+    ///
+    /// Data is forwarded to each participant in the room. Each payload must not exceed 15k.
+    /// Options from ``RoomOptions/defaultDataPublishOptions`` will be used for the nil parameters.
+    ///
+    /// - Parameters:
+    ///   - data: Data to send
+    ///   - reliability: Toggle between sending relialble vs lossy delivery.
+    ///     For data that you need delivery guarantee (such as chat messages), use Reliable.
+    ///     For data that should arrive as quickly as possible, but you are ok with dropped packets, use Lossy.
+    ///   - destinations: Array of ``RemoteParticipant``s who will receive the message. If empty, deliver to everyone.
+    ///   - topic: Topic of the data.
+    ///   - options: ``DataPublishOptions`` for this publish.
+    ///
+    func publish(data: Data,
+                 reliability: Reliability = .reliable,
+                 destinations: [RemoteParticipant]? = nil,
+                 topic: String? = nil,
+                 options: DataPublishOptions?) async throws {
+
+        try await withCheckedThrowingContinuation { continuation in
+            publish(data: data,
+                    reliability: reliability,
+                    destinations: destinations,
+                    topic: topic,
+                    options: options).then(on: queue) { result in
+                        continuation.resume(returning: result)
+                    }.catch(on: queue) { error in
+                        continuation.resume(throwing: error)
+                    }
+        }
+    }
+
     func unpublish(publication: LocalTrackPublication, notify: Bool = true) async throws {
 
         try await withCheckedThrowingContinuation { continuation in
