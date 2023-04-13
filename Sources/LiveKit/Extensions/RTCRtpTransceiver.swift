@@ -37,6 +37,7 @@ extension RTCRtpTransceiver: Loggable {
         // bring preferredCodecCapability to the front and combine all capabilities
         let combinedCapabilities = [preferredCodecCapability] + otherCapabilities
 
+        // codecs not set in codecPreferences will not be negotiated in the offer
         codecPreferences = combinedCapabilities.compactMap { $0 }
     }
 }
