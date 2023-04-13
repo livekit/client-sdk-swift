@@ -886,6 +886,7 @@ internal extension Engine {
     static let canEncodeAndDecodeAV1 = canEncodeAV1 && canDecodeAV1
 
     static let videoSenderCapabilities = peerConnectionFactory.rtpSenderCapabilities(for: .video)
+    static let audioSenderCapabilities = peerConnectionFactory.rtpSenderCapabilities(for: .audio)
 
     // forbid direct access
 

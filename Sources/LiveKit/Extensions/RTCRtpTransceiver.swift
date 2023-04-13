@@ -22,14 +22,21 @@ extension RTCRtpTransceiver: Loggable {
 
     internal func setPreferredVideoCodec(_ codec: VideoCodec) {
         // set a single codec preference
-        guard let codecName = codec.rawStringValue else { return }
+        guard let codecName = codec.rawStringValue?.lowercased() else { return }
 
-        let capabilities = Engine.videoSenderCapabilities
+        let allVideoCodecs = Engine.videoSenderCapabilities.codecs
 
-        log("videoSenderCapabilities: \(capabilities.codecs.map({ String(describing: $0) }).joined(separator: ", "))")
+        log("videoSenderCapabilities: \(allVideoCodecs.map({ String(describing: $0) }).joined(separator: ", "))")
 
-        codecPreferences = [
-            capabilities.codecs.first(where: { $0.name.lowercased() == codecName.lowercased() })
-        ].compactMap { $0 }
+        // get the RTCRtpCodecCapability of the preferred codec
+        let preferredCodecCapability = allVideoCodecs.first { $0.name.lowercased() == codecName }
+
+        // get list of capabilities other than the preferred one
+        let otherCapabilities = allVideoCodecs.filter { $0.name.lowercased() != codecName }
+
+        // bring preferredCodecCapability to the front and combine all capabilities
+        let combinedCapabilities = [preferredCodecCapability] + otherCapabilities
+
+        codecPreferences = combinedCapabilities.compactMap { $0 }
     }
 }
