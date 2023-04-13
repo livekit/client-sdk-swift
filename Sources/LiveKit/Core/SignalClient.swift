@@ -355,6 +355,10 @@ private extension SignalClient {
             notify { $0.signalClient(self, didUpdate: token) }
         case .pong(let r):
             onReceivedPong(r)
+        case .reconnect:
+            log("received reconnect message")
+        case .pongResp:
+            log("received pongResp message")
         }
     }
 }
@@ -637,7 +641,7 @@ internal extension SignalClient {
 
     @discardableResult
     private func sendPing() -> Promise<Void> {
-        log("ping/pong: sending...")
+        log("ping/pong: sending...", .trace)
 
         let r = Livekit_SignalRequest.with {
             $0.ping = Int64(Date().timeIntervalSince1970)
@@ -678,7 +682,7 @@ private extension SignalClient {
 
     func onReceivedPong(_ r: Int64) {
 
-        log("ping/pong received pong from server")
+        log("ping/pong received pong from server", .trace)
         // clear timeout timer
         pingTimeoutTimer = nil
     }

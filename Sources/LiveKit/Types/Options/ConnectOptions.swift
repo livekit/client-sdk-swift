@@ -38,11 +38,21 @@ public class ConnectOptions: NSObject {
     @objc
     public let protocolVersion: ProtocolVersion
 
+    /// The number of attempts to reconnect when the network disconnects.
+    @objc
+    public let reconnectAttempts: Int
+
+    /// The delay between reconnect attempts.
+    @objc
+    public let reconnectAttemptDelay: TimeInterval
+
     @objc
     public override init() {
         self.autoSubscribe = true
         self.rtcConfiguration = .liveKitDefault()
         self.publishOnlyMode = nil
+        self.reconnectAttempts = 3
+        self.reconnectAttemptDelay = .defaultReconnectAttemptDelay
         self.protocolVersion = .v9
     }
 
@@ -50,11 +60,15 @@ public class ConnectOptions: NSObject {
     public init(autoSubscribe: Bool = true,
                 rtcConfiguration: RTCConfiguration? = nil,
                 publishOnlyMode: String? = nil,
+                reconnectAttempts: Int = 3,
+                reconnectAttemptDelay: TimeInterval = .defaultReconnectAttemptDelay,
                 protocolVersion: ProtocolVersion = .v8) {
 
         self.autoSubscribe = autoSubscribe
         self.rtcConfiguration = rtcConfiguration ?? .liveKitDefault()
         self.publishOnlyMode = publishOnlyMode
+        self.reconnectAttempts = reconnectAttempts
+        self.reconnectAttemptDelay = reconnectAttemptDelay
         self.protocolVersion = protocolVersion
     }
 
@@ -65,6 +79,8 @@ public class ConnectOptions: NSObject {
         return self.autoSubscribe == other.autoSubscribe &&
             self.rtcConfiguration == other.rtcConfiguration &&
             self.publishOnlyMode == other.publishOnlyMode &&
+            self.reconnectAttempts == other.reconnectAttempts &&
+            self.reconnectAttemptDelay == other.reconnectAttemptDelay &&
             self.protocolVersion == other.protocolVersion
     }
 
@@ -73,6 +89,8 @@ public class ConnectOptions: NSObject {
         hasher.combine(autoSubscribe)
         hasher.combine(rtcConfiguration)
         hasher.combine(publishOnlyMode)
+        hasher.combine(reconnectAttempts)
+        hasher.combine(reconnectAttemptDelay)
         hasher.combine(protocolVersion)
         return hasher.finalize()
     }

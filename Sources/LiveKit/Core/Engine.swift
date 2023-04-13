@@ -433,8 +433,8 @@ private extension Engine {
         }
 
         return retry(on: queue,
-                     attempts: 3,
-                     delay: .defaultQuickReconnectRetry,
+                     attempts: _state.connectOptions.reconnectAttempts,
+                     delay: _state.connectOptions.reconnectAttemptDelay,
                      condition: { [weak self] triesLeft, _ in
                         guard let self = self else { return false }
 
@@ -444,7 +444,7 @@ private extension Engine {
                         // full reconnect failed, give up
                         guard .full != self._state.reconnectMode else { return false }
 
-                        self.log("[reconnect] retry in \(TimeInterval.defaultQuickReconnectRetry) seconds, \(triesLeft) tries left...")
+                        self.log("[reconnect] retry in \(_state.connectOptions.reconnectAttemptDelay) seconds, \(triesLeft) tries left...")
 
                         // try full reconnect for the final attempt
                         if triesLeft == 1,
