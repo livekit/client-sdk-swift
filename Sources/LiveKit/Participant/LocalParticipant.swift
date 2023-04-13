@@ -284,7 +284,19 @@ public class LocalParticipant: Participant {
                 return Promise(())
             }
 
-            return publisher.removeTrack(sender).then(on: self.queue) {
+            // remove track
+            return publisher.removeTrack(sender).then(on: self.queue) { () -> Promise<Void> in
+                // check if track is a LocalVideoTrack
+                guard let track = publication.track as? LocalVideoTrack else {
+                    // simply return if not a LocalVideoTrack
+                    return Promise(())
+                }
+
+                let simulcastSenders = track.simulcastCodecs.values.map { $0.sender }.compactMap { $0 }
+                let removeTrackPromises = simulcastSenders.map { publisher.removeTrack($0) }
+                // remove all simulcast senders
+                return removeTrackPromises.all(on: self.queue)
+            }.then(on: self.queue) {
                 engine.publisherShouldNegotiate()
             }
         }.then(on: queue) {
