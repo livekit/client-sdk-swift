@@ -593,7 +593,8 @@ extension LocalParticipant {
         }
 
         let encodings = Utils.computeVideoEncodings(dimensions: dimensions,
-                                                    publishOptions: options)
+                                                    publishOptions: options,
+                                                    isBackup: true)
 
         let transInit = DispatchQueue.webRTC.sync { RTCRtpTransceiverInit() }
         transInit.direction = .sendOnly
@@ -619,28 +620,26 @@ extension LocalParticipant {
                 $0.width = UInt32(dimensions.width)
                 $0.height = UInt32(dimensions.height)
                 $0.layers = dimensions.videoLayers(for: encodings)
+
+                // pass down
+                return simulcastTrack
             }
 
-        }.then(on: queue) { (_, trackInfo) -> Promise<(transceiver: RTCRtpTransceiver, trackInfo: Livekit_TrackInfo)> in
+        }.then(on: queue) { (simulcastTrack: LocalVideoTrack.SimulcastTrackInfo, trackInfo) -> Promise<(transceiver: RTCRtpTransceiver, trackInfo: Livekit_TrackInfo)> in
 
             self.log("[publish] server responded trackInfo: \(trackInfo)")
 
             // add transceiver to pc
-            return publisher.addTransceiver(with: track.mediaTrack,
+            return publisher.addTransceiver(with: simulcastTrack.mediaStreamTrack,
                                             transceiverInit: transInit).then(on: self.queue) { transceiver in
                                                 // pass down trackInfo and created transceiver
                                                 (transceiver, trackInfo)
                                             }
 
-        }.then(on: queue) { (_, _) in
+        }.then(on: queue) { (transceiver, _) in
             //
-
-            // if let track = track as? LocalVideoTrack {
-            // let publishOptions = (publishOptions as? VideoPublishOptions) ?? self.room._state.options.defaultVideoPublishOptions
-            // transceiver.setPreferredVideoCodec(options.preferredCodec)
-            // track.set(simulcastSender: transceiver.sender, for: options.preferredCodec)
-            // self.log("[publish] codecPreferences: \(transceiver.codecPreferences)...")
-            // }
+            transceiver.setPreferredVideoCodec(codec, exceptCodec: .av1)
+            track.set(simulcastSender: transceiver.sender, for: codec)
 
             return self.room.engine.publisherShouldNegotiate()
         }

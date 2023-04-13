@@ -107,6 +107,8 @@ extension LocalVideoTrack {
     internal func addSimulcastTrack(for codec: VideoCodec,
                                     encodings: [RTCRtpEncodingParameters]?) throws -> SimulcastTrackInfo {
 
+        log("codec: \(codec), encodings: \(encodings == nil ? "nil" : String(describing: encodings!))")
+
         guard simulcastCodecs[codec] == nil else {
             throw EngineError.state(message: "Codec \(codec) is already added")
         }
@@ -123,10 +125,15 @@ extension LocalVideoTrack {
     }
 
     internal func set(simulcastSender: RTCRtpSender, for codec: VideoCodec) {
+
+        log("codec: \(codec), sender: \(simulcastSender)")
+
         // find by codec
-        if var info = simulcastCodecs[codec] {
-            // set the sender
-            info.sender = simulcastSender
+        guard var info = simulcastCodecs[codec] else {
+            assert(false, "Codec not found")
+            return
         }
+        // set the sender
+        info.sender = simulcastSender
     }
 }

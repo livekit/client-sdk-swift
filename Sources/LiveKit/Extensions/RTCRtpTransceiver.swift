@@ -20,24 +20,26 @@ import Promises
 
 extension RTCRtpTransceiver: Loggable {
 
-    internal func setPreferredVideoCodec(_ codec: VideoCodec) {
+    internal func setPreferredVideoCodec(_ codec: VideoCodec, exceptCodec: VideoCodec? = nil) {
         // set a single codec preference
         guard let codecName = codec.rawStringValue?.lowercased() else { return }
 
         let allVideoCodecs = Engine.videoSenderCapabilities.codecs
 
-        log("videoSenderCapabilities: \(allVideoCodecs.map({ String(describing: $0) }).joined(separator: ", "))")
-
         // get the RTCRtpCodecCapability of the preferred codec
         let preferredCodecCapability = allVideoCodecs.first { $0.name.lowercased() == codecName }
 
         // get list of capabilities other than the preferred one
-        let otherCapabilities = allVideoCodecs.filter { $0.name.lowercased() != codecName }
+        let otherCapabilities = allVideoCodecs.filter {
+            $0.name.lowercased() != codecName && $0.name.lowercased() != exceptCodec?.rawStringValue?.lowercased()
+        }
 
         // bring preferredCodecCapability to the front and combine all capabilities
         let combinedCapabilities = [preferredCodecCapability] + otherCapabilities
 
         // codecs not set in codecPreferences will not be negotiated in the offer
         codecPreferences = combinedCapabilities.compactMap { $0 }
+
+        log("codecPreferences set: \(codecPreferences.map({ String(describing: $0) }).joined(separator: ", "))")
     }
 }
