@@ -27,6 +27,10 @@ public class LocalVideoTrack: Track, LocalTrack, VideoTrack {
     @objc
     public internal(set) var videoSource: RTCVideoSource
 
+    internal var simulcastCodecs = [VideoCodec: SimulcastTrackInfo]()
+
+    internal var codec: VideoCodec?
+
     internal init(name: String,
                   source: Track.Source,
                   capturer: VideoCapturer,
@@ -87,4 +91,42 @@ extension LocalVideoTrack {
     public var publishOptions: PublishOptions? { super._publishOptions }
 
     public var publishState: Track.PublishState { super._publishState }
+}
+
+// MARK: - Simulcast Codecs
+
+extension LocalVideoTrack {
+
+    internal struct SimulcastTrackInfo {
+        let codec: VideoCodec
+        let mediaStreamTrack: RTCMediaStreamTrack
+        var sender: RTCRtpSender?
+        var encodings: [RTCRtpEncodingParameters]?
+    }
+
+    internal func addSimulcastTrack(for codec: VideoCodec,
+                                    encodings: [RTCRtpEncodingParameters]?) throws -> SimulcastTrackInfo {
+
+        guard simulcastCodecs[codec] == nil else {
+            throw EngineError.state(message: "Codec \(codec) is already added")
+        }
+
+        // TODO: check if this behaves the same as .clone() which doesn't exist in ObjC
+        let newTrack = Engine.createVideoTrack(source: videoSource)
+
+        let info = SimulcastTrackInfo(codec: codec,
+                                      mediaStreamTrack: newTrack,
+                                      sender: nil,
+                                      encodings: nil)
+        simulcastCodecs[codec] = info
+        return info
+    }
+
+    internal func set(simulcastSender: RTCRtpSender, for codec: VideoCodec) {
+        // find by codec
+        if var info = simulcastCodecs[codec] {
+            // set the sender
+            info.sender = simulcastSender
+        }
+    }
 }

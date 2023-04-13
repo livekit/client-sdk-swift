@@ -68,6 +68,13 @@ extension Livekit_SimulcastCodecInfo: CustomStringConvertible {
     }
 }
 
+extension Livekit_SubscribedCodec: CustomStringConvertible {
+
+    var description: String {
+        "SubscribedCodec(\(codec), qualities: \(qualities.map { String(describing: $0) }))"
+    }
+}
+
 extension Livekit_SubscribedQuality: CustomStringConvertible {
 
     public var description: String {

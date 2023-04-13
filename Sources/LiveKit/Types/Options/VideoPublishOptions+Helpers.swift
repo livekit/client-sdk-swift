@@ -18,11 +18,7 @@ import Foundation
 
 internal extension VideoPublishOptions {
 
-    var isBackupPublishingEnabled: Bool {
-        preferredBackupCodec != .none
-    }
-
-    var computedScalabilityMode: ScalabilityMode? {
+    var shouldUseScalabilityMode: ScalabilityMode? {
         // currently, if codec is AV1 we always use L3T3.
         preferredCodec == .av1 ? .L3T3 : nil
     }
@@ -34,11 +30,8 @@ internal extension VideoPublishOptions {
         return preferredCodec
     }
 
-    var shouldUseSimulcast: Bool {
-        if preferredCodec == .av1 {
-            return false
-        }
-        return simulcast
+    var shouldUseSingleEncoding: Bool {
+        shouldUseScalabilityMode == nil && !simulcast
     }
 
     var shouldUseBackupCodec: Bool {

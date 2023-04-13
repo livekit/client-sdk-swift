@@ -208,7 +208,9 @@ internal class Utils {
         let preferredEncoding: VideoEncoding? = isScreenShare ? publishOptions.screenShareEncoding : encodingOrBackupEncoding
         let encoding = preferredEncoding ?? dimensions.computeSuggestedPreset(in: dimensions.computeSuggestedPresets(isScreenShare: isScreenShare))
 
-        guard publishOptions.shouldUseSimulcast else {
+        if publishOptions.shouldUseSingleEncoding {
+            // when we aren't simulcasting or svc, will need to return a single encoding without
+            // capping bandwidth. we always require a encoding for dynacast
             return [Engine.createRtpEncodingParameters(encoding: encoding, scaleDownBy: 1)]
         }
 
@@ -218,7 +220,7 @@ internal class Utils {
         // AV1 codec
         if publishOptions.shouldUseCodec == .av1 {
             // Only L3T3
-            assert(publishOptions.computedScalabilityMode == .L3T3, "Currently only L3T3 supported for AV1")
+            assert(publishOptions.shouldUseScalabilityMode == .L3T3, "Currently only L3T3 supported for AV1")
 
             // svc use first encoding as the original, so we sort encoding from high to low
             return VideoQuality.rids.reversed().enumerated().map { (i, rid) in

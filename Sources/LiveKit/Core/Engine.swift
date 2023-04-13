@@ -779,10 +779,7 @@ extension Engine: ConnectivityListenerDelegate {
 private extension Array where Element: RTCVideoCodecInfo {
 
     func rewriteCodecsIfNeeded() -> [RTCVideoCodecInfo] {
-        // rewrite H264's profileLevelId to 42e032
-        let codecs = map { $0.name == kRTCVideoCodecH264Name ? Engine.h264BaselineLevel5CodecInfo : $0 }
-        // logger.log("supportedCodecs: \(codecs.map({ "\($0.name) - \($0.parameters)" }).joined(separator: ", "))", type: Engine.self)
-        return codecs
+        [Engine.h264BaselineLevel5CodecInfo, Engine.vp8CodecInfo, Engine.av1CodecInfo]
     }
 }
 
@@ -825,6 +822,9 @@ internal extension Engine {
                                               "level-asymmetry-allowed": "1",
                                               "packetization-mode": "1"])
     }()
+
+    static let vp8CodecInfo: RTCVideoCodecInfo = RTCVideoCodecInfo(name: kRTCVp8CodecName)
+    static let av1CodecInfo: RTCVideoCodecInfo = RTCVideoCodecInfo(name: kRTCAv1CodecName)
 
     // global properties are already lazy
 
@@ -908,9 +908,9 @@ internal extension Engine {
         #endif
     }
 
-    static func createVideoTrack(source: RTCVideoSource) -> RTCVideoTrack {
+    static func createVideoTrack(source: RTCVideoSource, trackId: String? = nil) -> RTCVideoTrack {
         DispatchQueue.webRTC.sync { peerConnectionFactory.videoTrack(with: source,
-                                                                     trackId: UUID().uuidString) }
+                                                                     trackId: trackId ?? UUID().uuidString) }
     }
 
     static func createAudioSource(_ constraints: RTCMediaConstraints?) -> RTCAudioSource {
