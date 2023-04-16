@@ -126,20 +126,15 @@ public class RemoteTrackPublication: TrackPublication {
         return send(trackSettings: settings)
     }
 
-    /// For tracks that support simulcasting, adjust subscribed quality.
-    ///
-    /// This indicates the highest quality the client can accept. if network
-    /// bandwidth does not allow, server will automatically reduce quality to
-    /// optimize for uninterrupted video.
     @discardableResult
-    public func set(preferredVideoQuality newValue: VideoQuality) -> Promise<Void> {
+    public func set(preferredDimensions newValue: Dimensions) -> Promise<Void> {
         // no-op if already the desired value
         let trackSettings = _state.trackSettings
-        guard trackSettings.videoQuality != newValue else { return Promise(()) }
+        guard trackSettings.dimensions != newValue else { return Promise(()) }
 
         guard userCanModifyTrackSettings else { return Promise(TrackError.state(message: "adaptiveStream must be disabled and track must be subscribed")) }
 
-        let settings = trackSettings.copyWith(videoQuality: newValue)
+        let settings = trackSettings.copyWith(dimensions: newValue)
         // attempt to set the new settings
         return send(trackSettings: settings)
     }
