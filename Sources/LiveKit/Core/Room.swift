@@ -822,35 +822,3 @@ extension Room {
         set { Engine.bypassVoiceProcessing = newValue }
     }
 }
-
-// MARK: - MulticastDelegate
-
-extension Room: MulticastDelegateProtocol {
-
-    public func add(delegate: RoomDelegate) {
-        delegates.add(delegate: delegate)
-    }
-
-    public func remove(delegate: RoomDelegate) {
-        delegates.remove(delegate: delegate)
-    }
-
-    @objc
-    public func removeAllDelegates() {
-        delegates.removeAllDelegates()
-    }
-
-    /// Only for Objective-C.
-    @objc(addDelegate:)
-    @available(swift, obsoleted: 1.0)
-    public func addObjC(delegate: RoomDelegateObjC) {
-        delegates.add(delegate: delegate)
-    }
-
-    /// Only for Objective-C.
-    @objc(removeDelegate:)
-    @available(swift, obsoleted: 1.0)
-    public func removeObjC(delegate: RoomDelegateObjC) {
-        delegates.remove(delegate: delegate)
-    }
-}
