@@ -23,9 +23,9 @@ public extension LocalParticipant {
     func set(source: Track.Source, enabled: Bool) async throws -> LocalTrackPublication? {
 
         try await withCheckedThrowingContinuation { continuation in
-            set(source: .camera, enabled: enabled).then { result in
+            set(source: source, enabled: enabled).then(on: queue) { result in
                 continuation.resume(returning: result)
-            }.catch { error in
+            }.catch(on: queue) { error in
                 continuation.resume(throwing: error)
             }
         }
@@ -51,9 +51,9 @@ public extension LocalParticipant {
                       publishOptions: VideoPublishOptions? = nil) async throws -> LocalTrackPublication {
 
         try await withCheckedThrowingContinuation { continuation in
-            publishVideoTrack(track: track, publishOptions: publishOptions).then { result in
+            publishVideoTrack(track: track, publishOptions: publishOptions).then(on: queue) { result in
                 continuation.resume(returning: result)
-            }.catch { error in
+            }.catch(on: queue) { error in
                 continuation.resume(throwing: error)
             }
         }
@@ -64,9 +64,9 @@ public extension LocalParticipant {
                       publishOptions: AudioPublishOptions? = nil) async throws -> LocalTrackPublication {
 
         try await withCheckedThrowingContinuation { continuation in
-            publishAudioTrack(track: track, publishOptions: publishOptions).then { result in
+            publishAudioTrack(track: track, publishOptions: publishOptions).then(on: queue) { result in
                 continuation.resume(returning: result)
-            }.catch { error in
+            }.catch(on: queue) { error in
                 continuation.resume(throwing: error)
             }
         }
@@ -77,20 +77,54 @@ public extension LocalParticipant {
                      destination: [String] = []) async throws {
 
         try await withCheckedThrowingContinuation { continuation in
-            publishData(data: data, reliability: reliability, destination: destination).then { result in
+            publishData(data: data, reliability: reliability, destination: destination).then(on: queue) { result in
                 continuation.resume(returning: result)
-            }.catch { error in
+            }.catch(on: queue) { error in
                 continuation.resume(throwing: error)
             }
+        }
+    }
+
+    ///
+    /// Publish data to the other participants in the room
+    ///
+    /// Data is forwarded to each participant in the room. Each payload must not exceed 15k.
+    /// Options from ``RoomOptions/defaultDataPublishOptions`` will be used for the nil parameters.
+    ///
+    /// - Parameters:
+    ///   - data: Data to send
+    ///   - reliability: Toggle between sending relialble vs lossy delivery.
+    ///     For data that you need delivery guarantee (such as chat messages), use Reliable.
+    ///     For data that should arrive as quickly as possible, but you are ok with dropped packets, use Lossy.
+    ///   - destinations: Array of ``RemoteParticipant``s who will receive the message. If empty, deliver to everyone.
+    ///   - topic: Topic of the data.
+    ///   - options: ``DataPublishOptions`` for this publish.
+    ///
+    func publish(data: Data,
+                 reliability: Reliability = .reliable,
+                 destinations: [RemoteParticipant]? = nil,
+                 topic: String? = nil,
+                 options: DataPublishOptions?) async throws {
+
+        try await withCheckedThrowingContinuation { continuation in
+            publish(data: data,
+                    reliability: reliability,
+                    destinations: destinations,
+                    topic: topic,
+                    options: options).then(on: queue) { result in
+                        continuation.resume(returning: result)
+                    }.catch(on: queue) { error in
+                        continuation.resume(throwing: error)
+                    }
         }
     }
 
     func unpublish(publication: LocalTrackPublication, notify: Bool = true) async throws {
 
         try await withCheckedThrowingContinuation { continuation in
-            unpublish(publication: publication, notify: notify).then {
+            unpublish(publication: publication, notify: notify).then(on: queue) {
                 continuation.resume()
-            }.catch { error in
+            }.catch(on: queue) { error in
                 continuation.resume(throwing: error)
             }
         }
@@ -99,9 +133,9 @@ public extension LocalParticipant {
     func unpublishAll(notify: Bool = true) async throws {
 
         try await withCheckedThrowingContinuation { continuation in
-            unpublishAll(notify: notify).then {
+            unpublishAll(notify: notify).then(on: queue) {
                 continuation.resume()
-            }.catch { error in
+            }.catch(on: queue) { error in
                 continuation.resume(throwing: error)
             }
         }
@@ -112,9 +146,9 @@ public extension LocalParticipant {
 
         try await withCheckedThrowingContinuation { continuation in
             setTrackSubscriptionPermissions(allParticipantsAllowed: allParticipantsAllowed,
-                                            trackPermissions: trackPermissions).then {
+                                            trackPermissions: trackPermissions).then(on: queue) {
                                                 continuation.resume()
-                                            }.catch { error in
+                                            }.catch(on: queue) { error in
                                                 continuation.resume(throwing: error)
                                             }
         }

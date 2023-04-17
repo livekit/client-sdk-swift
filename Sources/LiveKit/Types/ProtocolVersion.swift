@@ -25,6 +25,7 @@ public enum ProtocolVersion: Int {
     case v6 = 6
     case v7 = 7
     case v8 = 8
+    case v9 = 9
 }
 
 // MARK: - Comparable

@@ -35,7 +35,7 @@ extension CIImage {
         let options = [
             kCVPixelBufferCGImageCompatibilityKey as String: true,
             kCVPixelBufferCGBitmapContextCompatibilityKey as String: true,
-            kCVPixelBufferIOSurfacePropertiesKey as String: [:]
+            kCVPixelBufferIOSurfacePropertiesKey as String: [:] as [String: Any]
         ] as [String: Any]
 
         let status: CVReturn = CVPixelBufferCreate(kCFAllocatorDefault,

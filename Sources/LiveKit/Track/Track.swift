@@ -23,7 +23,7 @@ public class Track: NSObject, Loggable {
 
     // MARK: - MulticastDelegate
 
-    private var delegates = MulticastDelegate<TrackDelegate>()
+    internal var delegates = MulticastDelegate<TrackDelegate>()
 
     internal let queue = DispatchQueue(label: "LiveKitSDK.track", qos: .default)
 
@@ -217,7 +217,7 @@ public class Track: NSObject, Loggable {
         }
 
         if _notify {
-            notify(label: { "track.didUpdate muted: \(newValue)" }) {
+            delegates.notify(label: { "track.didUpdate muted: \(newValue)" }) {
                 $0.track?(self, didUpdate: newValue, shouldSendSignal: shouldSendSignal)
             }
         }
@@ -267,7 +267,7 @@ internal extension Track {
     func set(stats newValue: TrackStats) {
         guard _state.stats != newValue else { return }
         _state.mutate { $0.stats = newValue }
-        notify { $0.track?(self, didUpdate: newValue) }
+        delegates.notify { $0.track?(self, didUpdate: newValue) }
     }
 }
 
@@ -284,7 +284,7 @@ internal extension Track {
         _state.mutate { $0.dimensions = newValue }
 
         guard let videoTrack = self as? VideoTrack else { return true }
-        notify(label: { "track.didUpdate dimensions: \(newValue == nil ? "nil" : String(describing: newValue))" }) {
+        delegates.notify(label: { "track.didUpdate dimensions: \(newValue == nil ? "nil" : String(describing: newValue))" }) {
             $0.track?(videoTrack, didUpdate: newValue)
         }
 
@@ -376,7 +376,7 @@ extension Track {
 
 // MARK: - MulticastDelegate
 
-extension Track {
+extension Track: MulticastDelegateProtocol {
 
     @objc(addDelegate:)
     public func add(delegate: TrackDelegate) {
@@ -388,9 +388,9 @@ extension Track {
         delegates.remove(delegate: delegate)
     }
 
-    internal func notify(label: (() -> String)? = nil,
-                         _ fnc: @escaping (TrackDelegate) -> Void) {
-        delegates.notify(label: label, fnc)
+    @objc
+    public func removeAllDelegates() {
+        delegates.removeAllDelegates()
     }
 }
 

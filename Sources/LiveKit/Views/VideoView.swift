@@ -140,6 +140,11 @@ public class VideoView: NativeView, Loggable {
         var renderDate: Date?
         var didRenderFirstFrame: Bool = false
         var isRendering: Bool = false
+
+        // whether if current state should be rendering
+        var shouldRender: Bool {
+            track != nil && isEnabled && !isHidden
+        }
     }
 
     internal var _state: StateSync<State>
@@ -201,7 +206,7 @@ public class VideoView: NativeView, Loggable {
                         }
 
                         // notify detach
-                        track.notify(label: { "track.didDetach videoView: \(self)" }) { [weak self, weak track] (delegate) -> Void in
+                        track.delegates.notify(label: { "track.didDetach videoView: \(self)" }) { [weak self, weak track] (delegate) -> Void in
                             guard let self = self, let track = track else { return }
                             delegate.track?(track, didDetach: self)
                         }
@@ -227,7 +232,7 @@ public class VideoView: NativeView, Loggable {
                         }
 
                         // notify attach
-                        track.notify(label: { "track.didAttach videoView: \(self)" }) { [weak self, weak track] (delegate) -> Void in
+                        track.delegates.notify(label: { "track.didAttach videoView: \(self)" }) { [weak self, weak track] (delegate) -> Void in
                             guard let self = self, let track = track else { return }
                             delegate.track?(track, didAttach: self)
                         }
@@ -247,14 +252,14 @@ public class VideoView: NativeView, Loggable {
                     self._renderTimer.suspend()
                 }
 
-                self.notify(label: { "videoView.didUpdate isRendering: \(state.isRendering)" }) {
+                self.delegates.notify(label: { "videoView.didUpdate isRendering: \(state.isRendering)" }) {
                     $0.videoView?(self, didUpdate: state.isRendering)
                 }
             }
 
             // viewSize updated
             if state.viewSize != oldState.viewSize {
-                self.notify(label: { "videoView.didUpdate viewSize: \(state.viewSize)" }) {
+                self.delegates.notify(label: { "videoView.didUpdate viewSize: \(state.viewSize)" }) {
                     $0.videoView?(self, didUpdate: state.viewSize)
                 }
             }
@@ -332,7 +337,7 @@ public class VideoView: NativeView, Loggable {
 
             if state.viewSize != viewSize || !state.didLayout {
                 // mutate if required
-                _state.mutateAsync {
+                _state.mutate {
                     $0.viewSize = viewSize
                     $0.didLayout = true
                 }
@@ -393,7 +398,7 @@ public class VideoView: NativeView, Loggable {
 
         if state.rendererSize != rendererFrame.size {
             // mutate if required
-            _state.mutateAsync { $0.rendererSize = rendererFrame.size }
+            _state.mutate { $0.rendererSize = rendererFrame.size }
         }
 
         // nativeRenderer.wantsLayer = true
@@ -428,14 +433,6 @@ public class VideoView: NativeView, Loggable {
             nativeRenderer.layer.transform = CATransform3DIdentity
             #endif
         }
-    }
-}
-
-internal extension VideoView.State {
-
-    // whether if current state should be rendering
-    var shouldRender: Bool {
-        track != nil && isEnabled && !isHidden
     }
 }
 
@@ -556,7 +553,7 @@ extension VideoView: VideoRenderer {
         // cache last rendered frame
         track?.set(videoFrame: frame)
 
-        _state.mutateAsync {
+        _state.mutate {
             $0.didRenderFirstFrame = true
             $0.isRendering = true
             $0.renderDate = Date()
@@ -599,7 +596,7 @@ internal extension VideoView {
 
 // MARK: - MulticastDelegate
 
-extension VideoView {
+extension VideoView: MulticastDelegateProtocol {
 
     @objc(addDelegate:)
     public func add(delegate: VideoViewDelegate) {
@@ -611,9 +608,9 @@ extension VideoView {
         delegates.remove(delegate: delegate)
     }
 
-    internal func notify(label: (() -> String)? = nil,
-                         _ fnc: @escaping (VideoViewDelegate) -> Void) {
-        delegates.notify(label: label, fnc)
+    @objc
+    public func removeAllDelegates() {
+        delegates.removeAllDelegates()
     }
 }
 
@@ -631,34 +628,25 @@ extension VideoView {
     }
 
     internal static func createNativeRendererView() -> NativeRendererView {
-        let result: NativeRendererView
-        #if targetEnvironment(simulator)
-        // iOS Simulator ---------------
-        logger.log("Using RTCEAGLVideoView for VideoView's Renderer", type: VideoView.self)
-        let eaglView = RTCEAGLVideoView()
-        eaglView.contentMode = .scaleAspectFit
-        result = eaglView
-        #else
-        let mtlView = RTCMTLVideoView()
         logger.log("Using RTCMTLVideoView for VideoView's Renderer", type: VideoView.self)
+        let result = RTCMTLVideoView()
+
         #if os(iOS)
-        mtlView.contentMode = .scaleAspectFit
-        mtlView.videoContentMode = .scaleAspectFit
-        #endif
-        result = mtlView
+        result.contentMode = .scaleAspectFit
+        result.videoContentMode = .scaleAspectFit
         #endif
 
         // extra checks for MTKView
-        if let metal = result.asMetalView {
+        if let mtkView = result.findMTKView() {
             #if os(iOS)
-            metal.contentMode = .scaleAspectFit
+            mtkView.contentMode = .scaleAspectFit
             #elseif os(macOS)
-            metal.layerContentsPlacement = .scaleProportionallyToFit
+            mtkView.layerContentsPlacement = .scaleProportionallyToFit
             #endif
             // ensure it's capable of rendering 60fps
             // https://developer.apple.com/documentation/metalkit/mtkview/1536027-preferredframespersecond
             logger.log("preferredFramesPerSecond = 60", type: VideoView.self)
-            metal.preferredFramesPerSecond = 60
+            mtkView.preferredFramesPerSecond = 60
         }
 
         return result
@@ -669,7 +657,7 @@ extension VideoView {
 
 internal extension NativeViewType {
 
-    var asMetalView: MTKView? {
+    func findMTKView() -> MTKView? {
         subviews.compactMap { $0 as? MTKView }.first
     }
 }

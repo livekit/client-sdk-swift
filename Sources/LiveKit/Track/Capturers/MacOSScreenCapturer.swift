@@ -754,9 +754,11 @@ extension MacOSWindow {
 
 extension MacOSScreenCapturer {
 
+    internal static let queue = DispatchQueue(label: "LiveKitSDK.MacOSScreenCapturer.sources", qos: .default)
+
     /// Convenience method to get a ``MacOSDisplay`` of the main display.
     public static func mainDisplaySource() -> Promise<MacOSDisplay> {
-        sources(for: .display).then { sources in
+        sources(for: .display).then(on: queue) { sources in
 
             guard let source = sources.compactMap({ $0 as? MacOSDisplay }).first(where: { $0.displayID == CGMainDisplayID() }) else {
                 throw TrackError.capturer(message: "Main display source not found")
@@ -786,6 +788,8 @@ extension MacOSScreenCapturer {
                             .filter { $0.owningApplication?.bundleIdentifier != nil }
                             // remove windows that windowLayer isn't 0
                             .filter { $0.windowLayer == 0 }
+                            // remove windows that are unusually small
+                            .filter { $0.frame.size.width >= 100 && $0.frame.size.height >= 100 }
                             // sort the windows by app name
                             .sorted { $0.owningApplication?.applicationName ?? "" < $1.owningApplication?.applicationName ?? "" }
                             .map { MacOSWindow(from: $0) }
@@ -822,14 +826,14 @@ extension MacOSScreenCapturer {
     }
 
     public static func displaySources() -> Promise<[MacOSDisplay]> {
-        sources(for: .display).then { sources in
+        sources(for: .display).then(on: queue) { sources in
             // cast
             sources.compactMap({ $0 as? MacOSDisplay })
         }
     }
 
     public static func windowSources() -> Promise<[MacOSWindow]> {
-        sources(for: .window).then { sources in
+        sources(for: .window).then(on: queue) { sources in
             // cast
             sources.compactMap({ $0 as? MacOSWindow })
         }

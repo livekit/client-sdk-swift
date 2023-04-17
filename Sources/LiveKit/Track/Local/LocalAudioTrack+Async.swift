@@ -22,9 +22,9 @@ extension LocalAudioTrack {
     public func mute() async throws {
 
         try await withCheckedThrowingContinuation { continuation in
-            _mute().then { _ in
+            _mute().then(on: queue) { _ in
                 continuation.resume()
-            }.catch { error in
+            }.catch(on: queue) { error in
                 continuation.resume(throwing: error)
             }
         }
@@ -33,9 +33,9 @@ extension LocalAudioTrack {
     public func unmute() async throws {
 
         try await withCheckedThrowingContinuation { continuation in
-            _unmute().then { _ in
+            _unmute().then(on: queue) { _ in
                 continuation.resume()
-            }.catch { error in
+            }.catch(on: queue) { error in
                 continuation.resume(throwing: error)
             }
         }

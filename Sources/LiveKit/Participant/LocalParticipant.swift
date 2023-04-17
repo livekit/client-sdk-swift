@@ -168,10 +168,10 @@ public class LocalParticipant: Participant {
             self.addTrack(publication: publication)
 
             // notify didPublish
-            self.notify(label: { "localParticipant.didPublish \(publication)" }) {
+            self.delegates.notify(label: { "localParticipant.didPublish \(publication)" }) {
                 $0.localParticipant?(self, didPublish: publication)
             }
-            self.room.notify(label: { "localParticipant.didPublish \(publication)" }) {
+            self.room.delegates.notify(label: { "localParticipant.didPublish \(publication)" }) {
                 $0.room?(self.room, localParticipant: self, didPublish: publication)
             }
 
@@ -220,10 +220,10 @@ public class LocalParticipant: Participant {
             Promise<Void>(on: queue) {
                 guard _notify else { return }
                 // notify unpublish
-                self.notify(label: { "localParticipant.didUnpublish \(publication)" }) {
+                self.delegates.notify(label: { "localParticipant.didUnpublish \(publication)" }) {
                     $0.localParticipant?(self, didUnpublish: publication)
                 }
-                self.room.notify(label: { "room.didUnpublish \(publication)" }) {
+                self.room.delegates.notify(label: { "room.didUnpublish \(publication)" }) {
                     $0.room?(self.room, localParticipant: self, didUnpublish: publication)
                 }
             }
@@ -266,16 +266,18 @@ public class LocalParticipant: Participant {
         }
     }
 
-    /**
-     publish data to the other participants in the room
-
-     Data is forwarded to each participant in the room. Each payload must not exceed 15k.
-     - Parameter data: Data to send
-     - Parameter reliability: Toggle between sending relialble vs lossy delivery.
-     For data that you need delivery guarantee (such as chat messages), use Reliable.
-     For data that should arrive as quickly as possible, but you are ok with dropped packets, use Lossy.
-     - Parameter destination: SIDs of the participants who will receive the message. If empty, deliver to everyone
-     */
+    /// Publish data to the other participants in the room
+    ///
+    /// Data is forwarded to each participant in the room. Each payload must not exceed 15k.
+    /// - Parameters:
+    ///   - data: Data to send
+    ///   - reliability: Toggle between sending relialble vs lossy delivery.
+    ///     For data that you need delivery guarantee (such as chat messages), use Reliable.
+    ///     For data that should arrive as quickly as possible, but you are ok with dropped packets, use Lossy.
+    ///   - destination: SIDs of the participants who will receive the message. If empty, deliver to everyone
+    ///
+    /// > Notice: Deprecated, use ``publish(data:reliability:destinations:topic:options:)-2581z`` instead.
+    @available(*, deprecated, renamed: "publish(data:reliability:destinations:topic:options:)")
     @discardableResult
     public func publishData(data: Data,
                             reliability: Reliability = .reliable,
@@ -285,6 +287,30 @@ public class LocalParticipant: Participant {
             $0.destinationSids = destination
             $0.payload = data
             $0.participantSid = self.sid
+        }
+
+        return room.engine.send(userPacket: userPacket,
+                                reliability: reliability)
+    }
+
+    ///
+    /// Promise version of ``publish(data:reliability:destinations:topic:options:)-75jme``.
+    ///
+    @discardableResult
+    public func publish(data: Data,
+                        reliability: Reliability = .reliable,
+                        destinations: [RemoteParticipant]? = nil,
+                        topic: String? = nil,
+                        options: DataPublishOptions?) -> Promise<Void> {
+
+        let options = options ?? self.room._state.options.defaultDataPublishOptions
+        let destinations = destinations?.map { $0.sid }
+
+        let userPacket = Livekit_UserPacket.with {
+            $0.destinationSids = destinations ?? options.destinations
+            $0.payload = data
+            $0.participantSid = self.sid
+            $0.topic = topic ?? options.topic ?? ""
         }
 
         return room.engine.send(userPacket: userPacket,
@@ -386,10 +412,10 @@ public class LocalParticipant: Participant {
         let didUpdate = super.set(permissions: newValue)
 
         if didUpdate {
-            notify(label: { "participant.didUpdate permissions: \(newValue)" }) {
+            delegates.notify(label: { "participant.didUpdate permissions: \(newValue)" }) {
                 $0.participant?(self, didUpdate: newValue)
             }
-            room.notify(label: { "room.didUpdate permissions: \(newValue)" }) {
+            room.delegates.notify(label: { "room.didUpdate permissions: \(newValue)" }) {
                 $0.room?(self.room, participant: self, didUpdate: newValue)
             }
         }
@@ -438,13 +464,13 @@ extension LocalParticipant {
 extension LocalParticipant {
 
     @discardableResult
-    public func setCamera(enabled: Bool) -> Promise<LocalTrackPublication?> {
-        set(source: .camera, enabled: enabled)
+    public func setCamera(enabled: Bool, captureOptions: CameraCaptureOptions? = nil, publishOptions: VideoPublishOptions? = nil) -> Promise<LocalTrackPublication?> {
+        set(source: .camera, enabled: enabled, captureOptions: captureOptions, publishOptions: publishOptions)
     }
 
     @discardableResult
-    public func setMicrophone(enabled: Bool) -> Promise<LocalTrackPublication?> {
-        set(source: .microphone, enabled: enabled)
+    public func setMicrophone(enabled: Bool, captureOptions: AudioCaptureOptions? = nil, publishOptions: AudioPublishOptions? = nil) -> Promise<LocalTrackPublication?> {
+        set(source: .microphone, enabled: enabled, captureOptions: captureOptions, publishOptions: publishOptions)
     }
 
     /// Enable or disable screen sharing. This has different behavior depending on the platform.
@@ -461,7 +487,7 @@ extension LocalParticipant {
         set(source: .screenShareVideo, enabled: enabled)
     }
 
-    public func set(source: Track.Source, enabled: Bool) -> Promise<LocalTrackPublication?> {
+    public func set(source: Track.Source, enabled: Bool, captureOptions: CaptureOptions? = nil, publishOptions: PublishOptions? = nil) -> Promise<LocalTrackPublication?> {
         // attempt to get existing publication
         if let publication = getTrackPublication(source: source) as? LocalTrackPublication {
             if enabled {
@@ -472,15 +498,15 @@ extension LocalParticipant {
         } else if enabled {
             // try to create a new track
             if source == .camera {
-                let localTrack = LocalVideoTrack.createCameraTrack(options: room._state.options.defaultCameraCaptureOptions)
-                return publishVideoTrack(track: localTrack).then(on: queue) { $0 }
+                let localTrack = LocalVideoTrack.createCameraTrack(options: (captureOptions as? CameraCaptureOptions) ?? room._state.options.defaultCameraCaptureOptions)
+                return publishVideoTrack(track: localTrack, publishOptions: publishOptions as? VideoPublishOptions).then(on: queue) { $0 }
             } else if source == .microphone {
-                let localTrack = LocalAudioTrack.createTrack(options: room._state.options.defaultAudioCaptureOptions)
-                return publishAudioTrack(track: localTrack).then(on: queue) { $0 }
+                let localTrack = LocalAudioTrack.createTrack(options: (captureOptions as? AudioCaptureOptions) ?? room._state.options.defaultAudioCaptureOptions)
+                return publishAudioTrack(track: localTrack, publishOptions: publishOptions as? AudioPublishOptions).then(on: queue) { $0 }
             } else if source == .screenShareVideo {
                 #if os(iOS)
                 var localTrack: LocalVideoTrack?
-                let options = room._state.options.defaultScreenShareCaptureOptions
+                let options = (captureOptions as? ScreenShareCaptureOptions) ?? room._state.options.defaultScreenShareCaptureOptions
                 if options.useBroadcastExtension {
                     let screenShareExtensionId = Bundle.main.infoDictionary?[BroadcastScreenCapturer.kRTCScreenSharingExtension] as? String
                     RPSystemBroadcastPickerView.show(for: screenShareExtensionId,
@@ -491,13 +517,13 @@ extension LocalParticipant {
                 }
 
                 if let localTrack = localTrack {
-                    return publishVideoTrack(track: localTrack).then(on: queue) { $0 }
+                    return publishVideoTrack(track: localTrack, publishOptions: publishOptions as? VideoPublishOptions).then(on: queue) { $0 }
                 }
                 #elseif os(macOS)
                 return MacOSScreenCapturer.mainDisplaySource().then(on: queue) { mainDisplay in
                     let track = LocalVideoTrack.createMacOSScreenShareTrack(source: mainDisplay,
-                                                                            options: self.room._state.options.defaultScreenShareCaptureOptions)
-                    return self.publishVideoTrack(track: track)
+                                                                            options: (captureOptions as? ScreenShareCaptureOptions) ?? self.room._state.options.defaultScreenShareCaptureOptions)
+                    return self.publishVideoTrack(track: track, publishOptions: publishOptions as? VideoPublishOptions)
                 }.then(on: queue) { $0 }
                 #endif
             }

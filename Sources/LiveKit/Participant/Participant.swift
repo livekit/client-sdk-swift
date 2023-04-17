@@ -23,7 +23,7 @@ public class Participant: NSObject, ObservableObject, Loggable {
 
     // MARK: - MulticastDelegate
 
-    private var delegates = MulticastDelegate<ParticipantDelegate>()
+    internal var delegates = MulticastDelegate<ParticipantDelegate>()
 
     internal let queue = DispatchQueue(label: "LiveKitSDK.participant", qos: .default)
 
@@ -110,7 +110,7 @@ public class Participant: NSObject, ObservableObject, Loggable {
             guard let self = self else { return }
 
             if state.isSpeaking != oldState.isSpeaking {
-                self.notify(label: { "participant.didUpdate isSpeaking: \(self.isSpeaking)" }) {
+                self.delegates.notify(label: { "participant.didUpdate isSpeaking: \(self.isSpeaking)" }) {
                     $0.participant?(self, didUpdate: self.isSpeaking)
                 }
             }
@@ -120,19 +120,19 @@ public class Participant: NSObject, ObservableObject, Loggable {
                // don't notify if empty string (first time only)
                (oldState.metadata == nil ? !metadata.isEmpty : true) {
 
-                self.notify(label: { "participant.didUpdate metadata: \(metadata)" }) {
+                self.delegates.notify(label: { "participant.didUpdate metadata: \(metadata)" }) {
                     $0.participant?(self, didUpdate: metadata)
                 }
-                self.room.notify(label: { "room.didUpdate metadata: \(metadata)" }) {
+                self.room.delegates.notify(label: { "room.didUpdate metadata: \(metadata)" }) {
                     $0.room?(self.room, participant: self, didUpdate: metadata)
                 }
             }
 
             if state.connectionQuality != oldState.connectionQuality {
-                self.notify(label: { "participant.didUpdate connectionQuality: \(self.connectionQuality)" }) {
+                self.delegates.notify(label: { "participant.didUpdate connectionQuality: \(self.connectionQuality)" }) {
                     $0.participant?(self, didUpdate: self.connectionQuality)
                 }
-                self.room.notify(label: { "room.didUpdate connectionQuality: \(self.connectionQuality)" }) {
+                self.room.delegates.notify(label: { "room.didUpdate connectionQuality: \(self.connectionQuality)" }) {
                     $0.room?(self.room, participant: self, didUpdate: self.connectionQuality)
                 }
             }
@@ -246,7 +246,7 @@ public extension Participant {
 
 // MARK: - MulticastDelegate
 
-extension Participant {
+extension Participant: MulticastDelegateProtocol {
 
     @objc(addDelegate:)
     public func add(delegate: ParticipantDelegate) {
@@ -258,8 +258,8 @@ extension Participant {
         delegates.remove(delegate: delegate)
     }
 
-    internal func notify(label: (() -> String)? = nil,
-                         _ fnc: @escaping (ParticipantDelegate) -> Void) {
-        delegates.notify(label: label, fnc)
+    @objc
+    public func removeAllDelegates() {
+        delegates.removeAllDelegates()
     }
 }

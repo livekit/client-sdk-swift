@@ -183,7 +183,7 @@ extension VideoParameters {
 
     public static let presetH720_169 = VideoParameters(
         dimensions: .h720_169,
-        encoding: VideoEncoding(maxBitrate: 2_000_000, maxFps: 30)
+        encoding: VideoEncoding(maxBitrate: 1_700_000, maxFps: 30)
     )
 
     public static let presetH1080_169 = VideoParameters(

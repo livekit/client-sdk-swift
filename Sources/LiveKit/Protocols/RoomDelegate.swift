@@ -69,6 +69,10 @@ public protocol RoomDelegateObjC: AnyObject {
     @objc(room:didUpdateMetadata:) optional
     func room(_ room: Room, didUpdate metadata: String?)
 
+    /// ``Room``'s recording state has been updated.
+    @objc(room:didUpdateIsRecording:) optional
+    func room(_ room: Room, didUpdate isRecording: Bool)
+
     /// Same with ``ParticipantDelegate/participant(_:didUpdate:)-46iut``.
     @objc(room:participant:didUpdateMetadata:) optional
     func room(_ room: Room, participant: Participant, didUpdate metadata: String?)
@@ -110,8 +114,15 @@ public protocol RoomDelegateObjC: AnyObject {
 
     /// Same with ``ParticipantDelegate/participant(_:didReceive:)-2t55a``
     /// participant could be nil if data was sent by server api.
-    @objc(room:participant:didReceiveData:) optional
+    ///
+    /// Deprecated, use ``room(_:participant:didReceiveData:topic:)`` instead.
+    @objc(room:participant:didReceiveData:)
+    @available(*, deprecated, renamed: "room(_:participant:didReceiveData:topic:)")
+    optional
     func room(_ room: Room, participant: RemoteParticipant?, didReceive data: Data)
+
+    @objc(room:participant:didReceiveData:topic:) optional
+    func room(_ room: Room, participant: RemoteParticipant?, didReceiveData data: Data, topic: String)
 
     /// Same with ``ParticipantDelegate/localParticipant(_:didPublish:)-90j2m``.
     @objc(room:localParticipant:didPublishPublication:) optional

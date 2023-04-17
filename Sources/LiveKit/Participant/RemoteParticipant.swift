@@ -63,10 +63,10 @@ public class RemoteParticipant: Participant {
 
             for publication in newTrackPublications.values {
 
-                self.notify(label: { "participant.didPublish \(publication)" }) {
+                self.delegates.notify(label: { "participant.didPublish \(publication)" }) {
                     $0.participant?(self, didPublish: publication)
                 }
-                self.room.notify(label: { "room.didPublish \(publication)" }) {
+                self.room.delegates.notify(label: { "room.didPublish \(publication)" }) {
                     $0.room?(self.room, participant: self, didPublish: publication)
                 }
             }
@@ -89,10 +89,10 @@ public class RemoteParticipant: Participant {
         guard let publication = getTrackPublication(sid: sid) else {
             log("Could not subscribe to mediaTrack \(sid), unable to locate track publication. existing sids: (\(_state.tracks.keys.joined(separator: ", ")))", .error)
             let error = TrackError.state(message: "Could not find published track with sid: \(sid)")
-            notify(label: { "participant.didFailToSubscribe trackSid: \(sid)" }) {
+            delegates.notify(label: { "participant.didFailToSubscribe trackSid: \(sid)" }) {
                 $0.participant?(self, didFailToSubscribe: sid, error: error)
             }
-            room.notify(label: { "room.didFailToSubscribe trackSid: \(sid)" }) {
+            room.delegates.notify(label: { "room.didFailToSubscribe trackSid: \(sid)" }) {
                 $0.room?(self.room, participant: self, didFailToSubscribe: sid, error: error)
             }
             return Promise(error)
@@ -109,10 +109,10 @@ public class RemoteParticipant: Participant {
                                      track: rtcTrack)
         default:
             let error = TrackError.type(message: "Unsupported type: \(rtcTrack.kind.description)")
-            notify(label: { "participant.didFailToSubscribe trackSid: \(sid)" }) {
+            delegates.notify(label: { "participant.didFailToSubscribe trackSid: \(sid)" }) {
                 $0.participant?(self, didFailToSubscribe: sid, error: error)
             }
-            room.notify(label: { "room.didFailToSubscribe trackSid: \(sid)" }) {
+            room.delegates.notify(label: { "room.didFailToSubscribe trackSid: \(sid)" }) {
                 $0.room?(self.room, participant: self, didFailToSubscribe: sid, error: error)
             }
             return Promise(error)
@@ -124,10 +124,10 @@ public class RemoteParticipant: Participant {
 
         addTrack(publication: publication)
         return track.start().then(on: queue) { _ -> Void in
-            self.notify(label: { "participant.didSubscribe \(publication)" }) {
+            self.delegates.notify(label: { "participant.didSubscribe \(publication)" }) {
                 $0.participant?(self, didSubscribe: publication, track: track)
             }
-            self.room.notify(label: { "room.didSubscribe \(publication)" }) {
+            self.room.delegates.notify(label: { "room.didSubscribe \(publication)" }) {
                 $0.room?(self.room, participant: self, didSubscribe: publication, track: track)
             }
         }
@@ -135,7 +135,7 @@ public class RemoteParticipant: Participant {
 
     internal override func cleanUp(notify _notify: Bool = true) -> Promise<Void> {
         super.cleanUp(notify: _notify).then(on: queue) {
-            self.room.notify(label: { "room.participantDidLeave" }) {
+            self.room.delegates.notify(label: { "room.participantDidLeave" }) {
                 $0.room?(self.room, participantDidLeave: self)
             }
         }
@@ -156,10 +156,10 @@ public class RemoteParticipant: Participant {
             Promise<Void>(on: queue) { [weak self] in
                 guard let self = self, _notify else { return }
                 // notify unpublish
-                self.notify(label: { "participant.didUnpublish \(publication)" }) {
+                self.delegates.notify(label: { "participant.didUnpublish \(publication)" }) {
                     $0.participant?(self, didUnpublish: publication)
                 }
-                self.room.notify(label: { "room.didUnpublish \(publication)" }) {
+                self.room.delegates.notify(label: { "room.didUnpublish \(publication)" }) {
                     $0.room?(self.room, participant: self, didUnpublish: publication)
                 }
             }
@@ -177,10 +177,10 @@ public class RemoteParticipant: Participant {
         return track.stop().then(on: queue) { _ -> Void in
             guard _notify else { return }
             // notify unsubscribe
-            self.notify(label: { "participant.didUnsubscribe \(publication)" }) {
+            self.delegates.notify(label: { "participant.didUnsubscribe \(publication)" }) {
                 $0.participant?(self, didUnsubscribe: publication, track: track)
             }
-            self.room.notify(label: { "room.didUnsubscribe \(publication)" }) {
+            self.room.delegates.notify(label: { "room.didUnsubscribe \(publication)" }) {
                 $0.room?(self.room, participant: self, didUnsubscribe: publication, track: track)
             }
         }.then(on: queue) {
