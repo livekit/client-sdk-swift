@@ -85,7 +85,7 @@ public class Room: NSObject, Loggable {
     // Reference to Engine
     internal let engine: Engine
 
-    internal struct State {
+    internal struct State: Equatable {
         var options: RoomOptions
 
         var sid: String?
@@ -152,12 +152,12 @@ public class Room: NSObject, Loggable {
         AppStateListener.shared.add(delegate: self)
 
         // trigger events when state mutates
-        _state.onMutate = { [weak self] state, oldState in
+        _state.onDidMutate = { [weak self] newState, oldState in
 
             guard let self = self else { return }
 
             // metadata updated
-            if let metadata = state.metadata, metadata != oldState.metadata,
+            if let metadata = newState.metadata, metadata != oldState.metadata,
                // don't notify if empty string (first time only)
                (oldState.metadata == nil ? !metadata.isEmpty : true) {
 
@@ -173,14 +173,14 @@ public class Room: NSObject, Loggable {
             }
 
             // isRecording updated
-            if state.isRecording != oldState.isRecording {
+            if newState.isRecording != oldState.isRecording {
                 // proceed only if connected...
                 self.engine.executeIfConnected { [weak self] in
 
                     guard let self = self else { return }
 
-                    self.delegates.notify(label: { "room.didUpdate isRecording: \(state.isRecording)" }) {
-                        $0.room?(self, didUpdate: state.isRecording)
+                    self.delegates.notify(label: { "room.didUpdate isRecording: \(newState.isRecording)" }) {
+                        $0.room?(self, didUpdate: newState.isRecording)
                     }
                 }
             }
@@ -325,13 +325,13 @@ extension Room {
         engine.signalClient.sendSimulate(scenario: scenario)
     }
 
-    public func waitForPrimaryTransportConnect() -> Promise<Void> {
+    public func waitForPrimaryTransportConnect() -> Promise<Bool> {
         engine._state.mutate {
             $0.primaryTransportConnectedCompleter.wait(on: queue, .defaultTransportState, throw: { TransportError.timedOut(message: "primary transport didn't connect") })
         }
     }
 
-    public func waitForPublisherTransportConnect() -> Promise<Void> {
+    public func waitForPublisherTransportConnect() -> Promise<Bool> {
         engine._state.mutate {
             $0.publisherTransportConnectedCompleter.wait(on: queue, .defaultTransportState, throw: { TransportError.timedOut(message: "publisher transport didn't connect") })
         }

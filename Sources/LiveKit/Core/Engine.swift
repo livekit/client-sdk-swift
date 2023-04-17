@@ -30,7 +30,7 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
 
     public typealias ConditionEvalFunc = (_ newState: State, _ oldState: State?) -> Bool
 
-    public struct State: ReconnectableState {
+    public struct State: ReconnectableState, Equatable {
         var connectOptions: ConnectOptions
         var url: String?
         var token: String?
@@ -40,8 +40,8 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
         var connectionState: ConnectionState = .disconnected()
         var connectStopwatch = Stopwatch(label: "connect")
         var hasPublished: Bool = false
-        var primaryTransportConnectedCompleter = Completer<Void>()
-        var publisherTransportConnectedCompleter = Completer<Void>()
+        var primaryTransportConnectedCompleter = Completer<Bool>()
+        var publisherTransportConnectedCompleter = Completer<Bool>()
     }
 
     public var _state: StateSync<State>
@@ -87,17 +87,17 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
         ConnectivityListener.shared.add(delegate: self)
 
         // trigger events when state mutates
-        self._state.onMutate = { [weak self] state, oldState in
+        self._state.onDidMutate = { [weak self] newState, oldState in
 
             guard let self = self else { return }
 
-            assert(!(state.connectionState == .reconnecting && state.reconnectMode == .none), "reconnectMode should not be .none")
+            assert(!(newState.connectionState == .reconnecting && newState.reconnectMode == .none), "reconnectMode should not be .none")
 
-            if (state.connectionState != oldState.connectionState) || (state.reconnectMode != oldState.reconnectMode) {
-                self.log("connectionState: \(oldState.connectionState) -> \(state.connectionState), reconnectMode: \(String(describing: state.reconnectMode))")
+            if (newState.connectionState != oldState.connectionState) || (newState.reconnectMode != oldState.reconnectMode) {
+                self.log("connectionState: \(oldState.connectionState) -> \(newState.connectionState), reconnectMode: \(String(describing: newState.reconnectMode))")
             }
 
-            self.notify { $0.engine(self, didMutate: state, oldState: oldState) }
+            self.notify { $0.engine(self, didMutate: newState, oldState: oldState) }
 
             // execution control
             self._blockProcessQueue.async { [weak self] in
@@ -107,9 +107,9 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
 
                 self._queuedBlocks.removeAll { entry in
                     // return and remove this entry if matches remove condition
-                    guard !entry.removeCondition(state, oldState) else { return true }
+                    guard !entry.removeCondition(newState, oldState) else { return true }
                     // return but don't remove this entry if doesn't match execute condition
-                    guard entry.executeCondition(state, oldState) else { return false }
+                    guard entry.executeCondition(newState, oldState) else { return false }
 
                     self.log("[execution control] condition matching block...")
                     entry.block()
@@ -254,7 +254,7 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
                                                              throw: { TransportError.timedOut(message: "publisher didn't connect") })
             }
 
-            return publisherConnectCompleter.then(on: queue) { () -> Promise<Void> in
+            return publisherConnectCompleter.then(on: queue) { _ -> Promise<Void> in
                 self.log("send data: publisher connected...")
                 // wait for publisherDC to open
                 return self.publisherDC.openCompleter
@@ -344,7 +344,7 @@ private extension Engine {
                 self._state.mutate { $0.primaryTransportConnectedCompleter.wait(on: self.queue,
                                                                                 .defaultTransportState,
                                                                                 throw: { TransportError.timedOut(message: "primary transport didn't connect") }) }
-            }.then(on: queue) {
+            }.then(on: queue) { _ -> Void in
                 self._state.mutate { $0.connectStopwatch.split(label: "engine") }
                 self.log("\(self._state.connectStopwatch)")
             }
@@ -387,7 +387,7 @@ private extension Engine {
                                                 self._state.mutate { $0.primaryTransportConnectedCompleter.wait(on: self.queue,
                                                                                                                 .defaultTransportState,
                                                                                                                 throw: { TransportError.timedOut(message: "primary transport didn't connect") }) }
-                                             }.then(on: queue) {
+                                             }.then(on: queue) { _ in
                                                 // send SyncState before offer
                                                 self.sendSyncState()
                                              }.then(on: queue) { () -> Promise<Void> in
@@ -404,7 +404,7 @@ private extension Engine {
                                                 return publisher.createAndSendOffer(iceRestart: true).then(on: self.queue) {
                                                     self._state.mutate { $0.publisherTransportConnectedCompleter.wait(on: self.queue,
                                                                                                                       .defaultTransportState,
-                                                                                                                      throw: { TransportError.timedOut(message: "publisher transport didn't connect") }) }
+                                                                                                                      throw: { TransportError.timedOut(message: "publisher transport didn't connect") }) }.then { _ in }
                                                 }
 
                                              }.then(on: queue) { () -> Promise<Void> in
@@ -626,12 +626,12 @@ extension Engine: TransportDelegate {
 
         // primary connected
         if transport.primary {
-            _state.mutate { $0.primaryTransportConnectedCompleter.set(value: .connected == pcState ? () : nil) }
+            _state.mutate { $0.primaryTransportConnectedCompleter.set(value: .connected == pcState ? true : nil) }
         }
 
         // publisher connected
         if case .publisher = transport.target {
-            _state.mutate { $0.publisherTransportConnectedCompleter.set(value: .connected == pcState ? () : nil) }
+            _state.mutate { $0.publisherTransportConnectedCompleter.set(value: .connected == pcState ? true : nil) }
         }
 
         if _state.connectionState.isConnected {

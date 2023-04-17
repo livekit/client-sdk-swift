@@ -74,7 +74,7 @@ public class Participant: NSObject, Loggable {
 
     // MARK: - Internal
 
-    internal struct State {
+    internal struct State: Equatable {
         var identity: String
         var name: String
         var audioLevel: Float = 0.0
@@ -105,18 +105,18 @@ public class Participant: NSObject, Loggable {
         super.init()
 
         // trigger events when state mutates
-        _state.onMutate = { [weak self] state, oldState in
+        _state.onDidMutate = { [weak self] newState, oldState in
 
             guard let self = self else { return }
 
-            if state.isSpeaking != oldState.isSpeaking {
+            if newState.isSpeaking != oldState.isSpeaking {
                 self.delegates.notify(label: { "participant.didUpdate isSpeaking: \(self.isSpeaking)" }) {
                     $0.participant?(self, didUpdate: self.isSpeaking)
                 }
             }
 
             // metadata updated
-            if let metadata = state.metadata, metadata != oldState.metadata,
+            if let metadata = newState.metadata, metadata != oldState.metadata,
                // don't notify if empty string (first time only)
                (oldState.metadata == nil ? !metadata.isEmpty : true) {
 
@@ -128,7 +128,7 @@ public class Participant: NSObject, Loggable {
                 }
             }
 
-            if state.connectionQuality != oldState.connectionQuality {
+            if newState.connectionQuality != oldState.connectionQuality {
                 self.delegates.notify(label: { "participant.didUpdate connectionQuality: \(self.connectionQuality)" }) {
                     $0.participant?(self, didUpdate: self.connectionQuality)
                 }

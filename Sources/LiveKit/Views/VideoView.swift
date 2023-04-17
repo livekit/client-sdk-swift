@@ -73,11 +73,11 @@ public class VideoView: NativeView, Loggable {
     /// Calls addRenderer and/or removeRenderer internally for convenience.
     @objc
     public weak var track: VideoTrack? {
-        get { _state.track }
+        get { _state.track as? VideoTrack }
         set {
             _state.mutate {
                 // reset states if track updated
-                if !Self.track($0.track, isEqualWith: newValue) {
+                if !Self.track($0.track as? VideoTrack, isEqualWith: newValue) {
                     $0.renderDate = nil
                     $0.didRenderFirstFrame = false
                     $0.isRendering = false
@@ -120,9 +120,9 @@ public class VideoView: NativeView, Loggable {
 
     // MARK: - Internal
 
-    internal struct State {
+    internal struct State: Equatable {
 
-        weak var track: VideoTrack?
+        weak var track: Track?
         var isEnabled: Bool = true
         var isHidden: Bool = false
 
@@ -176,21 +176,21 @@ public class VideoView: NativeView, Loggable {
         #endif
 
         // trigger events when state mutates
-        _state.onMutate = { [weak self] state, oldState in
+        _state.onDidMutate = { [weak self] newState, oldState in
 
             guard let self = self else { return }
 
-            let shouldRenderDidUpdate = state.shouldRender != oldState.shouldRender
+            let shouldRenderDidUpdate = newState.shouldRender != oldState.shouldRender
 
             // track was swapped
-            let trackDidUpdate = !Self.track(oldState.track, isEqualWith: state.track)
+            let trackDidUpdate = !Self.track(oldState.track as? VideoTrack, isEqualWith: newState.track as? VideoTrack)
 
             if trackDidUpdate || shouldRenderDidUpdate {
 
                 Task.detached { @MainActor in
 
                     // clean up old track
-                    if let track = oldState.track {
+                    if let track = oldState.track as? VideoTrack {
 
                         track.remove(videoRenderer: self)
 
@@ -213,7 +213,7 @@ public class VideoView: NativeView, Loggable {
                     }
 
                     // set new track
-                    if let track = state.track, state.shouldRender {
+                    if let track = newState.track as? VideoTrack, newState.shouldRender {
 
                         // re-create renderer on main thread
                         let nr = self.reCreateNativeRenderer()
@@ -242,25 +242,25 @@ public class VideoView: NativeView, Loggable {
             }
 
             // isRendering updated
-            if state.isRendering != oldState.isRendering {
+            if newState.isRendering != oldState.isRendering {
 
-                self.log("isRendering \(oldState.isRendering) -> \(state.isRendering)")
+                self.log("isRendering \(oldState.isRendering) -> \(newState.isRendering)")
 
-                if state.isRendering {
+                if newState.isRendering {
                     self._renderTimer.restart()
                 } else {
                     self._renderTimer.suspend()
                 }
 
-                self.delegates.notify(label: { "videoView.didUpdate isRendering: \(state.isRendering)" }) {
-                    $0.videoView?(self, didUpdate: state.isRendering)
+                self.delegates.notify(label: { "videoView.didUpdate isRendering: \(newState.isRendering)" }) {
+                    $0.videoView?(self, didUpdate: newState.isRendering)
                 }
             }
 
             // viewSize updated
-            if state.viewSize != oldState.viewSize {
-                self.delegates.notify(label: { "videoView.didUpdate viewSize: \(state.viewSize)" }) {
-                    $0.videoView?(self, didUpdate: state.viewSize)
+            if newState.viewSize != oldState.viewSize {
+                self.delegates.notify(label: { "videoView.didUpdate viewSize: \(newState.viewSize)" }) {
+                    $0.videoView?(self, didUpdate: newState.viewSize)
                 }
             }
 
@@ -270,11 +270,11 @@ public class VideoView: NativeView, Loggable {
             // nativeRenderer.asMetalView?.isPaused = !shouldAttach
 
             // layout is required if any of the following vars mutate
-            if state.debugMode != oldState.debugMode ||
-                state.layoutMode != oldState.layoutMode ||
-                state.mirrorMode != oldState.mirrorMode ||
-                state.rotationOverride != oldState.rotationOverride ||
-                state.didRenderFirstFrame != oldState.didRenderFirstFrame ||
+            if newState.debugMode != oldState.debugMode ||
+                newState.layoutMode != oldState.layoutMode ||
+                newState.mirrorMode != oldState.mirrorMode ||
+                newState.rotationOverride != oldState.rotationOverride ||
+                newState.didRenderFirstFrame != oldState.didRenderFirstFrame ||
                 shouldRenderDidUpdate || trackDidUpdate {
 
                 // must be on main
@@ -283,9 +283,9 @@ public class VideoView: NativeView, Loggable {
                 }
             }
 
-            if state.debugMode != oldState.debugMode {
+            if newState.debugMode != oldState.debugMode {
                 // fps timer
-                if state.debugMode {
+                if newState.debugMode {
                     self._fpsTimer.restart()
                 } else {
                     self._fpsTimer.suspend()
