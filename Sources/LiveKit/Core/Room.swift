@@ -199,7 +199,7 @@ public class Room: NSObject, ObservableObject, Loggable {
 
         log("connecting to room...", .info)
 
-        let state = _state.readCopy()
+        let state = _state.copy()
 
         guard state.localParticipant == nil else {
             log("localParticipant is not nil", .warning)

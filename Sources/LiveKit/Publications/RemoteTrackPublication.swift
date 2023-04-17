@@ -247,7 +247,7 @@ internal extension RemoteTrackPublication {
 
         log("[adaptiveStream] sending \(newValue), sid: \(sid)")
 
-        let state = _state.readCopy()
+        let state = _state.copy()
 
         assert(!state.isSendingTrackSettings, "send(trackSettings:) called while previous send not completed")
 
