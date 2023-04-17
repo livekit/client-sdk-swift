@@ -24,14 +24,14 @@ public typealias NativeRendererView = NativeViewType & RTCVideoRenderer
 @objc
 public class VideoView: NativeView, Loggable {
 
+    // MARK: - MulticastDelegate
+
+    internal var delegates = MulticastDelegate<VideoViewDelegate>()
+
     // MARK: - Static
 
     private static let mirrorTransform = CATransform3DMakeScale(-1.0, 1.0, 1.0)
     private static let _freezeDetectThreshold = 2.0
-
-    // MARK: - MulticastDelegate
-
-    private var delegates = MulticastDelegate<VideoViewDelegate>()
 
     /// Specifies how to render the video withing the ``VideoView``'s bounds.
     @objc
@@ -591,26 +591,6 @@ internal extension VideoView {
         guard let track1 = track1, let track2 = track2 else { return false }
         // use isEqual
         return track1.isEqual(track2)
-    }
-}
-
-// MARK: - MulticastDelegate
-
-extension VideoView: MulticastDelegateProtocol {
-
-    @objc(addDelegate:)
-    public func add(delegate: VideoViewDelegate) {
-        delegates.add(delegate: delegate)
-    }
-
-    @objc(removeDelegate:)
-    public func remove(delegate: VideoViewDelegate) {
-        delegates.remove(delegate: delegate)
-    }
-
-    @objc
-    public func removeAllDelegates() {
-        delegates.removeAllDelegates()
     }
 }
 

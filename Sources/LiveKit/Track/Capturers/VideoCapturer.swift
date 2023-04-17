@@ -44,7 +44,7 @@ public class VideoCapturer: NSObject, Loggable, VideoCapturerProtocol {
 
     // MARK: - MulticastDelegate
 
-    private var delegates = MulticastDelegate<VideoCapturerDelegate>()
+    internal var delegates = MulticastDelegate<VideoCapturerDelegate>()
 
     internal let queue = DispatchQueue(label: "LiveKitSDK.videoCapturer", qos: .default)
 
@@ -142,25 +142,5 @@ public class VideoCapturer: NSObject, Loggable, VideoCapturerProtocol {
         stopCapture().then(on: queue) { _ -> Promise<Bool> in
             self.startCapture()
         }
-    }
-}
-
-// MARK: - MulticastDelegate
-
-extension VideoCapturer: MulticastDelegateProtocol {
-
-    @objc(addDelegate:)
-    public func add(delegate: VideoCapturerDelegate) {
-        delegates.add(delegate: delegate)
-    }
-
-    @objc(removeDelegate:)
-    public func remove(delegate: VideoCapturerDelegate) {
-        delegates.remove(delegate: delegate)
-    }
-
-    @objc
-    public func removeAllDelegates() {
-        delegates.removeAllDelegates()
     }
 }
