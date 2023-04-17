@@ -70,7 +70,7 @@ public class VideoCapturer: NSObject, Loggable, VideoCapturerProtocol {
 
     internal weak var delegate: RTCVideoCapturerDelegate?
 
-    internal struct State {
+    internal struct State: Equatable {
         var dimensionsCompleter = Completer<Dimensions>()
     }
 

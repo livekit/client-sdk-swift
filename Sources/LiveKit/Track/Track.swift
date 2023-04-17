@@ -111,7 +111,7 @@ public class Track: NSObject, Loggable {
     // Weak reference to all VideoViews attached to this track. Must be accessed from main thread.
     internal var videoRenderers = NSHashTable<VideoRenderer>.weakObjects()
 
-    internal struct State {
+    internal struct State: Equatable {
         var sid: Sid?
         var dimensions: Dimensions?
         var videoFrame: RTCVideoFrame?

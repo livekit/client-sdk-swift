@@ -64,7 +64,7 @@ public class TrackPublication: NSObject, TrackDelegate, Loggable {
     internal weak var participant: Participant?
     internal private(set) var latestInfo: Livekit_TrackInfo?
 
-    internal struct State {
+    internal struct State: Equatable {
         var track: Track?
         var name: String
         var mimeType: String
@@ -105,17 +105,17 @@ public class TrackPublication: NSObject, TrackDelegate, Loggable {
         track?.add(delegate: self)
 
         // trigger events when state mutates
-        self._state.onMutate = { [weak self] state, oldState in
+        self._state.onDidMutate = { [weak self] newState, oldState in
 
             guard let self = self else { return }
 
-            if state.streamState != oldState.streamState {
+            if newState.streamState != oldState.streamState {
                 if let participant = self.participant as? RemoteParticipant, let trackPublication = self as? RemoteTrackPublication {
-                    participant.delegates.notify(label: { "participant.didUpdate \(trackPublication) streamState: \(state.streamState)" }) {
-                        $0.participant?(participant, didUpdate: trackPublication, streamState: state.streamState)
+                    participant.delegates.notify(label: { "participant.didUpdate \(trackPublication) streamState: \(newState.streamState)" }) {
+                        $0.participant?(participant, didUpdate: trackPublication, streamState: newState.streamState)
                     }
-                    participant.room.delegates.notify(label: { "room.didUpdate \(trackPublication) streamState: \(state.streamState)" }) {
-                        $0.room?(participant.room, participant: participant, didUpdate: trackPublication, streamState: state.streamState)
+                    participant.room.delegates.notify(label: { "room.didUpdate \(trackPublication) streamState: \(newState.streamState)" }) {
+                        $0.room?(participant.room, participant: participant, didUpdate: trackPublication, streamState: newState.streamState)
                     }
                 }
             }
