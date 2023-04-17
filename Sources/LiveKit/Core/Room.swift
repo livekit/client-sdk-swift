@@ -150,17 +150,6 @@ public class Room: NSObject, ObservableObject, Loggable {
                 }
             }
         }
-
-        delegates.onNotify = { [weak self] in
-
-            guard let self = self else { return }
-
-            Task { @MainActor in
-                self.objectWillChange.send()
-            }
-
-            self.log("Room.objectWillChange", .debug)
-        }
     }
 
     deinit {
