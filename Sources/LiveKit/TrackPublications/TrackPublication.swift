@@ -207,6 +207,11 @@ public class TrackPublication: NSObject, ObservableObject, TrackDelegate, Loggab
                 participant.room.delegates.notify {
                     $0.room?(participant.room, participant: participant, didUpdate: self, muted: self.muted)
                 }
+                // TrackPublication.muted is a computed property depending on Track.muted
+                // so emit event on TrackPublication when Track.muted updates
+                Task.detached { @MainActor in
+                    self.objectWillChange.send()
+                }
             }
     }
 }
