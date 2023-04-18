@@ -74,7 +74,8 @@ extension ObservableParticipant: ParticipantDelegate, Loggable {
     public func participant(_ participant: Participant, didUpdate speaking: Bool) {
         DispatchQueue.main.async {
             self.objectWillChange.send()
-        }    }
+        }
+    }
 
     public func participant(_ participant: Participant, didUpdate connectionQuality: ConnectionQuality) {
         DispatchQueue.main.async {
