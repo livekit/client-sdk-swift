@@ -330,7 +330,7 @@ public class VideoView: NativeView, Loggable {
         // should always be on main thread
         assert(Thread.current.isMainThread, "must be called on main thread")
 
-        let state = _state.readCopy()
+        let state = _state.copy()
 
         defer {
             let viewSize = frame.size
@@ -507,7 +507,7 @@ extension VideoView: VideoRenderer {
 
     public func renderFrame(_ frame: RTCVideoFrame?) {
 
-        let state = _state.readCopy()
+        let state = _state.copy()
 
         // prevent any extra rendering if already !isEnabled etc.
         guard state.shouldRender, let nr = nativeRenderer else {

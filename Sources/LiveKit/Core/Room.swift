@@ -23,7 +23,7 @@ import Network
 #endif
 
 @objc
-public class Room: NSObject, Loggable {
+public class Room: NSObject, ObservableObject, Loggable {
 
     // MARK: - MulticastDelegate
 
@@ -184,6 +184,10 @@ public class Room: NSObject, Loggable {
                     }
                 }
             }
+
+            Task.detached { @MainActor in
+                self.objectWillChange.send()
+            }
         }
     }
 
@@ -199,7 +203,7 @@ public class Room: NSObject, Loggable {
 
         log("connecting to room...", .info)
 
-        let state = _state.readCopy()
+        let state = _state.copy()
 
         guard state.localParticipant == nil else {
             log("localParticipant is not nil", .warning)
@@ -632,6 +636,11 @@ extension Room: EngineDelegate {
         if state.connectionState.isReconnecting && state.reconnectMode == .full && oldState.reconnectMode != .full {
             // started full reconnect
             cleanUpParticipants(notify: true)
+        }
+
+        // Notify change when engine's state mutates
+        Task.detached { @MainActor in
+            self.objectWillChange.send()
         }
     }
 

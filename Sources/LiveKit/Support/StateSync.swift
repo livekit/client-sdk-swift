@@ -36,7 +36,7 @@ internal final class StateSync<Value: Equatable> {
         self.onDidMutate = onMutate
     }
 
-    // mutate sync (blocking)
+    // mutate sync
     @discardableResult
     public func mutate<Result>(_ block: (inout Value) throws -> Result) rethrows -> Result {
         try lock.sync {
@@ -52,12 +52,12 @@ internal final class StateSync<Value: Equatable> {
         }
     }
 
-    // read sync and return copy (concurrent)
-    public func readCopy() -> Value {
+    // read sync and return copy
+    public func copy() -> Value {
         lock.sync { subject.value }
     }
 
-    // read sync
+    // read with block
     public func read<Result>(_ block: (Value) throws -> Result) rethrows -> Result {
         try lock.sync { try block(subject.value) }
     }
@@ -71,6 +71,6 @@ internal final class StateSync<Value: Equatable> {
 extension StateSync: CustomStringConvertible {
 
     var description: String {
-        "StateSync(\(String(describing: readCopy()))"
+        "StateSync(\(String(describing: copy()))"
     }
 }

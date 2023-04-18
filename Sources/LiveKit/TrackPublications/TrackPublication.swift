@@ -17,20 +17,21 @@
 import Foundation
 import CoreGraphics
 import Promises
+import Combine
 
 @objc
-public class TrackPublication: NSObject, TrackDelegate, Loggable {
+public class TrackPublication: NSObject, ObservableObject, TrackDelegate, Loggable {
 
-    internal let queue = DispatchQueue(label: "LiveKitSDK.publication", qos: .default)
-
-    @objc
-    public let sid: Sid
+    // MARK: - Public properties
 
     @objc
-    public let kind: Track.Kind
+    public var sid: Sid { _state.sid }
 
     @objc
-    public let source: Track.Source
+    public var kind: Track.Kind { _state.kind }
+
+    @objc
+    public var source: Track.Source { _state.source }
 
     @objc
     public var name: String { _state.name }
@@ -60,11 +61,17 @@ public class TrackPublication: NSObject, TrackDelegate, Loggable {
 
     // MARK: - Internal
 
+    internal let queue = DispatchQueue(label: "LiveKitSDK.publication", qos: .default)
+
     /// Reference to the ``Participant`` this publication belongs to.
     internal weak var participant: Participant?
     internal private(set) var latestInfo: Livekit_TrackInfo?
 
-    internal struct State: Equatable {
+    internal struct State: Equatable, Hashable {
+        let sid: Sid
+        let kind: Track.Kind
+        let source: Track.Source
+
         var track: Track?
         var name: String
         var mimeType: String
@@ -77,6 +84,11 @@ public class TrackPublication: NSObject, TrackDelegate, Loggable {
         var trackSettings = TrackSettings()
         //
         var isSendingTrackSettings: Bool = false
+
+        // Only for RemoteTrackPublications
+        // user's preference to subscribe or not
+        var preferSubscribed: Bool?
+        var metadataMuted: Bool = false
     }
 
     internal var _state: StateSync<State>
@@ -85,15 +97,14 @@ public class TrackPublication: NSObject, TrackDelegate, Loggable {
                   track: Track? = nil,
                   participant: Participant) {
 
-        // initial state
         _state = StateSync(State(
+            sid: info.sid,
+            kind: info.type.toLKType(),
+            source: info.source.toLKType(),
             name: info.name,
             mimeType: info.mimeType
         ))
 
-        self.sid = info.sid
-        self.kind = info.type.toLKType()
-        self.source = info.source.toLKType()
         self.participant = participant
 
         super.init()
@@ -118,6 +129,10 @@ public class TrackPublication: NSObject, TrackDelegate, Loggable {
                         $0.room?(participant.room, participant: participant, didUpdate: trackPublication, streamState: newState.streamState)
                     }
                 }
+            }
+
+            Task.detached { @MainActor in
+                self.objectWillChange.send()
             }
         }
     }
@@ -193,18 +208,5 @@ public class TrackPublication: NSObject, TrackDelegate, Loggable {
                     $0.room?(participant.room, participant: participant, didUpdate: self, muted: self.muted)
                 }
             }
-    }
-
-    // MARK: - Equal
-
-    public override func isEqual(_ object: Any?) -> Bool {
-        guard let other = object as? Self else { return false }
-        return self.sid == other.sid
-    }
-
-    public override var hash: Int {
-        var hasher = Hasher()
-        hasher.combine(sid)
-        return hasher.finalize()
     }
 }

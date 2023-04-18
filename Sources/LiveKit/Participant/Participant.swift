@@ -19,7 +19,7 @@ import WebRTC
 import Promises
 
 @objc
-public class Participant: NSObject, Loggable {
+public class Participant: NSObject, ObservableObject, Loggable {
 
     // MARK: - MulticastDelegate
 
@@ -28,7 +28,7 @@ public class Participant: NSObject, Loggable {
     internal let queue = DispatchQueue(label: "LiveKitSDK.participant", qos: .default)
 
     @objc
-    public let sid: Sid
+    public var sid: Sid { _state.sid }
 
     @objc
     public var identity: String { _state.identity }
@@ -74,7 +74,8 @@ public class Participant: NSObject, Loggable {
 
     // MARK: - Internal
 
-    internal struct State: Equatable {
+    internal struct State: Equatable, Hashable {
+        let sid: Sid
         var identity: String
         var name: String
         var audioLevel: Float = 0.0
@@ -93,11 +94,11 @@ public class Participant: NSObject, Loggable {
                   name: String,
                   room: Room) {
 
-        self.sid = sid
         self.room = room
 
         // initial state
         _state = StateSync(State(
+            sid: sid,
             identity: identity,
             name: name
         ))
@@ -136,6 +137,11 @@ public class Participant: NSObject, Loggable {
                     $0.room?(self.room, participant: self, didUpdate: self.connectionQuality)
                 }
             }
+
+            // notify object change when any state updates
+            Task.detached { @MainActor in
+                self.objectWillChange.send()
+            }
         }
     }
 
@@ -144,7 +150,7 @@ public class Participant: NSObject, Loggable {
 
         unpublishAll(notify: _notify).then(on: queue) {
             // reset state
-            self._state.mutate { $0 = State(identity: $0.identity, name: $0.name) }
+            self._state.mutate { $0 = State(sid: $0.sid, identity: $0.identity, name: $0.name) }
         }
     }
 
@@ -223,23 +229,5 @@ extension Participant {
         }
 
         return nil
-    }
-}
-
-// MARK: - Equality
-
-public extension Participant {
-
-    override var hash: Int {
-        var hasher = Hasher()
-        hasher.combine(sid)
-        return hasher.finalize()
-    }
-
-    override func isEqual(_ object: Any?) -> Bool {
-        guard let other = object as? Participant else {
-            return false
-        }
-        return sid == other.sid
     }
 }
