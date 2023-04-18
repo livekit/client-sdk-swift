@@ -184,6 +184,10 @@ public class Room: NSObject, ObservableObject, Loggable {
                     }
                 }
             }
+
+            Task.detached { @MainActor in
+                self.objectWillChange.send()
+            }
         }
     }
 
@@ -632,6 +636,11 @@ extension Room: EngineDelegate {
         if state.connectionState.isReconnecting && state.reconnectMode == .full && oldState.reconnectMode != .full {
             // started full reconnect
             cleanUpParticipants(notify: true)
+        }
+
+        // Notify change when engine's state mutates
+        Task.detached { @MainActor in
+            self.objectWillChange.send()
         }
     }
 

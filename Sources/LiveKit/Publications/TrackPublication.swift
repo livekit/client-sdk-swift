@@ -17,6 +17,7 @@
 import Foundation
 import CoreGraphics
 import Promises
+import Combine
 
 @objc
 public class TrackPublication: NSObject, ObservableObject, TrackDelegate, Loggable {
@@ -59,7 +60,7 @@ public class TrackPublication: NSObject, ObservableObject, TrackDelegate, Loggab
     public var subscribed: Bool { _state.track != nil }
 
     // MARK: - Internal
-    
+
     internal let queue = DispatchQueue(label: "LiveKitSDK.publication", qos: .default)
 
     /// Reference to the ``Participant`` this publication belongs to.
@@ -83,6 +84,11 @@ public class TrackPublication: NSObject, ObservableObject, TrackDelegate, Loggab
         var trackSettings = TrackSettings()
         //
         var isSendingTrackSettings: Bool = false
+
+        // Only for RemoteTrackPublications
+        // user's preference to subscribe or not
+        var preferSubscribed: Bool?
+        var metadataMuted: Bool = false
     }
 
     internal var _state: StateSync<State>
@@ -125,7 +131,6 @@ public class TrackPublication: NSObject, ObservableObject, TrackDelegate, Loggab
                 }
             }
 
-            // notify object change when any state updates
             Task.detached { @MainActor in
                 self.objectWillChange.send()
             }
