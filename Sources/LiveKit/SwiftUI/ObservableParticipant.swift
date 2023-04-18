@@ -25,46 +25,61 @@ extension ObservableParticipant: ParticipantDelegate, Loggable {
                             didSubscribe trackPublication: RemoteTrackPublication,
                             track: Track) {
         log("\(self.hashValue) didSubscribe remoteTrack: \(String(describing: track.sid))")
-        // DispatchQueue.main.async { self.objectWillChange.send() }
+        DispatchQueue.main.async {
+            self.objectWillChange.send()
+        }
     }
 
     public func participant(_ participant: RemoteParticipant,
                             didUnsubscribe trackPublication: RemoteTrackPublication,
                             track: Track) {
         log("\(self.hashValue) didUnsubscribe remoteTrack: \(String(describing: track.sid))")
-        // DispatchQueue.main.async { self.objectWillChange.send() }
+        DispatchQueue.main.async {
+            self.objectWillChange.send()
+        }
     }
 
     public func participant(_ participant: RemoteParticipant,
                             didUpdate publication: RemoteTrackPublication,
                             permission allowed: Bool) {
         log("\(self.hashValue) didUpdate allowed: \(allowed)")
-        // DispatchQueue.main.async { self.objectWillChange.send() }
+        DispatchQueue.main.async {
+            self.objectWillChange.send()
+        }
     }
 
     public func localParticipant(_ participant: LocalParticipant,
                                  didPublish trackPublication: LocalTrackPublication) {
-        // DispatchQueue.main.async { self.objectWillChange.send() }
+        DispatchQueue.main.async {
+            self.objectWillChange.send()
+        }
     }
 
     public func localParticipant(_ participant: LocalParticipant,
                                  didUnpublish trackPublication: LocalTrackPublication) {
-        // DispatchQueue.main.async { self.objectWillChange.send() }
+        DispatchQueue.main.async {
+            self.objectWillChange.send()
+        }
     }
 
     public func participant(_ participant: Participant,
                             didUpdate trackPublication: TrackPublication,
                             muted: Bool) {
         log("\(self.hashValue) didUpdate muted: \(muted)")
-        // DispatchQueue.main.async { self.objectWillChange.send() }
+        DispatchQueue.main.async {
+            self.objectWillChange.send()
+        }
     }
 
     public func participant(_ participant: Participant, didUpdate speaking: Bool) {
-        // DispatchQueue.main.async { self.objectWillChange.send() }
-    }
+        DispatchQueue.main.async {
+            self.objectWillChange.send()
+        }    }
 
     public func participant(_ participant: Participant, didUpdate connectionQuality: ConnectionQuality) {
-        // DispatchQueue.main.async { self.objectWillChange.send() }
+        DispatchQueue.main.async {
+            self.objectWillChange.send()
+        }
     }
 }
 
