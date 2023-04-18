@@ -22,7 +22,6 @@ import Promises
 @available(*, deprecated, message: "Room is now an ObservableObject which can be observed directly.")
 open class ObservableRoom: ObservableObject, RoomDelegate, Loggable {
 
-    @Published
     public var room: Room
 
     public var connectionState: ConnectionState {
@@ -168,22 +167,22 @@ open class ObservableRoom: ObservableObject, RoomDelegate, Loggable {
                 self.microphoneTrackState = .notPublished()
                 self.screenShareTrackState = .notPublished()
             }
-            // self.objectWillChange.send()
+            self.objectWillChange.send()
         }
     }
 
     open func room(_ room: Room,
                    participantDidJoin participant: RemoteParticipant) {
-        // DispatchQueue.main.async { self.objectWillChange.send() }
+        DispatchQueue.main.async { self.objectWillChange.send() }
     }
 
     open func room(_ room: Room,
                    participantDidLeave participant: RemoteParticipant) {
-        // DispatchQueue.main.async { self.objectWillChange.send() }
+        DispatchQueue.main.async { self.objectWillChange.send() }
     }
 
     open func room(_ room: Room, participant: Participant, didUpdate metadata: String?) {
-        // DispatchQueue.main.async { self.objectWillChange.send() }
+        DispatchQueue.main.async { self.objectWillChange.send() }
     }
 
     open func room(_ room: Room, didConnect isReconnect: Bool) {}
