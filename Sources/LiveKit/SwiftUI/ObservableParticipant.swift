@@ -118,7 +118,6 @@ extension ObservableParticipant {
 @available(*, deprecated, message: "Participant is now an ObservableObject which can be observed directly.")
 open class ObservableParticipant: ObservableObject {
 
-    @Published
     public var participant: Participant
 
     public var asLocal: LocalParticipant? {
@@ -144,11 +143,5 @@ open class ObservableParticipant: ObservableObject {
     public init(_ participant: Participant) {
         self.participant = participant
         participant.add(delegate: self)
-
-        $participant.sink { [weak self] _ in
-            guard let self = self else { return }
-            self.log("sink!")
-            DispatchQueue.main.async { self.objectWillChange.send() }
-        }
     }
 }
