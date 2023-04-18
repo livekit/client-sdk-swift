@@ -22,7 +22,7 @@ import Promises
 @available(*, deprecated, message: "Room is now an ObservableObject which can be observed directly.")
 open class ObservableRoom: ObservableObject, RoomDelegate, Loggable {
 
-    public var room: Room
+    public let room: Room
 
     public var connectionState: ConnectionState {
         room.connectionState

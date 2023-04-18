@@ -118,7 +118,7 @@ extension ObservableParticipant {
 @available(*, deprecated, message: "Participant is now an ObservableObject which can be observed directly.")
 open class ObservableParticipant: ObservableObject {
 
-    public var participant: Participant
+    public let participant: Participant
 
     public var asLocal: LocalParticipant? {
         participant as? LocalParticipant
