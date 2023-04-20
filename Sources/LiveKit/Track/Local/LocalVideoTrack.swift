@@ -137,3 +137,14 @@ extension LocalVideoTrack {
         info.sender = simulcastSender
     }
 }
+
+extension LocalVideoTrack {
+
+    // experimental
+    public func clone() -> LocalVideoTrack {
+        LocalVideoTrack(name: name,
+                        source: source,
+                        capturer: capturer,
+                        videoSource: videoSource)
+    }
+}

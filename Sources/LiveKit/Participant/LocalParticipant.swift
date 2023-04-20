@@ -547,8 +547,11 @@ extension LocalParticipant {
         } else if enabled {
             // try to create a new track
             if source == .camera {
-                let localTrack = LocalVideoTrack.createCameraTrack(options: (captureOptions as? CameraCaptureOptions) ?? room._state.options.defaultCameraCaptureOptions)
-                return publishVideoTrack(track: localTrack, publishOptions: publishOptions as? VideoPublishOptions).then(on: queue) { $0 }
+                let localTrack1 = LocalVideoTrack.createCameraTrack(options: (captureOptions as? CameraCaptureOptions) ?? room._state.options.defaultCameraCaptureOptions)
+                let localTrack2 = localTrack1.clone()
+                let p1 = publishVideoTrack(track: localTrack1, publishOptions: publishOptions as? VideoPublishOptions).then(on: queue) { $0 }
+                let p2 = publishVideoTrack(track: localTrack2, publishOptions: VideoPublishOptions(preferredCodec: .av1)).then(on: queue) { $0 }
+                return all([p1, p2]).then(on: queue) { $0.first! }
             } else if source == .microphone {
                 let localTrack = LocalAudioTrack.createTrack(options: (captureOptions as? AudioCaptureOptions) ?? room._state.options.defaultAudioCaptureOptions)
                 return publishAudioTrack(track: localTrack, publishOptions: publishOptions as? AudioPublishOptions).then(on: queue) { $0 }
