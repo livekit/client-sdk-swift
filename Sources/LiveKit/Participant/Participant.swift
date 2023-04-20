@@ -19,7 +19,7 @@ import WebRTC
 import Promises
 
 @objc
-public class Participant: NSObject, Loggable {
+public class Participant: NSObject, ObservableObject, Loggable {
 
     // MARK: - MulticastDelegate
 
@@ -28,7 +28,7 @@ public class Participant: NSObject, Loggable {
     internal let queue = DispatchQueue(label: "LiveKitSDK.participant", qos: .default)
 
     @objc
-    public let sid: Sid
+    public var sid: Sid { _state.sid }
 
     @objc
     public var identity: String { _state.identity }
@@ -74,7 +74,8 @@ public class Participant: NSObject, Loggable {
 
     // MARK: - Internal
 
-    internal struct State {
+    internal struct State: Equatable, Hashable {
+        let sid: Sid
         var identity: String
         var name: String
         var audioLevel: Float = 0.0
@@ -93,11 +94,11 @@ public class Participant: NSObject, Loggable {
                   name: String,
                   room: Room) {
 
-        self.sid = sid
         self.room = room
 
         // initial state
         _state = StateSync(State(
+            sid: sid,
             identity: identity,
             name: name
         ))
@@ -105,18 +106,18 @@ public class Participant: NSObject, Loggable {
         super.init()
 
         // trigger events when state mutates
-        _state.onMutate = { [weak self] state, oldState in
+        _state.onDidMutate = { [weak self] newState, oldState in
 
             guard let self = self else { return }
 
-            if state.isSpeaking != oldState.isSpeaking {
+            if newState.isSpeaking != oldState.isSpeaking {
                 self.delegates.notify(label: { "participant.didUpdate isSpeaking: \(self.isSpeaking)" }) {
                     $0.participant?(self, didUpdate: self.isSpeaking)
                 }
             }
 
             // metadata updated
-            if let metadata = state.metadata, metadata != oldState.metadata,
+            if let metadata = newState.metadata, metadata != oldState.metadata,
                // don't notify if empty string (first time only)
                (oldState.metadata == nil ? !metadata.isEmpty : true) {
 
@@ -128,13 +129,18 @@ public class Participant: NSObject, Loggable {
                 }
             }
 
-            if state.connectionQuality != oldState.connectionQuality {
+            if newState.connectionQuality != oldState.connectionQuality {
                 self.delegates.notify(label: { "participant.didUpdate connectionQuality: \(self.connectionQuality)" }) {
                     $0.participant?(self, didUpdate: self.connectionQuality)
                 }
                 self.room.delegates.notify(label: { "room.didUpdate connectionQuality: \(self.connectionQuality)" }) {
                     $0.room?(self.room, participant: self, didUpdate: self.connectionQuality)
                 }
+            }
+
+            // notify object change when any state updates
+            Task.detached { @MainActor in
+                self.objectWillChange.send()
             }
         }
     }
@@ -144,7 +150,7 @@ public class Participant: NSObject, Loggable {
 
         unpublishAll(notify: _notify).then(on: queue) {
             // reset state
-            self._state.mutate { $0 = State(identity: $0.identity, name: $0.name) }
+            self._state.mutate { $0 = State(sid: $0.sid, identity: $0.identity, name: $0.name) }
         }
     }
 
@@ -223,43 +229,5 @@ extension Participant {
         }
 
         return nil
-    }
-}
-
-// MARK: - Equality
-
-public extension Participant {
-
-    override var hash: Int {
-        var hasher = Hasher()
-        hasher.combine(sid)
-        return hasher.finalize()
-    }
-
-    override func isEqual(_ object: Any?) -> Bool {
-        guard let other = object as? Participant else {
-            return false
-        }
-        return sid == other.sid
-    }
-}
-
-// MARK: - MulticastDelegate
-
-extension Participant: MulticastDelegateProtocol {
-
-    @objc(addDelegate:)
-    public func add(delegate: ParticipantDelegate) {
-        delegates.add(delegate: delegate)
-    }
-
-    @objc(removeDelegate:)
-    public func remove(delegate: ParticipantDelegate) {
-        delegates.remove(delegate: delegate)
-    }
-
-    @objc
-    public func removeAllDelegates() {
-        delegates.removeAllDelegates()
     }
 }

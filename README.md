@@ -1,11 +1,14 @@
-<!--BEGIN_BANNER_IMAGE--><!--END_BANNER_IMAGE-->
+<!--BEGIN_BANNER_IMAGE-->
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="/.github/banner_dark.png">
+    <source media="(prefers-color-scheme: light)" srcset="/.github/banner_light.png">
+    <img style="width:100%;" alt="The LiveKit icon, the name of the repository and some sample code in the background." src="/.github/banner_light.png">
+  </picture>
+  <!--END_BANNER_IMAGE-->
 
 # iOS/macOS Swift SDK for LiveKit
 
-<!--BEGIN_DESCRIPTION-->
-Official Client SDK for [LiveKit](https://github.com/livekit/livekit-server).
-Easily add video & audio capabilities to your iOS/macOS apps.
-<!--END_DESCRIPTION-->
+<!--BEGIN_DESCRIPTION-->Use this SDK to add real-time video, audio and data features to your Swift app. By connecting to a self- or cloud-hosted <a href="https://livekit.io/">LiveKit</a> server, you can quickly build applications like interactive live streaming or video calls with just a few lines of code.<!--END_DESCRIPTION-->
 
 ## Docs & Example app
 
@@ -235,4 +238,13 @@ If your app is targeting macOS Catalina, make sure to do the following to avoid 
 
 Please join us on [Slack](https://join.slack.com/t/livekit-users/shared_invite/zt-rrdy5abr-5pZ1wW8pXEkiQxBzFiXPUg) to get help from our [devs](https://github.com/orgs/livekit/teams/devs/members) / community members. We welcome your contributions(PRs) and details can be discussed there.
 
-<!--BEGIN_REPO_NAV--><!--END_REPO_NAV-->
+<!--BEGIN_REPO_NAV-->
+<br/><table>
+<thead><tr><th colspan="2">LiveKit Ecosystem</th></tr></thead>
+<tbody>
+<tr><td>Core Infra</td><td><a href="https://github.com/livekit/livekit">livekit</a> · <a href="https://github.com/livekit/egress">egress</a> · <a href="https://github.com/livekit/ingress">ingress</a> · <a href="https://github.com/livekit/livekit-cli">livekit-cli</a></td></tr><tr></tr>
+<tr><td>Client SDKs</td><td><a href="https://github.com/livekit/components-js">Components</a> · <a href="https://github.com/livekit/client-sdk-js">JavaScript</a> · <a href="https://github.com/livekit/client-sdk-rust">Rust</a> · <b>iOS/macOS</b> · <a href="https://github.com/livekit/client-sdk-android">Android</a> · <a href="https://github.com/livekit/client-sdk-flutter">Flutter</a> · <a href="https://github.com/livekit/client-sdk-unity-web">Unity (web)</a> · <a href="https://github.com/livekit/client-sdk-react-native">React Native (beta)</a></td></tr><tr></tr>
+<tr><td>Server SDKs</td><td><a href="https://github.com/livekit/server-sdk-js">Node.js</a> · <a href="https://github.com/livekit/server-sdk-go">Golang</a> · <a href="https://github.com/livekit/server-sdk-ruby">Ruby</a> · <a href="https://github.com/livekit/server-sdk-kotlin">Java/Kotlin</a></td></tr>
+</tbody>
+</table>
+<!--END_REPO_NAV-->

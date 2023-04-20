@@ -16,7 +16,7 @@
 
 import Foundation
 
-internal struct TrackSettings: Equatable {
+internal struct TrackSettings: Equatable, Hashable {
 
     let enabled: Bool
     let dimensions: Dimensions

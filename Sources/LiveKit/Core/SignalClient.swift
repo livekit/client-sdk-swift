@@ -28,7 +28,7 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
 
     // MARK: - Internal
 
-    internal struct State: ReconnectableState {
+    internal struct State: ReconnectableState, Equatable {
         var reconnectMode: ReconnectMode?
         var connectionState: ConnectionState = .disconnected()
         var joinResponseCompleter = Completer<Livekit_JoinResponse>()
@@ -65,16 +65,16 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
         log()
 
         // trigger events when state mutates
-        self._state.onMutate = { [weak self] state, oldState in
+        self._state.onDidMutate = { [weak self] newState, oldState in
 
             guard let self = self else { return }
 
             // connectionState did update
-            if state.connectionState != oldState.connectionState {
-                self.log("\(oldState.connectionState) -> \(state.connectionState)")
+            if newState.connectionState != oldState.connectionState {
+                self.log("\(oldState.connectionState) -> \(newState.connectionState)")
             }
 
-            self.notify { $0.signalClient(self, didMutate: state, oldState: oldState) }
+            self.notify { $0.signalClient(self, didMutate: newState, oldState: oldState) }
         }
     }
 

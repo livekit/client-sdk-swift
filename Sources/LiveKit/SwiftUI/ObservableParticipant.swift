@@ -18,6 +18,7 @@ import Foundation
 import SwiftUI
 import WebRTC
 
+@available(*, deprecated, message: "Participant is now an ObservableObject which can be observed directly.")
 extension ObservableParticipant: ParticipantDelegate, Loggable {
 
     public func participant(_ participant: RemoteParticipant,
@@ -83,12 +84,14 @@ extension ObservableParticipant: ParticipantDelegate, Loggable {
     }
 }
 
+@available(*, deprecated, message: "Participant is now an ObservableObject which can be observed directly.")
 extension ObservableParticipant: Identifiable {
     public var id: String {
         participant.sid
     }
 }
 
+@available(*, deprecated, message: "Participant is now an ObservableObject which can be observed directly.")
 extension ObservableParticipant: Equatable, Hashable {
 
     public static func == (lhs: ObservableParticipant, rhs: ObservableParticipant) -> Bool {
@@ -100,6 +103,7 @@ extension ObservableParticipant: Equatable, Hashable {
     }
 }
 
+@available(*, deprecated, message: "Participant is now an ObservableObject which can be observed directly.")
 extension ObservableParticipant {
 
     public var sid: Sid {
@@ -111,6 +115,7 @@ extension ObservableParticipant {
     }
 }
 
+@available(*, deprecated, message: "Participant is now an ObservableObject which can be observed directly.")
 open class ObservableParticipant: ObservableObject {
 
     public let participant: Participant
@@ -121,44 +126,6 @@ open class ObservableParticipant: ObservableObject {
 
     public var asRemote: RemoteParticipant? {
         participant as? RemoteParticipant
-    }
-
-    public var firstCameraPublication: TrackPublication? {
-        participant.videoTracks.first(where: { $0.source == .camera })
-    }
-
-    public var firstScreenSharePublication: TrackPublication? {
-        participant.videoTracks.first(where: { $0.source == .screenShareVideo })
-    }
-
-    public var firstAudioPublication: TrackPublication? {
-        participant.audioTracks.first
-    }
-
-    public var firstCameraVideoTrack: VideoTrack? {
-        guard let pub = firstCameraPublication, !pub.muted, pub.subscribed,
-              let track = pub.track else { return nil }
-        return track as? VideoTrack
-    }
-
-    public var firstScreenShareVideoTrack: VideoTrack? {
-        guard let pub = firstScreenSharePublication, !pub.muted, pub.subscribed,
-              let track = pub.track else { return nil }
-        return track as? VideoTrack
-    }
-
-    public var firstAudioTrack: AudioTrack? {
-        guard let pub = firstAudioPublication, !pub.muted,
-              let track = pub.track else { return nil }
-        return track as? AudioTrack
-    }
-
-    public var firstVideoAvailable: Bool {
-        firstCameraVideoTrack != nil
-    }
-
-    public var firstAudioAvailable: Bool {
-        firstAudioTrack != nil
     }
 
     public var isSpeaking: Bool {

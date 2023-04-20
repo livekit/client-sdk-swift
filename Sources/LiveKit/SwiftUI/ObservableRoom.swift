@@ -19,6 +19,7 @@ import SwiftUI
 import WebRTC
 import Promises
 
+@available(*, deprecated, message: "Room is now an ObservableObject which can be observed directly.")
 open class ObservableRoom: ObservableObject, RoomDelegate, Loggable {
 
     public let room: Room
