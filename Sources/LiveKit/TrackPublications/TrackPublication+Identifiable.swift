@@ -16,6 +16,8 @@
 
 import Foundation
 
+// Identify by sid
+
 extension TrackPublication: Identifiable {
 
     public typealias ID = Sid

@@ -16,7 +16,7 @@
 
 import Foundation
 
-// Participant objects are considered equal if the state is equal
+// Objects are considered equal if both states are equal
 
 public extension Participant {
 

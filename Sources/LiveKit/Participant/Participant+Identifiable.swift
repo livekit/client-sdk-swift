@@ -16,18 +16,13 @@
 
 import Foundation
 
-// Objects are considered equal if both states are equal
+// Identify by sid
 
-public extension TrackPublication {
+extension Participant: Identifiable {
 
-    override var hash: Int {
-        var hasher = Hasher()
-        hasher.combine(_state.copy())
-        return hasher.finalize()
-    }
+    public typealias ID = Sid
 
-    override func isEqual(_ object: Any?) -> Bool {
-        guard let other = object as? Self else { return false }
-        return self._state.copy() == other._state.copy()
+    public var id: Sid {
+        _state.sid
     }
 }
