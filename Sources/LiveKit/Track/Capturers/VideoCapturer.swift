@@ -72,6 +72,8 @@ public class VideoCapturer: NSObject, Loggable, VideoCapturerProtocol {
 
     internal struct State: Equatable {
         var dimensionsCompleter = Completer<Dimensions>()
+        // Counts calls to start/stopCapturer so multiple Tracks can use the same VideoCapturer.
+        var startStopCounter: Int = 0
     }
 
     internal var _state = StateSync(State())
@@ -87,27 +89,45 @@ public class VideoCapturer: NSObject, Loggable, VideoCapturerProtocol {
         }
     }
 
-    public private(set) var captureState: CapturerState = .stopped
+    public var captureState: CapturerState {
+        _state.startStopCounter == 0 ? .stopped : .started
+    }
 
     init(delegate: RTCVideoCapturerDelegate) {
         self.delegate = delegate
+        super.init()
+
+        _state.onDidMutate = { [weak self] newState, oldState in
+            guard let self = self else { return }
+            if oldState.startStopCounter != newState.startStopCounter {
+                self.log("startStopCounter \(oldState.startStopCounter) -> \(newState.startStopCounter)")
+            }
+        }
     }
 
     deinit {
         assert(captureState == .stopped, "captureState is not .stopped, capturer must be stopped before deinit.")
     }
 
-    // returns true if state updated
+    /// Requests video capturer to start generating frames. ``Track/start()-dk8x`` calls this automatically.
+    ///
+    /// ``startCapture()`` and ``stopCapture()`` calls must be balanced. For example, if ``startCapture()`` is called 2 times, ``stopCapture()`` must be called 2 times also.
+    /// Returns true when capturing should start, returns fals if capturing already started.
     public func startCapture() -> Promise<Bool> {
 
         Promise(on: queue) { () -> Bool in
 
-            guard self.captureState != .started else {
+            let didStart = self._state.mutate {
+                // counter was 0, so did start capturing with this call
+                let didStart = $0.startStopCounter == 0
+                $0.startStopCounter += 1
+                return didStart
+            }
+
+            guard didStart else {
                 // already started
                 return false
             }
-
-            self.captureState = .started
 
             self.delegates.notify(label: { "capturer.didUpdate state: \(CapturerState.started)" }) {
                 $0.capturer?(self, didUpdate: .started)
@@ -117,17 +137,28 @@ public class VideoCapturer: NSObject, Loggable, VideoCapturerProtocol {
         }
     }
 
-    // returns true if state updated
+    /// Requests video capturer to stop generating frames. ``Track/stop()-6jeq0`` calls this automatically.
+    ///
+    /// See ``startCapture()`` for more details.
+    /// Returns true when capturing should stop, returns fals if capturing already stopped.
     public func stopCapture() -> Promise<Bool> {
 
         Promise(on: queue) { () -> Bool in
 
-            guard self.captureState != .stopped else {
+            let didStop = self._state.mutate {
+                // counter was already 0, so did NOT stop capturing with this call
+                if $0.startStopCounter <= 0 {
+                    return false
+                }
+                $0.startStopCounter -= 1
+                return $0.startStopCounter <= 0
+            }
+
+            guard didStop else {
                 // already stopped
                 return false
             }
 
-            self.captureState = .stopped
             self.delegates.notify(label: { "capturer.didUpdate state: \(CapturerState.stopped)" }) {
                 $0.capturer?(self, didUpdate: .stopped)
             }
