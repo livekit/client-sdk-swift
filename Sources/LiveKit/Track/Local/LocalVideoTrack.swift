@@ -109,7 +109,7 @@ extension LocalVideoTrack {
 
         log("codec: \(codec), encodings: \(encodings == nil ? "nil" : String(describing: encodings!))")
 
-        if let info = simulcastCodecs[codec] {
+        if simulcastCodecs[codec] != nil {
             log("Codec \(codec) is already added", .warning)
             throw EngineError.state(message: "Codec \(codec) is already added")
         }
