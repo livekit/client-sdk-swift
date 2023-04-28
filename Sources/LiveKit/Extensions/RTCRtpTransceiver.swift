@@ -41,5 +41,7 @@ extension RTCRtpTransceiver: Loggable {
         codecPreferences = combinedCapabilities.compactMap { $0 }
 
         log("codecPreferences set: \(codecPreferences.map({ String(describing: $0) }).joined(separator: ", "))")
+
+        assert(codecPreferences.first?.name.lowercased() == codec.rawStringValue?.lowercased(), "Preferred codec is not first in the list")
     }
 }
