@@ -49,13 +49,21 @@ public class LocalVideoTrack: Track, LocalTrack, VideoTrack {
     }
 
     override public func start() -> Promise<Bool> {
-        super.start().then(on: queue) { didStart in
+        super.start().then(on: queue) { didStart -> Promise<Bool> in
+            // Start simulcast tracks (if any)...
+            let promises = self.simulcastCodecs.values.map { $0.track.start() }
+            return all(on: self.queue, promises).then(on: self.queue) { _ in didStart }
+        }.then(on: queue) { didStart in
             self.capturer.startCapture().then(on: self.queue) { _ in didStart }
         }
     }
 
     override public func stop() -> Promise<Bool> {
-        super.stop().then(on: queue) { didStop in
+        super.stop().then(on: queue) { didStop -> Promise<Bool> in
+            // Stop simulcast tracks (if any)...
+            let promises = self.simulcastCodecs.values.map { $0.track.stop() }
+            return all(on: self.queue, promises).then(on: self.queue) { _ in didStop }
+        }.then(on: queue) { didStop in
             self.capturer.stopCapture().then(on: self.queue) { _ in didStop }
         }
     }

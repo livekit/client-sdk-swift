@@ -592,7 +592,7 @@ extension LocalParticipant {
                           options: VideoPublishOptions? = nil) -> Promise<Void> {
         log()
 
-        assert(false, "Publishing additional video codec")
+        // assert(false, "Publishing additional video codec")
 
         guard let publisher = room.engine.publisher else {
             return Promise(EngineError.state(message: "publisher is null"))
@@ -615,9 +615,13 @@ extension LocalParticipant {
         transInit.direction = .sendOnly
         transInit.sendEncodings = encodings
 
+        guard let simulcastTrack = try? track.addSimulcastTrack(for: codec, encodings: encodings) else {
+            return Promise(EngineError.state(message: "addSimulcastTrack failed"))
+        }
+
         return Promise(on: queue) {
-            try track.addSimulcastTrack(for: codec, encodings: encodings)
-        }.then(on: queue) { (simulcastTrack: LocalVideoTrack.SimulcastTrackInfo) in
+            simulcastTrack.track.start()
+        }.then(on: queue) { (_: Bool) in
             // ...
             self.room.engine.signalClient.sendAddTrack(cid: simulcastTrack.track.mediaTrack.trackId,
                                                        sid: track.sid,
@@ -656,6 +660,14 @@ extension LocalParticipant {
             track.set(simulcastSender: transceiver.sender, for: codec, publisher: publisher)
 
             return self.room.engine.publisherShouldNegotiate()
+        }.catch(on: queue) { error in
+
+            self.log("[publish] failed \(simulcastTrack.track), error: \(error)", .error)
+
+            // stop the track
+            simulcastTrack.track.stop().catch(on: self.queue) { error in
+                self.log("[publish] failed to stop track, error: \(error)", .error)
+            }
         }
     }
 }
