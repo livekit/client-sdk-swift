@@ -140,7 +140,7 @@ extension LocalVideoTrack {
 
 extension LocalVideoTrack {
 
-    // experimental
+    /// Clone with same ``VideoCapturer``.
     public func clone() -> LocalVideoTrack {
         LocalVideoTrack(name: name,
                         source: source,

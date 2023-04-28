@@ -341,7 +341,7 @@ public class LocalParticipant: Participant {
                         reliability: Reliability = .reliable,
                         destinations: [RemoteParticipant]? = nil,
                         topic: String? = nil,
-                        options: DataPublishOptions?) -> Promise<Void> {
+                        options: DataPublishOptions? = nil) -> Promise<Void> {
 
         let options = options ?? self.room._state.options.defaultDataPublishOptions
         let destinations = destinations?.map { $0.sid }
