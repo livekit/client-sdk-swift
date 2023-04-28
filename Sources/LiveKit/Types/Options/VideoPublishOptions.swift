@@ -55,8 +55,8 @@ public class VideoPublishOptions: NSObject, PublishOptions {
                 simulcast: Bool = true,
                 simulcastLayers: [VideoParameters] = [],
                 screenShareSimulcastLayers: [VideoParameters] = [],
-                preferredCodec: VideoCodec = .av1,
-                preferredBackupCodec: VideoCodec = .vp8,
+                preferredCodec: VideoCodec = .h264,
+                preferredBackupCodec: VideoCodec = .none,
                 backupEncoding: VideoEncoding? = nil) {
 
         self.name = name
