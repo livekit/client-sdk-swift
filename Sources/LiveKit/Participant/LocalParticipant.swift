@@ -447,8 +447,9 @@ public class LocalParticipant: Participant {
                     // new
                     publish(additionalCodec: codec, for: track).then { _ in
                         self.log("did publish additional codec")
-                    }.catch { _ in
-                        self.log("failed to publish additional codec", .error)
+                    }.catch { error in
+                        self.log("failed to publish additional codec, error: \(error)", .error)
+                        assert(false, "failed to publish additional codec")
                     }
                 }
             }
@@ -616,11 +617,10 @@ extension LocalParticipant {
         transInit.sendEncodings = encodings
 
         return Promise(on: queue) {
-            // ...
             try track.addSimulcastTrack(for: codec, encodings: encodings)
         }.then(on: queue) { (simulcastTrack: LocalVideoTrack.SimulcastTrackInfo) in
             // ...
-            self.room.engine.signalClient.sendAddTrack(cid: simulcastTrack.mediaStreamTrack.trackId,
+            self.room.engine.signalClient.sendAddTrack(cid: simulcastTrack.track.mediaTrack.trackId,
                                                        sid: track.sid,
                                                        muted: track.muted,
                                                        type: track.kind.toPBType(),
@@ -628,7 +628,7 @@ extension LocalParticipant {
 
                 let simulcastCodec = Livekit_SimulcastCodec.with {
                     $0.codec = codec.rawStringValue ?? ""
-                    $0.cid = simulcastTrack.mediaStreamTrack.trackId
+                    $0.cid = simulcastTrack.track.mediaTrack.trackId
                     $0.enableSimulcastLayers = options.simulcast
                 }
                 $0.simulcastCodecs = [simulcastCodec]
@@ -645,7 +645,7 @@ extension LocalParticipant {
             self.log("[publish] server responded trackInfo: \(trackInfo)")
 
             // add transceiver to pc
-            return publisher.addTransceiver(with: simulcastTrack.mediaStreamTrack,
+            return publisher.addTransceiver(with: simulcastTrack.track.mediaTrack,
                                             transceiverInit: transInit).then(on: self.queue) { transceiver in
                                                 // pass down trackInfo and created transceiver
                                                 (transceiver, trackInfo)
@@ -654,7 +654,7 @@ extension LocalParticipant {
         }.then(on: queue) { (transceiver, _) in
             //
             transceiver.setPreferredVideoCodec(codec, exceptCodec: .av1)
-            track.set(simulcastSender: transceiver.sender, for: codec)
+            track.set(simulcastSender: transceiver.sender, for: codec, publisher: publisher)
 
             return self.room.engine.publisherShouldNegotiate()
         }
