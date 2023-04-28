@@ -321,7 +321,9 @@ private extension SignalClient {
             // not required to be handled because we use completer pattern for this case
             notify(requiresHandle: false) { $0.signalClient(self, didPublish: trackPublished) }
 
-            log("[publish] resolving completer for cid: \(trackPublished.cid)")
+            if let json = try? trackPublished.jsonString() {
+                log("[publish] track published for cid: \(trackPublished.cid), \(json)")
+            }
             // complete
             completeCompleter(forAddTrackRequest: trackPublished.cid, trackInfo: trackPublished.track)
 
