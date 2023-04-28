@@ -377,6 +377,14 @@ private extension Transport {
 
 internal extension Transport {
 
+    func statistics(for sender: RTCRtpSender) async -> RTCStatisticsReport {
+        await withCheckedContinuation { continuation in
+            self.pc.statistics(for: sender) { report in
+                continuation.resume(returning: report)
+            }
+        }
+    }
+
     func createAnswer(for constraints: [String: String]? = nil) -> Promise<RTCSessionDescription> {
 
         Promise<RTCSessionDescription>(on: .webRTC) { complete, fail in
