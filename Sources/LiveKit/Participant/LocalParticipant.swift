@@ -592,16 +592,12 @@ extension LocalParticipant {
                           options: VideoPublishOptions? = nil) -> Promise<Void> {
         log()
 
-        // assert(false, "Publishing additional video codec")
-
         guard let publisher = room.engine.publisher else {
             return Promise(EngineError.state(message: "publisher is null"))
         }
 
         let options = options ?? (track._publishOptions as? VideoPublishOptions) ??  self.room._state.options.defaultVideoPublishOptions
 
-        // check track is published
-        // ...
         guard let dimensions = track.capturer.dimensions else {
             // shouldn't happen
             return Promise(EngineError.state(message: "Capturer's dimensions are nil"))
@@ -611,13 +607,13 @@ extension LocalParticipant {
                                                     publishOptions: options,
                                                     isBackup: true)
 
-        let transInit = DispatchQueue.webRTC.sync { RTCRtpTransceiverInit() }
-        transInit.direction = .sendOnly
-        transInit.sendEncodings = encodings
-
         guard let simulcastTrack = try? track.addSimulcastTrack(for: codec, encodings: encodings) else {
             return Promise(EngineError.state(message: "addSimulcastTrack failed"))
         }
+
+        let transInit = DispatchQueue.webRTC.sync { RTCRtpTransceiverInit() }
+        transInit.direction = .sendOnly
+        transInit.sendEncodings = encodings
 
         return Promise(on: queue) {
             simulcastTrack.track.start()
