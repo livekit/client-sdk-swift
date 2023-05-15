@@ -48,7 +48,16 @@ extension Livekit_AddTrackRequest: CustomStringConvertible {
 extension Livekit_TrackInfo: CustomStringConvertible {
 
     public var description: String {
-        "TrackInfo(sid: \(sid), name: \(name), type: \(type), source: \(source), width: \(width), height: \(height), muted: \(muted))"
+        "TrackInfo(sid: \(sid), " +
+            "name: \(name), " +
+            "type: \(type), " +
+            "source: \(source), " +
+            "width: \(width), " +
+            "height: \(height), " +
+            "muted: \(muted), " +
+            "simulcast: \(simulcast), " +
+            "codecs: \(codecs.map({ String(describing: $0) })), " +
+            "layers: \(layers.map({ String(describing: $0) })))"
     }
 }
 
