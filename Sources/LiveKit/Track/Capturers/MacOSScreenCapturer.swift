@@ -318,14 +318,9 @@ public class MacOSScreenCapturer: VideoCapturer {
 
     public override func stopCapture() -> Promise<Bool> {
 
-        func createStopPromise(_ didStop: Bool) -> Promise<Bool> {
+        func createStopPromise() -> Promise<Bool> {
 
-            guard didStop else {
-                // already stopped
-                return Promise(false)
-            }
-
-            return Promise<Bool>(on: self.queue) { fulfill, reject in
+            Promise<Bool>(on: self.queue) { fulfill, reject in
 
                 if #available(macOS 12.3, *), case .screenCaptureKit = self.captureMethod {
 
@@ -374,7 +369,13 @@ public class MacOSScreenCapturer: VideoCapturer {
         }
 
         return super.stopCapture().then(on: queue) { didStop -> Promise<Bool> in
-            createStopPromise(didStop)
+
+            guard didStop else {
+                // already stopped
+                return Promise(false)
+            }
+
+            return createStopPromise()
         }
     }
 

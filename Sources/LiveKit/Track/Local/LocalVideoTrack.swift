@@ -88,3 +88,14 @@ extension LocalVideoTrack {
 
     public var publishState: Track.PublishState { super._publishState }
 }
+
+extension LocalVideoTrack {
+
+    /// Clone with same ``VideoCapturer``.
+    public func clone() -> LocalVideoTrack {
+        LocalVideoTrack(name: name,
+                        source: source,
+                        capturer: capturer,
+                        videoSource: videoSource)
+    }
+}

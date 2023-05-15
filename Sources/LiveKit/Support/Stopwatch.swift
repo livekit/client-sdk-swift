@@ -18,7 +18,7 @@ import Foundation
 
 public struct Stopwatch {
 
-    public struct Entry {
+    public struct Entry: Equatable {
         let label: String
         let time: TimeInterval
     }
@@ -39,6 +39,14 @@ public struct Stopwatch {
     public func total() -> TimeInterval {
         guard let last = splits.last else { return 0 }
         return last.time - start
+    }
+}
+
+extension Stopwatch: Equatable {
+
+    public static func == (lhs: Stopwatch, rhs: Stopwatch) -> Bool {
+        lhs.start == rhs.start &&
+            lhs.splits == rhs.splits
     }
 }
 

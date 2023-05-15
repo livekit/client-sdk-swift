@@ -17,26 +17,26 @@
 import Foundation
 import Combine
 
-internal typealias OnStateMutate<Value> = (_ state: Value, _ oldState: Value) -> Void
-
 @dynamicMemberLookup
-internal final class StateSync<Value> {
+internal final class StateSync<Value: Equatable> {
+
+    typealias OnDidMutate<Value> = (_ newState: Value, _ oldState: Value) -> Void
 
     private let subject: CurrentValueSubject<Value, Never>
     private let lock = UnfairLock()
 
-    public var onMutate: OnStateMutate<Value>?
+    public var onDidMutate: OnDidMutate<Value>?
 
     public var valuePublisher: AnyPublisher<Value, Never> {
         subject.eraseToAnyPublisher()
     }
 
-    public init(_ value: Value, onMutate: OnStateMutate<Value>? = nil) {
+    public init(_ value: Value, onMutate: OnDidMutate<Value>? = nil) {
         self.subject = CurrentValueSubject(value)
-        self.onMutate = onMutate
+        self.onDidMutate = onMutate
     }
 
-    // mutate sync (blocking)
+    // mutate sync
     @discardableResult
     public func mutate<Result>(_ block: (inout Value) throws -> Result) rethrows -> Result {
         try lock.sync {
@@ -44,22 +44,25 @@ internal final class StateSync<Value> {
             var valueCopy = oldValue
             let result = try block(&valueCopy)
             subject.send(valueCopy)
-            onMutate?(valueCopy, oldValue)
+            // trigger onMutate if mutaed value isn't equal any more (Equatable protocol)
+            if oldValue != valueCopy {
+                onDidMutate?(valueCopy, oldValue)
+            }
             return result
         }
     }
 
-    // read sync and return copy (concurrent)
-    public func readCopy() -> Value {
+    // read sync and return copy
+    public func copy() -> Value {
         lock.sync { subject.value }
     }
 
-    // read sync (concurrent)
+    // read with block
     public func read<Result>(_ block: (Value) throws -> Result) rethrows -> Result {
         try lock.sync { try block(subject.value) }
     }
 
-    // property read sync (concurrent)
+    // property read sync
     subscript<Property>(dynamicMember keyPath: KeyPath<Value, Property>) -> Property {
         lock.sync { subject.value[keyPath: keyPath] }
     }
@@ -68,6 +71,6 @@ internal final class StateSync<Value> {
 extension StateSync: CustomStringConvertible {
 
     var description: String {
-        "StateSync(\(String(describing: subject.value)))"
+        "StateSync(\(String(describing: copy()))"
     }
 }

@@ -22,21 +22,35 @@ public class DataPublishOptions: NSObject, PublishOptions {
     @objc
     public let name: String?
 
-    public init(name: String? = nil) {
+    @objc
+    public let destinations: [Sid]
+
+    @objc
+    public let topic: String?
+
+    public init(name: String? = nil,
+                destinations: [String] = [],
+                topic: String? = nil) {
 
         self.name = name
+        self.destinations = destinations
+        self.topic = topic
     }
 
     // MARK: - Equal
 
     public override func isEqual(_ object: Any?) -> Bool {
         guard let other = object as? Self else { return false }
-        return self.name == other.name
+        return self.name == other.name &&
+            self.destinations == other.destinations &&
+            self.topic == other.topic
     }
 
     public override var hash: Int {
         var hasher = Hasher()
         hasher.combine(name)
+        hasher.combine(destinations)
+        hasher.combine(topic)
         return hasher.finalize()
     }
 }
