@@ -231,7 +231,8 @@ internal extension RemoteTrackPublication {
     // reset track settings
     func resetTrackSettings() {
         // track is initially disabled when adaptive stream is enabled
-        _state.mutate { $0.trackSettings = TrackSettings(enabled: !isAdaptiveStreamEnabled) }
+        let initiallyEnabled = !isAdaptiveStreamEnabled
+        _state.mutate { $0.trackSettings = TrackSettings(enabled: initiallyEnabled) }
     }
 
     // attempt to send track settings
