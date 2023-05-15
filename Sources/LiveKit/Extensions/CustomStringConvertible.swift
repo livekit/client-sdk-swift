@@ -88,6 +88,7 @@ extension RTCRtpEncodingParameters {
         "RTCRtpEncodingParameters(rid: \(rid ?? "nil"), "
             + "active: \(isActive), "
             + "scaleResolutionDownBy: \(String(describing: scaleResolutionDownBy)), "
+            + "minBitrateBps: \(minBitrateBps == nil ? "nil" : String(describing: minBitrateBps)), "
             + "maxBitrateBps: \(maxBitrateBps == nil ? "nil" : String(describing: maxBitrateBps)), "
             + "maxFramerate: \(maxFramerate == nil ? "nil" : String(describing: maxFramerate)))"
     }
