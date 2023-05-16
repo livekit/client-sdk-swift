@@ -366,7 +366,7 @@ internal extension Room {
 
 extension Room: SignalClientDelegate {
 
-    func signalClient(_ signalClient: SignalClient, didReceiveLeave canReconnect: Bool, reason: Livekit_DisconnectReason) -> Bool {
+    func signalClient(_ signalClient: SignalClient, didReceiveLeave canReconnect: Bool, reason: Livekit_DisconnectReason) {
 
         log("canReconnect: \(canReconnect), reason: \(reason)")
 
@@ -377,20 +377,17 @@ extension Room: SignalClientDelegate {
             // server indicates it's not recoverable
             cleanUp(reason: reason.toLKType())
         }
-
-        return true
     }
 
-    func signalClient(_ signalClient: SignalClient, didUpdate trackSid: String, subscribedQualities: [Livekit_SubscribedQuality]) -> Bool {
+    func signalClient(_ signalClient: SignalClient, didUpdate trackSid: String, subscribedQualities: [Livekit_SubscribedQuality]) {
 
         log("qualities: \(subscribedQualities.map({ String(describing: $0) }).joined(separator: ", "))")
 
-        guard let localParticipant = _state.localParticipant else { return true }
+        guard let localParticipant = _state.localParticipant else { return }
         localParticipant.onSubscribedQualitiesUpdate(trackSid: trackSid, subscribedQualities: subscribedQualities)
-        return true
     }
 
-    func signalClient(_ signalClient: SignalClient, didReceive joinResponse: Livekit_JoinResponse) -> Bool {
+    func signalClient(_ signalClient: SignalClient, didReceive joinResponse: Livekit_JoinResponse) {
 
         log("server version: \(joinResponse.serverVersion), region: \(joinResponse.serverRegion)", .info)
 
@@ -412,19 +409,16 @@ extension Room: SignalClientDelegate {
                 }
             }
         }
-
-        return true
     }
 
-    func signalClient(_ signalClient: SignalClient, didUpdate room: Livekit_Room) -> Bool {
+    func signalClient(_ signalClient: SignalClient, didUpdate room: Livekit_Room) {
         _state.mutate {
             $0.metadata = room.metadata
             $0.isRecording = room.activeRecording
         }
-        return true
     }
 
-    func signalClient(_ signalClient: SignalClient, didUpdate speakers: [Livekit_SpeakerInfo]) -> Bool {
+    func signalClient(_ signalClient: SignalClient, didUpdate speakers: [Livekit_SpeakerInfo]) {
         log("speakers: \(speakers)", .trace)
 
         let activeSpeakers = _state.mutate { state -> [Participant] in
@@ -460,11 +454,9 @@ extension Room: SignalClientDelegate {
                 $0.room?(self, didUpdate: activeSpeakers)
             }
         }
-
-        return true
     }
 
-    func signalClient(_ signalClient: SignalClient, didUpdate connectionQuality: [Livekit_ConnectionQualityInfo]) -> Bool {
+    func signalClient(_ signalClient: SignalClient, didUpdate connectionQuality: [Livekit_ConnectionQualityInfo]) {
         log("connectionQuality: \(connectionQuality)", .trace)
 
         for entry in connectionQuality {
@@ -477,16 +469,14 @@ extension Room: SignalClientDelegate {
                 participant._state.mutate { $0.connectionQuality = entry.quality.toLKType() }
             }
         }
-
-        return true
     }
 
-    func signalClient(_ signalClient: SignalClient, didUpdateRemoteMute trackSid: String, muted: Bool) -> Bool {
+    func signalClient(_ signalClient: SignalClient, didUpdateRemoteMute trackSid: String, muted: Bool) {
         log("trackSid: \(trackSid) muted: \(muted)")
 
         guard let publication = _state.localParticipant?._state.tracks[trackSid] as? LocalTrackPublication else {
             // publication was not found but the delegate was handled
-            return true
+            return
         }
 
         if muted {
@@ -494,25 +484,21 @@ extension Room: SignalClientDelegate {
         } else {
             publication.unmute()
         }
-
-        return true
     }
 
-    func signalClient(_ signalClient: SignalClient, didUpdate subscriptionPermission: Livekit_SubscriptionPermissionUpdate) -> Bool {
+    func signalClient(_ signalClient: SignalClient, didUpdate subscriptionPermission: Livekit_SubscriptionPermissionUpdate) {
 
         log("did update subscriptionPermission: \(subscriptionPermission)")
 
         guard let participant = _state.remoteParticipants[subscriptionPermission.participantSid],
               let publication = participant.getTrackPublication(sid: subscriptionPermission.trackSid) else {
-            return true
+            return
         }
 
         publication.set(subscriptionAllowed: subscriptionPermission.allowed)
-
-        return true
     }
 
-    func signalClient(_ signalClient: SignalClient, didUpdate trackStates: [Livekit_StreamStateInfo]) -> Bool {
+    func signalClient(_ signalClient: SignalClient, didUpdate trackStates: [Livekit_StreamStateInfo]) {
 
         log("did update trackStates: \(trackStates.map { "(\($0.trackSid): \(String(describing: $0.state)))" }.joined(separator: ", "))")
 
@@ -524,11 +510,9 @@ extension Room: SignalClientDelegate {
             // Update streamState (and notify)
             trackPublication._state.mutate { $0.streamState = update.state.toLKType() }
         }
-
-        return true
     }
 
-    func signalClient(_ signalClient: SignalClient, didUpdate participants: [Livekit_ParticipantInfo]) -> Bool {
+    func signalClient(_ signalClient: SignalClient, didUpdate participants: [Livekit_ParticipantInfo]) {
         log("participants: \(participants)")
 
         var disconnectedParticipants = [Sid]()
@@ -574,17 +558,15 @@ extension Room: SignalClientDelegate {
                 }
             }
         }
-
-        return true
     }
 
-    func signalClient(_ signalClient: SignalClient, didUnpublish localTrack: Livekit_TrackUnpublishedResponse) -> Bool {
+    func signalClient(_ signalClient: SignalClient, didUnpublish localTrack: Livekit_TrackUnpublishedResponse) {
         log()
 
         guard let localParticipant = localParticipant,
               let publication = localParticipant._state.tracks[localTrack.trackSid] as? LocalTrackPublication else {
             log("track publication not found", .warning)
-            return true
+            return
         }
 
         localParticipant.unpublish(publication: publication).then(on: queue) { [weak self] _ in
@@ -592,9 +574,14 @@ extension Room: SignalClientDelegate {
         }.catch(on: queue) { [weak self] error in
             self?.log("failed to unpublish track(\(localTrack.trackSid), error: \(error)", .warning)
         }
-
-        return true
     }
+
+    func signalClient(_ signalClient: SignalClient, didMutate state: SignalClient.State, oldState: SignalClient.State) {}
+    func signalClient(_ signalClient: SignalClient, didReceiveAnswer answer: RTCSessionDescription) {}
+    func signalClient(_ signalClient: SignalClient, didReceiveOffer offer: RTCSessionDescription) {}
+    func signalClient(_ signalClient: SignalClient, didReceive iceCandidate: RTCIceCandidate, target: Livekit_SignalTarget) {}
+    func signalClient(_ signalClient: SignalClient, didPublish localTrack: Livekit_TrackPublishedResponse) {}
+    func signalClient(_ signalClient: SignalClient, didUpdate token: String) {}
 }
 
 // MARK: - EngineDelegate

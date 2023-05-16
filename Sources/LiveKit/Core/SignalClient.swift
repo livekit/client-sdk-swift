@@ -319,7 +319,7 @@ private extension SignalClient {
 
         case .trackPublished(let trackPublished):
             // not required to be handled because we use completer pattern for this case
-            notify(requiresHandle: false) { $0.signalClient(self, didPublish: trackPublished) }
+            notify { $0.signalClient(self, didPublish: trackPublished) }
 
             log("[publish] resolving completer for cid: \(trackPublished.cid)")
             // complete
