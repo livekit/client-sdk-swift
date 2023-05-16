@@ -48,8 +48,8 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
 
     public let signalClient = SignalClient()
 
-    public private(set) var publisher: Transport?
-    public private(set) var subscriber: Transport?
+    public internal(set) var publisher: Transport?
+    public internal(set) var subscriber: Transport?
 
     // weak ref to Room
     public weak var room: Room?
@@ -62,13 +62,13 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
         let block: () -> Void
     }
 
-    private var subscriberPrimary: Bool = false
+    internal var subscriberPrimary: Bool = false
     private var primary: Transport? { subscriberPrimary ? subscriber : publisher }
 
     // MARK: - DataChannels
 
-    private var subscriberDC = DataChannelPair(target: .subscriber)
-    private var publisherDC = DataChannelPair(target: .publisher)
+    internal var subscriberDC = DataChannelPair(target: .subscriber)
+    internal var publisherDC = DataChannelPair(target: .publisher)
 
     private var _blockProcessQueue = DispatchQueue(label: "LiveKitSDK.engine.pendingBlocks",
                                                    qos: .default)
@@ -276,6 +276,82 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
     }
 }
 
+// MARK: - Internal
+
+internal extension Engine {
+
+    func configureTransports(joinResponse: Livekit_JoinResponse) -> Promise<Void> {
+
+        Promise<Void>(on: queue) { () -> Void in
+
+            self.log("configuring transports...")
+
+            // this should never happen since Engine is owned by Room
+            guard let room = self.room else { throw EngineError.state(message: "Room is nil") }
+
+            guard self.subscriber == nil, self.publisher == nil else {
+                self.log("transports already configured")
+                return
+            }
+
+            // protocol v3
+            self.subscriberPrimary = joinResponse.subscriberPrimary
+            self.log("subscriberPrimary: \(joinResponse.subscriberPrimary)")
+
+            // Make a copy, instead of modifying the user-supplied RTCConfiguration object.
+            let rtcConfiguration = RTCConfiguration(copy: self._state.connectOptions.rtcConfiguration)
+
+            if rtcConfiguration.iceServers.isEmpty {
+                // Set iceServers provided by the server
+                rtcConfiguration.iceServers = joinResponse.iceServers.map { $0.toRTCType() }
+            }
+
+            if joinResponse.clientConfiguration.forceRelay == .enabled {
+                rtcConfiguration.iceTransportPolicy = .relay
+            }
+
+            let subscriber = try Transport(config: rtcConfiguration,
+                                           target: .subscriber,
+                                           primary: self.subscriberPrimary,
+                                           delegate: self,
+                                           reportStats: room._state.options.reportStats)
+
+            let publisher = try Transport(config: rtcConfiguration,
+                                          target: .publisher,
+                                          primary: !self.subscriberPrimary,
+                                          delegate: self,
+                                          reportStats: room._state.options.reportStats)
+
+            publisher.onOffer = { offer in
+                self.log("publisher onOffer \(offer.sdp)")
+                return self.signalClient.sendOffer(offer: offer)
+            }
+
+            // data over pub channel for backwards compatibility
+
+            let publisherReliableDC = publisher.dataChannel(for: RTCDataChannel.labels.reliable,
+                                                            configuration: Engine.createDataChannelConfiguration())
+
+            let publisherLossyDC = publisher.dataChannel(for: RTCDataChannel.labels.lossy,
+                                                         configuration: Engine.createDataChannelConfiguration(maxRetransmits: 0))
+
+            self.publisherDC.set(reliable: publisherReliableDC)
+            self.publisherDC.set(lossy: publisherLossyDC)
+
+            self.log("dataChannel.\(String(describing: publisherReliableDC?.label)) : \(String(describing: publisherReliableDC?.channelId))")
+            self.log("dataChannel.\(String(describing: publisherLossyDC?.label)) : \(String(describing: publisherLossyDC?.channelId))")
+
+            if !self.subscriberPrimary {
+                // lazy negotiation for protocol v3+
+                self.publisherShouldNegotiate()
+            }
+
+            self.subscriber = subscriber
+            self.publisher = publisher
+        }
+    }
+}
+
 // MARK: - Execution control (Internal)
 
 internal extension Engine {
@@ -313,9 +389,9 @@ internal extension Engine {
     }
 }
 
-// MARK: - Private
+// MARK: - Connection / Reconnection logic
 
-private extension Engine {
+internal extension Engine {
 
     // full connect sequence, doesn't update connection state
     func fullConnectSequence(_ url: String,
@@ -530,240 +606,6 @@ internal extension Engine {
     }
 }
 
-// MARK: - SignalClientDelegate
-
-extension Engine: SignalClientDelegate {
-
-    func signalClient(_ signalClient: SignalClient, didMutate state: SignalClient.State, oldState: SignalClient.State) {
-
-        // connectionState did update
-        if state.connectionState != oldState.connectionState,
-           // did disconnect
-           case .disconnected(let reason) = state.connectionState,
-           // only attempt re-connect if disconnected(reason: network)
-           case .networkError = reason,
-           // engine is currently connected state
-           case .connected = _state.connectionState {
-            log("[reconnect] starting, reason: socket network error. connectionState: \(_state.connectionState)")
-            startReconnect()
-        }
-    }
-
-    func signalClient(_ signalClient: SignalClient, didReceive iceCandidate: RTCIceCandidate, target: Livekit_SignalTarget) {
-
-        guard let transport = target == .subscriber ? subscriber : publisher else {
-            log("failed to add ice candidate, transport is nil for target: \(target)", .error)
-            return
-        }
-
-        transport.addIceCandidate(iceCandidate).catch(on: queue) { error in
-            self.log("failed to add ice candidate for transport: \(transport), error: \(error)", .error)
-        }
-    }
-
-    func signalClient(_ signalClient: SignalClient, didReceiveAnswer answer: RTCSessionDescription) {
-
-        guard let publisher = self.publisher else {
-            log("publisher is nil", .error)
-            return
-        }
-
-        publisher.setRemoteDescription(answer).catch(on: queue) { error in
-            self.log("failed to set remote description, error: \(error)", .error)
-        }
-
-        return
-    }
-
-    func signalClient(_ signalClient: SignalClient, didReceiveOffer offer: RTCSessionDescription) {
-
-        log("received offer, creating & sending answer...")
-
-        guard let subscriber = self.subscriber else {
-            log("failed to send answer, subscriber is nil", .error)
-            return
-        }
-
-        subscriber.setRemoteDescription(offer).then(on: queue) {
-            subscriber.createAnswer()
-        }.then(on: queue) { answer in
-            subscriber.setLocalDescription(answer)
-        }.then(on: queue) { answer in
-            self.signalClient.sendAnswer(answer: answer)
-        }.then(on: queue) {
-            self.log("answer sent to signal")
-        }.catch(on: queue) { error in
-            self.log("failed to send answer, error: \(error)", .error)
-        }
-    }
-
-    func signalClient(_ signalClient: SignalClient, didUpdate token: String) {
-
-        // update token
-        _state.mutate { $0.token = token }
-    }
-
-    func signalClient(_ signalClient: SignalClient, didReceive joinResponse: Livekit_JoinResponse) {}
-    func signalClient(_ signalClient: SignalClient, didPublish localTrack: Livekit_TrackPublishedResponse) {}
-    func signalClient(_ signalClient: SignalClient, didUnpublish localTrack: Livekit_TrackUnpublishedResponse) {}
-    func signalClient(_ signalClient: SignalClient, didUpdate participants: [Livekit_ParticipantInfo]) {}
-    func signalClient(_ signalClient: SignalClient, didUpdate room: Livekit_Room) {}
-    func signalClient(_ signalClient: SignalClient, didUpdate speakers: [Livekit_SpeakerInfo]) {}
-    func signalClient(_ signalClient: SignalClient, didUpdate connectionQuality: [Livekit_ConnectionQualityInfo]) {}
-    func signalClient(_ signalClient: SignalClient, didUpdateRemoteMute trackSid: String, muted: Bool) {}
-    func signalClient(_ signalClient: SignalClient, didUpdate trackStates: [Livekit_StreamStateInfo]) {}
-    func signalClient(_ signalClient: SignalClient, didUpdate trackSid: String, subscribedQualities: [Livekit_SubscribedQuality]) {}
-    func signalClient(_ signalClient: SignalClient, didUpdate subscriptionPermission: Livekit_SubscriptionPermissionUpdate) {}
-    func signalClient(_ signalClient: SignalClient, didReceiveLeave canReconnect: Bool, reason: Livekit_DisconnectReason) {}
-}
-
-// MARK: - TransportDelegate
-
-extension Engine: TransportDelegate {
-
-    func transport(_ transport: Transport, didGenerate stats: [TrackStats], target: Livekit_SignalTarget) {
-        // relay to Room
-        notify { $0.engine(self, didGenerate: stats, target: target) }
-    }
-
-    func transport(_ transport: Transport, didUpdate pcState: RTCPeerConnectionState) {
-        log("target: \(transport.target), state: \(pcState)")
-
-        // primary connected
-        if transport.primary {
-            _state.mutate { $0.primaryTransportConnectedCompleter.set(value: .connected == pcState ? true : nil) }
-        }
-
-        // publisher connected
-        if case .publisher = transport.target {
-            _state.mutate { $0.publisherTransportConnectedCompleter.set(value: .connected == pcState ? true : nil) }
-        }
-
-        if _state.connectionState.isConnected {
-            // Attempt re-connect if primary or publisher transport failed
-            if (transport.primary || (_state.hasPublished && transport.target == .publisher)) && [.disconnected, .failed].contains(pcState) {
-                log("[reconnect] starting, reason: transport disconnected or failed")
-                startReconnect()
-            }
-        }
-    }
-
-    private func configureTransports(joinResponse: Livekit_JoinResponse) -> Promise<Void> {
-
-        Promise<Void>(on: queue) { () -> Void in
-
-            self.log("configuring transports...")
-
-            // this should never happen since Engine is owned by Room
-            guard let room = self.room else { throw EngineError.state(message: "Room is nil") }
-
-            guard self.subscriber == nil, self.publisher == nil else {
-                self.log("transports already configured")
-                return
-            }
-
-            // protocol v3
-            self.subscriberPrimary = joinResponse.subscriberPrimary
-            self.log("subscriberPrimary: \(joinResponse.subscriberPrimary)")
-
-            // Make a copy, instead of modifying the user-supplied RTCConfiguration object.
-            let rtcConfiguration = RTCConfiguration(copy: self._state.connectOptions.rtcConfiguration)
-
-            if rtcConfiguration.iceServers.isEmpty {
-                // Set iceServers provided by the server
-                rtcConfiguration.iceServers = joinResponse.iceServers.map { $0.toRTCType() }
-            }
-
-            if joinResponse.clientConfiguration.forceRelay == .enabled {
-                rtcConfiguration.iceTransportPolicy = .relay
-            }
-
-            let subscriber = try Transport(config: rtcConfiguration,
-                                           target: .subscriber,
-                                           primary: self.subscriberPrimary,
-                                           delegate: self,
-                                           reportStats: room._state.options.reportStats)
-
-            let publisher = try Transport(config: rtcConfiguration,
-                                          target: .publisher,
-                                          primary: !self.subscriberPrimary,
-                                          delegate: self,
-                                          reportStats: room._state.options.reportStats)
-
-            publisher.onOffer = { offer in
-                self.log("publisher onOffer \(offer.sdp)")
-                return self.signalClient.sendOffer(offer: offer)
-            }
-
-            // data over pub channel for backwards compatibility
-
-            let publisherReliableDC = publisher.dataChannel(for: RTCDataChannel.labels.reliable,
-                                                            configuration: Engine.createDataChannelConfiguration())
-
-            let publisherLossyDC = publisher.dataChannel(for: RTCDataChannel.labels.lossy,
-                                                         configuration: Engine.createDataChannelConfiguration(maxRetransmits: 0))
-
-            self.publisherDC.set(reliable: publisherReliableDC)
-            self.publisherDC.set(lossy: publisherLossyDC)
-
-            self.log("dataChannel.\(String(describing: publisherReliableDC?.label)) : \(String(describing: publisherReliableDC?.channelId))")
-            self.log("dataChannel.\(String(describing: publisherLossyDC?.label)) : \(String(describing: publisherLossyDC?.channelId))")
-
-            if !self.subscriberPrimary {
-                // lazy negotiation for protocol v3+
-                self.publisherShouldNegotiate()
-            }
-
-            self.subscriber = subscriber
-            self.publisher = publisher
-        }
-    }
-
-    func transport(_ transport: Transport, didGenerate iceCandidate: RTCIceCandidate) {
-        log("didGenerate iceCandidate")
-        signalClient.sendCandidate(candidate: iceCandidate,
-                                   target: transport.target).catch(on: queue) { error in
-                                    self.log("Failed to send candidate, error: \(error)", .error)
-                                   }
-    }
-
-    func transport(_ transport: Transport, didAdd track: RTCMediaStreamTrack, streams: [RTCMediaStream]) {
-        log("did add track")
-        if transport.target == .subscriber {
-
-            // execute block when connected
-            execute(when: { state, _ in state.connectionState == .connected },
-                    // always remove this block when disconnected
-                    removeWhen: { state, _ in state.connectionState == .disconnected() }) { [weak self] in
-                guard let self = self else { return }
-                self.notify { $0.engine(self, didAdd: track, streams: streams) }
-            }
-        }
-    }
-
-    func transport(_ transport: Transport, didRemove track: RTCMediaStreamTrack) {
-        if transport.target == .subscriber {
-            notify { $0.engine(self, didRemove: track) }
-        }
-    }
-
-    func transport(_ transport: Transport, didOpen dataChannel: RTCDataChannel) {
-
-        log("Server opened data channel \(dataChannel.label)(\(dataChannel.readyState))")
-
-        if subscriberPrimary, transport.target == .subscriber {
-
-            switch dataChannel.label {
-            case RTCDataChannel.labels.reliable: subscriberDC.set(reliable: dataChannel)
-            case RTCDataChannel.labels.lossy: subscriberDC.set(lossy: dataChannel)
-            default: log("Unknown data channel label \(dataChannel.label)", .warning)
-            }
-        }
-    }
-
-    func transportShouldNegotiate(_ transport: Transport) {}
-}
-
 // MARK: - ConnectivityListenerDelegate
 
 extension Engine: ConnectivityListenerDelegate {
@@ -776,181 +618,5 @@ extension Engine: ConnectivityListenerDelegate {
             log("[reconnect] starting, reason: network path changed")
             startReconnect()
         }
-    }
-}
-
-// MARK: Engine - Factory methods
-
-private extension Array where Element: RTCVideoCodecInfo {
-
-    func rewriteCodecsIfNeeded() -> [RTCVideoCodecInfo] {
-        // rewrite H264's profileLevelId to 42e032
-        let codecs = map { $0.name == kRTCVideoCodecH264Name ? Engine.h264BaselineLevel5CodecInfo : $0 }
-        // logger.log("supportedCodecs: \(codecs.map({ "\($0.name) - \($0.parameters)" }).joined(separator: ", "))", type: Engine.self)
-        return codecs
-    }
-}
-
-private class VideoEncoderFactory: RTCDefaultVideoEncoderFactory {
-
-    override func supportedCodecs() -> [RTCVideoCodecInfo] {
-        super.supportedCodecs().rewriteCodecsIfNeeded()
-    }
-}
-
-private class VideoDecoderFactory: RTCDefaultVideoDecoderFactory {
-
-    override func supportedCodecs() -> [RTCVideoCodecInfo] {
-        super.supportedCodecs().rewriteCodecsIfNeeded()
-    }
-}
-
-private class VideoEncoderFactorySimulcast: RTCVideoEncoderFactorySimulcast {
-
-    override func supportedCodecs() -> [RTCVideoCodecInfo] {
-        super.supportedCodecs().rewriteCodecsIfNeeded()
-    }
-}
-
-internal extension Engine {
-
-    static var bypassVoiceProcessing: Bool = false
-
-    static let h264BaselineLevel5CodecInfo: RTCVideoCodecInfo = {
-
-        // this should never happen
-        guard let profileLevelId = RTCH264ProfileLevelId(profile: .constrainedBaseline, level: .level5) else {
-            logger.log("failed to generate profileLevelId", .error, type: Engine.self)
-            fatalError("failed to generate profileLevelId")
-        }
-
-        // create a new H264 codec with new profileLevelId
-        return RTCVideoCodecInfo(name: kRTCH264CodecName,
-                                 parameters: ["profile-level-id": profileLevelId.hexString,
-                                              "level-asymmetry-allowed": "1",
-                                              "packetization-mode": "1"])
-    }()
-
-    // global properties are already lazy
-
-    static private let encoderFactory: RTCVideoEncoderFactory = {
-        let encoderFactory = VideoEncoderFactory()
-        #if LK_USING_CUSTOM_WEBRTC_BUILD
-        return VideoEncoderFactorySimulcast(primary: encoderFactory,
-                                            fallback: encoderFactory)
-
-        #else
-        return encoderFactory
-        #endif
-    }()
-
-    static private let decoderFactory = VideoDecoderFactory()
-
-    static let peerConnectionFactory: RTCPeerConnectionFactory = {
-
-        logger.log("Initializing SSL...", type: Engine.self)
-
-        RTCInitializeSSL()
-
-        logger.log("Initializing Field trials...", type: Engine.self)
-
-        let fieldTrials = [kRTCFieldTrialUseNWPathMonitor: kRTCFieldTrialEnabledValue]
-        RTCInitFieldTrialDictionary(fieldTrials)
-
-        logger.log("Initializing PeerConnectionFactory...", type: Engine.self)
-
-        #if LK_USING_CUSTOM_WEBRTC_BUILD
-        return RTCPeerConnectionFactory(bypassVoiceProcessing: bypassVoiceProcessing,
-                                        encoderFactory: encoderFactory,
-                                        decoderFactory: decoderFactory)
-        #else
-        return RTCPeerConnectionFactory(encoderFactory: encoderFactory,
-                                        decoderFactory: decoderFactory)
-        #endif
-    }()
-
-    // forbid direct access
-
-    static var audioDeviceModule: RTCAudioDeviceModule {
-        peerConnectionFactory.audioDeviceModule
-    }
-
-    static func createPeerConnection(_ configuration: RTCConfiguration,
-                                     constraints: RTCMediaConstraints) -> RTCPeerConnection? {
-        DispatchQueue.webRTC.sync { peerConnectionFactory.peerConnection(with: configuration,
-                                                                         constraints: constraints,
-                                                                         delegate: nil) }
-    }
-
-    static func createVideoSource(forScreenShare: Bool) -> RTCVideoSource {
-        #if LK_USING_CUSTOM_WEBRTC_BUILD
-        DispatchQueue.webRTC.sync { peerConnectionFactory.videoSource() }
-        #else
-        DispatchQueue.webRTC.sync { peerConnectionFactory.videoSource(forScreenCast: forScreenShare) }
-        #endif
-    }
-
-    static func createVideoTrack(source: RTCVideoSource) -> RTCVideoTrack {
-        DispatchQueue.webRTC.sync { peerConnectionFactory.videoTrack(with: source,
-                                                                     trackId: UUID().uuidString) }
-    }
-
-    static func createAudioSource(_ constraints: RTCMediaConstraints?) -> RTCAudioSource {
-        DispatchQueue.webRTC.sync { peerConnectionFactory.audioSource(with: constraints) }
-    }
-
-    static func createAudioTrack(source: RTCAudioSource) -> RTCAudioTrack {
-        DispatchQueue.webRTC.sync { peerConnectionFactory.audioTrack(with: source,
-                                                                     trackId: UUID().uuidString) }
-    }
-
-    static func createDataChannelConfiguration(ordered: Bool = true,
-                                               maxRetransmits: Int32 = -1) -> RTCDataChannelConfiguration {
-        let result = DispatchQueue.webRTC.sync { RTCDataChannelConfiguration() }
-        result.isOrdered = ordered
-        result.maxRetransmits = maxRetransmits
-        return result
-    }
-
-    static func createDataBuffer(data: Data) -> RTCDataBuffer {
-        DispatchQueue.webRTC.sync { RTCDataBuffer(data: data, isBinary: true) }
-    }
-
-    static func createIceCandidate(fromJsonString: String) throws -> RTCIceCandidate {
-        try DispatchQueue.webRTC.sync { try RTCIceCandidate(fromJsonString: fromJsonString) }
-    }
-
-    static func createSessionDescription(type: RTCSdpType, sdp: String) -> RTCSessionDescription {
-        DispatchQueue.webRTC.sync { RTCSessionDescription(type: type, sdp: sdp) }
-    }
-
-    static func createVideoCapturer() -> RTCVideoCapturer {
-        DispatchQueue.webRTC.sync { RTCVideoCapturer() }
-    }
-
-    static func createRtpEncodingParameters(rid: String? = nil,
-                                            encoding: MediaEncoding? = nil,
-                                            scaleDownBy: Double? = nil,
-                                            active: Bool = true) -> RTCRtpEncodingParameters {
-
-        let result = DispatchQueue.webRTC.sync { RTCRtpEncodingParameters() }
-
-        result.isActive = active
-        result.rid = rid
-
-        if let scaleDownBy = scaleDownBy {
-            result.scaleResolutionDownBy = NSNumber(value: scaleDownBy)
-        }
-
-        if let encoding = encoding {
-            result.maxBitrateBps = NSNumber(value: encoding.maxBitrate)
-
-            // VideoEncoding specific
-            if let videoEncoding = encoding as? VideoEncoding {
-                result.maxFramerate = NSNumber(value: videoEncoding.maxFps)
-            }
-        }
-
-        return result
     }
 }
