@@ -582,6 +582,20 @@ internal extension SignalClient {
         return sendRequest(r)
     }
 
+    func sendUpdateLocalMetadata(_ metadata: String, name: String) -> Promise<Void> {
+
+        log()
+
+        let r = Livekit_SignalRequest.with {
+            $0.updateMetadata = Livekit_UpdateParticipantMetadata.with {
+                $0.metadata = metadata
+                $0.name = name
+            }
+        }
+
+        return sendRequest(r)
+    }
+
     func sendSyncState(answer: Livekit_SessionDescription,
                        offer: Livekit_SessionDescription?,
                        subscription: Livekit_UpdateSubscription,

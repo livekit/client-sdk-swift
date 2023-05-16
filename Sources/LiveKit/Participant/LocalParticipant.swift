@@ -344,6 +344,30 @@ public class LocalParticipant: Participant {
         return sendTrackSubscriptionPermissions()
     }
 
+    /// Sets and updates the metadata of the local participant.
+    ///
+    /// Note: this requires `CanUpdateOwnMetadata` permission encoded in the token.
+    public func set(metadata: String) -> Promise<Void> {
+        // mutate state to set metadata and copy name from state
+        let name = _state.mutate {
+            $0.metadata = metadata
+            return $0.name
+        }
+        return room.engine.signalClient.sendUpdateLocalMetadata(metadata, name: name)
+    }
+
+    /// Sets and updates the name of the local participant.
+    ///
+    /// Note: this requires `CanUpdateOwnMetadata` permission encoded in the token.
+    public func set(name: String) -> Promise<Void> {
+        // mutate state to set name and copy metadata from state
+        let metadata = _state.mutate {
+            $0.name = name
+            return $0.metadata
+        }
+        return room.engine.signalClient.sendUpdateLocalMetadata(metadata ?? "", name: name)
+    }
+
     internal func sendTrackSubscriptionPermissions() -> Promise<Void> {
 
         guard room.engine._state.connectionState == .connected else {
