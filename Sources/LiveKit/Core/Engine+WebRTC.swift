@@ -72,7 +72,7 @@ internal extension Engine {
 
     static private let encoderFactory: RTCVideoEncoderFactory = {
         let encoderFactory = VideoEncoderFactory()
-        #if LK_USING_CUSTOM_WEBRTC_BUILD
+        #if LK_USE_LIVEKIT_WEBRTC_BUILD
         return VideoEncoderFactorySimulcast(primary: encoderFactory,
                                             fallback: encoderFactory)
 
@@ -96,7 +96,7 @@ internal extension Engine {
 
         logger.log("Initializing PeerConnectionFactory...", type: Engine.self)
 
-        #if LK_USING_CUSTOM_WEBRTC_BUILD
+        #if LK_USE_LIVEKIT_WEBRTC_BUILD
         return RTCPeerConnectionFactory(bypassVoiceProcessing: bypassVoiceProcessing,
                                         encoderFactory: encoderFactory,
                                         decoderFactory: decoderFactory)
@@ -120,10 +120,10 @@ internal extension Engine {
     }
 
     static func createVideoSource(forScreenShare: Bool) -> RTCVideoSource {
-        #if LK_USING_CUSTOM_WEBRTC_BUILD
-        DispatchQueue.webRTC.sync { peerConnectionFactory.videoSource() }
-        #else
+        #if LK_USE_LIVEKIT_WEBRTC_BUILD
         DispatchQueue.webRTC.sync { peerConnectionFactory.videoSource(forScreenCast: forScreenShare) }
+        #else
+        DispatchQueue.webRTC.sync { peerConnectionFactory.videoSource() }
         #endif
     }
 
