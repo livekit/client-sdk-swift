@@ -109,7 +109,7 @@ public class Track: NSObject, Loggable {
     internal var _publishOptions: PublishOptions?
 
     internal let mediaTrack: RTCMediaStreamTrack
-    internal var transceiver: RTCRtpTransceiver?
+
     internal var sender: RTCRtpSender? { transceiver?.sender }
 
     // Weak reference to all VideoViews attached to this track. Must be accessed from main thread.
@@ -130,7 +130,17 @@ public class Track: NSObject, Loggable {
 
     internal var _state: StateSync<State>
 
-    internal init(name: String, kind: Kind, source: Source, track: RTCMediaStreamTrack) {
+    // MARK: - Private
+
+    private weak var transport: Transport?
+    private var transceiver: RTCRtpTransceiver?
+    private let statsTimer = DispatchQueueTimer(timeInterval: 1, queue: .webRTC)
+    // Weak reference to the corresponding transport
+
+    internal init(name: String,
+                  kind: Kind,
+                  source: Source,
+                  track: RTCMediaStreamTrack) {
 
         _state = StateSync(State(
             name: name,
@@ -139,10 +149,24 @@ public class Track: NSObject, Loggable {
         ))
 
         mediaTrack = track
+
+        super.init()
+
+        statsTimer.handler = { [weak self] in
+            self?.onStatsTimer()
+        }
     }
 
     deinit {
+        statsTimer.suspend()
         log("sid: \(String(describing: sid))")
+    }
+
+    internal func set(transport: Transport, transceiver: RTCRtpTransceiver) {
+        // guard self.transceiver != transceiver else { return }
+        self.transport = transport
+        self.transceiver = transceiver
+        statsTimer.resume()
     }
 
     // returns true if updated state
@@ -392,5 +416,31 @@ extension Track: Identifiable {
 
     public var id: String {
         "\(type(of: self))-\(sid ?? String(hash))"
+    }
+}
+
+// MARK: - Stats
+
+extension Track {
+
+    func onStatsTimer() {
+
+        log("onStatsTimer()")
+
+        guard let transport = transport,
+              let sender = sender else { return }
+
+        statsTimer.suspend()
+
+        Task {
+
+            let senderStats = await transport.senderStats(for: sender)
+
+            let c = senderStats.statistics.values.filter { $0.type == "outbound-rtp" }
+            print("senderStats: \(c)")
+            c.first.
+
+            statsTimer.resume()
+        }
     }
 }

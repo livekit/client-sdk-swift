@@ -160,3 +160,50 @@ public class TrackStats: NSObject {
         }
     }
 }
+
+class StatOutboundRTP {
+    //    let bytesSent: Int
+    //    let codecId: String
+    //    let encoderImplementation: String
+    //    let firCount: Int
+    //    let framesEncoded: Int
+    //    let framesSent: Int
+    //    let headerBytesSent: Int
+    //    let hugeFramesSent: Int
+    //    let keyFramesEncoded: Int
+    //    let kind: String
+    //    let mediaSourceId: String
+    //    let mediaType: String
+    //    let nackCount: Int
+    //    let packetsSent: Int
+    //    let pliCount: Int
+    //    let qualityLimitationDurations: QualityLimitationDurations
+    //    let qualityLimitationReason: String
+    //    let qualityLimitationResolutionChanges: Int
+    //    let retransmittedBytesSent: Int
+    //    let retransmittedPacketsSent: Int
+    //    let rid: String
+    let ssrc: Int
+    //    let totalEncodeTime: Int
+    //    let totalEncodedBytesTarget: Int
+    //    let totalPacketSendDelay: Int
+    //    let trackId: String
+    //    let transportId: String
+
+    init?(from values: [String: String], previous: TrackStats?) {
+
+        // ssrc is required
+        guard let ssrc = values["ssrc"] else {
+            return nil
+        }
+
+        self.ssrc = ssrc
+    }
+}
+
+struct QualityLimitationDurations {
+    var bandwidth: Double
+    var cpu: Double
+    var none: Double
+    var other: Double
+}

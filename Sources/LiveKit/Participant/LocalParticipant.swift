@@ -150,7 +150,9 @@ public class LocalParticipant: Participant {
 
             // store publishOptions used for this track
             track._publishOptions = publishOptions
-            track.transceiver = transceiver
+
+            track.set(transport: publisher,
+                      transceiver: transceiver)
 
             // prefer to maintainResolution for screen share
             if case .screenShareVideo = track.source {
@@ -386,7 +388,7 @@ public class LocalParticipant: Participant {
 
         guard let pub = getTrackPublication(sid: trackSid),
               let track = pub.track as? LocalVideoTrack,
-              let sender = track.transceiver?.sender
+              let sender = track.sender
         else { return }
 
         let parameters = sender.parameters
