@@ -876,6 +876,12 @@ struct Livekit_JoinResponse {
   /// Clears the value of `serverInfo`. Subsequent reads from it will return its default value.
   mutating func clearServerInfo() {_uniqueStorage()._serverInfo = nil}
 
+  /// Server-Injected-Frame byte trailer, used to identify unencrypted frames when e2ee is enabled
+  var sifTrailer: Data {
+    get {return _storage._sifTrailer}
+    set {_uniqueStorage()._sifTrailer = newValue}
+  }
+
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   init() {}
@@ -2486,6 +2492,7 @@ extension Livekit_JoinResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageImp
     10: .standard(proto: "ping_timeout"),
     11: .standard(proto: "ping_interval"),
     12: .standard(proto: "server_info"),
+    13: .standard(proto: "sif_trailer"),
   ]
 
   fileprivate class _StorageClass {
@@ -2501,6 +2508,7 @@ extension Livekit_JoinResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageImp
     var _pingTimeout: Int32 = 0
     var _pingInterval: Int32 = 0
     var _serverInfo: Livekit_ServerInfo? = nil
+    var _sifTrailer: Data = Data()
 
     static let defaultInstance = _StorageClass()
 
@@ -2519,6 +2527,7 @@ extension Livekit_JoinResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageImp
       _pingTimeout = source._pingTimeout
       _pingInterval = source._pingInterval
       _serverInfo = source._serverInfo
+      _sifTrailer = source._sifTrailer
     }
   }
 
@@ -2549,6 +2558,7 @@ extension Livekit_JoinResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageImp
         case 10: try { try decoder.decodeSingularInt32Field(value: &_storage._pingTimeout) }()
         case 11: try { try decoder.decodeSingularInt32Field(value: &_storage._pingInterval) }()
         case 12: try { try decoder.decodeSingularMessageField(value: &_storage._serverInfo) }()
+        case 13: try { try decoder.decodeSingularBytesField(value: &_storage._sifTrailer) }()
         default: break
         }
       }
@@ -2597,6 +2607,9 @@ extension Livekit_JoinResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageImp
       try { if let v = _storage._serverInfo {
         try visitor.visitSingularMessageField(value: v, fieldNumber: 12)
       } }()
+      if !_storage._sifTrailer.isEmpty {
+        try visitor.visitSingularBytesField(value: _storage._sifTrailer, fieldNumber: 13)
+      }
     }
     try unknownFields.traverse(visitor: &visitor)
   }
@@ -2618,6 +2631,7 @@ extension Livekit_JoinResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageImp
         if _storage._pingTimeout != rhs_storage._pingTimeout {return false}
         if _storage._pingInterval != rhs_storage._pingInterval {return false}
         if _storage._serverInfo != rhs_storage._serverInfo {return false}
+        if _storage._sifTrailer != rhs_storage._sifTrailer {return false}
         return true
       }
       if !storagesAreEqual {return false}
