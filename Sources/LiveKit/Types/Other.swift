@@ -44,4 +44,6 @@ public enum SimulateScenario {
     case migration
     case serverLeave
     case speakerUpdate(seconds: Int)
+    case forceTCP
+    case forceTLS
 }
