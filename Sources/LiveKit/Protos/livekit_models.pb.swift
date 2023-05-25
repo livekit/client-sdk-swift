@@ -487,6 +487,8 @@ struct Livekit_Room {
 
   var numParticipants: UInt32 = 0
 
+  var numPublishers: UInt32 = 0
+
   var activeRecording: Bool = false
 
   var unknownFields = SwiftProtobuf.UnknownStorage()
@@ -1212,7 +1214,11 @@ struct Livekit_DisabledCodecs {
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
 
+  /// disabled for both publish and subscribe
   var codecs: [Livekit_Codec] = []
+
+  /// only disable for publish
+  var publish: [Livekit_Codec] = []
 
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
@@ -1453,6 +1459,17 @@ struct Livekit_RTPStats {
   /// Clears the value of `lastLayerLockPli`. Subsequent reads from it will return its default value.
   mutating func clearLastLayerLockPli() {_uniqueStorage()._lastLayerLockPli = nil}
 
+  var sampleRate: Double {
+    get {return _storage._sampleRate}
+    set {_uniqueStorage()._sampleRate = newValue}
+  }
+
+  /// NEXT_ID: 44
+  var driftMs: Double {
+    get {return _storage._driftMs}
+    set {_uniqueStorage()._driftMs = newValue}
+  }
+
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   init() {}
@@ -1612,6 +1629,7 @@ extension Livekit_Room: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementat
     7: .standard(proto: "enabled_codecs"),
     8: .same(proto: "metadata"),
     9: .standard(proto: "num_participants"),
+    11: .standard(proto: "num_publishers"),
     10: .standard(proto: "active_recording"),
   ]
 
@@ -1631,6 +1649,7 @@ extension Livekit_Room: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementat
       case 8: try { try decoder.decodeSingularStringField(value: &self.metadata) }()
       case 9: try { try decoder.decodeSingularUInt32Field(value: &self.numParticipants) }()
       case 10: try { try decoder.decodeSingularBoolField(value: &self.activeRecording) }()
+      case 11: try { try decoder.decodeSingularUInt32Field(value: &self.numPublishers) }()
       default: break
       }
     }
@@ -1667,6 +1686,9 @@ extension Livekit_Room: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementat
     if self.activeRecording != false {
       try visitor.visitSingularBoolField(value: self.activeRecording, fieldNumber: 10)
     }
+    if self.numPublishers != 0 {
+      try visitor.visitSingularUInt32Field(value: self.numPublishers, fieldNumber: 11)
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -1680,6 +1702,7 @@ extension Livekit_Room: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementat
     if lhs.enabledCodecs != rhs.enabledCodecs {return false}
     if lhs.metadata != rhs.metadata {return false}
     if lhs.numParticipants != rhs.numParticipants {return false}
+    if lhs.numPublishers != rhs.numPublishers {return false}
     if lhs.activeRecording != rhs.activeRecording {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
@@ -2720,6 +2743,7 @@ extension Livekit_DisabledCodecs: SwiftProtobuf.Message, SwiftProtobuf._MessageI
   static let protoMessageName: String = _protobuf_package + ".DisabledCodecs"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     1: .same(proto: "codecs"),
+    2: .same(proto: "publish"),
   ]
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -2729,6 +2753,7 @@ extension Livekit_DisabledCodecs: SwiftProtobuf.Message, SwiftProtobuf._MessageI
       // enabled. https://github.com/apple/swift-protobuf/issues/1034
       switch fieldNumber {
       case 1: try { try decoder.decodeRepeatedMessageField(value: &self.codecs) }()
+      case 2: try { try decoder.decodeRepeatedMessageField(value: &self.publish) }()
       default: break
       }
     }
@@ -2738,11 +2763,15 @@ extension Livekit_DisabledCodecs: SwiftProtobuf.Message, SwiftProtobuf._MessageI
     if !self.codecs.isEmpty {
       try visitor.visitRepeatedMessageField(value: self.codecs, fieldNumber: 1)
     }
+    if !self.publish.isEmpty {
+      try visitor.visitRepeatedMessageField(value: self.publish, fieldNumber: 2)
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
   static func ==(lhs: Livekit_DisabledCodecs, rhs: Livekit_DisabledCodecs) -> Bool {
     if lhs.codecs != rhs.codecs {return false}
+    if lhs.publish != rhs.publish {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
@@ -2792,6 +2821,8 @@ extension Livekit_RTPStats: SwiftProtobuf.Message, SwiftProtobuf._MessageImpleme
     34: .standard(proto: "last_key_frame"),
     35: .standard(proto: "layer_lock_plis"),
     36: .standard(proto: "last_layer_lock_pli"),
+    42: .standard(proto: "sample_rate"),
+    43: .standard(proto: "drift_ms"),
   ]
 
   fileprivate class _StorageClass {
@@ -2836,6 +2867,8 @@ extension Livekit_RTPStats: SwiftProtobuf.Message, SwiftProtobuf._MessageImpleme
     var _lastKeyFrame: SwiftProtobuf.Google_Protobuf_Timestamp? = nil
     var _layerLockPlis: UInt32 = 0
     var _lastLayerLockPli: SwiftProtobuf.Google_Protobuf_Timestamp? = nil
+    var _sampleRate: Double = 0
+    var _driftMs: Double = 0
 
     static let defaultInstance = _StorageClass()
 
@@ -2883,6 +2916,8 @@ extension Livekit_RTPStats: SwiftProtobuf.Message, SwiftProtobuf._MessageImpleme
       _lastKeyFrame = source._lastKeyFrame
       _layerLockPlis = source._layerLockPlis
       _lastLayerLockPli = source._lastLayerLockPli
+      _sampleRate = source._sampleRate
+      _driftMs = source._driftMs
     }
   }
 
@@ -2942,6 +2977,8 @@ extension Livekit_RTPStats: SwiftProtobuf.Message, SwiftProtobuf._MessageImpleme
         case 39: try { try decoder.decodeSingularUInt64Field(value: &_storage._headerBytes) }()
         case 40: try { try decoder.decodeSingularUInt64Field(value: &_storage._headerBytesDuplicate) }()
         case 41: try { try decoder.decodeSingularUInt64Field(value: &_storage._headerBytesPadding) }()
+        case 42: try { try decoder.decodeSingularDoubleField(value: &_storage._sampleRate) }()
+        case 43: try { try decoder.decodeSingularDoubleField(value: &_storage._driftMs) }()
         default: break
         }
       }
@@ -3077,6 +3114,12 @@ extension Livekit_RTPStats: SwiftProtobuf.Message, SwiftProtobuf._MessageImpleme
       if _storage._headerBytesPadding != 0 {
         try visitor.visitSingularUInt64Field(value: _storage._headerBytesPadding, fieldNumber: 41)
       }
+      if _storage._sampleRate != 0 {
+        try visitor.visitSingularDoubleField(value: _storage._sampleRate, fieldNumber: 42)
+      }
+      if _storage._driftMs != 0 {
+        try visitor.visitSingularDoubleField(value: _storage._driftMs, fieldNumber: 43)
+      }
     }
     try unknownFields.traverse(visitor: &visitor)
   }
@@ -3127,6 +3170,8 @@ extension Livekit_RTPStats: SwiftProtobuf.Message, SwiftProtobuf._MessageImpleme
         if _storage._lastKeyFrame != rhs_storage._lastKeyFrame {return false}
         if _storage._layerLockPlis != rhs_storage._layerLockPlis {return false}
         if _storage._lastLayerLockPli != rhs_storage._lastLayerLockPli {return false}
+        if _storage._sampleRate != rhs_storage._sampleRate {return false}
+        if _storage._driftMs != rhs_storage._driftMs {return false}
         return true
       }
       if !storagesAreEqual {return false}

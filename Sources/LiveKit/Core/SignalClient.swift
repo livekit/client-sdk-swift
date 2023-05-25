@@ -636,16 +636,31 @@ internal extension SignalClient {
     func sendSimulate(scenario: SimulateScenario) -> Promise<Void> {
         log()
 
+        var shouldDisconnect = false
+
         let r = Livekit_SignalRequest.with {
             $0.simulate = Livekit_SimulateScenario.with {
-                if case .nodeFailure = scenario { $0.nodeFailure = true }
-                if case .migration = scenario { $0.migration = true }
-                if case .serverLeave = scenario { $0.serverLeave = true }
-                if case .speakerUpdate(let secs) = scenario { $0.speakerUpdate = Int32(secs) }
+                switch scenario {
+                case .nodeFailure: $0.nodeFailure = true
+                case .migration: $0.migration = true
+                case .serverLeave: $0.serverLeave = true
+                case .speakerUpdate(let secs): $0.speakerUpdate = Int32(secs)
+                case .forceTCP:
+                    $0.switchCandidateProtocol = Livekit_CandidateProtocol.tcp
+                    shouldDisconnect = true
+                case .forceTLS:
+                    $0.switchCandidateProtocol = Livekit_CandidateProtocol.tls
+                    shouldDisconnect = true
+                }
             }
         }
 
-        return sendRequest(r)
+        return sendRequest(r).then(on: queue) {
+            if shouldDisconnect {
+                let sdkError = NetworkError.disconnected(message: "Simulate scenario")
+                self.cleanUp(reason: .networkError(sdkError))
+            }
+        }
     }
 
     @discardableResult

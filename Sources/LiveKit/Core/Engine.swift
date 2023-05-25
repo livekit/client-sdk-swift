@@ -520,7 +520,7 @@ internal extension Engine {
                         // full reconnect failed, give up
                         guard .full != self._state.reconnectMode else { return false }
 
-                        self.log("[reconnect] retry in \(_state.connectOptions.reconnectAttemptDelay) seconds, \(triesLeft) tries left...")
+                        self.log("[reconnect] retry in \(self._state.connectOptions.reconnectAttemptDelay) seconds, \(triesLeft) tries left...")
 
                         // try full reconnect for the final attempt
                         if triesLeft == 1,
