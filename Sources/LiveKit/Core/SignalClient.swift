@@ -139,7 +139,7 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
                     }
                     self.log("validate response: \(string)")
                     // re-throw with validation response
-                    throw SignalClientError.connect(message: string)
+                    throw SignalClientError.connect(message: "Validation response: \"\(string)\"")
                 }
             }.catch(on: queue) { error in
                 self.cleanUp(reason: .networkError(error))
