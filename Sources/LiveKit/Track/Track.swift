@@ -421,7 +421,41 @@ extension Track: Identifiable {
 
 // MARK: - Stats
 
+extension RTCStatistics {
+
+    func toLKType() -> Stats? {
+        switch type {
+        case "codec": return CodecStats(id: id, timestamp: timestamp_us, dictionary: values)
+        case "inbound-rtp": return RTCInboundRtpStreamStats(id: id, timestamp: timestamp_us, dictionary: values)
+        case "outbound-rtp": return RTCOutboundRtpStreamStats(id: id, timestamp: timestamp_us, dictionary: values)
+        case "remote-inbound-rtp": return RTCRemoteInboundRtpStreamStats(id: id, timestamp: timestamp_us, dictionary: values)
+        case "remote-outbound-rtp": return RTCRemoteOutboundRtpStreamStats(id: id, timestamp: timestamp_us, dictionary: values)
+        case "media-source":
+            guard let mediaSourceStats = MediaSourceStats(id: id, timestamp: timestamp_us, dictionary: values) else { return nil }
+            if mediaSourceStats.kind == "audio" { return RTCAudioSourceStats(id: id, timestamp: timestamp_us, dictionary: values) }
+            if mediaSourceStats.kind == "video" { return RTCVideoSourceStats(id: id, timestamp: timestamp_us, dictionary: values) }
+            return nil
+        case "media-playout": return AudioPlayoutStats(id: id, timestamp: timestamp_us, dictionary: values)
+        case "peer-connection": return PeerConnectionStats(id: id, timestamp: timestamp_us, dictionary: values)
+        case "data-channel": return RTCDataChannelStats(id: id, timestamp: timestamp_us, dictionary: values)
+        case "transport": return RTCTransportStats(id: id, timestamp: timestamp_us, dictionary: values)
+        case "candidate-pair": return RTCIceCandidatePairStats(id: id, timestamp: timestamp_us, dictionary: values)
+        case "local-candidate": return RTCLocalIceCandidateStats(id: id, timestamp: timestamp_us, dictionary: values)
+        case "remote-candidate": return RTCRemoteIceCandidateStats(id: id, timestamp: timestamp_us, dictionary: values)
+        case "certificate": return RTCCertificateStats(id: id, timestamp: timestamp_us, dictionary: values)
+        default:
+            // type: track is not handled
+            // print("Unknown stats type: \(type), \(values)")
+            return nil
+        }
+    }
+}
+
 extension Track {
+
+    func parse(stats: [RTCStatistics]) -> [Stats] {
+        stats.map { $0.toLKType() }.compactMap { $0 }
+    }
 
     func onStatsTimer() {
 
@@ -435,10 +469,8 @@ extension Track {
         Task {
 
             let senderStats = await transport.senderStats(for: sender)
-
-            let c = senderStats.statistics.values.filter { $0.type == "outbound-rtp" }
-            print("senderStats: \(c)")
-            c.first.
+            let lkStats = parse(stats: Array(senderStats.statistics.values))
+            print("senderStats: \(lkStats)")
 
             statsTimer.resume()
         }

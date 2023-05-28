@@ -160,50 +160,141 @@ public class TrackStats: NSObject {
         }
     }
 }
+//
+///// Base class for outbound-rtp stats
+// class OutboundRTPStreamStats {
+//
+//    let bytesSent: Int
+//    let codecId: String
+//    let headerBytesSent: Int
+//    let kind: String
+//    let mediaSourceId: String
+//    let mediaType: String
+//    let nackCount: Int
+//    let packetsSent: Int
+//    let retransmittedBytesSent: Int
+//    let retransmittedPacketsSent: Int
+//    let ssrc: Int
+//    let trackId: String
+//    let transportId: String
+//
+//    init?(from values: [String: NSObject]) {
+//        self.bytesSent = (values["bytesSent"] as? Int) ?? 0
+//        self.codecId = (values["codecId"] as? String) ?? ""
+//        self.headerBytesSent = (values["headerBytesSent"] as? Int) ?? 0
+//        self.kind = (values["kind"] as? String) ?? ""
+//        self.mediaSourceId = (values["mediaSourceId"] as? String) ?? ""
+//        self.mediaType = (values["mediaType"] as? String) ?? ""
+//        self.nackCount = (values["nackCount"] as? Int) ?? 0
+//        self.packetsSent = (values["packetsSent"] as? Int) ?? 0
+//        self.retransmittedBytesSent = (values["retransmittedBytesSent"] as? Int) ?? 0
+//        self.retransmittedPacketsSent = (values["retransmittedPacketsSent"] as? Int) ?? 0
+//        self.ssrc = (values["ssrc"] as? Int) ?? 0
+//        self.trackId = (values["trackId"] as? String) ?? ""
+//        self.transportId = (values["transportId"] as? String) ?? ""
+//    }
+// }
+//
+// class OutboundRTPAudioStreamStats: OutboundRTPStreamStats {
+//
+//    let remoteId: String
+//    let targetBitrate: Int
+//
+//    override init?(from values: [String: NSObject]) {
+//
+//        self.remoteId = (values["remoteId"] as? String) ?? ""
+//        self.targetBitrate = (values["targetBitrate"] as? Int) ?? 0
+//
+//        super.init(from: values)
+//    }
+// }
 
-class StatOutboundRTP {
-    //    let bytesSent: Int
-    //    let codecId: String
-    //    let encoderImplementation: String
-    //    let firCount: Int
-    //    let framesEncoded: Int
-    //    let framesSent: Int
-    //    let headerBytesSent: Int
-    //    let hugeFramesSent: Int
-    //    let keyFramesEncoded: Int
-    //    let kind: String
-    //    let mediaSourceId: String
-    //    let mediaType: String
-    //    let nackCount: Int
-    //    let packetsSent: Int
-    //    let pliCount: Int
-    //    let qualityLimitationDurations: QualityLimitationDurations
-    //    let qualityLimitationReason: String
-    //    let qualityLimitationResolutionChanges: Int
-    //    let retransmittedBytesSent: Int
-    //    let retransmittedPacketsSent: Int
-    //    let rid: String
-    let ssrc: Int
-    //    let totalEncodeTime: Int
-    //    let totalEncodedBytesTarget: Int
-    //    let totalPacketSendDelay: Int
-    //    let trackId: String
-    //    let transportId: String
-
-    init?(from values: [String: String], previous: TrackStats?) {
-
-        // ssrc is required
-        guard let ssrc = values["ssrc"] else {
-            return nil
-        }
-
-        self.ssrc = ssrc
-    }
-}
-
-struct QualityLimitationDurations {
-    var bandwidth: Double
-    var cpu: Double
-    var none: Double
-    var other: Double
-}
+// class OutboundRTPVideoStreamStats: OutboundRTPStreamStats {
+//
+//    let encoderImplementation: String
+//    let firCount: Int
+//    let framesEncoded: Int
+//    let framesSent: Int
+//    let hugeFramesSent: Int
+//    let keyFramesEncoded: Int
+//    let pliCount: Int
+//    let qualityLimitationDurations: QualityLimitationDurationsStats
+//    let qualityLimitationReason: String
+//    let qualityLimitationResolutionChanges: Int
+//    let rid: String
+//    let totalEncodedBytesTarget: Int
+//    let totalEncodeTime: Int
+//    let totalPacketSendDelay: Int
+//
+//    override init?(from values: [String: NSObject]) {
+//
+//        self.encoderImplementation = (values["encoderImplementation"] as? String) ?? ""
+//        self.firCount = (values["firCount"] as? Int) ?? 0
+//        self.framesEncoded = (values["framesEncoded"] as? Int) ?? 0
+//        self.framesSent = (values["framesSent"] as? Int) ?? 0
+//        self.hugeFramesSent = (values["hugeFramesSent"] as? Int) ?? 0
+//        self.keyFramesEncoded = (values["keyFramesEncoded"] as? Int) ?? 0
+//        self.pliCount = (values["pliCount"] as? Int) ?? 0
+//        self.qualityLimitationDurations = QualityLimitationDurationsStats(from: values["qualityLimitationDurations"] as? [String: NSObject])
+//        self.qualityLimitationReason = (values["qualityLimitationReason"] as? String) ?? ""
+//        self.qualityLimitationResolutionChanges = (values["qualityLimitationResolutionChanges"] as? Int) ?? 0
+//        self.rid = (values["rid"] as? String) ?? ""
+//        self.totalEncodeTime = (values["totalEncodeTime"] as? Int) ?? 0
+//        self.totalPacketSendDelay = (values["totalPacketSendDelay"] as? Int) ?? 0
+//
+//        super.init(from: values)
+//    }
+// }
+//
+// struct QualityLimitationDurationsStats {
+//
+//    let bandwidth: Double
+//    let cpu: Double
+//    let none: Double
+//    let other: Double
+//
+//    init(from values: [String: NSObject]?) {
+//        self.bandwidth = (values?["bandwidth"] as? Double) ?? 0.0
+//        self.cpu = (values?["cpu"] as? Double) ?? 0.0
+//        self.none = (values?["none"] as? Double) ?? 0.0
+//        self.other = (values?["other"] as? Double) ?? 0.0
+//    }
+// }
+//
+///// https://www.w3.org/TR/webrtc-stats/#dom-rtcstatsicecandidatepairstate
+// enum RTCStatsIceCandidatePairState: String {
+//    case frozen
+//    case waiting
+//    case inProgress = "in-progress"
+//    case failed
+//    case succeeded
+// }
+//
+///// https://www.w3.org/TR/webrtc-stats/#candidatepair-dict*
+// struct IceCandidatePairStats {
+//
+//    let transportId: String
+//    let localCandidateId: String
+//    let remoteCandidateId: String
+//    let state: RTCStatsIceCandidatePairState
+//
+//    let nominated: Bool
+//    let packetsSent: UInt64
+//    let packetsReceived: UInt64
+//    let bytesSent: UInt64
+//    let bytesReceived: UInt64
+//
+//    // DOMHighResTimeStamp lastPacketSentTimestamp;
+//    // DOMHighResTimeStamp lastPacketReceivedTimestamp;
+//    let totalRoundTripTime: Double
+//    let currentRoundTripTime: Double
+//    let availableOutgoingBitrate: Double
+//    let availableIncomingBitrate: Double
+//    let requestsReceived: UInt64
+//    let requestsSent: UInt64
+//    let responsesReceived: UInt64
+//    let responsesSent: UInt64
+//    let consentRequestsSent: UInt64
+//    let packetsDiscardedOnSend: UInt32
+//    let bytesDiscardedOnSend: UInt64
+// }
