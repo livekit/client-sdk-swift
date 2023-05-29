@@ -132,7 +132,6 @@ internal class Utils {
         let useSecure = parsedUrl.isSecure || forceSecure
         let httpScheme = useSecure ? "https" : "http"
         let wsScheme = useSecure ? "wss" : "ws"
-        let lastPathSegment = validate ? "validate" : "rtc"
 
         var pathSegments = parsedUrl.pathComponents
         // strip empty & slashes
@@ -146,7 +145,11 @@ internal class Utils {
             pathSegments.removeLast()
         }
         // add the correct segment
-        pathSegments.append(lastPathSegment)
+        pathSegments.append("rtc")
+        // add validate after rtc if validate mode
+        if validate {
+            pathSegments.append("validate")
+        }
 
         builder.scheme = validate ? httpScheme : wsScheme
         builder.path = "/" + pathSegments.joined(separator: "/")
