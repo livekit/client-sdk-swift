@@ -163,14 +163,17 @@ public class Stats {
     let id: String
     let type: StatsType
     let timestamp: Double
+    let rawValues: [String: NSObject]
 
     init?(id: String,
           type: StatsType,
-          timestamp: Double) {
+          timestamp: Double,
+          rawValues: [String: NSObject]) {
 
         self.id = id
         self.type = type
         self.timestamp = timestamp
+        self.rawValues = rawValues
     }
 }
 
@@ -185,22 +188,23 @@ public class CodecStats: Stats {
 
     init?(id: String,
           timestamp: Double,
-          dictionary: [String: NSObject]) {
+          rawValues: [String: NSObject]) {
 
-        guard let payloadType = dictionary["payloadType"] as? UInt,
-              let transportId = dictionary["transportId"] as? String,
-              let mimeType = dictionary["mimeType"] as? String else { return nil }
+        guard let payloadType = rawValues["payloadType"] as? UInt,
+              let transportId = rawValues["transportId"] as? String,
+              let mimeType = rawValues["mimeType"] as? String else { return nil }
 
         self.payloadType = payloadType
         self.transportId = transportId
         self.mimeType = mimeType
-        self.clockRate = dictionary["clockRate"] as? UInt
-        self.channels = dictionary["channels"] as? UInt
-        self.sdpFmtpLine = dictionary["sdpFmtpLine"] as? String
+        self.clockRate = rawValues["clockRate"] as? UInt
+        self.channels = rawValues["channels"] as? UInt
+        self.sdpFmtpLine = rawValues["sdpFmtpLine"] as? String
 
         super.init(id: id,
                    type: .codec,
-                   timestamp: timestamp)
+                   timestamp: timestamp,
+                   rawValues: rawValues)
     }
 }
 
@@ -211,17 +215,18 @@ public class MediaSourceStats: Stats {
 
     init?(id: String,
           timestamp: Double,
-          dictionary: [String: NSObject]) {
+          rawValues: [String: NSObject]) {
 
-        guard let trackIdentifier = dictionary["trackIdentifier"] as? String,
-              let kind = dictionary["kind"] as? String else { return nil }
+        guard let trackIdentifier = rawValues["trackIdentifier"] as? String,
+              let kind = rawValues["kind"] as? String else { return nil }
 
         self.trackIdentifier = trackIdentifier
         self.kind = kind
 
         super.init(id: id,
                    type: .mediaSource,
-                   timestamp: timestamp)
+                   timestamp: timestamp,
+                   rawValues: rawValues)
     }
 }
 
@@ -232,22 +237,23 @@ public class RtpStreamStats: Stats {
     let transportId: String?
     let codecId: String?
 
-    init?(id: String,
-          type: StatsType,
-          timestamp: Double,
-          dictionary: [String: NSObject]) {
+    override init?(id: String,
+                   type: StatsType,
+                   timestamp: Double,
+                   rawValues: [String: NSObject]) {
 
-        guard let ssrc = dictionary["ssrc"] as? UInt,
-              let kind = dictionary["kind"] as? String else { return nil }
+        guard let ssrc = rawValues["ssrc"] as? UInt,
+              let kind = rawValues["kind"] as? String else { return nil }
 
         self.ssrc = ssrc
         self.kind = kind
-        self.transportId = dictionary["transportId"] as? String
-        self.codecId = dictionary["codecId"] as? String
+        self.transportId = rawValues["transportId"] as? String
+        self.codecId = rawValues["codecId"] as? String
 
         super.init(id: id,
                    type: type,
-                   timestamp: timestamp)
+                   timestamp: timestamp,
+                   rawValues: rawValues)
     }
 }
 
@@ -263,20 +269,21 @@ public class AudioPlayoutStats: Stats {
 
     init?(id: String,
           timestamp: Double,
-          dictionary: [String: NSObject]) {
+          rawValues: [String: NSObject]) {
 
-        guard let kind = dictionary["kind"] as? String else { return nil }
+        guard let kind = rawValues["kind"] as? String else { return nil }
 
         self.kind = kind
-        self.synthesizedSamplesDuration = dictionary["synthesizedSamplesDuration"] as? Double
-        self.synthesizedSamplesEvents = dictionary["synthesizedSamplesEvents"] as? UInt
-        self.totalSamplesDuration = dictionary["totalSamplesDuration"] as? Double
-        self.totalPlayoutDelay = dictionary["totalPlayoutDelay"] as? Double
-        self.totalSamplesCount = dictionary["totalSamplesCount"] as? UInt64
+        self.synthesizedSamplesDuration = rawValues["synthesizedSamplesDuration"] as? Double
+        self.synthesizedSamplesEvents = rawValues["synthesizedSamplesEvents"] as? UInt
+        self.totalSamplesDuration = rawValues["totalSamplesDuration"] as? Double
+        self.totalPlayoutDelay = rawValues["totalPlayoutDelay"] as? Double
+        self.totalSamplesCount = rawValues["totalSamplesCount"] as? UInt64
 
         super.init(id: id,
                    type: .mediaPlayout,
-                   timestamp: timestamp)
+                   timestamp: timestamp,
+                   rawValues: rawValues)
     }
 }
 
@@ -288,14 +295,15 @@ public class PeerConnectionStats: Stats {
 
     init?(id: String,
           timestamp: Double,
-          dictionary: [String: NSObject]) {
+          rawValues: [String: NSObject]) {
 
-        self.dataChannelsOpened = dictionary["dataChannelsOpened"] as? UInt
-        self.dataChannelsClosed = dictionary["dataChannelsClosed"] as? UInt
+        self.dataChannelsOpened = rawValues["dataChannelsOpened"] as? UInt
+        self.dataChannelsClosed = rawValues["dataChannelsClosed"] as? UInt
 
         super.init(id: id,
                    type: .peerConnection,
-                   timestamp: timestamp)
+                   timestamp: timestamp,
+                   rawValues: rawValues)
     }
 }
 
@@ -313,20 +321,21 @@ public class RTCDataChannelStats: Stats {
 
     init?(id: String,
           timestamp: Double,
-          dictionary: [String: NSObject]) {
+          rawValues: [String: NSObject]) {
 
-        self.label = dictionary["label"] as? String
-        self.protocol = dictionary["protocol"] as? String
-        self.dataChannelIdentifier = dictionary["dataChannelIdentifier"] as? UInt16
-        self.state = StatsDataChannelState(rawValue: dictionary["state"] as? String ?? "")
-        self.messagesSent = dictionary["messagesSent"] as? UInt
-        self.bytesSent = dictionary["bytesSent"] as? UInt64
-        self.messagesReceived = dictionary["messagesReceived"] as? UInt
-        self.bytesReceived = dictionary["bytesReceived"] as? UInt64
+        self.label = rawValues["label"] as? String
+        self.protocol = rawValues["protocol"] as? String
+        self.dataChannelIdentifier = rawValues["dataChannelIdentifier"] as? UInt16
+        self.state = StatsDataChannelState(rawValue: rawValues["state"] as? String ?? "")
+        self.messagesSent = rawValues["messagesSent"] as? UInt
+        self.bytesSent = rawValues["bytesSent"] as? UInt64
+        self.messagesReceived = rawValues["messagesReceived"] as? UInt
+        self.bytesReceived = rawValues["bytesReceived"] as? UInt64
 
         super.init(id: id,
                    type: .dataChannel,
-                   timestamp: timestamp)
+                   timestamp: timestamp,
+                   rawValues: rawValues)
     }
 }
 
@@ -352,28 +361,29 @@ public class RTCTransportStats: Stats {
 
     init?(id: String,
           timestamp: Double,
-          dictionary: [String: NSObject]) {
+          rawValues: [String: NSObject]) {
 
-        self.packetsSent = dictionary["packetsSent"] as? UInt64
-        self.packetsReceived = dictionary["packetsReceived"] as? UInt64
-        self.bytesSent = dictionary["bytesSent"] as? UInt64
-        self.bytesReceived = dictionary["bytesReceived"] as? UInt64
-        self.iceRole = StatsIceRole(rawValue: dictionary["iceRole"] as? String ?? "")
-        self.iceLocalUsernameFragment = dictionary["iceLocalUsernameFragment"] as? String
-        self.dtlsState = StatsDtlsTransportState(rawValue: dictionary["dtlsState"] as? String ?? "")
-        self.iceState = StatsIceTransportState(rawValue: dictionary["iceState"] as? String ?? "")
-        self.selectedCandidatePairId = dictionary["selectedCandidatePairId"] as? String
-        self.localCertificateId = dictionary["localCertificateId"] as? String
-        self.remoteCertificateId = dictionary["remoteCertificateId"] as? String
-        self.tlsVersion = dictionary["tlsVersion"] as? String
-        self.dtlsCipher = dictionary["dtlsCipher"] as? String
-        self.dtlsRole = StatsDtlsRole(rawValue: dictionary["dtlsRole"] as? String ?? "")
-        self.srtpCipher = dictionary["srtpCipher"] as? String
-        self.selectedCandidatePairChanges = dictionary["selectedCandidatePairChanges"] as? UInt
+        self.packetsSent = rawValues["packetsSent"] as? UInt64
+        self.packetsReceived = rawValues["packetsReceived"] as? UInt64
+        self.bytesSent = rawValues["bytesSent"] as? UInt64
+        self.bytesReceived = rawValues["bytesReceived"] as? UInt64
+        self.iceRole = StatsIceRole(rawValue: rawValues["iceRole"] as? String ?? "")
+        self.iceLocalUsernameFragment = rawValues["iceLocalUsernameFragment"] as? String
+        self.dtlsState = StatsDtlsTransportState(rawValue: rawValues["dtlsState"] as? String ?? "")
+        self.iceState = StatsIceTransportState(rawValue: rawValues["iceState"] as? String ?? "")
+        self.selectedCandidatePairId = rawValues["selectedCandidatePairId"] as? String
+        self.localCertificateId = rawValues["localCertificateId"] as? String
+        self.remoteCertificateId = rawValues["remoteCertificateId"] as? String
+        self.tlsVersion = rawValues["tlsVersion"] as? String
+        self.dtlsCipher = rawValues["dtlsCipher"] as? String
+        self.dtlsRole = StatsDtlsRole(rawValue: rawValues["dtlsRole"] as? String ?? "")
+        self.srtpCipher = rawValues["srtpCipher"] as? String
+        self.selectedCandidatePairChanges = rawValues["selectedCandidatePairChanges"] as? UInt
 
         super.init(id: id,
                    type: .transport,
-                   timestamp: timestamp)
+                   timestamp: timestamp,
+                   rawValues: rawValues)
     }
 }
 
@@ -394,30 +404,31 @@ public class RTCIceCandidateStats: Stats {
     let usernameFragment: String?
     let tcpType: StatsIceTcpCandidateType?
 
-    init?(id: String,
-          type: StatsType,
-          timestamp: Double,
-          dictionary: [String: NSObject]) {
+    override init?(id: String,
+                   type: StatsType,
+                   timestamp: Double,
+                   rawValues: [String: NSObject]) {
 
-        guard let transportId = dictionary["transportId"] as? String else { return nil }
+        guard let transportId = rawValues["transportId"] as? String else { return nil }
 
         self.transportId = transportId
-        self.address = dictionary["address"] as? String
-        self.port = dictionary["port"] as? Int
-        self.protocol = dictionary["protocol"] as? String
-        self.candidateType = StatsIceCandidateType(rawValue: dictionary["candidateType"] as? String ?? "")
-        self.priority = dictionary["priority"] as? Int
-        self.url = dictionary["url"] as? String
-        self.relayProtocol = StatsIceServerTransportProtocol(rawValue: dictionary["relayProtocol"] as? String ?? "")
-        self.foundation = dictionary["foundation"] as? String
-        self.relatedAddress = dictionary["relatedAddress"] as? String
-        self.relatedPort = dictionary["relatedPort"] as? Int
-        self.usernameFragment = dictionary["usernameFragment"] as? String
-        self.tcpType = StatsIceTcpCandidateType(rawValue: dictionary["tcpType"] as? String ?? "")
+        self.address = rawValues["address"] as? String
+        self.port = rawValues["port"] as? Int
+        self.protocol = rawValues["protocol"] as? String
+        self.candidateType = StatsIceCandidateType(rawValue: rawValues["candidateType"] as? String ?? "")
+        self.priority = rawValues["priority"] as? Int
+        self.url = rawValues["url"] as? String
+        self.relayProtocol = StatsIceServerTransportProtocol(rawValue: rawValues["relayProtocol"] as? String ?? "")
+        self.foundation = rawValues["foundation"] as? String
+        self.relatedAddress = rawValues["relatedAddress"] as? String
+        self.relatedPort = rawValues["relatedPort"] as? Int
+        self.usernameFragment = rawValues["usernameFragment"] as? String
+        self.tcpType = StatsIceTcpCandidateType(rawValue: rawValues["tcpType"] as? String ?? "")
 
         super.init(id: id,
                    type: type,
-                   timestamp: timestamp)
+                   timestamp: timestamp,
+                   rawValues: rawValues)
     }
 }
 
@@ -425,12 +436,12 @@ public class RTCLocalIceCandidateStats: RTCIceCandidateStats {
 
     init?(id: String,
           timestamp: Double,
-          dictionary: [String: NSObject]) {
+          rawValues: [String: NSObject]) {
 
         super.init(id: id,
                    type: .localCandidate,
                    timestamp: timestamp,
-                   dictionary: dictionary)
+                   rawValues: rawValues)
     }
 }
 
@@ -438,12 +449,12 @@ public class RTCRemoteIceCandidateStats: RTCIceCandidateStats {
 
     init?(id: String,
           timestamp: Double,
-          dictionary: [String: NSObject]) {
+          rawValues: [String: NSObject]) {
 
         super.init(id: id,
                    type: .remoteCandidate,
                    timestamp: timestamp,
-                   dictionary: dictionary)
+                   rawValues: rawValues)
     }
 }
 
@@ -474,39 +485,40 @@ public class RTCIceCandidatePairStats: Stats {
 
     init?(id: String,
           timestamp: Double,
-          dictionary: [String: NSObject]) {
+          rawValues: [String: NSObject]) {
 
-        guard let transportId = dictionary["transportId"] as? String,
-              let localCandidateId = dictionary["localCandidateId"] as? String,
-              let remoteCandidateId = dictionary["remoteCandidateId"] as? String,
-              let state = StatsIceCandidatePairState(rawValue: dictionary["state"] as? String ?? "") else { return nil }
+        guard let transportId = rawValues["transportId"] as? String,
+              let localCandidateId = rawValues["localCandidateId"] as? String,
+              let remoteCandidateId = rawValues["remoteCandidateId"] as? String,
+              let state = StatsIceCandidatePairState(rawValue: rawValues["state"] as? String ?? "") else { return nil }
 
         self.transportId = transportId
         self.localCandidateId = localCandidateId
         self.remoteCandidateId = remoteCandidateId
         self.state = state
-        self.nominated = dictionary["nominated"] as? Bool
-        self.packetsSent = dictionary["packetsSent"] as? UInt64
-        self.packetsReceived = dictionary["packetsReceived"] as? UInt64
-        self.bytesSent = dictionary["bytesSent"] as? UInt64
-        self.bytesReceived = dictionary["bytesReceived"] as? UInt64
-        self.lastPacketSentTimestamp = dictionary["lastPacketSentTimestamp"] as? Double
-        self.lastPacketReceivedTimestamp = dictionary["lastPacketReceivedTimestamp"] as? Double
-        self.totalRoundTripTime = dictionary["totalRoundTripTime"] as? Double
-        self.currentRoundTripTime = dictionary["currentRoundTripTime"] as? Double
-        self.availableOutgoingBitrate = dictionary["availableOutgoingBitrate"] as? Double
-        self.availableIncomingBitrate = dictionary["availableIncomingBitrate"] as? Double
-        self.requestsReceived = dictionary["requestsReceived"] as? UInt64
-        self.requestsSent = dictionary["requestsSent"] as? UInt64
-        self.responsesReceived = dictionary["responsesReceived"] as? UInt64
-        self.responsesSent = dictionary["responsesSent"] as? UInt64
-        self.consentRequestsSent = dictionary["consentRequestsSent"] as? UInt64
-        self.packetsDiscardedOnSend = dictionary["packetsDiscardedOnSend"] as? UInt
-        self.bytesDiscardedOnSend = dictionary["bytesDiscardedOnSend"] as? UInt64
+        self.nominated = rawValues["nominated"] as? Bool
+        self.packetsSent = rawValues["packetsSent"] as? UInt64
+        self.packetsReceived = rawValues["packetsReceived"] as? UInt64
+        self.bytesSent = rawValues["bytesSent"] as? UInt64
+        self.bytesReceived = rawValues["bytesReceived"] as? UInt64
+        self.lastPacketSentTimestamp = rawValues["lastPacketSentTimestamp"] as? Double
+        self.lastPacketReceivedTimestamp = rawValues["lastPacketReceivedTimestamp"] as? Double
+        self.totalRoundTripTime = rawValues["totalRoundTripTime"] as? Double
+        self.currentRoundTripTime = rawValues["currentRoundTripTime"] as? Double
+        self.availableOutgoingBitrate = rawValues["availableOutgoingBitrate"] as? Double
+        self.availableIncomingBitrate = rawValues["availableIncomingBitrate"] as? Double
+        self.requestsReceived = rawValues["requestsReceived"] as? UInt64
+        self.requestsSent = rawValues["requestsSent"] as? UInt64
+        self.responsesReceived = rawValues["responsesReceived"] as? UInt64
+        self.responsesSent = rawValues["responsesSent"] as? UInt64
+        self.consentRequestsSent = rawValues["consentRequestsSent"] as? UInt64
+        self.packetsDiscardedOnSend = rawValues["packetsDiscardedOnSend"] as? UInt
+        self.bytesDiscardedOnSend = rawValues["bytesDiscardedOnSend"] as? UInt64
 
         super.init(id: id,
                    type: .candidatePair,
-                   timestamp: timestamp)
+                   timestamp: timestamp,
+                   rawValues: rawValues)
     }
 }
 
@@ -519,20 +531,21 @@ public class RTCCertificateStats: Stats {
 
     init?(id: String,
           timestamp: Double,
-          dictionary: [String: NSObject]) {
+          rawValues: [String: NSObject]) {
 
-        guard let fingerprint = dictionary["fingerprint"] as? String,
-              let fingerprintAlgorithm = dictionary["fingerprintAlgorithm"] as? String,
-              let base64Certificate = dictionary["base64Certificate"] as? String else { return nil }
+        guard let fingerprint = rawValues["fingerprint"] as? String,
+              let fingerprintAlgorithm = rawValues["fingerprintAlgorithm"] as? String,
+              let base64Certificate = rawValues["base64Certificate"] as? String else { return nil }
 
         self.fingerprint = fingerprint
         self.fingerprintAlgorithm = fingerprintAlgorithm
         self.base64Certificate = base64Certificate
-        self.issuerCertificateId = dictionary["issuerCertificateId"] as? String
+        self.issuerCertificateId = rawValues["issuerCertificateId"] as? String
 
         super.init(id: id,
                    type: .certificate,
-                   timestamp: timestamp)
+                   timestamp: timestamp,
+                   rawValues: rawValues)
     }
 }
 
@@ -545,16 +558,16 @@ public class RTCReceivedRtpStreamStats: RtpStreamStats {
     override init?(id: String,
                    type: StatsType,
                    timestamp: Double,
-                   dictionary: [String: NSObject]) {
+                   rawValues: [String: NSObject]) {
 
-        self.packetsReceived = dictionary["packetsReceived"] as? UInt64
-        self.packetsLost = dictionary["packetsLost"] as? Int64
-        self.jitter = dictionary["jitter"] as? Double
+        self.packetsReceived = rawValues["packetsReceived"] as? UInt64
+        self.packetsLost = rawValues["packetsLost"] as? Int64
+        self.jitter = rawValues["jitter"] as? Double
 
         super.init(id: id,
                    type: type,
                    timestamp: timestamp,
-                   dictionary: dictionary)
+                   rawValues: rawValues)
     }
 }
 
@@ -566,15 +579,15 @@ public class RTCSentRtpStreamStats: RtpStreamStats {
     override init?(id: String,
                    type: StatsType,
                    timestamp: Double,
-                   dictionary: [String: NSObject]) {
+                   rawValues: [String: NSObject]) {
 
-        self.packetsSent = dictionary["packetsSent"] as? UInt64
-        self.bytesSent = dictionary["bytesSent"] as? UInt64
+        self.packetsSent = rawValues["packetsSent"] as? UInt64
+        self.bytesSent = rawValues["bytesSent"] as? UInt64
 
         super.init(id: id,
                    type: type,
                    timestamp: timestamp,
-                   dictionary: dictionary)
+                   rawValues: rawValues)
     }
 }
 
@@ -635,66 +648,66 @@ public class RTCInboundRtpStreamStats: RTCReceivedRtpStreamStats {
 
     init?(id: String,
           timestamp: Double,
-          dictionary: [String: NSObject]) {
+          rawValues: [String: NSObject]) {
 
-        guard let trackIdentifier = dictionary["trackIdentifier"] as? String else { return nil }
+        guard let trackIdentifier = rawValues["trackIdentifier"] as? String else { return nil }
 
         self.trackIdentifier = trackIdentifier
         // self.kind = kind
-        self.mid = dictionary["mid"] as? String
-        self.remoteId = dictionary["remoteId"] as? String
-        self.framesDecoded = dictionary["framesDecoded"] as? UInt
-        self.keyFramesDecoded = dictionary["keyFramesDecoded"] as? UInt
-        self.framesRendered = dictionary["framesRendered"] as? UInt
-        self.framesDropped = dictionary["framesDropped"] as? UInt
-        self.frameWidth = dictionary["frameWidth"] as? UInt
-        self.frameHeight = dictionary["frameHeight"] as? UInt
-        self.framesPerSecond = dictionary["framesPerSecond"] as? Double
-        self.qpSum = dictionary["qpSum"] as? UInt64
-        self.totalDecodeTime = dictionary["totalDecodeTime"] as? Double
-        self.totalInterFrameDelay = dictionary["totalInterFrameDelay"] as? Double
-        self.totalSquaredInterFrameDelay = dictionary["totalSquaredInterFrameDelay"] as? Double
-        self.pauseCount = dictionary["pauseCount"] as? UInt
-        self.totalPausesDuration = dictionary["totalPausesDuration"] as? Double
-        self.freezeCount = dictionary["freezeCount"] as? UInt
-        self.totalFreezesDuration = dictionary["totalFreezesDuration"] as? Double
-        self.lastPacketReceivedTimestamp = dictionary["lastPacketReceivedTimestamp"] as? Double
-        self.headerBytesReceived = dictionary["headerBytesReceived"] as? UInt64
-        self.packetsDiscarded = dictionary["packetsDiscarded"] as? UInt64
-        self.fecPacketsReceived = dictionary["fecPacketsReceived"] as? UInt64
-        self.fecPacketsDiscarded = dictionary["fecPacketsDiscarded"] as? UInt64
-        self.bytesReceived = dictionary["bytesReceived"] as? UInt64
-        self.nackCount = dictionary["nackCount"] as? UInt
-        self.firCount = dictionary["firCount"] as? UInt
-        self.pliCount = dictionary["pliCount"] as? UInt
-        self.totalProcessingDelay = dictionary["totalProcessingDelay"] as? Double
-        self.estimatedPlayoutTimestamp = dictionary["estimatedPlayoutTimestamp"] as? Double
-        self.jitterBufferDelay = dictionary["jitterBufferDelay"] as? Double
-        self.jitterBufferTargetDelay = dictionary["jitterBufferTargetDelay"] as? Double
-        self.jitterBufferEmittedCount = dictionary["jitterBufferEmittedCount"] as? UInt64
-        self.jitterBufferMinimumDelay = dictionary["jitterBufferMinimumDelay"] as? Double
-        self.totalSamplesReceived = dictionary["totalSamplesReceived"] as? UInt64
-        self.concealedSamples = dictionary["concealedSamples"] as? UInt64
-        self.silentConcealedSamples = dictionary["silentConcealedSamples"] as? UInt64
-        self.concealmentEvents = dictionary["concealmentEvents"] as? UInt64
-        self.insertedSamplesForDeceleration = dictionary["insertedSamplesForDeceleration"] as? UInt64
-        self.removedSamplesForAcceleration = dictionary["removedSamplesForAcceleration"] as? UInt64
-        self.audioLevel = dictionary["audioLevel"] as? Double
-        self.totalAudioEnergy = dictionary["totalAudioEnergy"] as? Double
-        self.totalSamplesDuration = dictionary["totalSamplesDuration"] as? Double
-        self.framesReceived = dictionary["framesReceived"] as? UInt
-        self.decoderImplementation = dictionary["decoderImplementation"] as? String
-        self.playoutId = dictionary["playoutId"] as? String
-        self.powerEfficientDecoder = dictionary["powerEfficientDecoder"] as? Bool
-        self.framesAssembledFromMultiplePackets = dictionary["framesAssembledFromMultiplePackets"] as? UInt
-        self.totalAssemblyTime = dictionary["totalAssemblyTime"] as? Double
-        self.retransmittedPacketsReceived = dictionary["retransmittedPacketsReceived"] as? UInt64
-        self.retransmittedBytesReceived = dictionary["retransmittedBytesReceived"] as? UInt64
+        self.mid = rawValues["mid"] as? String
+        self.remoteId = rawValues["remoteId"] as? String
+        self.framesDecoded = rawValues["framesDecoded"] as? UInt
+        self.keyFramesDecoded = rawValues["keyFramesDecoded"] as? UInt
+        self.framesRendered = rawValues["framesRendered"] as? UInt
+        self.framesDropped = rawValues["framesDropped"] as? UInt
+        self.frameWidth = rawValues["frameWidth"] as? UInt
+        self.frameHeight = rawValues["frameHeight"] as? UInt
+        self.framesPerSecond = rawValues["framesPerSecond"] as? Double
+        self.qpSum = rawValues["qpSum"] as? UInt64
+        self.totalDecodeTime = rawValues["totalDecodeTime"] as? Double
+        self.totalInterFrameDelay = rawValues["totalInterFrameDelay"] as? Double
+        self.totalSquaredInterFrameDelay = rawValues["totalSquaredInterFrameDelay"] as? Double
+        self.pauseCount = rawValues["pauseCount"] as? UInt
+        self.totalPausesDuration = rawValues["totalPausesDuration"] as? Double
+        self.freezeCount = rawValues["freezeCount"] as? UInt
+        self.totalFreezesDuration = rawValues["totalFreezesDuration"] as? Double
+        self.lastPacketReceivedTimestamp = rawValues["lastPacketReceivedTimestamp"] as? Double
+        self.headerBytesReceived = rawValues["headerBytesReceived"] as? UInt64
+        self.packetsDiscarded = rawValues["packetsDiscarded"] as? UInt64
+        self.fecPacketsReceived = rawValues["fecPacketsReceived"] as? UInt64
+        self.fecPacketsDiscarded = rawValues["fecPacketsDiscarded"] as? UInt64
+        self.bytesReceived = rawValues["bytesReceived"] as? UInt64
+        self.nackCount = rawValues["nackCount"] as? UInt
+        self.firCount = rawValues["firCount"] as? UInt
+        self.pliCount = rawValues["pliCount"] as? UInt
+        self.totalProcessingDelay = rawValues["totalProcessingDelay"] as? Double
+        self.estimatedPlayoutTimestamp = rawValues["estimatedPlayoutTimestamp"] as? Double
+        self.jitterBufferDelay = rawValues["jitterBufferDelay"] as? Double
+        self.jitterBufferTargetDelay = rawValues["jitterBufferTargetDelay"] as? Double
+        self.jitterBufferEmittedCount = rawValues["jitterBufferEmittedCount"] as? UInt64
+        self.jitterBufferMinimumDelay = rawValues["jitterBufferMinimumDelay"] as? Double
+        self.totalSamplesReceived = rawValues["totalSamplesReceived"] as? UInt64
+        self.concealedSamples = rawValues["concealedSamples"] as? UInt64
+        self.silentConcealedSamples = rawValues["silentConcealedSamples"] as? UInt64
+        self.concealmentEvents = rawValues["concealmentEvents"] as? UInt64
+        self.insertedSamplesForDeceleration = rawValues["insertedSamplesForDeceleration"] as? UInt64
+        self.removedSamplesForAcceleration = rawValues["removedSamplesForAcceleration"] as? UInt64
+        self.audioLevel = rawValues["audioLevel"] as? Double
+        self.totalAudioEnergy = rawValues["totalAudioEnergy"] as? Double
+        self.totalSamplesDuration = rawValues["totalSamplesDuration"] as? Double
+        self.framesReceived = rawValues["framesReceived"] as? UInt
+        self.decoderImplementation = rawValues["decoderImplementation"] as? String
+        self.playoutId = rawValues["playoutId"] as? String
+        self.powerEfficientDecoder = rawValues["powerEfficientDecoder"] as? Bool
+        self.framesAssembledFromMultiplePackets = rawValues["framesAssembledFromMultiplePackets"] as? UInt
+        self.totalAssemblyTime = rawValues["totalAssemblyTime"] as? Double
+        self.retransmittedPacketsReceived = rawValues["retransmittedPacketsReceived"] as? UInt64
+        self.retransmittedBytesReceived = rawValues["retransmittedBytesReceived"] as? UInt64
 
         super.init(id: id,
                    type: .inboundRtp,
                    timestamp: timestamp,
-                   dictionary: dictionary)
+                   rawValues: rawValues)
     }
 }
 
@@ -709,17 +722,17 @@ public class RTCRemoteInboundRtpStreamStats: RTCReceivedRtpStreamStats {
 
     init?(id: String,
           timestamp: Double,
-          dictionary: [String: NSObject]) {
-        self.localId = dictionary["localId"] as? String
-        self.roundTripTime = dictionary["roundTripTime"] as? Double
-        self.totalRoundTripTime = dictionary["totalRoundTripTime"] as? Double
-        self.fractionLost = dictionary["fractionLost"] as? Double
-        self.roundTripTimeMeasurements = dictionary["roundTripTimeMeasurements"] as? UInt64
+          rawValues: [String: NSObject]) {
+        self.localId = rawValues["localId"] as? String
+        self.roundTripTime = rawValues["roundTripTime"] as? Double
+        self.totalRoundTripTime = rawValues["totalRoundTripTime"] as? Double
+        self.fractionLost = rawValues["fractionLost"] as? Double
+        self.roundTripTimeMeasurements = rawValues["roundTripTimeMeasurements"] as? UInt64
 
         super.init(id: id,
                    type: .remoteInboundRtp,
                    timestamp: timestamp,
-                   dictionary: dictionary)
+                   rawValues: rawValues)
     }
 }
 
@@ -757,42 +770,42 @@ public class RTCOutboundRtpStreamStats: RTCSentRtpStreamStats {
 
     init?(id: String,
           timestamp: Double,
-          dictionary: [String: NSObject]) {
+          rawValues: [String: NSObject]) {
 
-        self.mid = dictionary["mid"] as? String
-        self.mediaSourceId = dictionary["mediaSourceId"] as? String
-        self.remoteId = dictionary["remoteId"] as? String
-        self.rid = dictionary["rid"] as? String
-        self.headerBytesSent = dictionary["headerBytesSent"] as? UInt64
-        self.retransmittedPacketsSent = dictionary["retransmittedPacketsSent"] as? UInt64
-        self.retransmittedBytesSent = dictionary["retransmittedBytesSent"] as? UInt64
-        self.targetBitrate = dictionary["targetBitrate"] as? Double
-        self.totalEncodedBytesTarget = dictionary["totalEncodedBytesTarget"] as? UInt64
-        self.frameWidth = dictionary["frameWidth"] as? UInt
-        self.frameHeight = dictionary["frameHeight"] as? UInt
-        self.framesPerSecond = dictionary["framesPerSecond"] as? Double
-        self.framesSent = dictionary["framesSent"] as? UInt
-        self.hugeFramesSent = dictionary["hugeFramesSent"] as? UInt
-        self.framesEncoded = dictionary["framesEncoded"] as? UInt
-        self.keyFramesEncoded = dictionary["keyFramesEncoded"] as? UInt
-        self.qpSum = dictionary["qpSum"] as? UInt64
-        self.totalEncodeTime = dictionary["totalEncodeTime"] as? Double
-        self.totalPacketSendDelay = dictionary["totalPacketSendDelay"] as? Double
-        self.qualityLimitationReason = dictionary["qualityLimitationReason"] as? String
-        self.qualityLimitationDurations = dictionary["qualityLimitationDurations"] as? [String: Double]
-        self.qualityLimitationResolutionChanges = dictionary["qualityLimitationResolutionChanges"] as? UInt
-        self.nackCount = dictionary["nackCount"] as? UInt
-        self.firCount = dictionary["firCount"] as? UInt
-        self.pliCount = dictionary["pliCount"] as? UInt
-        self.encoderImplementation = dictionary["encoderImplementation"] as? String
-        self.powerEfficientEncoder = dictionary["powerEfficientEncoder"] as? Bool
-        self.active = dictionary["active"] as? Bool
-        self.scalabilityMode = dictionary["scalabilityMode"] as? String
+        self.mid = rawValues["mid"] as? String
+        self.mediaSourceId = rawValues["mediaSourceId"] as? String
+        self.remoteId = rawValues["remoteId"] as? String
+        self.rid = rawValues["rid"] as? String
+        self.headerBytesSent = rawValues["headerBytesSent"] as? UInt64
+        self.retransmittedPacketsSent = rawValues["retransmittedPacketsSent"] as? UInt64
+        self.retransmittedBytesSent = rawValues["retransmittedBytesSent"] as? UInt64
+        self.targetBitrate = rawValues["targetBitrate"] as? Double
+        self.totalEncodedBytesTarget = rawValues["totalEncodedBytesTarget"] as? UInt64
+        self.frameWidth = rawValues["frameWidth"] as? UInt
+        self.frameHeight = rawValues["frameHeight"] as? UInt
+        self.framesPerSecond = rawValues["framesPerSecond"] as? Double
+        self.framesSent = rawValues["framesSent"] as? UInt
+        self.hugeFramesSent = rawValues["hugeFramesSent"] as? UInt
+        self.framesEncoded = rawValues["framesEncoded"] as? UInt
+        self.keyFramesEncoded = rawValues["keyFramesEncoded"] as? UInt
+        self.qpSum = rawValues["qpSum"] as? UInt64
+        self.totalEncodeTime = rawValues["totalEncodeTime"] as? Double
+        self.totalPacketSendDelay = rawValues["totalPacketSendDelay"] as? Double
+        self.qualityLimitationReason = rawValues["qualityLimitationReason"] as? String
+        self.qualityLimitationDurations = rawValues["qualityLimitationDurations"] as? [String: Double]
+        self.qualityLimitationResolutionChanges = rawValues["qualityLimitationResolutionChanges"] as? UInt
+        self.nackCount = rawValues["nackCount"] as? UInt
+        self.firCount = rawValues["firCount"] as? UInt
+        self.pliCount = rawValues["pliCount"] as? UInt
+        self.encoderImplementation = rawValues["encoderImplementation"] as? String
+        self.powerEfficientEncoder = rawValues["powerEfficientEncoder"] as? Bool
+        self.active = rawValues["active"] as? Bool
+        self.scalabilityMode = rawValues["scalabilityMode"] as? String
 
         super.init(id: id,
                    type: .outboundRtp,
                    timestamp: timestamp,
-                   dictionary: dictionary)
+                   rawValues: rawValues)
     }
 }
 
@@ -808,19 +821,19 @@ public class RTCRemoteOutboundRtpStreamStats: RTCSentRtpStreamStats {
 
     init?(id: String,
           timestamp: Double,
-          dictionary: [String: NSObject]) {
+          rawValues: [String: NSObject]) {
 
-        self.localId = dictionary["localId"] as? String
-        self.remoteTimestamp = dictionary["remoteTimestamp"] as? Double
-        self.reportsSent = dictionary["reportsSent"] as? UInt64
-        self.roundTripTime = dictionary["roundTripTime"] as? Double
-        self.totalRoundTripTime = dictionary["totalRoundTripTime"] as? Double
-        self.roundTripTimeMeasurements = dictionary["roundTripTimeMeasurements"] as? UInt64
+        self.localId = rawValues["localId"] as? String
+        self.remoteTimestamp = rawValues["remoteTimestamp"] as? Double
+        self.reportsSent = rawValues["reportsSent"] as? UInt64
+        self.roundTripTime = rawValues["roundTripTime"] as? Double
+        self.totalRoundTripTime = rawValues["totalRoundTripTime"] as? Double
+        self.roundTripTimeMeasurements = rawValues["roundTripTimeMeasurements"] as? UInt64
 
         super.init(id: id,
                    type: .remoteOutboundRtp,
                    timestamp: timestamp,
-                   dictionary: dictionary)
+                   rawValues: rawValues)
     }
 }
 
@@ -838,21 +851,21 @@ public class RTCAudioSourceStats: MediaSourceStats {
 
     override init?(id: String,
                    timestamp: Double,
-                   dictionary: [String: NSObject]) {
+                   rawValues: [String: NSObject]) {
 
-        self.audioLevel = dictionary["audioLevel"] as? Double
-        self.totalAudioEnergy = dictionary["totalAudioEnergy"] as? Double
-        self.totalSamplesDuration = dictionary["totalSamplesDuration"] as? Double
-        self.echoReturnLoss = dictionary["echoReturnLoss"] as? Double
-        self.echoReturnLossEnhancement = dictionary["echoReturnLossEnhancement"] as? Double
-        self.droppedSamplesDuration = dictionary["droppedSamplesDuration"] as? Double
-        self.droppedSamplesEvents = dictionary["droppedSamplesEvents"] as? UInt
-        self.totalCaptureDelay = dictionary["totalCaptureDelay"] as? Double
-        self.totalSamplesCaptured = dictionary["totalSamplesCaptured"] as? UInt64
+        self.audioLevel = rawValues["audioLevel"] as? Double
+        self.totalAudioEnergy = rawValues["totalAudioEnergy"] as? Double
+        self.totalSamplesDuration = rawValues["totalSamplesDuration"] as? Double
+        self.echoReturnLoss = rawValues["echoReturnLoss"] as? Double
+        self.echoReturnLossEnhancement = rawValues["echoReturnLossEnhancement"] as? Double
+        self.droppedSamplesDuration = rawValues["droppedSamplesDuration"] as? Double
+        self.droppedSamplesEvents = rawValues["droppedSamplesEvents"] as? UInt
+        self.totalCaptureDelay = rawValues["totalCaptureDelay"] as? Double
+        self.totalSamplesCaptured = rawValues["totalSamplesCaptured"] as? UInt64
 
         super.init(id: id,
                    timestamp: timestamp,
-                   dictionary: dictionary)
+                   rawValues: rawValues)
     }
 }
 
@@ -865,15 +878,15 @@ public class RTCVideoSourceStats: MediaSourceStats {
 
     override init?(id: String,
                    timestamp: Double,
-                   dictionary: [String: NSObject]) {
+                   rawValues: [String: NSObject]) {
 
-        self.width = dictionary["width"] as? UInt
-        self.height = dictionary["height"] as? UInt
-        self.frames = dictionary["frames"] as? UInt
-        self.framesPerSecond = dictionary["framesPerSecond"] as? Double
+        self.width = rawValues["width"] as? UInt
+        self.height = rawValues["height"] as? UInt
+        self.frames = rawValues["frames"] as? UInt
+        self.framesPerSecond = rawValues["framesPerSecond"] as? Double
 
         super.init(id: id,
                    timestamp: timestamp,
-                   dictionary: dictionary)
+                   rawValues: rawValues)
     }
 }
