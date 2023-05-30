@@ -160,7 +160,7 @@ public enum StatsIceTcpCandidateType: String {
 
 // Base class
 @objc
-public class Stats: NSObject {
+public class Statistics: NSObject, Identifiable {
 
     public let id: String
     public let type: StatsType
@@ -181,7 +181,7 @@ public class Stats: NSObject {
 
 // type: codec
 @objc
-public class CodecStats: Stats {
+public class CodecStatistics: Statistics {
 
     public let payloadType: UInt
     public let transportId: String
@@ -213,7 +213,7 @@ public class CodecStats: Stats {
 }
 
 @objc
-public class MediaSourceStats: Stats {
+public class MediaSourceStatistics: Statistics {
 
     public let trackIdentifier: String
     public let kind: String
@@ -236,7 +236,7 @@ public class MediaSourceStats: Stats {
 }
 
 @objc
-public class RtpStreamStats: Stats {
+public class RtpStreamStatistics: Statistics {
 
     public let ssrc: UInt
     public let kind: String
@@ -265,7 +265,7 @@ public class RtpStreamStats: Stats {
 
 // type: media-playout
 @objc
-public class AudioPlayoutStats: Stats {
+public class AudioPlayoutStatistics: Statistics {
 
     public let kind: String
     public let synthesizedSamplesDuration: Double?
@@ -296,7 +296,7 @@ public class AudioPlayoutStats: Stats {
 
 // type: peer-connection
 @objc
-public class PeerConnectionStats: Stats {
+public class PeerConnectionStatistics: Statistics {
 
     public let dataChannelsOpened: UInt?
     public let dataChannelsClosed: UInt?
@@ -317,7 +317,7 @@ public class PeerConnectionStats: Stats {
 
 // type: data-channel
 @objc
-public class RTCDataChannelStats: Stats {
+public class DataChannelStatistics: Statistics {
 
     public let label: String?
     public let `protocol`: String?
@@ -350,7 +350,7 @@ public class RTCDataChannelStats: Stats {
 
 // type: transport
 @objc
-public class RTCTransportStats: Stats {
+public class TransportStatistics: Statistics {
 
     public let packetsSent: UInt64?
     public let packetsReceived: UInt64?
@@ -399,7 +399,7 @@ public class RTCTransportStats: Stats {
 
 // type: local-candidate, remote-candidate
 @objc
-public class RTCIceCandidateStats: Stats {
+public class IceCandidateStatistics: Statistics {
 
     public let transportId: String
     public let address: String?
@@ -444,7 +444,7 @@ public class RTCIceCandidateStats: Stats {
 }
 
 @objc
-public class RTCLocalIceCandidateStats: RTCIceCandidateStats {
+public class LocalIceCandidateStatistics: IceCandidateStatistics {
 
     init?(id: String,
           timestamp: Double,
@@ -458,7 +458,7 @@ public class RTCLocalIceCandidateStats: RTCIceCandidateStats {
 }
 
 @objc
-public class RTCRemoteIceCandidateStats: RTCIceCandidateStats {
+public class RemoteIceCandidateStatistics: IceCandidateStatistics {
 
     init?(id: String,
           timestamp: Double,
@@ -473,7 +473,7 @@ public class RTCRemoteIceCandidateStats: RTCIceCandidateStats {
 
 // type: candidate-pair
 @objc
-public class RTCIceCandidatePairStats: Stats {
+public class IceCandidatePairStatistics: Statistics {
 
     public let transportId: String
     public let localCandidateId: String
@@ -539,7 +539,7 @@ public class RTCIceCandidatePairStats: Stats {
 
 // type: certificate
 @objc
-public class RTCCertificateStats: Stats {
+public class CertificateStatistics: Statistics {
 
     public let fingerprint: String
     public let fingerprintAlgorithm: String
@@ -567,7 +567,7 @@ public class RTCCertificateStats: Stats {
 }
 
 @objc
-public class RTCReceivedRtpStreamStats: RtpStreamStats {
+public class ReceivedRtpStreamStatistics: RtpStreamStatistics {
 
     public let packetsReceived: UInt64?
     public let packetsLost: Int64?
@@ -590,7 +590,7 @@ public class RTCReceivedRtpStreamStats: RtpStreamStats {
 }
 
 @objc
-public class RTCSentRtpStreamStats: RtpStreamStats {
+public class SentRtpStreamStatistics: RtpStreamStatistics {
 
     public let packetsSent: UInt64?
     public let bytesSent: UInt64?
@@ -612,7 +612,7 @@ public class RTCSentRtpStreamStats: RtpStreamStats {
 
 // type: inbound-rtp
 @objc
-public class RTCInboundRtpStreamStats: RTCReceivedRtpStreamStats {
+public class InboundRtpStreamStatistics: ReceivedRtpStreamStatistics {
 
     public let trackIdentifier: String
     // let kind: String
@@ -733,7 +733,7 @@ public class RTCInboundRtpStreamStats: RTCReceivedRtpStreamStats {
 
 // type: remote-inbound-rtp
 @objc
-public class RTCRemoteInboundRtpStreamStats: RTCReceivedRtpStreamStats {
+public class RemoteInboundRtpStreamStatistics: ReceivedRtpStreamStatistics {
 
     public let localId: String?
     public let roundTripTime: Double?
@@ -759,7 +759,7 @@ public class RTCRemoteInboundRtpStreamStats: RTCReceivedRtpStreamStats {
 
 // type: outbound-rtp
 @objc
-public class RTCOutboundRtpStreamStats: RTCSentRtpStreamStats {
+public class OutboundRtpStreamStatistics: SentRtpStreamStatistics {
 
     public let mid: String?
     public let mediaSourceId: String?
@@ -834,7 +834,7 @@ public class RTCOutboundRtpStreamStats: RTCSentRtpStreamStats {
 
 // type: remote-outbound-rtp
 @objc
-public class RTCRemoteOutboundRtpStreamStats: RTCSentRtpStreamStats {
+public class RemoteOutboundRtpStreamStatistics: SentRtpStreamStatistics {
 
     public let localId: String?
     public let remoteTimestamp: Double?
@@ -862,7 +862,7 @@ public class RTCRemoteOutboundRtpStreamStats: RTCSentRtpStreamStats {
 }
 
 @objc
-public class RTCAudioSourceStats: MediaSourceStats {
+public class AudioSourceStatistics: MediaSourceStatistics {
 
     public let audioLevel: Double?
     public let totalAudioEnergy: Double?
@@ -895,7 +895,7 @@ public class RTCAudioSourceStats: MediaSourceStats {
 }
 
 @objc
-public class RTCVideoSourceStats: MediaSourceStats {
+public class VideoSourceStatistics: MediaSourceStatistics {
 
     public let width: UInt?
     public let height: UInt?
@@ -915,8 +915,4 @@ public class RTCVideoSourceStats: MediaSourceStats {
                    timestamp: timestamp,
                    rawValues: rawValues)
     }
-}
-
-extension RTCOutboundRtpStreamStats: Identifiable {
-    //
 }

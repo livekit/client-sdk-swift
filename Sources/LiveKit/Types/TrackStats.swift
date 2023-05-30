@@ -55,37 +55,37 @@ public extension TrackStats {
 @objc
 public class TrackStatistics: NSObject {
 
-    public let codec: [CodecStats]
-    public let transportStats: RTCTransportStats?
-    public let videoSource: [RTCVideoSourceStats]
+    public let codec: [CodecStatistics]
+    public let transportStats: TransportStatistics?
+    public let videoSource: [VideoSourceStatistics]
 
-    public let certificate: [RTCCertificateStats]
-    public let iceCandidatePair: [RTCIceCandidatePairStats]
+    public let certificate: [CertificateStatistics]
+    public let iceCandidatePair: [IceCandidatePairStatistics]
 
-    public let localIceCandidate: RTCLocalIceCandidateStats?
-    public let remoteIceCandidate: RTCRemoteIceCandidateStats?
+    public let localIceCandidate: LocalIceCandidateStatistics?
+    public let remoteIceCandidate: RemoteIceCandidateStatistics?
 
-    public let outboundRtpStream: [RTCOutboundRtpStreamStats]
-    public let remoteInboundRtpStream: [RTCRemoteInboundRtpStreamStats]
+    public let outboundRtpStream: [OutboundRtpStreamStatistics]
+    public let remoteInboundRtpStream: [RemoteInboundRtpStreamStatistics]
 
-    init(from stats: [Stats]) {
+    init(from stats: [Statistics]) {
 
-        self.codec = stats.compactMap { $0 as? CodecStats }
-        self.videoSource = stats.compactMap { $0 as? RTCVideoSourceStats }
-        self.certificate = stats.compactMap { $0 as? RTCCertificateStats }
-        self.iceCandidatePair = stats.compactMap { $0 as? RTCIceCandidatePairStats }
-        self.outboundRtpStream = stats.compactMap { $0 as? RTCOutboundRtpStreamStats }
-        self.remoteInboundRtpStream = stats.compactMap { $0 as? RTCRemoteInboundRtpStreamStats }
+        self.codec = stats.compactMap { $0 as? CodecStatistics }
+        self.videoSource = stats.compactMap { $0 as? VideoSourceStatistics }
+        self.certificate = stats.compactMap { $0 as? CertificateStatistics }
+        self.iceCandidatePair = stats.compactMap { $0 as? IceCandidatePairStatistics }
+        self.outboundRtpStream = stats.compactMap { $0 as? OutboundRtpStreamStatistics }
+        self.remoteInboundRtpStream = stats.compactMap { $0 as? RemoteInboundRtpStreamStatistics }
 
-        let t = stats.compactMap { $0 as? RTCTransportStats }
+        let t = stats.compactMap { $0 as? TransportStatistics }
         assert(t.count <= 1, "More than 1 TransportStatistics exists")
         self.transportStats = t.first
 
-        let l = stats.compactMap { $0 as? RTCLocalIceCandidateStats }
+        let l = stats.compactMap { $0 as? LocalIceCandidateStatistics }
         assert(l.count <= 1, "More than 1 LocalIceCandidateStatistics exists")
         self.localIceCandidate = l.first
 
-        let r = stats.compactMap { $0 as? RTCRemoteIceCandidateStats }
+        let r = stats.compactMap { $0 as? RemoteIceCandidateStatistics }
         assert(r.count <= 1, "More than 1 RemoteIceCandidateStatistics exists")
         self.remoteIceCandidate = r.first
     }

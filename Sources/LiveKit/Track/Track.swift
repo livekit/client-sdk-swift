@@ -444,26 +444,26 @@ extension Track: Identifiable {
 
 extension RTCStatistics {
 
-    func toLKType() -> Stats? {
+    func toLKType() -> Statistics? {
         switch type {
-        case "codec": return CodecStats(id: id, timestamp: timestamp_us, rawValues: values)
-        case "inbound-rtp": return RTCInboundRtpStreamStats(id: id, timestamp: timestamp_us, rawValues: values)
-        case "outbound-rtp": return RTCOutboundRtpStreamStats(id: id, timestamp: timestamp_us, rawValues: values)
-        case "remote-inbound-rtp": return RTCRemoteInboundRtpStreamStats(id: id, timestamp: timestamp_us, rawValues: values)
-        case "remote-outbound-rtp": return RTCRemoteOutboundRtpStreamStats(id: id, timestamp: timestamp_us, rawValues: values)
+        case "codec": return CodecStatistics(id: id, timestamp: timestamp_us, rawValues: values)
+        case "inbound-rtp": return InboundRtpStreamStatistics(id: id, timestamp: timestamp_us, rawValues: values)
+        case "outbound-rtp": return OutboundRtpStreamStatistics(id: id, timestamp: timestamp_us, rawValues: values)
+        case "remote-inbound-rtp": return RemoteInboundRtpStreamStatistics(id: id, timestamp: timestamp_us, rawValues: values)
+        case "remote-outbound-rtp": return RemoteOutboundRtpStreamStatistics(id: id, timestamp: timestamp_us, rawValues: values)
         case "media-source":
-            guard let mediaSourceStats = MediaSourceStats(id: id, timestamp: timestamp_us, rawValues: values) else { return nil }
-            if mediaSourceStats.kind == "audio" { return RTCAudioSourceStats(id: id, timestamp: timestamp_us, rawValues: values) }
-            if mediaSourceStats.kind == "video" { return RTCVideoSourceStats(id: id, timestamp: timestamp_us, rawValues: values) }
+            guard let mediaSourceStats = MediaSourceStatistics(id: id, timestamp: timestamp_us, rawValues: values) else { return nil }
+            if mediaSourceStats.kind == "audio" { return AudioSourceStatistics(id: id, timestamp: timestamp_us, rawValues: values) }
+            if mediaSourceStats.kind == "video" { return VideoSourceStatistics(id: id, timestamp: timestamp_us, rawValues: values) }
             return nil
-        case "media-playout": return AudioPlayoutStats(id: id, timestamp: timestamp_us, rawValues: values)
-        case "peer-connection": return PeerConnectionStats(id: id, timestamp: timestamp_us, rawValues: values)
-        case "data-channel": return RTCDataChannelStats(id: id, timestamp: timestamp_us, rawValues: values)
-        case "transport": return RTCTransportStats(id: id, timestamp: timestamp_us, rawValues: values)
-        case "candidate-pair": return RTCIceCandidatePairStats(id: id, timestamp: timestamp_us, rawValues: values)
-        case "local-candidate": return RTCLocalIceCandidateStats(id: id, timestamp: timestamp_us, rawValues: values)
-        case "remote-candidate": return RTCRemoteIceCandidateStats(id: id, timestamp: timestamp_us, rawValues: values)
-        case "certificate": return RTCCertificateStats(id: id, timestamp: timestamp_us, rawValues: values)
+        case "media-playout": return AudioPlayoutStatistics(id: id, timestamp: timestamp_us, rawValues: values)
+        case "peer-connection": return PeerConnectionStatistics(id: id, timestamp: timestamp_us, rawValues: values)
+        case "data-channel": return DataChannelStatistics(id: id, timestamp: timestamp_us, rawValues: values)
+        case "transport": return TransportStatistics(id: id, timestamp: timestamp_us, rawValues: values)
+        case "candidate-pair": return IceCandidatePairStatistics(id: id, timestamp: timestamp_us, rawValues: values)
+        case "local-candidate": return LocalIceCandidateStatistics(id: id, timestamp: timestamp_us, rawValues: values)
+        case "remote-candidate": return RemoteIceCandidateStatistics(id: id, timestamp: timestamp_us, rawValues: values)
+        case "certificate": return CertificateStatistics(id: id, timestamp: timestamp_us, rawValues: values)
         default:
             // type: track is not handled
             // print("Unknown stats type: \(type), \(values)")
@@ -474,7 +474,7 @@ extension RTCStatistics {
 
 extension Track {
 
-    func parse(stats: [RTCStatistics]) -> [Stats] {
+    func parse(stats: [RTCStatistics]) -> [Statistics] {
         stats.map { $0.toLKType() }.compactMap { $0 }
     }
 
