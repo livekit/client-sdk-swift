@@ -190,6 +190,4 @@ extension Room: EngineDelegate {
             }
         }
     }
-
-    func engine(_ engine: Engine, didUpdate dataChannel: RTCDataChannel, state: StatsDataChannelState) {}
 }
