@@ -216,11 +216,11 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
 
 extension Transport {
 
-    func senderStats(for sender: RTCRtpSender) async -> RTCStatisticsReport {
+    func statistics(for sender: RTCRtpSender) async -> RTCStatisticsReport {
         await pc.statistics(for: sender)
     }
 
-    func senderStats(for receiver: RTCRtpReceiver) async -> RTCStatisticsReport {
+    func statistics(for receiver: RTCRtpReceiver) async -> RTCStatisticsReport {
         await pc.statistics(for: receiver)
     }
 

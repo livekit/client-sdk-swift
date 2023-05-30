@@ -159,11 +159,13 @@ public enum StatsIceTcpCandidateType: String {
 }
 
 // Base class
-public class Stats {
-    let id: String
-    let type: StatsType
-    let timestamp: Double
-    let rawValues: [String: NSObject]
+@objc
+public class Stats: NSObject {
+
+    public let id: String
+    public let type: StatsType
+    public let timestamp: Double
+    public let rawValues: [String: NSObject]
 
     init?(id: String,
           type: StatsType,
@@ -178,13 +180,15 @@ public class Stats {
 }
 
 // type: codec
+@objc
 public class CodecStats: Stats {
-    let payloadType: UInt
-    let transportId: String
-    let mimeType: String
-    let clockRate: UInt?
-    let channels: UInt?
-    let sdpFmtpLine: String?
+
+    public let payloadType: UInt
+    public let transportId: String
+    public let mimeType: String
+    public let clockRate: UInt?
+    public let channels: UInt?
+    public let sdpFmtpLine: String?
 
     init?(id: String,
           timestamp: Double,
@@ -208,10 +212,11 @@ public class CodecStats: Stats {
     }
 }
 
+@objc
 public class MediaSourceStats: Stats {
 
-    let trackIdentifier: String
-    let kind: String
+    public let trackIdentifier: String
+    public let kind: String
 
     init?(id: String,
           timestamp: Double,
@@ -230,12 +235,13 @@ public class MediaSourceStats: Stats {
     }
 }
 
+@objc
 public class RtpStreamStats: Stats {
 
-    let ssrc: UInt
-    let kind: String
-    let transportId: String?
-    let codecId: String?
+    public let ssrc: UInt
+    public let kind: String
+    public let transportId: String?
+    public let codecId: String?
 
     override init?(id: String,
                    type: StatsType,
@@ -258,14 +264,15 @@ public class RtpStreamStats: Stats {
 }
 
 // type: media-playout
+@objc
 public class AudioPlayoutStats: Stats {
 
-    let kind: String
-    let synthesizedSamplesDuration: Double?
-    let synthesizedSamplesEvents: UInt?
-    let totalSamplesDuration: Double?
-    let totalPlayoutDelay: Double?
-    let totalSamplesCount: UInt64?
+    public let kind: String
+    public let synthesizedSamplesDuration: Double?
+    public let synthesizedSamplesEvents: UInt?
+    public let totalSamplesDuration: Double?
+    public let totalPlayoutDelay: Double?
+    public let totalSamplesCount: UInt64?
 
     init?(id: String,
           timestamp: Double,
@@ -288,10 +295,11 @@ public class AudioPlayoutStats: Stats {
 }
 
 // type: peer-connection
+@objc
 public class PeerConnectionStats: Stats {
 
-    let dataChannelsOpened: UInt?
-    let dataChannelsClosed: UInt?
+    public let dataChannelsOpened: UInt?
+    public let dataChannelsClosed: UInt?
 
     init?(id: String,
           timestamp: Double,
@@ -308,16 +316,17 @@ public class PeerConnectionStats: Stats {
 }
 
 // type: data-channel
+@objc
 public class RTCDataChannelStats: Stats {
 
-    let label: String?
-    let `protocol`: String?
-    let dataChannelIdentifier: UInt16?
-    let state: StatsDataChannelState?
-    let messagesSent: UInt?
-    let bytesSent: UInt64?
-    let messagesReceived: UInt?
-    let bytesReceived: UInt64?
+    public let label: String?
+    public let `protocol`: String?
+    public let dataChannelIdentifier: UInt16?
+    public let state: StatsDataChannelState?
+    public let messagesSent: UInt?
+    public let bytesSent: UInt64?
+    public let messagesReceived: UInt?
+    public let bytesReceived: UInt64?
 
     init?(id: String,
           timestamp: Double,
@@ -340,24 +349,25 @@ public class RTCDataChannelStats: Stats {
 }
 
 // type: transport
+@objc
 public class RTCTransportStats: Stats {
 
-    let packetsSent: UInt64?
-    let packetsReceived: UInt64?
-    let bytesSent: UInt64?
-    let bytesReceived: UInt64?
-    let iceRole: StatsIceRole?
-    let iceLocalUsernameFragment: String?
-    let dtlsState: StatsDtlsTransportState?
-    let iceState: StatsIceTransportState?
-    let selectedCandidatePairId: String?
-    let localCertificateId: String?
-    let remoteCertificateId: String?
-    let tlsVersion: String?
-    let dtlsCipher: String?
-    let dtlsRole: StatsDtlsRole?
-    let srtpCipher: String?
-    let selectedCandidatePairChanges: UInt?
+    public let packetsSent: UInt64?
+    public let packetsReceived: UInt64?
+    public let bytesSent: UInt64?
+    public let bytesReceived: UInt64?
+    public let iceRole: StatsIceRole?
+    public let iceLocalUsernameFragment: String?
+    public let dtlsState: StatsDtlsTransportState?
+    public let iceState: StatsIceTransportState?
+    public let selectedCandidatePairId: String?
+    public let localCertificateId: String?
+    public let remoteCertificateId: String?
+    public let tlsVersion: String?
+    public let dtlsCipher: String?
+    public let dtlsRole: StatsDtlsRole?
+    public let srtpCipher: String?
+    public let selectedCandidatePairChanges: UInt?
 
     init?(id: String,
           timestamp: Double,
@@ -388,21 +398,22 @@ public class RTCTransportStats: Stats {
 }
 
 // type: local-candidate, remote-candidate
+@objc
 public class RTCIceCandidateStats: Stats {
 
-    let transportId: String
-    let address: String?
-    let port: Int?
-    let `protocol`: String?
-    let candidateType: StatsIceCandidateType?
-    let priority: Int?
-    let url: String?
-    let relayProtocol: StatsIceServerTransportProtocol?
-    let foundation: String?
-    let relatedAddress: String?
-    let relatedPort: Int?
-    let usernameFragment: String?
-    let tcpType: StatsIceTcpCandidateType?
+    public let transportId: String
+    public let address: String?
+    public let port: Int?
+    public let `protocol`: String?
+    public let candidateType: StatsIceCandidateType?
+    public let priority: Int?
+    public let url: String?
+    public let relayProtocol: StatsIceServerTransportProtocol?
+    public let foundation: String?
+    public let relatedAddress: String?
+    public let relatedPort: Int?
+    public let usernameFragment: String?
+    public let tcpType: StatsIceTcpCandidateType?
 
     override init?(id: String,
                    type: StatsType,
@@ -432,6 +443,7 @@ public class RTCIceCandidateStats: Stats {
     }
 }
 
+@objc
 public class RTCLocalIceCandidateStats: RTCIceCandidateStats {
 
     init?(id: String,
@@ -445,6 +457,7 @@ public class RTCLocalIceCandidateStats: RTCIceCandidateStats {
     }
 }
 
+@objc
 public class RTCRemoteIceCandidateStats: RTCIceCandidateStats {
 
     init?(id: String,
@@ -459,29 +472,31 @@ public class RTCRemoteIceCandidateStats: RTCIceCandidateStats {
 }
 
 // type: candidate-pair
+@objc
 public class RTCIceCandidatePairStats: Stats {
-    let transportId: String
-    let localCandidateId: String
-    let remoteCandidateId: String
-    let state: StatsIceCandidatePairState
-    let nominated: Bool?
-    let packetsSent: UInt64?
-    let packetsReceived: UInt64?
-    let bytesSent: UInt64?
-    let bytesReceived: UInt64?
-    let lastPacketSentTimestamp: Double?
-    let lastPacketReceivedTimestamp: Double?
-    let totalRoundTripTime: Double?
-    let currentRoundTripTime: Double?
-    let availableOutgoingBitrate: Double?
-    let availableIncomingBitrate: Double?
-    let requestsReceived: UInt64?
-    let requestsSent: UInt64?
-    let responsesReceived: UInt64?
-    let responsesSent: UInt64?
-    let consentRequestsSent: UInt64?
-    let packetsDiscardedOnSend: UInt?
-    let bytesDiscardedOnSend: UInt64?
+
+    public let transportId: String
+    public let localCandidateId: String
+    public let remoteCandidateId: String
+    public let state: StatsIceCandidatePairState
+    public let nominated: Bool?
+    public let packetsSent: UInt64?
+    public let packetsReceived: UInt64?
+    public let bytesSent: UInt64?
+    public let bytesReceived: UInt64?
+    public let lastPacketSentTimestamp: Double?
+    public let lastPacketReceivedTimestamp: Double?
+    public let totalRoundTripTime: Double?
+    public let currentRoundTripTime: Double?
+    public let availableOutgoingBitrate: Double?
+    public let availableIncomingBitrate: Double?
+    public let requestsReceived: UInt64?
+    public let requestsSent: UInt64?
+    public let responsesReceived: UInt64?
+    public let responsesSent: UInt64?
+    public let consentRequestsSent: UInt64?
+    public let packetsDiscardedOnSend: UInt?
+    public let bytesDiscardedOnSend: UInt64?
 
     init?(id: String,
           timestamp: Double,
@@ -523,11 +538,13 @@ public class RTCIceCandidatePairStats: Stats {
 }
 
 // type: certificate
+@objc
 public class RTCCertificateStats: Stats {
-    let fingerprint: String
-    let fingerprintAlgorithm: String
-    let base64Certificate: String
-    let issuerCertificateId: String?
+
+    public let fingerprint: String
+    public let fingerprintAlgorithm: String
+    public let base64Certificate: String
+    public let issuerCertificateId: String?
 
     init?(id: String,
           timestamp: Double,
@@ -549,11 +566,12 @@ public class RTCCertificateStats: Stats {
     }
 }
 
+@objc
 public class RTCReceivedRtpStreamStats: RtpStreamStats {
 
-    let packetsReceived: UInt64?
-    let packetsLost: Int64?
-    let jitter: Double?
+    public let packetsReceived: UInt64?
+    public let packetsLost: Int64?
+    public let jitter: Double?
 
     override init?(id: String,
                    type: StatsType,
@@ -571,10 +589,11 @@ public class RTCReceivedRtpStreamStats: RtpStreamStats {
     }
 }
 
+@objc
 public class RTCSentRtpStreamStats: RtpStreamStats {
 
-    let packetsSent: UInt64?
-    let bytesSent: UInt64?
+    public let packetsSent: UInt64?
+    public let bytesSent: UInt64?
 
     override init?(id: String,
                    type: StatsType,
@@ -592,59 +611,60 @@ public class RTCSentRtpStreamStats: RtpStreamStats {
 }
 
 // type: inbound-rtp
+@objc
 public class RTCInboundRtpStreamStats: RTCReceivedRtpStreamStats {
 
-    let trackIdentifier: String
+    public let trackIdentifier: String
     // let kind: String
-    let mid: String?
-    let remoteId: String?
-    let framesDecoded: UInt?
-    let keyFramesDecoded: UInt?
-    let framesRendered: UInt?
-    let framesDropped: UInt?
-    let frameWidth: UInt?
-    let frameHeight: UInt?
-    let framesPerSecond: Double?
-    let qpSum: UInt64?
-    let totalDecodeTime: Double?
-    let totalInterFrameDelay: Double?
-    let totalSquaredInterFrameDelay: Double?
-    let pauseCount: UInt?
-    let totalPausesDuration: Double?
-    let freezeCount: UInt?
-    let totalFreezesDuration: Double?
-    let lastPacketReceivedTimestamp: Double?
-    let headerBytesReceived: UInt64?
-    let packetsDiscarded: UInt64?
-    let fecPacketsReceived: UInt64?
-    let fecPacketsDiscarded: UInt64?
-    let bytesReceived: UInt64?
-    let nackCount: UInt?
-    let firCount: UInt?
-    let pliCount: UInt?
-    let totalProcessingDelay: Double?
-    let estimatedPlayoutTimestamp: Double?
-    let jitterBufferDelay: Double?
-    let jitterBufferTargetDelay: Double?
-    let jitterBufferEmittedCount: UInt64?
-    let jitterBufferMinimumDelay: Double?
-    let totalSamplesReceived: UInt64?
-    let concealedSamples: UInt64?
-    let silentConcealedSamples: UInt64?
-    let concealmentEvents: UInt64?
-    let insertedSamplesForDeceleration: UInt64?
-    let removedSamplesForAcceleration: UInt64?
-    let audioLevel: Double?
-    let totalAudioEnergy: Double?
-    let totalSamplesDuration: Double?
-    let framesReceived: UInt?
-    let decoderImplementation: String?
-    let playoutId: String?
-    let powerEfficientDecoder: Bool?
-    let framesAssembledFromMultiplePackets: UInt?
-    let totalAssemblyTime: Double?
-    let retransmittedPacketsReceived: UInt64?
-    let retransmittedBytesReceived: UInt64?
+    public let mid: String?
+    public let remoteId: String?
+    public let framesDecoded: UInt?
+    public let keyFramesDecoded: UInt?
+    public let framesRendered: UInt?
+    public let framesDropped: UInt?
+    public let frameWidth: UInt?
+    public let frameHeight: UInt?
+    public let framesPerSecond: Double?
+    public let qpSum: UInt64?
+    public let totalDecodeTime: Double?
+    public let totalInterFrameDelay: Double?
+    public let totalSquaredInterFrameDelay: Double?
+    public let pauseCount: UInt?
+    public let totalPausesDuration: Double?
+    public let freezeCount: UInt?
+    public let totalFreezesDuration: Double?
+    public let lastPacketReceivedTimestamp: Double?
+    public let headerBytesReceived: UInt64?
+    public let packetsDiscarded: UInt64?
+    public let fecPacketsReceived: UInt64?
+    public let fecPacketsDiscarded: UInt64?
+    public let bytesReceived: UInt64?
+    public let nackCount: UInt?
+    public let firCount: UInt?
+    public let pliCount: UInt?
+    public let totalProcessingDelay: Double?
+    public let estimatedPlayoutTimestamp: Double?
+    public let jitterBufferDelay: Double?
+    public let jitterBufferTargetDelay: Double?
+    public let jitterBufferEmittedCount: UInt64?
+    public let jitterBufferMinimumDelay: Double?
+    public let totalSamplesReceived: UInt64?
+    public let concealedSamples: UInt64?
+    public let silentConcealedSamples: UInt64?
+    public let concealmentEvents: UInt64?
+    public let insertedSamplesForDeceleration: UInt64?
+    public let removedSamplesForAcceleration: UInt64?
+    public let audioLevel: Double?
+    public let totalAudioEnergy: Double?
+    public let totalSamplesDuration: Double?
+    public let framesReceived: UInt?
+    public let decoderImplementation: String?
+    public let playoutId: String?
+    public let powerEfficientDecoder: Bool?
+    public let framesAssembledFromMultiplePackets: UInt?
+    public let totalAssemblyTime: Double?
+    public let retransmittedPacketsReceived: UInt64?
+    public let retransmittedBytesReceived: UInt64?
 
     init?(id: String,
           timestamp: Double,
@@ -712,13 +732,14 @@ public class RTCInboundRtpStreamStats: RTCReceivedRtpStreamStats {
 }
 
 // type: remote-inbound-rtp
+@objc
 public class RTCRemoteInboundRtpStreamStats: RTCReceivedRtpStreamStats {
 
-    let localId: String?
-    let roundTripTime: Double?
-    let totalRoundTripTime: Double?
-    let fractionLost: Double?
-    let roundTripTimeMeasurements: UInt64?
+    public let localId: String?
+    public let roundTripTime: Double?
+    public let totalRoundTripTime: Double?
+    public let fractionLost: Double?
+    public let roundTripTimeMeasurements: UInt64?
 
     init?(id: String,
           timestamp: Double,
@@ -737,36 +758,38 @@ public class RTCRemoteInboundRtpStreamStats: RTCReceivedRtpStreamStats {
 }
 
 // type: outbound-rtp
+@objc
 public class RTCOutboundRtpStreamStats: RTCSentRtpStreamStats {
-    let mid: String?
-    let mediaSourceId: String?
-    let remoteId: String?
-    let rid: String?
-    let headerBytesSent: UInt64?
-    let retransmittedPacketsSent: UInt64?
-    let retransmittedBytesSent: UInt64?
-    let targetBitrate: Double?
-    let totalEncodedBytesTarget: UInt64?
-    let frameWidth: UInt?
-    let frameHeight: UInt?
-    let framesPerSecond: Double?
-    let framesSent: UInt?
-    let hugeFramesSent: UInt?
-    let framesEncoded: UInt?
-    let keyFramesEncoded: UInt?
-    let qpSum: UInt64?
-    let totalEncodeTime: Double?
-    let totalPacketSendDelay: Double?
-    let qualityLimitationReason: String?
-    let qualityLimitationDurations: [String: Double]?
-    let qualityLimitationResolutionChanges: UInt?
-    let nackCount: UInt?
-    let firCount: UInt?
-    let pliCount: UInt?
-    let encoderImplementation: String?
-    let powerEfficientEncoder: Bool?
-    let active: Bool?
-    let scalabilityMode: String?
+
+    public let mid: String?
+    public let mediaSourceId: String?
+    public let remoteId: String?
+    public let rid: String?
+    public let headerBytesSent: UInt64?
+    public let retransmittedPacketsSent: UInt64?
+    public let retransmittedBytesSent: UInt64?
+    public let targetBitrate: Double?
+    public let totalEncodedBytesTarget: UInt64?
+    public let frameWidth: UInt?
+    public let frameHeight: UInt?
+    public let framesPerSecond: Double?
+    public let framesSent: UInt?
+    public let hugeFramesSent: UInt?
+    public let framesEncoded: UInt?
+    public let keyFramesEncoded: UInt?
+    public let qpSum: UInt64?
+    public let totalEncodeTime: Double?
+    public let totalPacketSendDelay: Double?
+    public let qualityLimitationReason: String?
+    public let qualityLimitationDurations: [String: Double]?
+    public let qualityLimitationResolutionChanges: UInt?
+    public let nackCount: UInt?
+    public let firCount: UInt?
+    public let pliCount: UInt?
+    public let encoderImplementation: String?
+    public let powerEfficientEncoder: Bool?
+    public let active: Bool?
+    public let scalabilityMode: String?
 
     init?(id: String,
           timestamp: Double,
@@ -810,14 +833,15 @@ public class RTCOutboundRtpStreamStats: RTCSentRtpStreamStats {
 }
 
 // type: remote-outbound-rtp
+@objc
 public class RTCRemoteOutboundRtpStreamStats: RTCSentRtpStreamStats {
 
-    let localId: String?
-    let remoteTimestamp: Double?
-    let reportsSent: UInt64?
-    let roundTripTime: Double?
-    let totalRoundTripTime: Double?
-    let roundTripTimeMeasurements: UInt64?
+    public let localId: String?
+    public let remoteTimestamp: Double?
+    public let reportsSent: UInt64?
+    public let roundTripTime: Double?
+    public let totalRoundTripTime: Double?
+    public let roundTripTimeMeasurements: UInt64?
 
     init?(id: String,
           timestamp: Double,
@@ -837,17 +861,18 @@ public class RTCRemoteOutboundRtpStreamStats: RTCSentRtpStreamStats {
     }
 }
 
+@objc
 public class RTCAudioSourceStats: MediaSourceStats {
 
-    let audioLevel: Double?
-    let totalAudioEnergy: Double?
-    let totalSamplesDuration: Double?
-    let echoReturnLoss: Double?
-    let echoReturnLossEnhancement: Double?
-    let droppedSamplesDuration: Double?
-    let droppedSamplesEvents: UInt?
-    let totalCaptureDelay: Double?
-    let totalSamplesCaptured: UInt64?
+    public let audioLevel: Double?
+    public let totalAudioEnergy: Double?
+    public let totalSamplesDuration: Double?
+    public let echoReturnLoss: Double?
+    public let echoReturnLossEnhancement: Double?
+    public let droppedSamplesDuration: Double?
+    public let droppedSamplesEvents: UInt?
+    public let totalCaptureDelay: Double?
+    public let totalSamplesCaptured: UInt64?
 
     override init?(id: String,
                    timestamp: Double,
@@ -869,12 +894,13 @@ public class RTCAudioSourceStats: MediaSourceStats {
     }
 }
 
+@objc
 public class RTCVideoSourceStats: MediaSourceStats {
 
-    let width: UInt?
-    let height: UInt?
-    let frames: UInt?
-    let framesPerSecond: Double?
+    public let width: UInt?
+    public let height: UInt?
+    public let frames: UInt?
+    public let framesPerSecond: Double?
 
     override init?(id: String,
                    timestamp: Double,
@@ -889,4 +915,8 @@ public class RTCVideoSourceStats: MediaSourceStats {
                    timestamp: timestamp,
                    rawValues: rawValues)
     }
+}
+
+extension RTCOutboundRtpStreamStats: Identifiable {
+    //
 }

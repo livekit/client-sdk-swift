@@ -85,6 +85,9 @@ public class Track: NSObject, Loggable {
     @objc
     public var stats: TrackStats? { _state.stats }
 
+    @objc
+    public var statistics: TrackStatistics? { _state.statistics }
+
     /// Dimensions of the video (only if video track)
     @objc
     public var dimensions: Dimensions? { _state.dimensions }
@@ -111,6 +114,7 @@ public class Track: NSObject, Loggable {
     internal let mediaTrack: RTCMediaStreamTrack
 
     internal var sender: RTCRtpSender? { transceiver?.sender }
+    internal var receiver: RTCRtpReceiver? { transceiver?.receiver }
 
     // Weak reference to all VideoViews attached to this track. Must be accessed from main thread.
     internal var videoRenderers = NSHashTable<VideoRenderer>.weakObjects()
@@ -125,7 +129,10 @@ public class Track: NSObject, Loggable {
         var videoFrame: RTCVideoFrame?
         var trackState: TrackState = .stopped
         var muted: Bool = false
+        // Deprecated
         var stats: TrackStats?
+        // v2
+        var statistics: TrackStatistics?
     }
 
     internal var _state: StateSync<State>
@@ -151,6 +158,21 @@ public class Track: NSObject, Loggable {
         mediaTrack = track
 
         super.init()
+
+        // trigger events when state mutates
+        _state.onDidMutate = { [weak self] newState, oldState in
+
+            guard let self = self else { return }
+
+            // deprecated
+            if newState.stats != oldState.stats, let stats = newState.stats {
+                delegates.notify { $0.track?(self, didUpdate: stats) }
+            }
+
+            if newState.statistics != oldState.statistics, let statistics = newState.statistics {
+                delegates.notify { $0.track?(self, didUpdateStatistics: statistics) }
+            }
+        }
 
         statsTimer.handler = { [weak self] in
             self?.onStatsTimer()
@@ -303,7 +325,6 @@ internal extension Track {
     func set(stats newValue: TrackStats) {
         guard _state.stats != newValue else { return }
         _state.mutate { $0.stats = newValue }
-        delegates.notify { $0.track?(self, didUpdate: newValue) }
     }
 }
 
@@ -425,24 +446,24 @@ extension RTCStatistics {
 
     func toLKType() -> Stats? {
         switch type {
-        case "codec": return CodecStats(id: id, timestamp: timestamp_us, dictionary: values)
-        case "inbound-rtp": return RTCInboundRtpStreamStats(id: id, timestamp: timestamp_us, dictionary: values)
-        case "outbound-rtp": return RTCOutboundRtpStreamStats(id: id, timestamp: timestamp_us, dictionary: values)
-        case "remote-inbound-rtp": return RTCRemoteInboundRtpStreamStats(id: id, timestamp: timestamp_us, dictionary: values)
-        case "remote-outbound-rtp": return RTCRemoteOutboundRtpStreamStats(id: id, timestamp: timestamp_us, dictionary: values)
+        case "codec": return CodecStats(id: id, timestamp: timestamp_us, rawValues: values)
+        case "inbound-rtp": return RTCInboundRtpStreamStats(id: id, timestamp: timestamp_us, rawValues: values)
+        case "outbound-rtp": return RTCOutboundRtpStreamStats(id: id, timestamp: timestamp_us, rawValues: values)
+        case "remote-inbound-rtp": return RTCRemoteInboundRtpStreamStats(id: id, timestamp: timestamp_us, rawValues: values)
+        case "remote-outbound-rtp": return RTCRemoteOutboundRtpStreamStats(id: id, timestamp: timestamp_us, rawValues: values)
         case "media-source":
-            guard let mediaSourceStats = MediaSourceStats(id: id, timestamp: timestamp_us, dictionary: values) else { return nil }
-            if mediaSourceStats.kind == "audio" { return RTCAudioSourceStats(id: id, timestamp: timestamp_us, dictionary: values) }
-            if mediaSourceStats.kind == "video" { return RTCVideoSourceStats(id: id, timestamp: timestamp_us, dictionary: values) }
+            guard let mediaSourceStats = MediaSourceStats(id: id, timestamp: timestamp_us, rawValues: values) else { return nil }
+            if mediaSourceStats.kind == "audio" { return RTCAudioSourceStats(id: id, timestamp: timestamp_us, rawValues: values) }
+            if mediaSourceStats.kind == "video" { return RTCVideoSourceStats(id: id, timestamp: timestamp_us, rawValues: values) }
             return nil
-        case "media-playout": return AudioPlayoutStats(id: id, timestamp: timestamp_us, dictionary: values)
-        case "peer-connection": return PeerConnectionStats(id: id, timestamp: timestamp_us, dictionary: values)
-        case "data-channel": return RTCDataChannelStats(id: id, timestamp: timestamp_us, dictionary: values)
-        case "transport": return RTCTransportStats(id: id, timestamp: timestamp_us, dictionary: values)
-        case "candidate-pair": return RTCIceCandidatePairStats(id: id, timestamp: timestamp_us, dictionary: values)
-        case "local-candidate": return RTCLocalIceCandidateStats(id: id, timestamp: timestamp_us, dictionary: values)
-        case "remote-candidate": return RTCRemoteIceCandidateStats(id: id, timestamp: timestamp_us, dictionary: values)
-        case "certificate": return RTCCertificateStats(id: id, timestamp: timestamp_us, dictionary: values)
+        case "media-playout": return AudioPlayoutStats(id: id, timestamp: timestamp_us, rawValues: values)
+        case "peer-connection": return PeerConnectionStats(id: id, timestamp: timestamp_us, rawValues: values)
+        case "data-channel": return RTCDataChannelStats(id: id, timestamp: timestamp_us, rawValues: values)
+        case "transport": return RTCTransportStats(id: id, timestamp: timestamp_us, rawValues: values)
+        case "candidate-pair": return RTCIceCandidatePairStats(id: id, timestamp: timestamp_us, rawValues: values)
+        case "local-candidate": return RTCLocalIceCandidateStats(id: id, timestamp: timestamp_us, rawValues: values)
+        case "remote-candidate": return RTCRemoteIceCandidateStats(id: id, timestamp: timestamp_us, rawValues: values)
+        case "certificate": return RTCCertificateStats(id: id, timestamp: timestamp_us, rawValues: values)
         default:
             // type: track is not handled
             // print("Unknown stats type: \(type), \(values)")
@@ -468,9 +489,12 @@ extension Track {
 
         Task {
 
-            let senderStats = await transport.senderStats(for: sender)
-            let lkStats = parse(stats: Array(senderStats.statistics.values))
-            print("senderStats: \(lkStats)")
+            let statistics = await transport.statistics(for: sender)
+            let lkStatistics = parse(stats: Array(statistics.statistics.values))
+            let trackStatistics = TrackStatistics(from: lkStatistics)
+            print("statistics: \(trackStatistics)")
+
+            _state.mutate { $0.statistics = trackStatistics }
 
             statsTimer.resume()
         }
