@@ -542,19 +542,18 @@ extension Track {
             defer { statsTimer.resume() }
 
             var statisticsReport: RTCStatisticsReport?
-            var prevStatistics = _state.read { $0.statistics }
+            let prevStatistics = _state.read { $0.statistics }
 
             if let sender = rtpSender {
                 statisticsReport = await transport.statistics(for: sender)
             } else if let receiver = rtpReceiver {
                 statisticsReport = await transport.statistics(for: receiver)
-                print("statisticsReport: \(statisticsReport)")
             }
 
+            assert(statisticsReport != nil, "statisticsReport is nil")
             guard let statisticsReport = statisticsReport else { return }
 
-            let statistics = parse(stats: Array(statisticsReport.statistics.values), prevStatistics: prevStatistics)
-            let trackStatistics = TrackStatistics(from: statistics)
+            let trackStatistics = TrackStatistics(from: Array(statisticsReport.statistics.values), prevStatistics: prevStatistics)
 
             _state.mutate { $0.statistics = trackStatistics }
         }

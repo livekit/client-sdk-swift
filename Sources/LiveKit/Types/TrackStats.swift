@@ -15,6 +15,7 @@
  */
 
 import Foundation
+import WebRTC
 
 public extension Double {
 
@@ -71,7 +72,9 @@ public class TrackStatistics: NSObject {
     public let remoteInboundRtpStream: [RemoteInboundRtpStreamStatistics]
     public let remoteOutboundRtpStream: [RemoteOutboundRtpStreamStatistics]
 
-    init(from stats: [Statistics]) {
+    init(from stats: [RTCStatistics], prevStatistics: TrackStatistics?) {
+
+        let stats = stats.map { $0.toLKType(prevStatistics: prevStatistics) }.compactMap { $0 }
 
         self.codec = stats.compactMap { $0 as? CodecStatistics }
         self.videoSource = stats.compactMap { $0 as? VideoSourceStatistics }
