@@ -103,7 +103,7 @@ extension RTCRtpEncodingParameters {
     }
 }
 
-extension StatsDataChannelState: CustomStringConvertible {
+extension RTCDataChannelState: CustomStringConvertible {
 
     public var description: String {
         switch self {

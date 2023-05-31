@@ -19,7 +19,7 @@ import Foundation
 /// Stats spec defined at https://www.w3.org/TR/webrtc-stats/
 
 /// RTCStatsType represents statistics related to different aspects of the RTCPeerConnection.
-public enum StatsType: String {
+public enum StatisticsType: String {
     /// Represents statistics for a codec that is currently being used by RTP streams being sent or received by this RTCPeerConnection object.
     case codec = "codec"
 
@@ -64,7 +64,7 @@ public enum StatsType: String {
 }
 
 /// RTCQualityLimitationReason represents the reason why the quality of a video might be limited.
-public enum StatsQualityLimitationReason: String {
+public enum QualityLimitationReason: String {
     /// The resolution and/or framerate is not limited.
     case none = "none"
 
@@ -79,7 +79,7 @@ public enum StatsQualityLimitationReason: String {
 }
 
 /// RTCDtlsRole represents the role that the RTCPeerConnection is playing in the DTLS handshake.
-public enum StatsDtlsRole: String {
+public enum DtlsRole: String {
     /// The RTCPeerConnection is acting as a DTLS client as defined in [RFC6347].
     case client = "client"
 
@@ -91,7 +91,7 @@ public enum StatsDtlsRole: String {
 }
 
 /// RTCStatsIceCandidatePairState represents the state of the ICE candidate pair as defined in Section 5.7.4 of [RFC5245].
-public enum StatsIceCandidatePairState: String {
+public enum IceCandidatePairState: String {
     /// The state is defined in Section 5.7.4 of [RFC5245].
     case frozen = "frozen"
 
@@ -108,20 +108,20 @@ public enum StatsIceCandidatePairState: String {
     case succeeded = "succeeded"
 }
 
-public enum StatsDataChannelState: String {
+public enum DataChannelState: String {
     case connecting = "connecting"
     case open = "open"
     case closing = "closing"
     case closed = "closed"
 }
 
-public enum StatsIceRole: String {
+public enum IceRole: String {
     case unknown = "unknown"
     case controlling = "controlling"
     case controlled = "controlled"
 }
 
-public enum StatsDtlsTransportState: String {
+public enum DtlsTransportState: String {
     case new = "new"
     case connecting = "connecting"
     case connected = "connected"
@@ -129,7 +129,7 @@ public enum StatsDtlsTransportState: String {
     case failed = "failed"
 }
 
-public enum StatsIceTransportState: String {
+public enum IceTransportState: String {
     case new = "new"
     case checking = "checking"
     case connected = "connected"
@@ -139,20 +139,20 @@ public enum StatsIceTransportState: String {
     case closed = "closed"
 }
 
-public enum StatsIceCandidateType: String {
+public enum IceCandidateType: String {
     case host = "host"
     case srflx = "srflx"
     case prflx = "prflx"
     case relay = "relay"
 }
 
-public enum StatsIceServerTransportProtocol: String {
+public enum IceServerTransportProtocol: String {
     case udp = "udp"
     case tcp = "tcp"
     case tls = "tls"
 }
 
-public enum StatsIceTcpCandidateType: String {
+public enum IceTcpCandidateType: String {
     case active = "active"
     case passive = "passive"
     case so = "so"
@@ -163,12 +163,12 @@ public enum StatsIceTcpCandidateType: String {
 public class Statistics: NSObject, Identifiable {
 
     public let id: String
-    public let type: StatsType
+    public let type: StatisticsType
     public let timestamp: Double
     public let rawValues: [String: NSObject]
 
     init?(id: String,
-          type: StatsType,
+          type: StatisticsType,
           timestamp: Double,
           rawValues: [String: NSObject]) {
 
@@ -244,7 +244,7 @@ public class RtpStreamStatistics: Statistics {
     public let codecId: String?
 
     override init?(id: String,
-                   type: StatsType,
+                   type: StatisticsType,
                    timestamp: Double,
                    rawValues: [String: NSObject]) {
 
@@ -322,7 +322,7 @@ public class DataChannelStatistics: Statistics {
     public let label: String?
     public let `protocol`: String?
     public let dataChannelIdentifier: UInt16?
-    public let state: StatsDataChannelState?
+    public let state: DataChannelState?
     public let messagesSent: UInt?
     public let bytesSent: UInt64?
     public let messagesReceived: UInt?
@@ -335,7 +335,7 @@ public class DataChannelStatistics: Statistics {
         self.label = rawValues["label"] as? String
         self.protocol = rawValues["protocol"] as? String
         self.dataChannelIdentifier = rawValues["dataChannelIdentifier"] as? UInt16
-        self.state = StatsDataChannelState(rawValue: rawValues["state"] as? String ?? "")
+        self.state = DataChannelState(rawValue: rawValues["state"] as? String ?? "")
         self.messagesSent = rawValues["messagesSent"] as? UInt
         self.bytesSent = rawValues["bytesSent"] as? UInt64
         self.messagesReceived = rawValues["messagesReceived"] as? UInt
@@ -356,16 +356,16 @@ public class TransportStatistics: Statistics {
     public let packetsReceived: UInt64?
     public let bytesSent: UInt64?
     public let bytesReceived: UInt64?
-    public let iceRole: StatsIceRole?
+    public let iceRole: IceRole?
     public let iceLocalUsernameFragment: String?
-    public let dtlsState: StatsDtlsTransportState?
-    public let iceState: StatsIceTransportState?
+    public let dtlsState: DtlsTransportState?
+    public let iceState: IceTransportState?
     public let selectedCandidatePairId: String?
     public let localCertificateId: String?
     public let remoteCertificateId: String?
     public let tlsVersion: String?
     public let dtlsCipher: String?
-    public let dtlsRole: StatsDtlsRole?
+    public let dtlsRole: DtlsRole?
     public let srtpCipher: String?
     public let selectedCandidatePairChanges: UInt?
 
@@ -377,16 +377,16 @@ public class TransportStatistics: Statistics {
         self.packetsReceived = rawValues["packetsReceived"] as? UInt64
         self.bytesSent = rawValues["bytesSent"] as? UInt64
         self.bytesReceived = rawValues["bytesReceived"] as? UInt64
-        self.iceRole = StatsIceRole(rawValue: rawValues["iceRole"] as? String ?? "")
+        self.iceRole = IceRole(rawValue: rawValues["iceRole"] as? String ?? "")
         self.iceLocalUsernameFragment = rawValues["iceLocalUsernameFragment"] as? String
-        self.dtlsState = StatsDtlsTransportState(rawValue: rawValues["dtlsState"] as? String ?? "")
-        self.iceState = StatsIceTransportState(rawValue: rawValues["iceState"] as? String ?? "")
+        self.dtlsState = DtlsTransportState(rawValue: rawValues["dtlsState"] as? String ?? "")
+        self.iceState = IceTransportState(rawValue: rawValues["iceState"] as? String ?? "")
         self.selectedCandidatePairId = rawValues["selectedCandidatePairId"] as? String
         self.localCertificateId = rawValues["localCertificateId"] as? String
         self.remoteCertificateId = rawValues["remoteCertificateId"] as? String
         self.tlsVersion = rawValues["tlsVersion"] as? String
         self.dtlsCipher = rawValues["dtlsCipher"] as? String
-        self.dtlsRole = StatsDtlsRole(rawValue: rawValues["dtlsRole"] as? String ?? "")
+        self.dtlsRole = DtlsRole(rawValue: rawValues["dtlsRole"] as? String ?? "")
         self.srtpCipher = rawValues["srtpCipher"] as? String
         self.selectedCandidatePairChanges = rawValues["selectedCandidatePairChanges"] as? UInt
 
@@ -405,18 +405,18 @@ public class IceCandidateStatistics: Statistics {
     public let address: String?
     public let port: Int?
     public let `protocol`: String?
-    public let candidateType: StatsIceCandidateType?
+    public let candidateType: IceCandidateType?
     public let priority: Int?
     public let url: String?
-    public let relayProtocol: StatsIceServerTransportProtocol?
+    public let relayProtocol: IceServerTransportProtocol?
     public let foundation: String?
     public let relatedAddress: String?
     public let relatedPort: Int?
     public let usernameFragment: String?
-    public let tcpType: StatsIceTcpCandidateType?
+    public let tcpType: IceTcpCandidateType?
 
     override init?(id: String,
-                   type: StatsType,
+                   type: StatisticsType,
                    timestamp: Double,
                    rawValues: [String: NSObject]) {
 
@@ -426,15 +426,15 @@ public class IceCandidateStatistics: Statistics {
         self.address = rawValues["address"] as? String
         self.port = rawValues["port"] as? Int
         self.protocol = rawValues["protocol"] as? String
-        self.candidateType = StatsIceCandidateType(rawValue: rawValues["candidateType"] as? String ?? "")
+        self.candidateType = IceCandidateType(rawValue: rawValues["candidateType"] as? String ?? "")
         self.priority = rawValues["priority"] as? Int
         self.url = rawValues["url"] as? String
-        self.relayProtocol = StatsIceServerTransportProtocol(rawValue: rawValues["relayProtocol"] as? String ?? "")
+        self.relayProtocol = IceServerTransportProtocol(rawValue: rawValues["relayProtocol"] as? String ?? "")
         self.foundation = rawValues["foundation"] as? String
         self.relatedAddress = rawValues["relatedAddress"] as? String
         self.relatedPort = rawValues["relatedPort"] as? Int
         self.usernameFragment = rawValues["usernameFragment"] as? String
-        self.tcpType = StatsIceTcpCandidateType(rawValue: rawValues["tcpType"] as? String ?? "")
+        self.tcpType = IceTcpCandidateType(rawValue: rawValues["tcpType"] as? String ?? "")
 
         super.init(id: id,
                    type: type,
@@ -478,7 +478,7 @@ public class IceCandidatePairStatistics: Statistics {
     public let transportId: String
     public let localCandidateId: String
     public let remoteCandidateId: String
-    public let state: StatsIceCandidatePairState
+    public let state: IceCandidatePairState
     public let nominated: Bool?
     public let packetsSent: UInt64?
     public let packetsReceived: UInt64?
@@ -505,7 +505,7 @@ public class IceCandidatePairStatistics: Statistics {
         guard let transportId = rawValues["transportId"] as? String,
               let localCandidateId = rawValues["localCandidateId"] as? String,
               let remoteCandidateId = rawValues["remoteCandidateId"] as? String,
-              let state = StatsIceCandidatePairState(rawValue: rawValues["state"] as? String ?? "") else { return nil }
+              let state = IceCandidatePairState(rawValue: rawValues["state"] as? String ?? "") else { return nil }
 
         self.transportId = transportId
         self.localCandidateId = localCandidateId
@@ -574,7 +574,7 @@ public class ReceivedRtpStreamStatistics: RtpStreamStatistics {
     public let jitter: Double?
 
     override init?(id: String,
-                   type: StatsType,
+                   type: StatisticsType,
                    timestamp: Double,
                    rawValues: [String: NSObject]) {
 
@@ -596,7 +596,7 @@ public class SentRtpStreamStatistics: RtpStreamStatistics {
     public let bytesSent: UInt64
 
     override init?(id: String,
-                   type: StatsType,
+                   type: StatisticsType,
                    timestamp: Double,
                    rawValues: [String: NSObject]) {
 
@@ -798,7 +798,7 @@ public class OutboundRtpStreamStatistics: SentRtpStreamStatistics {
     public let qpSum: UInt64?
     public let totalEncodeTime: Double?
     public let totalPacketSendDelay: Double?
-    public let qualityLimitationReason: String?
+    public let qualityLimitationReason: QualityLimitationReason
     public let qualityLimitationDurations: QualityLimitationDurations
     public let qualityLimitationResolutionChanges: UInt?
     public let nackCount: UInt?
@@ -835,7 +835,7 @@ public class OutboundRtpStreamStatistics: SentRtpStreamStatistics {
         self.qpSum = rawValues["qpSum"] as? UInt64
         self.totalEncodeTime = rawValues["totalEncodeTime"] as? Double
         self.totalPacketSendDelay = rawValues["totalPacketSendDelay"] as? Double
-        self.qualityLimitationReason = rawValues["qualityLimitationReason"] as? String
+        self.qualityLimitationReason = QualityLimitationReason(rawValue: (rawValues["qualityLimitationReason"] as? String) ?? "") ?? .none
         self.qualityLimitationDurations = QualityLimitationDurations(rawValues: rawValues["qualityLimitationDurations"] as? [String: NSObject])
         self.qualityLimitationResolutionChanges = rawValues["qualityLimitationResolutionChanges"] as? UInt
         self.nackCount = rawValues["nackCount"] as? UInt
