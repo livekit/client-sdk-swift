@@ -63,6 +63,40 @@ public class TrackStatistics: NSObject {
     }
 }
 
+extension RTCStatistics {
+
+    func toLKType(prevStatistics: TrackStatistics?) -> Statistics? {
+        switch type {
+        case "codec": return CodecStatistics(id: id, timestamp: timestamp_us, rawValues: values)
+        case "inbound-rtp":
+            let previous = prevStatistics?.inboundRtpStream.first(where: { $0.id == id })
+            return InboundRtpStreamStatistics(id: id, timestamp: timestamp_us, rawValues: values, previous: previous)
+        case "outbound-rtp":
+            let previous = prevStatistics?.outboundRtpStream.first(where: { $0.id == id })
+            return OutboundRtpStreamStatistics(id: id, timestamp: timestamp_us, rawValues: values, previous: previous)
+        case "remote-inbound-rtp": return RemoteInboundRtpStreamStatistics(id: id, timestamp: timestamp_us, rawValues: values)
+        case "remote-outbound-rtp": return RemoteOutboundRtpStreamStatistics(id: id, timestamp: timestamp_us, rawValues: values)
+        case "media-source":
+            guard let mediaSourceStats = MediaSourceStatistics(id: id, timestamp: timestamp_us, rawValues: values) else { return nil }
+            if mediaSourceStats.kind == "audio" { return AudioSourceStatistics(id: id, timestamp: timestamp_us, rawValues: values) }
+            if mediaSourceStats.kind == "video" { return VideoSourceStatistics(id: id, timestamp: timestamp_us, rawValues: values) }
+            return nil
+        case "media-playout": return AudioPlayoutStatistics(id: id, timestamp: timestamp_us, rawValues: values)
+        case "peer-connection": return PeerConnectionStatistics(id: id, timestamp: timestamp_us, rawValues: values)
+        case "data-channel": return DataChannelStatistics(id: id, timestamp: timestamp_us, rawValues: values)
+        case "transport": return TransportStatistics(id: id, timestamp: timestamp_us, rawValues: values)
+        case "candidate-pair": return IceCandidatePairStatistics(id: id, timestamp: timestamp_us, rawValues: values)
+        case "local-candidate": return LocalIceCandidateStatistics(id: id, timestamp: timestamp_us, rawValues: values)
+        case "remote-candidate": return RemoteIceCandidateStatistics(id: id, timestamp: timestamp_us, rawValues: values)
+        case "certificate": return CertificateStatistics(id: id, timestamp: timestamp_us, rawValues: values)
+        default:
+            // type: track is not handled
+            // print("Unknown stats type: \(type), \(values)")
+            return nil
+        }
+    }
+}
+
 extension TrackStatistics {
 
     public override var description: String {

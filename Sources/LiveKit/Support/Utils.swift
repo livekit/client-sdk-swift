@@ -34,6 +34,22 @@ extension OS: CustomStringConvertible {
     }
 }
 
+internal func format(bps: UInt64) -> String {
+
+    let bpsDivider: Double = 1000
+    let ordinals = ["", "K", "M", "G", "T", "P", "E"]
+
+    var rate = Double(bps)
+    var ordinal = 0
+
+    while rate > bpsDivider {
+        rate /= bpsDivider
+        ordinal += 1
+    }
+
+    return String(rate.rounded(to: 2)) + ordinals[ordinal] + "bps"
+}
+
 internal class Utils {
 
     private static let processInfo = ProcessInfo()
