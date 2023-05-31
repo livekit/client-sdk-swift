@@ -474,7 +474,6 @@ public extension OutboundRtpStreamStatistics {
         guard let previous = previous else { return 0 }
         let secondsDiff = (timestamp - previous.timestamp) / (1000 * 1000)
         return UInt64(Double(((bytesSent - previous.bytesSent) * 8)) / abs(secondsDiff))
-        // self.bpsReceived = Int(Double(((bytesReceived - previous.bytesReceived) * 8)) / abs(secondsDiff))
     }
 }
 

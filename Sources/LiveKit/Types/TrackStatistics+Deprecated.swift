@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 LiveKit
+ * Copyright 2023 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,114 +15,8 @@
  */
 
 import Foundation
-import WebRTC
 
-public extension Double {
-
-    func rounded(to places: Int) -> Double {
-        let divisor = pow(10.0, Double(places))
-        return (self * divisor).rounded() / divisor
-    }
-}
-
-public extension TrackStats {
-
-    private static let bpsDivider: Double = 1000
-
-    private func format(bps: Int) -> String {
-
-        let ordinals = ["", "K", "M", "G", "T", "P", "E"]
-
-        var rate = Double(bps)
-        var ordinal = 0
-
-        while rate > Self.bpsDivider {
-            rate /= Self.bpsDivider
-            ordinal += 1
-        }
-
-        return String(rate.rounded(to: 2)) + ordinals[ordinal] + "bps"
-    }
-
-    func formattedBpsSent() -> String {
-        format(bps: bpsSent)
-    }
-
-    func formattedBpsReceived() -> String {
-        format(bps: bpsReceived)
-    }
-}
-
-@objc
-public class TrackStatistics: NSObject {
-
-    public let codec: [CodecStatistics]
-    public let transportStats: TransportStatistics?
-    public let videoSource: [VideoSourceStatistics]
-
-    public let certificate: [CertificateStatistics]
-    public let iceCandidatePair: [IceCandidatePairStatistics]
-
-    public let localIceCandidate: LocalIceCandidateStatistics?
-    public let remoteIceCandidate: RemoteIceCandidateStatistics?
-
-    public let inboundRtpStream: [InboundRtpStreamStatistics]
-    public let outboundRtpStream: [OutboundRtpStreamStatistics]
-
-    public let remoteInboundRtpStream: [RemoteInboundRtpStreamStatistics]
-    public let remoteOutboundRtpStream: [RemoteOutboundRtpStreamStatistics]
-
-    init(from stats: [RTCStatistics], prevStatistics: TrackStatistics?) {
-
-        let stats = stats.map { $0.toLKType(prevStatistics: prevStatistics) }.compactMap { $0 }
-
-        self.codec = stats.compactMap { $0 as? CodecStatistics }
-        self.videoSource = stats.compactMap { $0 as? VideoSourceStatistics }
-        self.certificate = stats.compactMap { $0 as? CertificateStatistics }
-        self.iceCandidatePair = stats.compactMap { $0 as? IceCandidatePairStatistics }
-        self.inboundRtpStream = stats.compactMap { $0 as? InboundRtpStreamStatistics }
-        self.outboundRtpStream = stats.compactMap { $0 as? OutboundRtpStreamStatistics }
-        self.remoteInboundRtpStream = stats.compactMap { $0 as? RemoteInboundRtpStreamStatistics }
-        self.remoteOutboundRtpStream = stats.compactMap { $0 as? RemoteOutboundRtpStreamStatistics }
-
-        let t = stats.compactMap { $0 as? TransportStatistics }
-        assert(t.count <= 1, "More than 1 TransportStatistics exists")
-        self.transportStats = t.first
-
-        let l = stats.compactMap { $0 as? LocalIceCandidateStatistics }
-        assert(l.count <= 1, "More than 1 LocalIceCandidateStatistics exists")
-        self.localIceCandidate = l.first
-
-        let r = stats.compactMap { $0 as? RemoteIceCandidateStatistics }
-        assert(r.count <= 1, "More than 1 RemoteIceCandidateStatistics exists")
-        self.remoteIceCandidate = r.first
-    }
-}
-
-extension TrackStatistics {
-
-    public override var description: String {
-        "TrackStatistics(inboundRtpStream: \(String(describing: inboundRtpStream)))"
-    }
-}
-
-extension OutboundRtpStreamStatistics {
-
-    var ridIndex: Int {
-        guard let rid = rid, let idx = VideoQuality.rids.firstIndex(of: rid) else {
-            return -1
-        }
-        return idx
-    }
-}
-
-extension Sequence where Element == OutboundRtpStreamStatistics {
-
-    public func sortedByRidIndex() -> [OutboundRtpStreamStatistics] {
-        sorted { $0.ridIndex > $1.ridIndex }
-    }
-}
-
+@available(*, deprecated, message: "Use Stats v2 and TrackStatistics instead")
 @objc
 public class TrackStats: NSObject {
 
@@ -229,5 +123,33 @@ public class TrackStats: NSObject {
             self.bpsSent = 0
             self.bpsReceived = 0
         }
+    }
+}
+
+public extension TrackStats {
+
+    private static let bpsDivider: Double = 1000
+
+    private func format(bps: Int) -> String {
+
+        let ordinals = ["", "K", "M", "G", "T", "P", "E"]
+
+        var rate = Double(bps)
+        var ordinal = 0
+
+        while rate > Self.bpsDivider {
+            rate /= Self.bpsDivider
+            ordinal += 1
+        }
+
+        return String(rate.rounded(to: 2)) + ordinals[ordinal] + "bps"
+    }
+
+    func formattedBpsSent() -> String {
+        format(bps: bpsSent)
+    }
+
+    func formattedBpsReceived() -> String {
+        format(bps: bpsReceived)
     }
 }
