@@ -592,16 +592,16 @@ public class ReceivedRtpStreamStatistics: RtpStreamStatistics {
 @objc
 public class SentRtpStreamStatistics: RtpStreamStatistics {
 
-    public let packetsSent: UInt64?
-    public let bytesSent: UInt64?
+    public let packetsSent: UInt64
+    public let bytesSent: UInt64
 
     override init?(id: String,
                    type: StatsType,
                    timestamp: Double,
                    rawValues: [String: NSObject]) {
 
-        self.packetsSent = rawValues["packetsSent"] as? UInt64
-        self.bytesSent = rawValues["bytesSent"] as? UInt64
+        self.packetsSent = (rawValues["packetsSent"] as? UInt64) ?? 0
+        self.bytesSent = (rawValues["bytesSent"] as? UInt64) ?? 0
 
         super.init(id: id,
                    type: type,
@@ -614,7 +614,7 @@ public class SentRtpStreamStatistics: RtpStreamStatistics {
 @objc
 public class InboundRtpStreamStatistics: ReceivedRtpStreamStatistics {
 
-    public let trackIdentifier: String
+    public let trackIdentifier: String?
     // let kind: String
     public let mid: String?
     public let remoteId: String?
@@ -634,11 +634,11 @@ public class InboundRtpStreamStatistics: ReceivedRtpStreamStatistics {
     public let freezeCount: UInt?
     public let totalFreezesDuration: Double?
     public let lastPacketReceivedTimestamp: Double?
-    public let headerBytesReceived: UInt64?
+    public let headerBytesReceived: UInt64
     public let packetsDiscarded: UInt64?
-    public let fecPacketsReceived: UInt64?
-    public let fecPacketsDiscarded: UInt64?
-    public let bytesReceived: UInt64?
+    public let fecPacketsReceived: UInt64
+    public let fecPacketsDiscarded: UInt64
+    public let bytesReceived: UInt64
     public let nackCount: UInt?
     public let firCount: UInt?
     public let pliCount: UInt?
@@ -666,13 +666,14 @@ public class InboundRtpStreamStatistics: ReceivedRtpStreamStatistics {
     public let retransmittedPacketsReceived: UInt64?
     public let retransmittedBytesReceived: UInt64?
 
+    public let previous: InboundRtpStreamStatistics?
+
     init?(id: String,
           timestamp: Double,
-          rawValues: [String: NSObject]) {
+          rawValues: [String: NSObject],
+          previous: InboundRtpStreamStatistics?) {
 
-        guard let trackIdentifier = rawValues["trackIdentifier"] as? String else { return nil }
-
-        self.trackIdentifier = trackIdentifier
+        self.trackIdentifier = rawValues["trackIdentifier"] as? String
         // self.kind = kind
         self.mid = rawValues["mid"] as? String
         self.remoteId = rawValues["remoteId"] as? String
@@ -692,11 +693,11 @@ public class InboundRtpStreamStatistics: ReceivedRtpStreamStatistics {
         self.freezeCount = rawValues["freezeCount"] as? UInt
         self.totalFreezesDuration = rawValues["totalFreezesDuration"] as? Double
         self.lastPacketReceivedTimestamp = rawValues["lastPacketReceivedTimestamp"] as? Double
-        self.headerBytesReceived = rawValues["headerBytesReceived"] as? UInt64
-        self.packetsDiscarded = rawValues["packetsDiscarded"] as? UInt64
-        self.fecPacketsReceived = rawValues["fecPacketsReceived"] as? UInt64
-        self.fecPacketsDiscarded = rawValues["fecPacketsDiscarded"] as? UInt64
-        self.bytesReceived = rawValues["bytesReceived"] as? UInt64
+        self.headerBytesReceived = (rawValues["headerBytesReceived"] as? UInt64) ?? 0
+        self.packetsDiscarded = (rawValues["packetsDiscarded"] as? UInt64) ?? 0
+        self.fecPacketsReceived = (rawValues["fecPacketsReceived"] as? UInt64) ?? 0
+        self.fecPacketsDiscarded = (rawValues["fecPacketsDiscarded"] as? UInt64) ?? 0
+        self.bytesReceived = (rawValues["bytesReceived"] as? UInt64) ?? 0
         self.nackCount = rawValues["nackCount"] as? UInt
         self.firCount = rawValues["firCount"] as? UInt
         self.pliCount = rawValues["pliCount"] as? UInt
@@ -723,6 +724,8 @@ public class InboundRtpStreamStatistics: ReceivedRtpStreamStatistics {
         self.totalAssemblyTime = rawValues["totalAssemblyTime"] as? Double
         self.retransmittedPacketsReceived = rawValues["retransmittedPacketsReceived"] as? UInt64
         self.retransmittedBytesReceived = rawValues["retransmittedBytesReceived"] as? UInt64
+
+        self.previous = previous
 
         super.init(id: id,
                    type: .inboundRtp,
@@ -765,9 +768,9 @@ public class OutboundRtpStreamStatistics: SentRtpStreamStatistics {
     public let mediaSourceId: String?
     public let remoteId: String?
     public let rid: String?
-    public let headerBytesSent: UInt64?
-    public let retransmittedPacketsSent: UInt64?
-    public let retransmittedBytesSent: UInt64?
+    public let headerBytesSent: UInt64
+    public let retransmittedPacketsSent: UInt64
+    public let retransmittedBytesSent: UInt64
     public let targetBitrate: Double?
     public let totalEncodedBytesTarget: UInt64?
     public let frameWidth: UInt?
@@ -791,17 +794,20 @@ public class OutboundRtpStreamStatistics: SentRtpStreamStatistics {
     public let active: Bool?
     public let scalabilityMode: String?
 
+    public let previous: OutboundRtpStreamStatistics?
+
     init?(id: String,
           timestamp: Double,
-          rawValues: [String: NSObject]) {
+          rawValues: [String: NSObject],
+          previous: OutboundRtpStreamStatistics?) {
 
         self.mid = rawValues["mid"] as? String
         self.mediaSourceId = rawValues["mediaSourceId"] as? String
         self.remoteId = rawValues["remoteId"] as? String
         self.rid = rawValues["rid"] as? String
-        self.headerBytesSent = rawValues["headerBytesSent"] as? UInt64
-        self.retransmittedPacketsSent = rawValues["retransmittedPacketsSent"] as? UInt64
-        self.retransmittedBytesSent = rawValues["retransmittedBytesSent"] as? UInt64
+        self.headerBytesSent = (rawValues["headerBytesSent"] as? UInt64) ?? 0
+        self.retransmittedPacketsSent = (rawValues["retransmittedPacketsSent"] as? UInt64) ?? 0
+        self.retransmittedBytesSent = (rawValues["retransmittedBytesSent"] as? UInt64) ?? 0
         self.targetBitrate = rawValues["targetBitrate"] as? Double
         self.totalEncodedBytesTarget = rawValues["totalEncodedBytesTarget"] as? UInt64
         self.frameWidth = rawValues["frameWidth"] as? UInt
@@ -824,6 +830,8 @@ public class OutboundRtpStreamStatistics: SentRtpStreamStatistics {
         self.powerEfficientEncoder = rawValues["powerEfficientEncoder"] as? Bool
         self.active = rawValues["active"] as? Bool
         self.scalabilityMode = rawValues["scalabilityMode"] as? String
+
+        self.previous = previous
 
         super.init(id: id,
                    type: .outboundRtp,

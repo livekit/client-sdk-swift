@@ -65,8 +65,11 @@ public class TrackStatistics: NSObject {
     public let localIceCandidate: LocalIceCandidateStatistics?
     public let remoteIceCandidate: RemoteIceCandidateStatistics?
 
+    public let inboundRtpStream: [InboundRtpStreamStatistics]
     public let outboundRtpStream: [OutboundRtpStreamStatistics]
+
     public let remoteInboundRtpStream: [RemoteInboundRtpStreamStatistics]
+    public let remoteOutboundRtpStream: [RemoteOutboundRtpStreamStatistics]
 
     init(from stats: [Statistics]) {
 
@@ -74,8 +77,10 @@ public class TrackStatistics: NSObject {
         self.videoSource = stats.compactMap { $0 as? VideoSourceStatistics }
         self.certificate = stats.compactMap { $0 as? CertificateStatistics }
         self.iceCandidatePair = stats.compactMap { $0 as? IceCandidatePairStatistics }
+        self.inboundRtpStream = stats.compactMap { $0 as? InboundRtpStreamStatistics }
         self.outboundRtpStream = stats.compactMap { $0 as? OutboundRtpStreamStatistics }
         self.remoteInboundRtpStream = stats.compactMap { $0 as? RemoteInboundRtpStreamStatistics }
+        self.remoteOutboundRtpStream = stats.compactMap { $0 as? RemoteOutboundRtpStreamStatistics }
 
         let t = stats.compactMap { $0 as? TransportStatistics }
         assert(t.count <= 1, "More than 1 TransportStatistics exists")
@@ -88,6 +93,30 @@ public class TrackStatistics: NSObject {
         let r = stats.compactMap { $0 as? RemoteIceCandidateStatistics }
         assert(r.count <= 1, "More than 1 RemoteIceCandidateStatistics exists")
         self.remoteIceCandidate = r.first
+    }
+}
+
+extension TrackStatistics {
+
+    public override var description: String {
+        "TrackStatistics(inboundRtpStream: \(String(describing: inboundRtpStream)))"
+    }
+}
+
+extension OutboundRtpStreamStatistics {
+
+    var ridIndex: Int {
+        guard let rid = rid, let idx = VideoQuality.rids.firstIndex(of: rid) else {
+            return -1
+        }
+        return idx
+    }
+}
+
+extension Sequence where Element == OutboundRtpStreamStatistics {
+
+    public func sortedByRidIndex() -> [OutboundRtpStreamStatistics] {
+        sorted { $0.ridIndex > $1.ridIndex }
     }
 }
 

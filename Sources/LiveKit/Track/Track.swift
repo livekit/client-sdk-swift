@@ -113,8 +113,8 @@ public class Track: NSObject, Loggable {
 
     internal let mediaTrack: RTCMediaStreamTrack
 
-    internal var sender: RTCRtpSender? { transceiver?.sender }
-    internal var receiver: RTCRtpReceiver? { transceiver?.receiver }
+    internal private(set) var rtpSender: RTCRtpSender?
+    internal private(set) var rtpReceiver: RTCRtpReceiver?
 
     // Weak reference to all VideoViews attached to this track. Must be accessed from main thread.
     internal var videoRenderers = NSHashTable<VideoRenderer>.weakObjects()
@@ -140,7 +140,7 @@ public class Track: NSObject, Loggable {
     // MARK: - Private
 
     private weak var transport: Transport?
-    private var transceiver: RTCRtpTransceiver?
+    // private var transceiver: RTCRtpTransceiver?
     private let statsTimer = DispatchQueueTimer(timeInterval: 1, queue: .webRTC)
     // Weak reference to the corresponding transport
 
@@ -184,10 +184,15 @@ public class Track: NSObject, Loggable {
         log("sid: \(String(describing: sid))")
     }
 
-    internal func set(transport: Transport, transceiver: RTCRtpTransceiver) {
-        // guard self.transceiver != transceiver else { return }
+    internal func set(transport: Transport, rtpSender: RTCRtpSender) {
         self.transport = transport
-        self.transceiver = transceiver
+        self.rtpSender = rtpSender
+        statsTimer.resume()
+    }
+
+    internal func set(transport: Transport, rtpReceiver: RTCRtpReceiver) {
+        self.transport = transport
+        self.rtpReceiver = rtpReceiver
         statsTimer.resume()
     }
 
@@ -442,13 +447,61 @@ extension Track: Identifiable {
 
 // MARK: - Stats
 
+private let bpsDivider: Double = 1000
+
+private func format(bps: UInt64) -> String {
+
+    let ordinals = ["", "K", "M", "G", "T", "P", "E"]
+
+    var rate = Double(bps)
+    var ordinal = 0
+
+    while rate > bpsDivider {
+        rate /= bpsDivider
+        ordinal += 1
+    }
+
+    return String(rate.rounded(to: 2)) + ordinals[ordinal] + "bps"
+}
+
+public extension OutboundRtpStreamStatistics {
+
+    func formattedBpsSent() -> String {
+        format(bps: bitsSentPerSecond)
+    }
+
+    var bitsSentPerSecond: UInt64 {
+        guard let previous = previous else { return 0 }
+        let secondsDiff = (timestamp - previous.timestamp) / (1000 * 1000)
+        return UInt64(Double(((bytesSent - previous.bytesSent) * 8)) / abs(secondsDiff))
+        // self.bpsReceived = Int(Double(((bytesReceived - previous.bytesReceived) * 8)) / abs(secondsDiff))
+    }
+}
+
+public extension InboundRtpStreamStatistics {
+
+    func formattedBpsReceived() -> String {
+        format(bps: bitsReceivedPerSecond)
+    }
+
+    var bitsReceivedPerSecond: UInt64 {
+        guard let previous = previous else { return 0 }
+        let secondsDiff = (timestamp - previous.timestamp) / (1000 * 1000)
+        return UInt64(Double(((bytesReceived - previous.bytesReceived) * 8)) / abs(secondsDiff))
+    }
+}
+
 extension RTCStatistics {
 
-    func toLKType() -> Statistics? {
+    func toLKType(prevStatistics: TrackStatistics?) -> Statistics? {
         switch type {
         case "codec": return CodecStatistics(id: id, timestamp: timestamp_us, rawValues: values)
-        case "inbound-rtp": return InboundRtpStreamStatistics(id: id, timestamp: timestamp_us, rawValues: values)
-        case "outbound-rtp": return OutboundRtpStreamStatistics(id: id, timestamp: timestamp_us, rawValues: values)
+        case "inbound-rtp":
+            let previous = prevStatistics?.inboundRtpStream.first(where: { $0.id == id })
+            return InboundRtpStreamStatistics(id: id, timestamp: timestamp_us, rawValues: values, previous: previous)
+        case "outbound-rtp":
+            let previous = prevStatistics?.outboundRtpStream.first(where: { $0.id == id })
+            return OutboundRtpStreamStatistics(id: id, timestamp: timestamp_us, rawValues: values, previous: previous)
         case "remote-inbound-rtp": return RemoteInboundRtpStreamStatistics(id: id, timestamp: timestamp_us, rawValues: values)
         case "remote-outbound-rtp": return RemoteOutboundRtpStreamStatistics(id: id, timestamp: timestamp_us, rawValues: values)
         case "media-source":
@@ -474,29 +527,36 @@ extension RTCStatistics {
 
 extension Track {
 
-    func parse(stats: [RTCStatistics]) -> [Statistics] {
-        stats.map { $0.toLKType() }.compactMap { $0 }
+    func parse(stats: [RTCStatistics], prevStatistics: TrackStatistics?) -> [Statistics] {
+        stats.map { $0.toLKType(prevStatistics: prevStatistics) }.compactMap { $0 }
     }
 
     func onStatsTimer() {
 
-        log("onStatsTimer()")
-
-        guard let transport = transport,
-              let sender = sender else { return }
+        guard let transport = transport else { return }
 
         statsTimer.suspend()
 
         Task {
 
-            let statistics = await transport.statistics(for: sender)
-            let lkStatistics = parse(stats: Array(statistics.statistics.values))
-            let trackStatistics = TrackStatistics(from: lkStatistics)
-            print("statistics: \(trackStatistics)")
+            defer { statsTimer.resume() }
+
+            var statisticsReport: RTCStatisticsReport?
+            var prevStatistics = _state.read { $0.statistics }
+
+            if let sender = rtpSender {
+                statisticsReport = await transport.statistics(for: sender)
+            } else if let receiver = rtpReceiver {
+                statisticsReport = await transport.statistics(for: receiver)
+                print("statisticsReport: \(statisticsReport)")
+            }
+
+            guard let statisticsReport = statisticsReport else { return }
+
+            let statistics = parse(stats: Array(statisticsReport.statistics.values), prevStatistics: prevStatistics)
+            let trackStatistics = TrackStatistics(from: statistics)
 
             _state.mutate { $0.statistics = trackStatistics }
-
-            statsTimer.resume()
         }
     }
 }

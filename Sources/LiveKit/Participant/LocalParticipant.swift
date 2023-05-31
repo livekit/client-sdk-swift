@@ -152,7 +152,7 @@ public class LocalParticipant: Participant {
             track._publishOptions = publishOptions
 
             track.set(transport: publisher,
-                      transceiver: transceiver)
+                      rtpSender: transceiver.sender)
 
             // prefer to maintainResolution for screen share
             if case .screenShareVideo = track.source {
@@ -254,7 +254,7 @@ public class LocalParticipant: Participant {
         // engine.publisher must be accessed from engine.queue
         return stopTrackIfRequired().then(on: engine.queue) { _ -> Promise<Void> in
 
-            guard let publisher = engine.publisher, let sender = track.sender else {
+            guard let publisher = engine.publisher, let sender = track.rtpSender else {
                 return Promise(())
             }
 
@@ -388,7 +388,7 @@ public class LocalParticipant: Participant {
 
         guard let pub = getTrackPublication(sid: trackSid),
               let track = pub.track as? LocalVideoTrack,
-              let sender = track.sender
+              let sender = track.rtpSender
         else { return }
 
         let parameters = sender.parameters

@@ -298,7 +298,7 @@ extension Transport: RTCPeerConnectionDelegate {
         }
 
         log("didAdd track \(track.trackId)")
-        notify { $0.transport(self, didAdd: track, streams: mediaStreams) }
+        notify { $0.transport(self, didAddTrack: track, rtpReceiver: rtpReceiver, streams: mediaStreams) }
     }
 
     internal func peerConnection(_ peerConnection: RTCPeerConnection,
