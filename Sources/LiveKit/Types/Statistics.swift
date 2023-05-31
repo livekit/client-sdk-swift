@@ -764,6 +764,21 @@ public class RemoteInboundRtpStreamStatistics: ReceivedRtpStreamStatistics {
 @objc
 public class OutboundRtpStreamStatistics: SentRtpStreamStatistics {
 
+    public class QualityLimitationDurations {
+
+        public let none: Double
+        public let cpu: Double
+        public let bandwidth: Double
+        public let other: Double
+
+        init(rawValues: [String: NSObject]?) {
+            self.none = (rawValues?["none"] as? Double) ?? 0.0
+            self.cpu = (rawValues?["cpu"] as? Double) ?? 0.0
+            self.bandwidth = (rawValues?["bandwidth"] as? Double) ?? 0.0
+            self.other = (rawValues?["other"] as? Double) ?? 0.0
+        }
+    }
+
     public let mid: String?
     public let mediaSourceId: String?
     public let remoteId: String?
@@ -784,7 +799,7 @@ public class OutboundRtpStreamStatistics: SentRtpStreamStatistics {
     public let totalEncodeTime: Double?
     public let totalPacketSendDelay: Double?
     public let qualityLimitationReason: String?
-    public let qualityLimitationDurations: [String: Double]?
+    public let qualityLimitationDurations: QualityLimitationDurations
     public let qualityLimitationResolutionChanges: UInt?
     public let nackCount: UInt?
     public let firCount: UInt?
@@ -821,7 +836,7 @@ public class OutboundRtpStreamStatistics: SentRtpStreamStatistics {
         self.totalEncodeTime = rawValues["totalEncodeTime"] as? Double
         self.totalPacketSendDelay = rawValues["totalPacketSendDelay"] as? Double
         self.qualityLimitationReason = rawValues["qualityLimitationReason"] as? String
-        self.qualityLimitationDurations = rawValues["qualityLimitationDurations"] as? [String: Double]
+        self.qualityLimitationDurations = QualityLimitationDurations(rawValues: rawValues["qualityLimitationDurations"] as? [String: NSObject])
         self.qualityLimitationResolutionChanges = rawValues["qualityLimitationResolutionChanges"] as? UInt
         self.nackCount = rawValues["nackCount"] as? UInt
         self.firCount = rawValues["firCount"] as? UInt
