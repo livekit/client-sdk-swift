@@ -903,5 +903,4 @@ internal extension Dictionary where Key == String, Value == NSObject {
     func read(_ key: String) -> [String: NSObject] {
         (self[key] as? [String: NSObject]) ?? [:]
     }
-
 }
