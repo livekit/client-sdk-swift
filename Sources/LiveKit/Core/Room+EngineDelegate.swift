@@ -131,7 +131,7 @@ extension Room: EngineDelegate {
         }
     }
 
-    func engine(_ engine: Engine, didAdd track: RTCMediaStreamTrack, streams: [RTCMediaStream]) {
+    func engine(_ engine: Engine, didAddTrack track: RTCMediaStreamTrack, rtpReceiver: RTCRtpReceiver, streams: [RTCMediaStream]) {
 
         guard !streams.isEmpty else {
             log("Received onTrack with no streams!", .warning)
@@ -154,7 +154,7 @@ extension Room: EngineDelegate {
             guard case TrackError.state = error else { return false }
             return true
         } _: {
-            participant.addSubscribedMediaTrack(rtcTrack: track, sid: trackSid)
+            participant.addSubscribedMediaTrack(rtcTrack: track, rtpReceiver: rtpReceiver, sid: trackSid)
         }
     }
 
@@ -190,6 +190,4 @@ extension Room: EngineDelegate {
             }
         }
     }
-
-    func engine(_ engine: Engine, didUpdate dataChannel: RTCDataChannel, state: RTCDataChannelState) {}
 }

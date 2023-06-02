@@ -55,7 +55,7 @@ extension Engine: TransportDelegate {
                                    }
     }
 
-    func transport(_ transport: Transport, didAdd track: RTCMediaStreamTrack, streams: [RTCMediaStream]) {
+    func transport(_ transport: Transport, didAddTrack track: RTCMediaStreamTrack, rtpReceiver: RTCRtpReceiver, streams: [RTCMediaStream]) {
         log("did add track")
         if transport.target == .subscriber {
 
@@ -64,7 +64,7 @@ extension Engine: TransportDelegate {
                     // always remove this block when disconnected
                     removeWhen: { state, _ in state.connectionState == .disconnected() }) { [weak self] in
                 guard let self = self else { return }
-                self.notify { $0.engine(self, didAdd: track, streams: streams) }
+                self.notify { $0.engine(self, didAddTrack: track, rtpReceiver: rtpReceiver, streams: streams) }
             }
         }
     }

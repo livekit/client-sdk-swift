@@ -20,7 +20,7 @@ import WebRTC
 internal protocol EngineDelegate: AnyObject {
     func engine(_ engine: Engine, didMutate state: Engine.State, oldState: Engine.State)
     func engine(_ engine: Engine, didUpdate speakers: [Livekit_SpeakerInfo])
-    func engine(_ engine: Engine, didAdd track: RTCMediaStreamTrack, streams: [RTCMediaStream])
+    func engine(_ engine: Engine, didAddTrack track: RTCMediaStreamTrack, rtpReceiver: RTCRtpReceiver, streams: [RTCMediaStream])
     func engine(_ engine: Engine, didRemove track: RTCMediaStreamTrack)
     func engine(_ engine: Engine, didReceive userPacket: Livekit_UserPacket)
     func engine(_ engine: Engine, didGenerate stats: [TrackStats], target: Livekit_SignalTarget)

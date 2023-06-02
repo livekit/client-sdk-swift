@@ -216,9 +216,18 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
 
 extension Transport {
 
+    func statistics(for sender: RTCRtpSender) async -> RTCStatisticsReport {
+        await pc.statistics(for: sender)
+    }
+
+    func statistics(for receiver: RTCRtpReceiver) async -> RTCStatisticsReport {
+        await pc.statistics(for: receiver)
+    }
+
     func onStatsTimer() {
 
         statsTimer.suspend()
+
         pc.stats(for: nil, statsOutputLevel: .standard) { [weak self] reports in
 
             guard let self = self else { return }
@@ -289,7 +298,7 @@ extension Transport: RTCPeerConnectionDelegate {
         }
 
         log("didAdd track \(track.trackId)")
-        notify { $0.transport(self, didAdd: track, streams: mediaStreams) }
+        notify { $0.transport(self, didAddTrack: track, rtpReceiver: rtpReceiver, streams: mediaStreams) }
     }
 
     internal func peerConnection(_ peerConnection: RTCPeerConnection,

@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 LiveKit
+ * Copyright 2023 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,42 +16,7 @@
 
 import Foundation
 
-public extension Double {
-
-    func rounded(to places: Int) -> Double {
-        let divisor = pow(10.0, Double(places))
-        return (self * divisor).rounded() / divisor
-    }
-}
-
-public extension TrackStats {
-
-    private static let bpsDivider: Double = 1000
-
-    private func format(bps: Int) -> String {
-
-        let ordinals = ["", "K", "M", "G", "T", "P", "E"]
-
-        var rate = Double(bps)
-        var ordinal = 0
-
-        while rate > Self.bpsDivider {
-            rate /= Self.bpsDivider
-            ordinal += 1
-        }
-
-        return String(rate.rounded(to: 2)) + ordinals[ordinal] + "bps"
-    }
-
-    func formattedBpsSent() -> String {
-        format(bps: bpsSent)
-    }
-
-    func formattedBpsReceived() -> String {
-        format(bps: bpsReceived)
-    }
-}
-
+@available(*, deprecated, message: "Use Stats v2 and TrackStatistics instead")
 @objc
 public class TrackStats: NSObject {
 
@@ -158,5 +123,33 @@ public class TrackStats: NSObject {
             self.bpsSent = 0
             self.bpsReceived = 0
         }
+    }
+}
+
+public extension TrackStats {
+
+    private static let bpsDivider: Double = 1000
+
+    private func format(bps: Int) -> String {
+
+        let ordinals = ["", "K", "M", "G", "T", "P", "E"]
+
+        var rate = Double(bps)
+        var ordinal = 0
+
+        while rate > Self.bpsDivider {
+            rate /= Self.bpsDivider
+            ordinal += 1
+        }
+
+        return String(rate.rounded(to: 2)) + ordinals[ordinal] + "bps"
+    }
+
+    func formattedBpsSent() -> String {
+        format(bps: bpsSent)
+    }
+
+    func formattedBpsReceived() -> String {
+        format(bps: bpsReceived)
     }
 }
