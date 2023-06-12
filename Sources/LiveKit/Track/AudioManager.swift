@@ -151,13 +151,13 @@ public class AudioManager: Loggable {
 
                 configuration.category = AVAudioSession.Category.playAndRecord.rawValue
 
-                if newState.preferSpeakerOutput {
-                    // use .videoChat if speakerOutput is preferred
-                    configuration.mode = AVAudioSession.Mode.videoChat.rawValue
-                } else {
+//                if newState.preferSpeakerOutput {
+//                    // use .videoChat if speakerOutput is preferred
+//                    configuration.mode = AVAudioSession.Mode.videoChat.rawValue
+//                } else {
                     // use .voiceChat if speakerOutput is not preferred
                     configuration.mode = AVAudioSession.Mode.voiceChat.rawValue
-                }
+//                }
 
                 categoryOptions = [.allowBluetooth, .allowBluetoothA2DP]
 
