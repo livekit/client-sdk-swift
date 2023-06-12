@@ -151,13 +151,13 @@ public class AudioManager: Loggable {
 
                 configuration.category = AVAudioSession.Category.playAndRecord.rawValue
 
-                if newState.preferSpeakerOutput {
-                    // use .videoChat if speakerOutput is preferred
-                    configuration.mode = AVAudioSession.Mode.videoChat.rawValue
-                } else {
+//                if newState.preferSpeakerOutput {
+//                    // use .videoChat if speakerOutput is preferred
+//                    configuration.mode = AVAudioSession.Mode.videoChat.rawValue
+//                } else {
                     // use .voiceChat if speakerOutput is not preferred
                     configuration.mode = AVAudioSession.Mode.voiceChat.rawValue
-                }
+//                }
 
                 categoryOptions = [.allowBluetooth, .allowBluetoothA2DP]
 
@@ -168,15 +168,15 @@ public class AudioManager: Loggable {
 
             configuration.categoryOptions = categoryOptions
 
-            var setActive: Bool?
+            var setActive: Bool? = true
 
-            if newState.trackState != .none, oldState.trackState == .none {
-                // activate audio session when there is any local/remote audio track
-                setActive = true
-            } else if newState.trackState == .none, oldState.trackState != .none {
-                // deactivate audio session when there are no more local/remote audio tracks
-                setActive = false
-            }
+//            if newState.trackState != .none, oldState.trackState == .none {
+//                // activate audio session when there is any local/remote audio track
+//                setActive = true
+//            } else if newState.trackState == .none, oldState.trackState != .none {
+//                // deactivate audio session when there are no more local/remote audio tracks
+//                setActive = false
+//            }
 
             // configure session
             let session = RTCAudioSession.sharedInstance()
@@ -188,10 +188,8 @@ public class AudioManager: Loggable {
                 self.log("configuring audio session category: \(configuration.category), mode: \(configuration.mode), setActive: \(String(describing: setActive))")
 
                 if let setActive = setActive {
-                    try session.overrideOutputAudioPort(.none)
                     try session.setConfiguration(configuration, active: setActive)
                 } else {
-                    try session.overrideOutputAudioPort(.none)
                     try session.setConfiguration(configuration)
                 }
 
