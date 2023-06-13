@@ -163,7 +163,7 @@ public class AudioManager: Loggable {
 //
 //            } else {
                 configuration.category = AVAudioSession.Category.playAndRecord.rawValue
-                configuration.mode = AVAudioSession.Mode.default.rawValue
+                configuration.mode = AVAudioSession.Mode.voiceChat.rawValue
 //            }
 
 //            configuration.categoryOptions = categoryOptions
