@@ -103,10 +103,10 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
 
         log("Connecting with url: \(urlString)")
 
-//        self._state.mutate {
-//            $0.reconnectMode = reconnectMode
-//            $0.connectionState = .connecting
-//        }
+        self._state.mutate {
+            $0.reconnectMode = reconnectMode
+            $0.connectionState = .connecting
+        }
 
         return WebSocket.connect(url: url,
                                  onMessage: self.onWebSocketMessage,
