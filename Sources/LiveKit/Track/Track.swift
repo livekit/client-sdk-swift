@@ -166,11 +166,11 @@ public class Track: NSObject, Loggable {
 
             // deprecated
             if newState.stats != oldState.stats, let stats = newState.stats {
-                delegates.notify { $0.track?(self, didUpdate: stats) }
+                self.delegates.notify { $0.track?(self, didUpdate: stats) }
             }
 
             if newState.statistics != oldState.statistics, let statistics = newState.statistics {
-                delegates.notify { $0.track?(self, didUpdateStatistics: statistics) }
+                self.delegates.notify { $0.track?(self, didUpdateStatistics: statistics) }
             }
         }
 
