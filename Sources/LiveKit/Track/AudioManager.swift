@@ -41,7 +41,7 @@ public class AudioManager: Loggable {
     public struct State: Equatable {
         var localTracksCount: Int = 0
         var remoteTracksCount: Int = 0
-        var preferSpeakerOutput: Bool = false
+        var preferSpeakerOutput: Bool = true
 
         public var trackState: TrackState {
 
@@ -140,52 +140,47 @@ public class AudioManager: Loggable {
 
             // prepare config
             let configuration = RTCAudioSessionConfiguration.webRTC()
-            var categoryOptions: AVAudioSession.CategoryOptions = [.allowBluetooth, .allowBluetoothA2DP, .duckOthers]
+            var categoryOptions: AVAudioSession.CategoryOptions = []
 
-//            if newState.trackState == .remoteOnly && newState.preferSpeakerOutput {
-//                configuration.category = AVAudioSession.Category.playback.rawValue
-//                configuration.mode = AVAudioSession.Mode.spokenAudio.rawValue
-//
-//            } else if [.localOnly, .localAndRemote].contains(newState.trackState) ||
-//                        (newState.trackState == .remoteOnly && !newState.preferSpeakerOutput) {
-//
-//                configuration.category = AVAudioSession.Category.playAndRecord.rawValue
-//
-////                if newState.preferSpeakerOutput {
-////                    // use .videoChat if speakerOutput is preferred
-////                    configuration.mode = AVAudioSession.Mode.videoChat.rawValue
-////                } else {
-//                    // use .voiceChat if speakerOutput is not preferred
-//                    configuration.mode = AVAudioSession.Mode.voiceChat.rawValue
-////                }
-//
-////                categoryOptions = [.allowBluetooth, .allowBluetoothA2DP]
-//
-//            } else {
+            if newState.trackState == .remoteOnly && newState.preferSpeakerOutput {
+                configuration.category = AVAudioSession.Category.playback.rawValue
+                configuration.mode = AVAudioSession.Mode.spokenAudio.rawValue
+
+            } else if [.localOnly, .localAndRemote].contains(newState.trackState) ||
+                        (newState.trackState == .remoteOnly && !newState.preferSpeakerOutput) {
+
                 configuration.category = AVAudioSession.Category.playAndRecord.rawValue
-                configuration.mode = AVAudioSession.Mode.voiceChat.rawValue
-//            }
 
-//            configuration.categoryOptions = categoryOptions
+                if newState.preferSpeakerOutput {
+                    // use .videoChat if speakerOutput is preferred
+                    configuration.mode = AVAudioSession.Mode.videoChat.rawValue
+                } else {
+                    // use .voiceChat if speakerOutput is not preferred
+                    configuration.mode = AVAudioSession.Mode.voiceChat.rawValue
+                }
 
-            var setActive: Bool? = true
+                categoryOptions = [.allowBluetooth, .allowBluetoothA2DP]
 
-//            if newState.trackState != .none, oldState.trackState == .none {
-//                // activate audio session when there is any local/remote audio track
-//                setActive = true
-//            } else if newState.trackState == .none, oldState.trackState != .none {
-//                // deactivate audio session when there are no more local/remote audio tracks
-//                setActive = false
-//            }
+            } else {
+                configuration.category = AVAudioSession.Category.soloAmbient.rawValue
+                configuration.mode = AVAudioSession.Mode.default.rawValue
+            }
+
+            configuration.categoryOptions = categoryOptions
+
+            var setActive: Bool?
+
+            if newState.trackState != .none, oldState.trackState == .none {
+                // activate audio session when there is any local/remote audio track
+                setActive = true
+            } else if newState.trackState == .none, oldState.trackState != .none {
+                // deactivate audio session when there are no more local/remote audio tracks
+                setActive = false
+            }
 
             // configure session
             let session = RTCAudioSession.sharedInstance()
             session.lockForConfiguration()
-            do {
-                try session.overrideOutputAudioPort(.speaker)
-            } catch let error as NSError {
-                print("audioSession error: \(error.localizedDescription)")
-            }
             // always unlock
             defer { session.unlockForConfiguration() }
 
