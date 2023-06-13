@@ -162,7 +162,7 @@ public class AudioManager: Loggable {
 ////                categoryOptions = [.allowBluetooth, .allowBluetoothA2DP]
 //
 //            } else {
-                configuration.category = AVAudioSession.Category.soloAmbient.rawValue
+                configuration.category = AVAudioSession.Category.playAndRecord.rawValue
                 configuration.mode = AVAudioSession.Mode.voiceChat.rawValue
 //            }
 
