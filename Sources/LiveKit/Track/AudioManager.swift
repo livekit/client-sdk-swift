@@ -142,29 +142,29 @@ public class AudioManager: Loggable {
             let configuration = RTCAudioSessionConfiguration.webRTC()
             var categoryOptions: AVAudioSession.CategoryOptions = [.allowBluetooth, .allowBluetoothA2DP, .duckOthers]
 
-            if newState.trackState == .remoteOnly && newState.preferSpeakerOutput {
-                configuration.category = AVAudioSession.Category.playback.rawValue
-                configuration.mode = AVAudioSession.Mode.spokenAudio.rawValue
-
-            } else if [.localOnly, .localAndRemote].contains(newState.trackState) ||
-                        (newState.trackState == .remoteOnly && !newState.preferSpeakerOutput) {
-
-                configuration.category = AVAudioSession.Category.playAndRecord.rawValue
-
-//                if newState.preferSpeakerOutput {
-//                    // use .videoChat if speakerOutput is preferred
-//                    configuration.mode = AVAudioSession.Mode.videoChat.rawValue
-//                } else {
-                    // use .voiceChat if speakerOutput is not preferred
-                    configuration.mode = AVAudioSession.Mode.voiceChat.rawValue
-//                }
-
-//                categoryOptions = [.allowBluetooth, .allowBluetoothA2DP]
-
-            } else {
+//            if newState.trackState == .remoteOnly && newState.preferSpeakerOutput {
+//                configuration.category = AVAudioSession.Category.playback.rawValue
+//                configuration.mode = AVAudioSession.Mode.spokenAudio.rawValue
+//
+//            } else if [.localOnly, .localAndRemote].contains(newState.trackState) ||
+//                        (newState.trackState == .remoteOnly && !newState.preferSpeakerOutput) {
+//
+//                configuration.category = AVAudioSession.Category.playAndRecord.rawValue
+//
+////                if newState.preferSpeakerOutput {
+////                    // use .videoChat if speakerOutput is preferred
+////                    configuration.mode = AVAudioSession.Mode.videoChat.rawValue
+////                } else {
+//                    // use .voiceChat if speakerOutput is not preferred
+//                    configuration.mode = AVAudioSession.Mode.voiceChat.rawValue
+////                }
+//
+////                categoryOptions = [.allowBluetooth, .allowBluetoothA2DP]
+//
+//            } else {
                 configuration.category = AVAudioSession.Category.soloAmbient.rawValue
                 configuration.mode = AVAudioSession.Mode.default.rawValue
-            }
+//            }
 
             configuration.categoryOptions = categoryOptions
 
