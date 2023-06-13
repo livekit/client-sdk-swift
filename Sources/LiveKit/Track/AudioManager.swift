@@ -181,6 +181,11 @@ public class AudioManager: Loggable {
             // configure session
             let session = RTCAudioSession.sharedInstance()
             session.lockForConfiguration()
+            do {
+                try session.overrideOutputAudioPort(.speaker)
+            } catch let error as NSError {
+                print("audioSession error: \(error.localizedDescription)")
+            }
             // always unlock
             defer { session.unlockForConfiguration() }
 
