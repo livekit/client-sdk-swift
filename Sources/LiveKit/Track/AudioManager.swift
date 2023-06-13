@@ -196,6 +196,12 @@ public class AudioManager: Loggable {
             } catch let error {
                 self.log("Failed to configure audio session with error: \(error)", .error)
             }
+            
+            do {
+                try session.overrideOutputAudioPort(.none)
+            } catch {
+                print("OverrideOutputAudioPort failed: \(error)")
+            }
         }
     }
     #endif
