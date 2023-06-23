@@ -59,7 +59,7 @@ public class RoomOptions: NSObject {
     @objc
     public let stopLocalTrackOnUnpublish: Bool
 
-    /// Automatically suspend(mute) video tracks when the app enters background and
+    /// Automatically suspend(mute) local camera video tracks when the app enters background and
     /// resume(unmute) when the app enters foreground again.
     @objc
     public let suspendLocalVideoTracksInBackground: Bool
