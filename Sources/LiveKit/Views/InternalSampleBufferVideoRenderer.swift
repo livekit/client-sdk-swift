@@ -17,7 +17,7 @@
 import Foundation
 import WebRTC
 
-internal class SampleBufferVideoRenderer: NativeView {
+internal class InternalSampleBufferVideoRenderer: NativeView {
 
     let sampleBufferDisplayLayer: AVSampleBufferDisplayLayer
 
@@ -46,7 +46,7 @@ internal class SampleBufferVideoRenderer: NativeView {
     }
 }
 
-extension SampleBufferVideoRenderer: RTCVideoRenderer {
+extension InternalSampleBufferVideoRenderer: RTCVideoRenderer {
 
     public func setSize(_ size: CGSize) {
         //

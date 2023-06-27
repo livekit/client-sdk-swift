@@ -50,6 +50,13 @@ public class VideoView: NativeView, Loggable {
         case mirror
     }
 
+    @objc
+    public enum RenderMode: Int, Codable {
+        case auto
+        case metal
+        case sampleBuffer
+    }
+
     /// ``LayoutMode-swift.enum`` of the ``VideoView``.
     @objc
     public var layoutMode: LayoutMode {
@@ -62,6 +69,12 @@ public class VideoView: NativeView, Loggable {
     public var mirrorMode: MirrorMode {
         get { _state.mirrorMode }
         set { _state.mutate { $0.mirrorMode = newValue } }
+    }
+
+    @objc
+    public var renderMode: RenderMode {
+        get { _state.renderMode }
+        set { _state.mutate { $0.renderMode = newValue } }
     }
 
     /// Force video to be rotated to preferred ``VideoRotation``.
@@ -132,6 +145,7 @@ public class VideoView: NativeView, Loggable {
         var didLayout: Bool = false
         var layoutMode: LayoutMode = .fill
         var mirrorMode: MirrorMode = .auto
+        var renderMode: RenderMode = .auto
         var rotationOverride: VideoRotation?
 
         var debugMode: Bool = false
