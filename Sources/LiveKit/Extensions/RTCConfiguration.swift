@@ -42,7 +42,6 @@ extension RTCConfiguration {
         self.tcpCandidatePolicy = configuration.tcpCandidatePolicy
         self.candidateNetworkPolicy = configuration.candidateNetworkPolicy
         self.continualGatheringPolicy = configuration.continualGatheringPolicy
-        // self.disableIPV6 = configuration.disableIPV6
         self.disableIPV6OnWiFi = configuration.disableIPV6OnWiFi
         self.maxIPv6Networks = configuration.maxIPv6Networks
         self.disableLinkLocalNetworks = configuration.disableLinkLocalNetworks
