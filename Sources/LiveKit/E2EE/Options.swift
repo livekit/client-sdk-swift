@@ -15,11 +15,19 @@
  */
 
 import Foundation
-import WebRTC
+
+
+enum EncryptionType: String {
+    case None = "EncryptionType_None"
+    case Gcm = "EncryptionType_Gcm"
+    case Custom = "EncryptionType_Custom"
+}
+
 
 public class E2EEOptions {
-    var keyProvider: RTCFrameCryptorKeyProvider?
-    public init() {
-        
+    var keyProvider: BaseKeyProvider
+    var encryptionType: EncryptionType = .Gcm
+    public init(keyProvider: BaseKeyProvider){
+        self.keyProvider = keyProvider
     }
 }

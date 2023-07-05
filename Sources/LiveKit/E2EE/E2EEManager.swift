@@ -22,12 +22,13 @@ public class E2EEManager: NSObject, ObservableObject, Loggable {
     internal var room: Room?
     internal var enabled: Bool = false
     private let e2eeOptions: E2EEOptions
+    private var keyProvier: BaseKeyProvider?
     var frameCryptors = [String: RTCFrameCryptor]()
     
     public init(e2eeOptions: E2EEOptions) {
         self.e2eeOptions = e2eeOptions
     }
-    
+
     public func setup(room: Room){
         if(self.room != room) {
             cleanUp()
@@ -37,7 +38,40 @@ public class E2EEManager: NSObject, ObservableObject, Loggable {
         
     }
     
+    func addRtpSender(sender: RTCRtpSender, participantId: String, trackId: String, kind: String) {
+        let pid = String(format: "%@-sender-%@-%@", kind, participantId, trackId)
+        let framCryptor = RTCFrameCryptor(rtpSender: sender, participantId: pid, algorithm: RTCCyrptorAlgorithm.aesGcm, keyProvider: self.keyProvier!.rtcKeyProvider!)
+        framCryptor.delegate = self
+        frameCryptors[trackId] = framCryptor
+        framCryptor.enabled = self.enabled
+
+        if self.keyProvier?.isSharedKey == true {
+            self.keyProvier!.setKey(participantId: pid, index: 0, key: self.keyProvier!.sharedKey!)
+            framCryptor.keyIndex = 0
+        }
+    }
+    
+    func addRtpReceiver(receiver: RTCRtpReceiver, participantId: String, trackId: String, kind: String) {
+        let pid = String(format: "%@-receiver-%@-%@", kind, participantId, trackId)
+        let framCryptor = RTCFrameCryptor(rtpReceiver: receiver, participantId: pid, algorithm: RTCCyrptorAlgorithm.aesGcm, keyProvider: self.keyProvier!.rtcKeyProvider!)
+        framCryptor.delegate = self
+        frameCryptors[trackId] = framCryptor
+        framCryptor.enabled = self.enabled
+
+        if self.keyProvier?.isSharedKey == true {
+            self.keyProvier!.setKey(participantId: pid, index: 0, key: self.keyProvier!.sharedKey!)
+            framCryptor.keyIndex = 0
+        }
+    }
+    
     public func cleanUp() {
+        self.room?.delegates.remove(delegate: self)
+    }
+}
+
+extension E2EEManager: RTCFrameCryptorDelegate {
+
+    public func frameCryptor(_ frameCryptor: RTCFrameCryptor, didStateChangeWithParticipantId participantId: String, with state: FrameCryptionState) {
         
     }
 }
@@ -45,10 +79,10 @@ public class E2EEManager: NSObject, ObservableObject, Loggable {
 extension E2EEManager: RoomDelegate {
     
     public func room(_ room: Room, localParticipant: LocalParticipant, didPublish publication: LocalTrackPublication) {
-        
+        //addRtpSender(sender: sender, participantId: participant.identity, trackId: publication.sid, kind: "audio")
     }
     
     public func room(_ room: Room, participant: RemoteParticipant, didSubscribe publication: RemoteTrackPublication, track: Track) {
-        
+        //addRtpReceiver(receiver: receiver, participantId: participant.identity, trackId: publication.sid, kind: "video")
     }
 }

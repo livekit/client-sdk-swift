@@ -15,4 +15,29 @@
  */
 
 import Foundation
+import WebRTC
 
+let defaultRatchetSalt: String = "LKFrameEncryptionKey"
+let defaultMagicBytes: String = "LK-ROCKS"
+let defaultRatchetWindowSize: Int32 = 16;
+
+public class BaseKeyProvider {
+    var rtcKeyProvider: RTCFrameCryptorKeyProvider?
+    var isSharedKey: Bool = false
+    var sharedKey: String?
+    
+    public init(isSharedKey: Bool, sharedKey: String? = nil) {
+        self.rtcKeyProvider = RTCFrameCryptorKeyProvider(ratchetSalt: defaultRatchetSalt.data(using: .utf8)!, ratchetWindowSize: defaultRatchetWindowSize, sharedKeyMode: isSharedKey, uncryptedMagicBytes: defaultMagicBytes.data(using: .utf8)!)
+        self.isSharedKey = isSharedKey
+        self.sharedKey = sharedKey
+    }
+
+    public func setKey(participantId: String, index: Int32? = 0, key: String) {
+        if isSharedKey {
+          sharedKey = key
+          return
+        }
+        let keyData = key.data(using: .utf8)!
+        rtcKeyProvider?.setKey(keyData, with: index!, forParticipant: participantId)
+    }
+}

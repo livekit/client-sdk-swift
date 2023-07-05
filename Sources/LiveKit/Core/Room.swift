@@ -84,7 +84,7 @@ public class Room: NSObject, ObservableObject, Loggable {
 
     // Reference to Engine
     internal let engine: Engine
-    
+
     internal var e2eeManager: E2EEManager?
 
     internal struct State: Equatable {
@@ -191,11 +191,6 @@ public class Room: NSObject, ObservableObject, Loggable {
                 self.objectWillChange.send()
             }
         }
-        
-        if roomOptions?.e2eeOptions != nil {
-            self.e2eeManager = E2EEManager(e2eeOptions: roomOptions!.e2eeOptions!)
-            self.e2eeManager!.setup(room: self)
-        }
     }
 
     deinit {
@@ -220,6 +215,12 @@ public class Room: NSObject, ObservableObject, Loggable {
         // update options if specified
         if let roomOptions = roomOptions, roomOptions != state.options {
             _state.mutate { $0.options = roomOptions }
+        }
+
+        // enable E2EE
+        if roomOptions?.e2eeOptions != nil {
+            self.e2eeManager = E2EEManager(e2eeOptions: roomOptions!.e2eeOptions!)
+            self.e2eeManager!.setup(room: self)
         }
 
         // monitor.start(queue: monitorQueue)
@@ -257,7 +258,8 @@ internal extension Room {
         log("reason: \(String(describing: reason))")
 
         // start Engine cleanUp sequence
-        
+
+        // cleanup for E2EE
         if self.e2eeManager != nil {
             self.e2eeManager?.cleanUp()
         }
