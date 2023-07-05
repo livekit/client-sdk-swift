@@ -40,27 +40,27 @@ public class E2EEManager: NSObject, ObservableObject, Loggable {
     
     func addRtpSender(sender: RTCRtpSender, participantId: String, trackId: String, kind: String) {
         let pid = String(format: "%@-sender-%@-%@", kind, participantId, trackId)
-        let framCryptor = RTCFrameCryptor(rtpSender: sender, participantId: pid, algorithm: RTCCyrptorAlgorithm.aesGcm, keyProvider: self.keyProvier!.rtcKeyProvider!)
-        framCryptor.delegate = self
-        frameCryptors[trackId] = framCryptor
-        framCryptor.enabled = self.enabled
+        let frameCryptor = RTCFrameCryptor(rtpSender: sender, participantId: pid, algorithm: RTCCyrptorAlgorithm.aesGcm, keyProvider: self.keyProvier!.rtcKeyProvider!)
+        frameCryptor.delegate = self
+        frameCryptors[trackId] = frameCryptor
+        frameCryptor.enabled = self.enabled
 
         if self.keyProvier?.isSharedKey == true {
             self.keyProvier!.setKey(participantId: pid, index: 0, key: self.keyProvier!.sharedKey!)
-            framCryptor.keyIndex = 0
+            frameCryptor.keyIndex = 0
         }
     }
     
     func addRtpReceiver(receiver: RTCRtpReceiver, participantId: String, trackId: String, kind: String) {
         let pid = String(format: "%@-receiver-%@-%@", kind, participantId, trackId)
-        let framCryptor = RTCFrameCryptor(rtpReceiver: receiver, participantId: pid, algorithm: RTCCyrptorAlgorithm.aesGcm, keyProvider: self.keyProvier!.rtcKeyProvider!)
-        framCryptor.delegate = self
-        frameCryptors[trackId] = framCryptor
-        framCryptor.enabled = self.enabled
+        let frameCryptor = RTCFrameCryptor(rtpReceiver: receiver, participantId: pid, algorithm: RTCCyrptorAlgorithm.aesGcm, keyProvider: self.keyProvier!.rtcKeyProvider!)
+        frameCryptor.delegate = self
+        frameCryptors[trackId] = frameCryptor
+        frameCryptor.enabled = self.enabled
 
         if self.keyProvier?.isSharedKey == true {
             self.keyProvier!.setKey(participantId: pid, index: 0, key: self.keyProvier!.sharedKey!)
-            framCryptor.keyIndex = 0
+            frameCryptor.keyIndex = 0
         }
     }
     
