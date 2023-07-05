@@ -84,6 +84,8 @@ public class Room: NSObject, ObservableObject, Loggable {
 
     // Reference to Engine
     internal let engine: Engine
+    
+    internal var e2eeManager: E2EEManager?
 
     internal struct State: Equatable {
         var options: RoomOptions
@@ -189,6 +191,11 @@ public class Room: NSObject, ObservableObject, Loggable {
                 self.objectWillChange.send()
             }
         }
+        
+        if roomOptions?.e2eeOptions != nil {
+            self.e2eeManager = E2EEManager(e2eeOptions: roomOptions!.e2eeOptions!)
+            self.e2eeManager!.setup(room: self)
+        }
     }
 
     deinit {
@@ -250,6 +257,10 @@ internal extension Room {
         log("reason: \(String(describing: reason))")
 
         // start Engine cleanUp sequence
+        
+        if self.e2eeManager != nil {
+            self.e2eeManager?.cleanUp()
+        }
 
         engine._state.mutate {
             $0.primaryTransportConnectedCompleter.reset()
