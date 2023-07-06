@@ -195,6 +195,10 @@ public class Room: NSObject, ObservableObject, Loggable {
 
     deinit {
         log()
+        // cleanup for E2EE
+        if self.e2eeManager != nil {
+            self.e2eeManager?.cleanUp()
+        }
     }
 
     @discardableResult
@@ -258,11 +262,6 @@ internal extension Room {
         log("reason: \(String(describing: reason))")
 
         // start Engine cleanUp sequence
-
-        // cleanup for E2EE
-        if self.e2eeManager != nil {
-            self.e2eeManager?.cleanUp()
-        }
 
         engine._state.mutate {
             $0.primaryTransportConnectedCompleter.reset()

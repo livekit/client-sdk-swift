@@ -31,13 +31,16 @@ public class BaseKeyProvider {
         self.isSharedKey = isSharedKey
         self.sharedKey = sharedKey
     }
+    
+    public func setSharedKey(key: String) {
+        sharedKey = key
+    }
 
-    public func setKey(participantId: String, index: Int32? = 0, key: String) {
-        if isSharedKey {
-          sharedKey = key
-          return
+    public func setKey(key: String, participantId: String? = nil, index: Int32? = 0) {
+        if participantId == nil {
+            return
         }
         let keyData = key.data(using: .utf8)!
-        rtcKeyProvider?.setKey(keyData, with: index!, forParticipant: participantId)
+        rtcKeyProvider?.setKey(keyData, with: index!, forParticipant: participantId!)
     }
 }

@@ -20,9 +20,8 @@ import WebRTC
 @objc
 public class E2EEManager: NSObject, ObservableObject, Loggable {
     internal var room: Room?
-    internal var enabled: Bool = false
+    internal var enabled: Bool = true
     private let e2eeOptions: E2EEOptions
-    private var keyProvier: BaseKeyProvider?
     var frameCryptors = [String: RTCFrameCryptor]()
     
     public init(e2eeOptions: E2EEOptions) {
@@ -40,26 +39,28 @@ public class E2EEManager: NSObject, ObservableObject, Loggable {
     
     func addRtpSender(sender: RTCRtpSender, participantId: String, trackId: String, kind: String) {
         let pid = String(format: "%@-sender-%@-%@", kind, participantId, trackId)
-        let frameCryptor = RTCFrameCryptor(rtpSender: sender, participantId: pid, algorithm: RTCCyrptorAlgorithm.aesGcm, keyProvider: self.keyProvier!.rtcKeyProvider!)
+        self.log("addRtpSender \(pid)")
+        let frameCryptor = RTCFrameCryptor(rtpSender: sender, participantId: pid, algorithm: RTCCyrptorAlgorithm.aesGcm, keyProvider: self.e2eeOptions.keyProvider.rtcKeyProvider!)
         frameCryptor.delegate = self
         frameCryptors[trackId] = frameCryptor
         frameCryptor.enabled = self.enabled
 
-        if self.keyProvier?.isSharedKey == true {
-            self.keyProvier!.setKey(participantId: pid, index: 0, key: self.keyProvier!.sharedKey!)
+        if self.e2eeOptions.keyProvider.isSharedKey == true {
+            self.e2eeOptions.keyProvider.setKey(key: self.e2eeOptions.keyProvider.sharedKey!, participantId: pid, index: 0)
             frameCryptor.keyIndex = 0
         }
     }
     
     func addRtpReceiver(receiver: RTCRtpReceiver, participantId: String, trackId: String, kind: String) {
         let pid = String(format: "%@-receiver-%@-%@", kind, participantId, trackId)
-        let frameCryptor = RTCFrameCryptor(rtpReceiver: receiver, participantId: pid, algorithm: RTCCyrptorAlgorithm.aesGcm, keyProvider: self.keyProvier!.rtcKeyProvider!)
+        self.log("addRtpReceiver \(pid)")
+        let frameCryptor = RTCFrameCryptor(rtpReceiver: receiver, participantId: pid, algorithm: RTCCyrptorAlgorithm.aesGcm, keyProvider: self.e2eeOptions.keyProvider.rtcKeyProvider!)
         frameCryptor.delegate = self
         frameCryptors[trackId] = frameCryptor
         frameCryptor.enabled = self.enabled
 
-        if self.keyProvier?.isSharedKey == true {
-            self.keyProvier!.setKey(participantId: pid, index: 0, key: self.keyProvier!.sharedKey!)
+        if self.e2eeOptions.keyProvider.isSharedKey == true {
+            self.e2eeOptions.keyProvider.setKey(key: self.e2eeOptions.keyProvider.sharedKey!, participantId: pid, index: 0)
             frameCryptor.keyIndex = 0
         }
     }
@@ -72,17 +73,19 @@ public class E2EEManager: NSObject, ObservableObject, Loggable {
 extension E2EEManager: RTCFrameCryptorDelegate {
 
     public func frameCryptor(_ frameCryptor: RTCFrameCryptor, didStateChangeWithParticipantId participantId: String, with state: FrameCryptionState) {
-        
+        self.log("frameCryptor didStateChangeWithParticipantId \(participantId) with state \(state.rawValue)")
     }
 }
 
 extension E2EEManager: RoomDelegate {
     
     public func room(_ room: Room, localParticipant: LocalParticipant, didPublish publication: LocalTrackPublication) {
-        //addRtpSender(sender: sender, participantId: participant.identity, trackId: publication.sid, kind: "audio")
+        let kind = publication.kind == .video ? "video" : "audio"
+        addRtpSender(sender: localParticipant.rtpSender!, participantId: localParticipant.identity, trackId: publication.sid, kind: kind)
     }
     
     public func room(_ room: Room, participant: RemoteParticipant, didSubscribe publication: RemoteTrackPublication, track: Track) {
-        //addRtpReceiver(receiver: receiver, participantId: participant.identity, trackId: publication.sid, kind: "video")
+        let kind = publication.kind == .video ? "video" : "audio"
+        addRtpReceiver(receiver: participant.rtpReceiver!, participantId: participant.identity, trackId: publication.sid, kind: kind)
     }
 }
