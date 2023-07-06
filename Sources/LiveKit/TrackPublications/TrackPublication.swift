@@ -59,6 +59,9 @@ public class TrackPublication: NSObject, ObservableObject, TrackDelegate, Loggab
     @objc
     public var subscribed: Bool { _state.track != nil }
 
+    @objc
+    public var encryptionType: EncryptionType  { _state.encryptionType ?? .none }
+
     // MARK: - Internal
 
     internal let queue = DispatchQueue(label: "LiveKitSDK.publication", qos: .default)
@@ -89,6 +92,7 @@ public class TrackPublication: NSObject, ObservableObject, TrackDelegate, Loggab
         // user's preference to subscribe or not
         var preferSubscribed: Bool?
         var metadataMuted: Bool = false
+        var encryptionType: EncryptionType = .none
     }
 
     internal var _state: StateSync<State>
@@ -102,7 +106,8 @@ public class TrackPublication: NSObject, ObservableObject, TrackDelegate, Loggab
             kind: info.type.toLKType(),
             source: info.source.toLKType(),
             name: info.name,
-            mimeType: info.mimeType
+            mimeType: info.mimeType,
+            encryptionType: info.encryption.toLKType()
         ))
 
         self.participant = participant

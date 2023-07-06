@@ -484,6 +484,7 @@ internal extension SignalClient {
                          name: String,
                          type: Livekit_TrackType,
                          source: Livekit_TrackSource = .unknown,
+                         encryption: Livekit_Encryption.TypeEnum = .none,
                          _ populator: AddTrackRequestPopulator<R>) -> Promise<AddTrackResult<R>> {
         log()
 
@@ -493,6 +494,7 @@ internal extension SignalClient {
                 $0.name = name
                 $0.type = type
                 $0.source = source
+                $0.encryption = encryption
             }
 
             let populateResult = try populator(&addTrackRequest)

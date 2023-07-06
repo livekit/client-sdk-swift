@@ -16,17 +16,39 @@
 
 import Foundation
 
-
-enum EncryptionType: String {
-    case None = "EncryptionType_None"
-    case Gcm = "EncryptionType_Gcm"
-    case Custom = "EncryptionType_Custom"
+@objc
+public enum EncryptionType: Int {
+    case none
+    case gcm
+    case custom
 }
 
+extension EncryptionType {
+
+    func toPBType() -> Livekit_Encryption.TypeEnum {
+        switch self {
+        case .none: return .none
+        case .gcm: return .gcm
+        case .custom: return .custom
+        default: return .custom
+        }
+    }
+}
+
+extension Livekit_Encryption.TypeEnum {
+    func toLKType() -> EncryptionType {
+        switch self {
+        case .none: return .none
+        case .gcm: return .gcm
+        case .custom: return .custom
+        default: return .custom
+        }
+    }
+}
 
 public class E2EEOptions {
     var keyProvider: BaseKeyProvider
-    var encryptionType: EncryptionType = .Gcm
+    var encryptionType: EncryptionType = .gcm
     public init(keyProvider: BaseKeyProvider){
         self.keyProvider = keyProvider
     }

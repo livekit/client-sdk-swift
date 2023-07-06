@@ -21,7 +21,7 @@ import WebRTC
 public class E2EEManager: NSObject, ObservableObject, Loggable {
     internal var room: Room?
     internal var enabled: Bool = true
-    private let e2eeOptions: E2EEOptions
+    public var e2eeOptions: E2EEOptions
     var frameCryptors = [String: RTCFrameCryptor]()
     
     public init(e2eeOptions: E2EEOptions) {

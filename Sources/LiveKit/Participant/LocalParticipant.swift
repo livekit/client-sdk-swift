@@ -85,7 +85,8 @@ public class LocalParticipant: Participant {
             self.room.engine.signalClient.sendAddTrack(cid: track.mediaTrack.trackId,
                                                        name: track.name,
                                                        type: track.kind.toPBType(),
-                                                       source: track.source.toPBType()) { populator in
+                                                       source: track.source.toPBType(),
+                                                       encryption: self.room.e2eeManager?.e2eeOptions.encryptionType.toPBType() ?? .none ) { populator in
 
                 let transInit = DispatchQueue.webRTC.sync { RTCRtpTransceiverInit() }
                 transInit.direction = .sendOnly
