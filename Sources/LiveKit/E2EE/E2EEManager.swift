@@ -36,7 +36,14 @@ public class E2EEManager: NSObject, ObservableObject, Loggable {
         self.room?.delegates.add(delegate: self)
         
     }
-    
+
+    public func enableE2EE(enabled: Bool) {
+        self.enabled = enabled
+        for (_, frameCryptor) in frameCryptors {
+            frameCryptor.enabled = enabled
+        }
+    }
+
     func addRtpSender(sender: RTCRtpSender, participantId: String, trackId: String, kind: String) {
         let pid = String(format: "%@-sender-%@-%@", kind, participantId, trackId)
         self.log("addRtpSender \(pid)")
