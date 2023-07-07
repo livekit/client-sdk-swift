@@ -140,6 +140,10 @@ open class ObservableParticipant: ObservableObject {
         participant.connectionQuality
     }
 
+    public var encryptionType: EncryptionType {
+        participant.firstTrackEncryptionType
+    }
+
     public init(_ participant: Participant) {
         self.participant = participant
         participant.add(delegate: self)
