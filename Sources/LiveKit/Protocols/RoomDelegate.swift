@@ -139,6 +139,10 @@ public protocol RoomDelegateObjC: AnyObject {
     /// Same with ``ParticipantDelegate/participant(_:didUpdate:permission:)``.
     @objc optional
     func room(_ room: Room, participant: RemoteParticipant, didUpdate publication: RemoteTrackPublication, permission allowed: Bool)
+
+    /// ``Room``'e2ee state has been updated.
+    @objc(room:publication:didUpdateE2EEState:) optional
+    func room(_ room: Room, publication: TrackPublication, didUpdate e2eeState: E2EEState)
 }
 
 public protocol RoomDelegate: RoomDelegateObjC {

@@ -85,7 +85,7 @@ public class Room: NSObject, ObservableObject, Loggable {
     // Reference to Engine
     internal let engine: Engine
 
-    internal var e2eeManager: E2EEManager?
+    public var e2eeManager: E2EEManager?
 
     internal struct State: Equatable {
         var options: RoomOptions
