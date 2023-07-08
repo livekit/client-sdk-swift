@@ -131,8 +131,17 @@ public class TrackPublication: NSObject, ObservableObject, TrackDelegate, Loggab
                 }
             }
 
+            // Notify when state mutates
             Task.detached { @MainActor in
+                // Notify TrackPublication
                 self.objectWillChange.send()
+
+                if let participant = self.participant {
+                    // Notify Participant
+                    participant.objectWillChange.send()
+                    // Notify Room
+                    participant.room.objectWillChange.send()
+                }
             }
         }
     }

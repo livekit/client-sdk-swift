@@ -185,6 +185,7 @@ public class Room: NSObject, ObservableObject, Loggable {
                 }
             }
 
+            // Notify Room when state mutates
             Task.detached { @MainActor in
                 self.objectWillChange.send()
             }
