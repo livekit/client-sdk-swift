@@ -21,7 +21,7 @@ let defaultRatchetSalt: String = "LKFrameEncryptionKey"
 let defaultMagicBytes: String = "LK-ROCKS"
 let defaultRatchetWindowSize: Int32 = 16;
 
-public class BaseKeyProvider {
+public class BaseKeyProvider: Loggable {
     var rtcKeyProvider: RTCFrameCryptorKeyProvider?
     var isSharedKey: Bool = false
     var sharedKey: String?
@@ -31,15 +31,19 @@ public class BaseKeyProvider {
         self.isSharedKey = isSharedKey
         self.sharedKey = sharedKey
     }
-    
-    public func setSharedKey(key: String) {
-        sharedKey = key
-    }
 
     public func setKey(key: String, participantId: String? = nil, index: Int32? = 0) {
-        if participantId == nil {
+
+        if isSharedKey {
+            self.sharedKey = key
             return
         }
+
+        if participantId == nil {
+            self.log("Please provide valid participantId for non-SharedKey mode.")
+            return
+        }
+
         let keyData = key.data(using: .utf8)!
         rtcKeyProvider?.setKey(keyData, with: index!, forParticipant: participantId!)
     }

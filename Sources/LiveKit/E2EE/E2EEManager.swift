@@ -79,6 +79,11 @@ public class E2EEManager: NSObject, ObservableObject, Loggable {
     
     public func cleanUp() {
         self.room?.delegates.remove(delegate: self)
+        for (_, frameCryptor) in frameCryptors {
+            frameCryptor.delegate = nil
+        }
+        frameCryptors.removeAll()
+        trackPublications.removeAll()
     }
 }
 
