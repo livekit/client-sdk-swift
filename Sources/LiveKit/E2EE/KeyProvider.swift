@@ -23,7 +23,7 @@ let defaultRatchetWindowSize: Int32 = 16;
 
 public class BaseKeyProvider: Loggable {
     var rtcKeyProvider: RTCFrameCryptorKeyProvider?
-    var isSharedKey: Bool = false
+    var isSharedKey: Bool = true
     var sharedKey: String?
     
     public init(isSharedKey: Bool, sharedKey: String? = nil) {
@@ -33,7 +33,6 @@ public class BaseKeyProvider: Loggable {
     }
 
     public func setKey(key: String, participantId: String? = nil, index: Int32? = 0) {
-
         if isSharedKey {
             self.sharedKey = key
             return

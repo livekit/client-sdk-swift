@@ -35,7 +35,19 @@ public class E2EEManager: NSObject, ObservableObject, Loggable {
         }
         self.room = room
         self.room?.delegates.add(delegate: self)
+        self.room?.localParticipant?.tracks.forEach({ (key: Sid, publication: TrackPublication) in
+            let kind = publication.kind == .video ? "video" : "audio"
+            let pid = addRtpSender(sender: publication.track!.rtpSender!, participantId: self.room!.localParticipant!.identity, trackId: publication.sid, kind: kind)
+            trackPublications[pid] = publication
+        })
         
+        self.room?.remoteParticipants.forEach({ (key: Sid, participant: RemoteParticipant) in
+            participant.tracks.forEach({ (key: Sid, publication: TrackPublication) in
+                let kind = publication.kind == .video ? "video" : "audio"
+                let pid = addRtpReceiver(receiver: publication.track!.rtpReceiver!, participantId: participant.identity, trackId: publication.sid, kind: kind)
+                trackPublications[pid] = publication
+            })
+        })
     }
 
     public func enableE2EE(enabled: Bool) {
@@ -54,7 +66,9 @@ public class E2EEManager: NSObject, ObservableObject, Loggable {
         frameCryptor.enabled = self.enabled
 
         if self.e2eeOptions.keyProvider.isSharedKey == true {
-            self.e2eeOptions.keyProvider.setKey(key: self.e2eeOptions.keyProvider.sharedKey!, participantId: pid, index: 0)
+            let rtcKeyProvider = self.e2eeOptions.keyProvider.rtcKeyProvider;
+            let keyData = self.e2eeOptions.keyProvider.sharedKey!.data(using: .utf8)!
+            rtcKeyProvider?.setKey(keyData, with: 0, forParticipant: pid)
             frameCryptor.keyIndex = 0
         }
 
@@ -70,7 +84,9 @@ public class E2EEManager: NSObject, ObservableObject, Loggable {
         frameCryptor.enabled = self.enabled
 
         if self.e2eeOptions.keyProvider.isSharedKey == true {
-            self.e2eeOptions.keyProvider.setKey(key: self.e2eeOptions.keyProvider.sharedKey!, participantId: pid, index: 0)
+            let rtcKeyProvider = self.e2eeOptions.keyProvider.rtcKeyProvider;
+            let keyData = self.e2eeOptions.keyProvider.sharedKey!.data(using: .utf8)!
+            rtcKeyProvider?.setKey(keyData, with: 0, forParticipant: pid)
             frameCryptor.keyIndex = 0
         }
 
