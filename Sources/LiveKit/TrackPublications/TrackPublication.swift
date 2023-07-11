@@ -20,7 +20,7 @@ import Promises
 import Combine
 
 @objc
-public class TrackPublication: NSObject, ObservableObject, TrackDelegate, Loggable {
+public class TrackPublication: NSObject, ObservableObject, Loggable {
 
     // MARK: - Public properties
 
@@ -131,23 +131,27 @@ public class TrackPublication: NSObject, ObservableObject, TrackDelegate, Loggab
                 }
             }
 
-            // Notify when state mutates
-            Task.detached { @MainActor in
-                // Notify TrackPublication
-                self.objectWillChange.send()
-
-                if let participant = self.participant {
-                    // Notify Participant
-                    participant.objectWillChange.send()
-                    // Notify Room
-                    participant.room.objectWillChange.send()
-                }
-            }
+            self.notifyObjectWillChange()
         }
     }
 
     deinit {
         log("sid: \(sid)")
+    }
+
+    internal func notifyObjectWillChange() {
+        // Notify UI that the object has changed
+        Task.detached { @MainActor in
+            // Notify TrackPublication
+            self.objectWillChange.send()
+
+            if let participant = self.participant {
+                // Notify Participant
+                participant.objectWillChange.send()
+                // Notify Room
+                participant.room.objectWillChange.send()
+            }
+        }
     }
 
     internal func updateFromInfo(info: Livekit_TrackInfo) {
@@ -185,8 +189,19 @@ public class TrackPublication: NSObject, ObservableObject, TrackDelegate, Loggab
 
         return oldValue
     }
+}
 
-    // MARK: - TrackDelegate
+// MARK: - TrackDelegate
+
+extension TrackPublication: TrackDelegateInternal {
+
+    func track(_ track: Track, didMutateState newState: Track.State, oldState: Track.State) {
+        // Notify on UI updating changes
+        if newState.muted != oldState.muted {
+            log("Track didMutateState newState: \(newState), oldState: \(oldState), kind: \(track.kind)")
+            notifyObjectWillChange()
+        }
+    }
 
     public func track(_ track: Track, didUpdate muted: Bool, shouldSendSignal: Bool) {
 
