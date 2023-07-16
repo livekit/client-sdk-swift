@@ -63,6 +63,15 @@ public class Room: NSObject, ObservableObject, Loggable {
     @objc
     public var isRecording: Bool { _state.isRecording }
 
+    @objc
+    public var maxParticipants: Int { _state.maxParticipants }
+
+    @objc
+    public var participantCount: Int { _state.numParticipants }
+
+    @objc
+    public var publishersCount: Int { _state.numPublishers }
+
     // expose engine's vars
     @objc
     public var url: String? { engine._state.url }
@@ -99,6 +108,10 @@ public class Room: NSObject, ObservableObject, Loggable {
         var activeSpeakers = [Participant]()
 
         var isRecording: Bool = false
+
+        var maxParticipants: Int = 0
+        var numParticipants: Int = 0
+        var numPublishers: Int = 0
 
         @discardableResult
         mutating func getOrCreateRemoteParticipant(sid: Sid, info: Livekit_ParticipantInfo? = nil, room: Room) -> RemoteParticipant {
