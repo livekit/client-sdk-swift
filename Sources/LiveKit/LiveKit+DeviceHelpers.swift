@@ -30,15 +30,16 @@ extension LiveKit {
             let status = AVCaptureDevice.authorizationStatus(for: type)
             switch status {
             case .notDetermined:
-                if await AVCaptureDevice.requestAccess(for: type) {
-                    continue
-                } else {
+                if !(await AVCaptureDevice.requestAccess(for: type)) {
                     return false
                 }
-            // In case of .denied or .restricted, user action is required
-            case .restricted, .denied: return false
-            case .authorized: continue
-            @unknown default: fatalError("Unknown AVAuthorizationStatus")
+            case .restricted, .denied:
+                return false
+            case .authorized:
+                // No action needed for authorized status.
+                break
+            @unknown default:
+                fatalError("Unknown AVAuthorizationStatus")
             }
         }
 
