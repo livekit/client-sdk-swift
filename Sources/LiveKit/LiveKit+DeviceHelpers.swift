@@ -33,13 +33,9 @@ extension LiveKit {
                 if !(await AVCaptureDevice.requestAccess(for: type)) {
                     return false
                 }
-            case .restricted, .denied:
-                return false
-            case .authorized:
-                // No action needed for authorized status.
-                break
-            @unknown default:
-                fatalError("Unknown AVAuthorizationStatus")
+            case .restricted, .denied: return false
+            case .authorized: continue // No action needed for authorized status.
+            @unknown default: fatalError("Unknown AVAuthorizationStatus")
             }
         }
 
