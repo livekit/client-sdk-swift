@@ -164,6 +164,12 @@ public class Track: NSObject, Loggable {
 
             guard let self = self else { return }
 
+            self.delegates.notify {
+                if let delegateInternal = $0 as? TrackDelegateInternal {
+                    delegateInternal.track(self, didMutateState: newState, oldState: oldState)
+                }
+            }
+
             // deprecated
             if newState.stats != oldState.stats, let stats = newState.stats {
                 self.delegates.notify { $0.track?(self, didUpdate: stats) }

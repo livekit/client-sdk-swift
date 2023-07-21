@@ -69,6 +69,9 @@ extension Room: SignalClientDelegate {
         _state.mutate {
             $0.metadata = room.metadata
             $0.isRecording = room.activeRecording
+            $0.maxParticipants = Int(room.maxParticipants)
+            $0.numParticipants = Int(room.numParticipants)
+            $0.numPublishers = Int(room.numPublishers)
         }
     }
 

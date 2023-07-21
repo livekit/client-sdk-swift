@@ -151,9 +151,12 @@ public class Participant: NSObject, ObservableObject, Loggable {
                 }
             }
 
-            // notify object change when any state updates
+            // Notify when state mutates
             Task.detached { @MainActor in
+                // Notify Participant
                 self.objectWillChange.send()
+                // Notify Room
+                self.room.objectWillChange.send()
             }
         }
     }

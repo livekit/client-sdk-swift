@@ -140,15 +140,19 @@ public class AudioManager: Loggable {
 
             // prepare config
             let configuration = RTCAudioSessionConfiguration.webRTC()
-            var categoryOptions: AVAudioSession.CategoryOptions = []
 
             if newState.trackState == .remoteOnly && newState.preferSpeakerOutput {
+                /* .playback */
                 configuration.category = AVAudioSession.Category.playback.rawValue
                 configuration.mode = AVAudioSession.Mode.spokenAudio.rawValue
+                configuration.categoryOptions = [
+                    .mixWithOthers
+                ]
 
             } else if [.localOnly, .localAndRemote].contains(newState.trackState) ||
                         (newState.trackState == .remoteOnly && !newState.preferSpeakerOutput) {
 
+                /* .playAndRecord */
                 configuration.category = AVAudioSession.Category.playAndRecord.rawValue
 
                 if newState.preferSpeakerOutput {
@@ -159,14 +163,19 @@ public class AudioManager: Loggable {
                     configuration.mode = AVAudioSession.Mode.voiceChat.rawValue
                 }
 
-                categoryOptions = [.allowBluetooth, .allowBluetoothA2DP]
+                configuration.categoryOptions = [
+                    .mixWithOthers,
+                    .allowBluetooth,
+                    .allowBluetoothA2DP,
+                    .allowAirPlay
+                ]
 
             } else {
+                /* .soloAmbient */
                 configuration.category = AVAudioSession.Category.soloAmbient.rawValue
                 configuration.mode = AVAudioSession.Mode.default.rawValue
+                configuration.categoryOptions = []
             }
-
-            configuration.categoryOptions = categoryOptions
 
             var setActive: Bool?
 

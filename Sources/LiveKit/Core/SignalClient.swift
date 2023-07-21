@@ -359,6 +359,8 @@ private extension SignalClient {
             log("received reconnect message")
         case .pongResp:
             log("received pongResp message")
+        case .subscriptionResponse:
+            log("received subscriptionResponse message")
         }
     }
 }
