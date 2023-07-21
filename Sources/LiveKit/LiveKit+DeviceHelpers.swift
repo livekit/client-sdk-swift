@@ -35,7 +35,9 @@ extension LiveKit {
                 }
             case .restricted, .denied: return false
             case .authorized: continue // No action needed for authorized status.
-            @unknown default: fatalError("Unknown AVAuthorizationStatus")
+            @unknown default:
+                logger.error("Unknown AVAuthorizationStatus")
+                return false
             }
         }
 
