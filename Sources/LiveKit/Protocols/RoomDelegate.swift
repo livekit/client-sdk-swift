@@ -142,7 +142,7 @@ public protocol RoomDelegateObjC: AnyObject {
 
     /// ``Room``'e2ee state has been updated.
     @objc(room:publication:didUpdateE2EEState:) optional
-    func room(_ room: Room, publication: TrackPublication, didUpdate e2eeState: E2EEState)
+    func room(_ room: Room, publication: TrackPublication, didUpdateE2EEState: E2EEState)
 }
 
 public protocol RoomDelegate: RoomDelegateObjC {

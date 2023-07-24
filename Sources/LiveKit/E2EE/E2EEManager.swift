@@ -118,7 +118,7 @@ extension E2EEManager: RTCFrameCryptorDelegate {
         
         }
         self.room?.delegates.notify { delegate in
-            delegate.room?(self.room!, publication: publication!, didUpdate: state.toLKType())
+            delegate.room?(self.room!, publication: publication!, didUpdateE2EEState: state.toLKType())
         }
     }
 }
