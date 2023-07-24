@@ -69,7 +69,7 @@ public class RoomOptions: NSObject {
     /// This may consume slightly more CPU resources.
     @objc
     public let reportStats: Bool
-    
+
     /// E2EE Options
     public let e2eeOptions: E2EEOptions?
 

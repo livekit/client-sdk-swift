@@ -60,7 +60,7 @@ public class TrackPublication: NSObject, ObservableObject, Loggable {
     public var subscribed: Bool { _state.track != nil }
 
     @objc
-    public var encryptionType: EncryptionType  { _state.encryptionType }
+    public var encryptionType: EncryptionType { _state.encryptionType }
 
     // MARK: - Internal
 

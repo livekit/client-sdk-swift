@@ -19,13 +19,13 @@ import WebRTC
 
 let defaultRatchetSalt: String = "LKFrameEncryptionKey"
 let defaultMagicBytes: String = "LK-ROCKS"
-let defaultRatchetWindowSize: Int32 = 16;
+let defaultRatchetWindowSize: Int32 = 16
 
 public class BaseKeyProvider: Loggable {
     var rtcKeyProvider: RTCFrameCryptorKeyProvider?
     var isSharedKey: Bool = true
     var sharedKey: String?
-    
+
     public init(isSharedKey: Bool, sharedKey: String? = nil) {
         self.rtcKeyProvider = RTCFrameCryptorKeyProvider(ratchetSalt: defaultRatchetSalt.data(using: .utf8)!, ratchetWindowSize: defaultRatchetWindowSize, sharedKeyMode: isSharedKey, uncryptedMagicBytes: defaultMagicBytes.data(using: .utf8)!)
         self.isSharedKey = isSharedKey

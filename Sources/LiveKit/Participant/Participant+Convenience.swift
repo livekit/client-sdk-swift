@@ -30,7 +30,7 @@ extension Participant {
         audioTracks.first
     }
 
-    public var firstTrackEncryptionType: EncryptionType  {
+    public var firstTrackEncryptionType: EncryptionType {
         if let pub = firstCameraPublication {
             return pub.encryptionType
         } else if let pub = firstScreenSharePublication {
@@ -40,7 +40,7 @@ extension Participant {
         } else {
             return .none
         }
-      }
+    }
 
     public var firstCameraVideoTrack: VideoTrack? {
         guard let pub = firstCameraPublication, !pub.muted, pub.subscribed,

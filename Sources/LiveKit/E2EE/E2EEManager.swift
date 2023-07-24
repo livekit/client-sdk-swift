@@ -25,25 +25,25 @@ public class E2EEManager: NSObject, ObservableObject, Loggable {
     public var e2eeOptions: E2EEOptions
     internal var frameCryptors = [String: RTCFrameCryptor]()
     internal var trackPublications = [String: TrackPublication]()
-    
+
     public init(e2eeOptions: E2EEOptions) {
         self.e2eeOptions = e2eeOptions
     }
 
-    public func setup(room: Room){
-        if(self.room != room) {
+    public func setup(room: Room) {
+        if self.room != room {
             cleanUp()
         }
         self.room = room
         self.room?.delegates.add(delegate: self)
-        self.room?.localParticipant?.tracks.forEach({ (key: Sid, publication: TrackPublication) in
+        self.room?.localParticipant?.tracks.forEach({ (_: Sid, publication: TrackPublication) in
             let kind = publication.kind == .video ? "video" : "audio"
             let pid = addRtpSender(sender: publication.track!.rtpSender!, participantId: self.room!.localParticipant!.identity, trackId: publication.sid, kind: kind)
             trackPublications[pid] = publication
         })
-        
-        self.room?.remoteParticipants.forEach({ (key: Sid, participant: RemoteParticipant) in
-            participant.tracks.forEach({ (key: Sid, publication: TrackPublication) in
+
+        self.room?.remoteParticipants.forEach({ (_: Sid, participant: RemoteParticipant) in
+            participant.tracks.forEach({ (_: Sid, publication: TrackPublication) in
                 let kind = publication.kind == .video ? "video" : "audio"
                 let pid = addRtpReceiver(receiver: publication.track!.rtpReceiver!, participantId: participant.identity, trackId: publication.sid, kind: kind)
                 trackPublications[pid] = publication
@@ -67,7 +67,7 @@ public class E2EEManager: NSObject, ObservableObject, Loggable {
         frameCryptor.enabled = self.enabled
 
         if self.e2eeOptions.keyProvider.isSharedKey == true {
-            let rtcKeyProvider = self.e2eeOptions.keyProvider.rtcKeyProvider;
+            let rtcKeyProvider = self.e2eeOptions.keyProvider.rtcKeyProvider
             let keyData = self.e2eeOptions.keyProvider.sharedKey!.data(using: .utf8)!
             rtcKeyProvider?.setKey(keyData, with: 0, forParticipant: pid)
             frameCryptor.keyIndex = 0
@@ -75,7 +75,7 @@ public class E2EEManager: NSObject, ObservableObject, Loggable {
 
         return pid
     }
-    
+
     func addRtpReceiver(receiver: RTCRtpReceiver, participantId: String, trackId: String, kind: String) -> String {
         let pid = String(format: "%@-receiver-%@-%@", kind, participantId, trackId)
         self.log("addRtpReceiver \(pid)  to E2EEManager")
@@ -85,7 +85,7 @@ public class E2EEManager: NSObject, ObservableObject, Loggable {
         frameCryptor.enabled = self.enabled
 
         if self.e2eeOptions.keyProvider.isSharedKey == true {
-            let rtcKeyProvider = self.e2eeOptions.keyProvider.rtcKeyProvider;
+            let rtcKeyProvider = self.e2eeOptions.keyProvider.rtcKeyProvider
             let keyData = self.e2eeOptions.keyProvider.sharedKey!.data(using: .utf8)!
             rtcKeyProvider?.setKey(keyData, with: 0, forParticipant: pid)
             frameCryptor.keyIndex = 0
@@ -93,7 +93,7 @@ public class E2EEManager: NSObject, ObservableObject, Loggable {
 
         return pid
     }
-    
+
     public func cleanUp() {
         self.room?.delegates.remove(delegate: self)
         for (_, frameCryptor) in frameCryptors {
@@ -116,7 +116,7 @@ extension E2EEManager: RTCFrameCryptorDelegate {
         if self.room == nil {
             self.log("frameCryptor didStateChangeWithParticipantId \(participantId) with state \(state.rawValue) room is nil")
             return
-        
+
         }
         self.room?.delegates.notify { delegate in
             delegate.room?(self.room!, publication: publication!, didUpdateE2EEState: state.toLKType())

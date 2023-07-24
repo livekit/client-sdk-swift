@@ -49,7 +49,7 @@ extension Livekit_Encryption.TypeEnum {
 public class E2EEOptions {
     var keyProvider: BaseKeyProvider
     var encryptionType: EncryptionType = .gcm
-    public init(keyProvider: BaseKeyProvider){
+    public init(keyProvider: BaseKeyProvider) {
         self.keyProvider = keyProvider
     }
 }
