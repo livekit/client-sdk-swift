@@ -44,3 +44,8 @@ public protocol TrackDelegate: AnyObject {
     @objc(track:didUpdateStatistics:) optional
     func track(_ track: Track, didUpdateStatistics: TrackStatistics)
 }
+
+internal protocol TrackDelegateInternal: TrackDelegate {
+    /// Used to report track state mutation to TrackPublication if attached.
+    func track(_ track: Track, didMutateState newState: Track.State, oldState: Track.State)
+}
