@@ -87,7 +87,7 @@ extension LocalVideoTrack {
     public static func createBufferTrack(name: String = Track.screenShareVideoName,
                                          source: VideoTrack.Source = .screenShareVideo,
                                          options: BufferCaptureOptions = BufferCaptureOptions()) -> LocalVideoTrack {
-        let videoSource = Engine.createVideoSource(forScreenShare: true)
+        let videoSource = Engine.createVideoSource(forScreenShare: source == .screenShareVideo)
         let capturer = BufferCapturer(delegate: videoSource, options: options)
         return LocalVideoTrack(
             name: name,
