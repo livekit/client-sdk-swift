@@ -23,12 +23,14 @@ public enum VideoCodec: Int, StringRepresentable, CustomStringConvertible, CaseI
     case none
     case h264
     case vp8
+    case vp9
     case av1
 
     public var rawStringValue: String? {
         switch self {
         case .h264: return "h264"
         case .vp8: return "vp8"
+        case .vp9: return "vp9"
         case .av1: return "av1"
         default: return nil
         }
@@ -38,6 +40,7 @@ public enum VideoCodec: Int, StringRepresentable, CustomStringConvertible, CaseI
         switch rawStringValue.lowercased() {
         case "h264": self = .h264
         case "vp8": self = .vp8
+        case "vp9": self = .vp9
         case "av1": self = .av1
         default: self = .none
         }

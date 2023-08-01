@@ -118,8 +118,8 @@ internal extension Engine {
 
         logger.log("Initializing PeerConnectionFactory...", type: Engine.self)
 
-        logger.log("canEncode H264: \(canEncodeH264 ? "YES" : "NO"), VP8: \(canEncodeVP8 ? "YES" : "NO"), AV1: \(canEncodeAV1 ? "YES" : "NO")", type: Engine.self)
-        logger.log("canDecode H264: \(canDecodeH264 ? "YES" : "NO"), VP8: \(canDecodeVP8 ? "YES" : "NO"), AV1: \(canDecodeAV1 ? "YES" : "NO")", type: Engine.self)
+        logger.log("canEncode H264: \(canEncodeH264 ? "YES" : "NO"), VP8: \(canEncodeVP8 ? "YES" : "NO"), VP9: \(canEncodeVP9 ? "YES" : "NO"), AV1: \(canEncodeAV1 ? "YES" : "NO")", type: Engine.self)
+        logger.log("canDecode H264: \(canDecodeH264 ? "YES" : "NO"), VP8: \(canDecodeVP8 ? "YES" : "NO"), VP9: \(canDecodeVP9 ? "YES" : "NO"), AV1: \(canDecodeAV1 ? "YES" : "NO")", type: Engine.self)
         logger.log("supportedCodecs: \(encoderFactory.supportedCodecs().map({ String(describing: $0) }).joined(separator: ", "))", type: Engine.self)
 
         #if LK_USE_LIVEKIT_WEBRTC_BUILD
