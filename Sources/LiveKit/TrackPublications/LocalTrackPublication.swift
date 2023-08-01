@@ -112,7 +112,7 @@ extension LocalTrackPublication {
     internal func recomputeSenderParameters() {
 
         guard let track = track as? LocalVideoTrack,
-              let sender = track.transceiver?.sender else { return }
+              let sender = track.rtpSender else { return }
 
         guard let dimensions = track.capturer.dimensions else {
             log("Cannot re-compute sender parameters without dimensions", .warning)

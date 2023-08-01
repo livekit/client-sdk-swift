@@ -36,6 +36,16 @@ public protocol TrackDelegate: AnyObject {
     func track(_ track: Track, didUpdate muted: Bool, shouldSendSignal: Bool)
 
     /// Statistics for the track has been generated.
+    @available(*, deprecated, message: "Use track:didUpdateStatistics: instead")
     @objc(track:didUpdateStats:) optional
     func track(_ track: Track, didUpdate stats: TrackStats)
+
+    /// Statistics for the track has been generated (v2).
+    @objc(track:didUpdateStatistics:) optional
+    func track(_ track: Track, didUpdateStatistics: TrackStatistics)
+}
+
+internal protocol TrackDelegateInternal: TrackDelegate {
+    /// Used to report track state mutation to TrackPublication if attached.
+    func track(_ track: Track, didMutateState newState: Track.State, oldState: Track.State)
 }

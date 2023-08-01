@@ -34,6 +34,22 @@ extension OS: CustomStringConvertible {
     }
 }
 
+internal func format(bps: UInt64) -> String {
+
+    let bpsDivider: Double = 1000
+    let ordinals = ["", "K", "M", "G", "T", "P", "E"]
+
+    var rate = Double(bps)
+    var ordinal = 0
+
+    while rate > bpsDivider {
+        rate /= bpsDivider
+        ordinal += 1
+    }
+
+    return String(rate.rounded(to: 2)) + ordinals[ordinal] + "bps"
+}
+
 internal class Utils {
 
     private static let processInfo = ProcessInfo()
@@ -132,7 +148,6 @@ internal class Utils {
         let useSecure = parsedUrl.isSecure || forceSecure
         let httpScheme = useSecure ? "https" : "http"
         let wsScheme = useSecure ? "wss" : "ws"
-        let lastPathSegment = validate ? "validate" : "rtc"
 
         var pathSegments = parsedUrl.pathComponents
         // strip empty & slashes
@@ -146,7 +161,11 @@ internal class Utils {
             pathSegments.removeLast()
         }
         // add the correct segment
-        pathSegments.append(lastPathSegment)
+        pathSegments.append("rtc")
+        // add validate after rtc if validate mode
+        if validate {
+            pathSegments.append("validate")
+        }
 
         builder.scheme = validate ? httpScheme : wsScheme
         builder.path = "/" + pathSegments.joined(separator: "/")

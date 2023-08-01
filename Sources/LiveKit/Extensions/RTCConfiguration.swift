@@ -19,9 +19,6 @@ import WebRTC
 
 extension RTCConfiguration {
 
-    public static let defaultIceServers = ["stun:stun.l.google.com:19302",
-                                           "stun:stun1.l.google.com:19302"]
-
     public static func liveKitDefault() -> RTCConfiguration {
 
         let result = DispatchQueue.webRTC.sync { RTCConfiguration() }
@@ -30,8 +27,6 @@ extension RTCConfiguration {
         result.candidateNetworkPolicy = .all
         result.tcpCandidatePolicy = .enabled
         result.iceTransportPolicy = .all
-
-        result.iceServers = [ DispatchQueue.webRTC.sync { RTCIceServer(urlStrings: defaultIceServers) } ]
 
         return result
     }
@@ -47,7 +42,6 @@ extension RTCConfiguration {
         self.tcpCandidatePolicy = configuration.tcpCandidatePolicy
         self.candidateNetworkPolicy = configuration.candidateNetworkPolicy
         self.continualGatheringPolicy = configuration.continualGatheringPolicy
-        self.disableIPV6 = configuration.disableIPV6
         self.disableIPV6OnWiFi = configuration.disableIPV6OnWiFi
         self.maxIPv6Networks = configuration.maxIPv6Networks
         self.disableLinkLocalNetworks = configuration.disableLinkLocalNetworks

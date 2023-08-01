@@ -178,7 +178,9 @@ public class LocalParticipant: Participant {
 
             // store publishOptions used for this track
             track._publishOptions = publishOptions
-            track.transceiver = transceiver
+
+            track.set(transport: publisher,
+                      rtpSender: transceiver.sender)
 
             // prefer to maintainResolution for screen share
             if case .screenShareVideo = track.source {
@@ -280,7 +282,7 @@ public class LocalParticipant: Participant {
         // engine.publisher must be accessed from engine.queue
         return stopTrackIfRequired().then(on: engine.queue) { _ -> Promise<Void> in
 
-            guard let publisher = engine.publisher, let sender = track.sender else {
+            guard let publisher = engine.publisher, let sender = track.rtpSender else {
                 return Promise(())
             }
 
@@ -384,6 +386,30 @@ public class LocalParticipant: Participant {
         return sendTrackSubscriptionPermissions()
     }
 
+    /// Sets and updates the metadata of the local participant.
+    ///
+    /// Note: this requires `CanUpdateOwnMetadata` permission encoded in the token.
+    public func set(metadata: String) -> Promise<Void> {
+        // mutate state to set metadata and copy name from state
+        let name = _state.mutate {
+            $0.metadata = metadata
+            return $0.name
+        }
+        return room.engine.signalClient.sendUpdateLocalMetadata(metadata, name: name)
+    }
+
+    /// Sets and updates the name of the local participant.
+    ///
+    /// Note: this requires `CanUpdateOwnMetadata` permission encoded in the token.
+    public func set(name: String) -> Promise<Void> {
+        // mutate state to set name and copy metadata from state
+        let metadata = _state.mutate {
+            $0.name = name
+            return $0.metadata
+        }
+        return room.engine.signalClient.sendUpdateLocalMetadata(metadata ?? "", name: name)
+    }
+
     internal func sendTrackSubscriptionPermissions() -> Promise<Void> {
 
         guard room.engine._state.connectionState == .connected else {
@@ -400,9 +426,9 @@ public class LocalParticipant: Participant {
             return
         }
 
-        guard let publication = getTrackPublication(sid: trackSid),
-              let track = publication.track as? LocalVideoTrack,
-              let sender = track.transceiver?.sender
+        guard let pub = getTrackPublication(sid: trackSid),
+              let track = pub.track as? LocalVideoTrack,
+              let sender = track.rtpSender
         else { return }
 
         if !subscribedCodecs.isEmpty {
@@ -420,7 +446,7 @@ public class LocalParticipant: Participant {
         assert(track.codec != nil, "track.codec is nil")
 
         // only enable simulcast codec for preference codec setted
-        if track.codec == nil, let firstCodec = codecs.first, let sender = track.sender {
+        if track.codec == nil, let firstCodec = codecs.first, let sender = track.rtpSender {
             sender.setPublishingLayers(subscribedQualities: firstCodec.qualities)
             return
         }
@@ -434,7 +460,7 @@ public class LocalParticipant: Participant {
 
             if track.codec == codec {
 
-                track.sender?.setPublishingLayers(subscribedQualities: subscribedCodec.qualities)
+                track.rtpSender?.setPublishingLayers(subscribedQualities: subscribedCodec.qualities)
 
             } else {
 

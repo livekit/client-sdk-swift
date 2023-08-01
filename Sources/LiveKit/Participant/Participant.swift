@@ -129,7 +129,20 @@ public class Participant: NSObject, ObservableObject, Loggable {
                 }
             }
 
+            // name updated
+            if newState.name != oldState.name {
+                // notfy participant delegates
+                self.delegates.notify(label: { "participant.didUpdateName: \(newState.name)" }) {
+                    $0.participant?(self, didUpdateName: newState.name)
+                }
+                // notify room delegates
+                self.room.delegates.notify(label: { "room.didUpdateName: \(newState.name)" }) {
+                    $0.room?(self.room, participant: self, didUpdateName: newState.name)
+                }
+            }
+
             if newState.connectionQuality != oldState.connectionQuality {
+
                 self.delegates.notify(label: { "participant.didUpdate connectionQuality: \(self.connectionQuality)" }) {
                     $0.participant?(self, didUpdate: self.connectionQuality)
                 }
@@ -138,9 +151,12 @@ public class Participant: NSObject, ObservableObject, Loggable {
                 }
             }
 
-            // notify object change when any state updates
+            // Notify when state mutates
             Task.detached { @MainActor in
+                // Notify Participant
                 self.objectWillChange.send()
+                // Notify Room
+                self.room.objectWillChange.send()
             }
         }
     }

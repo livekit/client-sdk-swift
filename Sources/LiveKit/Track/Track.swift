@@ -85,6 +85,9 @@ public class Track: NSObject, Loggable {
     @objc
     public var stats: TrackStats? { _state.stats }
 
+    @objc
+    public var statistics: TrackStatistics? { _state.statistics }
+
     /// Dimensions of the video (only if video track)
     @objc
     public var dimensions: Dimensions? { _state.dimensions }
@@ -109,8 +112,9 @@ public class Track: NSObject, Loggable {
     internal var _publishOptions: PublishOptions?
 
     internal let mediaTrack: RTCMediaStreamTrack
-    internal var transceiver: RTCRtpTransceiver?
-    internal var sender: RTCRtpSender? { transceiver?.sender }
+
+    internal private(set) var rtpSender: RTCRtpSender?
+    internal private(set) var rtpReceiver: RTCRtpReceiver?
 
     // Weak reference to all VideoViews attached to this track. Must be accessed from main thread.
     internal var videoRenderers = NSHashTable<VideoRenderer>.weakObjects()
@@ -125,12 +129,25 @@ public class Track: NSObject, Loggable {
         var videoFrame: RTCVideoFrame?
         var trackState: TrackState = .stopped
         var muted: Bool = false
+        // Deprecated
         var stats: TrackStats?
+        // v2
+        var statistics: TrackStatistics?
     }
 
     internal var _state: StateSync<State>
 
-    internal init(name: String, kind: Kind, source: Source, track: RTCMediaStreamTrack) {
+    // MARK: - Private
+
+    private weak var transport: Transport?
+    // private var transceiver: RTCRtpTransceiver?
+    private let statsTimer = DispatchQueueTimer(timeInterval: 1, queue: .webRTC)
+    // Weak reference to the corresponding transport
+
+    internal init(name: String,
+                  kind: Kind,
+                  source: Source,
+                  track: RTCMediaStreamTrack) {
 
         _state = StateSync(State(
             name: name,
@@ -139,10 +156,50 @@ public class Track: NSObject, Loggable {
         ))
 
         mediaTrack = track
+
+        super.init()
+
+        // trigger events when state mutates
+        _state.onDidMutate = { [weak self] newState, oldState in
+
+            guard let self = self else { return }
+
+            self.delegates.notify {
+                if let delegateInternal = $0 as? TrackDelegateInternal {
+                    delegateInternal.track(self, didMutateState: newState, oldState: oldState)
+                }
+            }
+
+            // deprecated
+            if newState.stats != oldState.stats, let stats = newState.stats {
+                self.delegates.notify { $0.track?(self, didUpdate: stats) }
+            }
+
+            if newState.statistics != oldState.statistics, let statistics = newState.statistics {
+                self.delegates.notify { $0.track?(self, didUpdateStatistics: statistics) }
+            }
+        }
+
+        statsTimer.handler = { [weak self] in
+            self?.onStatsTimer()
+        }
     }
 
     deinit {
+        statsTimer.suspend()
         log("sid: \(String(describing: sid))")
+    }
+
+    internal func set(transport: Transport, rtpSender: RTCRtpSender) {
+        self.transport = transport
+        self.rtpSender = rtpSender
+        statsTimer.resume()
+    }
+
+    internal func set(transport: Transport, rtpReceiver: RTCRtpReceiver) {
+        self.transport = transport
+        self.rtpReceiver = rtpReceiver
+        statsTimer.resume()
     }
 
     // returns true if updated state
@@ -279,7 +336,6 @@ internal extension Track {
     func set(stats newValue: TrackStats) {
         guard _state.stats != newValue else { return }
         _state.mutate { $0.stats = newValue }
-        delegates.notify { $0.track?(self, didUpdate: newValue) }
     }
 }
 
@@ -392,5 +448,64 @@ extension Track: Identifiable {
 
     public var id: String {
         "\(type(of: self))-\(sid ?? String(hash))"
+    }
+}
+
+// MARK: - Stats
+
+public extension OutboundRtpStreamStatistics {
+
+    func formattedBps() -> String {
+        format(bps: bps)
+    }
+
+    var bps: UInt64 {
+        guard let previous = previous else { return 0 }
+        let secondsDiff = (timestamp - previous.timestamp) / (1000 * 1000)
+        return UInt64(Double(((bytesSent - previous.bytesSent) * 8)) / abs(secondsDiff))
+    }
+}
+
+public extension InboundRtpStreamStatistics {
+
+    func formattedBps() -> String {
+        format(bps: bps)
+    }
+
+    var bps: UInt64 {
+        guard let previous = previous else { return 0 }
+        let secondsDiff = (timestamp - previous.timestamp) / (1000 * 1000)
+        return UInt64(Double(((bytesReceived - previous.bytesReceived) * 8)) / abs(secondsDiff))
+    }
+}
+
+extension Track {
+
+    func onStatsTimer() {
+
+        guard let transport = transport else { return }
+
+        statsTimer.suspend()
+
+        Task {
+
+            defer { statsTimer.resume() }
+
+            var statisticsReport: RTCStatisticsReport?
+            let prevStatistics = _state.read { $0.statistics }
+
+            if let sender = rtpSender {
+                statisticsReport = await transport.statistics(for: sender)
+            } else if let receiver = rtpReceiver {
+                statisticsReport = await transport.statistics(for: receiver)
+            }
+
+            assert(statisticsReport != nil, "statisticsReport is nil")
+            guard let statisticsReport = statisticsReport else { return }
+
+            let trackStatistics = TrackStatistics(from: Array(statisticsReport.statistics.values), prevStatistics: prevStatistics)
+
+            _state.mutate { $0.statistics = trackStatistics }
+        }
     }
 }

@@ -414,7 +414,7 @@ extension Livekit_DisconnectReason: CaseIterable {
 
 enum Livekit_ReconnectReason: SwiftProtobuf.Enum {
   typealias RawValue = Int
-  case rrUnkown // = 0
+  case rrUnknown // = 0
   case rrSignalDisconnected // = 1
   case rrPublisherFailed // = 2
   case rrSubscriberFailed // = 3
@@ -422,12 +422,12 @@ enum Livekit_ReconnectReason: SwiftProtobuf.Enum {
   case UNRECOGNIZED(Int)
 
   init() {
-    self = .rrUnkown
+    self = .rrUnknown
   }
 
   init?(rawValue: Int) {
     switch rawValue {
-    case 0: self = .rrUnkown
+    case 0: self = .rrUnknown
     case 1: self = .rrSignalDisconnected
     case 2: self = .rrPublisherFailed
     case 3: self = .rrSubscriberFailed
@@ -438,7 +438,7 @@ enum Livekit_ReconnectReason: SwiftProtobuf.Enum {
 
   var rawValue: Int {
     switch self {
-    case .rrUnkown: return 0
+    case .rrUnknown: return 0
     case .rrSignalDisconnected: return 1
     case .rrPublisherFailed: return 2
     case .rrSubscriberFailed: return 3
@@ -454,11 +454,55 @@ enum Livekit_ReconnectReason: SwiftProtobuf.Enum {
 extension Livekit_ReconnectReason: CaseIterable {
   // The compiler won't synthesize support with the UNRECOGNIZED case.
   static var allCases: [Livekit_ReconnectReason] = [
-    .rrUnkown,
+    .rrUnknown,
     .rrSignalDisconnected,
     .rrPublisherFailed,
     .rrSubscriberFailed,
     .rrSwitchCandidate,
+  ]
+}
+
+#endif  // swift(>=4.2)
+
+enum Livekit_SubscriptionError: SwiftProtobuf.Enum {
+  typealias RawValue = Int
+  case seUnknown // = 0
+  case seCodecUnsupported // = 1
+  case seTrackNotfound // = 2
+  case UNRECOGNIZED(Int)
+
+  init() {
+    self = .seUnknown
+  }
+
+  init?(rawValue: Int) {
+    switch rawValue {
+    case 0: self = .seUnknown
+    case 1: self = .seCodecUnsupported
+    case 2: self = .seTrackNotfound
+    default: self = .UNRECOGNIZED(rawValue)
+    }
+  }
+
+  var rawValue: Int {
+    switch self {
+    case .seUnknown: return 0
+    case .seCodecUnsupported: return 1
+    case .seTrackNotfound: return 2
+    case .UNRECOGNIZED(let i): return i
+    }
+  }
+
+}
+
+#if swift(>=4.2)
+
+extension Livekit_SubscriptionError: CaseIterable {
+  // The compiler won't synthesize support with the UNRECOGNIZED case.
+  static var allCases: [Livekit_SubscriptionError] = [
+    .seUnknown,
+    .seCodecUnsupported,
+    .seTrackNotfound,
   ]
 }
 
@@ -487,11 +531,24 @@ struct Livekit_Room {
 
   var numParticipants: UInt32 = 0
 
+  var numPublishers: UInt32 = 0
+
   var activeRecording: Bool = false
+
+  var playoutDelay: Livekit_PlayoutDelay {
+    get {return _playoutDelay ?? Livekit_PlayoutDelay()}
+    set {_playoutDelay = newValue}
+  }
+  /// Returns true if `playoutDelay` has been explicitly set.
+  var hasPlayoutDelay: Bool {return self._playoutDelay != nil}
+  /// Clears the value of `playoutDelay`. Subsequent reads from it will return its default value.
+  mutating func clearPlayoutDelay() {self._playoutDelay = nil}
 
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   init() {}
+
+  fileprivate var _playoutDelay: Livekit_PlayoutDelay? = nil
 }
 
 struct Livekit_Codec {
@@ -502,6 +559,22 @@ struct Livekit_Codec {
   var mime: String = String()
 
   var fmtpLine: String = String()
+
+  var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  init() {}
+}
+
+struct Livekit_PlayoutDelay {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  var enabled: Bool = false
+
+  var min: UInt32 = 0
+
+  var max: UInt32 = 0
 
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
@@ -746,49 +819,104 @@ struct Livekit_TrackInfo {
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
 
-  var sid: String = String()
+  var sid: String {
+    get {return _storage._sid}
+    set {_uniqueStorage()._sid = newValue}
+  }
 
-  var type: Livekit_TrackType = .audio
+  var type: Livekit_TrackType {
+    get {return _storage._type}
+    set {_uniqueStorage()._type = newValue}
+  }
 
-  var name: String = String()
+  var name: String {
+    get {return _storage._name}
+    set {_uniqueStorage()._name = newValue}
+  }
 
-  var muted: Bool = false
+  var muted: Bool {
+    get {return _storage._muted}
+    set {_uniqueStorage()._muted = newValue}
+  }
 
   /// original width of video (unset for audio)
   /// clients may receive a lower resolution version with simulcast
-  var width: UInt32 = 0
+  var width: UInt32 {
+    get {return _storage._width}
+    set {_uniqueStorage()._width = newValue}
+  }
 
   /// original height of video (unset for audio)
-  var height: UInt32 = 0
+  var height: UInt32 {
+    get {return _storage._height}
+    set {_uniqueStorage()._height = newValue}
+  }
 
   /// true if track is simulcasted
-  var simulcast: Bool = false
+  var simulcast: Bool {
+    get {return _storage._simulcast}
+    set {_uniqueStorage()._simulcast = newValue}
+  }
 
   /// true if DTX (Discontinuous Transmission) is disabled for audio
-  var disableDtx: Bool = false
+  var disableDtx: Bool {
+    get {return _storage._disableDtx}
+    set {_uniqueStorage()._disableDtx = newValue}
+  }
 
   /// source of media
-  var source: Livekit_TrackSource = .unknown
+  var source: Livekit_TrackSource {
+    get {return _storage._source}
+    set {_uniqueStorage()._source = newValue}
+  }
 
-  var layers: [Livekit_VideoLayer] = []
+  var layers: [Livekit_VideoLayer] {
+    get {return _storage._layers}
+    set {_uniqueStorage()._layers = newValue}
+  }
 
   /// mime type of codec
-  var mimeType: String = String()
+  var mimeType: String {
+    get {return _storage._mimeType}
+    set {_uniqueStorage()._mimeType = newValue}
+  }
 
-  var mid: String = String()
+  var mid: String {
+    get {return _storage._mid}
+    set {_uniqueStorage()._mid = newValue}
+  }
 
-  var codecs: [Livekit_SimulcastCodecInfo] = []
+  var codecs: [Livekit_SimulcastCodecInfo] {
+    get {return _storage._codecs}
+    set {_uniqueStorage()._codecs = newValue}
+  }
 
-  var stereo: Bool = false
+  var stereo: Bool {
+    get {return _storage._stereo}
+    set {_uniqueStorage()._stereo = newValue}
+  }
 
   /// true if RED (Redundant Encoding) is disabled for audio
-  var disableRed: Bool = false
+  var disableRed: Bool {
+    get {return _storage._disableRed}
+    set {_uniqueStorage()._disableRed = newValue}
+  }
 
-  var encryption: Livekit_Encryption.TypeEnum = .none
+  var encryption: Livekit_Encryption.TypeEnum {
+    get {return _storage._encryption}
+    set {_uniqueStorage()._encryption = newValue}
+  }
+
+  var stream: String {
+    get {return _storage._stream}
+    set {_uniqueStorage()._stream = newValue}
+  }
 
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   init() {}
+
+  fileprivate var _storage = _StorageClass.defaultInstance
 }
 
 /// provide information about available spatial layers
@@ -1212,7 +1340,11 @@ struct Livekit_DisabledCodecs {
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
 
+  /// disabled for both publish and subscribe
   var codecs: [Livekit_Codec] = []
+
+  /// only disable for publish
+  var publish: [Livekit_Codec] = []
 
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
@@ -1453,6 +1585,17 @@ struct Livekit_RTPStats {
   /// Clears the value of `lastLayerLockPli`. Subsequent reads from it will return its default value.
   mutating func clearLastLayerLockPli() {_uniqueStorage()._lastLayerLockPli = nil}
 
+  var sampleRate: Double {
+    get {return _storage._sampleRate}
+    set {_uniqueStorage()._sampleRate = newValue}
+  }
+
+  /// NEXT_ID: 44
+  var driftMs: Double {
+    get {return _storage._driftMs}
+    set {_uniqueStorage()._driftMs = newValue}
+  }
+
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   init() {}
@@ -1484,8 +1627,10 @@ extension Livekit_ConnectionQuality: @unchecked Sendable {}
 extension Livekit_ClientConfigSetting: @unchecked Sendable {}
 extension Livekit_DisconnectReason: @unchecked Sendable {}
 extension Livekit_ReconnectReason: @unchecked Sendable {}
+extension Livekit_SubscriptionError: @unchecked Sendable {}
 extension Livekit_Room: @unchecked Sendable {}
 extension Livekit_Codec: @unchecked Sendable {}
+extension Livekit_PlayoutDelay: @unchecked Sendable {}
 extension Livekit_ParticipantPermission: @unchecked Sendable {}
 extension Livekit_ParticipantInfo: @unchecked Sendable {}
 extension Livekit_ParticipantInfo.State: @unchecked Sendable {}
@@ -1592,11 +1737,19 @@ extension Livekit_DisconnectReason: SwiftProtobuf._ProtoNameProviding {
 
 extension Livekit_ReconnectReason: SwiftProtobuf._ProtoNameProviding {
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
-    0: .same(proto: "RR_UNKOWN"),
+    0: .same(proto: "RR_UNKNOWN"),
     1: .same(proto: "RR_SIGNAL_DISCONNECTED"),
     2: .same(proto: "RR_PUBLISHER_FAILED"),
     3: .same(proto: "RR_SUBSCRIBER_FAILED"),
     4: .same(proto: "RR_SWITCH_CANDIDATE"),
+  ]
+}
+
+extension Livekit_SubscriptionError: SwiftProtobuf._ProtoNameProviding {
+  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
+    0: .same(proto: "SE_UNKNOWN"),
+    1: .same(proto: "SE_CODEC_UNSUPPORTED"),
+    2: .same(proto: "SE_TRACK_NOTFOUND"),
   ]
 }
 
@@ -1612,7 +1765,9 @@ extension Livekit_Room: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementat
     7: .standard(proto: "enabled_codecs"),
     8: .same(proto: "metadata"),
     9: .standard(proto: "num_participants"),
+    11: .standard(proto: "num_publishers"),
     10: .standard(proto: "active_recording"),
+    12: .standard(proto: "playout_delay"),
   ]
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -1631,12 +1786,18 @@ extension Livekit_Room: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementat
       case 8: try { try decoder.decodeSingularStringField(value: &self.metadata) }()
       case 9: try { try decoder.decodeSingularUInt32Field(value: &self.numParticipants) }()
       case 10: try { try decoder.decodeSingularBoolField(value: &self.activeRecording) }()
+      case 11: try { try decoder.decodeSingularUInt32Field(value: &self.numPublishers) }()
+      case 12: try { try decoder.decodeSingularMessageField(value: &self._playoutDelay) }()
       default: break
       }
     }
   }
 
   func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    // The use of inline closures is to circumvent an issue where the compiler
+    // allocates stack space for every if/case branch local when no optimizations
+    // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+    // https://github.com/apple/swift-protobuf/issues/1182
     if !self.sid.isEmpty {
       try visitor.visitSingularStringField(value: self.sid, fieldNumber: 1)
     }
@@ -1667,6 +1828,12 @@ extension Livekit_Room: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementat
     if self.activeRecording != false {
       try visitor.visitSingularBoolField(value: self.activeRecording, fieldNumber: 10)
     }
+    if self.numPublishers != 0 {
+      try visitor.visitSingularUInt32Field(value: self.numPublishers, fieldNumber: 11)
+    }
+    try { if let v = self._playoutDelay {
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 12)
+    } }()
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -1680,7 +1847,9 @@ extension Livekit_Room: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementat
     if lhs.enabledCodecs != rhs.enabledCodecs {return false}
     if lhs.metadata != rhs.metadata {return false}
     if lhs.numParticipants != rhs.numParticipants {return false}
+    if lhs.numPublishers != rhs.numPublishers {return false}
     if lhs.activeRecording != rhs.activeRecording {return false}
+    if lhs._playoutDelay != rhs._playoutDelay {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
@@ -1719,6 +1888,50 @@ extension Livekit_Codec: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementa
   static func ==(lhs: Livekit_Codec, rhs: Livekit_Codec) -> Bool {
     if lhs.mime != rhs.mime {return false}
     if lhs.fmtpLine != rhs.fmtpLine {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+extension Livekit_PlayoutDelay: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  static let protoMessageName: String = _protobuf_package + ".PlayoutDelay"
+  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
+    1: .same(proto: "enabled"),
+    2: .same(proto: "min"),
+    3: .same(proto: "max"),
+  ]
+
+  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularBoolField(value: &self.enabled) }()
+      case 2: try { try decoder.decodeSingularUInt32Field(value: &self.min) }()
+      case 3: try { try decoder.decodeSingularUInt32Field(value: &self.max) }()
+      default: break
+      }
+    }
+  }
+
+  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    if self.enabled != false {
+      try visitor.visitSingularBoolField(value: self.enabled, fieldNumber: 1)
+    }
+    if self.min != 0 {
+      try visitor.visitSingularUInt32Field(value: self.min, fieldNumber: 2)
+    }
+    if self.max != 0 {
+      try visitor.visitSingularUInt32Field(value: self.max, fieldNumber: 3)
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  static func ==(lhs: Livekit_PlayoutDelay, rhs: Livekit_PlayoutDelay) -> Bool {
+    if lhs.enabled != rhs.enabled {return false}
+    if lhs.min != rhs.min {return false}
+    if lhs.max != rhs.max {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
@@ -2045,104 +2258,174 @@ extension Livekit_TrackInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImplem
     14: .same(proto: "stereo"),
     15: .standard(proto: "disable_red"),
     16: .same(proto: "encryption"),
+    17: .same(proto: "stream"),
   ]
 
+  fileprivate class _StorageClass {
+    var _sid: String = String()
+    var _type: Livekit_TrackType = .audio
+    var _name: String = String()
+    var _muted: Bool = false
+    var _width: UInt32 = 0
+    var _height: UInt32 = 0
+    var _simulcast: Bool = false
+    var _disableDtx: Bool = false
+    var _source: Livekit_TrackSource = .unknown
+    var _layers: [Livekit_VideoLayer] = []
+    var _mimeType: String = String()
+    var _mid: String = String()
+    var _codecs: [Livekit_SimulcastCodecInfo] = []
+    var _stereo: Bool = false
+    var _disableRed: Bool = false
+    var _encryption: Livekit_Encryption.TypeEnum = .none
+    var _stream: String = String()
+
+    static let defaultInstance = _StorageClass()
+
+    private init() {}
+
+    init(copying source: _StorageClass) {
+      _sid = source._sid
+      _type = source._type
+      _name = source._name
+      _muted = source._muted
+      _width = source._width
+      _height = source._height
+      _simulcast = source._simulcast
+      _disableDtx = source._disableDtx
+      _source = source._source
+      _layers = source._layers
+      _mimeType = source._mimeType
+      _mid = source._mid
+      _codecs = source._codecs
+      _stereo = source._stereo
+      _disableRed = source._disableRed
+      _encryption = source._encryption
+      _stream = source._stream
+    }
+  }
+
+  fileprivate mutating func _uniqueStorage() -> _StorageClass {
+    if !isKnownUniquelyReferenced(&_storage) {
+      _storage = _StorageClass(copying: _storage)
+    }
+    return _storage
+  }
+
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
-    while let fieldNumber = try decoder.nextFieldNumber() {
-      // The use of inline closures is to circumvent an issue where the compiler
-      // allocates stack space for every case branch when no optimizations are
-      // enabled. https://github.com/apple/swift-protobuf/issues/1034
-      switch fieldNumber {
-      case 1: try { try decoder.decodeSingularStringField(value: &self.sid) }()
-      case 2: try { try decoder.decodeSingularEnumField(value: &self.type) }()
-      case 3: try { try decoder.decodeSingularStringField(value: &self.name) }()
-      case 4: try { try decoder.decodeSingularBoolField(value: &self.muted) }()
-      case 5: try { try decoder.decodeSingularUInt32Field(value: &self.width) }()
-      case 6: try { try decoder.decodeSingularUInt32Field(value: &self.height) }()
-      case 7: try { try decoder.decodeSingularBoolField(value: &self.simulcast) }()
-      case 8: try { try decoder.decodeSingularBoolField(value: &self.disableDtx) }()
-      case 9: try { try decoder.decodeSingularEnumField(value: &self.source) }()
-      case 10: try { try decoder.decodeRepeatedMessageField(value: &self.layers) }()
-      case 11: try { try decoder.decodeSingularStringField(value: &self.mimeType) }()
-      case 12: try { try decoder.decodeSingularStringField(value: &self.mid) }()
-      case 13: try { try decoder.decodeRepeatedMessageField(value: &self.codecs) }()
-      case 14: try { try decoder.decodeSingularBoolField(value: &self.stereo) }()
-      case 15: try { try decoder.decodeSingularBoolField(value: &self.disableRed) }()
-      case 16: try { try decoder.decodeSingularEnumField(value: &self.encryption) }()
-      default: break
+    _ = _uniqueStorage()
+    try withExtendedLifetime(_storage) { (_storage: _StorageClass) in
+      while let fieldNumber = try decoder.nextFieldNumber() {
+        // The use of inline closures is to circumvent an issue where the compiler
+        // allocates stack space for every case branch when no optimizations are
+        // enabled. https://github.com/apple/swift-protobuf/issues/1034
+        switch fieldNumber {
+        case 1: try { try decoder.decodeSingularStringField(value: &_storage._sid) }()
+        case 2: try { try decoder.decodeSingularEnumField(value: &_storage._type) }()
+        case 3: try { try decoder.decodeSingularStringField(value: &_storage._name) }()
+        case 4: try { try decoder.decodeSingularBoolField(value: &_storage._muted) }()
+        case 5: try { try decoder.decodeSingularUInt32Field(value: &_storage._width) }()
+        case 6: try { try decoder.decodeSingularUInt32Field(value: &_storage._height) }()
+        case 7: try { try decoder.decodeSingularBoolField(value: &_storage._simulcast) }()
+        case 8: try { try decoder.decodeSingularBoolField(value: &_storage._disableDtx) }()
+        case 9: try { try decoder.decodeSingularEnumField(value: &_storage._source) }()
+        case 10: try { try decoder.decodeRepeatedMessageField(value: &_storage._layers) }()
+        case 11: try { try decoder.decodeSingularStringField(value: &_storage._mimeType) }()
+        case 12: try { try decoder.decodeSingularStringField(value: &_storage._mid) }()
+        case 13: try { try decoder.decodeRepeatedMessageField(value: &_storage._codecs) }()
+        case 14: try { try decoder.decodeSingularBoolField(value: &_storage._stereo) }()
+        case 15: try { try decoder.decodeSingularBoolField(value: &_storage._disableRed) }()
+        case 16: try { try decoder.decodeSingularEnumField(value: &_storage._encryption) }()
+        case 17: try { try decoder.decodeSingularStringField(value: &_storage._stream) }()
+        default: break
+        }
       }
     }
   }
 
   func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
-    if !self.sid.isEmpty {
-      try visitor.visitSingularStringField(value: self.sid, fieldNumber: 1)
-    }
-    if self.type != .audio {
-      try visitor.visitSingularEnumField(value: self.type, fieldNumber: 2)
-    }
-    if !self.name.isEmpty {
-      try visitor.visitSingularStringField(value: self.name, fieldNumber: 3)
-    }
-    if self.muted != false {
-      try visitor.visitSingularBoolField(value: self.muted, fieldNumber: 4)
-    }
-    if self.width != 0 {
-      try visitor.visitSingularUInt32Field(value: self.width, fieldNumber: 5)
-    }
-    if self.height != 0 {
-      try visitor.visitSingularUInt32Field(value: self.height, fieldNumber: 6)
-    }
-    if self.simulcast != false {
-      try visitor.visitSingularBoolField(value: self.simulcast, fieldNumber: 7)
-    }
-    if self.disableDtx != false {
-      try visitor.visitSingularBoolField(value: self.disableDtx, fieldNumber: 8)
-    }
-    if self.source != .unknown {
-      try visitor.visitSingularEnumField(value: self.source, fieldNumber: 9)
-    }
-    if !self.layers.isEmpty {
-      try visitor.visitRepeatedMessageField(value: self.layers, fieldNumber: 10)
-    }
-    if !self.mimeType.isEmpty {
-      try visitor.visitSingularStringField(value: self.mimeType, fieldNumber: 11)
-    }
-    if !self.mid.isEmpty {
-      try visitor.visitSingularStringField(value: self.mid, fieldNumber: 12)
-    }
-    if !self.codecs.isEmpty {
-      try visitor.visitRepeatedMessageField(value: self.codecs, fieldNumber: 13)
-    }
-    if self.stereo != false {
-      try visitor.visitSingularBoolField(value: self.stereo, fieldNumber: 14)
-    }
-    if self.disableRed != false {
-      try visitor.visitSingularBoolField(value: self.disableRed, fieldNumber: 15)
-    }
-    if self.encryption != .none {
-      try visitor.visitSingularEnumField(value: self.encryption, fieldNumber: 16)
+    try withExtendedLifetime(_storage) { (_storage: _StorageClass) in
+      if !_storage._sid.isEmpty {
+        try visitor.visitSingularStringField(value: _storage._sid, fieldNumber: 1)
+      }
+      if _storage._type != .audio {
+        try visitor.visitSingularEnumField(value: _storage._type, fieldNumber: 2)
+      }
+      if !_storage._name.isEmpty {
+        try visitor.visitSingularStringField(value: _storage._name, fieldNumber: 3)
+      }
+      if _storage._muted != false {
+        try visitor.visitSingularBoolField(value: _storage._muted, fieldNumber: 4)
+      }
+      if _storage._width != 0 {
+        try visitor.visitSingularUInt32Field(value: _storage._width, fieldNumber: 5)
+      }
+      if _storage._height != 0 {
+        try visitor.visitSingularUInt32Field(value: _storage._height, fieldNumber: 6)
+      }
+      if _storage._simulcast != false {
+        try visitor.visitSingularBoolField(value: _storage._simulcast, fieldNumber: 7)
+      }
+      if _storage._disableDtx != false {
+        try visitor.visitSingularBoolField(value: _storage._disableDtx, fieldNumber: 8)
+      }
+      if _storage._source != .unknown {
+        try visitor.visitSingularEnumField(value: _storage._source, fieldNumber: 9)
+      }
+      if !_storage._layers.isEmpty {
+        try visitor.visitRepeatedMessageField(value: _storage._layers, fieldNumber: 10)
+      }
+      if !_storage._mimeType.isEmpty {
+        try visitor.visitSingularStringField(value: _storage._mimeType, fieldNumber: 11)
+      }
+      if !_storage._mid.isEmpty {
+        try visitor.visitSingularStringField(value: _storage._mid, fieldNumber: 12)
+      }
+      if !_storage._codecs.isEmpty {
+        try visitor.visitRepeatedMessageField(value: _storage._codecs, fieldNumber: 13)
+      }
+      if _storage._stereo != false {
+        try visitor.visitSingularBoolField(value: _storage._stereo, fieldNumber: 14)
+      }
+      if _storage._disableRed != false {
+        try visitor.visitSingularBoolField(value: _storage._disableRed, fieldNumber: 15)
+      }
+      if _storage._encryption != .none {
+        try visitor.visitSingularEnumField(value: _storage._encryption, fieldNumber: 16)
+      }
+      if !_storage._stream.isEmpty {
+        try visitor.visitSingularStringField(value: _storage._stream, fieldNumber: 17)
+      }
     }
     try unknownFields.traverse(visitor: &visitor)
   }
 
   static func ==(lhs: Livekit_TrackInfo, rhs: Livekit_TrackInfo) -> Bool {
-    if lhs.sid != rhs.sid {return false}
-    if lhs.type != rhs.type {return false}
-    if lhs.name != rhs.name {return false}
-    if lhs.muted != rhs.muted {return false}
-    if lhs.width != rhs.width {return false}
-    if lhs.height != rhs.height {return false}
-    if lhs.simulcast != rhs.simulcast {return false}
-    if lhs.disableDtx != rhs.disableDtx {return false}
-    if lhs.source != rhs.source {return false}
-    if lhs.layers != rhs.layers {return false}
-    if lhs.mimeType != rhs.mimeType {return false}
-    if lhs.mid != rhs.mid {return false}
-    if lhs.codecs != rhs.codecs {return false}
-    if lhs.stereo != rhs.stereo {return false}
-    if lhs.disableRed != rhs.disableRed {return false}
-    if lhs.encryption != rhs.encryption {return false}
+    if lhs._storage !== rhs._storage {
+      let storagesAreEqual: Bool = withExtendedLifetime((lhs._storage, rhs._storage)) { (_args: (_StorageClass, _StorageClass)) in
+        let _storage = _args.0
+        let rhs_storage = _args.1
+        if _storage._sid != rhs_storage._sid {return false}
+        if _storage._type != rhs_storage._type {return false}
+        if _storage._name != rhs_storage._name {return false}
+        if _storage._muted != rhs_storage._muted {return false}
+        if _storage._width != rhs_storage._width {return false}
+        if _storage._height != rhs_storage._height {return false}
+        if _storage._simulcast != rhs_storage._simulcast {return false}
+        if _storage._disableDtx != rhs_storage._disableDtx {return false}
+        if _storage._source != rhs_storage._source {return false}
+        if _storage._layers != rhs_storage._layers {return false}
+        if _storage._mimeType != rhs_storage._mimeType {return false}
+        if _storage._mid != rhs_storage._mid {return false}
+        if _storage._codecs != rhs_storage._codecs {return false}
+        if _storage._stereo != rhs_storage._stereo {return false}
+        if _storage._disableRed != rhs_storage._disableRed {return false}
+        if _storage._encryption != rhs_storage._encryption {return false}
+        if _storage._stream != rhs_storage._stream {return false}
+        return true
+      }
+      if !storagesAreEqual {return false}
+    }
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
@@ -2720,6 +3003,7 @@ extension Livekit_DisabledCodecs: SwiftProtobuf.Message, SwiftProtobuf._MessageI
   static let protoMessageName: String = _protobuf_package + ".DisabledCodecs"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     1: .same(proto: "codecs"),
+    2: .same(proto: "publish"),
   ]
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -2729,6 +3013,7 @@ extension Livekit_DisabledCodecs: SwiftProtobuf.Message, SwiftProtobuf._MessageI
       // enabled. https://github.com/apple/swift-protobuf/issues/1034
       switch fieldNumber {
       case 1: try { try decoder.decodeRepeatedMessageField(value: &self.codecs) }()
+      case 2: try { try decoder.decodeRepeatedMessageField(value: &self.publish) }()
       default: break
       }
     }
@@ -2738,11 +3023,15 @@ extension Livekit_DisabledCodecs: SwiftProtobuf.Message, SwiftProtobuf._MessageI
     if !self.codecs.isEmpty {
       try visitor.visitRepeatedMessageField(value: self.codecs, fieldNumber: 1)
     }
+    if !self.publish.isEmpty {
+      try visitor.visitRepeatedMessageField(value: self.publish, fieldNumber: 2)
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
   static func ==(lhs: Livekit_DisabledCodecs, rhs: Livekit_DisabledCodecs) -> Bool {
     if lhs.codecs != rhs.codecs {return false}
+    if lhs.publish != rhs.publish {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
@@ -2792,6 +3081,8 @@ extension Livekit_RTPStats: SwiftProtobuf.Message, SwiftProtobuf._MessageImpleme
     34: .standard(proto: "last_key_frame"),
     35: .standard(proto: "layer_lock_plis"),
     36: .standard(proto: "last_layer_lock_pli"),
+    42: .standard(proto: "sample_rate"),
+    43: .standard(proto: "drift_ms"),
   ]
 
   fileprivate class _StorageClass {
@@ -2836,6 +3127,8 @@ extension Livekit_RTPStats: SwiftProtobuf.Message, SwiftProtobuf._MessageImpleme
     var _lastKeyFrame: SwiftProtobuf.Google_Protobuf_Timestamp? = nil
     var _layerLockPlis: UInt32 = 0
     var _lastLayerLockPli: SwiftProtobuf.Google_Protobuf_Timestamp? = nil
+    var _sampleRate: Double = 0
+    var _driftMs: Double = 0
 
     static let defaultInstance = _StorageClass()
 
@@ -2883,6 +3176,8 @@ extension Livekit_RTPStats: SwiftProtobuf.Message, SwiftProtobuf._MessageImpleme
       _lastKeyFrame = source._lastKeyFrame
       _layerLockPlis = source._layerLockPlis
       _lastLayerLockPli = source._lastLayerLockPli
+      _sampleRate = source._sampleRate
+      _driftMs = source._driftMs
     }
   }
 
@@ -2942,6 +3237,8 @@ extension Livekit_RTPStats: SwiftProtobuf.Message, SwiftProtobuf._MessageImpleme
         case 39: try { try decoder.decodeSingularUInt64Field(value: &_storage._headerBytes) }()
         case 40: try { try decoder.decodeSingularUInt64Field(value: &_storage._headerBytesDuplicate) }()
         case 41: try { try decoder.decodeSingularUInt64Field(value: &_storage._headerBytesPadding) }()
+        case 42: try { try decoder.decodeSingularDoubleField(value: &_storage._sampleRate) }()
+        case 43: try { try decoder.decodeSingularDoubleField(value: &_storage._driftMs) }()
         default: break
         }
       }
@@ -3077,6 +3374,12 @@ extension Livekit_RTPStats: SwiftProtobuf.Message, SwiftProtobuf._MessageImpleme
       if _storage._headerBytesPadding != 0 {
         try visitor.visitSingularUInt64Field(value: _storage._headerBytesPadding, fieldNumber: 41)
       }
+      if _storage._sampleRate != 0 {
+        try visitor.visitSingularDoubleField(value: _storage._sampleRate, fieldNumber: 42)
+      }
+      if _storage._driftMs != 0 {
+        try visitor.visitSingularDoubleField(value: _storage._driftMs, fieldNumber: 43)
+      }
     }
     try unknownFields.traverse(visitor: &visitor)
   }
@@ -3127,6 +3430,8 @@ extension Livekit_RTPStats: SwiftProtobuf.Message, SwiftProtobuf._MessageImpleme
         if _storage._lastKeyFrame != rhs_storage._lastKeyFrame {return false}
         if _storage._layerLockPlis != rhs_storage._layerLockPlis {return false}
         if _storage._lastLayerLockPli != rhs_storage._lastLayerLockPli {return false}
+        if _storage._sampleRate != rhs_storage._sampleRate {return false}
+        if _storage._driftMs != rhs_storage._driftMs {return false}
         return true
       }
       if !storagesAreEqual {return false}

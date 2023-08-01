@@ -77,6 +77,10 @@ public protocol RoomDelegateObjC: AnyObject {
     @objc(room:participant:didUpdateMetadata:) optional
     func room(_ room: Room, participant: Participant, didUpdate metadata: String?)
 
+    /// Same with ``ParticipantDelegate/participant(_:didUpdateName:)``.
+    @objc(room:participant:didUpdateName:) optional
+    func room(_ room: Room, participant: Participant, didUpdateName: String)
+
     /// Same with ``ParticipantDelegate/participant(_:didUpdate:)-7zxk1``.
     @objc(room:participant:didUpdateConnectionQuality:) optional
     func room(_ room: Room, participant: Participant, didUpdate connectionQuality: ConnectionQuality)

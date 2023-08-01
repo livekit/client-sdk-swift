@@ -17,10 +17,10 @@ let package = Package(
         )
     ],
     dependencies: [
-        .package(name: "WebRTC", url: "https://github.com/webrtc-sdk/Specs.git", .exact("104.5112.09")),
-        .package(name: "SwiftProtobuf", url: "https://github.com/apple/swift-protobuf.git", .upToNextMajor(from: "1.20.2")),
-        .package(name: "Promises", url: "https://github.com/google/promises.git", .upToNextMajor(from: "2.0.0")),
-        .package(url: "https://github.com/apple/swift-log.git", .upToNextMajor(from: "1.4.4"))
+        .package(name: "WebRTC", url: "https://github.com/webrtc-sdk/Specs.git", .exact("114.5735.02")),
+        .package(name: "SwiftProtobuf", url: "https://github.com/apple/swift-protobuf.git", .upToNextMajor(from: "1.21.0")),
+        .package(name: "Promises", url: "https://github.com/google/promises.git", .upToNextMajor(from: "2.2.0")),
+        .package(url: "https://github.com/apple/swift-log.git", .upToNextMajor(from: "1.5.2"))
     ],
     targets: [
         .systemLibrary(name: "CHeaders"),
@@ -35,7 +35,7 @@ let package = Package(
             swiftSettings: [
                 // Compiler flags used to completely remove code for specific features to isolate issues.
                 // Not defining the flag will turn off the feature.
-                .define("LK_USING_CUSTOM_WEBRTC_BUILD")
+                .define("LK_USE_LIVEKIT_WEBRTC_BUILD")
             ]
         ),
         .testTarget(
