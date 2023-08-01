@@ -33,12 +33,16 @@ extension Room: SignalClientDelegate {
         }
     }
 
-    func signalClient(_ signalClient: SignalClient, didUpdate trackSid: String, subscribedQualities: [Livekit_SubscribedQuality]) {
+    func signalClient(_ signalClient: SignalClient, didUpdate trackSid: String, subscribedQualities: [Livekit_SubscribedQuality], subscribedCodecs: [Livekit_SubscribedCodec]) {
 
-        log("qualities: \(subscribedQualities.map({ String(describing: $0) }).joined(separator: ", "))")
+        func stringOf(qualities: [Livekit_SubscribedQuality]) -> String {
+            qualities.map({ String(describing: $0) }).joined(separator: ", ")
+        }
+
+        log("qualities: \(stringOf(qualities: subscribedQualities)), codecs: \(subscribedCodecs.map({ "\($0.codec)(\(stringOf(qualities: $0.qualities)))" }).joined(separator: ", "))")
 
         guard let localParticipant = _state.localParticipant else { return }
-        localParticipant.onSubscribedQualitiesUpdate(trackSid: trackSid, subscribedQualities: subscribedQualities)
+        localParticipant.onSubscribedQualitiesUpdate(trackSid: trackSid, subscribedQualities: subscribedQualities, subscribedCodecs: subscribedCodecs)
     }
 
     func signalClient(_ signalClient: SignalClient, didReceive joinResponse: Livekit_JoinResponse) {

@@ -68,6 +68,9 @@ internal extension Engine {
                                               "packetization-mode": "1"])
     }()
 
+    static let vp8CodecInfo: RTCVideoCodecInfo = RTCVideoCodecInfo(name: kRTCVp8CodecName)
+    static let av1CodecInfo: RTCVideoCodecInfo = RTCVideoCodecInfo(name: kRTCAv1CodecName)
+
     // global properties are already lazy
 
     static private let encoderFactory: RTCVideoEncoderFactory = {
@@ -83,6 +86,25 @@ internal extension Engine {
 
     static private let decoderFactory = VideoDecoderFactory()
 
+    static let canEncodeH264 = encoderFactory.supportedCodecs().contains { $0.name == kRTCH264CodecName }
+    static let canDecodeH264 = decoderFactory.supportedCodecs().contains { $0.name == kRTCH264CodecName }
+    static let canEncodeAndDecodeH264 = canEncodeH264 && canDecodeH264
+
+    static let canEncodeVP8 = encoderFactory.supportedCodecs().contains { $0.name == kRTCVp8CodecName }
+    static let canDecodeVP8 = decoderFactory.supportedCodecs().contains { $0.name == kRTCVp8CodecName }
+    static let canEncodeAndDecodeVP8 = canEncodeVP8 && canDecodeVP8
+
+    static let canEncodeVP9 = encoderFactory.supportedCodecs().contains { $0.name == kRTCVp9CodecName }
+    static let canDecodeVP9 = decoderFactory.supportedCodecs().contains { $0.name == kRTCVp9CodecName }
+    static let canEncodeAndDecodeVP9 = canEncodeVP9 && canDecodeVP9
+
+    static let canEncodeAV1 = encoderFactory.supportedCodecs().contains { $0.name == kRTCAv1CodecName }
+    static let canDecodeAV1 = decoderFactory.supportedCodecs().contains { $0.name == kRTCAv1CodecName }
+    static let canEncodeAndDecodeAV1 = canEncodeAV1 && canDecodeAV1
+
+    static let videoSenderCapabilities = peerConnectionFactory.rtpSenderCapabilities(for: .video)
+    static let audioSenderCapabilities = peerConnectionFactory.rtpSenderCapabilities(for: .audio)
+
     static let peerConnectionFactory: RTCPeerConnectionFactory = {
 
         logger.log("Initializing SSL...", type: Engine.self)
@@ -95,6 +117,11 @@ internal extension Engine {
         RTCInitFieldTrialDictionary(fieldTrials)
 
         logger.log("Initializing PeerConnectionFactory...", type: Engine.self)
+
+        logger.log("canEncode H264: \(canEncodeH264 ? "YES" : "NO"), VP8: \(canEncodeVP8 ? "YES" : "NO"), AV1: \(canEncodeAV1 ? "YES" : "NO")", type: Engine.self)
+        logger.log("canDecode H264: \(canDecodeH264 ? "YES" : "NO"), VP8: \(canDecodeVP8 ? "YES" : "NO"), AV1: \(canDecodeAV1 ? "YES" : "NO")", type: Engine.self)
+
+        logger.log("supportedCodecs: \(encoderFactory.supportedCodecs().map({ String(describing: $0) }).joined(separator: ", "))", type: Engine.self)
 
         #if LK_USE_LIVEKIT_WEBRTC_BUILD
         return RTCPeerConnectionFactory(bypassVoiceProcessing: bypassVoiceProcessing,
@@ -168,6 +195,7 @@ internal extension Engine {
     static func createRtpEncodingParameters(rid: String? = nil,
                                             encoding: MediaEncoding? = nil,
                                             scaleDownBy: Double? = nil,
+                                            scalabilityMode: ScalabilityMode? = nil,
                                             active: Bool = true) -> RTCRtpEncodingParameters {
 
         let result = DispatchQueue.webRTC.sync { RTCRtpEncodingParameters() }
@@ -186,6 +214,10 @@ internal extension Engine {
             if let videoEncoding = encoding as? VideoEncoding {
                 result.maxFramerate = NSNumber(value: videoEncoding.maxFps)
             }
+        }
+
+        if let scalabilityMode = scalabilityMode {
+            result.scalabilityMode = scalabilityMode.rawStringValue
         }
 
         return result
