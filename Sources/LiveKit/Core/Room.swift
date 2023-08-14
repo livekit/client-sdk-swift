@@ -430,3 +430,13 @@ extension Room {
         set { Engine.bypassVoiceProcessing = newValue }
     }
 }
+
+// MARK: - Audio Processing
+
+extension Room {
+
+    @objc
+    public static var audioProcessingModule: RTCDefaultAudioProcessingModule {
+        Engine.audioProcessingModule
+    }
+}
