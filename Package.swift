@@ -31,12 +31,7 @@ let package = Package(
                 "WebRTC", "SwiftProtobuf", "Promises",
                 .product(name: "Logging", package: "swift-log"),
             ],
-            path: "Sources",
-            swiftSettings: [
-                // Compiler flags used to completely remove code for specific features to isolate issues.
-                // Not defining the flag will turn off the feature.
-                .define("LK_USE_LIVEKIT_WEBRTC_BUILD")
-            ]
+            path: "Sources"
         ),
         .testTarget(
             name: "LiveKitTests",
