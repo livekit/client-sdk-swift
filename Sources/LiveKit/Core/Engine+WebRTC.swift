@@ -72,13 +72,9 @@ internal extension Engine {
 
     static private let encoderFactory: RTCVideoEncoderFactory = {
         let encoderFactory = VideoEncoderFactory()
-        #if LK_USE_LIVEKIT_WEBRTC_BUILD
         return VideoEncoderFactorySimulcast(primary: encoderFactory,
                                             fallback: encoderFactory)
 
-        #else
-        return encoderFactory
-        #endif
     }()
 
     static private let decoderFactory = VideoDecoderFactory()
@@ -96,14 +92,9 @@ internal extension Engine {
 
         logger.log("Initializing PeerConnectionFactory...", type: Engine.self)
 
-        #if LK_USE_LIVEKIT_WEBRTC_BUILD
         return RTCPeerConnectionFactory(bypassVoiceProcessing: bypassVoiceProcessing,
                                         encoderFactory: encoderFactory,
                                         decoderFactory: decoderFactory)
-        #else
-        return RTCPeerConnectionFactory(encoderFactory: encoderFactory,
-                                        decoderFactory: decoderFactory)
-        #endif
     }()
 
     // forbid direct access
@@ -120,11 +111,7 @@ internal extension Engine {
     }
 
     static func createVideoSource(forScreenShare: Bool) -> RTCVideoSource {
-        #if LK_USE_LIVEKIT_WEBRTC_BUILD
         DispatchQueue.webRTC.sync { peerConnectionFactory.videoSource(forScreenCast: forScreenShare) }
-        #else
-        DispatchQueue.webRTC.sync { peerConnectionFactory.videoSource() }
-        #endif
     }
 
     static func createVideoTrack(source: RTCVideoSource) -> RTCVideoTrack {
