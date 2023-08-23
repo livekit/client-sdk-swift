@@ -460,9 +460,11 @@ public extension OutboundRtpStreamStatistics {
     }
 
     var bps: UInt64 {
-        guard let previous = previous else { return 0 }
+        guard let previous = previous,
+              let currentBytesSent = bytesSent,
+              let previousBytesSent = previous.bytesSent else { return 0 }
         let secondsDiff = (timestamp - previous.timestamp) / (1000 * 1000)
-        return UInt64(Double(((bytesSent - previous.bytesSent) * 8)) / abs(secondsDiff))
+        return UInt64(Double(((currentBytesSent - previousBytesSent) * 8)) / abs(secondsDiff))
     }
 }
 
@@ -473,9 +475,11 @@ public extension InboundRtpStreamStatistics {
     }
 
     var bps: UInt64 {
-        guard let previous = previous else { return 0 }
+        guard let previous = previous,
+              let currentBytesReceived = bytesReceived,
+              let previousBytesReceived = previous.bytesReceived else { return 0 }
         let secondsDiff = (timestamp - previous.timestamp) / (1000 * 1000)
-        return UInt64(Double(((bytesReceived - previous.bytesReceived) * 8)) / abs(secondsDiff))
+        return UInt64(Double(((currentBytesReceived - previousBytesReceived) * 8)) / abs(secondsDiff))
     }
 }
 

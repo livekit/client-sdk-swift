@@ -70,6 +70,9 @@ public class RoomOptions: NSObject {
     @objc
     public let reportStats: Bool
 
+    /// E2EE Options
+    public let e2eeOptions: E2EEOptions?
+
     public init(defaultCameraCaptureOptions: CameraCaptureOptions = CameraCaptureOptions(),
                 defaultScreenShareCaptureOptions: ScreenShareCaptureOptions = ScreenShareCaptureOptions(),
                 defaultAudioCaptureOptions: AudioCaptureOptions = AudioCaptureOptions(),
@@ -80,7 +83,8 @@ public class RoomOptions: NSObject {
                 dynacast: Bool = false,
                 stopLocalTrackOnUnpublish: Bool = true,
                 suspendLocalVideoTracksInBackground: Bool = true,
-                reportStats: Bool = false) {
+                reportStats: Bool = false,
+                e2eeOptions: E2EEOptions? = nil) {
 
         self.defaultCameraCaptureOptions = defaultCameraCaptureOptions
         self.defaultScreenShareCaptureOptions = defaultScreenShareCaptureOptions
@@ -93,6 +97,7 @@ public class RoomOptions: NSObject {
         self.stopLocalTrackOnUnpublish = stopLocalTrackOnUnpublish
         self.suspendLocalVideoTracksInBackground = suspendLocalVideoTracksInBackground
         self.reportStats = reportStats
+        self.e2eeOptions = e2eeOptions
     }
 
     // MARK: - Equal

@@ -108,7 +108,7 @@ extension OutboundRtpStreamStatistics {
 
     /// Index of the rid.
     var ridIndex: Int {
-        guard let idx = VideoQuality.rids.firstIndex(of: rid) else {
+        guard let rid = rid, let idx = VideoQuality.rids.firstIndex(of: rid) else {
             return -1
         }
         return idx
