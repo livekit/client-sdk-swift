@@ -77,16 +77,6 @@ public class LocalAudioTrack: Track, LocalTrack, AudioTrack {
             return didUnpublish
         }
     }
-
-    public func add(audioRenderer: RTCAudioRenderer) {
-        guard let audioTrack = mediaTrack as? RTCAudioTrack else { return  }
-        audioTrack.add(audioRenderer)
-    }
-
-    public func remove(audioRenderer: RTCAudioRenderer) {
-        guard let audioTrack = mediaTrack as? RTCAudioTrack else { return }
-        audioTrack.remove(audioRenderer)
-    }
 }
 
 extension LocalAudioTrack {

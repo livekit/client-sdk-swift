@@ -19,10 +19,4 @@ import WebRTC
 
 @objc
 public protocol AudioTrack where Self: Track {
-
-    @objc(addAudioRenderer:)
-    func add(audioRenderer: RTCAudioRenderer)
-
-    @objc(removeAudioRenderer:)
-    func remove(audioRenderer: RTCAudioRenderer)
 }
