@@ -19,9 +19,4 @@ import WebRTC
 
 @objc
 public protocol AudioTrack where Self: Track {
-
-}
-
-extension AudioTrack {
-
 }
