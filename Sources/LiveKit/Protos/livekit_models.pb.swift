@@ -7,6 +7,20 @@
 // For information on using the generated types, please see the documentation:
 //   https://github.com/apple/swift-protobuf/
 
+// Copyright 2023 LiveKit, Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 import Foundation
 import SwiftProtobuf
 
@@ -574,8 +588,6 @@ struct Livekit_PlayoutDelay {
 
   var min: UInt32 = 0
 
-  var max: UInt32 = 0
-
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   init() {}
@@ -1075,11 +1087,16 @@ struct Livekit_UserPacket {
   /// participant ID of user that sent the message
   var participantSid: String = String()
 
+  var participantIdentity: String = String()
+
   /// user defined payload
   var payload: Data = Data()
 
-  /// the ID of the participants who will receive the message (the message will be sent to all the people in the room if this variable is empty)
+  /// the ID of the participants who will receive the message (sent to all by default)
   var destinationSids: [String] = []
+
+  /// identities of participants who will receive the message (sent to all by default)
+  var destinationIdentities: [String] = []
 
   /// topic under which the message was published
   var topic: String {
@@ -1217,6 +1234,8 @@ struct Livekit_ClientInfo {
     case unity // = 6
     case reactNative // = 7
     case rust // = 8
+    case python // = 9
+    case cpp // = 10
     case UNRECOGNIZED(Int)
 
     init() {
@@ -1234,6 +1253,8 @@ struct Livekit_ClientInfo {
       case 6: self = .unity
       case 7: self = .reactNative
       case 8: self = .rust
+      case 9: self = .python
+      case 10: self = .cpp
       default: self = .UNRECOGNIZED(rawValue)
       }
     }
@@ -1249,6 +1270,8 @@ struct Livekit_ClientInfo {
       case .unity: return 6
       case .reactNative: return 7
       case .rust: return 8
+      case .python: return 9
+      case .cpp: return 10
       case .UNRECOGNIZED(let i): return i
       }
     }
@@ -1272,6 +1295,8 @@ extension Livekit_ClientInfo.SDK: CaseIterable {
     .unity,
     .reactNative,
     .rust,
+    .python,
+    .cpp,
   ]
 }
 
@@ -1898,7 +1923,6 @@ extension Livekit_PlayoutDelay: SwiftProtobuf.Message, SwiftProtobuf._MessageImp
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     1: .same(proto: "enabled"),
     2: .same(proto: "min"),
-    3: .same(proto: "max"),
   ]
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -1909,7 +1933,6 @@ extension Livekit_PlayoutDelay: SwiftProtobuf.Message, SwiftProtobuf._MessageImp
       switch fieldNumber {
       case 1: try { try decoder.decodeSingularBoolField(value: &self.enabled) }()
       case 2: try { try decoder.decodeSingularUInt32Field(value: &self.min) }()
-      case 3: try { try decoder.decodeSingularUInt32Field(value: &self.max) }()
       default: break
       }
     }
@@ -1922,16 +1945,12 @@ extension Livekit_PlayoutDelay: SwiftProtobuf.Message, SwiftProtobuf._MessageImp
     if self.min != 0 {
       try visitor.visitSingularUInt32Field(value: self.min, fieldNumber: 2)
     }
-    if self.max != 0 {
-      try visitor.visitSingularUInt32Field(value: self.max, fieldNumber: 3)
-    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
   static func ==(lhs: Livekit_PlayoutDelay, rhs: Livekit_PlayoutDelay) -> Bool {
     if lhs.enabled != rhs.enabled {return false}
     if lhs.min != rhs.min {return false}
-    if lhs.max != rhs.max {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
@@ -2650,8 +2669,10 @@ extension Livekit_UserPacket: SwiftProtobuf.Message, SwiftProtobuf._MessageImple
   static let protoMessageName: String = _protobuf_package + ".UserPacket"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     1: .standard(proto: "participant_sid"),
+    5: .standard(proto: "participant_identity"),
     2: .same(proto: "payload"),
     3: .standard(proto: "destination_sids"),
+    6: .standard(proto: "destination_identities"),
     4: .same(proto: "topic"),
   ]
 
@@ -2665,6 +2686,8 @@ extension Livekit_UserPacket: SwiftProtobuf.Message, SwiftProtobuf._MessageImple
       case 2: try { try decoder.decodeSingularBytesField(value: &self.payload) }()
       case 3: try { try decoder.decodeRepeatedStringField(value: &self.destinationSids) }()
       case 4: try { try decoder.decodeSingularStringField(value: &self._topic) }()
+      case 5: try { try decoder.decodeSingularStringField(value: &self.participantIdentity) }()
+      case 6: try { try decoder.decodeRepeatedStringField(value: &self.destinationIdentities) }()
       default: break
       }
     }
@@ -2687,13 +2710,21 @@ extension Livekit_UserPacket: SwiftProtobuf.Message, SwiftProtobuf._MessageImple
     try { if let v = self._topic {
       try visitor.visitSingularStringField(value: v, fieldNumber: 4)
     } }()
+    if !self.participantIdentity.isEmpty {
+      try visitor.visitSingularStringField(value: self.participantIdentity, fieldNumber: 5)
+    }
+    if !self.destinationIdentities.isEmpty {
+      try visitor.visitRepeatedStringField(value: self.destinationIdentities, fieldNumber: 6)
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
   static func ==(lhs: Livekit_UserPacket, rhs: Livekit_UserPacket) -> Bool {
     if lhs.participantSid != rhs.participantSid {return false}
+    if lhs.participantIdentity != rhs.participantIdentity {return false}
     if lhs.payload != rhs.payload {return false}
     if lhs.destinationSids != rhs.destinationSids {return false}
+    if lhs.destinationIdentities != rhs.destinationIdentities {return false}
     if lhs._topic != rhs._topic {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
@@ -2904,6 +2935,8 @@ extension Livekit_ClientInfo.SDK: SwiftProtobuf._ProtoNameProviding {
     6: .same(proto: "UNITY"),
     7: .same(proto: "REACT_NATIVE"),
     8: .same(proto: "RUST"),
+    9: .same(proto: "PYTHON"),
+    10: .same(proto: "CPP"),
   ]
 }
 
