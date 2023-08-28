@@ -109,19 +109,19 @@ public class CameraCapturer: VideoCapturer {
 
             self.log("sortedFormats: \(sortedFormats.map { "(dimensions: \(String(describing: $0.dimensions)), fps: \(String(describing: $0.format.fpsRange())))" }), target dimensions: \(self.options.dimensions)")
 
-            // default to the smallest
-            var selectedFormat = sortedFormats.first
+            // default to the largest supported dimensions (backup)
+            var selectedFormat = sortedFormats.last
 
             if let preferredFormat = self.options.preferredFormat,
                let foundFormat = sortedFormats.first(where: { $0.format == preferredFormat }) {
-                // find preferred capture format if specified in options
+                // Use the preferred capture format if specified in options
                 selectedFormat = foundFormat
             } else {
                 if let foundFormat = sortedFormats.first(where: { $0.dimensions.area >= self.options.dimensions.area && $0.format.fpsRange().contains(self.options.fps) }) {
-                    // find format that satisfies preferred dimensions & fps
+                    // Use the first format that satisfies preferred dimensions & fps
                     selectedFormat = foundFormat
                 } else if let foundFormat = sortedFormats.first(where: { $0.dimensions.area >= self.options.dimensions.area }) {
-                    // give up FPS if format still not found
+                    // Use the first format that satisfies preferred dimensions (without fps)
                     selectedFormat = foundFormat
                 }
             }
