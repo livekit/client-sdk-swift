@@ -107,22 +107,23 @@ public class CameraCapturer: VideoCapturer {
             let sortedFormats = formats.map({ (format: $0, dimensions: Dimensions(from: CMVideoFormatDescriptionGetDimensions($0.formatDescription))) })
                 .sorted { $0.dimensions.area < $1.dimensions.area }
 
+            self.log("sortedFormats: \(sortedFormats.map { "(dimensions: \(String(describing: $0.dimensions)), fps: \(String(describing: $0.format.fpsRange())))" }), target dimensions: \(self.options.dimensions)")
+
             // default to the smallest
             var selectedFormat = sortedFormats.first
 
-            // find preferred capture format if specified in options
             if let preferredFormat = self.options.preferredFormat,
                let foundFormat = sortedFormats.first(where: { $0.format == preferredFormat }) {
+                // find preferred capture format if specified in options
                 selectedFormat = foundFormat
             } else {
-                self.log("formats: \(sortedFormats.map { String(describing: $0.format.fpsRange()) }), target: \(self.options.dimensions)")
 
-                // find format that satisfies preferred dimensions & fps
-                selectedFormat = sortedFormats.first(where: { $0.dimensions.area >= self.options.dimensions.area && $0.format.fpsRange().contains(self.options.fps) })
-
-                // give up FPS if format still not found
-                if selectedFormat == nil {
-                    selectedFormat = sortedFormats.first(where: { $0.dimensions.area >= self.options.dimensions.area })
+                if let foundFormat = sortedFormats.first(where: { $0.dimensions.area >= self.options.dimensions.area && $0.format.fpsRange().contains(self.options.fps) }) {
+                    // find format that satisfies preferred dimensions & fps
+                    selectedFormat = foundFormat
+                } else if let foundFormat = sortedFormats.first(where: { $0.dimensions.area >= self.options.dimensions.area }) {
+                    // give up FPS if format still not found
+                    selectedFormat = foundFormat
                 }
             }
 

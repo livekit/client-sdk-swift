@@ -50,6 +50,10 @@ public class Dimensions: NSObject {
         hasher.combine(height)
         return hasher.finalize()
     }
+
+    public override var description: String {
+        "Dimensions(\(width)x\(height))"
+    }
 }
 
 // MARK: - Static constants
