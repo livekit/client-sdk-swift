@@ -117,7 +117,6 @@ public class CameraCapturer: VideoCapturer {
                 // find preferred capture format if specified in options
                 selectedFormat = foundFormat
             } else {
-
                 if let foundFormat = sortedFormats.first(where: { $0.dimensions.area >= self.options.dimensions.area && $0.format.fpsRange().contains(self.options.fps) }) {
                     // find format that satisfies preferred dimensions & fps
                     selectedFormat = foundFormat
