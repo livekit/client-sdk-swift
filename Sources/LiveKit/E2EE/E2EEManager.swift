@@ -15,7 +15,6 @@
  */
 
 import Foundation
-import WebRTC
 
 @objc
 public class E2EEManager: NSObject, ObservableObject, Loggable {

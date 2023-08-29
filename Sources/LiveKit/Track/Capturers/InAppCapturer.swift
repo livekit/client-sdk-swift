@@ -15,12 +15,13 @@
  */
 
 import Foundation
-import WebRTC
 import Promises
 
 #if canImport(ReplayKit)
 import ReplayKit
 #endif
+
+@_implementationOnly import WebRTC
 
 @available(macOS 11.0, iOS 11.0, *)
 public class InAppScreenCapturer: VideoCapturer {

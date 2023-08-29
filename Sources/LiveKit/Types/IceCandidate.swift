@@ -15,7 +15,8 @@
  */
 
 import Foundation
-import WebRTC
+
+@_implementationOnly import WebRTC
 
 struct IceCandidate: Codable {
     let sdp: String

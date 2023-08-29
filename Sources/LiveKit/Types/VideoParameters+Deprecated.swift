@@ -15,7 +15,6 @@
  */
 
 import Foundation
-import WebRTC
 
 @available(*, deprecated)
 public extension VideoParameters {

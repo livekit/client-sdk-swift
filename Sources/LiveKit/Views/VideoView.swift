@@ -15,11 +15,12 @@
  */
 
 import Foundation
-import WebRTC
 import MetalKit
 
+@_implementationOnly import WebRTC
+
 /// A ``NativeViewType`` that conforms to ``RTCVideoRenderer``.
-public typealias NativeRendererView = NativeViewType & RTCVideoRenderer
+internal typealias NativeRendererView = NativeViewType & RTCVideoRenderer
 
 @objc
 public class VideoView: NativeView, Loggable {

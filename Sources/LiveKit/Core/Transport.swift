@@ -15,9 +15,10 @@
  */
 
 import Foundation
-import WebRTC
 import Promises
 import SwiftProtobuf
+
+@_implementationOnly import WebRTC
 
 internal typealias TransportOnOffer = (RTCSessionDescription) -> Promise<Void>
 

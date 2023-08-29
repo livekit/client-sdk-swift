@@ -15,7 +15,6 @@
  */
 
 import Foundation
-import WebRTC
 
 @objc
 public class Dimensions: NSObject {

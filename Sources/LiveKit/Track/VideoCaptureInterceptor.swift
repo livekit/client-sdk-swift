@@ -15,7 +15,8 @@
  */
 
 import Foundation
-import WebRTC
+
+@_implementationOnly import WebRTC
 
 public typealias CaptureFunc = (_ capture: RTCVideoFrame) -> Void
 public typealias InterceptFunc = (_ frame: RTCVideoFrame, _ capture: @escaping CaptureFunc) -> Void

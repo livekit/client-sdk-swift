@@ -15,7 +15,6 @@
  */
 
 import Foundation
-import WebRTC
 
 public enum DisconnectReason {
     case user // User initiated

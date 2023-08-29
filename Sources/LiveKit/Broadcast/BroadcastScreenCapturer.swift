@@ -6,12 +6,13 @@
 //
 
 import Foundation
-import WebRTC
 import Promises
 
 #if canImport(UIKit)
 import UIKit
 #endif
+
+@_implementationOnly import WebRTC
 
 #if os(iOS)
 

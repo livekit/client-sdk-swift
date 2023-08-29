@@ -15,7 +15,6 @@
  */
 
 import Foundation
-import WebRTC
 import Promises
 
 extension Room: SignalClientDelegate {

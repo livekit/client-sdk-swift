@@ -15,6 +15,6 @@
  */
 
 import Foundation
-import WebRTC
+@_implementationOnly import WebRTC
 
 public typealias VideoRotation = RTCVideoRotation
