@@ -79,6 +79,10 @@ internal extension Engine {
 
     static private let decoderFactory = VideoDecoderFactory()
 
+    static let audioProcessingModule: RTCDefaultAudioProcessingModule = {
+        RTCDefaultAudioProcessingModule()
+    }()
+
     static let peerConnectionFactory: RTCPeerConnectionFactory = {
 
         logger.log("Initializing SSL...", type: Engine.self)
@@ -94,7 +98,8 @@ internal extension Engine {
 
         return RTCPeerConnectionFactory(bypassVoiceProcessing: bypassVoiceProcessing,
                                         encoderFactory: encoderFactory,
-                                        decoderFactory: decoderFactory)
+                                        decoderFactory: decoderFactory,
+                                        audioProcessingModule: audioProcessingModule)
     }()
 
     // forbid direct access

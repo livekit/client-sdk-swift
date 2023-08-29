@@ -297,7 +297,7 @@ extension Transport: RTCPeerConnectionDelegate {
             return
         }
 
-        log("didAdd track \(track.trackId)")
+        log("didAddTrack type: \(type(of: track)), id: \(track.trackId)")
         notify { $0.transport(self, didAddTrack: track, rtpReceiver: rtpReceiver, streams: mediaStreams) }
     }
 
