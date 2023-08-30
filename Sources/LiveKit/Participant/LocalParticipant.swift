@@ -158,14 +158,17 @@ public class LocalParticipant: Participant {
             track.set(transport: publisher,
                       rtpSender: transceiver.sender)
 
-            // prefer to maintainResolution for screen share
-            if case .screenShareVideo = track.source {
-                self.log("[publish] set degradationPreference to .maintainResolution")
-                let params = transceiver.sender.parameters
-                params.degradationPreference = NSNumber(value: RTCDegradationPreference.maintainResolution.rawValue)
-                // changing params directly doesn't work so we need to update params
-                // and set it back to sender.parameters
-                transceiver.sender.parameters = params
+            if track is LocalVideoTrack {
+                let publishOptions = (publishOptions as? VideoPublishOptions) ?? self.room._state.options.defaultVideoPublishOptions
+                // if simulcast is enabled, degrade resolution by using server's layer switching logic instead of WebRTC's logic
+                if publishOptions.simulcast {
+                    self.log("[publish] set degradationPreference to .maintainResolution")
+                    let params = transceiver.sender.parameters
+                    params.degradationPreference = NSNumber(value: RTCDegradationPreference.maintainResolution.rawValue)
+                    // changing params directly doesn't work so we need to update params
+                    // and set it back to sender.parameters
+                    transceiver.sender.parameters = params
+                }
             }
 
             self.room.engine.publisherShouldNegotiate()
