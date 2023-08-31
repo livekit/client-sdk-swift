@@ -88,12 +88,46 @@ extension LocalVideoTrack {
                                          source: VideoTrack.Source = .screenShareVideo,
                                          options: BufferCaptureOptions = BufferCaptureOptions()) -> LocalVideoTrack {
         let videoSource = Engine.createVideoSource(forScreenShare: source == .screenShareVideo)
-        let capturer = BufferCapturer(delegate: videoSource, options: options)
+        let capturer = CameraInterceptBufferCapturer(delegate: videoSource)
         return LocalVideoTrack(
             name: name,
             source: source,
             capturer: capturer,
             videoSource: videoSource
         )
+    }
+}
+
+public class CameraInterceptBufferCapturer: BufferCapturer, RTCVideoCapturerDelegate {
+
+    lazy var cameraCapturer: CameraCapturer = {
+        CameraCapturer(delegate: self, options: CameraCaptureOptions(dimensions: .h1080_169, fps: 30))
+    }()
+
+    init(delegate: RTCVideoCapturerDelegate) {
+        super.init(delegate: delegate, options: BufferCaptureOptions())
+    }
+
+    // RTCVideoCapturerDelegate
+    public func capturer(_ capturer: RTCVideoCapturer, didCapture frame: RTCVideoFrame) {
+        print("Interceped frame from CameraCapturer")
+
+        if let rtcCVPixelBuffer = frame.buffer as? RTCCVPixelBuffer {
+
+            // Relay frame to BufferCapturer
+            capture(rtcCVPixelBuffer.pixelBuffer)
+        }
+    }
+
+    public override var captureState: VideoCapturer.CapturerState {
+        cameraCapturer.captureState
+    }
+
+    public override func startCapture() -> Promise<Bool> {
+        cameraCapturer.startCapture()
+    }
+
+    public override func stopCapture() -> Promise<Bool> {
+        cameraCapturer.stopCapture()
     }
 }

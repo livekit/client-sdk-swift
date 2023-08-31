@@ -532,7 +532,9 @@ extension LocalParticipant {
             // try to create a new track
             if source == .camera {
                 let localTrack = LocalVideoTrack.createCameraTrack(options: (captureOptions as? CameraCaptureOptions) ?? room._state.options.defaultCameraCaptureOptions)
-                return publishVideoTrack(track: localTrack, publishOptions: publishOptions as? VideoPublishOptions).then(on: queue) { $0 }
+                // Force custom options
+                let customOptions = VideoPublishOptions(simulcast: true, simulcastLayers: [VideoParameters.presetH1080_169, VideoParameters.presetH720_169, VideoParameters.presetH540_169])
+                return publishVideoTrack(track: localTrack, publishOptions: customOptions).then(on: queue) { $0 }
             } else if source == .microphone {
                 let localTrack = LocalAudioTrack.createTrack(options: (captureOptions as? AudioCaptureOptions) ?? room._state.options.defaultAudioCaptureOptions)
                 return publishAudioTrack(track: localTrack, publishOptions: publishOptions as? AudioPublishOptions).then(on: queue) { $0 }
