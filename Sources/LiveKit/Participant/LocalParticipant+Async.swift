@@ -104,7 +104,7 @@ public extension LocalParticipant {
                  reliability: Reliability = .reliable,
                  destinations: [RemoteParticipant]? = nil,
                  topic: String? = nil,
-                 options: DataPublishOptions?) async throws {
+                 options: DataPublishOptions? = nil) async throws {
 
         try await withCheckedThrowingContinuation { continuation in
             publish(data: data,

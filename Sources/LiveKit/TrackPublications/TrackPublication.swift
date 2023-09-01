@@ -20,7 +20,7 @@ import Promises
 import Combine
 
 @objc
-public class TrackPublication: NSObject, ObservableObject, TrackDelegate, Loggable {
+public class TrackPublication: NSObject, ObservableObject, Loggable {
 
     // MARK: - Public properties
 
@@ -59,6 +59,9 @@ public class TrackPublication: NSObject, ObservableObject, TrackDelegate, Loggab
     @objc
     public var subscribed: Bool { _state.track != nil }
 
+    @objc
+    public var encryptionType: EncryptionType { _state.encryptionType }
+
     // MARK: - Internal
 
     internal let queue = DispatchQueue(label: "LiveKitSDK.publication", qos: .default)
@@ -89,6 +92,7 @@ public class TrackPublication: NSObject, ObservableObject, TrackDelegate, Loggab
         // user's preference to subscribe or not
         var preferSubscribed: Bool?
         var metadataMuted: Bool = false
+        var encryptionType: EncryptionType = .none
     }
 
     internal var _state: StateSync<State>
@@ -102,7 +106,8 @@ public class TrackPublication: NSObject, ObservableObject, TrackDelegate, Loggab
             kind: info.type.toLKType(),
             source: info.source.toLKType(),
             name: info.name,
-            mimeType: info.mimeType
+            mimeType: info.mimeType,
+            encryptionType: info.encryption.toLKType()
         ))
 
         self.participant = participant
@@ -131,14 +136,27 @@ public class TrackPublication: NSObject, ObservableObject, TrackDelegate, Loggab
                 }
             }
 
-            Task.detached { @MainActor in
-                self.objectWillChange.send()
-            }
+            self.notifyObjectWillChange()
         }
     }
 
     deinit {
         log("sid: \(sid)")
+    }
+
+    internal func notifyObjectWillChange() {
+        // Notify UI that the object has changed
+        Task.detached { @MainActor in
+            // Notify TrackPublication
+            self.objectWillChange.send()
+
+            if let participant = self.participant {
+                // Notify Participant
+                participant.objectWillChange.send()
+                // Notify Room
+                participant.room.objectWillChange.send()
+            }
+        }
     }
 
     internal func updateFromInfo(info: Livekit_TrackInfo) {
@@ -176,8 +194,19 @@ public class TrackPublication: NSObject, ObservableObject, TrackDelegate, Loggab
 
         return oldValue
     }
+}
 
-    // MARK: - TrackDelegate
+// MARK: - TrackDelegate
+
+extension TrackPublication: TrackDelegateInternal {
+
+    func track(_ track: Track, didMutateState newState: Track.State, oldState: Track.State) {
+        // Notify on UI updating changes
+        if newState.muted != oldState.muted {
+            log("Track didMutateState newState: \(newState), oldState: \(oldState), kind: \(track.kind)")
+            notifyObjectWillChange()
+        }
+    }
 
     public func track(_ track: Track, didUpdate muted: Bool, shouldSendSignal: Bool) {
 

@@ -164,6 +164,12 @@ public class Track: NSObject, Loggable {
 
             guard let self = self else { return }
 
+            self.delegates.notify {
+                if let delegateInternal = $0 as? TrackDelegateInternal {
+                    delegateInternal.track(self, didMutateState: newState, oldState: oldState)
+                }
+            }
+
             // deprecated
             if newState.stats != oldState.stats, let stats = newState.stats {
                 self.delegates.notify { $0.track?(self, didUpdate: stats) }
@@ -454,9 +460,11 @@ public extension OutboundRtpStreamStatistics {
     }
 
     var bps: UInt64 {
-        guard let previous = previous else { return 0 }
+        guard let previous = previous,
+              let currentBytesSent = bytesSent,
+              let previousBytesSent = previous.bytesSent else { return 0 }
         let secondsDiff = (timestamp - previous.timestamp) / (1000 * 1000)
-        return UInt64(Double(((bytesSent - previous.bytesSent) * 8)) / abs(secondsDiff))
+        return UInt64(Double(((currentBytesSent - previousBytesSent) * 8)) / abs(secondsDiff))
     }
 }
 
@@ -467,9 +475,11 @@ public extension InboundRtpStreamStatistics {
     }
 
     var bps: UInt64 {
-        guard let previous = previous else { return 0 }
+        guard let previous = previous,
+              let currentBytesReceived = bytesReceived,
+              let previousBytesReceived = previous.bytesReceived else { return 0 }
         let secondsDiff = (timestamp - previous.timestamp) / (1000 * 1000)
-        return UInt64(Double(((bytesReceived - previous.bytesReceived) * 8)) / abs(secondsDiff))
+        return UInt64(Double(((currentBytesReceived - previousBytesReceived) * 8)) / abs(secondsDiff))
     }
 }
 

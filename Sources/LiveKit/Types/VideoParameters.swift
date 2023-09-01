@@ -158,12 +158,12 @@ extension VideoParameters {
     // 16:9 aspect ratio
     public static let presetH90_169 = VideoParameters(
         dimensions: .h90_169,
-        encoding: VideoEncoding(maxBitrate: 60_000, maxFps: 15)
+        encoding: VideoEncoding(maxBitrate: 90_000, maxFps: 15)
     )
 
     public static let presetH180_169 = VideoParameters(
         dimensions: .h180_169,
-        encoding: VideoEncoding(maxBitrate: 120_000, maxFps: 15)
+        encoding: VideoEncoding(maxBitrate: 160_000, maxFps: 15)
     )
 
     public static let presetH216_169 = VideoParameters(
@@ -173,12 +173,12 @@ extension VideoParameters {
 
     public static let presetH360_169 = VideoParameters(
         dimensions: .h360_169,
-        encoding: VideoEncoding(maxBitrate: 300_000, maxFps: 20)
+        encoding: VideoEncoding(maxBitrate: 450_000, maxFps: 20)
     )
 
     public static let presetH540_169 = VideoParameters(
         dimensions: .h540_169,
-        encoding: VideoEncoding(maxBitrate: 600_000, maxFps: 25)
+        encoding: VideoEncoding(maxBitrate: 800_000, maxFps: 25)
     )
 
     public static let presetH720_169 = VideoParameters(
@@ -204,47 +204,47 @@ extension VideoParameters {
     // 4:3 aspect ratio
     public static let presetH120_43 = VideoParameters(
         dimensions: .h120_43,
-        encoding: VideoEncoding(maxBitrate: 80_000, maxFps: 15)
+        encoding: VideoEncoding(maxBitrate: 70_000, maxFps: 15)
     )
 
     public static let presetH180_43 = VideoParameters(
         dimensions: .h180_43,
-        encoding: VideoEncoding(maxBitrate: 100_000, maxFps: 15)
+        encoding: VideoEncoding(maxBitrate: 125_000, maxFps: 15)
     )
 
     public static let presetH240_43 = VideoParameters(
         dimensions: .h240_43,
-        encoding: VideoEncoding(maxBitrate: 150_000, maxFps: 15)
+        encoding: VideoEncoding(maxBitrate: 140_000, maxFps: 15)
     )
 
     public static let presetH360_43 = VideoParameters(
         dimensions: .h360_43,
-        encoding: VideoEncoding(maxBitrate: 225_000, maxFps: 20)
+        encoding: VideoEncoding(maxBitrate: 330_000, maxFps: 20)
     )
 
     public static let presetH480_43 = VideoParameters(
         dimensions: .h480_43,
-        encoding: VideoEncoding(maxBitrate: 300_000, maxFps: 20)
+        encoding: VideoEncoding(maxBitrate: 500_000, maxFps: 20)
     )
 
     public static let presetH540_43 = VideoParameters(
         dimensions: .h540_43,
-        encoding: VideoEncoding(maxBitrate: 450_000, maxFps: 25)
+        encoding: VideoEncoding(maxBitrate: 600_000, maxFps: 25)
     )
 
     public static let presetH720_43 = VideoParameters(
         dimensions: .h720_43,
-        encoding: VideoEncoding(maxBitrate: 1_500_000, maxFps: 30)
+        encoding: VideoEncoding(maxBitrate: 1_300_000, maxFps: 30)
     )
 
     public static let presetH1080_43 = VideoParameters(
         dimensions: .h1080_43,
-        encoding: VideoEncoding(maxBitrate: 2_500_000, maxFps: 30)
+        encoding: VideoEncoding(maxBitrate: 2_300_000, maxFps: 30)
     )
 
     public static let presetH1440_43 = VideoParameters(
         dimensions: .h1440_43,
-        encoding: VideoEncoding(maxBitrate: 3_500_000, maxFps: 30)
+        encoding: VideoEncoding(maxBitrate: 3_800_000, maxFps: 30)
     )
 
     // Screen share
@@ -260,16 +260,16 @@ extension VideoParameters {
 
     public static let presetScreenShareH720FPS15 = VideoParameters(
         dimensions: .h720_169,
-        encoding: VideoEncoding(maxBitrate: 1_000_000, maxFps: 15)
+        encoding: VideoEncoding(maxBitrate: 1_500_000, maxFps: 15)
     )
 
     public static let presetScreenShareH1080FPS15 = VideoParameters(
         dimensions: .h1080_169,
-        encoding: VideoEncoding(maxBitrate: 1_500_000, maxFps: 15)
+        encoding: VideoEncoding(maxBitrate: 2_500_000, maxFps: 15)
     )
 
     public static let presetScreenShareH1080FPS30 = VideoParameters(
         dimensions: .h1080_169,
-        encoding: VideoEncoding(maxBitrate: 3_000_000, maxFps: 30)
+        encoding: VideoEncoding(maxBitrate: 4_000_000, maxFps: 30)
     )
 }
