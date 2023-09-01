@@ -160,8 +160,9 @@ public class LocalParticipant: Participant {
 
             if track is LocalVideoTrack {
                 let publishOptions = (publishOptions as? VideoPublishOptions) ?? self.room._state.options.defaultVideoPublishOptions
-                // if simulcast is enabled, degrade resolution by using server's layer switching logic instead of WebRTC's logic
-                if publishOptions.simulcast {
+                // if screen share or simulcast is enabled,
+                // degrade resolution by using server's layer switching logic instead of WebRTC's logic
+                if track.source == .screenShareVideo || publishOptions.simulcast {
                     self.log("[publish] set degradationPreference to .maintainResolution")
                     let params = transceiver.sender.parameters
                     params.degradationPreference = NSNumber(value: RTCDegradationPreference.maintainResolution.rawValue)
