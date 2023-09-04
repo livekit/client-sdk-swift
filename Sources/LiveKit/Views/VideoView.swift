@@ -211,64 +211,75 @@ public class VideoView: NativeView, Loggable {
             guard let self = self else { return }
 
             let shouldRenderDidUpdate = newState.shouldRender != oldState.shouldRender
+            let renderModeDidUpdate = newState.renderMode != oldState.renderMode
 
             // track was swapped
             let trackDidUpdate = !Self.track(oldState.track as? VideoTrack, isEqualWith: newState.track as? VideoTrack)
 
-            if trackDidUpdate || shouldRenderDidUpdate {
+            // Enter .main only if the following conditions are met...
+            if trackDidUpdate || shouldRenderDidUpdate || renderModeDidUpdate {
 
                 Task.detached { @MainActor in
 
-                    // clean up old track
-                    if let track = oldState.track as? VideoTrack {
+                    var didReCreateNativeRenderer = false
 
-                        track.remove(videoRenderer: self)
+                    if trackDidUpdate || shouldRenderDidUpdate {
 
-                        if let nr = self.nativeRenderer {
-                            self.log("removing nativeRenderer")
-                            nr.removeFromSuperview()
-                            self.nativeRenderer = nil
+                        // clean up old track
+                        if let track = oldState.track as? VideoTrack {
+
+                            track.remove(videoRenderer: self)
+
+                            if let nr = self.nativeRenderer {
+                                self.log("removing nativeRenderer")
+                                nr.removeFromSuperview()
+                                self.nativeRenderer = nil
+                            }
+
+                            // CapturerDelegate
+                            if let localTrack = track as? LocalVideoTrack {
+                                localTrack.capturer.remove(delegate: self)
+                            }
+
+                            // notify detach
+                            track.delegates.notify(label: { "track.didDetach videoView: \(self)" }) { [weak self, weak track] (delegate) -> Void in
+                                guard let self = self, let track = track else { return }
+                                delegate.track?(track, didDetach: self)
+                            }
                         }
 
-                        // CapturerDelegate
-                        if let localTrack = track as? LocalVideoTrack {
-                            localTrack.capturer.remove(delegate: self)
-                        }
+                        // set new track
+                        if let track = newState.track as? VideoTrack, newState.shouldRender {
 
-                        // notify detach
-                        track.delegates.notify(label: { "track.didDetach videoView: \(self)" }) { [weak self, weak track] (delegate) -> Void in
-                            guard let self = self, let track = track else { return }
-                            delegate.track?(track, didDetach: self)
+                            // re-create renderer on main thread
+                            let nr = self.reCreateNativeRenderer()
+                            didReCreateNativeRenderer = true
+
+                            track.add(videoRenderer: self)
+
+                            if let frame = track._state.videoFrame {
+                                self.log("rendering cached frame tack: \(track._state.sid ?? "nil")")
+                                nr.renderFrame(frame)
+                                self.setNeedsLayout()
+                            }
+
+                            // CapturerDelegate
+                            if let localTrack = track as? LocalVideoTrack {
+                                localTrack.capturer.add(delegate: self)
+                            }
+
+                            // notify attach
+                            track.delegates.notify(label: { "track.didAttach videoView: \(self)" }) { [weak self, weak track] (delegate) -> Void in
+                                guard let self = self, let track = track else { return }
+                                delegate.track?(track, didAttach: self)
+                            }
                         }
                     }
 
-                    // set new track
-                    if let track = newState.track as? VideoTrack, newState.shouldRender {
-
-                        // re-create renderer on main thread
-                        let nr = self.reCreateNativeRenderer()
-
-                        track.add(videoRenderer: self)
-
-                        if let frame = track._state.videoFrame {
-                            self.log("rendering cached frame tack: \(track._state.sid ?? "nil")")
-                            nr.renderFrame(frame)
-                            self.setNeedsLayout()
-                        }
-
-                        // CapturerDelegate
-                        if let localTrack = track as? LocalVideoTrack {
-                            localTrack.capturer.add(delegate: self)
-                        }
-
-                        // notify attach
-                        track.delegates.notify(label: { "track.didAttach videoView: \(self)" }) { [weak self, weak track] (delegate) -> Void in
-                            guard let self = self, let track = track else { return }
-                            delegate.track?(track, didAttach: self)
-                        }
+                    if renderModeDidUpdate, !didReCreateNativeRenderer {
+                        self.reCreateNativeRenderer()
                     }
                 }
-
             }
 
             // isRendering updated
@@ -303,6 +314,7 @@ public class VideoView: NativeView, Loggable {
             if newState.debugMode != oldState.debugMode ||
                 newState.layoutMode != oldState.layoutMode ||
                 newState.mirrorMode != oldState.mirrorMode ||
+                newState.renderMode != oldState.renderMode ||
                 newState.rotationOverride != oldState.rotationOverride ||
                 newState.didRenderFirstFrame != oldState.didRenderFirstFrame ||
                 shouldRenderDidUpdate || trackDidUpdate {
@@ -479,6 +491,7 @@ private extension VideoView {
         return view
     }
 
+    @discardableResult
     func reCreateNativeRenderer() -> NativeRendererView {
         // should always be on main thread
         assert(Thread.current.isMainThread, "must be called on main thread")
