@@ -139,6 +139,14 @@ public class VideoView: NativeView, Loggable {
     @objc
     public var didRenderFirstFrame: Bool { _state.didRenderFirstFrame }
 
+    /// Access the internal AVSampleBufferDisplayLayer used for rendering.
+    /// This is only available when the renderer is using AVSampleBufferDisplayLayer.
+    /// Recommended to be accessed from main thread.
+    public var avSampleBufferDisplayLayer: AVSampleBufferDisplayLayer? {
+        guard let nr = nativeRenderer as? InternalSampleBufferVideoRenderer else { return nil }
+        return nr.sampleBufferDisplayLayer
+    }
+
     // MARK: - Internal
 
     internal struct State: Equatable {
