@@ -51,10 +51,18 @@ public class VideoView: NativeView, Loggable {
     }
 
     @objc
-    public enum RenderMode: Int, Codable {
+    public enum RenderMode: Int, Codable, CustomStringConvertible {
         case auto
         case metal
         case sampleBuffer
+
+        public var description: String {
+            switch self {
+            case .auto: return ".auto"
+            case .metal: return ".metal"
+            case .sampleBuffer: return ".sampleBuffer"
+            }
+        }
     }
 
     /// ``LayoutMode-swift.enum`` of the ``VideoView``.
@@ -145,7 +153,7 @@ public class VideoView: NativeView, Loggable {
         var didLayout: Bool = false
         var layoutMode: LayoutMode = .fill
         var mirrorMode: MirrorMode = .auto
-        var renderMode: RenderMode = .auto
+        var renderMode: RenderMode = .sampleBuffer
         var rotationOverride: VideoRotation?
 
         var debugMode: Bool = false
@@ -363,9 +371,10 @@ public class VideoView: NativeView, Loggable {
             let _dimensions = state.track?.dimensions ?? .zero
             let _didRenderFirstFrame = state.didRenderFirstFrame ? "true" : "false"
             let _isRendering = state.isRendering ? "true" : "false"
+            let _renderMode = String(describing: state.renderMode)
             let _viewCount = state.track?.videoRenderers.allObjects.count ?? 0
             let debugView = ensureDebugTextView()
-            debugView.text = "#\(hashValue)\n" + "\(_trackSid)\n" + "\(_dimensions.width)x\(_dimensions.height)\n" + "enabled: \(isEnabled)\n" + "firstFrame: \(_didRenderFirstFrame)\n" + "isRendering: \(_isRendering)\n" + "viewCount: \(_viewCount)\n" + "FPS: \(_currentFPS)\n"
+            debugView.text = "#\(hashValue)\n" + "\(_trackSid)\n" + "\(_dimensions.width)x\(_dimensions.height)\n" + "enabled: \(isEnabled)\n" + "firstFrame: \(_didRenderFirstFrame)\n" + "isRendering: \(_isRendering)\n" + "renderMode: \(_renderMode)\n" + "viewCount: \(_viewCount)\n" + "FPS: \(_currentFPS)\n"
             debugView.frame = bounds
             #if os(iOS)
             debugView.layer.borderColor = (state.shouldRender ? UIColor.green : UIColor.red).withAlphaComponent(0.5).cgColor
@@ -467,7 +476,7 @@ private extension VideoView {
         assert(Thread.current.isMainThread, "must be called on main thread")
 
         // create a new rendererView
-        let newView = VideoView.createNativeRendererView()
+        let newView = VideoView.createNativeRendererView(for: _state.renderMode)
         addSubview(newView)
 
         // keep the old rendererView
@@ -621,29 +630,34 @@ extension VideoView {
         #endif
     }
 
-    internal static func createNativeRendererView() -> NativeRendererView {
-        logger.log("Using RTCMTLVideoView for VideoView's Renderer", type: VideoView.self)
-        let result = RTCMTLVideoView()
+    internal static func createNativeRendererView(for renderMode: VideoView.RenderMode) -> NativeRendererView {
+        if case .sampleBuffer = renderMode {
+            logger.log("Using AVSampleBufferDisplayLayer for VideoView's Renderer", type: VideoView.self)
+            return InternalSampleBufferVideoRenderer()
+        } else {
+            logger.log("Using RTCMTLVideoView for VideoView's Renderer", type: VideoView.self)
+            let result = RTCMTLVideoView()
 
-        #if os(iOS)
-        result.contentMode = .scaleAspectFit
-        result.videoContentMode = .scaleAspectFit
-        #endif
-
-        // extra checks for MTKView
-        if let mtkView = result.findMTKView() {
             #if os(iOS)
-            mtkView.contentMode = .scaleAspectFit
-            #elseif os(macOS)
-            mtkView.layerContentsPlacement = .scaleProportionallyToFit
+            result.contentMode = .scaleAspectFit
+            result.videoContentMode = .scaleAspectFit
             #endif
-            // ensure it's capable of rendering 60fps
-            // https://developer.apple.com/documentation/metalkit/mtkview/1536027-preferredframespersecond
-            logger.log("preferredFramesPerSecond = 60", type: VideoView.self)
-            mtkView.preferredFramesPerSecond = 60
-        }
 
-        return result
+            // extra checks for MTKView
+            if let mtkView = result.findMTKView() {
+                #if os(iOS)
+                mtkView.contentMode = .scaleAspectFit
+                #elseif os(macOS)
+                mtkView.layerContentsPlacement = .scaleProportionallyToFit
+                #endif
+                // ensure it's capable of rendering 60fps
+                // https://developer.apple.com/documentation/metalkit/mtkview/1536027-preferredframespersecond
+                logger.log("preferredFramesPerSecond = 60", type: VideoView.self)
+                mtkView.preferredFramesPerSecond = 60
+            }
+
+            return result
+        }
     }
 }
 

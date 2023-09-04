@@ -19,7 +19,7 @@ import WebRTC
 
 internal class InternalSampleBufferVideoRenderer: NativeView {
 
-    let sampleBufferDisplayLayer: AVSampleBufferDisplayLayer
+    public let sampleBufferDisplayLayer: AVSampleBufferDisplayLayer
 
     override init(frame: CGRect) {
         sampleBufferDisplayLayer = AVSampleBufferDisplayLayer()
@@ -62,7 +62,7 @@ extension InternalSampleBufferVideoRenderer: RTCVideoRenderer {
         }
 
         guard let sampleBuffer = CMSampleBuffer.from(rtcPixelBuffer.pixelBuffer) else {
-            logger.warning("Failed to convert CVPixelBuffer to CMSampleBuffer")
+            logger.error("Failed to convert CVPixelBuffer to CMSampleBuffer")
             return
         }
 
