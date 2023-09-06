@@ -37,10 +37,10 @@ public class E2EEManager: NSObject, ObservableObject, Loggable {
         self.room = room
         self.room?.delegates.add(delegate: self)
         self.room?.localParticipant?.tracks.forEach({ (_: Sid, publication: TrackPublication) in
-                if publication.encryptionType == EncryptionType.none {
-                    self.log("E2EEManager::setup: local participant \(self.room!.localParticipant!.identity) track \(publication.sid) encryptionType is none, skip");
-                    return
-                }
+            if publication.encryptionType == EncryptionType.none {
+                self.log("E2EEManager::setup: local participant \(self.room!.localParticipant!.identity) track \(publication.sid) encryptionType is none, skip");
+                return
+            }
             let fc = addRtpSender(sender: publication.track!.rtpSender!, participantId: self.room!.localParticipant!.identity, trackSid: publication.sid)
             trackPublications[fc] = publication
         })
@@ -65,23 +65,19 @@ public class E2EEManager: NSObject, ObservableObject, Loggable {
     }
 
     func addRtpSender(sender: RTCRtpSender, participantId: String, trackSid: Sid) -> RTCFrameCryptor {
-        var mapKey = [String: Sid]()
-        mapKey[participantId] = trackSid
         self.log("addRtpSender \(participantId) to E2EEManager")
         let frameCryptor = RTCFrameCryptor(rtpSender: sender, participantId: participantId, algorithm: RTCCyrptorAlgorithm.aesGcm, keyProvider: self.e2eeOptions.keyProvider.rtcKeyProvider!)
         frameCryptor.delegate = self
-        frameCryptors[mapKey] = frameCryptor
+        frameCryptors[[participantId: trackSid]] = frameCryptor
         frameCryptor.enabled = self.enabled
         return frameCryptor
     }
 
     func addRtpReceiver(receiver: RTCRtpReceiver, participantId: String, trackSid: Sid) -> RTCFrameCryptor {
-        var mapKey = [String: Sid]()
-        mapKey[participantId] = trackSid
         self.log("addRtpReceiver \(participantId)  to E2EEManager")
         let frameCryptor = RTCFrameCryptor(rtpReceiver: receiver, participantId: participantId, algorithm: RTCCyrptorAlgorithm.aesGcm, keyProvider: self.e2eeOptions.keyProvider.rtcKeyProvider!)
         frameCryptor.delegate = self
-        frameCryptors[mapKey] = frameCryptor
+        frameCryptors[[participantId: trackSid]] = frameCryptor
         frameCryptor.enabled = self.enabled
         return frameCryptor
     }
