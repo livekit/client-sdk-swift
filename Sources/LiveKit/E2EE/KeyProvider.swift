@@ -17,33 +17,91 @@
 import Foundation
 import WebRTC
 
-let defaultRatchetSalt: String = "LKFrameEncryptionKey"
-let defaultMagicBytes: String = "LK-ROCKS"
-let defaultRatchetWindowSize: Int32 = 16
+public let defaultRatchetSalt: String = "LKFrameEncryptionKey"
+public let defaultMagicBytes: String = "LK-ROCKS"
+public let defaultRatchetWindowSize: Int32 = 16
+
+public class KeyProviderOptions {
+    let sharedKey: Bool
+    let ratchetSalt: Data
+    let ratchetWindowSize: Int32
+    let uncryptedMagicBytes: Data
+    
+    public init(sharedKey: Bool = true,
+                ratchetSalt: Data = defaultRatchetSalt.data(using: .utf8)!,
+                ratchetWindowSize: Int32 = defaultRatchetWindowSize,
+                uncryptedMagicBytes: Data = defaultMagicBytes.data(using: .utf8)!
+        ) {
+        self.sharedKey = sharedKey
+        self.ratchetSalt = ratchetSalt
+        self.ratchetWindowSize = ratchetWindowSize
+        self.uncryptedMagicBytes = uncryptedMagicBytes
+    }
+}
 
 public class BaseKeyProvider: Loggable {
+    var options: KeyProviderOptions
     var rtcKeyProvider: RTCFrameCryptorKeyProvider?
-    var isSharedKey: Bool = true
-    var sharedKey: String?
-
     public init(isSharedKey: Bool, sharedKey: String? = nil) {
-        self.rtcKeyProvider = RTCFrameCryptorKeyProvider(ratchetSalt: defaultRatchetSalt.data(using: .utf8)!, ratchetWindowSize: defaultRatchetWindowSize, sharedKeyMode: isSharedKey, uncryptedMagicBytes: defaultMagicBytes.data(using: .utf8)!)
-        self.isSharedKey = isSharedKey
-        self.sharedKey = sharedKey
+        self.options = KeyProviderOptions(sharedKey: isSharedKey)
+        self.rtcKeyProvider = RTCFrameCryptorKeyProvider(ratchetSalt: options.ratchetSalt,
+                                                         ratchetWindowSize: options.ratchetWindowSize,
+                                                         sharedKeyMode: isSharedKey,
+                                                         uncryptedMagicBytes: options.uncryptedMagicBytes)
+        if isSharedKey && sharedKey != nil {
+            let keyData = sharedKey!.data(using: .utf8)!
+            self.rtcKeyProvider?.setSharedKey(keyData, with: 0)
+        }
+    }
+    
+    public init(options: KeyProviderOptions = KeyProviderOptions()) {
+        self.options = options
+        self.rtcKeyProvider = RTCFrameCryptorKeyProvider(ratchetSalt: options.ratchetSalt,
+                                                         ratchetWindowSize: options.ratchetWindowSize,
+                                                         sharedKeyMode: options.sharedKey,
+                                                         uncryptedMagicBytes: options.uncryptedMagicBytes)
     }
 
     public func setKey(key: String, participantId: String? = nil, index: Int32? = 0) {
-        if isSharedKey {
-            self.sharedKey = key
+        
+        if options.sharedKey {
+            let keyData = key.data(using: .utf8)!
+            self.rtcKeyProvider?.setSharedKey(keyData, with: index ?? 0)
             return
         }
 
         if participantId == nil {
-            self.log("Please provide valid participantId for non-SharedKey mode.")
+            self.log("setKey: Please provide valid participantId for non-SharedKey mode.")
             return
         }
 
         let keyData = key.data(using: .utf8)!
         rtcKeyProvider?.setKey(keyData, with: index!, forParticipant: participantId!)
+    }
+
+    public func ratchetKey(participantId: String? = nil, index: Int32? = 0) -> Data? {
+        if options.sharedKey {
+            return rtcKeyProvider?.ratchetSharedKey(index ?? 0)
+        }
+
+        if participantId == nil {
+            self.log("ratchetKey: Please provide valid participantId for non-SharedKey mode.")
+            return nil
+        }
+
+        return rtcKeyProvider?.ratchetKey(participantId!, with: index ?? 0)
+    }
+
+    public func exportKey(participantId: String? = nil, index: Int32? = 0) -> Data? {
+        if options.sharedKey {
+            return rtcKeyProvider?.exportSharedKey(index ?? 0)
+        }
+
+        if participantId == nil {
+            self.log("exportKey: Please provide valid participantId for non-SharedKey mode.")
+            return nil
+        }
+
+        return rtcKeyProvider?.exportKey(participantId!, with: index ?? 0)
     }
 }
