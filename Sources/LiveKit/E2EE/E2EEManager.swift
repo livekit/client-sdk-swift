@@ -30,6 +30,14 @@ public class E2EEManager: NSObject, ObservableObject, Loggable {
         self.e2eeOptions = e2eeOptions
     }
 
+    public func keyProvider() -> BaseKeyProvider {
+        return self.e2eeOptions.keyProvider
+    }
+
+    public func getFrameCryptors() -> [[String: Sid]: RTCFrameCryptor] {
+        return self.frameCryptors
+    }
+
     public func setup(room: Room) {
         if self.room != room {
             cleanUp()

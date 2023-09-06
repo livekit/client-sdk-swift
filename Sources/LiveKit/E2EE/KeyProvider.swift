@@ -71,11 +71,37 @@ public class BaseKeyProvider: Loggable {
         }
 
         if participantId == nil {
-            self.log("Please provide valid participantId for non-SharedKey mode.")
+            self.log("setKey: Please provide valid participantId for non-SharedKey mode.")
             return
         }
 
         let keyData = key.data(using: .utf8)!
         rtcKeyProvider?.setKey(keyData, with: index!, forParticipant: participantId!)
+    }
+
+    public func ratchetKey(participantId: String? = nil, index: Int32? = 0) -> Data? {
+        if options.sharedKey {
+            return rtcKeyProvider?.ratchetSharedKey(index ?? 0)
+        }
+
+        if participantId == nil {
+            self.log("ratchetKey: Please provide valid participantId for non-SharedKey mode.")
+            return nil
+        }
+
+        return rtcKeyProvider?.ratchetKey(participantId!, with: index ?? 0)
+    }
+
+    public func exportKey(participantId: String? = nil, index: Int32? = 0) -> Data? {
+        if options.sharedKey {
+            return rtcKeyProvider?.exportSharedKey(index ?? 0)
+        }
+
+        if participantId == nil {
+            self.log("exportKey: Please provide valid participantId for non-SharedKey mode.")
+            return nil
+        }
+
+        return rtcKeyProvider?.exportKey(participantId!, with: index ?? 0)
     }
 }
