@@ -161,7 +161,7 @@ public class VideoView: NativeView, Loggable {
         var didLayout: Bool = false
         var layoutMode: LayoutMode = .fill
         var mirrorMode: MirrorMode = .auto
-        var renderMode: RenderMode = .sampleBuffer
+        var renderMode: RenderMode = .auto
         var rotationOverride: VideoRotation?
 
         var debugMode: Bool = false
