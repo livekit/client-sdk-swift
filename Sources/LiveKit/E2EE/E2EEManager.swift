@@ -46,7 +46,7 @@ public class E2EEManager: NSObject, ObservableObject, Loggable {
         self.room?.delegates.add(delegate: self)
         self.room?.localParticipant?.tracks.forEach({ (_: Sid, publication: TrackPublication) in
             if publication.encryptionType == EncryptionType.none {
-                self.log("E2EEManager::setup: local participant \(self.room!.localParticipant!.identity) track \(publication.sid) encryptionType is none, skip");
+                self.log("E2EEManager::setup: local participant \(self.room!.localParticipant!.identity) track \(publication.sid) encryptionType is none, skip")
                 return
             }
             let fc = addRtpSender(sender: publication.track!.rtpSender!, participantId: self.room!.localParticipant!.identity, trackSid: publication.sid)
@@ -56,7 +56,7 @@ public class E2EEManager: NSObject, ObservableObject, Loggable {
         self.room?.remoteParticipants.forEach({ (_: Sid, participant: RemoteParticipant) in
             participant.tracks.forEach({ (_: Sid, publication: TrackPublication) in
                 if publication.encryptionType == EncryptionType.none {
-                    self.log("E2EEManager::setup: remote participant \(participant.identity) track \(publication.sid) encryptionType is none, skip");
+                    self.log("E2EEManager::setup: remote participant \(participant.identity) track \(publication.sid) encryptionType is none, skip")
                     return
                 }
                 let fc = addRtpReceiver(receiver: publication.track!.rtpReceiver!, participantId: participant.identity, trackSid: publication.sid)
@@ -124,7 +124,7 @@ extension E2EEManager: RoomDelegate {
 
     public func room(_ room: Room, localParticipant: LocalParticipant, didPublish publication: LocalTrackPublication) {
         if publication.encryptionType == EncryptionType.none {
-            self.log("E2EEManager::RoomDelegate: local participant \(localParticipant.identity) track \(publication.sid) encryptionType is none, skip");
+            self.log("E2EEManager::RoomDelegate: local participant \(localParticipant.identity) track \(publication.sid) encryptionType is none, skip")
             return
         }
         let fc = addRtpSender(sender: localParticipant.rtpSender!, participantId: localParticipant.identity, trackSid: publication.sid)
@@ -139,7 +139,7 @@ extension E2EEManager: RoomDelegate {
         frameCryptor?.delegate = nil
         frameCryptor?.enabled = false
         frameCryptors.removeValue(forKey: [localParticipant.identity: publication.sid])
-        
+
         if frameCryptor != nil {
             trackPublications.removeValue(forKey: frameCryptor!)
         }
@@ -147,7 +147,7 @@ extension E2EEManager: RoomDelegate {
 
     public func room(_ room: Room, participant: RemoteParticipant, didSubscribe publication: RemoteTrackPublication, track: Track) {
         if publication.encryptionType == EncryptionType.none {
-            self.log("E2EEManager::RoomDelegate: remote participant \(participant.identity) track \(publication.sid) encryptionType is none, skip");
+            self.log("E2EEManager::RoomDelegate: remote participant \(participant.identity) track \(publication.sid) encryptionType is none, skip")
             return
         }
         let fc = addRtpReceiver(receiver: participant.rtpReceiver!, participantId: participant.identity, trackSid: publication.sid)

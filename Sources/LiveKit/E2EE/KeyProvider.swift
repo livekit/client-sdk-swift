@@ -26,12 +26,12 @@ public class KeyProviderOptions {
     let ratchetSalt: Data
     let ratchetWindowSize: Int32
     let uncryptedMagicBytes: Data
-    
+
     public init(sharedKey: Bool = true,
                 ratchetSalt: Data = defaultRatchetSalt.data(using: .utf8)!,
                 ratchetWindowSize: Int32 = defaultRatchetWindowSize,
                 uncryptedMagicBytes: Data = defaultMagicBytes.data(using: .utf8)!
-        ) {
+    ) {
         self.sharedKey = sharedKey
         self.ratchetSalt = ratchetSalt
         self.ratchetWindowSize = ratchetWindowSize
@@ -53,7 +53,7 @@ public class BaseKeyProvider: Loggable {
             self.rtcKeyProvider?.setSharedKey(keyData, with: 0)
         }
     }
-    
+
     public init(options: KeyProviderOptions = KeyProviderOptions()) {
         self.options = options
         self.rtcKeyProvider = RTCFrameCryptorKeyProvider(ratchetSalt: options.ratchetSalt,
@@ -63,7 +63,7 @@ public class BaseKeyProvider: Loggable {
     }
 
     public func setKey(key: String, participantId: String? = nil, index: Int32? = 0) {
-        
+
         if options.sharedKey {
             let keyData = key.data(using: .utf8)!
             self.rtcKeyProvider?.setSharedKey(keyData, with: index ?? 0)
