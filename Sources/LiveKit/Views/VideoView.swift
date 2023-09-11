@@ -18,8 +18,12 @@ import Foundation
 import WebRTC
 import MetalKit
 
+internal protocol Mirrorable {
+    func set(mirrored: Bool)
+}
+
 /// A ``NativeViewType`` that conforms to ``RTCVideoRenderer``.
-public typealias NativeRendererView = NativeViewType & RTCVideoRenderer
+internal typealias NativeRendererView = NativeViewType & RTCVideoRenderer & Mirrorable
 
 @objc
 public class VideoView: NativeView, Loggable {
@@ -30,7 +34,7 @@ public class VideoView: NativeView, Loggable {
 
     // MARK: - Static
 
-    private static let mirrorTransform = CATransform3DMakeScale(-1.0, 1.0, 1.0)
+    internal static let mirrorTransform = CATransform3DMakeScale(-1.0, 1.0, 1.0)
     private static let _freezeDetectThreshold = 2.0
 
     /// Specifies how to render the video withing the ``VideoView``'s bounds.
@@ -460,22 +464,7 @@ public class VideoView: NativeView, Loggable {
             }
         }
 
-        if shouldMirror() {
-            #if os(macOS)
-            // this is required for macOS
-            nativeRenderer.wantsLayer = true
-            nativeRenderer.set(anchorPoint: CGPoint(x: 0.5, y: 0.5))
-            nativeRenderer.layer!.sublayerTransform = VideoView.mirrorTransform
-            #elseif os(iOS)
-            nativeRenderer.layer.transform = VideoView.mirrorTransform
-            #endif
-        } else {
-            #if os(macOS)
-            nativeRenderer.layer?.sublayerTransform = CATransform3DIdentity
-            #elseif os(iOS)
-            nativeRenderer.layer.transform = CATransform3DIdentity
-            #endif
-        }
+        nativeRenderer.set(mirrored: shouldMirror())
     }
 }
 
@@ -721,3 +710,26 @@ extension NSView {
     }
 }
 #endif
+
+extension RTCMTLVideoView: Mirrorable {
+
+    internal func set(mirrored: Bool) {
+
+        if mirrored {
+            #if os(macOS)
+            // This is required for macOS
+            wantsLayer = true
+            set(anchorPoint: CGPoint(x: 0.5, y: 0.5))
+            layer!.sublayerTransform = VideoView.mirrorTransform
+            #elseif os(iOS)
+            layer.transform = VideoView.mirrorTransform
+            #endif
+        } else {
+            #if os(macOS)
+            layer?.sublayerTransform = CATransform3DIdentity
+            #elseif os(iOS)
+            layer.transform = CATransform3DIdentity
+            #endif
+        }
+    }
+}

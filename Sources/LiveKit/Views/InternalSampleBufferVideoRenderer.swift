@@ -17,7 +17,7 @@
 import Foundation
 import WebRTC
 
-internal class InternalSampleBufferVideoRenderer: NativeView {
+internal class InternalSampleBufferVideoRenderer: NativeView, Loggable {
 
     public let sampleBufferDisplayLayer: AVSampleBufferDisplayLayer
 
@@ -48,26 +48,33 @@ internal class InternalSampleBufferVideoRenderer: NativeView {
 
 extension InternalSampleBufferVideoRenderer: RTCVideoRenderer {
 
-    public func setSize(_ size: CGSize) {
+    internal func setSize(_ size: CGSize) {
         //
     }
 
-    public func renderFrame(_ frame: RTCVideoFrame?) {
+    internal func renderFrame(_ frame: RTCVideoFrame?) {
 
         guard let frame = frame else { return }
 
         guard let rtcPixelBuffer = frame.buffer as? RTCCVPixelBuffer else {
-            logger.warning("frame.buffer is not a RTCCVPixelBuffer")
+            log("frame.buffer is not a RTCCVPixelBuffer", .error)
             return
         }
 
         guard let sampleBuffer = CMSampleBuffer.from(rtcPixelBuffer.pixelBuffer) else {
-            logger.error("Failed to convert CVPixelBuffer to CMSampleBuffer")
+            log("Failed to convert CVPixelBuffer to CMSampleBuffer", .error)
             return
         }
 
         DispatchQueue.main.async {
             self.sampleBufferDisplayLayer.enqueue(sampleBuffer)
         }
+    }
+}
+
+extension InternalSampleBufferVideoRenderer: Mirrorable {
+
+    internal func set(mirrored: Bool) {
+        sampleBufferDisplayLayer.transform = mirrored ? VideoView.mirrorTransform : CATransform3DIdentity
     }
 }
