@@ -177,9 +177,7 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
             // socket.onMessage = nil
             // socket.onDisconnect = nil
             // self.webSocket?.cancel()
-            Task {
-                try await socket.cancel()
-            }
+            socket.reset()
             self.webSocket = nil
         }
 

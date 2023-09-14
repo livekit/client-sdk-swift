@@ -25,7 +25,7 @@ internal class WebSocket: NSObject, AsyncSequence, URLSessionWebSocketDelegate {
     typealias Element = URLSessionWebSocketTask.Message
 
     private var streamContinuation: WebSocketStream.Continuation?
-    private var connectContinuation: CheckedContinuation<(), Error>?
+    private var connectContinuation: CheckedContinuation<Void, Error>?
 
     private let request: URLRequest
 
@@ -43,7 +43,7 @@ internal class WebSocket: NSObject, AsyncSequence, URLSessionWebSocketDelegate {
 
     private lazy var stream: WebSocketStream = {
         return WebSocketStream { continuation in
-            self.streamContinuation = continuation
+            streamContinuation = continuation
             waitForNextValue()
         }
     }()
@@ -56,7 +56,7 @@ internal class WebSocket: NSObject, AsyncSequence, URLSessionWebSocketDelegate {
     }
 
     deinit {
-        streamContinuation?.finish()
+        reset()
     }
 
     public func connect() async throws {
@@ -69,9 +69,12 @@ internal class WebSocket: NSObject, AsyncSequence, URLSessionWebSocketDelegate {
         connectContinuation = nil
     }
 
-    func cancel() async throws {
+    func reset() {
         task.cancel(with: .goingAway, reason: nil)
+        connectContinuation?.resume(throwing: SignalClientError.socketError(rawError: nil))
+        connectContinuation = nil
         streamContinuation?.finish()
+        streamContinuation = nil
     }
 
     // MARK: - AsyncSequence
@@ -127,10 +130,10 @@ internal class WebSocket: NSObject, AsyncSequence, URLSessionWebSocketDelegate {
     }
 }
 
-extension WebSocket {
+internal extension WebSocket {
 
     // Deprecate
-    public func send(data: Data) -> Promise<Void> {
+    func send(data: Data) -> Promise<Void> {
         Promise { [self] resolve, fail in
             Task {
                 do {
