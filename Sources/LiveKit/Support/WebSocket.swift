@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 LiveKit
+ * Copyright 2022-2023 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@ import Promises
 
 internal typealias WebSocketStream = AsyncThrowingStream<URLSessionWebSocketTask.Message, Error>
 
-internal class WebSocket: NSObject, AsyncSequence, URLSessionWebSocketDelegate {
+internal class WebSocket: NSObject, Loggable, AsyncSequence, URLSessionWebSocketDelegate {
 
     typealias AsyncIterator = WebSocketStream.Iterator
     typealias Element = URLSessionWebSocketTask.Message
@@ -65,8 +65,6 @@ internal class WebSocket: NSObject, AsyncSequence, URLSessionWebSocketDelegate {
             connectContinuation = continuation
             task.resume()
         }
-
-        connectContinuation = nil
     }
 
     func reset() {
@@ -86,6 +84,7 @@ internal class WebSocket: NSObject, AsyncSequence, URLSessionWebSocketDelegate {
     private func waitForNextValue() {
         guard task.closeCode == .invalid else {
             streamContinuation?.finish()
+            streamContinuation = nil
             return
         }
 
@@ -100,6 +99,7 @@ internal class WebSocket: NSObject, AsyncSequence, URLSessionWebSocketDelegate {
                 self?.waitForNextValue()
             } catch {
                 continuation.finish(throwing: error)
+                self?.streamContinuation = nil
             }
         })
     }
@@ -114,19 +114,17 @@ internal class WebSocket: NSObject, AsyncSequence, URLSessionWebSocketDelegate {
     // MARK: - URLSessionWebSocketDelegate
 
     func urlSession(_ session: URLSession, webSocketTask: URLSessionWebSocketTask, didOpenWithProtocol protocol: String?) {
-        print("urlSession didOpenWithProtocol")
         connectContinuation?.resume()
-    }
-
-    func urlSession(_ session: URLSession, webSocketTask: URLSessionWebSocketTask, didCloseWith closeCode: URLSessionWebSocketTask.CloseCode, reason: Data?) {
-        print("urlSession didCloseWith")
+        connectContinuation = nil
     }
 
     func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
-        print("urlSession didCompleteWithError")
-        let error = error ??  NetworkError.disconnected(message: "WebSocket error")
+        log("didCompleteWithError: \(String(describing: error))", .error)
+        let error = error ??  NetworkError.disconnected(message: "WebSocket didCompleteWithError")
         connectContinuation?.resume(throwing: error)
+        connectContinuation = nil
         streamContinuation?.finish()
+        streamContinuation = nil
     }
 }
 
