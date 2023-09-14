@@ -19,7 +19,7 @@ import Promises
 
 internal typealias WebSocketStream = AsyncThrowingStream<URLSessionWebSocketTask.Message, Error>
 
-internal class LKWebSocket: NSObject, AsyncSequence, URLSessionWebSocketDelegate {
+internal class WebSocket: NSObject, AsyncSequence, URLSessionWebSocketDelegate {
 
     typealias AsyncIterator = WebSocketStream.Iterator
     typealias Element = URLSessionWebSocketTask.Message
@@ -127,7 +127,7 @@ internal class LKWebSocket: NSObject, AsyncSequence, URLSessionWebSocketDelegate
     }
 }
 
-extension LKWebSocket {
+extension WebSocket {
 
     // Deprecate
     public func send(data: Data) -> Promise<Void> {

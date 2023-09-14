@@ -53,7 +53,7 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
 
     private var responseQueueState: QueueState = .resumed
 
-    private var webSocket: LKWebSocket?
+    private var webSocket: WebSocket?
     private var latestJoinResponse: Livekit_JoinResponse?
 
     private var pingIntervalTimer: DispatchQueueTimer?
@@ -108,7 +108,7 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
             $0.connectionState = .connecting
         }
 
-        let socket = LKWebSocket(url: url)
+        let socket = WebSocket(url: url)
 
         return Promise<Void> { resolve, reject in
             Task {

@@ -19,9 +19,9 @@ import XCTest
 
 class WebSocketTests: XCTestCase {
 
-    lazy var socket: LKWebSocket = {
+    lazy var socket: WebSocket = {
         let url = URL(string: "wss://socketsbay.com/wss/v2/1/demo/")!
-        return LKWebSocket(url: url)
+        return WebSocket(url: url)
     }()
 
     override func setUpWithError() throws {
