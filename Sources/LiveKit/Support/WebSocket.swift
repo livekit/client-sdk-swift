@@ -215,8 +215,6 @@ internal class LKWebSocket: NSObject, AsyncSequence, URLSessionWebSocketDelegate
         request = URLRequest(url: url,
                              cachePolicy: .useProtocolCachePolicy,
                              timeoutInterval: .defaultSocketConnect)
-        super.init()
-        task.resume()
     }
 
     deinit {
@@ -225,23 +223,23 @@ internal class LKWebSocket: NSObject, AsyncSequence, URLSessionWebSocketDelegate
 
     public func connect() async throws {
 
-        //        connectHandle = Task {
         try await withCheckedThrowingContinuation { continuation in
-            self.connectContinuation = continuation
+            connectContinuation = continuation
+            task.resume()
         }
-        //        }
 
-        // await connectHandle?.value
         connectContinuation = nil
-    }
-
-    func makeAsyncIterator() -> AsyncIterator {
-        return stream.makeAsyncIterator()
     }
 
     func cancel() async throws {
         task.cancel(with: .goingAway, reason: nil)
         streamContinuation?.finish()
+    }
+
+    // MARK: - AsyncSequence
+
+    func makeAsyncIterator() -> AsyncIterator {
+        return stream.makeAsyncIterator()
     }
 
     private func waitForNextValue() {
@@ -265,14 +263,14 @@ internal class LKWebSocket: NSObject, AsyncSequence, URLSessionWebSocketDelegate
         })
     }
 
-    // Send
+    // MARK: - Send
 
     public func send(data: Data) async throws {
         let message = URLSessionWebSocketTask.Message.data(data)
         try await task.send(message)
     }
 
-    // URLSessionWebSocketDelegate
+    // MARK: - URLSessionWebSocketDelegate
 
     func urlSession(_ session: URLSession, webSocketTask: URLSessionWebSocketTask, didOpenWithProtocol protocol: String?) {
         print("urlSession didOpenWithProtocol")
@@ -285,16 +283,15 @@ internal class LKWebSocket: NSObject, AsyncSequence, URLSessionWebSocketDelegate
 
     func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
         print("urlSession didCompleteWithError")
-        if let error = error {
-            // connectContinuation?.
-            connectContinuation?.resume(throwing: error)
-        }
+        let error = error ??  NetworkError.disconnected(message: "WebSocket error")
+        connectContinuation?.resume(throwing: error)
         streamContinuation?.finish()
     }
 }
 
 extension LKWebSocket {
 
+    // Deprecate
     public func send(data: Data) -> Promise<Void> {
         Promise { [self] resolve, fail in
             Task {

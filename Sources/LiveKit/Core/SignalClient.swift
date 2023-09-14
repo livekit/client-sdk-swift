@@ -118,8 +118,17 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
                     self._state.mutate { $0.connectionState = .connected }
                     resolve(())
 
-                    for try await message in socket {
-                        self.onWebSocketMessage(message: message)
+                    Task.detached {
+                        self.log("Did enter WebSocket message loop...")
+                        do {
+                            for try await message in socket {
+                                self.onWebSocketMessage(message: message)
+                            }
+                        } catch {
+                            //
+                            self.cleanUp(reason: .networkError(error))
+                        }
+                        self.log("Did exit WebSocket message loop...")
                     }
                 } catch {
                     reject(error)
