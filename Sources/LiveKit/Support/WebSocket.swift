@@ -177,3 +177,134 @@ internal class WebSocket: NSObject, URLSessionWebSocketDelegate, Loggable {
         cleanUp(reason: .networkError(sdkError))
     }
 }
+
+internal typealias WebSocketStream = AsyncThrowingStream<URLSessionWebSocketTask.Message, Error>
+
+internal class LKWebSocket: NSObject, AsyncSequence, URLSessionWebSocketDelegate {
+
+    typealias AsyncIterator = WebSocketStream.Iterator
+    typealias Element = URLSessionWebSocketTask.Message
+
+    private var streamContinuation: WebSocketStream.Continuation?
+    private var connectContinuation: CheckedContinuation<(), Error>?
+    private var connectHandle: Task<(), Never>?
+
+    private let request: URLRequest
+
+    private lazy var urlSession: URLSession = {
+        let config = URLSessionConfiguration.default
+        // explicitly set timeout intervals
+        config.timeoutIntervalForRequest = TimeInterval(60)
+        config.timeoutIntervalForResource = TimeInterval(604_800)
+        return URLSession(configuration: config, delegate: self, delegateQueue: nil)
+    }()
+
+    private lazy var task: URLSessionWebSocketTask = {
+        urlSession.webSocketTask(with: request)
+    }()
+
+    private lazy var stream: WebSocketStream = {
+        return WebSocketStream { continuation in
+            self.streamContinuation = continuation
+            waitForNextValue()
+        }
+    }()
+
+    init(url: URL) {
+
+        request = URLRequest(url: url,
+                             cachePolicy: .useProtocolCachePolicy,
+                             timeoutInterval: .defaultSocketConnect)
+        super.init()
+        task.resume()
+    }
+
+    deinit {
+        streamContinuation?.finish()
+    }
+
+    public func connect() async throws {
+
+//        connectHandle = Task {
+            try await withCheckedThrowingContinuation { continuation in
+                self.connectContinuation = continuation
+            }
+//        }
+
+        // await connectHandle?.value
+        connectContinuation = nil
+    }
+
+    func makeAsyncIterator() -> AsyncIterator {
+        return stream.makeAsyncIterator()
+    }
+
+    func cancel() async throws {
+        task.cancel(with: .goingAway, reason: nil)
+        streamContinuation?.finish()
+    }
+
+    private func waitForNextValue() {
+        guard task.closeCode == .invalid else {
+            streamContinuation?.finish()
+            return
+        }
+
+        task.receive(completionHandler: { [weak self] result in
+            guard let continuation = self?.streamContinuation else {
+                return
+            }
+
+            do {
+                let message = try result.get()
+                continuation.yield(message)
+                self?.waitForNextValue()
+            } catch {
+                continuation.finish(throwing: error)
+            }
+        })
+    }
+
+    // Send
+
+    public func send(data: Data) async throws {
+        let message = URLSessionWebSocketTask.Message.data(data)
+        try await task.send(message)
+    }
+
+    // URLSessionWebSocketDelegate
+
+    func urlSession(_ session: URLSession, webSocketTask: URLSessionWebSocketTask, didOpenWithProtocol protocol: String?) {
+        print("urlSession didOpenWithProtocol")
+        connectContinuation?.resume()
+    }
+
+    func urlSession(_ session: URLSession, webSocketTask: URLSessionWebSocketTask, didCloseWith closeCode: URLSessionWebSocketTask.CloseCode, reason: Data?) {
+        print("urlSession didCloseWith")
+    }
+
+    func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
+        print("urlSession didCompleteWithError")
+        if let error = error {
+            // connectContinuation?.
+            connectContinuation?.resume(throwing: error)
+        }
+        streamContinuation?.finish()
+    }
+}
+
+extension LKWebSocket {
+
+    public func send(data: Data) -> Promise<Void> {
+        Promise { [self] resolve, fail in
+            Task {
+                do {
+                    try await self.send(data: data)
+                    resolve(())
+                } catch {
+                    fail(error)
+                }
+            }
+        }
+    }
+}

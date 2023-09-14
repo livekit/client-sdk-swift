@@ -53,7 +53,7 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
 
     private var responseQueueState: QueueState = .resumed
 
-    private var webSocket: WebSocket?
+    private var webSocket: LKWebSocket?
     private var latestJoinResponse: Livekit_JoinResponse?
 
     private var pingIntervalTimer: DispatchQueueTimer?
@@ -108,16 +108,24 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
             $0.connectionState = .connecting
         }
 
-        return WebSocket.connect(url: url,
-                                 onMessage: self.onWebSocketMessage,
-                                 onDisconnect: { reason in
-                                    self.webSocket = nil
-                                    self.cleanUp(reason: reason)
-                                 })
-            .then(on: queue) { (webSocket: WebSocket) -> Void in
-                self.webSocket = webSocket
-                self._state.mutate { $0.connectionState = .connected }
-            }.recover(on: queue) { error -> Promise<Void> in
+        let socket = LKWebSocket(url: url)
+
+        return Promise<Void> { resolve, reject in
+            Task {
+                do {
+                    try await socket.connect()
+                    self.webSocket = socket
+                    self._state.mutate { $0.connectionState = .connected }
+                    resolve(())
+
+                    for try await message in socket {
+                        self.onWebSocketMessage(message: message)
+                    }
+                } catch {
+                    reject(error)
+                }
+            }
+        }.recover(on: queue) { error -> Promise<Void> in
                 // Skip validation if reconnect mode
                 if reconnectMode != nil { throw error }
                 // Catch first, then throw again after getting validation response
@@ -156,9 +164,13 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
         pingTimeoutTimer = nil
 
         if let socket = webSocket {
-            socket.cleanUp(reason: reason, notify: false)
-            socket.onMessage = nil
-            socket.onDisconnect = nil
+            // socket.cleanUp(reason: reason, notify: false)
+            // socket.onMessage = nil
+            // socket.onDisconnect = nil
+            // self.webSocket?.cancel()
+            Task {
+                try await socket.cancel()
+            }
             self.webSocket = nil
         }
 
