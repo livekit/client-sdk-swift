@@ -126,32 +126,32 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
                 }
             }
         }.recover(on: queue) { error -> Promise<Void> in
-                // Skip validation if reconnect mode
-                if reconnectMode != nil { throw error }
-                // Catch first, then throw again after getting validation response
-                // Re-build url with validate mode
-                guard let validateUrl = Utils.buildUrl(urlString,
-                                                       token,
-                                                       connectOptions: connectOptions,
-                                                       adaptiveStream: adaptiveStream,
-                                                       validate: true) else {
+            // Skip validation if reconnect mode
+            if reconnectMode != nil { throw error }
+            // Catch first, then throw again after getting validation response
+            // Re-build url with validate mode
+            guard let validateUrl = Utils.buildUrl(urlString,
+                                                   token,
+                                                   connectOptions: connectOptions,
+                                                   adaptiveStream: adaptiveStream,
+                                                   validate: true) else {
 
-                    return Promise(InternalError.parse(message: "Failed to parse validation url"))
-                }
-
-                self.log("Validating with url: \(validateUrl)")
-
-                return HTTP().get(on: self.queue, url: validateUrl).then(on: self.queue) { data in
-                    guard let string = String(data: data, encoding: .utf8) else {
-                        throw SignalClientError.connect(message: "Failed to decode string")
-                    }
-                    self.log("validate response: \(string)")
-                    // re-throw with validation response
-                    throw SignalClientError.connect(message: "Validation response: \"\(string)\"")
-                }
-            }.catch(on: queue) { error in
-                self.cleanUp(reason: .networkError(error))
+                return Promise(InternalError.parse(message: "Failed to parse validation url"))
             }
+
+            self.log("Validating with url: \(validateUrl)")
+
+            return HTTP().get(on: self.queue, url: validateUrl).then(on: self.queue) { data in
+                guard let string = String(data: data, encoding: .utf8) else {
+                    throw SignalClientError.connect(message: "Failed to decode string")
+                }
+                self.log("validate response: \(string)")
+                // re-throw with validation response
+                throw SignalClientError.connect(message: "Validation response: \"\(string)\"")
+            }
+        }.catch(on: queue) { error in
+            self.cleanUp(reason: .networkError(error))
+        }
     }
 
     func cleanUp(reason: DisconnectReason? = nil) {

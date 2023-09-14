@@ -225,11 +225,11 @@ internal class LKWebSocket: NSObject, AsyncSequence, URLSessionWebSocketDelegate
 
     public func connect() async throws {
 
-//        connectHandle = Task {
-            try await withCheckedThrowingContinuation { continuation in
-                self.connectContinuation = continuation
-            }
-//        }
+        //        connectHandle = Task {
+        try await withCheckedThrowingContinuation { continuation in
+            self.connectContinuation = continuation
+        }
+        //        }
 
         // await connectHandle?.value
         connectContinuation = nil
