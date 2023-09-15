@@ -267,7 +267,7 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
         return ensurePublisherConnected().then(on: queue) { () -> Void in
 
             // at this point publisher should be .connected and dc should be .open
-            if self.publisher?.isConnected && self.publisherDC.isOpen{
+            if self.publisher?.isConnected ?? false && self.publisherDC.isOpen{
                 try self.publisherDC.send(userPacket: userPacket, reliability: reliability)
             }
 //            assert(self.publisher?.isConnected ?? false, "publisher is not .connected")
