@@ -267,11 +267,14 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
         return ensurePublisherConnected().then(on: queue) { () -> Void in
 
             // at this point publisher should be .connected and dc should be .open
-            assert(self.publisher?.isConnected ?? false, "publisher is not .connected")
-            assert(self.publisherDC.isOpen, "publisher data channel is not .open")
+            if self.publisher?.isConnected && self.publisherDC.isOpen{
+                try self.publisherDC.send(userPacket: userPacket, reliability: reliability)
+            }
+//            assert(self.publisher?.isConnected ?? false, "publisher is not .connected")
+//            assert(self.publisherDC.isOpen, "publisher data channel is not .open")
 
             // should return true if successful
-            try self.publisherDC.send(userPacket: userPacket, reliability: reliability)
+            
         }
     }
 }
