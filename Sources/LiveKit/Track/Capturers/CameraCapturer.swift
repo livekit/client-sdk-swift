@@ -52,10 +52,41 @@ public class CameraCapturer: VideoCapturer {
     @objc
     public var options: CameraCaptureOptions
 
+    public var isMultitaskingAccessSupported: Bool {
+        #if os(iOS) || os(tvOS)
+        if #available(iOS 16, *, tvOS 17, *) {
+            self.capturer.captureSession.beginConfiguration()
+            defer { self.capturer.captureSession.commitConfiguration() }
+            return self.capturer.captureSession.isMultitaskingCameraAccessSupported
+        }
+        #endif
+        return false
+    }
+
+    public var isMultitaskingAccessEnabled: Bool {
+        get {
+            #if os(iOS) || os(tvOS)
+            if #available(iOS 16, *, tvOS 17, *) {
+                return self.capturer.captureSession.isMultitaskingCameraAccessEnabled
+            }
+            #endif
+            return false
+        }
+        set {
+            #if os(iOS) || os(tvOS)
+            if #available(iOS 16, *, tvOS 17, *) {
+                self.capturer.captureSession.isMultitaskingCameraAccessEnabled = newValue
+            }
+            #endif
+        }
+    }
+
     init(delegate: RTCVideoCapturerDelegate, options: CameraCaptureOptions) {
         self.capturer = DispatchQueue.webRTC.sync { RTCCameraVideoCapturer(delegate: delegate) }
         self.options = options
         super.init(delegate: delegate)
+
+        log("isMultitaskingAccessSupported: \(isMultitaskingAccessSupported)", .info)
     }
 
     /// Switches the camera position between `.front` and `.back` if supported by the device.

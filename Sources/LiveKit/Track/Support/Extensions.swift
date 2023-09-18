@@ -105,6 +105,9 @@ extension RPSystemBroadcastPickerView {
     /// Convenience function to show broadcast extension picker
     public static func show(for preferredExtension: String? = nil,
                             showsMicrophoneButton: Bool = true) {
+        // Must be called on main thread
+        assert(Thread.current.isMainThread, "must be called on main thread")
+
         let view = RPSystemBroadcastPickerView()
         view.preferredExtension = preferredExtension
         view.showsMicrophoneButton = showsMicrophoneButton

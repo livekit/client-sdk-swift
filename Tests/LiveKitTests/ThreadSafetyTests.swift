@@ -19,7 +19,7 @@ import XCTest
 
 class ThreadSafetyTests: XCTestCase {
 
-    struct TestState {
+    struct TestState: Equatable {
         var dictionary = [String: String]()
         var counter = 0
     }

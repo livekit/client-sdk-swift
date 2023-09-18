@@ -67,6 +67,7 @@ public struct SwiftUIVideoView: NativeViewRepresentable {
     let track: VideoTrack
     let layoutMode: VideoView.LayoutMode
     let mirrorMode: VideoView.MirrorMode
+    let renderMode: VideoView.RenderMode
     let debugMode: Bool
 
     @Binding var isRendering: Bool
@@ -78,6 +79,7 @@ public struct SwiftUIVideoView: NativeViewRepresentable {
     public init(_ track: VideoTrack,
                 layoutMode: VideoView.LayoutMode = .fill,
                 mirrorMode: VideoView.MirrorMode = .auto,
+                renderMode: VideoView.RenderMode = .auto,
                 debugMode: Bool = false,
                 isRendering: Binding<Bool> = .constant(false),
                 dimensions: Binding<Dimensions?> = .constant(nil),
@@ -86,6 +88,7 @@ public struct SwiftUIVideoView: NativeViewRepresentable {
         self.track = track
         self.layoutMode = layoutMode
         self.mirrorMode = mirrorMode
+        self.renderMode = renderMode
         self.debugMode = debugMode
 
         self._isRendering = isRendering
@@ -117,6 +120,7 @@ public struct SwiftUIVideoView: NativeViewRepresentable {
         videoView.track = track
         videoView.layoutMode = layoutMode
         videoView.mirrorMode = mirrorMode
+        videoView.renderMode = renderMode
         videoView.debugMode = debugMode
 
         // update
