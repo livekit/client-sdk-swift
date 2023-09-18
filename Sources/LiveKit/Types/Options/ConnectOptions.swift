@@ -15,7 +15,6 @@
  */
 
 import Foundation
-import WebRTC
 
 /// Options used when establishing a connection.
 @objc
@@ -25,9 +24,6 @@ public class ConnectOptions: NSObject {
     /// Defaults to true.
     @objc
     public let autoSubscribe: Bool
-
-    @objc
-    public let rtcConfiguration: RTCConfiguration
 
     /// Providing a string will make the connection publish-only, suitable for iOS Broadcast Upload Extensions.
     /// The string can be used to identify the publisher.
@@ -49,7 +45,6 @@ public class ConnectOptions: NSObject {
     @objc
     public override init() {
         self.autoSubscribe = true
-        self.rtcConfiguration = .liveKitDefault()
         self.publishOnlyMode = nil
         self.reconnectAttempts = 3
         self.reconnectAttemptDelay = .defaultReconnectAttemptDelay
@@ -58,14 +53,12 @@ public class ConnectOptions: NSObject {
 
     @objc
     public init(autoSubscribe: Bool = true,
-                rtcConfiguration: RTCConfiguration? = nil,
                 publishOnlyMode: String? = nil,
                 reconnectAttempts: Int = 3,
                 reconnectAttemptDelay: TimeInterval = .defaultReconnectAttemptDelay,
                 protocolVersion: ProtocolVersion = .v8) {
 
         self.autoSubscribe = autoSubscribe
-        self.rtcConfiguration = rtcConfiguration ?? .liveKitDefault()
         self.publishOnlyMode = publishOnlyMode
         self.reconnectAttempts = reconnectAttempts
         self.reconnectAttemptDelay = reconnectAttemptDelay
@@ -77,7 +70,6 @@ public class ConnectOptions: NSObject {
     public override func isEqual(_ object: Any?) -> Bool {
         guard let other = object as? Self else { return false }
         return self.autoSubscribe == other.autoSubscribe &&
-            self.rtcConfiguration == other.rtcConfiguration &&
             self.publishOnlyMode == other.publishOnlyMode &&
             self.reconnectAttempts == other.reconnectAttempts &&
             self.reconnectAttemptDelay == other.reconnectAttemptDelay &&
@@ -87,7 +79,6 @@ public class ConnectOptions: NSObject {
     public override var hash: Int {
         var hasher = Hasher()
         hasher.combine(autoSubscribe)
-        hasher.combine(rtcConfiguration)
         hasher.combine(publishOnlyMode)
         hasher.combine(reconnectAttempts)
         hasher.combine(reconnectAttemptDelay)

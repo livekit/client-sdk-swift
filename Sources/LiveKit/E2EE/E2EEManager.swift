@@ -16,6 +16,8 @@
 
 import Foundation
 
+@_implementationOnly import WebRTC
+
 @objc
 public class E2EEManager: NSObject, ObservableObject, Loggable {
     // Reference to Room
@@ -33,7 +35,7 @@ public class E2EEManager: NSObject, ObservableObject, Loggable {
         return self.e2eeOptions.keyProvider
     }
 
-    public func getFrameCryptors() -> [[String: Sid]: RTCFrameCryptor] {
+    internal func getFrameCryptors() -> [[String: Sid]: RTCFrameCryptor] {
         return self.frameCryptors
     }
 
@@ -99,9 +101,9 @@ public class E2EEManager: NSObject, ObservableObject, Loggable {
     }
 }
 
-extension E2EEManager: RTCFrameCryptorDelegate {
+internal extension E2EEManager: RTCFrameCryptorDelegate {
 
-    public func frameCryptor(_ frameCryptor: RTCFrameCryptor, didStateChangeWithParticipantId participantId: String, with state: FrameCryptionState) {
+    func frameCryptor(_ frameCryptor: RTCFrameCryptor, didStateChangeWithParticipantId participantId: String, with state: FrameCryptionState) {
         self.log("frameCryptor didStateChangeWithParticipantId \(participantId) with state \(state.rawValue)")
         let publication: TrackPublication? = trackPublications[frameCryptor]
         if publication == nil {

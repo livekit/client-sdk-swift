@@ -17,6 +17,8 @@
 import Foundation
 import Promises
 
+@_implementationOnly import WebRTC
+
 internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
 
     private let queue = DispatchQueue(label: "LiveKitSDK.signalClient", qos: .default)

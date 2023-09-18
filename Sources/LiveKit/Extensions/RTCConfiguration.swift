@@ -15,11 +15,12 @@
  */
 
 import Foundation
-import WebRTC
 
-extension RTCConfiguration {
+@_implementationOnly import WebRTC
 
-    public static func liveKitDefault() -> RTCConfiguration {
+internal extension RTCConfiguration {
+
+    static func liveKitDefault() -> RTCConfiguration {
 
         let result = DispatchQueue.webRTC.sync { RTCConfiguration() }
         result.sdpSemantics = .unifiedPlan
@@ -31,7 +32,7 @@ extension RTCConfiguration {
         return result
     }
 
-    public convenience init(copy configuration: RTCConfiguration) {
+    convenience init(copy configuration: RTCConfiguration) {
         self.init()
         self.enableDscp = configuration.enableDscp
         self.iceServers = configuration.iceServers

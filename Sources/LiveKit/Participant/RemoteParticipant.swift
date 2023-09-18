@@ -17,11 +17,13 @@
 import Foundation
 import Promises
 
+@_implementationOnly import WebRTC
+
 @objc
 public class RemoteParticipant: Participant {
 
     @objc
-    public var rtpReceiver: RTCRtpReceiver?
+    internal var rtpReceiver: RTCRtpReceiver?
 
     internal init(sid: Sid,
                   info: Livekit_ParticipantInfo?,
