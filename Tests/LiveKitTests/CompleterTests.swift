@@ -19,7 +19,7 @@ import XCTest
 
 class CompleterTests: XCTestCase {
 
-    struct TestState {
+    struct TestState: Equatable {
         var completer = Completer<String>()
     }
 
