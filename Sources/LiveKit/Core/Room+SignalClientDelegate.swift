@@ -45,6 +45,10 @@ extension Room: SignalClientDelegate {
 
         log("server version: \(joinResponse.serverVersion), region: \(joinResponse.serverRegion)", .info)
 
+        if self.e2eeManager != nil && !joinResponse.sifTrailer.isEmpty {
+            self.e2eeManager?.keyProvider().setSifTrailer(trailer: joinResponse.sifTrailer)
+        }
+
         _state.mutate {
             $0.sid = joinResponse.room.sid
             $0.name = joinResponse.room.name
