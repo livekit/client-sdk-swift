@@ -162,7 +162,7 @@ extension E2EEManager: RoomDelegate {
             return
         }
         if publication.track?.rtpReceiver == nil {
-            self.log("E2EEManager::RoomDelegate: publication.track?.rtpSender is nil, skip to create FrameCryptor!")
+            self.log("E2EEManager::RoomDelegate: publication.track?.rtpReceiver is nil, skip to create FrameCryptor!")
             return
         }
         let fc = addRtpReceiver(receiver: publication.track!.rtpReceiver!, participantId: participant.identity, trackSid: publication.sid)
