@@ -127,7 +127,7 @@ extension E2EEManager: RoomDelegate {
             self.log("E2EEManager::RoomDelegate: local participant \(localParticipant.identity) track \(publication.sid) encryptionType is none, skip")
             return
         }
-        let fc = addRtpSender(sender: localParticipant.rtpSender!, participantId: localParticipant.identity, trackSid: publication.sid)
+        let fc = addRtpSender(sender: publication.track!.rtpSender!, participantId: localParticipant.identity, trackSid: publication.sid)
         trackPublications[fc] = publication
     }
 
@@ -150,7 +150,7 @@ extension E2EEManager: RoomDelegate {
             self.log("E2EEManager::RoomDelegate: remote participant \(participant.identity) track \(publication.sid) encryptionType is none, skip")
             return
         }
-        let fc = addRtpReceiver(receiver: participant.rtpReceiver!, participantId: participant.identity, trackSid: publication.sid)
+        let fc = addRtpReceiver(receiver: publication.track!.rtpReceiver!, participantId: participant.identity, trackSid: publication.sid)
         trackPublications[fc] = publication
     }
 
