@@ -82,7 +82,7 @@ public class E2EEManager: NSObject, ObservableObject, Loggable {
 
     func addRtpSender(sender: RTCRtpSender, participantId: String, trackSid: Sid) -> RTCFrameCryptor {
         self.log("addRtpSender \(participantId) to E2EEManager")
-        let frameCryptor = RTCFrameCryptor(rtpSender: sender, participantId: participantId, algorithm: RTCCyrptorAlgorithm.aesGcm, keyProvider: self.e2eeOptions.keyProvider.rtcKeyProvider!)
+        let frameCryptor = RTCFrameCryptor(factory: Engine.peerConnectionFactory, rtpSender: sender, participantId: participantId, algorithm: RTCCyrptorAlgorithm.aesGcm, keyProvider: self.e2eeOptions.keyProvider.rtcKeyProvider!)
         frameCryptor.delegate = self
         frameCryptors[[participantId: trackSid]] = frameCryptor
         frameCryptor.enabled = self.enabled
@@ -91,7 +91,7 @@ public class E2EEManager: NSObject, ObservableObject, Loggable {
 
     func addRtpReceiver(receiver: RTCRtpReceiver, participantId: String, trackSid: Sid) -> RTCFrameCryptor {
         self.log("addRtpReceiver \(participantId)  to E2EEManager")
-        let frameCryptor = RTCFrameCryptor(rtpReceiver: receiver, participantId: participantId, algorithm: RTCCyrptorAlgorithm.aesGcm, keyProvider: self.e2eeOptions.keyProvider.rtcKeyProvider!)
+        let frameCryptor = RTCFrameCryptor(factory: Engine.peerConnectionFactory, rtpReceiver: receiver, participantId: participantId, algorithm: RTCCyrptorAlgorithm.aesGcm, keyProvider: self.e2eeOptions.keyProvider.rtcKeyProvider!)
         frameCryptor.delegate = self
         frameCryptors[[participantId: trackSid]] = frameCryptor
         frameCryptor.enabled = self.enabled
