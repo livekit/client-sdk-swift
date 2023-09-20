@@ -20,7 +20,7 @@ import WebRTC
 public let defaultRatchetSalt: String = "LKFrameEncryptionKey"
 public let defaultMagicBytes: String = "LK-ROCKS"
 public let defaultRatchetWindowSize: Int32 = 0
-public let defaultFailureTolerance: Int32 = 6
+public let defaultFailureTolerance: Int32 = -1
 
 public class KeyProviderOptions {
     let sharedKey: Bool
