@@ -43,12 +43,14 @@ public class AudioManager: Loggable {
 
     public struct State: Equatable {
 
+        // Only consider State mutated when public vars change
         public static func == (lhs: AudioManager.State, rhs: AudioManager.State) -> Bool {
             lhs.localTracksCount == rhs.localTracksCount &&
                 lhs.remoteTracksCount == rhs.remoteTracksCount &&
                 lhs.preferSpeakerOutput == rhs.preferSpeakerOutput
         }
 
+        // Keep this var within State so it's protected by UnfairLock
         internal var customConfigureFunc: ConfigureAudioSessionFunc?
 
         public var localTracksCount: Int = 0
