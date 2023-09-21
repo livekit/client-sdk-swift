@@ -55,7 +55,7 @@ public class VideoCapturer: NSObject, Loggable, VideoCapturerProtocol {
     /// `kCVPixelFormatType_420YpCbCr8BiPlanarFullRange`,
     /// `kCVPixelFormatType_32BGRA`,
     /// `kCVPixelFormatType_32ARGB`.
-    public static let supportedPixelFormats = DispatchQueue.webRTC.sync { RTCCVPixelBuffer.supportedPixelFormats() }
+    public static let supportedPixelFormats = DispatchQueue.liveKitWebRTC.sync { RTCCVPixelBuffer.supportedPixelFormats() }
 
     public static func createTimeStampNs() -> Int64 {
         let systemTime = ProcessInfo.processInfo.systemUptime

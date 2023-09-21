@@ -86,7 +86,7 @@ public class LocalParticipant: Participant {
                                                        source: track.source.toPBType(),
                                                        encryption: self.room.e2eeManager?.e2eeOptions.encryptionType.toPBType() ?? .none ) { populator in
 
-                let transInit = DispatchQueue.webRTC.sync { RTCRtpTransceiverInit() }
+                let transInit = DispatchQueue.liveKitWebRTC.sync { RTCRtpTransceiverInit() }
                 transInit.direction = .sendOnly
 
                 if let track = track as? LocalVideoTrack {

@@ -84,7 +84,7 @@ internal class DataChannelPair: NSObject, Loggable {
         openCompleter = Promise<Void>.pending()
 
         // execute on .webRTC queue
-        return Promise(on: .webRTC) {
+        return Promise(on: .liveKitWebRTC) {
             r?.close()
             l?.close()
         }

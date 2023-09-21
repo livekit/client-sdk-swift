@@ -135,7 +135,7 @@ public class AudioManager: Loggable {
     ///   - setActive: passing true/false will call `AVAudioSession.setActive` internally
     public func defaultConfigureAudioSessionFunc(newState: State, oldState: State) {
 
-        DispatchQueue.webRTC.async { [weak self] in
+        DispatchQueue.liveKitWebRTC.async { [weak self] in
 
             guard let self = self else { return }
 
