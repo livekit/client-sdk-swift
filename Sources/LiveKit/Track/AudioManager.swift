@@ -29,7 +29,10 @@ public class AudioManager: Loggable {
 
     /// Use this to provide a custom func to configure the audio session instead of ``defaultConfigureAudioSessionFunc(newState:oldState:)``.
     /// This method should not block and is expected to return immediately.
-    public var customConfigureAudioSessionFunc: ConfigureAudioSessionFunc?
+    public var customConfigureAudioSessionFunc: ConfigureAudioSessionFunc? {
+        get { _state._configureFunc }
+        set { _state.mutate { $0._configureFunc = newValue } }
+    }
 
     public enum TrackState {
         case none
@@ -39,6 +42,15 @@ public class AudioManager: Loggable {
     }
 
     public struct State: Equatable {
+
+        public static func == (lhs: AudioManager.State, rhs: AudioManager.State) -> Bool {
+            lhs.localTracksCount == rhs.localTracksCount &&
+                lhs.remoteTracksCount == rhs.remoteTracksCount &&
+                lhs.preferSpeakerOutput == rhs.preferSpeakerOutput
+        }
+
+        internal var _configureFunc: ConfigureAudioSessionFunc?
+
         public var localTracksCount: Int = 0
         public var remoteTracksCount: Int = 0
         public var preferSpeakerOutput: Bool = true
@@ -84,12 +96,14 @@ public class AudioManager: Loggable {
         // trigger events when state mutates
         _state.onDidMutate = { [weak self] newState, oldState in
             guard let self = self else { return }
-            self.configureAudioSession(newState: newState, oldState: oldState)
-        }
-    }
 
-    deinit {
-        //
+            log("\(oldState) -> \(newState)")
+
+            #if os(iOS)
+            let configureFunc = newState._configureFunc ?? defaultConfigureAudioSessionFunc
+            configureFunc(newState, oldState)
+            #endif
+        }
     }
 
     internal func trackDidStart(_ type: Type) {
@@ -106,21 +120,6 @@ public class AudioManager: Loggable {
             if type == .local { state.localTracksCount -= 1 }
             if type == .remote { state.remoteTracksCount -= 1 }
         }
-    }
-
-    private func configureAudioSession(newState: State, oldState: State) {
-
-        log("\(oldState) -> \(newState)")
-
-        #if os(iOS)
-        if let _deprecatedFunc = LiveKit.onShouldConfigureAudioSession {
-            _deprecatedFunc(newState.trackState, oldState.trackState)
-        } else if let customConfigureAudioSessionFunc = customConfigureAudioSessionFunc {
-            customConfigureAudioSessionFunc(newState, oldState)
-        } else {
-            defaultConfigureAudioSessionFunc(newState: newState, oldState: oldState)
-        }
-        #endif
     }
 
     #if os(iOS)
