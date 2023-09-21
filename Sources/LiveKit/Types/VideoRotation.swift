@@ -15,6 +15,26 @@
  */
 
 import Foundation
+
 @_implementationOnly import WebRTC
 
-public typealias VideoRotation = RTCVideoRotation
+public enum VideoRotation: Int {
+    case _0 = 0
+    case _90 = 90
+    case _180 = 180
+    case _270 = 270
+}
+
+private extension RTCVideoRotation {
+
+    func toLKType() -> VideoRotation {
+        VideoRotation(rawValue: rawValue)!
+    }
+}
+
+private extension VideoRotation {
+
+    func toRTCType() -> RTCVideoRotation {
+        RTCVideoRotation(rawValue: rawValue)!
+    }
+}

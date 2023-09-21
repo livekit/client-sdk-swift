@@ -424,7 +424,7 @@ extension Track {
         assert(Thread.current.isMainThread, "must be called on main thread")
 
         videoRenderers.add(videoRenderer)
-        videoTrack.add(videoRenderer)
+        // videoTrack.add(videoRenderer)
     }
 
     internal func _remove(videoRenderer: VideoRenderer) {
@@ -438,7 +438,7 @@ extension Track {
         assert(Thread.current.isMainThread, "must be called on main thread")
 
         videoRenderers.remove(videoRenderer)
-        videoTrack.remove(videoRenderer)
+        // videoTrack.remove(videoRenderer)
     }
 }
 

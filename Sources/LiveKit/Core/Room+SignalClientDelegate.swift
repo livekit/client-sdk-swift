@@ -17,6 +17,8 @@
 import Foundation
 import Promises
 
+@_implementationOnly import WebRTC
+
 extension Room: SignalClientDelegate {
 
     func signalClient(_ signalClient: SignalClient, didReceiveLeave canReconnect: Bool, reason: Livekit_DisconnectReason) {
