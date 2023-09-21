@@ -104,4 +104,8 @@ public class BaseKeyProvider: Loggable {
 
         return rtcKeyProvider?.exportKey(participantId!, with: index ?? 0)
     }
+
+    public func setSifTrailer(trailer: Data) {
+        rtcKeyProvider?.setSifTrailer(trailer)
+    }
 }

@@ -35,7 +35,7 @@ internal let logger = Logger(label: "LiveKitSDK")
 public class LiveKit: NSObject {
 
     @objc(sdkVersion)
-    public static let version = "1.1.0"
+    public static let version = "1.1.2"
 
     @available(*, deprecated, message: "Use Room.connect() instead, protocol v8 and higher do not support this method")
     public static func connect(
