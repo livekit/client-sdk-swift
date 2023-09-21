@@ -19,6 +19,29 @@ import Foundation
 @_implementationOnly import WebRTC
 
 public class VideoFrame: NSObject {
-    //
-    internal var rtcVideoFrame: RTCVideoFrame?
+
+    let dimensions: Dimensions
+
+    // TODO: Implement
+
+    public init(dimensions: Dimensions) {
+        self.dimensions = dimensions
+    }
+}
+
+internal extension RTCVideoFrame {
+
+    func toLKType() -> VideoFrame {
+        // TODO: Implement
+        VideoFrame(dimensions: Dimensions(width: width, height: height))
+    }
+}
+
+internal extension VideoFrame {
+
+    func toRTCType() -> RTCVideoFrame {
+        // TODO: Implement
+        let pb = RTCCVPixelBuffer()
+        return RTCVideoFrame(buffer: pb, rotation: ._0, timeStampNs: 0)
+    }
 }

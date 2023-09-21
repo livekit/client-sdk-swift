@@ -18,15 +18,14 @@ import Foundation
 
 @_implementationOnly import WebRTC
 
-public typealias CaptureFunc = (_ capture: VideoFrame) -> Void
-public typealias InterceptFunc = (_ frame: VideoFrame, _ capture: @escaping CaptureFunc) -> Void
-
 public class VideoCaptureInterceptor: NSObject, Loggable {
+
+    public typealias CaptureFunc = (_ capture: VideoFrame) -> Void
+    public typealias InterceptFunc = (_ frame: VideoFrame, _ capture: @escaping CaptureFunc) -> Void
 
     private class DelegateAdapter: NSObject, RTCVideoCapturerDelegate {
 
         weak var target: VideoCaptureInterceptor?
-        // weak var fnc: ((_: RTCVideoCapturer, _: RTCVideoFrame))?
 
         init(target: VideoCaptureInterceptor? = nil) {
             self.target = target
@@ -64,10 +63,10 @@ public class VideoCaptureInterceptor: NSObject, Loggable {
 
             // TODO: provide access to adaptOutputFormat
             // self.output.adaptOutputFormat(toWidth: 100, height: 100, fps: 15)
-            self.output.capturer(capturer, didCapture: frame)
+            self.output.capturer(capturer, didCapture: frame.toRTCType())
         }
 
         // call intercept func with frame & capture func
-        interceptFunc(frame, captureFunc)
+        interceptFunc(frame.toLKType(), captureFunc)
     }
 }
