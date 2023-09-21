@@ -46,8 +46,8 @@ public class LocalAudioTrack: Track, LocalTrack, AudioTrack {
             "googAutoGainControl2": options.experimentalAutoGainControl.toString()
         ]
 
-        let audioConstraints = DispatchQueue.webRTC.sync { RTCMediaConstraints(mandatoryConstraints: nil,
-                                                                               optionalConstraints: constraints) }
+        let audioConstraints = DispatchQueue.liveKitWebRTC.sync { RTCMediaConstraints(mandatoryConstraints: nil,
+                                                                                      optionalConstraints: constraints) }
 
         let audioSource = Engine.createAudioSource(audioConstraints)
         let rtcTrack = Engine.createAudioTrack(source: audioSource)

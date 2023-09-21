@@ -16,7 +16,8 @@
 
 import Foundation
 
-internal extension DispatchQueue {
+extension DispatchQueue {
 
-    static let webRTC = DispatchQueue(label: "LiveKitSDK.webRTC", qos: .default)
+    // The queue which SDK uses to invoke WebRTC methods
+    public static let liveKitWebRTC = DispatchQueue(label: "LiveKitSDK.webRTC", qos: .default)
 }

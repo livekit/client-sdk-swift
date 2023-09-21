@@ -360,7 +360,7 @@ extension RemoteTrackPublication {
 
         if let videoTrack = track?.mediaTrack as? RTCVideoTrack {
             log("VideoTrack.shouldReceive: \(enabled)")
-            DispatchQueue.webRTC.sync { videoTrack.shouldReceive = enabled }
+            DispatchQueue.liveKitWebRTC.sync { videoTrack.shouldReceive = enabled }
         }
 
         send(trackSettings: newSettings).catch(on: queue) { [weak self] error in

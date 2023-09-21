@@ -101,7 +101,7 @@ extension RTCVideoCapturerDelegate {
 
         onResolveSourceDimensions?(sourceDimensions)
 
-        DispatchQueue.webRTC.sync {
+        DispatchQueue.liveKitWebRTC.sync {
 
             let rtcBuffer = RTCCVPixelBuffer(pixelBuffer: pixelBuffer)
             let rtcFrame = RTCVideoFrame(buffer: rtcBuffer,

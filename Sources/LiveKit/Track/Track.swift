@@ -141,7 +141,7 @@ public class Track: NSObject, Loggable {
 
     private weak var transport: Transport?
     // private var transceiver: RTCRtpTransceiver?
-    private let statsTimer = DispatchQueueTimer(timeInterval: 1, queue: .webRTC)
+    private let statsTimer = DispatchQueueTimer(timeInterval: 1, queue: .liveKitWebRTC)
     // Weak reference to the corresponding transport
 
     internal init(name: String,
