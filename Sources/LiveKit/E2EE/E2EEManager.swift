@@ -109,7 +109,7 @@ public class E2EEManager: NSObject, ObservableObject, Loggable {
     }
 }
 
-internal extension E2EEManager: RTCFrameCryptorDelegate {
+extension E2EEManager: RTCFrameCryptorDelegate {
 
     func frameCryptor(_ frameCryptor: RTCFrameCryptor, didStateChangeWithParticipantId participantId: String, with state: FrameCryptionState) {
         self.log("frameCryptor didStateChangeWithParticipantId \(participantId) with state \(state.rawValue)")

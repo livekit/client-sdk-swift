@@ -18,8 +18,8 @@ import Foundation
 
 @_implementationOnly import WebRTC
 
-public typealias CaptureFunc = (_ capture: RTCVideoFrame) -> Void
-public typealias InterceptFunc = (_ frame: RTCVideoFrame, _ capture: @escaping CaptureFunc) -> Void
+public typealias CaptureFunc = (_ capture: VideoFrame) -> Void
+public typealias InterceptFunc = (_ frame: VideoFrame, _ capture: @escaping CaptureFunc) -> Void
 
 public class VideoCaptureInterceptor: NSObject, RTCVideoCapturerDelegate, Loggable {
 
