@@ -39,9 +39,9 @@ public class AudioManager: Loggable {
     }
 
     public struct State: Equatable {
-        var localTracksCount: Int = 0
-        var remoteTracksCount: Int = 0
-        var preferSpeakerOutput: Bool = true
+        public var localTracksCount: Int = 0
+        public var remoteTracksCount: Int = 0
+        public var preferSpeakerOutput: Bool = true
 
         public var trackState: TrackState {
 
