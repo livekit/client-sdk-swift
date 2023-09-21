@@ -15,6 +15,7 @@
  */
 
 import Foundation
+import AVFoundation
 import MetalKit
 
 @_implementationOnly import WebRTC
@@ -533,12 +534,12 @@ extension VideoView: VideoRenderer {
         _state.rendererSize ?? .zero
     }
 
-    public func setSize(_ size: CGSize) {
+    public func set(size: CGSize) {
         guard let nr = nativeRenderer else { return }
         nr.setSize(size)
     }
 
-    public func renderFrame(_ frame: RTCVideoFrame?) {
+    public func render(frame: VideoFrame) {
 
         let state = _state.copy()
 
@@ -557,46 +558,46 @@ extension VideoView: VideoRenderer {
             }
         }
 
-        if let frame = frame {
-
-            let rotation = state.rotationOverride ?? frame.rotation
-
-            let dimensions = Dimensions(width: frame.width,
-                                        height: frame.height)
-                .apply(rotation: rotation)
-
-            guard dimensions.isRenderSafe else {
-                log("skipping render for dimension \(dimensions)", .warning)
-                // renderState.insert(.didSkipUnsafeFrame)
-                return
-            }
-
-            if track?.set(dimensions: dimensions) == true {
-                _needsLayout = true
-            }
-
-        } else {
-            if track?.set(dimensions: nil) == true {
-                _needsLayout = true
-            }
-        }
-
-        nr.renderFrame(frame)
-
-        // cache last rendered frame
-        track?.set(videoFrame: frame)
-
-        _state.mutate {
-            $0.didRenderFirstFrame = true
-            $0.isRendering = true
-            $0.renderDate = Date()
-        }
-
-        if _state.debugMode {
-            Task.detached { @MainActor in
-                self._frameCount += 1
-            }
-        }
+        //        if let frame = frame {
+        //
+        //            let rotation = state.rotationOverride ?? frame.rotation
+        //
+        //            let dimensions = Dimensions(width: frame.width,
+        //                                        height: frame.height)
+        //                .apply(rotation: rotation)
+        //
+        //            guard dimensions.isRenderSafe else {
+        //                log("skipping render for dimension \(dimensions)", .warning)
+        //                // renderState.insert(.didSkipUnsafeFrame)
+        //                return
+        //            }
+        //
+        //            if track?.set(dimensions: dimensions) == true {
+        //                _needsLayout = true
+        //            }
+        //
+        //        } else {
+        //            if track?.set(dimensions: nil) == true {
+        //                _needsLayout = true
+        //            }
+        //        }
+        //
+        //        nr.renderFrame(frame)
+        //
+        //        // cache last rendered frame
+        //        track?.set(videoFrame: frame)
+        //
+        //        _state.mutate {
+        //            $0.didRenderFirstFrame = true
+        //            $0.isRendering = true
+        //            $0.renderDate = Date()
+        //        }
+        //
+        //        if _state.debugMode {
+        //            Task.detached { @MainActor in
+        //                self._frameCount += 1
+        //            }
+        //        }
     }
 }
 
