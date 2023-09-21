@@ -30,8 +30,8 @@ public class AudioManager: Loggable {
     /// Use this to provide a custom func to configure the audio session instead of ``defaultConfigureAudioSessionFunc(newState:oldState:)``.
     /// This method should not block and is expected to return immediately.
     public var customConfigureAudioSessionFunc: ConfigureAudioSessionFunc? {
-        get { _state._configureFunc }
-        set { _state.mutate { $0._configureFunc = newValue } }
+        get { _state.customConfigureFunc }
+        set { _state.mutate { $0.customConfigureFunc = newValue } }
     }
 
     public enum TrackState {
@@ -49,7 +49,7 @@ public class AudioManager: Loggable {
                 lhs.preferSpeakerOutput == rhs.preferSpeakerOutput
         }
 
-        internal var _configureFunc: ConfigureAudioSessionFunc?
+        internal var customConfigureFunc: ConfigureAudioSessionFunc?
 
         public var localTracksCount: Int = 0
         public var remoteTracksCount: Int = 0
@@ -100,7 +100,7 @@ public class AudioManager: Loggable {
             log("\(oldState) -> \(newState)")
 
             #if os(iOS)
-            let configureFunc = newState._configureFunc ?? defaultConfigureAudioSessionFunc
+            let configureFunc = newState.customConfigureFunc ?? defaultConfigureAudioSessionFunc
             configureFunc(newState, oldState)
             #endif
         }
