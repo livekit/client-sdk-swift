@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 LiveKit
+ * Copyright 2023 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,30 +16,9 @@
 
 import Foundation
 
-extension Livekit_TrackType {
+@_implementationOnly import WebRTC
 
-    func toLKType() -> Track.Kind {
-        switch self {
-        case .audio:
-            return .audio
-        case .video:
-            return .video
-        default:
-            return .none
-        }
-    }
-}
-
-extension Track.Kind {
-
-    func toPBType() -> Livekit_TrackType {
-        switch self {
-        case .audio:
-            return .audio
-        case .video:
-            return .video
-        default:
-            return .UNRECOGNIZED(10)
-        }
-    }
+public class VideoFrame: NSObject {
+    //
+    internal var rtcVideoFrame: RTCVideoFrame?
 }

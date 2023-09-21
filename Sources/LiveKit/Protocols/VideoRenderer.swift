@@ -19,7 +19,7 @@ import Foundation
 @_implementationOnly import WebRTC
 
 @objc
-public protocol VideoRenderer: RTCVideoRenderer {
+public protocol VideoRenderer {
     /// Whether this ``VideoRenderer`` should be considered visible or not for AdaptiveStream.
     /// This will be invoked on the .main thread.
     @objc
@@ -28,4 +28,8 @@ public protocol VideoRenderer: RTCVideoRenderer {
     /// This will be invoked on the .main thread.
     @objc
     var adaptiveStreamSize: CGSize { get }
+
+    func set(size: CGSize)
+
+    func render(frame: VideoFrame)
 }

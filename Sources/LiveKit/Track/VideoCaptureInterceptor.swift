@@ -21,12 +21,15 @@ import Foundation
 public typealias CaptureFunc = (_ capture: VideoFrame) -> Void
 public typealias InterceptFunc = (_ frame: VideoFrame, _ capture: @escaping CaptureFunc) -> Void
 
-public class VideoCaptureInterceptor: NSObject, RTCVideoCapturerDelegate, Loggable {
+public class VideoCaptureInterceptor: NSObject, Loggable {
 
     let output = Engine.createVideoSource(forScreenShare: true)
     let interceptFunc: InterceptFunc
 
+    internal let adapter: RTCVideoCapturerDelegateAdapter
+
     public init(_ interceptFunc: @escaping InterceptFunc) {
+        self.adapter = RTCVideoCapturerDelegateAdapter(relay: self)
         self.interceptFunc = interceptFunc
         super.init()
         log("VideoCaptureInterceptor.init()")
@@ -36,8 +39,9 @@ public class VideoCaptureInterceptor: NSObject, RTCVideoCapturerDelegate, Loggab
         log("VideoCaptureInterceptor.deinit()")
     }
 
-    public func capturer(_ capturer: RTCVideoCapturer, didCapture frame: RTCVideoFrame) {
+    // MARK: - Internal
 
+    internal func capturer(_ capturer: RTCVideoCapturer, didCapture frame: RTCVideoFrame) {
         // create capture func to pass to intercept func
         let captureFunc = { [weak self, weak capturer] (frame: RTCVideoFrame) -> Void in
             guard let self = self,
@@ -52,5 +56,19 @@ public class VideoCaptureInterceptor: NSObject, RTCVideoCapturerDelegate, Loggab
 
         // call intercept func with frame & capture func
         interceptFunc(frame, captureFunc)
+    }
+}
+
+internal class RTCVideoCapturerDelegateAdapter: NSObject, RTCVideoCapturerDelegate {
+    
+    weak var target: VideoCaptureInterceptor?
+    weak var fnc: ((_ : RTCVideoCapturer, _: RTCVideoFrame))?
+
+    public init(target: VideoCaptureInterceptor? = nil) {
+        self.target = target
+    }
+
+    public func capturer(_ capturer: RTCVideoCapturer, didCapture frame: RTCVideoFrame) {
+        target?.capturer(capturer, didCapture: frame)
     }
 }
