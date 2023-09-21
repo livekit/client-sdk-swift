@@ -60,9 +60,9 @@ public class VideoCaptureInterceptor: NSObject, Loggable {
 }
 
 internal class RTCVideoCapturerDelegateAdapter: NSObject, RTCVideoCapturerDelegate {
-    
+
     weak var target: VideoCaptureInterceptor?
-    weak var fnc: ((_ : RTCVideoCapturer, _: RTCVideoFrame))?
+    weak var fnc: ((_: RTCVideoCapturer, _: RTCVideoFrame))?
 
     public init(target: VideoCaptureInterceptor? = nil) {
         self.target = target

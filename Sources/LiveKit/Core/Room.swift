@@ -426,7 +426,7 @@ extension Room: AppStateDelegate {
 
 // MARK: - Devices
 
-//extension Room {
+// extension Room {
 //
 //    @objc
 //    public static var audioDeviceModule: RTCAudioDeviceModule {
@@ -440,14 +440,14 @@ extension Room: AppStateDelegate {
 //        get { Engine.bypassVoiceProcessing }
 //        set { Engine.bypassVoiceProcessing = newValue }
 //    }
-//}
+// }
 
 // MARK: - Audio Processing
 
-//extension Room {
+// extension Room {
 //
 //    @objc
 //    public static var audioProcessingModule: RTCDefaultAudioProcessingModule {
 //        Engine.audioProcessingModule
 //    }
-//}
+// }

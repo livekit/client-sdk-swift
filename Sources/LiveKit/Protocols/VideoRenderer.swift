@@ -29,6 +29,7 @@ public protocol VideoRenderer {
     @objc
     var adaptiveStreamSize: CGSize { get }
 
+    /// Size of the frame.
     func set(size: CGSize)
 
     func render(frame: VideoFrame)
