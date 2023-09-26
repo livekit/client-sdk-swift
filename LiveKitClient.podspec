@@ -16,7 +16,7 @@ Pod::Spec.new do |spec|
 
   spec.source_files   = 'Sources/**/*'
 
-  spec.dependency 'WebRTC-SDK', '~> 114.5735.07'
+  spec.dependency 'WebRTC-SDK', '~> 114.5735.08'
   spec.dependency 'SwiftProtobuf'
   spec.dependency 'PromisesSwift'
   spec.dependency 'Logging'

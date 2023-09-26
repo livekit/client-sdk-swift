@@ -29,7 +29,10 @@ public class AudioManager: Loggable {
 
     /// Use this to provide a custom func to configure the audio session instead of ``defaultConfigureAudioSessionFunc(newState:oldState:)``.
     /// This method should not block and is expected to return immediately.
-    public var customConfigureAudioSessionFunc: ConfigureAudioSessionFunc?
+    public var customConfigureAudioSessionFunc: ConfigureAudioSessionFunc? {
+        get { _state.customConfigureFunc }
+        set { _state.mutate { $0.customConfigureFunc = newValue } }
+    }
 
     public enum TrackState {
         case none
@@ -39,9 +42,20 @@ public class AudioManager: Loggable {
     }
 
     public struct State: Equatable {
-        var localTracksCount: Int = 0
-        var remoteTracksCount: Int = 0
-        var preferSpeakerOutput: Bool = true
+
+        // Only consider State mutated when public vars change
+        public static func == (lhs: AudioManager.State, rhs: AudioManager.State) -> Bool {
+            lhs.localTracksCount == rhs.localTracksCount &&
+                lhs.remoteTracksCount == rhs.remoteTracksCount &&
+                lhs.preferSpeakerOutput == rhs.preferSpeakerOutput
+        }
+
+        // Keep this var within State so it's protected by UnfairLock
+        internal var customConfigureFunc: ConfigureAudioSessionFunc?
+
+        public var localTracksCount: Int = 0
+        public var remoteTracksCount: Int = 0
+        public var preferSpeakerOutput: Bool = true
 
         public var trackState: TrackState {
 
@@ -84,12 +98,14 @@ public class AudioManager: Loggable {
         // trigger events when state mutates
         _state.onDidMutate = { [weak self] newState, oldState in
             guard let self = self else { return }
-            self.configureAudioSession(newState: newState, oldState: oldState)
-        }
-    }
 
-    deinit {
-        //
+            log("\(oldState) -> \(newState)")
+
+            #if os(iOS)
+            let configureFunc = newState.customConfigureFunc ?? defaultConfigureAudioSessionFunc
+            configureFunc(newState, oldState)
+            #endif
+        }
     }
 
     internal func trackDidStart(_ type: Type) {
@@ -108,21 +124,6 @@ public class AudioManager: Loggable {
         }
     }
 
-    private func configureAudioSession(newState: State, oldState: State) {
-
-        log("\(oldState) -> \(newState)")
-
-        #if os(iOS)
-        if let _deprecatedFunc = LiveKit.onShouldConfigureAudioSession {
-            _deprecatedFunc(newState.trackState, oldState.trackState)
-        } else if let customConfigureAudioSessionFunc = customConfigureAudioSessionFunc {
-            customConfigureAudioSessionFunc(newState, oldState)
-        } else {
-            defaultConfigureAudioSessionFunc(newState: newState, oldState: oldState)
-        }
-        #endif
-    }
-
     #if os(iOS)
     /// The default implementation when audio session configuration is requested by the SDK.
     /// Configure the `RTCAudioSession` of `WebRTC` framework.
@@ -134,7 +135,7 @@ public class AudioManager: Loggable {
     ///   - setActive: passing true/false will call `AVAudioSession.setActive` internally
     public func defaultConfigureAudioSessionFunc(newState: State, oldState: State) {
 
-        DispatchQueue.webRTC.async { [weak self] in
+        DispatchQueue.liveKitWebRTC.async { [weak self] in
 
             guard let self = self else { return }
 

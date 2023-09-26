@@ -35,19 +35,19 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
     public var onOffer: TransportOnOffer?
 
     public var connectionState: RTCPeerConnectionState {
-        DispatchQueue.webRTC.sync { pc.connectionState }
+        DispatchQueue.liveKitWebRTC.sync { pc.connectionState }
     }
 
     public var localDescription: RTCSessionDescription? {
-        DispatchQueue.webRTC.sync { pc.localDescription }
+        DispatchQueue.liveKitWebRTC.sync { pc.localDescription }
     }
 
     public var remoteDescription: RTCSessionDescription? {
-        DispatchQueue.webRTC.sync { pc.remoteDescription }
+        DispatchQueue.liveKitWebRTC.sync { pc.remoteDescription }
     }
 
     public var signalingState: RTCSignalingState {
-        DispatchQueue.webRTC.sync { pc.signalingState }
+        DispatchQueue.liveKitWebRTC.sync { pc.signalingState }
     }
 
     public var isConnected: Bool {
@@ -72,7 +72,7 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
     private var pendingCandidates: [RTCIceCandidate] = []
 
     // used for stats timer
-    private let statsTimer = DispatchQueueTimer(timeInterval: 1, queue: .webRTC)
+    private let statsTimer = DispatchQueueTimer(timeInterval: 1, queue: .liveKitWebRTC)
     private var stats = [String: TrackStats]()
 
     // keep reference to cancel later
@@ -99,7 +99,7 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
 
         log()
 
-        DispatchQueue.webRTC.sync { pc.delegate = self }
+        DispatchQueue.liveKitWebRTC.sync { pc.delegate = self }
         add(delegate: delegate)
 
         statsTimer.handler = { [weak self] in
@@ -199,7 +199,7 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
             self.statsTimer.suspend()
 
             // can be async
-            DispatchQueue.webRTC.async {
+            DispatchQueue.liveKitWebRTC.async {
                 // Stop listening to delegate
                 self.pc.delegate = nil
                 // Remove all senders (if any)
@@ -333,7 +333,7 @@ private extension Transport {
 
     func createOffer(for constraints: [String: String]? = nil) -> Promise<RTCSessionDescription> {
 
-        Promise<RTCSessionDescription>(on: .webRTC) { complete, fail in
+        Promise<RTCSessionDescription>(on: .liveKitWebRTC) { complete, fail in
 
             let mediaConstraints = RTCMediaConstraints(mandatoryConstraints: constraints,
                                                        optionalConstraints: nil)
@@ -352,7 +352,7 @@ private extension Transport {
 
     func setRemoteDescriptionPromise(_ sd: RTCSessionDescription) -> Promise<RTCSessionDescription> {
 
-        Promise<RTCSessionDescription>(on: .webRTC) { complete, fail in
+        Promise<RTCSessionDescription>(on: .liveKitWebRTC) { complete, fail in
 
             self.pc.setRemoteDescription(sd) { error in
 
@@ -368,7 +368,7 @@ private extension Transport {
 
     func addIceCandidatePromise(_ candidate: RTCIceCandidate) -> Promise<Void> {
 
-        Promise<Void>(on: .webRTC) { complete, fail in
+        Promise<Void>(on: .liveKitWebRTC) { complete, fail in
 
             self.pc.add(candidate) { error in
 
@@ -389,7 +389,7 @@ internal extension Transport {
 
     func createAnswer(for constraints: [String: String]? = nil) -> Promise<RTCSessionDescription> {
 
-        Promise<RTCSessionDescription>(on: .webRTC) { complete, fail in
+        Promise<RTCSessionDescription>(on: .liveKitWebRTC) { complete, fail in
 
             let mediaConstraints = RTCMediaConstraints(mandatoryConstraints: constraints,
                                                        optionalConstraints: nil)
@@ -408,7 +408,7 @@ internal extension Transport {
 
     func setLocalDescription(_ sd: RTCSessionDescription) -> Promise<RTCSessionDescription> {
 
-        Promise<RTCSessionDescription>(on: .webRTC) { complete, fail in
+        Promise<RTCSessionDescription>(on: .liveKitWebRTC) { complete, fail in
 
             self.pc.setLocalDescription(sd) { error in
 
@@ -425,7 +425,7 @@ internal extension Transport {
     func addTransceiver(with track: RTCMediaStreamTrack,
                         transceiverInit: RTCRtpTransceiverInit) -> Promise<RTCRtpTransceiver> {
 
-        Promise<RTCRtpTransceiver>(on: .webRTC) { complete, fail in
+        Promise<RTCRtpTransceiver>(on: .liveKitWebRTC) { complete, fail in
 
             guard let transceiver = self.pc.addTransceiver(with: track, init: transceiverInit) else {
                 fail(EngineError.webRTC(message: "failed to add transceiver"))
@@ -438,7 +438,7 @@ internal extension Transport {
 
     func removeTrack(_ sender: RTCRtpSender) -> Promise<Void> {
 
-        Promise<Void>(on: .webRTC) { complete, fail in
+        Promise<Void>(on: .liveKitWebRTC) { complete, fail in
 
             guard self.pc.removeTrack(sender) else {
                 fail(EngineError.webRTC(message: "failed to remove track"))
@@ -453,7 +453,7 @@ internal extension Transport {
                      configuration: RTCDataChannelConfiguration,
                      delegate: RTCDataChannelDelegate? = nil) -> RTCDataChannel? {
 
-        let result = DispatchQueue.webRTC.sync { pc.dataChannel(forLabel: label, configuration: configuration) }
+        let result = DispatchQueue.liveKitWebRTC.sync { pc.dataChannel(forLabel: label, configuration: configuration) }
         result?.delegate = delegate
         return result
     }
