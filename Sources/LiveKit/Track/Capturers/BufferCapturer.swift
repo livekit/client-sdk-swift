@@ -15,8 +15,10 @@
  */
 
 import Foundation
-import WebRTC
+import CoreMedia
 import Promises
+
+@_implementationOnly import WebRTC
 
 /// A ``VideoCapturer`` that can capture ``CMSampleBuffer``s.
 ///

@@ -15,7 +15,8 @@
  */
 
 import Foundation
-import WebRTC
+
+@_implementationOnly import WebRTC
 
 extension RTCIceTransportPolicy: CustomStringConvertible {
     public var description: String {

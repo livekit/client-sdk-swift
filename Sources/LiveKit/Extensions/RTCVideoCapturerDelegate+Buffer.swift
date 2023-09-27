@@ -15,11 +15,12 @@
  */
 
 import Foundation
-import WebRTC
 
 #if canImport(ReplayKit)
 import ReplayKit
 #endif
+
+@_implementationOnly import WebRTC
 
 extension FixedWidthInteger {
 

@@ -15,7 +15,8 @@
  */
 
 import Foundation
-import WebRTC
+
+@_implementationOnly import WebRTC
 
 // Audio Session Configuration related
 public class AudioManager: Loggable {

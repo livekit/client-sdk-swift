@@ -15,7 +15,8 @@
  */
 
 import Foundation
-import WebRTC
+
+@_implementationOnly import WebRTC
 
 internal protocol TransportDelegate: AnyObject {
     func transport(_ transport: Transport, didUpdate state: RTCPeerConnectionState)

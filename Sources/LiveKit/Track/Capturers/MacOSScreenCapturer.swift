@@ -15,12 +15,13 @@
  */
 
 import Foundation
-import WebRTC
 import Promises
 
 #if canImport(ScreenCaptureKit)
 import ScreenCaptureKit
 #endif
+
+@_implementationOnly import WebRTC
 
 // currently only used for macOS
 @available(*, deprecated, message: "Use new API with MacOSScreenShareSource")
