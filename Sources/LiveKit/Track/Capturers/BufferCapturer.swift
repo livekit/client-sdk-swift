@@ -62,12 +62,12 @@ public class BufferCapturer: VideoCapturer {
     /// Capture a ``CVPixelBuffer``.
     public func capture(_ pixelBuffer: CVPixelBuffer,
                         timeStampNs: Int64 = VideoCapturer.createTimeStampNs(),
-                        rotation: RTCVideoRotation = ._0) {
+                        rotation: VideoRotation = ._0) {
 
         delegate?.capturer(capturer,
                            didCapture: pixelBuffer,
                            timeStampNs: timeStampNs,
-                           rotation: rotation) { sourceDimensions in
+                           rotation: rotation.toRTCType()) { sourceDimensions in
 
             let targetDimensions = sourceDimensions
                 .aspectFit(size: self.options.dimensions.max)

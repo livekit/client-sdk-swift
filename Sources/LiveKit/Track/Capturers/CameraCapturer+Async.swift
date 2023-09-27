@@ -15,6 +15,7 @@
  */
 
 import Foundation
+import AVFoundation
 import Promises
 
 @_implementationOnly import WebRTC

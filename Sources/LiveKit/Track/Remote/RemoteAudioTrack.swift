@@ -62,13 +62,13 @@ public class RemoteAudioTrack: Track, RemoteTrack, AudioTrack {
         }
     }
 
-    public func add(audioRenderer: RTCAudioRenderer) {
-        guard let audioTrack = mediaTrack as? RTCAudioTrack else { return  }
-        audioTrack.add(audioRenderer)
-    }
+    //    public func add(audioRenderer: RTCAudioRenderer) {
+    //        guard let audioTrack = mediaTrack as? RTCAudioTrack else { return  }
+    //        audioTrack.add(audioRenderer)
+    //    }
 
-    public func remove(audioRenderer: RTCAudioRenderer) {
-        guard let audioTrack = mediaTrack as? RTCAudioTrack else { return }
-        audioTrack.remove(audioRenderer)
-    }
+    //    public func remove(audioRenderer: RTCAudioRenderer) {
+    //        guard let audioTrack = mediaTrack as? RTCAudioTrack else { return }
+    //        audioTrack.remove(audioRenderer)
+    //    }
 }

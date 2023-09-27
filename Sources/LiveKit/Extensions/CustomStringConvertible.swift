@@ -91,28 +91,3 @@ extension Track {
         "\(String(describing: type(of: self)))(sid: \(sid ?? "nil"), name: \(name), source: \(source))"
     }
 }
-
-extension RTCRtpEncodingParameters {
-
-    public override var description: String {
-        "RTCRtpEncodingParameters(rid: \(rid ?? "nil"), "
-            + "active: \(isActive), "
-            + "scaleResolutionDownBy: \(String(describing: scaleResolutionDownBy)), "
-            + "minBitrateBps: \(minBitrateBps == nil ? "nil" : String(describing: minBitrateBps)), "
-            + "maxBitrateBps: \(maxBitrateBps == nil ? "nil" : String(describing: maxBitrateBps)), "
-            + "maxFramerate: \(maxFramerate == nil ? "nil" : String(describing: maxFramerate)))"
-    }
-}
-
-extension RTCDataChannelState: CustomStringConvertible {
-
-    public var description: String {
-        switch self {
-        case .connecting: return ".connecting"
-        case .open: return ".open"
-        case .closing: return ".closing"
-        case .closed: return ".closed"
-        @unknown default: return ".unknown"
-        }
-    }
-}

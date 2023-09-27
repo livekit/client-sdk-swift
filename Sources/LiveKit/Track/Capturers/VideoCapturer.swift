@@ -19,7 +19,7 @@ import Promises
 
 @_implementationOnly import WebRTC
 
-public protocol VideoCapturerProtocol {
+internal protocol VideoCapturerProtocol {
     var capturer: RTCVideoCapturer { get }
 }
 
