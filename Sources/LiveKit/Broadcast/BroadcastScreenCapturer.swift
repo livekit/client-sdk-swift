@@ -58,7 +58,7 @@ class BroadcastScreenCapturer: BufferCapturer {
                     return
                 }
                 frameReader.didCapture = { pixelBuffer, rotation in
-                    self.capture(pixelBuffer, rotation: rotation)
+                    self.capture(pixelBuffer, rotation: rotation.toLKType())
 
                 }
                 frameReader.startCapture(with: socketConnection)
