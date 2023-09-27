@@ -15,33 +15,93 @@
  */
 
 import Foundation
+import CoreMedia
 
 @_implementationOnly import WebRTC
+
+public protocol VideoBuffer {
+
+}
+
+internal protocol RTCCompatibleVideoBuffer {
+    func toRTCType() -> RTCVideoFrameBuffer
+}
+
+public class CVPixelVideoBuffer: VideoBuffer, RTCCompatibleVideoBuffer {
+    // Internal RTC type
+    internal let rtcType: RTCCVPixelBuffer
+    internal init(rtcCVPixelBuffer: RTCCVPixelBuffer) {
+        self.rtcType = rtcCVPixelBuffer
+    }
+
+    func toRTCType() -> RTCVideoFrameBuffer {
+        rtcType
+    }
+}
+
+public struct I420VideoBuffer: VideoBuffer, RTCCompatibleVideoBuffer {
+    // Internal RTC type
+    internal let rtcType: RTCI420Buffer
+    internal init(rtcI420Buffer: RTCI420Buffer) {
+        self.rtcType = rtcI420Buffer
+    }
+
+    func toRTCType() -> RTCVideoFrameBuffer {
+        rtcType
+    }
+}
 
 public class VideoFrame: NSObject {
 
     let dimensions: Dimensions
+    let rotation: VideoRotation
+    let timeStampNs: Int64
+    let buffer: VideoBuffer
 
     // TODO: Implement
 
-    public init(dimensions: Dimensions) {
+    public init(dimensions: Dimensions,
+                rotation: VideoRotation,
+                timeStampNs: Int64,
+                buffer: VideoBuffer) {
+
         self.dimensions = dimensions
+        self.rotation = rotation
+        self.timeStampNs = timeStampNs
+        self.buffer = buffer
     }
 }
 
 internal extension RTCVideoFrame {
 
-    func toLKType() -> VideoFrame {
-        // TODO: Implement
-        VideoFrame(dimensions: Dimensions(width: width, height: height))
+    func toLKType() -> VideoFrame? {
+
+        let lkBuffer: VideoBuffer
+
+        if let rtcBuffer = buffer as? RTCCVPixelBuffer {
+            lkBuffer = CVPixelVideoBuffer(rtcCVPixelBuffer: rtcBuffer)
+        } else if let rtcI420Buffer = buffer as? RTCI420Buffer {
+            lkBuffer = I420VideoBuffer(rtcI420Buffer: rtcI420Buffer)
+        } else {
+            logger.error("RTCVideoFrame.buffer is not a known type (\(type(of: buffer)))")
+            return nil
+        }
+
+        return VideoFrame(dimensions: Dimensions(width: width, height: height),
+                          rotation: rotation.toLKType(),
+                          timeStampNs: timeStampNs,
+                          buffer: lkBuffer)
     }
 }
 
 internal extension VideoFrame {
 
     func toRTCType() -> RTCVideoFrame {
-        // TODO: Implement
-        let pb = RTCCVPixelBuffer()
-        return RTCVideoFrame(buffer: pb, rotation: ._0, timeStampNs: 0)
+        // This should never happen
+        guard let buffer = buffer as? RTCCompatibleVideoBuffer else { fatalError("Buffer must be a RTCCompatibleVideoBuffer") }
+
+        return RTCVideoFrame(buffer: buffer.toRTCType(),
+                             rotation: rotation.toRTCType(),
+                             timeStampNs: timeStampNs)
     }
 }

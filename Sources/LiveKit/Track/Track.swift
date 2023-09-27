@@ -93,7 +93,7 @@ public class Track: NSObject, Loggable {
     public var dimensions: Dimensions? { _state.dimensions }
 
     /// The last video frame received for this track
-    public var videoFrame: RTCVideoFrame? { _state.videoFrame }
+    public var videoFrame: VideoFrame? { _state.videoFrame }
 
     @objc
     public var trackState: TrackState { _state.trackState }
@@ -118,6 +118,7 @@ public class Track: NSObject, Loggable {
 
     // Weak reference to all VideoViews attached to this track. Must be accessed from main thread.
     internal var videoRenderers = NSHashTable<VideoRenderer>.weakObjects()
+    // internal var rtcVideoRenderers = NSHashTable<RTCVideoRenderer>.weakObjects()
 
     internal struct State: Equatable {
         let name: String
@@ -126,7 +127,7 @@ public class Track: NSObject, Loggable {
 
         var sid: Sid?
         var dimensions: Dimensions?
-        var videoFrame: RTCVideoFrame?
+        var videoFrame: VideoFrame?
         var trackState: TrackState = .stopped
         var muted: Bool = false
         // Deprecated
@@ -359,9 +360,8 @@ internal extension Track {
         return true
     }
 
-    func set(videoFrame newValue: RTCVideoFrame?) {
+    func set(videoFrame newValue: VideoFrame?) {
         guard _state.videoFrame != newValue else { return }
-
         _state.mutate { $0.videoFrame = newValue }
     }
 }
@@ -415,7 +415,7 @@ extension Track {
 
     internal func _add(videoRenderer: VideoRenderer) {
 
-        guard self is VideoTrack, let videoTrack = self.mediaTrack as? RTCVideoTrack else {
+        guard self is VideoTrack, let rtcVideoTrack = self.mediaTrack as? RTCVideoTrack else {
             log("mediaTrack is not a RTCVideoTrack", .error)
             return
         }
@@ -424,12 +424,12 @@ extension Track {
         assert(Thread.current.isMainThread, "must be called on main thread")
 
         videoRenderers.add(videoRenderer)
-        // videoTrack.add(videoRenderer)
+        rtcVideoTrack.add(VideoRendererAdapter(target: videoRenderer))
     }
 
     internal func _remove(videoRenderer: VideoRenderer) {
 
-        guard self is VideoTrack, let videoTrack = self.mediaTrack as? RTCVideoTrack else {
+        guard self is VideoTrack, let rtcVideoTrack = self.mediaTrack as? RTCVideoTrack else {
             log("mediaTrack is not a RTCVideoTrack", .error)
             return
         }
@@ -438,7 +438,7 @@ extension Track {
         assert(Thread.current.isMainThread, "must be called on main thread")
 
         videoRenderers.remove(videoRenderer)
-        // videoTrack.remove(videoRenderer)
+        rtcVideoTrack.remove(VideoRendererAdapter(target: videoRenderer))
     }
 }
 

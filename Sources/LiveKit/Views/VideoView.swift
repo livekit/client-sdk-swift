@@ -264,7 +264,7 @@ public class VideoView: NativeView, Loggable {
 
                             if let frame = track._state.videoFrame {
                                 self.log("rendering cached frame tack: \(track._state.sid ?? "nil")")
-                                nr.renderFrame(frame)
+                                nr.renderFrame(frame.toRTCType())
                                 self.setNeedsLayout()
                             }
 
@@ -558,46 +558,35 @@ extension VideoView: VideoRenderer {
             }
         }
 
-        //        if let frame = frame {
-        //
-        //            let rotation = state.rotationOverride ?? frame.rotation
-        //
-        //            let dimensions = Dimensions(width: frame.width,
-        //                                        height: frame.height)
-        //                .apply(rotation: rotation)
-        //
-        //            guard dimensions.isRenderSafe else {
-        //                log("skipping render for dimension \(dimensions)", .warning)
-        //                // renderState.insert(.didSkipUnsafeFrame)
-        //                return
-        //            }
-        //
-        //            if track?.set(dimensions: dimensions) == true {
-        //                _needsLayout = true
-        //            }
-        //
-        //        } else {
-        //            if track?.set(dimensions: nil) == true {
-        //                _needsLayout = true
-        //            }
-        //        }
-        //
-        //        nr.renderFrame(frame)
-        //
-        //        // cache last rendered frame
-        //        track?.set(videoFrame: frame)
-        //
-        //        _state.mutate {
-        //            $0.didRenderFirstFrame = true
-        //            $0.isRendering = true
-        //            $0.renderDate = Date()
-        //        }
-        //
-        //        if _state.debugMode {
-        //            Task.detached { @MainActor in
-        //                self._frameCount += 1
-        //            }
-        //        }
+        let rotation = state.rotationOverride ?? frame.rotation
+        let dimensions = frame.dimensions.apply(rotation: rotation.toRTCType())
+
+        guard dimensions.isRenderSafe else {
+            log("skipping render for dimension \(dimensions)", .warning)
+            // renderState.insert(.didSkipUnsafeFrame)
+            return
+        }
+
+        if track?.set(dimensions: dimensions) == true {
+            _needsLayout = true
+        }
+
+        nr.renderFrame(frame.toRTCType())
+
+        // cache last rendered frame
+        track?.set(videoFrame: frame)
+
+        _state.mutate {
+            $0.didRenderFirstFrame = true
+            $0.isRendering = true
+            $0.renderDate = Date()
+        }
+
+        if _state.debugMode {
+            Task.detached { @MainActor in
+                self._frameCount += 1
+            }
+        }
     }
 }
 

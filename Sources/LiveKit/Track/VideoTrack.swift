@@ -15,7 +15,8 @@
  */
 
 import Foundation
-import WebRTC
+
+@_implementationOnly import WebRTC
 
 @objc
 public protocol VideoTrack where Self: Track {
@@ -25,4 +26,12 @@ public protocol VideoTrack where Self: Track {
 
     @objc(removeVideoRenderer:)
     func remove(videoRenderer: VideoRenderer)
+}
+
+// Directly add/remove renderers for better performance
+internal protocol VideoTrack_Internal where Self: Track {
+
+    func add(rtcVideoRenderer: RTCVideoRenderer)
+
+    func remove(rtcVideoRenderer: RTCVideoRenderer)
 }

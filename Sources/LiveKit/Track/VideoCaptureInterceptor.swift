@@ -67,6 +67,6 @@ public class VideoCaptureInterceptor: NSObject, Loggable {
         }
 
         // call intercept func with frame & capture func
-        interceptFunc(frame.toLKType(), captureFunc)
+        // interceptFunc(frame.toLKType(), captureFunc)
     }
 }

@@ -34,3 +34,37 @@ public protocol VideoRenderer {
 
     func render(frame: VideoFrame)
 }
+
+class VideoRendererAdapter: NSObject, RTCVideoRenderer {
+
+    private weak var target: VideoRenderer?
+
+    init(target: VideoRenderer) {
+        self.target = target
+    }
+
+    func setSize(_ size: CGSize) {
+        target?.set(size: size)
+    }
+
+    func renderFrame(_ frame: RTCVideoFrame?) {
+        guard let frame = frame?.toLKType() else { return }
+        target?.render(frame: frame)
+    }
+
+    // Proxy the equality operators
+
+    override func isEqual(_ object: Any?) -> Bool {
+        if let other = object as? VideoRendererAdapter {
+            return self.target === other.target
+        }
+        return false
+    }
+
+    override var hash: Int {
+        if let target = target {
+            return ObjectIdentifier(target).hashValue
+        }
+        return 0
+    }
+}

@@ -25,14 +25,14 @@ public enum VideoRotation: Int {
     case _270 = 270
 }
 
-private extension RTCVideoRotation {
+internal extension RTCVideoRotation {
 
     func toLKType() -> VideoRotation {
         VideoRotation(rawValue: rawValue)!
     }
 }
 
-private extension VideoRotation {
+internal extension VideoRotation {
 
     func toRTCType() -> RTCVideoRotation {
         RTCVideoRotation(rawValue: rawValue)!
