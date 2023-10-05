@@ -68,12 +68,12 @@ extension CGImagePropertyOrientation {
     }
 }
 
-internal extension RTCVideoCapturerDelegate {
+internal extension LK_RTCVideoCapturerDelegate {
 
     typealias OnResolveSourceDimensions = (Dimensions) -> Void
 
     /// capture a `CVPixelBuffer`, all other capture methods call this method internally.
-    func capturer(_ capturer: RTCVideoCapturer,
+    func capturer(_ capturer: LK_RTCVideoCapturer,
                   didCapture pixelBuffer: CVPixelBuffer,
                   timeStampNs: Int64 = VideoCapturer.createTimeStampNs(),
                   rotation: RTCVideoRotation = ._0,
@@ -104,17 +104,17 @@ internal extension RTCVideoCapturerDelegate {
 
         DispatchQueue.liveKitWebRTC.sync {
 
-            let rtcBuffer = RTCCVPixelBuffer(pixelBuffer: pixelBuffer)
-            let rtcFrame = RTCVideoFrame(buffer: rtcBuffer,
-                                         rotation: rotation,
-                                         timeStampNs: timeStampNs)
+            let rtcBuffer = LK_RTCCVPixelBuffer(pixelBuffer: pixelBuffer)
+            let rtcFrame = LK_RTCVideoFrame(buffer: rtcBuffer,
+                                            rotation: rotation,
+                                            timeStampNs: timeStampNs)
 
             self.capturer(capturer, didCapture: rtcFrame)
         }
     }
 
     /// capture a `CMSampleBuffer`
-    func capturer(_ capturer: RTCVideoCapturer,
+    func capturer(_ capturer: LK_RTCVideoCapturer,
                   didCapture sampleBuffer: CMSampleBuffer,
                   onResolveSourceDimensions: OnResolveSourceDimensions? = nil) {
 

@@ -20,12 +20,12 @@ import Promises
 @_implementationOnly import WebRTC
 
 internal protocol VideoCapturerProtocol {
-    var capturer: RTCVideoCapturer { get }
+    var capturer: LK_RTCVideoCapturer { get }
 }
 
 extension VideoCapturerProtocol {
 
-    public var capturer: RTCVideoCapturer {
+    public var capturer: LK_RTCVideoCapturer {
         fatalError("Must be implemented")
     }
 }
@@ -56,7 +56,7 @@ public class VideoCapturer: NSObject, Loggable, VideoCapturerProtocol {
     /// `kCVPixelFormatType_420YpCbCr8BiPlanarFullRange`,
     /// `kCVPixelFormatType_32BGRA`,
     /// `kCVPixelFormatType_32ARGB`.
-    public static let supportedPixelFormats = DispatchQueue.liveKitWebRTC.sync { RTCCVPixelBuffer.supportedPixelFormats() }
+    public static let supportedPixelFormats = DispatchQueue.liveKitWebRTC.sync { LK_RTCCVPixelBuffer.supportedPixelFormats() }
 
     public static func createTimeStampNs() -> Int64 {
         let systemTime = ProcessInfo.processInfo.systemUptime
@@ -69,7 +69,7 @@ public class VideoCapturer: NSObject, Loggable, VideoCapturerProtocol {
         case started
     }
 
-    internal weak var delegate: RTCVideoCapturerDelegate?
+    internal weak var delegate: LK_RTCVideoCapturerDelegate?
 
     internal struct State: Equatable {
         var dimensionsCompleter = Completer<Dimensions>()
@@ -94,7 +94,7 @@ public class VideoCapturer: NSObject, Loggable, VideoCapturerProtocol {
         _state.startStopCounter == 0 ? .stopped : .started
     }
 
-    init(delegate: RTCVideoCapturerDelegate) {
+    init(delegate: LK_RTCVideoCapturerDelegate) {
         self.delegate = delegate
         super.init()
 

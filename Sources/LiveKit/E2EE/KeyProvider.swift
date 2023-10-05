@@ -46,14 +46,14 @@ public class KeyProviderOptions {
 
 public class BaseKeyProvider: Loggable {
     var options: KeyProviderOptions
-    var rtcKeyProvider: RTCFrameCryptorKeyProvider?
+    var rtcKeyProvider: LK_RTCFrameCryptorKeyProvider?
     public init(isSharedKey: Bool, sharedKey: String? = nil) {
         self.options = KeyProviderOptions(sharedKey: isSharedKey)
-        self.rtcKeyProvider = RTCFrameCryptorKeyProvider(ratchetSalt: options.ratchetSalt,
-                                                         ratchetWindowSize: options.ratchetWindowSize,
-                                                         sharedKeyMode: isSharedKey,
-                                                         uncryptedMagicBytes: options.uncryptedMagicBytes,
-                                                         failureTolerance: options.failureTolerance)
+        self.rtcKeyProvider = LK_RTCFrameCryptorKeyProvider(ratchetSalt: options.ratchetSalt,
+                                                            ratchetWindowSize: options.ratchetWindowSize,
+                                                            sharedKeyMode: isSharedKey,
+                                                            uncryptedMagicBytes: options.uncryptedMagicBytes,
+                                                            failureTolerance: options.failureTolerance)
         if isSharedKey && sharedKey != nil {
             let keyData = sharedKey!.data(using: .utf8)!
             self.rtcKeyProvider?.setSharedKey(keyData, with: 0)
@@ -62,10 +62,10 @@ public class BaseKeyProvider: Loggable {
 
     public init(options: KeyProviderOptions = KeyProviderOptions()) {
         self.options = options
-        self.rtcKeyProvider = RTCFrameCryptorKeyProvider(ratchetSalt: options.ratchetSalt,
-                                                         ratchetWindowSize: options.ratchetWindowSize,
-                                                         sharedKeyMode: options.sharedKey,
-                                                         uncryptedMagicBytes: options.uncryptedMagicBytes)
+        self.rtcKeyProvider = LK_RTCFrameCryptorKeyProvider(ratchetSalt: options.ratchetSalt,
+                                                            ratchetWindowSize: options.ratchetWindowSize,
+                                                            sharedKeyMode: options.sharedKey,
+                                                            uncryptedMagicBytes: options.uncryptedMagicBytes)
     }
 
     public func setKey(key: String, participantId: String? = nil, index: Int32? = 0) {

@@ -32,8 +32,8 @@ internal class DataChannelPair: NSObject, Loggable {
 
     // MARK: - Private
 
-    private var _reliableChannel: RTCDataChannel?
-    private var _lossyChannel: RTCDataChannel?
+    private var _reliableChannel: LK_RTCDataChannel?
+    private var _lossyChannel: LK_RTCDataChannel?
 
     public var isOpen: Bool {
 
@@ -46,15 +46,15 @@ internal class DataChannelPair: NSObject, Loggable {
     }
 
     public init(target: Livekit_SignalTarget,
-                reliableChannel: RTCDataChannel? = nil,
-                lossyChannel: RTCDataChannel? = nil) {
+                reliableChannel: LK_RTCDataChannel? = nil,
+                lossyChannel: LK_RTCDataChannel? = nil) {
 
         self.target = target
         self._reliableChannel = reliableChannel
         self._lossyChannel = lossyChannel
     }
 
-    public func set(reliable channel: RTCDataChannel?) {
+    public func set(reliable channel: LK_RTCDataChannel?) {
         self._reliableChannel = channel
         channel?.delegate = self
 
@@ -63,7 +63,7 @@ internal class DataChannelPair: NSObject, Loggable {
         }
     }
 
-    public func set(lossy channel: RTCDataChannel?) {
+    public func set(lossy channel: LK_RTCDataChannel?) {
         self._lossyChannel = channel
         channel?.delegate = self
 
@@ -131,16 +131,16 @@ internal class DataChannelPair: NSObject, Loggable {
 
 // MARK: - RTCDataChannelDelegate
 
-extension DataChannelPair: RTCDataChannelDelegate {
+extension DataChannelPair: LK_RTCDataChannelDelegate {
 
-    func dataChannelDidChangeState(_ dataChannel: RTCDataChannel) {
+    func dataChannelDidChangeState(_ dataChannel: LK_RTCDataChannel) {
 
         if isOpen {
             openCompleter.fulfill(())
         }
     }
 
-    func dataChannel(_ dataChannel: RTCDataChannel, didReceiveMessageWith buffer: RTCDataBuffer) {
+    func dataChannel(_ dataChannel: LK_RTCDataChannel, didReceiveMessageWith buffer: LK_RTCDataBuffer) {
 
         guard let dataPacket = try? Livekit_DataPacket(contiguousBytes: buffer.data) else {
             log("could not decode data message", .error)

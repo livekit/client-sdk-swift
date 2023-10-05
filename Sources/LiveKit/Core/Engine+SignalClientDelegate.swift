@@ -36,7 +36,7 @@ extension Engine: SignalClientDelegate {
         }
     }
 
-    func signalClient(_ signalClient: SignalClient, didReceive iceCandidate: RTCIceCandidate, target: Livekit_SignalTarget) {
+    func signalClient(_ signalClient: SignalClient, didReceive iceCandidate: LK_RTCIceCandidate, target: Livekit_SignalTarget) {
 
         guard let transport = target == .subscriber ? subscriber : publisher else {
             log("failed to add ice candidate, transport is nil for target: \(target)", .error)
@@ -48,7 +48,7 @@ extension Engine: SignalClientDelegate {
         }
     }
 
-    func signalClient(_ signalClient: SignalClient, didReceiveAnswer answer: RTCSessionDescription) {
+    func signalClient(_ signalClient: SignalClient, didReceiveAnswer answer: LK_RTCSessionDescription) {
 
         guard let publisher = self.publisher else {
             log("publisher is nil", .error)
@@ -62,7 +62,7 @@ extension Engine: SignalClientDelegate {
         return
     }
 
-    func signalClient(_ signalClient: SignalClient, didReceiveOffer offer: RTCSessionDescription) {
+    func signalClient(_ signalClient: SignalClient, didReceiveOffer offer: LK_RTCSessionDescription) {
 
         log("received offer, creating & sending answer...")
 

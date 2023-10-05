@@ -24,29 +24,29 @@ public protocol VideoBuffer {
 }
 
 internal protocol RTCCompatibleVideoBuffer {
-    func toRTCType() -> RTCVideoFrameBuffer
+    func toRTCType() -> LK_RTCVideoFrameBuffer
 }
 
 public class CVPixelVideoBuffer: VideoBuffer, RTCCompatibleVideoBuffer {
     // Internal RTC type
-    internal let rtcType: RTCCVPixelBuffer
-    internal init(rtcCVPixelBuffer: RTCCVPixelBuffer) {
+    internal let rtcType: LK_RTCCVPixelBuffer
+    internal init(rtcCVPixelBuffer: LK_RTCCVPixelBuffer) {
         self.rtcType = rtcCVPixelBuffer
     }
 
-    func toRTCType() -> RTCVideoFrameBuffer {
+    func toRTCType() -> LK_RTCVideoFrameBuffer {
         rtcType
     }
 }
 
 public struct I420VideoBuffer: VideoBuffer, RTCCompatibleVideoBuffer {
     // Internal RTC type
-    internal let rtcType: RTCI420Buffer
-    internal init(rtcI420Buffer: RTCI420Buffer) {
+    internal let rtcType: LK_RTCI420Buffer
+    internal init(rtcI420Buffer: LK_RTCI420Buffer) {
         self.rtcType = rtcI420Buffer
     }
 
-    func toRTCType() -> RTCVideoFrameBuffer {
+    func toRTCType() -> LK_RTCVideoFrameBuffer {
         rtcType
     }
 }
@@ -72,15 +72,15 @@ public class VideoFrame: NSObject {
     }
 }
 
-internal extension RTCVideoFrame {
+internal extension LK_RTCVideoFrame {
 
     func toLKType() -> VideoFrame? {
 
         let lkBuffer: VideoBuffer
 
-        if let rtcBuffer = buffer as? RTCCVPixelBuffer {
+        if let rtcBuffer = buffer as? LK_RTCCVPixelBuffer {
             lkBuffer = CVPixelVideoBuffer(rtcCVPixelBuffer: rtcBuffer)
-        } else if let rtcI420Buffer = buffer as? RTCI420Buffer {
+        } else if let rtcI420Buffer = buffer as? LK_RTCI420Buffer {
             lkBuffer = I420VideoBuffer(rtcI420Buffer: rtcI420Buffer)
         } else {
             logger.error("RTCVideoFrame.buffer is not a known type (\(type(of: buffer)))")
@@ -96,12 +96,12 @@ internal extension RTCVideoFrame {
 
 internal extension VideoFrame {
 
-    func toRTCType() -> RTCVideoFrame {
+    func toRTCType() -> LK_RTCVideoFrame {
         // This should never happen
         guard let buffer = buffer as? RTCCompatibleVideoBuffer else { fatalError("Buffer must be a RTCCompatibleVideoBuffer") }
 
-        return RTCVideoFrame(buffer: buffer.toRTCType(),
-                             rotation: rotation.toRTCType(),
-                             timeStampNs: timeStampNs)
+        return LK_RTCVideoFrame(buffer: buffer.toRTCType(),
+                                rotation: rotation.toRTCType(),
+                                timeStampNs: timeStampNs)
     }
 }

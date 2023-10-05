@@ -84,8 +84,8 @@ public class RemoteParticipant: Participant {
         }
     }
 
-    internal func addSubscribedMediaTrack(rtcTrack: RTCMediaStreamTrack,
-                                          rtpReceiver: RTCRtpReceiver,
+    internal func addSubscribedMediaTrack(rtcTrack: LK_RTCMediaStreamTrack,
+                                          rtpReceiver: LK_RTCRtpReceiver,
                                           sid: Sid) -> Promise<Void> {
 
         let track: Track

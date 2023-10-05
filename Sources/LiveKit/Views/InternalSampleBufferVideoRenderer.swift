@@ -47,17 +47,17 @@ internal class InternalSampleBufferVideoRenderer: NativeView, Loggable {
     }
 }
 
-extension InternalSampleBufferVideoRenderer: RTCVideoRenderer {
+extension InternalSampleBufferVideoRenderer: LK_RTCVideoRenderer {
 
     internal func setSize(_ size: CGSize) {
         //
     }
 
-    internal func renderFrame(_ frame: RTCVideoFrame?) {
+    internal func renderFrame(_ frame: LK_RTCVideoFrame?) {
 
         guard let frame = frame else { return }
 
-        guard let rtcPixelBuffer = frame.buffer as? RTCCVPixelBuffer else {
+        guard let rtcPixelBuffer = frame.buffer as? LK_RTCCVPixelBuffer else {
             log("frame.buffer is not a RTCCVPixelBuffer", .error)
             return
         }

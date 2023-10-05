@@ -112,10 +112,10 @@ public class Track: NSObject, Loggable {
     /// Only for ``LocalTrack``s.
     internal var _publishOptions: PublishOptions?
 
-    internal let mediaTrack: RTCMediaStreamTrack
+    internal let mediaTrack: LK_RTCMediaStreamTrack
 
-    internal private(set) var rtpSender: RTCRtpSender?
-    internal private(set) var rtpReceiver: RTCRtpReceiver?
+    internal private(set) var rtpSender: LK_RTCRtpSender?
+    internal private(set) var rtpReceiver: LK_RTCRtpReceiver?
 
     // Weak reference to all VideoViews attached to this track. Must be accessed from main thread.
     internal var videoRenderers = NSHashTable<VideoRenderer>.weakObjects()
@@ -149,7 +149,7 @@ public class Track: NSObject, Loggable {
     internal init(name: String,
                   kind: Kind,
                   source: Source,
-                  track: RTCMediaStreamTrack) {
+                  track: LK_RTCMediaStreamTrack) {
 
         _state = StateSync(State(
             name: name,
@@ -192,13 +192,13 @@ public class Track: NSObject, Loggable {
         log("sid: \(String(describing: sid))")
     }
 
-    internal func set(transport: Transport, rtpSender: RTCRtpSender) {
+    internal func set(transport: Transport, rtpSender: LK_RTCRtpSender) {
         self.transport = transport
         self.rtpSender = rtpSender
         statsTimer.resume()
     }
 
-    internal func set(transport: Transport, rtpReceiver: RTCRtpReceiver) {
+    internal func set(transport: Transport, rtpReceiver: LK_RTCRtpReceiver) {
         self.transport = transport
         self.rtpReceiver = rtpReceiver
         statsTimer.resume()
@@ -416,7 +416,7 @@ extension Track {
 
     internal func _add(videoRenderer: VideoRenderer) {
 
-        guard self is VideoTrack, let rtcVideoTrack = self.mediaTrack as? RTCVideoTrack else {
+        guard self is VideoTrack, let rtcVideoTrack = self.mediaTrack as? LK_RTCVideoTrack else {
             log("mediaTrack is not a RTCVideoTrack", .error)
             return
         }
@@ -430,7 +430,7 @@ extension Track {
 
     internal func _remove(videoRenderer: VideoRenderer) {
 
-        guard self is VideoTrack, let rtcVideoTrack = self.mediaTrack as? RTCVideoTrack else {
+        guard self is VideoTrack, let rtcVideoTrack = self.mediaTrack as? LK_RTCVideoTrack else {
             log("mediaTrack is not a RTCVideoTrack", .error)
             return
         }
@@ -496,7 +496,7 @@ extension Track {
 
             defer { statsTimer.resume() }
 
-            var statisticsReport: RTCStatisticsReport?
+            var statisticsReport: LK_RTCStatisticsReport?
             let prevStatistics = _state.read { $0.statistics }
 
             if let sender = rtpSender {

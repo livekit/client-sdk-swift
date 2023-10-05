@@ -24,7 +24,7 @@ public class RemoteVideoTrack: Track, RemoteTrack, VideoTrack {
 
     init(name: String,
          source: Track.Source,
-         track: RTCMediaStreamTrack) {
+         track: LK_RTCMediaStreamTrack) {
 
         super.init(name: name,
                    kind: .video,

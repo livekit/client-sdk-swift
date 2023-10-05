@@ -20,7 +20,7 @@ import SwiftProtobuf
 
 @_implementationOnly import WebRTC
 
-internal typealias TransportOnOffer = (RTCSessionDescription) -> Promise<Void>
+internal typealias TransportOnOffer = (LK_RTCSessionDescription) -> Promise<Void>
 
 internal class Transport: MulticastDelegate<TransportDelegate> {
 
@@ -38,11 +38,11 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
         DispatchQueue.liveKitWebRTC.sync { pc.connectionState }
     }
 
-    public var localDescription: RTCSessionDescription? {
+    public var localDescription: LK_RTCSessionDescription? {
         DispatchQueue.liveKitWebRTC.sync { pc.localDescription }
     }
 
-    public var remoteDescription: RTCSessionDescription? {
+    public var remoteDescription: LK_RTCSessionDescription? {
         DispatchQueue.liveKitWebRTC.sync { pc.remoteDescription }
     }
 
@@ -68,8 +68,8 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
     private var renegotiate: Bool = false
 
     // forbid direct access to PeerConnection
-    private let pc: RTCPeerConnection
-    private var pendingCandidates: [RTCIceCandidate] = []
+    private let pc: LK_RTCPeerConnection
+    private var pendingCandidates: [LK_RTCIceCandidate] = []
 
     // used for stats timer
     private let statsTimer = DispatchQueueTimer(timeInterval: 1, queue: .liveKitWebRTC)
@@ -78,7 +78,7 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
     // keep reference to cancel later
     private var debounceWorkItem: DispatchWorkItem?
 
-    init(config: RTCConfiguration,
+    init(config: LK_RTCConfiguration,
          target: Livekit_SignalTarget,
          primary: Bool,
          delegate: TransportDelegate,
@@ -120,7 +120,7 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
     }
 
     @discardableResult
-    func addIceCandidate(_ candidate: RTCIceCandidate) -> Promise<Void> {
+    func addIceCandidate(_ candidate: LK_RTCIceCandidate) -> Promise<Void> {
 
         if remoteDescription != nil && !restartingIce {
             return addIceCandidatePromise(candidate)
@@ -132,7 +132,7 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
     }
 
     @discardableResult
-    func setRemoteDescription(_ sd: RTCSessionDescription) -> Promise<Void> {
+    func setRemoteDescription(_ sd: LK_RTCSessionDescription) -> Promise<Void> {
 
         self.setRemoteDescriptionPromise(sd).then(on: queue) { _ in
             self.pendingCandidates.map { self.addIceCandidatePromise($0) }.all(on: self.queue)
@@ -217,11 +217,11 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
 
 extension Transport {
 
-    func statistics(for sender: RTCRtpSender) async -> RTCStatisticsReport {
+    func statistics(for sender: LK_RTCRtpSender) async -> LK_RTCStatisticsReport {
         await pc.statistics(for: sender)
     }
 
-    func statistics(for receiver: RTCRtpReceiver) async -> RTCStatisticsReport {
+    func statistics(for receiver: LK_RTCRtpReceiver) async -> LK_RTCStatisticsReport {
         await pc.statistics(for: receiver)
     }
 
@@ -270,28 +270,28 @@ extension Transport {
 
 // MARK: - RTCPeerConnectionDelegate
 
-extension Transport: RTCPeerConnectionDelegate {
+extension Transport: LK_RTCPeerConnectionDelegate {
 
-    internal func peerConnection(_ peerConnection: RTCPeerConnection, didChange state: RTCPeerConnectionState) {
+    internal func peerConnection(_ peerConnection: LK_RTCPeerConnection, didChange state: RTCPeerConnectionState) {
         log("did update state \(state) for \(target)")
         notify { $0.transport(self, didUpdate: state) }
     }
 
-    internal func peerConnection(_ peerConnection: RTCPeerConnection,
-                                 didGenerate candidate: RTCIceCandidate) {
+    internal func peerConnection(_ peerConnection: LK_RTCPeerConnection,
+                                 didGenerate candidate: LK_RTCIceCandidate) {
 
         log("Did generate ice candidates \(candidate) for \(target)")
         notify { $0.transport(self, didGenerate: candidate) }
     }
 
-    internal func peerConnectionShouldNegotiate(_ peerConnection: RTCPeerConnection) {
+    internal func peerConnectionShouldNegotiate(_ peerConnection: LK_RTCPeerConnection) {
         log("ShouldNegotiate for \(target)")
         notify { $0.transportShouldNegotiate(self) }
     }
 
-    internal func peerConnection(_ peerConnection: RTCPeerConnection,
-                                 didAdd rtpReceiver: RTCRtpReceiver,
-                                 streams mediaStreams: [RTCMediaStream]) {
+    internal func peerConnection(_ peerConnection: LK_RTCPeerConnection,
+                                 didAdd rtpReceiver: LK_RTCRtpReceiver,
+                                 streams mediaStreams: [LK_RTCMediaStream]) {
 
         guard let track = rtpReceiver.track else {
             log("Track is empty for \(target)", .warning)
@@ -302,8 +302,8 @@ extension Transport: RTCPeerConnectionDelegate {
         notify { $0.transport(self, didAddTrack: track, rtpReceiver: rtpReceiver, streams: mediaStreams) }
     }
 
-    internal func peerConnection(_ peerConnection: RTCPeerConnection,
-                                 didRemove rtpReceiver: RTCRtpReceiver) {
+    internal func peerConnection(_ peerConnection: LK_RTCPeerConnection,
+                                 didRemove rtpReceiver: LK_RTCRtpReceiver) {
 
         guard let track = rtpReceiver.track else {
             log("Track is empty for \(target)", .warning)
@@ -314,29 +314,29 @@ extension Transport: RTCPeerConnectionDelegate {
         notify { $0.transport(self, didRemove: track) }
     }
 
-    internal func peerConnection(_ peerConnection: RTCPeerConnection, didOpen dataChannel: RTCDataChannel) {
+    internal func peerConnection(_ peerConnection: LK_RTCPeerConnection, didOpen dataChannel: LK_RTCDataChannel) {
         log("Received data channel \(dataChannel.label) for \(target)")
         notify { $0.transport(self, didOpen: dataChannel) }
     }
 
-    internal func peerConnection(_ peerConnection: RTCPeerConnection, didChange newState: RTCIceConnectionState) {}
-    internal func peerConnection(_ peerConnection: RTCPeerConnection, didRemove stream: RTCMediaStream) {}
-    internal func peerConnection(_ peerConnection: RTCPeerConnection, didChange stateChanged: RTCSignalingState) {}
-    internal func peerConnection(_ peerConnection: RTCPeerConnection, didAdd stream: RTCMediaStream) {}
-    internal func peerConnection(_ peerConnection: RTCPeerConnection, didChange newState: RTCIceGatheringState) {}
-    internal func peerConnection(_ peerConnection: RTCPeerConnection, didRemove candidates: [RTCIceCandidate]) {}
+    internal func peerConnection(_ peerConnection: LK_RTCPeerConnection, didChange newState: RTCIceConnectionState) {}
+    internal func peerConnection(_ peerConnection: LK_RTCPeerConnection, didRemove stream: LK_RTCMediaStream) {}
+    internal func peerConnection(_ peerConnection: LK_RTCPeerConnection, didChange stateChanged: RTCSignalingState) {}
+    internal func peerConnection(_ peerConnection: LK_RTCPeerConnection, didAdd stream: LK_RTCMediaStream) {}
+    internal func peerConnection(_ peerConnection: LK_RTCPeerConnection, didChange newState: RTCIceGatheringState) {}
+    internal func peerConnection(_ peerConnection: LK_RTCPeerConnection, didRemove candidates: [LK_RTCIceCandidate]) {}
 }
 
 // MARK: - Private
 
 private extension Transport {
 
-    func createOffer(for constraints: [String: String]? = nil) -> Promise<RTCSessionDescription> {
+    func createOffer(for constraints: [String: String]? = nil) -> Promise<LK_RTCSessionDescription> {
 
-        Promise<RTCSessionDescription>(on: .liveKitWebRTC) { complete, fail in
+        Promise<LK_RTCSessionDescription>(on: .liveKitWebRTC) { complete, fail in
 
-            let mediaConstraints = RTCMediaConstraints(mandatoryConstraints: constraints,
-                                                       optionalConstraints: nil)
+            let mediaConstraints = LK_RTCMediaConstraints(mandatoryConstraints: constraints,
+                                                          optionalConstraints: nil)
 
             self.pc.offer(for: mediaConstraints) { sd, error in
 
@@ -350,9 +350,9 @@ private extension Transport {
         }
     }
 
-    func setRemoteDescriptionPromise(_ sd: RTCSessionDescription) -> Promise<RTCSessionDescription> {
+    func setRemoteDescriptionPromise(_ sd: LK_RTCSessionDescription) -> Promise<LK_RTCSessionDescription> {
 
-        Promise<RTCSessionDescription>(on: .liveKitWebRTC) { complete, fail in
+        Promise<LK_RTCSessionDescription>(on: .liveKitWebRTC) { complete, fail in
 
             self.pc.setRemoteDescription(sd) { error in
 
@@ -366,7 +366,7 @@ private extension Transport {
         }
     }
 
-    func addIceCandidatePromise(_ candidate: RTCIceCandidate) -> Promise<Void> {
+    func addIceCandidatePromise(_ candidate: LK_RTCIceCandidate) -> Promise<Void> {
 
         Promise<Void>(on: .liveKitWebRTC) { complete, fail in
 
@@ -387,12 +387,12 @@ private extension Transport {
 
 internal extension Transport {
 
-    func createAnswer(for constraints: [String: String]? = nil) -> Promise<RTCSessionDescription> {
+    func createAnswer(for constraints: [String: String]? = nil) -> Promise<LK_RTCSessionDescription> {
 
-        Promise<RTCSessionDescription>(on: .liveKitWebRTC) { complete, fail in
+        Promise<LK_RTCSessionDescription>(on: .liveKitWebRTC) { complete, fail in
 
-            let mediaConstraints = RTCMediaConstraints(mandatoryConstraints: constraints,
-                                                       optionalConstraints: nil)
+            let mediaConstraints = LK_RTCMediaConstraints(mandatoryConstraints: constraints,
+                                                          optionalConstraints: nil)
 
             self.pc.answer(for: mediaConstraints) { sd, error in
 
@@ -406,9 +406,9 @@ internal extension Transport {
         }
     }
 
-    func setLocalDescription(_ sd: RTCSessionDescription) -> Promise<RTCSessionDescription> {
+    func setLocalDescription(_ sd: LK_RTCSessionDescription) -> Promise<LK_RTCSessionDescription> {
 
-        Promise<RTCSessionDescription>(on: .liveKitWebRTC) { complete, fail in
+        Promise<LK_RTCSessionDescription>(on: .liveKitWebRTC) { complete, fail in
 
             self.pc.setLocalDescription(sd) { error in
 
@@ -422,10 +422,10 @@ internal extension Transport {
         }
     }
 
-    func addTransceiver(with track: RTCMediaStreamTrack,
-                        transceiverInit: RTCRtpTransceiverInit) -> Promise<RTCRtpTransceiver> {
+    func addTransceiver(with track: LK_RTCMediaStreamTrack,
+                        transceiverInit: LK_RTCRtpTransceiverInit) -> Promise<LK_RTCRtpTransceiver> {
 
-        Promise<RTCRtpTransceiver>(on: .liveKitWebRTC) { complete, fail in
+        Promise<LK_RTCRtpTransceiver>(on: .liveKitWebRTC) { complete, fail in
 
             guard let transceiver = self.pc.addTransceiver(with: track, init: transceiverInit) else {
                 fail(EngineError.webRTC(message: "failed to add transceiver"))
@@ -436,7 +436,7 @@ internal extension Transport {
         }
     }
 
-    func removeTrack(_ sender: RTCRtpSender) -> Promise<Void> {
+    func removeTrack(_ sender: LK_RTCRtpSender) -> Promise<Void> {
 
         Promise<Void>(on: .liveKitWebRTC) { complete, fail in
 
@@ -450,8 +450,8 @@ internal extension Transport {
     }
 
     func dataChannel(for label: String,
-                     configuration: RTCDataChannelConfiguration,
-                     delegate: RTCDataChannelDelegate? = nil) -> RTCDataChannel? {
+                     configuration: LK_RTCDataChannelConfiguration,
+                     delegate: LK_RTCDataChannelDelegate? = nil) -> LK_RTCDataChannel? {
 
         let result = DispatchQueue.liveKitWebRTC.sync { pc.dataChannel(forLabel: label, configuration: configuration) }
         result?.delegate = delegate

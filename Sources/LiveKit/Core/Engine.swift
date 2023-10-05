@@ -300,7 +300,7 @@ internal extension Engine {
             self.log("subscriberPrimary: \(joinResponse.subscriberPrimary)")
 
             // Make a copy, instead of modifying the user-supplied RTCConfiguration object.
-            let rtcConfiguration = RTCConfiguration.liveKitDefault() // TODO: Allow custom configuration
+            let rtcConfiguration = LK_RTCConfiguration.liveKitDefault() // TODO: Allow custom configuration
 
             if rtcConfiguration.iceServers.isEmpty {
                 // Set iceServers provided by the server
@@ -330,10 +330,10 @@ internal extension Engine {
 
             // data over pub channel for backwards compatibility
 
-            let publisherReliableDC = publisher.dataChannel(for: RTCDataChannel.labels.reliable,
+            let publisherReliableDC = publisher.dataChannel(for: LK_RTCDataChannel.labels.reliable,
                                                             configuration: Engine.createDataChannelConfiguration())
 
-            let publisherLossyDC = publisher.dataChannel(for: RTCDataChannel.labels.lossy,
+            let publisherLossyDC = publisher.dataChannel(for: LK_RTCDataChannel.labels.lossy,
                                                          configuration: Engine.createDataChannelConfiguration(maxRetransmits: 0))
 
             self.publisherDC.set(reliable: publisherReliableDC)

@@ -36,7 +36,7 @@ public class BufferCapturer: VideoCapturer {
     /// The ``BufferCaptureOptions`` used for this capturer.
     public var options: BufferCaptureOptions
 
-    init(delegate: RTCVideoCapturerDelegate, options: BufferCaptureOptions) {
+    init(delegate: LK_RTCVideoCapturerDelegate, options: BufferCaptureOptions) {
         self.options = options
         super.init(delegate: delegate)
     }
@@ -52,7 +52,7 @@ public class BufferCapturer: VideoCapturer {
 
             defer { self.dimensions = targetDimensions }
 
-            guard let videoSource = self.delegate as? RTCVideoSource else { return }
+            guard let videoSource = self.delegate as? LK_RTCVideoSource else { return }
             videoSource.adaptOutputFormat(toWidth: targetDimensions.width,
                                           height: targetDimensions.height,
                                           fps: Int32(self.options.fps))
@@ -75,7 +75,7 @@ public class BufferCapturer: VideoCapturer {
 
             defer { self.dimensions = targetDimensions }
 
-            guard let videoSource = self.delegate as? RTCVideoSource else { return }
+            guard let videoSource = self.delegate as? LK_RTCVideoSource else { return }
             videoSource.adaptOutputFormat(toWidth: targetDimensions.width,
                                           height: targetDimensions.height,
                                           fps: Int32(self.options.fps))

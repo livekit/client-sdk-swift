@@ -20,11 +20,11 @@ import Foundation
 
 extension Livekit_ICEServer {
 
-    func toRTCType() -> RTCIceServer {
+    func toRTCType() -> LK_RTCIceServer {
         let rtcUsername = !username.isEmpty ? username : nil
         let rtcCredential = !credential.isEmpty ? credential : nil
-        return DispatchQueue.liveKitWebRTC.sync { RTCIceServer(urlStrings: urls,
-                                                               username: rtcUsername,
-                                                               credential: rtcCredential) }
+        return DispatchQueue.liveKitWebRTC.sync { LK_RTCIceServer(urlStrings: urls,
+                                                                  username: rtcUsername,
+                                                                  credential: rtcCredential) }
     }
 }

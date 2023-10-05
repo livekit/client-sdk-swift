@@ -37,7 +37,7 @@ public class TrackStatistics: NSObject {
     public let remoteInboundRtpStream: [RemoteInboundRtpStreamStatistics]
     public let remoteOutboundRtpStream: [RemoteOutboundRtpStreamStatistics]
 
-    init(from stats: [RTCStatistics], prevStatistics: TrackStatistics?) {
+    init(from stats: [LK_RTCStatistics], prevStatistics: TrackStatistics?) {
 
         let stats = stats.map { $0.toLKType(prevStatistics: prevStatistics) }.compactMap { $0 }
 
@@ -64,7 +64,7 @@ public class TrackStatistics: NSObject {
     }
 }
 
-extension RTCStatistics {
+extension LK_RTCStatistics {
 
     func toLKType(prevStatistics: TrackStatistics?) -> Statistics? {
         switch type {

@@ -220,7 +220,7 @@ internal class Utils {
         dimensions: Dimensions,
         publishOptions: VideoPublishOptions?,
         isScreenShare: Bool = false
-    ) -> [RTCRtpEncodingParameters] {
+    ) -> [LK_RTCRtpEncodingParameters] {
 
         let publishOptions = publishOptions ?? VideoPublishOptions()
         let preferredEncoding: VideoEncoding? = isScreenShare ? publishOptions.screenShareEncoding : publishOptions.encoding

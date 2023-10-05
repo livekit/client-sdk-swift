@@ -23,7 +23,7 @@ public class VideoCaptureInterceptor: NSObject, Loggable {
     public typealias CaptureFunc = (_ capture: VideoFrame) -> Void
     public typealias InterceptFunc = (_ frame: VideoFrame, _ capture: @escaping CaptureFunc) -> Void
 
-    private class DelegateAdapter: NSObject, RTCVideoCapturerDelegate {
+    private class DelegateAdapter: NSObject, LK_RTCVideoCapturerDelegate {
 
         weak var target: VideoCaptureInterceptor?
 
@@ -31,7 +31,7 @@ public class VideoCaptureInterceptor: NSObject, Loggable {
             self.target = target
         }
 
-        func capturer(_ capturer: RTCVideoCapturer, didCapture frame: RTCVideoFrame) {
+        func capturer(_ capturer: LK_RTCVideoCapturer, didCapture frame: LK_RTCVideoFrame) {
             target?.capturer(capturer, didCapture: frame)
         }
     }
@@ -53,7 +53,7 @@ public class VideoCaptureInterceptor: NSObject, Loggable {
 
     // MARK: - Internal
 
-    internal func capturer(_ capturer: RTCVideoCapturer, didCapture frame: RTCVideoFrame) {
+    internal func capturer(_ capturer: LK_RTCVideoCapturer, didCapture frame: LK_RTCVideoFrame) {
         // create capture func to pass to intercept func
         let captureFunc = { [weak self, weak capturer] (frame: VideoFrame) -> Void in
             guard let self = self,

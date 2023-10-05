@@ -430,7 +430,7 @@ internal extension SignalClient {
         }
     }
 
-    func sendOffer(offer: RTCSessionDescription) -> Promise<Void> {
+    func sendOffer(offer: LK_RTCSessionDescription) -> Promise<Void> {
         log()
 
         let r = Livekit_SignalRequest.with {
@@ -440,7 +440,7 @@ internal extension SignalClient {
         return sendRequest(r)
     }
 
-    func sendAnswer(answer: RTCSessionDescription) -> Promise<Void> {
+    func sendAnswer(answer: LK_RTCSessionDescription) -> Promise<Void> {
         log()
 
         let r = Livekit_SignalRequest.with {
@@ -450,7 +450,7 @@ internal extension SignalClient {
         return sendRequest(r)
     }
 
-    func sendCandidate(candidate: RTCIceCandidate, target: Livekit_SignalTarget) -> Promise<Void> {
+    func sendCandidate(candidate: LK_RTCIceCandidate, target: Livekit_SignalTarget) -> Promise<Void> {
         log("target: \(target)")
 
         return Promise { () -> Livekit_SignalRequest in
