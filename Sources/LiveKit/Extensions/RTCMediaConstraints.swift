@@ -18,7 +18,7 @@ import Foundation
 
 @_implementationOnly import WebRTC
 
-extension LK_RTCMediaConstraints {
+extension LKRTCMediaConstraints {
 
     //    static let defaultOfferConstraints = RTCMediaConstraints(
     //        mandatoryConstraints: [
@@ -28,7 +28,7 @@ extension LK_RTCMediaConstraints {
     //        optionalConstraints: nil
     //    )
 
-    static let defaultPCConstraints = DispatchQueue.liveKitWebRTC.sync { LK_RTCMediaConstraints(
+    static let defaultPCConstraints = DispatchQueue.liveKitWebRTC.sync { LKRTCMediaConstraints(
         mandatoryConstraints: nil,
         optionalConstraints: ["DtlsSrtpKeyAgreement": kRTCMediaConstraintsValueTrue]
     ) }

@@ -18,7 +18,7 @@ import Foundation
 
 @_implementationOnly import WebRTC
 
-extension LK_RTCSessionDescription {
+extension LKRTCSessionDescription {
 
     func toPBType() -> Livekit_SessionDescription {
         var sd = Livekit_SessionDescription()
@@ -37,7 +37,7 @@ extension LK_RTCSessionDescription {
 
 extension Livekit_SessionDescription {
 
-    func toRTCType() -> LK_RTCSessionDescription {
+    func toRTCType() -> LKRTCSessionDescription {
         var sdpType: RTCSdpType
         switch type {
         case "answer": sdpType = .answer

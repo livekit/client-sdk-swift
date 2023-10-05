@@ -22,7 +22,7 @@ import Foundation
 public class E2EEManager: NSObject, ObservableObject, Loggable {
 
     // Private delegate adapter to hide RTCFrameCryptorDelegate symbol
-    private class DelegateAdapter: NSObject, LK_RTCFrameCryptorDelegate {
+    private class DelegateAdapter: NSObject, LKRTCFrameCryptorDelegate {
 
         weak var target: E2EEManager?
 
@@ -30,7 +30,7 @@ public class E2EEManager: NSObject, ObservableObject, Loggable {
             self.target = target
         }
 
-        func frameCryptor(_ frameCryptor: LK_RTCFrameCryptor,
+        func frameCryptor(_ frameCryptor: LKRTCFrameCryptor,
                           didStateChangeWithParticipantId participantId: String,
                           with stateChanged: FrameCryptionState) {
             // Redirect
@@ -42,8 +42,8 @@ public class E2EEManager: NSObject, ObservableObject, Loggable {
     internal weak var room: Room?
     internal var enabled: Bool = true
     public var e2eeOptions: E2EEOptions
-    internal var frameCryptors = [[String: Sid]: LK_RTCFrameCryptor]()
-    internal var trackPublications = [LK_RTCFrameCryptor: TrackPublication]()
+    internal var frameCryptors = [[String: Sid]: LKRTCFrameCryptor]()
+    internal var trackPublications = [LKRTCFrameCryptor: TrackPublication]()
     private lazy var delegateAdapter: DelegateAdapter = { DelegateAdapter(target: self) }()
 
     public init(e2eeOptions: E2EEOptions) {
@@ -54,7 +54,7 @@ public class E2EEManager: NSObject, ObservableObject, Loggable {
         return self.e2eeOptions.keyProvider
     }
 
-    internal func getFrameCryptors() -> [[String: Sid]: LK_RTCFrameCryptor] {
+    internal func getFrameCryptors() -> [[String: Sid]: LKRTCFrameCryptor] {
         return self.frameCryptors
     }
 
@@ -100,18 +100,18 @@ public class E2EEManager: NSObject, ObservableObject, Loggable {
         }
     }
 
-    func addRtpSender(sender: LK_RTCRtpSender, participantId: String, trackSid: Sid) -> LK_RTCFrameCryptor {
+    func addRtpSender(sender: LKRTCRtpSender, participantId: String, trackSid: Sid) -> LKRTCFrameCryptor {
         self.log("addRtpSender \(participantId) to E2EEManager")
-        let frameCryptor = LK_RTCFrameCryptor(factory: Engine.peerConnectionFactory, rtpSender: sender, participantId: participantId, algorithm: RTCCyrptorAlgorithm.aesGcm, keyProvider: self.e2eeOptions.keyProvider.rtcKeyProvider!)
+        let frameCryptor = LKRTCFrameCryptor(factory: Engine.peerConnectionFactory, rtpSender: sender, participantId: participantId, algorithm: RTCCyrptorAlgorithm.aesGcm, keyProvider: self.e2eeOptions.keyProvider.rtcKeyProvider!)
         frameCryptor.delegate = delegateAdapter
         frameCryptors[[participantId: trackSid]] = frameCryptor
         frameCryptor.enabled = self.enabled
         return frameCryptor
     }
 
-    func addRtpReceiver(receiver: LK_RTCRtpReceiver, participantId: String, trackSid: Sid) -> LK_RTCFrameCryptor {
+    func addRtpReceiver(receiver: LKRTCRtpReceiver, participantId: String, trackSid: Sid) -> LKRTCFrameCryptor {
         self.log("addRtpReceiver \(participantId)  to E2EEManager")
-        let frameCryptor = LK_RTCFrameCryptor(factory: Engine.peerConnectionFactory, rtpReceiver: receiver, participantId: participantId, algorithm: RTCCyrptorAlgorithm.aesGcm, keyProvider: self.e2eeOptions.keyProvider.rtcKeyProvider!)
+        let frameCryptor = LKRTCFrameCryptor(factory: Engine.peerConnectionFactory, rtpReceiver: receiver, participantId: participantId, algorithm: RTCCyrptorAlgorithm.aesGcm, keyProvider: self.e2eeOptions.keyProvider.rtcKeyProvider!)
         frameCryptor.delegate = delegateAdapter
         frameCryptors[[participantId: trackSid]] = frameCryptor
         frameCryptor.enabled = self.enabled
@@ -130,7 +130,7 @@ public class E2EEManager: NSObject, ObservableObject, Loggable {
 
 extension E2EEManager {
 
-    func frameCryptor(_ frameCryptor: LK_RTCFrameCryptor, didStateChangeWithParticipantId participantId: String, with state: FrameCryptionState) {
+    func frameCryptor(_ frameCryptor: LKRTCFrameCryptor, didStateChangeWithParticipantId participantId: String, with state: FrameCryptionState) {
         self.log("frameCryptor didStateChangeWithParticipantId \(participantId) with state \(state.rawValue)")
         let publication: TrackPublication? = trackPublications[frameCryptor]
         if publication == nil {
@@ -163,7 +163,7 @@ extension E2EEManager: RoomDelegate {
     }
 
     public func room(_ room: Room, localParticipant: LocalParticipant, didUnpublish publication: LocalTrackPublication) {
-        let frameCryptor = frameCryptors.first(where: { (key: [String: Sid], _: LK_RTCFrameCryptor) -> Bool in
+        let frameCryptor = frameCryptors.first(where: { (key: [String: Sid], _: LKRTCFrameCryptor) -> Bool in
             return key[localParticipant.identity] == publication.sid
         })?.value
 
@@ -190,7 +190,7 @@ extension E2EEManager: RoomDelegate {
     }
 
     public func room(_ room: Room, participant: RemoteParticipant, didUnsubscribe publication: RemoteTrackPublication, track: Track) {
-        let frameCryptor = frameCryptors.first(where: { (key: [String: Sid], _: LK_RTCFrameCryptor) -> Bool in
+        let frameCryptor = frameCryptors.first(where: { (key: [String: Sid], _: LKRTCFrameCryptor) -> Bool in
             return key[participant.identity] == publication.sid
         })?.value
 

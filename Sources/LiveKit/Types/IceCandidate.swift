@@ -37,7 +37,7 @@ struct IceCandidate: Codable {
     }
 }
 
-extension LK_RTCIceCandidate {
+extension LKRTCIceCandidate {
 
     func toLKType() -> IceCandidate {
         IceCandidate(sdp: sdp,

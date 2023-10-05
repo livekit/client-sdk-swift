@@ -48,7 +48,7 @@ extension Engine: TransportDelegate {
         }
     }
 
-    func transport(_ transport: Transport, didGenerate iceCandidate: LK_RTCIceCandidate) {
+    func transport(_ transport: Transport, didGenerate iceCandidate: LKRTCIceCandidate) {
         log("didGenerate iceCandidate")
         signalClient.sendCandidate(candidate: iceCandidate,
                                    target: transport.target).catch(on: queue) { error in
@@ -56,7 +56,7 @@ extension Engine: TransportDelegate {
                                    }
     }
 
-    func transport(_ transport: Transport, didAddTrack track: LK_RTCMediaStreamTrack, rtpReceiver: LK_RTCRtpReceiver, streams: [LK_RTCMediaStream]) {
+    func transport(_ transport: Transport, didAddTrack track: LKRTCMediaStreamTrack, rtpReceiver: LKRTCRtpReceiver, streams: [LKRTCMediaStream]) {
         log("did add track")
         if transport.target == .subscriber {
 
@@ -70,21 +70,21 @@ extension Engine: TransportDelegate {
         }
     }
 
-    func transport(_ transport: Transport, didRemove track: LK_RTCMediaStreamTrack) {
+    func transport(_ transport: Transport, didRemove track: LKRTCMediaStreamTrack) {
         if transport.target == .subscriber {
             notify { $0.engine(self, didRemove: track) }
         }
     }
 
-    func transport(_ transport: Transport, didOpen dataChannel: LK_RTCDataChannel) {
+    func transport(_ transport: Transport, didOpen dataChannel: LKRTCDataChannel) {
 
         log("Server opened data channel \(dataChannel.label)(\(dataChannel.readyState))")
 
         if subscriberPrimary, transport.target == .subscriber {
 
             switch dataChannel.label {
-            case LK_RTCDataChannel.labels.reliable: subscriberDC.set(reliable: dataChannel)
-            case LK_RTCDataChannel.labels.lossy: subscriberDC.set(lossy: dataChannel)
+            case LKRTCDataChannel.labels.reliable: subscriberDC.set(reliable: dataChannel)
+            case LKRTCDataChannel.labels.lossy: subscriberDC.set(lossy: dataChannel)
             default: log("Unknown data channel label \(dataChannel.label)", .warning)
             }
         }

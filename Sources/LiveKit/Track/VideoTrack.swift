@@ -31,7 +31,7 @@ public protocol VideoTrack where Self: Track {
 // Directly add/remove renderers for better performance
 internal protocol VideoTrack_Internal where Self: Track {
 
-    func add(rtcVideoRenderer: LK_RTCVideoRenderer)
+    func add(rtcVideoRenderer: LKRTCVideoRenderer)
 
-    func remove(rtcVideoRenderer: LK_RTCVideoRenderer)
+    func remove(rtcVideoRenderer: LKRTCVideoRenderer)
 }

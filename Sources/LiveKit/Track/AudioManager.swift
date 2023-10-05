@@ -141,7 +141,7 @@ public class AudioManager: Loggable {
             guard let self = self else { return }
 
             // prepare config
-            let configuration = LK_RTCAudioSessionConfiguration.webRTC()
+            let configuration = LKRTCAudioSessionConfiguration.webRTC()
 
             if newState.trackState == .remoteOnly && newState.preferSpeakerOutput {
                 /* .playback */
@@ -190,7 +190,7 @@ public class AudioManager: Loggable {
             }
 
             // configure session
-            let session = LK_RTCAudioSession.sharedInstance()
+            let session = LKRTCAudioSession.sharedInstance()
             session.lockForConfiguration()
             // always unlock
             defer { session.unlockForConfiguration() }

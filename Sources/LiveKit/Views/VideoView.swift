@@ -21,7 +21,7 @@ import MetalKit
 @_implementationOnly import WebRTC
 
 /// A ``NativeViewType`` that conforms to ``RTCVideoRenderer``.
-internal typealias NativeRendererView = NativeViewType & LK_RTCVideoRenderer & Mirrorable
+internal typealias NativeRendererView = NativeViewType & LKRTCVideoRenderer & Mirrorable
 internal protocol Mirrorable {
     func set(mirrored: Bool)
 }
@@ -457,7 +457,7 @@ public class VideoView: NativeView, Loggable {
 
         nativeRenderer.frame = rendererFrame
 
-        if let mtlVideoView = nativeRenderer as? LK_RTCMTLVideoView {
+        if let mtlVideoView = nativeRenderer as? LKRTCMTLVideoView {
             if let rotationOverride = state.rotationOverride {
                 mtlVideoView.rotationOverride = NSNumber(value: rotationOverride.rawValue)
             } else {
@@ -636,7 +636,7 @@ extension VideoView {
             return InternalSampleBufferVideoRenderer()
         } else {
             logger.log("Using RTCMTLVideoView for VideoView's Renderer", type: VideoView.self)
-            let result = LK_RTCMTLVideoView()
+            let result = LKRTCMTLVideoView()
 
             #if os(iOS)
             result.contentMode = .scaleAspectFit
@@ -701,7 +701,7 @@ extension NSView {
 }
 #endif
 
-extension LK_RTCMTLVideoView: Mirrorable {
+extension LKRTCMTLVideoView: Mirrorable {
 
     internal func set(mirrored: Bool) {
 

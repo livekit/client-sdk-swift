@@ -25,18 +25,18 @@ public class RemoteAudioTrack: Track, RemoteTrack, AudioTrack {
     /// Volume with range 0.0 - 1.0
     public var volume: Double {
         get {
-            guard let audioTrack = mediaTrack as? LK_RTCAudioTrack else { return 0 }
+            guard let audioTrack = mediaTrack as? LKRTCAudioTrack else { return 0 }
             return audioTrack.source.volume / 10
         }
         set {
-            guard let audioTrack = mediaTrack as? LK_RTCAudioTrack else { return }
+            guard let audioTrack = mediaTrack as? LKRTCAudioTrack else { return }
             audioTrack.source.volume = newValue * 10
         }
     }
 
     init(name: String,
          source: Track.Source,
-         track: LK_RTCMediaStreamTrack) {
+         track: LKRTCMediaStreamTrack) {
 
         super.init(name: name,
                    kind: .audio,

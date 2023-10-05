@@ -20,10 +20,10 @@ import Foundation
 
 internal protocol TransportDelegate: AnyObject {
     func transport(_ transport: Transport, didUpdate state: RTCPeerConnectionState)
-    func transport(_ transport: Transport, didGenerate iceCandidate: LK_RTCIceCandidate)
-    func transport(_ transport: Transport, didOpen dataChannel: LK_RTCDataChannel)
-    func transport(_ transport: Transport, didAddTrack: LK_RTCMediaStreamTrack, rtpReceiver: LK_RTCRtpReceiver, streams: [LK_RTCMediaStream])
-    func transport(_ transport: Transport, didRemove track: LK_RTCMediaStreamTrack)
+    func transport(_ transport: Transport, didGenerate iceCandidate: LKRTCIceCandidate)
+    func transport(_ transport: Transport, didOpen dataChannel: LKRTCDataChannel)
+    func transport(_ transport: Transport, didAddTrack: LKRTCMediaStreamTrack, rtpReceiver: LKRTCRtpReceiver, streams: [LKRTCMediaStream])
+    func transport(_ transport: Transport, didRemove track: LKRTCMediaStreamTrack)
     func transportShouldNegotiate(_ transport: Transport)
     func transport(_ transport: Transport, didGenerate stats: [TrackStats], target: Livekit_SignalTarget)
 }

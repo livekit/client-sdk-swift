@@ -25,11 +25,11 @@ import ReplayKit
 
 public class CameraCapturer: VideoCapturer {
 
-    private let capturer: LK_RTCCameraVideoCapturer
+    private let capturer: LKRTCCameraVideoCapturer
 
     @objc
     public static func captureDevices() -> [AVCaptureDevice] {
-        DispatchQueue.liveKitWebRTC.sync { LK_RTCCameraVideoCapturer.captureDevices() }
+        DispatchQueue.liveKitWebRTC.sync { LKRTCCameraVideoCapturer.captureDevices() }
     }
 
     /// Checks whether both front and back capturing devices exist, and can be switched.
@@ -81,8 +81,8 @@ public class CameraCapturer: VideoCapturer {
         }
     }
 
-    init(delegate: LK_RTCVideoCapturerDelegate, options: CameraCaptureOptions) {
-        self.capturer = DispatchQueue.liveKitWebRTC.sync { LK_RTCCameraVideoCapturer(delegate: delegate) }
+    init(delegate: LKRTCVideoCapturerDelegate, options: CameraCaptureOptions) {
+        self.capturer = DispatchQueue.liveKitWebRTC.sync { LKRTCCameraVideoCapturer(delegate: delegate) }
         self.options = options
         super.init(delegate: delegate)
 
@@ -134,7 +134,7 @@ public class CameraCapturer: VideoCapturer {
             }
 
             // list of all formats in order of dimensions size
-            let formats = DispatchQueue.liveKitWebRTC.sync { LK_RTCCameraVideoCapturer.supportedFormats(for: device) }
+            let formats = DispatchQueue.liveKitWebRTC.sync { LKRTCCameraVideoCapturer.supportedFormats(for: device) }
             // create an array of sorted touples by dimensions size
             let sortedFormats = formats.map({ (format: $0, dimensions: Dimensions(from: CMVideoFormatDescriptionGetDimensions($0.formatDescription))) })
                 .sorted { $0.dimensions.area < $1.dimensions.area }
@@ -185,7 +185,7 @@ public class CameraCapturer: VideoCapturer {
             self.log("starting camera capturer device: \(device), format: \(selectedFormat), fps: \(selectedFps)(\(fpsRange))", .info)
 
             // adapt if requested dimensions and camera's dimensions don't match
-            if let videoSource = self.delegate as? LK_RTCVideoSource,
+            if let videoSource = self.delegate as? LKRTCVideoSource,
                selectedFormat.dimensions != self.options.dimensions {
 
                 // self.log("adaptOutputFormat to: \(options.dimensions) fps: \(self.options.fps)")

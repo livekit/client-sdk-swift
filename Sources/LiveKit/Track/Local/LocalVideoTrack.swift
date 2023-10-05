@@ -25,12 +25,12 @@ public class LocalVideoTrack: Track, LocalTrack, VideoTrack {
     @objc
     public internal(set) var capturer: VideoCapturer
 
-    internal var videoSource: LK_RTCVideoSource
+    internal var videoSource: LKRTCVideoSource
 
     internal init(name: String,
                   source: Track.Source,
                   capturer: VideoCapturer,
-                  videoSource: LK_RTCVideoSource) {
+                  videoSource: LKRTCVideoSource) {
 
         let rtcTrack = Engine.createVideoTrack(source: videoSource)
         rtcTrack.isEnabled = true

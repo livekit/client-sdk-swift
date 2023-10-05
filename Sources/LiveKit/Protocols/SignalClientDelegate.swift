@@ -23,9 +23,9 @@ internal protocol SignalClientDelegate: AnyObject {
     func signalClient(_ signalClient: SignalClient, didMutate state: SignalClient.State, oldState: SignalClient.State)
 
     func signalClient(_ signalClient: SignalClient, didReceive joinResponse: Livekit_JoinResponse)
-    func signalClient(_ signalClient: SignalClient, didReceiveAnswer answer: LK_RTCSessionDescription)
-    func signalClient(_ signalClient: SignalClient, didReceiveOffer offer: LK_RTCSessionDescription)
-    func signalClient(_ signalClient: SignalClient, didReceive iceCandidate: LK_RTCIceCandidate, target: Livekit_SignalTarget)
+    func signalClient(_ signalClient: SignalClient, didReceiveAnswer answer: LKRTCSessionDescription)
+    func signalClient(_ signalClient: SignalClient, didReceiveOffer offer: LKRTCSessionDescription)
+    func signalClient(_ signalClient: SignalClient, didReceive iceCandidate: LKRTCIceCandidate, target: Livekit_SignalTarget)
     func signalClient(_ signalClient: SignalClient, didPublish localTrack: Livekit_TrackPublishedResponse)
     func signalClient(_ signalClient: SignalClient, didUnpublish localTrack: Livekit_TrackUnpublishedResponse)
     func signalClient(_ signalClient: SignalClient, didUpdate participants: [Livekit_ParticipantInfo])

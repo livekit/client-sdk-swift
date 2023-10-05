@@ -18,7 +18,7 @@ import Foundation
 
 @_implementationOnly import WebRTC
 
-extension LK_RTCDataChannel {
+extension LKRTCDataChannel {
 
     struct labels {
         static let reliable = "_reliable"

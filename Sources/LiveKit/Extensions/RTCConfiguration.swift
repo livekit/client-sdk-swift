@@ -18,11 +18,11 @@ import Foundation
 
 @_implementationOnly import WebRTC
 
-internal extension LK_RTCConfiguration {
+internal extension LKRTCConfiguration {
 
-    static func liveKitDefault() -> LK_RTCConfiguration {
+    static func liveKitDefault() -> LKRTCConfiguration {
 
-        let result = DispatchQueue.liveKitWebRTC.sync { LK_RTCConfiguration() }
+        let result = DispatchQueue.liveKitWebRTC.sync { LKRTCConfiguration() }
         result.sdpSemantics = .unifiedPlan
         result.continualGatheringPolicy = .gatherContinually
         result.candidateNetworkPolicy = .all
@@ -32,7 +32,7 @@ internal extension LK_RTCConfiguration {
         return result
     }
 
-    convenience init(copy configuration: LK_RTCConfiguration) {
+    convenience init(copy configuration: LKRTCConfiguration) {
         self.init()
         self.enableDscp = configuration.enableDscp
         self.iceServers = configuration.iceServers
