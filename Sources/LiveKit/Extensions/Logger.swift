@@ -43,7 +43,7 @@ public extension Loggable {
     /// Automatically captures current type (class name) to ``Logger.Metadata``
     internal func log(_ message: Logger.Message? = nil,
                       _ level: Logger.Level = .debug,
-                      file: String = #file,
+                      file: String = #fileID,
                       type type_: Any.Type? = nil,
                       function: String = #function,
                       line: UInt = #line) {
@@ -64,7 +64,7 @@ internal extension Logger {
     func log(_ message: Logger.Message,
              _ level: Logger.Level = .debug,
              source: @autoclosure () -> String? = nil,
-             file: String = #file,
+             file: String = #fileID,
              type: Any.Type,
              function: String = #function,
              line: UInt = #line,
