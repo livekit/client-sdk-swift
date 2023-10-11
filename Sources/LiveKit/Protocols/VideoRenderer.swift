@@ -55,16 +55,12 @@ class VideoRendererAdapter: NSObject, LKRTCVideoRenderer {
     // Proxy the equality operators
 
     override func isEqual(_ object: Any?) -> Bool {
-        if let other = object as? VideoRendererAdapter {
-            return self.target === other.target
-        }
-        return false
+        guard let other = object as? VideoRendererAdapter else { return false }
+        return self.target === other.target
     }
 
     override var hash: Int {
-        if let target = target {
-            return ObjectIdentifier(target).hashValue
-        }
-        return 0
+        guard let target = target else { return 0 }
+        return ObjectIdentifier(target).hashValue
     }
 }
