@@ -57,12 +57,20 @@ extension InternalSampleBufferVideoRenderer: LKRTCVideoRenderer {
 
         guard let frame = frame else { return }
 
-        guard let rtcPixelBuffer = frame.buffer as? LKRTCCVPixelBuffer else {
-            log("frame.buffer is not a RTCCVPixelBuffer", .error)
+        var pixelBuffer: CVPixelBuffer?
+
+        if let rtcPixelBuffer = frame.buffer as? LKRTCCVPixelBuffer {
+            pixelBuffer = rtcPixelBuffer.pixelBuffer
+        } else if let rtcI420Buffer = frame.buffer as? LKRTCI420Buffer {
+            pixelBuffer = rtcI420Buffer.toPixelBuffer()
+        }
+
+        guard let pixelBuffer = pixelBuffer else {
+            log("pixelBuffer is nil", .error)
             return
         }
 
-        guard let sampleBuffer = CMSampleBuffer.from(rtcPixelBuffer.pixelBuffer) else {
+        guard let sampleBuffer = CMSampleBuffer.from(pixelBuffer) else {
             log("Failed to convert CVPixelBuffer to CMSampleBuffer", .error)
             return
         }
