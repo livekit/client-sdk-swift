@@ -30,10 +30,6 @@ public class ConnectOptions: NSObject {
     @objc
     public let publishOnlyMode: String?
 
-    /// LiveKit server protocol version to use. Generally, it's not recommended to change this.
-    @objc
-    public let protocolVersion: ProtocolVersion
-
     /// The number of attempts to reconnect when the network disconnects.
     @objc
     public let reconnectAttempts: Int
@@ -42,12 +38,21 @@ public class ConnectOptions: NSObject {
     @objc
     public let reconnectAttemptDelay: TimeInterval
 
+    /// Custom ice servers
+    @objc
+    public let iceServers: [IceServer]
+
+    /// LiveKit server protocol version to use. Generally, it's not recommended to change this.
+    @objc
+    public let protocolVersion: ProtocolVersion
+
     @objc
     public override init() {
         self.autoSubscribe = true
         self.publishOnlyMode = nil
         self.reconnectAttempts = 3
         self.reconnectAttemptDelay = .defaultReconnectAttemptDelay
+        self.iceServers = []
         self.protocolVersion = .v9
     }
 
@@ -56,12 +61,14 @@ public class ConnectOptions: NSObject {
                 publishOnlyMode: String? = nil,
                 reconnectAttempts: Int = 3,
                 reconnectAttemptDelay: TimeInterval = .defaultReconnectAttemptDelay,
-                protocolVersion: ProtocolVersion = .v8) {
+                iceServers: [IceServer] = [],
+                protocolVersion: ProtocolVersion = .v9) {
 
         self.autoSubscribe = autoSubscribe
         self.publishOnlyMode = publishOnlyMode
         self.reconnectAttempts = reconnectAttempts
         self.reconnectAttemptDelay = reconnectAttemptDelay
+        self.iceServers = iceServers
         self.protocolVersion = protocolVersion
     }
 
@@ -73,6 +80,7 @@ public class ConnectOptions: NSObject {
             self.publishOnlyMode == other.publishOnlyMode &&
             self.reconnectAttempts == other.reconnectAttempts &&
             self.reconnectAttemptDelay == other.reconnectAttemptDelay &&
+            self.iceServers == other.iceServers &&
             self.protocolVersion == other.protocolVersion
     }
 
@@ -82,6 +90,7 @@ public class ConnectOptions: NSObject {
         hasher.combine(publishOnlyMode)
         hasher.combine(reconnectAttempts)
         hasher.combine(reconnectAttemptDelay)
+        hasher.combine(iceServers)
         hasher.combine(protocolVersion)
         return hasher.finalize()
     }

@@ -299,12 +299,17 @@ internal extension Engine {
             self.subscriberPrimary = joinResponse.subscriberPrimary
             self.log("subscriberPrimary: \(joinResponse.subscriberPrimary)")
 
-            // Make a copy, instead of modifying the user-supplied RTCConfiguration object.
-            let rtcConfiguration = LKRTCConfiguration.liveKitDefault() // TODO: Allow custom configuration
+            let connectOptions = self._state.connectOptions
 
-            if rtcConfiguration.iceServers.isEmpty {
-                // Set iceServers provided by the server
-                rtcConfiguration.iceServers = joinResponse.iceServers.map { $0.toRTCType() }
+            // Make a copy, instead of modifying the user-supplied RTCConfiguration object.
+            let rtcConfiguration = LKRTCConfiguration.liveKitDefault()
+
+            // Set iceServers provided by the server
+            rtcConfiguration.iceServers = joinResponse.iceServers.map { $0.toRTCType() }
+
+            if !connectOptions.iceServers.isEmpty {
+                // Override with user provided iceServers
+                rtcConfiguration.iceServers = connectOptions.iceServers.map { $0.toRTCType() }
             }
 
             if joinResponse.clientConfiguration.forceRelay == .enabled {
