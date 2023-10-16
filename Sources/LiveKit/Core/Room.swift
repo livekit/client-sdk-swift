@@ -426,28 +426,18 @@ extension Room: AppStateDelegate {
 
 // MARK: - Devices
 
-// extension Room {
-//
-//    @objc
-//    public static var audioDeviceModule: RTCAudioDeviceModule {
-//        Engine.audioDeviceModule
-//    }
-//
-//    /// Set this to true to bypass initialization of voice processing.
-//    /// Must be set before RTCPeerConnectionFactory gets initialized.
-//    @objc
-//    public static var bypassVoiceProcessing: Bool {
-//        get { Engine.bypassVoiceProcessing }
-//        set { Engine.bypassVoiceProcessing = newValue }
-//    }
-// }
+extension Room {
 
-// MARK: - Audio Processing
+    //    @objc
+    //    public static var audioDeviceModule: RTCAudioDeviceModule {
+    //        Engine.audioDeviceModule
+    //    }
 
-// extension Room {
-//
-//    @objc
-//    public static var audioProcessingModule: RTCDefaultAudioProcessingModule {
-//        Engine.audioProcessingModule
-//    }
-// }
+    /// Set this to true to bypass initialization of voice processing.
+    /// Must be set before RTCPeerConnectionFactory gets initialized.
+    @objc
+    public static var bypassVoiceProcessing: Bool {
+        get { Engine.bypassVoiceProcessing }
+        set { Engine.bypassVoiceProcessing = newValue }
+    }
+}

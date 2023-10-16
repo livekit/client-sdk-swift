@@ -18,6 +18,65 @@ import Foundation
 
 @_implementationOnly import WebRTC
 
+@objc
+public class AudioBuffer: NSObject {
+
+    private let _audioBuffer: LKRTCAudioBuffer
+
+    public var channels: Int { _audioBuffer.channels }
+    public var frames: Int { _audioBuffer.frames }
+    public var framesPerBand: Int { _audioBuffer.framesPerBand }
+    public var bands: Int { _audioBuffer.bands }
+
+    public func rawBuffer(for channel: Int) -> UnsafeMutablePointer<Float> {
+        _audioBuffer.rawBuffer(forChannel: channel)
+    }
+
+    internal init(audioBuffer: LKRTCAudioBuffer) {
+        self._audioBuffer = audioBuffer
+    }
+}
+
+@objc
+public protocol AudioCustomProcessingDelegate {
+    func audioProcessingInitialize(sampleRate sampleRateHz: Int, channels: Int)
+    func audioProcessingProcess(audioBuffer: AudioBuffer)
+    func audioProcessingRelease()
+}
+
+internal class AudioCustomProcessingDelegateAdapter: NSObject, LKRTCAudioCustomProcessingDelegate {
+
+    internal weak var target: AudioCustomProcessingDelegate?
+
+    init(target: AudioCustomProcessingDelegate? = nil) {
+        self.target = target
+    }
+
+    func audioProcessingInitialize(sampleRate sampleRateHz: Int, channels: Int) {
+        target?.audioProcessingInitialize(sampleRate: sampleRateHz, channels: channels)
+    }
+
+    func audioProcessingProcess(audioBuffer: LKRTCAudioBuffer) {
+        target?.audioProcessingProcess(audioBuffer: AudioBuffer(audioBuffer: audioBuffer))
+    }
+
+    func audioProcessingRelease() {
+        target?.audioProcessingRelease()
+    }
+
+    // Proxy the equality operators
+
+    override func isEqual(_ object: Any?) -> Bool {
+        guard let other = object as? AudioCustomProcessingDelegateAdapter else { return false }
+        return self.target === other.target
+    }
+
+    override var hash: Int {
+        guard let target = target else { return 0 }
+        return ObjectIdentifier(target).hashValue
+    }
+}
+
 // Audio Session Configuration related
 public class AudioManager: Loggable {
 
@@ -77,6 +136,28 @@ public class AudioManager: Loggable {
     public var preferSpeakerOutput: Bool {
         get { _state.preferSpeakerOutput }
         set { _state.mutate { $0.preferSpeakerOutput = newValue } }
+    }
+
+    private lazy var capturePostProcessingDelegateAdapter: AudioCustomProcessingDelegateAdapter = {
+        let adapter = AudioCustomProcessingDelegateAdapter(target: nil)
+        Engine.audioProcessingModule.capturePostProcessingDelegate = adapter
+        return adapter
+    }()
+
+    private lazy var renderPreProcessingDelegateAdapter: AudioCustomProcessingDelegateAdapter = {
+        let adapter = AudioCustomProcessingDelegateAdapter(target: nil)
+        Engine.audioProcessingModule.renderPreProcessingDelegate = adapter
+        return adapter
+    }()
+
+    public var capturePostProcessingDelegate: AudioCustomProcessingDelegate? {
+        get { capturePostProcessingDelegateAdapter.target }
+        set { capturePostProcessingDelegateAdapter.target = newValue }
+    }
+
+    public var renderPreProcessingDelegate: AudioCustomProcessingDelegate? {
+        get { renderPreProcessingDelegateAdapter.target }
+        set { renderPreProcessingDelegateAdapter.target = newValue }
     }
 
     // MARK: - Internal
