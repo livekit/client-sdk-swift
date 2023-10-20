@@ -464,7 +464,7 @@ extension LocalParticipant {
             .map { publication in
                 Livekit_TrackPublishedResponse.with {
                     $0.cid = publication.track!.mediaTrack.trackId
-                    if let info = publication.latestInfo {
+                    if let info = publication._state.latestInfo {
                         $0.track = info
                     }
                 }
