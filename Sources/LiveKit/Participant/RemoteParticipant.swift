@@ -123,7 +123,6 @@ public class RemoteParticipant: Participant {
 
         publication.set(track: track)
         publication.set(subscriptionAllowed: true)
-        track._state.mutate { $0.sid = publication.sid }
 
         assert(room.engine.subscriber != nil, "Subscriber is nil")
         if let transport = room.engine.subscriber {

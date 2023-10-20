@@ -164,6 +164,10 @@ public class Track: NSObject, Loggable {
 
             guard let self = self else { return }
 
+            if oldState.dimensions != newState.dimensions {
+                log("Track.dimensions \(String(describing: oldState.dimensions)) -> \(String(describing: newState.dimensions))")
+            }
+
             self.delegates.notify {
                 if let delegateInternal = $0 as? TrackDelegateInternal {
                     delegateInternal.track(self, didMutateState: newState, oldState: oldState)
