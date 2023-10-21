@@ -25,8 +25,6 @@ import ReplayKit
 
 public class CameraCapturer: VideoCapturer {
 
-    private let capturer: LKRTCCameraVideoCapturer
-
     @objc
     public static func captureDevices() -> [AVCaptureDevice] {
         DispatchQueue.liveKitWebRTC.sync { LKRTCCameraVideoCapturer.captureDevices() }
@@ -81,8 +79,12 @@ public class CameraCapturer: VideoCapturer {
         }
     }
 
+    // RTCCameraVideoCapturer used internally for now
+    private lazy var capturer: LKRTCCameraVideoCapturer = {
+        DispatchQueue.liveKitWebRTC.sync { LKRTCCameraVideoCapturer(delegate: self) }
+    }()
+
     init(delegate: LKRTCVideoCapturerDelegate, options: CameraCaptureOptions) {
-        self.capturer = DispatchQueue.liveKitWebRTC.sync { LKRTCCameraVideoCapturer(delegate: delegate) }
         self.options = options
         super.init(delegate: delegate)
 
@@ -206,8 +208,6 @@ public class CameraCapturer: VideoCapturer {
 
                     // update internal vars
                     self.device = device
-                    // this will trigger to re-compute encodings for sender parameters if dimensions have updated
-                    self.dimensions = self.options.dimensions
 
                     // successfully started
                     resolve(true)
@@ -237,6 +237,16 @@ public class CameraCapturer: VideoCapturer {
                 }
             }
         }
+    }
+}
+
+extension CameraCapturer: RTCVideoCapturerDelegate {
+
+    public func capturer(_ capturer: RTCVideoCapturer, didCapture frame: RTCVideoFrame) {
+        // Resolve real dimensions (apply frame rotation)
+        self.dimensions = Dimensions(width: frame.width, height: frame.height).apply(rotation: frame.rotation)
+        // Pass frame to video source
+        delegate?.capturer(capturer, didCapture: frame)
     }
 }
 

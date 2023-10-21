@@ -47,6 +47,19 @@ extension Room: EngineDelegate {
                     delegateSwift.room(self, didUpdate: state.connectionState, oldValue: oldState.connectionState)
                 }
             }
+
+            // Legacy connection delegates
+            if case .connected = state.connectionState {
+                let didReconnect = oldState.connectionState == .reconnecting
+                delegates.notify { $0.room?(self, didConnect: didReconnect) }
+            } else if case .disconnected(let reason) = state.connectionState {
+                if case .connecting = oldState.connectionState {
+                    let error = reason?.networkError ?? NetworkError.disconnected(message: "Did fail to connect", rawError: nil)
+                    delegates.notify { $0.room?(self, didFailToConnect: error) }
+                } else {
+                    delegates.notify { $0.room?(self, didDisconnect: reason?.networkError) }
+                }
+            }
         }
 
         if state.connectionState.isReconnecting && state.reconnectMode == .full && oldState.reconnectMode != .full {

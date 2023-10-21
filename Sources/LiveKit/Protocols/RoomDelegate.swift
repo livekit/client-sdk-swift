@@ -46,6 +46,7 @@ public protocol RoomDelegateObjC: AnyObject {
     func room(_ room: Room, didFailToConnect error: Error)
 
     /// Client disconnected from the room unexpectedly.
+    /// Using ``room(_:didUpdate:oldValue:)`` is preferred since `.disconnected` state of ``ConnectionState`` provides ``DisconnectReason`` (Swift only).
     @objc(room:didDisconnectWithError:) optional
     func room(_ room: Room, didDisconnect error: Error?)
 

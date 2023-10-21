@@ -247,7 +247,6 @@ public class AudioManager: Loggable {
                 }
 
                 configuration.categoryOptions = [
-                    .mixWithOthers,
                     .allowBluetooth,
                     .allowBluetoothA2DP,
                     .allowAirPlay
