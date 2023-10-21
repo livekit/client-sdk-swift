@@ -242,7 +242,7 @@ public class CameraCapturer: VideoCapturer {
 extension CameraCapturer: RTCVideoCapturerDelegate {
 
     public func capturer(_ capturer: RTCVideoCapturer, didCapture frame: RTCVideoFrame) {
-        // Resolve real dimensions
+        // Resolve real dimensions (apply frame rotation)
         self.dimensions = Dimensions(width: frame.width, height: frame.height).apply(rotation: frame.rotation)
         // Pass frame to video source
         delegate?.capturer(capturer, didCapture: frame)
