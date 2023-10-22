@@ -427,12 +427,6 @@ extension Room: AppStateDelegate {
 // MARK: - Devices
 
 extension Room {
-
-    //    @objc
-    //    public static var audioDeviceModule: RTCAudioDeviceModule {
-    //        Engine.audioDeviceModule
-    //    }
-
     /// Set this to true to bypass initialization of voice processing.
     /// Must be set before RTCPeerConnectionFactory gets initialized.
     @objc
