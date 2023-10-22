@@ -87,6 +87,8 @@ public class AudioManager: Loggable {
     public typealias ConfigureAudioSessionFunc = (_ newState: State,
                                                   _ oldState: State) -> Void
 
+    public typealias DeviceUpdateFunc = (_ audioManager: AudioManager) -> Void
+
     /// Use this to provide a custom func to configure the audio session instead of ``defaultConfigureAudioSessionFunc(newState:oldState:)``.
     /// This method should not block and is expected to return immediately.
     public var customConfigureAudioSessionFunc: ConfigureAudioSessionFunc? {
@@ -184,6 +186,15 @@ public class AudioManager: Loggable {
     public var inputDevice: AudioDevice {
         get { AudioDevice(ioDevice: Engine.audioDeviceModule.inputDevice) }
         set { Engine.audioDeviceModule.inputDevice = newValue._ioDevice }
+    }
+
+    public var onDeviceUpdate: DeviceUpdateFunc? {
+        didSet {
+            Engine.audioDeviceModule.setDevicesUpdatedHandler { [weak self] in
+                guard let self = self else { return }
+                self.onDeviceUpdate?(self)
+            }
+        }
     }
 
     // MARK: - Internal
