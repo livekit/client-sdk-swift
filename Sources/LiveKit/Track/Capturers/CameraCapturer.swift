@@ -79,9 +79,14 @@ public class CameraCapturer: VideoCapturer {
         }
     }
 
+    // Used to hide LKRTCVideoCapturerDelegate symbol
+    private lazy var adapter: VideoCapturerDelegateAdapter = {
+        VideoCapturerDelegateAdapter(cameraCapturer: self)
+    }()
+
     // RTCCameraVideoCapturer used internally for now
     private lazy var capturer: LKRTCCameraVideoCapturer = {
-        DispatchQueue.liveKitWebRTC.sync { LKRTCCameraVideoCapturer(delegate: self) }
+        DispatchQueue.liveKitWebRTC.sync { LKRTCCameraVideoCapturer(delegate: adapter) }
     }()
 
     init(delegate: LKRTCVideoCapturerDelegate, options: CameraCaptureOptions) {
@@ -240,13 +245,20 @@ public class CameraCapturer: VideoCapturer {
     }
 }
 
-extension CameraCapturer: RTCVideoCapturerDelegate {
+internal class VideoCapturerDelegateAdapter: NSObject, LKRTCVideoCapturerDelegate {
 
-    public func capturer(_ capturer: RTCVideoCapturer, didCapture frame: RTCVideoFrame) {
+    weak var cameraCapturer: CameraCapturer?
+
+    internal init(cameraCapturer: CameraCapturer? = nil) {
+        self.cameraCapturer = cameraCapturer
+    }
+
+    func capturer(_ capturer: LKRTCVideoCapturer, didCapture frame: LKRTCVideoFrame) {
+        guard let cameraCapturer = cameraCapturer else { return }
         // Resolve real dimensions (apply frame rotation)
-        self.dimensions = Dimensions(width: frame.width, height: frame.height).apply(rotation: frame.rotation)
+        cameraCapturer.dimensions = Dimensions(width: frame.width, height: frame.height).apply(rotation: frame.rotation)
         // Pass frame to video source
-        delegate?.capturer(capturer, didCapture: frame)
+        cameraCapturer.delegate?.capturer(capturer, didCapture: frame)
     }
 }
 
