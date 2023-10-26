@@ -24,19 +24,7 @@ import ScreenCaptureKit
 
 @_implementationOnly import WebRTC
 
-// currently only used for macOS
-@available(*, deprecated, message: "Use new API with MacOSScreenShareSource")
-public enum ScreenShareSource {
-    case display(id: UInt32)
-    case window(id: UInt32)
-}
-
 #if os(macOS)
-
-@available(*, deprecated, message: "Use new API with MacOSScreenShareSource")
-extension ScreenShareSource {
-    public static let mainDisplay: ScreenShareSource = .display(id: CGMainDisplayID())
-}
 
 @objc
 public enum MacOSScreenCapturePreferredMethod: Int {
@@ -137,19 +125,6 @@ public class MacOSScreenCapturer: VideoCapturer {
     /// The ``ScreenShareCaptureOptions`` used for this capturer.
     /// It is possible to modify the options but `restartCapture` must be called.
     public var options: ScreenShareCaptureOptions
-
-    @available(*, deprecated, message: "Use new API with MacOSScreenShareSource")
-    init(delegate: LKRTCVideoCapturerDelegate,
-         source: ScreenShareSource,
-         options: ScreenShareCaptureOptions,
-         preferredMethod: MacOSScreenCapturePreferredMethod = .auto) {
-
-        // compatibility
-        self.captureSource = source.toScreenCaptureSource()
-        self.options = options
-        self.captureMethod = Self.computeCaptureMethod(preferredMethod: preferredMethod)
-        super.init(delegate: delegate)
-    }
 
     init(delegate: LKRTCVideoCapturerDelegate,
          captureSource: MacOSScreenCaptureSource,
@@ -570,23 +545,6 @@ extension MacOSScreenCapturer: AVCaptureVideoDataOutputSampleBufferDelegate {
 
 extension LocalVideoTrack {
 
-    /// Creates a track that captures the whole desktop screen
-    @available(*, deprecated, message: "Use new API with MacOSScreenShareSource")
-    public static func createMacOSScreenShareTrack(name: String = Track.screenShareVideoName,
-                                                   source: ScreenShareSource = .mainDisplay,
-                                                   options: ScreenShareCaptureOptions = ScreenShareCaptureOptions(),
-                                                   preferredMethod: MacOSScreenCapturePreferredMethod = .auto) -> LocalVideoTrack {
-
-        let videoSource = Engine.createVideoSource(forScreenShare: true)
-        let capturer = MacOSScreenCapturer(delegate: videoSource, source: source, options: options, preferredMethod: preferredMethod)
-        return LocalVideoTrack(
-            name: name,
-            source: .screenShareVideo,
-            capturer: capturer,
-            videoSource: videoSource
-        )
-    }
-
     @objc
     public static func createMacOSScreenShareTrack(name: String = Track.screenShareVideoName,
                                                    source: MacOSScreenCaptureSource,
@@ -614,17 +572,6 @@ public enum MacOSScreenShareSourceType: Int {
 @objc
 public protocol MacOSScreenCaptureSource: AnyObject {
 
-}
-
-@available(*, deprecated, message: "Use MacOSScreenCaptureSource instead")
-extension ScreenShareSource {
-
-    func toScreenCaptureSource() -> MacOSScreenCaptureSource {
-        switch self {
-        case .window(let id): return MacOSWindow(from: id)
-        case .display(let id): return MacOSDisplay(from: id)
-        }
-    }
 }
 
 @objc
@@ -846,22 +793,6 @@ extension MacOSScreenCapturer {
 // MARK: - Enumerate sources (Deprecated)
 
 extension MacOSScreenCapturer {
-
-    @available(*, deprecated, message: "Use sources(for:) instead")
-    public static func sources() -> [ScreenShareSource] {
-        return [displayIDs().map { ScreenShareSource.display(id: $0) },
-                windowIDs().map { ScreenShareSource.window(id: $0) }].flatMap { $0 }
-    }
-
-    @available(*, deprecated, message: "Use sources(for:) instead")
-    public static func displayIDs() -> [CGDirectDisplayID] {
-        _displayIDs()
-    }
-
-    @available(*, deprecated, message: "Use sources(for:) instead")
-    public static func windowIDs(includeCurrentProcess: Bool = false) -> [CGWindowID] {
-        _windowIDs(includeCurrentProcess: includeCurrentProcess)
-    }
 
     internal static func _displayIDs() -> [CGDirectDisplayID] {
 
