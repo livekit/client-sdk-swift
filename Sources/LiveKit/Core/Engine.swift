@@ -319,14 +319,12 @@ internal extension Engine {
             let subscriber = try Transport(config: rtcConfiguration,
                                            target: .subscriber,
                                            primary: self.subscriberPrimary,
-                                           delegate: self,
-                                           reportStats: room._state.options.reportStats)
+                                           delegate: self)
 
             let publisher = try Transport(config: rtcConfiguration,
                                           target: .publisher,
                                           primary: !self.subscriberPrimary,
-                                          delegate: self,
-                                          reportStats: room._state.options.reportStats)
+                                          delegate: self)
 
             publisher.onOffer = { offer in
                 self.log("publisher onOffer \(offer.sdp)")
