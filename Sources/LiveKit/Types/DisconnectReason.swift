@@ -74,7 +74,4 @@ extension DisconnectReason: Equatable {
 
         return nil
     }
-
-    @available(*, deprecated, renamed: "networkError")
-    var error: Error? { networkError }
 }

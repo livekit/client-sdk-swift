@@ -38,22 +38,6 @@ public class LiveKit: NSObject {
     @objc(sdkVersion)
     public static let version = "1.1.3"
 
-    @available(*, deprecated, message: "Use Room.connect() instead, protocol v8 and higher do not support this method")
-    public static func connect(
-        _ url: String,
-        _ token: String,
-        delegate: RoomDelegate? = nil,
-        connectOptions: ConnectOptions = ConnectOptions(),
-        roomOptions: RoomOptions = RoomOptions()) -> Promise<Room> {
-
-        let room = Room(delegate: delegate,
-                        // Override with protocol v7 or lower when using this deprecated method
-                        connectOptions: connectOptions.protocolVersion >= .v8 ? connectOptions.copyWith(protocolVersion: .v7) : connectOptions,
-                        roomOptions: roomOptions)
-
-        return room.connect(url, token)
-    }
-
     @objc
     public static func setLoggerStandardOutput() {
         LoggingSystem.bootstrap({
