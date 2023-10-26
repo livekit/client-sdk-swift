@@ -35,7 +35,7 @@ public protocol VideoRenderer {
     func render(frame: VideoFrame)
 }
 
-class VideoRendererAdapter: NSObject, LKRTCVideoRenderer {
+internal class VideoRendererAdapter: NSObject, LKRTCVideoRenderer {
 
     private weak var target: VideoRenderer?
 
