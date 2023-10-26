@@ -286,17 +286,16 @@ public class LocalParticipant: Participant {
     @discardableResult
     public func publish(data: Data,
                         reliability: Reliability = .reliable,
-                        destinations: [RemoteParticipant]? = nil,
+                        destinations: [Sid]? = nil,
                         topic: String? = nil,
                         options: DataPublishOptions? = nil) -> Promise<Void> {
 
         let options = options ?? self.room._state.options.defaultDataPublishOptions
-        let destinations = destinations?.map { $0.sid }
 
         let userPacket = Livekit_UserPacket.with {
-            $0.destinationSids = destinations ?? options.destinations
-            $0.payload = data
             $0.participantSid = self.sid
+            $0.payload = data
+            $0.destinationSids = destinations ?? options.destinations
             $0.topic = topic ?? options.topic ?? ""
         }
 

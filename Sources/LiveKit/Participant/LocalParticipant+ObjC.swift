@@ -67,9 +67,9 @@ extension LocalParticipant {
     @discardableResult
     public func publishDataObjC(data: Data,
                                 reliability: Reliability = .reliable,
-                                destination: [String] = []) -> Promise<Void>.ObjCPromise<NSNull> {
+                                destinations: [String] = []) -> Promise<Void>.ObjCPromise<NSNull> {
 
-        publishData(data: data, reliability: reliability, destination: destination).asObjCPromise()
+        publish(data: data, reliability: reliability, destinations: destinations).asObjCPromise()
     }
 
     @objc(setTrackSubscriptionPermissionsWithAllParticipantsAllowed:trackPermissions:)

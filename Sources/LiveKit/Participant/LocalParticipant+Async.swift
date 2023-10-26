@@ -72,19 +72,6 @@ public extension LocalParticipant {
         }
     }
 
-    func publishData(_ data: Data,
-                     reliability: Reliability = .reliable,
-                     destination: [String] = []) async throws {
-
-        try await withCheckedThrowingContinuation { continuation in
-            publishData(data: data, reliability: reliability, destination: destination).then(on: queue) { result in
-                continuation.resume(returning: result)
-            }.catch(on: queue) { error in
-                continuation.resume(throwing: error)
-            }
-        }
-    }
-
     ///
     /// Publish data to the other participants in the room
     ///
@@ -102,7 +89,7 @@ public extension LocalParticipant {
     ///
     func publish(data: Data,
                  reliability: Reliability = .reliable,
-                 destinations: [RemoteParticipant]? = nil,
+                 destinations: [Sid]? = nil,
                  topic: String? = nil,
                  options: DataPublishOptions? = nil) async throws {
 
