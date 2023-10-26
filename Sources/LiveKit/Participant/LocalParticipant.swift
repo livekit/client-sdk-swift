@@ -34,8 +34,6 @@ public class LocalParticipant: Participant {
     private var allParticipantsAllowed: Bool = true
     private var trackPermissions: [ParticipantTrackPermission] = []
 
-    @objc var rtpSender: RTCRtpSender?
-
     internal convenience init(from info: Livekit_ParticipantInfo,
                               room: Room) {
 
@@ -88,7 +86,7 @@ public class LocalParticipant: Participant {
                                                        source: track.source.toPBType(),
                                                        encryption: self.room.e2eeManager?.e2eeOptions.encryptionType.toPBType() ?? .none ) { populator in
 
-                let transInit = DispatchQueue.webRTC.sync { RTCRtpTransceiverInit() }
+                let transInit = DispatchQueue.liveKitWebRTC.sync { RTCRtpTransceiverInit() }
                 transInit.direction = .sendOnly
 
                 if let track = track as? LocalVideoTrack {
@@ -148,7 +146,6 @@ public class LocalParticipant: Participant {
                                             }
         }.then(on: queue) { params -> Promise<(RTCRtpTransceiver, trackInfo: Livekit_TrackInfo)> in
             self.log("[publish] added transceiver: \(params.trackInfo)...")
-            self.rtpSender = params.transceiver.sender
             return track.onPublish().then(on: self.queue) { _ in params }
         }.then(on: queue) { (transceiver, trackInfo) -> LocalTrackPublication in
 
@@ -467,7 +464,7 @@ extension LocalParticipant {
             .map { publication in
                 Livekit_TrackPublishedResponse.with {
                     $0.cid = publication.track!.mediaTrack.trackId
-                    if let info = publication.latestInfo {
+                    if let info = publication._state.latestInfo {
                         $0.track = info
                     }
                 }

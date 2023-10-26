@@ -30,7 +30,7 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
 
     public typealias ConditionEvalFunc = (_ newState: State, _ oldState: State?) -> Bool
 
-    public struct State: ReconnectableState, Equatable {
+    internal struct State: ReconnectableState, Equatable {
         var connectOptions: ConnectOptions
         var url: String?
         var token: String?

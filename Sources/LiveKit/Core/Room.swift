@@ -174,7 +174,7 @@ public class Room: NSObject, ObservableObject, Loggable {
             // metadata updated
             if let metadata = newState.metadata, metadata != oldState.metadata,
                // don't notify if empty string (first time only)
-               (oldState.metadata == nil ? !metadata.isEmpty : true) {
+               oldState.metadata == nil ? !metadata.isEmpty : true {
 
                 // proceed only if connected...
                 self.engine.executeIfConnected { [weak self] in

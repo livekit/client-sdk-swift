@@ -21,9 +21,6 @@ import Promises
 @objc
 public class RemoteParticipant: Participant {
 
-    @objc
-    public var rtpReceiver: RTCRtpReceiver?
-
     internal init(sid: Sid,
                   info: Livekit_ParticipantInfo?,
                   room: Room) {
@@ -124,11 +121,8 @@ public class RemoteParticipant: Participant {
             return Promise(error)
         }
 
-        self.rtpReceiver = rtpReceiver
-
         publication.set(track: track)
         publication.set(subscriptionAllowed: true)
-        track._state.mutate { $0.sid = publication.sid }
 
         assert(room.engine.subscriber != nil, "Subscriber is nil")
         if let transport = room.engine.subscriber {

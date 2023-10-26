@@ -141,7 +141,7 @@ public class Track: NSObject, Loggable {
 
     private weak var transport: Transport?
     // private var transceiver: RTCRtpTransceiver?
-    private let statsTimer = DispatchQueueTimer(timeInterval: 1, queue: .webRTC)
+    private let statsTimer = DispatchQueueTimer(timeInterval: 1, queue: .liveKitWebRTC)
     // Weak reference to the corresponding transport
 
     internal init(name: String,
@@ -163,6 +163,10 @@ public class Track: NSObject, Loggable {
         _state.onDidMutate = { [weak self] newState, oldState in
 
             guard let self = self else { return }
+
+            if oldState.dimensions != newState.dimensions {
+                log("Track.dimensions \(String(describing: oldState.dimensions)) -> \(String(describing: newState.dimensions))")
+            }
 
             self.delegates.notify {
                 if let delegateInternal = $0 as? TrackDelegateInternal {

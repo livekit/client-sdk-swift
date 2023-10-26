@@ -68,7 +68,6 @@ public class TrackPublication: NSObject, ObservableObject, Loggable {
 
     /// Reference to the ``Participant`` this publication belongs to.
     internal weak var participant: Participant?
-    internal private(set) var latestInfo: Livekit_TrackInfo?
 
     internal struct State: Equatable, Hashable {
         let sid: Sid
@@ -93,6 +92,8 @@ public class TrackPublication: NSObject, ObservableObject, Loggable {
         var preferSubscribed: Bool?
         var metadataMuted: Bool = false
         var encryptionType: EncryptionType = .none
+
+        var latestInfo: Livekit_TrackInfo?
     }
 
     internal var _state: StateSync<State>
@@ -107,7 +108,12 @@ public class TrackPublication: NSObject, ObservableObject, Loggable {
             source: info.source.toLKType(),
             name: info.name,
             mimeType: info.mimeType,
-            encryptionType: info.encryption.toLKType()
+            simulcasted: info.simulcast,
+            dimensions: info.type == .video ? Dimensions(width: Int32(info.width), height: Int32(info.height)) : nil,
+            encryptionType: info.encryption.toLKType(),
+
+            // store the whole info
+            latestInfo: info
         ))
 
         self.participant = participant
@@ -115,7 +121,6 @@ public class TrackPublication: NSObject, ObservableObject, Loggable {
         super.init()
 
         self.set(track: track)
-        updateFromInfo(info: info)
 
         // listen for events from Track
         track?.add(delegate: self)
@@ -162,20 +167,15 @@ public class TrackPublication: NSObject, ObservableObject, Loggable {
     internal func updateFromInfo(info: Livekit_TrackInfo) {
 
         _state.mutate {
-
             // only muted and name can conceivably update
             $0.name = info.name
             $0.simulcasted = info.simulcast
             $0.mimeType = info.mimeType
+            $0.dimensions = info.type == .video ? Dimensions(width: Int32(info.width), height: Int32(info.height)) : nil
 
-            // only for video
-            if info.type == .video {
-                $0.dimensions = Dimensions(width: Int32(info.width),
-                                           height: Int32(info.height))
-            }
+            // store the whole info
+            $0.latestInfo = info
         }
-
-        self.latestInfo = info
     }
 
     @discardableResult

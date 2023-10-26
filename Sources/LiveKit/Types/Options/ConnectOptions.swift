@@ -62,7 +62,7 @@ public class ConnectOptions: NSObject {
                 publishOnlyMode: String? = nil,
                 reconnectAttempts: Int = 3,
                 reconnectAttemptDelay: TimeInterval = .defaultReconnectAttemptDelay,
-                protocolVersion: ProtocolVersion = .v8) {
+                protocolVersion: ProtocolVersion = .v9) {
 
         self.autoSubscribe = autoSubscribe
         self.rtcConfiguration = rtcConfiguration ?? .liveKitDefault()

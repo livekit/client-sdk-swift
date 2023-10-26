@@ -19,23 +19,27 @@ import WebRTC
 
 public let defaultRatchetSalt: String = "LKFrameEncryptionKey"
 public let defaultMagicBytes: String = "LK-ROCKS"
-public let defaultRatchetWindowSize: Int32 = 16
+public let defaultRatchetWindowSize: Int32 = 0
+public let defaultFailureTolerance: Int32 = -1
 
 public class KeyProviderOptions {
     let sharedKey: Bool
     let ratchetSalt: Data
     let ratchetWindowSize: Int32
     let uncryptedMagicBytes: Data
+    let failureTolerance: Int32
 
     public init(sharedKey: Bool = true,
                 ratchetSalt: Data = defaultRatchetSalt.data(using: .utf8)!,
                 ratchetWindowSize: Int32 = defaultRatchetWindowSize,
-                uncryptedMagicBytes: Data = defaultMagicBytes.data(using: .utf8)!
+                uncryptedMagicBytes: Data = defaultMagicBytes.data(using: .utf8)!,
+                failureTolerance: Int32 = defaultFailureTolerance
     ) {
         self.sharedKey = sharedKey
         self.ratchetSalt = ratchetSalt
         self.ratchetWindowSize = ratchetWindowSize
         self.uncryptedMagicBytes = uncryptedMagicBytes
+        self.failureTolerance = defaultFailureTolerance
     }
 }
 
@@ -47,7 +51,8 @@ public class BaseKeyProvider: Loggable {
         self.rtcKeyProvider = RTCFrameCryptorKeyProvider(ratchetSalt: options.ratchetSalt,
                                                          ratchetWindowSize: options.ratchetWindowSize,
                                                          sharedKeyMode: isSharedKey,
-                                                         uncryptedMagicBytes: options.uncryptedMagicBytes)
+                                                         uncryptedMagicBytes: options.uncryptedMagicBytes,
+                                                         failureTolerance: options.failureTolerance)
         if isSharedKey && sharedKey != nil {
             let keyData = sharedKey!.data(using: .utf8)!
             self.rtcKeyProvider?.setSharedKey(keyData, with: 0)
@@ -103,5 +108,9 @@ public class BaseKeyProvider: Loggable {
         }
 
         return rtcKeyProvider?.exportKey(participantId!, with: index ?? 0)
+    }
+
+    public func setSifTrailer(trailer: Data) {
+        rtcKeyProvider?.setSifTrailer(trailer)
     }
 }

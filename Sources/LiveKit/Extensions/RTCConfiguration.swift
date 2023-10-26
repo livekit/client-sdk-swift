@@ -21,7 +21,7 @@ extension RTCConfiguration {
 
     public static func liveKitDefault() -> RTCConfiguration {
 
-        let result = DispatchQueue.webRTC.sync { RTCConfiguration() }
+        let result = DispatchQueue.liveKitWebRTC.sync { RTCConfiguration() }
         result.sdpSemantics = .unifiedPlan
         result.continualGatheringPolicy = .gatherContinually
         result.candidateNetworkPolicy = .all
