@@ -84,9 +84,6 @@ public class Track: NSObject, Loggable {
     public var muted: Bool { _state.muted }
 
     @objc
-    public var stats: TrackStats? { _state.stats }
-
-    @objc
     public var statistics: TrackStatistics? { _state.statistics }
 
     /// Dimensions of the video (only if video track)
@@ -131,9 +128,6 @@ public class Track: NSObject, Loggable {
         var videoFrame: VideoFrame?
         var trackState: TrackState = .stopped
         var muted: Bool = false
-        // Deprecated
-        var stats: TrackStats?
-        // v2
         var statistics: TrackStatistics?
     }
 
@@ -174,11 +168,6 @@ public class Track: NSObject, Loggable {
                 if let delegateInternal = $0 as? TrackDelegateInternal {
                     delegateInternal.track(self, didMutateState: newState, oldState: oldState)
                 }
-            }
-
-            // deprecated
-            if newState.stats != oldState.stats, let stats = newState.stats {
-                self.delegates.notify { $0.track?(self, didUpdate: stats) }
             }
 
             if newState.statistics != oldState.statistics, let statistics = newState.statistics {
@@ -332,16 +321,6 @@ public class Track: NSObject, Loggable {
             self._publishState = .unpublished
             return true
         }
-    }
-}
-
-// MARK: - Internal
-
-internal extension Track {
-
-    func set(stats newValue: TrackStats) {
-        guard _state.stats != newValue else { return }
-        _state.mutate { $0.stats = newValue }
     }
 }
 

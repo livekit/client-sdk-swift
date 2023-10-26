@@ -73,24 +73,6 @@ extension Room: EngineDelegate {
         }
     }
 
-    func engine(_ engine: Engine, didGenerate trackStats: [TrackStats], target: Livekit_SignalTarget) {
-
-        let allParticipants = ([[localParticipant],
-                                _state.remoteParticipants.map { $0.value }] as [[Participant?]])
-            .joined()
-            .compactMap { $0 }
-
-        let allTracks = allParticipants.map { $0._state.tracks.values.map { $0.track } }.joined()
-            .compactMap { $0 }
-
-        // this relies on the last stat entry being the latest
-        for track in allTracks {
-            if let stats = trackStats.last(where: { $0.trackId == track.mediaTrack.trackId }) {
-                track.set(stats: stats)
-            }
-        }
-    }
-
     func engine(_ engine: Engine, didUpdate speakers: [Livekit_SpeakerInfo]) {
 
         let activeSpeakers = _state.mutate { state -> [Participant] in

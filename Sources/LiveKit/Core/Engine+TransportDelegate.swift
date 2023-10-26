@@ -21,11 +21,6 @@ import Promises
 
 extension Engine: TransportDelegate {
 
-    func transport(_ transport: Transport, didGenerate stats: [TrackStats], target: Livekit_SignalTarget) {
-        // relay to Room
-        notify { $0.engine(self, didGenerate: stats, target: target) }
-    }
-
     func transport(_ transport: Transport, didUpdate pcState: RTCPeerConnectionState) {
         log("target: \(transport.target), state: \(pcState)")
 
