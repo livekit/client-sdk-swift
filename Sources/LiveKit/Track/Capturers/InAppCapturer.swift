@@ -15,12 +15,13 @@
  */
 
 import Foundation
-import WebRTC
 import Promises
 
 #if canImport(ReplayKit)
 import ReplayKit
 #endif
+
+@_implementationOnly import WebRTC
 
 @available(macOS 11.0, iOS 11.0, *)
 public class InAppScreenCapturer: VideoCapturer {
@@ -28,7 +29,7 @@ public class InAppScreenCapturer: VideoCapturer {
     private let capturer = Engine.createVideoCapturer()
     private var options: ScreenShareCaptureOptions
 
-    init(delegate: RTCVideoCapturerDelegate, options: ScreenShareCaptureOptions) {
+    init(delegate: LKRTCVideoCapturerDelegate, options: ScreenShareCaptureOptions) {
         self.options = options
         super.init(delegate: delegate)
     }
@@ -56,7 +57,7 @@ public class InAppScreenCapturer: VideoCapturer {
 
                             defer { self.dimensions = targetDimensions }
 
-                            guard let videoSource = self.delegate as? RTCVideoSource else { return }
+                            guard let videoSource = self.delegate as? LKRTCVideoSource else { return }
                             // self.log("adaptOutputFormat to: \(targetDimensions) fps: \(self.options.fps)")
                             videoSource.adaptOutputFormat(toWidth: targetDimensions.width,
                                                           height: targetDimensions.height,

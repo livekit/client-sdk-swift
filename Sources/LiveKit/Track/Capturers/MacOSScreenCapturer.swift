@@ -15,12 +15,14 @@
  */
 
 import Foundation
-import WebRTC
+import AVFoundation
 import Promises
 
 #if canImport(ScreenCaptureKit)
 import ScreenCaptureKit
 #endif
+
+@_implementationOnly import WebRTC
 
 // currently only used for macOS
 @available(*, deprecated, message: "Use new API with MacOSScreenShareSource")
@@ -77,7 +79,7 @@ public class MacOSScreenCapturer: VideoCapturer {
     private var _scStream: Any?
 
     // cached frame for resending to maintain minimum of 1 fps
-    private var lastFrame: RTCVideoFrame?
+    private var lastFrame: LKRTCVideoFrame?
     private var frameResendTimer: DispatchQueueTimer?
     private let captureMethod: MacOSScreenCaptureMethod
 
@@ -137,7 +139,7 @@ public class MacOSScreenCapturer: VideoCapturer {
     public var options: ScreenShareCaptureOptions
 
     @available(*, deprecated, message: "Use new API with MacOSScreenShareSource")
-    init(delegate: RTCVideoCapturerDelegate,
+    init(delegate: LKRTCVideoCapturerDelegate,
          source: ScreenShareSource,
          options: ScreenShareCaptureOptions,
          preferredMethod: MacOSScreenCapturePreferredMethod = .auto) {
@@ -149,7 +151,7 @@ public class MacOSScreenCapturer: VideoCapturer {
         super.init(delegate: delegate)
     }
 
-    init(delegate: RTCVideoCapturerDelegate,
+    init(delegate: LKRTCVideoCapturerDelegate,
          captureSource: MacOSScreenCaptureSource,
          options: ScreenShareCaptureOptions,
          preferredMethod: MacOSScreenCapturePreferredMethod = .auto) {
@@ -197,7 +199,7 @@ public class MacOSScreenCapturer: VideoCapturer {
 
                                     defer { self.dimensions = targetDimensions }
 
-                                    guard let videoSource = self.delegate as? RTCVideoSource else { return }
+                                    guard let videoSource = self.delegate as? LKRTCVideoSource else { return }
                                     // self.log("adaptOutputFormat to: \(targetDimensions) fps: \(self.options.fps)")
                                     videoSource.adaptOutputFormat(toWidth: targetDimensions.width,
                                                                   height: targetDimensions.height,
@@ -411,17 +413,17 @@ public class MacOSScreenCapturer: VideoCapturer {
         // notify capturer for dimensions
         defer { self.dimensions = targetDimensions }
 
-        let rtcBuffer = RTCCVPixelBuffer(pixelBuffer: pixelBuffer,
-                                         adaptedWidth: targetDimensions.width,
-                                         adaptedHeight: targetDimensions.height,
-                                         cropWidth: sourceDimensions.width,
-                                         cropHeight: sourceDimensions.height,
-                                         cropX: Int32(cropRect?.origin.x ?? 0),
-                                         cropY: Int32(cropRect?.origin.y ?? 0))
+        let rtcBuffer = LKRTCCVPixelBuffer(pixelBuffer: pixelBuffer,
+                                           adaptedWidth: targetDimensions.width,
+                                           adaptedHeight: targetDimensions.height,
+                                           cropWidth: sourceDimensions.width,
+                                           cropHeight: sourceDimensions.height,
+                                           cropX: Int32(cropRect?.origin.x ?? 0),
+                                           cropY: Int32(cropRect?.origin.y ?? 0))
 
-        let rtcFrame = RTCVideoFrame(buffer: rtcBuffer,
-                                     rotation: ._0,
-                                     timeStampNs: timeStampNs)
+        let rtcFrame = LKRTCVideoFrame(buffer: rtcBuffer,
+                                       rotation: ._0,
+                                       timeStampNs: timeStampNs)
 
         // feed frame to WebRTC
         delegate.capturer(capturer, didCapture: rtcFrame)
@@ -483,9 +485,9 @@ extension MacOSScreenCapturer {
               let frame = lastFrame else { return }
 
         // create a new frame with new time stamp
-        let newFrame = RTCVideoFrame(buffer: frame.buffer,
-                                     rotation: frame.rotation,
-                                     timeStampNs: Self.createTimeStampNs())
+        let newFrame = LKRTCVideoFrame(buffer: frame.buffer,
+                                       rotation: frame.rotation,
+                                       timeStampNs: Self.createTimeStampNs())
 
         // feed frame to WebRTC
         delegate.capturer(capturer, didCapture: newFrame)

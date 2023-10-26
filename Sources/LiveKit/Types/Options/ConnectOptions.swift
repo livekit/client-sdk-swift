@@ -15,7 +15,6 @@
  */
 
 import Foundation
-import WebRTC
 
 /// Options used when establishing a connection.
 @objc
@@ -26,17 +25,10 @@ public class ConnectOptions: NSObject {
     @objc
     public let autoSubscribe: Bool
 
-    @objc
-    public let rtcConfiguration: RTCConfiguration
-
     /// Providing a string will make the connection publish-only, suitable for iOS Broadcast Upload Extensions.
     /// The string can be used to identify the publisher.
     @objc
     public let publishOnlyMode: String?
-
-    /// LiveKit server protocol version to use. Generally, it's not recommended to change this.
-    @objc
-    public let protocolVersion: ProtocolVersion
 
     /// The number of attempts to reconnect when the network disconnects.
     @objc
@@ -46,29 +38,37 @@ public class ConnectOptions: NSObject {
     @objc
     public let reconnectAttemptDelay: TimeInterval
 
+    /// Custom ice servers
+    @objc
+    public let iceServers: [IceServer]
+
+    /// LiveKit server protocol version to use. Generally, it's not recommended to change this.
+    @objc
+    public let protocolVersion: ProtocolVersion
+
     @objc
     public override init() {
         self.autoSubscribe = true
-        self.rtcConfiguration = .liveKitDefault()
         self.publishOnlyMode = nil
         self.reconnectAttempts = 3
         self.reconnectAttemptDelay = .defaultReconnectAttemptDelay
+        self.iceServers = []
         self.protocolVersion = .v9
     }
 
     @objc
     public init(autoSubscribe: Bool = true,
-                rtcConfiguration: RTCConfiguration? = nil,
                 publishOnlyMode: String? = nil,
                 reconnectAttempts: Int = 3,
                 reconnectAttemptDelay: TimeInterval = .defaultReconnectAttemptDelay,
+                iceServers: [IceServer] = [],
                 protocolVersion: ProtocolVersion = .v9) {
 
         self.autoSubscribe = autoSubscribe
-        self.rtcConfiguration = rtcConfiguration ?? .liveKitDefault()
         self.publishOnlyMode = publishOnlyMode
         self.reconnectAttempts = reconnectAttempts
         self.reconnectAttemptDelay = reconnectAttemptDelay
+        self.iceServers = iceServers
         self.protocolVersion = protocolVersion
     }
 
@@ -77,20 +77,20 @@ public class ConnectOptions: NSObject {
     public override func isEqual(_ object: Any?) -> Bool {
         guard let other = object as? Self else { return false }
         return self.autoSubscribe == other.autoSubscribe &&
-            self.rtcConfiguration == other.rtcConfiguration &&
             self.publishOnlyMode == other.publishOnlyMode &&
             self.reconnectAttempts == other.reconnectAttempts &&
             self.reconnectAttemptDelay == other.reconnectAttemptDelay &&
+            self.iceServers == other.iceServers &&
             self.protocolVersion == other.protocolVersion
     }
 
     public override var hash: Int {
         var hasher = Hasher()
         hasher.combine(autoSubscribe)
-        hasher.combine(rtcConfiguration)
         hasher.combine(publishOnlyMode)
         hasher.combine(reconnectAttempts)
         hasher.combine(reconnectAttemptDelay)
+        hasher.combine(iceServers)
         hasher.combine(protocolVersion)
         return hasher.finalize()
     }

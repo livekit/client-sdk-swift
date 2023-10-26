@@ -15,8 +15,9 @@
  */
 
 import Foundation
-import WebRTC
 import Promises
+
+@_implementationOnly import WebRTC
 
 internal typealias DebouncFunc = () -> Void
 
@@ -219,7 +220,7 @@ internal class Utils {
         dimensions: Dimensions,
         publishOptions: VideoPublishOptions?,
         isScreenShare: Bool = false
-    ) -> [RTCRtpEncodingParameters] {
+    ) -> [LKRTCRtpEncodingParameters] {
 
         let publishOptions = publishOptions ?? VideoPublishOptions()
         let preferredEncoding: VideoEncoding? = isScreenShare ? publishOptions.screenShareEncoding : publishOptions.encoding

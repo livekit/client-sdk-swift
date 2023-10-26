@@ -15,15 +15,31 @@
  */
 
 import Foundation
-import WebRTC
 
-public typealias CaptureFunc = (_ capture: RTCVideoFrame) -> Void
-public typealias InterceptFunc = (_ frame: RTCVideoFrame, _ capture: @escaping CaptureFunc) -> Void
+@_implementationOnly import WebRTC
 
-public class VideoCaptureInterceptor: NSObject, RTCVideoCapturerDelegate, Loggable {
+public class VideoCaptureInterceptor: NSObject, Loggable {
+
+    public typealias CaptureFunc = (_ capture: VideoFrame) -> Void
+    public typealias InterceptFunc = (_ frame: VideoFrame, _ capture: @escaping CaptureFunc) -> Void
+
+    private class DelegateAdapter: NSObject, LKRTCVideoCapturerDelegate {
+
+        weak var target: VideoCaptureInterceptor?
+
+        init(target: VideoCaptureInterceptor? = nil) {
+            self.target = target
+        }
+
+        func capturer(_ capturer: LKRTCVideoCapturer, didCapture frame: LKRTCVideoFrame) {
+            target?.capturer(capturer, didCapture: frame)
+        }
+    }
 
     let output = Engine.createVideoSource(forScreenShare: true)
     let interceptFunc: InterceptFunc
+
+    private lazy var delegateAdapter: DelegateAdapter = { DelegateAdapter(target: self) }()
 
     public init(_ interceptFunc: @escaping InterceptFunc) {
         self.interceptFunc = interceptFunc
@@ -35,10 +51,11 @@ public class VideoCaptureInterceptor: NSObject, RTCVideoCapturerDelegate, Loggab
         log("VideoCaptureInterceptor.deinit()")
     }
 
-    public func capturer(_ capturer: RTCVideoCapturer, didCapture frame: RTCVideoFrame) {
+    // MARK: - Internal
 
+    internal func capturer(_ capturer: LKRTCVideoCapturer, didCapture frame: LKRTCVideoFrame) {
         // create capture func to pass to intercept func
-        let captureFunc = { [weak self, weak capturer] (frame: RTCVideoFrame) -> Void in
+        let captureFunc = { [weak self, weak capturer] (frame: VideoFrame) -> Void in
             guard let self = self,
                   let capturer = capturer else {
                 return
@@ -46,10 +63,10 @@ public class VideoCaptureInterceptor: NSObject, RTCVideoCapturerDelegate, Loggab
 
             // TODO: provide access to adaptOutputFormat
             // self.output.adaptOutputFormat(toWidth: 100, height: 100, fps: 15)
-            self.output.capturer(capturer, didCapture: frame)
+            self.output.capturer(capturer, didCapture: frame.toRTCType())
         }
 
         // call intercept func with frame & capture func
-        interceptFunc(frame, captureFunc)
+        // interceptFunc(frame.toLKType(), captureFunc)
     }
 }

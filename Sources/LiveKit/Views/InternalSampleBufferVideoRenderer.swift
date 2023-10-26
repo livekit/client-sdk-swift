@@ -15,7 +15,8 @@
  */
 
 import Foundation
-import WebRTC
+
+@_implementationOnly import WebRTC
 
 internal class InternalSampleBufferVideoRenderer: NativeView, Loggable {
 
@@ -46,21 +47,21 @@ internal class InternalSampleBufferVideoRenderer: NativeView, Loggable {
     }
 }
 
-extension InternalSampleBufferVideoRenderer: RTCVideoRenderer {
+extension InternalSampleBufferVideoRenderer: LKRTCVideoRenderer {
 
     internal func setSize(_ size: CGSize) {
         //
     }
 
-    internal func renderFrame(_ frame: RTCVideoFrame?) {
+    internal func renderFrame(_ frame: LKRTCVideoFrame?) {
 
         guard let frame = frame else { return }
 
         var pixelBuffer: CVPixelBuffer?
 
-        if let rtcPixelBuffer = frame.buffer as? RTCCVPixelBuffer {
+        if let rtcPixelBuffer = frame.buffer as? LKRTCCVPixelBuffer {
             pixelBuffer = rtcPixelBuffer.pixelBuffer
-        } else if let rtcI420Buffer = frame.buffer as? RTCI420Buffer {
+        } else if let rtcI420Buffer = frame.buffer as? LKRTCI420Buffer {
             pixelBuffer = rtcI420Buffer.toPixelBuffer()
         }
 

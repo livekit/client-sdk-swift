@@ -15,11 +15,24 @@
  */
 
 import Foundation
-import WebRTC
 
-extension RTCConfiguration {
-    open override var description: String {
-        "RTCConfiguration(iceServers: \(String(describing: iceServers)), " +
-            "iceTransportPolicy: \(String(describing: iceTransportPolicy)))"
+@_implementationOnly import WebRTC
+
+@objc
+public class AudioDevice: NSObject, MediaDevice {
+
+    public var deviceId: String { _ioDevice.deviceId }
+    public var name: String { _ioDevice.name }
+    public var isDefault: Bool { _ioDevice.isDefault }
+
+    internal let _ioDevice: LKRTCIODevice
+
+    internal init(ioDevice: LKRTCIODevice) {
+        self._ioDevice = ioDevice
     }
+}
+
+extension AudioDevice: Identifiable {
+
+    public var id: String { deviceId }
 }

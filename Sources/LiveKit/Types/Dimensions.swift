@@ -15,7 +15,9 @@
  */
 
 import Foundation
-import WebRTC
+import CoreMedia
+
+@_implementationOnly import WebRTC
 
 @objc
 public class Dimensions: NSObject {
@@ -136,8 +138,8 @@ extension Dimensions {
         return result
     }
 
-    func encodings(from presets: [VideoParameters?]) -> [RTCRtpEncodingParameters] {
-        var result: [RTCRtpEncodingParameters] = []
+    func encodings(from presets: [VideoParameters?]) -> [LKRTCRtpEncodingParameters] {
+        var result: [LKRTCRtpEncodingParameters] = []
         for (index, preset) in presets.compactMap({ $0 }).enumerated() {
             guard let rid = VideoQuality.rids[safe: index] else {
                 continue
@@ -166,7 +168,7 @@ extension Dimensions {
         return result
     }
 
-    internal func videoLayers(for encodings: [RTCRtpEncodingParameters]) -> [Livekit_VideoLayer] {
+    internal func videoLayers(for encodings: [LKRTCRtpEncodingParameters]) -> [Livekit_VideoLayer] {
         encodings.filter { $0.isActive }.map { encoding in
             let scaleDownBy = encoding.scaleResolutionDownBy?.doubleValue ?? 1.0
             return Livekit_VideoLayer.with {

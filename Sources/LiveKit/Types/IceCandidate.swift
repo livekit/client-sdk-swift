@@ -15,7 +15,8 @@
  */
 
 import Foundation
-import WebRTC
+
+@_implementationOnly import WebRTC
 
 struct IceCandidate: Codable {
     let sdp: String
@@ -36,7 +37,7 @@ struct IceCandidate: Codable {
     }
 }
 
-extension RTCIceCandidate {
+extension LKRTCIceCandidate {
 
     func toLKType() -> IceCandidate {
         IceCandidate(sdp: sdp,

@@ -15,18 +15,19 @@
  */
 
 import Foundation
-import WebRTC
 import Promises
 
 #if canImport(ReplayKit)
 import ReplayKit
 #endif
 
+@_implementationOnly import WebRTC
+
 public class CameraCapturer: VideoCapturer {
 
     @objc
     public static func captureDevices() -> [AVCaptureDevice] {
-        DispatchQueue.liveKitWebRTC.sync { RTCCameraVideoCapturer.captureDevices() }
+        DispatchQueue.liveKitWebRTC.sync { LKRTCCameraVideoCapturer.captureDevices() }
     }
 
     /// Checks whether both front and back capturing devices exist, and can be switched.
@@ -78,12 +79,17 @@ public class CameraCapturer: VideoCapturer {
         }
     }
 
-    // RTCCameraVideoCapturer used internally for now
-    private lazy var capturer: RTCCameraVideoCapturer = {
-        DispatchQueue.liveKitWebRTC.sync { RTCCameraVideoCapturer(delegate: self) }
+    // Used to hide LKRTCVideoCapturerDelegate symbol
+    private lazy var adapter: VideoCapturerDelegateAdapter = {
+        VideoCapturerDelegateAdapter(cameraCapturer: self)
     }()
 
-    init(delegate: RTCVideoCapturerDelegate, options: CameraCaptureOptions) {
+    // RTCCameraVideoCapturer used internally for now
+    private lazy var capturer: LKRTCCameraVideoCapturer = {
+        DispatchQueue.liveKitWebRTC.sync { LKRTCCameraVideoCapturer(delegate: adapter) }
+    }()
+
+    init(delegate: LKRTCVideoCapturerDelegate, options: CameraCaptureOptions) {
         self.options = options
         super.init(delegate: delegate)
 
@@ -135,7 +141,7 @@ public class CameraCapturer: VideoCapturer {
             }
 
             // list of all formats in order of dimensions size
-            let formats = DispatchQueue.liveKitWebRTC.sync { RTCCameraVideoCapturer.supportedFormats(for: device) }
+            let formats = DispatchQueue.liveKitWebRTC.sync { LKRTCCameraVideoCapturer.supportedFormats(for: device) }
             // create an array of sorted touples by dimensions size
             let sortedFormats = formats.map({ (format: $0, dimensions: Dimensions(from: CMVideoFormatDescriptionGetDimensions($0.formatDescription))) })
                 .sorted { $0.dimensions.area < $1.dimensions.area }
@@ -186,7 +192,7 @@ public class CameraCapturer: VideoCapturer {
             self.log("starting camera capturer device: \(device), format: \(selectedFormat), fps: \(selectedFps)(\(fpsRange))", .info)
 
             // adapt if requested dimensions and camera's dimensions don't match
-            if let videoSource = self.delegate as? RTCVideoSource,
+            if let videoSource = self.delegate as? LKRTCVideoSource,
                selectedFormat.dimensions != self.options.dimensions {
 
                 // self.log("adaptOutputFormat to: \(options.dimensions) fps: \(self.options.fps)")
@@ -239,13 +245,20 @@ public class CameraCapturer: VideoCapturer {
     }
 }
 
-extension CameraCapturer: RTCVideoCapturerDelegate {
+internal class VideoCapturerDelegateAdapter: NSObject, LKRTCVideoCapturerDelegate {
 
-    public func capturer(_ capturer: RTCVideoCapturer, didCapture frame: RTCVideoFrame) {
+    weak var cameraCapturer: CameraCapturer?
+
+    internal init(cameraCapturer: CameraCapturer? = nil) {
+        self.cameraCapturer = cameraCapturer
+    }
+
+    func capturer(_ capturer: LKRTCVideoCapturer, didCapture frame: LKRTCVideoFrame) {
+        guard let cameraCapturer = cameraCapturer else { return }
         // Resolve real dimensions (apply frame rotation)
-        self.dimensions = Dimensions(width: frame.width, height: frame.height).apply(rotation: frame.rotation)
+        cameraCapturer.dimensions = Dimensions(width: frame.width, height: frame.height).apply(rotation: frame.rotation)
         // Pass frame to video source
-        delegate?.capturer(capturer, didCapture: frame)
+        cameraCapturer.delegate?.capturer(capturer, didCapture: frame)
     }
 }
 

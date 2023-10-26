@@ -15,15 +15,16 @@
  */
 
 import Foundation
-import WebRTC
 import Promises
+
+@_implementationOnly import WebRTC
 
 @objc
 public class RemoteVideoTrack: Track, RemoteTrack, VideoTrack {
 
     init(name: String,
          source: Track.Source,
-         track: RTCMediaStreamTrack) {
+         track: LKRTCMediaStreamTrack) {
 
         super.init(name: name,
                    kind: .video,
@@ -32,13 +33,13 @@ public class RemoteVideoTrack: Track, RemoteTrack, VideoTrack {
     }
 }
 
-extension RemoteVideoTrack {
+public extension RemoteVideoTrack {
 
-    public func add(videoRenderer: VideoRenderer) {
+    func add(videoRenderer: VideoRenderer) {
         super._add(videoRenderer: videoRenderer)
     }
 
-    public func remove(videoRenderer: VideoRenderer) {
+    func remove(videoRenderer: VideoRenderer) {
         super._remove(videoRenderer: videoRenderer)
     }
 }

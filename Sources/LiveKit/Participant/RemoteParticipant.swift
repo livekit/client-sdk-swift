@@ -15,8 +15,9 @@
  */
 
 import Foundation
-import WebRTC
 import Promises
+
+@_implementationOnly import WebRTC
 
 @objc
 public class RemoteParticipant: Participant {
@@ -83,8 +84,8 @@ public class RemoteParticipant: Participant {
         }
     }
 
-    internal func addSubscribedMediaTrack(rtcTrack: RTCMediaStreamTrack,
-                                          rtpReceiver: RTCRtpReceiver,
+    internal func addSubscribedMediaTrack(rtcTrack: LKRTCMediaStreamTrack,
+                                          rtpReceiver: LKRTCRtpReceiver,
                                           sid: Sid) -> Promise<Void> {
 
         let track: Track

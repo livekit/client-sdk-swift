@@ -6,12 +6,13 @@
 //
 
 import Foundation
-import WebRTC
 import Promises
 
 #if canImport(UIKit)
 import UIKit
 #endif
+
+@_implementationOnly import WebRTC
 
 #if os(iOS)
 
@@ -57,7 +58,7 @@ class BroadcastScreenCapturer: BufferCapturer {
                     return
                 }
                 frameReader.didCapture = { pixelBuffer, rotation in
-                    self.capture(pixelBuffer, rotation: rotation)
+                    self.capture(pixelBuffer, rotation: rotation.toLKType())
 
                 }
                 frameReader.startCapture(with: socketConnection)

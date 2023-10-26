@@ -15,12 +15,10 @@
  */
 
 import Foundation
-import WebRTC
 
-extension RTCIceServer {
-    open override var description: String {
-        "RTCIceServer(urlStrings: \(String(describing: urlStrings)), " +
-            "username: \(String(describing: username)), " +
-            "credential: \(String(describing: credential)))"
-    }
+@objc
+public protocol MediaDevice: AnyObject {
+
+    var deviceId: String { get }
+    var name: String { get }
 }

@@ -15,8 +15,8 @@
  */
 
 import Foundation
-import WebRTC
 import Promises
+import AVFoundation
 
 extension CameraCapturer {
 

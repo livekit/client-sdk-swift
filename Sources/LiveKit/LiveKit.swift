@@ -15,9 +15,10 @@
  */
 
 import Foundation
-import WebRTC
 import Promises
 import Logging
+
+@_implementationOnly import WebRTC
 
 internal let logger = Logger(label: "LiveKitSDK")
 

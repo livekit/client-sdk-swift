@@ -15,8 +15,9 @@
  */
 
 import Foundation
-import WebRTC
 import Promises
+
+@_implementationOnly import WebRTC
 
 extension Room: EngineDelegate {
 
@@ -144,7 +145,7 @@ extension Room: EngineDelegate {
         }
     }
 
-    func engine(_ engine: Engine, didAddTrack track: RTCMediaStreamTrack, rtpReceiver: RTCRtpReceiver, streams: [RTCMediaStream]) {
+    func engine(_ engine: Engine, didAddTrack track: LKRTCMediaStreamTrack, rtpReceiver: LKRTCRtpReceiver, streams: [LKRTCMediaStream]) {
 
         guard !streams.isEmpty else {
             log("Received onTrack with no streams!", .warning)
@@ -171,7 +172,7 @@ extension Room: EngineDelegate {
         }
     }
 
-    func engine(_ engine: Engine, didRemove track: RTCMediaStreamTrack) {
+    func engine(_ engine: Engine, didRemove track: LKRTCMediaStreamTrack) {
         // find the publication
         guard let publication = _state.remoteParticipants.values.map({ $0._state.tracks.values }).joined()
                 .first(where: { $0.sid == track.trackId }) else { return }

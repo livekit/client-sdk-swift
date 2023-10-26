@@ -16,8 +16,9 @@
 
 import Foundation
 import CoreGraphics
-import WebRTC
 import Promises
+
+@_implementationOnly import WebRTC
 
 @objc
 public enum SubscriptionState: Int, Codable {
@@ -364,7 +365,7 @@ extension RemoteTrackPublication {
             log("[adaptiveStream] disabling sid: \(sid), videoRenderersCount: \(videoRenderers.count), \(viewsString)")
         }
 
-        if let videoTrack = track?.mediaTrack as? RTCVideoTrack {
+        if let videoTrack = track?.mediaTrack as? LKRTCVideoTrack {
             log("VideoTrack.shouldReceive: \(enabled)")
             DispatchQueue.liveKitWebRTC.sync { videoTrack.shouldReceive = enabled }
         }

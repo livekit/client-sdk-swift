@@ -15,14 +15,15 @@
  */
 
 import Foundation
-import WebRTC
+
+@_implementationOnly import WebRTC
 
 internal protocol TransportDelegate: AnyObject {
     func transport(_ transport: Transport, didUpdate state: RTCPeerConnectionState)
-    func transport(_ transport: Transport, didGenerate iceCandidate: RTCIceCandidate)
-    func transport(_ transport: Transport, didOpen dataChannel: RTCDataChannel)
-    func transport(_ transport: Transport, didAddTrack: RTCMediaStreamTrack, rtpReceiver: RTCRtpReceiver, streams: [RTCMediaStream])
-    func transport(_ transport: Transport, didRemove track: RTCMediaStreamTrack)
+    func transport(_ transport: Transport, didGenerate iceCandidate: LKRTCIceCandidate)
+    func transport(_ transport: Transport, didOpen dataChannel: LKRTCDataChannel)
+    func transport(_ transport: Transport, didAddTrack: LKRTCMediaStreamTrack, rtpReceiver: LKRTCRtpReceiver, streams: [LKRTCMediaStream])
+    func transport(_ transport: Transport, didRemove track: LKRTCMediaStreamTrack)
     func transportShouldNegotiate(_ transport: Transport)
     func transport(_ transport: Transport, didGenerate stats: [TrackStats], target: Livekit_SignalTarget)
 }

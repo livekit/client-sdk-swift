@@ -15,12 +15,13 @@
  */
 
 import Foundation
-import WebRTC
 import Promises
 
 #if canImport(ReplayKit)
 import ReplayKit
 #endif
+
+@_implementationOnly import WebRTC
 
 @objc
 public class LocalParticipant: Participant {
@@ -78,7 +79,7 @@ public class LocalParticipant: Participant {
                                                                               .defaultCaptureStart,
                                                                               throw: { TrackError.timedOut(message: "unable to resolve dimensions") }) }.then(on: self.queue) { $0 }
 
-        }.then(on: queue) { dimensions -> Promise<(result: RTCRtpTransceiverInit, trackInfo: Livekit_TrackInfo)> in
+        }.then(on: queue) { dimensions -> Promise<(result: LKRTCRtpTransceiverInit, trackInfo: Livekit_TrackInfo)> in
             // request a new track to the server
             self.room.engine.signalClient.sendAddTrack(cid: track.mediaTrack.trackId,
                                                        name: track.name,
@@ -86,7 +87,7 @@ public class LocalParticipant: Participant {
                                                        source: track.source.toPBType(),
                                                        encryption: self.room.e2eeManager?.e2eeOptions.encryptionType.toPBType() ?? .none ) { populator in
 
-                let transInit = DispatchQueue.liveKitWebRTC.sync { RTCRtpTransceiverInit() }
+                let transInit = DispatchQueue.liveKitWebRTC.sync { LKRTCRtpTransceiverInit() }
                 transInit.direction = .sendOnly
 
                 if let track = track as? LocalVideoTrack {
@@ -134,7 +135,7 @@ public class LocalParticipant: Participant {
                 return transInit
             }
 
-        }.then(on: queue) { (transInit, trackInfo) -> Promise<(transceiver: RTCRtpTransceiver, trackInfo: Livekit_TrackInfo)> in
+        }.then(on: queue) { (transInit, trackInfo) -> Promise<(transceiver: LKRTCRtpTransceiver, trackInfo: Livekit_TrackInfo)> in
 
             self.log("[publish] server responded trackInfo: \(trackInfo)")
 
@@ -144,7 +145,7 @@ public class LocalParticipant: Participant {
                                                 // pass down trackInfo and created transceiver
                                                 (transceiver, trackInfo)
                                             }
-        }.then(on: queue) { params -> Promise<(RTCRtpTransceiver, trackInfo: Livekit_TrackInfo)> in
+        }.then(on: queue) { params -> Promise<(LKRTCRtpTransceiver, trackInfo: Livekit_TrackInfo)> in
             self.log("[publish] added transceiver: \(params.trackInfo)...")
             return track.onPublish().then(on: self.queue) { _ in params }
         }.then(on: queue) { (transceiver, trackInfo) -> LocalTrackPublication in

@@ -16,8 +16,9 @@
 
 import Foundation
 import SwiftUI
-import WebRTC
 import AVKit
+
+@_implementationOnly import WebRTC
 
 public struct SwiftUIAudioRoutePickerButton: NativeViewRepresentable {
 

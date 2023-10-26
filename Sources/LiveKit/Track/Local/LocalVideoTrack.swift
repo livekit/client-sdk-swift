@@ -15,8 +15,9 @@
  */
 
 import Foundation
-import WebRTC
 import Promises
+
+@_implementationOnly import WebRTC
 
 @objc
 public class LocalVideoTrack: Track, LocalTrack, VideoTrack {
@@ -24,13 +25,12 @@ public class LocalVideoTrack: Track, LocalTrack, VideoTrack {
     @objc
     public internal(set) var capturer: VideoCapturer
 
-    @objc
-    public internal(set) var videoSource: RTCVideoSource
+    internal var videoSource: LKRTCVideoSource
 
     internal init(name: String,
                   source: Track.Source,
                   capturer: VideoCapturer,
-                  videoSource: RTCVideoSource) {
+                  videoSource: LKRTCVideoSource) {
 
         let rtcTrack = Engine.createVideoTrack(source: videoSource)
         rtcTrack.isEnabled = true
@@ -57,13 +57,13 @@ public class LocalVideoTrack: Track, LocalTrack, VideoTrack {
     }
 }
 
-extension LocalVideoTrack {
+public extension LocalVideoTrack {
 
-    public func add(videoRenderer: VideoRenderer) {
+    func add(videoRenderer: VideoRenderer) {
         super._add(videoRenderer: videoRenderer)
     }
 
-    public func remove(videoRenderer: VideoRenderer) {
+    func remove(videoRenderer: VideoRenderer) {
         super._remove(videoRenderer: videoRenderer)
     }
 }

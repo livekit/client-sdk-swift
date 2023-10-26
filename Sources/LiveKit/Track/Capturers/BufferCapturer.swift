@@ -15,8 +15,10 @@
  */
 
 import Foundation
-import WebRTC
+import CoreMedia
 import Promises
+
+@_implementationOnly import WebRTC
 
 /// A ``VideoCapturer`` that can capture ``CMSampleBuffer``s.
 ///
@@ -34,7 +36,7 @@ public class BufferCapturer: VideoCapturer {
     /// The ``BufferCaptureOptions`` used for this capturer.
     public var options: BufferCaptureOptions
 
-    init(delegate: RTCVideoCapturerDelegate, options: BufferCaptureOptions) {
+    init(delegate: LKRTCVideoCapturerDelegate, options: BufferCaptureOptions) {
         self.options = options
         super.init(delegate: delegate)
     }
@@ -50,7 +52,7 @@ public class BufferCapturer: VideoCapturer {
 
             defer { self.dimensions = targetDimensions }
 
-            guard let videoSource = self.delegate as? RTCVideoSource else { return }
+            guard let videoSource = self.delegate as? LKRTCVideoSource else { return }
             videoSource.adaptOutputFormat(toWidth: targetDimensions.width,
                                           height: targetDimensions.height,
                                           fps: Int32(self.options.fps))
@@ -60,12 +62,12 @@ public class BufferCapturer: VideoCapturer {
     /// Capture a ``CVPixelBuffer``.
     public func capture(_ pixelBuffer: CVPixelBuffer,
                         timeStampNs: Int64 = VideoCapturer.createTimeStampNs(),
-                        rotation: RTCVideoRotation = ._0) {
+                        rotation: VideoRotation = ._0) {
 
         delegate?.capturer(capturer,
                            didCapture: pixelBuffer,
                            timeStampNs: timeStampNs,
-                           rotation: rotation) { sourceDimensions in
+                           rotation: rotation.toRTCType()) { sourceDimensions in
 
             let targetDimensions = sourceDimensions
                 .aspectFit(size: self.options.dimensions.max)
@@ -73,7 +75,7 @@ public class BufferCapturer: VideoCapturer {
 
             defer { self.dimensions = targetDimensions }
 
-            guard let videoSource = self.delegate as? RTCVideoSource else { return }
+            guard let videoSource = self.delegate as? LKRTCVideoSource else { return }
             videoSource.adaptOutputFormat(toWidth: targetDimensions.width,
                                           height: targetDimensions.height,
                                           fps: Int32(self.options.fps))

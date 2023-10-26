@@ -15,7 +15,6 @@
  */
 
 import Foundation
-import WebRTC
 import Promises
 
 #if canImport(Network)
@@ -428,27 +427,11 @@ extension Room: AppStateDelegate {
 // MARK: - Devices
 
 extension Room {
-
-    @objc
-    public static var audioDeviceModule: RTCAudioDeviceModule {
-        Engine.audioDeviceModule
-    }
-
     /// Set this to true to bypass initialization of voice processing.
     /// Must be set before RTCPeerConnectionFactory gets initialized.
     @objc
     public static var bypassVoiceProcessing: Bool {
         get { Engine.bypassVoiceProcessing }
         set { Engine.bypassVoiceProcessing = newValue }
-    }
-}
-
-// MARK: - Audio Processing
-
-extension Room {
-
-    @objc
-    public static var audioProcessingModule: RTCDefaultAudioProcessingModule {
-        Engine.audioProcessingModule
     }
 }

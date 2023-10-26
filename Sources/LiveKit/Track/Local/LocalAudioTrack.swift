@@ -15,15 +15,16 @@
  */
 
 import Foundation
-import WebRTC
 import Promises
+
+@_implementationOnly import WebRTC
 
 @objc
 public class LocalAudioTrack: Track, LocalTrack, AudioTrack {
 
     internal init(name: String,
                   source: Track.Source,
-                  track: RTCMediaStreamTrack) {
+                  track: LKRTCMediaStreamTrack) {
 
         super.init(name: name,
                    kind: .audio,
@@ -46,8 +47,8 @@ public class LocalAudioTrack: Track, LocalTrack, AudioTrack {
             "googAutoGainControl2": options.experimentalAutoGainControl.toString()
         ]
 
-        let audioConstraints = DispatchQueue.liveKitWebRTC.sync { RTCMediaConstraints(mandatoryConstraints: nil,
-                                                                                      optionalConstraints: constraints) }
+        let audioConstraints = DispatchQueue.liveKitWebRTC.sync { LKRTCMediaConstraints(mandatoryConstraints: nil,
+                                                                                        optionalConstraints: constraints) }
 
         let audioSource = Engine.createAudioSource(audioConstraints)
         let rtcTrack = Engine.createAudioTrack(source: audioSource)

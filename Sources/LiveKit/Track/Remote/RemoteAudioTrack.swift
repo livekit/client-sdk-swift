@@ -15,8 +15,9 @@
  */
 
 import Foundation
-import WebRTC
 import Promises
+
+@_implementationOnly import WebRTC
 
 @objc
 public class RemoteAudioTrack: Track, RemoteTrack, AudioTrack {
@@ -24,18 +25,18 @@ public class RemoteAudioTrack: Track, RemoteTrack, AudioTrack {
     /// Volume with range 0.0 - 1.0
     public var volume: Double {
         get {
-            guard let audioTrack = mediaTrack as? RTCAudioTrack else { return 0 }
+            guard let audioTrack = mediaTrack as? LKRTCAudioTrack else { return 0 }
             return audioTrack.source.volume / 10
         }
         set {
-            guard let audioTrack = mediaTrack as? RTCAudioTrack else { return }
+            guard let audioTrack = mediaTrack as? LKRTCAudioTrack else { return }
             audioTrack.source.volume = newValue * 10
         }
     }
 
     init(name: String,
          source: Track.Source,
-         track: RTCMediaStreamTrack) {
+         track: LKRTCMediaStreamTrack) {
 
         super.init(name: name,
                    kind: .audio,
@@ -61,13 +62,13 @@ public class RemoteAudioTrack: Track, RemoteTrack, AudioTrack {
         }
     }
 
-    public func add(audioRenderer: RTCAudioRenderer) {
-        guard let audioTrack = mediaTrack as? RTCAudioTrack else { return  }
-        audioTrack.add(audioRenderer)
+    public func add(audioRenderer: AudioRenderer) {
+        guard let audioTrack = mediaTrack as? LKRTCAudioTrack else { return  }
+        audioTrack.add(AudioRendererAdapter(target: audioRenderer))
     }
 
-    public func remove(audioRenderer: RTCAudioRenderer) {
-        guard let audioTrack = mediaTrack as? RTCAudioTrack else { return }
-        audioTrack.remove(audioRenderer)
+    public func remove(audioRenderer: AudioRenderer) {
+        guard let audioTrack = mediaTrack as? LKRTCAudioTrack else { return }
+        audioTrack.remove(AudioRendererAdapter(target: audioRenderer))
     }
 }

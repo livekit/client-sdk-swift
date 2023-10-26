@@ -15,8 +15,9 @@
  */
 
 import Foundation
-import WebRTC
 import Promises
+
+@_implementationOnly import WebRTC
 
 internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
 
@@ -448,7 +449,7 @@ internal extension SignalClient {
         }
     }
 
-    func sendOffer(offer: RTCSessionDescription) -> Promise<Void> {
+    func sendOffer(offer: LKRTCSessionDescription) -> Promise<Void> {
         log()
 
         let r = Livekit_SignalRequest.with {
@@ -458,7 +459,7 @@ internal extension SignalClient {
         return sendRequest(r)
     }
 
-    func sendAnswer(answer: RTCSessionDescription) -> Promise<Void> {
+    func sendAnswer(answer: LKRTCSessionDescription) -> Promise<Void> {
         log()
 
         let r = Livekit_SignalRequest.with {
@@ -468,7 +469,7 @@ internal extension SignalClient {
         return sendRequest(r)
     }
 
-    func sendCandidate(candidate: RTCIceCandidate, target: Livekit_SignalTarget) -> Promise<Void> {
+    func sendCandidate(candidate: LKRTCIceCandidate, target: Livekit_SignalTarget) -> Promise<Void> {
         log("target: \(target)")
 
         return Promise { () -> Livekit_SignalRequest in

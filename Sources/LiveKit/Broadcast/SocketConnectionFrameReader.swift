@@ -8,7 +8,8 @@
 import Foundation
 import CoreVideo
 import CoreImage
-import WebRTC
+
+@_implementationOnly import WebRTC
 
 private class Message {
     // Initializing a CIContext object is costly, so we use a singleton instead

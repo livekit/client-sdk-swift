@@ -15,7 +15,8 @@
  */
 
 import Foundation
-import WebRTC
+
+@_implementationOnly import WebRTC
 
 @objc
 public class AudioEncoding: NSObject, MediaEncoding {

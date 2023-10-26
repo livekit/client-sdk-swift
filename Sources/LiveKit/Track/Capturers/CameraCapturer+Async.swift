@@ -15,8 +15,10 @@
  */
 
 import Foundation
-import WebRTC
+import AVFoundation
 import Promises
+
+@_implementationOnly import WebRTC
 
 public extension CameraCapturer {
 

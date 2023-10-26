@@ -15,7 +15,7 @@
  */
 
 import Foundation
-import WebRTC
+import AVFoundation
 
 @objc
 public class CameraCaptureOptions: NSObject, VideoCaptureOptions {

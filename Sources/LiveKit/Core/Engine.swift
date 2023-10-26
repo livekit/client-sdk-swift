@@ -15,12 +15,13 @@
  */
 
 import Foundation
-import WebRTC
 import Promises
 
 #if canImport(Network)
 import Network
 #endif
+
+@_implementationOnly import WebRTC
 
 internal class Engine: MulticastDelegate<EngineDelegate> {
 
@@ -298,12 +299,17 @@ internal extension Engine {
             self.subscriberPrimary = joinResponse.subscriberPrimary
             self.log("subscriberPrimary: \(joinResponse.subscriberPrimary)")
 
-            // Make a copy, instead of modifying the user-supplied RTCConfiguration object.
-            let rtcConfiguration = RTCConfiguration(copy: self._state.connectOptions.rtcConfiguration)
+            let connectOptions = self._state.connectOptions
 
-            if rtcConfiguration.iceServers.isEmpty {
-                // Set iceServers provided by the server
-                rtcConfiguration.iceServers = joinResponse.iceServers.map { $0.toRTCType() }
+            // Make a copy, instead of modifying the user-supplied RTCConfiguration object.
+            let rtcConfiguration = LKRTCConfiguration.liveKitDefault()
+
+            // Set iceServers provided by the server
+            rtcConfiguration.iceServers = joinResponse.iceServers.map { $0.toRTCType() }
+
+            if !connectOptions.iceServers.isEmpty {
+                // Override with user provided iceServers
+                rtcConfiguration.iceServers = connectOptions.iceServers.map { $0.toRTCType() }
             }
 
             if joinResponse.clientConfiguration.forceRelay == .enabled {
@@ -329,10 +335,10 @@ internal extension Engine {
 
             // data over pub channel for backwards compatibility
 
-            let publisherReliableDC = publisher.dataChannel(for: RTCDataChannel.labels.reliable,
+            let publisherReliableDC = publisher.dataChannel(for: LKRTCDataChannel.labels.reliable,
                                                             configuration: Engine.createDataChannelConfiguration())
 
-            let publisherLossyDC = publisher.dataChannel(for: RTCDataChannel.labels.lossy,
+            let publisherLossyDC = publisher.dataChannel(for: LKRTCDataChannel.labels.lossy,
                                                          configuration: Engine.createDataChannelConfiguration(maxRetransmits: 0))
 
             self.publisherDC.set(reliable: publisherReliableDC)

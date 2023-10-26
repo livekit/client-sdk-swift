@@ -17,7 +17,7 @@
 import Foundation
 import WebRTC
 
-internal extension RTCI420Buffer {
+internal extension LKRTCI420Buffer {
 
     func toPixelBuffer() -> CVPixelBuffer? {
 
@@ -51,18 +51,18 @@ internal extension RTCI420Buffer {
             let dstUV = CVPixelBufferGetBaseAddressOfPlane(outputPixelBuffer, 1)
             let dstUVStride = CVPixelBufferGetBytesPerRowOfPlane(outputPixelBuffer, 1)
 
-            RTCYUVHelper.i420(toNV12: dataY,
-                              srcStrideY: strideY,
-                              srcU: dataU,
-                              srcStrideU: strideU,
-                              srcV: dataV,
-                              srcStrideV: strideV,
-                              dstY: dstY,
-                              dstStrideY: Int32(dstYStride),
-                              dstUV: dstUV,
-                              dstStrideUV: Int32(dstUVStride),
-                              width: width,
-                              width: height)
+            LKRTCYUVHelper.i420(toNV12: dataY,
+                                srcStrideY: strideY,
+                                srcU: dataU,
+                                srcStrideU: strideU,
+                                srcV: dataV,
+                                srcStrideV: strideV,
+                                dstY: dstY,
+                                dstStrideY: Int32(dstYStride),
+                                dstUV: dstUV,
+                                dstStrideUV: Int32(dstUVStride),
+                                width: width,
+                                width: height)
 
         } else {
             let dst = CVPixelBufferGetBaseAddress(outputPixelBuffer)
@@ -70,28 +70,28 @@ internal extension RTCI420Buffer {
 
             if pixelFormat == kCVPixelFormatType_32BGRA {
 
-                RTCYUVHelper.i420(toARGB: dataY,
-                                  srcStrideY: strideY,
-                                  srcU: dataU,
-                                  srcStrideU: strideU,
-                                  srcV: dataV,
-                                  srcStrideV: strideV,
-                                  dstARGB: dst,
-                                  dstStrideARGB: Int32(bytesPerRow),
-                                  width: width,
-                                  height: height)
+                LKRTCYUVHelper.i420(toARGB: dataY,
+                                    srcStrideY: strideY,
+                                    srcU: dataU,
+                                    srcStrideU: strideU,
+                                    srcV: dataV,
+                                    srcStrideV: strideV,
+                                    dstARGB: dst,
+                                    dstStrideARGB: Int32(bytesPerRow),
+                                    width: width,
+                                    height: height)
             } else if pixelFormat == kCVPixelFormatType_32ARGB {
 
-                RTCYUVHelper.i420(toBGRA: dataY,
-                                  srcStrideY: strideY,
-                                  srcU: dataU,
-                                  srcStrideU: strideU,
-                                  srcV: dataV,
-                                  srcStrideV: strideV,
-                                  dstBGRA: dst,
-                                  dstStrideBGRA: Int32(bytesPerRow),
-                                  width: width,
-                                  height: height)
+                LKRTCYUVHelper.i420(toBGRA: dataY,
+                                    srcStrideY: strideY,
+                                    srcU: dataU,
+                                    srcStrideU: strideU,
+                                    srcV: dataV,
+                                    srcStrideV: strideV,
+                                    dstBGRA: dst,
+                                    dstStrideBGRA: Int32(bytesPerRow),
+                                    width: width,
+                                    height: height)
             }
         }
 

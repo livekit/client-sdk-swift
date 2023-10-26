@@ -15,15 +15,16 @@
  */
 
 import Foundation
-import WebRTC
+import AVFoundation
 import MetalKit
 
+@_implementationOnly import WebRTC
+
+/// A ``NativeViewType`` that conforms to ``RTCVideoRenderer``.
+internal typealias NativeRendererView = NativeViewType & LKRTCVideoRenderer & Mirrorable
 internal protocol Mirrorable {
     func set(mirrored: Bool)
 }
-
-/// A ``NativeViewType`` that conforms to ``RTCVideoRenderer``.
-internal typealias NativeRendererView = NativeViewType & RTCVideoRenderer & Mirrorable
 
 @objc
 public class VideoView: NativeView, Loggable {
@@ -263,7 +264,7 @@ public class VideoView: NativeView, Loggable {
 
                             if let frame = track._state.videoFrame {
                                 self.log("rendering cached frame tack: \(track._state.sid ?? "nil")")
-                                nr.renderFrame(frame)
+                                nr.renderFrame(frame.toRTCType())
                                 self.setNeedsLayout()
                             }
 
@@ -456,7 +457,7 @@ public class VideoView: NativeView, Loggable {
 
         nativeRenderer.frame = rendererFrame
 
-        if let mtlVideoView = nativeRenderer as? RTCMTLVideoView {
+        if let mtlVideoView = nativeRenderer as? LKRTCMTLVideoView {
             if let rotationOverride = state.rotationOverride {
                 mtlVideoView.rotationOverride = NSNumber(value: rotationOverride.rawValue)
             } else {
@@ -533,12 +534,12 @@ extension VideoView: VideoRenderer {
         _state.rendererSize ?? .zero
     }
 
-    public func setSize(_ size: CGSize) {
+    public func set(size: CGSize) {
         guard let nr = nativeRenderer else { return }
         nr.setSize(size)
     }
 
-    public func renderFrame(_ frame: RTCVideoFrame?) {
+    public func render(frame: VideoFrame) {
 
         let state = _state.copy()
 
@@ -557,31 +558,20 @@ extension VideoView: VideoRenderer {
             }
         }
 
-        if let frame = frame {
+        let rotation = state.rotationOverride ?? frame.rotation
+        let dimensions = frame.dimensions.apply(rotation: rotation.toRTCType())
 
-            let rotation = state.rotationOverride ?? frame.rotation
-
-            let dimensions = Dimensions(width: frame.width,
-                                        height: frame.height)
-                .apply(rotation: rotation)
-
-            guard dimensions.isRenderSafe else {
-                log("skipping render for dimension \(dimensions)", .warning)
-                // renderState.insert(.didSkipUnsafeFrame)
-                return
-            }
-
-            if track?.set(dimensions: dimensions) == true {
-                _needsLayout = true
-            }
-
-        } else {
-            if track?.set(dimensions: nil) == true {
-                _needsLayout = true
-            }
+        guard dimensions.isRenderSafe else {
+            log("skipping render for dimension \(dimensions)", .warning)
+            // renderState.insert(.didSkipUnsafeFrame)
+            return
         }
 
-        nr.renderFrame(frame)
+        if track?.set(dimensions: dimensions) == true {
+            _needsLayout = true
+        }
+
+        nr.renderFrame(frame.toRTCType())
 
         // cache last rendered frame
         track?.set(videoFrame: frame)
@@ -646,7 +636,7 @@ extension VideoView {
             return InternalSampleBufferVideoRenderer()
         } else {
             logger.log("Using RTCMTLVideoView for VideoView's Renderer", type: VideoView.self)
-            let result = RTCMTLVideoView()
+            let result = LKRTCMTLVideoView()
 
             #if os(iOS)
             result.contentMode = .scaleAspectFit
@@ -711,7 +701,7 @@ extension NSView {
 }
 #endif
 
-extension RTCMTLVideoView: Mirrorable {
+extension LKRTCMTLVideoView: Mirrorable {
 
     internal func set(mirrored: Bool) {
 

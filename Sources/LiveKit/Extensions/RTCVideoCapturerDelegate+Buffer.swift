@@ -15,11 +15,12 @@
  */
 
 import Foundation
-import WebRTC
 
 #if canImport(ReplayKit)
 import ReplayKit
 #endif
+
+@_implementationOnly import WebRTC
 
 extension FixedWidthInteger {
 
@@ -57,7 +58,7 @@ extension Dimensions {
 
 extension CGImagePropertyOrientation {
 
-    public func toRTCRotation() -> RTCVideoRotation {
+    internal func toRTCRotation() -> RTCVideoRotation {
         switch self {
         case .up, .upMirrored, .down, .downMirrored: return ._0
         case .left, .leftMirrored: return ._90
@@ -67,16 +68,16 @@ extension CGImagePropertyOrientation {
     }
 }
 
-extension RTCVideoCapturerDelegate {
+internal extension LKRTCVideoCapturerDelegate {
 
-    public typealias OnResolveSourceDimensions = (Dimensions) -> Void
+    typealias OnResolveSourceDimensions = (Dimensions) -> Void
 
     /// capture a `CVPixelBuffer`, all other capture methods call this method internally.
-    public func capturer(_ capturer: RTCVideoCapturer,
-                         didCapture pixelBuffer: CVPixelBuffer,
-                         timeStampNs: Int64 = VideoCapturer.createTimeStampNs(),
-                         rotation: RTCVideoRotation = ._0,
-                         onResolveSourceDimensions: OnResolveSourceDimensions? = nil) {
+    func capturer(_ capturer: LKRTCVideoCapturer,
+                  didCapture pixelBuffer: CVPixelBuffer,
+                  timeStampNs: Int64 = VideoCapturer.createTimeStampNs(),
+                  rotation: RTCVideoRotation = ._0,
+                  onResolveSourceDimensions: OnResolveSourceDimensions? = nil) {
 
         // check if pixel format is supported by WebRTC
         let pixelFormat = CVPixelBufferGetPixelFormatType(pixelBuffer)
@@ -103,19 +104,19 @@ extension RTCVideoCapturerDelegate {
 
         DispatchQueue.liveKitWebRTC.sync {
 
-            let rtcBuffer = RTCCVPixelBuffer(pixelBuffer: pixelBuffer)
-            let rtcFrame = RTCVideoFrame(buffer: rtcBuffer,
-                                         rotation: rotation,
-                                         timeStampNs: timeStampNs)
+            let rtcBuffer = LKRTCCVPixelBuffer(pixelBuffer: pixelBuffer)
+            let rtcFrame = LKRTCVideoFrame(buffer: rtcBuffer,
+                                           rotation: rotation,
+                                           timeStampNs: timeStampNs)
 
             self.capturer(capturer, didCapture: rtcFrame)
         }
     }
 
     /// capture a `CMSampleBuffer`
-    public func capturer(_ capturer: RTCVideoCapturer,
-                         didCapture sampleBuffer: CMSampleBuffer,
-                         onResolveSourceDimensions: OnResolveSourceDimensions? = nil) {
+    func capturer(_ capturer: LKRTCVideoCapturer,
+                  didCapture sampleBuffer: CMSampleBuffer,
+                  onResolveSourceDimensions: OnResolveSourceDimensions? = nil) {
 
         // check if buffer is ready
         guard CMSampleBufferGetNumSamples(sampleBuffer) == 1,

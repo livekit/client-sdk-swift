@@ -15,8 +15,9 @@
  */
 
 import Foundation
-import WebRTC
 import Promises
+
+@_implementationOnly import WebRTC
 
 internal class DataChannelPair: NSObject, Loggable {
 
@@ -31,8 +32,8 @@ internal class DataChannelPair: NSObject, Loggable {
 
     // MARK: - Private
 
-    private var _reliableChannel: RTCDataChannel?
-    private var _lossyChannel: RTCDataChannel?
+    private var _reliableChannel: LKRTCDataChannel?
+    private var _lossyChannel: LKRTCDataChannel?
 
     public var isOpen: Bool {
 
@@ -45,15 +46,15 @@ internal class DataChannelPair: NSObject, Loggable {
     }
 
     public init(target: Livekit_SignalTarget,
-                reliableChannel: RTCDataChannel? = nil,
-                lossyChannel: RTCDataChannel? = nil) {
+                reliableChannel: LKRTCDataChannel? = nil,
+                lossyChannel: LKRTCDataChannel? = nil) {
 
         self.target = target
         self._reliableChannel = reliableChannel
         self._lossyChannel = lossyChannel
     }
 
-    public func set(reliable channel: RTCDataChannel?) {
+    public func set(reliable channel: LKRTCDataChannel?) {
         self._reliableChannel = channel
         channel?.delegate = self
 
@@ -62,7 +63,7 @@ internal class DataChannelPair: NSObject, Loggable {
         }
     }
 
-    public func set(lossy channel: RTCDataChannel?) {
+    public func set(lossy channel: LKRTCDataChannel?) {
         self._lossyChannel = channel
         channel?.delegate = self
 
@@ -130,16 +131,16 @@ internal class DataChannelPair: NSObject, Loggable {
 
 // MARK: - RTCDataChannelDelegate
 
-extension DataChannelPair: RTCDataChannelDelegate {
+extension DataChannelPair: LKRTCDataChannelDelegate {
 
-    func dataChannelDidChangeState(_ dataChannel: RTCDataChannel) {
+    func dataChannelDidChangeState(_ dataChannel: LKRTCDataChannel) {
 
         if isOpen {
             openCompleter.fulfill(())
         }
     }
 
-    func dataChannel(_ dataChannel: RTCDataChannel, didReceiveMessageWith buffer: RTCDataBuffer) {
+    func dataChannel(_ dataChannel: LKRTCDataChannel, didReceiveMessageWith buffer: LKRTCDataBuffer) {
 
         guard let dataPacket = try? Livekit_DataPacket(contiguousBytes: buffer.data) else {
             log("could not decode data message", .error)

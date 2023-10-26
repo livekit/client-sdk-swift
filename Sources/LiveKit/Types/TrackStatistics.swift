@@ -15,7 +15,8 @@
  */
 
 import Foundation
-import WebRTC
+
+@_implementationOnly import WebRTC
 
 @objc
 public class TrackStatistics: NSObject {
@@ -36,7 +37,7 @@ public class TrackStatistics: NSObject {
     public let remoteInboundRtpStream: [RemoteInboundRtpStreamStatistics]
     public let remoteOutboundRtpStream: [RemoteOutboundRtpStreamStatistics]
 
-    init(from stats: [RTCStatistics], prevStatistics: TrackStatistics?) {
+    init(from stats: [LKRTCStatistics], prevStatistics: TrackStatistics?) {
 
         let stats = stats.map { $0.toLKType(prevStatistics: prevStatistics) }.compactMap { $0 }
 
@@ -63,7 +64,7 @@ public class TrackStatistics: NSObject {
     }
 }
 
-extension RTCStatistics {
+extension LKRTCStatistics {
 
     func toLKType(prevStatistics: TrackStatistics?) -> Statistics? {
         switch type {

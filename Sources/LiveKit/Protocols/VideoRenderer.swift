@@ -15,10 +15,11 @@
  */
 
 import Foundation
-import WebRTC
+
+@_implementationOnly import WebRTC
 
 @objc
-public protocol VideoRenderer: RTCVideoRenderer {
+public protocol VideoRenderer {
     /// Whether this ``VideoRenderer`` should be considered visible or not for AdaptiveStream.
     /// This will be invoked on the .main thread.
     @objc
@@ -27,4 +28,39 @@ public protocol VideoRenderer: RTCVideoRenderer {
     /// This will be invoked on the .main thread.
     @objc
     var adaptiveStreamSize: CGSize { get }
+
+    /// Size of the frame.
+    func set(size: CGSize)
+
+    func render(frame: VideoFrame)
+}
+
+internal class VideoRendererAdapter: NSObject, LKRTCVideoRenderer {
+
+    private weak var target: VideoRenderer?
+
+    init(target: VideoRenderer) {
+        self.target = target
+    }
+
+    func setSize(_ size: CGSize) {
+        target?.set(size: size)
+    }
+
+    func renderFrame(_ frame: LKRTCVideoFrame?) {
+        guard let frame = frame?.toLKType() else { return }
+        target?.render(frame: frame)
+    }
+
+    // Proxy the equality operators
+
+    override func isEqual(_ object: Any?) -> Bool {
+        guard let other = object as? VideoRendererAdapter else { return false }
+        return self.target === other.target
+    }
+
+    override var hash: Int {
+        guard let target = target else { return 0 }
+        return ObjectIdentifier(target).hashValue
+    }
 }

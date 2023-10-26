@@ -15,7 +15,67 @@
  */
 
 import Foundation
-import WebRTC
+
+@_implementationOnly import WebRTC
+
+@objc
+public class AudioBuffer: NSObject {
+
+    private let _audioBuffer: LKRTCAudioBuffer
+
+    public var channels: Int { _audioBuffer.channels }
+    public var frames: Int { _audioBuffer.frames }
+    public var framesPerBand: Int { _audioBuffer.framesPerBand }
+    public var bands: Int { _audioBuffer.bands }
+
+    public func rawBuffer(for channel: Int) -> UnsafeMutablePointer<Float> {
+        _audioBuffer.rawBuffer(forChannel: channel)
+    }
+
+    internal init(audioBuffer: LKRTCAudioBuffer) {
+        self._audioBuffer = audioBuffer
+    }
+}
+
+@objc
+public protocol AudioCustomProcessingDelegate {
+    func audioProcessingInitialize(sampleRate sampleRateHz: Int, channels: Int)
+    func audioProcessingProcess(audioBuffer: AudioBuffer)
+    func audioProcessingRelease()
+}
+
+internal class AudioCustomProcessingDelegateAdapter: NSObject, LKRTCAudioCustomProcessingDelegate {
+
+    internal weak var target: AudioCustomProcessingDelegate?
+
+    init(target: AudioCustomProcessingDelegate? = nil) {
+        self.target = target
+    }
+
+    func audioProcessingInitialize(sampleRate sampleRateHz: Int, channels: Int) {
+        target?.audioProcessingInitialize(sampleRate: sampleRateHz, channels: channels)
+    }
+
+    func audioProcessingProcess(audioBuffer: LKRTCAudioBuffer) {
+        target?.audioProcessingProcess(audioBuffer: AudioBuffer(audioBuffer: audioBuffer))
+    }
+
+    func audioProcessingRelease() {
+        target?.audioProcessingRelease()
+    }
+
+    // Proxy the equality operators
+
+    override func isEqual(_ object: Any?) -> Bool {
+        guard let other = object as? AudioCustomProcessingDelegateAdapter else { return false }
+        return self.target === other.target
+    }
+
+    override var hash: Int {
+        guard let target = target else { return 0 }
+        return ObjectIdentifier(target).hashValue
+    }
+}
 
 // Audio Session Configuration related
 public class AudioManager: Loggable {
@@ -26,6 +86,8 @@ public class AudioManager: Loggable {
 
     public typealias ConfigureAudioSessionFunc = (_ newState: State,
                                                   _ oldState: State) -> Void
+
+    public typealias DeviceUpdateFunc = (_ audioManager: AudioManager) -> Void
 
     /// Use this to provide a custom func to configure the audio session instead of ``defaultConfigureAudioSessionFunc(newState:oldState:)``.
     /// This method should not block and is expected to return immediately.
@@ -76,6 +138,63 @@ public class AudioManager: Loggable {
     public var preferSpeakerOutput: Bool {
         get { _state.preferSpeakerOutput }
         set { _state.mutate { $0.preferSpeakerOutput = newValue } }
+    }
+
+    // MARK: - AudioProcessingModule
+
+    private lazy var capturePostProcessingDelegateAdapter: AudioCustomProcessingDelegateAdapter = {
+        let adapter = AudioCustomProcessingDelegateAdapter(target: nil)
+        Engine.audioProcessingModule.capturePostProcessingDelegate = adapter
+        return adapter
+    }()
+
+    private lazy var renderPreProcessingDelegateAdapter: AudioCustomProcessingDelegateAdapter = {
+        let adapter = AudioCustomProcessingDelegateAdapter(target: nil)
+        Engine.audioProcessingModule.renderPreProcessingDelegate = adapter
+        return adapter
+    }()
+
+    public var capturePostProcessingDelegate: AudioCustomProcessingDelegate? {
+        get { capturePostProcessingDelegateAdapter.target }
+        set { capturePostProcessingDelegateAdapter.target = newValue }
+    }
+
+    public var renderPreProcessingDelegate: AudioCustomProcessingDelegate? {
+        get { renderPreProcessingDelegateAdapter.target }
+        set { renderPreProcessingDelegateAdapter.target = newValue }
+    }
+
+    // MARK: - AudioDeviceModule
+
+    public let defaultOutputDevice = AudioDevice(ioDevice: LKRTCIODevice.defaultDevice(with: .output))
+
+    public let defaultInputDevice = AudioDevice(ioDevice: LKRTCIODevice.defaultDevice(with: .input))
+
+    public var outputDevices: [AudioDevice] {
+        Engine.audioDeviceModule.outputDevices.map { AudioDevice(ioDevice: $0) }
+    }
+
+    public var inputDevices: [AudioDevice] {
+        Engine.audioDeviceModule.inputDevices.map { AudioDevice(ioDevice: $0) }
+    }
+
+    public var outputDevice: AudioDevice {
+        get { AudioDevice(ioDevice: Engine.audioDeviceModule.outputDevice) }
+        set { Engine.audioDeviceModule.outputDevice = newValue._ioDevice }
+    }
+
+    public var inputDevice: AudioDevice {
+        get { AudioDevice(ioDevice: Engine.audioDeviceModule.inputDevice) }
+        set { Engine.audioDeviceModule.inputDevice = newValue._ioDevice }
+    }
+
+    public var onDeviceUpdate: DeviceUpdateFunc? {
+        didSet {
+            Engine.audioDeviceModule.setDevicesUpdatedHandler { [weak self] in
+                guard let self = self else { return }
+                self.onDeviceUpdate?(self)
+            }
+        }
     }
 
     // MARK: - Internal
@@ -140,7 +259,7 @@ public class AudioManager: Loggable {
             guard let self = self else { return }
 
             // prepare config
-            let configuration = RTCAudioSessionConfiguration.webRTC()
+            let configuration = LKRTCAudioSessionConfiguration.webRTC()
 
             if newState.trackState == .remoteOnly && newState.preferSpeakerOutput {
                 /* .playback */
@@ -188,7 +307,7 @@ public class AudioManager: Loggable {
             }
 
             // configure session
-            let session = RTCAudioSession.sharedInstance()
+            let session = LKRTCAudioSession.sharedInstance()
             session.lockForConfiguration()
             // always unlock
             defer { session.unlockForConfiguration() }
