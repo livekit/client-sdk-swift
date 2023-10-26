@@ -119,13 +119,6 @@ public protocol RoomDelegateObjC: AnyObject {
 
     /// Same with ``ParticipantDelegate/participant(_:didReceive:)-2t55a``
     /// participant could be nil if data was sent by server api.
-    ///
-    /// Deprecated, use ``room(_:participant:didReceiveData:topic:)`` instead.
-    @objc(room:participant:didReceiveData:)
-    @available(*, deprecated, renamed: "room(_:participant:didReceiveData:topic:)")
-    optional
-    func room(_ room: Room, participant: RemoteParticipant?, didReceive data: Data)
-
     @objc(room:participant:didReceiveData:topic:) optional
     func room(_ room: Room, participant: RemoteParticipant?, didReceiveData data: Data, topic: String)
 
