@@ -71,8 +71,6 @@ public class MacOSScreenCapturer: VideoCapturer {
     private var frameResendTimer: DispatchQueueTimer?
     private let captureMethod: MacOSScreenCaptureMethod
 
-    // MARK: - Legacy support (Deprecated)
-
     // used for display capture
     private lazy var session: AVCaptureSession = {
 
@@ -789,8 +787,6 @@ extension MacOSScreenCapturer {
         }
     }
 }
-
-// MARK: - Enumerate sources (Deprecated)
 
 extension MacOSScreenCapturer {
 

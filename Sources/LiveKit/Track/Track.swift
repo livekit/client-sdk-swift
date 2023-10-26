@@ -348,16 +348,6 @@ internal extension Track {
     }
 }
 
-// MARK: - Deprecated
-
-extension Track {
-
-    @available(*, deprecated, renamed: "trackState")
-    public var state: TrackState {
-        self._state.trackState
-    }
-}
-
 // MARK: - Local
 
 extension Track {
