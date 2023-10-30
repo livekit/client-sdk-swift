@@ -281,78 +281,73 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
 
 internal extension Engine {
 
-    func configureTransports(joinResponse: Livekit_JoinResponse) -> Promise<Void> {
+    func configureTransports(joinResponse: Livekit_JoinResponse) async throws {
 
-        Promise<Void>(on: queue) { () -> Void in
+        log("Configuring transports...")
 
-            self.log("configuring transports...")
-
-            // this should never happen since Engine is owned by Room
-            guard let room = self.room else { throw EngineError.state(message: "Room is nil") }
-
-            guard self.subscriber == nil, self.publisher == nil else {
-                self.log("transports already configured")
-                return
-            }
-
-            // protocol v3
-            self.subscriberPrimary = joinResponse.subscriberPrimary
-            self.log("subscriberPrimary: \(joinResponse.subscriberPrimary)")
-
-            let connectOptions = self._state.connectOptions
-
-            // Make a copy, instead of modifying the user-supplied RTCConfiguration object.
-            let rtcConfiguration = LKRTCConfiguration.liveKitDefault()
-
-            // Set iceServers provided by the server
-            rtcConfiguration.iceServers = joinResponse.iceServers.map { $0.toRTCType() }
-
-            if !connectOptions.iceServers.isEmpty {
-                // Override with user provided iceServers
-                rtcConfiguration.iceServers = connectOptions.iceServers.map { $0.toRTCType() }
-            }
-
-            if joinResponse.clientConfiguration.forceRelay == .enabled {
-                rtcConfiguration.iceTransportPolicy = .relay
-            }
-
-            let subscriber = try Transport(config: rtcConfiguration,
-                                           target: .subscriber,
-                                           primary: self.subscriberPrimary,
-                                           delegate: self)
-
-            let publisher = try Transport(config: rtcConfiguration,
-                                          target: .publisher,
-                                          primary: !self.subscriberPrimary,
-                                          delegate: self)
-
-            publisher.onOffer = { offer in
-                self.log("publisher onOffer \(offer.sdp)")
-                return self.signalClient.sendOffer(offer: offer)
-            }
-
-            // data over pub channel for backwards compatibility
-
-            let publisherReliableDC = publisher.dataChannel(for: LKRTCDataChannel.labels.reliable,
-                                                            configuration: Engine.createDataChannelConfiguration())
-
-            let publisherLossyDC = publisher.dataChannel(for: LKRTCDataChannel.labels.lossy,
-                                                         configuration: Engine.createDataChannelConfiguration(maxRetransmits: 0))
-
-            self.publisherDC.set(reliable: publisherReliableDC)
-            self.publisherDC.set(lossy: publisherLossyDC)
-
-            self.log("dataChannel.\(String(describing: publisherReliableDC?.label)) : \(String(describing: publisherReliableDC?.channelId))")
-            self.log("dataChannel.\(String(describing: publisherLossyDC?.label)) : \(String(describing: publisherLossyDC?.channelId))")
-
-            if !self.subscriberPrimary {
-                // lazy negotiation for protocol v3+
-                self.publisherShouldNegotiate()
-            }
-
-            self.subscriber = subscriber
-            self.publisher = publisher
+        guard subscriber == nil, publisher == nil else {
+            log("Transports are already configured")
+            return
         }
+
+        // protocol v3
+        subscriberPrimary = joinResponse.subscriberPrimary
+        log("subscriberPrimary: \(joinResponse.subscriberPrimary)")
+
+        let connectOptions = self._state.connectOptions
+
+        // Make a copy, instead of modifying the user-supplied RTCConfiguration object.
+        let rtcConfiguration = LKRTCConfiguration.liveKitDefault()
+
+        // Set iceServers provided by the server
+        rtcConfiguration.iceServers = joinResponse.iceServers.map { $0.toRTCType() }
+
+        if !connectOptions.iceServers.isEmpty {
+            // Override with user provided iceServers
+            rtcConfiguration.iceServers = connectOptions.iceServers.map { $0.toRTCType() }
+        }
+
+        if joinResponse.clientConfiguration.forceRelay == .enabled {
+            rtcConfiguration.iceTransportPolicy = .relay
+        }
+
+        let subscriber = try Transport(config: rtcConfiguration,
+                                       target: .subscriber,
+                                       primary: subscriberPrimary,
+                                       delegate: self)
+
+        let publisher = try Transport(config: rtcConfiguration,
+                                      target: .publisher,
+                                      primary: !subscriberPrimary,
+                                      delegate: self)
+
+        publisher.onOffer = { [weak self] offer in
+            guard let self = self else { return Promise(EngineError.state(message: "self is nil")) }
+            log("publisher onOffer \(offer.sdp)")
+            return signalClient.sendOffer(offer: offer)
+        }
+
+        // data over pub channel for backwards compatibility
+
+        let publisherReliableDC = publisher.dataChannel(for: LKRTCDataChannel.labels.reliable,
+                                                        configuration: Engine.createDataChannelConfiguration())
+
+        let publisherLossyDC = publisher.dataChannel(for: LKRTCDataChannel.labels.lossy,
+                                                     configuration: Engine.createDataChannelConfiguration(maxRetransmits: 0))
+
+        publisherDC.set(reliable: publisherReliableDC)
+        publisherDC.set(lossy: publisherLossyDC)
+
+        log("dataChannel.\(String(describing: publisherReliableDC?.label)) : \(String(describing: publisherReliableDC?.channelId))")
+        log("dataChannel.\(String(describing: publisherLossyDC?.label)) : \(String(describing: publisherLossyDC?.channelId))")
+
+        if !subscriberPrimary {
+            // lazy negotiation for protocol v3+
+            publisherShouldNegotiate()
+        }
+
+        self.subscriber = subscriber
+        self.publisher = publisher
     }
 }
 
@@ -417,7 +412,16 @@ internal extension Engine {
             }.then(on: queue) { _ in
                 self._state.mutate { $0.connectStopwatch.split(label: "signal") }
             }.then(on: queue) { jr in
-                self.configureTransports(joinResponse: jr)
+                Promise(on: self.queue) { resolve, reject in
+                    Task {
+                        do {
+                            try await self.configureTransports(joinResponse: jr)
+                            resolve(())
+                        } catch let error {
+                            reject(error)
+                        }
+                    }
+                }
             }.then(on: queue) {
                 self.signalClient.resumeResponseQueue()
             }.then(on: queue) {
