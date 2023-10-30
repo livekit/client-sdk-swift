@@ -37,12 +37,12 @@ internal class DataChannelPair: NSObject, Loggable {
 
     public var isOpen: Bool {
 
-        guard let r = _reliableChannel,
-              let l = _lossyChannel else {
+        guard let reliable = _reliableChannel,
+              let lossy = _lossyChannel else {
             return false
         }
 
-        return .open == r.readyState && .open == l.readyState
+        return .open == reliable.readyState && .open == lossy.readyState
     }
 
     public init(target: Livekit_SignalTarget,
@@ -74,8 +74,8 @@ internal class DataChannelPair: NSObject, Loggable {
 
     public func close() -> Promise<Void> {
 
-        let r = _reliableChannel
-        let l = _lossyChannel
+        let reliable = _reliableChannel
+        let lossy = _lossyChannel
 
         _reliableChannel = nil
         _lossyChannel = nil
@@ -86,8 +86,8 @@ internal class DataChannelPair: NSObject, Loggable {
 
         // execute on .webRTC queue
         return Promise(on: .liveKitWebRTC) {
-            r?.close()
-            l?.close()
+            reliable?.close()
+            lossy?.close()
         }
     }
 
