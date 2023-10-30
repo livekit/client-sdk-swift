@@ -129,6 +129,7 @@ public class Track: NSObject, Loggable {
         var trackState: TrackState = .stopped
         var muted: Bool = false
         var statistics: TrackStatistics?
+        var reportStatistics: Bool = false
     }
 
     internal var _state: StateSync<State>
@@ -136,7 +137,7 @@ public class Track: NSObject, Loggable {
     // MARK: - Private
 
     private weak var transport: Transport?
-    private let statsTimer = DispatchQueueTimer(timeInterval: 1, queue: .liveKitWebRTC)
+    private let statisticsTimer = DispatchQueueTimer(timeInterval: 1, queue: .liveKitWebRTC)
 
     internal init(name: String,
                   kind: Kind,
@@ -173,26 +174,39 @@ public class Track: NSObject, Loggable {
             }
         }
 
-        statsTimer.handler = { [weak self] in
+        statisticsTimer.handler = { [weak self] in
             self?.onStatsTimer()
         }
     }
 
     deinit {
-        statsTimer.suspend()
+        statisticsTimer.suspend()
         log("sid: \(String(describing: sid))")
     }
 
     internal func set(transport: Transport, rtpSender: LKRTCRtpSender) {
         self.transport = transport
         self.rtpSender = rtpSender
-        statsTimer.resume()
+        resumeOrSuspendStatisticsTimer()
     }
 
     internal func set(transport: Transport, rtpReceiver: LKRTCRtpReceiver) {
         self.transport = transport
         self.rtpReceiver = rtpReceiver
-        statsTimer.resume()
+        resumeOrSuspendStatisticsTimer()
+    }
+
+    internal func resumeOrSuspendStatisticsTimer() {
+        if _state.reportStatistics, rtpSender != nil || rtpReceiver != nil {
+            statisticsTimer.resume()
+        } else {
+            statisticsTimer.suspend()
+        }
+    }
+
+    public func set(reportStatistics: Bool) {
+        _state.mutate { $0.reportStatistics = reportStatistics }
+        resumeOrSuspendStatisticsTimer()
     }
 
     // returns true if updated state
@@ -461,11 +475,11 @@ extension Track {
 
         guard let transport = transport else { return }
 
-        statsTimer.suspend()
+        statisticsTimer.suspend()
 
         Task {
 
-            defer { statsTimer.resume() }
+            defer { statisticsTimer.resume() }
 
             var statisticsReport: LKRTCStatisticsReport?
             let prevStatistics = _state.read { $0.statistics }
