@@ -77,9 +77,6 @@ extension ConnectionState: Equatable {
               case .networkError(let error) = reason else { return nil }
         return error
     }
-
-    @available(*, deprecated, renamed: "disconnectedWithNetworkError")
-    public var disconnectedWithError: Error? { disconnectedWithNetworkError }
 }
 
 protocol ReconnectableState {

@@ -68,20 +68,6 @@ public extension LocalVideoTrack {
     }
 }
 
-// MARK: - Deprecated methods
-
-extension LocalVideoTrack {
-
-    @available(*, deprecated, message: "Use CameraCapturer's methods instead to switch cameras")
-    public func restartTrack(options: CameraCaptureOptions = CameraCaptureOptions()) -> Promise<Bool> {
-        guard let capturer = capturer as? CameraCapturer else {
-            return Promise(TrackError.state(message: "Must be an CameraCapturer"))
-        }
-        capturer.options = options
-        return capturer.restartCapture()
-    }
-}
-
 extension LocalVideoTrack {
 
     public var publishOptions: PublishOptions? { super._publishOptions }

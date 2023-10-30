@@ -21,11 +21,11 @@ import SwiftUI
 internal class TrackDelegateReceiver: TrackDelegate, Loggable {
 
     @Binding var dimensions: Dimensions?
-    @Binding var stats: TrackStats?
+    @Binding var statistics: TrackStatistics?
 
-    init(dimensions: Binding<Dimensions?>, stats: Binding<TrackStats?>) {
+    init(dimensions: Binding<Dimensions?>, statistics: Binding<TrackStatistics?>) {
         self._dimensions = dimensions
-        self._stats = stats
+        self._statistics = statistics
     }
 
     func track(_ track: VideoTrack, didUpdate dimensions: Dimensions?) {
@@ -34,9 +34,9 @@ internal class TrackDelegateReceiver: TrackDelegate, Loggable {
         }
     }
 
-    func track(_ track: Track, didUpdate stats: TrackStats) {
+    func track(_ track: Track, didUpdateStatistics statistics: TrackStatistics) {
         Task.detached { @MainActor in
-            self.stats = stats
+            self.statistics = statistics
         }
     }
 }
@@ -83,7 +83,7 @@ public struct SwiftUIVideoView: NativeViewRepresentable {
                 debugMode: Bool = false,
                 isRendering: Binding<Bool> = .constant(false),
                 dimensions: Binding<Dimensions?> = .constant(nil),
-                trackStats: Binding<TrackStats?> = .constant(nil)) {
+                trackStatistics: Binding<TrackStatistics?> = .constant(nil)) {
 
         self.track = track
         self.layoutMode = layoutMode
@@ -95,14 +95,14 @@ public struct SwiftUIVideoView: NativeViewRepresentable {
         self._dimensions = dimensions
 
         self.trackDelegateReceiver = TrackDelegateReceiver(dimensions: dimensions,
-                                                           stats: trackStats)
+                                                           statistics: trackStatistics)
 
         self.videoViewDelegateReceiver = VideoViewDelegateReceiver(isRendering: isRendering)
 
         // update binding value
         Task.detached { @MainActor in
             dimensions.wrappedValue = track.dimensions
-            trackStats.wrappedValue = track.stats
+            trackStatistics.wrappedValue = track.statistics
         }
 
         // listen for TrackDelegate

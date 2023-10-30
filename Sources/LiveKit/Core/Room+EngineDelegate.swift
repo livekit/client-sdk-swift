@@ -73,24 +73,6 @@ extension Room: EngineDelegate {
         }
     }
 
-    func engine(_ engine: Engine, didGenerate trackStats: [TrackStats], target: Livekit_SignalTarget) {
-
-        let allParticipants = ([[localParticipant],
-                                _state.remoteParticipants.map { $0.value }] as [[Participant?]])
-            .joined()
-            .compactMap { $0 }
-
-        let allTracks = allParticipants.map { $0._state.tracks.values.map { $0.track } }.joined()
-            .compactMap { $0 }
-
-        // this relies on the last stat entry being the latest
-        for track in allTracks {
-            if let stats = trackStats.last(where: { $0.trackId == track.mediaTrack.trackId }) {
-                track.set(stats: stats)
-            }
-        }
-    }
-
     func engine(_ engine: Engine, didUpdate speakers: [Livekit_SpeakerInfo]) {
 
         let activeSpeakers = _state.mutate { state -> [Participant] in
@@ -187,18 +169,12 @@ extension Room: EngineDelegate {
             guard let self = self else { return }
 
             self.delegates.notify(label: { "room.didReceive data: \(userPacket.payload)" }) {
-                // deprecated
-                $0.room?(self, participant: participant, didReceive: userPacket.payload)
-                // new method with topic param
                 $0.room?(self, participant: participant, didReceiveData: userPacket.payload, topic: userPacket.topic)
             }
 
             if let participant = participant {
                 participant.delegates.notify(label: { "participant.didReceive data: \(userPacket.payload)" }) { [weak participant] (delegate) -> Void in
                     guard let participant = participant else { return }
-                    // deprecated
-                    delegate.participant?(participant, didReceive: userPacket.payload)
-                    // new method with topic param
                     delegate.participant?(participant, didReceiveData: userPacket.payload, topic: userPacket.topic)
                 }
             }

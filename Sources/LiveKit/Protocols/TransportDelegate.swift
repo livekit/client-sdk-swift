@@ -25,5 +25,4 @@ internal protocol TransportDelegate: AnyObject {
     func transport(_ transport: Transport, didAddTrack: LKRTCMediaStreamTrack, rtpReceiver: LKRTCRtpReceiver, streams: [LKRTCMediaStream])
     func transport(_ transport: Transport, didRemove track: LKRTCMediaStreamTrack)
     func transportShouldNegotiate(_ transport: Transport)
-    func transport(_ transport: Transport, didGenerate stats: [TrackStats], target: Livekit_SignalTarget)
 }

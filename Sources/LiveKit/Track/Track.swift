@@ -84,9 +84,6 @@ public class Track: NSObject, Loggable {
     public var muted: Bool { _state.muted }
 
     @objc
-    public var stats: TrackStats? { _state.stats }
-
-    @objc
     public var statistics: TrackStatistics? { _state.statistics }
 
     /// Dimensions of the video (only if video track)
@@ -131,10 +128,8 @@ public class Track: NSObject, Loggable {
         var videoFrame: VideoFrame?
         var trackState: TrackState = .stopped
         var muted: Bool = false
-        // Deprecated
-        var stats: TrackStats?
-        // v2
         var statistics: TrackStatistics?
+        var reportStatistics: Bool = false
     }
 
     internal var _state: StateSync<State>
@@ -142,9 +137,7 @@ public class Track: NSObject, Loggable {
     // MARK: - Private
 
     private weak var transport: Transport?
-    // private var transceiver: RTCRtpTransceiver?
-    private let statsTimer = DispatchQueueTimer(timeInterval: 1, queue: .liveKitWebRTC)
-    // Weak reference to the corresponding transport
+    private let statisticsTimer = DispatchQueueTimer(timeInterval: 1, queue: .liveKitWebRTC)
 
     internal init(name: String,
                   kind: Kind,
@@ -176,36 +169,44 @@ public class Track: NSObject, Loggable {
                 }
             }
 
-            // deprecated
-            if newState.stats != oldState.stats, let stats = newState.stats {
-                self.delegates.notify { $0.track?(self, didUpdate: stats) }
-            }
-
             if newState.statistics != oldState.statistics, let statistics = newState.statistics {
                 self.delegates.notify { $0.track?(self, didUpdateStatistics: statistics) }
             }
         }
 
-        statsTimer.handler = { [weak self] in
+        statisticsTimer.handler = { [weak self] in
             self?.onStatsTimer()
         }
     }
 
     deinit {
-        statsTimer.suspend()
+        statisticsTimer.suspend()
         log("sid: \(String(describing: sid))")
     }
 
     internal func set(transport: Transport, rtpSender: LKRTCRtpSender) {
         self.transport = transport
         self.rtpSender = rtpSender
-        statsTimer.resume()
+        resumeOrSuspendStatisticsTimer()
     }
 
     internal func set(transport: Transport, rtpReceiver: LKRTCRtpReceiver) {
         self.transport = transport
         self.rtpReceiver = rtpReceiver
-        statsTimer.resume()
+        resumeOrSuspendStatisticsTimer()
+    }
+
+    internal func resumeOrSuspendStatisticsTimer() {
+        if _state.reportStatistics, rtpSender != nil || rtpReceiver != nil {
+            statisticsTimer.resume()
+        } else {
+            statisticsTimer.suspend()
+        }
+    }
+
+    public func set(reportStatistics: Bool) {
+        _state.mutate { $0.reportStatistics = reportStatistics }
+        resumeOrSuspendStatisticsTimer()
     }
 
     // returns true if updated state
@@ -339,16 +340,6 @@ public class Track: NSObject, Loggable {
 
 internal extension Track {
 
-    func set(stats newValue: TrackStats) {
-        guard _state.stats != newValue else { return }
-        _state.mutate { $0.stats = newValue }
-    }
-}
-
-// MARK: - Internal
-
-internal extension Track {
-
     // returns true when value is updated
     @discardableResult
     func set(dimensions newValue: Dimensions?) -> Bool {
@@ -368,16 +359,6 @@ internal extension Track {
     func set(videoFrame newValue: VideoFrame?) {
         guard _state.videoFrame != newValue else { return }
         _state.mutate { $0.videoFrame = newValue }
-    }
-}
-
-// MARK: - Deprecated
-
-extension Track {
-
-    @available(*, deprecated, renamed: "trackState")
-    public var state: TrackState {
-        self._state.trackState
     }
 }
 
@@ -494,11 +475,11 @@ extension Track {
 
         guard let transport = transport else { return }
 
-        statsTimer.suspend()
+        statisticsTimer.suspend()
 
         Task {
 
-            defer { statsTimer.resume() }
+            defer { statisticsTimer.resume() }
 
             var statisticsReport: LKRTCStatisticsReport?
             let prevStatistics = _state.read { $0.statistics }

@@ -71,18 +71,13 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
     private let pc: LKRTCPeerConnection
     private var pendingCandidates: [LKRTCIceCandidate] = []
 
-    // used for stats timer
-    private let statsTimer = DispatchQueueTimer(timeInterval: 1, queue: .liveKitWebRTC)
-    private var stats = [String: TrackStats]()
-
     // keep reference to cancel later
     private var debounceWorkItem: DispatchWorkItem?
 
     init(config: LKRTCConfiguration,
          target: Livekit_SignalTarget,
          primary: Bool,
-         delegate: TransportDelegate,
-         reportStats: Bool = false) throws {
+         delegate: TransportDelegate) throws {
 
         // try create peerConnection
         guard let pc = Engine.createPeerConnection(config,
@@ -96,27 +91,14 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
         self.pc = pc
 
         super.init()
-
         log()
 
         DispatchQueue.liveKitWebRTC.sync { pc.delegate = self }
         add(delegate: delegate)
-
-        statsTimer.handler = { [weak self] in
-            self?.onStatsTimer()
-        }
-
-        set(reportStats: reportStats)
     }
 
     deinit {
-        statsTimer.suspend()
         log()
-    }
-
-    internal func set(reportStats: Bool) {
-        log("reportStats: \(reportStats)")
-        reportStats ? statsTimer.resume() : statsTimer.suspend()
     }
 
     @discardableResult
@@ -196,7 +178,6 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
 
             // prevent debounced negotiate firing
             self.debounceWorkItem?.cancel()
-            self.statsTimer.suspend()
 
             // can be async
             DispatchQueue.liveKitWebRTC.async {
@@ -223,48 +204,6 @@ extension Transport {
 
     func statistics(for receiver: LKRTCRtpReceiver) async -> LKRTCStatisticsReport {
         await pc.statistics(for: receiver)
-    }
-
-    func onStatsTimer() {
-
-        statsTimer.suspend()
-
-        pc.stats(for: nil, statsOutputLevel: .standard) { [weak self] reports in
-
-            guard let self = self else { return }
-
-            self.statsTimer.resume()
-
-            let tracks = reports
-                .filter { $0.type == TrackStats.keyTypeSSRC }
-                .map { entry -> TrackStats? in
-
-                    let findPrevious = { () -> TrackStats? in
-                        guard let ssrc = entry.values[TrackStats.keyTypeSSRC],
-                              let previous = self.stats[ssrc] else { return nil }
-                        return previous
-                    }
-
-                    return TrackStats(from: entry.values, previous: findPrevious())
-                }
-                .compactMap { $0 }
-
-            for track in tracks {
-                // cache
-                self.stats[track.ssrc] = track
-            }
-
-            if !tracks.isEmpty {
-                self.notify { $0.transport(self, didGenerate: tracks, target: self.target) }
-            }
-
-            // clean up
-            // for key in self.stats.keys {
-            //    if !tracks.contains(where: { $0.ssrc == key }) {
-            //        self.stats.removeValue(forKey: key)
-            //    }
-            // }
-        }
     }
 }
 
