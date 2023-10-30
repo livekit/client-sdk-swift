@@ -276,10 +276,10 @@ internal extension Room {
 
         // start Engine cleanUp sequence
 
-        engine._state.mutate {
-            $0.primaryTransportConnectedCompleter.reset()
-            $0.publisherTransportConnectedCompleter.reset()
+        engine.primaryTransportConnectedCompleter.cancel()
+        engine.publisherTransportConnectedCompleter.cancel()
 
+        engine._state.mutate {
             // if isFullReconnect, keep connection related states
             $0 = isFullReconnect ? Engine.State(
                 connectOptions: $0.connectOptions,
@@ -352,18 +352,6 @@ extension Room {
     @discardableResult
     public func sendSimulate(scenario: SimulateScenario) -> Promise<Void> {
         engine.signalClient.sendSimulate(scenario: scenario)
-    }
-
-    public func waitForPrimaryTransportConnect() -> Promise<Bool> {
-        engine._state.mutate {
-            $0.primaryTransportConnectedCompleter.wait(on: queue, .defaultTransportState, throw: { TransportError.timedOut(message: "primary transport didn't connect") })
-        }
-    }
-
-    public func waitForPublisherTransportConnect() -> Promise<Bool> {
-        engine._state.mutate {
-            $0.publisherTransportConnectedCompleter.wait(on: queue, .defaultTransportState, throw: { TransportError.timedOut(message: "publisher transport didn't connect") })
-        }
     }
 }
 

@@ -25,13 +25,13 @@ extension Engine: TransportDelegate {
         log("target: \(transport.target), state: \(pcState)")
 
         // primary connected
-        if transport.primary {
-            _state.mutate { $0.primaryTransportConnectedCompleter.set(value: .connected == pcState ? true : nil) }
+        if transport.primary, case .connected = pcState {
+            primaryTransportConnectedCompleter.resume(returning: ())
         }
 
         // publisher connected
-        if case .publisher = transport.target {
-            _state.mutate { $0.publisherTransportConnectedCompleter.set(value: .connected == pcState ? true : nil) }
+        if case .publisher = transport.target, case .connected = pcState {
+            publisherTransportConnectedCompleter.resume(returning: ())
         }
 
         if _state.connectionState.isConnected {

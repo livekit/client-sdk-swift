@@ -41,9 +41,10 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
         var connectionState: ConnectionState = .disconnected()
         var connectStopwatch = Stopwatch(label: "connect")
         var hasPublished: Bool = false
-        var primaryTransportConnectedCompleter = Completer<Bool>()
-        var publisherTransportConnectedCompleter = Completer<Bool>()
     }
+
+    internal let primaryTransportConnectedCompleter = AsyncCompleter<Void>(label: "Primary transport connect", timeOut: .defaultTransportState)
+    internal let publisherTransportConnectedCompleter = AsyncCompleter<Void>(label: "Publisher transport connect", timeOut: .defaultTransportState)
 
     public var _state: StateSync<State>
 
@@ -243,19 +244,8 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
                 publisherShouldNegotiate()
             }
 
-            let publisherConnectCompleter = _state.mutate {
-                $0.publisherTransportConnectedCompleter.wait(on: queue,
-                                                             .defaultTransportState,
-                                                             throw: { TransportError.timedOut(message: "publisher didn't connect") })
-            }
-
-            return publisherConnectCompleter.then(on: queue) { _ -> Promise<Void> in
-                self.log("send data: publisher connected...")
-                // wait for publisherDC to open
-                return self.publisherDC.openCompleter
-            }.timeout(.defaultPublisherDataChannelOpen) {
-                // this should not happen since .wait has its own timeouts
-                InternalError.state(message: "ensurePublisherConnected() did not complete")
+            return publisherTransportConnectedCompleter.waitPromise().then(on: queue) { _ in
+                self.publisherDC.openCompleter.waitPromise()
             }
         }
 
@@ -419,9 +409,7 @@ internal extension Engine {
             }.then(on: queue) {
                 self.signalClient.resumeResponseQueue()
             }.then(on: queue) {
-                self._state.mutate { $0.primaryTransportConnectedCompleter.wait(on: self.queue,
-                                                                                .defaultTransportState,
-                                                                                throw: { TransportError.timedOut(message: "primary transport didn't connect") }) }
+                self.primaryTransportConnectedCompleter.waitPromise()
             }.then(on: queue) { _ -> Void in
                 self._state.mutate { $0.connectStopwatch.split(label: "engine") }
                 self.log("\(self._state.connectStopwatch)")
@@ -459,12 +447,9 @@ internal extension Engine {
                                              connectOptions: _state.connectOptions,
                                              reconnectMode: _state.reconnectMode,
                                              adaptiveStream: room._state.options.adaptiveStream).then(on: queue) {
-
                                                 self.log("[reconnect] waiting for socket to connect...")
                                                 // Wait for primary transport to connect (if not already)
-                                                self._state.mutate { $0.primaryTransportConnectedCompleter.wait(on: self.queue,
-                                                                                                                .defaultTransportState,
-                                                                                                                throw: { TransportError.timedOut(message: "primary transport didn't connect") }) }
+                                                return self.primaryTransportConnectedCompleter.waitPromise()
                                              }.then(on: queue) { _ in
                                                 // send SyncState before offer
                                                 self.sendSyncState()
@@ -480,9 +465,7 @@ internal extension Engine {
                                                 self.log("[reconnect] waiting for publisher to connect...")
 
                                                 return publisher.createAndSendOffer(iceRestart: true).then(on: self.queue) {
-                                                    self._state.mutate { $0.publisherTransportConnectedCompleter.wait(on: self.queue,
-                                                                                                                      .defaultTransportState,
-                                                                                                                      throw: { TransportError.timedOut(message: "publisher transport didn't connect") }) }.then { _ in }
+                                                    self.publisherTransportConnectedCompleter.waitPromise()
                                                 }
 
                                              }.then(on: queue) { () -> Promise<Void> in
