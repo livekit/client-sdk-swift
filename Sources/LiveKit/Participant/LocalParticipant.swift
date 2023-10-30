@@ -75,9 +75,7 @@ public class LocalParticipant: Participant {
             self.log("[publish] waiting for dimensions to resolve...")
 
             // wait for dimensions
-            return track.capturer._state.mutate { $0.dimensionsCompleter.wait(on: self.queue,
-                                                                              .defaultCaptureStart,
-                                                                              throw: { TrackError.timedOut(message: "unable to resolve dimensions") }) }.then(on: self.queue) { $0 }
+            return track.capturer.dimensionsCompleter.waitPromise()
 
         }.then(on: queue) { dimensions -> Promise<(result: LKRTCRtpTransceiverInit, trackInfo: Livekit_TrackInfo)> in
             // request a new track to the server

@@ -29,11 +29,12 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
 
     // MARK: - Internal
 
+    internal let joinResponseCompleter = AsyncCompleter<Livekit_JoinResponse>(label: "Join response", timeOut: .defaultJoinResponse)
+    internal var completersForAddTrack = [String: AsyncCompleter<Livekit_TrackInfo>]()
+
     internal struct State: ReconnectableState, Equatable {
         var reconnectMode: ReconnectMode?
         var connectionState: ConnectionState = .disconnected()
-        var joinResponseCompleter = Completer<Livekit_JoinResponse>()
-        var completersForAddTrack = [String: Completer<Livekit_TrackInfo>]()
     }
 
     internal var _state = StateSync(State())
@@ -185,11 +186,12 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
         latestJoinResponse = nil
 
         _state.mutate {
-            for var completer in $0.completersForAddTrack.values {
-                completer.reset()
+
+            for completer in completersForAddTrack.values {
+                completer.cancel()
             }
 
-            $0.joinResponseCompleter.reset()
+            joinResponseCompleter.cancel()
 
             // reset state
             $0 = State()
@@ -209,28 +211,26 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
 
     func completeCompleter(forAddTrackRequest trackCid: String, trackInfo: Livekit_TrackInfo) {
 
-        _state.mutate {
-            if var completer = $0.completersForAddTrack[trackCid] {
+        _state.mutate { _ in
+            if let completer = completersForAddTrack[trackCid] {
                 log("[publish] found the completer resolving...")
-                completer.set(value: trackInfo)
+                completer.resume(returning: trackInfo)
             }
         }
     }
 
     func prepareCompleter(forAddTrackRequest trackCid: String) -> Promise<Livekit_TrackInfo> {
 
-        _state.mutate { state -> Promise<Livekit_TrackInfo> in
+        _state.mutate { _ -> Promise<Livekit_TrackInfo> in
 
-            if state.completersForAddTrack.keys.contains(trackCid) {
+            if completersForAddTrack.keys.contains(trackCid) {
                 // reset if already exists
-                state.completersForAddTrack[trackCid]!.reset()
+                completersForAddTrack[trackCid]!.cancel()
             } else {
-                state.completersForAddTrack[trackCid] = Completer<Livekit_TrackInfo>()
+                completersForAddTrack[trackCid] = AsyncCompleter<Livekit_TrackInfo>(label: "Add track: \(trackCid)", timeOut: .defaultPublish)
             }
 
-            return state.completersForAddTrack[trackCid]!.wait(on: queue,
-                                                               .defaultPublish,
-                                                               throw: { EngineError.timedOut(message: "server didn't respond to addTrack request") })
+            return completersForAddTrack[trackCid]!.waitPromise()
         }
     }
 }
@@ -316,7 +316,7 @@ private extension SignalClient {
             latestJoinResponse = joinResponse
             restartPingTimer()
             notify { $0.signalClient(self, didReceive: joinResponse) }
-            _state.mutate { $0.joinResponseCompleter.set(value: joinResponse) }
+            joinResponseCompleter.resume(returning: joinResponse)
 
         case .answer(let sd):
             notify { $0.signalClient(self, didReceiveAnswer: sd.toRTCType()) }

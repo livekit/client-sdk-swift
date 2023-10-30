@@ -28,7 +28,7 @@ internal class DataChannelPair: NSObject, Loggable {
     public let target: Livekit_SignalTarget
     public var onDataPacket: OnDataPacket?
 
-    public private(set) var openCompleter = Promise<Void>.pending()
+    public private(set) var openCompleter = AsyncCompleter<Void>(label: "Data channel open", timeOut: .defaultPublisherDataChannelOpen)
 
     // MARK: - Private
 
@@ -59,7 +59,7 @@ internal class DataChannelPair: NSObject, Loggable {
         channel?.delegate = self
 
         if isOpen {
-            openCompleter.fulfill(())
+            openCompleter.resume(returning: ())
         }
     }
 
@@ -68,7 +68,7 @@ internal class DataChannelPair: NSObject, Loggable {
         channel?.delegate = self
 
         if isOpen {
-            openCompleter.fulfill(())
+            openCompleter.resume(returning: ())
         }
     }
 
@@ -80,9 +80,7 @@ internal class DataChannelPair: NSObject, Loggable {
         _reliableChannel = nil
         _lossyChannel = nil
 
-        // reset completer
-        openCompleter.reject(InternalError.state(message: "openCompleter did not complete"))
-        openCompleter = Promise<Void>.pending()
+        openCompleter.cancel()
 
         // execute on .webRTC queue
         DispatchQueue.liveKitWebRTC.sync {
@@ -136,7 +134,7 @@ extension DataChannelPair: LKRTCDataChannelDelegate {
     func dataChannelDidChangeState(_ dataChannel: LKRTCDataChannel) {
 
         if isOpen {
-            openCompleter.fulfill(())
+            openCompleter.resume(returning: ())
         }
     }
 
