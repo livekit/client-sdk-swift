@@ -17,19 +17,19 @@
 import Foundation
 import Promises
 
-internal class AsyncCompleter<T>: Loggable {
+internal enum AsyncCompleterError: LiveKitError {
+    case timedOut
+    case cancelled
 
-    public enum AsyncCompleterError: LiveKitError {
-        case timedOut
-        case cancelled
-
-        public var description: String {
-            switch self {
-            case .timedOut: return "Timed out"
-            case .cancelled: return "Cancelled"
-            }
+    public var description: String {
+        switch self {
+        case .timedOut: return "Timed out"
+        case .cancelled: return "Cancelled"
         }
     }
+}
+
+internal class AsyncCompleter<T>: Loggable {
 
     public let label: String
 
