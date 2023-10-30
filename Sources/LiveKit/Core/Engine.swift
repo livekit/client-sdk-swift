@@ -390,9 +390,7 @@ internal extension Engine {
                                          adaptiveStream: room._state.options.adaptiveStream)
             .then(on: queue) {
                 // wait for joinResponse
-                self.signalClient._state.mutate { $0.joinResponseCompleter.wait(on: self.queue,
-                                                                                .defaultJoinResponse,
-                                                                                throw: { SignalClientError.timedOut(message: "failed to receive join response") }) }
+                self.signalClient.joinResponseCompleter.waitPromise()
             }.then(on: queue) { _ in
                 self._state.mutate { $0.connectStopwatch.split(label: "signal") }
             }.then(on: queue) { jr in
