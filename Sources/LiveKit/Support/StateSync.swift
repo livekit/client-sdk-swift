@@ -20,18 +20,18 @@ import Combine
 @dynamicMemberLookup
 internal final class StateSync<Value: Equatable> {
 
-    typealias OnDidMutate<Value> = (_ newState: Value, _ oldState: Value) -> Void
+    typealias OnDidMutate = (_ newState: Value, _ oldState: Value) -> Void
 
     private let subject: CurrentValueSubject<Value, Never>
     private let lock = UnfairLock()
 
-    public var onDidMutate: OnDidMutate<Value>?
+    public var onDidMutate: OnDidMutate?
 
     public var valuePublisher: AnyPublisher<Value, Never> {
         subject.eraseToAnyPublisher()
     }
 
-    public init(_ value: Value, onMutate: OnDidMutate<Value>? = nil) {
+    public init(_ value: Value, onMutate: OnDidMutate? = nil) {
         self.subject = CurrentValueSubject(value)
         self.onDidMutate = onMutate
     }
