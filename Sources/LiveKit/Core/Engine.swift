@@ -181,18 +181,12 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
     // Resets state of transports
     func cleanUpRTC() -> Promise<Void> {
 
-        Promise<Void>(on: queue) { [weak self] () -> Promise<Void> in
+        Promise<Void>(on: queue) { [weak self] in
 
             // close data channels
-
-            guard let self = self else { return Promise(()) }
-
-            let closeDataChannelPromises = [
-                self.publisherDC.close(),
-                self.subscriberDC.close()
-            ]
-
-            return closeDataChannelPromises.all(on: self.queue)
+            guard let self = self else { return }
+            self.publisherDC.close()
+            self.subscriberDC.close()
 
         }.then(on: queue) { [weak self] () -> Promise<Void> in
 

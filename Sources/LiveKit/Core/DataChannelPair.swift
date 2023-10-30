@@ -72,7 +72,7 @@ internal class DataChannelPair: NSObject, Loggable {
         }
     }
 
-    public func close() -> Promise<Void> {
+    public func close() {
 
         let reliable = _reliableChannel
         let lossy = _lossyChannel
@@ -85,7 +85,7 @@ internal class DataChannelPair: NSObject, Loggable {
         openCompleter = Promise<Void>.pending()
 
         // execute on .webRTC queue
-        return Promise(on: .liveKitWebRTC) {
+        DispatchQueue.liveKitWebRTC.sync {
             reliable?.close()
             lossy?.close()
         }
