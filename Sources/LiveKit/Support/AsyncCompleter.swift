@@ -70,12 +70,9 @@ internal class AsyncCompleter<T>: Loggable {
 
         _cancelTimer()
 
-        if let continuation = _continuation {
-            continuation.resume(returning: value)
-            _continuation = nil
-        } else {
-            _returningValue = value
-        }
+        _returningValue = value
+        _continuation?.resume(returning: value)
+        _continuation = nil
     }
 
     public func resume(throwing error: Error) {
@@ -83,28 +80,25 @@ internal class AsyncCompleter<T>: Loggable {
 
         _cancelTimer()
 
-        if let continuation = _continuation {
-            continuation.resume(throwing: error)
-            _continuation = nil
-        } else {
-            _throwingError = error
-        }
+        _throwingError = error
+        _continuation?.resume(throwing: error)
+        _continuation = nil
     }
 
     public func wait() async throws -> T {
-        log("\(label)")
-
         // resume(returning:) already called
         if let returningValue = _returningValue {
-            cancel()
+            log("\(label) returning value...")
             return returningValue
         }
 
         // resume(throwing:) already called
         if let throwingError = _throwingError {
-            cancel()
+            log("\(label) throwing error...")
             throw throwingError
         }
+
+        log("\(label) waiting...")
 
         // Cancel any previous waits
         cancel()
@@ -116,8 +110,11 @@ internal class AsyncCompleter<T>: Loggable {
 
             // Create time-out block
             let timeOutBlock = DispatchWorkItem { [weak self] in
-                self?._continuation?.resume(throwing: AsyncCompleterError.timedOut)
-                self?.cancel()
+                guard let self = self else { return }
+                self.log("\(self.label) timedOut")
+                self._continuation?.resume(throwing: AsyncCompleterError.timedOut)
+                self._continuation = nil
+                self.cancel()
             }
 
             // Schedule time-out block
