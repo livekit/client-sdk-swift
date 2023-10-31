@@ -76,7 +76,7 @@ extension Engine: SignalClientDelegate {
         }.then(on: queue) { answer in
             subscriber.setLocalDescription(answer)
         }.then(on: queue) { answer in
-            self.signalClient.sendAnswer(answer: answer)
+            promise(from: signalClient.sendAnswer, param1: answer)
         }.then(on: queue) {
             self.log("answer sent to signal")
         }.catch(on: queue) { error in

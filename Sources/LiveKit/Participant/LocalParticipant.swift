@@ -75,15 +75,11 @@ public class LocalParticipant: Participant {
             self.log("[publish] waiting for dimensions to resolve...")
 
             // wait for dimensions
-            return track.capturer.dimensionsCompleter.waitPromise()
+            return promise(from: track.capturer.dimensionsCompleter.wait)
 
-        }.then(on: queue) { dimensions -> Promise<(result: LKRTCRtpTransceiverInit, trackInfo: Livekit_TrackInfo)> in
-            // request a new track to the server
-            self.room.engine.signalClient.sendAddTrack(cid: track.mediaTrack.trackId,
-                                                       name: track.name,
-                                                       type: track.kind.toPBType(),
-                                                       source: track.source.toPBType(),
-                                                       encryption: self.room.e2eeManager?.e2eeOptions.encryptionType.toPBType() ?? .none ) { populator in
+        }.then(on: queue) { (dimensions: Dimensions?) -> Promise<(result: LKRTCRtpTransceiverInit, trackInfo: Livekit_TrackInfo)> in
+
+            let populatorFunc: SignalClient.AddTrackRequestPopulator<LKRTCRtpTransceiverInit> = { populator in
 
                 let transInit = DispatchQueue.liveKitWebRTC.sync { LKRTCRtpTransceiverInit() }
                 transInit.direction = .sendOnly
@@ -132,6 +128,15 @@ public class LocalParticipant: Participant {
 
                 return transInit
             }
+
+            // request a new track to the server
+            return promise(from: self.room.engine.signalClient.sendAddTrack,
+                           param1: track.mediaTrack.trackId,
+                           param2: track.name,
+                           param3: track.kind.toPBType(),
+                           param4: track.source.toPBType(),
+                           param5: self.room.e2eeManager?.e2eeOptions.encryptionType.toPBType() ?? .none,
+                           param6: populatorFunc)
 
         }.then(on: queue) { (transInit, trackInfo) -> Promise<(transceiver: LKRTCRtpTransceiver, trackInfo: Livekit_TrackInfo)> in
 
@@ -337,7 +342,9 @@ public class LocalParticipant: Participant {
             $0.metadata = metadata
             return $0.name
         }
-        return room.engine.signalClient.sendUpdateLocalMetadata(metadata, name: name)
+        return promise(from: room.engine.signalClient.sendUpdateLocalMetadata,
+                       param1: metadata,
+                       param2: name)
     }
 
     /// Sets and updates the name of the local participant.
@@ -349,7 +356,9 @@ public class LocalParticipant: Participant {
             $0.name = name
             return $0.metadata
         }
-        return room.engine.signalClient.sendUpdateLocalMetadata(metadata ?? "", name: name)
+        return promise(from: room.engine.signalClient.sendUpdateLocalMetadata,
+                       param1: metadata ?? "",
+                       param2: name)
     }
 
     internal func sendTrackSubscriptionPermissions() -> Promise<Void> {
@@ -358,8 +367,9 @@ public class LocalParticipant: Participant {
             return Promise(())
         }
 
-        return room.engine.signalClient.sendUpdateSubscriptionPermission(allParticipants: allParticipantsAllowed,
-                                                                         trackPermissions: trackPermissions)
+        return promise(from: room.engine.signalClient.sendUpdateSubscriptionPermission,
+                       param1: allParticipantsAllowed,
+                       param2: trackPermissions)
     }
 
     internal func onSubscribedQualitiesUpdate(trackSid: String, subscribedQualities: [Livekit_SubscribedQuality]) {

@@ -47,7 +47,7 @@ internal func promise<T, P1>(from asyncFunction: @escaping (P1) async throws -> 
     }
 }
 
-// 2 param
+// 2 params
 internal func promise<T, P1, P2>(from asyncFunction: @escaping (P1, P2) async throws -> T, param1: P1, param2: P2) -> Promise<T> {
     return Promise<T> { resolve, reject in
         Task {
@@ -61,7 +61,7 @@ internal func promise<T, P1, P2>(from asyncFunction: @escaping (P1, P2) async th
     }
 }
 
-// 3 param
+// 3 params
 internal func promise<T, P1, P2, P3>(from asyncFunction: @escaping (P1, P2, P3) async throws -> T, param1: P1, param2: P2, param3: P3) -> Promise<T> {
     return Promise<T> { resolve, reject in
         Task {
@@ -75,7 +75,7 @@ internal func promise<T, P1, P2, P3>(from asyncFunction: @escaping (P1, P2, P3) 
     }
 }
 
-// 4 param
+// 4 params
 internal func promise<T, P1, P2, P3, P4>(from asyncFunction: @escaping (P1, P2, P3, P4) async throws -> T, param1: P1, param2: P2, param3: P3, param4: P4) -> Promise<T> {
     return Promise<T> { resolve, reject in
         Task {
@@ -89,12 +89,26 @@ internal func promise<T, P1, P2, P3, P4>(from asyncFunction: @escaping (P1, P2, 
     }
 }
 
-// 4 param
+// 5 params
 internal func promise<T, P1, P2, P3, P4, P5>(from asyncFunction: @escaping (P1, P2, P3, P4, P5) async throws -> T, param1: P1, param2: P2, param3: P3, param4: P4, param5: P5) -> Promise<T> {
     return Promise<T> { resolve, reject in
         Task {
             do {
                 let result = try await asyncFunction(param1, param2, param3, param4, param5)
+                resolve(result)
+            } catch let error {
+                reject(error)
+            }
+        }
+    }
+}
+
+// 6 params
+internal func promise<T, P1, P2, P3, P4, P5, P6>(from asyncFunction: @escaping (P1, P2, P3, P4, P5, P6) async throws -> T, param1: P1, param2: P2, param3: P3, param4: P4, param5: P5, param6: P6) -> Promise<T> {
+    return Promise<T> { resolve, reject in
+        Task {
+            do {
+                let result = try await asyncFunction(param1, param2, param3, param4, param5, param6)
                 resolve(result)
             } catch let error {
                 reject(error)
