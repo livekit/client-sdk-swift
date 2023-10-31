@@ -15,7 +15,6 @@
  */
 
 import Foundation
-import Promises
 import Logging
 
 @_implementationOnly import WebRTC
