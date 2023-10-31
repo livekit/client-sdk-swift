@@ -346,7 +346,7 @@ internal extension SignalClient {
         }
     }
 
-    func sendOffer(offer: LKRTCSessionDescription) async throws {
+    func send(offer: LKRTCSessionDescription) async throws {
 
         let r = Livekit_SignalRequest.with {
             $0.offer = offer.toPBType()
@@ -355,7 +355,7 @@ internal extension SignalClient {
         try await sendRequest(r)
     }
 
-    func sendAnswer(answer: LKRTCSessionDescription) async throws {
+    func send(answer: LKRTCSessionDescription) async throws {
 
         let r = Livekit_SignalRequest.with {
             $0.answer = answer.toPBType()

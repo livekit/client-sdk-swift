@@ -143,11 +143,11 @@ public class LocalParticipant: Participant {
             self.log("[publish] server responded trackInfo: \(trackInfo)")
 
             // add transceiver to pc
-            return publisher.addTransceiver(with: track.mediaTrack,
-                                            transceiverInit: transInit).then(on: self.queue) { transceiver in
-                                                // pass down trackInfo and created transceiver
-                                                (transceiver, trackInfo)
-                                            }
+            return promise(from: publisher.addTransceiver, param1: track.mediaTrack, param2: transInit)
+                .then(on: self.queue) { transceiver in
+                    // pass down trackInfo and created transceiver
+                    (transceiver, trackInfo)
+                }
         }.then(on: queue) { params -> Promise<(LKRTCRtpTransceiver, trackInfo: Livekit_TrackInfo)> in
             self.log("[publish] added transceiver: \(params.trackInfo)...")
             return track.onPublish().then(on: self.queue) { _ in params }
@@ -267,7 +267,7 @@ public class LocalParticipant: Participant {
                 return Promise(())
             }
 
-            return publisher.removeTrack(sender).then(on: self.queue) {
+            return promise(from: publisher.remove(track:), param1: sender).then(on: self.queue) {
                 engine.publisherShouldNegotiate()
             }
         }.then(on: queue) {
