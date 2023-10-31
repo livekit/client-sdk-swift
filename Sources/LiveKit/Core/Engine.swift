@@ -452,7 +452,7 @@ internal extension Engine {
                             return promise(from: self.primaryTransportConnectedCompleter.wait)
                            }.then(on: queue) { _ in
                             // send SyncState before offer
-                            self.sendSyncState()
+                            promise(from: self.sendSyncState)
                            }.then(on: queue) { () -> Promise<Void> in
 
                             self.subscriber?.restartingIce = true
@@ -547,18 +547,18 @@ internal extension Engine {
 
 internal extension Engine {
 
-    func sendSyncState() -> Promise<Void> {
+    func sendSyncState() async throws {
 
         guard let room = room else {
             // this should never happen
             log("Room is nil", .error)
-            return Promise(())
+            return
         }
 
         guard let subscriber = subscriber,
               let previousAnswer = subscriber.localDescription else {
             // No-op
-            return Promise(())
+            return
         }
 
         let previousOffer = subscriber.remoteDescription
@@ -583,12 +583,10 @@ internal extension Engine {
             $0.subscribe = !autoSubscribe
         }
 
-        return promise(from: signalClient.sendSyncState,
-                       param1: previousAnswer.toPBType(),
-                       param2: previousOffer?.toPBType(),
-                       param3: subscription,
-                       param4: room._state.localParticipant?.publishedTracksInfo(),
-                       param5: publisherDC.infos())
+        try await signalClient.sendSyncState(answer: previousAnswer.toPBType(),
+                                             offer: previousOffer?.toPBType(),
+                                             subscription: subscription, publishTracks: room._state.localParticipant?.publishedTracksInfo(),
+                                             dataChannels: publisherDC.infos())
     }
 }
 
