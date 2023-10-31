@@ -254,7 +254,7 @@ public class Room: NSObject, ObservableObject, Loggable {
         // return if already disconnected state
         if case .disconnected = connectionState { return Promise(()) }
 
-        return engine.signalClient.sendLeave()
+        return promise(from: engine.signalClient.sendLeave)
             .recover(on: queue) { self.log("Failed to send leave, error: \($0)") }
             .then(on: queue) { [weak self] in
                 guard let self = self else { return }
@@ -349,9 +349,8 @@ internal extension Room {
 
 extension Room {
 
-    @discardableResult
-    public func sendSimulate(scenario: SimulateScenario) -> Promise<Void> {
-        engine.signalClient.sendSimulate(scenario: scenario)
+    public func sendSimulate(scenario: SimulateScenario) async throws {
+        try await engine.signalClient.sendSimulate(scenario: scenario)
     }
 }
 

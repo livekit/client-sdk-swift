@@ -84,11 +84,10 @@ public class RemoteTrackPublication: TrackPublication {
 
         _state.mutate { $0.preferSubscribed = newValue }
 
-        return participant.room.engine.signalClient.sendUpdateSubscription(
-            participantSid: participant.sid,
-            trackSid: sid,
-            subscribed: newValue
-        )
+        return promise(from: participant.room.engine.signalClient.sendUpdateSubscription,
+                       param1: participant.sid,
+                       param2: sid,
+                       param3: newValue)
     }
 
     /// Enable or disable server from sending down data for this track.
@@ -268,7 +267,9 @@ internal extension RemoteTrackPublication {
         }
 
         // attempt to set the new settings
-        return participant.room.engine.signalClient.sendUpdateTrackSettings(sid: sid, settings: newValue)
+        return promise(from: participant.room.engine.signalClient.sendUpdateTrackSettings,
+                       param1: sid,
+                       param2: newValue)
             .then(on: queue) { [weak self] _ in
                 guard let self = self else { return }
                 self._state.mutate { $0.isSendingTrackSettings = false }

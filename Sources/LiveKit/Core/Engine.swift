@@ -308,7 +308,7 @@ internal extension Engine {
         publisher.onOffer = { [weak self] offer in
             guard let self = self else { return Promise(EngineError.state(message: "self is nil")) }
             log("publisher onOffer \(offer.sdp)")
-            return signalClient.sendOffer(offer: offer)
+            return promise(from: signalClient.sendOffer, param1: offer)
         }
 
         // data over pub channel for backwards compatibility
@@ -406,7 +406,7 @@ internal extension Engine {
                     }
                 }
             }.then(on: queue) {
-                self.signalClient.resumeResponseQueue()
+                promise(from: self.signalClient.resumeResponseQueue)
             }.then(on: queue) {
                 promise(from: self.primaryTransportConnectedCompleter.wait)
             }.then(on: queue) { _ -> Void in
@@ -472,7 +472,7 @@ internal extension Engine {
 
                             self.log("[reconnect] send queued requests")
                             // always check if there are queued requests
-                            return self.signalClient.sendQueuedRequests()
+                            return promise(from: self.signalClient.sendQueuedRequests)
                            }
         }
 
@@ -583,11 +583,12 @@ internal extension Engine {
             $0.subscribe = !autoSubscribe
         }
 
-        return signalClient.sendSyncState(answer: previousAnswer.toPBType(),
-                                          offer: previousOffer?.toPBType(),
-                                          subscription: subscription,
-                                          publishTracks: room._state.localParticipant?.publishedTracksInfo(),
-                                          dataChannels: publisherDC.infos())
+        return promise(from: signalClient.sendSyncState,
+                       param1: previousAnswer.toPBType(),
+                       param2: previousOffer?.toPBType(),
+                       param3: subscription,
+                       param4: room._state.localParticipant?.publishedTracksInfo(),
+                       param5: publisherDC.infos())
     }
 }
 

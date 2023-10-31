@@ -45,10 +45,9 @@ extension Engine: TransportDelegate {
 
     func transport(_ transport: Transport, didGenerate iceCandidate: LKRTCIceCandidate) {
         log("didGenerate iceCandidate")
-        signalClient.sendCandidate(candidate: iceCandidate,
-                                   target: transport.target).catch(on: queue) { error in
-                                    self.log("Failed to send candidate, error: \(error)", .error)
-                                   }
+        Task {
+            try await signalClient.sendCandidate(candidate: iceCandidate, target: transport.target)
+        }
     }
 
     func transport(_ transport: Transport, didAddTrack track: LKRTCMediaStreamTrack, rtpReceiver: LKRTCRtpReceiver, streams: [LKRTCMediaStream]) {

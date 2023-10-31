@@ -223,8 +223,7 @@ extension TrackPublication: TrackDelegateInternal {
                 return Promise(())
             }
 
-            return participant.room.engine.signalClient.sendMuteTrack(trackSid: sid,
-                                                                      muted: muted)
+            return promise(from: participant.room.engine.signalClient.sendMuteTrack, param1: sid, param2: muted)
         }
 
         sendSignal()
