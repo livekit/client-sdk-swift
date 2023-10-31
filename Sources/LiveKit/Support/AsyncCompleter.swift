@@ -15,7 +15,6 @@
  */
 
 import Foundation
-import Promises
 
 internal enum AsyncCompleterError: LiveKitError {
     case timedOut

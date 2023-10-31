@@ -40,19 +40,9 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
 
     // MARK: - Private
 
-    private enum QueueState {
-        case resumed
-        case suspended
-    }
-
-    // queue to store requests while reconnecting
-    private var requestQueue = [Livekit_SignalRequest]()
-    private var responseQueue = [Livekit_SignalResponse]()
-
-    private let requestDispatchQueue = DispatchQueue(label: "LiveKitSDK.signalClient.requestQueue", qos: .default)
-    private let responseDispatchQueue = DispatchQueue(label: "LiveKitSDK.signalClient.responseQueue", qos: .default)
-
-    private var responseQueueState: QueueState = .resumed
+    // Queue to store requests while reconnecting
+    private let _requestQueue = AsyncQueueActor<Livekit_SignalRequest>()
+    private var _responseQueue = AsyncQueueActor<Livekit_SignalResponse>()
 
     private var _webSocket: WebSocket?
     private var latestJoinResponse: Livekit_JoinResponse?
@@ -89,7 +79,7 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
                  reconnectMode: ReconnectMode? = nil,
                  adaptiveStream: Bool) async throws {
 
-        cleanUp()
+        await cleanUp()
 
         log("reconnectMode: \(String(describing: reconnectMode))")
 
@@ -123,14 +113,17 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
                         self.onWebSocketMessage(message: message)
                     }
                 } catch {
-                    //
-                    self.cleanUp(reason: .networkError(error))
+                    await self.cleanUp(reason: .networkError(error))
                 }
                 self.log("Did exit WebSocket message loop...")
             }
         } catch let error {
 
-            defer { cleanUp(reason: .networkError(error)) }
+            defer {
+                Task {
+                    await cleanUp(reason: .networkError(error))
+                }
+            }
 
             // Skip validation if reconnect mode
             if reconnectMode != nil { throw error }
@@ -152,7 +145,7 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
         }
     }
 
-    func cleanUp(reason: DisconnectReason? = nil) {
+    func cleanUp(reason: DisconnectReason? = nil) async {
 
         log("reason: \(String(describing: reason))")
 
@@ -180,16 +173,8 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
             $0 = State()
         }
 
-        requestDispatchQueue.async { [weak self] in
-            guard let self = self else { return }
-            self.requestQueue = []
-        }
-
-        responseDispatchQueue.async { [weak self] in
-            guard let self = self else { return }
-            self.responseQueue = []
-            self.responseQueueState = .resumed
-        }
+        await _requestQueue.clear()
+        await _responseQueue.clear()
     }
 
     func resumeCompleter(forAddTrackRequest trackCid: String, trackInfo: Livekit_TrackInfo) {
@@ -224,12 +209,9 @@ private extension SignalClient {
     // send request or enqueue while reconnecting
     func sendRequest(_ request: Livekit_SignalRequest, enqueueIfReconnecting: Bool = true) async throws {
 
-        // on: requestDispatchQueue
-
         guard !(_state.connectionState.isReconnecting && request.canEnqueue() && enqueueIfReconnecting) else {
-            log("queuing request while reconnecting, request: \(request)")
-            requestQueue.append(request)
-            // success
+            log("Queuing request while reconnecting, request: \(request)")
+            await _requestQueue.enqueue(request)
             return
         }
 
@@ -267,17 +249,12 @@ private extension SignalClient {
             return
         }
 
-        responseDispatchQueue.async {
-            if case .suspended = self.responseQueueState {
-                self.log("Enqueueing response: \(response)")
-                self.responseQueue.append(response)
-            } else {
-                self.onSignalResponse(response)
-            }
+        Task {
+            await _responseQueue.enqueue(response) { await processSignalResponse($0) }
         }
     }
 
-    func onSignalResponse(_ response: Livekit_SignalResponse) {
+    func processSignalResponse(_ response: Livekit_SignalResponse) async {
 
         guard case .connected = connectionState else {
             log("Not connected", .warning)
@@ -291,7 +268,7 @@ private extension SignalClient {
 
         switch message {
         case .join(let joinResponse):
-            responseQueueState = .suspended
+            await _responseQueue.suspend()
             latestJoinResponse = joinResponse
             restartPingTimer()
             notify { $0.signalClient(self, didReceive: joinResponse) }
@@ -370,23 +347,9 @@ internal extension SignalClient {
 
     func resumeResponseQueue() async throws {
 
-        // on: responseDispatchQueue
-
-        defer { responseQueueState = .resumed }
-
-        // Quickly return if no queued requests
-        guard !responseQueue.isEmpty else {
-            self.log("No queued response")
-            return
+        await _responseQueue.resume { response in
+            await processSignalResponse(response)
         }
-
-        // Run responses in sequence
-        for response in responseQueue {
-            onSignalResponse(response)
-        }
-
-        // Clear the queue
-        responseQueue = []
     }
 }
 
@@ -396,25 +359,13 @@ internal extension SignalClient {
 
     func sendQueuedRequests() async throws {
 
-        // on: requestDispatchQueue
-
-        // Return if no queued requests
-        guard !requestQueue.isEmpty else {
-            log("No queued requests")
-            return
-        }
-
-        // Send requests in sequential order
-        for request in requestQueue {
+        await _requestQueue.resume { element in
             do {
-                try await sendRequest(request, enqueueIfReconnecting: false)
+                try await sendRequest(element, enqueueIfReconnecting: false)
             } catch let error {
-                log("Failed to send queued request \(request) with error: \(error)", .error)
+                log("Failed to send queued request \(element) with error: \(error)", .error)
             }
         }
-
-        // Clear the queue
-        requestQueue = []
     }
 
     func sendOffer(offer: LKRTCSessionDescription) async throws {
@@ -623,7 +574,9 @@ internal extension SignalClient {
 
         defer {
             if shouldDisconnect {
-                cleanUp(reason: .networkError(NetworkError.disconnected(message: "Simulate scenario")))
+                Task {
+                    await cleanUp(reason: .networkError(NetworkError.disconnected(message: "Simulate scenario")))
+                }
             }
         }
 
@@ -658,7 +611,9 @@ private extension SignalClient {
                 timer.handler = { [weak self] in
                     guard let self = self else { return }
                     self.log("ping/pong timed out", .error)
-                    self.cleanUp(reason: .networkError(SignalClientError.serverPingTimedOut()))
+                    Task {
+                        await self.cleanUp(reason: .networkError(SignalClientError.serverPingTimedOut()))
+                    }
                 }
                 timer.resume()
                 return timer
