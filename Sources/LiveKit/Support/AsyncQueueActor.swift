@@ -26,6 +26,7 @@ internal actor AsyncQueueActor<T> {
     public private(set) var state: State = .resumed
     private var queue = [T]()
 
+    /// Mark as `.suspended`.
     func suspend() {
         state = .suspended
     }
@@ -34,6 +35,7 @@ internal actor AsyncQueueActor<T> {
         queue.append(value)
     }
 
+    /// Only enqueue if `.suspended` state, otherwise process immediately.
     func enqueue(_ value: T, ifResumed process: (T) async -> Void) async {
         if case .suspended = state {
             queue.append(value)
@@ -47,6 +49,7 @@ internal actor AsyncQueueActor<T> {
         state = .resumed
     }
 
+    /// Mark as `.resumed` and process each element with an async `block`.
     func resume(_ block: (T) async -> Void) async {
         state = .resumed
         if queue.isEmpty { return }
