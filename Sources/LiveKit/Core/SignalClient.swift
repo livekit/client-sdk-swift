@@ -20,6 +20,11 @@ import Foundation
 
 internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
 
+    // MARK: - Types
+
+    typealias AddTrackRequestPopulator<R> = (inout Livekit_AddTrackRequest) throws -> R
+    typealias AddTrackResult<R> = (result: R, trackInfo: Livekit_TrackInfo)
+
     private let queue = DispatchQueue(label: "LiveKitSDK.signalClient", qos: .default)
 
     // MARK: - Public
@@ -29,7 +34,7 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
     // MARK: - Internal
 
     internal let joinResponseCompleter = AsyncCompleter<Livekit_JoinResponse>(label: "Join response", timeOut: .defaultJoinResponse)
-    internal var completersForAddTrack = [String: AsyncCompleter<Livekit_TrackInfo>]()
+    internal let _addTrackCompleters = CompleterMapActor<Livekit_TrackInfo>(label: "Completers for add track", timeOut: .defaultPublish)
 
     internal struct State: ReconnectableState, Equatable {
         var reconnectMode: ReconnectMode?
@@ -42,7 +47,7 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
 
     // Queue to store requests while reconnecting
     private let _requestQueue = AsyncQueueActor<Livekit_SignalRequest>()
-    private var _responseQueue = AsyncQueueActor<Livekit_SignalResponse>()
+    private let _responseQueue = AsyncQueueActor<Livekit_SignalResponse>()
 
     private var _webSocket: WebSocket?
     private var latestJoinResponse: Livekit_JoinResponse?
@@ -163,42 +168,15 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
 
         _state.mutate {
 
-            for completer in completersForAddTrack.values {
-                completer.cancel()
-            }
-
             joinResponseCompleter.cancel()
 
             // reset state
             $0 = State()
         }
 
+        await _addTrackCompleters.reset()
         await _requestQueue.clear()
         await _responseQueue.clear()
-    }
-
-    func resumeCompleter(forAddTrackRequest trackCid: String, trackInfo: Livekit_TrackInfo) {
-
-        _state.mutate { _ in
-            if let completer = completersForAddTrack[trackCid] {
-                completer.resume(returning: trackInfo)
-            }
-        }
-    }
-
-    func asyncCompleter(forAddTrackRequest trackCid: String) -> AsyncCompleter<Livekit_TrackInfo> {
-
-        _state.mutate { _ in
-
-            if completersForAddTrack.keys.contains(trackCid) {
-                // reset if already exists
-                completersForAddTrack[trackCid]!.cancel()
-            } else {
-                completersForAddTrack[trackCid] = AsyncCompleter<Livekit_TrackInfo>(label: "Add track: \(trackCid)", timeOut: .defaultPublish)
-            }
-
-            return completersForAddTrack[trackCid]!
-        }
     }
 }
 
@@ -299,7 +277,7 @@ private extension SignalClient {
 
             log("[publish] resolving completer for cid: \(trackPublished.cid)")
             // Complete
-            resumeCompleter(forAddTrackRequest: trackPublished.cid, trackInfo: trackPublished.track)
+            await _addTrackCompleters.resume(returning: trackPublished.track, for: trackPublished.cid)
 
         case .trackUnpublished(let trackUnpublished):
             notify { $0.signalClient(self, didUnpublish: trackUnpublished) }
@@ -410,9 +388,6 @@ internal extension SignalClient {
         try await sendRequest(r)
     }
 
-    typealias AddTrackRequestPopulator<R> = (inout Livekit_AddTrackRequest) throws -> R
-    typealias AddTrackResult<R> = (result: R, trackInfo: Livekit_TrackInfo)
-
     func sendAddTrack<R>(cid: String,
                          name: String,
                          type: Livekit_TrackType,
@@ -434,11 +409,13 @@ internal extension SignalClient {
             $0.addTrack = addTrackRequest
         }
 
-        let completer = asyncCompleter(forAddTrackRequest: cid)
+        // Get completer for this add track request...
+        let completer = await _addTrackCompleters.completer(for: cid)
 
+        // Send the request to server...
         try await sendRequest(request)
 
-        // Wait for the trackInfo
+        // Wait for the trackInfo...
         let trackInfo = try await completer.wait()
 
         return AddTrackResult(result: populateResult, trackInfo: trackInfo)

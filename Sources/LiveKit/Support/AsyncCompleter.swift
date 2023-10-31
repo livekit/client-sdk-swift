@@ -28,6 +28,46 @@ internal enum AsyncCompleterError: LiveKitError {
     }
 }
 
+/// Manages a map of AsyncCompleters
+internal actor CompleterMapActor<T> {
+
+    public let label: String
+
+    private let _timeOut: DispatchTimeInterval
+    private var _completerMap = [String: AsyncCompleter<T>]()
+
+    public init(label: String, timeOut: DispatchTimeInterval) {
+        self.label = label
+        self._timeOut = timeOut
+    }
+
+    public func completer(for key: String) -> AsyncCompleter<T> {
+        // Return completer if already exists...
+        if let element = _completerMap[key] {
+            return element
+        }
+
+        let newCompleter = AsyncCompleter<T>(label: label, timeOut: _timeOut)
+        _completerMap[key] = newCompleter
+        return newCompleter
+    }
+
+    public func resume(returning value: T, for key: String) {
+        if let element = _completerMap[key] {
+            element.resume(returning: value)
+        }
+    }
+
+    public func reset() {
+        // Reset call completers...
+        for (_, value) in _completerMap {
+            value.cancel()
+        }
+        // Clear all completers...
+        _completerMap.removeAll()
+    }
+}
+
 internal class AsyncCompleter<T>: Loggable {
 
     public let label: String
