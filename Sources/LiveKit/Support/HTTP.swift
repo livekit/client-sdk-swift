@@ -17,38 +17,27 @@
 import Foundation
 import Promises
 
-internal class HTTP: NSObject, URLSessionDelegate {
+internal class HTTP: NSObject {
 
-    private let operationQueue = OperationQueue()
+    private static let operationQueue = OperationQueue()
 
-    private lazy var session: URLSession = {
-        URLSession(configuration: .default,
-                   delegate: self,
-                   delegateQueue: operationQueue)
-    }()
+    private static let session: URLSession = URLSession(configuration: .default,
+                                                        delegate: nil,
+                                                        delegateQueue: operationQueue)
 
-    func get(on: DispatchQueue, url: URL) -> Promise<Data> {
+    public static func requestData(from url: URL) async throws -> Data {
+        let request = URLRequest(url: url,
+                                 cachePolicy: .reloadIgnoringLocalAndRemoteCacheData,
+                                 timeoutInterval: .defaultHTTPConnect)
+        let (data, _) = try await session.data(for: request)
+        return data
+    }
 
-        Promise<Data>(on: on) { resolve, fail in
-
-            let request = URLRequest(url: url,
-                                     cachePolicy: .reloadIgnoringLocalAndRemoteCacheData,
-                                     timeoutInterval: .defaultHTTPConnect)
-
-            let task = self.session.dataTask(with: request) { data, _, error in
-                if let error = error {
-                    fail(error)
-                    return
-                }
-
-                guard let data = data else {
-                    fail(NetworkError.response(message: "data is nil"))
-                    return
-                }
-
-                resolve(data)
-            }
-            task.resume()
+    public static func requestString(from url: URL) async throws -> String {
+        let data = try await requestData(from: url)
+        guard let string = String(data: data, encoding: .utf8) else {
+            throw InternalError.state(message: "Failed to convert string")
         }
+        return string
     }
 }

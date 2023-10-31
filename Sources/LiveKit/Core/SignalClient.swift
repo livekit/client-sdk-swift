@@ -152,10 +152,7 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
 
             self.log("Validating with url: \(validateUrl)")
 
-            return HTTP().get(on: self.queue, url: validateUrl).then(on: self.queue) { data in
-                guard let string = String(data: data, encoding: .utf8) else {
-                    throw SignalClientError.connect(message: "Failed to decode string")
-                }
+            return promise(from: HTTP.requestString, param1: validateUrl).then { string in
                 self.log("validate response: \(string)")
                 // re-throw with validation response
                 throw SignalClientError.connect(message: "Validation response: \"\(string)\"")
