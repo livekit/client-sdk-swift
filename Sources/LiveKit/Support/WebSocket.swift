@@ -15,7 +15,6 @@
  */
 
 import Foundation
-import Promises
 
 internal typealias WebSocketStream = AsyncThrowingStream<URLSessionWebSocketTask.Message, Error>
 
@@ -125,22 +124,5 @@ internal class WebSocket: NSObject, Loggable, AsyncSequence, URLSessionWebSocket
         connectContinuation = nil
         streamContinuation?.finish()
         streamContinuation = nil
-    }
-}
-
-internal extension WebSocket {
-
-    // Deprecate
-    func send(data: Data) -> Promise<Void> {
-        Promise { [self] resolve, fail in
-            Task {
-                do {
-                    try await self.send(data: data)
-                    resolve(())
-                } catch {
-                    fail(error)
-                }
-            }
-        }
     }
 }

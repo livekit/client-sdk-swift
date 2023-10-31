@@ -75,7 +75,7 @@ public class LocalParticipant: Participant {
             self.log("[publish] waiting for dimensions to resolve...")
 
             // wait for dimensions
-            return track.capturer.dimensionsCompleter.waitPromise()
+            return promise(from: track.capturer.dimensionsCompleter.wait)
 
         }.then(on: queue) { dimensions -> Promise<(result: LKRTCRtpTransceiverInit, trackInfo: Livekit_TrackInfo)> in
             // request a new track to the server

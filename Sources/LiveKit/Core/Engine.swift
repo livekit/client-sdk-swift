@@ -244,8 +244,8 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
                 publisherShouldNegotiate()
             }
 
-            return publisherTransportConnectedCompleter.waitPromise().then(on: queue) { _ in
-                self.publisherDC.openCompleter.waitPromise()
+            return promise(from: publisherTransportConnectedCompleter.wait).then(on: queue) { _ in
+                promise(from: self.publisherDC.openCompleter.wait)
             }
         }
 
@@ -383,14 +383,15 @@ internal extension Engine {
         // this should never happen since Engine is owned by Room
         guard let room = self.room else { return Promise(EngineError.state(message: "Room is nil")) }
 
-        return self.signalClient.connect(url,
-                                         token,
-                                         connectOptions: _state.connectOptions,
-                                         reconnectMode: _state.reconnectMode,
-                                         adaptiveStream: room._state.options.adaptiveStream)
+        return promise(from: self.signalClient.connect,
+                       param1: url,
+                       param2: token,
+                       param3: _state.connectOptions,
+                       param4: _state.reconnectMode,
+                       param5: room._state.options.adaptiveStream)
             .then(on: queue) {
                 // wait for joinResponse
-                self.signalClient.joinResponseCompleter.waitPromise()
+                promise(from: self.signalClient.joinResponseCompleter.wait)
             }.then(on: queue) { _ in
                 self._state.mutate { $0.connectStopwatch.split(label: "signal") }
             }.then(on: queue) { jr in
@@ -407,7 +408,7 @@ internal extension Engine {
             }.then(on: queue) {
                 self.signalClient.resumeResponseQueue()
             }.then(on: queue) {
-                self.primaryTransportConnectedCompleter.waitPromise()
+                promise(from: self.primaryTransportConnectedCompleter.wait)
             }.then(on: queue) { _ -> Void in
                 self._state.mutate { $0.connectStopwatch.split(label: "engine") }
                 self.log("\(self._state.connectStopwatch)")
@@ -440,38 +441,39 @@ internal extension Engine {
             // this should never happen since Engine is owned by Room
             guard let room = self.room else { return Promise(EngineError.state(message: "Room is nil")) }
 
-            return self.signalClient.connect(url,
-                                             token,
-                                             connectOptions: _state.connectOptions,
-                                             reconnectMode: _state.reconnectMode,
-                                             adaptiveStream: room._state.options.adaptiveStream).then(on: queue) {
-                                                self.log("[reconnect] waiting for socket to connect...")
-                                                // Wait for primary transport to connect (if not already)
-                                                return self.primaryTransportConnectedCompleter.waitPromise()
-                                             }.then(on: queue) { _ in
-                                                // send SyncState before offer
-                                                self.sendSyncState()
-                                             }.then(on: queue) { () -> Promise<Void> in
+            return promise(from: self.signalClient.connect,
+                           param1: url,
+                           param2: token,
+                           param3: _state.connectOptions,
+                           param4: _state.reconnectMode,
+                           param5: room._state.options.adaptiveStream).then(on: queue) {
+                            self.log("[reconnect] waiting for socket to connect...")
+                            // Wait for primary transport to connect (if not already)
+                            return promise(from: self.primaryTransportConnectedCompleter.wait)
+                           }.then(on: queue) { _ in
+                            // send SyncState before offer
+                            self.sendSyncState()
+                           }.then(on: queue) { () -> Promise<Void> in
 
-                                                self.subscriber?.restartingIce = true
+                            self.subscriber?.restartingIce = true
 
-                                                // only if published, continue...
-                                                guard let publisher = self.publisher, self._state.hasPublished else {
-                                                    return Promise(())
-                                                }
+                            // only if published, continue...
+                            guard let publisher = self.publisher, self._state.hasPublished else {
+                                return Promise(())
+                            }
 
-                                                self.log("[reconnect] waiting for publisher to connect...")
+                            self.log("[reconnect] waiting for publisher to connect...")
 
-                                                return publisher.createAndSendOffer(iceRestart: true).then(on: self.queue) {
-                                                    self.publisherTransportConnectedCompleter.waitPromise()
-                                                }
+                            return publisher.createAndSendOffer(iceRestart: true).then(on: self.queue) {
+                                promise(from: self.publisherTransportConnectedCompleter.wait)
+                            }
 
-                                             }.then(on: queue) { () -> Promise<Void> in
+                           }.then(on: queue) { () -> Promise<Void> in
 
-                                                self.log("[reconnect] send queued requests")
-                                                // always check if there are queued requests
-                                                return self.signalClient.sendQueuedRequests()
-                                             }
+                            self.log("[reconnect] send queued requests")
+                            // always check if there are queued requests
+                            return self.signalClient.sendQueuedRequests()
+                           }
         }
 
         // "full" re-connection sequence

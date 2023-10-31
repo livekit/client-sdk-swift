@@ -123,17 +123,4 @@ internal class AsyncCompleter<T>: Loggable {
             _timeOutBlock = timeOutBlock
         }
     }
-
-    // TODO: Remove helper method when async/await migration completed
-    public func waitPromise() -> Promise<T> {
-        Promise<T> { resolve, reject in
-            Task {
-                do {
-                    resolve(try await self.wait())
-                } catch let error {
-                    reject(error)
-                }
-            }
-        }
-    }
 }

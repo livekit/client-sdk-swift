@@ -55,7 +55,7 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
 
     private var responseQueueState: QueueState = .resumed
 
-    private var webSocket: WebSocket?
+    private var _webSocket: WebSocket?
     private var latestJoinResponse: Livekit_JoinResponse?
 
     private var pingIntervalTimer: DispatchQueueTimer?
@@ -88,7 +88,7 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
                  _ token: String,
                  connectOptions: ConnectOptions? = nil,
                  reconnectMode: ReconnectMode? = nil,
-                 adaptiveStream: Bool) -> Promise<Void> {
+                 adaptiveStream: Bool) async throws {
 
         cleanUp()
 
@@ -100,68 +100,56 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
                                        reconnectMode: reconnectMode,
                                        adaptiveStream: adaptiveStream) else {
 
-            return Promise(InternalError.parse(message: "Failed to parse url"))
+            throw InternalError.parse(message: "Failed to parse url")
         }
 
         log("Connecting with url: \(urlString)")
 
-        self._state.mutate {
+        _state.mutate {
             $0.reconnectMode = reconnectMode
             $0.connectionState = .connecting
         }
 
         let socket = WebSocket(url: url)
 
-        return Promise<Void> { resolve, reject in
-            Task {
-                do {
-                    try await socket.connect()
-                    self.webSocket = socket
-                    self._state.mutate { $0.connectionState = .connected }
-                    resolve(())
+        do {
+            try await socket.connect()
+            _webSocket = socket
+            _state.mutate { $0.connectionState = .connected }
 
-                    Task.detached {
-                        self.log("Did enter WebSocket message loop...")
-                        do {
-                            for try await message in socket {
-                                self.onWebSocketMessage(message: message)
-                            }
-                        } catch {
-                            //
-                            self.cleanUp(reason: .networkError(error))
-                        }
-                        self.log("Did exit WebSocket message loop...")
+            Task.detached {
+                self.log("Did enter WebSocket message loop...")
+                do {
+                    for try await message in socket {
+                        self.onWebSocketMessage(message: message)
                     }
                 } catch {
-                    reject(error)
+                    //
+                    self.cleanUp(reason: .networkError(error))
                 }
+                self.log("Did exit WebSocket message loop...")
             }
-        }.recover(on: queue) { error -> Promise<Void> in
+        } catch let error {
+
+            defer { cleanUp(reason: .networkError(error)) }
+
             // Skip validation if reconnect mode
             if reconnectMode != nil { throw error }
-            // Catch first, then throw again after getting validation response
-            // Re-build url with validate mode
+
             guard let validateUrl = Utils.buildUrl(urlString,
                                                    token,
                                                    connectOptions: connectOptions,
                                                    adaptiveStream: adaptiveStream,
                                                    validate: true) else {
 
-                return Promise(InternalError.parse(message: "Failed to parse validation url"))
+                throw InternalError.parse(message: "Failed to parse validation url")
             }
 
-            self.log("Validating with url: \(validateUrl)")
-
-            return HTTP().get(on: self.queue, url: validateUrl).then(on: self.queue) { data in
-                guard let string = String(data: data, encoding: .utf8) else {
-                    throw SignalClientError.connect(message: "Failed to decode string")
-                }
-                self.log("validate response: \(string)")
-                // re-throw with validation response
-                throw SignalClientError.connect(message: "Validation response: \"\(string)\"")
-            }
-        }.catch(on: queue) { error in
-            self.cleanUp(reason: .networkError(error))
+            log("Validating with url: \(validateUrl)...")
+            let validationResponse = try await HTTP.requestString(from: validateUrl)
+            self.log("Validate response: \(validationResponse)")
+            // re-throw with validation response
+            throw SignalClientError.connect(message: "Validation response: \"\(validationResponse)\"")
         }
     }
 
@@ -174,13 +162,9 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
         pingIntervalTimer = nil
         pingTimeoutTimer = nil
 
-        if let socket = webSocket {
-            // socket.cleanUp(reason: reason, notify: false)
-            // socket.onMessage = nil
-            // socket.onDisconnect = nil
-            // self.webSocket?.cancel()
+        if let socket = _webSocket {
             socket.reset()
-            self.webSocket = nil
+            self._webSocket = nil
         }
 
         latestJoinResponse = nil
@@ -230,7 +214,7 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
                 completersForAddTrack[trackCid] = AsyncCompleter<Livekit_TrackInfo>(label: "Add track: \(trackCid)", timeOut: .defaultPublish)
             }
 
-            return completersForAddTrack[trackCid]!.waitPromise()
+            return promise(from: completersForAddTrack[trackCid]!.wait)
         }
     }
 }
@@ -259,7 +243,7 @@ private extension SignalClient {
             }
 
             // this shouldn't happen
-            guard let webSocket = self.webSocket else {
+            guard let webSocket = self._webSocket else {
                 self.log("webSocket is nil", .error)
                 throw SignalClientError.state(message: "WebSocket is nil")
             }
@@ -269,7 +253,7 @@ private extension SignalClient {
                 throw InternalError.convert(message: "Could not serialize data")
             }
 
-            return webSocket.send(data: data)
+            return promise(from: webSocket.send, param1: data)
         }
     }
 
