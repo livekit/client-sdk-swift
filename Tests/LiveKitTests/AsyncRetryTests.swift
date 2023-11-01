@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 LiveKit
+ * Copyright 2023 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@
 @testable import LiveKit
 import XCTest
 
-class CompleterTests: XCTestCase {
+class AsyncRetryTests: XCTestCase {
 
     override func setUpWithError() throws {
 
@@ -27,7 +27,15 @@ class CompleterTests: XCTestCase {
 
     }
 
-    func testCompleter() async throws {
+    func testRetry1() async throws {
 
+        let test = Task.retrying(maxRetryCount: 1) { totalAttempts, currentAttempt in
+            print("[TEST] Retrying with remaining attemps: \(currentAttempt)/\(totalAttempts)...")
+            throw EngineError.state(message: "Test error")
+            return "Complete"
+        }
+
+        let value = try await test.value
+        print("[TEST] Ended with value: '\(value)'...")
     }
 }

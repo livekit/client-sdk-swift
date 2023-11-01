@@ -15,7 +15,6 @@
  */
 
 import Foundation
-import Promises
 
 #if canImport(Network)
 import Network
@@ -442,18 +441,18 @@ internal extension Engine {
         }
 
         let retryingTask = Task.retrying(maxRetryCount: _state.connectOptions.reconnectAttempts,
-                                         retryDelay: _state.connectOptions.reconnectAttemptDelay) { attemptCount in
+                                         retryDelay: _state.connectOptions.reconnectAttemptDelay) { totalAttempts, currentAttempt in
 
             // Not reconnecting state anymore
             guard case .reconnecting = _state.connectionState else { return }
 
-            // full reconnect failed, give up
+            // Full reconnect failed, give up
             guard .full != _state.reconnectMode else { return }
 
-            self.log("[Reconnect] retry in \(_state.connectOptions.reconnectAttemptDelay) seconds, \(attemptCount) tries left...")
+            self.log("[Reconnect] retry in \(_state.connectOptions.reconnectAttemptDelay) seconds, \(currentAttempt)/\(totalAttempts) tries left...")
 
-            // try full reconnect for the final attempt
-            if attemptCount == 0, _state.nextPreferredReconnectMode == nil {
+            // Try full reconnect for the final attempt
+            if totalAttempts == currentAttempt, _state.nextPreferredReconnectMode == nil {
                 _state.mutate {  $0.nextPreferredReconnectMode = .full }
             }
 

@@ -22,15 +22,20 @@ extension Task where Failure == Error {
         priority: TaskPriority? = nil,
         maxRetryCount: Int = 3,
         retryDelay: TimeInterval = 1,
-        @_implicitSelfCapture operation: @escaping (_ remainingAttempts: Int) async throws -> Success
+        @_implicitSelfCapture operation: @escaping (_ totalAttempts: Int, _ currentAttempt: Int) async throws -> Success
     ) -> Task {
-        Task(priority: priority) {
-            for currentCount in 0..<maxRetryCount {
+
+        assert(maxRetryCount >= 1, "Value must be larger than 1")
+
+        return Task(priority: priority) {
+            for currentCount in 0..<(maxRetryCount - 1) {
                 do {
-                    return try await operation(maxRetryCount - currentCount)
+                    return try await operation(maxRetryCount, currentCount + 1)
                 } catch {
                     let oneSecond = TimeInterval(1_000_000_000)
                     let delay = UInt64(oneSecond * retryDelay)
+
+                    // print("Retry waiting for \(retryDelay) seconds...")
                     try await Task<Never, Never>.sleep(nanoseconds: delay)
 
                     continue
@@ -38,7 +43,7 @@ extension Task where Failure == Error {
             }
 
             try Task<Never, Never>.checkCancellation()
-            return try await operation(0)
+            return try await operation(maxRetryCount, maxRetryCount)
         }
     }
 }
