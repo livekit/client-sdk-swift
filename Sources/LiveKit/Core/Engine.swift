@@ -198,7 +198,7 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
             let closeTransportPromises = [self.publisher,
                                           self.subscriber]
                 .compactMap { $0 }
-                .map { $0.close() }
+                .map { promise(from: $0.close) }
 
             return closeTransportPromises.all(on: self.queue)
 
@@ -306,9 +306,9 @@ internal extension Engine {
                                       delegate: self)
 
         publisher.onOffer = { [weak self] offer in
-            guard let self = self else { return Promise(EngineError.state(message: "self is nil")) }
-            log("publisher onOffer \(offer.sdp)")
-            return promise(from: signalClient.sendOffer, param1: offer)
+            guard let self = self else { return }
+            log("Publisher onOffer \(offer.sdp)")
+            try await signalClient.send(offer: offer)
         }
 
         // data over pub channel for backwards compatibility
@@ -455,7 +455,7 @@ internal extension Engine {
                             promise(from: self.sendSyncState)
                            }.then(on: queue) { () -> Promise<Void> in
 
-                            self.subscriber?.restartingIce = true
+                            self.subscriber?.isRestartingIce = true
 
                             // only if published, continue...
                             guard let publisher = self.publisher, self._state.hasPublished else {
@@ -464,7 +464,7 @@ internal extension Engine {
 
                             self.log("[reconnect] waiting for publisher to connect...")
 
-                            return publisher.createAndSendOffer(iceRestart: true).then(on: self.queue) {
+                            return promise(from: publisher.createAndSendOffer, param1: true).then(on: self.queue) {
                                 promise(from: self.publisherTransportConnectedCompleter.wait)
                             }
 

@@ -24,7 +24,7 @@ extension Engine: TransportDelegate {
         log("target: \(transport.target), state: \(pcState)")
 
         // primary connected
-        if transport.primary, case .connected = pcState {
+        if transport.isPrimary, case .connected = pcState {
             primaryTransportConnectedCompleter.resume(returning: ())
         }
 
@@ -35,7 +35,7 @@ extension Engine: TransportDelegate {
 
         if _state.connectionState.isConnected {
             // Attempt re-connect if primary or publisher transport failed
-            if (transport.primary || (_state.hasPublished && transport.target == .publisher)) && [.disconnected, .failed].contains(pcState) {
+            if (transport.isPrimary || (_state.hasPublished && transport.target == .publisher)) && [.disconnected, .failed].contains(pcState) {
                 log("[reconnect] starting, reason: transport disconnected or failed")
                 startReconnect()
             }

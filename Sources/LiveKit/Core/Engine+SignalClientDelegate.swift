@@ -43,7 +43,7 @@ extension Engine: SignalClientDelegate {
             return
         }
 
-        transport.addIceCandidate(iceCandidate).catch(on: queue) { error in
+        promise(from: transport.add(iceCandidate:), param1: iceCandidate).catch(on: queue) { error in
             self.log("failed to add ice candidate for transport: \(transport), error: \(error)", .error)
         }
     }
@@ -55,7 +55,7 @@ extension Engine: SignalClientDelegate {
             return
         }
 
-        publisher.setRemoteDescription(answer).catch(on: queue) { error in
+        promise(from: publisher.set(remoteDescription:), param1: answer).catch(on: queue) { error in
             self.log("failed to set remote description, error: \(error)", .error)
         }
 
@@ -64,23 +64,22 @@ extension Engine: SignalClientDelegate {
 
     func signalClient(_ signalClient: SignalClient, didReceiveOffer offer: LKRTCSessionDescription) {
 
-        log("received offer, creating & sending answer...")
+        log("Received offer, creating & sending answer...")
 
         guard let subscriber = self.subscriber else {
             log("failed to send answer, subscriber is nil", .error)
             return
         }
 
-        subscriber.setRemoteDescription(offer).then(on: queue) {
-            subscriber.createAnswer()
-        }.then(on: queue) { answer in
-            subscriber.setLocalDescription(answer)
-        }.then(on: queue) { answer in
-            promise(from: signalClient.sendAnswer, param1: answer)
-        }.then(on: queue) {
-            self.log("answer sent to signal")
-        }.catch(on: queue) { error in
-            self.log("failed to send answer, error: \(error)", .error)
+        Task {
+            do {
+                try await subscriber.set(remoteDescription: offer)
+                let answer = try await subscriber.createAnswer()
+                try await subscriber.set(localDescription: answer)
+                try await signalClient.send(answer: answer)
+            } catch let error {
+                log("Failed to send answer with error: \(error)", .error)
+            }
         }
     }
 
