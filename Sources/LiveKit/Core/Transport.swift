@@ -165,7 +165,7 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
         try await _negotiateSequence()
     }
 
-    func close() async throws {
+    func close() async {
 
         // prevent debounced negotiate firing
         self._debounceWorkItem?.cancel()

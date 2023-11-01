@@ -54,7 +54,17 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
     public internal(set) var subscriber: Transport?
 
     // weak ref to Room
-    public weak var room: Room?
+    public weak var _room: Room?
+
+    private func requireRoom() async throws -> Room {
+        guard let room = _room else { throw EngineError.state(message: "Room is nil") }
+        return room
+    }
+
+    private func requirePublisher() async throws -> Transport {
+        guard let publisher = publisher else { throw EngineError.state(message: "Publisher is nil") }
+        return publisher
+    }
 
     // MARK: - Private
 
@@ -140,124 +150,93 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
     // Connect sequence, resets existing state
     func connect(_ url: String,
                  _ token: String,
-                 connectOptions: ConnectOptions? = nil) -> Promise<Void> {
+                 connectOptions: ConnectOptions? = nil) async throws {
 
         // update options if specified
         if let connectOptions = connectOptions, connectOptions != _state.connectOptions {
             _state.mutate { $0.connectOptions = connectOptions }
         }
 
-        return cleanUp().then(on: queue) {
-            self._state.mutate { $0.connectionState = .connecting }
-        }.then(on: queue) {
-            self.fullConnectSequence(url, token)
-        }.then(on: queue) {
-            // connect sequence successful
-            self.log("Connect sequence completed")
+        try await cleanUp()
+
+        _state.mutate { $0.connectionState = .connecting }
+
+        do {
+            try await fullConnectSequence(url, token)
+
+            // Connect sequence successful
+            log("Connect sequence completed")
 
             // update internal vars (only if connect succeeded)
-            self._state.mutate {
+            _state.mutate {
                 $0.url = url
                 $0.token = token
                 $0.connectionState = .connected
             }
 
-        }.catch(on: queue) { error in
-            self.cleanUp(reason: .networkError(error))
+        } catch let error {
+            try await cleanUp(reason: .networkError(error))
         }
     }
 
     // cleanUp (reset) both Room & Engine's state
-    @discardableResult
-    func cleanUp(reason: DisconnectReason? = nil,
-                 isFullReconnect: Bool = false) -> Promise<Void> {
-
-        // this should never happen since Engine is owned by Room
-        guard let room = self.room else { return Promise(EngineError.state(message: "Room is nil")) }
-
-        // call Room's cleanUp
-        return room.cleanUp(reason: reason, isFullReconnect: isFullReconnect)
+    func cleanUp(reason: DisconnectReason? = nil, isFullReconnect: Bool = false) async throws {
+        // This should never happen since Engine is owned by Room
+        let room = try await requireRoom()
+        // Call Room's cleanUp
+        try room.cleanUp(reason: reason, isFullReconnect: isFullReconnect)
     }
 
     // Resets state of transports
-    func cleanUpRTC() -> Promise<Void> {
+    func cleanUpRTC() async throws {
+        // Close data channels
+        self.publisherDC.close()
+        self.subscriberDC.close()
 
-        Promise<Void>(on: queue) { [weak self] in
+        // Close transports
+        await publisher?.close()
+        self.publisher = nil
 
-            // close data channels
-            guard let self = self else { return }
-            self.publisherDC.close()
-            self.subscriberDC.close()
+        await subscriber?.close()
+        self.subscriber = nil
 
-        }.then(on: queue) { [weak self] () -> Promise<Void> in
-
-            // close transports
-
-            guard let self = self else { return Promise(()) }
-
-            let closeTransportPromises = [self.publisher,
-                                          self.subscriber]
-                .compactMap { $0 }
-                .map { promise(from: $0.close) }
-
-            return closeTransportPromises.all(on: self.queue)
-
-        }.then(on: queue) { _ in
-            self.publisher = nil
-            self.subscriber = nil
-            self._state.mutate { $0.hasPublished = false }
-        }
+        // Reset publish state
+        self._state.mutate { $0.hasPublished = false }
     }
 
-    @discardableResult
-    func publisherShouldNegotiate() -> Promise<Void> {
+    func publisherShouldNegotiate() async throws {
 
         log()
 
-        return Promise<Void>(on: queue) { [weak self] in
-
-            guard let self = self,
-                  let publisher = self.publisher else {
-                throw EngineError.state(message: "self or publisher is nil")
-            }
-
-            self._state.mutate { $0.hasPublished = true }
-
-            publisher.negotiate()
-        }
+        let publisher = try await requirePublisher()
+        publisher.negotiate()
+        self._state.mutate { $0.hasPublished = true }
     }
 
-    func send(userPacket: Livekit_UserPacket,
-              reliability: Reliability = .reliable) -> Promise<Void> {
+    func send(userPacket: Livekit_UserPacket, reliability: Reliability = .reliable) async throws {
 
-        func ensurePublisherConnected () -> Promise<Void> {
+        func ensurePublisherConnected () async throws {
 
-            guard subscriberPrimary else {
-                return Promise(())
-            }
+            guard subscriberPrimary else { return }
 
-            guard let publisher = publisher else {
-                return Promise(EngineError.state(message: "publisher is nil"))
-            }
+            let publisher = try await requirePublisher()
 
             if !publisher.isConnected, publisher.connectionState != .connecting {
-                publisherShouldNegotiate()
+                try await publisherShouldNegotiate()
             }
 
-            return promise(from: publisherTransportConnectedCompleter.wait).then(on: queue) { _ in
-                promise(from: self.publisherDC.openCompleter.wait)
-            }
+            try await publisherTransportConnectedCompleter.wait()
+            try await publisherDC.openCompleter.wait()
         }
 
-        return ensurePublisherConnected().then(on: queue) { () -> Void in
+        try await ensurePublisherConnected()
 
-            // at this point publisher should be .connected and dc should be .open
-            assert(self.publisher?.isConnected ?? false, "publisher is not .connected")
-            assert(self.publisherDC.isOpen, "publisher data channel is not .open")
+        // At this point publisher should be .connected and dc should be .open
+        assert(self.publisher?.isConnected ?? false, "publisher is not .connected")
+        assert(self.publisherDC.isOpen, "publisher data channel is not .open")
 
-            // should return true if successful
-            try self.publisherDC.send(userPacket: userPacket, reliability: reliability)
-        }
+        // Should return true if successful
+        try publisherDC.send(userPacket: userPacket, reliability: reliability)
     }
 }
 
@@ -327,7 +306,7 @@ internal extension Engine {
 
         if !subscriberPrimary {
             // lazy negotiation for protocol v3+
-            publisherShouldNegotiate()
+            try await publisherShouldNegotiate()
         }
 
         self.subscriber = subscriber
@@ -377,120 +356,89 @@ internal extension Engine {
 internal extension Engine {
 
     // full connect sequence, doesn't update connection state
-    func fullConnectSequence(_ url: String,
-                             _ token: String) -> Promise<Void> {
+    func fullConnectSequence(_ url: String, _ token: String) async throws {
+        // This should never happen since Engine is owned by Room
+        let room = try await requireRoom()
 
-        // this should never happen since Engine is owned by Room
-        guard let room = self.room else { return Promise(EngineError.state(message: "Room is nil")) }
+        try await signalClient.connect(url,
+                                       token,
+                                       connectOptions: _state.connectOptions,
+                                       reconnectMode: _state.reconnectMode,
+                                       adaptiveStream: room._state.options.adaptiveStream)
 
-        return promise(from: self.signalClient.connect,
-                       param1: url,
-                       param2: token,
-                       param3: _state.connectOptions,
-                       param4: _state.reconnectMode,
-                       param5: room._state.options.adaptiveStream)
-            .then(on: queue) {
-                // wait for joinResponse
-                promise(from: self.signalClient.joinResponseCompleter.wait)
-            }.then(on: queue) { _ in
-                self._state.mutate { $0.connectStopwatch.split(label: "signal") }
-            }.then(on: queue) { jr in
-                Promise(on: self.queue) { resolve, reject in
-                    Task {
-                        do {
-                            try await self.configureTransports(joinResponse: jr)
-                            resolve(())
-                        } catch let error {
-                            reject(error)
-                        }
-                    }
-                }
-            }.then(on: queue) {
-                promise(from: self.signalClient.resumeResponseQueue)
-            }.then(on: queue) {
-                promise(from: self.primaryTransportConnectedCompleter.wait)
-            }.then(on: queue) { _ -> Void in
-                self._state.mutate { $0.connectStopwatch.split(label: "engine") }
-                self.log("\(self._state.connectStopwatch)")
-            }
+        let jr = try await signalClient.joinResponseCompleter.wait()
+        _state.mutate { $0.connectStopwatch.split(label: "signal") }
+        try await configureTransports(joinResponse: jr)
+        try await signalClient.resumeResponseQueue()
+        try await primaryTransportConnectedCompleter.wait()
+        _state.mutate { $0.connectStopwatch.split(label: "engine") }
+        log("\(self._state.connectStopwatch)")
     }
 
-    @discardableResult
-    func startReconnect() -> Promise<Void> {
+    func startReconnect() async throws {
 
         guard case .connected = _state.connectionState else {
             log("[reconnect] must be called with connected state", .warning)
-            return Promise(EngineError.state(message: "Must be called with connected state"))
+            throw EngineError.state(message: "Must be called with connected state")
         }
 
         guard let url = _state.url, let token = _state.token else {
             log("[reconnect] url or token is nil", . warning)
-            return Promise(EngineError.state(message: "url or token is nil"))
+            throw EngineError.state(message: "url or token is nil")
         }
 
         guard subscriber != nil, publisher != nil else {
             log("[reconnect] publisher or subscriber is nil", .warning)
-            return Promise(EngineError.state(message: "Publisher or Subscriber is nil"))
+            throw EngineError.state(message: "Publisher or Subscriber is nil")
         }
 
         // quick connect sequence, does not update connection state
-        func quickReconnectSequence() -> Promise<Void> {
+        func quickReconnectSequence() async throws {
+            log("[Reconnect] Starting .quick reconnect sequence...")
 
-            log("[reconnect] starting QUICK reconnect sequence...")
+            // This should never happen since Engine is owned by Room
+            let room = try await requireRoom()
 
-            // this should never happen since Engine is owned by Room
-            guard let room = self.room else { return Promise(EngineError.state(message: "Room is nil")) }
+            try await signalClient.connect(url,
+                                           token,
+                                           connectOptions: _state.connectOptions,
+                                           reconnectMode: _state.reconnectMode,
+                                           adaptiveStream: room._state.options.adaptiveStream)
 
-            return promise(from: self.signalClient.connect,
-                           param1: url,
-                           param2: token,
-                           param3: _state.connectOptions,
-                           param4: _state.reconnectMode,
-                           param5: room._state.options.adaptiveStream).then(on: queue) {
-                            self.log("[reconnect] waiting for socket to connect...")
-                            // Wait for primary transport to connect (if not already)
-                            return promise(from: self.primaryTransportConnectedCompleter.wait)
-                           }.then(on: queue) { _ in
-                            // send SyncState before offer
-                            promise(from: self.sendSyncState)
-                           }.then(on: queue) { () -> Promise<Void> in
+            log("[Reconnect] waiting for socket to connect...")
+            // Wait for primary transport to connect (if not already)
+            try await primaryTransportConnectedCompleter.wait()
 
-                            self.subscriber?.isRestartingIce = true
+            // send SyncState before offer
+            try await sendSyncState()
 
-                            // only if published, continue...
-                            guard let publisher = self.publisher, self._state.hasPublished else {
-                                return Promise(())
-                            }
+            subscriber?.isRestartingIce = true
 
-                            self.log("[reconnect] waiting for publisher to connect...")
+            // Only if published, continue...
+            guard let publisher = publisher, _state.hasPublished else { return }
 
-                            return promise(from: publisher.createAndSendOffer, param1: true).then(on: self.queue) {
-                                promise(from: self.publisherTransportConnectedCompleter.wait)
-                            }
+            log("[reconnect] waiting for publisher to connect...")
 
-                           }.then(on: queue) { () -> Promise<Void> in
+            try await publisher.createAndSendOffer(iceRestart: true)
+            try await publisherTransportConnectedCompleter.wait()
 
-                            self.log("[reconnect] send queued requests")
-                            // always check if there are queued requests
-                            return promise(from: self.signalClient.sendQueuedRequests)
-                           }
+            log("[reconnect] Sending queued requests...")
+            // always check if there are queued requests
+            try await signalClient.sendQueuedRequests()
         }
 
         // "full" re-connection sequence
         // as a last resort, try to do a clean re-connection and re-publish existing tracks
-        func fullReconnectSequence() -> Promise<Void> {
+        func fullReconnectSequence() async throws {
+            log("[Reconnect] starting .full reconnect sequence...")
+            try await cleanUp(isFullReconnect: true)
 
-            log("[reconnect] starting FULL reconnect sequence...")
-
-            return cleanUp(isFullReconnect: true).then(on: queue) { () -> Promise<Void> in
-
-                guard let url = self._state.url,
-                      let token = self._state.token else {
-                    throw EngineError.state(message: "url or token is nil")
-                }
-
-                return self.fullConnectSequence(url, token)
+            guard let url = self._state.url,
+                  let token = self._state.token else {
+                throw EngineError.state(message: "url or token is nil")
             }
+
+            try await fullConnectSequence(url, token)
         }
 
         return retry(on: queue,
@@ -549,11 +497,7 @@ internal extension Engine {
 
     func sendSyncState() async throws {
 
-        guard let room = room else {
-            // this should never happen
-            log("Room is nil", .error)
-            return
-        }
+        let room = try await requireRoom()
 
         guard let subscriber = subscriber,
               let previousAnswer = subscriber.localDescription else {
@@ -596,11 +540,12 @@ extension Engine: ConnectivityListenerDelegate {
 
     func connectivityListener(_: ConnectivityListener, didSwitch path: NWPath) {
         log("didSwitch path: \(path)")
-
-        // network has been switched, e.g. wifi <-> cellular
-        if case .connected = _state.connectionState {
-            log("[reconnect] starting, reason: network path changed")
-            startReconnect()
+        Task {
+            // Network has been switched, e.g. wifi <-> cellular
+            if case .connected = _state.connectionState {
+                log("[Reconnect] Starting, reason: network path changed")
+                try await startReconnect()
+            }
         }
     }
 }

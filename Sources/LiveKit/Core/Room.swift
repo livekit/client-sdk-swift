@@ -295,7 +295,7 @@ internal extension Room {
         }
 
         return promise(from: engine.signalClient.cleanUp, param1: reason).then(on: queue) {
-            self.engine.cleanUpRTC()
+            promise(from: self.engine.cleanUpRTC)
         }.then(on: queue) {
             self.cleanUpParticipants()
         }.then(on: queue) {
