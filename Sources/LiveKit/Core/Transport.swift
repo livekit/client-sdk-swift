@@ -70,7 +70,7 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
 
     // forbid direct access to PeerConnection
     private let _pc: LKRTCPeerConnection
-    private var _pendingCandidates: [LKRTCIceCandidate] = []
+    private var _pendingCandidatesQueue = AsyncQueueActor<LKRTCIceCandidate>()
 
     // keep reference to cancel later
     private var _debounceWorkItem: DispatchWorkItem?
@@ -108,18 +108,21 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
             return try await _pc.add(candidate)
         }
 
-        _pendingCandidates.append(candidate) // TODO: Use QueueActor
+        await _pendingCandidatesQueue.enqueue(candidate)
     }
 
     func set(remoteDescription sd: LKRTCSessionDescription) async throws {
 
         try await _pc.setRemoteDescription(sd)
 
-        for pendingCandidate in _pendingCandidates {
-            try await add(iceCandidate: pendingCandidate)
+        await _pendingCandidatesQueue.resume { candidate in
+            do {
+                try await add(iceCandidate: candidate)
+            } catch let error {
+                log("Failed to add(iceCandidate:) with error: \(error)", .error)
+            }
         }
 
-        _pendingCandidates = []
         restartingIce = false
 
         if _reNegotiate {
