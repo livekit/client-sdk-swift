@@ -173,7 +173,9 @@ public class LocalParticipant: Participant {
                 }
             }
 
-            self.room.engine.publisherShouldNegotiate()
+            Task {
+                try await self.room.engine.publisherShouldNegotiate()
+            }
 
             let publication = LocalTrackPublication(info: trackInfo, track: track, participant: self)
             self.addTrack(publication: publication)
@@ -268,7 +270,7 @@ public class LocalParticipant: Participant {
             }
 
             return promise(from: publisher.remove(track:), param1: sender).then(on: self.queue) {
-                engine.publisherShouldNegotiate()
+                promise(from: engine.publisherShouldNegotiate)
             }
         }.then(on: queue) {
             track.onUnpublish()
@@ -302,8 +304,7 @@ public class LocalParticipant: Participant {
             $0.topic = topic ?? options.topic ?? ""
         }
 
-        return room.engine.send(userPacket: userPacket,
-                                reliability: reliability)
+        return promise(from: room.engine.send, param1: userPacket, param2: reliability)
     }
 
     /**

@@ -32,7 +32,9 @@ extension Engine: SignalClientDelegate {
            // engine is currently connected state
            case .connected = _state.connectionState {
             log("[reconnect] starting, reason: socket network error. connectionState: \(_state.connectionState)")
-            startReconnect()
+            Task {
+                try await startReconnect()
+            }
         }
     }
 

@@ -151,7 +151,7 @@ public class Room: NSObject, ObservableObject, Loggable {
         log()
 
         // weak ref
-        engine.room = self
+        engine._room = self
 
         // listen to engine & signalClient
         engine.add(delegate: self)
@@ -241,11 +241,10 @@ public class Room: NSObject, ObservableObject, Loggable {
         }
 
         // monitor.start(queue: monitorQueue)
-        return engine.connect(url, token,
-                              connectOptions: connectOptions).then(on: queue) { () -> Room in
-                                self.log("connected to \(String(describing: self)) \(String(describing: state.localParticipant))", .info)
-                                return self
-                              }
+        return promise(from: engine.connect, param1: url, param2: token, param3: connectOptions).then(on: queue) { () -> Room in
+            self.log("connected to \(String(describing: self)) \(String(describing: state.localParticipant))", .info)
+            return self
+        }
     }
 
     @discardableResult

@@ -441,52 +441,76 @@ internal extension Engine {
             try await fullConnectSequence(url, token)
         }
 
-        return retry(on: queue,
-                     attempts: _state.connectOptions.reconnectAttempts,
-                     delay: _state.connectOptions.reconnectAttemptDelay,
-                     condition: { [weak self] triesLeft, _ in
-                        guard let self = self else { return false }
+        let retryingTask = Task.retrying(maxRetryCount: _state.connectOptions.reconnectAttempts,
+                                         retryDelay: _state.connectOptions.reconnectAttemptDelay) { attemptCount in
 
-                        // not reconnecting state anymore
-                        guard case .reconnecting = self._state.connectionState else { return false }
+            // Not reconnecting state anymore
+            guard case .reconnecting = _state.connectionState else { return }
 
-                        // full reconnect failed, give up
-                        guard .full != self._state.reconnectMode else { return false }
+            // full reconnect failed, give up
+            guard .full != _state.reconnectMode else { return }
 
-                        self.log("[reconnect] retry in \(self._state.connectOptions.reconnectAttemptDelay) seconds, \(triesLeft) tries left...")
+            self.log("[Reconnect] retry in \(_state.connectOptions.reconnectAttemptDelay) seconds, \(attemptCount) tries left...")
 
-                        // try full reconnect for the final attempt
-                        if triesLeft == 1,
-                           self._state.nextPreferredReconnectMode == nil {
-                            self._state.mutate {  $0.nextPreferredReconnectMode = .full }
-                        }
-
-                        return true
-                     }, _: { [weak self] in
-                        // this should never happen
-                        guard let self = self else { return Promise(EngineError.state(message: "self is nil")) }
-
-                        let mode: ReconnectMode = self._state.mutate {
-
-                            let mode: ReconnectMode = ($0.nextPreferredReconnectMode == .full || $0.reconnectMode == .full) ? .full : .quick
-                            $0.connectionState = .reconnecting
-                            $0.reconnectMode = mode
-                            $0.nextPreferredReconnectMode = nil
-
-                            return mode
-                        }
-
-                        return mode == .full ? fullReconnectSequence() : quickReconnectSequence()
-                     })
-            .then(on: queue) {
-                // re-connect sequence successful
-                self.log("[reconnect] sequence completed")
-                self._state.mutate { $0.connectionState = .connected }
-            }.catch(on: queue) { error in
-                self.log("[reconnect] sequence failed with error: \(error)")
-                // finally disconnect if all attempts fail
-                self.cleanUp(reason: .networkError(error))
+            // try full reconnect for the final attempt
+            if attemptCount == 0, _state.nextPreferredReconnectMode == nil {
+                _state.mutate {  $0.nextPreferredReconnectMode = .full }
             }
+
+            let mode: ReconnectMode = self._state.mutate {
+                let mode: ReconnectMode = ($0.nextPreferredReconnectMode == .full || $0.reconnectMode == .full) ? .full : .quick
+                $0.connectionState = .reconnecting
+                $0.reconnectMode = mode
+                $0.nextPreferredReconnectMode = nil
+                return mode
+            }
+
+            if case .quick = mode {
+                try await quickReconnectSequence()
+            } else if case .full = mode {
+                try await fullReconnectSequence()
+            }
+        }
+
+        do {
+            try await retryingTask.value
+            // Re-connect sequence successful
+            log("[reconnect] sequence completed")
+            _state.mutate { $0.connectionState = .connected }
+        } catch let error {
+            log("[Reconnect] Sequence failed with error: \(error)")
+            // Finally disconnect if all attempts fail
+            try await cleanUp(reason: .networkError(error))
+        }
+
+        //        return retry(on: queue,
+        //                     attempts: _state.connectOptions.reconnectAttempts,
+        //                     delay: _state.connectOptions.reconnectAttemptDelay,
+        //                     condition: { [weak self] triesLeft, _ in
+        //                        guard let self = self else { return false }
+
+        //                        return true
+        //                     }, _: { [weak self] in
+        //                        // this should never happen
+        //                        guard let self = self else { return Promise(EngineError.state(message: "self is nil")) }
+        //
+        //                        let mode: ReconnectMode = self._state.mutate {
+        //
+        //                            let mode: ReconnectMode = ($0.nextPreferredReconnectMode == .full || $0.reconnectMode == .full) ? .full : .quick
+        //                            $0.connectionState = .reconnecting
+        //                            $0.reconnectMode = mode
+        //                            $0.nextPreferredReconnectMode = nil
+        //
+        //                            return mode
+        //                        }
+        //
+        //                        return mode == .full ? fullReconnectSequence() : quickReconnectSequence()
+        //                     })
+        //            .then(on: queue) {
+
+        //            }.catch(on: queue) { error in
+        //
+        //            }
     }
 
 }
