@@ -26,9 +26,9 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
     // MARK: - Public
 
     public let target: Livekit_SignalTarget
-    public let primary: Bool
+    public let isPrimary: Bool
 
-    public var restartingIce: Bool = false
+    public var isRestartingIce: Bool = false
     public var onOffer: OnOfferBlock?
 
     public var connectionState: RTCPeerConnectionState {
@@ -88,7 +88,7 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
         }
 
         self.target = target
-        self.primary = primary
+        self.isPrimary = primary
         self._pc = pc
 
         super.init()
@@ -104,7 +104,7 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
 
     func add(iceCandidate candidate: LKRTCIceCandidate) async throws {
 
-        if remoteDescription != nil && !restartingIce {
+        if remoteDescription != nil && !isRestartingIce {
             return try await _pc.add(candidate)
         }
 
@@ -123,7 +123,7 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
             }
         }
 
-        restartingIce = false
+        isRestartingIce = false
 
         if _reNegotiate {
             _reNegotiate = false
@@ -142,7 +142,7 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
         if iceRestart {
             log("Restarting ICE...")
             constraints[kRTCMediaConstraintsIceRestart] = kRTCMediaConstraintsValueTrue
-            restartingIce = true
+            isRestartingIce = true
         }
 
         if signalingState == .haveLocalOffer, !(iceRestart && remoteDescription != nil) {
@@ -284,20 +284,20 @@ internal extension Transport {
         try await _pc.setLocalDescription(sd)
     }
 
-    // TODO: Doesn't need to be async
     func addTransceiver(with track: LKRTCMediaStreamTrack,
-                        transceiverInit: LKRTCRtpTransceiverInit) async throws -> LKRTCRtpTransceiver {
+                        transceiverInit: LKRTCRtpTransceiverInit) throws -> LKRTCRtpTransceiver {
 
-        guard let transceiver = _pc.addTransceiver(with: track, init: transceiverInit) else {
+        guard let transceiver = DispatchQueue.liveKitWebRTC.sync(execute: { _pc.addTransceiver(with: track, init: transceiverInit) }) else {
             throw EngineError.webRTC(message: "Failed to add transceiver")
         }
 
         return transceiver
     }
 
-    // TODO: Doesn't need to be async
-    func remove(track sender: LKRTCRtpSender) async throws {
-        _pc.removeTrack(sender)
+    func remove(track sender: LKRTCRtpSender) throws {
+        guard DispatchQueue.liveKitWebRTC.sync(execute: { _pc.removeTrack(sender) }) else {
+            throw EngineError.webRTC(message: "Failed to remove track")
+        }
     }
 
     func dataChannel(for label: String,

@@ -455,7 +455,7 @@ internal extension Engine {
                             promise(from: self.sendSyncState)
                            }.then(on: queue) { () -> Promise<Void> in
 
-                            self.subscriber?.restartingIce = true
+                            self.subscriber?.isRestartingIce = true
 
                             // only if published, continue...
                             guard let publisher = self.publisher, self._state.hasPublished else {
