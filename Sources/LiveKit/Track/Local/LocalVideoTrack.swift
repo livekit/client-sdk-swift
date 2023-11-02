@@ -43,12 +43,14 @@ public class LocalVideoTrack: Track, LocalTrack, VideoTrack {
                    track: rtcTrack)
     }
 
+    @discardableResult
     override public func start() async throws -> Bool {
         let didStart = try await super.start()
         if didStart { capturer.startCapture() }
         return didStart
     }
 
+    @discardableResult
     override public func stop() async throws -> Bool {
         let didStop = try await super.stop()
         if didStop { capturer.stopCapture() }

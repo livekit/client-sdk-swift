@@ -18,19 +18,19 @@ import Foundation
 import Promises
 import AVFoundation
 
-extension CameraCapturer {
-
-    @objc(switchCameraPosition)
-    @discardableResult
-    public func switchCameraPositionObjC() -> Promise<Bool>.ObjCPromise<NSNumber> {
-
-        switchCameraPosition().asObjCPromise()
-    }
-
-    @objc(setCameraPosition:)
-    @discardableResult
-    public func setCameraPositionObjC(_ position: AVCaptureDevice.Position) -> Promise<Bool>.ObjCPromise<NSNumber> {
-
-        setCameraPosition(position).asObjCPromise()
-    }
-}
+// extension CameraCapturer {
+//
+//    @objc(switchCameraPosition)
+//    @discardableResult
+//    public func switchCameraPositionObjC() -> Promise<Bool>.ObjCPromise<NSNumber> {
+//
+//        switchCameraPosition().asObjCPromise()
+//    }
+//
+//    @objc(setCameraPosition:)
+//    @discardableResult
+//    public func setCameraPositionObjC(_ position: AVCaptureDevice.Position) -> Promise<Bool>.ObjCPromise<NSNumber> {
+//
+//        setCameraPosition(position).asObjCPromise()
+//    }
+// }

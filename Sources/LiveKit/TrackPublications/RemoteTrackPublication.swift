@@ -16,7 +16,6 @@
 
 import Foundation
 import CoreGraphics
-import Promises
 
 @_implementationOnly import WebRTC
 
@@ -72,52 +71,45 @@ public class RemoteTrackPublication: TrackPublication {
     }
 
     /// Subscribe or unsubscribe from this track.
-    @discardableResult
-    public func set(subscribed newValue: Bool) -> Promise<Void> {
+    public func set(subscribed newValue: Bool) async throws {
 
-        guard _state.preferSubscribed != newValue else { return Promise(()) }
+        guard _state.preferSubscribed != newValue else { return }
 
-        guard let participant = participant else {
-            log("Participant is nil", .warning)
-            return Promise(EngineError.state(message: "Participant is nil"))
-        }
+        let participant = try await requireParticipant()
 
         _state.mutate { $0.preferSubscribed = newValue }
 
-        return promise(from: participant.room.engine.signalClient.sendUpdateSubscription,
-                       param1: participant.sid,
-                       param2: sid,
-                       param3: newValue)
+        try await participant.room.engine.signalClient.sendUpdateSubscription(participantSid: participant.sid,
+                                                                              trackSid: sid,
+                                                                              subscribed: newValue)
     }
 
     /// Enable or disable server from sending down data for this track.
     ///
     /// This is useful when the participant is off screen, you may disable streaming down their video to reduce bandwidth requirements.
-    @discardableResult
-    public func set(enabled newValue: Bool) -> Promise<Void> {
-        // no-op if already the desired value
+    public func set(enabled newValue: Bool) async throws {
+        // No-op if already the desired value
         let trackSettings = _state.trackSettings
-        guard trackSettings.enabled != newValue else { return Promise(()) }
+        guard trackSettings.enabled != newValue else { return }
 
-        guard userCanModifyTrackSettings else { return Promise(TrackError.state(message: "adaptiveStream must be disabled and track must be subscribed")) }
+        try await userCanModifyTrackSettings()
 
         let settings = trackSettings.copyWith(enabled: newValue)
-        // attempt to set the new settings
-        return send(trackSettings: settings)
+        // Attempt to set the new settings
+        try await send(trackSettings: settings)
     }
 
     /// Set preferred video FPS for this track.
-    @discardableResult
-    public func set(preferredFPS newValue: UInt) -> Promise<Void> {
-        // no-op if already the desired value
+    public func set(preferredFPS newValue: UInt) async throws {
+        // No-op if already the desired value
         let trackSettings = _state.trackSettings
-        guard trackSettings.preferredFPS != newValue else { return Promise(()) }
+        guard trackSettings.preferredFPS != newValue else { return }
 
-        guard userCanModifyTrackSettings else { return Promise(TrackError.state(message: "adaptiveStream must be disabled and track must be subscribed")) }
+        try await userCanModifyTrackSettings()
 
         let settings = trackSettings.copyWith(preferredFPS: newValue)
-        // attempt to set the new settings
-        return send(trackSettings: settings)
+        // Attempt to set the new settings
+        try await send(trackSettings: settings)
     }
 
     @discardableResult
@@ -184,9 +176,11 @@ private extension RemoteTrackPublication {
         return participant.room.engine._state.connectionState
     }
 
-    var userCanModifyTrackSettings: Bool {
+    func userCanModifyTrackSettings() async throws {
         // adaptiveStream must be disabled and must be subscribed
-        !isAdaptiveStreamEnabled && subscribed
+        if isAdaptiveStreamEnabled || !subscribed {
+            throw TrackError.state(message: "adaptiveStream must be disabled and track must be subscribed")
+        }
     }
 }
 
@@ -242,12 +236,9 @@ internal extension RemoteTrackPublication {
     }
 
     // attempt to send track settings
-    func send(trackSettings newValue: TrackSettings) -> Promise<Void> {
+    func send(trackSettings newValue: TrackSettings) async throws {
 
-        guard let participant = participant else {
-            log("Participant is nil", .warning)
-            return Promise(EngineError.state(message: "Participant is nil"))
-        }
+        let participant = try await requireParticipant()
 
         log("[adaptiveStream] sending \(newValue), sid: \(sid)")
 
@@ -257,7 +248,7 @@ internal extension RemoteTrackPublication {
 
         if state.isSendingTrackSettings {
             // Previous send hasn't completed yet...
-            return Promise(EngineError.state(message: "Already busy sending new track settings"))
+            throw EngineError.state(message: "Already busy sending new track settings")
         }
 
         // update state
@@ -266,25 +257,19 @@ internal extension RemoteTrackPublication {
             $0.isSendingTrackSettings = true
         }
 
-        // attempt to set the new settings
-        return promise(from: participant.room.engine.signalClient.sendUpdateTrackSettings,
-                       param1: sid,
-                       param2: newValue)
-            .then(on: queue) { [weak self] _ in
-                guard let self = self else { return }
-                self._state.mutate { $0.isSendingTrackSettings = false }
+        // Attempt to set the new settings
+        do {
+            try await participant.room.engine.signalClient.sendUpdateTrackSettings(sid: sid, settings: newValue)
+            _state.mutate { $0.isSendingTrackSettings = false }
+        } catch let error {
+            // Revert track settings on failure
+            _state.mutate {
+                $0.trackSettings = state.trackSettings
+                $0.isSendingTrackSettings = false
             }
-            .catch(on: queue) { [weak self] error in
-                guard let self = self else { return }
 
-                // revert track settings on failure
-                self._state.mutate {
-                    $0.trackSettings = state.trackSettings
-                    $0.isSendingTrackSettings = false
-                }
-
-                self.log("failed to send track settings: \(newValue), sid: \(self.sid), error: \(error)")
-            }
+            log("Failed to send track settings: \(newValue), sid: \(self.sid), error: \(error)")
+        }
     }
 }
 
@@ -371,14 +356,16 @@ extension RemoteTrackPublication {
             DispatchQueue.liveKitWebRTC.sync { videoTrack.shouldReceive = enabled }
         }
 
-        send(trackSettings: newSettings).catch(on: queue) { [weak self] error in
-            guard let self = self else { return }
-            // revert to old settings on failure
-            self._state.mutate { $0.trackSettings = oldSettings }
-            self.log("[adaptiveStream] failed to send trackSettings, sid: \(self.sid) error: \(error)", .error)
-        }.always(on: queue) { [weak self] in
-            guard let self = self else { return }
-            self.asTimer.restart()
+        Task {
+            do {
+                try await send(trackSettings: newSettings)
+            } catch let error {
+                // Revert to old settings on failure
+                _state.mutate { $0.trackSettings = oldSettings }
+                log("[adaptiveStream] failed to send trackSettings, sid: \(self.sid) error: \(error)", .error)
+            }
+
+            asTimer.restart()
         }
     }
 }
