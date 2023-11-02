@@ -17,25 +17,25 @@
 import Foundation
 import Promises
 
-extension Room {
-
-    @objc(connectWithURL:token:connectOptions:roomOptions:)
-    @discardableResult
-    public func connect(url: String,
-                        token: String,
-                        connectOptions: ConnectOptions? = nil,
-                        roomOptions: RoomOptions? = nil) -> Promise<Room>.ObjCPromise<Room> {
-
-        connect(url,
-                token,
-                connectOptions: connectOptions,
-                roomOptions: roomOptions).asObjCPromise()
-    }
-
-    @objc(disconnect)
-    @discardableResult
-    public func disconnectObjC() -> Promise<Void>.ObjCPromise<NSNull> {
-
-        disconnect().asObjCPromise()
-    }
-}
+// extension Room {
+//
+//    @objc(connectWithURL:token:connectOptions:roomOptions:)
+//    @discardableResult
+//    public func connect(url: String,
+//                        token: String,
+//                        connectOptions: ConnectOptions? = nil,
+//                        roomOptions: RoomOptions? = nil) -> Promise<Room>.ObjCPromise<Room> {
+//
+//        connect(url,
+//                token,
+//                connectOptions: connectOptions,
+//                roomOptions: roomOptions).asObjCPromise()
+//    }
+//
+//    @objc(disconnect)
+//    @discardableResult
+//    public func disconnectObjC() -> Promise<Void>.ObjCPromise<NSNull> {
+//
+//        disconnect().asObjCPromise()
+//    }
+// }

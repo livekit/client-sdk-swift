@@ -15,7 +15,6 @@
  */
 
 import Foundation
-import Promises
 
 @objc
 public protocol LocalTrack where Self: Track {
@@ -26,11 +25,11 @@ public protocol LocalTrack where Self: Track {
     @objc(publishState)
     var publishState: PublishState { get }
 
-    @objc(mute)
-    @discardableResult
-    func mute() -> Promise<Void>.ObjCPromise<NSNull>
+    //    @objc(mute)
+    //    @discardableResult
+    //    func mute() -> Promise<Void>.ObjCPromise<NSNull>
 
-    @objc(unmute)
-    @discardableResult
-    func unmute() -> Promise<Void>.ObjCPromise<NSNull>
+    //    @objc(unmute)
+    //    @discardableResult
+    //    func unmute() -> Promise<Void>.ObjCPromise<NSNull>
 }

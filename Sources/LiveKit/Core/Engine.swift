@@ -183,11 +183,11 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
         // This should never happen since Engine is owned by Room
         let room = try await requireRoom()
         // Call Room's cleanUp
-        try room.cleanUp(reason: reason, isFullReconnect: isFullReconnect)
+        await room.cleanUp(reason: reason, isFullReconnect: isFullReconnect)
     }
 
     // Resets state of transports
-    func cleanUpRTC() async throws {
+    func cleanUpRTC() async {
         // Close data channels
         self.publisherDC.close()
         self.subscriberDC.close()

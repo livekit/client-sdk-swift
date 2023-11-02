@@ -15,7 +15,6 @@
  */
 
 import Foundation
-import Promises
 
 #if canImport(Network)
 import Network
@@ -214,11 +213,10 @@ public class Room: NSObject, ObservableObject, Loggable {
         }
     }
 
-    @discardableResult
     public func connect(_ url: String,
                         _ token: String,
                         connectOptions: ConnectOptions? = nil,
-                        roomOptions: RoomOptions? = nil) -> Promise<Room> {
+                        roomOptions: RoomOptions? = nil) async throws {
 
         log("connecting to room...", .info)
 
@@ -226,7 +224,7 @@ public class Room: NSObject, ObservableObject, Loggable {
 
         guard state.localParticipant == nil else {
             log("localParticipant is not nil", .warning)
-            return Promise(EngineError.state(message: "localParticipant is not nil"))
+            throw EngineError.state(message: "localParticipant is not nil")
         }
 
         // update options if specified
@@ -240,25 +238,23 @@ public class Room: NSObject, ObservableObject, Loggable {
             self.e2eeManager!.setup(room: self)
         }
 
-        // monitor.start(queue: monitorQueue)
-        return promise(from: engine.connect, param1: url, param2: token, param3: connectOptions).then(on: queue) { () -> Room in
-            self.log("connected to \(String(describing: self)) \(String(describing: state.localParticipant))", .info)
-            return self
-        }
+        try await engine.connect(url, token, connectOptions: connectOptions)
+
+        log("Connected to \(String(describing: self)) \(String(describing: state.localParticipant))", .info)
     }
 
-    @discardableResult
-    public func disconnect() -> Promise<Void> {
+    public func disconnect() async {
 
-        // return if already disconnected state
-        if case .disconnected = connectionState { return Promise(()) }
+        // Return if already disconnected state
+        if case .disconnected = connectionState { return }
 
-        return promise(from: engine.signalClient.sendLeave)
-            .recover(on: queue) { self.log("Failed to send leave, error: \($0)") }
-            .then(on: queue) { [weak self] in
-                guard let self = self else { return }
-                self.cleanUp(reason: .user)
-            }
+        do {
+            try await engine.signalClient.sendLeave()
+        } catch let error {
+            log("Failed to send leave with error: \(error)")
+        }
+
+        await cleanUp(reason: .user)
     }
 }
 
@@ -267,13 +263,11 @@ public class Room: NSObject, ObservableObject, Loggable {
 internal extension Room {
 
     // Resets state of Room
-    @discardableResult
-    func cleanUp(reason: DisconnectReason? = nil,
-                 isFullReconnect: Bool = false) -> Promise<Void> {
+    func cleanUp(reason: DisconnectReason? = nil, isFullReconnect: Bool = false) async {
 
-        log("reason: \(String(describing: reason))")
+        log("Reason: \(String(describing: reason))")
 
-        // start Engine cleanUp sequence
+        // Start Engine cleanUp sequence
 
         engine.primaryTransportConnectedCompleter.cancel()
         engine.publisherTransportConnectedCompleter.cancel()
@@ -293,17 +287,11 @@ internal extension Room {
             )
         }
 
-        return promise(from: engine.signalClient.cleanUp, param1: reason).then(on: queue) {
-            promise(from: self.engine.cleanUpRTC)
-        }.then(on: queue) {
-            self.cleanUpParticipants()
-        }.then(on: queue) {
-            // reset state
-            self._state.mutate { $0 = State(options: $0.options) }
-        }.catch(on: queue) { error in
-            // this should never happen
-            self.log("Room cleanUp failed with error: \(error)", .error)
-        }
+        await engine.signalClient.cleanUp(reason: reason)
+        await engine.cleanUpRTC()
+        await cleanUpParticipants()
+        // Reset state
+        _state.mutate { $0 = State(options: $0.options) }
     }
 }
 
@@ -311,8 +299,7 @@ internal extension Room {
 
 internal extension Room {
 
-    @discardableResult
-    func cleanUpParticipants(notify _notify: Bool = true) -> Promise<Void> {
+    func cleanUpParticipants(notify _notify: Bool = true) async {
 
         log("notify: \(_notify)")
 
@@ -322,25 +309,23 @@ internal extension Room {
             .joined()
             .compactMap { $0 }
 
-        let cleanUpPromises = allParticipants.map { $0.cleanUp(notify: _notify) }
+        for participant in allParticipants {
+            await participant.cleanUp(notify: _notify)
+        }
 
-        return cleanUpPromises.all(on: queue).then(on: queue) {
-            //
-            self._state.mutate {
-                $0.localParticipant = nil
-                $0.remoteParticipants = [:]
-            }
+        _state.mutate {
+            $0.localParticipant = nil
+            $0.remoteParticipants = [:]
         }
     }
 
-    @discardableResult
-    func onParticipantDisconnect(sid: Sid) -> Promise<Void> {
+    func onParticipantDisconnect(sid: Sid) async throws {
 
         guard let participant = _state.mutate({ $0.remoteParticipants.removeValue(forKey: sid) }) else {
-            return Promise(EngineError.state(message: "Participant not found for \(sid)"))
+            throw EngineError.state(message: "Participant not found for \(sid)")
         }
 
-        return participant.cleanUp(notify: true)
+        await participant.cleanUp(notify: true)
     }
 }
 
@@ -382,31 +367,47 @@ extension Room: AppStateDelegate {
         guard _state.options.suspendLocalVideoTracksInBackground else { return }
 
         guard let localParticipant = localParticipant else { return }
-        let promises = localParticipant.localVideoTracks.filter { $0.source == .camera }.map { $0.suspend() }
 
-        guard !promises.isEmpty else { return }
+        let cameraVideoTracks = localParticipant.localVideoTracks.filter { $0.source == .camera }
 
-        promises.all(on: queue).then(on: queue) {
-            self.log("suspended all video tracks")
+        guard !cameraVideoTracks.isEmpty else { return }
+
+        Task {
+            for cameraVideoTrack in cameraVideoTracks {
+                do {
+                    try await cameraVideoTrack.suspend()
+                } catch let error {
+                    log("Failed to suspend video track with error: \(error)")
+                }
+            }
         }
     }
 
     func appWillEnterForeground() {
 
         guard let localParticipant = localParticipant else { return }
-        let promises = localParticipant.localVideoTracks.filter { $0.source == .camera }.map { $0.resume() }
 
-        guard !promises.isEmpty else { return }
+        let cameraVideoTracks = localParticipant.localVideoTracks.filter { $0.source == .camera }
 
-        promises.all(on: queue).then(on: queue) {
-            self.log("resumed all video tracks")
+        guard !cameraVideoTracks.isEmpty else { return }
+
+        Task {
+            for cameraVideoTrack in cameraVideoTracks {
+                do {
+                    try await cameraVideoTrack.resume()
+                } catch let error {
+                    log("Failed to resumed video track with error: \(error)")
+                }
+            }
         }
     }
 
     func appWillTerminate() {
         // attempt to disconnect if already connected.
         // this is not guranteed since there is no reliable way to detect app termination.
-        disconnect()
+        Task {
+            await disconnect()
+        }
     }
 }
 

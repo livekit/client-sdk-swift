@@ -17,15 +17,15 @@
 import Foundation
 import Promises
 
-extension LocalAudioTrack {
-
-    public func mute() -> Promise<Void>.ObjCPromise<NSNull> {
-
-        super.muteObjC()
-    }
-
-    public func unmute() -> Promise<Void>.ObjCPromise<NSNull> {
-
-        super.unmuteObjC()
-    }
-}
+// extension LocalAudioTrack {
+//
+//    public func mute() -> Promise<Void>.ObjCPromise<NSNull> {
+//
+//        super.muteObjC()
+//    }
+//
+//    public func unmute() -> Promise<Void>.ObjCPromise<NSNull> {
+//
+//        super.unmuteObjC()
+//    }
+// }

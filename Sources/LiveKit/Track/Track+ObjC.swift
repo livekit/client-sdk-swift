@@ -19,31 +19,31 @@ import Promises
 
 @_implementationOnly import WebRTC
 
-extension Track {
-
-    @objc(start)
-    @discardableResult
-    public func startObjC() -> Promise<Bool>.ObjCPromise<NSNumber> {
-
-        start().asObjCPromise()
-    }
-
-    @objc(stop)
-    @discardableResult
-    public func stopObjC() -> Promise<Bool>.ObjCPromise<NSNumber> {
-
-        stop().asObjCPromise()
-    }
-
-    @discardableResult
-    internal func muteObjC() -> Promise<Void>.ObjCPromise<NSNull> {
-
-        _mute().asObjCPromise()
-    }
-
-    @discardableResult
-    internal func unmuteObjC() -> Promise<Void>.ObjCPromise<NSNull> {
-
-        _unmute().asObjCPromise()
-    }
-}
+// extension Track {
+//
+//    @objc(start)
+//    @discardableResult
+//    public func startObjC() -> Promise<Bool>.ObjCPromise<NSNumber> {
+//
+//        start().asObjCPromise()
+//    }
+//
+//    @objc(stop)
+//    @discardableResult
+//    public func stopObjC() -> Promise<Bool>.ObjCPromise<NSNumber> {
+//
+//        stop().asObjCPromise()
+//    }
+//
+//    @discardableResult
+//    internal func muteObjC() -> Promise<Void>.ObjCPromise<NSNull> {
+//
+//        _mute().asObjCPromise()
+//    }
+//
+//    @discardableResult
+//    internal func unmuteObjC() -> Promise<Void>.ObjCPromise<NSNull> {
+//
+//        _unmute().asObjCPromise()
+//    }
+// }

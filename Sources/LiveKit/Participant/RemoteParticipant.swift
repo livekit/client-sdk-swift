@@ -73,20 +73,22 @@ public class RemoteParticipant: Participant {
             }
         }
 
-        let unpublishPromises = _state.tracks.values
+        let unpublishRemoteTrackPublications = _state.tracks.values
             .filter { validTrackPublications[$0.sid] == nil }
             .compactMap { $0 as? RemoteTrackPublication }
-            .map { unpublish(publication: $0) }
 
-        // TODO: Return a promise
-        unpublishPromises.all(on: queue).catch(on: queue) { error in
-            self.log("Failed to unpublish with error: \(error)")
+        for unpublishRemoteTrackPublication in unpublishRemoteTrackPublications {
+            Task {
+                do {
+                    try await unpublish(publication: unpublishRemoteTrackPublication)
+                } catch let error {
+                    log("Failed to unpublish with error: \(error)")
+                }
+            }
         }
     }
 
-    internal func addSubscribedMediaTrack(rtcTrack: LKRTCMediaStreamTrack,
-                                          rtpReceiver: LKRTCRtpReceiver,
-                                          sid: Sid) -> Promise<Void> {
+    internal func addSubscribedMediaTrack(rtcTrack: LKRTCMediaStreamTrack, rtpReceiver: LKRTCRtpReceiver, sid: Sid) async throws {
 
         let track: Track
 
@@ -99,18 +101,14 @@ public class RemoteParticipant: Participant {
             room.delegates.notify(label: { "room.didFailToSubscribe trackSid: \(sid)" }) {
                 $0.room?(self.room, participant: self, didFailToSubscribe: sid, error: error)
             }
-            return Promise(error)
+            throw error
         }
 
         switch rtcTrack.kind {
         case "audio":
-            track = RemoteAudioTrack(name: publication.name,
-                                     source: publication.source,
-                                     track: rtcTrack)
+            track = RemoteAudioTrack(name: publication.name, source: publication.source, track: rtcTrack)
         case "video":
-            track = RemoteVideoTrack(name: publication.name,
-                                     source: publication.source,
-                                     track: rtcTrack)
+            track = RemoteVideoTrack(name: publication.name, source: publication.source, track: rtcTrack)
         default:
             let error = TrackError.type(message: "Unsupported type: \(rtcTrack.kind.description)")
             delegates.notify(label: { "participant.didFailToSubscribe trackSid: \(sid)" }) {
@@ -119,7 +117,7 @@ public class RemoteParticipant: Participant {
             room.delegates.notify(label: { "room.didFailToSubscribe trackSid: \(sid)" }) {
                 $0.room?(self.room, participant: self, didFailToSubscribe: sid, error: error)
             }
-            return Promise(error)
+            throw error
         }
 
         publication.set(track: track)
@@ -132,68 +130,70 @@ public class RemoteParticipant: Participant {
 
         addTrack(publication: publication)
 
-        return track.start().then(on: queue) { _ -> Void in
-            self.delegates.notify(label: { "participant.didSubscribe \(publication)" }) {
-                $0.participant?(self, didSubscribe: publication, track: track)
-            }
-            self.room.delegates.notify(label: { "room.didSubscribe \(publication)" }) {
-                $0.room?(self.room, participant: self, didSubscribe: publication, track: track)
+        try await track.start()
+
+        delegates.notify(label: { "participant.didSubscribe \(publication)" }) {
+            $0.participant?(self, didSubscribe: publication, track: track)
+        }
+        room.delegates.notify(label: { "room.didSubscribe \(publication)" }) {
+            $0.room?(self.room, participant: self, didSubscribe: publication, track: track)
+        }
+
+    }
+
+    internal override func cleanUp(notify _notify: Bool = true) async {
+
+        await super.cleanUp(notify: _notify)
+
+        room.delegates.notify(label: { "room.participantDidLeave" }) {
+            $0.room?(self.room, participantDidLeave: self)
+        }
+    }
+
+    public override func unpublishAll(notify _notify: Bool = true) async {
+        // Build a list of Publications
+        let publications = _state.tracks.values.compactMap { $0 as? RemoteTrackPublication }
+        for publication in publications {
+            do {
+                try await unpublish(publication: publication, notify: _notify)
+            } catch let error {
+                log("Failed to unpublish track \(publication.sid) with error \(error)", .error)
             }
         }
     }
 
-    internal override func cleanUp(notify _notify: Bool = true) -> Promise<Void> {
-        super.cleanUp(notify: _notify).then(on: queue) {
-            self.room.delegates.notify(label: { "room.participantDidLeave" }) {
-                $0.room?(self.room, participantDidLeave: self)
+    internal func unpublish(publication: RemoteTrackPublication, notify _notify: Bool = true) async throws {
+
+        func _notifyUnpublish() async {
+            guard _notify else { return }
+            delegates.notify(label: { "participant.didUnpublish \(publication)" }) {
+                $0.participant?(self, didUnpublish: publication)
             }
-        }
-    }
-
-    public override func unpublishAll(notify _notify: Bool = true) -> Promise<Void> {
-        // build a list of promises
-        let promises = _state.tracks.values.compactMap { $0 as? RemoteTrackPublication }
-            .map { unpublish(publication: $0, notify: _notify) }
-        // combine promises to wait all to complete
-        return promises.all(on: queue)
-    }
-
-    internal func unpublish(publication: RemoteTrackPublication, notify _notify: Bool = true) -> Promise<Void> {
-
-        func notifyUnpublish() -> Promise<Void> {
-
-            Promise<Void>(on: queue) { [weak self] in
-                guard let self = self, _notify else { return }
-                // notify unpublish
-                self.delegates.notify(label: { "participant.didUnpublish \(publication)" }) {
-                    $0.participant?(self, didUnpublish: publication)
-                }
-                self.room.delegates.notify(label: { "room.didUnpublish \(publication)" }) {
-                    $0.room?(self.room, participant: self, didUnpublish: publication)
-                }
+            room.delegates.notify(label: { "room.didUnpublish \(publication)" }) {
+                $0.room?(self.room, participant: self, didUnpublish: publication)
             }
         }
 
-        // remove the publication
+        // Remove the publication
         _state.mutate { $0.tracks.removeValue(forKey: publication.sid) }
 
-        // continue if the publication has a track
+        // Continue if the publication has a track
         guard let track = publication.track else {
-            // if track is nil, only notify unpublish
-            return notifyUnpublish()
+            return await _notifyUnpublish()
         }
 
-        return track.stop().then(on: queue) { _ -> Void in
-            guard _notify else { return }
-            // notify unsubscribe
-            self.delegates.notify(label: { "participant.didUnsubscribe \(publication)" }) {
+        try await track.stop()
+
+        if _notify {
+            // Notify unsubscribe
+            delegates.notify(label: { "participant.didUnsubscribe \(publication)" }) {
                 $0.participant?(self, didUnsubscribe: publication, track: track)
             }
-            self.room.delegates.notify(label: { "room.didUnsubscribe \(publication)" }) {
+            room.delegates.notify(label: { "room.didUnsubscribe \(publication)" }) {
                 $0.room?(self.room, participant: self, didUnsubscribe: publication, track: track)
             }
-        }.then(on: queue) {
-            notifyUnpublish()
         }
+
+        await _notifyUnpublish()
     }
 }

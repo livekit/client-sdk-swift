@@ -60,23 +60,21 @@ public class LocalAudioTrack: Track, LocalTrack, AudioTrack {
     }
 
     @discardableResult
-    internal override func onPublish() -> Promise<Bool> {
-        super.onPublish().then(on: queue) { didPublish -> Bool in
-            if didPublish {
-                AudioManager.shared.trackDidStart(.local)
-            }
-            return didPublish
+    internal override func onPublish() async throws -> Bool {
+        let didPublish = try await super.onPublish()
+        if didPublish {
+            AudioManager.shared.trackDidStart(.local)
         }
+        return didPublish
     }
 
     @discardableResult
-    internal override func onUnpublish() -> Promise<Bool> {
-        super.onUnpublish().then(on: queue) { didUnpublish -> Bool in
-            if didUnpublish {
-                AudioManager.shared.trackDidStop(.local)
-            }
-            return didUnpublish
+    internal override func onUnpublish() async throws -> Bool {
+        let didUnpublish = try await super.onUnpublish()
+        if didUnpublish {
+            AudioManager.shared.trackDidStop(.local)
         }
+        return didUnpublish
     }
 }
 

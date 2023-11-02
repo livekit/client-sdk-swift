@@ -17,67 +17,67 @@
 import Foundation
 import Promises
 
-extension LocalParticipant {
-
-    @objc(setCameraEnabled:)
-    @discardableResult
-    public func setCameraObjC(enabled: Bool) -> Promise<LocalTrackPublication?>.ObjCPromise<LocalTrackPublication> {
-
-        setCamera(enabled: enabled).asObjCPromise()
-    }
-
-    @objc(setMicrophoneEnabled:)
-    @discardableResult
-    public func setMicrophoneObjC(enabled: Bool) -> Promise<LocalTrackPublication?>.ObjCPromise<LocalTrackPublication> {
-
-        setMicrophone(enabled: enabled).asObjCPromise()
-    }
-
-    @objc(setScreenShareEnabled:)
-    @discardableResult
-    public func setScreenShareObjC(enabled: Bool) -> Promise<LocalTrackPublication?>.ObjCPromise<LocalTrackPublication> {
-
-        setScreenShare(enabled: enabled).asObjCPromise()
-    }
-
-    @objc(publishVideoTrack:options:)
-    @discardableResult
-    public func publishVideoTrackObjC(track: LocalVideoTrack,
-                                      publishOptions: VideoPublishOptions? = nil) -> Promise<LocalTrackPublication>.ObjCPromise<LocalTrackPublication> {
-
-        publishVideoTrack(track: track, publishOptions: publishOptions).asObjCPromise()
-    }
-
-    @objc(publishAudioTrack:options:)
-    @discardableResult
-    public func publishAudioTrackObjC(track: LocalAudioTrack,
-                                      publishOptions: AudioPublishOptions? = nil) -> Promise<LocalTrackPublication>.ObjCPromise<LocalTrackPublication> {
-
-        publishAudioTrack(track: track, publishOptions: publishOptions).asObjCPromise()
-    }
-
-    @objc(unpublishPublication:)
-    @discardableResult
-    public func unpublishObjC(publication: LocalTrackPublication) -> Promise<Void>.ObjCPromise<NSNull> {
-
-        unpublish(publication: publication).asObjCPromise()
-    }
-
-    @objc(publishData:reliability:destination:)
-    @discardableResult
-    public func publishDataObjC(data: Data,
-                                reliability: Reliability = .reliable,
-                                destinations: [String] = []) -> Promise<Void>.ObjCPromise<NSNull> {
-
-        publish(data: data, reliability: reliability, destinations: destinations).asObjCPromise()
-    }
-
-    @objc(setTrackSubscriptionPermissionsWithAllParticipantsAllowed:trackPermissions:)
-    @discardableResult
-    public func setTrackSubscriptionPermissionsObjC(allParticipantsAllowed: Bool,
-                                                    trackPermissions: [ParticipantTrackPermission] = []) -> Promise<Void>.ObjCPromise<NSNull> {
-
-        setTrackSubscriptionPermissions(allParticipantsAllowed: allParticipantsAllowed,
-                                        trackPermissions: trackPermissions).asObjCPromise()
-    }
-}
+// extension LocalParticipant {
+//
+//    @objc(setCameraEnabled:)
+//    @discardableResult
+//    public func setCameraObjC(enabled: Bool) -> Promise<LocalTrackPublication?>.ObjCPromise<LocalTrackPublication> {
+//
+//        setCamera(enabled: enabled).asObjCPromise()
+//    }
+//
+//    @objc(setMicrophoneEnabled:)
+//    @discardableResult
+//    public func setMicrophoneObjC(enabled: Bool) -> Promise<LocalTrackPublication?>.ObjCPromise<LocalTrackPublication> {
+//
+//        setMicrophone(enabled: enabled).asObjCPromise()
+//    }
+//
+//    @objc(setScreenShareEnabled:)
+//    @discardableResult
+//    public func setScreenShareObjC(enabled: Bool) -> Promise<LocalTrackPublication?>.ObjCPromise<LocalTrackPublication> {
+//
+//        setScreenShare(enabled: enabled).asObjCPromise()
+//    }
+//
+//    @objc(publishVideoTrack:options:)
+//    @discardableResult
+//    public func publishVideoTrackObjC(track: LocalVideoTrack,
+//                                      publishOptions: VideoPublishOptions? = nil) -> Promise<LocalTrackPublication>.ObjCPromise<LocalTrackPublication> {
+//
+//        publishVideoTrack(track: track, publishOptions: publishOptions).asObjCPromise()
+//    }
+//
+//    @objc(publishAudioTrack:options:)
+//    @discardableResult
+//    public func publishAudioTrackObjC(track: LocalAudioTrack,
+//                                      publishOptions: AudioPublishOptions? = nil) -> Promise<LocalTrackPublication>.ObjCPromise<LocalTrackPublication> {
+//
+//        publishAudioTrack(track: track, publishOptions: publishOptions).asObjCPromise()
+//    }
+//
+//    @objc(unpublishPublication:)
+//    @discardableResult
+//    public func unpublishObjC(publication: LocalTrackPublication) -> Promise<Void>.ObjCPromise<NSNull> {
+//
+//        unpublish(publication: publication).asObjCPromise()
+//    }
+//
+//    @objc(publishData:reliability:destination:)
+//    @discardableResult
+//    public func publishDataObjC(data: Data,
+//                                reliability: Reliability = .reliable,
+//                                destinations: [String] = []) -> Promise<Void>.ObjCPromise<NSNull> {
+//
+//        publish(data: data, reliability: reliability, destinations: destinations).asObjCPromise()
+//    }
+//
+//    @objc(setTrackSubscriptionPermissionsWithAllParticipantsAllowed:trackPermissions:)
+//    @discardableResult
+//    public func setTrackSubscriptionPermissionsObjC(allParticipantsAllowed: Bool,
+//                                                    trackPermissions: [ParticipantTrackPermission] = []) -> Promise<Void>.ObjCPromise<NSNull> {
+//
+//        setTrackSubscriptionPermissions(allParticipantsAllowed: allParticipantsAllowed,
+//                                        trackPermissions: trackPermissions).asObjCPromise()
+//    }
+// }

@@ -15,7 +15,6 @@
  */
 
 import Foundation
-import Promises
 
 @_implementationOnly import WebRTC
 
@@ -209,75 +208,38 @@ public class Track: NSObject, Loggable {
         resumeOrSuspendStatisticsTimer()
     }
 
-    // returns true if updated state
-    public func start() -> Promise<Bool> {
-
-        let promise = Promise<Bool>(on: queue) { () -> Bool in
-
-            guard self.trackState != .started else {
-                // already started
-                return false
-            }
-
-            self._state.mutate { $0.trackState = .started }
-            return true
-        }
-
-        guard self is RemoteTrack else { return promise }
-
-        // only for RemoteTrack
-        return promise.then(on: queue) { didStart in
-            self.enable().then(on: self.queue) { _ in didStart }
-        }
+    // Returns true if didStart
+    @discardableResult
+    public func start() async throws -> Bool {
+        guard trackState != .started else { return false }
+        _state.mutate { $0.trackState = .started }
+        if self is RemoteTrack { try await enable() }
+        return true
     }
 
-    // returns true if updated state
-    public func stop() -> Promise<Bool> {
-
-        let promise = Promise<Bool>(on: queue) { () -> Bool in
-
-            guard self.trackState != .stopped else {
-                // already stopped
-                return false
-            }
-
-            self._state.mutate { $0.trackState = .stopped }
-            return true
-        }
-
-        guard self is RemoteTrack else { return promise }
-
-        return promise.then(on: queue) { didStop in
-            self.disable().then(on: self.queue) { _ in didStop }
-        }
+    // Returns true if didStop
+    @discardableResult
+    public func stop() async throws -> Bool {
+        guard trackState != .stopped else { return false }
+        _state.mutate { $0.trackState = .stopped }
+        if self is RemoteTrack { try await disable() }
+        return true
     }
 
-    internal func enable() -> Promise<Bool> {
-
-        Promise(on: queue) { () -> Bool in
-
-            guard !self.mediaTrack.isEnabled else {
-                // already enabled
-                return false
-            }
-
-            self.mediaTrack.isEnabled = true
-            return true
-        }
+    // Returns true if didEnable
+    @discardableResult
+    internal func enable() async throws -> Bool {
+        guard !mediaTrack.isEnabled else { return false }
+        mediaTrack.isEnabled = true
+        return true
     }
 
-    internal func disable() -> Promise<Bool> {
-
-        Promise(on: queue) { () -> Bool in
-
-            guard self.mediaTrack.isEnabled else {
-                // already disabled
-                return false
-            }
-
-            self.mediaTrack.isEnabled = false
-            return true
-        }
+    // Returns true if didDisable
+    @discardableResult
+    internal func disable() async throws -> Bool {
+        guard mediaTrack.isEnabled else { return false }
+        mediaTrack.isEnabled = false
+        return true
     }
 
     internal func set(muted newValue: Bool,
@@ -299,40 +261,26 @@ public class Track: NSObject, Loggable {
         }
     }
 
-    // MARK: - Local
+    // MARK: - LocalTrack
 
-    // returns true if state updated
-    internal func onPublish() -> Promise<Bool> {
-        // LocalTrack only
-        guard self is LocalTrack else { return Promise(false) }
-
-        return Promise<Bool>(on: queue) { () -> Bool in
-
-            guard self._publishState != .published else {
-                // already published
-                return false
-            }
-
-            self._publishState = .published
-            return true
-        }
+    // Returns true if state updated
+    @discardableResult
+    internal func onPublish() async throws -> Bool {
+        // For LocalTrack only...
+        guard self is LocalTrack else { return false }
+        guard self._publishState != .published else { return false }
+        self._publishState = .published
+        return true
     }
 
-    // returns true if state updated
-    internal func onUnpublish() -> Promise<Bool> {
-        // LocalTrack only
-        guard self is LocalTrack else { return Promise(false) }
-
-        return Promise<Bool>(on: queue) { () -> Bool in
-
-            guard self._publishState != .unpublished else {
-                // already unpublished
-                return false
-            }
-
-            self._publishState = .unpublished
-            return true
-        }
+    // Returns true if state updated
+    @discardableResult
+    internal func onUnpublish() async throws -> Bool {
+        // For LocalTrack only...
+        guard self is LocalTrack else { return false }
+        guard self._publishState != .unpublished else { return false }
+        self._publishState = .unpublished
+        return true
     }
 }
 
@@ -369,26 +317,20 @@ extension Track {
     // workaround for error:
     // @objc can only be used with members of classes, @objc protocols, and concrete extensions of classes
     //
-    internal func _mute() -> Promise<Void> {
+    internal func _mute() async throws {
         // LocalTrack only, already muted
-        guard self is LocalTrack, !muted else { return Promise(()) }
-
-        return disable().then(on: queue) { _ in
-            self.stop()
-        }.then(on: queue) { _ -> Void in
-            self.set(muted: true, shouldSendSignal: true)
-        }
+        guard self is LocalTrack, !muted else { return }
+        try await disable()
+        try await stop()
+        set(muted: true, shouldSendSignal: true)
     }
 
-    internal func _unmute() -> Promise<Void> {
+    internal func _unmute() async throws {
         // LocalTrack only, already un-muted
-        guard self is LocalTrack, muted else { return Promise(()) }
-
-        return enable().then(on: queue) { _ in
-            self.start()
-        }.then(on: queue) { _ -> Void in
-            self.set(muted: false, shouldSendSignal: true)
-        }
+        guard self is LocalTrack, muted else { return }
+        try await enable()
+        try await start()
+        set(muted: false, shouldSendSignal: true)
     }
 }
 
