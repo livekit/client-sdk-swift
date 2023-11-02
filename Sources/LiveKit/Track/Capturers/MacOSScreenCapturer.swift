@@ -28,18 +28,17 @@ import ScreenCaptureKit
 @available(macOS 12.3, *)
 public class MacOSScreenCapturer: VideoCapturer {
 
-    private let captureQueue = DispatchQueue(label: "LiveKitSDK.macOSScreenCapturer", qos: .default)
     private let capturer = Engine.createVideoCapturer()
 
     // TODO: Make it possible to change dynamically
     public let captureSource: MacOSScreenCaptureSource?
 
     // SCStream
-    private var _scStream: Any?
+    private var _scStream: SCStream?
 
     // cached frame for resending to maintain minimum of 1 fps
-    private var lastFrame: LKRTCVideoFrame?
-    private var frameResendTimer: DispatchQueueTimer?
+    private var _lastFrame: LKRTCVideoFrame?
+    private var _resendTimer: Task<Void, Error>?
 
     /// The ``ScreenShareCaptureOptions`` used for this capturer.
     /// It is possible to modify the options but `restartCapture` must be called.
@@ -49,11 +48,6 @@ public class MacOSScreenCapturer: VideoCapturer {
         self.captureSource = captureSource
         self.options = options
         super.init(delegate: delegate)
-    }
-
-    deinit {
-        log()
-        assert(frameResendTimer == nil, "frameResendTimer is not nil")
     }
 
     public override func startCapture() async throws -> Bool {
@@ -97,7 +91,7 @@ public class MacOSScreenCapturer: VideoCapturer {
 
         // Why does SCStream hold strong reference to delegate?
         let stream = SCStream(filter: filter, configuration: configuration, delegate: nil)
-        try stream.addStreamOutput(self, type: .screen, sampleHandlerQueue: self.captureQueue)
+        try stream.addStreamOutput(self, type: .screen, sampleHandlerQueue: nil)
         try await stream.startCapture()
 
         self._scStream = stream
@@ -112,25 +106,23 @@ public class MacOSScreenCapturer: VideoCapturer {
         // Already stopped
         guard didStop else { return false }
 
-        guard let stream = self._scStream as? SCStream else {
+        guard let stream = _scStream else {
             throw TrackError.capturer(message: "SCStream is nil")
         }
 
         // Stop resending paused frames
-        self.stopFrameResendTimer()
+        _resendTimer?.cancel()
+        _resendTimer = nil
 
         try await stream.stopCapture()
         try stream.removeStreamOutput(self, type: .screen)
-        self._scStream = nil
+        _scStream = nil
 
         return true
     }
 
     // common capture func
     private func capture(_ sampleBuffer: CMSampleBuffer, cropRect: CGRect? = nil) {
-
-        // must be called on captureQueue
-        dispatchPrecondition(condition: .onQueue(captureQueue))
 
         guard let delegate = delegate else { return }
 
@@ -174,7 +166,7 @@ public class MacOSScreenCapturer: VideoCapturer {
         delegate.capturer(capturer, didCapture: rtcFrame)
 
         // cache last frame
-        lastFrame = rtcFrame
+        _lastFrame = rtcFrame
     }
 }
 
@@ -183,48 +175,17 @@ public class MacOSScreenCapturer: VideoCapturer {
 @available(macOS 12.3, *)
 extension MacOSScreenCapturer {
 
-    private func restartFrameResendTimer() {
+    private func _capturePreviousFrame() async throws {
 
-        dispatchPrecondition(condition: .onQueue(captureQueue))
-
-        stopFrameResendTimer()
-
-        let timeInterval: TimeInterval = 1 / Double(1 /* 1 fps */)
-
-        frameResendTimer = {
-            let timer = DispatchQueueTimer(timeInterval: timeInterval, queue: self.captureQueue)
-            timer.handler = { [weak self] in self?.onFrameResendTimer() }
-            timer.resume()
-            return timer
-        }()
-    }
-
-    private func stopFrameResendTimer() {
-
-        dispatchPrecondition(condition: .onQueue(captureQueue))
-
-        if let timer = frameResendTimer {
-            timer.suspend()
-        }
-
-        frameResendTimer = nil
-    }
-
-    private func onFrameResendTimer() {
-
-        // must be called on captureQueue
-        dispatchPrecondition(condition: .onQueue(captureQueue))
-
-        // must be .started
+        // Must be .started
         guard case .started = captureState else {
-            log("captureState is not .started, resend timer should not trigger.", .warning)
+            log("CaptureState is not .started, resend timer should not trigger.", .warning)
             return
         }
 
-        log("no movement detected, resending frame...")
+        log("No movement detected, resending frame...")
 
-        guard let delegate = delegate,
-              let frame = lastFrame else { return }
+        guard let delegate = delegate, let frame = _lastFrame else { return }
 
         // create a new frame with new time stamp
         let newFrame = LKRTCVideoFrame(buffer: frame.buffer,
@@ -287,7 +248,15 @@ extension MacOSScreenCapturer: SCStreamOutput {
 
         capture(sampleBuffer, cropRect: contentRect)
 
-        restartFrameResendTimer()
+        _resendTimer?.cancel()
+        _resendTimer = Task.detached(priority: .utility) { [weak self] in
+            while true {
+                try? await Task.sleep(nanoseconds: UInt64(1 * 1_000_000_000))
+                if Task.isCancelled { break }
+                guard let self else { break }
+                try await self._capturePreviousFrame()
+            }
+        }
     }
 }
 
