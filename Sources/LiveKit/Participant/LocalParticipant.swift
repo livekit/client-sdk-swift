@@ -49,6 +49,7 @@ public class LocalParticipant: Participant {
         _state.tracks[sid] as? LocalTrackPublication
     }
 
+    @objc
     @discardableResult
     internal func publish(track: LocalTrack, publishOptions: PublishOptions? = nil) async throws -> LocalTrackPublication {
 
@@ -193,15 +194,18 @@ public class LocalParticipant: Participant {
     }
 
     /// publish a new audio track to the Room
+    @objc
     public func publish(audioTrack: LocalAudioTrack, publishOptions: AudioPublishOptions? = nil) async throws -> LocalTrackPublication {
         try await publish(track: audioTrack, publishOptions: publishOptions)
     }
 
     /// publish a new video track to the Room
+    @objc
     public func publish(videoTrack: LocalVideoTrack, publishOptions: VideoPublishOptions? = nil) async throws -> LocalTrackPublication {
         try await publish(track: videoTrack, publishOptions: publishOptions)
     }
 
+    @objc
     public override func unpublishAll(notify _notify: Bool = true) async {
         // Build a list of Publications
         let publications = _state.tracks.values.compactMap { $0 as? LocalTrackPublication }
@@ -216,6 +220,7 @@ public class LocalParticipant: Participant {
 
     /// unpublish an existing published track
     /// this will also stop the track
+    @objc
     public func unpublish(publication: LocalTrackPublication, notify _notify: Bool = true) async throws {
 
         func _notifyDidUnpublish() async {
@@ -262,6 +267,7 @@ public class LocalParticipant: Participant {
     ///     For data that you need delivery guarantee (such as chat messages), use Reliable.
     ///     For data that should arrive as quickly as possible, but you are ok with dropped packets, use Lossy.
     ///   - destinations: SIDs of the participants who will receive the message. If empty, deliver to everyone
+    @objc
     public func publish(data: Data,
                         reliability: Reliability = .reliable,
                         destinations: [Sid]? = nil,
@@ -297,6 +303,7 @@ public class LocalParticipant: Participant {
      * - Parameter participantTrackPermissions Full list of individual permissions per
      *  participant/track. Any omitted participants will not receive any permissions.
      */
+    @objc
     public func setTrackSubscriptionPermissions(allParticipantsAllowed: Bool,
                                                 trackPermissions: [ParticipantTrackPermission] = []) async throws {
 
@@ -448,6 +455,7 @@ extension LocalParticipant {
 
 extension LocalParticipant {
 
+    @objc
     @discardableResult
     public func setCamera(enabled: Bool,
                           captureOptions: CameraCaptureOptions? = nil,
@@ -459,6 +467,7 @@ extension LocalParticipant {
                       publishOptions: publishOptions)
     }
 
+    @objc
     @discardableResult
     public func setMicrophone(enabled: Bool,
                               captureOptions: AudioCaptureOptions? = nil,
@@ -479,11 +488,13 @@ extension LocalParticipant {
     /// to capture other screens and windows. See ``MacOSScreenCapturer`` for details.
     ///
     /// For advanced usage, you can create a relevant ``LocalVideoTrack`` and call ``LocalParticipant/publishVideoTrack(track:publishOptions:)``.
+    @objc
     @discardableResult
     public func setScreenShare(enabled: Bool) async throws -> LocalTrackPublication? {
         try await set(source: .screenShareVideo, enabled: enabled)
     }
 
+    @objc
     @discardableResult
     public func set(source: Track.Source,
                     enabled: Bool,

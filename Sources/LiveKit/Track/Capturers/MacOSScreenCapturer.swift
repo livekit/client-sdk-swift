@@ -427,6 +427,7 @@ extension MacOSScreenCapturer {
     internal static let queue = DispatchQueue(label: "LiveKitSDK.MacOSScreenCapturer.sources", qos: .default)
 
     /// Convenience method to get a ``MacOSDisplay`` of the main display.
+    @objc
     public static func mainDisplaySource() async throws -> MacOSDisplay {
 
         let displaySources = try await sources(for: .display)
@@ -439,6 +440,7 @@ extension MacOSScreenCapturer {
     }
 
     /// Enumerate ``MacOSDisplay`` or ``MacOSWindow`` sources.
+    @objc
     public static func sources(for type: MacOSScreenShareSourceType, includeCurrentApplication: Bool = false) async throws -> [MacOSScreenCaptureSource] {
         let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
         let displays = content.displays.map { MacOSDisplay(from: $0, content: content) }
@@ -462,69 +464,19 @@ extension MacOSScreenCapturer {
         }
     }
 
+    @objc
     public static func displaySources() async throws -> [MacOSDisplay] {
         let result = try await sources(for: .display)
         // Cast
         return result.compactMap({ $0 as? MacOSDisplay })
     }
 
+    @objc
     public static func windowSources() async throws -> [MacOSWindow] {
         let result = try await sources(for: .window)
         // Cast
         return result.compactMap({ $0 as? MacOSWindow })
     }
 }
-
-// extension MacOSScreenCapturer {
-//
-//    internal static func _displayIDs() -> [CGDirectDisplayID] {
-//
-//        var displayCount: UInt32 = 0
-//        var activeCount: UInt32 = 0
-//
-//        guard CGGetActiveDisplayList(0, nil, &displayCount) == .success else {
-//            return []
-//        }
-//
-//        var displayIDList = [CGDirectDisplayID](repeating: kCGNullDirectDisplay, count: Int(displayCount))
-//        guard CGGetActiveDisplayList(displayCount, &(displayIDList), &activeCount) == .success else {
-//            return []
-//        }
-//
-//        return displayIDList
-//    }
-//
-//    internal static func _windowIDs(includeCurrentProcess: Bool = false) -> [CGWindowID] {
-//        //
-//        let list = CGWindowListCopyWindowInfo([.optionOnScreenOnly,
-//                                               .excludeDesktopElements ], kCGNullWindowID)! as Array
-//
-//        return list
-//            .filter {
-//                // window layer needs to be 0
-//                guard let windowLayer = $0.object(forKey: kCGWindowLayer) as? NSNumber,
-//                      windowLayer.intValue == 0 else {
-//                    return false
-//                }
-//
-//                // remove windows that don't have an associated bundleIdentifier
-//                guard let pid = ($0.object(forKey: kCGWindowOwnerPID) as? NSNumber)?.int32Value as? pid_t,
-//                      let app = NSRunningApplication(processIdentifier: pid),
-//                      app.bundleIdentifier != nil else {
-//                    return false
-//                }
-//
-//                if !includeCurrentProcess {
-//                    // remove windows that are from current application
-//                    guard app.bundleIdentifier != Bundle.main.bundleIdentifier else {
-//                        return false
-//                    }
-//                }
-//
-//                return true
-//            }
-//            .map { $0.object(forKey: kCGWindowNumber) as? NSNumber }.compactMap { $0 }.map { $0.uint32Value }
-//    }
-// }
 
 #endif

@@ -56,6 +56,14 @@ public class LocalVideoTrack: Track, LocalTrack, VideoTrack {
         if didStop { try await capturer.stopCapture() }
         return didStop
     }
+
+    public func mute() async throws {
+        try await super._mute()
+    }
+
+    public func unmute() async throws {
+        try await super._unmute()
+    }
 }
 
 public extension LocalVideoTrack {

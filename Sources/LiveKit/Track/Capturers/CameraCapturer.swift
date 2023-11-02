@@ -96,6 +96,7 @@ public class CameraCapturer: VideoCapturer {
     }
 
     /// Switches the camera position between `.front` and `.back` if supported by the device.
+    @objc
     @discardableResult
     public func switchCameraPosition() async throws -> Bool {
         // Cannot toggle if current position is unknown
@@ -108,6 +109,7 @@ public class CameraCapturer: VideoCapturer {
     }
 
     /// Sets the camera's position to `.front` or `.back` when supported
+    @objc
     @discardableResult
     public func set(cameraPosition position: AVCaptureDevice.Position) async throws -> Bool {
 

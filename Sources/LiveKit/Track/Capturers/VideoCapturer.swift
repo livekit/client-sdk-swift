@@ -114,6 +114,7 @@ public class VideoCapturer: NSObject, Loggable, VideoCapturerProtocol {
     ///
     /// ``startCapture()`` and ``stopCapture()`` calls must be balanced. For example, if ``startCapture()`` is called 2 times, ``stopCapture()`` must be called 2 times also.
     /// Returns true when capturing should start, returns fals if capturing already started.
+    @objc
     @discardableResult
     public func startCapture() async throws -> Bool {
 
@@ -140,6 +141,7 @@ public class VideoCapturer: NSObject, Loggable, VideoCapturerProtocol {
     ///
     /// See ``startCapture()`` for more details.
     /// Returns true when capturing should stop, returns fals if capturing already stopped.
+    @objc
     @discardableResult
     public func stopCapture() async throws -> Bool {
 
@@ -166,6 +168,8 @@ public class VideoCapturer: NSObject, Loggable, VideoCapturerProtocol {
         return true
     }
 
+    @objc
+    @discardableResult
     public func restartCapture() async throws -> Bool {
         try await stopCapture()
         return try await startCapture()

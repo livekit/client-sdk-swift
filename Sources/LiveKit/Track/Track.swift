@@ -203,12 +203,14 @@ public class Track: NSObject, Loggable {
         }
     }
 
+    @objc
     public func set(reportStatistics: Bool) {
         _state.mutate { $0.reportStatistics = reportStatistics }
         resumeOrSuspendStatisticsTimer()
     }
 
     // Returns true if didStart
+    @objc
     @discardableResult
     public func start() async throws -> Bool {
         guard trackState != .started else { return false }
@@ -218,6 +220,7 @@ public class Track: NSObject, Loggable {
     }
 
     // Returns true if didStop
+    @objc
     @discardableResult
     public func stop() async throws -> Bool {
         guard trackState != .stopped else { return false }

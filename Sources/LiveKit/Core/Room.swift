@@ -213,6 +213,7 @@ public class Room: NSObject, ObservableObject, Loggable {
         }
     }
 
+    @objc
     public func connect(_ url: String,
                         _ token: String,
                         connectOptions: ConnectOptions? = nil,
@@ -243,6 +244,7 @@ public class Room: NSObject, ObservableObject, Loggable {
         log("Connected to \(String(describing: self)) \(String(describing: state.localParticipant))", .info)
     }
 
+    @objc
     public func disconnect() async {
 
         // Return if already disconnected state

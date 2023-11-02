@@ -19,17 +19,15 @@ import Foundation
 @objc
 public protocol LocalTrack where Self: Track {
 
-    @objc(publishOptions)
+    @objc
     var publishOptions: PublishOptions? { get }
 
-    @objc(publishState)
+    @objc
     var publishState: PublishState { get }
 
-    //    @objc(mute)
-    //    @discardableResult
-    //    func mute() -> Promise<Void>.ObjCPromise<NSNull>
+    @objc
+    func mute() async throws
 
-    //    @objc(unmute)
-    //    @discardableResult
-    //    func unmute() -> Promise<Void>.ObjCPromise<NSNull>
+    @objc
+    func unmute() async throws
 }

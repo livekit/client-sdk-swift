@@ -75,6 +75,14 @@ public class LocalAudioTrack: Track, LocalTrack, AudioTrack {
         }
         return didUnpublish
     }
+
+    public func mute() async throws {
+        try await super._mute()
+    }
+
+    public func unmute() async throws {
+        try await super._unmute()
+    }
 }
 
 extension LocalAudioTrack {
