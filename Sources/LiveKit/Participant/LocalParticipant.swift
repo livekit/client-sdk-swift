@@ -508,7 +508,7 @@ extension LocalParticipant {
                 let localTrack = LocalAudioTrack.createTrack(options: (captureOptions as? AudioCaptureOptions) ?? room._state.options.defaultAudioCaptureOptions)
                 return try await publish(audioTrack: localTrack, publishOptions: publishOptions as? AudioPublishOptions)
             } else if source == .screenShareVideo {
-                //                #if os(iOS)
+                #if os(iOS)
                 //                var localTrack: LocalVideoTrack?
                 //                let options = (captureOptions as? ScreenShareCaptureOptions) ?? room._state.options.defaultScreenShareCaptureOptions
                 //                if options.useBroadcastExtension {
@@ -525,13 +525,14 @@ extension LocalParticipant {
                 //                if let localTrack = localTrack {
                 //                    return publishVideoTrack(track: localTrack, publishOptions: publishOptions as? VideoPublishOptions).then(on: queue) { $0 }
                 //                }
-                //                #elseif os(macOS)
-                //                return MacOSScreenCapturer.mainDisplaySource().then(on: queue) { mainDisplay in
-                //                    let track = LocalVideoTrack.createMacOSScreenShareTrack(source: mainDisplay,
-                //                                                                            options: (captureOptions as? ScreenShareCaptureOptions) ?? self.room._state.options.defaultScreenShareCaptureOptions)
-                //                    return self.publishVideoTrack(track: track, publishOptions: publishOptions as? VideoPublishOptions)
-                //                }.then(on: queue) { $0 }
-                //                #endif
+                #elseif os(macOS)
+                if #available(macOS 12.3, *) {
+                    let mainDisplay = try await MacOSScreenCapturer.mainDisplaySource()
+                    let track = LocalVideoTrack.createMacOSScreenShareTrack(source: mainDisplay,
+                                                                            options: (captureOptions as? ScreenShareCaptureOptions) ?? self.room._state.options.defaultScreenShareCaptureOptions)
+                    return try await publish(videoTrack: track, publishOptions: publishOptions as? VideoPublishOptions)
+                }
+                #endif
             }
         }
 
