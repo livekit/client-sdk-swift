@@ -15,22 +15,21 @@
  */
 
 import Foundation
-import Promises
 
 @_implementationOnly import WebRTC
 
-#if os(macOS)
-extension MacOSScreenCapturer {
-
-    // TODO: figure out how to return NSArray<MacOSScreenCaptureSource>
-    @objc(sourcesFor:includingCurrentApplication:preferredMethod:)
-    public static func sourcesObjC(for type: MacOSScreenShareSourceType,
-                                   includeCurrentApplication: Bool = false,
-                                   preferredMethod: MacOSScreenCapturePreferredMethod = .auto) -> Promise<[MacOSScreenCaptureSource]>.ObjCPromise<NSArray> {
-
-        sources(for: type,
-                includeCurrentApplication: includeCurrentApplication,
-                preferredMethod: preferredMethod).asObjCPromise()
-    }
-}
-#endif
+// #if os(macOS)
+// extension MacOSScreenCapturer {
+//
+//    // TODO: figure out how to return NSArray<MacOSScreenCaptureSource>
+//    @objc(sourcesFor:includingCurrentApplication:preferredMethod:)
+//    public static func sourcesObjC(for type: MacOSScreenShareSourceType,
+//                                   includeCurrentApplication: Bool = false,
+//                                   preferredMethod: MacOSScreenCapturePreferredMethod = .auto) -> Promise<[MacOSScreenCaptureSource]>.ObjCPromise<NSArray> {
+//
+//        sources(for: type,
+//                includeCurrentApplication: includeCurrentApplication,
+//                preferredMethod: preferredMethod).asObjCPromise()
+//    }
+// }
+// #endif

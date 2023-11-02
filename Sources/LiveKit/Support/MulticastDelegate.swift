@@ -15,7 +15,6 @@
  */
 
 import Foundation
-import Promises
 
 // Workaround for Swift-ObjC limitation around generics.
 public protocol MulticastDelegateProtocol {

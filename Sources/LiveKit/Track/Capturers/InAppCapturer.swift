@@ -15,7 +15,6 @@
  */
 
 import Foundation
-import Promises
 
 #if canImport(ReplayKit)
 import ReplayKit
@@ -34,68 +33,48 @@ public class InAppScreenCapturer: VideoCapturer {
         super.init(delegate: delegate)
     }
 
-    public override func startCapture() -> Promise<Bool> {
+    public override func startCapture() async throws -> Bool {
 
-        super.startCapture().then(on: queue) {didStart -> Promise<Bool> in
+        let didStart = try await super.startCapture()
 
-            guard didStart else {
-                // already started
-                return Promise(false)
-            }
+        // Already started
+        guard didStart else { return false }
 
-            return Promise<Bool>(on: self.queue) { resolve, fail in
+        // TODO: force pixel format kCVPixelFormatType_420YpCbCr8BiPlanarFullRange
+        try await  RPScreenRecorder.shared().startCapture { sampleBuffer, type, _ in
 
-                // TODO: force pixel format kCVPixelFormatType_420YpCbCr8BiPlanarFullRange
-                RPScreenRecorder.shared().startCapture { sampleBuffer, type, _ in
-                    if type == .video {
+            // Only process .video
+            if type == .video {
+                self.delegate?.capturer(self.capturer, didCapture: sampleBuffer) { sourceDimensions in
 
-                        self.delegate?.capturer(self.capturer, didCapture: sampleBuffer) { sourceDimensions in
+                    let targetDimensions = sourceDimensions
+                        .aspectFit(size: self.options.dimensions.max)
+                        .toEncodeSafeDimensions()
 
-                            let targetDimensions = sourceDimensions
-                                .aspectFit(size: self.options.dimensions.max)
-                                .toEncodeSafeDimensions()
+                    defer { self.dimensions = targetDimensions }
 
-                            defer { self.dimensions = targetDimensions }
-
-                            guard let videoSource = self.delegate as? LKRTCVideoSource else { return }
-                            // self.log("adaptOutputFormat to: \(targetDimensions) fps: \(self.options.fps)")
-                            videoSource.adaptOutputFormat(toWidth: targetDimensions.width,
-                                                          height: targetDimensions.height,
-                                                          fps: Int32(self.options.fps))
-                        }
-                    }
-                } completionHandler: { error in
-                    if let error = error {
-                        fail(error)
-                        return
-                    }
-                    resolve(true)
+                    guard let videoSource = self.delegate as? LKRTCVideoSource else { return }
+                    // self.log("adaptOutputFormat to: \(targetDimensions) fps: \(self.options.fps)")
+                    videoSource.adaptOutputFormat(toWidth: targetDimensions.width,
+                                                  height: targetDimensions.height,
+                                                  fps: Int32(self.options.fps))
                 }
             }
         }
+
+        return true
     }
 
-    public override func stopCapture() -> Promise<Bool> {
+    public override func stopCapture() async throws -> Bool {
 
-        super.stopCapture().then(on: queue) { didStop -> Promise<Bool> in
+        let didStop = try await super.stopCapture()
 
-            guard didStop else {
-                // already stopped
-                return Promise(false)
-            }
+        // Already stopped
+        guard didStop else { return false }
 
-            return Promise<Bool>(on: self.queue) { resolve, fail in
+        RPScreenRecorder.shared().stopCapture()
 
-                RPScreenRecorder.shared().stopCapture { error in
-                    if let error = error {
-                        fail(error)
-                        return
-                    }
-                    resolve(true)
-                }
-
-            }
-        }
+        return true
     }
 }
 

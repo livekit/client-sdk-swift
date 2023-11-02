@@ -16,7 +16,6 @@
 
 import Foundation
 import CoreMedia
-import Promises
 
 @_implementationOnly import WebRTC
 

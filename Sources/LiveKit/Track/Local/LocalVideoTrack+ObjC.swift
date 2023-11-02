@@ -15,7 +15,6 @@
  */
 
 import Foundation
-import Promises
 
 // extension LocalVideoTrack {
 //

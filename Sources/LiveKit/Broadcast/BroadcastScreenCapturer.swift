@@ -6,7 +6,6 @@
 //
 
 import Foundation
-import Promises
 
 #if canImport(UIKit)
 import UIKit
