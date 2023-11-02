@@ -60,7 +60,7 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
         return room
     }
 
-    private func requirePublisher() async throws -> Transport {
+    internal func requirePublisher() async throws -> Transport {
         guard let publisher = publisher else { throw EngineError.state(message: "Publisher is nil") }
         return publisher
     }

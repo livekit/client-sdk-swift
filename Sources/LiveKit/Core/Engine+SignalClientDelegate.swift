@@ -40,27 +40,28 @@ extension Engine: SignalClientDelegate {
     func signalClient(_ signalClient: SignalClient, didReceive iceCandidate: LKRTCIceCandidate, target: Livekit_SignalTarget) {
 
         guard let transport = target == .subscriber ? subscriber : publisher else {
-            log("failed to add ice candidate, transport is nil for target: \(target)", .error)
+            log("Failed to add ice candidate, transport is nil for target: \(target)", .error)
             return
         }
 
-        promise(from: transport.add(iceCandidate:), param1: iceCandidate).catch(on: queue) { error in
-            self.log("failed to add ice candidate for transport: \(transport), error: \(error)", .error)
+        Task {
+            do {
+                try await transport.add(iceCandidate: iceCandidate)
+            } catch let error {
+                log("Failed to add ice candidate for transport: \(transport), error: \(error)", .error)
+            }
         }
     }
 
     func signalClient(_ signalClient: SignalClient, didReceiveAnswer answer: LKRTCSessionDescription) {
-
-        guard let publisher = self.publisher else {
-            log("publisher is nil", .error)
-            return
+        Task {
+            do {
+                let publisher = try await requirePublisher()
+                try await publisher.set(remoteDescription: answer)
+            } catch let error {
+                log("Failed to set remote description, error: \(error)", .error)
+            }
         }
-
-        promise(from: publisher.set(remoteDescription:), param1: answer).catch(on: queue) { error in
-            self.log("failed to set remote description, error: \(error)", .error)
-        }
-
-        return
     }
 
     func signalClient(_ signalClient: SignalClient, didReceiveOffer offer: LKRTCSessionDescription) {
