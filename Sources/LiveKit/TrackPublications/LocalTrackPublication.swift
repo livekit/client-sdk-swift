@@ -112,16 +112,12 @@ extension LocalTrackPublication {
             return
         }
 
-        guard let participant = participant else {
-            log("Participant is nil", .warning)
-            return
-        }
-
         log("Re-computing sender parameters, dimensions: \(String(describing: track.capturer.dimensions))")
 
         // get current parameters
         let parameters = sender.parameters
 
+        guard let participant = participant else { return }
         let publishOptions = (track.publishOptions as? VideoPublishOptions) ?? participant.room._state.options.defaultVideoPublishOptions
 
         // re-compute encodings
@@ -159,6 +155,7 @@ extension LocalTrackPublication {
         self.log("Using encodings layers: \(layers.map { String(describing: $0) }.joined(separator: ", "))")
 
         Task {
+            let participant = try await requireParticipant()
             try await participant.room.engine.signalClient.sendUpdateVideoLayers(trackSid: track.sid!, layers: layers)
         }
     }

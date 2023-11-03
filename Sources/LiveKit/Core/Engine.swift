@@ -55,16 +55,6 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
     // weak ref to Room
     public weak var _room: Room?
 
-    private func requireRoom() async throws -> Room {
-        guard let room = _room else { throw EngineError.state(message: "Room is nil") }
-        return room
-    }
-
-    internal func requirePublisher() async throws -> Transport {
-        guard let publisher = publisher else { throw EngineError.state(message: "Publisher is nil") }
-        return publisher
-    }
-
     // MARK: - Private
 
     private struct ConditionalExecutionEntry {
@@ -481,37 +471,7 @@ internal extension Engine {
             // Finally disconnect if all attempts fail
             try await cleanUp(reason: .networkError(error))
         }
-
-        //        return retry(on: queue,
-        //                     attempts: _state.connectOptions.reconnectAttempts,
-        //                     delay: _state.connectOptions.reconnectAttemptDelay,
-        //                     condition: { [weak self] triesLeft, _ in
-        //                        guard let self = self else { return false }
-
-        //                        return true
-        //                     }, _: { [weak self] in
-        //                        // this should never happen
-        //                        guard let self = self else { return Promise(EngineError.state(message: "self is nil")) }
-        //
-        //                        let mode: ReconnectMode = self._state.mutate {
-        //
-        //                            let mode: ReconnectMode = ($0.nextPreferredReconnectMode == .full || $0.reconnectMode == .full) ? .full : .quick
-        //                            $0.connectionState = .reconnecting
-        //                            $0.reconnectMode = mode
-        //                            $0.nextPreferredReconnectMode = nil
-        //
-        //                            return mode
-        //                        }
-        //
-        //                        return mode == .full ? fullReconnectSequence() : quickReconnectSequence()
-        //                     })
-        //            .then(on: queue) {
-
-        //            }.catch(on: queue) { error in
-        //
-        //            }
     }
-
 }
 
 // MARK: - Session Migration
@@ -554,6 +514,21 @@ internal extension Engine {
                                              offer: previousOffer?.toPBType(),
                                              subscription: subscription, publishTracks: room._state.localParticipant?.publishedTracksInfo(),
                                              dataChannels: publisherDC.infos())
+    }
+}
+
+// MARK: - Private helpers
+
+internal extension Engine {
+
+    func requireRoom() async throws -> Room {
+        guard let room = _room else { throw EngineError.state(message: "Room is nil") }
+        return room
+    }
+
+    func requirePublisher() async throws -> Transport {
+        guard let publisher = publisher else { throw EngineError.state(message: "Publisher is nil") }
+        return publisher
     }
 }
 
