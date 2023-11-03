@@ -25,33 +25,21 @@ private var _scopedMetadataKey = "scopedMetadata"
 public typealias ScopedMetadata = CustomStringConvertible
 typealias ScopedMetadataContainer = [String: ScopedMetadata]
 
-public extension Loggable {
-    /// attach logger metadata to this instance that will be automatically included in every log onward
-    func set(loggerMetadata data: ScopedMetadata?, for key: String) {
-        var _data = _scopedMetadata()
-        _data[key] = data
-        objc_setAssociatedObject(self, &_scopedMetadataKey, _data, .OBJC_ASSOCIATION_RETAIN)
-    }
-
-    private func _scopedMetadata() -> ScopedMetadataContainer {
-        (objc_getAssociatedObject(self, &_scopedMetadataKey) as? ScopedMetadataContainer) ?? ScopedMetadataContainer()
-    }
-
+extension Loggable {
     /// Automatically captures current type (class name) to ``Logger.Metadata``
-    internal func log(_ message: Logger.Message? = nil,
-                      _ level: Logger.Level = .debug,
-                      file: String = #fileID,
-                      type type_: Any.Type? = nil,
-                      function: String = #function,
-                      line: UInt = #line)
+    func log(_ message: Logger.Message? = nil,
+             _ level: Logger.Level = .debug,
+             file: String = #fileID,
+             type type_: Any.Type? = nil,
+             function: String = #function,
+             line: UInt = #line)
     {
         logger.log(message ?? "",
                    level,
                    file: file,
                    type: type_ ?? type(of: self),
                    function: function,
-                   line: line,
-                   metaData: _scopedMetadata())
+                   line: line)
     }
 }
 
