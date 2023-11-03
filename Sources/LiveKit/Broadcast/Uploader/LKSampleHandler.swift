@@ -7,7 +7,6 @@
 
 #if os(iOS)
 
-import Promises
 import OSLog
 import Logging
 

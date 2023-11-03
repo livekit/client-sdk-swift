@@ -15,7 +15,6 @@
  */
 
 import Foundation
-import Promises
 
 @_implementationOnly import WebRTC
 
@@ -162,16 +161,13 @@ public class Participant: NSObject, ObservableObject, Loggable {
         }
     }
 
-    @discardableResult
-    internal func cleanUp(notify _notify: Bool = true) -> Promise<Void> {
-
-        unpublishAll(notify: _notify).then(on: queue) {
-            // reset state
-            self._state.mutate { $0 = State(sid: $0.sid, identity: $0.identity, name: $0.name) }
-        }
+    internal func cleanUp(notify _notify: Bool = true) async {
+        await unpublishAll(notify: _notify)
+        // Reset state
+        _state.mutate { $0 = State(sid: $0.sid, identity: $0.identity, name: $0.name) }
     }
 
-    internal func unpublishAll(notify _notify: Bool = true) -> Promise<Void> {
+    internal func unpublishAll(notify _notify: Bool = true) async {
         fatalError("Unimplemented")
     }
 

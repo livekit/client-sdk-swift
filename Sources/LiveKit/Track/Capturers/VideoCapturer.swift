@@ -15,7 +15,6 @@
  */
 
 import Foundation
-import Promises
 
 @_implementationOnly import WebRTC
 
@@ -115,65 +114,64 @@ public class VideoCapturer: NSObject, Loggable, VideoCapturerProtocol {
     ///
     /// ``startCapture()`` and ``stopCapture()`` calls must be balanced. For example, if ``startCapture()`` is called 2 times, ``stopCapture()`` must be called 2 times also.
     /// Returns true when capturing should start, returns fals if capturing already started.
-    public func startCapture() -> Promise<Bool> {
+    @objc
+    @discardableResult
+    public func startCapture() async throws -> Bool {
 
-        Promise(on: queue) { () -> Bool in
-
-            let didStart = self._state.mutate {
-                // counter was 0, so did start capturing with this call
-                let didStart = $0.startStopCounter == 0
-                $0.startStopCounter += 1
-                return didStart
-            }
-
-            guard didStart else {
-                // already started
-                return false
-            }
-
-            self.delegates.notify(label: { "capturer.didUpdate state: \(CapturerState.started)" }) {
-                $0.capturer?(self, didUpdate: .started)
-            }
-
-            return true
+        let didStart = self._state.mutate {
+            // Counter was 0, so did start capturing with this call
+            let didStart = $0.startStopCounter == 0
+            $0.startStopCounter += 1
+            return didStart
         }
+
+        guard didStart else {
+            // Already started
+            return false
+        }
+
+        self.delegates.notify(label: { "capturer.didUpdate state: \(CapturerState.started)" }) {
+            $0.capturer?(self, didUpdate: .started)
+        }
+
+        return true
     }
 
     /// Requests video capturer to stop generating frames. ``Track/stop()-6jeq0`` calls this automatically.
     ///
     /// See ``startCapture()`` for more details.
     /// Returns true when capturing should stop, returns fals if capturing already stopped.
-    public func stopCapture() -> Promise<Bool> {
+    @objc
+    @discardableResult
+    public func stopCapture() async throws -> Bool {
 
-        Promise(on: queue) { () -> Bool in
-
-            let didStop = self._state.mutate {
-                // counter was already 0, so did NOT stop capturing with this call
-                if $0.startStopCounter <= 0 {
-                    return false
-                }
-                $0.startStopCounter -= 1
-                return $0.startStopCounter <= 0
-            }
-
-            guard didStop else {
-                // already stopped
+        let didStop = self._state.mutate {
+            // Counter was already 0, so did NOT stop capturing with this call
+            if $0.startStopCounter <= 0 {
                 return false
             }
-
-            self.delegates.notify(label: { "capturer.didUpdate state: \(CapturerState.stopped)" }) {
-                $0.capturer?(self, didUpdate: .stopped)
-            }
-
-            self.dimensionsCompleter.cancel()
-
-            return true
+            $0.startStopCounter -= 1
+            return $0.startStopCounter <= 0
         }
+
+        guard didStop else {
+            // Already stopped
+            return false
+        }
+
+        self.delegates.notify(label: { "capturer.didUpdate state: \(CapturerState.stopped)" }) {
+            $0.capturer?(self, didUpdate: .stopped)
+        }
+
+        dimensionsCompleter.cancel()
+
+        return true
     }
 
-    public func restartCapture() -> Promise<Bool> {
-        stopCapture().then(on: queue) { _ -> Promise<Bool> in
-            self.startCapture()
-        }
+    @objc
+    @discardableResult
+    public func restartCapture() async throws -> Bool {
+        try await stopCapture()
+        return try await startCapture()
     }
 }

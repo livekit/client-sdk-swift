@@ -15,13 +15,12 @@
  */
 
 import Foundation
-import Promises
 
 @objc
 public class LocalTrackPublication: TrackPublication {
 
     // indicates whether the track was suspended(muted) by the SDK
-    internal var suspended: Bool = false
+    internal var _suspended: Bool = false
 
     // keep reference to cancel later
     private weak var debounceWorkItem: DispatchWorkItem?
@@ -29,24 +28,22 @@ public class LocalTrackPublication: TrackPublication {
     // stream state is always active for local tracks
     public override var streamState: StreamState { .active }
 
-    @discardableResult
-    public func mute() -> Promise<Void> {
+    public func mute() async throws {
 
         guard let track = track as? LocalTrack else {
-            return Promise(InternalError.state(message: "track is nil or not a LocalTrack"))
+            throw InternalError.state(message: "track is nil or not a LocalTrack")
         }
 
-        return track._mute()
+        try await track._mute()
     }
 
-    @discardableResult
-    public func unmute() -> Promise<Void> {
+    public func unmute() async throws {
 
         guard let track = track as? LocalTrack else {
-            return Promise(InternalError.state(message: "track is nil or not a LocalTrack"))
+            throw InternalError.state(message: "track is nil or not a LocalTrack")
         }
 
-        return track._unmute()
+        try await track._unmute()
     }
 
     internal override func set(track newValue: Track?) -> Track? {
@@ -81,22 +78,18 @@ public class LocalTrackPublication: TrackPublication {
 
 internal extension LocalTrackPublication {
 
-    @discardableResult
-    func suspend() -> Promise<Void> {
-        // do nothing if already muted
-        guard !muted else { return Promise(()) }
-        return mute().then(on: queue) {
-            self.suspended = true
-        }
+    func suspend() async throws {
+        // Do nothing if already muted
+        guard !muted else { return }
+        try await mute()
+        _suspended = true
     }
 
-    @discardableResult
-    func resume() -> Promise<Void> {
-        // do nothing if was not suspended
-        guard suspended else { return Promise(()) }
-        return unmute().then(on: queue) {
-            self.suspended = false
-        }
+    func resume() async throws {
+        // Do nothing if was not suspended
+        guard _suspended else { return }
+        try await unmute()
+        _suspended = false
     }
 }
 
@@ -119,16 +112,12 @@ extension LocalTrackPublication {
             return
         }
 
-        guard let participant = participant else {
-            log("Participant is nil", .warning)
-            return
-        }
-
         log("Re-computing sender parameters, dimensions: \(String(describing: track.capturer.dimensions))")
 
         // get current parameters
         let parameters = sender.parameters
 
+        guard let participant = participant else { return }
         let publishOptions = (track.publishOptions as? VideoPublishOptions) ?? participant.room._state.options.defaultVideoPublishOptions
 
         // re-compute encodings
@@ -166,6 +155,7 @@ extension LocalTrackPublication {
         self.log("Using encodings layers: \(layers.map { String(describing: $0) }.joined(separator: ", "))")
 
         Task {
+            let participant = try await requireParticipant()
             try await participant.room.engine.signalClient.sendUpdateVideoLayers(trackSid: track.sid!, layers: layers)
         }
     }

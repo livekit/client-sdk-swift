@@ -15,7 +15,6 @@
  */
 
 import Foundation
-import Promises
 
 @objc(ConnectionState)
 public enum ConnectionStateObjC: Int {

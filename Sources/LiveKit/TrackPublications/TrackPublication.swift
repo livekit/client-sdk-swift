@@ -16,7 +16,6 @@
 
 import Foundation
 import CoreGraphics
-import Promises
 import Combine
 
 @objc
@@ -212,34 +211,39 @@ extension TrackPublication: TrackDelegateInternal {
 
         log("muted: \(muted) shouldSendSignal: \(shouldSendSignal)")
 
+        Task {
+            let participant = try await requireParticipant()
+
+            if shouldSendSignal {
+                try await participant.room.engine.signalClient.sendMuteTrack(trackSid: sid, muted: muted)
+            }
+
+            participant.delegates.notify {
+                $0.participant?(participant, didUpdate: self, muted: muted)
+            }
+            participant.room.delegates.notify {
+                $0.room?(participant.room, participant: participant, didUpdate: self, muted: self.muted)
+            }
+
+            // TrackPublication.muted is a computed property depending on Track.muted
+            // so emit event on TrackPublication when Track.muted updates
+            Task.detached { @MainActor in
+                self.objectWillChange.send()
+            }
+        }
+    }
+}
+
+// MARK: - Internal helpers
+
+internal extension TrackPublication {
+
+    func requireParticipant() async throws -> Participant {
+
         guard let participant = participant else {
-            log("Participant is nil", .warning)
-            return
+            throw EngineError.state(message: "Participant is nil")
         }
 
-        func sendSignal() -> Promise<Void> {
-
-            guard shouldSendSignal else {
-                return Promise(())
-            }
-
-            return promise(from: participant.room.engine.signalClient.sendMuteTrack, param1: sid, param2: muted)
-        }
-
-        sendSignal()
-            .recover(on: queue) { self.log("Failed to stop all tracks, error: \($0)") }
-            .then(on: queue) {
-                participant.delegates.notify {
-                    $0.participant?(participant, didUpdate: self, muted: muted)
-                }
-                participant.room.delegates.notify {
-                    $0.room?(participant.room, participant: participant, didUpdate: self, muted: self.muted)
-                }
-                // TrackPublication.muted is a computed property depending on Track.muted
-                // so emit event on TrackPublication when Track.muted updates
-                Task.detached { @MainActor in
-                    self.objectWillChange.send()
-                }
-            }
+        return participant
     }
 }

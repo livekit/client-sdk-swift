@@ -15,7 +15,6 @@
  */
 
 import Foundation
-import Promises
 
 @_implementationOnly import WebRTC
 
@@ -44,16 +43,26 @@ public class LocalVideoTrack: Track, LocalTrack, VideoTrack {
                    track: rtcTrack)
     }
 
-    override public func start() -> Promise<Bool> {
-        super.start().then(on: queue) { didStart in
-            self.capturer.startCapture().then(on: self.queue) { _ in didStart }
-        }
+    @discardableResult
+    override public func start() async throws -> Bool {
+        let didStart = try await super.start()
+        if didStart { try await capturer.startCapture() }
+        return didStart
     }
 
-    override public func stop() -> Promise<Bool> {
-        super.stop().then(on: queue) { didStop in
-            self.capturer.stopCapture().then(on: self.queue) { _ in didStop }
-        }
+    @discardableResult
+    override public func stop() async throws -> Bool {
+        let didStop = try await super.stop()
+        if didStop { try await capturer.stopCapture() }
+        return didStop
+    }
+
+    public func mute() async throws {
+        try await super._mute()
+    }
+
+    public func unmute() async throws {
+        try await super._unmute()
     }
 }
 

@@ -15,7 +15,6 @@
  */
 
 import Foundation
-import Promises
 
 @_implementationOnly import WebRTC
 
@@ -32,10 +31,14 @@ extension Room: EngineDelegate {
                 resetTrackSettings()
             }
 
-            // re-send track permissions
+            // Re-send track permissions
             if case .connected = state.connectionState, let localParticipant = localParticipant {
-                localParticipant.sendTrackSubscriptionPermissions().catch(on: queue) { error in
-                    self.log("Failed to send track subscription permissions, error: \(error)", .error)
+                Task {
+                    do {
+                        try await localParticipant.sendTrackSubscriptionPermissions()
+                    } catch let error {
+                        log("Failed to send track subscription permissions, error: \(error)", .error)
+                    }
                 }
             }
 
@@ -63,8 +66,10 @@ extension Room: EngineDelegate {
         }
 
         if state.connectionState.isReconnecting && state.reconnectMode == .full && oldState.reconnectMode != .full {
-            // started full reconnect
-            cleanUpParticipants(notify: true)
+            Task {
+                // Started full reconnect
+                await cleanUpParticipants(notify: true)
+            }
         }
 
         // Notify change when engine's state mutates
@@ -145,12 +150,13 @@ extension Room: EngineDelegate {
 
         log("added media track from: \(participantSid), sid: \(trackSid)")
 
-        _ = retry(attempts: 10, delay: 0.2) { _, error in
-            // if error is invalidTrackState, retry
-            guard case TrackError.state = error else { return false }
-            return true
-        } _: {
-            participant.addSubscribedMediaTrack(rtcTrack: track, rtpReceiver: rtpReceiver, sid: trackSid)
+        let task = Task.retrying(retryDelay: 0.2) { _, _ in
+            // TODO: Only retry for TrackError.state = error
+            try await participant.addSubscribedMediaTrack(rtcTrack: track, rtpReceiver: rtpReceiver, sid: trackSid)
+        }
+
+        Task {
+            try await task.value
         }
     }
 

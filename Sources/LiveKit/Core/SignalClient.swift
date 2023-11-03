@@ -198,16 +198,12 @@ private extension SignalClient {
             throw SignalClientError.state(message: "Not connected")
         }
 
-        // this shouldn't happen
-        guard let webSocket = _webSocket else {
-            log("webSocket is nil", .error)
-            throw SignalClientError.state(message: "WebSocket is nil")
-        }
-
         guard let data = try? request.serializedData() else {
             log("could not serialize data", .error)
             throw InternalError.convert(message: "Could not serialize data")
         }
+
+        let webSocket = try await requireWebSocket()
 
         try await webSocket.send(data: data)
     }
@@ -642,5 +638,17 @@ internal extension Livekit_SignalRequest {
         case .leave: return false
         default: return true
         }
+    }
+}
+
+private extension SignalClient {
+
+    func requireWebSocket() async throws -> WebSocket {
+        // This shouldn't happen
+        guard let result = _webSocket else {
+            throw SignalClientError.state(message: "WebSocket is nil")
+        }
+
+        return result
     }
 }

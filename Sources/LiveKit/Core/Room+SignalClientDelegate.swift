@@ -15,7 +15,6 @@
  */
 
 import Foundation
-import Promises
 
 @_implementationOnly import WebRTC
 
@@ -29,8 +28,10 @@ extension Room: SignalClientDelegate {
             // force .full for next reconnect
             engine._state.mutate { $0.nextPreferredReconnectMode = .full }
         } else {
-            // server indicates it's not recoverable
-            cleanUp(reason: reason.toLKType())
+            Task {
+                // Server indicates it's not recoverable
+                await cleanUp(reason: reason.toLKType())
+            }
         }
     }
 
@@ -141,10 +142,12 @@ extension Room: SignalClientDelegate {
             return
         }
 
-        if muted {
-            publication.mute()
-        } else {
-            publication.unmute()
+        Task {
+            if muted {
+                try await publication.mute()
+            } else {
+                try await publication.unmute()
+            }
         }
     }
 
@@ -207,7 +210,9 @@ extension Room: SignalClientDelegate {
         }
 
         for sid in disconnectedParticipants {
-            onParticipantDisconnect(sid: sid)
+            Task {
+                try await onParticipantDisconnect(sid: sid)
+            }
         }
 
         for participant in newParticipants {
@@ -231,10 +236,13 @@ extension Room: SignalClientDelegate {
             return
         }
 
-        localParticipant.unpublish(publication: publication).then(on: queue) { [weak self] _ in
-            self?.log("unpublished track(\(localTrack.trackSid)")
-        }.catch(on: queue) { [weak self] error in
-            self?.log("failed to unpublish track(\(localTrack.trackSid), error: \(error)", .warning)
+        Task {
+            do {
+                try await localParticipant.unpublish(publication: publication)
+                log("Unpublished track(\(localTrack.trackSid)")
+            } catch let error {
+                log("Failed to unpublish track(\(localTrack.trackSid), error: \(error)", .warning)
+            }
         }
     }
 

@@ -15,16 +15,10 @@
  */
 
 import Foundation
-import Promises
 
 @_implementationOnly import WebRTC
 
 public typealias Sid = String
-
-// A tuple of Promises.
-// listen: resolves when started listening
-// wait: resolves when wait is complete or rejects when timeout
-internal typealias WaitPromises<T> = (listen: Promise<Void>, wait: () -> Promise<T>)
 
 @objc
 public enum Reliability: Int {
