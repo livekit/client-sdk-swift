@@ -69,7 +69,7 @@ enum Livekit_AudioCodec: SwiftProtobuf.Enum {
 
 extension Livekit_AudioCodec: CaseIterable {
   // The compiler won't synthesize support with the UNRECOGNIZED case.
-  static var allCases: [Livekit_AudioCodec] = [
+  static let allCases: [Livekit_AudioCodec] = [
     .defaultAc,
     .opus,
     .aac,
@@ -119,12 +119,52 @@ enum Livekit_VideoCodec: SwiftProtobuf.Enum {
 
 extension Livekit_VideoCodec: CaseIterable {
   // The compiler won't synthesize support with the UNRECOGNIZED case.
-  static var allCases: [Livekit_VideoCodec] = [
+  static let allCases: [Livekit_VideoCodec] = [
     .defaultVc,
     .h264Baseline,
     .h264Main,
     .h264High,
     .vp8,
+  ]
+}
+
+#endif  // swift(>=4.2)
+
+enum Livekit_ImageCodec: SwiftProtobuf.Enum {
+  typealias RawValue = Int
+  case icDefault // = 0
+  case icJpeg // = 1
+  case UNRECOGNIZED(Int)
+
+  init() {
+    self = .icDefault
+  }
+
+  init?(rawValue: Int) {
+    switch rawValue {
+    case 0: self = .icDefault
+    case 1: self = .icJpeg
+    default: self = .UNRECOGNIZED(rawValue)
+    }
+  }
+
+  var rawValue: Int {
+    switch self {
+    case .icDefault: return 0
+    case .icJpeg: return 1
+    case .UNRECOGNIZED(let i): return i
+    }
+  }
+
+}
+
+#if swift(>=4.2)
+
+extension Livekit_ImageCodec: CaseIterable {
+  // The compiler won't synthesize support with the UNRECOGNIZED case.
+  static let allCases: [Livekit_ImageCodec] = [
+    .icDefault,
+    .icJpeg,
   ]
 }
 
@@ -165,7 +205,7 @@ enum Livekit_TrackType: SwiftProtobuf.Enum {
 
 extension Livekit_TrackType: CaseIterable {
   // The compiler won't synthesize support with the UNRECOGNIZED case.
-  static var allCases: [Livekit_TrackType] = [
+  static let allCases: [Livekit_TrackType] = [
     .audio,
     .video,
     .data,
@@ -215,7 +255,7 @@ enum Livekit_TrackSource: SwiftProtobuf.Enum {
 
 extension Livekit_TrackSource: CaseIterable {
   // The compiler won't synthesize support with the UNRECOGNIZED case.
-  static var allCases: [Livekit_TrackSource] = [
+  static let allCases: [Livekit_TrackSource] = [
     .unknown,
     .camera,
     .microphone,
@@ -264,7 +304,7 @@ enum Livekit_VideoQuality: SwiftProtobuf.Enum {
 
 extension Livekit_VideoQuality: CaseIterable {
   // The compiler won't synthesize support with the UNRECOGNIZED case.
-  static var allCases: [Livekit_VideoQuality] = [
+  static let allCases: [Livekit_VideoQuality] = [
     .low,
     .medium,
     .high,
@@ -309,7 +349,7 @@ enum Livekit_ConnectionQuality: SwiftProtobuf.Enum {
 
 extension Livekit_ConnectionQuality: CaseIterable {
   // The compiler won't synthesize support with the UNRECOGNIZED case.
-  static var allCases: [Livekit_ConnectionQuality] = [
+  static let allCases: [Livekit_ConnectionQuality] = [
     .poor,
     .good,
     .excellent,
@@ -353,7 +393,7 @@ enum Livekit_ClientConfigSetting: SwiftProtobuf.Enum {
 
 extension Livekit_ClientConfigSetting: CaseIterable {
   // The compiler won't synthesize support with the UNRECOGNIZED case.
-  static var allCases: [Livekit_ClientConfigSetting] = [
+  static let allCases: [Livekit_ClientConfigSetting] = [
     .unset,
     .disabled,
     .enabled,
@@ -412,7 +452,7 @@ enum Livekit_DisconnectReason: SwiftProtobuf.Enum {
 
 extension Livekit_DisconnectReason: CaseIterable {
   // The compiler won't synthesize support with the UNRECOGNIZED case.
-  static var allCases: [Livekit_DisconnectReason] = [
+  static let allCases: [Livekit_DisconnectReason] = [
     .unknownReason,
     .clientInitiated,
     .duplicateIdentity,
@@ -467,7 +507,7 @@ enum Livekit_ReconnectReason: SwiftProtobuf.Enum {
 
 extension Livekit_ReconnectReason: CaseIterable {
   // The compiler won't synthesize support with the UNRECOGNIZED case.
-  static var allCases: [Livekit_ReconnectReason] = [
+  static let allCases: [Livekit_ReconnectReason] = [
     .rrUnknown,
     .rrSignalDisconnected,
     .rrPublisherFailed,
@@ -513,7 +553,7 @@ enum Livekit_SubscriptionError: SwiftProtobuf.Enum {
 
 extension Livekit_SubscriptionError: CaseIterable {
   // The compiler won't synthesize support with the UNRECOGNIZED case.
-  static var allCases: [Livekit_SubscriptionError] = [
+  static let allCases: [Livekit_SubscriptionError] = [
     .seUnknown,
     .seCodecUnsupported,
     .seTrackNotfound,
@@ -549,20 +589,9 @@ struct Livekit_Room {
 
   var activeRecording: Bool = false
 
-  var playoutDelay: Livekit_PlayoutDelay {
-    get {return _playoutDelay ?? Livekit_PlayoutDelay()}
-    set {_playoutDelay = newValue}
-  }
-  /// Returns true if `playoutDelay` has been explicitly set.
-  var hasPlayoutDelay: Bool {return self._playoutDelay != nil}
-  /// Clears the value of `playoutDelay`. Subsequent reads from it will return its default value.
-  mutating func clearPlayoutDelay() {self._playoutDelay = nil}
-
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   init() {}
-
-  fileprivate var _playoutDelay: Livekit_PlayoutDelay? = nil
 }
 
 struct Livekit_Codec {
@@ -587,6 +616,8 @@ struct Livekit_PlayoutDelay {
   var enabled: Bool = false
 
   var min: UInt32 = 0
+
+  var max: UInt32 = 0
 
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
@@ -744,7 +775,7 @@ struct Livekit_ParticipantInfo {
 
 extension Livekit_ParticipantInfo.State: CaseIterable {
   // The compiler won't synthesize support with the UNRECOGNIZED case.
-  static var allCases: [Livekit_ParticipantInfo.State] = [
+  static let allCases: [Livekit_ParticipantInfo.State] = [
     .joining,
     .joined,
     .active,
@@ -799,7 +830,7 @@ struct Livekit_Encryption {
 
 extension Livekit_Encryption.TypeEnum: CaseIterable {
   // The compiler won't synthesize support with the UNRECOGNIZED case.
-  static var allCases: [Livekit_Encryption.TypeEnum] = [
+  static let allCases: [Livekit_Encryption.TypeEnum] = [
     .none,
     .gcm,
     .custom,
@@ -1041,7 +1072,7 @@ struct Livekit_DataPacket {
 
 extension Livekit_DataPacket.Kind: CaseIterable {
   // The compiler won't synthesize support with the UNRECOGNIZED case.
-  static var allCases: [Livekit_DataPacket.Kind] = [
+  static let allCases: [Livekit_DataPacket.Kind] = [
     .reliable,
     .lossy,
   ]
@@ -1186,7 +1217,7 @@ struct Livekit_ServerInfo {
 
 extension Livekit_ServerInfo.Edition: CaseIterable {
   // The compiler won't synthesize support with the UNRECOGNIZED case.
-  static var allCases: [Livekit_ServerInfo.Edition] = [
+  static let allCases: [Livekit_ServerInfo.Edition] = [
     .standard,
     .cloud,
   ]
@@ -1285,7 +1316,7 @@ struct Livekit_ClientInfo {
 
 extension Livekit_ClientInfo.SDK: CaseIterable {
   // The compiler won't synthesize support with the UNRECOGNIZED case.
-  static var allCases: [Livekit_ClientInfo.SDK] = [
+  static let allCases: [Livekit_ClientInfo.SDK] = [
     .unknown,
     .js,
     .swift,
@@ -1374,6 +1405,51 @@ struct Livekit_DisabledCodecs {
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   init() {}
+}
+
+struct Livekit_RTPDrift {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  var startTime: SwiftProtobuf.Google_Protobuf_Timestamp {
+    get {return _startTime ?? SwiftProtobuf.Google_Protobuf_Timestamp()}
+    set {_startTime = newValue}
+  }
+  /// Returns true if `startTime` has been explicitly set.
+  var hasStartTime: Bool {return self._startTime != nil}
+  /// Clears the value of `startTime`. Subsequent reads from it will return its default value.
+  mutating func clearStartTime() {self._startTime = nil}
+
+  var endTime: SwiftProtobuf.Google_Protobuf_Timestamp {
+    get {return _endTime ?? SwiftProtobuf.Google_Protobuf_Timestamp()}
+    set {_endTime = newValue}
+  }
+  /// Returns true if `endTime` has been explicitly set.
+  var hasEndTime: Bool {return self._endTime != nil}
+  /// Clears the value of `endTime`. Subsequent reads from it will return its default value.
+  mutating func clearEndTime() {self._endTime = nil}
+
+  var duration: Double = 0
+
+  var startTimestamp: UInt64 = 0
+
+  var endTimestamp: UInt64 = 0
+
+  var rtpClockTicks: UInt64 = 0
+
+  var driftSamples: Int64 = 0
+
+  var driftMs: Double = 0
+
+  var clockRate: Double = 0
+
+  var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  init() {}
+
+  fileprivate var _startTime: SwiftProtobuf.Google_Protobuf_Timestamp? = nil
+  fileprivate var _endTime: SwiftProtobuf.Google_Protobuf_Timestamp? = nil
 }
 
 struct Livekit_RTPStats {
@@ -1610,16 +1686,24 @@ struct Livekit_RTPStats {
   /// Clears the value of `lastLayerLockPli`. Subsequent reads from it will return its default value.
   mutating func clearLastLayerLockPli() {_uniqueStorage()._lastLayerLockPli = nil}
 
-  var sampleRate: Double {
-    get {return _storage._sampleRate}
-    set {_uniqueStorage()._sampleRate = newValue}
+  var packetDrift: Livekit_RTPDrift {
+    get {return _storage._packetDrift ?? Livekit_RTPDrift()}
+    set {_uniqueStorage()._packetDrift = newValue}
   }
+  /// Returns true if `packetDrift` has been explicitly set.
+  var hasPacketDrift: Bool {return _storage._packetDrift != nil}
+  /// Clears the value of `packetDrift`. Subsequent reads from it will return its default value.
+  mutating func clearPacketDrift() {_uniqueStorage()._packetDrift = nil}
 
-  /// NEXT_ID: 44
-  var driftMs: Double {
-    get {return _storage._driftMs}
-    set {_uniqueStorage()._driftMs = newValue}
+  /// NEXT_ID: 46
+  var reportDrift: Livekit_RTPDrift {
+    get {return _storage._reportDrift ?? Livekit_RTPDrift()}
+    set {_uniqueStorage()._reportDrift = newValue}
   }
+  /// Returns true if `reportDrift` has been explicitly set.
+  var hasReportDrift: Bool {return _storage._reportDrift != nil}
+  /// Clears the value of `reportDrift`. Subsequent reads from it will return its default value.
+  mutating func clearReportDrift() {_uniqueStorage()._reportDrift = nil}
 
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
@@ -1645,6 +1729,7 @@ struct Livekit_TimedVersion {
 #if swift(>=5.5) && canImport(_Concurrency)
 extension Livekit_AudioCodec: @unchecked Sendable {}
 extension Livekit_VideoCodec: @unchecked Sendable {}
+extension Livekit_ImageCodec: @unchecked Sendable {}
 extension Livekit_TrackType: @unchecked Sendable {}
 extension Livekit_TrackSource: @unchecked Sendable {}
 extension Livekit_VideoQuality: @unchecked Sendable {}
@@ -1678,6 +1763,7 @@ extension Livekit_ClientInfo.SDK: @unchecked Sendable {}
 extension Livekit_ClientConfiguration: @unchecked Sendable {}
 extension Livekit_VideoConfiguration: @unchecked Sendable {}
 extension Livekit_DisabledCodecs: @unchecked Sendable {}
+extension Livekit_RTPDrift: @unchecked Sendable {}
 extension Livekit_RTPStats: @unchecked Sendable {}
 extension Livekit_TimedVersion: @unchecked Sendable {}
 #endif  // swift(>=5.5) && canImport(_Concurrency)
@@ -1701,6 +1787,13 @@ extension Livekit_VideoCodec: SwiftProtobuf._ProtoNameProviding {
     2: .same(proto: "H264_MAIN"),
     3: .same(proto: "H264_HIGH"),
     4: .same(proto: "VP8"),
+  ]
+}
+
+extension Livekit_ImageCodec: SwiftProtobuf._ProtoNameProviding {
+  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
+    0: .same(proto: "IC_DEFAULT"),
+    1: .same(proto: "IC_JPEG"),
   ]
 }
 
@@ -1792,7 +1885,6 @@ extension Livekit_Room: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementat
     9: .standard(proto: "num_participants"),
     11: .standard(proto: "num_publishers"),
     10: .standard(proto: "active_recording"),
-    12: .standard(proto: "playout_delay"),
   ]
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -1812,17 +1904,12 @@ extension Livekit_Room: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementat
       case 9: try { try decoder.decodeSingularUInt32Field(value: &self.numParticipants) }()
       case 10: try { try decoder.decodeSingularBoolField(value: &self.activeRecording) }()
       case 11: try { try decoder.decodeSingularUInt32Field(value: &self.numPublishers) }()
-      case 12: try { try decoder.decodeSingularMessageField(value: &self._playoutDelay) }()
       default: break
       }
     }
   }
 
   func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
-    // The use of inline closures is to circumvent an issue where the compiler
-    // allocates stack space for every if/case branch local when no optimizations
-    // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
-    // https://github.com/apple/swift-protobuf/issues/1182
     if !self.sid.isEmpty {
       try visitor.visitSingularStringField(value: self.sid, fieldNumber: 1)
     }
@@ -1856,9 +1943,6 @@ extension Livekit_Room: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementat
     if self.numPublishers != 0 {
       try visitor.visitSingularUInt32Field(value: self.numPublishers, fieldNumber: 11)
     }
-    try { if let v = self._playoutDelay {
-      try visitor.visitSingularMessageField(value: v, fieldNumber: 12)
-    } }()
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -1874,7 +1958,6 @@ extension Livekit_Room: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementat
     if lhs.numParticipants != rhs.numParticipants {return false}
     if lhs.numPublishers != rhs.numPublishers {return false}
     if lhs.activeRecording != rhs.activeRecording {return false}
-    if lhs._playoutDelay != rhs._playoutDelay {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
@@ -1923,6 +2006,7 @@ extension Livekit_PlayoutDelay: SwiftProtobuf.Message, SwiftProtobuf._MessageImp
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     1: .same(proto: "enabled"),
     2: .same(proto: "min"),
+    3: .same(proto: "max"),
   ]
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -1933,6 +2017,7 @@ extension Livekit_PlayoutDelay: SwiftProtobuf.Message, SwiftProtobuf._MessageImp
       switch fieldNumber {
       case 1: try { try decoder.decodeSingularBoolField(value: &self.enabled) }()
       case 2: try { try decoder.decodeSingularUInt32Field(value: &self.min) }()
+      case 3: try { try decoder.decodeSingularUInt32Field(value: &self.max) }()
       default: break
       }
     }
@@ -1945,12 +2030,16 @@ extension Livekit_PlayoutDelay: SwiftProtobuf.Message, SwiftProtobuf._MessageImp
     if self.min != 0 {
       try visitor.visitSingularUInt32Field(value: self.min, fieldNumber: 2)
     }
+    if self.max != 0 {
+      try visitor.visitSingularUInt32Field(value: self.max, fieldNumber: 3)
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
   static func ==(lhs: Livekit_PlayoutDelay, rhs: Livekit_PlayoutDelay) -> Bool {
     if lhs.enabled != rhs.enabled {return false}
     if lhs.min != rhs.min {return false}
+    if lhs.max != rhs.max {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
@@ -3070,6 +3159,90 @@ extension Livekit_DisabledCodecs: SwiftProtobuf.Message, SwiftProtobuf._MessageI
   }
 }
 
+extension Livekit_RTPDrift: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  static let protoMessageName: String = _protobuf_package + ".RTPDrift"
+  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
+    1: .standard(proto: "start_time"),
+    2: .standard(proto: "end_time"),
+    3: .same(proto: "duration"),
+    4: .standard(proto: "start_timestamp"),
+    5: .standard(proto: "end_timestamp"),
+    6: .standard(proto: "rtp_clock_ticks"),
+    7: .standard(proto: "drift_samples"),
+    8: .standard(proto: "drift_ms"),
+    9: .standard(proto: "clock_rate"),
+  ]
+
+  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularMessageField(value: &self._startTime) }()
+      case 2: try { try decoder.decodeSingularMessageField(value: &self._endTime) }()
+      case 3: try { try decoder.decodeSingularDoubleField(value: &self.duration) }()
+      case 4: try { try decoder.decodeSingularUInt64Field(value: &self.startTimestamp) }()
+      case 5: try { try decoder.decodeSingularUInt64Field(value: &self.endTimestamp) }()
+      case 6: try { try decoder.decodeSingularUInt64Field(value: &self.rtpClockTicks) }()
+      case 7: try { try decoder.decodeSingularInt64Field(value: &self.driftSamples) }()
+      case 8: try { try decoder.decodeSingularDoubleField(value: &self.driftMs) }()
+      case 9: try { try decoder.decodeSingularDoubleField(value: &self.clockRate) }()
+      default: break
+      }
+    }
+  }
+
+  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    // The use of inline closures is to circumvent an issue where the compiler
+    // allocates stack space for every if/case branch local when no optimizations
+    // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+    // https://github.com/apple/swift-protobuf/issues/1182
+    try { if let v = self._startTime {
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 1)
+    } }()
+    try { if let v = self._endTime {
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 2)
+    } }()
+    if self.duration != 0 {
+      try visitor.visitSingularDoubleField(value: self.duration, fieldNumber: 3)
+    }
+    if self.startTimestamp != 0 {
+      try visitor.visitSingularUInt64Field(value: self.startTimestamp, fieldNumber: 4)
+    }
+    if self.endTimestamp != 0 {
+      try visitor.visitSingularUInt64Field(value: self.endTimestamp, fieldNumber: 5)
+    }
+    if self.rtpClockTicks != 0 {
+      try visitor.visitSingularUInt64Field(value: self.rtpClockTicks, fieldNumber: 6)
+    }
+    if self.driftSamples != 0 {
+      try visitor.visitSingularInt64Field(value: self.driftSamples, fieldNumber: 7)
+    }
+    if self.driftMs != 0 {
+      try visitor.visitSingularDoubleField(value: self.driftMs, fieldNumber: 8)
+    }
+    if self.clockRate != 0 {
+      try visitor.visitSingularDoubleField(value: self.clockRate, fieldNumber: 9)
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  static func ==(lhs: Livekit_RTPDrift, rhs: Livekit_RTPDrift) -> Bool {
+    if lhs._startTime != rhs._startTime {return false}
+    if lhs._endTime != rhs._endTime {return false}
+    if lhs.duration != rhs.duration {return false}
+    if lhs.startTimestamp != rhs.startTimestamp {return false}
+    if lhs.endTimestamp != rhs.endTimestamp {return false}
+    if lhs.rtpClockTicks != rhs.rtpClockTicks {return false}
+    if lhs.driftSamples != rhs.driftSamples {return false}
+    if lhs.driftMs != rhs.driftMs {return false}
+    if lhs.clockRate != rhs.clockRate {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
 extension Livekit_RTPStats: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".RTPStats"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
@@ -3114,8 +3287,8 @@ extension Livekit_RTPStats: SwiftProtobuf.Message, SwiftProtobuf._MessageImpleme
     34: .standard(proto: "last_key_frame"),
     35: .standard(proto: "layer_lock_plis"),
     36: .standard(proto: "last_layer_lock_pli"),
-    42: .standard(proto: "sample_rate"),
-    43: .standard(proto: "drift_ms"),
+    44: .standard(proto: "packet_drift"),
+    45: .standard(proto: "report_drift"),
   ]
 
   fileprivate class _StorageClass {
@@ -3160,8 +3333,8 @@ extension Livekit_RTPStats: SwiftProtobuf.Message, SwiftProtobuf._MessageImpleme
     var _lastKeyFrame: SwiftProtobuf.Google_Protobuf_Timestamp? = nil
     var _layerLockPlis: UInt32 = 0
     var _lastLayerLockPli: SwiftProtobuf.Google_Protobuf_Timestamp? = nil
-    var _sampleRate: Double = 0
-    var _driftMs: Double = 0
+    var _packetDrift: Livekit_RTPDrift? = nil
+    var _reportDrift: Livekit_RTPDrift? = nil
 
     static let defaultInstance = _StorageClass()
 
@@ -3209,8 +3382,8 @@ extension Livekit_RTPStats: SwiftProtobuf.Message, SwiftProtobuf._MessageImpleme
       _lastKeyFrame = source._lastKeyFrame
       _layerLockPlis = source._layerLockPlis
       _lastLayerLockPli = source._lastLayerLockPli
-      _sampleRate = source._sampleRate
-      _driftMs = source._driftMs
+      _packetDrift = source._packetDrift
+      _reportDrift = source._reportDrift
     }
   }
 
@@ -3270,8 +3443,8 @@ extension Livekit_RTPStats: SwiftProtobuf.Message, SwiftProtobuf._MessageImpleme
         case 39: try { try decoder.decodeSingularUInt64Field(value: &_storage._headerBytes) }()
         case 40: try { try decoder.decodeSingularUInt64Field(value: &_storage._headerBytesDuplicate) }()
         case 41: try { try decoder.decodeSingularUInt64Field(value: &_storage._headerBytesPadding) }()
-        case 42: try { try decoder.decodeSingularDoubleField(value: &_storage._sampleRate) }()
-        case 43: try { try decoder.decodeSingularDoubleField(value: &_storage._driftMs) }()
+        case 44: try { try decoder.decodeSingularMessageField(value: &_storage._packetDrift) }()
+        case 45: try { try decoder.decodeSingularMessageField(value: &_storage._reportDrift) }()
         default: break
         }
       }
@@ -3407,12 +3580,12 @@ extension Livekit_RTPStats: SwiftProtobuf.Message, SwiftProtobuf._MessageImpleme
       if _storage._headerBytesPadding != 0 {
         try visitor.visitSingularUInt64Field(value: _storage._headerBytesPadding, fieldNumber: 41)
       }
-      if _storage._sampleRate != 0 {
-        try visitor.visitSingularDoubleField(value: _storage._sampleRate, fieldNumber: 42)
-      }
-      if _storage._driftMs != 0 {
-        try visitor.visitSingularDoubleField(value: _storage._driftMs, fieldNumber: 43)
-      }
+      try { if let v = _storage._packetDrift {
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 44)
+      } }()
+      try { if let v = _storage._reportDrift {
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 45)
+      } }()
     }
     try unknownFields.traverse(visitor: &visitor)
   }
@@ -3463,8 +3636,8 @@ extension Livekit_RTPStats: SwiftProtobuf.Message, SwiftProtobuf._MessageImpleme
         if _storage._lastKeyFrame != rhs_storage._lastKeyFrame {return false}
         if _storage._layerLockPlis != rhs_storage._layerLockPlis {return false}
         if _storage._lastLayerLockPli != rhs_storage._lastLayerLockPli {return false}
-        if _storage._sampleRate != rhs_storage._sampleRate {return false}
-        if _storage._driftMs != rhs_storage._driftMs {return false}
+        if _storage._packetDrift != rhs_storage._packetDrift {return false}
+        if _storage._reportDrift != rhs_storage._reportDrift {return false}
         return true
       }
       if !storagesAreEqual {return false}

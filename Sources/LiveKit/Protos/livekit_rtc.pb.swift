@@ -66,7 +66,7 @@ enum Livekit_SignalTarget: SwiftProtobuf.Enum {
 
 extension Livekit_SignalTarget: CaseIterable {
   // The compiler won't synthesize support with the UNRECOGNIZED case.
-  static var allCases: [Livekit_SignalTarget] = [
+  static let allCases: [Livekit_SignalTarget] = [
     .publisher,
     .subscriber,
   ]
@@ -106,7 +106,7 @@ enum Livekit_StreamState: SwiftProtobuf.Enum {
 
 extension Livekit_StreamState: CaseIterable {
   // The compiler won't synthesize support with the UNRECOGNIZED case.
-  static var allCases: [Livekit_StreamState] = [
+  static let allCases: [Livekit_StreamState] = [
     .active,
     .paused,
   ]
@@ -149,7 +149,7 @@ enum Livekit_CandidateProtocol: SwiftProtobuf.Enum {
 
 extension Livekit_CandidateProtocol: CaseIterable {
   // The compiler won't synthesize support with the UNRECOGNIZED case.
-  static var allCases: [Livekit_CandidateProtocol] = [
+  static let allCases: [Livekit_CandidateProtocol] = [
     .udp,
     .tcp,
     .tls,
