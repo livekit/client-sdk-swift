@@ -19,7 +19,6 @@ import Foundation
 // Objects are considered equal if both states are equal
 
 public extension TrackPublication {
-
     override var hash: Int {
         var hasher = Hasher()
         hasher.combine(_state.copy())
@@ -28,6 +27,6 @@ public extension TrackPublication {
 
     override func isEqual(_ object: Any?) -> Bool {
         guard let other = object as? Self else { return false }
-        return self._state.copy() == other._state.copy()
+        return _state.copy() == other._state.copy()
     }
 }

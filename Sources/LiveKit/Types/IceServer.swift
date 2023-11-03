@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 LiveKit
+ * Copyright 2023 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,15 +21,14 @@ import Foundation
 /// Options used when establishing a connection.
 @objc
 public class IceServer: NSObject {
-
     public let urls: [String]
     public let username: String?
     public let credential: String?
 
     public init(urls: [String],
                 username: String?,
-                credential: String?) {
-
+                credential: String?)
+    {
         self.urls = urls
         self.username = username
         self.credential = credential
@@ -37,9 +36,7 @@ public class IceServer: NSObject {
 }
 
 extension IceServer {
-
     func toRTCType() -> LKRTCIceServer {
-
         DispatchQueue.liveKitWebRTC.sync { LKRTCIceServer(urlStrings: urls,
                                                           username: username,
                                                           credential: credential) }
@@ -47,7 +44,6 @@ extension IceServer {
 }
 
 extension Livekit_ICEServer {
-
     func toRTCType() -> LKRTCIceServer {
         let rtcUsername = !username.isEmpty ? username : nil
         let rtcCredential = !credential.isEmpty ? credential : nil

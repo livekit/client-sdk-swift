@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 LiveKit
+ * Copyright 2023 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,27 +20,25 @@ import Foundation
 
 @objc
 public class RemoteParticipant: Participant {
-
-    internal init(sid: Sid,
-                  info: Livekit_ParticipantInfo?,
-                  room: Room) {
-
+    init(sid: Sid,
+         info: Livekit_ParticipantInfo?,
+         room: Room)
+    {
         super.init(sid: sid,
                    identity: info?.identity ?? "",
                    name: info?.name ?? "",
                    room: room)
 
-        if let info = info {
+        if let info {
             updateFromInfo(info: info)
         }
     }
 
-    internal func getTrackPublication(sid: Sid) -> RemoteTrackPublication? {
+    func getTrackPublication(sid: Sid) -> RemoteTrackPublication? {
         _state.tracks[sid] as? RemoteTrackPublication
     }
 
     override func updateFromInfo(info: Livekit_ParticipantInfo) {
-
         super.updateFromInfo(info: info)
 
         var validTrackPublications = [String: RemoteTrackPublication]()
@@ -59,10 +57,9 @@ public class RemoteParticipant: Participant {
         }
 
         room.engine.executeIfConnected { [weak self] in
-            guard let self = self else { return }
+            guard let self else { return }
 
             for publication in newTrackPublications.values {
-
                 self.delegates.notify(label: { "participant.didPublish \(publication)" }) {
                     $0.participant?(self, didPublish: publication)
                 }
@@ -80,15 +77,14 @@ public class RemoteParticipant: Participant {
             Task {
                 do {
                     try await unpublish(publication: unpublishRemoteTrackPublication)
-                } catch let error {
+                } catch {
                     log("Failed to unpublish with error: \(error)")
                 }
             }
         }
     }
 
-    internal func addSubscribedMediaTrack(rtcTrack: LKRTCMediaStreamTrack, rtpReceiver: LKRTCRtpReceiver, sid: Sid) async throws {
-
+    func addSubscribedMediaTrack(rtcTrack: LKRTCMediaStreamTrack, rtpReceiver: LKRTCRtpReceiver, sid: Sid) async throws {
         let track: Track
 
         guard let publication = getTrackPublication(sid: sid) else {
@@ -137,11 +133,9 @@ public class RemoteParticipant: Participant {
         room.delegates.notify(label: { "room.didSubscribe \(publication)" }) {
             $0.room?(self.room, participant: self, didSubscribe: publication, track: track)
         }
-
     }
 
-    internal override func cleanUp(notify _notify: Bool = true) async {
-
+    override func cleanUp(notify _notify: Bool = true) async {
         await super.cleanUp(notify: _notify)
 
         room.delegates.notify(label: { "room.participantDidLeave" }) {
@@ -149,20 +143,19 @@ public class RemoteParticipant: Participant {
         }
     }
 
-    public override func unpublishAll(notify _notify: Bool = true) async {
+    override public func unpublishAll(notify _notify: Bool = true) async {
         // Build a list of Publications
         let publications = _state.tracks.values.compactMap { $0 as? RemoteTrackPublication }
         for publication in publications {
             do {
                 try await unpublish(publication: publication, notify: _notify)
-            } catch let error {
+            } catch {
                 log("Failed to unpublish track \(publication.sid) with error \(error)", .error)
             }
         }
     }
 
-    internal func unpublish(publication: RemoteTrackPublication, notify _notify: Bool = true) async throws {
-
+    func unpublish(publication: RemoteTrackPublication, notify _notify: Bool = true) async throws {
         func _notifyUnpublish() async {
             guard _notify else { return }
             delegates.notify(label: { "participant.didUnpublish \(publication)" }) {

@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 LiveKit
+ * Copyright 2023 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,10 +16,10 @@
 
 import Foundation
 
-extension Collection where Element == VideoParameters {
-
+extension Collection<VideoParameters> {
     func suggestedPresetIndex(dimensions: Dimensions? = nil,
-                              videoEncoding: VideoEncoding? = nil) -> Int {
+                              videoEncoding: VideoEncoding? = nil) -> Int
+    {
         // self must at lease have 1 element
         assert(!isEmpty)
         // dimensions or videoEndocing is required
@@ -27,16 +27,16 @@ extension Collection where Element == VideoParameters {
 
         var result = 0
         for preset in self {
-            if let dimensions = dimensions,
+            if let dimensions,
                dimensions.width >= preset.dimensions.width,
-               dimensions.height >= preset.dimensions.height {
-
+               dimensions.height >= preset.dimensions.height
+            {
                 result += 1
-            } else if let videoEncoding = videoEncoding,
-                      videoEncoding.maxBitrate >= preset.encoding.maxBitrate {
+            } else if let videoEncoding,
+                      videoEncoding.maxBitrate >= preset.encoding.maxBitrate
+            {
                 result += 1
             }
-
         }
         return result
     }
@@ -44,7 +44,6 @@ extension Collection where Element == VideoParameters {
 
 @objc
 public class VideoParameters: NSObject {
-
     @objc
     public let dimensions: Dimensions
 
@@ -59,13 +58,13 @@ public class VideoParameters: NSObject {
 
     // MARK: - Equal
 
-    public override func isEqual(_ object: Any?) -> Bool {
+    override public func isEqual(_ object: Any?) -> Bool {
         guard let other = object as? Self else { return false }
-        return self.dimensions == other.dimensions &&
-            self.encoding == other.encoding
+        return dimensions == other.dimensions &&
+            encoding == other.encoding
     }
 
-    public override var hash: Int {
+    override public var hash: Int {
         var hasher = Hasher()
         hasher.combine(dimensions)
         hasher.combine(encoding)
@@ -75,10 +74,8 @@ public class VideoParameters: NSObject {
 
 // MARK: - Computation
 
-internal extension VideoParameters {
-
+extension VideoParameters {
     func defaultScreenShareSimulcastLayers() -> [VideoParameters] {
-
         struct Layer {
             let scaleDownBy: Double
             let fps: Int
@@ -110,8 +107,7 @@ internal extension VideoParameters {
 // MARK: - Presets
 
 @objc
-extension VideoParameters {
-
+public extension VideoParameters {
     internal static let presets43 = [
         presetH120_43,
         presetH180_43,
@@ -121,7 +117,7 @@ extension VideoParameters {
         presetH540_43,
         presetH720_43,
         presetH1080_43,
-        presetH1440_43
+        presetH1440_43,
     ]
 
     internal static let presets169 = [
@@ -133,7 +129,7 @@ extension VideoParameters {
         presetH720_169,
         presetH1080_169,
         presetH1440_169,
-        presetH2160_169
+        presetH2160_169,
     ]
 
     internal static let presetsScreenShare = [
@@ -141,133 +137,133 @@ extension VideoParameters {
         presetScreenShareH720FPS5,
         presetScreenShareH720FPS15,
         presetScreenShareH1080FPS15,
-        presetScreenShareH1080FPS30
+        presetScreenShareH1080FPS30,
     ]
 
     internal static let defaultSimulcastPresets169 = [
         presetH180_169,
-        presetH360_169
+        presetH360_169,
     ]
 
     internal static let defaultSimulcastPresets43 = [
         presetH180_43,
-        presetH360_43
+        presetH360_43,
     ]
 
     // 16:9 aspect ratio
-    public static let presetH90_169 = VideoParameters(
+    static let presetH90_169 = VideoParameters(
         dimensions: .h90_169,
-        encoding: VideoEncoding(maxBitrate: 90_000, maxFps: 15)
+        encoding: VideoEncoding(maxBitrate: 90000, maxFps: 15)
     )
 
-    public static let presetH180_169 = VideoParameters(
+    static let presetH180_169 = VideoParameters(
         dimensions: .h180_169,
         encoding: VideoEncoding(maxBitrate: 160_000, maxFps: 15)
     )
 
-    public static let presetH216_169 = VideoParameters(
+    static let presetH216_169 = VideoParameters(
         dimensions: .h216_169,
         encoding: VideoEncoding(maxBitrate: 180_000, maxFps: 15)
     )
 
-    public static let presetH360_169 = VideoParameters(
+    static let presetH360_169 = VideoParameters(
         dimensions: .h360_169,
         encoding: VideoEncoding(maxBitrate: 450_000, maxFps: 20)
     )
 
-    public static let presetH540_169 = VideoParameters(
+    static let presetH540_169 = VideoParameters(
         dimensions: .h540_169,
         encoding: VideoEncoding(maxBitrate: 800_000, maxFps: 25)
     )
 
-    public static let presetH720_169 = VideoParameters(
+    static let presetH720_169 = VideoParameters(
         dimensions: .h720_169,
         encoding: VideoEncoding(maxBitrate: 1_700_000, maxFps: 30)
     )
 
-    public static let presetH1080_169 = VideoParameters(
+    static let presetH1080_169 = VideoParameters(
         dimensions: .h1080_169,
         encoding: VideoEncoding(maxBitrate: 3_000_000, maxFps: 30)
     )
 
-    public static let presetH1440_169 = VideoParameters(
+    static let presetH1440_169 = VideoParameters(
         dimensions: .h1440_169,
         encoding: VideoEncoding(maxBitrate: 5_000_000, maxFps: 30)
     )
 
-    public static let presetH2160_169 = VideoParameters(
+    static let presetH2160_169 = VideoParameters(
         dimensions: .h2160_169,
         encoding: VideoEncoding(maxBitrate: 8_000_000, maxFps: 30)
     )
 
     // 4:3 aspect ratio
-    public static let presetH120_43 = VideoParameters(
+    static let presetH120_43 = VideoParameters(
         dimensions: .h120_43,
-        encoding: VideoEncoding(maxBitrate: 70_000, maxFps: 15)
+        encoding: VideoEncoding(maxBitrate: 70000, maxFps: 15)
     )
 
-    public static let presetH180_43 = VideoParameters(
+    static let presetH180_43 = VideoParameters(
         dimensions: .h180_43,
         encoding: VideoEncoding(maxBitrate: 125_000, maxFps: 15)
     )
 
-    public static let presetH240_43 = VideoParameters(
+    static let presetH240_43 = VideoParameters(
         dimensions: .h240_43,
         encoding: VideoEncoding(maxBitrate: 140_000, maxFps: 15)
     )
 
-    public static let presetH360_43 = VideoParameters(
+    static let presetH360_43 = VideoParameters(
         dimensions: .h360_43,
         encoding: VideoEncoding(maxBitrate: 330_000, maxFps: 20)
     )
 
-    public static let presetH480_43 = VideoParameters(
+    static let presetH480_43 = VideoParameters(
         dimensions: .h480_43,
         encoding: VideoEncoding(maxBitrate: 500_000, maxFps: 20)
     )
 
-    public static let presetH540_43 = VideoParameters(
+    static let presetH540_43 = VideoParameters(
         dimensions: .h540_43,
         encoding: VideoEncoding(maxBitrate: 600_000, maxFps: 25)
     )
 
-    public static let presetH720_43 = VideoParameters(
+    static let presetH720_43 = VideoParameters(
         dimensions: .h720_43,
         encoding: VideoEncoding(maxBitrate: 1_300_000, maxFps: 30)
     )
 
-    public static let presetH1080_43 = VideoParameters(
+    static let presetH1080_43 = VideoParameters(
         dimensions: .h1080_43,
         encoding: VideoEncoding(maxBitrate: 2_300_000, maxFps: 30)
     )
 
-    public static let presetH1440_43 = VideoParameters(
+    static let presetH1440_43 = VideoParameters(
         dimensions: .h1440_43,
         encoding: VideoEncoding(maxBitrate: 3_800_000, maxFps: 30)
     )
 
     // Screen share
-    public static let presetScreenShareH360FPS3 = VideoParameters(
+    static let presetScreenShareH360FPS3 = VideoParameters(
         dimensions: .h360_169,
         encoding: VideoEncoding(maxBitrate: 200_000, maxFps: 3)
     )
 
-    public static let presetScreenShareH720FPS5 = VideoParameters(
+    static let presetScreenShareH720FPS5 = VideoParameters(
         dimensions: .h720_169,
         encoding: VideoEncoding(maxBitrate: 400_000, maxFps: 5)
     )
 
-    public static let presetScreenShareH720FPS15 = VideoParameters(
+    static let presetScreenShareH720FPS15 = VideoParameters(
         dimensions: .h720_169,
         encoding: VideoEncoding(maxBitrate: 1_500_000, maxFps: 15)
     )
 
-    public static let presetScreenShareH1080FPS15 = VideoParameters(
+    static let presetScreenShareH1080FPS15 = VideoParameters(
         dimensions: .h1080_169,
         encoding: VideoEncoding(maxBitrate: 2_500_000, maxFps: 15)
     )
 
-    public static let presetScreenShareH1080FPS30 = VideoParameters(
+    static let presetScreenShareH1080FPS30 = VideoParameters(
         dimensions: .h1080_169,
         encoding: VideoEncoding(maxBitrate: 4_000_000, maxFps: 30)
     )

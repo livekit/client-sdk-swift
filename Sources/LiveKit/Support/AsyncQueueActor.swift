@@ -16,8 +16,7 @@
 
 import Foundation
 
-internal actor AsyncQueueActor<T> {
-
+actor AsyncQueueActor<T> {
     public enum State {
         case resumed
         case suspended

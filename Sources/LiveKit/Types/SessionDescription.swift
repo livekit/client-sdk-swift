@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 LiveKit
+ * Copyright 2023 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +19,6 @@ import Foundation
 @_implementationOnly import WebRTC
 
 extension LKRTCSessionDescription {
-
     func toPBType() -> Livekit_SessionDescription {
         var sd = Livekit_SessionDescription()
         sd.sdp = sdp
@@ -36,7 +35,6 @@ extension LKRTCSessionDescription {
 }
 
 extension Livekit_SessionDescription {
-
     func toRTCType() -> LKRTCSessionDescription {
         var sdpType: RTCSdpType
         switch type {

@@ -1,5 +1,5 @@
 /*
- * Copyright 2022-2023 LiveKit
+ * Copyright 2023 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,10 +16,9 @@
 
 import Foundation
 
-internal typealias WebSocketStream = AsyncThrowingStream<URLSessionWebSocketTask.Message, Error>
+typealias WebSocketStream = AsyncThrowingStream<URLSessionWebSocketTask.Message, Error>
 
-internal class WebSocket: NSObject, Loggable, AsyncSequence, URLSessionWebSocketDelegate {
-
+class WebSocket: NSObject, Loggable, AsyncSequence, URLSessionWebSocketDelegate {
     typealias AsyncIterator = WebSocketStream.Iterator
     typealias Element = URLSessionWebSocketTask.Message
 
@@ -36,19 +35,14 @@ internal class WebSocket: NSObject, Loggable, AsyncSequence, URLSessionWebSocket
         return URLSession(configuration: config, delegate: self, delegateQueue: nil)
     }()
 
-    private lazy var task: URLSessionWebSocketTask = {
-        urlSession.webSocketTask(with: request)
-    }()
+    private lazy var task: URLSessionWebSocketTask = urlSession.webSocketTask(with: request)
 
-    private lazy var stream: WebSocketStream = {
-        return WebSocketStream { continuation in
-            streamContinuation = continuation
-            waitForNextValue()
-        }
-    }()
+    private lazy var stream: WebSocketStream = WebSocketStream { continuation in
+        streamContinuation = continuation
+        waitForNextValue()
+    }
 
     init(url: URL) {
-
         request = URLRequest(url: url,
                              cachePolicy: .useProtocolCachePolicy,
                              timeoutInterval: .defaultSocketConnect)
@@ -59,7 +53,6 @@ internal class WebSocket: NSObject, Loggable, AsyncSequence, URLSessionWebSocket
     }
 
     public func connect() async throws {
-
         try await withCheckedThrowingContinuation { continuation in
             connectContinuation = continuation
             task.resume()
@@ -77,7 +70,7 @@ internal class WebSocket: NSObject, Loggable, AsyncSequence, URLSessionWebSocket
     // MARK: - AsyncSequence
 
     func makeAsyncIterator() -> AsyncIterator {
-        return stream.makeAsyncIterator()
+        stream.makeAsyncIterator()
     }
 
     private func waitForNextValue() {
@@ -112,14 +105,14 @@ internal class WebSocket: NSObject, Loggable, AsyncSequence, URLSessionWebSocket
 
     // MARK: - URLSessionWebSocketDelegate
 
-    func urlSession(_ session: URLSession, webSocketTask: URLSessionWebSocketTask, didOpenWithProtocol protocol: String?) {
+    func urlSession(_: URLSession, webSocketTask _: URLSessionWebSocketTask, didOpenWithProtocol _: String?) {
         connectContinuation?.resume()
         connectContinuation = nil
     }
 
-    func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
+    func urlSession(_: URLSession, task _: URLSessionTask, didCompleteWithError error: Error?) {
         log("didCompleteWithError: \(String(describing: error))", .error)
-        let error = error ??  NetworkError.disconnected(message: "WebSocket didCompleteWithError")
+        let error = error ?? NetworkError.disconnected(message: "WebSocket didCompleteWithError")
         connectContinuation?.resume(throwing: error)
         connectContinuation = nil
         streamContinuation?.finish()

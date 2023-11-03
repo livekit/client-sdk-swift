@@ -18,17 +18,11 @@
 import XCTest
 
 class AsyncRetryTests: XCTestCase {
+    override func setUpWithError() throws {}
 
-    override func setUpWithError() throws {
-
-    }
-
-    override func tearDown() async throws {
-
-    }
+    override func tearDown() async throws {}
 
     func testRetry1() async throws {
-
         let test = Task.retrying(maxRetryCount: 1) { totalAttempts, currentAttempt in
             print("[TEST] Retrying with remaining attemps: \(currentAttempt)/\(totalAttempts)...")
             throw EngineError.state(message: "Test error")

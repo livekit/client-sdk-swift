@@ -20,19 +20,17 @@ import Foundation
 
 @objc
 public class AudioDevice: NSObject, MediaDevice {
-
     public var deviceId: String { _ioDevice.deviceId }
     public var name: String { _ioDevice.name }
     public var isDefault: Bool { _ioDevice.isDefault }
 
-    internal let _ioDevice: LKRTCIODevice
+    let _ioDevice: LKRTCIODevice
 
-    internal init(ioDevice: LKRTCIODevice) {
-        self._ioDevice = ioDevice
+    init(ioDevice: LKRTCIODevice) {
+        _ioDevice = ioDevice
     }
 }
 
 extension AudioDevice: Identifiable {
-
     public var id: String { deviceId }
 }

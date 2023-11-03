@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 LiveKit
+ * Copyright 2023 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,12 +19,10 @@ import Foundation
 @_implementationOnly import WebRTC
 
 public class VideoCaptureInterceptor: NSObject, Loggable {
-
     public typealias CaptureFunc = (_ capture: VideoFrame) -> Void
     public typealias InterceptFunc = (_ frame: VideoFrame, _ capture: @escaping CaptureFunc) -> Void
 
     private class DelegateAdapter: NSObject, LKRTCVideoCapturerDelegate {
-
         weak var target: VideoCaptureInterceptor?
 
         init(target: VideoCaptureInterceptor? = nil) {
@@ -39,7 +37,7 @@ public class VideoCaptureInterceptor: NSObject, Loggable {
     let output = Engine.createVideoSource(forScreenShare: true)
     let interceptFunc: InterceptFunc
 
-    private lazy var delegateAdapter: DelegateAdapter = { DelegateAdapter(target: self) }()
+    private lazy var delegateAdapter: DelegateAdapter = .init(target: self)
 
     public init(_ interceptFunc: @escaping InterceptFunc) {
         self.interceptFunc = interceptFunc
@@ -53,11 +51,12 @@ public class VideoCaptureInterceptor: NSObject, Loggable {
 
     // MARK: - Internal
 
-    internal func capturer(_ capturer: LKRTCVideoCapturer, didCapture frame: LKRTCVideoFrame) {
+    func capturer(_ capturer: LKRTCVideoCapturer, didCapture frame: LKRTCVideoFrame) {
         // create capture func to pass to intercept func
-        let captureFunc = { [weak self, weak capturer] (frame: VideoFrame) -> Void in
-            guard let self = self,
-                  let capturer = capturer else {
+        let captureFunc = { [weak self, weak capturer] (frame: VideoFrame) in
+            guard let self,
+                  let capturer
+            else {
                 return
             }
 

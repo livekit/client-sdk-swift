@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 LiveKit
+ * Copyright 2023 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,7 +20,6 @@ import Foundation
 
 @objc
 public protocol VideoTrack where Self: Track {
-
     @objc(addVideoRenderer:)
     func add(videoRenderer: VideoRenderer)
 
@@ -29,8 +28,7 @@ public protocol VideoTrack where Self: Track {
 }
 
 // Directly add/remove renderers for better performance
-internal protocol VideoTrack_Internal where Self: Track {
-
+protocol VideoTrack_Internal where Self: Track {
     func add(rtcVideoRenderer: LKRTCVideoRenderer)
 
     func remove(rtcVideoRenderer: LKRTCVideoRenderer)

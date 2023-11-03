@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 LiveKit
+ * Copyright 2023 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -38,7 +38,6 @@ struct IceCandidate: Codable {
 }
 
 extension LKRTCIceCandidate {
-
     func toLKType() -> IceCandidate {
         IceCandidate(sdp: sdp,
                      sdpMLineIndex: sdpMLineIndex,

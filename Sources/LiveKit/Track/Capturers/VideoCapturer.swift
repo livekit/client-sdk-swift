@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 LiveKit
+ * Copyright 2023 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,12 +18,11 @@ import Foundation
 
 @_implementationOnly import WebRTC
 
-internal protocol VideoCapturerProtocol {
+protocol VideoCapturerProtocol {
     var capturer: LKRTCVideoCapturer { get }
 }
 
 extension VideoCapturerProtocol {
-
     public var capturer: LKRTCVideoCapturer {
         fatalError("Must be implemented")
     }
@@ -31,7 +30,6 @@ extension VideoCapturerProtocol {
 
 @objc
 public protocol VideoCapturerDelegate: AnyObject {
-
     @objc(capturer:didUpdateDimensions:) optional
     func capturer(_ capturer: VideoCapturer, didUpdate dimensions: Dimensions?)
 
@@ -41,12 +39,11 @@ public protocol VideoCapturerDelegate: AnyObject {
 
 // Intended to be a base class for video capturers
 public class VideoCapturer: NSObject, Loggable, VideoCapturerProtocol {
-
     // MARK: - MulticastDelegate
 
-    internal var delegates = MulticastDelegate<VideoCapturerDelegate>()
+    var delegates = MulticastDelegate<VideoCapturerDelegate>()
 
-    internal let queue = DispatchQueue(label: "LiveKitSDK.videoCapturer", qos: .default)
+    let queue = DispatchQueue(label: "LiveKitSDK.videoCapturer", qos: .default)
 
     /// Array of supported pixel formats that can be used to capture a frame.
     ///
@@ -68,16 +65,16 @@ public class VideoCapturer: NSObject, Loggable, VideoCapturerProtocol {
         case started
     }
 
-    internal weak var delegate: LKRTCVideoCapturerDelegate?
+    weak var delegate: LKRTCVideoCapturerDelegate?
 
-    internal let dimensionsCompleter = AsyncCompleter<Dimensions?>(label: "Dimensions", timeOut: .defaultCaptureStart)
+    let dimensionsCompleter = AsyncCompleter<Dimensions?>(label: "Dimensions", timeOut: .defaultCaptureStart)
 
-    internal struct State: Equatable {
+    struct State: Equatable {
         // Counts calls to start/stopCapturer so multiple Tracks can use the same VideoCapturer.
         var startStopCounter: Int = 0
     }
 
-    internal var _state = StateSync(State())
+    var _state = StateSync(State())
 
     public internal(set) var dimensions: Dimensions? {
         didSet {
@@ -99,7 +96,7 @@ public class VideoCapturer: NSObject, Loggable, VideoCapturerProtocol {
         super.init()
 
         _state.onDidMutate = { [weak self] newState, oldState in
-            guard let self = self else { return }
+            guard let self else { return }
             if oldState.startStopCounter != newState.startStopCounter {
                 self.log("startStopCounter \(oldState.startStopCounter) -> \(newState.startStopCounter)")
             }
@@ -117,8 +114,7 @@ public class VideoCapturer: NSObject, Loggable, VideoCapturerProtocol {
     @objc
     @discardableResult
     public func startCapture() async throws -> Bool {
-
-        let didStart = self._state.mutate {
+        let didStart = _state.mutate {
             // Counter was 0, so did start capturing with this call
             let didStart = $0.startStopCounter == 0
             $0.startStopCounter += 1
@@ -130,7 +126,7 @@ public class VideoCapturer: NSObject, Loggable, VideoCapturerProtocol {
             return false
         }
 
-        self.delegates.notify(label: { "capturer.didUpdate state: \(CapturerState.started)" }) {
+        delegates.notify(label: { "capturer.didUpdate state: \(CapturerState.started)" }) {
             $0.capturer?(self, didUpdate: .started)
         }
 
@@ -144,8 +140,7 @@ public class VideoCapturer: NSObject, Loggable, VideoCapturerProtocol {
     @objc
     @discardableResult
     public func stopCapture() async throws -> Bool {
-
-        let didStop = self._state.mutate {
+        let didStop = _state.mutate {
             // Counter was already 0, so did NOT stop capturing with this call
             if $0.startStopCounter <= 0 {
                 return false
@@ -159,7 +154,7 @@ public class VideoCapturer: NSObject, Loggable, VideoCapturerProtocol {
             return false
         }
 
-        self.delegates.notify(label: { "capturer.didUpdate state: \(CapturerState.stopped)" }) {
+        delegates.notify(label: { "capturer.didUpdate state: \(CapturerState.stopped)" }) {
             $0.capturer?(self, didUpdate: .stopped)
         }
 

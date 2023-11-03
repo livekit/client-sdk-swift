@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 LiveKit
+ * Copyright 2023 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-import Foundation
 import CoreMedia
+import Foundation
 
 @_implementationOnly import WebRTC
 
@@ -29,7 +29,6 @@ import CoreMedia
 /// since dimensions must be resolved at the time of publishing (to compute video parameters).
 ///
 public class BufferCapturer: VideoCapturer {
-
     private let capturer = Engine.createVideoCapturer()
 
     /// The ``BufferCaptureOptions`` used for this capturer.
@@ -42,7 +41,6 @@ public class BufferCapturer: VideoCapturer {
 
     /// Capture a ``CMSampleBuffer``.
     public func capture(_ sampleBuffer: CMSampleBuffer) {
-
         delegate?.capturer(capturer, didCapture: sampleBuffer) { sourceDimensions in
 
             let targetDimensions = sourceDimensions
@@ -61,12 +59,13 @@ public class BufferCapturer: VideoCapturer {
     /// Capture a ``CVPixelBuffer``.
     public func capture(_ pixelBuffer: CVPixelBuffer,
                         timeStampNs: Int64 = VideoCapturer.createTimeStampNs(),
-                        rotation: VideoRotation = ._0) {
-
+                        rotation: VideoRotation = ._0)
+    {
         delegate?.capturer(capturer,
                            didCapture: pixelBuffer,
                            timeStampNs: timeStampNs,
-                           rotation: rotation.toRTCType()) { sourceDimensions in
+                           rotation: rotation.toRTCType())
+        { sourceDimensions in
 
             let targetDimensions = sourceDimensions
                 .aspectFit(size: self.options.dimensions.max)
@@ -82,12 +81,12 @@ public class BufferCapturer: VideoCapturer {
     }
 }
 
-extension LocalVideoTrack {
-
+public extension LocalVideoTrack {
     /// Creates a track that can directly capture `CVPixelBuffer` or `CMSampleBuffer` for convienience
-    public static func createBufferTrack(name: String = Track.screenShareVideoName,
-                                         source: VideoTrack.Source = .screenShareVideo,
-                                         options: BufferCaptureOptions = BufferCaptureOptions()) -> LocalVideoTrack {
+    static func createBufferTrack(name: String = Track.screenShareVideoName,
+                                  source: VideoTrack.Source = .screenShareVideo,
+                                  options: BufferCaptureOptions = BufferCaptureOptions()) -> LocalVideoTrack
+    {
         let videoSource = Engine.createVideoSource(forScreenShare: source == .screenShareVideo)
         let capturer = BufferCapturer(delegate: videoSource, options: options)
         return LocalVideoTrack(

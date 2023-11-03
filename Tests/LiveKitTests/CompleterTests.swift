@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 LiveKit
+ * Copyright 2023 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,16 +18,9 @@
 import XCTest
 
 class CompleterTests: XCTestCase {
+    override func setUpWithError() throws {}
 
-    override func setUpWithError() throws {
+    override func tearDown() async throws {}
 
-    }
-
-    override func tearDown() async throws {
-
-    }
-
-    func testCompleter() async throws {
-
-    }
+    func testCompleter() async throws {}
 }

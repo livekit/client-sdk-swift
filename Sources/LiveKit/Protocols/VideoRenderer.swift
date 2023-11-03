@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 LiveKit
+ * Copyright 2023 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,8 +35,7 @@ public protocol VideoRenderer {
     func render(frame: VideoFrame)
 }
 
-internal class VideoRendererAdapter: NSObject, LKRTCVideoRenderer {
-
+class VideoRendererAdapter: NSObject, LKRTCVideoRenderer {
     private weak var target: VideoRenderer?
 
     init(target: VideoRenderer) {
@@ -56,11 +55,11 @@ internal class VideoRendererAdapter: NSObject, LKRTCVideoRenderer {
 
     override func isEqual(_ object: Any?) -> Bool {
         guard let other = object as? VideoRendererAdapter else { return false }
-        return self.target === other.target
+        return target === other.target
     }
 
     override var hash: Int {
-        guard let target = target else { return 0 }
+        guard let target else { return 0 }
         return ObjectIdentifier(target).hashValue
     }
 }

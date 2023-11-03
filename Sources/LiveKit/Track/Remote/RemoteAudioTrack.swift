@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 LiveKit
+ * Copyright 2023 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,7 +20,6 @@ import Foundation
 
 @objc
 public class RemoteAudioTrack: Track, RemoteTrack, AudioTrack {
-
     /// Volume with range 0.0 - 1.0
     public var volume: Double {
         get {
@@ -35,8 +34,8 @@ public class RemoteAudioTrack: Track, RemoteTrack, AudioTrack {
 
     init(name: String,
          source: Track.Source,
-         track: LKRTCMediaStreamTrack) {
-
+         track: LKRTCMediaStreamTrack)
+    {
         super.init(name: name,
                    kind: .audio,
                    source: source,
@@ -56,7 +55,7 @@ public class RemoteAudioTrack: Track, RemoteTrack, AudioTrack {
     }
 
     public func add(audioRenderer: AudioRenderer) {
-        guard let audioTrack = mediaTrack as? LKRTCAudioTrack else { return  }
+        guard let audioTrack = mediaTrack as? LKRTCAudioTrack else { return }
         audioTrack.add(AudioRendererAdapter(target: audioRenderer))
     }
 

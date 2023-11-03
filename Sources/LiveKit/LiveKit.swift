@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 LiveKit
+ * Copyright 2023 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@ import Logging
 
 @_implementationOnly import WebRTC
 
-internal let logger = Logger(label: "LiveKitSDK")
+let logger = Logger(label: "LiveKitSDK")
 
 /// The open source platform for real-time communication.
 ///
@@ -33,16 +33,15 @@ internal let logger = Logger(label: "LiveKitSDK")
 /// to try out the features.
 @objc
 public class LiveKit: NSObject {
-
     @objc(sdkVersion)
     public static let version = "1.1.3"
 
     @objc
     public static func setLoggerStandardOutput() {
-        LoggingSystem.bootstrap({
+        LoggingSystem.bootstrap {
             var logHandler = StreamLogHandler.standardOutput(label: $0)
             logHandler.logLevel = .debug
             return logHandler
-        })
+        }
     }
 }

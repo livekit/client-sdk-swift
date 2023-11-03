@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-import Foundation
 import CoreMedia
+import Foundation
 
 @_implementationOnly import WebRTC
 
@@ -26,7 +26,6 @@ public protocol AudioRenderer {
 }
 
 class AudioRendererAdapter: NSObject, LKRTCAudioRenderer {
-
     private weak var target: AudioRenderer?
 
     init(target: AudioRenderer) {
@@ -41,11 +40,11 @@ class AudioRendererAdapter: NSObject, LKRTCAudioRenderer {
 
     override func isEqual(_ object: Any?) -> Bool {
         guard let other = object as? AudioRendererAdapter else { return false }
-        return self.target === other.target
+        return target === other.target
     }
 
     override var hash: Int {
-        guard let target = target else { return 0 }
+        guard let target else { return 0 }
         return ObjectIdentifier(target).hashValue
     }
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 LiveKit
+ * Copyright 2023 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,8 +19,7 @@ import SwiftProtobuf
 
 @_implementationOnly import WebRTC
 
-internal class Transport: MulticastDelegate<TransportDelegate> {
-
+class Transport: MulticastDelegate<TransportDelegate> {
     typealias OnOfferBlock = (LKRTCSessionDescription) async throws -> Void
 
     // MARK: - Public
@@ -55,11 +54,11 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
     public lazy var negotiate = Utils.createDebounceFunc(on: _queue,
                                                          wait: 0.1,
                                                          onCreateWorkItem: { [weak self] workItem in
-                                                            self?._debounceWorkItem = workItem
+                                                             self?._debounceWorkItem = workItem
                                                          }, fnc: { [weak self] in
-                                                            Task { [weak self] in
-                                                                try await self?.createAndSendOffer()
-                                                            }
+                                                             Task { [weak self] in
+                                                                 try await self?.createAndSendOffer()
+                                                             }
                                                          })
 
     // MARK: - Private
@@ -78,18 +77,18 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
     init(config: LKRTCConfiguration,
          target: Livekit_SignalTarget,
          primary: Bool,
-         delegate: TransportDelegate) throws {
-
+         delegate: TransportDelegate) throws
+    {
         // try create peerConnection
         guard let pc = Engine.createPeerConnection(config,
-                                                   constraints: .defaultPCConstraints) else {
-
+                                                   constraints: .defaultPCConstraints)
+        else {
             throw EngineError.webRTC(message: "failed to create peerConnection")
         }
 
         self.target = target
-        self.isPrimary = primary
-        self._pc = pc
+        isPrimary = primary
+        _pc = pc
 
         super.init()
         log()
@@ -103,8 +102,7 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
     }
 
     func add(iceCandidate candidate: LKRTCIceCandidate) async throws {
-
-        if remoteDescription != nil && !isRestartingIce {
+        if remoteDescription != nil, !isRestartingIce {
             return try await _pc.add(candidate)
         }
 
@@ -112,13 +110,12 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
     }
 
     func set(remoteDescription sd: LKRTCSessionDescription) async throws {
-
         try await _pc.setRemoteDescription(sd)
 
         await _pendingCandidatesQueue.resume { candidate in
             do {
                 try await add(iceCandidate: candidate)
-            } catch let error {
+            } catch {
                 log("Failed to add(iceCandidate:) with error: \(error)", .error)
             }
         }
@@ -132,8 +129,7 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
     }
 
     func createAndSendOffer(iceRestart: Bool = false) async throws {
-
-        guard let onOffer = onOffer else {
+        guard let onOffer else {
             log("onOffer is nil", .warning)
             return
         }
@@ -166,9 +162,8 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
     }
 
     func close() async {
-
         // prevent debounced negotiate firing
-        self._debounceWorkItem?.cancel()
+        _debounceWorkItem?.cancel()
 
         DispatchQueue.liveKitWebRTC.sync {
             // Stop listening to delegate
@@ -186,7 +181,6 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
 // MARK: - Stats
 
 extension Transport {
-
     func statistics(for sender: LKRTCRtpSender) async -> LKRTCStatisticsReport {
         await _pc.statistics(for: sender)
     }
@@ -199,28 +193,27 @@ extension Transport {
 // MARK: - RTCPeerConnectionDelegate
 
 extension Transport: LKRTCPeerConnectionDelegate {
-
-    internal func peerConnection(_ peerConnection: LKRTCPeerConnection, didChange state: RTCPeerConnectionState) {
+    func peerConnection(_: LKRTCPeerConnection, didChange state: RTCPeerConnectionState) {
         log("did update state \(state) for \(target)")
         notify { $0.transport(self, didUpdate: state) }
     }
 
-    internal func peerConnection(_ peerConnection: LKRTCPeerConnection,
-                                 didGenerate candidate: LKRTCIceCandidate) {
-
+    func peerConnection(_: LKRTCPeerConnection,
+                        didGenerate candidate: LKRTCIceCandidate)
+    {
         log("Did generate ice candidates \(candidate) for \(target)")
         notify { $0.transport(self, didGenerate: candidate) }
     }
 
-    internal func peerConnectionShouldNegotiate(_ peerConnection: LKRTCPeerConnection) {
+    func peerConnectionShouldNegotiate(_: LKRTCPeerConnection) {
         log("ShouldNegotiate for \(target)")
         notify { $0.transportShouldNegotiate(self) }
     }
 
-    internal func peerConnection(_ peerConnection: LKRTCPeerConnection,
-                                 didAdd rtpReceiver: LKRTCRtpReceiver,
-                                 streams mediaStreams: [LKRTCMediaStream]) {
-
+    func peerConnection(_: LKRTCPeerConnection,
+                        didAdd rtpReceiver: LKRTCRtpReceiver,
+                        streams mediaStreams: [LKRTCMediaStream])
+    {
         guard let track = rtpReceiver.track else {
             log("Track is empty for \(target)", .warning)
             return
@@ -230,9 +223,9 @@ extension Transport: LKRTCPeerConnectionDelegate {
         notify { $0.transport(self, didAddTrack: track, rtpReceiver: rtpReceiver, streams: mediaStreams) }
     }
 
-    internal func peerConnection(_ peerConnection: LKRTCPeerConnection,
-                                 didRemove rtpReceiver: LKRTCRtpReceiver) {
-
+    func peerConnection(_: LKRTCPeerConnection,
+                        didRemove rtpReceiver: LKRTCRtpReceiver)
+    {
         guard let track = rtpReceiver.track else {
             log("Track is empty for \(target)", .warning)
             return
@@ -242,25 +235,23 @@ extension Transport: LKRTCPeerConnectionDelegate {
         notify { $0.transport(self, didRemove: track) }
     }
 
-    internal func peerConnection(_ peerConnection: LKRTCPeerConnection, didOpen dataChannel: LKRTCDataChannel) {
+    func peerConnection(_: LKRTCPeerConnection, didOpen dataChannel: LKRTCDataChannel) {
         log("Received data channel \(dataChannel.label) for \(target)")
         notify { $0.transport(self, didOpen: dataChannel) }
     }
 
-    internal func peerConnection(_ peerConnection: LKRTCPeerConnection, didChange newState: RTCIceConnectionState) {}
-    internal func peerConnection(_ peerConnection: LKRTCPeerConnection, didRemove stream: LKRTCMediaStream) {}
-    internal func peerConnection(_ peerConnection: LKRTCPeerConnection, didChange stateChanged: RTCSignalingState) {}
-    internal func peerConnection(_ peerConnection: LKRTCPeerConnection, didAdd stream: LKRTCMediaStream) {}
-    internal func peerConnection(_ peerConnection: LKRTCPeerConnection, didChange newState: RTCIceGatheringState) {}
-    internal func peerConnection(_ peerConnection: LKRTCPeerConnection, didRemove candidates: [LKRTCIceCandidate]) {}
+    func peerConnection(_: LKRTCPeerConnection, didChange _: RTCIceConnectionState) {}
+    func peerConnection(_: LKRTCPeerConnection, didRemove _: LKRTCMediaStream) {}
+    func peerConnection(_: LKRTCPeerConnection, didChange _: RTCSignalingState) {}
+    func peerConnection(_: LKRTCPeerConnection, didAdd _: LKRTCMediaStream) {}
+    func peerConnection(_: LKRTCPeerConnection, didChange _: RTCIceGatheringState) {}
+    func peerConnection(_: LKRTCPeerConnection, didRemove _: [LKRTCIceCandidate]) {}
 }
 
 // MARK: - Private
 
 private extension Transport {
-
     func createOffer(for constraints: [String: String]? = nil) async throws -> LKRTCSessionDescription {
-
         let mediaConstraints = LKRTCMediaConstraints(mandatoryConstraints: constraints,
                                                      optionalConstraints: nil)
 
@@ -270,10 +261,8 @@ private extension Transport {
 
 // MARK: - Internal
 
-internal extension Transport {
-
+extension Transport {
     func createAnswer(for constraints: [String: String]? = nil) async throws -> LKRTCSessionDescription {
-
         let mediaConstraints = LKRTCMediaConstraints(mandatoryConstraints: constraints,
                                                      optionalConstraints: nil)
 
@@ -285,8 +274,8 @@ internal extension Transport {
     }
 
     func addTransceiver(with track: LKRTCMediaStreamTrack,
-                        transceiverInit: LKRTCRtpTransceiverInit) throws -> LKRTCRtpTransceiver {
-
+                        transceiverInit: LKRTCRtpTransceiverInit) throws -> LKRTCRtpTransceiver
+    {
         guard let transceiver = DispatchQueue.liveKitWebRTC.sync(execute: { _pc.addTransceiver(with: track, init: transceiverInit) }) else {
             throw EngineError.webRTC(message: "Failed to add transceiver")
         }
@@ -302,8 +291,8 @@ internal extension Transport {
 
     func dataChannel(for label: String,
                      configuration: LKRTCDataChannelConfiguration,
-                     delegate: LKRTCDataChannelDelegate? = nil) -> LKRTCDataChannel? {
-
+                     delegate: LKRTCDataChannelDelegate? = nil) -> LKRTCDataChannel?
+    {
         let result = DispatchQueue.liveKitWebRTC.sync { _pc.dataChannel(forLabel: label, configuration: configuration) }
         result?.delegate = delegate
         return result

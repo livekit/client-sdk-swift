@@ -1,16 +1,24 @@
-//
-//  SocketConnection.swift
-//  Broadcast Extension
-//
-//  Created by Alex-Dan Bumbu on 22/03/2021.
-//  Copyright © 2021 Atlassian Inc. All rights reserved.
-//
+/*
+ * Copyright 2023 LiveKit
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
-import Foundation
 import Darwin
+import Foundation
 
 #if canImport(CHeaders)
-import CHeaders
+    import CHeaders
 #endif
 
 class BroadcastServerSocketConnection: NSObject {
@@ -152,7 +160,7 @@ class BroadcastServerSocketConnection: NSObject {
         CFStreamCreatePairWithSocket(kCFAllocatorDefault, clientSocket, &readStream, &writeStream)
 
         inputStream = readStream?.takeRetainedValue()
-        inputStream?.delegate = self.streamDelegate
+        inputStream?.delegate = streamDelegate
         inputStream?.setProperty(kCFBooleanTrue, forKey: Stream.PropertyKey(kCFStreamPropertyShouldCloseNativeSocket as String))
 
         outputStream = writeStream?.takeRetainedValue()
@@ -174,7 +182,7 @@ class BroadcastServerSocketConnection: NSObject {
 
             repeat {
                 isRunning = self?.shouldKeepRunning ?? false && RunLoop.current.run(mode: .default, before: .distantFuture)
-            } while (isRunning)
+            } while isRunning
 
             logger.log(level: .debug, "streams stopped")
         }

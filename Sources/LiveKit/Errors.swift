@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 LiveKit
+ * Copyright 2023 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,15 +21,13 @@ import Foundation
 public protocol LiveKitError: Error, CustomStringConvertible {}
 
 extension LiveKitError {
-
-    internal func buildDescription(_ name: String, _ message: String? = nil, rawError: Error? = nil) -> String {
+    func buildDescription(_ name: String, _ message: String? = nil, rawError: Error? = nil) -> String {
         "\(String(describing: type(of: self))).\(name)" + (message != nil ? " \(message!)" : "") + (rawError != nil ? " rawError: \(rawError!.localizedDescription)" : "")
     }
 }
 
-extension LiveKitError where Self: LocalizedError {
-
-    public var localizedDescription: String {
+public extension LiveKitError where Self: LocalizedError {
+    var localizedDescription: String {
         description
     }
 }
@@ -52,10 +50,10 @@ public enum InternalError: LiveKitError {
 
     public var description: String {
         switch self {
-        case .state(let message): return buildDescription("state", message)
-        case .parse(let message): return buildDescription("parse", message)
-        case .convert(let message): return buildDescription("convert", message)
-        case .timeout(let message): return buildDescription("timeout", message)
+        case let .state(message): return buildDescription("state", message)
+        case let .parse(message): return buildDescription("parse", message)
+        case let .convert(message): return buildDescription("convert", message)
+        case let .timeout(message): return buildDescription("timeout", message)
         }
     }
 }
@@ -68,9 +66,9 @@ public enum EngineError: LiveKitError {
 
     public var description: String {
         switch self {
-        case .webRTC(let message, _): return buildDescription("webRTC", message)
-        case .state(let message): return buildDescription("state", message)
-        case .timedOut(let message): return buildDescription("timedOut", message)
+        case let .webRTC(message, _): return buildDescription("webRTC", message)
+        case let .state(message): return buildDescription("state", message)
+        case let .timedOut(message): return buildDescription("timedOut", message)
         }
     }
 }
@@ -86,13 +84,13 @@ public enum TrackError: LiveKitError {
 
     public var description: String {
         switch self {
-        case .state(let message): return buildDescription("state", message)
-        case .type(let message): return buildDescription("type", message)
-        case .duplicate(let message): return buildDescription("duplicate", message)
-        case .capturer(let message): return buildDescription("capturer", message)
-        case .publish(let message): return buildDescription("publish", message)
-        case .unpublish(let message): return buildDescription("unpublish", message)
-        case .timedOut(let message): return buildDescription("timedOut", message)
+        case let .state(message): return buildDescription("state", message)
+        case let .type(message): return buildDescription("type", message)
+        case let .duplicate(message): return buildDescription("duplicate", message)
+        case let .capturer(message): return buildDescription("capturer", message)
+        case let .publish(message): return buildDescription("publish", message)
+        case let .unpublish(message): return buildDescription("unpublish", message)
+        case let .timedOut(message): return buildDescription("timedOut", message)
         }
     }
 }
@@ -107,12 +105,12 @@ public enum SignalClientError: LiveKitError {
 
     public var description: String {
         switch self {
-        case .state(let message): return buildDescription("state", message)
-        case .socketError(let rawError): return buildDescription("socketError", rawError: rawError)
-        case .close(let message): return buildDescription("close", message)
-        case .connect(let message): return buildDescription("connect", message)
-        case .timedOut(let message): return buildDescription("timedOut", message)
-        case .serverPingTimedOut(let message): return buildDescription("serverPingTimedOut", message)
+        case let .state(message): return buildDescription("state", message)
+        case let .socketError(rawError): return buildDescription("socketError", rawError: rawError)
+        case let .close(message): return buildDescription("close", message)
+        case let .connect(message): return buildDescription("connect", message)
+        case let .timedOut(message): return buildDescription("timedOut", message)
+        case let .serverPingTimedOut(message): return buildDescription("serverPingTimedOut", message)
         }
     }
 }
@@ -123,19 +121,18 @@ public enum NetworkError: LiveKitError {
 
     public var description: String {
         switch self {
-        case .disconnected(let message, let rawError): return buildDescription("disconnected", message, rawError: rawError)
-        case .response(let message): return buildDescription("response", message)
+        case let .disconnected(message, rawError): return buildDescription("disconnected", message, rawError: rawError)
+        case let .response(message): return buildDescription("response", message)
         }
     }
 }
 
 public enum TransportError: LiveKitError {
-
     case timedOut(message: String? = nil)
 
     public var description: String {
         switch self {
-        case .timedOut(let message): return buildDescription("timedOut", message)
+        case let .timedOut(message): return buildDescription("timedOut", message)
         }
     }
 }

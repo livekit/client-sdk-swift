@@ -16,12 +16,11 @@
 
 import Foundation
 
-extension Room {
-
-    public var allParticipants: [Sid: Participant] {
+public extension Room {
+    var allParticipants: [Sid: Participant] {
         var result: [Sid: Participant] = remoteParticipants
 
-        if let localParticipant = localParticipant {
+        if let localParticipant {
             result.updateValue(localParticipant, forKey: localParticipant.sid)
         }
 

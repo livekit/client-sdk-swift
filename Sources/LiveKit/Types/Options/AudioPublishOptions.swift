@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 LiveKit
+ * Copyright 2023 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,6 @@ import Foundation
 
 @objc
 public class AudioPublishOptions: NSObject, PublishOptions {
-
     @objc
     public let name: String?
 
@@ -31,8 +30,8 @@ public class AudioPublishOptions: NSObject, PublishOptions {
 
     public init(name: String? = nil,
                 encoding: AudioEncoding? = nil,
-                dtx: Bool = true) {
-
+                dtx: Bool = true)
+    {
         self.name = name
         self.encoding = encoding
         self.dtx = dtx
@@ -40,14 +39,14 @@ public class AudioPublishOptions: NSObject, PublishOptions {
 
     // MARK: - Equal
 
-    public override func isEqual(_ object: Any?) -> Bool {
+    override public func isEqual(_ object: Any?) -> Bool {
         guard let other = object as? Self else { return false }
-        return self.name == other.name &&
-            self.encoding == other.encoding &&
-            self.dtx == other.dtx
+        return name == other.name &&
+            encoding == other.encoding &&
+            dtx == other.dtx
     }
 
-    public override var hash: Int {
+    override public var hash: Int {
         var hasher = Hasher()
         hasher.combine(name)
         hasher.combine(encoding)

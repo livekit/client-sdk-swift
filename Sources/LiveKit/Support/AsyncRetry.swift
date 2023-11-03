@@ -17,18 +17,16 @@
 import Foundation
 
 extension Task where Failure == Error {
-
     static func retrying(
         priority: TaskPriority? = nil,
         maxRetryCount: Int = 3,
         retryDelay: TimeInterval = 1,
         @_implicitSelfCapture operation: @escaping (_ totalAttempts: Int, _ currentAttempt: Int) async throws -> Success
     ) -> Task {
-
         assert(maxRetryCount >= 1, "Value must be larger than 1")
 
         return Task(priority: priority) {
-            for currentCount in 0..<(maxRetryCount - 1) {
+            for currentCount in 0 ..< (maxRetryCount - 1) {
                 do {
                     return try await operation(maxRetryCount, currentCount + 1)
                 } catch {

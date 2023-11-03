@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 LiveKit
+ * Copyright 2023 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +19,6 @@ import Foundation
 /// Options used when establishing a connection.
 @objc
 public class ConnectOptions: NSObject {
-
     /// Automatically subscribe to ``RemoteParticipant``'s tracks.
     /// Defaults to true.
     @objc
@@ -47,13 +46,13 @@ public class ConnectOptions: NSObject {
     public let protocolVersion: ProtocolVersion
 
     @objc
-    public override init() {
-        self.autoSubscribe = true
-        self.publishOnlyMode = nil
-        self.reconnectAttempts = 3
-        self.reconnectAttemptDelay = .defaultReconnectAttemptDelay
-        self.iceServers = []
-        self.protocolVersion = .v9
+    override public init() {
+        autoSubscribe = true
+        publishOnlyMode = nil
+        reconnectAttempts = 3
+        reconnectAttemptDelay = .defaultReconnectAttemptDelay
+        iceServers = []
+        protocolVersion = .v9
     }
 
     @objc
@@ -62,8 +61,8 @@ public class ConnectOptions: NSObject {
                 reconnectAttempts: Int = 3,
                 reconnectAttemptDelay: TimeInterval = .defaultReconnectAttemptDelay,
                 iceServers: [IceServer] = [],
-                protocolVersion: ProtocolVersion = .v9) {
-
+                protocolVersion: ProtocolVersion = .v9)
+    {
         self.autoSubscribe = autoSubscribe
         self.publishOnlyMode = publishOnlyMode
         self.reconnectAttempts = reconnectAttempts
@@ -74,17 +73,17 @@ public class ConnectOptions: NSObject {
 
     // MARK: - Equal
 
-    public override func isEqual(_ object: Any?) -> Bool {
+    override public func isEqual(_ object: Any?) -> Bool {
         guard let other = object as? Self else { return false }
-        return self.autoSubscribe == other.autoSubscribe &&
-            self.publishOnlyMode == other.publishOnlyMode &&
-            self.reconnectAttempts == other.reconnectAttempts &&
-            self.reconnectAttemptDelay == other.reconnectAttemptDelay &&
-            self.iceServers == other.iceServers &&
-            self.protocolVersion == other.protocolVersion
+        return autoSubscribe == other.autoSubscribe &&
+            publishOnlyMode == other.publishOnlyMode &&
+            reconnectAttempts == other.reconnectAttempts &&
+            reconnectAttemptDelay == other.reconnectAttemptDelay &&
+            iceServers == other.iceServers &&
+            protocolVersion == other.protocolVersion
     }
 
-    public override var hash: Int {
+    override public var hash: Int {
         var hasher = Hasher()
         hasher.combine(autoSubscribe)
         hasher.combine(publishOnlyMode)

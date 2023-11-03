@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 LiveKit
+ * Copyright 2023 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,14 +17,13 @@
 import Foundation
 
 #if canImport(ReplayKit)
-import ReplayKit
+    import ReplayKit
 #endif
 
 @_implementationOnly import WebRTC
 
 @available(macOS 11.0, iOS 11.0, *)
 public class InAppScreenCapturer: VideoCapturer {
-
     private let capturer = Engine.createVideoCapturer()
     private var options: ScreenShareCaptureOptions
 
@@ -33,15 +32,14 @@ public class InAppScreenCapturer: VideoCapturer {
         super.init(delegate: delegate)
     }
 
-    public override func startCapture() async throws -> Bool {
-
+    override public func startCapture() async throws -> Bool {
         let didStart = try await super.startCapture()
 
         // Already started
         guard didStart else { return false }
 
         // TODO: force pixel format kCVPixelFormatType_420YpCbCr8BiPlanarFullRange
-        try await  RPScreenRecorder.shared().startCapture { sampleBuffer, type, _ in
+        try await RPScreenRecorder.shared().startCapture { sampleBuffer, type, _ in
 
             // Only process .video
             if type == .video {
@@ -65,8 +63,7 @@ public class InAppScreenCapturer: VideoCapturer {
         return true
     }
 
-    public override func stopCapture() async throws -> Bool {
-
+    override public func stopCapture() async throws -> Bool {
         let didStop = try await super.stopCapture()
 
         // Already stopped
@@ -78,11 +75,12 @@ public class InAppScreenCapturer: VideoCapturer {
     }
 }
 
-extension LocalVideoTrack {
+public extension LocalVideoTrack {
     /// Creates a track that captures in-app screen only (due to limitation of ReplayKit)
     @available(macOS 11.0, iOS 11.0, *)
-    public static func createInAppScreenShareTrack(name: String = Track.screenShareVideoName,
-                                                   options: ScreenShareCaptureOptions = ScreenShareCaptureOptions()) -> LocalVideoTrack {
+    static func createInAppScreenShareTrack(name: String = Track.screenShareVideoName,
+                                            options: ScreenShareCaptureOptions = ScreenShareCaptureOptions()) -> LocalVideoTrack
+    {
         let videoSource = Engine.createVideoSource(forScreenShare: true)
         let capturer = InAppScreenCapturer(delegate: videoSource, options: options)
         return LocalVideoTrack(

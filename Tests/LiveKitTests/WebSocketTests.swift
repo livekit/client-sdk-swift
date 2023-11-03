@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 LiveKit
+ * Copyright 2023 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,19 +18,14 @@
 import XCTest
 
 class WebSocketTests: XCTestCase {
-
     lazy var socket: WebSocket = {
         let url = URL(string: "wss://socketsbay.com/wss/v2/1/demo/")!
         return WebSocket(url: url)
     }()
 
-    override func setUpWithError() throws {
+    override func setUpWithError() throws {}
 
-    }
-
-    override func tearDown() async throws {
-
-    }
+    override func tearDown() async throws {}
 
     func testCompleter1() async throws {
         // Read messages

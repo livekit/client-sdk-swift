@@ -14,24 +14,22 @@
  * limitations under the License.
  */
 
-import Foundation
 import CoreMedia
+import Foundation
 
 @_implementationOnly import WebRTC
 
-public protocol VideoBuffer {
+public protocol VideoBuffer {}
 
-}
-
-internal protocol RTCCompatibleVideoBuffer {
+protocol RTCCompatibleVideoBuffer {
     func toRTCType() -> LKRTCVideoFrameBuffer
 }
 
 public class CVPixelVideoBuffer: VideoBuffer, RTCCompatibleVideoBuffer {
     // Internal RTC type
-    internal let rtcType: LKRTCCVPixelBuffer
-    internal init(rtcCVPixelBuffer: LKRTCCVPixelBuffer) {
-        self.rtcType = rtcCVPixelBuffer
+    let rtcType: LKRTCCVPixelBuffer
+    init(rtcCVPixelBuffer: LKRTCCVPixelBuffer) {
+        rtcType = rtcCVPixelBuffer
     }
 
     func toRTCType() -> LKRTCVideoFrameBuffer {
@@ -41,9 +39,9 @@ public class CVPixelVideoBuffer: VideoBuffer, RTCCompatibleVideoBuffer {
 
 public struct I420VideoBuffer: VideoBuffer, RTCCompatibleVideoBuffer {
     // Internal RTC type
-    internal let rtcType: LKRTCI420Buffer
-    internal init(rtcI420Buffer: LKRTCI420Buffer) {
-        self.rtcType = rtcI420Buffer
+    let rtcType: LKRTCI420Buffer
+    init(rtcI420Buffer: LKRTCI420Buffer) {
+        rtcType = rtcI420Buffer
     }
 
     func toRTCType() -> LKRTCVideoFrameBuffer {
@@ -52,7 +50,6 @@ public struct I420VideoBuffer: VideoBuffer, RTCCompatibleVideoBuffer {
 }
 
 public class VideoFrame: NSObject {
-
     let dimensions: Dimensions
     let rotation: VideoRotation
     let timeStampNs: Int64
@@ -63,8 +60,8 @@ public class VideoFrame: NSObject {
     public init(dimensions: Dimensions,
                 rotation: VideoRotation,
                 timeStampNs: Int64,
-                buffer: VideoBuffer) {
-
+                buffer: VideoBuffer)
+    {
         self.dimensions = dimensions
         self.rotation = rotation
         self.timeStampNs = timeStampNs
@@ -72,10 +69,8 @@ public class VideoFrame: NSObject {
     }
 }
 
-internal extension LKRTCVideoFrame {
-
+extension LKRTCVideoFrame {
     func toLKType() -> VideoFrame? {
-
         let lkBuffer: VideoBuffer
 
         if let rtcBuffer = buffer as? LKRTCCVPixelBuffer {
@@ -94,8 +89,7 @@ internal extension LKRTCVideoFrame {
     }
 }
 
-internal extension VideoFrame {
-
+extension VideoFrame {
     func toRTCType() -> LKRTCVideoFrame {
         // This should never happen
         guard let buffer = buffer as? RTCCompatibleVideoBuffer else { fatalError("Buffer must be a RTCCompatibleVideoBuffer") }

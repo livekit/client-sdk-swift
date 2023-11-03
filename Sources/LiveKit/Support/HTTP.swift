@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 LiveKit
+ * Copyright 2023 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,13 +16,12 @@
 
 import Foundation
 
-internal class HTTP: NSObject {
-
+class HTTP: NSObject {
     private static let operationQueue = OperationQueue()
 
-    private static let session: URLSession = URLSession(configuration: .default,
-                                                        delegate: nil,
-                                                        delegateQueue: operationQueue)
+    private static let session: URLSession = .init(configuration: .default,
+                                                   delegate: nil,
+                                                   delegateQueue: operationQueue)
 
     public static func requestData(from url: URL) async throws -> Data {
         let request = URLRequest(url: url,

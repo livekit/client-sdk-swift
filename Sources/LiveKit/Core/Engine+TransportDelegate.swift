@@ -19,7 +19,6 @@ import Foundation
 @_implementationOnly import WebRTC
 
 extension Engine: TransportDelegate {
-
     func transport(_ transport: Transport, didUpdate pcState: RTCPeerConnectionState) {
         log("target: \(transport.target), state: \(pcState)")
 
@@ -35,7 +34,7 @@ extension Engine: TransportDelegate {
 
         if _state.connectionState.isConnected {
             // Attempt re-connect if primary or publisher transport failed
-            if (transport.isPrimary || (_state.hasPublished && transport.target == .publisher)) && [.disconnected, .failed].contains(pcState) {
+            if transport.isPrimary || (_state.hasPublished && transport.target == .publisher), [.disconnected, .failed].contains(pcState) {
                 log("[reconnect] starting, reason: transport disconnected or failed")
                 Task {
                     try await startReconnect()
@@ -54,12 +53,12 @@ extension Engine: TransportDelegate {
     func transport(_ transport: Transport, didAddTrack track: LKRTCMediaStreamTrack, rtpReceiver: LKRTCRtpReceiver, streams: [LKRTCMediaStream]) {
         log("did add track")
         if transport.target == .subscriber {
-
             // execute block when connected
             execute(when: { state, _ in state.connectionState == .connected },
                     // always remove this block when disconnected
-                    removeWhen: { state, _ in state.connectionState == .disconnected() }) { [weak self] in
-                guard let self = self else { return }
+                    removeWhen: { state, _ in state.connectionState == .disconnected() })
+            { [weak self] in
+                guard let self else { return }
                 self.notify { $0.engine(self, didAddTrack: track, rtpReceiver: rtpReceiver, streams: streams) }
             }
         }
@@ -72,11 +71,9 @@ extension Engine: TransportDelegate {
     }
 
     func transport(_ transport: Transport, didOpen dataChannel: LKRTCDataChannel) {
-
         log("Server opened data channel \(dataChannel.label)(\(dataChannel.readyState))")
 
         if subscriberPrimary, transport.target == .subscriber {
-
             switch dataChannel.label {
             case LKRTCDataChannel.labels.reliable: subscriberDC.set(reliable: dataChannel)
             case LKRTCDataChannel.labels.lossy: subscriberDC.set(lossy: dataChannel)
@@ -85,5 +82,5 @@ extension Engine: TransportDelegate {
         }
     }
 
-    func transportShouldNegotiate(_ transport: Transport) {}
+    func transportShouldNegotiate(_: Transport) {}
 }

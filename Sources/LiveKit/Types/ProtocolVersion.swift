@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 LiveKit
+ * Copyright 2023 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,7 +31,6 @@ public enum ProtocolVersion: Int {
 // MARK: - Comparable
 
 extension ProtocolVersion: Comparable {
-
     public static func < (lhs: Self, rhs: Self) -> Bool {
         lhs.rawValue < rhs.rawValue
     }
@@ -40,8 +39,7 @@ extension ProtocolVersion: Comparable {
 // MARK: - CustomStringConvertible
 
 extension ProtocolVersion: CustomStringConvertible {
-
     public var description: String {
-        String(self.rawValue)
+        String(rawValue)
     }
 }

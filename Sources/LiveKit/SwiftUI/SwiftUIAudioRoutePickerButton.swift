@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 LiveKit
+ * Copyright 2023 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,38 +14,36 @@
  * limitations under the License.
  */
 
+import AVKit
 import Foundation
 import SwiftUI
-import AVKit
 
 @_implementationOnly import WebRTC
 
 public struct SwiftUIAudioRoutePickerButton: NativeViewRepresentable {
-
     typealias ViewType = AVRoutePickerView
 
     public init() {
         //
     }
 
-    func makeView(context: Context) -> AVRoutePickerView {
-
+    func makeView(context _: Context) -> AVRoutePickerView {
         let routePickerView = AVRoutePickerView()
 
         #if os(iOS)
-        routePickerView.prioritizesVideoDevices = false
+            routePickerView.prioritizesVideoDevices = false
         #elseif os(macOS)
-        routePickerView.isRoutePickerButtonBordered = false
+            routePickerView.isRoutePickerButtonBordered = false
         #endif
 
         return routePickerView
     }
 
-    func updateView(_ nsView: AVRoutePickerView, context: Context) {
+    func updateView(_: AVRoutePickerView, context _: Context) {
         //
     }
 
-    static func dismantleView(_ nsView: AVRoutePickerView, coordinator: ()) {
+    static func dismantleView(_: AVRoutePickerView, coordinator _: ()) {
         //
     }
 }

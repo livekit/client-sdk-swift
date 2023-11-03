@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 LiveKit
+ * Copyright 2023 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,15 +25,13 @@ public enum VideoRotation: Int {
     case _270 = 270
 }
 
-internal extension RTCVideoRotation {
-
+extension RTCVideoRotation {
     func toLKType() -> VideoRotation {
         VideoRotation(rawValue: rawValue)!
     }
 }
 
-internal extension VideoRotation {
-
+extension VideoRotation {
     func toRTCType() -> RTCVideoRotation {
         RTCVideoRotation(rawValue: rawValue)!
     }

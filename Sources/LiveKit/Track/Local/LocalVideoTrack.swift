@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 LiveKit
+ * Copyright 2023 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,17 +20,16 @@ import Foundation
 
 @objc
 public class LocalVideoTrack: Track, LocalTrack, VideoTrack {
-
     @objc
     public internal(set) var capturer: VideoCapturer
 
-    internal var videoSource: LKRTCVideoSource
+    var videoSource: LKRTCVideoSource
 
-    internal init(name: String,
-                  source: Track.Source,
-                  capturer: VideoCapturer,
-                  videoSource: LKRTCVideoSource) {
-
+    init(name: String,
+         source: Track.Source,
+         capturer: VideoCapturer,
+         videoSource: LKRTCVideoSource)
+    {
         let rtcTrack = Engine.createVideoTrack(source: videoSource)
         rtcTrack.isEnabled = true
 
@@ -67,7 +66,6 @@ public class LocalVideoTrack: Track, LocalTrack, VideoTrack {
 }
 
 public extension LocalVideoTrack {
-
     func add(videoRenderer: VideoRenderer) {
         super._add(videoRenderer: videoRenderer)
     }
@@ -77,17 +75,15 @@ public extension LocalVideoTrack {
     }
 }
 
-extension LocalVideoTrack {
+public extension LocalVideoTrack {
+    var publishOptions: PublishOptions? { super._publishOptions }
 
-    public var publishOptions: PublishOptions? { super._publishOptions }
-
-    public var publishState: Track.PublishState { super._publishState }
+    var publishState: Track.PublishState { super._publishState }
 }
 
-extension LocalVideoTrack {
-
+public extension LocalVideoTrack {
     /// Clone with same ``VideoCapturer``.
-    public func clone() -> LocalVideoTrack {
+    func clone() -> LocalVideoTrack {
         LocalVideoTrack(name: name,
                         source: source,
                         capturer: capturer,

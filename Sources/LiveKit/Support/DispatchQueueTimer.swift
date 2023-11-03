@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 LiveKit
+ * Copyright 2023 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,8 +16,7 @@
 
 import Foundation
 
-internal class DispatchQueueTimer: Loggable {
-
+class DispatchQueueTimer: Loggable {
     public enum State {
         case suspended
         case resumed
@@ -32,7 +31,7 @@ internal class DispatchQueueTimer: Loggable {
     public init(timeInterval: TimeInterval, queue: DispatchQueue? = nil) {
         self.timeInterval = timeInterval
         self.queue = queue
-        self.timer = createTimer()
+        timer = createTimer()
     }
 
     deinit {
@@ -71,7 +70,7 @@ internal class DispatchQueueTimer: Loggable {
 
     private func createTimer() -> DispatchSourceTimer {
         let timer = DispatchSource.makeTimerSource(queue: queue)
-        timer.schedule(deadline: .now() + self.timeInterval, repeating: self.timeInterval)
+        timer.schedule(deadline: .now() + timeInterval, repeating: timeInterval)
         timer.setEventHandler { [weak self] in self?.handler?() }
         return timer
     }

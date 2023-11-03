@@ -17,7 +17,6 @@
 import Foundation
 
 extension Track: MulticastDelegateProtocol {
-
     @objc(addDelegate:)
     public func add(delegate: TrackDelegate) {
         delegates.add(delegate: delegate)

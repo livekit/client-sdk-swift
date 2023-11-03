@@ -18,15 +18,13 @@ import Foundation
 
 @_implementationOnly import WebRTC
 
-internal extension LKRTCI420Buffer {
-
+extension LKRTCI420Buffer {
     func toPixelBuffer() -> CVPixelBuffer? {
-
         // default options
         let options = [
             kCVPixelBufferCGImageCompatibilityKey as String: true,
             kCVPixelBufferCGBitmapContextCompatibilityKey as String: true,
-            kCVPixelBufferIOSurfacePropertiesKey as String: [:] as [String: Any]
+            kCVPixelBufferIOSurfacePropertiesKey as String: [:] as [String: Any],
         ] as [String: Any]
 
         var outputPixelBuffer: CVPixelBuffer?
@@ -37,7 +35,7 @@ internal extension LKRTCI420Buffer {
                                          options as CFDictionary,
                                          &outputPixelBuffer)
 
-        guard status == kCVReturnSuccess, let outputPixelBuffer = outputPixelBuffer else {
+        guard status == kCVReturnSuccess, let outputPixelBuffer else {
             return nil
         }
 
@@ -45,7 +43,8 @@ internal extension LKRTCI420Buffer {
         let pixelFormat = CVPixelBufferGetPixelFormatType(outputPixelBuffer)
 
         if pixelFormat == kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange ||
-            pixelFormat == kCVPixelFormatType_420YpCbCr8BiPlanarFullRange {
+            pixelFormat == kCVPixelFormatType_420YpCbCr8BiPlanarFullRange
+        {
             // NV12
             let dstY = CVPixelBufferGetBaseAddressOfPlane(outputPixelBuffer, 0)
             let dstYStride = CVPixelBufferGetBytesPerRowOfPlane(outputPixelBuffer, 0)
@@ -70,7 +69,6 @@ internal extension LKRTCI420Buffer {
             let bytesPerRow = CVPixelBufferGetBytesPerRow(outputPixelBuffer)
 
             if pixelFormat == kCVPixelFormatType_32BGRA {
-
                 LKRTCYUVHelper.i420(toARGB: dataY,
                                     srcStrideY: strideY,
                                     srcU: dataU,
@@ -82,7 +80,6 @@ internal extension LKRTCI420Buffer {
                                     width: width,
                                     height: height)
             } else if pixelFormat == kCVPixelFormatType_32ARGB {
-
                 LKRTCYUVHelper.i420(toBGRA: dataY,
                                     srcStrideY: strideY,
                                     srcU: dataU,

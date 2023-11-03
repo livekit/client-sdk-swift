@@ -16,7 +16,7 @@
 
 import Foundation
 
-internal enum AsyncCompleterError: LiveKitError {
+enum AsyncCompleterError: LiveKitError {
     case timedOut
     case cancelled
 
@@ -29,8 +29,7 @@ internal enum AsyncCompleterError: LiveKitError {
 }
 
 /// Manages a map of AsyncCompleters
-internal actor CompleterMapActor<T> {
-
+actor CompleterMapActor<T> {
     public let label: String
 
     private let _timeOut: DispatchTimeInterval
@@ -38,7 +37,7 @@ internal actor CompleterMapActor<T> {
 
     public init(label: String, timeOut: DispatchTimeInterval) {
         self.label = label
-        self._timeOut = timeOut
+        _timeOut = timeOut
     }
 
     public func completer(for key: String) -> AsyncCompleter<T> {
@@ -68,8 +67,7 @@ internal actor CompleterMapActor<T> {
     }
 }
 
-internal class AsyncCompleter<T>: Loggable {
-
+class AsyncCompleter<T>: Loggable {
     public let label: String
 
     private let _timeOut: DispatchTimeInterval
@@ -83,7 +81,7 @@ internal class AsyncCompleter<T>: Loggable {
 
     public init(label: String, timeOut: DispatchTimeInterval) {
         self.label = label
-        self._timeOut = timeOut
+        _timeOut = timeOut
     }
 
     deinit {
@@ -149,7 +147,7 @@ internal class AsyncCompleter<T>: Loggable {
 
             // Create time-out block
             let timeOutBlock = DispatchWorkItem { [weak self] in
-                guard let self = self else { return }
+                guard let self else { return }
                 self.log("\(self.label) timedOut")
                 self._continuation?.resume(throwing: AsyncCompleterError.timedOut)
                 self._continuation = nil

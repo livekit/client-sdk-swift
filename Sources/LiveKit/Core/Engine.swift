@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 LiveKit
+ * Copyright 2023 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,20 +17,19 @@
 import Foundation
 
 #if canImport(Network)
-import Network
+    import Network
 #endif
 
 @_implementationOnly import WebRTC
 
-internal class Engine: MulticastDelegate<EngineDelegate> {
-
-    internal let queue = DispatchQueue(label: "LiveKitSDK.engine", qos: .default)
+class Engine: MulticastDelegate<EngineDelegate> {
+    let queue = DispatchQueue(label: "LiveKitSDK.engine", qos: .default)
 
     // MARK: - Public
 
     public typealias ConditionEvalFunc = (_ newState: State, _ oldState: State?) -> Bool
 
-    internal struct State: ReconnectableState, Equatable {
+    struct State: ReconnectableState, Equatable {
         var connectOptions: ConnectOptions
         var url: String?
         var token: String?
@@ -42,8 +41,8 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
         var hasPublished: Bool = false
     }
 
-    internal let primaryTransportConnectedCompleter = AsyncCompleter<Void>(label: "Primary transport connect", timeOut: .defaultTransportState)
-    internal let publisherTransportConnectedCompleter = AsyncCompleter<Void>(label: "Publisher transport connect", timeOut: .defaultTransportState)
+    let primaryTransportConnectedCompleter = AsyncCompleter<Void>(label: "Primary transport connect", timeOut: .defaultTransportState)
+    let publisherTransportConnectedCompleter = AsyncCompleter<Void>(label: "Publisher transport connect", timeOut: .defaultTransportState)
 
     public var _state: StateSync<State>
 
@@ -63,13 +62,13 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
         let block: () -> Void
     }
 
-    internal var subscriberPrimary: Bool = false
+    var subscriberPrimary: Bool = false
     private var primary: Transport? { subscriberPrimary ? subscriber : publisher }
 
     // MARK: - DataChannels
 
-    internal var subscriberDC = DataChannelPair(target: .subscriber)
-    internal var publisherDC = DataChannelPair(target: .publisher)
+    var subscriberDC = DataChannelPair(target: .subscriber)
+    var publisherDC = DataChannelPair(target: .publisher)
 
     private var _blockProcessQueue = DispatchQueue(label: "LiveKitSDK.engine.pendingBlocks",
                                                    qos: .default)
@@ -77,8 +76,7 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
     private var _queuedBlocks = [ConditionalExecutionEntry]()
 
     init(connectOptions: ConnectOptions) {
-
-        self._state = StateSync(State(connectOptions: connectOptions))
+        _state = StateSync(State(connectOptions: connectOptions))
         super.init()
 
         // log sdk & os versions
@@ -88,9 +86,9 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
         ConnectivityListener.shared.add(delegate: self)
 
         // trigger events when state mutates
-        self._state.onDidMutate = { [weak self] newState, oldState in
+        _state.onDidMutate = { [weak self] newState, oldState in
 
-            guard let self = self else { return }
+            guard let self else { return }
 
             assert(!(newState.connectionState == .reconnecting && newState.reconnectMode == .none), "reconnectMode should not be .none")
 
@@ -102,7 +100,7 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
 
             // execution control
             self._blockProcessQueue.async { [weak self] in
-                guard let self = self, !self._queuedBlocks.isEmpty else { return }
+                guard let self, !self._queuedBlocks.isEmpty else { return }
 
                 self.log("[execution control] processing pending entries (\(self._queuedBlocks.count))...")
 
@@ -122,11 +120,11 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
 
         subscriberDC.onDataPacket = { [weak self] (dataPacket: Livekit_DataPacket) in
 
-            guard let self = self else { return }
+            guard let self else { return }
 
             switch dataPacket.value {
-            case .speaker(let update): self.notify { $0.engine(self, didUpdate: update.speakers) }
-            case .user(let userPacket): self.notify { $0.engine(self, didReceive: userPacket) }
+            case let .speaker(update): self.notify { $0.engine(self, didUpdate: update.speakers) }
+            case let .user(userPacket): self.notify { $0.engine(self, didReceive: userPacket) }
             default: return
             }
         }
@@ -139,10 +137,10 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
     // Connect sequence, resets existing state
     func connect(_ url: String,
                  _ token: String,
-                 connectOptions: ConnectOptions? = nil) async throws {
-
+                 connectOptions: ConnectOptions? = nil) async throws
+    {
         // update options if specified
-        if let connectOptions = connectOptions, connectOptions != _state.connectOptions {
+        if let connectOptions, connectOptions != _state.connectOptions {
             _state.mutate { $0.connectOptions = connectOptions }
         }
 
@@ -163,7 +161,7 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
                 $0.connectionState = .connected
             }
 
-        } catch let error {
+        } catch {
             try await cleanUp(reason: .networkError(error))
         }
     }
@@ -179,33 +177,30 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
     // Resets state of transports
     func cleanUpRTC() async {
         // Close data channels
-        self.publisherDC.close()
-        self.subscriberDC.close()
+        publisherDC.close()
+        subscriberDC.close()
 
         // Close transports
         await publisher?.close()
-        self.publisher = nil
+        publisher = nil
 
         await subscriber?.close()
-        self.subscriber = nil
+        subscriber = nil
 
         // Reset publish state
-        self._state.mutate { $0.hasPublished = false }
+        _state.mutate { $0.hasPublished = false }
     }
 
     func publisherShouldNegotiate() async throws {
-
         log()
 
         let publisher = try await requirePublisher()
         publisher.negotiate()
-        self._state.mutate { $0.hasPublished = true }
+        _state.mutate { $0.hasPublished = true }
     }
 
     func send(userPacket: Livekit_UserPacket, reliability: Reliability = .reliable) async throws {
-
-        func ensurePublisherConnected () async throws {
-
+        func ensurePublisherConnected() async throws {
             guard subscriberPrimary else { return }
 
             let publisher = try await requirePublisher()
@@ -221,8 +216,8 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
         try await ensurePublisherConnected()
 
         // At this point publisher should be .connected and dc should be .open
-        assert(self.publisher?.isConnected ?? false, "publisher is not .connected")
-        assert(self.publisherDC.isOpen, "publisher data channel is not .open")
+        assert(publisher?.isConnected ?? false, "publisher is not .connected")
+        assert(publisherDC.isOpen, "publisher data channel is not .open")
 
         // Should return true if successful
         try publisherDC.send(userPacket: userPacket, reliability: reliability)
@@ -231,10 +226,8 @@ internal class Engine: MulticastDelegate<EngineDelegate> {
 
 // MARK: - Internal
 
-internal extension Engine {
-
+extension Engine {
     func configureTransports(joinResponse: Livekit_JoinResponse) async throws {
-
         log("Configuring transports...")
 
         guard subscriber == nil, publisher == nil else {
@@ -246,7 +239,7 @@ internal extension Engine {
         subscriberPrimary = joinResponse.subscriberPrimary
         log("subscriberPrimary: \(joinResponse.subscriberPrimary)")
 
-        let connectOptions = self._state.connectOptions
+        let connectOptions = _state.connectOptions
 
         // Make a copy, instead of modifying the user-supplied RTCConfiguration object.
         let rtcConfiguration = LKRTCConfiguration.liveKitDefault()
@@ -274,7 +267,7 @@ internal extension Engine {
                                       delegate: self)
 
         publisher.onOffer = { [weak self] offer in
-            guard let self = self else { return }
+            guard let self else { return }
             log("Publisher onOffer \(offer.sdp)")
             try await signalClient.send(offer: offer)
         }
@@ -305,10 +298,8 @@ internal extension Engine {
 
 // MARK: - Execution control (Internal)
 
-internal extension Engine {
-
+extension Engine {
     func executeIfConnected(_ block: @escaping @convention(block) () -> Void) {
-
         if case .connected = _state.connectionState {
             // execute immediately
             block()
@@ -317,15 +308,15 @@ internal extension Engine {
 
     func execute(when condition: @escaping ConditionEvalFunc,
                  removeWhen removeCondition: @escaping ConditionEvalFunc,
-                 _ block: @escaping () -> Void) {
-
+                 _ block: @escaping () -> Void)
+    {
         // already matches condition, execute immediately
         if _state.read({ condition($0, nil) }) {
             log("[execution control] executing immediately...")
             block()
         } else {
             _blockProcessQueue.async { [weak self] in
-                guard let self = self else { return }
+                guard let self else { return }
 
                 // create an entry and enqueue block
                 self.log("[execution control] enqueuing entry...")
@@ -342,8 +333,7 @@ internal extension Engine {
 
 // MARK: - Connection / Reconnection logic
 
-internal extension Engine {
-
+extension Engine {
     // full connect sequence, doesn't update connection state
     func fullConnectSequence(_ url: String, _ token: String) async throws {
         // This should never happen since Engine is owned by Room
@@ -361,18 +351,17 @@ internal extension Engine {
         try await signalClient.resumeResponseQueue()
         try await primaryTransportConnectedCompleter.wait()
         _state.mutate { $0.connectStopwatch.split(label: "engine") }
-        log("\(self._state.connectStopwatch)")
+        log("\(_state.connectStopwatch)")
     }
 
     func startReconnect() async throws {
-
         guard case .connected = _state.connectionState else {
             log("[reconnect] must be called with connected state", .warning)
             throw EngineError.state(message: "Must be called with connected state")
         }
 
         guard let url = _state.url, let token = _state.token else {
-            log("[reconnect] url or token is nil", . warning)
+            log("[reconnect] url or token is nil", .warning)
             throw EngineError.state(message: "url or token is nil")
         }
 
@@ -404,7 +393,7 @@ internal extension Engine {
             subscriber?.isRestartingIce = true
 
             // Only if published, continue...
-            guard let publisher = publisher, _state.hasPublished else { return }
+            guard let publisher, _state.hasPublished else { return }
 
             log("[reconnect] waiting for publisher to connect...")
 
@@ -422,8 +411,9 @@ internal extension Engine {
             log("[Reconnect] starting .full reconnect sequence...")
             try await cleanUp(isFullReconnect: true)
 
-            guard let url = self._state.url,
-                  let token = self._state.token else {
+            guard let url = _state.url,
+                  let token = _state.token
+            else {
                 throw EngineError.state(message: "url or token is nil")
             }
 
@@ -431,19 +421,20 @@ internal extension Engine {
         }
 
         let retryingTask = Task.retrying(maxRetryCount: _state.connectOptions.reconnectAttempts,
-                                         retryDelay: _state.connectOptions.reconnectAttemptDelay) { totalAttempts, currentAttempt in
+                                         retryDelay: _state.connectOptions.reconnectAttemptDelay)
+        { totalAttempts, currentAttempt in
 
             // Not reconnecting state anymore
             guard case .reconnecting = _state.connectionState else { return }
 
             // Full reconnect failed, give up
-            guard .full != _state.reconnectMode else { return }
+            guard _state.reconnectMode != .full else { return }
 
             self.log("[Reconnect] retry in \(_state.connectOptions.reconnectAttemptDelay) seconds, \(currentAttempt)/\(totalAttempts) tries left...")
 
             // Try full reconnect for the final attempt
             if totalAttempts == currentAttempt, _state.nextPreferredReconnectMode == nil {
-                _state.mutate {  $0.nextPreferredReconnectMode = .full }
+                _state.mutate { $0.nextPreferredReconnectMode = .full }
             }
 
             let mode: ReconnectMode = self._state.mutate {
@@ -466,7 +457,7 @@ internal extension Engine {
             // Re-connect sequence successful
             log("[reconnect] sequence completed")
             _state.mutate { $0.connectionState = .connected }
-        } catch let error {
+        } catch {
             log("[Reconnect] Sequence failed with error: \(error)")
             // Finally disconnect if all attempts fail
             try await cleanUp(reason: .networkError(error))
@@ -476,14 +467,13 @@ internal extension Engine {
 
 // MARK: - Session Migration
 
-internal extension Engine {
-
+extension Engine {
     func sendSyncState() async throws {
-
         let room = try await requireRoom()
 
-        guard let subscriber = subscriber,
-              let previousAnswer = subscriber.localDescription else {
+        guard let subscriber,
+              let previousAnswer = subscriber.localDescription
+        else {
             // No-op
             return
         }
@@ -499,7 +489,7 @@ internal extension Engine {
         let trackSids = room._state.remoteParticipants.values.flatMap { participant in
             participant._state.tracks.values
                 .filter { $0.subscribed != autoSubscribe }
-                .map { $0.sid }
+                .map(\.sid)
         }
 
         log("trackSids: \(trackSids)")
@@ -519,15 +509,14 @@ internal extension Engine {
 
 // MARK: - Private helpers
 
-internal extension Engine {
-
+extension Engine {
     func requireRoom() async throws -> Room {
         guard let room = _room else { throw EngineError.state(message: "Room is nil") }
         return room
     }
 
     func requirePublisher() async throws -> Transport {
-        guard let publisher = publisher else { throw EngineError.state(message: "Publisher is nil") }
+        guard let publisher else { throw EngineError.state(message: "Publisher is nil") }
         return publisher
     }
 }
@@ -535,7 +524,6 @@ internal extension Engine {
 // MARK: - ConnectivityListenerDelegate
 
 extension Engine: ConnectivityListenerDelegate {
-
     func connectivityListener(_: ConnectivityListener, didSwitch path: NWPath) {
         log("didSwitch path: \(path)")
         Task {
