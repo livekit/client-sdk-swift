@@ -20,14 +20,8 @@ import Foundation
 
 @objc
 public class RemoteParticipant: Participant {
-    init(sid: Sid,
-         info: Livekit_ParticipantInfo?,
-         room: Room)
-    {
-        super.init(sid: sid,
-                   identity: info?.identity ?? "",
-                   name: info?.name ?? "",
-                   room: room)
+    init(sid: Sid, info: Livekit_ParticipantInfo?, room: Room) {
+        super.init(sid: sid, room: room)
 
         if let info {
             updateFromInfo(info: info)

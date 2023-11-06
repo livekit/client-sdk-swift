@@ -36,7 +36,6 @@ extension Room: SignalClientDelegate {
     func signalClient(_: SignalClient, didUpdate trackSid: String, subscribedQualities: [Livekit_SubscribedQuality]) {
         log("qualities: \(subscribedQualities.map { String(describing: $0) }.joined(separator: ", "))")
 
-        guard let localParticipant = _state.localParticipant else { return }
         localParticipant.onSubscribedQualitiesUpdate(trackSid: trackSid, subscribedQualities: subscribedQualities)
     }
 
@@ -55,9 +54,7 @@ extension Room: SignalClientDelegate {
             $0.serverRegion = joinResponse.serverRegion.isEmpty ? nil : joinResponse.serverRegion
             $0.isRecording = joinResponse.room.activeRecording
 
-            if joinResponse.hasParticipant {
-                $0.localParticipant = LocalParticipant(from: joinResponse.participant, room: self)
-            }
+            localParticipant.updateFromInfo(info: joinResponse.participant)
 
             if !joinResponse.otherParticipants.isEmpty {
                 for otherParticipant in joinResponse.otherParticipants {
@@ -84,7 +81,7 @@ extension Room: SignalClientDelegate {
 
             var lastSpeakers = state.activeSpeakers.reduce(into: [Sid: Participant]()) { $0[$1.sid] = $1 }
             for speaker in speakers {
-                guard let participant = speaker.sid == state.localParticipant?.sid ? state.localParticipant : state.remoteParticipants[speaker.sid] else {
+                guard let participant = speaker.sid == localParticipant.sid ? localParticipant : state.remoteParticipants[speaker.sid] else {
                     continue
                 }
 
@@ -118,9 +115,7 @@ extension Room: SignalClientDelegate {
         log("connectionQuality: \(connectionQuality)", .trace)
 
         for entry in connectionQuality {
-            if let localParticipant = _state.localParticipant,
-               entry.participantSid == localParticipant.sid
-            {
+            if entry.participantSid == localParticipant.sid {
                 // update for LocalParticipant
                 localParticipant._state.mutate { $0.connectionQuality = entry.quality.toLKType() }
             } else if let participant = _state.remoteParticipants[entry.participantSid] {
@@ -133,7 +128,7 @@ extension Room: SignalClientDelegate {
     func signalClient(_: SignalClient, didUpdateRemoteMute trackSid: String, muted: Bool) {
         log("trackSid: \(trackSid) muted: \(muted)")
 
-        guard let publication = _state.localParticipant?._state.tracks[trackSid] as? LocalTrackPublication else {
+        guard let publication = localParticipant._state.tracks[trackSid] as? LocalTrackPublication else {
             // publication was not found but the delegate was handled
             return
         }
@@ -180,8 +175,8 @@ extension Room: SignalClientDelegate {
 
         _state.mutate {
             for info in participants {
-                if info.sid == $0.localParticipant?.sid {
-                    $0.localParticipant?.updateFromInfo(info: info)
+                if info.sid == localParticipant.sid {
+                    localParticipant.updateFromInfo(info: info)
                     continue
                 }
 
@@ -221,9 +216,7 @@ extension Room: SignalClientDelegate {
     func signalClient(_: SignalClient, didUnpublish localTrack: Livekit_TrackUnpublishedResponse) {
         log()
 
-        guard let localParticipant,
-              let publication = localParticipant._state.tracks[localTrack.trackSid] as? LocalTrackPublication
-        else {
+        guard let publication = localParticipant._state.tracks[localTrack.trackSid] as? LocalTrackPublication else {
             log("track publication not found", .warning)
             return
         }
