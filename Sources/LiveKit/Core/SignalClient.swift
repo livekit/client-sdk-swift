@@ -103,10 +103,8 @@ class SignalClient: MulticastDelegate<SignalClientDelegate> {
             $0.connectionState = .connecting
         }
 
-        let socket = WebSocket(url: url)
-
         do {
-            try await socket.connect()
+            let socket = try await WebSocket(url: url)
             _webSocket = socket
             _state.mutate { $0.connectionState = .connected }
 
@@ -156,10 +154,8 @@ class SignalClient: MulticastDelegate<SignalClientDelegate> {
         pingIntervalTimer = nil
         pingTimeoutTimer = nil
 
-        if let socket = _webSocket {
-            socket.reset()
-            _webSocket = nil
-        }
+        _webSocket?.close()
+        _webSocket = nil
 
         latestJoinResponse = nil
 
