@@ -15,7 +15,6 @@
  */
 
 @testable import LiveKit
-import Promises
 import XCTest
 
 class TimerTests: XCTestCase {
@@ -35,10 +34,10 @@ class TimerTests: XCTestCase {
                 if self.counter == 3 {
                     print("suspending timer for 3s...")
                     self.timer.suspend()
-                    Promise(()).delay(3).then {
-                        print("restarting timer...")
-                        self.timer.restart()
-                    }
+//                    Promise(()).delay(3).then {
+//                        print("restarting timer...")
+//                        self.timer.restart()
+//                    }
                 }
 
                 if self.counter == 5 {

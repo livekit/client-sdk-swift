@@ -97,7 +97,7 @@ class AsyncCompleter<T>: Loggable {
     public func cancel() {
         _cancelTimer()
         if _continuation != nil {
-            log("\(self.label) cancelled")
+            log("\(label) cancelled")
         }
         _continuation?.resume(throwing: AsyncCompleterError.cancelled)
         _continuation = nil

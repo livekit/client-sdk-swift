@@ -18,20 +18,13 @@
 import XCTest
 
 class WebSocketTests: XCTestCase {
-    lazy var socket: WebSocket = {
-        let url = URL(string: "wss://socketsbay.com/wss/v2/1/demo/")!
-        return WebSocket(url: url)
-    }()
-
     override func setUpWithError() throws {}
 
     override func tearDown() async throws {}
 
-    func testCompleter1() async throws {
-        // Read messages
-
+    func testWebSocket01() async throws {
         print("Connecting...")
-        try await socket.connect()
+        let socket = try await WebSocket(url: URL(string: "wss://socketsbay.com/wss/v2/1/demo/")!)
 
         print("Connected. Waiting for messages...")
         do {
