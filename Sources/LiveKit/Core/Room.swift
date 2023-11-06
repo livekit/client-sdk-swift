@@ -211,8 +211,8 @@ public class Room: NSObject, ObservableObject, Loggable {
     }
 
     @objc
-    public func connect(_ url: String,
-                        _ token: String,
+    public func connect(url: String,
+                        token: String,
                         connectOptions: ConnectOptions? = nil,
                         roomOptions: RoomOptions? = nil) async throws
     {
