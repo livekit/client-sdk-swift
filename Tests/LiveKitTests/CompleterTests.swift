@@ -40,6 +40,7 @@ class CompleterTests: XCTestCase {
     func testCompleterCancel() async throws {
         let completer = AsyncCompleter<Void>(label: "cancel-test", timeOut: .never)
         do {
+            // Run Tasks in parallel
             try await withThrowingTaskGroup(of: Void.self) { group in
 
                 group.addTask {
