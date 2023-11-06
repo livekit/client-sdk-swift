@@ -502,7 +502,7 @@ extension Engine {
 
         try await signalClient.sendSyncState(answer: previousAnswer.toPBType(),
                                              offer: previousOffer?.toPBType(),
-                                             subscription: subscription, publishTracks: room._state.localParticipant?.publishedTracksInfo(),
+                                             subscription: subscription, publishTracks: room.localParticipant.publishedTracksInfo(),
                                              dataChannels: publisherDC.infos())
     }
 }

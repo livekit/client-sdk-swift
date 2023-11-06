@@ -33,6 +33,10 @@ public class LocalParticipant: Participant {
     private var allParticipantsAllowed: Bool = true
     private var trackPermissions: [ParticipantTrackPermission] = []
 
+    convenience init(room: Room) {
+        self.init(sid: "", identity: "", name: "", room: room)
+    }
+
     convenience init(from info: Livekit_ParticipantInfo,
                      room: Room)
     {

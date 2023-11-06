@@ -63,16 +63,16 @@ public class E2EEManager: NSObject, ObservableObject, Loggable {
         }
         self.room = room
         self.room?.delegates.add(delegate: self)
-        self.room?.localParticipant?.tracks.forEach { (_: Sid, publication: TrackPublication) in
+        self.room?.localParticipant.tracks.forEach { (_: Sid, publication: TrackPublication) in
             if publication.encryptionType == EncryptionType.none {
-                self.log("E2EEManager::setup: local participant \(self.room!.localParticipant!.identity) track \(publication.sid) encryptionType is none, skip")
+                self.log("E2EEManager::setup: local participant \(self.room!.localParticipant.identity) track \(publication.sid) encryptionType is none, skip")
                 return
             }
             if publication.track?.rtpSender == nil {
                 self.log("E2EEManager::setup: publication.track?.rtpSender is nil, skip to create FrameCryptor!")
                 return
             }
-            let fc = addRtpSender(sender: publication.track!.rtpSender!, participantId: self.room!.localParticipant!.identity, trackSid: publication.sid)
+            let fc = addRtpSender(sender: publication.track!.rtpSender!, participantId: self.room!.localParticipant.identity, trackSid: publication.sid)
             trackPublications[fc] = publication
         }
 

@@ -19,11 +19,9 @@ import Foundation
 public extension Room {
     var allParticipants: [Sid: Participant] {
         var result: [Sid: Participant] = remoteParticipants
-
-        if let localParticipant {
+        if !localParticipant.sid.isEmpty {
             result.updateValue(localParticipant, forKey: localParticipant.sid)
         }
-
         return result
     }
 }

@@ -74,7 +74,7 @@ public class Participant: NSObject, ObservableObject, Loggable {
     // MARK: - Internal
 
     struct State: Equatable, Hashable {
-        let sid: Sid
+        var sid: Sid
         var identity: String
         var name: String
         var audioLevel: Float = 0.0
@@ -162,7 +162,7 @@ public class Participant: NSObject, ObservableObject, Loggable {
     func cleanUp(notify _notify: Bool = true) async {
         await unpublishAll(notify: _notify)
         // Reset state
-        _state.mutate { $0 = State(sid: $0.sid, identity: $0.identity, name: $0.name) }
+        _state.mutate { $0 = State(sid: "", identity: "", name: "") }
     }
 
     func unpublishAll(notify _: Bool = true) async {
@@ -176,6 +176,7 @@ public class Participant: NSObject, ObservableObject, Loggable {
 
     func updateFromInfo(info: Livekit_ParticipantInfo) {
         _state.mutate {
+            $0.sid = info.sid
             $0.identity = info.identity
             $0.name = info.name
             $0.metadata = info.metadata

@@ -29,7 +29,7 @@ extension Room: EngineDelegate {
             }
 
             // Re-send track permissions
-            if case .connected = state.connectionState, let localParticipant {
+            if case .connected = state.connectionState {
                 Task {
                     do {
                         try await localParticipant.sendTrackSubscriptionPermissions()
@@ -82,9 +82,7 @@ extension Room: EngineDelegate {
             var seenSids = [String: Bool]()
             for speaker in speakers {
                 seenSids[speaker.sid] = true
-                if let localParticipant = state.localParticipant,
-                   speaker.sid == localParticipant.sid
-                {
+                if speaker.sid == localParticipant.sid {
                     localParticipant._state.mutate {
                         $0.audioLevel = speaker.level
                         $0.isSpeaking = true
@@ -101,7 +99,7 @@ extension Room: EngineDelegate {
                 }
             }
 
-            if let localParticipant = state.localParticipant, seenSids[localParticipant.sid] == nil {
+            if seenSids[localParticipant.sid] == nil {
                 localParticipant._state.mutate {
                     $0.audioLevel = 0.0
                     $0.isSpeaking = false

@@ -48,9 +48,6 @@ public class Room: NSObject, ObservableObject, Loggable {
     public var serverRegion: String? { _state.serverRegion }
 
     @objc
-    public var localParticipant: LocalParticipant? { _state.localParticipant }
-
-    @objc
     public var remoteParticipants: [Sid: RemoteParticipant] { _state.remoteParticipants }
 
     @objc
@@ -93,6 +90,9 @@ public class Room: NSObject, ObservableObject, Loggable {
 
     public var e2eeManager: E2EEManager?
 
+    @objc
+    public lazy var localParticipant: LocalParticipant = .init(room: self)
+
     struct State: Equatable {
         var options: RoomOptions
 
@@ -102,7 +102,6 @@ public class Room: NSObject, ObservableObject, Loggable {
         var serverVersion: String?
         var serverRegion: String?
 
-        var localParticipant: LocalParticipant?
         var remoteParticipants = [Sid: RemoteParticipant]()
         var activeSpeakers = [Participant]()
 
@@ -220,11 +219,6 @@ public class Room: NSObject, ObservableObject, Loggable {
 
         let state = _state.copy()
 
-        guard state.localParticipant == nil else {
-            log("localParticipant is not nil", .warning)
-            throw EngineError.state(message: "localParticipant is not nil")
-        }
-
         // update options if specified
         if let roomOptions, roomOptions != state.options {
             _state.mutate { $0.options = roomOptions }
@@ -238,7 +232,7 @@ public class Room: NSObject, ObservableObject, Loggable {
 
         try await engine.connect(url, token, connectOptions: connectOptions)
 
-        log("Connected to \(String(describing: self)) \(String(describing: state.localParticipant))", .info)
+        log("Connected to \(String(describing: self))", .info)
     }
 
     @objc
@@ -310,7 +304,6 @@ extension Room {
         }
 
         _state.mutate {
-            $0.localParticipant = nil
             $0.remoteParticipants = [:]
         }
     }
@@ -356,8 +349,6 @@ extension Room: AppStateDelegate {
     func appDidEnterBackground() {
         guard _state.options.suspendLocalVideoTracksInBackground else { return }
 
-        guard let localParticipant else { return }
-
         let cameraVideoTracks = localParticipant.localVideoTracks.filter { $0.source == .camera }
 
         guard !cameraVideoTracks.isEmpty else { return }
@@ -374,8 +365,6 @@ extension Room: AppStateDelegate {
     }
 
     func appWillEnterForeground() {
-        guard let localParticipant else { return }
-
         let cameraVideoTracks = localParticipant.localVideoTracks.filter { $0.source == .camera }
 
         guard !cameraVideoTracks.isEmpty else { return }
