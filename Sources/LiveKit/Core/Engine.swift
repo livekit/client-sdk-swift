@@ -149,6 +149,8 @@ class Engine: MulticastDelegate<EngineDelegate> {
         _state.mutate { $0.connectionState = .connecting }
 
         do {
+            try Task.checkCancellation()
+
             try await fullConnectSequence(url, token)
 
             // Connect sequence successful
@@ -161,6 +163,8 @@ class Engine: MulticastDelegate<EngineDelegate> {
                 $0.connectionState = .connected
             }
 
+        } catch is CancellationError {
+            try await cleanUp(reason: .user)
         } catch {
             try await cleanUp(reason: .networkError(error))
         }
