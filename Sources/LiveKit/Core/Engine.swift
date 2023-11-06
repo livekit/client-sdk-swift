@@ -145,16 +145,18 @@ class Engine: MulticastDelegate<EngineDelegate> {
         }
 
         try await cleanUp()
+        try Task.checkCancellation()
 
         _state.mutate { $0.connectionState = .connecting }
 
         do {
-            try Task.checkCancellation()
-
             try await fullConnectSequence(url, token)
 
             // Connect sequence successful
             log("Connect sequence completed")
+
+            // Final check if cancelled, don't fire connected events
+            try Task.checkCancellation()
 
             // update internal vars (only if connect succeeded)
             _state.mutate {
@@ -164,6 +166,7 @@ class Engine: MulticastDelegate<EngineDelegate> {
             }
 
         } catch is CancellationError {
+            // Cancelled by .user
             try await cleanUp(reason: .user)
         } catch {
             try await cleanUp(reason: .networkError(error))
@@ -348,10 +351,18 @@ extension Engine {
                                        connectOptions: _state.connectOptions,
                                        reconnectMode: _state.reconnectMode,
                                        adaptiveStream: room._state.options.adaptiveStream)
+        // Check cancellation after WebSocket connected
+        try Task.checkCancellation()
 
         let jr = try await signalClient.joinResponseCompleter.wait()
+        // Check cancellation after received join response
+        try Task.checkCancellation()
+
         _state.mutate { $0.connectStopwatch.split(label: "signal") }
         try await configureTransports(joinResponse: jr)
+        // Check cancellation after configuring transports
+        try Task.checkCancellation()
+
         try await signalClient.resumeResponseQueue()
         try await primaryTransportConnectedCompleter.wait()
         _state.mutate { $0.connectStopwatch.split(label: "engine") }
