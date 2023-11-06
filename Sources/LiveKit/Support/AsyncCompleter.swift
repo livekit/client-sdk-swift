@@ -96,6 +96,9 @@ class AsyncCompleter<T>: Loggable {
 
     public func cancel() {
         _cancelTimer()
+        if _continuation != nil {
+            log("\(self.label) cancelled")
+        }
         _continuation?.resume(throwing: AsyncCompleterError.cancelled)
         _continuation = nil
         _returningValue = nil
@@ -140,24 +143,29 @@ class AsyncCompleter<T>: Loggable {
         // Cancel any previous waits
         cancel()
 
-        // Create a timed continuation
-        return try await withCheckedThrowingContinuation { continuation in
-            // Store reference to continuation
-            _continuation = continuation
+        // Create a cancel-aware timed continuation
+        return try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { continuation in
+                // Store reference to continuation
+                _continuation = continuation
 
-            // Create time-out block
-            let timeOutBlock = DispatchWorkItem { [weak self] in
-                guard let self else { return }
-                self.log("\(self.label) timedOut")
-                self._continuation?.resume(throwing: AsyncCompleterError.timedOut)
-                self._continuation = nil
-                self.cancel()
+                // Create time-out block
+                let timeOutBlock = DispatchWorkItem { [weak self] in
+                    guard let self else { return }
+                    self.log("\(self.label) timedOut")
+                    self._continuation?.resume(throwing: AsyncCompleterError.timedOut)
+                    self._continuation = nil
+                    self.cancel()
+                }
+
+                // Schedule time-out block
+                _queue.asyncAfter(deadline: .now() + _timeOut, execute: timeOutBlock)
+                // Store reference to time-out block
+                _timeOutBlock = timeOutBlock
             }
-
-            // Schedule time-out block
-            _queue.asyncAfter(deadline: .now() + _timeOut, execute: timeOutBlock)
-            // Store reference to time-out block
-            _timeOutBlock = timeOutBlock
+        } onCancel: {
+            // Cancel completer when Task gets cancelled
+            cancel()
         }
     }
 }
