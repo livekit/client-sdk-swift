@@ -26,14 +26,15 @@ public class Participant: NSObject, ObservableObject, Loggable {
 
     let queue = DispatchQueue(label: "LiveKitSDK.participant", qos: .default)
 
+    /// This will be an empty String for LocalParticipants until connected.
     @objc
     public var sid: Sid { _state.sid }
 
     @objc
-    public var identity: String { _state.identity }
+    public var identity: String? { _state.identity }
 
     @objc
-    public var name: String { _state.name }
+    public var name: String? { _state.name }
 
     @objc
     public var audioLevel: Float { _state.audioLevel }
@@ -75,8 +76,8 @@ public class Participant: NSObject, ObservableObject, Loggable {
 
     struct State: Equatable, Hashable {
         var sid: Sid
-        var identity: String
-        var name: String
+        var identity: String?
+        var name: String?
         var audioLevel: Float = 0.0
         var isSpeaking: Bool = false
         var metadata: String?
@@ -88,19 +89,11 @@ public class Participant: NSObject, ObservableObject, Loggable {
 
     var _state: StateSync<State>
 
-    init(sid: String,
-         identity: String,
-         name: String,
-         room: Room)
-    {
+    init(sid: String, room: Room) {
         self.room = room
 
         // initial state
-        _state = StateSync(State(
-            sid: sid,
-            identity: identity,
-            name: name
-        ))
+        _state = StateSync(State(sid: sid))
 
         super.init()
 
@@ -131,11 +124,11 @@ public class Participant: NSObject, ObservableObject, Loggable {
             // name updated
             if newState.name != oldState.name {
                 // notfy participant delegates
-                self.delegates.notify(label: { "participant.didUpdateName: \(newState.name)" }) {
+                self.delegates.notify(label: { "participant.didUpdateName: \(String(describing: newState.name))" }) {
                     $0.participant?(self, didUpdateName: newState.name)
                 }
                 // notify room delegates
-                self.room.delegates.notify(label: { "room.didUpdateName: \(newState.name)" }) {
+                self.room.delegates.notify(label: { "room.didUpdateName: \(String(describing: newState.name))" }) {
                     $0.room?(self.room, participant: self, didUpdateName: newState.name)
                 }
             }
@@ -162,7 +155,7 @@ public class Participant: NSObject, ObservableObject, Loggable {
     func cleanUp(notify _notify: Bool = true) async {
         await unpublishAll(notify: _notify)
         // Reset state
-        _state.mutate { $0 = State(sid: "", identity: "", name: "") }
+        _state.mutate { $0 = State(sid: "") }
     }
 
     func unpublishAll(notify _: Bool = true) async {

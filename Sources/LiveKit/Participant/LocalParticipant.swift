@@ -33,19 +33,8 @@ public class LocalParticipant: Participant {
     private var allParticipantsAllowed: Bool = true
     private var trackPermissions: [ParticipantTrackPermission] = []
 
-    convenience init(room: Room) {
-        self.init(sid: "", identity: "", name: "", room: room)
-    }
-
-    convenience init(from info: Livekit_ParticipantInfo,
-                     room: Room)
-    {
-        self.init(sid: info.sid,
-                  identity: info.identity,
-                  name: info.name,
-                  room: room)
-
-        updateFromInfo(info: info)
+    init(room: Room) {
+        super.init(sid: "", room: room)
     }
 
     func getTrackPublication(sid: Sid) -> LocalTrackPublication? {
@@ -325,7 +314,7 @@ public class LocalParticipant: Participant {
 
         // TODO: Revert internal state on failure
 
-        try await room.engine.signalClient.sendUpdateLocalMetadata(metadata, name: name)
+        try await room.engine.signalClient.sendUpdateLocalMetadata(metadata, name: name ?? "")
     }
 
     /// Sets and updates the name of the local participant.
