@@ -96,6 +96,7 @@ public enum TrackError: LiveKitError {
 }
 
 public enum SignalClientError: LiveKitError {
+    case cancelled
     case state(message: String? = nil)
     case socketError(rawError: Error?)
     case close(message: String? = nil)
@@ -105,6 +106,7 @@ public enum SignalClientError: LiveKitError {
 
     public var description: String {
         switch self {
+        case .cancelled: return buildDescription("cancelled")
         case let .state(message): return buildDescription("state", message)
         case let .socketError(rawError): return buildDescription("socketError", rawError: rawError)
         case let .close(message): return buildDescription("close", message)

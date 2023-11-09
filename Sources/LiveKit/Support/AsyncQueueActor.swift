@@ -49,11 +49,13 @@ actor AsyncQueueActor<T> {
     }
 
     /// Mark as `.resumed` and process each element with an async `block`.
-    func resume(_ block: (T) async -> Void) async {
+    func resume(_ block: (T) async throws -> Void) async throws {
         state = .resumed
         if queue.isEmpty { return }
         for element in queue {
-            await block(element)
+            // Check cancellation before processing next block...
+            try Task.checkCancellation()
+            try await block(element)
         }
         queue.removeAll()
     }

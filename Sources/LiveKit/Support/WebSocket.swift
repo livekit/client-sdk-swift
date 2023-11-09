@@ -42,24 +42,27 @@ class WebSocket: NSObject, Loggable, AsyncSequence, URLSessionWebSocketDelegate 
         waitForNextValue()
     }
 
-    init(url: URL) {
+    init(url: URL) async throws {
         request = URLRequest(url: url,
                              cachePolicy: .useProtocolCachePolicy,
                              timeoutInterval: .defaultSocketConnect)
-    }
-
-    deinit {
-        reset()
-    }
-
-    public func connect() async throws {
-        try await withCheckedThrowingContinuation { continuation in
-            connectContinuation = continuation
-            task.resume()
+        super.init()
+        try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { continuation in
+                connectContinuation = continuation
+                task.resume()
+            }
+        } onCancel: {
+            // Cancel(reset) when Task gets cancelled
+            close()
         }
     }
 
-    func reset() {
+    deinit {
+        close()
+    }
+
+    func close() {
         task.cancel(with: .goingAway, reason: nil)
         connectContinuation?.resume(throwing: SignalClientError.socketError(rawError: nil))
         connectContinuation = nil

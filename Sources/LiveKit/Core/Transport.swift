@@ -112,7 +112,7 @@ class Transport: MulticastDelegate<TransportDelegate> {
     func set(remoteDescription sd: LKRTCSessionDescription) async throws {
         try await _pc.setRemoteDescription(sd)
 
-        await _pendingCandidatesQueue.resume { candidate in
+        try await _pendingCandidatesQueue.resume { candidate in
             do {
                 try await add(iceCandidate: candidate)
             } catch {
