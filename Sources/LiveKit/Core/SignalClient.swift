@@ -307,7 +307,7 @@ private extension SignalClient {
 
 extension SignalClient {
     func resumeResponseQueue() async throws {
-        await _responseQueue.resume { response in
+        try await _responseQueue.resume { response in
             await processSignalResponse(response)
         }
     }
@@ -317,7 +317,7 @@ extension SignalClient {
 
 extension SignalClient {
     func sendQueuedRequests() async throws {
-        await _requestQueue.resume { element in
+        try await _requestQueue.resume { element in
             do {
                 try await sendRequest(element, enqueueIfReconnecting: false)
             } catch {

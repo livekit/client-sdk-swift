@@ -14,15 +14,15 @@
  * limitations under the License.
  */
 
-import Foundation
-
-#if canImport(UIKit)
-    import UIKit
-#endif
-
-@_implementationOnly import WebRTC
-
 #if os(iOS)
+
+    import Foundation
+
+    #if canImport(UIKit)
+        import UIKit
+    #endif
+
+    @_implementationOnly import WebRTC
 
     class BroadcastScreenCapturer: BufferCapturer {
         static let kRTCScreensharingSocketFD = "rtc_SSFD"
