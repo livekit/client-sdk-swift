@@ -147,7 +147,7 @@ public class VideoView: NativeView, Loggable {
     /// This is only available when the renderer is using AVSampleBufferDisplayLayer.
     /// Recommended to be accessed from main thread.
     public var avSampleBufferDisplayLayer: AVSampleBufferDisplayLayer? {
-        guard let nr = nativeRenderer as? InternalSampleBufferVideoRenderer else { return nil }
+        guard let nr = nativeRenderer as? SampleBufferVideoRenderer else { return nil }
         return nr.sampleBufferDisplayLayer
     }
 
@@ -620,7 +620,7 @@ extension VideoView {
     static func createNativeRendererView(for renderMode: VideoView.RenderMode) -> NativeRendererView {
         if case .sampleBuffer = renderMode {
             logger.log("Using AVSampleBufferDisplayLayer for VideoView's Renderer", type: VideoView.self)
-            return InternalSampleBufferVideoRenderer()
+            return SampleBufferVideoRenderer()
         } else {
             logger.log("Using RTCMTLVideoView for VideoView's Renderer", type: VideoView.self)
             let result = LKRTCMTLVideoView()

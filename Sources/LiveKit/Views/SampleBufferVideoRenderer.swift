@@ -18,7 +18,7 @@ import Foundation
 
 @_implementationOnly import WebRTC
 
-class InternalSampleBufferVideoRenderer: NativeView, Loggable {
+class SampleBufferVideoRenderer: NativeView, Loggable {
     public let sampleBufferDisplayLayer: AVSampleBufferDisplayLayer
 
     override init(frame: CGRect) {
@@ -47,7 +47,7 @@ class InternalSampleBufferVideoRenderer: NativeView, Loggable {
     }
 }
 
-extension InternalSampleBufferVideoRenderer: LKRTCVideoRenderer {
+extension SampleBufferVideoRenderer: LKRTCVideoRenderer {
     func setSize(_: CGSize) {
         //
     }
@@ -73,13 +73,13 @@ extension InternalSampleBufferVideoRenderer: LKRTCVideoRenderer {
             return
         }
 
-        DispatchQueue.main.async {
-            self.sampleBufferDisplayLayer.enqueue(sampleBuffer)
+        Task { @MainActor in
+            sampleBufferDisplayLayer.enqueue(sampleBuffer)
         }
     }
 }
 
-extension InternalSampleBufferVideoRenderer: Mirrorable {
+extension SampleBufferVideoRenderer: Mirrorable {
     func set(mirrored: Bool) {
         sampleBufferDisplayLayer.transform = mirrored ? VideoView.mirrorTransform : CATransform3DIdentity
     }
