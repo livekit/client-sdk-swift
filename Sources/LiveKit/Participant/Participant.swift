@@ -162,7 +162,7 @@ public class Participant: NSObject, ObservableObject, Loggable {
         fatalError("Unimplemented")
     }
 
-    func addTrack(publication: TrackPublication) {
+    func add(publication: TrackPublication) {
         _state.mutate { $0.tracks[publication.sid] = publication }
         publication.track?._state.mutate { $0.sid = publication.sid }
     }

@@ -182,13 +182,13 @@ public class Track: NSObject, Loggable {
         log("sid: \(String(describing: sid))")
     }
 
-    func set(transport: Transport, rtpSender: LKRTCRtpSender) {
+    func set(transport: Transport?, rtpSender: LKRTCRtpSender?) {
         self.transport = transport
         self.rtpSender = rtpSender
         resumeOrSuspendStatisticsTimer()
     }
 
-    func set(transport: Transport, rtpReceiver: LKRTCRtpReceiver) {
+    func set(transport: Transport?, rtpReceiver: LKRTCRtpReceiver?) {
         self.transport = transport
         self.rtpReceiver = rtpReceiver
         resumeOrSuspendStatisticsTimer()

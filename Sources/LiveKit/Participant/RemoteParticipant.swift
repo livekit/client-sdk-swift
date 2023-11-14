@@ -43,7 +43,7 @@ public class RemoteParticipant: Participant {
             if publication == nil {
                 publication = RemoteTrackPublication(info: trackInfo, participant: self)
                 newTrackPublications[trackInfo.sid] = publication
-                addTrack(publication: publication!)
+                add(publication: publication!)
             } else {
                 publication!.updateFromInfo(info: trackInfo)
             }
@@ -117,7 +117,7 @@ public class RemoteParticipant: Participant {
             track.set(transport: transport, rtpReceiver: rtpReceiver)
         }
 
-        addTrack(publication: publication)
+        add(publication: publication)
 
         try await track.start()
 

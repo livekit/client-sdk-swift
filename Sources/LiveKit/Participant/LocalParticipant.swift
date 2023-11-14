@@ -58,129 +58,140 @@ public class LocalParticipant: Participant {
             throw TrackError.publish(message: "Unknown LocalTrack type")
         }
 
-        // Start the track
+        // Try to start the Track
         try await track.start()
+        // Starting the Track could be time consuming especially for camera etc.
+        // Check cancellation after track starts.
+        try Task.checkCancellation()
 
-        var dimensions: Dimensions? // Only for Video
-
-        if let track = track as? LocalVideoTrack {
-            // Wait for Dimensions...
-            log("[Publish] Waiting for dimensions to resolve...")
-            dimensions = try await track.capturer.dimensionsCompleter.wait()
-        }
-
-        let populatorFunc: SignalClient.AddTrackRequestPopulator<LKRTCRtpTransceiverInit> = { populator in
-
-            let transInit = DispatchQueue.liveKitWebRTC.sync { LKRTCRtpTransceiverInit() }
-            transInit.direction = .sendOnly
+        do {
+            var dimensions: Dimensions? // Only for Video
 
             if let track = track as? LocalVideoTrack {
-                guard let dimensions else {
-                    throw TrackError.publish(message: "VideoCapturer dimensions are unknown")
+                // Wait for Dimensions...
+                log("[Publish] Waiting for dimensions to resolve...")
+                dimensions = try await track.capturer.dimensionsCompleter.wait()
+            }
+
+            let populatorFunc: SignalClient.AddTrackRequestPopulator<LKRTCRtpTransceiverInit> = { populator in
+
+                let transInit = DispatchQueue.liveKitWebRTC.sync { LKRTCRtpTransceiverInit() }
+                transInit.direction = .sendOnly
+
+                if let track = track as? LocalVideoTrack {
+                    guard let dimensions else {
+                        throw TrackError.publish(message: "VideoCapturer dimensions are unknown")
+                    }
+
+                    self.log("[publish] computing encode settings with dimensions: \(dimensions)...")
+
+                    let publishOptions = (publishOptions as? VideoPublishOptions) ?? self.room._state.options.defaultVideoPublishOptions
+
+                    let encodings = Utils.computeEncodings(dimensions: dimensions,
+                                                           publishOptions: publishOptions,
+                                                           isScreenShare: track.source == .screenShareVideo)
+
+                    self.log("[publish] using encodings: \(encodings)")
+                    transInit.sendEncodings = encodings
+
+                    let videoLayers = dimensions.videoLayers(for: encodings)
+
+                    self.log("[publish] using layers: \(videoLayers.map { String(describing: $0) }.joined(separator: ", "))")
+
+                    populator.width = UInt32(dimensions.width)
+                    populator.height = UInt32(dimensions.height)
+                    populator.layers = videoLayers
+
+                    self.log("[publish] requesting add track to server with \(populator)...")
+
+                } else if track is LocalAudioTrack {
+                    // additional params for Audio
+                    let publishOptions = (publishOptions as? AudioPublishOptions) ?? self.room._state.options.defaultAudioPublishOptions
+
+                    populator.disableDtx = !publishOptions.dtx
+
+                    let encoding = publishOptions.encoding ?? AudioEncoding.presetSpeech
+
+                    self.log("[publish] maxBitrate: \(encoding.maxBitrate)")
+
+                    transInit.sendEncodings = [
+                        Engine.createRtpEncodingParameters(encoding: encoding),
+                    ]
                 }
 
-                self.log("[publish] computing encode settings with dimensions: \(dimensions)...")
-
-                let publishOptions = (publishOptions as? VideoPublishOptions) ?? self.room._state.options.defaultVideoPublishOptions
-
-                let encodings = Utils.computeEncodings(dimensions: dimensions,
-                                                       publishOptions: publishOptions,
-                                                       isScreenShare: track.source == .screenShareVideo)
-
-                self.log("[publish] using encodings: \(encodings)")
-                transInit.sendEncodings = encodings
-
-                let videoLayers = dimensions.videoLayers(for: encodings)
-
-                self.log("[publish] using layers: \(videoLayers.map { String(describing: $0) }.joined(separator: ", "))")
-
-                populator.width = UInt32(dimensions.width)
-                populator.height = UInt32(dimensions.height)
-                populator.layers = videoLayers
-
-                self.log("[publish] requesting add track to server with \(populator)...")
-
-            } else if track is LocalAudioTrack {
-                // additional params for Audio
-                let publishOptions = (publishOptions as? AudioPublishOptions) ?? self.room._state.options.defaultAudioPublishOptions
-
-                populator.disableDtx = !publishOptions.dtx
-
-                let encoding = publishOptions.encoding ?? AudioEncoding.presetSpeech
-
-                self.log("[publish] maxBitrate: \(encoding.maxBitrate)")
-
-                transInit.sendEncodings = [
-                    Engine.createRtpEncodingParameters(encoding: encoding),
-                ]
+                return transInit
             }
 
-            return transInit
-        }
+            // Request a new track to the server
+            let addTrackResult = try await room.engine.signalClient.sendAddTrack(cid: track.mediaTrack.trackId,
+                                                                                 name: track.name,
+                                                                                 type: track.kind.toPBType(),
+                                                                                 source: track.source.toPBType(),
+                                                                                 encryption: room.e2eeManager?.e2eeOptions.encryptionType.toPBType() ?? .none,
+                                                                                 populatorFunc)
 
-        // Request a new track to the server
-        let addTrackResult = try await room.engine.signalClient.sendAddTrack(cid: track.mediaTrack.trackId,
-                                                                             name: track.name,
-                                                                             type: track.kind.toPBType(),
-                                                                             source: track.source.toPBType(),
-                                                                             encryption: room.e2eeManager?.e2eeOptions.encryptionType.toPBType() ?? .none,
-                                                                             populatorFunc)
+            log("[Publish] server responded trackInfo: \(addTrackResult.trackInfo)")
 
-        log("[Publish] server responded trackInfo: \(addTrackResult.trackInfo)")
+            // Add transceiver to pc
+            let transceiver = try publisher.addTransceiver(with: track.mediaTrack, transceiverInit: addTrackResult.result)
+            log("[Publish] Added transceiver: \(addTrackResult.trackInfo)...")
 
-        // Add transceiver to pc
-        let transceiver = try publisher.addTransceiver(with: track.mediaTrack, transceiverInit: addTrackResult.result)
-        log("[Publish] Added transceiver: \(addTrackResult.trackInfo)...")
+            do {
+                try await track.onPublish()
 
-        try await track.onPublish()
+                // Store publishOptions used for this track...
+                track._publishOptions = publishOptions
 
-        // Store publishOptions used for this track...
-        track._publishOptions = publishOptions
+                // Attach sender to track...
+                track.set(transport: publisher, rtpSender: transceiver.sender)
 
-        // Attach sender to track...
-        track.set(transport: publisher, rtpSender: transceiver.sender)
+                if track is LocalVideoTrack {
+                    let publishOptions = (publishOptions as? VideoPublishOptions) ?? room._state.options.defaultVideoPublishOptions
+                    // if screen share or simulcast is enabled,
+                    // degrade resolution by using server's layer switching logic instead of WebRTC's logic
+                    if track.source == .screenShareVideo || publishOptions.simulcast {
+                        log("[publish] set degradationPreference to .maintainResolution")
+                        let params = transceiver.sender.parameters
+                        params.degradationPreference = NSNumber(value: RTCDegradationPreference.maintainResolution.rawValue)
+                        // changing params directly doesn't work so we need to update params
+                        // and set it back to sender.parameters
+                        transceiver.sender.parameters = params
+                    }
+                }
 
-        if track is LocalVideoTrack {
-            let publishOptions = (publishOptions as? VideoPublishOptions) ?? room._state.options.defaultVideoPublishOptions
-            // if screen share or simulcast is enabled,
-            // degrade resolution by using server's layer switching logic instead of WebRTC's logic
-            if track.source == .screenShareVideo || publishOptions.simulcast {
-                log("[publish] set degradationPreference to .maintainResolution")
-                let params = transceiver.sender.parameters
-                params.degradationPreference = NSNumber(value: RTCDegradationPreference.maintainResolution.rawValue)
-                // changing params directly doesn't work so we need to update params
-                // and set it back to sender.parameters
-                transceiver.sender.parameters = params
+                try await room.engine.publisherShouldNegotiate()
+                try Task.checkCancellation()
+
+            } catch {
+                // Rollback
+                track.set(transport: nil, rtpSender: nil)
+                try publisher.remove(track: transceiver.sender)
+                // Rethrow
+                throw error
             }
+
+            let publication = LocalTrackPublication(info: addTrackResult.trackInfo, track: track, participant: self)
+
+            add(publication: publication)
+
+            // Notify didPublish
+            delegates.notify(label: { "localParticipant.didPublish \(publication)" }) {
+                $0.localParticipant?(self, didPublish: publication)
+            }
+            room.delegates.notify(label: { "localParticipant.didPublish \(publication)" }) {
+                $0.room?(self.room, localParticipant: self, didPublish: publication)
+            }
+
+            log("[publish] success \(publication)", .info)
+
+            return publication
+        } catch {
+            log("[publish] failed \(track), error: \(error)", .error)
+            // Stop track when publish fails
+            try await track.stop()
+            // Rethrow
+            throw error
         }
-
-        try await room.engine.publisherShouldNegotiate()
-
-        let publication = LocalTrackPublication(info: addTrackResult.trackInfo, track: track, participant: self)
-
-        addTrack(publication: publication)
-
-        // Notify didPublish
-        delegates.notify(label: { "localParticipant.didPublish \(publication)" }) {
-            $0.localParticipant?(self, didPublish: publication)
-        }
-        room.delegates.notify(label: { "localParticipant.didPublish \(publication)" }) {
-            $0.room?(self.room, localParticipant: self, didPublish: publication)
-        }
-
-        log("[publish] success \(publication)", .info)
-
-        return publication
-
-        //        }.catch(on: queue) { error in
-        //
-        //            self.log("[publish] failed \(track), error: \(error)", .error)
-        //
-        //            // stop the track
-        //            track.stop().catch(on: self.queue) { error in
-        //                self.log("[publish] failed to stop track, error: \(error)", .error)
-        //            }
-        //        }
     }
 
     /// publish a new audio track to the Room
