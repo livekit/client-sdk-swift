@@ -208,24 +208,36 @@ public class Track: NSObject, Loggable {
         resumeOrSuspendStatisticsTimer()
     }
 
-    // Returns true if didStart
-    @objc
-    @discardableResult
-    public func start() async throws -> Bool {
-        guard trackState != .started else { return false }
-        _state.mutate { $0.trackState = .started }
-        if self is RemoteTrack { try await enable() }
-        return true
+    func set(trackState: TrackState) {
+        _state.mutate { $0.trackState = trackState }
     }
 
-    // Returns true if didStop
+    // Intended for child class to override
+    func startCapture() async throws {}
+
+    // Intended for child class to override
+    func stopCapture() async throws {}
+
     @objc
-    @discardableResult
-    public func stop() async throws -> Bool {
-        guard trackState != .stopped else { return false }
-        _state.mutate { $0.trackState = .stopped }
+    public final func start() async throws {
+        guard _state.trackState != .started else {
+            log("Already started", .warning)
+            return
+        }
+        try await startCapture()
+        if self is RemoteTrack { try await enable() }
+        _state.mutate { $0.trackState = .started }
+    }
+
+    @objc
+    public final func stop() async throws {
+        guard _state.trackState != .stopped else {
+            log("Already stopped", .warning)
+            return
+        }
+        try await stopCapture()
         if self is RemoteTrack { try await disable() }
-        return true
+        _state.mutate { $0.trackState = .stopped }
     }
 
     // Returns true if didEnable

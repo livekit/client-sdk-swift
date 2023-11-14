@@ -42,18 +42,6 @@ public class RemoteAudioTrack: Track, RemoteTrack, AudioTrack {
                    track: track)
     }
 
-    override public func start() async throws -> Bool {
-        let didStart = try await super.start()
-        if didStart { AudioManager.shared.trackDidStart(.remote) }
-        return didStart
-    }
-
-    override public func stop() async throws -> Bool {
-        let didStop = try await super.stop()
-        if didStop { AudioManager.shared.trackDidStop(.remote) }
-        return didStop
-    }
-
     public func add(audioRenderer: AudioRenderer) {
         guard let audioTrack = mediaTrack as? LKRTCAudioTrack else { return }
         audioTrack.add(AudioRendererAdapter(target: audioRenderer))
@@ -62,5 +50,15 @@ public class RemoteAudioTrack: Track, RemoteTrack, AudioTrack {
     public func remove(audioRenderer: AudioRenderer) {
         guard let audioTrack = mediaTrack as? LKRTCAudioTrack else { return }
         audioTrack.remove(AudioRendererAdapter(target: audioRenderer))
+    }
+
+    // MARK: - Internal
+
+    override func startCapture() async throws {
+        AudioManager.shared.trackDidStart(.remote)
+    }
+
+    override func stopCapture() async throws {
+        AudioManager.shared.trackDidStop(.remote)
     }
 }
