@@ -19,7 +19,7 @@ import Foundation
 @_implementationOnly import WebRTC
 
 extension Engine: SignalClientDelegate {
-    func signalClient(_: SignalClient, didMutate state: SignalClient.State, oldState: SignalClient.State) {
+    func signalClient(_: SignalClient, didMutateState state: SignalClient.State, oldState: SignalClient.State) {
         // connectionState did update
         if state.connectionState != oldState.connectionState,
            // did disconnect
@@ -36,7 +36,7 @@ extension Engine: SignalClientDelegate {
         }
     }
 
-    func signalClient(_: SignalClient, didReceive iceCandidate: LKRTCIceCandidate, target: Livekit_SignalTarget) {
+    func signalClient(_: SignalClient, didReceiveIceCandidate iceCandidate: LKRTCIceCandidate, target: Livekit_SignalTarget) {
         guard let transport = target == .subscriber ? subscriber : publisher else {
             log("Failed to add ice candidate, transport is nil for target: \(target)", .error)
             return
@@ -82,21 +82,21 @@ extension Engine: SignalClientDelegate {
         }
     }
 
-    func signalClient(_: SignalClient, didUpdate token: String) {
+    func signalClient(_: SignalClient, didUpdateToken token: String) {
         // update token
         _state.mutate { $0.token = token }
     }
 
-    func signalClient(_: SignalClient, didReceive _: Livekit_JoinResponse) {}
-    func signalClient(_: SignalClient, didPublish _: Livekit_TrackPublishedResponse) {}
-    func signalClient(_: SignalClient, didUnpublish _: Livekit_TrackUnpublishedResponse) {}
-    func signalClient(_: SignalClient, didUpdate _: [Livekit_ParticipantInfo]) {}
-    func signalClient(_: SignalClient, didUpdate _: Livekit_Room) {}
-    func signalClient(_: SignalClient, didUpdate _: [Livekit_SpeakerInfo]) {}
-    func signalClient(_: SignalClient, didUpdate _: [Livekit_ConnectionQualityInfo]) {}
+    func signalClient(_: SignalClient, didReceiveJoinResponse _: Livekit_JoinResponse) {}
+    func signalClient(_: SignalClient, didPublishLocalTrack _: Livekit_TrackPublishedResponse) {}
+    func signalClient(_: SignalClient, didUnpublishLocalTrack _: Livekit_TrackUnpublishedResponse) {}
+    func signalClient(_: SignalClient, didUpdateParticipants _: [Livekit_ParticipantInfo]) {}
+    func signalClient(_: SignalClient, didUpdateRoom _: Livekit_Room) {}
+    func signalClient(_: SignalClient, didUpdateSpeakers _: [Livekit_SpeakerInfo]) {}
+    func signalClient(_: SignalClient, didUpdateConnectionQuality _: [Livekit_ConnectionQualityInfo]) {}
     func signalClient(_: SignalClient, didUpdateRemoteMute _: String, muted _: Bool) {}
-    func signalClient(_: SignalClient, didUpdate _: [Livekit_StreamStateInfo]) {}
-    func signalClient(_: SignalClient, didUpdate _: String, subscribedQualities _: [Livekit_SubscribedQuality]) {}
-    func signalClient(_: SignalClient, didUpdate _: Livekit_SubscriptionPermissionUpdate) {}
+    func signalClient(_: SignalClient, didUpdateTrackStreamStates _: [Livekit_StreamStateInfo]) {}
+    func signalClient(_: SignalClient, didUpdateTrack _: String, subscribedQualities _: [Livekit_SubscribedQuality]) {}
+    func signalClient(_: SignalClient, didUpdateSubscriptionPermission _: Livekit_SubscriptionPermissionUpdate) {}
     func signalClient(_: SignalClient, didReceiveLeave _: Bool, reason _: Livekit_DisconnectReason) {}
 }

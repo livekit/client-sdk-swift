@@ -343,16 +343,12 @@ extension Engine {
         // This should never happen since Engine is owned by Room
         let room = try await requireRoom()
 
-        try await signalClient.connect(url,
-                                       token,
-                                       connectOptions: _state.connectOptions,
-                                       reconnectMode: _state.reconnectMode,
-                                       adaptiveStream: room._state.options.adaptiveStream)
+        let jr = try await signalClient.connect(url,
+                                                token,
+                                                connectOptions: _state.connectOptions,
+                                                reconnectMode: _state.reconnectMode,
+                                                adaptiveStream: room._state.options.adaptiveStream)
         // Check cancellation after WebSocket connected
-        try Task.checkCancellation()
-
-        let jr = try await signalClient.joinResponseCompleter.wait()
-        // Check cancellation after received join response
         try Task.checkCancellation()
 
         _state.mutate { $0.connectStopwatch.split(label: "signal") }
