@@ -35,8 +35,7 @@ class SignalClient: MulticastDelegate<SignalClientDelegate> {
     let joinResponseCompleter = AsyncCompleter<Livekit_JoinResponse>(label: "Join response", timeOut: .defaultJoinResponse)
     let _addTrackCompleters = CompleterMapActor<Livekit_TrackInfo>(label: "Completers for add track", timeOut: .defaultPublish)
 
-    struct State: ReconnectableState, Equatable {
-        var reconnectMode: ReconnectMode?
+    struct State: Equatable {
         var connectionState: ConnectionState = .disconnected()
     }
 
@@ -99,7 +98,7 @@ class SignalClient: MulticastDelegate<SignalClientDelegate> {
         log("Connecting with url: \(urlString)")
 
         _state.mutate {
-            $0.reconnectMode = reconnectMode
+            // $0.reconnectMode = reconnectMode
             $0.connectionState = .connecting
         }
 

@@ -88,10 +88,6 @@ extension Dimensions {
         Swift.max(width, height)
     }
 
-    var sum: Int32 {
-        width + height
-    }
-
     // TODO: Find better name
     var area: Int32 {
         width * height
@@ -155,17 +151,6 @@ extension Dimensions {
         return VideoQuality.rids.compactMap { rid in result.first(where: { $0.rid == rid }) }
     }
 
-    func computeSuggestedPresetIndex(in presets: [VideoParameters]) -> Int {
-        assert(!presets.isEmpty)
-        var result = 0
-        for preset in presets {
-            if width >= preset.dimensions.width, height >= preset.dimensions.height {
-                result += 1
-            }
-        }
-        return result
-    }
-
     func videoLayers(for encodings: [LKRTCRtpEncodingParameters]) -> [Livekit_VideoLayer] {
         encodings.filter(\.isActive).map { encoding in
             let scaleDownBy = encoding.scaleResolutionDownBy?.doubleValue ?? 1.0
@@ -182,10 +167,6 @@ extension Dimensions {
 // MARK: - Convert
 
 extension Dimensions {
-    func toCGSize() -> CGSize {
-        CGSize(width: Int(width), height: Int(height))
-    }
-
     func apply(rotation: RTCVideoRotation) -> Dimensions {
         if rotation == ._90 || rotation == ._270 {
             return swapped()

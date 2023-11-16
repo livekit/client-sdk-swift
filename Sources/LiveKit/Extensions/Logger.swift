@@ -20,8 +20,6 @@ import Logging
 /// Allows to extend with custom `log` method which automatically captures current type (class name).
 public protocol Loggable {}
 
-private var _scopedMetadataKey = "scopedMetadata"
-
 public typealias ScopedMetadata = CustomStringConvertible
 typealias ScopedMetadataContainer = [String: ScopedMetadata]
 

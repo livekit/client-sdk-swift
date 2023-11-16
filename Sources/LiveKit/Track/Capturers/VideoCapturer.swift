@@ -41,9 +41,7 @@ public protocol VideoCapturerDelegate: AnyObject {
 public class VideoCapturer: NSObject, Loggable, VideoCapturerProtocol {
     // MARK: - MulticastDelegate
 
-    var delegates = MulticastDelegate<VideoCapturerDelegate>()
-
-    let queue = DispatchQueue(label: "LiveKitSDK.videoCapturer", qos: .default)
+    public let delegates = MulticastDelegate<VideoCapturerDelegate>()
 
     /// Array of supported pixel formats that can be used to capture a frame.
     ///

@@ -30,7 +30,7 @@ protocol Mirrorable {
 public class VideoView: NativeView, Loggable {
     // MARK: - MulticastDelegate
 
-    var delegates = MulticastDelegate<VideoViewDelegate>()
+    public let delegates = MulticastDelegate<VideoViewDelegate>()
 
     // MARK: - Static
 

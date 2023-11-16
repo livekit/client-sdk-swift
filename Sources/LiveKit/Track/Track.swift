@@ -96,9 +96,7 @@ public class Track: NSObject, Loggable {
 
     // MARK: - Internal
 
-    var delegates = MulticastDelegate<TrackDelegate>()
-
-    let queue = DispatchQueue(label: "LiveKitSDK.track", qos: .default)
+    public let delegates = MulticastDelegate<TrackDelegate>()
 
     /// Only for ``LocalTrack``s.
     private(set) var _publishState: PublishState = .unpublished

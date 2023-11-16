@@ -24,9 +24,7 @@ import Foundation
 public class Room: NSObject, ObservableObject, Loggable {
     // MARK: - MulticastDelegate
 
-    var delegates = MulticastDelegate<RoomDelegateObjC>()
-
-    let queue = DispatchQueue(label: "LiveKitSDK.room", qos: .default)
+    public let delegates = MulticastDelegate<RoomDelegateObjC>()
 
     // MARK: - Public
 

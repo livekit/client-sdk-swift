@@ -39,16 +39,6 @@ extension VideoQuality {
 }
 
 extension Livekit_VideoQuality {
-    private static let toSDKTypeMap: [Livekit_VideoQuality: VideoQuality] = [
-        .low: .low,
-        .medium: .medium,
-        .high: .high,
-    ]
-
-    func toSDKType() -> VideoQuality {
-        Self.toSDKTypeMap[self] ?? .low
-    }
-
     static func from(rid: String?) -> Livekit_VideoQuality {
         switch rid {
         case "h": return Livekit_VideoQuality.medium

@@ -22,9 +22,7 @@ import Foundation
 public class Participant: NSObject, ObservableObject, Loggable {
     // MARK: - MulticastDelegate
 
-    var delegates = MulticastDelegate<ParticipantDelegate>()
-
-    let queue = DispatchQueue(label: "LiveKitSDK.participant", qos: .default)
+    public let delegates = MulticastDelegate<ParticipantDelegate>()
 
     /// This will be an empty String for LocalParticipants until connected.
     @objc

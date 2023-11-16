@@ -77,8 +77,3 @@ extension ConnectionState: Equatable {
         return error
     }
 }
-
-protocol ReconnectableState {
-    var reconnectMode: ReconnectMode? { get }
-    var connectionState: ConnectionState { get }
-}

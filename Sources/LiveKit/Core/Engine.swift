@@ -23,13 +23,11 @@ import Foundation
 @_implementationOnly import WebRTC
 
 class Engine: MulticastDelegate<EngineDelegate> {
-    let queue = DispatchQueue(label: "LiveKitSDK.engine", qos: .default)
-
     // MARK: - Public
 
     public typealias ConditionEvalFunc = (_ newState: State, _ oldState: State?) -> Bool
 
-    struct State: ReconnectableState, Equatable {
+    struct State: Equatable {
         var connectOptions: ConnectOptions
         var url: String?
         var token: String?
@@ -62,13 +60,12 @@ class Engine: MulticastDelegate<EngineDelegate> {
         let block: () -> Void
     }
 
-    var subscriberPrimary: Bool = false
-    private var primary: Transport? { subscriberPrimary ? subscriber : publisher }
+    public internal(set) var subscriberPrimary: Bool = false
 
     // MARK: - DataChannels
 
-    var subscriberDC = DataChannelPair(target: .subscriber)
-    var publisherDC = DataChannelPair(target: .publisher)
+    public internal(set) var subscriberDC = DataChannelPair(target: .subscriber)
+    public internal(set) var publisherDC = DataChannelPair(target: .publisher)
 
     private var _blockProcessQueue = DispatchQueue(label: "LiveKitSDK.engine.pendingBlocks",
                                                    qos: .default)
