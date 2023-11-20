@@ -39,11 +39,15 @@ public class Room: NSObject, ObservableObject, Loggable {
     public var metadata: String? { _state.metadata }
 
     @objc
-    public var serverVersion: String? { _state.serverVersion }
+    public var serverVersion: String? { _state.serverInfo?.version.nilIfEmpty }
 
     /// Region code the client is currently connected to.
     @objc
-    public var serverRegion: String? { _state.serverRegion }
+    public var serverRegion: String? { _state.serverInfo?.region.nilIfEmpty }
+
+    /// Region code the client is currently connected to.
+    @objc
+    public var serverNodeId: String? { _state.serverInfo?.nodeID.nilIfEmpty }
 
     @objc
     public var remoteParticipants: [Sid: RemoteParticipant] { _state.remoteParticipants }
@@ -97,8 +101,6 @@ public class Room: NSObject, ObservableObject, Loggable {
         var sid: String?
         var name: String?
         var metadata: String?
-        var serverVersion: String?
-        var serverRegion: String?
 
         var remoteParticipants = [Sid: RemoteParticipant]()
         var activeSpeakers = [Participant]()
@@ -108,6 +110,8 @@ public class Room: NSObject, ObservableObject, Loggable {
         var maxParticipants: Int = 0
         var numParticipants: Int = 0
         var numPublishers: Int = 0
+
+        var serverInfo: Livekit_ServerInfo?
 
         @discardableResult
         mutating func getOrCreateRemoteParticipant(sid: Sid, info: Livekit_ParticipantInfo? = nil, room: Room) -> RemoteParticipant {

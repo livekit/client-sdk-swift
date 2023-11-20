@@ -63,6 +63,17 @@ extension Livekit_SubscribedQuality: CustomStringConvertible {
     }
 }
 
+extension Livekit_ServerInfo: CustomStringConvertible {
+    public var description: String {
+        "ServerInfo(edition: \(edition), " +
+            "version: \(version), " +
+            "protocol: \(`protocol`), " +
+            "region: \(region), " +
+            "nodeID: \(nodeID), " +
+            "debugInfo: \(debugInfo))"
+    }
+}
+
 // MARK: - NSObject
 
 public extension Room {
