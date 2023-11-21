@@ -75,6 +75,9 @@ extension Engine {
 
     static let audioProcessingModule: LKRTCDefaultAudioProcessingModule = .init()
 
+    static let videoSenderCapabilities = peerConnectionFactory.rtpSenderCapabilities(for: .video)
+    static let audioSenderCapabilities = peerConnectionFactory.rtpSenderCapabilities(for: .audio)
+
     static let peerConnectionFactory: LKRTCPeerConnectionFactory = {
         logger.log("Initializing SSL...", type: Engine.self)
 
