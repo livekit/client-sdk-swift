@@ -30,7 +30,7 @@ public class ScreenShareCaptureOptions: NSObject, VideoCaptureOptions {
 
     @objc
     public let useBroadcastExtension: Bool
-    
+
     @objc
     public let includeCurrentApplication: Bool
 
@@ -38,7 +38,8 @@ public class ScreenShareCaptureOptions: NSObject, VideoCaptureOptions {
                 fps: Int = 15,
                 showCursor: Bool = true,
                 useBroadcastExtension: Bool = false,
-                includeCurrentApplication: Bool = false) {
+                includeCurrentApplication: Bool = false)
+    {
         self.dimensions = dimensions
         self.fps = fps
         self.showCursor = showCursor
