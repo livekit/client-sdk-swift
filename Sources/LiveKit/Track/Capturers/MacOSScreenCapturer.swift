@@ -264,16 +264,16 @@ import Foundation
         @objc
         static func createMacOSScreenShareTrack(name: String = Track.screenShareVideoName,
                                                 source: MacOSScreenCaptureSource,
-                                                options: ScreenShareCaptureOptions = ScreenShareCaptureOptions()) -> LocalVideoTrack
+                                                options: ScreenShareCaptureOptions = ScreenShareCaptureOptions(),
+                                                reportStatistics: Bool = false) -> LocalVideoTrack
         {
             let videoSource = Engine.createVideoSource(forScreenShare: true)
             let capturer = MacOSScreenCapturer(delegate: videoSource, captureSource: source, options: options)
-            return LocalVideoTrack(
-                name: name,
-                source: .screenShareVideo,
-                capturer: capturer,
-                videoSource: videoSource
-            )
+            return LocalVideoTrack(name: name,
+                                   source: .screenShareVideo,
+                                   capturer: capturer,
+                                   videoSource: videoSource,
+                                   reportStatistics: reportStatistics)
         }
     }
 

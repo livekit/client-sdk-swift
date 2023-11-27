@@ -85,15 +85,15 @@ public extension LocalVideoTrack {
     /// Creates a track that can directly capture `CVPixelBuffer` or `CMSampleBuffer` for convienience
     static func createBufferTrack(name: String = Track.screenShareVideoName,
                                   source: VideoTrack.Source = .screenShareVideo,
-                                  options: BufferCaptureOptions = BufferCaptureOptions()) -> LocalVideoTrack
+                                  options: BufferCaptureOptions = BufferCaptureOptions(),
+                                  reportStatistics: Bool = false) -> LocalVideoTrack
     {
         let videoSource = Engine.createVideoSource(forScreenShare: source == .screenShareVideo)
         let capturer = BufferCapturer(delegate: videoSource, options: options)
-        return LocalVideoTrack(
-            name: name,
-            source: source,
-            capturer: capturer,
-            videoSource: videoSource
-        )
+        return LocalVideoTrack(name: name,
+                               source: source,
+                               capturer: capturer,
+                               videoSource: videoSource,
+                               reportStatistics: reportStatistics)
     }
 }
