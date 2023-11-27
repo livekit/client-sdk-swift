@@ -21,13 +21,13 @@ import WebRTC
 public extension RemoteTrackPublication {
     @objc(setEnabled:)
     @discardableResult
-    func set(enabled value: Bool) -> Promise<Void>.ObjCPromise<NSNull> {
+    func setObjC(enabled value: Bool) -> Promise<Void>.ObjCPromise<NSNull> {
         set(enabled: value).asObjCPromise()
     }
 
     @objc(setSubscribed:)
     @discardableResult
-    func set(subscribed value: Bool) -> Promise<Void>.ObjCPromise<NSNull> {
+    func setObjC(subscribed value: Bool) -> Promise<Void>.ObjCPromise<NSNull> {
         set(subscribed: value).asObjCPromise()
     }
 }
