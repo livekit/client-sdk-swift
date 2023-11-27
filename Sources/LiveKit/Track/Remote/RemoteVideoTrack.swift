@@ -22,12 +22,14 @@ import Foundation
 public class RemoteVideoTrack: Track, RemoteTrack, VideoTrack {
     init(name: String,
          source: Track.Source,
-         track: LKRTCMediaStreamTrack)
+         track: LKRTCMediaStreamTrack,
+         reportStatistics: Bool)
     {
         super.init(name: name,
                    kind: .video,
                    source: source,
-                   track: track)
+                   track: track,
+                   reportStatistics: reportStatistics)
     }
 }
 

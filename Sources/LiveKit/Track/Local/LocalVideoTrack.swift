@@ -28,7 +28,8 @@ public class LocalVideoTrack: Track, LocalTrack, VideoTrack {
     init(name: String,
          source: Track.Source,
          capturer: VideoCapturer,
-         videoSource: LKRTCVideoSource)
+         videoSource: LKRTCVideoSource,
+         reportStatistics: Bool)
     {
         let rtcTrack = Engine.createVideoTrack(source: videoSource)
         rtcTrack.isEnabled = true
@@ -39,7 +40,8 @@ public class LocalVideoTrack: Track, LocalTrack, VideoTrack {
         super.init(name: name,
                    kind: .video,
                    source: source,
-                   track: rtcTrack)
+                   track: rtcTrack,
+                   reportStatistics: reportStatistics)
     }
 
     public func mute() async throws {
@@ -83,6 +85,7 @@ public extension LocalVideoTrack {
         LocalVideoTrack(name: name,
                         source: source,
                         capturer: capturer,
-                        videoSource: videoSource)
+                        videoSource: videoSource,
+                        reportStatistics: _state.reportStatistics)
     }
 }

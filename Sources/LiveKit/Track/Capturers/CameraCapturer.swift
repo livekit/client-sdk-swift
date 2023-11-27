@@ -243,16 +243,16 @@ public extension LocalVideoTrack {
 
     @objc
     static func createCameraTrack(name: String? = nil,
-                                  options: CameraCaptureOptions? = nil) -> LocalVideoTrack
+                                  options: CameraCaptureOptions? = nil,
+                                  reportStatistics: Bool = false) -> LocalVideoTrack
     {
         let videoSource = Engine.createVideoSource(forScreenShare: false)
         let capturer = CameraCapturer(delegate: videoSource, options: options ?? CameraCaptureOptions())
-        return LocalVideoTrack(
-            name: name ?? Track.cameraName,
-            source: .camera,
-            capturer: capturer,
-            videoSource: videoSource
-        )
+        return LocalVideoTrack(name: name ?? Track.cameraName,
+                               source: .camera,
+                               capturer: capturer,
+                               videoSource: videoSource,
+                               reportStatistics: reportStatistics)
     }
 }
 

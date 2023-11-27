@@ -138,12 +138,14 @@ public class Track: NSObject, Loggable {
     init(name: String,
          kind: Kind,
          source: Source,
-         track: LKRTCMediaStreamTrack)
+         track: LKRTCMediaStreamTrack,
+         reportStatistics: Bool)
     {
         _state = StateSync(State(
             name: name,
             kind: kind,
-            source: source
+            source: source,
+            reportStatistics: reportStatistics
         ))
 
         mediaTrack = track
@@ -173,6 +175,8 @@ public class Track: NSObject, Loggable {
         statisticsTimer.handler = { [weak self] in
             self?.onStatsTimer()
         }
+
+        resumeOrSuspendStatisticsTimer()
     }
 
     deinit {

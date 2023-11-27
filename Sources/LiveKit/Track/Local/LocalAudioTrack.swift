@@ -22,12 +22,14 @@ import Foundation
 public class LocalAudioTrack: Track, LocalTrack, AudioTrack {
     init(name: String,
          source: Track.Source,
-         track: LKRTCMediaStreamTrack)
+         track: LKRTCMediaStreamTrack,
+         reportStatistics: Bool)
     {
         super.init(name: name,
                    kind: .audio,
                    source: source,
-                   track: track)
+                   track: track,
+                   reportStatistics: reportStatistics)
     }
 
     public static func createTrack(name: String = Track.microphoneName,
@@ -54,7 +56,8 @@ public class LocalAudioTrack: Track, LocalTrack, AudioTrack {
 
         return LocalAudioTrack(name: name,
                                source: .microphone,
-                               track: rtcTrack)
+                               track: rtcTrack,
+                               reportStatistics: true)
     }
 
     @discardableResult
