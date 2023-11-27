@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 LiveKit
+ * Copyright 2023 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,8 +17,7 @@
 import Foundation
 import Promises
 
-internal class WebSocket: NSObject, URLSessionWebSocketDelegate, Loggable {
-
+class WebSocket: NSObject, URLSessionWebSocketDelegate, Loggable {
     private let queue = DispatchQueue(label: "LiveKitSDK.webSocket", qos: .default)
 
     typealias OnMessage = (URLSessionWebSocketTask.Message) -> Void
@@ -45,23 +44,21 @@ internal class WebSocket: NSObject, URLSessionWebSocketDelegate, Loggable {
                           delegateQueue: operationQueue)
     }()
 
-    private lazy var task: URLSessionWebSocketTask = {
-        session.webSocketTask(with: request)
-    }()
+    private lazy var task: URLSessionWebSocketTask = session.webSocketTask(with: request)
 
     static func connect(url: URL,
                         onMessage: OnMessage? = nil,
-                        onDisconnect: OnDisconnect? = nil) -> Promise<WebSocket> {
-
-        return WebSocket(url: url,
-                         onMessage: onMessage,
-                         onDisconnect: onDisconnect).connect()
+                        onDisconnect: OnDisconnect? = nil) -> Promise<WebSocket>
+    {
+        WebSocket(url: url,
+                  onMessage: onMessage,
+                  onDisconnect: onDisconnect).connect()
     }
 
     private init(url: URL,
                  onMessage: OnMessage? = nil,
-                 onDisconnect: OnDisconnect? = nil) {
-
+                 onDisconnect: OnDisconnect? = nil)
+    {
         request = URLRequest(url: url,
                              cachePolicy: .useProtocolCachePolicy,
                              timeoutInterval: .defaultSocketConnect)
@@ -81,8 +78,7 @@ internal class WebSocket: NSObject, URLSessionWebSocketDelegate, Loggable {
         return connectPromise!
     }
 
-    internal func cleanUp(reason: DisconnectReason?, notify: Bool = true) {
-
+    func cleanUp(reason: DisconnectReason?, notify: Bool = true) {
         log("reason: \(String(describing: reason))")
 
         guard !disconnected else {
@@ -111,7 +107,7 @@ internal class WebSocket: NSObject, URLSessionWebSocketDelegate, Loggable {
         let message = URLSessionWebSocketTask.Message.data(data)
         return Promise(on: queue) { resolve, fail in
             self.task.send(message) { error in
-                if let error = error {
+                if let error {
                     fail(error)
                     return
                 }
@@ -121,12 +117,13 @@ internal class WebSocket: NSObject, URLSessionWebSocketDelegate, Loggable {
     }
 
     private func receive(task: URLSessionWebSocketTask,
-                         result: Result<URLSessionWebSocketTask.Message, Error>) {
+                         result: Result<URLSessionWebSocketTask.Message, Error>)
+    {
         switch result {
-        case .failure(let error):
+        case let .failure(error):
             log("Failed to receive \(error)", .error)
 
-        case .success(let message):
+        case let .success(message):
             onMessage?(message)
             queue.async { task.receive { self.receive(task: task, result: $0) } }
         }
@@ -134,10 +131,10 @@ internal class WebSocket: NSObject, URLSessionWebSocketDelegate, Loggable {
 
     // MARK: - URLSessionWebSocketDelegate
 
-    internal func urlSession(_ session: URLSession,
-                             webSocketTask: URLSessionWebSocketTask,
-                             didOpenWithProtocol protocol: String?) {
-
+    func urlSession(_: URLSession,
+                    webSocketTask: URLSessionWebSocketTask,
+                    didOpenWithProtocol _: String?)
+    {
         guard !disconnected else {
             return
         }
@@ -150,11 +147,11 @@ internal class WebSocket: NSObject, URLSessionWebSocketDelegate, Loggable {
         queue.async { webSocketTask.receive { self.receive(task: webSocketTask, result: $0) } }
     }
 
-    internal func urlSession(_ session: URLSession,
-                             webSocketTask: URLSessionWebSocketTask,
-                             didCloseWith closeCode: URLSessionWebSocketTask.CloseCode,
-                             reason: Data?) {
-
+    func urlSession(_: URLSession,
+                    webSocketTask _: URLSessionWebSocketTask,
+                    didCloseWith closeCode: URLSessionWebSocketTask.CloseCode,
+                    reason: Data?)
+    {
         guard !disconnected else {
             return
         }
@@ -164,10 +161,10 @@ internal class WebSocket: NSObject, URLSessionWebSocketDelegate, Loggable {
         cleanUp(reason: .networkError(sdkError))
     }
 
-    internal func urlSession(_ session: URLSession,
-                             task: URLSessionTask,
-                             didCompleteWithError error: Error?) {
-
+    func urlSession(_: URLSession,
+                    task _: URLSessionTask,
+                    didCompleteWithError error: Error?)
+    {
         guard !disconnected else {
             return
         }

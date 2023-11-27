@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 LiveKit
+ * Copyright 2023 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,7 +21,6 @@ public typealias CaptureFunc = (_ capture: RTCVideoFrame) -> Void
 public typealias InterceptFunc = (_ frame: RTCVideoFrame, _ capture: @escaping CaptureFunc) -> Void
 
 public class VideoCaptureInterceptor: NSObject, RTCVideoCapturerDelegate, Loggable {
-
     let output = Engine.createVideoSource(forScreenShare: true)
     let interceptFunc: InterceptFunc
 
@@ -36,11 +35,11 @@ public class VideoCaptureInterceptor: NSObject, RTCVideoCapturerDelegate, Loggab
     }
 
     public func capturer(_ capturer: RTCVideoCapturer, didCapture frame: RTCVideoFrame) {
-
         // create capture func to pass to intercept func
-        let captureFunc = { [weak self, weak capturer] (frame: RTCVideoFrame) -> Void in
-            guard let self = self,
-                  let capturer = capturer else {
+        let captureFunc = { [weak self, weak capturer] (frame: RTCVideoFrame) in
+            guard let self,
+                  let capturer
+            else {
                 return
             }
 

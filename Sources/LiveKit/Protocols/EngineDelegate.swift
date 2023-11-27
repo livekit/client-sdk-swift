@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 LiveKit
+ * Copyright 2023 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@
 import Foundation
 import WebRTC
 
-internal protocol EngineDelegate: AnyObject {
+protocol EngineDelegate: AnyObject {
     func engine(_ engine: Engine, didMutate state: Engine.State, oldState: Engine.State)
     func engine(_ engine: Engine, didUpdate speakers: [Livekit_SpeakerInfo])
     func engine(_ engine: Engine, didAddTrack track: RTCMediaStreamTrack, rtpReceiver: RTCRtpReceiver, streams: [RTCMediaStream])

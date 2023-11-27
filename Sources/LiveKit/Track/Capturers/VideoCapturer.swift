@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 LiveKit
+ * Copyright 2023 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,23 +15,21 @@
  */
 
 import Foundation
-import WebRTC
 import Promises
+import WebRTC
 
 public protocol VideoCapturerProtocol {
     var capturer: RTCVideoCapturer { get }
 }
 
-extension VideoCapturerProtocol {
-
-    public var capturer: RTCVideoCapturer {
+public extension VideoCapturerProtocol {
+    var capturer: RTCVideoCapturer {
         fatalError("Must be implemented")
     }
 }
 
 @objc
 public protocol VideoCapturerDelegate: AnyObject {
-
     @objc(capturer:didUpdateDimensions:) optional
     func capturer(_ capturer: VideoCapturer, didUpdate dimensions: Dimensions?)
 
@@ -41,12 +39,11 @@ public protocol VideoCapturerDelegate: AnyObject {
 
 // Intended to be a base class for video capturers
 public class VideoCapturer: NSObject, Loggable, VideoCapturerProtocol {
-
     // MARK: - MulticastDelegate
 
-    internal var delegates = MulticastDelegate<VideoCapturerDelegate>()
+    var delegates = MulticastDelegate<VideoCapturerDelegate>()
 
-    internal let queue = DispatchQueue(label: "LiveKitSDK.videoCapturer", qos: .default)
+    let queue = DispatchQueue(label: "LiveKitSDK.videoCapturer", qos: .default)
 
     /// Array of supported pixel formats that can be used to capture a frame.
     ///
@@ -68,15 +65,15 @@ public class VideoCapturer: NSObject, Loggable, VideoCapturerProtocol {
         case started
     }
 
-    internal weak var delegate: RTCVideoCapturerDelegate?
+    weak var delegate: RTCVideoCapturerDelegate?
 
-    internal struct State: Equatable {
+    struct State: Equatable {
         var dimensionsCompleter = Completer<Dimensions>()
         // Counts calls to start/stopCapturer so multiple Tracks can use the same VideoCapturer.
         var startStopCounter: Int = 0
     }
 
-    internal var _state = StateSync(State())
+    var _state = StateSync(State())
 
     public internal(set) var dimensions: Dimensions? {
         didSet {
@@ -98,7 +95,7 @@ public class VideoCapturer: NSObject, Loggable, VideoCapturerProtocol {
         super.init()
 
         _state.onDidMutate = { [weak self] newState, oldState in
-            guard let self = self else { return }
+            guard let self else { return }
             if oldState.startStopCounter != newState.startStopCounter {
                 self.log("startStopCounter \(oldState.startStopCounter) -> \(newState.startStopCounter)")
             }
@@ -114,7 +111,6 @@ public class VideoCapturer: NSObject, Loggable, VideoCapturerProtocol {
     /// ``startCapture()`` and ``stopCapture()`` calls must be balanced. For example, if ``startCapture()`` is called 2 times, ``stopCapture()`` must be called 2 times also.
     /// Returns true when capturing should start, returns fals if capturing already started.
     public func startCapture() -> Promise<Bool> {
-
         Promise(on: queue) { () -> Bool in
 
             let didStart = self._state.mutate {
@@ -142,7 +138,6 @@ public class VideoCapturer: NSObject, Loggable, VideoCapturerProtocol {
     /// See ``startCapture()`` for more details.
     /// Returns true when capturing should stop, returns fals if capturing already stopped.
     public func stopCapture() -> Promise<Bool> {
-
         Promise(on: queue) { () -> Bool in
 
             let didStop = self._state.mutate {

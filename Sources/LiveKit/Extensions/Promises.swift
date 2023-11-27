@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 LiveKit
+ * Copyright 2023 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,20 +17,17 @@
 import Foundation
 import Promises
 
-extension Sequence where Element == Promise<Void> {
-
+extension Sequence<Promise<Void>> {
     func all(on queue: DispatchQueue = .promises) -> Promise<Void> {
         Promises.all(on: queue, self).then(on: queue) { _ in }
     }
 }
 
-internal extension Promise {
-
+extension Promise {
     typealias OnTimeout = () -> Error
 
-    func timeout(on queue: DispatchQueue = .promises, _ interval: TimeInterval, `throw` _throw: @escaping OnTimeout) -> Promise {
-
-        self.timeout(on: queue, interval).recover(on: queue) { error -> Promise in
+    func timeout(on queue: DispatchQueue = .promises, _ interval: TimeInterval, throw _throw: @escaping OnTimeout) -> Promise {
+        timeout(on: queue, interval).recover(on: queue) { error -> Promise in
             // if this is a timedOut error...
             if let error = error as? PromiseError, case .timedOut = error {
                 throw _throw()

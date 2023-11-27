@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 LiveKit
+ * Copyright 2023 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,15 +17,14 @@
 import Foundation
 import Promises
 
-extension Room {
-
+public extension Room {
     @objc(connectWithURL:token:connectOptions:roomOptions:)
     @discardableResult
-    public func connect(url: String,
-                        token: String,
-                        connectOptions: ConnectOptions? = nil,
-                        roomOptions: RoomOptions? = nil) -> Promise<Room>.ObjCPromise<Room> {
-
+    func connect(url: String,
+                 token: String,
+                 connectOptions: ConnectOptions? = nil,
+                 roomOptions: RoomOptions? = nil) -> Promise<Room>.ObjCPromise<Room>
+    {
         connect(url,
                 token,
                 connectOptions: connectOptions,
@@ -34,8 +33,7 @@ extension Room {
 
     @objc(disconnect)
     @discardableResult
-    public func disconnectObjC() -> Promise<Void>.ObjCPromise<NSNull> {
-
+    func disconnectObjC() -> Promise<Void>.ObjCPromise<NSNull> {
         disconnect().asObjCPromise()
     }
 }

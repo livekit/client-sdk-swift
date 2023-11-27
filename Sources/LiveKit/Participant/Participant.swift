@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 LiveKit
+ * Copyright 2023 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,17 +15,16 @@
  */
 
 import Foundation
-import WebRTC
 import Promises
+import WebRTC
 
 @objc
 public class Participant: NSObject, ObservableObject, Loggable {
-
     // MARK: - MulticastDelegate
 
-    internal var delegates = MulticastDelegate<ParticipantDelegate>()
+    var delegates = MulticastDelegate<ParticipantDelegate>()
 
-    internal let queue = DispatchQueue(label: "LiveKitSDK.participant", qos: .default)
+    let queue = DispatchQueue(label: "LiveKitSDK.participant", qos: .default)
 
     @objc
     public var sid: Sid { _state.sid }
@@ -67,14 +66,14 @@ public class Participant: NSObject, ObservableObject, Loggable {
         _state.tracks.values.filter { $0.kind == .video }
     }
 
-    internal var info: Livekit_ParticipantInfo?
+    var info: Livekit_ParticipantInfo?
 
     // Reference to the Room this Participant belongs to
     public let room: Room
 
     // MARK: - Internal
 
-    internal struct State: Equatable, Hashable {
+    struct State: Equatable, Hashable {
         let sid: Sid
         var identity: String
         var name: String
@@ -87,13 +86,13 @@ public class Participant: NSObject, ObservableObject, Loggable {
         var tracks = [String: TrackPublication]()
     }
 
-    internal var _state: StateSync<State>
+    var _state: StateSync<State>
 
-    internal init(sid: String,
-                  identity: String,
-                  name: String,
-                  room: Room) {
-
+    init(sid: String,
+         identity: String,
+         name: String,
+         room: Room)
+    {
         self.room = room
 
         // initial state
@@ -108,7 +107,7 @@ public class Participant: NSObject, ObservableObject, Loggable {
         // trigger events when state mutates
         _state.onDidMutate = { [weak self] newState, oldState in
 
-            guard let self = self else { return }
+            guard let self else { return }
 
             if newState.isSpeaking != oldState.isSpeaking {
                 self.delegates.notify(label: { "participant.didUpdate isSpeaking: \(self.isSpeaking)" }) {
@@ -119,8 +118,8 @@ public class Participant: NSObject, ObservableObject, Loggable {
             // metadata updated
             if let metadata = newState.metadata, metadata != oldState.metadata,
                // don't notify if empty string (first time only)
-               oldState.metadata == nil ? !metadata.isEmpty : true {
-
+               oldState.metadata == nil ? !metadata.isEmpty : true
+            {
                 self.delegates.notify(label: { "participant.didUpdate metadata: \(metadata)" }) {
                     $0.participant?(self, didUpdate: metadata)
                 }
@@ -142,7 +141,6 @@ public class Participant: NSObject, ObservableObject, Loggable {
             }
 
             if newState.connectionQuality != oldState.connectionQuality {
-
                 self.delegates.notify(label: { "participant.didUpdate connectionQuality: \(self.connectionQuality)" }) {
                     $0.participant?(self, didUpdate: self.connectionQuality)
                 }
@@ -162,25 +160,23 @@ public class Participant: NSObject, ObservableObject, Loggable {
     }
 
     @discardableResult
-    internal func cleanUp(notify _notify: Bool = true) -> Promise<Void> {
-
+    func cleanUp(notify _notify: Bool = true) -> Promise<Void> {
         unpublishAll(notify: _notify).then(on: queue) {
             // reset state
             self._state.mutate { $0 = State(sid: $0.sid, identity: $0.identity, name: $0.name) }
         }
     }
 
-    internal func unpublishAll(notify _notify: Bool = true) -> Promise<Void> {
+    func unpublishAll(notify _: Bool = true) -> Promise<Void> {
         fatalError("Unimplemented")
     }
 
-    internal func addTrack(publication: TrackPublication) {
+    func addTrack(publication: TrackPublication) {
         _state.mutate { $0.tracks[publication.sid] = publication }
         publication.track?._state.mutate { $0.sid = publication.sid }
     }
 
-    internal func updateFromInfo(info: Livekit_ParticipantInfo) {
-
+    func updateFromInfo(info: Livekit_ParticipantInfo) {
         _state.mutate {
             $0.identity = info.identity
             $0.name = info.name
@@ -193,9 +189,8 @@ public class Participant: NSObject, ObservableObject, Loggable {
     }
 
     @discardableResult
-    internal func set(permissions newValue: ParticipantPermissions) -> Bool {
-
-        guard self.permissions != newValue else {
+    func set(permissions newValue: ParticipantPermissions) -> Bool {
+        guard permissions != newValue else {
             // no change
             return false
         }
@@ -208,17 +203,16 @@ public class Participant: NSObject, ObservableObject, Loggable {
 
 // MARK: - Simplified API
 
-extension Participant {
-
-    public func isCameraEnabled() -> Bool {
+public extension Participant {
+    func isCameraEnabled() -> Bool {
         !(getTrackPublication(source: .camera)?.muted ?? true)
     }
 
-    public func isMicrophoneEnabled() -> Bool {
+    func isMicrophoneEnabled() -> Bool {
         !(getTrackPublication(source: .microphone)?.muted ?? true)
     }
 
-    public func isScreenShareEnabled() -> Bool {
+    func isScreenShareEnabled() -> Bool {
         !(getTrackPublication(source: .screenShareVideo)?.muted ?? true)
     }
 

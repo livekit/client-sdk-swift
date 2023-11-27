@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 LiveKit
+ * Copyright 2023 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,14 +14,13 @@
  * limitations under the License.
  */
 
-import Foundation
-import CoreGraphics
-import Promises
 import Combine
+import CoreGraphics
+import Foundation
+import Promises
 
 @objc
 public class TrackPublication: NSObject, ObservableObject, Loggable {
-
     // MARK: - Public properties
 
     @objc
@@ -64,12 +63,12 @@ public class TrackPublication: NSObject, ObservableObject, Loggable {
 
     // MARK: - Internal
 
-    internal let queue = DispatchQueue(label: "LiveKitSDK.publication", qos: .default)
+    let queue = DispatchQueue(label: "LiveKitSDK.publication", qos: .default)
 
     /// Reference to the ``Participant`` this publication belongs to.
-    internal weak var participant: Participant?
+    weak var participant: Participant?
 
-    internal struct State: Equatable, Hashable {
+    struct State: Equatable, Hashable {
         let sid: Sid
         let kind: Track.Kind
         let source: Track.Source
@@ -96,12 +95,12 @@ public class TrackPublication: NSObject, ObservableObject, Loggable {
         var latestInfo: Livekit_TrackInfo?
     }
 
-    internal var _state: StateSync<State>
+    var _state: StateSync<State>
 
-    internal init(info: Livekit_TrackInfo,
-                  track: Track? = nil,
-                  participant: Participant) {
-
+    init(info: Livekit_TrackInfo,
+         track: Track? = nil,
+         participant: Participant)
+    {
         _state = StateSync(State(
             sid: info.sid,
             kind: info.type.toLKType(),
@@ -120,15 +119,15 @@ public class TrackPublication: NSObject, ObservableObject, Loggable {
 
         super.init()
 
-        self.set(track: track)
+        set(track: track)
 
         // listen for events from Track
         track?.add(delegate: self)
 
         // trigger events when state mutates
-        self._state.onDidMutate = { [weak self] newState, oldState in
+        _state.onDidMutate = { [weak self] newState, oldState in
 
-            guard let self = self else { return }
+            guard let self else { return }
 
             if newState.streamState != oldState.streamState {
                 if let participant = self.participant as? RemoteParticipant, let trackPublication = self as? RemoteTrackPublication {
@@ -149,7 +148,7 @@ public class TrackPublication: NSObject, ObservableObject, Loggable {
         log("sid: \(sid)")
     }
 
-    internal func notifyObjectWillChange() {
+    func notifyObjectWillChange() {
         // Notify UI that the object has changed
         Task.detached { @MainActor in
             // Notify TrackPublication
@@ -164,8 +163,7 @@ public class TrackPublication: NSObject, ObservableObject, Loggable {
         }
     }
 
-    internal func updateFromInfo(info: Livekit_TrackInfo) {
-
+    func updateFromInfo(info: Livekit_TrackInfo) {
         _state.mutate {
             // only muted and name can conceivably update
             $0.name = info.name
@@ -179,15 +177,15 @@ public class TrackPublication: NSObject, ObservableObject, Loggable {
     }
 
     @discardableResult
-    internal func set(track newValue: Track?) -> Track? {
+    func set(track newValue: Track?) -> Track? {
         // keep ref to old value
-        let oldValue = self.track
+        let oldValue = track
         // continue only if updated
-        guard self.track != newValue else { return oldValue }
+        guard track != newValue else { return oldValue }
         log("\(String(describing: oldValue)) -> \(String(describing: newValue))")
 
         // listen for visibility updates
-        self.track?.remove(delegate: self)
+        track?.remove(delegate: self)
         newValue?.add(delegate: self)
 
         _state.mutate { $0.track = newValue }
@@ -199,7 +197,6 @@ public class TrackPublication: NSObject, ObservableObject, Loggable {
 // MARK: - TrackDelegate
 
 extension TrackPublication: TrackDelegateInternal {
-
     func track(_ track: Track, didMutateState newState: Track.State, oldState: Track.State) {
         // Notify on UI updating changes
         if newState.muted != oldState.muted {
@@ -208,17 +205,15 @@ extension TrackPublication: TrackDelegateInternal {
         }
     }
 
-    public func track(_ track: Track, didUpdate muted: Bool, shouldSendSignal: Bool) {
-
+    public func track(_: Track, didUpdate muted: Bool, shouldSendSignal: Bool) {
         log("muted: \(muted) shouldSendSignal: \(shouldSendSignal)")
 
-        guard let participant = participant else {
+        guard let participant else {
             log("Participant is nil", .warning)
             return
         }
 
         func sendSignal() -> Promise<Void> {
-
             guard shouldSendSignal else {
                 return Promise(())
             }

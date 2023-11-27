@@ -17,8 +17,7 @@
 import Foundation
 import WebRTC
 
-internal class InternalSampleBufferVideoRenderer: NativeView, Loggable {
-
+class InternalSampleBufferVideoRenderer: NativeView, Loggable {
     public let sampleBufferDisplayLayer: AVSampleBufferDisplayLayer
 
     override init(frame: CGRect) {
@@ -26,17 +25,18 @@ internal class InternalSampleBufferVideoRenderer: NativeView, Loggable {
         super.init(frame: frame)
         sampleBufferDisplayLayer.videoGravity = .resizeAspectFill
         #if os(macOS)
-        // this is required for macOS
-        wantsLayer = true
-        layer?.insertSublayer(sampleBufferDisplayLayer, at: 0)
+            // this is required for macOS
+            wantsLayer = true
+            layer?.insertSublayer(sampleBufferDisplayLayer, at: 0)
         #elseif os(iOS)
-        layer.insertSublayer(sampleBufferDisplayLayer, at: 0)
+            layer.insertSublayer(sampleBufferDisplayLayer, at: 0)
         #else
-        fatalError("Unimplemented")
+            fatalError("Unimplemented")
         #endif
     }
 
-    required init?(coder: NSCoder) {
+    @available(*, unavailable)
+    required init?(coder _: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
 
@@ -47,14 +47,12 @@ internal class InternalSampleBufferVideoRenderer: NativeView, Loggable {
 }
 
 extension InternalSampleBufferVideoRenderer: RTCVideoRenderer {
-
-    internal func setSize(_ size: CGSize) {
+    func setSize(_: CGSize) {
         //
     }
 
-    internal func renderFrame(_ frame: RTCVideoFrame?) {
-
-        guard let frame = frame else { return }
+    func renderFrame(_ frame: RTCVideoFrame?) {
+        guard let frame else { return }
 
         var pixelBuffer: CVPixelBuffer?
 
@@ -64,7 +62,7 @@ extension InternalSampleBufferVideoRenderer: RTCVideoRenderer {
             pixelBuffer = rtcI420Buffer.toPixelBuffer()
         }
 
-        guard let pixelBuffer = pixelBuffer else {
+        guard let pixelBuffer else {
             log("pixelBuffer is nil", .error)
             return
         }
@@ -81,8 +79,7 @@ extension InternalSampleBufferVideoRenderer: RTCVideoRenderer {
 }
 
 extension InternalSampleBufferVideoRenderer: Mirrorable {
-
-    internal func set(mirrored: Bool) {
+    func set(mirrored: Bool) {
         sampleBufferDisplayLayer.transform = mirrored ? VideoView.mirrorTransform : CATransform3DIdentity
     }
 }

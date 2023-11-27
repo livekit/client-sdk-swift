@@ -19,22 +19,21 @@ import Foundation
 @available(*, deprecated, message: "Use Stats v2 and TrackStatistics instead")
 @objc
 public class TrackStats: NSObject {
-
     // MARK: - Equal
 
-    public override func isEqual(_ object: Any?) -> Bool {
+    override public func isEqual(_ object: Any?) -> Bool {
         guard let other = object as? Self else { return false }
-        return  self.created == other.created &&
-            self.ssrc == other.ssrc &&
-            self.trackId == other.trackId  &&
-            self.bytesSent == other.bytesSent &&
-            self.bytesReceived == other.bytesReceived &&
-            self.codecName == other.codecName &&
-            self.bpsSent == other.bpsSent &&
-            self.bpsReceived == other.bpsReceived
+        return created == other.created &&
+            ssrc == other.ssrc &&
+            trackId == other.trackId &&
+            bytesSent == other.bytesSent &&
+            bytesReceived == other.bytesReceived &&
+            codecName == other.codecName &&
+            bpsSent == other.bpsSent &&
+            bpsReceived == other.bpsReceived
     }
 
-    public override var hash: Int {
+    override public var hash: Int {
         var hasher = Hasher()
         hasher.combine(created)
         hasher.combine(ssrc)
@@ -102,36 +101,34 @@ public class TrackStats: NSObject {
     // "googFrameRateInput": "1"
 
     init?(from values: [String: String], previous: TrackStats?) {
-
         // ssrc is required
         guard let ssrc = values[TrackStats.keyTypeSSRC],
-              let trackId = values[TrackStats.keyTrackId]  else {
+              let trackId = values[TrackStats.keyTrackId]
+        else {
             return nil
         }
 
         self.ssrc = ssrc
         self.trackId = trackId
-        self.bytesSent = Int(values[TrackStats.keyBytesSent] ?? "0") ?? 0
-        self.bytesReceived = Int(values[TrackStats.keyBytesReceived] ?? "0") ?? 0
-        self.codecName = values[TrackStats.keyCodecName] as String?
+        bytesSent = Int(values[TrackStats.keyBytesSent] ?? "0") ?? 0
+        bytesReceived = Int(values[TrackStats.keyBytesReceived] ?? "0") ?? 0
+        codecName = values[TrackStats.keyCodecName] as String?
 
-        if let previous = previous {
-            let secondsDiff = self.created.timeIntervalSince(previous.created)
-            self.bpsSent = Int(Double(((self.bytesSent - previous.bytesSent) * 8)) / abs(secondsDiff))
-            self.bpsReceived = Int(Double(((self.bytesReceived - previous.bytesReceived) * 8)) / abs(secondsDiff))
+        if let previous {
+            let secondsDiff = created.timeIntervalSince(previous.created)
+            bpsSent = Int(Double((bytesSent - previous.bytesSent) * 8) / abs(secondsDiff))
+            bpsReceived = Int(Double((bytesReceived - previous.bytesReceived) * 8) / abs(secondsDiff))
         } else {
-            self.bpsSent = 0
-            self.bpsReceived = 0
+            bpsSent = 0
+            bpsReceived = 0
         }
     }
 }
 
 public extension TrackStats {
-
     private static let bpsDivider: Double = 1000
 
     private func format(bps: Int) -> String {
-
         let ordinals = ["", "K", "M", "G", "T", "P", "E"]
 
         var rate = Double(bps)

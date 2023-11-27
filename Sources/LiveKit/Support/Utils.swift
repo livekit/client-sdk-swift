@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 LiveKit
+ * Copyright 2023 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,18 +15,18 @@
  */
 
 import Foundation
-import WebRTC
 import Promises
+import WebRTC
 
-internal typealias DebouncFunc = () -> Void
+typealias DebouncFunc = () -> Void
 
-internal enum OS {
+enum OS {
     case macOS
     case iOS
 }
 
 extension OS: CustomStringConvertible {
-    internal var description: String {
+    var description: String {
         switch self {
         case .macOS: return "macOS"
         case .iOS: return "iOS"
@@ -34,8 +34,7 @@ extension OS: CustomStringConvertible {
     }
 }
 
-internal func format(bps: UInt64) -> String {
-
+func format(bps: UInt64) -> String {
     let bpsDivider: Double = 1000
     let ordinals = ["", "K", "M", "G", "T", "P", "E"]
 
@@ -50,22 +49,21 @@ internal func format(bps: UInt64) -> String {
     return String(rate.rounded(to: 2)) + ordinals[ordinal] + "bps"
 }
 
-internal class Utils {
-
+class Utils {
     private static let processInfo = ProcessInfo()
 
     /// Returns current OS.
-    internal static func os() -> OS {
+    static func os() -> OS {
         #if os(macOS)
-        .macOS
+            .macOS
         #elseif os(iOS)
-        .iOS
+            .iOS
         #endif
     }
 
     /// Returns os version as a string.
     /// format: `12.1`, `15.3.1`, `15.0.1`
-    internal static func osVersionString() -> String {
+    static func osVersionString() -> String {
         let osVersion = processInfo.operatingSystemVersion
         var versions = [osVersion.majorVersion]
         if osVersion.minorVersion != 0 || osVersion.patchVersion != 0 {
@@ -74,45 +72,46 @@ internal class Utils {
         if osVersion.patchVersion != 0 {
             versions.append(osVersion.patchVersion)
         }
-        return versions.map({ String($0) }).joined(separator: ".")
+        return versions.map { String($0) }.joined(separator: ".")
     }
 
     /// Returns a model identifier.
     /// format: `MacBookPro18,3`, `iPhone13,3` or `iOSSimulator,arm64`
-    internal static func modelIdentifier() -> String? {
+    static func modelIdentifier() -> String? {
         #if os(macOS)
-        let service = IOServiceGetMatchingService(kIOMasterPortDefault,
-                                                  IOServiceMatching("IOPlatformExpertDevice"))
-        defer { IOObjectRelease(service) }
+            let service = IOServiceGetMatchingService(kIOMasterPortDefault,
+                                                      IOServiceMatching("IOPlatformExpertDevice"))
+            defer { IOObjectRelease(service) }
 
-        guard let modelData = IORegistryEntryCreateCFProperty(service,
-                                                              "model" as CFString,
-                                                              kCFAllocatorDefault,
-                                                              0).takeRetainedValue() as? Data else {
-            return nil
-        }
+            guard let modelData = IORegistryEntryCreateCFProperty(service,
+                                                                  "model" as CFString,
+                                                                  kCFAllocatorDefault,
+                                                                  0).takeRetainedValue() as? Data
+            else {
+                return nil
+            }
 
-        return modelData.withUnsafeBytes({ (pointer: UnsafeRawBufferPointer) -> String? in
-            guard let cString = pointer.baseAddress?.assumingMemoryBound(to: UInt8.self) else { return nil }
-            return String(cString: cString)
-        })
+            return modelData.withUnsafeBytes { (pointer: UnsafeRawBufferPointer) -> String? in
+                guard let cString = pointer.baseAddress?.assumingMemoryBound(to: UInt8.self) else { return nil }
+                return String(cString: cString)
+            }
         #elseif os(iOS)
-        var systemInfo = utsname()
-        uname(&systemInfo)
-        let machineMirror = Mirror(reflecting: systemInfo.machine)
-        let identifier = machineMirror.children.reduce("") { identifier, element in
-            guard let value = element.value as? Int8, value != 0 else { return identifier }
-            return identifier + String(UnicodeScalar(UInt8(value)))
-        }
-        // for simulator, the following codes are returned
-        guard !["i386", "x86_64", "arm64"].contains(where: { $0 == identifier }) else {
-            return "iOSSimulator,\(identifier)"
-        }
-        return identifier
+            var systemInfo = utsname()
+            uname(&systemInfo)
+            let machineMirror = Mirror(reflecting: systemInfo.machine)
+            let identifier = machineMirror.children.reduce("") { identifier, element in
+                guard let value = element.value as? Int8, value != 0 else { return identifier }
+                return identifier + String(UnicodeScalar(UInt8(value)))
+            }
+            // for simulator, the following codes are returned
+            guard !["i386", "x86_64", "arm64"].contains(where: { $0 == identifier }) else {
+                return "iOSSimulator,\(identifier)"
+            }
+            return identifier
         #endif
     }
 
-    internal static func networkTypeString() -> String? {
+    static func networkTypeString() -> String? {
         // wifi, wired, cellular, vpn, empty if not known
         guard let interface = ConnectivityListener.shared.activeInterfaceType() else {
             return nil
@@ -126,7 +125,7 @@ internal class Utils {
         }
     }
 
-    internal static func buildUrl(
+    static func buildUrl(
         _ url: String,
         _ token: String,
         connectOptions: ConnectOptions? = nil,
@@ -135,7 +134,6 @@ internal class Utils {
         validate: Bool = false,
         forceSecure: Bool = false
     ) -> URL? {
-
         // use default options if nil
         let connectOptions = connectOptions ?? ConnectOptions()
 
@@ -155,9 +153,10 @@ internal class Utils {
 
         // if already ending with `rtc` or `validate`
         // and is not a dir, remove it
-        if !parsedUrl.hasDirectoryPath
-            && !pathSegments.isEmpty
-            && ["rtc", "validate"].contains(pathSegments.last!) {
+        if !parsedUrl.hasDirectoryPath,
+           !pathSegments.isEmpty,
+           ["rtc", "validate"].contains(pathSegments.last!)
+        {
             pathSegments.removeLast()
         }
         // add the correct segment
@@ -177,7 +176,7 @@ internal class Utils {
             URLQueryItem(name: "version", value: LiveKit.version),
             // Additional client info
             URLQueryItem(name: "os", value: String(describing: os())),
-            URLQueryItem(name: "os_version", value: osVersionString())
+            URLQueryItem(name: "os_version", value: osVersionString()),
         ]
 
         if let modelIdentifier = modelIdentifier() {
@@ -189,7 +188,7 @@ internal class Utils {
         }
 
         // only for quick-reconnect
-        queryItems.append(URLQueryItem(name: "reconnect", value: .quick == reconnectMode ? "1" : "0"))
+        queryItems.append(URLQueryItem(name: "reconnect", value: reconnectMode == .quick ? "1" : "0"))
         queryItems.append(URLQueryItem(name: "auto_subscribe", value: connectOptions.autoSubscribe ? "1" : "0"))
         queryItems.append(URLQueryItem(name: "adaptive_stream", value: adaptiveStream ? "1" : "0"))
 
@@ -202,10 +201,11 @@ internal class Utils {
         return builder.url
     }
 
-    internal static func createDebounceFunc(on queue: DispatchQueue,
-                                            wait: TimeInterval,
-                                            onCreateWorkItem: ((DispatchWorkItem) -> Void)? = nil,
-                                            fnc: @escaping @convention(block) () -> Void) -> DebouncFunc {
+    static func createDebounceFunc(on queue: DispatchQueue,
+                                   wait: TimeInterval,
+                                   onCreateWorkItem: ((DispatchWorkItem) -> Void)? = nil,
+                                   fnc: @escaping @convention(block) () -> Void) -> DebouncFunc
+    {
         var workItem: DispatchWorkItem?
         return {
             workItem?.cancel()
@@ -215,12 +215,11 @@ internal class Utils {
         }
     }
 
-    internal static func computeEncodings(
+    static func computeEncodings(
         dimensions: Dimensions,
         publishOptions: VideoPublishOptions?,
         isScreenShare: Bool = false
     ) -> [RTCRtpEncodingParameters] {
-
         let publishOptions = publishOptions ?? VideoPublishOptions()
         let preferredEncoding: VideoEncoding? = isScreenShare ? publishOptions.screenShareEncoding : publishOptions.encoding
         let encoding = preferredEncoding ?? dimensions.computeSuggestedPreset(in: dimensions.computeSuggestedPresets(isScreenShare: isScreenShare))
@@ -242,7 +241,7 @@ internal class Utils {
         let midPreset = presets[safe: 1]
 
         var resultPresets = [baseParameters]
-        if dimensions.max >= 960, let midPreset = midPreset {
+        if dimensions.max >= 960, let midPreset {
             resultPresets = [lowPreset, midPreset, baseParameters]
         } else if dimensions.max >= 480 {
             resultPresets = [lowPreset, baseParameters]
@@ -252,18 +251,18 @@ internal class Utils {
     }
 }
 
-internal extension Collection {
+extension Collection {
     /// Returns the element at the specified index if it is within bounds, otherwise nil.
     subscript(safe index: Index) -> Element? {
-        return indices.contains(index) ? self[index] : nil
+        indices.contains(index) ? self[index] : nil
     }
 }
 
-internal extension MutableCollection {
+extension MutableCollection {
     subscript(safe index: Index) -> Element? {
         get { indices.contains(index) ? self[index] : nil }
         set {
-            if let newValue = newValue, indices.contains(index) {
+            if let newValue, indices.contains(index) {
                 self[index] = newValue
             }
         }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 LiveKit
+ * Copyright 2023 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,18 +17,14 @@
 import Foundation
 import Promises
 
-internal class HTTP: NSObject, URLSessionDelegate {
-
+class HTTP: NSObject, URLSessionDelegate {
     private let operationQueue = OperationQueue()
 
-    private lazy var session: URLSession = {
-        URLSession(configuration: .default,
-                   delegate: self,
-                   delegateQueue: operationQueue)
-    }()
+    private lazy var session: URLSession = .init(configuration: .default,
+                                                 delegate: self,
+                                                 delegateQueue: operationQueue)
 
     func get(on: DispatchQueue, url: URL) -> Promise<Data> {
-
         Promise<Data>(on: on) { resolve, fail in
 
             let request = URLRequest(url: url,
@@ -36,12 +32,12 @@ internal class HTTP: NSObject, URLSessionDelegate {
                                      timeoutInterval: .defaultHTTPConnect)
 
             let task = self.session.dataTask(with: request) { data, _, error in
-                if let error = error {
+                if let error {
                     fail(error)
                     return
                 }
 
-                guard let data = data else {
+                guard let data else {
                     fail(NetworkError.response(message: "data is nil"))
                     return
                 }

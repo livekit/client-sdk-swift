@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 LiveKit
+ * Copyright 2023 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,26 +15,25 @@
  */
 
 import Foundation
-import WebRTC
 import Promises
+import WebRTC
 
 #if os(macOS)
-public extension MacOSScreenCapturer {
+    public extension MacOSScreenCapturer {
+        static func sources(for type: MacOSScreenShareSourceType,
+                            includeCurrentApplication: Bool = false,
+                            preferredMethod: MacOSScreenCapturePreferredMethod = .auto) async throws -> [MacOSScreenCaptureSource]
+        {
+            try await withCheckedThrowingContinuation { continuation in
 
-    static func sources(for type: MacOSScreenShareSourceType,
-                        includeCurrentApplication: Bool = false,
-                        preferredMethod: MacOSScreenCapturePreferredMethod = .auto) async throws -> [MacOSScreenCaptureSource] {
-
-        try await withCheckedThrowingContinuation { continuation in
-
-            sources(for: type,
-                    includeCurrentApplication: includeCurrentApplication,
-                    preferredMethod: preferredMethod).then(on: queue) { result in
-                        continuation.resume(returning: result)
-                    }.catch(on: queue) { error in
-                        continuation.resume(throwing: error)
-                    }
+                sources(for: type,
+                        includeCurrentApplication: includeCurrentApplication,
+                        preferredMethod: preferredMethod).then(on: queue) { result in
+                    continuation.resume(returning: result)
+                }.catch(on: queue) { error in
+                    continuation.resume(throwing: error)
+                }
+            }
         }
     }
-}
 #endif

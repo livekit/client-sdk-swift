@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 LiveKit
+ * Copyright 2023 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,6 @@ import Foundation
 
 @objc
 public class RoomOptions: NSObject {
-
     // default options for capturing
     @objc
     public let defaultCameraCaptureOptions: CameraCaptureOptions
@@ -84,8 +83,8 @@ public class RoomOptions: NSObject {
                 stopLocalTrackOnUnpublish: Bool = true,
                 suspendLocalVideoTracksInBackground: Bool = true,
                 reportStats: Bool = false,
-                e2eeOptions: E2EEOptions? = nil) {
-
+                e2eeOptions: E2EEOptions? = nil)
+    {
         self.defaultCameraCaptureOptions = defaultCameraCaptureOptions
         self.defaultScreenShareCaptureOptions = defaultScreenShareCaptureOptions
         self.defaultAudioCaptureOptions = defaultAudioCaptureOptions
@@ -102,22 +101,22 @@ public class RoomOptions: NSObject {
 
     // MARK: - Equal
 
-    public override func isEqual(_ object: Any?) -> Bool {
+    override public func isEqual(_ object: Any?) -> Bool {
         guard let other = object as? Self else { return false }
-        return self.defaultCameraCaptureOptions == other.defaultCameraCaptureOptions &&
-            self.defaultScreenShareCaptureOptions == other.defaultScreenShareCaptureOptions &&
-            self.defaultAudioCaptureOptions == other.defaultAudioCaptureOptions &&
-            self.defaultVideoPublishOptions == other.defaultVideoPublishOptions &&
-            self.defaultAudioPublishOptions == other.defaultAudioPublishOptions &&
-            self.defaultDataPublishOptions == other.defaultDataPublishOptions &&
-            self.adaptiveStream == other.adaptiveStream &&
-            self.dynacast == other.dynacast &&
-            self.stopLocalTrackOnUnpublish == other.stopLocalTrackOnUnpublish &&
-            self.suspendLocalVideoTracksInBackground == other.suspendLocalVideoTracksInBackground &&
-            self.reportStats == other.reportStats
+        return defaultCameraCaptureOptions == other.defaultCameraCaptureOptions &&
+            defaultScreenShareCaptureOptions == other.defaultScreenShareCaptureOptions &&
+            defaultAudioCaptureOptions == other.defaultAudioCaptureOptions &&
+            defaultVideoPublishOptions == other.defaultVideoPublishOptions &&
+            defaultAudioPublishOptions == other.defaultAudioPublishOptions &&
+            defaultDataPublishOptions == other.defaultDataPublishOptions &&
+            adaptiveStream == other.adaptiveStream &&
+            dynacast == other.dynacast &&
+            stopLocalTrackOnUnpublish == other.stopLocalTrackOnUnpublish &&
+            suspendLocalVideoTracksInBackground == other.suspendLocalVideoTracksInBackground &&
+            reportStats == other.reportStats
     }
 
-    public override var hash: Int {
+    override public var hash: Int {
         var hasher = Hasher()
         hasher.combine(defaultCameraCaptureOptions)
         hasher.combine(defaultScreenShareCaptureOptions)

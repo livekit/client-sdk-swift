@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 LiveKit
+ * Copyright 2023 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,17 +18,14 @@ import Foundation
 import Logging
 
 /// Allows to extend with custom `log` method which automatically captures current type (class name).
-public protocol Loggable {
-
-}
+public protocol Loggable {}
 
 private var _scopedMetadataKey = "scopedMetadata"
 
 public typealias ScopedMetadata = CustomStringConvertible
-internal typealias ScopedMetadataContainer = [String: ScopedMetadata]
+typealias ScopedMetadataContainer = [String: ScopedMetadata]
 
 public extension Loggable {
-
     /// attach logger metadata to this instance that will be automatically included in every log onward
     func set(loggerMetadata data: ScopedMetadata?, for key: String) {
         var _data = _scopedMetadata()
@@ -46,8 +43,8 @@ public extension Loggable {
                       file: String = #fileID,
                       type type_: Any.Type? = nil,
                       function: String = #function,
-                      line: UInt = #line) {
-
+                      line: UInt = #line)
+    {
         logger.log(message ?? "",
                    level,
                    file: file,
@@ -58,18 +55,17 @@ public extension Loggable {
     }
 }
 
-internal extension Logger {
-
+extension Logger {
     /// Adds `type` param to capture current type (usually class)
     func log(_ message: Logger.Message,
              _ level: Logger.Level = .debug,
-             source: @autoclosure () -> String? = nil,
+             source _: @autoclosure () -> String? = nil,
              file: String = #fileID,
              type: Any.Type,
              function: String = #function,
              line: UInt = #line,
-             metaData: ScopedMetadataContainer = ScopedMetadataContainer()) {
-
+             metaData: ScopedMetadataContainer = ScopedMetadataContainer())
+    {
         func _buildScopedMetadataString() -> String {
             guard !metaData.isEmpty else { return "" }
             return " [\(metaData.map { "\($0): \($1)" }.joined(separator: ", "))]"

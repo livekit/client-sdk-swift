@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 LiveKit
+ * Copyright 2023 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,22 +15,19 @@
  */
 
 import Foundation
-import WebRTC
 import Promises
+import WebRTC
 
-extension CameraCapturer {
-
+public extension CameraCapturer {
     @objc(switchCameraPosition)
     @discardableResult
-    public func switchCameraPositionObjC() -> Promise<Bool>.ObjCPromise<NSNumber> {
-
+    func switchCameraPositionObjC() -> Promise<Bool>.ObjCPromise<NSNumber> {
         switchCameraPosition().asObjCPromise()
     }
 
     @objc(setCameraPosition:)
     @discardableResult
-    public func setCameraPositionObjC(_ position: AVCaptureDevice.Position) -> Promise<Bool>.ObjCPromise<NSNumber> {
-
+    func setCameraPositionObjC(_ position: AVCaptureDevice.Position) -> Promise<Bool>.ObjCPromise<NSNumber> {
         setCameraPosition(position).asObjCPromise()
     }
 }

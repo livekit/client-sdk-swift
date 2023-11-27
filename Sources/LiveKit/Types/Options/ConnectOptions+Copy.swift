@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 LiveKit
+ * Copyright 2023 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,13 +18,12 @@ import Foundation
 import WebRTC
 
 public extension ConnectOptions {
-
     func copyWith(autoSubscribe: Bool? = nil,
                   rtcConfiguration: RTCConfiguration? = nil,
                   reconnectAttempts: Int? = nil,
                   reconnectAttemptDelay: TimeInterval? = nil,
-                  protocolVersion: ProtocolVersion? = nil) -> ConnectOptions {
-
+                  protocolVersion: ProtocolVersion? = nil) -> ConnectOptions
+    {
         ConnectOptions(autoSubscribe: autoSubscribe ?? self.autoSubscribe,
                        rtcConfiguration: rtcConfiguration ?? self.rtcConfiguration,
                        reconnectAttempts: reconnectAttempts ?? self.reconnectAttempts,

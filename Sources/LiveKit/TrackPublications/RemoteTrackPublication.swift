@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 LiveKit
+ * Copyright 2023 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-import Foundation
 import CoreGraphics
-import WebRTC
+import Foundation
 import Promises
+import WebRTC
 
 @objc
 public enum SubscriptionState: Int, Codable {
@@ -28,7 +28,6 @@ public enum SubscriptionState: Int, Codable {
 
 @objc
 public class RemoteTrackPublication: TrackPublication {
-
     public var subscriptionAllowed: Bool { _state.subscriptionAllowed }
     public var enabled: Bool { _state.trackSettings.enabled }
     override public var muted: Bool { track?.muted ?? _state.metadataMuted }
@@ -39,10 +38,10 @@ public class RemoteTrackPublication: TrackPublication {
     // this must be on .main queue
     private var asTimer = DispatchQueueTimer(timeInterval: 0.3, queue: .main)
 
-    internal override init(info: Livekit_TrackInfo,
-                           track: Track? = nil,
-                           participant: Participant) {
-
+    override init(info: Livekit_TrackInfo,
+                  track: Track? = nil,
+                  participant: Participant)
+    {
         super.init(info: info,
                    track: track,
                    participant: participant)
@@ -60,23 +59,22 @@ public class RemoteTrackPublication: TrackPublication {
         set(metadataMuted: info.muted)
     }
 
-    public override var subscribed: Bool {
+    override public var subscribed: Bool {
         if !subscriptionAllowed { return false }
         return _state.preferSubscribed != false && super.subscribed
     }
 
     public var subscriptionState: SubscriptionState {
         if !subscriptionAllowed { return .notAllowed }
-        return self.subscribed ? .subscribed : .unsubscribed
+        return subscribed ? .subscribed : .unsubscribed
     }
 
     /// Subscribe or unsubscribe from this track.
     @discardableResult
     public func set(subscribed newValue: Bool) -> Promise<Void> {
-
         guard _state.preferSubscribed != newValue else { return Promise(()) }
 
-        guard let participant = participant else {
+        guard let participant else {
             log("Participant is nil", .warning)
             return Promise(EngineError.state(message: "Participant is nil"))
         }
@@ -121,8 +119,7 @@ public class RemoteTrackPublication: TrackPublication {
     }
 
     @discardableResult
-    internal override func set(track newValue: Track?) -> Track? {
-
+    override func set(track newValue: Track?) -> Track? {
         log("RemoteTrackPublication set track: \(String(describing: newValue))")
 
         let oldValue = super.set(track: newValue)
@@ -130,8 +127,7 @@ public class RemoteTrackPublication: TrackPublication {
             // always suspend adaptiveStream timer first
             asTimer.suspend()
 
-            if let newValue = newValue {
-
+            if let newValue {
                 // Copy meta-data to track
                 newValue._state.mutate {
                     $0.sid = sid
@@ -154,7 +150,7 @@ public class RemoteTrackPublication: TrackPublication {
                              notify: false)
             }
 
-            if let oldValue = oldValue, newValue == nil, let participant = participant as? RemoteParticipant {
+            if let oldValue, newValue == nil, let participant = participant as? RemoteParticipant {
                 participant.delegates.notify(label: { "participant.didUnsubscribe \(self)" }) {
                     $0.participant?(participant, didUnsubscribe: self, track: oldValue)
                 }
@@ -171,12 +167,10 @@ public class RemoteTrackPublication: TrackPublication {
 // MARK: - Private
 
 private extension RemoteTrackPublication {
-
-    var isAdaptiveStreamEnabled: Bool { (participant?.room._state.options ?? RoomOptions()).adaptiveStream && .video == kind }
+    var isAdaptiveStreamEnabled: Bool { (participant?.room._state.options ?? RoomOptions()).adaptiveStream && kind == .video }
 
     var engineConnectionState: ConnectionState {
-
-        guard let participant = participant else {
+        guard let participant else {
             log("Participant is nil", .warning)
             return .disconnected()
         }
@@ -192,13 +186,11 @@ private extension RemoteTrackPublication {
 
 // MARK: - Internal
 
-internal extension RemoteTrackPublication {
-
+extension RemoteTrackPublication {
     func set(metadataMuted newValue: Bool) {
-
         guard _state.metadataMuted != newValue else { return }
 
-        guard let participant = participant else {
+        guard let participant else {
             log("Participant is nil", .warning)
             return
         }
@@ -220,7 +212,7 @@ internal extension RemoteTrackPublication {
         guard _state.subscriptionAllowed != newValue else { return }
         _state.mutate { $0.subscriptionAllowed = newValue }
 
-        guard let participant = self.participant as? RemoteParticipant else { return }
+        guard let participant = participant as? RemoteParticipant else { return }
         participant.delegates.notify(label: { "participant.didUpdate permission: \(newValue)" }) {
             $0.participant?(participant, didUpdate: self, permission: newValue)
         }
@@ -232,8 +224,7 @@ internal extension RemoteTrackPublication {
 
 // MARK: - TrackSettings
 
-internal extension RemoteTrackPublication {
-
+extension RemoteTrackPublication {
     // reset track settings
     func resetTrackSettings() {
         // track is initially disabled when adaptive stream is enabled
@@ -243,8 +234,7 @@ internal extension RemoteTrackPublication {
 
     // attempt to send track settings
     func send(trackSettings newValue: TrackSettings) -> Promise<Void> {
-
-        guard let participant = participant else {
+        guard let participant else {
             log("Participant is nil", .warning)
             return Promise(EngineError.state(message: "Participant is nil"))
         }
@@ -269,11 +259,11 @@ internal extension RemoteTrackPublication {
         // attempt to set the new settings
         return participant.room.engine.signalClient.sendUpdateTrackSettings(sid: sid, settings: newValue)
             .then(on: queue) { [weak self] _ in
-                guard let self = self else { return }
+                guard let self else { return }
                 self._state.mutate { $0.isSendingTrackSettings = false }
             }
             .catch(on: queue) { [weak self] error in
-                guard let self = self else { return }
+                guard let self else { return }
 
                 // revert track settings on failure
                 self._state.mutate {
@@ -288,8 +278,7 @@ internal extension RemoteTrackPublication {
 
 // MARK: - Adaptive Stream
 
-internal extension Collection where Element == VideoRenderer {
-
+extension Collection<VideoRenderer> {
     func containsOneOrMoreAdaptiveStreamEnabledRenderers() -> Bool {
         // not visible if no entry
         if isEmpty { return false }
@@ -298,7 +287,6 @@ internal extension Collection where Element == VideoRenderer {
     }
 
     func largestSize() -> CGSize? {
-
         func maxCGSize(_ s1: CGSize, _ s2: CGSize) -> CGSize {
             CGSize(width: Swift.max(s1.width, s2.width),
                    height: Swift.max(s1.height, s2.height))
@@ -306,23 +294,21 @@ internal extension Collection where Element == VideoRenderer {
 
         // use post-layout nativeRenderer's view size otherwise return nil
         // which results lower layer to be requested (enabled: true, dimensions: 0x0)
-        return filter { $0.adaptiveStreamIsEnabled }
+        return filter(\.adaptiveStreamIsEnabled)
             .compactMap { $0.adaptiveStreamSize != .zero ? $0.adaptiveStreamSize : nil }
-            .reduce(into: nil as CGSize?, { previous, current in
+            .reduce(into: nil as CGSize?) { previous, current in
                 guard let unwrappedPrevious = previous else {
                     previous = current
                     return
                 }
                 previous = maxCGSize(unwrappedPrevious, current)
-            })
+            }
     }
 }
 
 extension RemoteTrackPublication {
-
     // executed on .main
     private func onAdaptiveStreamTimer() {
-
         // this should never happen
         assert(Thread.current.isMainThread, "this method must be called from main thread")
 
@@ -360,7 +346,7 @@ extension RemoteTrackPublication {
 
         // log when flipping from enabled -> disabled
         if oldSettings.enabled, !newSettings.enabled {
-            let viewsString = videoRenderers.enumerated().map { (i, v) in "videoRenderer\(i)(adaptiveStreamIsEnabled: \(v.adaptiveStreamIsEnabled), adaptiveStreamSize: \(v.adaptiveStreamSize))" }.joined(separator: ", ")
+            let viewsString = videoRenderers.enumerated().map { i, v in "videoRenderer\(i)(adaptiveStreamIsEnabled: \(v.adaptiveStreamIsEnabled), adaptiveStreamSize: \(v.adaptiveStreamSize))" }.joined(separator: ", ")
             log("[adaptiveStream] disabling sid: \(sid), videoRenderersCount: \(videoRenderers.count), \(viewsString)")
         }
 
@@ -370,12 +356,12 @@ extension RemoteTrackPublication {
         }
 
         send(trackSettings: newSettings).catch(on: queue) { [weak self] error in
-            guard let self = self else { return }
+            guard let self else { return }
             // revert to old settings on failure
             self._state.mutate { $0.trackSettings = oldSettings }
             self.log("[adaptiveStream] failed to send trackSettings, sid: \(self.sid) error: \(error)", .error)
         }.always(on: queue) { [weak self] in
-            guard let self = self else { return }
+            guard let self else { return }
             self.asTimer.restart()
         }
     }

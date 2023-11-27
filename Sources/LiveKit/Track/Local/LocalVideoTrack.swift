@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 LiveKit
+ * Copyright 2023 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,23 +15,22 @@
  */
 
 import Foundation
-import WebRTC
 import Promises
+import WebRTC
 
 @objc
 public class LocalVideoTrack: Track, LocalTrack, VideoTrack {
-
     @objc
     public internal(set) var capturer: VideoCapturer
 
     @objc
     public internal(set) var videoSource: RTCVideoSource
 
-    internal init(name: String,
-                  source: Track.Source,
-                  capturer: VideoCapturer,
-                  videoSource: RTCVideoSource) {
-
+    init(name: String,
+         source: Track.Source,
+         capturer: VideoCapturer,
+         videoSource: RTCVideoSource)
+    {
         let rtcTrack = Engine.createVideoTrack(source: videoSource)
         rtcTrack.isEnabled = true
 
@@ -57,23 +56,21 @@ public class LocalVideoTrack: Track, LocalTrack, VideoTrack {
     }
 }
 
-extension LocalVideoTrack {
-
-    public func add(videoRenderer: VideoRenderer) {
+public extension LocalVideoTrack {
+    func add(videoRenderer: VideoRenderer) {
         super._add(videoRenderer: videoRenderer)
     }
 
-    public func remove(videoRenderer: VideoRenderer) {
+    func remove(videoRenderer: VideoRenderer) {
         super._remove(videoRenderer: videoRenderer)
     }
 }
 
 // MARK: - Deprecated methods
 
-extension LocalVideoTrack {
-
+public extension LocalVideoTrack {
     @available(*, deprecated, message: "Use CameraCapturer's methods instead to switch cameras")
-    public func restartTrack(options: CameraCaptureOptions = CameraCaptureOptions()) -> Promise<Bool> {
+    func restartTrack(options: CameraCaptureOptions = CameraCaptureOptions()) -> Promise<Bool> {
         guard let capturer = capturer as? CameraCapturer else {
             return Promise(TrackError.state(message: "Must be an CameraCapturer"))
         }
@@ -82,17 +79,15 @@ extension LocalVideoTrack {
     }
 }
 
-extension LocalVideoTrack {
+public extension LocalVideoTrack {
+    var publishOptions: PublishOptions? { super._publishOptions }
 
-    public var publishOptions: PublishOptions? { super._publishOptions }
-
-    public var publishState: Track.PublishState { super._publishState }
+    var publishState: Track.PublishState { super._publishState }
 }
 
-extension LocalVideoTrack {
-
+public extension LocalVideoTrack {
     /// Clone with same ``VideoCapturer``.
-    public func clone() -> LocalVideoTrack {
+    func clone() -> LocalVideoTrack {
         LocalVideoTrack(name: name,
                         source: source,
                         capturer: capturer,

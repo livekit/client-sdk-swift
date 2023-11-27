@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 LiveKit
+ * Copyright 2023 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +19,6 @@ import WebRTC
 
 @objc
 public class CameraCaptureOptions: NSObject, VideoCaptureOptions {
-
     @objc
     public let position: AVCaptureDevice.Position
 
@@ -35,19 +34,19 @@ public class CameraCaptureOptions: NSObject, VideoCaptureOptions {
     public let fps: Int
 
     @objc
-    public override init() {
-        self.position = .front
-        self.preferredFormat = nil
-        self.dimensions = .h720_169
-        self.fps = 30
+    override public init() {
+        position = .front
+        preferredFormat = nil
+        dimensions = .h720_169
+        fps = 30
     }
 
     @objc
     public init(position: AVCaptureDevice.Position = .front,
                 preferredFormat: AVCaptureDevice.Format? = nil,
                 dimensions: Dimensions = .h720_169,
-                fps: Int = 30) {
-
+                fps: Int = 30)
+    {
         self.position = position
         self.preferredFormat = preferredFormat
         self.dimensions = dimensions
@@ -57,8 +56,8 @@ public class CameraCaptureOptions: NSObject, VideoCaptureOptions {
     public func copyWith(position: AVCaptureDevice.Position? = nil,
                          preferredFormat: AVCaptureDevice.Format? = nil,
                          dimensions: Dimensions? = nil,
-                         fps: Int? = nil) -> CameraCaptureOptions {
-
+                         fps: Int? = nil) -> CameraCaptureOptions
+    {
         CameraCaptureOptions(position: position ?? self.position,
                              preferredFormat: preferredFormat ?? self.preferredFormat,
                              dimensions: dimensions ?? self.dimensions,
@@ -67,15 +66,15 @@ public class CameraCaptureOptions: NSObject, VideoCaptureOptions {
 
     // MARK: - Equal
 
-    public override func isEqual(_ object: Any?) -> Bool {
+    override public func isEqual(_ object: Any?) -> Bool {
         guard let other = object as? Self else { return false }
-        return self.position == other.position &&
-            self.preferredFormat == other.preferredFormat &&
-            self.dimensions == other.dimensions &&
-            self.fps == other.fps
+        return position == other.position &&
+            preferredFormat == other.preferredFormat &&
+            dimensions == other.dimensions &&
+            fps == other.fps
     }
 
-    public override var hash: Int {
+    override public var hash: Int {
         var hasher = Hasher()
         hasher.combine(position)
         hasher.combine(preferredFormat)

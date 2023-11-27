@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 LiveKit
+ * Copyright 2023 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,6 @@ import Foundation
 import WebRTC
 
 extension RTCSessionDescription {
-
     func toPBType() -> Livekit_SessionDescription {
         var sd = Livekit_SessionDescription()
         sd.sdp = sdp
@@ -35,7 +34,6 @@ extension RTCSessionDescription {
 }
 
 extension Livekit_SessionDescription {
-
     func toRTCType() -> RTCSessionDescription {
         var sdpType: RTCSdpType
         switch type {

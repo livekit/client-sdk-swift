@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 LiveKit
+ * Copyright 2023 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,16 +15,15 @@
  */
 
 import Foundation
-import WebRTC
 import Promises
+import WebRTC
 
 #if canImport(ReplayKit)
-import ReplayKit
+    import ReplayKit
 #endif
 
 @objc
 public class LocalParticipant: Participant {
-
     @objc
     public var localAudioTracks: [LocalTrackPublication] { audioTracks.compactMap { $0 as? LocalTrackPublication } }
 
@@ -34,9 +33,9 @@ public class LocalParticipant: Participant {
     private var allParticipantsAllowed: Bool = true
     private var trackPermissions: [ParticipantTrackPermission] = []
 
-    internal convenience init(from info: Livekit_ParticipantInfo,
-                              room: Room) {
-
+    convenience init(from info: Livekit_ParticipantInfo,
+                     room: Room)
+    {
         self.init(sid: info.sid,
                   identity: info.identity,
                   name: info.name,
@@ -45,13 +44,13 @@ public class LocalParticipant: Participant {
         updateFromInfo(info: info)
     }
 
-    internal func getTrackPublication(sid: Sid) -> LocalTrackPublication? {
+    func getTrackPublication(sid: Sid) -> LocalTrackPublication? {
         _state.tracks[sid] as? LocalTrackPublication
     }
 
-    internal func publish(track: LocalTrack,
-                          publishOptions: PublishOptions? = nil) -> Promise<LocalTrackPublication> {
-
+    func publish(track: LocalTrack,
+                 publishOptions: PublishOptions? = nil) -> Promise<LocalTrackPublication>
+    {
         log("[publish] \(track) options: \(String(describing: publishOptions ?? nil))...", .info)
 
         guard let publisher = room.engine.publisher else {
@@ -84,14 +83,14 @@ public class LocalParticipant: Participant {
                                                        name: track.name,
                                                        type: track.kind.toPBType(),
                                                        source: track.source.toPBType(),
-                                                       encryption: self.room.e2eeManager?.e2eeOptions.encryptionType.toPBType() ?? .none ) { populator in
+                                                       encryption: self.room.e2eeManager?.e2eeOptions.encryptionType.toPBType() ?? .none)
+            { populator in
 
                 let transInit = DispatchQueue.liveKitWebRTC.sync { RTCRtpTransceiverInit() }
                 transInit.direction = .sendOnly
 
                 if let track = track as? LocalVideoTrack {
-
-                    guard let dimensions = dimensions else {
+                    guard let dimensions else {
                         throw TrackError.publish(message: "VideoCapturer dimensions are unknown")
                     }
 
@@ -127,27 +126,27 @@ public class LocalParticipant: Participant {
                     self.log("[publish] maxBitrate: \(encoding.maxBitrate)")
 
                     transInit.sendEncodings = [
-                        Engine.createRtpEncodingParameters(encoding: encoding)
+                        Engine.createRtpEncodingParameters(encoding: encoding),
                     ]
                 }
 
                 return transInit
             }
 
-        }.then(on: queue) { (transInit, trackInfo) -> Promise<(transceiver: RTCRtpTransceiver, trackInfo: Livekit_TrackInfo)> in
+        }.then(on: queue) { transInit, trackInfo -> Promise<(transceiver: RTCRtpTransceiver, trackInfo: Livekit_TrackInfo)> in
 
             self.log("[publish] server responded trackInfo: \(trackInfo)")
 
             // add transceiver to pc
             return publisher.addTransceiver(with: track.mediaTrack,
                                             transceiverInit: transInit).then(on: self.queue) { transceiver in
-                                                // pass down trackInfo and created transceiver
-                                                (transceiver, trackInfo)
-                                            }
+                // pass down trackInfo and created transceiver
+                (transceiver, trackInfo)
+            }
         }.then(on: queue) { params -> Promise<(RTCRtpTransceiver, trackInfo: Livekit_TrackInfo)> in
             self.log("[publish] added transceiver: \(params.trackInfo)...")
             return track.onPublish().then(on: self.queue) { _ in params }
-        }.then(on: queue) { (transceiver, trackInfo) -> LocalTrackPublication in
+        }.then(on: queue) { transceiver, trackInfo -> LocalTrackPublication in
 
             // store publishOptions used for this track
             track._publishOptions = publishOptions
@@ -198,19 +197,19 @@ public class LocalParticipant: Participant {
 
     /// publish a new audio track to the Room
     public func publishAudioTrack(track: LocalAudioTrack,
-                                  publishOptions: AudioPublishOptions? = nil) -> Promise<LocalTrackPublication> {
-
+                                  publishOptions: AudioPublishOptions? = nil) -> Promise<LocalTrackPublication>
+    {
         publish(track: track, publishOptions: publishOptions)
     }
 
     /// publish a new video track to the Room
     public func publishVideoTrack(track: LocalVideoTrack,
-                                  publishOptions: VideoPublishOptions? = nil) -> Promise<LocalTrackPublication> {
-
+                                  publishOptions: VideoPublishOptions? = nil) -> Promise<LocalTrackPublication>
+    {
         publish(track: track, publishOptions: publishOptions)
     }
 
-    public override func unpublishAll(notify _notify: Bool = true) -> Promise<Void> {
+    override public func unpublishAll(notify _notify: Bool = true) -> Promise<Void> {
         // build a list of promises
         let promises = _state.tracks.values.compactMap { $0 as? LocalTrackPublication }
             .map { unpublish(publication: $0, notify: _notify) }
@@ -221,9 +220,7 @@ public class LocalParticipant: Participant {
     /// unpublish an existing published track
     /// this will also stop the track
     public func unpublish(publication: LocalTrackPublication, notify _notify: Bool = true) -> Promise<Void> {
-
         func notifyDidUnpublish() -> Promise<Void> {
-
             Promise<Void>(on: queue) {
                 guard _notify else { return }
                 // notify unpublish
@@ -236,7 +233,7 @@ public class LocalParticipant: Participant {
             }
         }
 
-        let engine = self.room.engine
+        let engine = room.engine
 
         // remove the publication
         _state.mutate { $0.tracks.removeValue(forKey: publication.sid) }
@@ -288,8 +285,8 @@ public class LocalParticipant: Participant {
     @discardableResult
     public func publishData(data: Data,
                             reliability: Reliability = .reliable,
-                            destination: [String] = []) -> Promise<Void> {
-
+                            destination: [String] = []) -> Promise<Void>
+    {
         let userPacket = Livekit_UserPacket.with {
             $0.destinationSids = destination
             $0.payload = data
@@ -308,10 +305,10 @@ public class LocalParticipant: Participant {
                         reliability: Reliability = .reliable,
                         destinations: [RemoteParticipant]? = nil,
                         topic: String? = nil,
-                        options: DataPublishOptions? = nil) -> Promise<Void> {
-
-        let options = options ?? self.room._state.options.defaultDataPublishOptions
-        let destinations = destinations?.map { $0.sid }
+                        options: DataPublishOptions? = nil) -> Promise<Void>
+    {
+        let options = options ?? room._state.options.defaultDataPublishOptions
+        let destinations = destinations?.map(\.sid)
 
         let userPacket = Livekit_UserPacket.with {
             $0.destinationSids = destinations ?? options.destinations
@@ -343,8 +340,8 @@ public class LocalParticipant: Participant {
      */
     @discardableResult
     public func setTrackSubscriptionPermissions(allParticipantsAllowed: Bool,
-                                                trackPermissions: [ParticipantTrackPermission] = []) -> Promise<Void> {
-
+                                                trackPermissions: [ParticipantTrackPermission] = []) -> Promise<Void>
+    {
         self.allParticipantsAllowed = allParticipantsAllowed
         self.trackPermissions = trackPermissions
 
@@ -375,8 +372,7 @@ public class LocalParticipant: Participant {
         return room.engine.signalClient.sendUpdateLocalMetadata(metadata ?? "", name: name)
     }
 
-    internal func sendTrackSubscriptionPermissions() -> Promise<Void> {
-
+    func sendTrackSubscriptionPermissions() -> Promise<Void> {
         guard room.engine._state.connectionState == .connected else {
             return Promise(())
         }
@@ -385,8 +381,7 @@ public class LocalParticipant: Participant {
                                                                          trackPermissions: trackPermissions)
     }
 
-    internal func onSubscribedQualitiesUpdate(trackSid: String, subscribedQualities: [Livekit_SubscribedQuality]) {
-
+    func onSubscribedQualitiesUpdate(trackSid: String, subscribedQualities: [Livekit_SubscribedQuality]) {
         if !room._state.options.dynacast {
             return
         }
@@ -401,7 +396,6 @@ public class LocalParticipant: Participant {
 
         var hasChanged = false
         for quality in subscribedQualities {
-
             var rid: String
             switch quality.quality {
             case Livekit_VideoQuality.high: rid = "f"
@@ -422,7 +416,7 @@ public class LocalParticipant: Participant {
         }
 
         // Non simulcast streams don't have rids, handle here.
-        if encodings.count == 1 && subscribedQualities.count >= 1 {
+        if encodings.count == 1, subscribedQualities.count >= 1 {
             let encoding = encodings[0]
             let quality = subscribedQualities[0]
 
@@ -438,8 +432,7 @@ public class LocalParticipant: Participant {
         }
     }
 
-    internal override func set(permissions newValue: ParticipantPermissions) -> Bool {
-
+    override func set(permissions newValue: ParticipantPermissions) -> Bool {
         let didUpdate = super.set(permissions: newValue)
 
         if didUpdate {
@@ -458,8 +451,7 @@ public class LocalParticipant: Participant {
 // MARK: - Session Migration
 
 extension LocalParticipant {
-
-    internal func publishedTracksInfo() -> [Livekit_TrackPublishedResponse] {
+    func publishedTracksInfo() -> [Livekit_TrackPublishedResponse] {
         _state.tracks.values.filter { $0.track != nil }
             .map { publication in
                 Livekit_TrackPublishedResponse.with {
@@ -471,9 +463,8 @@ extension LocalParticipant {
             }
     }
 
-    internal func republishTracks() -> Promise<Void> {
-
-        let mediaTracks = _state.tracks.values.map { $0.track }.compactMap { $0 }
+    func republishTracks() -> Promise<Void> {
+        let mediaTracks = _state.tracks.values.map(\.track).compactMap { $0 }
 
         return unpublishAll().then(on: queue) { () -> Promise<Void> in
 
@@ -492,15 +483,14 @@ extension LocalParticipant {
 
 // MARK: - Simplified API
 
-extension LocalParticipant {
-
+public extension LocalParticipant {
     @discardableResult
-    public func setCamera(enabled: Bool, captureOptions: CameraCaptureOptions? = nil, publishOptions: VideoPublishOptions? = nil) -> Promise<LocalTrackPublication?> {
+    func setCamera(enabled: Bool, captureOptions: CameraCaptureOptions? = nil, publishOptions: VideoPublishOptions? = nil) -> Promise<LocalTrackPublication?> {
         set(source: .camera, enabled: enabled, captureOptions: captureOptions, publishOptions: publishOptions)
     }
 
     @discardableResult
-    public func setMicrophone(enabled: Bool, captureOptions: AudioCaptureOptions? = nil, publishOptions: AudioPublishOptions? = nil) -> Promise<LocalTrackPublication?> {
+    func setMicrophone(enabled: Bool, captureOptions: AudioCaptureOptions? = nil, publishOptions: AudioPublishOptions? = nil) -> Promise<LocalTrackPublication?> {
         set(source: .microphone, enabled: enabled, captureOptions: captureOptions, publishOptions: publishOptions)
     }
 
@@ -514,11 +504,11 @@ extension LocalParticipant {
     ///
     /// For advanced usage, you can create a relevant ``LocalVideoTrack`` and call ``LocalParticipant/publishVideoTrack(track:publishOptions:)``.
     @discardableResult
-    public func setScreenShare(enabled: Bool) -> Promise<LocalTrackPublication?> {
+    func setScreenShare(enabled: Bool) -> Promise<LocalTrackPublication?> {
         set(source: .screenShareVideo, enabled: enabled)
     }
 
-    public func set(source: Track.Source, enabled: Bool, captureOptions: CaptureOptions? = nil, publishOptions: PublishOptions? = nil) -> Promise<LocalTrackPublication?> {
+    func set(source: Track.Source, enabled: Bool, captureOptions: CaptureOptions? = nil, publishOptions: PublishOptions? = nil) -> Promise<LocalTrackPublication?> {
         // attempt to get existing publication
         if let publication = getTrackPublication(source: source) as? LocalTrackPublication {
             if enabled {
@@ -536,28 +526,28 @@ extension LocalParticipant {
                 return publishAudioTrack(track: localTrack, publishOptions: publishOptions as? AudioPublishOptions).then(on: queue) { $0 }
             } else if source == .screenShareVideo {
                 #if os(iOS)
-                var localTrack: LocalVideoTrack?
-                let options = (captureOptions as? ScreenShareCaptureOptions) ?? room._state.options.defaultScreenShareCaptureOptions
-                if options.useBroadcastExtension {
-                    Task { @MainActor in
-                        let screenShareExtensionId = Bundle.main.infoDictionary?[BroadcastScreenCapturer.kRTCScreenSharingExtension] as? String
-                        RPSystemBroadcastPickerView.show(for: screenShareExtensionId,
-                                                         showsMicrophoneButton: false)
+                    var localTrack: LocalVideoTrack?
+                    let options = (captureOptions as? ScreenShareCaptureOptions) ?? room._state.options.defaultScreenShareCaptureOptions
+                    if options.useBroadcastExtension {
+                        Task { @MainActor in
+                            let screenShareExtensionId = Bundle.main.infoDictionary?[BroadcastScreenCapturer.kRTCScreenSharingExtension] as? String
+                            RPSystemBroadcastPickerView.show(for: screenShareExtensionId,
+                                                             showsMicrophoneButton: false)
+                        }
+                        localTrack = LocalVideoTrack.createBroadcastScreenCapturerTrack(options: options)
+                    } else {
+                        localTrack = LocalVideoTrack.createInAppScreenShareTrack(options: options)
                     }
-                    localTrack = LocalVideoTrack.createBroadcastScreenCapturerTrack(options: options)
-                } else {
-                    localTrack = LocalVideoTrack.createInAppScreenShareTrack(options: options)
-                }
 
-                if let localTrack = localTrack {
-                    return publishVideoTrack(track: localTrack, publishOptions: publishOptions as? VideoPublishOptions).then(on: queue) { $0 }
-                }
+                    if let localTrack {
+                        return publishVideoTrack(track: localTrack, publishOptions: publishOptions as? VideoPublishOptions).then(on: queue) { $0 }
+                    }
                 #elseif os(macOS)
-                return MacOSScreenCapturer.mainDisplaySource().then(on: queue) { mainDisplay in
-                    let track = LocalVideoTrack.createMacOSScreenShareTrack(source: mainDisplay,
-                                                                            options: (captureOptions as? ScreenShareCaptureOptions) ?? self.room._state.options.defaultScreenShareCaptureOptions)
-                    return self.publishVideoTrack(track: track, publishOptions: publishOptions as? VideoPublishOptions)
-                }.then(on: queue) { $0 }
+                    return MacOSScreenCapturer.mainDisplaySource().then(on: queue) { mainDisplay in
+                        let track = LocalVideoTrack.createMacOSScreenShareTrack(source: mainDisplay,
+                                                                                options: (captureOptions as? ScreenShareCaptureOptions) ?? self.room._state.options.defaultScreenShareCaptureOptions)
+                        return self.publishVideoTrack(track: track, publishOptions: publishOptions as? VideoPublishOptions)
+                    }.then(on: queue) { $0 }
                 #endif
             }
         }

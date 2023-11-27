@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 LiveKit
+ * Copyright 2023 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,6 @@
 import XCTest
 
 class CompleterTests: XCTestCase {
-
     struct TestState: Equatable {
         var completer = Completer<String>()
     }
@@ -28,22 +27,16 @@ class CompleterTests: XCTestCase {
 
     let group = DispatchGroup()
     var concurrentQueues = DispatchQueue(label: "completer")
-    
-    override func setUpWithError() throws {
 
-    }
+    override func setUpWithError() throws {}
 
-    
-    override func tearDown() async throws {
-
-    }
+    override func tearDown() async throws {}
 
     func testCompleter1() async throws {
-        
         // safeState.mutate { $0.completer.set(value: "resolved") }
-        
-        let promise = safeState.mutate { $0.completer.wait(on: concurrentQueues, 3, throw: { EngineError.timedOut(message: "") } ) }
-        
+
+        let promise = safeState.mutate { $0.completer.wait(on: concurrentQueues, 3, throw: { EngineError.timedOut(message: "") }) }
+
         concurrentQueues.async {
             // Thread.sleep(forTimeInterval: 10)
             self.safeState.mutate {

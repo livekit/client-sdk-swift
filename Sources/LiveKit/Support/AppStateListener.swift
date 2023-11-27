@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 LiveKit
+ * Copyright 2023 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,17 +17,16 @@
 import Foundation
 
 #if canImport(UIKit)
-import UIKit
+    import UIKit
 #endif
 
-internal protocol AppStateDelegate: AnyObject {
+protocol AppStateDelegate: AnyObject {
     func appDidEnterBackground()
     func appWillEnterForeground()
     func appWillTerminate()
 }
 
-internal class AppStateListener: MulticastDelegate<AppStateDelegate> {
-
+class AppStateListener: MulticastDelegate<AppStateDelegate> {
     static let shared = AppStateListener()
 
     private init() {
@@ -36,29 +35,32 @@ internal class AppStateListener: MulticastDelegate<AppStateDelegate> {
         let center = NotificationCenter.default
 
         #if os(iOS)
-        center.addObserver(forName: UIApplication.didEnterBackgroundNotification,
-                           object: nil,
-                           queue: OperationQueue.main) { (_) in
+            center.addObserver(forName: UIApplication.didEnterBackgroundNotification,
+                               object: nil,
+                               queue: OperationQueue.main)
+            { _ in
 
-            self.log("UIApplication.didEnterBackground")
-            self.notify { $0.appDidEnterBackground() }
-        }
+                self.log("UIApplication.didEnterBackground")
+                self.notify { $0.appDidEnterBackground() }
+            }
 
-        center.addObserver(forName: UIApplication.willEnterForegroundNotification,
-                           object: nil,
-                           queue: OperationQueue.main) { (_) in
+            center.addObserver(forName: UIApplication.willEnterForegroundNotification,
+                               object: nil,
+                               queue: OperationQueue.main)
+            { _ in
 
-            self.log("UIApplication.willEnterForeground")
-            self.notify { $0.appWillEnterForeground() }
-        }
+                self.log("UIApplication.willEnterForeground")
+                self.notify { $0.appWillEnterForeground() }
+            }
 
-        center.addObserver(forName: UIApplication.willTerminateNotification,
-                           object: nil,
-                           queue: OperationQueue.main) { (_) in
+            center.addObserver(forName: UIApplication.willTerminateNotification,
+                               object: nil,
+                               queue: OperationQueue.main)
+            { _ in
 
-            self.log("UIApplication.willTerminate")
-            self.notify { $0.appWillTerminate() }
-        }
+                self.log("UIApplication.willTerminate")
+                self.notify { $0.appWillTerminate() }
+            }
         #endif
     }
 }

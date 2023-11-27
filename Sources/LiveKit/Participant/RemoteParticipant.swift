@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 LiveKit
+ * Copyright 2023 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,32 +15,30 @@
  */
 
 import Foundation
-import WebRTC
 import Promises
+import WebRTC
 
 @objc
 public class RemoteParticipant: Participant {
-
-    internal init(sid: Sid,
-                  info: Livekit_ParticipantInfo?,
-                  room: Room) {
-
+    init(sid: Sid,
+         info: Livekit_ParticipantInfo?,
+         room: Room)
+    {
         super.init(sid: sid,
                    identity: info?.identity ?? "",
                    name: info?.name ?? "",
                    room: room)
 
-        if let info = info {
+        if let info {
             updateFromInfo(info: info)
         }
     }
 
-    internal func getTrackPublication(sid: Sid) -> RemoteTrackPublication? {
+    func getTrackPublication(sid: Sid) -> RemoteTrackPublication? {
         _state.tracks[sid] as? RemoteTrackPublication
     }
 
     override func updateFromInfo(info: Livekit_ParticipantInfo) {
-
         super.updateFromInfo(info: info)
 
         var validTrackPublications = [String: RemoteTrackPublication]()
@@ -59,10 +57,9 @@ public class RemoteParticipant: Participant {
         }
 
         room.engine.executeIfConnected { [weak self] in
-            guard let self = self else { return }
+            guard let self else { return }
 
             for publication in newTrackPublications.values {
-
                 self.delegates.notify(label: { "participant.didPublish \(publication)" }) {
                     $0.participant?(self, didPublish: publication)
                 }
@@ -83,10 +80,10 @@ public class RemoteParticipant: Participant {
         }
     }
 
-    internal func addSubscribedMediaTrack(rtcTrack: RTCMediaStreamTrack,
-                                          rtpReceiver: RTCRtpReceiver,
-                                          sid: Sid) -> Promise<Void> {
-
+    func addSubscribedMediaTrack(rtcTrack: RTCMediaStreamTrack,
+                                 rtpReceiver: RTCRtpReceiver,
+                                 sid: Sid) -> Promise<Void>
+    {
         let track: Track
 
         guard let publication = getTrackPublication(sid: sid) else {
@@ -131,7 +128,7 @@ public class RemoteParticipant: Participant {
 
         addTrack(publication: publication)
 
-        return track.start().then(on: queue) { _ -> Void in
+        return track.start().then(on: queue) { _ in
             self.delegates.notify(label: { "participant.didSubscribe \(publication)" }) {
                 $0.participant?(self, didSubscribe: publication, track: track)
             }
@@ -141,7 +138,7 @@ public class RemoteParticipant: Participant {
         }
     }
 
-    internal override func cleanUp(notify _notify: Bool = true) -> Promise<Void> {
+    override func cleanUp(notify _notify: Bool = true) -> Promise<Void> {
         super.cleanUp(notify: _notify).then(on: queue) {
             self.room.delegates.notify(label: { "room.participantDidLeave" }) {
                 $0.room?(self.room, participantDidLeave: self)
@@ -149,7 +146,7 @@ public class RemoteParticipant: Participant {
         }
     }
 
-    public override func unpublishAll(notify _notify: Bool = true) -> Promise<Void> {
+    override public func unpublishAll(notify _notify: Bool = true) -> Promise<Void> {
         // build a list of promises
         let promises = _state.tracks.values.compactMap { $0 as? RemoteTrackPublication }
             .map { unpublish(publication: $0, notify: _notify) }
@@ -157,12 +154,10 @@ public class RemoteParticipant: Participant {
         return promises.all(on: queue)
     }
 
-    internal func unpublish(publication: RemoteTrackPublication, notify _notify: Bool = true) -> Promise<Void> {
-
+    func unpublish(publication: RemoteTrackPublication, notify _notify: Bool = true) -> Promise<Void> {
         func notifyUnpublish() -> Promise<Void> {
-
             Promise<Void>(on: queue) { [weak self] in
-                guard let self = self, _notify else { return }
+                guard let self, _notify else { return }
                 // notify unpublish
                 self.delegates.notify(label: { "participant.didUnpublish \(publication)" }) {
                     $0.participant?(self, didUnpublish: publication)
@@ -182,7 +177,7 @@ public class RemoteParticipant: Participant {
             return notifyUnpublish()
         }
 
-        return track.stop().then(on: queue) { _ -> Void in
+        return track.stop().then(on: queue) { _ in
             guard _notify else { return }
             // notify unsubscribe
             self.delegates.notify(label: { "participant.didUnsubscribe \(publication)" }) {

@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 LiveKit
+ * Copyright 2023 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,6 @@ import Foundation
 
 @available(*, deprecated)
 public extension Dimensions {
-
     // 16:9 aspect ratio presets
     static let qvga169 = h180_169
     static let vga169 = h360_169

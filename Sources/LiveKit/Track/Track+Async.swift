@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 LiveKit
+ * Copyright 2023 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,14 +15,12 @@
  */
 
 import Foundation
-import WebRTC
 import Promises
+import WebRTC
 
 public extension Track {
-
     @discardableResult
     func start() async throws -> Bool {
-
         try await withCheckedThrowingContinuation { continuation in
             start().then(on: queue) { result in
                 continuation.resume(returning: result)
@@ -34,7 +32,6 @@ public extension Track {
 
     @discardableResult
     func stop() async throws -> Bool {
-
         try await withCheckedThrowingContinuation { continuation in
             stop().then(on: queue) { result in
                 continuation.resume(returning: result)

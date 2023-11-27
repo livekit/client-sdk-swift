@@ -15,11 +15,10 @@
  */
 
 import Foundation
-import WebRTC
 import Promises
+import WebRTC
 
 private extension Array where Element: RTCVideoCodecInfo {
-
     func rewriteCodecsIfNeeded() -> [RTCVideoCodecInfo] {
         // rewrite H264's profileLevelId to 42e032
         let codecs = map { $0.name == kRTCVideoCodecH264Name ? Engine.h264BaselineLevel5CodecInfo : $0 }
@@ -29,32 +28,27 @@ private extension Array where Element: RTCVideoCodecInfo {
 }
 
 private class VideoEncoderFactory: RTCDefaultVideoEncoderFactory {
-
     override func supportedCodecs() -> [RTCVideoCodecInfo] {
         super.supportedCodecs().rewriteCodecsIfNeeded()
     }
 }
 
 private class VideoDecoderFactory: RTCDefaultVideoDecoderFactory {
-
     override func supportedCodecs() -> [RTCVideoCodecInfo] {
         super.supportedCodecs().rewriteCodecsIfNeeded()
     }
 }
 
 private class VideoEncoderFactorySimulcast: RTCVideoEncoderFactorySimulcast {
-
     override func supportedCodecs() -> [RTCVideoCodecInfo] {
         super.supportedCodecs().rewriteCodecsIfNeeded()
     }
 }
 
-internal extension Engine {
-
+extension Engine {
     static var bypassVoiceProcessing: Bool = false
 
     static let h264BaselineLevel5CodecInfo: RTCVideoCodecInfo = {
-
         // this should never happen
         guard let profileLevelId = RTCH264ProfileLevelId(profile: .constrainedBaseline, level: .level5) else {
             logger.log("failed to generate profileLevelId", .error, type: Engine.self)
@@ -70,21 +64,18 @@ internal extension Engine {
 
     // global properties are already lazy
 
-    static private let encoderFactory: RTCVideoEncoderFactory = {
+    private static let encoderFactory: RTCVideoEncoderFactory = {
         let encoderFactory = VideoEncoderFactory()
         return VideoEncoderFactorySimulcast(primary: encoderFactory,
                                             fallback: encoderFactory)
 
     }()
 
-    static private let decoderFactory = VideoDecoderFactory()
+    private static let decoderFactory = VideoDecoderFactory()
 
-    static let audioProcessingModule: RTCDefaultAudioProcessingModule = {
-        RTCDefaultAudioProcessingModule()
-    }()
+    static let audioProcessingModule: RTCDefaultAudioProcessingModule = .init()
 
     static let peerConnectionFactory: RTCPeerConnectionFactory = {
-
         logger.log("Initializing SSL...", type: Engine.self)
 
         RTCInitializeSSL()
@@ -109,7 +100,8 @@ internal extension Engine {
     }
 
     static func createPeerConnection(_ configuration: RTCConfiguration,
-                                     constraints: RTCMediaConstraints) -> RTCPeerConnection? {
+                                     constraints: RTCMediaConstraints) -> RTCPeerConnection?
+    {
         DispatchQueue.liveKitWebRTC.sync { peerConnectionFactory.peerConnection(with: configuration,
                                                                                 constraints: constraints,
                                                                                 delegate: nil) }
@@ -134,7 +126,8 @@ internal extension Engine {
     }
 
     static func createDataChannelConfiguration(ordered: Bool = true,
-                                               maxRetransmits: Int32 = -1) -> RTCDataChannelConfiguration {
+                                               maxRetransmits: Int32 = -1) -> RTCDataChannelConfiguration
+    {
         let result = DispatchQueue.liveKitWebRTC.sync { RTCDataChannelConfiguration() }
         result.isOrdered = ordered
         result.maxRetransmits = maxRetransmits
@@ -160,18 +153,18 @@ internal extension Engine {
     static func createRtpEncodingParameters(rid: String? = nil,
                                             encoding: MediaEncoding? = nil,
                                             scaleDownBy: Double? = nil,
-                                            active: Bool = true) -> RTCRtpEncodingParameters {
-
+                                            active: Bool = true) -> RTCRtpEncodingParameters
+    {
         let result = DispatchQueue.liveKitWebRTC.sync { RTCRtpEncodingParameters() }
 
         result.isActive = active
         result.rid = rid
 
-        if let scaleDownBy = scaleDownBy {
+        if let scaleDownBy {
             result.scaleResolutionDownBy = NSNumber(value: scaleDownBy)
         }
 
-        if let encoding = encoding {
+        if let encoding {
             result.maxBitrateBps = NSNumber(value: encoding.maxBitrate)
 
             // VideoEncoding specific

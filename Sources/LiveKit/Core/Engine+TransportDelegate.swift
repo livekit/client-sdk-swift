@@ -15,12 +15,11 @@
  */
 
 import Foundation
-import WebRTC
 import Promises
+import WebRTC
 
 extension Engine: TransportDelegate {
-
-    func transport(_ transport: Transport, didGenerate stats: [TrackStats], target: Livekit_SignalTarget) {
+    func transport(_: Transport, didGenerate stats: [TrackStats], target: Livekit_SignalTarget) {
         // relay to Room
         notify { $0.engine(self, didGenerate: stats, target: target) }
     }
@@ -30,17 +29,17 @@ extension Engine: TransportDelegate {
 
         // primary connected
         if transport.primary {
-            _state.mutate { $0.primaryTransportConnectedCompleter.set(value: .connected == pcState ? true : nil) }
+            _state.mutate { $0.primaryTransportConnectedCompleter.set(value: pcState == .connected ? true : nil) }
         }
 
         // publisher connected
         if case .publisher = transport.target {
-            _state.mutate { $0.publisherTransportConnectedCompleter.set(value: .connected == pcState ? true : nil) }
+            _state.mutate { $0.publisherTransportConnectedCompleter.set(value: pcState == .connected ? true : nil) }
         }
 
         if _state.connectionState.isConnected {
             // Attempt re-connect if primary or publisher transport failed
-            if (transport.primary || (_state.hasPublished && transport.target == .publisher)) && [.disconnected, .failed].contains(pcState) {
+            if transport.primary || (_state.hasPublished && transport.target == .publisher), [.disconnected, .failed].contains(pcState) {
                 log("[reconnect] starting, reason: transport disconnected or failed")
                 startReconnect()
             }
@@ -51,19 +50,19 @@ extension Engine: TransportDelegate {
         log("didGenerate iceCandidate")
         signalClient.sendCandidate(candidate: iceCandidate,
                                    target: transport.target).catch(on: queue) { error in
-                                    self.log("Failed to send candidate, error: \(error)", .error)
-                                   }
+            self.log("Failed to send candidate, error: \(error)", .error)
+        }
     }
 
     func transport(_ transport: Transport, didAddTrack track: RTCMediaStreamTrack, rtpReceiver: RTCRtpReceiver, streams: [RTCMediaStream]) {
         log("did add track")
         if transport.target == .subscriber {
-
             // execute block when connected
             execute(when: { state, _ in state.connectionState == .connected },
                     // always remove this block when disconnected
-                    removeWhen: { state, _ in state.connectionState == .disconnected() }) { [weak self] in
-                guard let self = self else { return }
+                    removeWhen: { state, _ in state.connectionState == .disconnected() })
+            { [weak self] in
+                guard let self else { return }
                 self.notify { $0.engine(self, didAddTrack: track, rtpReceiver: rtpReceiver, streams: streams) }
             }
         }
@@ -76,11 +75,9 @@ extension Engine: TransportDelegate {
     }
 
     func transport(_ transport: Transport, didOpen dataChannel: RTCDataChannel) {
-
         log("Server opened data channel \(dataChannel.label)(\(dataChannel.readyState))")
 
         if subscriberPrimary, transport.target == .subscriber {
-
             switch dataChannel.label {
             case RTCDataChannel.labels.reliable: subscriberDC.set(reliable: dataChannel)
             case RTCDataChannel.labels.lossy: subscriberDC.set(lossy: dataChannel)
@@ -89,5 +86,5 @@ extension Engine: TransportDelegate {
         }
     }
 
-    func transportShouldNegotiate(_ transport: Transport) {}
+    func transportShouldNegotiate(_: Transport) {}
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 LiveKit
+ * Copyright 2023 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,7 +31,6 @@ public enum DisconnectReason {
 }
 
 extension Livekit_DisconnectReason {
-
     func toLKType() -> DisconnectReason {
         switch self {
         case .clientInitiated: return .user
@@ -47,12 +46,11 @@ extension Livekit_DisconnectReason {
 }
 
 extension DisconnectReason: Equatable {
-
     public static func == (lhs: DisconnectReason, rhs: DisconnectReason) -> Bool {
         lhs.isEqual(to: rhs)
     }
 
-    public func isEqual(to rhs: DisconnectReason, includingAssociatedValues: Bool = true) -> Bool {
+    public func isEqual(to rhs: DisconnectReason, includingAssociatedValues _: Bool = true) -> Bool {
         switch (self, rhs) {
         case (.user, .user): return true
         case (.networkError, .networkError): return true
@@ -69,7 +67,7 @@ extension DisconnectReason: Equatable {
     }
 
     var networkError: Error? {
-        if case .networkError(let error) = self {
+        if case let .networkError(error) = self {
             return error
         }
 

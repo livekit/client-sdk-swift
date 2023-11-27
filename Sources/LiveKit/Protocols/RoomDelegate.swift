@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 LiveKit
+ * Copyright 2023 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,7 +33,6 @@ import Foundation
 /// See the source code of [Swift Example App](https://github.com/livekit/client-example-swift) for more examples.
 @objc
 public protocol RoomDelegateObjC: AnyObject {
-
     @objc(room:didUpdateConnectionState:oldConnectionState:) optional
     func room(_ room: Room, didUpdate connectionState: ConnectionStateObjC, oldValue oldConnectionState: ConnectionStateObjC)
 
@@ -153,6 +152,5 @@ public protocol RoomDelegate: RoomDelegateObjC {
 
 /// Default implementation for ``RoomDelegate``
 public extension RoomDelegate {
-
-    func room(_ room: Room, didUpdate connectionState: ConnectionState, oldValue: ConnectionState) {}
+    func room(_: Room, didUpdate _: ConnectionState, oldValue _: ConnectionState) {}
 }

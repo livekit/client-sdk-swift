@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 LiveKit
+ * Copyright 2023 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,20 +17,18 @@
 import Foundation
 import Network
 
-internal protocol ConnectivityListenerDelegate: AnyObject {
-
+protocol ConnectivityListenerDelegate: AnyObject {
     func connectivityListener(_: ConnectivityListener, didUpdate hasConnectivity: Bool)
     // network remains to have connectivity but path changed
     func connectivityListener(_: ConnectivityListener, didSwitch path: NWPath)
 }
 
-internal extension ConnectivityListenerDelegate {
-    func connectivityListener(_: ConnectivityListener, didUpdate hasConnectivity: Bool) {}
-    func connectivityListener(_: ConnectivityListener, didSwitch path: NWPath) {}
+extension ConnectivityListenerDelegate {
+    func connectivityListener(_: ConnectivityListener, didUpdate _: Bool) {}
+    func connectivityListener(_: ConnectivityListener, didSwitch _: NWPath) {}
 }
 
-internal class ConnectivityListener: MulticastDelegate<ConnectivityListenerDelegate> {
-
+class ConnectivityListener: MulticastDelegate<ConnectivityListenerDelegate> {
     static let shared = ConnectivityListener()
 
     public private(set) var hasConnectivity: Bool? {
@@ -56,13 +54,12 @@ internal class ConnectivityListener: MulticastDelegate<ConnectivityListenerDeleg
     private let switchInterval: TimeInterval = 3
 
     private init() {
-
         super.init()
 
         log("initial path: \(monitor.currentPath), has: \(monitor.currentPath.isSatisfied())")
 
         monitor.pathUpdateHandler = { [weak self] path in
-            guard let self = self else { return }
+            guard let self else { return }
             self.set(path: path)
         }
 
@@ -75,8 +72,7 @@ internal class ConnectivityListener: MulticastDelegate<ConnectivityListenerDeleg
     }
 }
 
-internal extension ConnectivityListener {
-
+extension ConnectivityListener {
     func activeInterfaceType() -> NWInterface.InterfaceType? {
         let path = monitor.currentPath
         return path.availableInterfaces.filter {
@@ -86,36 +82,35 @@ internal extension ConnectivityListener {
 }
 
 private extension ConnectivityListener {
-
-    func set(path newValue: NWPath, notify _notify: Bool = false) {
-
-        log("status: \(newValue.status), interfaces: \(newValue.availableInterfaces.map({ "\(String(describing: $0.type))-\(String(describing: $0.index))" })), gateways: \(newValue.gateways), activeIp: \(String(describing: newValue.availableInterfaces.first?.ipv4))")
+    func set(path newValue: NWPath, notify _: Bool = false) {
+        log("status: \(newValue.status), interfaces: \(newValue.availableInterfaces.map { "\(String(describing: $0.type))-\(String(describing: $0.index))" }), gateways: \(newValue.gateways), activeIp: \(String(describing: newValue.availableInterfaces.first?.ipv4))")
 
         // check if different path
-        guard newValue != self.path else { return }
+        guard newValue != path else { return }
 
         // keep old values
-        let oldValue = self.path
-        let oldIpValue = self.ipv4
+        let oldValue = path
+        let oldIpValue = ipv4
 
         // update new values
         let newIpValue = newValue.availableInterfaces.first?.ipv4
-        self.path = newValue
-        self.ipv4 = newIpValue
-        self.hasConnectivity = newValue.isSatisfied()
+        path = newValue
+        ipv4 = newIpValue
+        hasConnectivity = newValue.isSatisfied()
 
         // continue if old value exists
-        guard let oldValue = oldValue else { return }
+        guard let oldValue else { return }
 
         if oldValue.isSatisfied(), !newValue.isSatisfied() {
             // satisfied -> unsatisfied
             // active connection did disconnect
             log("starting satisfied monitor timer")
-            self.isPossiblySwitchingNetwork = true
+            isPossiblySwitchingNetwork = true
             switchNetworkTimer?.invalidate()
             switchNetworkTimer = Timer.scheduledTimer(withTimeInterval: switchInterval,
-                                                      repeats: false) { [weak self] _ in
-                guard let self = self else { return }
+                                                      repeats: false)
+            { [weak self] _ in
+                guard let self else { return }
                 self.log("satisfied monitor timer invalidated")
                 self.isPossiblySwitchingNetwork = false
                 self.switchNetworkTimer = nil
@@ -125,7 +120,7 @@ private extension ConnectivityListener {
             // did switch network
             switchNetworkTimer?.invalidate()
             switchNetworkTimer = nil
-            self.isPossiblySwitchingNetwork = false
+            isPossiblySwitchingNetwork = false
 
             log("didSwitch type: quick on & off")
             notify { $0.connectivityListener(self, didSwitch: newValue) }
@@ -145,18 +140,15 @@ private extension ConnectivityListener {
     }
 }
 
-internal extension NWPath {
-
+extension NWPath {
     func isSatisfied() -> Bool {
         if case .satisfied = status { return true }
         return false
     }
 }
 
-internal extension NWInterface {
-
+extension NWInterface {
     func address(family: Int32) -> String? {
-
         var address: String?
 
         // get list of all interfaces on the local machine:
@@ -185,6 +177,6 @@ internal extension NWInterface {
         return address
     }
 
-    var ipv4: String? { self.address(family: AF_INET) }
-    var ipv6: String? { self.address(family: AF_INET6) }
+    var ipv4: String? { address(family: AF_INET) }
+    var ipv6: String? { address(family: AF_INET6) }
 }

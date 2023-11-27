@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 LiveKit
+ * Copyright 2023 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +19,6 @@ import WebRTC
 
 @objc
 public class VideoEncoding: NSObject, MediaEncoding {
-
     @objc
     public var maxBitrate: Int
 
@@ -34,13 +33,13 @@ public class VideoEncoding: NSObject, MediaEncoding {
 
     // MARK: - Equal
 
-    public override func isEqual(_ object: Any?) -> Bool {
+    override public func isEqual(_ object: Any?) -> Bool {
         guard let other = object as? Self else { return false }
-        return self.maxBitrate == other.maxBitrate &&
-            self.maxFps == other.maxFps
+        return maxBitrate == other.maxBitrate &&
+            maxFps == other.maxFps
     }
 
-    public override var hash: Int {
+    override public var hash: Int {
         var hasher = Hasher()
         hasher.combine(maxBitrate)
         hasher.combine(maxFps)

@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 LiveKit
+ * Copyright 2023 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,21 +15,20 @@
  */
 
 import Foundation
-import WebRTC
 import Promises
+import WebRTC
 
 #if canImport(Network)
-import Network
+    import Network
 #endif
 
 @objc
 public class Room: NSObject, ObservableObject, Loggable {
-
     // MARK: - MulticastDelegate
 
-    internal var delegates = MulticastDelegate<RoomDelegateObjC>()
+    var delegates = MulticastDelegate<RoomDelegateObjC>()
 
-    internal let queue = DispatchQueue(label: "LiveKitSDK.room", qos: .default)
+    let queue = DispatchQueue(label: "LiveKitSDK.room", qos: .default)
 
     // MARK: - Public
 
@@ -92,11 +91,11 @@ public class Room: NSObject, ObservableObject, Loggable {
     // MARK: - Internal
 
     // Reference to Engine
-    internal let engine: Engine
+    let engine: Engine
 
     public var e2eeManager: E2EEManager?
 
-    internal struct State: Equatable {
+    struct State: Equatable {
         var options: RoomOptions
 
         var sid: String?
@@ -117,7 +116,6 @@ public class Room: NSObject, ObservableObject, Loggable {
 
         @discardableResult
         mutating func getOrCreateRemoteParticipant(sid: Sid, info: Livekit_ParticipantInfo? = nil, room: Room) -> RemoteParticipant {
-
             if let participant = remoteParticipants[sid] {
                 return participant
             }
@@ -128,13 +126,12 @@ public class Room: NSObject, ObservableObject, Loggable {
         }
     }
 
-    internal var _state: StateSync<State>
+    var _state: StateSync<State>
 
     // MARK: Objective-C Support
 
     @objc
-    public convenience override init() {
-
+    override public convenience init() {
         self.init(delegate: nil,
                   connectOptions: ConnectOptions(),
                   roomOptions: RoomOptions())
@@ -143,10 +140,10 @@ public class Room: NSObject, ObservableObject, Loggable {
     @objc
     public init(delegate: RoomDelegateObjC? = nil,
                 connectOptions: ConnectOptions? = nil,
-                roomOptions: RoomOptions? = nil) {
-
-        self._state = StateSync(State(options: roomOptions ?? RoomOptions()))
-        self.engine = Engine(connectOptions: connectOptions ?? ConnectOptions())
+                roomOptions: RoomOptions? = nil)
+    {
+        _state = StateSync(State(options: roomOptions ?? RoomOptions()))
+        engine = Engine(connectOptions: connectOptions ?? ConnectOptions())
         super.init()
 
         log()
@@ -158,7 +155,7 @@ public class Room: NSObject, ObservableObject, Loggable {
         engine.add(delegate: self)
         engine.signalClient.add(delegate: self)
 
-        if let delegate = delegate {
+        if let delegate {
             log("delegate: \(String(describing: delegate))")
             delegates.add(delegate: delegate)
         }
@@ -169,17 +166,17 @@ public class Room: NSObject, ObservableObject, Loggable {
         // trigger events when state mutates
         _state.onDidMutate = { [weak self] newState, oldState in
 
-            guard let self = self else { return }
+            guard let self else { return }
 
             // metadata updated
             if let metadata = newState.metadata, metadata != oldState.metadata,
                // don't notify if empty string (first time only)
-               oldState.metadata == nil ? !metadata.isEmpty : true {
-
+               oldState.metadata == nil ? !metadata.isEmpty : true
+            {
                 // proceed only if connected...
                 self.engine.executeIfConnected { [weak self] in
 
-                    guard let self = self else { return }
+                    guard let self else { return }
 
                     self.delegates.notify(label: { "room.didUpdate metadata: \(metadata)" }) {
                         $0.room?(self, didUpdate: metadata)
@@ -192,7 +189,7 @@ public class Room: NSObject, ObservableObject, Loggable {
                 // proceed only if connected...
                 self.engine.executeIfConnected { [weak self] in
 
-                    guard let self = self else { return }
+                    guard let self else { return }
 
                     self.delegates.notify(label: { "room.didUpdate isRecording: \(newState.isRecording)" }) {
                         $0.room?(self, didUpdate: newState.isRecording)
@@ -219,8 +216,8 @@ public class Room: NSObject, ObservableObject, Loggable {
     public func connect(_ url: String,
                         _ token: String,
                         connectOptions: ConnectOptions? = nil,
-                        roomOptions: RoomOptions? = nil) -> Promise<Room> {
-
+                        roomOptions: RoomOptions? = nil) -> Promise<Room>
+    {
         log("connecting to room...", .info)
 
         let state = _state.copy()
@@ -231,34 +228,33 @@ public class Room: NSObject, ObservableObject, Loggable {
         }
 
         // update options if specified
-        if let roomOptions = roomOptions, roomOptions != state.options {
+        if let roomOptions, roomOptions != state.options {
             _state.mutate { $0.options = roomOptions }
         }
 
         // enable E2EE
         if roomOptions?.e2eeOptions != nil {
-            self.e2eeManager = E2EEManager(e2eeOptions: roomOptions!.e2eeOptions!)
-            self.e2eeManager!.setup(room: self)
+            e2eeManager = E2EEManager(e2eeOptions: roomOptions!.e2eeOptions!)
+            e2eeManager!.setup(room: self)
         }
 
         // monitor.start(queue: monitorQueue)
         return engine.connect(url, token,
                               connectOptions: connectOptions).then(on: queue) { () -> Room in
-                                self.log("connected to \(String(describing: self)) \(String(describing: state.localParticipant))", .info)
-                                return self
-                              }
+            self.log("connected to \(String(describing: self)) \(String(describing: state.localParticipant))", .info)
+            return self
+        }
     }
 
     @discardableResult
     public func disconnect() -> Promise<Void> {
-
         // return if already disconnected state
         if case .disconnected = connectionState { return Promise(()) }
 
         return engine.signalClient.sendLeave()
             .recover(on: queue) { self.log("Failed to send leave, error: \($0)") }
             .then(on: queue) { [weak self] in
-                guard let self = self else { return }
+                guard let self else { return }
                 self.cleanUp(reason: .user)
             }
     }
@@ -266,13 +262,12 @@ public class Room: NSObject, ObservableObject, Loggable {
 
 // MARK: - Internal
 
-internal extension Room {
-
+extension Room {
     // Resets state of Room
     @discardableResult
     func cleanUp(reason: DisconnectReason? = nil,
-                 isFullReconnect: Bool = false) -> Promise<Void> {
-
+                 isFullReconnect: Bool = false) -> Promise<Void>
+    {
         log("reason: \(String(describing: reason))")
 
         // start Engine cleanUp sequence
@@ -311,16 +306,14 @@ internal extension Room {
 
 // MARK: - Internal
 
-internal extension Room {
-
+extension Room {
     @discardableResult
     func cleanUpParticipants(notify _notify: Bool = true) -> Promise<Void> {
-
         log("notify: \(_notify)")
 
         // Stop all local & remote tracks
         let allParticipants = ([[localParticipant],
-                                _state.remoteParticipants.map { $0.value }] as [[Participant?]])
+                                _state.remoteParticipants.map(\.value)] as [[Participant?]])
             .joined()
             .compactMap { $0 }
 
@@ -337,7 +330,6 @@ internal extension Room {
 
     @discardableResult
     func onParticipantDisconnect(sid: Sid) -> Promise<Void> {
-
         guard let participant = _state.mutate({ $0.remoteParticipants.removeValue(forKey: sid) }) else {
             return Promise(EngineError.state(message: "Participant not found for \(sid)"))
         }
@@ -348,20 +340,19 @@ internal extension Room {
 
 // MARK: - Debugging
 
-extension Room {
-
+public extension Room {
     @discardableResult
-    public func sendSimulate(scenario: SimulateScenario) -> Promise<Void> {
+    func sendSimulate(scenario: SimulateScenario) -> Promise<Void> {
         engine.signalClient.sendSimulate(scenario: scenario)
     }
 
-    public func waitForPrimaryTransportConnect() -> Promise<Bool> {
+    func waitForPrimaryTransportConnect() -> Promise<Bool> {
         engine._state.mutate {
             $0.primaryTransportConnectedCompleter.wait(on: queue, .defaultTransportState, throw: { TransportError.timedOut(message: "primary transport didn't connect") })
         }
     }
 
-    public func waitForPublisherTransportConnect() -> Promise<Bool> {
+    func waitForPublisherTransportConnect() -> Promise<Bool> {
         engine._state.mutate {
             $0.publisherTransportConnectedCompleter.wait(on: queue, .defaultTransportState, throw: { TransportError.timedOut(message: "publisher transport didn't connect") })
         }
@@ -370,10 +361,8 @@ extension Room {
 
 // MARK: - Session Migration
 
-internal extension Room {
-
+extension Room {
     func resetTrackSettings() {
-
         log("resetting track settings...")
 
         // create an array of RemoteTrackPublication
@@ -391,12 +380,10 @@ internal extension Room {
 // MARK: - AppStateDelegate
 
 extension Room: AppStateDelegate {
-
     func appDidEnterBackground() {
-
         guard _state.options.suspendLocalVideoTracksInBackground else { return }
 
-        guard let localParticipant = localParticipant else { return }
+        guard let localParticipant else { return }
         let promises = localParticipant.localVideoTracks.filter { $0.source == .camera }.map { $0.suspend() }
 
         guard !promises.isEmpty else { return }
@@ -407,8 +394,7 @@ extension Room: AppStateDelegate {
     }
 
     func appWillEnterForeground() {
-
-        guard let localParticipant = localParticipant else { return }
+        guard let localParticipant else { return }
         let promises = localParticipant.localVideoTracks.filter { $0.source == .camera }.map { $0.resume() }
 
         guard !promises.isEmpty else { return }
@@ -427,17 +413,16 @@ extension Room: AppStateDelegate {
 
 // MARK: - Devices
 
-extension Room {
-
+public extension Room {
     @objc
-    public static var audioDeviceModule: RTCAudioDeviceModule {
+    static var audioDeviceModule: RTCAudioDeviceModule {
         Engine.audioDeviceModule
     }
 
     /// Set this to true to bypass initialization of voice processing.
     /// Must be set before RTCPeerConnectionFactory gets initialized.
     @objc
-    public static var bypassVoiceProcessing: Bool {
+    static var bypassVoiceProcessing: Bool {
         get { Engine.bypassVoiceProcessing }
         set { Engine.bypassVoiceProcessing = newValue }
     }
@@ -445,10 +430,9 @@ extension Room {
 
 // MARK: - Audio Processing
 
-extension Room {
-
+public extension Room {
     @objc
-    public static var audioProcessingModule: RTCDefaultAudioProcessingModule {
+    static var audioProcessingModule: RTCDefaultAudioProcessingModule {
         Engine.audioProcessingModule
     }
 }
