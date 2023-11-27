@@ -33,7 +33,8 @@ public class LocalAudioTrack: Track, LocalTrack, AudioTrack {
     }
 
     public static func createTrack(name: String = Track.microphoneName,
-                                   options: AudioCaptureOptions? = nil) -> LocalAudioTrack
+                                   options: AudioCaptureOptions? = nil,
+                                   reportStatistics: Bool = false) -> LocalAudioTrack
     {
         let options = options ?? AudioCaptureOptions()
 
@@ -57,7 +58,7 @@ public class LocalAudioTrack: Track, LocalTrack, AudioTrack {
         return LocalAudioTrack(name: name,
                                source: .microphone,
                                track: rtcTrack,
-                               reportStatistics: true)
+                               reportStatistics: reportStatistics)
     }
 
     @discardableResult
