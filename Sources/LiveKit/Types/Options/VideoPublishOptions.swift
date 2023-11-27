@@ -43,7 +43,7 @@ public class VideoPublishOptions: NSObject, PublishOptions {
     public let preferredCodec: VideoCodec?
 
     @objc
-    public let preferredBackupCodec: BackupVideoCodec?
+    public let preferredBackupCodec: VideoCodec?
 
     public init(name: String? = nil,
                 encoding: VideoEncoding? = nil,
@@ -52,7 +52,7 @@ public class VideoPublishOptions: NSObject, PublishOptions {
                 simulcastLayers: [VideoParameters] = [],
                 screenShareSimulcastLayers: [VideoParameters] = [],
                 preferredCodec: VideoCodec? = nil,
-                preferredBackupCodec: BackupVideoCodec? = nil)
+                preferredBackupCodec: VideoCodec? = nil)
     {
         self.name = name
         self.encoding = encoding

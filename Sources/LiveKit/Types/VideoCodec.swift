@@ -17,16 +17,24 @@
 import Foundation
 
 @objc
-public class BackupVideoCodec: NSObject {
-    public class var h264: BackupVideoCodec { BackupVideoCodec(id: "h264") }
-    public class var vp8: BackupVideoCodec { BackupVideoCodec(id: "vp8") }
+public class VideoCodec: NSObject, Identifiable {
+    public static let h264 = VideoCodec(id: "h264", backup: true)
+    public static let vp8 = VideoCodec(id: "vp8", backup: true)
+    public static let vp9 = VideoCodec(id: "vp9")
+    public static let av1 = VideoCodec(id: "av1")
+
+    public static let all: [VideoCodec] = [.h264, .vp8, .vp9, .av1]
+    public static let allBackup: [VideoCodec] = [.h264, .vp8]
 
     // codec Id
     public let id: String
+    // Whether the codec can be used as `backup`
+    public let backup: Bool
 
     // Internal only
-    init(id: String) {
+    init(id: String, backup: Bool = false) {
         self.id = id
+        self.backup = backup
     }
 
     // MARK: - Equal
@@ -41,12 +49,4 @@ public class BackupVideoCodec: NSObject {
         hasher.combine(id)
         return hasher.finalize()
     }
-}
-
-@objc
-public class VideoCodec: BackupVideoCodec {
-    override public class var h264: VideoCodec { VideoCodec(id: "h264") }
-    override public class var vp8: VideoCodec { VideoCodec(id: "vp8") }
-    public class var vp9: VideoCodec { VideoCodec(id: "vp9") }
-    public class var av1: VideoCodec { VideoCodec(id: "av1") }
 }
