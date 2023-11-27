@@ -18,7 +18,7 @@ import Foundation
 import WebRTC
 
 extension RTCConfiguration {
-    override open var description: String {
+    open override var description: String {
         "RTCConfiguration(iceServers: \(String(describing: iceServers)), " +
             "iceTransportPolicy: \(String(describing: iceTransportPolicy)))"
     }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 LiveKit
+ * Copyright 2022 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,12 +14,13 @@
  * limitations under the License.
  */
 
+import Foundation
 import CoreImage
 import CoreMedia
-import Foundation
 
-public extension CVPixelBuffer {
-    static func from(_ data: Data, width: Int, height: Int, pixelFormat: OSType) -> CVPixelBuffer {
+extension CVPixelBuffer {
+
+    public static func from(_ data: Data, width: Int, height: Int, pixelFormat: OSType) -> CVPixelBuffer {
         data.withUnsafeBytes { buffer in
             var pixelBuffer: CVPixelBuffer!
 
@@ -32,8 +33,8 @@ public extension CVPixelBuffer {
             var source = buffer.baseAddress!
 
             for plane in 0 ..< CVPixelBufferGetPlaneCount(pixelBuffer) {
-                let dest = CVPixelBufferGetBaseAddressOfPlane(pixelBuffer, plane)
-                let height = CVPixelBufferGetHeightOfPlane(pixelBuffer, plane)
+                let dest      = CVPixelBufferGetBaseAddressOfPlane(pixelBuffer, plane)
+                let height      = CVPixelBufferGetHeightOfPlane(pixelBuffer, plane)
                 let bytesPerRow = CVPixelBufferGetBytesPerRowOfPlane(pixelBuffer, plane)
                 let planeSize = height * bytesPerRow
 
@@ -46,11 +47,13 @@ public extension CVPixelBuffer {
     }
 }
 
-public extension CMSampleBuffer {
-    static func from(_ pixelBuffer: CVPixelBuffer) -> CMSampleBuffer? {
+extension CMSampleBuffer {
+
+    public static func from(_ pixelBuffer: CVPixelBuffer) -> CMSampleBuffer? {
+
         var sampleBuffer: CMSampleBuffer?
 
-        var timimgInfo = CMSampleTimingInfo()
+        var timimgInfo  = CMSampleTimingInfo()
         var formatDescription: CMFormatDescription?
         CMVideoFormatDescriptionCreateForImageBuffer(allocator: kCFAllocatorDefault,
                                                      imageBuffer: pixelBuffer,
@@ -133,17 +136,18 @@ public extension CMSampleBuffer {
     }
 }
 
-public extension Data {
-    init(pixelBuffer: CVPixelBuffer) {
+extension Data {
+
+    public init(pixelBuffer: CVPixelBuffer) {
         CVPixelBufferLockBaseAddress(pixelBuffer, [.readOnly])
         defer { CVPixelBufferUnlockBaseAddress(pixelBuffer, [.readOnly]) }
 
         // Calculate sum of planes' size
         var totalSize = 0
         for plane in 0 ..< CVPixelBufferGetPlaneCount(pixelBuffer) {
-            let height = CVPixelBufferGetHeightOfPlane(pixelBuffer, plane)
+            let height      = CVPixelBufferGetHeightOfPlane(pixelBuffer, plane)
             let bytesPerRow = CVPixelBufferGetBytesPerRowOfPlane(pixelBuffer, plane)
-            let planeSize = height * bytesPerRow
+            let planeSize   = height * bytesPerRow
             totalSize += planeSize
         }
 
@@ -151,10 +155,10 @@ public extension Data {
         var dest = rawFrame
 
         for plane in 0 ..< CVPixelBufferGetPlaneCount(pixelBuffer) {
-            let source = CVPixelBufferGetBaseAddressOfPlane(pixelBuffer, plane)
-            let height = CVPixelBufferGetHeightOfPlane(pixelBuffer, plane)
+            let source      = CVPixelBufferGetBaseAddressOfPlane(pixelBuffer, plane)
+            let height      = CVPixelBufferGetHeightOfPlane(pixelBuffer, plane)
             let bytesPerRow = CVPixelBufferGetBytesPerRowOfPlane(pixelBuffer, plane)
-            let planeSize = height * bytesPerRow
+            let planeSize   = height * bytesPerRow
 
             memcpy(dest, source, planeSize)
             dest += planeSize
@@ -258,7 +262,7 @@ extension OSType {
             kCVPixelFormatType_14Bayer_GRBG: "kCVPixelFormatType_14Bayer_GRBG",
             kCVPixelFormatType_14Bayer_GBRG: "kCVPixelFormatType_14Bayer_GBRG",
             kCVPixelFormatType_14Bayer_BGGR: "kCVPixelFormatType_14Bayer_BGGR",
-            kCVPixelFormatType_128RGBAFloat: "kCVPixelFormatType_128RGBAFloat",
+            kCVPixelFormatType_128RGBAFloat: "kCVPixelFormatType_128RGBAFloat"
         ]
 
         return types[self] ?? "Unknown type"

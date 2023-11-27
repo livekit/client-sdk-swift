@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 LiveKit
+ * Copyright 2022 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -45,7 +45,7 @@ public protocol TrackDelegate: AnyObject {
     func track(_ track: Track, didUpdateStatistics: TrackStatistics)
 }
 
-protocol TrackDelegateInternal: TrackDelegate {
+internal protocol TrackDelegateInternal: TrackDelegate {
     /// Used to report track state mutation to TrackPublication if attached.
     func track(_ track: Track, didMutateState newState: Track.State, oldState: Track.State)
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 LiveKit
+ * Copyright 2022 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,11 +14,12 @@
  * limitations under the License.
  */
 
-import Combine
 import Foundation
+import Combine
 
 @dynamicMemberLookup
-final class StateSync<Value: Equatable> {
+internal final class StateSync<Value: Equatable> {
+
     typealias OnDidMutate<Value> = (_ newState: Value, _ oldState: Value) -> Void
 
     private let subject: CurrentValueSubject<Value, Never>
@@ -68,6 +69,7 @@ final class StateSync<Value: Equatable> {
 }
 
 extension StateSync: CustomStringConvertible {
+
     var description: String {
         "StateSync(\(String(describing: copy()))"
     }

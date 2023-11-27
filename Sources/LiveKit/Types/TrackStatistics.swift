@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 LiveKit
+ * Copyright 2022 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ import WebRTC
 
 @objc
 public class TrackStatistics: NSObject {
+
     public let codec: [CodecStatistics]
     public let transportStats: TransportStatistics?
     public let videoSource: [VideoSourceStatistics]
@@ -36,32 +37,34 @@ public class TrackStatistics: NSObject {
     public let remoteOutboundRtpStream: [RemoteOutboundRtpStreamStatistics]
 
     init(from stats: [RTCStatistics], prevStatistics: TrackStatistics?) {
+
         let stats = stats.map { $0.toLKType(prevStatistics: prevStatistics) }.compactMap { $0 }
 
-        codec = stats.compactMap { $0 as? CodecStatistics }
-        videoSource = stats.compactMap { $0 as? VideoSourceStatistics }
-        certificate = stats.compactMap { $0 as? CertificateStatistics }
-        iceCandidatePair = stats.compactMap { $0 as? IceCandidatePairStatistics }
-        inboundRtpStream = stats.compactMap { $0 as? InboundRtpStreamStatistics }
-        outboundRtpStream = stats.compactMap { $0 as? OutboundRtpStreamStatistics }
-        remoteInboundRtpStream = stats.compactMap { $0 as? RemoteInboundRtpStreamStatistics }
-        remoteOutboundRtpStream = stats.compactMap { $0 as? RemoteOutboundRtpStreamStatistics }
+        self.codec = stats.compactMap { $0 as? CodecStatistics }
+        self.videoSource = stats.compactMap { $0 as? VideoSourceStatistics }
+        self.certificate = stats.compactMap { $0 as? CertificateStatistics }
+        self.iceCandidatePair = stats.compactMap { $0 as? IceCandidatePairStatistics }
+        self.inboundRtpStream = stats.compactMap { $0 as? InboundRtpStreamStatistics }
+        self.outboundRtpStream = stats.compactMap { $0 as? OutboundRtpStreamStatistics }
+        self.remoteInboundRtpStream = stats.compactMap { $0 as? RemoteInboundRtpStreamStatistics }
+        self.remoteOutboundRtpStream = stats.compactMap { $0 as? RemoteOutboundRtpStreamStatistics }
 
         let t = stats.compactMap { $0 as? TransportStatistics }
         assert(t.count <= 1, "More than 1 TransportStatistics exists")
-        transportStats = t.first
+        self.transportStats = t.first
 
         let l = stats.compactMap { $0 as? LocalIceCandidateStatistics }
         assert(l.count <= 1, "More than 1 LocalIceCandidateStatistics exists")
-        localIceCandidate = l.first
+        self.localIceCandidate = l.first
 
         let r = stats.compactMap { $0 as? RemoteIceCandidateStatistics }
         assert(r.count <= 1, "More than 1 RemoteIceCandidateStatistics exists")
-        remoteIceCandidate = r.first
+        self.remoteIceCandidate = r.first
     }
 }
 
 extension RTCStatistics {
+
     func toLKType(prevStatistics: TrackStatistics?) -> Statistics? {
         switch type {
         case "codec": return CodecStatistics(id: id, timestamp: timestamp_us, rawValues: values)
@@ -94,24 +97,27 @@ extension RTCStatistics {
     }
 }
 
-public extension TrackStatistics {
-    override var description: String {
+extension TrackStatistics {
+
+    public override var description: String {
         "TrackStatistics(inboundRtpStream: \(String(describing: inboundRtpStream)))"
     }
 }
 
 extension OutboundRtpStreamStatistics {
+
     /// Index of the rid.
     var ridIndex: Int {
-        guard let rid, let idx = VideoQuality.rids.firstIndex(of: rid) else {
+        guard let rid = rid, let idx = VideoQuality.rids.firstIndex(of: rid) else {
             return -1
         }
         return idx
     }
 }
 
-public extension Sequence<OutboundRtpStreamStatistics> {
-    func sortedByRidIndex() -> [OutboundRtpStreamStatistics] {
+extension Sequence where Element == OutboundRtpStreamStatistics {
+
+    public func sortedByRidIndex() -> [OutboundRtpStreamStatistics] {
         sorted { $0.ridIndex > $1.ridIndex }
     }
 }

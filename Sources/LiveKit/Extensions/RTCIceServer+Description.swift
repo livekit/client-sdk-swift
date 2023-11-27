@@ -18,7 +18,7 @@ import Foundation
 import WebRTC
 
 extension RTCIceServer {
-    override open var description: String {
+    open override var description: String {
         "RTCIceServer(urlStrings: \(String(describing: urlStrings)), " +
             "username: \(String(describing: username)), " +
             "credential: \(String(describing: credential)))"

@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 LiveKit
+ * Copyright 2022 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ import WebRTC
 
 @objc
 public class AudioEncoding: NSObject, MediaEncoding {
+
     @objc
     public var maxBitrate: Int
 
@@ -29,12 +30,12 @@ public class AudioEncoding: NSObject, MediaEncoding {
 
     // MARK: - Equal
 
-    override public func isEqual(_ object: Any?) -> Bool {
+    public override func isEqual(_ object: Any?) -> Bool {
         guard let other = object as? Self else { return false }
-        return maxBitrate == other.maxBitrate
+        return self.maxBitrate == other.maxBitrate
     }
 
-    override public var hash: Int {
+    public override var hash: Int {
         var hasher = Hasher()
         hasher.combine(maxBitrate)
         return hasher.finalize()
@@ -44,20 +45,21 @@ public class AudioEncoding: NSObject, MediaEncoding {
 // MARK: - Presets
 
 @objc
-public extension AudioEncoding {
+extension AudioEncoding {
+
     internal static let presets = [
         presetTelephone,
         presetSpeech,
         presetMusic,
         presetMusicStereo,
         presetMusicHighQuality,
-        presetMusicHighQualityStereo,
+        presetMusicHighQualityStereo
     ]
 
-    static let presetTelephone = AudioEncoding(maxBitrate: 12000)
-    static let presetSpeech = AudioEncoding(maxBitrate: 20000)
-    static let presetMusic = AudioEncoding(maxBitrate: 32000)
-    static let presetMusicStereo = AudioEncoding(maxBitrate: 48000)
-    static let presetMusicHighQuality = AudioEncoding(maxBitrate: 64000)
-    static let presetMusicHighQualityStereo = AudioEncoding(maxBitrate: 96000)
+    public static let presetTelephone = AudioEncoding(maxBitrate: 12_000)
+    public static let presetSpeech = AudioEncoding(maxBitrate: 20_000)
+    public static let presetMusic = AudioEncoding(maxBitrate: 32_000)
+    public static let presetMusicStereo = AudioEncoding(maxBitrate: 48_000)
+    public static let presetMusicHighQuality = AudioEncoding(maxBitrate: 64_000)
+    public static let presetMusicHighQualityStereo = AudioEncoding(maxBitrate: 96_000)
 }

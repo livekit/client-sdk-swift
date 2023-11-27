@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 LiveKit
+ * Copyright 2022 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ import WebRTC
 
 @objc
 public class Dimensions: NSObject {
+
     @objc
     public let width: Int32
 
@@ -32,35 +33,35 @@ public class Dimensions: NSObject {
     }
 
     public init(from dimensions: CMVideoDimensions) {
-        width = dimensions.width
-        height = dimensions.height
+        self.width = dimensions.width
+        self.height = dimensions.height
     }
 
     // MARK: - Equal
 
-    override public func isEqual(_ object: Any?) -> Bool {
+    public override func isEqual(_ object: Any?) -> Bool {
         guard let other = object as? Self else { return false }
-        return width == other.width && height == other.height
+        return self.width == other.width && self.height == other.height
     }
 
-    override public var hash: Int {
+    public override var hash: Int {
         var hasher = Hasher()
         hasher.combine(width)
         hasher.combine(height)
         return hasher.finalize()
     }
 
-    override public var description: String {
+    public override var description: String {
         "Dimensions(\(width)x\(height))"
     }
 }
 
 // MARK: - Static constants
 
-public extension Dimensions {
-    static let aspectRatio169 = 16.0 / 9.0
-    static let aspectRatio43 = 4.0 / 3.0
-    static let zero = Dimensions(width: 0, height: 0)
+extension Dimensions {
+    public static let aspectRatio169 = 16.0 / 9.0
+    public static let aspectRatio43 = 4.0 / 3.0
+    public static let zero = Dimensions(width: 0, height: 0)
 
     internal static let renderSafeSize: Int32 = 8
     internal static let encodeSafeSize: Int32 = 16
@@ -76,6 +77,7 @@ public extension Dimensions {
 // }
 
 extension Dimensions {
+
     var aspectRatio: Double {
         let w = Double(width)
         let h = Double(height)
@@ -164,8 +166,8 @@ extension Dimensions {
         return result
     }
 
-    func videoLayers(for encodings: [RTCRtpEncodingParameters]) -> [Livekit_VideoLayer] {
-        encodings.filter(\.isActive).map { encoding in
+    internal func videoLayers(for encodings: [RTCRtpEncodingParameters]) -> [Livekit_VideoLayer] {
+        encodings.filter { $0.isActive }.map { encoding in
             let scaleDownBy = encoding.scaleResolutionDownBy?.doubleValue ?? 1.0
             return Livekit_VideoLayer.with {
                 $0.width = UInt32((Double(self.width) / scaleDownBy).rounded(.up))
@@ -180,12 +182,14 @@ extension Dimensions {
 // MARK: - Convert
 
 extension Dimensions {
+
     func toCGSize() -> CGSize {
         CGSize(width: Int(width), height: Int(height))
     }
 
     func apply(rotation: RTCVideoRotation) -> Dimensions {
-        if rotation == ._90 || rotation == ._270 {
+
+        if ._90 == rotation || ._270 == rotation {
             return swapped()
         }
 
@@ -197,6 +201,7 @@ extension Dimensions {
 
 @objc
 public extension Dimensions {
+
     // 16:9 aspect ratio presets
     static let h90_169 = Dimensions(width: 160, height: 90)
 
@@ -208,13 +213,13 @@ public extension Dimensions {
 
     static let h540_169 = Dimensions(width: 960, height: 540)
 
-    static let h720_169 = Dimensions(width: 1280, height: 720)
+    static let h720_169 = Dimensions(width: 1_280, height: 720)
 
-    static let h1080_169 = Dimensions(width: 1920, height: 1080)
+    static let h1080_169 = Dimensions(width: 1_920, height: 1_080)
 
-    static let h1440_169 = Dimensions(width: 2560, height: 1440)
+    static let h1440_169 = Dimensions(width: 2_560, height: 1_440)
 
-    static let h2160_169 = Dimensions(width: 3840, height: 2160)
+    static let h2160_169 = Dimensions(width: 3_840, height: 2_160)
 
     // 4:3 aspect ratio presets
     static let h120_43 = Dimensions(width: 160, height: 120)
@@ -231,7 +236,7 @@ public extension Dimensions {
 
     static let h720_43 = Dimensions(width: 960, height: 720)
 
-    static let h1080_43 = Dimensions(width: 1440, height: 1080)
+    static let h1080_43 = Dimensions(width: 1_440, height: 1_080)
 
-    static let h1440_43 = Dimensions(width: 1920, height: 1440)
+    static let h1440_43 = Dimensions(width: 1_920, height: 1_440)
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 LiveKit
+ * Copyright 2022 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,7 +28,7 @@ public enum ConnectionState {
     case reconnecting
     case connected
 
-    func toObjCType() -> ConnectionStateObjC {
+    internal func toObjCType() -> ConnectionStateObjC {
         switch self {
         case .disconnected: return .disconnected
         case .connecting: return .connecting
@@ -45,6 +45,7 @@ extension ConnectionState: Identifiable {
 }
 
 extension ConnectionState: Equatable {
+
     public static func == (lhs: ConnectionState, rhs: ConnectionState) -> Bool {
         switch (lhs, rhs) {
         case (.disconnected, .disconnected),
@@ -72,8 +73,8 @@ extension ConnectionState: Equatable {
     }
 
     public var disconnectedWithNetworkError: Error? {
-        guard case let .disconnected(reason) = self,
-              case let .networkError(error) = reason else { return nil }
+        guard case .disconnected(let reason) = self,
+              case .networkError(let error) = reason else { return nil }
         return error
     }
 

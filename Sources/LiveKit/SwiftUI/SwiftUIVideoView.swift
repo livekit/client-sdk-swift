@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 LiveKit
+ * Copyright 2022 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,22 +18,23 @@ import Foundation
 import SwiftUI
 
 /// This class receives ``TrackDelegate`` events since a struct can't be used for a delegate
-class TrackDelegateReceiver: TrackDelegate, Loggable {
+internal class TrackDelegateReceiver: TrackDelegate, Loggable {
+
     @Binding var dimensions: Dimensions?
     @Binding var stats: TrackStats?
 
     init(dimensions: Binding<Dimensions?>, stats: Binding<TrackStats?>) {
-        _dimensions = dimensions
-        _stats = stats
+        self._dimensions = dimensions
+        self._stats = stats
     }
 
-    func track(_: VideoTrack, didUpdate dimensions: Dimensions?) {
+    func track(_ track: VideoTrack, didUpdate dimensions: Dimensions?) {
         Task.detached { @MainActor in
             self.dimensions = dimensions
         }
     }
 
-    func track(_: Track, didUpdate stats: TrackStats) {
+    func track(_ track: Track, didUpdate stats: TrackStats) {
         Task.detached { @MainActor in
             self.stats = stats
         }
@@ -41,14 +42,15 @@ class TrackDelegateReceiver: TrackDelegate, Loggable {
 }
 
 /// This class receives ``VideoViewDelegate`` events since a struct can't be used for a delegate
-class VideoViewDelegateReceiver: VideoViewDelegate, Loggable {
+internal class VideoViewDelegateReceiver: VideoViewDelegate, Loggable {
+
     @Binding var isRendering: Bool
 
     init(isRendering: Binding<Bool>) {
-        _isRendering = isRendering
+        self._isRendering = isRendering
     }
 
-    func videoView(_: VideoView, didUpdate isRendering: Bool) {
+    func videoView(_ videoView: VideoView, didUpdate isRendering: Bool) {
         Task.detached { @MainActor in
             self.isRendering = isRendering
         }
@@ -58,6 +60,7 @@ class VideoViewDelegateReceiver: VideoViewDelegate, Loggable {
 /// A ``VideoView`` that can be used in SwiftUI.
 /// Supports both iOS and macOS.
 public struct SwiftUIVideoView: NativeViewRepresentable {
+
     typealias ViewType = VideoView
 
     /// Pass a ``VideoTrack`` of a ``Participant``.
@@ -80,21 +83,21 @@ public struct SwiftUIVideoView: NativeViewRepresentable {
                 debugMode: Bool = false,
                 isRendering: Binding<Bool> = .constant(false),
                 dimensions: Binding<Dimensions?> = .constant(nil),
-                trackStats: Binding<TrackStats?> = .constant(nil))
-    {
+                trackStats: Binding<TrackStats?> = .constant(nil)) {
+
         self.track = track
         self.layoutMode = layoutMode
         self.mirrorMode = mirrorMode
         self.renderMode = renderMode
         self.debugMode = debugMode
 
-        _isRendering = isRendering
-        _dimensions = dimensions
+        self._isRendering = isRendering
+        self._dimensions = dimensions
 
-        trackDelegateReceiver = TrackDelegateReceiver(dimensions: dimensions,
-                                                      stats: trackStats)
+        self.trackDelegateReceiver = TrackDelegateReceiver(dimensions: dimensions,
+                                                           stats: trackStats)
 
-        videoViewDelegateReceiver = VideoViewDelegateReceiver(isRendering: isRendering)
+        self.videoViewDelegateReceiver = VideoViewDelegateReceiver(isRendering: isRendering)
 
         // update binding value
         Task.detached { @MainActor in
@@ -113,7 +116,7 @@ public struct SwiftUIVideoView: NativeViewRepresentable {
         return view
     }
 
-    public func updateView(_ videoView: VideoView, context _: Context) {
+    public func updateView(_ videoView: VideoView, context: Context) {
         videoView.track = track
         videoView.layoutMode = layoutMode
         videoView.mirrorMode = mirrorMode
@@ -122,11 +125,11 @@ public struct SwiftUIVideoView: NativeViewRepresentable {
 
         // update
         Task.detached { @MainActor in
-            isRendering = videoView.isRendering
+            self.isRendering = videoView.isRendering
         }
     }
 
-    public static func dismantleView(_ videoView: VideoView, coordinator _: ()) {
+    public static func dismantleView(_ videoView: VideoView, coordinator: ()) {
         videoView.track = nil
     }
 }

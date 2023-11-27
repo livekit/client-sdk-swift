@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 LiveKit
+ * Copyright 2022 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,20 +15,21 @@
  */
 
 import Foundation
-import Promises
 import WebRTC
+import Promises
 
 #if os(macOS)
-    public extension MacOSScreenCapturer {
-        // TODO: figure out how to return NSArray<MacOSScreenCaptureSource>
-        @objc(sourcesFor:includingCurrentApplication:preferredMethod:)
-        static func sourcesObjC(for type: MacOSScreenShareSourceType,
-                                includeCurrentApplication: Bool = false,
-                                preferredMethod: MacOSScreenCapturePreferredMethod = .auto) -> Promise<[MacOSScreenCaptureSource]>.ObjCPromise<NSArray>
-        {
-            sources(for: type,
-                    includeCurrentApplication: includeCurrentApplication,
-                    preferredMethod: preferredMethod).asObjCPromise()
-        }
+extension MacOSScreenCapturer {
+
+    // TODO: figure out how to return NSArray<MacOSScreenCaptureSource>
+    @objc(sourcesFor:includingCurrentApplication:preferredMethod:)
+    public static func sourcesObjC(for type: MacOSScreenShareSourceType,
+                                   includeCurrentApplication: Bool = false,
+                                   preferredMethod: MacOSScreenCapturePreferredMethod = .auto) -> Promise<[MacOSScreenCaptureSource]>.ObjCPromise<NSArray> {
+
+        sources(for: type,
+                includeCurrentApplication: includeCurrentApplication,
+                preferredMethod: preferredMethod).asObjCPromise()
     }
+}
 #endif

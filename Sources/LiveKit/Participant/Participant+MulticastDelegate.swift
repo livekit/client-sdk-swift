@@ -17,6 +17,7 @@
 import Foundation
 
 extension Participant: MulticastDelegateProtocol {
+
     @objc(addDelegate:)
     public func add(delegate: ParticipantDelegate) {
         delegates.add(delegate: delegate)

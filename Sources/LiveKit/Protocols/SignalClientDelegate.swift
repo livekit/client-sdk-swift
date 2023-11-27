@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 LiveKit
+ * Copyright 2022 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,8 @@
 import Foundation
 import WebRTC
 
-protocol SignalClientDelegate: AnyObject {
+internal protocol SignalClientDelegate: AnyObject {
+
     func signalClient(_ signalClient: SignalClient, didMutate state: SignalClient.State, oldState: SignalClient.State)
 
     func signalClient(_ signalClient: SignalClient, didReceive joinResponse: Livekit_JoinResponse)

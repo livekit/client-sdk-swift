@@ -16,20 +16,21 @@
 
 import Foundation
 
-public extension Participant {
-    var firstCameraPublication: TrackPublication? {
+extension Participant {
+
+    public var firstCameraPublication: TrackPublication? {
         videoTracks.first(where: { $0.source == .camera })
     }
 
-    var firstScreenSharePublication: TrackPublication? {
+    public var firstScreenSharePublication: TrackPublication? {
         videoTracks.first(where: { $0.source == .screenShareVideo })
     }
 
-    var firstAudioPublication: TrackPublication? {
+    public var firstAudioPublication: TrackPublication? {
         audioTracks.first
     }
 
-    var firstTrackEncryptionType: EncryptionType {
+    public var firstTrackEncryptionType: EncryptionType {
         if let pub = firstCameraPublication {
             return pub.encryptionType
         } else if let pub = firstScreenSharePublication {
@@ -41,19 +42,19 @@ public extension Participant {
         }
     }
 
-    var firstCameraVideoTrack: VideoTrack? {
+    public var firstCameraVideoTrack: VideoTrack? {
         guard let pub = firstCameraPublication, !pub.muted, pub.subscribed,
               let track = pub.track else { return nil }
         return track as? VideoTrack
     }
 
-    var firstScreenShareVideoTrack: VideoTrack? {
+    public var firstScreenShareVideoTrack: VideoTrack? {
         guard let pub = firstScreenSharePublication, !pub.muted, pub.subscribed,
               let track = pub.track else { return nil }
         return track as? VideoTrack
     }
 
-    var firstAudioTrack: AudioTrack? {
+    public var firstAudioTrack: AudioTrack? {
         guard let pub = firstAudioPublication, !pub.muted,
               let track = pub.track else { return nil }
         return track as? AudioTrack

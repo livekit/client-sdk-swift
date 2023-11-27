@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 LiveKit
+ * Copyright 2022 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ import Foundation
 
 @objc
 public class ParticipantPermissions: NSObject {
+
     /// ``Participant`` can subscribe to tracks in the room
     @objc
     public let canSubscribe: Bool
@@ -38,12 +39,12 @@ public class ParticipantPermissions: NSObject {
     @objc
     public let recorder: Bool
 
-    init(canSubscribe: Bool = false,
-         canPublish: Bool = false,
-         canPublishData: Bool = false,
-         hidden: Bool = false,
-         recorder: Bool = false)
-    {
+    internal init(canSubscribe: Bool = false,
+                  canPublish: Bool = false,
+                  canPublishData: Bool = false,
+                  hidden: Bool = false,
+                  recorder: Bool = false) {
+
         self.canSubscribe = canSubscribe
         self.canPublish = canPublish
         self.canPublishData = canPublishData
@@ -53,16 +54,16 @@ public class ParticipantPermissions: NSObject {
 
     // MARK: - Equal
 
-    override public func isEqual(_ object: Any?) -> Bool {
+    public override func isEqual(_ object: Any?) -> Bool {
         guard let other = object as? Self else { return false }
-        return canSubscribe == other.canSubscribe &&
-            canPublish == other.canPublish &&
-            canPublishData == other.canPublishData &&
-            hidden == other.hidden &&
-            recorder == other.recorder
+        return self.canSubscribe == other.canSubscribe &&
+            self.canPublish == other.canPublish &&
+            self.canPublishData == other.canPublishData &&
+            self.hidden == other.hidden &&
+            self.recorder == other.recorder
     }
 
-    override public var hash: Int {
+    public override var hash: Int {
         var hasher = Hasher()
         hasher.combine(canSubscribe)
         hasher.combine(canPublish)
@@ -74,6 +75,7 @@ public class ParticipantPermissions: NSObject {
 }
 
 extension Livekit_ParticipantPermission {
+
     func toLKType() -> ParticipantPermissions {
         ParticipantPermissions(canSubscribe: canSubscribe,
                                canPublish: canPublish,

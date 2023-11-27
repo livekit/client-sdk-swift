@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 LiveKit
+ * Copyright 2022 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,12 +16,12 @@
 
 import Foundation
 
-protocol DisplayLink {
+internal protocol DisplayLink {
     var onFrame: ((DisplayLinkFrame) -> Void)? { get set }
     var isPaused: Bool { get set }
 }
 
-struct DisplayLinkFrame {
+internal struct DisplayLinkFrame {
     // The system timestamp for the frame to be drawn
     var timestamp: TimeInterval
     // The duration between each display update
@@ -30,103 +30,107 @@ struct DisplayLinkFrame {
 
 #if os(iOS)
 
-    import QuartzCore
+import QuartzCore
 
-    typealias PlatformDisplayLink = iOSDisplayLink
+typealias PlatformDisplayLink = iOSDisplayLink
 
-    class iOSDisplayLink: DisplayLink {
-        var onFrame: ((DisplayLinkFrame) -> Void)?
+internal class iOSDisplayLink: DisplayLink {
 
-        var isPaused: Bool {
-            get { _displayLink.isPaused }
-            set { _displayLink.isPaused = newValue }
-        }
+    var onFrame: ((DisplayLinkFrame) -> Void)?
 
-        let _displayLink: CADisplayLink
+    var isPaused: Bool {
+        get { _displayLink.isPaused }
+        set { _displayLink.isPaused = newValue }
+    }
 
-        let _target = DisplayLinkTarget()
+    let _displayLink: CADisplayLink
 
-        init() {
-            _displayLink = CADisplayLink(target: _target, selector: #selector(DisplayLinkTarget.frame(_:)))
-            _displayLink.isPaused = true
-            _displayLink.add(to: RunLoop.main, forMode: RunLoop.Mode.common)
+    let _target = DisplayLinkTarget()
 
-            _target.callback = { [weak self] frame in
-                guard let self else { return }
-                self.onFrame?(frame)
-            }
-        }
+    init() {
+        _displayLink = CADisplayLink(target: _target, selector: #selector(DisplayLinkTarget.frame(_:)))
+        _displayLink.isPaused = true
+        _displayLink.add(to: RunLoop.main, forMode: RunLoop.Mode.common)
 
-        deinit {
-            _displayLink.invalidate()
-        }
-
-        class DisplayLinkTarget {
-            var callback: ((DisplayLinkFrame) -> Void)?
-
-            @objc
-            dynamic func frame(_ _displayLink: CADisplayLink) {
-                let frame = DisplayLinkFrame(
-                    timestamp: _displayLink.timestamp,
-                    duration: _displayLink.duration
-                )
-
-                callback?(frame)
-            }
+        _target.callback = { [weak self] (frame) in
+            guard let self = self else { return }
+            self.onFrame?(frame)
         }
     }
+
+    deinit {
+        _displayLink.invalidate()
+    }
+
+    class DisplayLinkTarget {
+
+        var callback: ((DisplayLinkFrame) -> Void)?
+
+        @objc
+        dynamic func frame(_ _displayLink: CADisplayLink) {
+
+            let frame = DisplayLinkFrame(
+                timestamp: _displayLink.timestamp,
+                duration: _displayLink.duration)
+
+            callback?(frame)
+        }
+    }
+}
 
 #elseif os(macOS)
 
-    import CoreVideo
+import CoreVideo
 
-    typealias PlatformDisplayLink = macOSDisplayLink
+typealias PlatformDisplayLink = macOSDisplayLink
 
-    class macOSDisplayLink: DisplayLink {
-        var onFrame: ((DisplayLinkFrame) -> Void)?
+internal class macOSDisplayLink: DisplayLink {
 
-        var isPaused: Bool = true {
-            didSet {
-                guard isPaused != oldValue else { return }
-                if isPaused == true {
-                    CVDisplayLinkStop(_displayLink)
-                } else {
-                    CVDisplayLinkStart(_displayLink)
-                }
+    var onFrame: ((DisplayLinkFrame) -> Void)?
+
+    var isPaused: Bool = true {
+        didSet {
+            guard isPaused != oldValue else { return }
+            if isPaused == true {
+                CVDisplayLinkStop(_displayLink)
+            } else {
+                CVDisplayLinkStart(_displayLink)
             }
-        }
-
-        private var _displayLink: CVDisplayLink = {
-            var dl: CVDisplayLink?
-            CVDisplayLinkCreateWithActiveCGDisplays(&dl)
-            return dl!
-        }()
-
-        init() {
-            CVDisplayLinkSetOutputHandler(_displayLink) { [weak self] _, inNow, inOutputTime, _, _ -> CVReturn in
-
-                guard let self else { return kCVReturnSuccess }
-
-                let frame = DisplayLinkFrame(
-                    timestamp: inNow.pointee.timeInterval,
-                    duration: inOutputTime.pointee.timeInterval - inNow.pointee.timeInterval
-                )
-
-                self.onFrame?(frame)
-
-                return kCVReturnSuccess
-            }
-        }
-
-        deinit {
-            isPaused = true
         }
     }
 
-    extension CVTimeStamp {
-        var timeInterval: TimeInterval {
-            TimeInterval(videoTime) / TimeInterval(videoTimeScale)
-        }
+    private var _displayLink: CVDisplayLink = {
+        var dl: CVDisplayLink?
+        CVDisplayLinkCreateWithActiveCGDisplays(&dl)
+        return dl!
+    }()
+
+    init() {
+
+        CVDisplayLinkSetOutputHandler(_displayLink, { [weak self] (_, inNow, inOutputTime, _, _) -> CVReturn in
+
+            guard let self = self else { return kCVReturnSuccess }
+
+            let frame = DisplayLinkFrame(
+                timestamp: inNow.pointee.timeInterval,
+                duration: inOutputTime.pointee.timeInterval - inNow.pointee.timeInterval)
+
+            self.onFrame?(frame)
+
+            return kCVReturnSuccess
+        })
     }
+
+    deinit {
+        isPaused = true
+    }
+}
+
+internal extension CVTimeStamp {
+
+    var timeInterval: TimeInterval {
+        TimeInterval(videoTime) / TimeInterval(videoTimeScale)
+    }
+}
 
 #endif

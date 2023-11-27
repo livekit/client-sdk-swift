@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 LiveKit
+ * Copyright 2022 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,8 +17,10 @@
 import Foundation
 import Promises
 
-public extension LocalAudioTrack {
-    func mute() async throws {
+extension LocalAudioTrack {
+
+    public func mute() async throws {
+
         try await withCheckedThrowingContinuation { continuation in
             _mute().then(on: queue) { _ in
                 continuation.resume()
@@ -28,7 +30,8 @@ public extension LocalAudioTrack {
         }
     }
 
-    func unmute() async throws {
+    public func unmute() async throws {
+
         try await withCheckedThrowingContinuation { continuation in
             _unmute().then(on: queue) { _ in
                 continuation.resume()

@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 LiveKit
+ * Copyright 2022 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ import Foundation
 // Objects are considered equal if both states are equal
 
 public extension Participant {
+
     override var hash: Int {
         var hasher = Hasher()
         hasher.combine(_state.copy())
@@ -27,6 +28,6 @@ public extension Participant {
 
     override func isEqual(_ object: Any?) -> Bool {
         guard let other = object as? Self else { return false }
-        return _state.copy() == other._state.copy()
+        return self._state.copy() == other._state.copy()
     }
 }

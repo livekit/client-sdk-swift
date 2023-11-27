@@ -1,18 +1,10 @@
-/*
- * Copyright 2023 LiveKit
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+//
+//  UploadSocketConnection.swift
+//  Broadcast Extension
+//
+//  Created by Alex-Dan Bumbu on 22/03/2021.
+//  Copyright © 2021 Atlassian Inc. All rights reserved.
+//
 
 import Foundation
 
@@ -85,6 +77,7 @@ class BroadcastUploadSocketConnection: NSObject {
 }
 
 extension BroadcastUploadSocketConnection: StreamDelegate {
+
     func stream(_ aStream: Stream, handle eventCode: Stream.Event) {
         switch eventCode {
         case .openCompleted:
@@ -97,7 +90,7 @@ extension BroadcastUploadSocketConnection: StreamDelegate {
                 var buffer: UInt8 = 0
                 logger.log(level: .debug, "client stream hasBytesAvailable")
                 let numberOfBytesRead = inputStream?.read(&buffer, maxLength: 1)
-                if numberOfBytesRead == 0, aStream.streamStatus == .atEnd {
+                if numberOfBytesRead == 0 && aStream.streamStatus == .atEnd {
                     logger.log(level: .debug, "server socket closed")
                     close()
                     notifyDidClose(error: nil)
@@ -120,6 +113,7 @@ extension BroadcastUploadSocketConnection: StreamDelegate {
 }
 
 private extension BroadcastUploadSocketConnection {
+
     func setupAddress() -> Bool {
         var addr = sockaddr_un()
         addr.sun_family = sa_family_t(AF_UNIX)
@@ -187,7 +181,7 @@ private extension BroadcastUploadSocketConnection {
 
             repeat {
                 isRunning = self?.shouldKeepRunning ?? false && RunLoop.current.run(mode: .default, before: .distantFuture)
-            } while isRunning
+            } while (isRunning)
         }
     }
 

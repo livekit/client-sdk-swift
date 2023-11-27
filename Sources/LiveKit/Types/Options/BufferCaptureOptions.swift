@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 LiveKit
+ * Copyright 2022 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ import WebRTC
 
 @objc
 public class BufferCaptureOptions: NSObject, VideoCaptureOptions {
+
     @objc
     public let dimensions: Dimensions
 
@@ -26,26 +27,25 @@ public class BufferCaptureOptions: NSObject, VideoCaptureOptions {
     public let fps: Int
 
     public init(dimensions: Dimensions = .h1080_169,
-                fps: Int = 15)
-    {
+                fps: Int = 15) {
         self.dimensions = dimensions
         self.fps = fps
     }
 
     public init(from options: ScreenShareCaptureOptions) {
-        dimensions = options.dimensions
-        fps = options.fps
+        self.dimensions = options.dimensions
+        self.fps = options.fps
     }
 
     // MARK: - Equal
 
-    override public func isEqual(_ object: Any?) -> Bool {
+    public override func isEqual(_ object: Any?) -> Bool {
         guard let other = object as? Self else { return false }
-        return dimensions == other.dimensions &&
-            fps == other.fps
+        return self.dimensions == other.dimensions &&
+            self.fps == other.fps
     }
 
-    override public var hash: Int {
+    public override var hash: Int {
         var hasher = Hasher()
         hasher.combine(dimensions)
         hasher.combine(fps)

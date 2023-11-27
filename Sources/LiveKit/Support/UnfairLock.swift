@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 LiveKit
+ * Copyright 2022-2023 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +19,8 @@ import Foundation
 //
 // Read http://www.russbishop.net/the-law for more information on why this is necessary
 //
-class UnfairLock {
+internal class UnfairLock {
+
     private var _lock: UnsafeMutablePointer<os_unfair_lock>
 
     init() {

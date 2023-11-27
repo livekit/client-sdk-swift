@@ -17,13 +17,15 @@
 import Foundation
 import WebRTC
 
-extension RTCI420Buffer {
+internal extension RTCI420Buffer {
+
     func toPixelBuffer() -> CVPixelBuffer? {
+
         // default options
         let options = [
             kCVPixelBufferCGImageCompatibilityKey as String: true,
             kCVPixelBufferCGBitmapContextCompatibilityKey as String: true,
-            kCVPixelBufferIOSurfacePropertiesKey as String: [:] as [String: Any],
+            kCVPixelBufferIOSurfacePropertiesKey as String: [:] as [String: Any]
         ] as [String: Any]
 
         var outputPixelBuffer: CVPixelBuffer?
@@ -34,7 +36,7 @@ extension RTCI420Buffer {
                                          options as CFDictionary,
                                          &outputPixelBuffer)
 
-        guard status == kCVReturnSuccess, let outputPixelBuffer else {
+        guard status == kCVReturnSuccess, let outputPixelBuffer = outputPixelBuffer else {
             return nil
         }
 
@@ -42,8 +44,7 @@ extension RTCI420Buffer {
         let pixelFormat = CVPixelBufferGetPixelFormatType(outputPixelBuffer)
 
         if pixelFormat == kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange ||
-            pixelFormat == kCVPixelFormatType_420YpCbCr8BiPlanarFullRange
-        {
+            pixelFormat == kCVPixelFormatType_420YpCbCr8BiPlanarFullRange {
             // NV12
             let dstY = CVPixelBufferGetBaseAddressOfPlane(outputPixelBuffer, 0)
             let dstYStride = CVPixelBufferGetBytesPerRowOfPlane(outputPixelBuffer, 0)
@@ -68,6 +69,7 @@ extension RTCI420Buffer {
             let bytesPerRow = CVPixelBufferGetBytesPerRow(outputPixelBuffer)
 
             if pixelFormat == kCVPixelFormatType_32BGRA {
+
                 RTCYUVHelper.i420(toARGB: dataY,
                                   srcStrideY: strideY,
                                   srcU: dataU,
@@ -79,6 +81,7 @@ extension RTCI420Buffer {
                                   width: width,
                                   height: height)
             } else if pixelFormat == kCVPixelFormatType_32ARGB {
+
                 RTCYUVHelper.i420(toBGRA: dataY,
                                   srcStrideY: strideY,
                                   srcU: dataU,

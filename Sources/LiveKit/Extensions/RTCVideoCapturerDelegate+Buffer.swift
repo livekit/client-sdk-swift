@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 LiveKit
+ * Copyright 2022 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,10 +18,11 @@ import Foundation
 import WebRTC
 
 #if canImport(ReplayKit)
-    import ReplayKit
+import ReplayKit
 #endif
 
 extension FixedWidthInteger {
+
     func roundUp(toMultipleOf powerOfTwo: Self) -> Self {
         // Check that powerOfTwo really is.
         precondition(powerOfTwo > 0 && powerOfTwo & (powerOfTwo &- 1) == 0)
@@ -32,28 +33,31 @@ extension FixedWidthInteger {
 }
 
 extension Dimensions {
+
     // Ensures width and height are even numbers
-    func toEncodeSafeDimensions() -> Dimensions {
+    internal func toEncodeSafeDimensions() -> Dimensions {
         Dimensions(width: Swift.max(Self.encodeSafeSize, width.roundUp(toMultipleOf: 2)),
                    height: Swift.max(Self.encodeSafeSize, height.roundUp(toMultipleOf: 2)))
+
     }
 
-    static func * (a: Dimensions, b: Double) -> Dimensions {
+    internal static func * (a: Dimensions, b: Double) -> Dimensions {
         Dimensions(width: Int32((Double(a.width) * b).rounded()),
                    height: Int32((Double(a.height) * b).rounded()))
     }
 
-    var isRenderSafe: Bool {
+    internal var isRenderSafe: Bool {
         width >= Self.renderSafeSize && height >= Self.renderSafeSize
     }
 
-    var isEncodeSafe: Bool {
+    internal var isEncodeSafe: Bool {
         width >= Self.encodeSafeSize && height >= Self.encodeSafeSize
     }
 }
 
-public extension CGImagePropertyOrientation {
-    func toRTCRotation() -> RTCVideoRotation {
+extension CGImagePropertyOrientation {
+
+    public func toRTCRotation() -> RTCVideoRotation {
         switch self {
         case .up, .upMirrored, .down, .downMirrored: return ._0
         case .left, .leftMirrored: return ._90
@@ -63,16 +67,17 @@ public extension CGImagePropertyOrientation {
     }
 }
 
-public extension RTCVideoCapturerDelegate {
-    typealias OnResolveSourceDimensions = (Dimensions) -> Void
+extension RTCVideoCapturerDelegate {
+
+    public typealias OnResolveSourceDimensions = (Dimensions) -> Void
 
     /// capture a `CVPixelBuffer`, all other capture methods call this method internally.
-    func capturer(_ capturer: RTCVideoCapturer,
-                  didCapture pixelBuffer: CVPixelBuffer,
-                  timeStampNs: Int64 = VideoCapturer.createTimeStampNs(),
-                  rotation: RTCVideoRotation = ._0,
-                  onResolveSourceDimensions: OnResolveSourceDimensions? = nil)
-    {
+    public func capturer(_ capturer: RTCVideoCapturer,
+                         didCapture pixelBuffer: CVPixelBuffer,
+                         timeStampNs: Int64 = VideoCapturer.createTimeStampNs(),
+                         rotation: RTCVideoRotation = ._0,
+                         onResolveSourceDimensions: OnResolveSourceDimensions? = nil) {
+
         // check if pixel format is supported by WebRTC
         let pixelFormat = CVPixelBufferGetPixelFormatType(pixelBuffer)
         guard VideoCapturer.supportedPixelFormats.contains(where: { $0.uint32Value == pixelFormat }) else {
@@ -97,6 +102,7 @@ public extension RTCVideoCapturerDelegate {
         onResolveSourceDimensions?(sourceDimensions)
 
         DispatchQueue.liveKitWebRTC.sync {
+
             let rtcBuffer = RTCCVPixelBuffer(pixelBuffer: pixelBuffer)
             let rtcFrame = RTCVideoFrame(buffer: rtcBuffer,
                                          rotation: rotation,
@@ -107,15 +113,14 @@ public extension RTCVideoCapturerDelegate {
     }
 
     /// capture a `CMSampleBuffer`
-    func capturer(_ capturer: RTCVideoCapturer,
-                  didCapture sampleBuffer: CMSampleBuffer,
-                  onResolveSourceDimensions: OnResolveSourceDimensions? = nil)
-    {
+    public func capturer(_ capturer: RTCVideoCapturer,
+                         didCapture sampleBuffer: CMSampleBuffer,
+                         onResolveSourceDimensions: OnResolveSourceDimensions? = nil) {
+
         // check if buffer is ready
         guard CMSampleBufferGetNumSamples(sampleBuffer) == 1,
               CMSampleBufferIsValid(sampleBuffer),
-              CMSampleBufferDataIsReady(sampleBuffer)
-        else {
+              CMSampleBufferDataIsReady(sampleBuffer) else {
             logger.log("Failed to capture, buffer is not ready", .warning, type: type(of: self))
             return
         }
@@ -126,8 +131,7 @@ public extension RTCVideoCapturerDelegate {
             // Check rotation tags. Extensions see these tags, but `RPScreenRecorder` does not appear to set them.
             // On iOS 12.0 and 13.0 rotation tags (other than up) are set by extensions.
             if let sampleOrientation = CMGetAttachment(sampleBuffer, key: RPVideoSampleOrientationKey as CFString, attachmentModeOut: nil),
-               let coreSampleOrientation = sampleOrientation.uint32Value
-            {
+               let coreSampleOrientation = sampleOrientation.uint32Value {
                 rotation = CGImagePropertyOrientation(rawValue: coreSampleOrientation)?.toRTCRotation()
             }
         }
@@ -149,6 +153,7 @@ public extension RTCVideoCapturerDelegate {
 }
 
 extension CVPixelBuffer {
+
     func toDimensions() -> Dimensions {
         Dimensions(width: Int32(CVPixelBufferGetWidth(self)),
                    height: Int32(CVPixelBufferGetHeight(self)))

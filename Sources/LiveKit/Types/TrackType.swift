@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 LiveKit
+ * Copyright 2022 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ import Foundation
 import WebRTC
 
 extension Livekit_TrackType {
+
     func toLKType() -> Track.Kind {
         switch self {
         case .audio:
@@ -31,6 +32,7 @@ extension Livekit_TrackType {
 }
 
 extension Track.Kind {
+
     func toPBType() -> Livekit_TrackType {
         switch self {
         case .audio:

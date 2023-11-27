@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 LiveKit
+ * Copyright 2022 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,29 +15,34 @@
  */
 
 import Foundation
-import Promises
 import WebRTC
+import Promises
 
 extension Track {
+
     @objc(start)
     @discardableResult
     public func startObjC() -> Promise<Bool>.ObjCPromise<NSNumber> {
+
         start().asObjCPromise()
     }
 
     @objc(stop)
     @discardableResult
     public func stopObjC() -> Promise<Bool>.ObjCPromise<NSNumber> {
+
         stop().asObjCPromise()
     }
 
     @discardableResult
-    func muteObjC() -> Promise<Void>.ObjCPromise<NSNull> {
+    internal func muteObjC() -> Promise<Void>.ObjCPromise<NSNull> {
+
         _mute().asObjCPromise()
     }
 
     @discardableResult
-    func unmuteObjC() -> Promise<Void>.ObjCPromise<NSNull> {
+    internal func unmuteObjC() -> Promise<Void>.ObjCPromise<NSNull> {
+
         _unmute().asObjCPromise()
     }
 }

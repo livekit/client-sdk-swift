@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 LiveKit
+ * Copyright 2022 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -41,8 +41,8 @@ public class ParticipantTrackPermission: NSObject {
     @objc
     public init(participantSid: String,
                 allTracksAllowed: Bool,
-                allowedTrackSids: [String] = [String]())
-    {
+                allowedTrackSids: [String] = [String]()) {
+
         self.participantSid = participantSid
         self.allTracksAllowed = allTracksAllowed
         self.allowedTrackSids = allowedTrackSids
@@ -50,8 +50,9 @@ public class ParticipantTrackPermission: NSObject {
 }
 
 extension ParticipantTrackPermission {
+
     func toPBType() -> Livekit_TrackPermission {
-        Livekit_TrackPermission.with {
+        return Livekit_TrackPermission.with {
             $0.participantSid = self.participantSid
             $0.allTracks = self.allTracksAllowed
             $0.trackSids = self.allowedTrackSids

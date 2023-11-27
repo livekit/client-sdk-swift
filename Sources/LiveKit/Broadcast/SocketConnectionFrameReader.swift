@@ -1,22 +1,13 @@
-/*
- * Copyright 2023 LiveKit
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+//
+//  SocketConnectionFrameReader.swift
+//  RCTWebRTC
+//
+//  Created by Alex-Dan Bumbu on 06/01/2021.
+//
 
-import CoreImage
-import CoreVideo
 import Foundation
+import CoreVideo
+import CoreImage
 import WebRTC
 
 private class Message {
@@ -31,14 +22,15 @@ private class Message {
     var imageOrientation: CGImagePropertyOrientation = .up
     private var framedMessage: CFHTTPMessage?
 
-    init() {}
+    init() {
+    }
 
     func appendBytes(buffer: [UInt8], length: Int) -> Int {
         if framedMessage == nil {
             framedMessage = CFHTTPMessageCreateEmpty(kCFAllocatorDefault, false).takeRetainedValue()
         }
 
-        guard let framedMessage else {
+        guard let framedMessage = framedMessage else {
             return -1
         }
 
@@ -59,7 +51,7 @@ private class Message {
         let missingBytesCount = contentLength - bodyLength
         if missingBytesCount == 0 {
             let success = unwrapMessage(framedMessage)
-            didComplete?(success, self)
+            self.didComplete?(success, self)
 
             self.framedMessage = nil
         }
@@ -68,7 +60,7 @@ private class Message {
     }
 
     private func imageContext() -> CIContext? {
-        Message.imageContextVar
+        return Message.imageContextVar
     }
 
     private func unwrapMessage(_ framedMessage: CFHTTPMessage) -> Bool {
@@ -82,7 +74,7 @@ private class Message {
 
         let width = Int(CFStringGetIntValue(widthStr))
         let height = Int(CFStringGetIntValue(heightStr))
-        imageOrientation = CGImagePropertyOrientation(rawValue: UInt32(CFStringGetIntValue(imageOrientationStr))) ?? .up
+        self.imageOrientation = CGImagePropertyOrientation(rawValue: UInt32(CFStringGetIntValue(imageOrientationStr))) ?? .up
 
         // Copy the pixel buffer
         let status = CVPixelBufferCreate(kCFAllocatorDefault, width, height, kCVPixelFormatType_32BGRA, nil, &imageBuffer)
@@ -97,19 +89,19 @@ private class Message {
     }
 
     private func copyImageData(_ data: Data?, to pixelBuffer: CVPixelBuffer?) {
-        if let pixelBuffer {
+        if let pixelBuffer = pixelBuffer {
             CVPixelBufferLockBaseAddress(pixelBuffer, [])
         }
 
         var image: CIImage?
-        if let data {
+        if let data = data {
             image = CIImage(data: data)
         }
-        if let image, let pixelBuffer {
+        if let image = image, let pixelBuffer = pixelBuffer {
             imageContext()?.render(image, to: pixelBuffer)
         }
 
-        if let pixelBuffer {
+        if let pixelBuffer = pixelBuffer {
             CVPixelBufferUnlockBaseAddress(pixelBuffer, [])
         }
     }
@@ -133,7 +125,8 @@ class SocketConnectionFrameReader: NSObject {
     private var message: Message?
     var didCapture: ((CVPixelBuffer, RTCVideoRotation) -> Void)?
 
-    override init() {}
+    override init() {
+    }
 
     func startCapture(with connection: BroadcastServerSocketConnection) {
         self.connection = connection
@@ -150,7 +143,6 @@ class SocketConnectionFrameReader: NSObject {
     }
 
     // MARK: Private Methods
-
     func readBytes(from stream: InputStream) {
         if !(stream.hasBytesAvailable) {
             return
@@ -192,7 +184,7 @@ class SocketConnectionFrameReader: NSObject {
         _ pixelBuffer: CVPixelBuffer?,
         with orientation: CGImagePropertyOrientation
     ) {
-        guard let pixelBuffer else {
+        guard let pixelBuffer = pixelBuffer else {
             return
         }
 
@@ -210,6 +202,7 @@ class SocketConnectionFrameReader: NSObject {
 
         didCapture?(pixelBuffer, rotation)
     }
+
 }
 
 extension SocketConnectionFrameReader: StreamDelegate {

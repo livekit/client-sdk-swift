@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 LiveKit
+ * Copyright 2022 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,29 +17,34 @@
 import Foundation
 
 extension String {
-    func unpack() -> (sid: Sid, trackId: String) {
+
+    internal func unpack() -> (sid: Sid, trackId: String) {
         let parts = split(separator: "|")
         if parts.count == 2 {
             return (String(parts[0]), String(parts[1]))
         }
         return (self, "")
     }
+
 }
 
 extension Bool {
-    func toString() -> String {
+
+    internal func toString() -> String {
         self ? "true" : "false"
     }
 }
 
 extension URL {
-    var isSecure: Bool {
+
+    internal var isSecure: Bool {
         scheme == "https" || scheme == "wss"
     }
 }
 
-public extension Double {
-    func rounded(to places: Int) -> Double {
+extension Double {
+
+    public func rounded(to places: Int) -> Double {
         let divisor = pow(10.0, Double(places))
         return (self * divisor).rounded() / divisor
     }

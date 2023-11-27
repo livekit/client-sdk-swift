@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 LiveKit
+ * Copyright 2022 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,15 +15,16 @@
  */
 
 import Foundation
-import Promises
 import WebRTC
+import Promises
 
 #if canImport(ReplayKit)
-    import ReplayKit
+import ReplayKit
 #endif
 
 @available(macOS 11.0, iOS 11.0, *)
 public class InAppScreenCapturer: VideoCapturer {
+
     private let capturer = Engine.createVideoCapturer()
     private var options: ScreenShareCaptureOptions
 
@@ -32,8 +33,9 @@ public class InAppScreenCapturer: VideoCapturer {
         super.init(delegate: delegate)
     }
 
-    override public func startCapture() -> Promise<Bool> {
-        super.startCapture().then(on: queue) { didStart -> Promise<Bool> in
+    public override func startCapture() -> Promise<Bool> {
+
+        super.startCapture().then(on: queue) {didStart -> Promise<Bool> in
 
             guard didStart else {
                 // already started
@@ -45,6 +47,7 @@ public class InAppScreenCapturer: VideoCapturer {
                 // TODO: force pixel format kCVPixelFormatType_420YpCbCr8BiPlanarFullRange
                 RPScreenRecorder.shared().startCapture { sampleBuffer, type, _ in
                     if type == .video {
+
                         self.delegate?.capturer(self.capturer, didCapture: sampleBuffer) { sourceDimensions in
 
                             let targetDimensions = sourceDimensions
@@ -61,7 +64,7 @@ public class InAppScreenCapturer: VideoCapturer {
                         }
                     }
                 } completionHandler: { error in
-                    if let error {
+                    if let error = error {
                         fail(error)
                         return
                     }
@@ -71,7 +74,8 @@ public class InAppScreenCapturer: VideoCapturer {
         }
     }
 
-    override public func stopCapture() -> Promise<Bool> {
+    public override func stopCapture() -> Promise<Bool> {
+
         super.stopCapture().then(on: queue) { didStop -> Promise<Bool> in
 
             guard didStop else {
@@ -82,23 +86,23 @@ public class InAppScreenCapturer: VideoCapturer {
             return Promise<Bool>(on: self.queue) { resolve, fail in
 
                 RPScreenRecorder.shared().stopCapture { error in
-                    if let error {
+                    if let error = error {
                         fail(error)
                         return
                     }
                     resolve(true)
                 }
+
             }
         }
     }
 }
 
-public extension LocalVideoTrack {
+extension LocalVideoTrack {
     /// Creates a track that captures in-app screen only (due to limitation of ReplayKit)
     @available(macOS 11.0, iOS 11.0, *)
-    static func createInAppScreenShareTrack(name: String = Track.screenShareVideoName,
-                                            options: ScreenShareCaptureOptions = ScreenShareCaptureOptions()) -> LocalVideoTrack
-    {
+    public static func createInAppScreenShareTrack(name: String = Track.screenShareVideoName,
+                                                   options: ScreenShareCaptureOptions = ScreenShareCaptureOptions()) -> LocalVideoTrack {
         let videoSource = Engine.createVideoSource(forScreenShare: true)
         let capturer = InAppScreenCapturer(delegate: videoSource, options: options)
         return LocalVideoTrack(

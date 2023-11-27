@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 LiveKit
+ * Copyright 2022 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,7 +16,8 @@
 
 import Foundation
 
-struct TrackSettings: Equatable, Hashable {
+internal struct TrackSettings: Equatable, Hashable {
+
     let enabled: Bool
     let dimensions: Dimensions
     let videoQuality: VideoQuality
@@ -25,8 +26,8 @@ struct TrackSettings: Equatable, Hashable {
     init(enabled: Bool = false,
          dimensions: Dimensions = .zero,
          videoQuality: VideoQuality = .low,
-         preferredFPS: UInt = 0)
-    {
+         preferredFPS: UInt = 0) {
+
         self.enabled = enabled
         self.dimensions = dimensions
         self.videoQuality = videoQuality
@@ -36,8 +37,7 @@ struct TrackSettings: Equatable, Hashable {
     func copyWith(enabled: Bool? = nil,
                   dimensions: Dimensions? = nil,
                   videoQuality: VideoQuality? = nil,
-                  preferredFPS: UInt? = nil) -> TrackSettings
-    {
+                  preferredFPS: UInt? = nil) -> TrackSettings {
         TrackSettings(enabled: enabled ?? self.enabled,
                       dimensions: dimensions ?? self.dimensions,
                       videoQuality: videoQuality ?? self.videoQuality,

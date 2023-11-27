@@ -19,6 +19,7 @@ import Foundation
 // Identify by sid
 
 extension Participant: Identifiable {
+
     public typealias ID = Sid
 
     public var id: Sid {

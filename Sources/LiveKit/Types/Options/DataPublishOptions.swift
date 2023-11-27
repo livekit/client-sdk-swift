@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 LiveKit
+ * Copyright 2022 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ import Foundation
 
 @objc
 public class DataPublishOptions: NSObject, PublishOptions {
+
     @objc
     public let name: String?
 
@@ -29,8 +30,8 @@ public class DataPublishOptions: NSObject, PublishOptions {
 
     public init(name: String? = nil,
                 destinations: [String] = [],
-                topic: String? = nil)
-    {
+                topic: String? = nil) {
+
         self.name = name
         self.destinations = destinations
         self.topic = topic
@@ -38,14 +39,14 @@ public class DataPublishOptions: NSObject, PublishOptions {
 
     // MARK: - Equal
 
-    override public func isEqual(_ object: Any?) -> Bool {
+    public override func isEqual(_ object: Any?) -> Bool {
         guard let other = object as? Self else { return false }
-        return name == other.name &&
-            destinations == other.destinations &&
-            topic == other.topic
+        return self.name == other.name &&
+            self.destinations == other.destinations &&
+            self.topic == other.topic
     }
 
-    override public var hash: Int {
+    public override var hash: Int {
         var hasher = Hasher()
         hasher.combine(name)
         hasher.combine(destinations)

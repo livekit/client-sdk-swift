@@ -15,26 +15,28 @@
  */
 
 import Foundation
-import Promises
 import WebRTC
+import Promises
 
 extension Engine: SignalClientDelegate {
-    func signalClient(_: SignalClient, didMutate state: SignalClient.State, oldState: SignalClient.State) {
+
+    func signalClient(_ signalClient: SignalClient, didMutate state: SignalClient.State, oldState: SignalClient.State) {
+
         // connectionState did update
         if state.connectionState != oldState.connectionState,
            // did disconnect
-           case let .disconnected(reason) = state.connectionState,
+           case .disconnected(let reason) = state.connectionState,
            // only attempt re-connect if disconnected(reason: network)
            case .networkError = reason,
            // engine is currently connected state
-           case .connected = _state.connectionState
-        {
+           case .connected = _state.connectionState {
             log("[reconnect] starting, reason: socket network error. connectionState: \(_state.connectionState)")
             startReconnect()
         }
     }
 
-    func signalClient(_: SignalClient, didReceive iceCandidate: RTCIceCandidate, target: Livekit_SignalTarget) {
+    func signalClient(_ signalClient: SignalClient, didReceive iceCandidate: RTCIceCandidate, target: Livekit_SignalTarget) {
+
         guard let transport = target == .subscriber ? subscriber : publisher else {
             log("failed to add ice candidate, transport is nil for target: \(target)", .error)
             return
@@ -45,8 +47,9 @@ extension Engine: SignalClientDelegate {
         }
     }
 
-    func signalClient(_: SignalClient, didReceiveAnswer answer: RTCSessionDescription) {
-        guard let publisher else {
+    func signalClient(_ signalClient: SignalClient, didReceiveAnswer answer: RTCSessionDescription) {
+
+        guard let publisher = self.publisher else {
             log("publisher is nil", .error)
             return
         }
@@ -54,12 +57,15 @@ extension Engine: SignalClientDelegate {
         publisher.setRemoteDescription(answer).catch(on: queue) { error in
             self.log("failed to set remote description, error: \(error)", .error)
         }
+
+        return
     }
 
-    func signalClient(_: SignalClient, didReceiveOffer offer: RTCSessionDescription) {
+    func signalClient(_ signalClient: SignalClient, didReceiveOffer offer: RTCSessionDescription) {
+
         log("received offer, creating & sending answer...")
 
-        guard let subscriber else {
+        guard let subscriber = self.subscriber else {
             log("failed to send answer, subscriber is nil", .error)
             return
         }
@@ -77,21 +83,22 @@ extension Engine: SignalClientDelegate {
         }
     }
 
-    func signalClient(_: SignalClient, didUpdate token: String) {
+    func signalClient(_ signalClient: SignalClient, didUpdate token: String) {
+
         // update token
         _state.mutate { $0.token = token }
     }
 
-    func signalClient(_: SignalClient, didReceive _: Livekit_JoinResponse) {}
-    func signalClient(_: SignalClient, didPublish _: Livekit_TrackPublishedResponse) {}
-    func signalClient(_: SignalClient, didUnpublish _: Livekit_TrackUnpublishedResponse) {}
-    func signalClient(_: SignalClient, didUpdate _: [Livekit_ParticipantInfo]) {}
-    func signalClient(_: SignalClient, didUpdate _: Livekit_Room) {}
-    func signalClient(_: SignalClient, didUpdate _: [Livekit_SpeakerInfo]) {}
-    func signalClient(_: SignalClient, didUpdate _: [Livekit_ConnectionQualityInfo]) {}
-    func signalClient(_: SignalClient, didUpdateRemoteMute _: String, muted _: Bool) {}
-    func signalClient(_: SignalClient, didUpdate _: [Livekit_StreamStateInfo]) {}
-    func signalClient(_: SignalClient, didUpdate _: String, subscribedQualities _: [Livekit_SubscribedQuality]) {}
-    func signalClient(_: SignalClient, didUpdate _: Livekit_SubscriptionPermissionUpdate) {}
-    func signalClient(_: SignalClient, didReceiveLeave _: Bool, reason _: Livekit_DisconnectReason) {}
+    func signalClient(_ signalClient: SignalClient, didReceive joinResponse: Livekit_JoinResponse) {}
+    func signalClient(_ signalClient: SignalClient, didPublish localTrack: Livekit_TrackPublishedResponse) {}
+    func signalClient(_ signalClient: SignalClient, didUnpublish localTrack: Livekit_TrackUnpublishedResponse) {}
+    func signalClient(_ signalClient: SignalClient, didUpdate participants: [Livekit_ParticipantInfo]) {}
+    func signalClient(_ signalClient: SignalClient, didUpdate room: Livekit_Room) {}
+    func signalClient(_ signalClient: SignalClient, didUpdate speakers: [Livekit_SpeakerInfo]) {}
+    func signalClient(_ signalClient: SignalClient, didUpdate connectionQuality: [Livekit_ConnectionQualityInfo]) {}
+    func signalClient(_ signalClient: SignalClient, didUpdateRemoteMute trackSid: String, muted: Bool) {}
+    func signalClient(_ signalClient: SignalClient, didUpdate trackStates: [Livekit_StreamStateInfo]) {}
+    func signalClient(_ signalClient: SignalClient, didUpdate trackSid: String, subscribedQualities: [Livekit_SubscribedQuality]) {}
+    func signalClient(_ signalClient: SignalClient, didUpdate subscriptionPermission: Livekit_SubscriptionPermissionUpdate) {}
+    func signalClient(_ signalClient: SignalClient, didReceiveLeave canReconnect: Bool, reason: Livekit_DisconnectReason) {}
 }

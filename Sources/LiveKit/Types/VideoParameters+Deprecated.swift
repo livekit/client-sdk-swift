@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 LiveKit
+ * Copyright 2022 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,10 +19,11 @@ import WebRTC
 
 @available(*, deprecated)
 public extension VideoParameters {
+
     // 4:3 aspect ratio
     static let presetQVGA43 = VideoParameters(
         dimensions: .qvga43,
-        encoding: VideoEncoding(maxBitrate: 90000, maxFps: 10)
+        encoding: VideoEncoding(maxBitrate: 90_000, maxFps: 10)
     )
 
     static let presetVGA43 = VideoParameters(

@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 LiveKit
+ * Copyright 2022 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,6 +24,7 @@ public enum EncryptionType: Int {
 }
 
 extension EncryptionType {
+
     func toPBType() -> Livekit_Encryption.TypeEnum {
         switch self {
         case .none: return .none

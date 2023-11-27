@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 LiveKit
+ * Copyright 2022 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,9 @@ import Foundation
 import WebRTC
 
 extension VideoParameters: Comparable {
+
     public static func < (lhs: VideoParameters, rhs: VideoParameters) -> Bool {
+
         if lhs.dimensions.area == rhs.dimensions.area {
             return lhs.encoding < rhs.encoding
         }

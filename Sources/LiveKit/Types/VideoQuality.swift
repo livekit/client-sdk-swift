@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 LiveKit
+ * Copyright 2022 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,37 +16,40 @@
 
 import Foundation
 
-enum VideoQuality {
+internal enum VideoQuality {
     case low
     case medium
     case high
 }
 
-extension VideoQuality {
+internal extension VideoQuality {
+
     static let rids = ["q", "h", "f"]
 }
 
-extension VideoQuality {
+internal extension VideoQuality {
+
     private static let toPBTypeMap: [VideoQuality: Livekit_VideoQuality] = [
         .low: .low,
         .medium: .medium,
-        .high: .high,
+        .high: .high
     ]
 
     func toPBType() -> Livekit_VideoQuality {
-        Self.toPBTypeMap[self] ?? .low
+        return Self.toPBTypeMap[self] ?? .low
     }
 }
 
-extension Livekit_VideoQuality {
+internal extension Livekit_VideoQuality {
+
     private static let toSDKTypeMap: [Livekit_VideoQuality: VideoQuality] = [
         .low: .low,
         .medium: .medium,
-        .high: .high,
+        .high: .high
     ]
 
     func toSDKType() -> VideoQuality {
-        Self.toSDKTypeMap[self] ?? .low
+        return Self.toSDKTypeMap[self] ?? .low
     }
 
     static func from(rid: String?) -> Livekit_VideoQuality {

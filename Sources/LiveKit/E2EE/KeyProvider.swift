@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 LiveKit
+ * Copyright 2022 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,13 +33,13 @@ public class KeyProviderOptions {
                 ratchetSalt: Data = defaultRatchetSalt.data(using: .utf8)!,
                 ratchetWindowSize: Int32 = defaultRatchetWindowSize,
                 uncryptedMagicBytes: Data = defaultMagicBytes.data(using: .utf8)!,
-                failureTolerance _: Int32 = defaultFailureTolerance)
-    {
+                failureTolerance: Int32 = defaultFailureTolerance
+    ) {
         self.sharedKey = sharedKey
         self.ratchetSalt = ratchetSalt
         self.ratchetWindowSize = ratchetWindowSize
         self.uncryptedMagicBytes = uncryptedMagicBytes
-        failureTolerance = defaultFailureTolerance
+        self.failureTolerance = defaultFailureTolerance
     }
 }
 
@@ -47,35 +47,36 @@ public class BaseKeyProvider: Loggable {
     var options: KeyProviderOptions
     var rtcKeyProvider: RTCFrameCryptorKeyProvider?
     public init(isSharedKey: Bool, sharedKey: String? = nil) {
-        options = KeyProviderOptions(sharedKey: isSharedKey)
-        rtcKeyProvider = RTCFrameCryptorKeyProvider(ratchetSalt: options.ratchetSalt,
-                                                    ratchetWindowSize: options.ratchetWindowSize,
-                                                    sharedKeyMode: isSharedKey,
-                                                    uncryptedMagicBytes: options.uncryptedMagicBytes,
-                                                    failureTolerance: options.failureTolerance)
-        if isSharedKey, sharedKey != nil {
+        self.options = KeyProviderOptions(sharedKey: isSharedKey)
+        self.rtcKeyProvider = RTCFrameCryptorKeyProvider(ratchetSalt: options.ratchetSalt,
+                                                         ratchetWindowSize: options.ratchetWindowSize,
+                                                         sharedKeyMode: isSharedKey,
+                                                         uncryptedMagicBytes: options.uncryptedMagicBytes,
+                                                         failureTolerance: options.failureTolerance)
+        if isSharedKey && sharedKey != nil {
             let keyData = sharedKey!.data(using: .utf8)!
-            rtcKeyProvider?.setSharedKey(keyData, with: 0)
+            self.rtcKeyProvider?.setSharedKey(keyData, with: 0)
         }
     }
 
     public init(options: KeyProviderOptions = KeyProviderOptions()) {
         self.options = options
-        rtcKeyProvider = RTCFrameCryptorKeyProvider(ratchetSalt: options.ratchetSalt,
-                                                    ratchetWindowSize: options.ratchetWindowSize,
-                                                    sharedKeyMode: options.sharedKey,
-                                                    uncryptedMagicBytes: options.uncryptedMagicBytes)
+        self.rtcKeyProvider = RTCFrameCryptorKeyProvider(ratchetSalt: options.ratchetSalt,
+                                                         ratchetWindowSize: options.ratchetWindowSize,
+                                                         sharedKeyMode: options.sharedKey,
+                                                         uncryptedMagicBytes: options.uncryptedMagicBytes)
     }
 
     public func setKey(key: String, participantId: String? = nil, index: Int32? = 0) {
+
         if options.sharedKey {
             let keyData = key.data(using: .utf8)!
-            rtcKeyProvider?.setSharedKey(keyData, with: index ?? 0)
+            self.rtcKeyProvider?.setSharedKey(keyData, with: index ?? 0)
             return
         }
 
         if participantId == nil {
-            log("setKey: Please provide valid participantId for non-SharedKey mode.")
+            self.log("setKey: Please provide valid participantId for non-SharedKey mode.")
             return
         }
 
@@ -89,7 +90,7 @@ public class BaseKeyProvider: Loggable {
         }
 
         if participantId == nil {
-            log("ratchetKey: Please provide valid participantId for non-SharedKey mode.")
+            self.log("ratchetKey: Please provide valid participantId for non-SharedKey mode.")
             return nil
         }
 
@@ -102,7 +103,7 @@ public class BaseKeyProvider: Loggable {
         }
 
         if participantId == nil {
-            log("exportKey: Please provide valid participantId for non-SharedKey mode.")
+            self.log("exportKey: Please provide valid participantId for non-SharedKey mode.")
             return nil
         }
 

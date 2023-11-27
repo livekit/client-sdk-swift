@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 LiveKit
+ * Copyright 2022 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,13 +17,15 @@
 import Foundation
 import Promises
 
-struct Completer<Value: Equatable>: Loggable {
+internal struct Completer<Value: Equatable>: Loggable {
+
     private var value: Value?
     private var fulfill: ((Value) -> Void)?
     private var reject: ((Error) -> Void)?
 
     public mutating func set(value newValue: Value?) {
-        guard let newValue else {
+
+        guard let newValue = newValue else {
             // reset if oldValue exists and newValue is nil
             if value != nil { reset() }
             return
@@ -42,14 +44,14 @@ struct Completer<Value: Equatable>: Loggable {
     public mutating func wait(on queue: DispatchQueue, _ interval: TimeInterval, throw: @escaping Promise.OnTimeout) -> Promise<Value> {
         log("[publish] wait created...")
 
-        if let value {
+        if let value = value {
             // already resolved
             return Promise(value)
         }
 
         let promise = Promise<Value>.pending()
-        fulfill = promise.fulfill(_:)
-        reject = promise.reject(_:)
+        self.fulfill = promise.fulfill(_:)
+        self.reject = promise.reject(_:)
         return promise.timeout(on: queue, interval, throw: `throw`)
     }
 
@@ -64,6 +66,7 @@ struct Completer<Value: Equatable>: Loggable {
 }
 
 extension Completer: Equatable {
+
     static func == (lhs: Completer<Value>, rhs: Completer<Value>) -> Bool {
         lhs.value == rhs.value
     }

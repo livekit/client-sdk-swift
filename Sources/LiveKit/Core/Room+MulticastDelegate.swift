@@ -17,6 +17,7 @@
 import Foundation
 
 extension Room: MulticastDelegateProtocol {
+
     public func add(delegate: RoomDelegate) {
         delegates.add(delegate: delegate)
     }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 LiveKit
+ * Copyright 2022 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ import WebRTC
 
 @objc
 public class AudioCaptureOptions: NSObject, CaptureOptions {
+
     @objc
     public let echoCancellation: Bool
 
@@ -44,8 +45,8 @@ public class AudioCaptureOptions: NSObject, CaptureOptions {
                 noiseSuppression: Bool = true,
                 autoGainControl: Bool = true,
                 typingNoiseDetection: Bool = true,
-                highpassFilter: Bool = true)
-    {
+                highpassFilter: Bool = true) {
+
         self.echoCancellation = echoCancellation
         self.noiseSuppression = noiseSuppression
         self.autoGainControl = autoGainControl
@@ -55,18 +56,18 @@ public class AudioCaptureOptions: NSObject, CaptureOptions {
 
     // MARK: - Equatable
 
-    override public func isEqual(_ object: Any?) -> Bool {
+    public override func isEqual(_ object: Any?) -> Bool {
         guard let other = object as? Self else { return false }
-        return echoCancellation == other.echoCancellation &&
-            noiseSuppression == other.noiseSuppression &&
-            autoGainControl == other.autoGainControl &&
-            typingNoiseDetection == other.typingNoiseDetection &&
-            highpassFilter == other.highpassFilter &&
-            experimentalNoiseSuppression == other.experimentalNoiseSuppression &&
-            experimentalAutoGainControl == other.experimentalAutoGainControl
+        return self.echoCancellation == other.echoCancellation &&
+            self.noiseSuppression == other.noiseSuppression &&
+            self.autoGainControl == other.autoGainControl &&
+            self.typingNoiseDetection == other.typingNoiseDetection &&
+            self.highpassFilter == other.highpassFilter &&
+            self.experimentalNoiseSuppression == other.experimentalNoiseSuppression &&
+            self.experimentalAutoGainControl == other.experimentalAutoGainControl
     }
 
-    override public var hash: Int {
+    public override var hash: Int {
         var hasher = Hasher()
         hasher.combine(echoCancellation)
         hasher.combine(noiseSuppression)

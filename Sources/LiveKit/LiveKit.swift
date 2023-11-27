@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 LiveKit
+ * Copyright 2022 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,11 +15,11 @@
  */
 
 import Foundation
-import Logging
-import Promises
 import WebRTC
+import Promises
+import Logging
 
-let logger = Logger(label: "LiveKitSDK")
+internal let logger = Logger(label: "LiveKitSDK")
 
 /// The open source platform for real-time communication.
 ///
@@ -33,6 +33,7 @@ let logger = Logger(label: "LiveKitSDK")
 /// to try out the features.
 @objc
 public class LiveKit: NSObject {
+
     @objc(sdkVersion)
     public static let version = "1.1.3"
 
@@ -42,8 +43,8 @@ public class LiveKit: NSObject {
         _ token: String,
         delegate: RoomDelegate? = nil,
         connectOptions: ConnectOptions = ConnectOptions(),
-        roomOptions: RoomOptions = RoomOptions()
-    ) -> Promise<Room> {
+        roomOptions: RoomOptions = RoomOptions()) -> Promise<Room> {
+
         let room = Room(delegate: delegate,
                         // Override with protocol v7 or lower when using this deprecated method
                         connectOptions: connectOptions.protocolVersion >= .v8 ? connectOptions.copyWith(protocolVersion: .v7) : connectOptions,
@@ -54,10 +55,10 @@ public class LiveKit: NSObject {
 
     @objc
     public static func setLoggerStandardOutput() {
-        LoggingSystem.bootstrap {
+        LoggingSystem.bootstrap({
             var logHandler = StreamLogHandler.standardOutput(label: $0)
             logHandler.logLevel = .debug
             return logHandler
-        }
+        })
     }
 }

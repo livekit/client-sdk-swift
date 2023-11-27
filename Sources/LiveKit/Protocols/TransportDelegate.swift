@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 LiveKit
+ * Copyright 2022 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@
 import Foundation
 import WebRTC
 
-protocol TransportDelegate: AnyObject {
+internal protocol TransportDelegate: AnyObject {
     func transport(_ transport: Transport, didUpdate state: RTCPeerConnectionState)
     func transport(_ transport: Transport, didGenerate iceCandidate: RTCIceCandidate)
     func transport(_ transport: Transport, didOpen dataChannel: RTCDataChannel)

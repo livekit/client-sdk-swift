@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 LiveKit
+ * Copyright 2022 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,15 +15,16 @@
  */
 
 import Foundation
-import Promises
 import WebRTC
+import Promises
 
 @objc
 public class LocalAudioTrack: Track, LocalTrack, AudioTrack {
-    init(name: String,
-         source: Track.Source,
-         track: RTCMediaStreamTrack)
-    {
+
+    internal init(name: String,
+                  source: Track.Source,
+                  track: RTCMediaStreamTrack) {
+
         super.init(name: name,
                    kind: .audio,
                    source: source,
@@ -31,8 +32,8 @@ public class LocalAudioTrack: Track, LocalTrack, AudioTrack {
     }
 
     public static func createTrack(name: String = Track.microphoneName,
-                                   options: AudioCaptureOptions? = nil) -> LocalAudioTrack
-    {
+                                   options: AudioCaptureOptions? = nil) -> LocalAudioTrack {
+
         let options = options ?? AudioCaptureOptions()
 
         let constraints: [String: String] = [
@@ -42,7 +43,7 @@ public class LocalAudioTrack: Track, LocalTrack, AudioTrack {
             "googTypingNoiseDetection": options.typingNoiseDetection.toString(),
             "googHighpassFilter": options.highpassFilter.toString(),
             "googNoiseSuppression2": options.experimentalNoiseSuppression.toString(),
-            "googAutoGainControl2": options.experimentalAutoGainControl.toString(),
+            "googAutoGainControl2": options.experimentalAutoGainControl.toString()
         ]
 
         let audioConstraints = DispatchQueue.liveKitWebRTC.sync { RTCMediaConstraints(mandatoryConstraints: nil,
@@ -58,7 +59,7 @@ public class LocalAudioTrack: Track, LocalTrack, AudioTrack {
     }
 
     @discardableResult
-    override func onPublish() -> Promise<Bool> {
+    internal override func onPublish() -> Promise<Bool> {
         super.onPublish().then(on: queue) { didPublish -> Bool in
             if didPublish {
                 AudioManager.shared.trackDidStart(.local)
@@ -68,7 +69,7 @@ public class LocalAudioTrack: Track, LocalTrack, AudioTrack {
     }
 
     @discardableResult
-    override func onUnpublish() -> Promise<Bool> {
+    internal override func onUnpublish() -> Promise<Bool> {
         super.onUnpublish().then(on: queue) { didUnpublish -> Bool in
             if didUnpublish {
                 AudioManager.shared.trackDidStop(.local)
@@ -78,8 +79,9 @@ public class LocalAudioTrack: Track, LocalTrack, AudioTrack {
     }
 }
 
-public extension LocalAudioTrack {
-    var publishOptions: PublishOptions? { super._publishOptions }
+extension LocalAudioTrack {
 
-    var publishState: Track.PublishState { super._publishState }
+    public var publishOptions: PublishOptions? { super._publishOptions }
+
+    public var publishState: Track.PublishState { super._publishState }
 }

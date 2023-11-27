@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 LiveKit
+ * Copyright 2022 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ import Foundation
 
 @objc
 public class VideoPublishOptions: NSObject, PublishOptions {
+
     @objc
     public let name: String?
 
@@ -44,8 +45,8 @@ public class VideoPublishOptions: NSObject, PublishOptions {
                 screenShareEncoding: VideoEncoding? = nil,
                 simulcast: Bool = true,
                 simulcastLayers: [VideoParameters] = [],
-                screenShareSimulcastLayers: [VideoParameters] = [])
-    {
+                screenShareSimulcastLayers: [VideoParameters] = []) {
+
         self.name = name
         self.encoding = encoding
         self.screenShareEncoding = screenShareEncoding
@@ -56,17 +57,17 @@ public class VideoPublishOptions: NSObject, PublishOptions {
 
     // MARK: - Equal
 
-    override public func isEqual(_ object: Any?) -> Bool {
+    public override func isEqual(_ object: Any?) -> Bool {
         guard let other = object as? Self else { return false }
-        return name == other.name &&
-            encoding == other.encoding &&
-            screenShareEncoding == other.screenShareEncoding &&
-            simulcast == other.simulcast &&
-            simulcastLayers == other.simulcastLayers &&
-            screenShareSimulcastLayers == other.screenShareSimulcastLayers
+        return self.name == other.name &&
+            self.encoding == other.encoding &&
+            self.screenShareEncoding == other.screenShareEncoding &&
+            self.simulcast == other.simulcast &&
+            self.simulcastLayers == other.simulcastLayers &&
+            self.screenShareSimulcastLayers == other.screenShareSimulcastLayers
     }
 
-    override public var hash: Int {
+    public override var hash: Int {
         var hasher = Hasher()
         hasher.combine(name)
         hasher.combine(encoding)

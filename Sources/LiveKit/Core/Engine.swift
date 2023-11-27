@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 LiveKit
+ * Copyright 2022 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,21 +15,22 @@
  */
 
 import Foundation
-import Promises
 import WebRTC
+import Promises
 
 #if canImport(Network)
-    import Network
+import Network
 #endif
 
-class Engine: MulticastDelegate<EngineDelegate> {
-    let queue = DispatchQueue(label: "LiveKitSDK.engine", qos: .default)
+internal class Engine: MulticastDelegate<EngineDelegate> {
+
+    internal let queue = DispatchQueue(label: "LiveKitSDK.engine", qos: .default)
 
     // MARK: - Public
 
     public typealias ConditionEvalFunc = (_ newState: State, _ oldState: State?) -> Bool
 
-    struct State: ReconnectableState, Equatable {
+    internal struct State: ReconnectableState, Equatable {
         var connectOptions: ConnectOptions
         var url: String?
         var token: String?
@@ -61,13 +62,13 @@ class Engine: MulticastDelegate<EngineDelegate> {
         let block: () -> Void
     }
 
-    var subscriberPrimary: Bool = false
+    internal var subscriberPrimary: Bool = false
     private var primary: Transport? { subscriberPrimary ? subscriber : publisher }
 
     // MARK: - DataChannels
 
-    var subscriberDC = DataChannelPair(target: .subscriber)
-    var publisherDC = DataChannelPair(target: .publisher)
+    internal var subscriberDC = DataChannelPair(target: .subscriber)
+    internal var publisherDC = DataChannelPair(target: .publisher)
 
     private var _blockProcessQueue = DispatchQueue(label: "LiveKitSDK.engine.pendingBlocks",
                                                    qos: .default)
@@ -75,7 +76,8 @@ class Engine: MulticastDelegate<EngineDelegate> {
     private var _queuedBlocks = [ConditionalExecutionEntry]()
 
     init(connectOptions: ConnectOptions) {
-        _state = StateSync(State(connectOptions: connectOptions))
+
+        self._state = StateSync(State(connectOptions: connectOptions))
         super.init()
 
         // log sdk & os versions
@@ -85,9 +87,9 @@ class Engine: MulticastDelegate<EngineDelegate> {
         ConnectivityListener.shared.add(delegate: self)
 
         // trigger events when state mutates
-        _state.onDidMutate = { [weak self] newState, oldState in
+        self._state.onDidMutate = { [weak self] newState, oldState in
 
-            guard let self else { return }
+            guard let self = self else { return }
 
             assert(!(newState.connectionState == .reconnecting && newState.reconnectMode == .none), "reconnectMode should not be .none")
 
@@ -99,7 +101,7 @@ class Engine: MulticastDelegate<EngineDelegate> {
 
             // execution control
             self._blockProcessQueue.async { [weak self] in
-                guard let self, !self._queuedBlocks.isEmpty else { return }
+                guard let self = self, !self._queuedBlocks.isEmpty else { return }
 
                 self.log("[execution control] processing pending entries (\(self._queuedBlocks.count))...")
 
@@ -119,11 +121,11 @@ class Engine: MulticastDelegate<EngineDelegate> {
 
         subscriberDC.onDataPacket = { [weak self] (dataPacket: Livekit_DataPacket) in
 
-            guard let self else { return }
+            guard let self = self else { return }
 
             switch dataPacket.value {
-            case let .speaker(update): self.notify { $0.engine(self, didUpdate: update.speakers) }
-            case let .user(userPacket): self.notify { $0.engine(self, didReceive: userPacket) }
+            case .speaker(let update): self.notify { $0.engine(self, didUpdate: update.speakers) }
+            case .user(let userPacket): self.notify { $0.engine(self, didReceive: userPacket) }
             default: return
             }
         }
@@ -136,10 +138,10 @@ class Engine: MulticastDelegate<EngineDelegate> {
     // Connect sequence, resets existing state
     func connect(_ url: String,
                  _ token: String,
-                 connectOptions: ConnectOptions? = nil) -> Promise<Void>
-    {
+                 connectOptions: ConnectOptions? = nil) -> Promise<Void> {
+
         // update options if specified
-        if let connectOptions, connectOptions != _state.connectOptions {
+        if let connectOptions = connectOptions, connectOptions != _state.connectOptions {
             _state.mutate { $0.connectOptions = connectOptions }
         }
 
@@ -166,10 +168,10 @@ class Engine: MulticastDelegate<EngineDelegate> {
     // cleanUp (reset) both Room & Engine's state
     @discardableResult
     func cleanUp(reason: DisconnectReason? = nil,
-                 isFullReconnect: Bool = false) -> Promise<Void>
-    {
+                 isFullReconnect: Bool = false) -> Promise<Void> {
+
         // this should never happen since Engine is owned by Room
-        guard let room else { return Promise(EngineError.state(message: "Room is nil")) }
+        guard let room = self.room else { return Promise(EngineError.state(message: "Room is nil")) }
 
         // call Room's cleanUp
         return room.cleanUp(reason: reason, isFullReconnect: isFullReconnect)
@@ -177,15 +179,16 @@ class Engine: MulticastDelegate<EngineDelegate> {
 
     // Resets state of transports
     func cleanUpRTC() -> Promise<Void> {
+
         Promise<Void>(on: queue) { [weak self] () -> Promise<Void> in
 
             // close data channels
 
-            guard let self else { return Promise(()) }
+            guard let self = self else { return Promise(()) }
 
             let closeDataChannelPromises = [
                 self.publisherDC.close(),
-                self.subscriberDC.close(),
+                self.subscriberDC.close()
             ]
 
             return closeDataChannelPromises.all(on: self.queue)
@@ -194,7 +197,7 @@ class Engine: MulticastDelegate<EngineDelegate> {
 
             // close transports
 
-            guard let self else { return Promise(()) }
+            guard let self = self else { return Promise(()) }
 
             let closeTransportPromises = [self.publisher,
                                           self.subscriber]
@@ -212,13 +215,13 @@ class Engine: MulticastDelegate<EngineDelegate> {
 
     @discardableResult
     func publisherShouldNegotiate() -> Promise<Void> {
+
         log()
 
         return Promise<Void>(on: queue) { [weak self] in
 
-            guard let self,
-                  let publisher = self.publisher
-            else {
+            guard let self = self,
+                  let publisher = self.publisher else {
                 throw EngineError.state(message: "self or publisher is nil")
             }
 
@@ -229,14 +232,15 @@ class Engine: MulticastDelegate<EngineDelegate> {
     }
 
     func send(userPacket: Livekit_UserPacket,
-              reliability: Reliability = .reliable) -> Promise<Void>
-    {
-        func ensurePublisherConnected() -> Promise<Void> {
+              reliability: Reliability = .reliable) -> Promise<Void> {
+
+        func ensurePublisherConnected () -> Promise<Void> {
+
             guard subscriberPrimary else {
                 return Promise(())
             }
 
-            guard let publisher else {
+            guard let publisher = publisher else {
                 return Promise(EngineError.state(message: "publisher is nil"))
             }
 
@@ -260,7 +264,7 @@ class Engine: MulticastDelegate<EngineDelegate> {
             }
         }
 
-        return ensurePublisherConnected().then(on: queue) { () in
+        return ensurePublisherConnected().then(on: queue) { () -> Void in
 
             // at this point publisher should be .connected and dc should be .open
             assert(self.publisher?.isConnected ?? false, "publisher is not .connected")
@@ -274,9 +278,11 @@ class Engine: MulticastDelegate<EngineDelegate> {
 
 // MARK: - Internal
 
-extension Engine {
+internal extension Engine {
+
     func configureTransports(joinResponse: Livekit_JoinResponse) -> Promise<Void> {
-        Promise<Void>(on: queue) { () in
+
+        Promise<Void>(on: queue) { () -> Void in
 
             self.log("configuring transports...")
 
@@ -348,8 +354,10 @@ extension Engine {
 
 // MARK: - Execution control (Internal)
 
-extension Engine {
+internal extension Engine {
+
     func executeIfConnected(_ block: @escaping @convention(block) () -> Void) {
+
         if case .connected = _state.connectionState {
             // execute immediately
             block()
@@ -358,15 +366,15 @@ extension Engine {
 
     func execute(when condition: @escaping ConditionEvalFunc,
                  removeWhen removeCondition: @escaping ConditionEvalFunc,
-                 _ block: @escaping () -> Void)
-    {
+                 _ block: @escaping () -> Void) {
+
         // already matches condition, execute immediately
         if _state.read({ condition($0, nil) }) {
             log("[execution control] executing immediately...")
             block()
         } else {
             _blockProcessQueue.async { [weak self] in
-                guard let self else { return }
+                guard let self = self else { return }
 
                 // create an entry and enqueue block
                 self.log("[execution control] enqueuing entry...")
@@ -383,19 +391,20 @@ extension Engine {
 
 // MARK: - Connection / Reconnection logic
 
-extension Engine {
+internal extension Engine {
+
     // full connect sequence, doesn't update connection state
     func fullConnectSequence(_ url: String,
-                             _ token: String) -> Promise<Void>
-    {
-        // this should never happen since Engine is owned by Room
-        guard let room else { return Promise(EngineError.state(message: "Room is nil")) }
+                             _ token: String) -> Promise<Void> {
 
-        return signalClient.connect(url,
-                                    token,
-                                    connectOptions: _state.connectOptions,
-                                    reconnectMode: _state.reconnectMode,
-                                    adaptiveStream: room._state.options.adaptiveStream)
+        // this should never happen since Engine is owned by Room
+        guard let room = self.room else { return Promise(EngineError.state(message: "Room is nil")) }
+
+        return self.signalClient.connect(url,
+                                         token,
+                                         connectOptions: _state.connectOptions,
+                                         reconnectMode: _state.reconnectMode,
+                                         adaptiveStream: room._state.options.adaptiveStream)
             .then(on: queue) {
                 // wait for joinResponse
                 self.signalClient._state.mutate { $0.joinResponseCompleter.wait(on: self.queue,
@@ -411,7 +420,7 @@ extension Engine {
                 self._state.mutate { $0.primaryTransportConnectedCompleter.wait(on: self.queue,
                                                                                 .defaultTransportState,
                                                                                 throw: { TransportError.timedOut(message: "primary transport didn't connect") }) }
-            }.then(on: queue) { _ in
+            }.then(on: queue) { _ -> Void in
                 self._state.mutate { $0.connectStopwatch.split(label: "engine") }
                 self.log("\(self._state.connectStopwatch)")
             }
@@ -419,13 +428,14 @@ extension Engine {
 
     @discardableResult
     func startReconnect() -> Promise<Void> {
+
         guard case .connected = _state.connectionState else {
             log("[reconnect] must be called with connected state", .warning)
             return Promise(EngineError.state(message: "Must be called with connected state"))
         }
 
         guard let url = _state.url, let token = _state.token else {
-            log("[reconnect] url or token is nil", .warning)
+            log("[reconnect] url or token is nil", . warning)
             return Promise(EngineError.state(message: "url or token is nil"))
         }
 
@@ -436,59 +446,61 @@ extension Engine {
 
         // quick connect sequence, does not update connection state
         func quickReconnectSequence() -> Promise<Void> {
+
             log("[reconnect] starting QUICK reconnect sequence...")
 
             // this should never happen since Engine is owned by Room
-            guard let room else { return Promise(EngineError.state(message: "Room is nil")) }
+            guard let room = self.room else { return Promise(EngineError.state(message: "Room is nil")) }
 
-            return signalClient.connect(url,
-                                        token,
-                                        connectOptions: _state.connectOptions,
-                                        reconnectMode: _state.reconnectMode,
-                                        adaptiveStream: room._state.options.adaptiveStream).then(on: queue) {
-                self.log("[reconnect] waiting for socket to connect...")
-                // Wait for primary transport to connect (if not already)
-                self._state.mutate { $0.primaryTransportConnectedCompleter.wait(on: self.queue,
-                                                                                .defaultTransportState,
-                                                                                throw: { TransportError.timedOut(message: "primary transport didn't connect") }) }
-            }.then(on: queue) { _ in
-                // send SyncState before offer
-                self.sendSyncState()
-            }.then(on: queue) { () -> Promise<Void> in
+            return self.signalClient.connect(url,
+                                             token,
+                                             connectOptions: _state.connectOptions,
+                                             reconnectMode: _state.reconnectMode,
+                                             adaptiveStream: room._state.options.adaptiveStream).then(on: queue) {
 
-                self.subscriber?.restartingIce = true
+                                                self.log("[reconnect] waiting for socket to connect...")
+                                                // Wait for primary transport to connect (if not already)
+                                                self._state.mutate { $0.primaryTransportConnectedCompleter.wait(on: self.queue,
+                                                                                                                .defaultTransportState,
+                                                                                                                throw: { TransportError.timedOut(message: "primary transport didn't connect") }) }
+                                             }.then(on: queue) { _ in
+                                                // send SyncState before offer
+                                                self.sendSyncState()
+                                             }.then(on: queue) { () -> Promise<Void> in
 
-                // only if published, continue...
-                guard let publisher = self.publisher, self._state.hasPublished else {
-                    return Promise(())
-                }
+                                                self.subscriber?.restartingIce = true
 
-                self.log("[reconnect] waiting for publisher to connect...")
+                                                // only if published, continue...
+                                                guard let publisher = self.publisher, self._state.hasPublished else {
+                                                    return Promise(())
+                                                }
 
-                return publisher.createAndSendOffer(iceRestart: true).then(on: self.queue) {
-                    self._state.mutate { $0.publisherTransportConnectedCompleter.wait(on: self.queue,
-                                                                                      .defaultTransportState,
-                                                                                      throw: { TransportError.timedOut(message: "publisher transport didn't connect") }) }.then { _ in }
-                }
+                                                self.log("[reconnect] waiting for publisher to connect...")
 
-            }.then(on: queue) { () -> Promise<Void> in
+                                                return publisher.createAndSendOffer(iceRestart: true).then(on: self.queue) {
+                                                    self._state.mutate { $0.publisherTransportConnectedCompleter.wait(on: self.queue,
+                                                                                                                      .defaultTransportState,
+                                                                                                                      throw: { TransportError.timedOut(message: "publisher transport didn't connect") }) }.then { _ in }
+                                                }
 
-                self.log("[reconnect] send queued requests")
-                // always check if there are queued requests
-                return self.signalClient.sendQueuedRequests()
-            }
+                                             }.then(on: queue) { () -> Promise<Void> in
+
+                                                self.log("[reconnect] send queued requests")
+                                                // always check if there are queued requests
+                                                return self.signalClient.sendQueuedRequests()
+                                             }
         }
 
         // "full" re-connection sequence
         // as a last resort, try to do a clean re-connection and re-publish existing tracks
         func fullReconnectSequence() -> Promise<Void> {
+
             log("[reconnect] starting FULL reconnect sequence...")
 
             return cleanUp(isFullReconnect: true).then(on: queue) { () -> Promise<Void> in
 
                 guard let url = self._state.url,
-                      let token = self._state.token
-                else {
+                      let token = self._state.token else {
                     throw EngineError.state(message: "url or token is nil")
                 }
 
@@ -500,64 +512,66 @@ extension Engine {
                      attempts: _state.connectOptions.reconnectAttempts,
                      delay: _state.connectOptions.reconnectAttemptDelay,
                      condition: { [weak self] triesLeft, _ in
-                         guard let self else { return false }
+                        guard let self = self else { return false }
 
-                         // not reconnecting state anymore
-                         guard case .reconnecting = self._state.connectionState else { return false }
+                        // not reconnecting state anymore
+                        guard case .reconnecting = self._state.connectionState else { return false }
 
-                         // full reconnect failed, give up
-                         guard self._state.reconnectMode != .full else { return false }
+                        // full reconnect failed, give up
+                        guard .full != self._state.reconnectMode else { return false }
 
-                         self.log("[reconnect] retry in \(self._state.connectOptions.reconnectAttemptDelay) seconds, \(triesLeft) tries left...")
+                        self.log("[reconnect] retry in \(self._state.connectOptions.reconnectAttemptDelay) seconds, \(triesLeft) tries left...")
 
-                         // try full reconnect for the final attempt
-                         if triesLeft == 1,
-                            self._state.nextPreferredReconnectMode == nil
-                         {
-                             self._state.mutate { $0.nextPreferredReconnectMode = .full }
-                         }
+                        // try full reconnect for the final attempt
+                        if triesLeft == 1,
+                           self._state.nextPreferredReconnectMode == nil {
+                            self._state.mutate {  $0.nextPreferredReconnectMode = .full }
+                        }
 
-                         return true
+                        return true
                      }, _: { [weak self] in
-                         // this should never happen
-                         guard let self else { return Promise(EngineError.state(message: "self is nil")) }
+                        // this should never happen
+                        guard let self = self else { return Promise(EngineError.state(message: "self is nil")) }
 
-                         let mode: ReconnectMode = self._state.mutate {
-                             let mode: ReconnectMode = ($0.nextPreferredReconnectMode == .full || $0.reconnectMode == .full) ? .full : .quick
-                             $0.connectionState = .reconnecting
-                             $0.reconnectMode = mode
-                             $0.nextPreferredReconnectMode = nil
+                        let mode: ReconnectMode = self._state.mutate {
 
-                             return mode
-                         }
+                            let mode: ReconnectMode = ($0.nextPreferredReconnectMode == .full || $0.reconnectMode == .full) ? .full : .quick
+                            $0.connectionState = .reconnecting
+                            $0.reconnectMode = mode
+                            $0.nextPreferredReconnectMode = nil
 
-                         return mode == .full ? fullReconnectSequence() : quickReconnectSequence()
+                            return mode
+                        }
+
+                        return mode == .full ? fullReconnectSequence() : quickReconnectSequence()
                      })
-                     .then(on: queue) {
-                         // re-connect sequence successful
-                         self.log("[reconnect] sequence completed")
-                         self._state.mutate { $0.connectionState = .connected }
-                     }.catch(on: queue) { error in
-                         self.log("[reconnect] sequence failed with error: \(error)")
-                         // finally disconnect if all attempts fail
-                         self.cleanUp(reason: .networkError(error))
-                     }
+            .then(on: queue) {
+                // re-connect sequence successful
+                self.log("[reconnect] sequence completed")
+                self._state.mutate { $0.connectionState = .connected }
+            }.catch(on: queue) { error in
+                self.log("[reconnect] sequence failed with error: \(error)")
+                // finally disconnect if all attempts fail
+                self.cleanUp(reason: .networkError(error))
+            }
     }
+
 }
 
 // MARK: - Session Migration
 
-extension Engine {
+internal extension Engine {
+
     func sendSyncState() -> Promise<Void> {
-        guard let room else {
+
+        guard let room = room else {
             // this should never happen
             log("Room is nil", .error)
             return Promise(())
         }
 
-        guard let subscriber,
-              let previousAnswer = subscriber.localDescription
-        else {
+        guard let subscriber = subscriber,
+              let previousAnswer = subscriber.localDescription else {
             // No-op
             return Promise(())
         }
@@ -573,7 +587,7 @@ extension Engine {
         let trackSids = room._state.remoteParticipants.values.flatMap { participant in
             participant._state.tracks.values
                 .filter { $0.subscribed != autoSubscribe }
-                .map(\.sid)
+                .map { $0.sid }
         }
 
         log("trackSids: \(trackSids)")
@@ -595,6 +609,7 @@ extension Engine {
 // MARK: - ConnectivityListenerDelegate
 
 extension Engine: ConnectivityListenerDelegate {
+
     func connectivityListener(_: ConnectivityListener, didSwitch path: NWPath) {
         log("didSwitch path: \(path)")
 

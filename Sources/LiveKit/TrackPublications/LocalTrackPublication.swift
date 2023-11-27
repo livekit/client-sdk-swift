@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 LiveKit
+ * Copyright 2022 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,17 +19,19 @@ import Promises
 
 @objc
 public class LocalTrackPublication: TrackPublication {
+
     // indicates whether the track was suspended(muted) by the SDK
-    var suspended: Bool = false
+    internal var suspended: Bool = false
 
     // keep reference to cancel later
     private weak var debounceWorkItem: DispatchWorkItem?
 
     // stream state is always active for local tracks
-    override public var streamState: StreamState { .active }
+    public override var streamState: StreamState { .active }
 
     @discardableResult
     public func mute() -> Promise<Void> {
+
         guard let track = track as? LocalTrack else {
             return Promise(InternalError.state(message: "track is nil or not a LocalTrack"))
         }
@@ -39,6 +41,7 @@ public class LocalTrackPublication: TrackPublication {
 
     @discardableResult
     public func unmute() -> Promise<Void> {
+
         guard let track = track as? LocalTrack else {
             return Promise(InternalError.state(message: "track is nil or not a LocalTrack"))
         }
@@ -46,7 +49,7 @@ public class LocalTrackPublication: TrackPublication {
         return track._unmute()
     }
 
-    override func set(track newValue: Track?) -> Track? {
+    internal override func set(track newValue: Track?) -> Track? {
         let oldValue = super.set(track: newValue)
 
         // listen for VideoCapturerDelegate
@@ -76,7 +79,8 @@ public class LocalTrackPublication: TrackPublication {
                                                                         })
 }
 
-extension LocalTrackPublication {
+internal extension LocalTrackPublication {
+
     @discardableResult
     func suspend() -> Promise<Void> {
         // do nothing if already muted
@@ -97,13 +101,16 @@ extension LocalTrackPublication {
 }
 
 extension LocalTrackPublication: VideoCapturerDelegate {
-    public func capturer(_: VideoCapturer, didUpdate _: Dimensions?) {
+
+    public func capturer(_ capturer: VideoCapturer, didUpdate dimensions: Dimensions?) {
         shouldRecomputeSenderParameters()
     }
 }
 
 extension LocalTrackPublication {
-    func recomputeSenderParameters() {
+
+    internal func recomputeSenderParameters() {
+
         guard let track = track as? LocalVideoTrack,
               let sender = track.rtpSender else { return }
 
@@ -112,7 +119,7 @@ extension LocalTrackPublication {
             return
         }
 
-        guard let participant else {
+        guard let participant = participant else {
             log("Participant is nil", .warning)
             return
         }
@@ -156,11 +163,11 @@ extension LocalTrackPublication {
 
         let layers = dimensions.videoLayers(for: encodings)
 
-        log("Using encodings layers: \(layers.map { String(describing: $0) }.joined(separator: ", "))")
+        self.log("Using encodings layers: \(layers.map { String(describing: $0) }.joined(separator: ", "))")
 
         participant.room.engine.signalClient.sendUpdateVideoLayers(trackSid: track.sid!,
                                                                    layers: layers).catch(on: queue) { _ in
-            self.log("Failed to send update video layers", .error)
-        }
+                                                                    self.log("Failed to send update video layers", .error)
+                                                                   }
     }
 }

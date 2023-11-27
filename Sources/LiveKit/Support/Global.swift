@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 LiveKit
+ * Copyright 2022 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,6 +15,6 @@
  */
 
 // merge a ClosedRange
-func merge<T>(range range1: ClosedRange<T>, with range2: ClosedRange<T>) -> ClosedRange<T> where T: Comparable {
-    min(range1.lowerBound, range2.lowerBound) ... max(range1.upperBound, range2.upperBound)
+internal func merge<T>(range range1: ClosedRange<T>, with range2: ClosedRange<T>) -> ClosedRange<T> where T: Comparable {
+    min(range1.lowerBound, range2.lowerBound)...max(range1.upperBound, range2.upperBound)
 }

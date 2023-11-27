@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 LiveKit
+ * Copyright 2022 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,8 +28,8 @@ public enum E2EEState: Int {
     case internal_error
 }
 
-public extension E2EEState {
-    func toString() -> String {
+extension E2EEState {
+    public func toString() -> String {
         switch self {
         case .new: return "new"
         case .ok: return "ok"

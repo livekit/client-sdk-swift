@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 LiveKit
+ * Copyright 2022 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,6 +26,7 @@ import Foundation
 /// and register it on new participants inside ``RoomDelegate/room(_:participantDidJoin:)-9bkm4``
 @objc
 public protocol ParticipantDelegate: AnyObject {
+
     /// A ``Participant``'s metadata has updated.
     /// `participant` Can be a ``LocalParticipant`` or a ``RemoteParticipant``.
     @objc(participant:didUpdateMetadata:) optional

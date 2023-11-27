@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 LiveKit
+ * Copyright 2022 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 import Foundation
 
 public struct Stopwatch {
+
     public struct Entry: Equatable {
         let label: String
         let time: TimeInterval
@@ -26,12 +27,12 @@ public struct Stopwatch {
     public private(set) var start: TimeInterval
     public private(set) var splits = [Entry]()
 
-    init(label: String) {
+    internal init(label: String) {
         self.label = label
-        start = ProcessInfo.processInfo.systemUptime
+        self.start = ProcessInfo.processInfo.systemUptime
     }
 
-    mutating func split(label: String = "") {
+    internal mutating func split(label: String = "") {
         splits.append(Entry(label: label, time: ProcessInfo.processInfo.systemUptime))
     }
 
@@ -42,6 +43,7 @@ public struct Stopwatch {
 }
 
 extension Stopwatch: Equatable {
+
     public static func == (lhs: Stopwatch, rhs: Stopwatch) -> Bool {
         lhs.start == rhs.start &&
             lhs.splits == rhs.splits
@@ -49,7 +51,9 @@ extension Stopwatch: Equatable {
 }
 
 extension Stopwatch: CustomStringConvertible {
+
     public var description: String {
+
         var e = [String]()
         var s = start
         for x in splits {
