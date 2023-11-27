@@ -68,9 +68,10 @@ import Foundation
                       let content = displaySource.scContent as? SCShareableContent,
                       let nativeDisplay = displaySource.nativeType as? SCDisplay
             {
-                let excludedApps = content.applications.filter { app in
+                let excludedApps = !options.includeCurrentApplication ? content.applications.filter { app in
                     Bundle.main.bundleIdentifier == app.bundleIdentifier
-                }
+                } : []
+
                 filter = SCContentFilter(display: nativeDisplay, excludingApplications: excludedApps, exceptingWindows: [])
             } else {
                 throw TrackError.capturer(message: "Unable to resolve SCContentFilter")
