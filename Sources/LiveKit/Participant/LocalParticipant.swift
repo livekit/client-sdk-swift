@@ -87,9 +87,9 @@ public class LocalParticipant: Participant {
 
                     let publishOptions = (publishOptions as? VideoPublishOptions) ?? self.room._state.options.defaultVideoPublishOptions
 
-                    let encodings = Utils.computeEncodings(dimensions: dimensions,
-                                                           publishOptions: publishOptions,
-                                                           isScreenShare: track.source == .screenShareVideo)
+                    let encodings = Utils.computeVideoEncodings(dimensions: dimensions,
+                                                                publishOptions: publishOptions,
+                                                                isScreenShare: track.source == .screenShareVideo)
 
                     self.log("[publish] using encodings: \(encodings)")
                     transInit.sendEncodings = encodings
@@ -98,9 +98,20 @@ public class LocalParticipant: Participant {
 
                     self.log("[publish] using layers: \(videoLayers.map { String(describing: $0) }.joined(separator: ", "))")
 
+                    let simulcastCodecs: [Livekit_SimulcastCodec] = [
+                        // Always add first codec...
+                        Livekit_SimulcastCodec.with {
+                            $0.cid = track.mediaTrack.trackId
+                            if let preferredCodec = publishOptions.preferredCodec {
+                                $0.codec = preferredCodec.id
+                            }
+                        },
+                    ]
+
                     populator.width = UInt32(dimensions.width)
                     populator.height = UInt32(dimensions.height)
                     populator.layers = videoLayers
+                    populator.simulcastCodecs = simulcastCodecs
 
                     self.log("[publish] requesting add track to server with \(populator)...")
 
@@ -156,6 +167,10 @@ public class LocalParticipant: Participant {
                         // changing params directly doesn't work so we need to update params
                         // and set it back to sender.parameters
                         transceiver.sender.parameters = params
+                    }
+
+                    if let preferredCodec = publishOptions.preferredCodec {
+                        transceiver.set(preferredVideoCodec: preferredCodec)
                     }
                 }
 

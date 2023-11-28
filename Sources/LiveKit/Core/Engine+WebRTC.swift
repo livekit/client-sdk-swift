@@ -156,7 +156,8 @@ extension Engine {
     static func createRtpEncodingParameters(rid: String? = nil,
                                             encoding: MediaEncoding? = nil,
                                             scaleDownBy: Double? = nil,
-                                            active: Bool = true) -> LKRTCRtpEncodingParameters
+                                            active: Bool = true,
+                                            scalabilityMode: ScalabilityMode? = nil) -> LKRTCRtpEncodingParameters
     {
         let result = DispatchQueue.liveKitWebRTC.sync { LKRTCRtpEncodingParameters() }
 
@@ -174,6 +175,10 @@ extension Engine {
             if let videoEncoding = encoding as? VideoEncoding {
                 result.maxFramerate = NSNumber(value: videoEncoding.maxFps)
             }
+        }
+
+        if let scalabilityMode {
+            result.scalabilityMode = scalabilityMode.rawStringValue
         }
 
         return result

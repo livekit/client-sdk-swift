@@ -20,8 +20,8 @@ import Foundation
 public class VideoCodec: NSObject, Identifiable {
     public static let h264 = VideoCodec(id: "h264", backup: true)
     public static let vp8 = VideoCodec(id: "vp8", backup: true)
-    public static let vp9 = VideoCodec(id: "vp9")
-    public static let av1 = VideoCodec(id: "av1")
+    public static let vp9 = VideoCodec(id: "vp9", isSVC: true)
+    public static let av1 = VideoCodec(id: "av1", isSVC: true)
 
     public static let all: [VideoCodec] = [.h264, .vp8, .vp9, .av1]
     public static let allBackup: [VideoCodec] = [.h264, .vp8]
@@ -29,12 +29,18 @@ public class VideoCodec: NSObject, Identifiable {
     // codec Id
     public let id: String
     // Whether the codec can be used as `backup`
-    public let backup: Bool
+    public let isBackup: Bool
+    // Whether the codec can be used as `backup`
+    public let isSVC: Bool
 
     // Internal only
-    init(id: String, backup: Bool = false) {
+    init(id: String,
+         backup: Bool = false,
+         isSVC: Bool = false)
+    {
         self.id = id
-        self.backup = backup
+        isBackup = backup
+        self.isSVC = isSVC
     }
 
     // MARK: - Equal

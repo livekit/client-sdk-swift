@@ -215,7 +215,7 @@ class Utils {
         }
     }
 
-    static func computeEncodings(
+    static func computeVideoEncodings(
         dimensions: Dimensions,
         publishOptions: VideoPublishOptions?,
         isScreenShare: Bool = false
@@ -224,9 +224,19 @@ class Utils {
         let preferredEncoding: VideoEncoding? = isScreenShare ? publishOptions.screenShareEncoding : publishOptions.encoding
         let encoding = preferredEncoding ?? dimensions.computeSuggestedPreset(in: dimensions.computeSuggestedPresets(isScreenShare: isScreenShare))
 
-        guard publishOptions.simulcast else {
-            return [Engine.createRtpEncodingParameters(encoding: encoding, scaleDownBy: 1)]
+        if let preferredVideoCodec = publishOptions.preferredCodec,
+           preferredVideoCodec.isSVC
+        {
+            // SVC mode
+            logger.log("Using SVC mode", type: Utils.self)
+            return [Engine.createRtpEncodingParameters(encoding: encoding, scalabilityMode: .L3T3)]
+        } else if !publishOptions.simulcast {
+            // Not-simulcast mode
+            logger.log("Simulcast not enabled", type: Utils.self)
+            return [Engine.createRtpEncodingParameters(encoding: encoding)]
         }
+
+        // Continue to simulcast encoding computation...
 
         let baseParameters = VideoParameters(dimensions: dimensions,
                                              encoding: encoding)
