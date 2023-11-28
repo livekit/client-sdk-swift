@@ -229,7 +229,7 @@ class Utils {
         {
             // SVC mode
             logger.log("Using SVC mode", type: Utils.self)
-            return [Engine.createRtpEncodingParameters(encoding: encoding, scalabilityMode: .L3T3)]
+            return [Engine.createRtpEncodingParameters(encoding: encoding, scalabilityMode: .L3T3_KEY)]
         } else if !publishOptions.simulcast {
             // Not-simulcast mode
             logger.log("Simulcast not enabled", type: Utils.self)
