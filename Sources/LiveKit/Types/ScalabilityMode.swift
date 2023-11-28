@@ -24,7 +24,7 @@ public enum ScalabilityMode: Int {
 public extension ScalabilityMode {
     var rawStringValue: String {
         switch self {
-        case .L3T3: return "L3T3"
+        case .L3T3: return "L3T3_KEY"
         }
     }
 }
