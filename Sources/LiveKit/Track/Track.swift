@@ -399,8 +399,24 @@ public extension OutboundRtpStreamStatistics {
         guard let previous,
               let currentBytesSent = bytesSent,
               let previousBytesSent = previous.bytesSent else { return 0 }
+
+        // Calculate the difference in seconds, ensuring it's not zero
         let secondsDiff = (timestamp - previous.timestamp) / (1000 * 1000)
-        return UInt64(Double((currentBytesSent - previousBytesSent) * 8) / abs(secondsDiff))
+        if secondsDiff == 0 {
+            // Handle the case where secondsDiff is zero to avoid division by zero
+            return 0
+        }
+
+        // Calculate the rate
+        let rate = Double((currentBytesSent - previousBytesSent) * 8) / abs(secondsDiff)
+
+        // Check if the rate is a finite number before converting to UInt64
+        if rate.isFinite {
+            return UInt64(rate)
+        } else {
+            // Handle the case where rate is not finite (NaN or infinity)
+            return 0
+        }
     }
 }
 
