@@ -280,7 +280,13 @@ public class LocalParticipant: Participant {
         }
 
         if let publisher = engine.publisher, let sender = track.rtpSender {
+            // Remove all simulcast senders...
+            for simulcastSender in track._simulcastRtpSenders.values {
+                try publisher.remove(track: simulcastSender)
+            }
+            // Remove main sender...
             try publisher.remove(track: sender)
+            // Mark re-negotiation required...
             try await engine.publisherShouldNegotiate()
         }
 
