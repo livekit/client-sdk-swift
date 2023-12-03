@@ -53,8 +53,7 @@ extension Room: SignalClientDelegate {
                             log("Publishing additional codec: \(videoCodec)")
 
                             try await localParticipant.publish(additionalVideoCodec: videoCodec,
-                                                               for: videoTrack,
-                                                               publishOptions: nil)
+                                                               for: publication)
 
                         } catch {
                             log("Failed publishing additional codec: \(videoCodec), error: \(error)", .error)

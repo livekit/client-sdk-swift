@@ -541,16 +541,19 @@ public extension LocalParticipant {
 extension LocalParticipant {
     // Publish additional (backup) codec when requested by server
     func publish(additionalVideoCodec codec: VideoCodec,
-                 for track: LocalVideoTrack,
-                 publishOptions: VideoPublishOptions?) async throws
+                 for localTrackPublication: LocalTrackPublication) async throws
     {
+        guard let track = localTrackPublication.track as? LocalVideoTrack else {
+            throw EngineError.state(message: "Track is nil")
+        }
+
         if !codec.isBackup {
             throw EngineError.state(message: "Attempted to publish a non-backup video codec as backup")
         }
 
         let publisher = try room.engine.requirePublisher()
 
-        let publishOptions = publishOptions ?? room._state.options.defaultVideoPublishOptions
+        let publishOptions = (track.publishOptions as? VideoPublishOptions) ?? room._state.options.defaultVideoPublishOptions
 
         // Should be already resolved...
         let dimensions = try await track.capturer.dimensionsCompleter.wait()
@@ -559,15 +562,31 @@ extension LocalParticipant {
                                                     publishOptions: publishOptions,
                                                     overrideVideoCodec: codec)
 
+        // Add transceiver first...
+
+        let transInit = DispatchQueue.liveKitWebRTC.sync { LKRTCRtpTransceiverInit() }
+        transInit.direction = .sendOnly
+        transInit.sendEncodings = encodings
+
+        // Add transceiver to publisher pc...
+        let transceiver = try publisher.addTransceiver(with: track.mediaTrack, transceiverInit: transInit)
+        log("[Publish] Added transceiver...")
+
+        // Set codec...
+        transceiver.set(preferredVideoCodec: codec)
+
+        let sender = transceiver.sender
+
         // Request a new track to the server
-        let addTrackResult = try await room.engine.signalClient.sendAddTrack(cid: track.mediaTrack.trackId,
+        let addTrackResult = try await room.engine.signalClient.sendAddTrack(cid: sender.senderId,
                                                                              name: track.name,
                                                                              type: track.kind.toPBType(),
                                                                              source: track.source.toPBType())
         {
+            $0.sid = localTrackPublication.sid
             $0.simulcastCodecs = [
                 Livekit_SimulcastCodec.with { sc in
-                    sc.cid = track.mediaTrack.trackId
+                    sc.cid = sender.senderId
                     sc.codec = codec.id
                 },
             ]
@@ -577,19 +596,8 @@ extension LocalParticipant {
 
         log("[Publish] server responded trackInfo: \(addTrackResult.trackInfo)")
 
-        let transInit = DispatchQueue.liveKitWebRTC.sync { LKRTCRtpTransceiverInit() }
-        transInit.direction = .sendOnly
-        transInit.sendEncodings = encodings
-
-        // Add transceiver to publisher pc...
-        let transceiver = try publisher.addTransceiver(with: track.mediaTrack, transceiverInit: transInit)
-        log("[Publish] Added transceiver: \(addTrackResult.trackInfo)...")
-
-        // Set codec...
-        transceiver.set(preferredVideoCodec: codec)
-
         // Attach multi-codec sender...
-        track._simulcastRtpSenders[codec] = transceiver.sender
+        track._simulcastRtpSenders[codec] = sender
 
         try await room.engine.publisherShouldNegotiate()
     }
