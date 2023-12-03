@@ -110,6 +110,9 @@ public class Track: NSObject, Loggable {
     private(set) var rtpSender: LKRTCRtpSender?
     private(set) var rtpReceiver: LKRTCRtpReceiver?
 
+    var _videoCodec: VideoCodec?
+    var _simulcastRtpSenders: [VideoCodec: LKRTCRtpSender] = [:]
+
     // Weak reference to all VideoViews attached to this track. Must be accessed from main thread.
     var videoRenderers = NSHashTable<VideoRenderer>.weakObjects()
     // internal var rtcVideoRenderers = NSHashTable<RTCVideoRenderer>.weakObjects()

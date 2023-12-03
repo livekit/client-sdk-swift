@@ -18,6 +18,20 @@ import Foundation
 
 @objc
 public class VideoCodec: NSObject, Identifiable {
+    public static func from(id: String) -> VideoCodec? {
+        all.first { $0.id == id }
+    }
+
+    public static func from(mimeType: String) -> VideoCodec? {
+        let parts = mimeType.lowercased().split(separator: "/")
+        var id = String(parts.first!)
+        if parts.count > 1 {
+            if parts[0] != "video" { return nil }
+            id = String(parts[1])
+        }
+        return from(id: id)
+    }
+
     public static let h264 = VideoCodec(id: "h264", backup: true)
     public static let vp8 = VideoCodec(id: "vp8", backup: true)
     public static let vp9 = VideoCodec(id: "vp9", isSVC: true)
@@ -54,5 +68,9 @@ public class VideoCodec: NSObject, Identifiable {
         var hasher = Hasher()
         hasher.combine(id)
         return hasher.finalize()
+    }
+
+    override public var description: String {
+        "VideoCodec(id: \(id))"
     }
 }

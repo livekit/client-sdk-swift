@@ -135,7 +135,7 @@ extension Dimensions {
     func encodings(from presets: [VideoParameters?]) -> [LKRTCRtpEncodingParameters] {
         var result: [LKRTCRtpEncodingParameters] = []
         for (index, preset) in presets.compactMap({ $0 }).enumerated() {
-            guard let rid = VideoQuality.rids[safe: index] else {
+            guard let rid = VideoQuality.RIDs[safe: index] else {
                 continue
             }
 
@@ -148,7 +148,7 @@ extension Dimensions {
             result.append(parameters)
         }
 
-        return VideoQuality.rids.compactMap { rid in result.first(where: { $0.rid == rid }) }
+        return VideoQuality.RIDs.compactMap { rid in result.first(where: { $0.rid == rid }) }
     }
 
     func videoLayers(for encodings: [LKRTCRtpEncodingParameters]) -> [Livekit_VideoLayer] {
@@ -170,7 +170,7 @@ extension Dimensions {
                 return Livekit_VideoLayer.with {
                     $0.width = UInt32((Double(width) / scaleDownBy).rounded(.down))
                     $0.height = UInt32((Double(height) / scaleDownBy).rounded(.down))
-                    $0.quality = Livekit_VideoQuality.from(rid: encoding.rid)
+                    $0.quality = Livekit_VideoQuality.from(rid: encoding.rid) ?? .high
                     $0.bitrate = encoding.maxBitrateBps?.uint32Value ?? 0
                 }
             }

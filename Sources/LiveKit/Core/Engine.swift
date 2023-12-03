@@ -173,7 +173,7 @@ class Engine: MulticastDelegate<EngineDelegate> {
     // cleanUp (reset) both Room & Engine's state
     func cleanUp(reason: DisconnectReason? = nil, isFullReconnect: Bool = false) async throws {
         // This should never happen since Engine is owned by Room
-        let room = try await requireRoom()
+        let room = try requireRoom()
         // Call Room's cleanUp
         await room.cleanUp(reason: reason, isFullReconnect: isFullReconnect)
     }
@@ -198,7 +198,7 @@ class Engine: MulticastDelegate<EngineDelegate> {
     func publisherShouldNegotiate() async throws {
         log()
 
-        let publisher = try await requirePublisher()
+        let publisher = try requirePublisher()
         publisher.negotiate()
         _state.mutate { $0.hasPublished = true }
     }
@@ -207,7 +207,7 @@ class Engine: MulticastDelegate<EngineDelegate> {
         func ensurePublisherConnected() async throws {
             guard subscriberPrimary else { return }
 
-            let publisher = try await requirePublisher()
+            let publisher = try requirePublisher()
 
             if !publisher.isConnected, publisher.connectionState != .connecting {
                 try await publisherShouldNegotiate()
@@ -341,7 +341,7 @@ extension Engine {
     // full connect sequence, doesn't update connection state
     func fullConnectSequence(_ url: String, _ token: String) async throws {
         // This should never happen since Engine is owned by Room
-        let room = try await requireRoom()
+        let room = try requireRoom()
 
         let jr = try await signalClient.connect(url,
                                                 token,
@@ -383,7 +383,7 @@ extension Engine {
             log("[Reconnect] Starting .quick reconnect sequence...")
 
             // This should never happen since Engine is owned by Room
-            let room = try await requireRoom()
+            let room = try requireRoom()
 
             try await signalClient.connect(url,
                                            token,
@@ -477,7 +477,7 @@ extension Engine {
 
 extension Engine {
     func sendSyncState() async throws {
-        let room = try await requireRoom()
+        let room = try requireRoom()
 
         guard let subscriber,
               let previousAnswer = subscriber.localDescription
@@ -518,12 +518,12 @@ extension Engine {
 // MARK: - Private helpers
 
 extension Engine {
-    func requireRoom() async throws -> Room {
+    func requireRoom() throws -> Room {
         guard let room = _room else { throw EngineError.state(message: "Room is nil") }
         return room
     }
 
-    func requirePublisher() async throws -> Transport {
+    func requirePublisher() throws -> Transport {
         guard let publisher else { throw EngineError.state(message: "Publisher is nil") }
         return publisher
     }

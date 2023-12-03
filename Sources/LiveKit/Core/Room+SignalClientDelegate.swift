@@ -33,10 +33,39 @@ extension Room: SignalClientDelegate {
         }
     }
 
-    func signalClient(_: SignalClient, didUpdateTrack trackSid: String, subscribedQualities: [Livekit_SubscribedQuality]) {
-        log("qualities: \(subscribedQualities.map { String(describing: $0) }.joined(separator: ", "))")
+    func signalClient(_: SignalClient, didUpdateTrack trackSid: String, subscribedQualities qualities: [Livekit_SubscribedQuality], subscribedCodecs codecs: [Livekit_SubscribedCodec]) {
+        log("qualities: \(qualities.map { String(describing: $0) }.joined(separator: ", ")), codecs: \(codecs.map { String(describing: $0) }.joined(separator: ", "))")
 
-        localParticipant.onSubscribedQualitiesUpdate(trackSid: trackSid, subscribedQualities: subscribedQualities)
+        guard let publication = localParticipant.getTrackPublication(sid: trackSid) else {
+            log("Received subscribed quality update for an unknown track", .warning)
+            return
+        }
+
+        Task {
+            if !codecs.isEmpty {
+                guard let videoTrack = publication.track as? LocalVideoTrack else { return }
+                let missingCodecs = videoTrack._set(subscribedCodecs: codecs)
+
+                if !missingCodecs.isEmpty {
+                    log("Missing codecs: \(missingCodecs)")
+                    for videoCodec in missingCodecs {
+                        do {
+                            log("Publishing additional codec: \(videoCodec)")
+
+                            try await localParticipant.publish(additionalVideoCodec: videoCodec,
+                                                               for: videoTrack,
+                                                               publishOptions: nil)
+
+                        } catch {
+                            log("Failed publishing additional codec: \(videoCodec), error: \(error)", .error)
+                        }
+                    }
+                }
+
+            } else {
+                localParticipant._set(subscribedQualities: qualities, forTrackSid: trackSid)
+            }
+        }
     }
 
     func signalClient(_: SignalClient, didReceiveJoinResponse joinResponse: Livekit_JoinResponse) {

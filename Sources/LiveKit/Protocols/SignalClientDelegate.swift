@@ -32,7 +32,9 @@ protocol SignalClientDelegate: AnyObject {
     func signalClient(_ signalClient: SignalClient, didUpdateConnectionQuality connectionQuality: [Livekit_ConnectionQualityInfo])
     func signalClient(_ signalClient: SignalClient, didUpdateRemoteMute trackSid: String, muted: Bool)
     func signalClient(_ signalClient: SignalClient, didUpdateTrackStreamStates streamStates: [Livekit_StreamStateInfo])
-    func signalClient(_ signalClient: SignalClient, didUpdateTrack trackSid: String, subscribedQualities qualities: [Livekit_SubscribedQuality])
+    func signalClient(_ signalClient: SignalClient, didUpdateTrack trackSid: String,
+                      subscribedQualities qualities: [Livekit_SubscribedQuality],
+                      subscribedCodecs codecs: [Livekit_SubscribedCodec])
     func signalClient(_ signalClient: SignalClient, didUpdateSubscriptionPermission permission: Livekit_SubscriptionPermissionUpdate)
     func signalClient(_ signalClient: SignalClient, didUpdateToken token: String)
     func signalClient(_ signalClient: SignalClient, didReceiveLeave canReconnect: Bool, reason: Livekit_DisconnectReason)

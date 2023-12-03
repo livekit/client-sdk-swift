@@ -104,7 +104,7 @@ public extension TrackStatistics {
 extension OutboundRtpStreamStatistics {
     /// Index of the rid.
     var ridIndex: Int {
-        guard let rid, let idx = VideoQuality.rids.firstIndex(of: rid) else {
+        guard let rid, let idx = VideoQuality.RIDs.firstIndex(of: rid) else {
             return -1
         }
         return idx

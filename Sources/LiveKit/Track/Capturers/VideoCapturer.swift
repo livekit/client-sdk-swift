@@ -65,7 +65,7 @@ public class VideoCapturer: NSObject, Loggable, VideoCapturerProtocol {
 
     weak var delegate: LKRTCVideoCapturerDelegate?
 
-    let dimensionsCompleter = AsyncCompleter<Dimensions?>(label: "Dimensions", timeOut: .defaultCaptureStart)
+    let dimensionsCompleter = AsyncCompleter<Dimensions>(label: "Dimensions", timeOut: .defaultCaptureStart)
 
     struct State: Equatable {
         // Counts calls to start/stopCapturer so multiple Tracks can use the same VideoCapturer.
@@ -80,8 +80,12 @@ public class VideoCapturer: NSObject, Loggable, VideoCapturerProtocol {
             log("[publish] \(String(describing: oldValue)) -> \(String(describing: dimensions))")
             delegates.notify { $0.capturer?(self, didUpdate: self.dimensions) }
 
-            log("[publish] dimensions: \(String(describing: dimensions))")
-            dimensionsCompleter.resume(returning: dimensions)
+            if let dimensions {
+                log("[publish] dimensions: \(String(describing: dimensions))")
+                dimensionsCompleter.resume(returning: dimensions)
+            } else {
+                dimensionsCompleter.cancel()
+            }
         }
     }
 

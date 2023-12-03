@@ -218,15 +218,16 @@ class Utils {
     static func computeVideoEncodings(
         dimensions: Dimensions,
         publishOptions: VideoPublishOptions?,
-        isScreenShare: Bool = false
+        isScreenShare: Bool = false,
+        overrideVideoCodec: VideoCodec? = nil
     ) -> [LKRTCRtpEncodingParameters] {
         let publishOptions = publishOptions ?? VideoPublishOptions()
         let preferredEncoding: VideoEncoding? = isScreenShare ? publishOptions.screenShareEncoding : publishOptions.encoding
         let encoding = preferredEncoding ?? dimensions.computeSuggestedPreset(in: dimensions.computeSuggestedPresets(isScreenShare: isScreenShare))
 
-        if let preferredVideoCodec = publishOptions.preferredCodec,
-           preferredVideoCodec.isSVC
-        {
+        let videoCodec = overrideVideoCodec ?? publishOptions.preferredCodec
+
+        if let videoCodec, videoCodec.isSVC {
             // SVC mode
             logger.log("Using SVC mode", type: Utils.self)
             return [Engine.createRtpEncodingParameters(encoding: encoding, scalabilityMode: .L3T3_KEY)]

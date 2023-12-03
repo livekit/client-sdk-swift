@@ -33,3 +33,35 @@ protocol VideoTrack_Internal where Self: Track {
 
     func remove(rtcVideoRenderer: LKRTCVideoRenderer)
 }
+
+extension VideoTrack {
+    func _set(subscribedCodecs codecs: [Livekit_SubscribedCodec]) -> [VideoCodec] {
+        // ...
+        var missingCodecs: [VideoCodec] = []
+
+        for e in codecs {
+            guard let videoCodec = VideoCodec.from(id: e.codec) else {
+                log("VideoCodec for id: \(e.codec) not found", .warning)
+                continue
+            }
+
+            // Check if main sender is sending the codec...
+            if let rtpSender, videoCodec == _videoCodec {
+                rtpSender._set(subscribedQualities: e.qualities)
+                continue
+            }
+
+            // Find simulcast sender for codec...
+            if let rtpSender = _simulcastRtpSenders[videoCodec] {
+                rtpSender._set(subscribedQualities: e.qualities)
+                continue
+            }
+
+            log("Sender for codec \(e.codec) not found", .info)
+            missingCodecs.append(videoCodec)
+        }
+
+        // TODO: Publish missing codecs...
+        return missingCodecs
+    }
+}
