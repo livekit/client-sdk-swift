@@ -54,7 +54,7 @@ extension Engine: SignalClientDelegate {
     func signalClient(_: SignalClient, didReceiveAnswer answer: LKRTCSessionDescription) {
         Task {
             do {
-                let publisher = try await requirePublisher()
+                let publisher = try requirePublisher()
                 try await publisher.set(remoteDescription: answer)
             } catch {
                 log("Failed to set remote description, error: \(error)", .error)
