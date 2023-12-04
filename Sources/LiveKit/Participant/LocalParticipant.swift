@@ -551,6 +551,8 @@ extension LocalParticipant {
     {
         let videoCodec = try subscribedCodec.toVideoCodec()
 
+        log("[Publish/Backup] Additional video codec: \(videoCodec)...")
+
         guard let track = localTrackPublication.track as? LocalVideoTrack else {
             throw EngineError.state(message: "Track is nil")
         }
@@ -558,8 +560,6 @@ extension LocalParticipant {
         if !videoCodec.isBackup {
             throw EngineError.state(message: "Attempted to publish a non-backup video codec as backup")
         }
-
-        log("[Publish] additional video codec: \(videoCodec)...")
 
         let publisher = try room.engine.requirePublisher()
 
@@ -571,6 +571,7 @@ extension LocalParticipant {
         let encodings = Utils.computeVideoEncodings(dimensions: Dimensions.h1080_169,
                                                     publishOptions: publishOptions,
                                                     overrideVideoCodec: videoCodec)
+        log("[Publish/Backup] Using encodings \(encodings)...")
 
         // Add transceiver first...
 

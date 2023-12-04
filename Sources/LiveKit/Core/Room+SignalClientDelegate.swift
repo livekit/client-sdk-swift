@@ -34,7 +34,7 @@ extension Room: SignalClientDelegate {
     }
 
     func signalClient(_: SignalClient, didUpdateTrack trackSid: String, subscribedQualities qualities: [Livekit_SubscribedQuality], subscribedCodecs codecs: [Livekit_SubscribedCodec]) {
-        log("qualities: \(qualities.map { String(describing: $0) }.joined(separator: ", ")), codecs: \(codecs.map { String(describing: $0) }.joined(separator: ", "))")
+        log("[Publish/Backup] Qualities: \(qualities.map { String(describing: $0) }.joined(separator: ", ")), Codecs: \(codecs.map { String(describing: $0) }.joined(separator: ", "))")
 
         guard let publication = localParticipant.getTrackPublication(sid: trackSid) else {
             log("Received subscribed quality update for an unknown track", .warning)
