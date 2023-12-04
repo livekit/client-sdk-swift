@@ -167,7 +167,7 @@ public class LocalParticipant: Participant {
 
                 if track is LocalVideoTrack {
                     if let firstCodecMime = addTrackResult.trackInfo.codecs.first?.mimeType,
-                       let firstVideoCodec = VideoCodec.from(mimeType: firstCodecMime)
+                       let firstVideoCodec = try? VideoCodec.from(mimeType: firstCodecMime)
                     {
                         log("[Publish] First video codec: \(firstVideoCodec)")
                         track._videoCodec = firstVideoCodec
@@ -546,16 +546,20 @@ public extension LocalParticipant {
 
 extension LocalParticipant {
     // Publish additional (backup) codec when requested by server
-    func publish(additionalVideoCodec codec: VideoCodec,
+    func publish(additionalVideoCodec subscribedCodec: Livekit_SubscribedCodec,
                  for localTrackPublication: LocalTrackPublication) async throws
     {
+        let videoCodec = try subscribedCodec.toVideoCodec()
+
         guard let track = localTrackPublication.track as? LocalVideoTrack else {
             throw EngineError.state(message: "Track is nil")
         }
 
-        if !codec.isBackup {
+        if !videoCodec.isBackup {
             throw EngineError.state(message: "Attempted to publish a non-backup video codec as backup")
         }
+
+        log("[Publish] additional video codec: \(videoCodec)...")
 
         let publisher = try room.engine.requirePublisher()
 
@@ -566,7 +570,7 @@ extension LocalParticipant {
 
         let encodings = Utils.computeVideoEncodings(dimensions: Dimensions.h1080_169,
                                                     publishOptions: publishOptions,
-                                                    overrideVideoCodec: codec)
+                                                    overrideVideoCodec: videoCodec)
 
         // Add transceiver first...
 
@@ -579,7 +583,7 @@ extension LocalParticipant {
         log("[Publish] Added transceiver...")
 
         // Set codec...
-        transceiver.set(preferredVideoCodec: codec)
+        transceiver.set(preferredVideoCodec: videoCodec)
 
         let sender = transceiver.sender
 
@@ -593,7 +597,7 @@ extension LocalParticipant {
             $0.simulcastCodecs = [
                 Livekit_SimulcastCodec.with { sc in
                     sc.cid = sender.senderId
-                    sc.codec = codec.id
+                    sc.codec = videoCodec.id
                 },
             ]
 
@@ -602,8 +606,10 @@ extension LocalParticipant {
 
         log("[Publish] server responded trackInfo: \(addTrackResult.trackInfo)")
 
+        sender._set(subscribedQualities: subscribedCodec.qualities)
+
         // Attach multi-codec sender...
-        track._simulcastRtpSenders[codec] = sender
+        track._simulcastRtpSenders[videoCodec] = sender
 
         try await room.engine.publisherShouldNegotiate()
     }

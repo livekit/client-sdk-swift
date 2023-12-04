@@ -44,19 +44,16 @@ extension Room: SignalClientDelegate {
         Task {
             if !codecs.isEmpty {
                 guard let videoTrack = publication.track as? LocalVideoTrack else { return }
-                let missingCodecs = videoTrack._set(subscribedCodecs: codecs)
+                let missingSubscribedCodecs = try videoTrack._set(subscribedCodecs: codecs)
 
-                if !missingCodecs.isEmpty {
-                    log("Missing codecs: \(missingCodecs)")
-                    for videoCodec in missingCodecs {
+                if !missingSubscribedCodecs.isEmpty {
+                    log("Missing codecs: \(missingSubscribedCodecs)")
+                    for missingSubscribedCodec in missingSubscribedCodecs {
                         do {
-                            log("Publishing additional codec: \(videoCodec)")
-
-                            try await localParticipant.publish(additionalVideoCodec: videoCodec,
-                                                               for: publication)
-
+                            log("Publishing additional codec: \(missingSubscribedCodec)")
+                            try await localParticipant.publish(additionalVideoCodec: missingSubscribedCodec, for: publication)
                         } catch {
-                            log("Failed publishing additional codec: \(videoCodec), error: \(error)", .error)
+                            log("Failed publishing additional codec: \(missingSubscribedCodec), error: \(error)", .error)
                         }
                     }
                 }

@@ -18,18 +18,23 @@ import Foundation
 
 @objc
 public class VideoCodec: NSObject, Identifiable {
-    public static func from(id: String) -> VideoCodec? {
-        all.first { $0.id == id }
+    public static func from(id: String) throws -> VideoCodec {
+        // Try to find codec from id...
+        guard let codec = all.first(where: { $0.id == id }) else {
+            throw EngineError.state(message: "Failed to create VideoCodec from id")
+        }
+
+        return codec
     }
 
-    public static func from(mimeType: String) -> VideoCodec? {
+    public static func from(mimeType: String) throws -> VideoCodec {
         let parts = mimeType.lowercased().split(separator: "/")
         var id = String(parts.first!)
         if parts.count > 1 {
-            if parts[0] != "video" { return nil }
+            if parts[0] != "video" { throw EngineError.state(message: "MIME type must be video") }
             id = String(parts[1])
         }
-        return from(id: id)
+        return try from(id: id)
     }
 
     public static let h264 = VideoCodec(id: "h264", backup: true)
@@ -72,5 +77,11 @@ public class VideoCodec: NSObject, Identifiable {
 
     override public var description: String {
         "VideoCodec(id: \(id))"
+    }
+}
+
+extension Livekit_SubscribedCodec {
+    func toVideoCodec() throws -> VideoCodec {
+        try VideoCodec.from(id: codec)
     }
 }

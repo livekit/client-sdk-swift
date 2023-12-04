@@ -35,33 +35,39 @@ protocol VideoTrack_Internal where Self: Track {
 }
 
 extension VideoTrack {
-    func _set(subscribedCodecs codecs: [Livekit_SubscribedCodec]) -> [VideoCodec] {
+    // Update a single SubscribedCodec
+    func _set(subscribedCodec: Livekit_SubscribedCodec) throws -> Bool {
         // ...
-        var missingCodecs: [VideoCodec] = []
+        let videoCodec = try VideoCodec.from(id: subscribedCodec.codec)
 
-        for e in codecs {
-            guard let videoCodec = VideoCodec.from(id: e.codec) else {
-                log("VideoCodec for id: \(e.codec) not found", .warning)
-                continue
-            }
-
-            // Check if main sender is sending the codec...
-            if let rtpSender, videoCodec == _videoCodec {
-                rtpSender._set(subscribedQualities: e.qualities)
-                continue
-            }
-
-            // Find simulcast sender for codec...
-            if let rtpSender = _simulcastRtpSenders[videoCodec] {
-                rtpSender._set(subscribedQualities: e.qualities)
-                continue
-            }
-
-            log("Sender for codec \(e.codec) not found", .info)
-            missingCodecs.append(videoCodec)
+        // Check if main sender is sending the codec...
+        if let rtpSender, videoCodec == _videoCodec {
+            rtpSender._set(subscribedQualities: subscribedCodec.qualities)
+            return true
         }
 
-        // TODO: Publish missing codecs...
+        // Find simulcast sender for codec...
+        if let rtpSender = _simulcastRtpSenders[videoCodec] {
+            rtpSender._set(subscribedQualities: subscribedCodec.qualities)
+            return true
+        }
+
+        return false
+    }
+
+    // Update an array of SubscribedCodecs
+    func _set(subscribedCodecs: [Livekit_SubscribedCodec]) throws -> [Livekit_SubscribedCodec] {
+        // ...
+        var missingCodecs: [Livekit_SubscribedCodec] = []
+
+        for subscribedCodec in subscribedCodecs {
+            let didUpdate = try _set(subscribedCodec: subscribedCodec)
+            if !didUpdate {
+                log("Sender for codec \(subscribedCodec.codec) not found", .info)
+                missingCodecs.append(subscribedCodec)
+            }
+        }
+
         return missingCodecs
     }
 }
