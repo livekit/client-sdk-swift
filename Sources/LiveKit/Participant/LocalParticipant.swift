@@ -568,7 +568,7 @@ extension LocalParticipant {
         // Should be already resolved...
         let dimensions = try await track.capturer.dimensionsCompleter.wait()
 
-        let encodings = Utils.computeVideoEncodings(dimensions: Dimensions.h1080_169,
+        let encodings = Utils.computeVideoEncodings(dimensions: dimensions,
                                                     publishOptions: publishOptions,
                                                     overrideVideoCodec: videoCodec)
         log("[Publish/Backup] Using encodings \(encodings)...")

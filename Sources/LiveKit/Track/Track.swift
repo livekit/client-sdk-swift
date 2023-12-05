@@ -84,6 +84,9 @@ public class Track: NSObject, Loggable {
     @objc
     public var statistics: TrackStatistics? { _state.statistics }
 
+    @objc
+    public var simulcastStatistics: [VideoCodec: TrackStatistics] { _state.simulcastStatistics }
+
     /// Dimensions of the video (only if video track)
     @objc
     public var dimensions: Dimensions? { _state.dimensions }
@@ -128,6 +131,7 @@ public class Track: NSObject, Loggable {
         var trackState: TrackState = .stopped
         var muted: Bool = false
         var statistics: TrackStatistics?
+        var simulcastStatistics: [VideoCodec: TrackStatistics] = [:]
         var reportStatistics: Bool = false
     }
 
@@ -170,8 +174,10 @@ public class Track: NSObject, Loggable {
                 }
             }
 
-            if newState.statistics != oldState.statistics, let statistics = newState.statistics {
-                self.delegates.notify { $0.track?(self, didUpdateStatistics: statistics) }
+            if newState.statistics != oldState.statistics || newState.simulcastStatistics != oldState.simulcastStatistics,
+               let statistics = newState.statistics
+            {
+                self.delegates.notify { $0.track?(self, didUpdateStatistics: statistics, simulcastStatistics: newState.simulcastStatistics) }
             }
         }
 
@@ -446,6 +452,8 @@ extension Track {
         Task {
             defer { statisticsTimer.resume() }
 
+            // Main tatistics
+
             var statisticsReport: LKRTCStatisticsReport?
             let prevStatistics = _state.read { $0.statistics }
 
@@ -460,7 +468,20 @@ extension Track {
 
             let trackStatistics = TrackStatistics(from: Array(statisticsReport.statistics.values), prevStatistics: prevStatistics)
 
-            _state.mutate { $0.statistics = trackStatistics }
+            // Simulcast statistics
+
+            let prevSimulcastStatistics = _state.read { $0.simulcastStatistics }
+            var _simulcastStatistics: [VideoCodec: TrackStatistics] = [:]
+            for _sender in _simulcastRtpSenders {
+                let _report = await transport.statistics(for: _sender.value)
+                _simulcastStatistics[_sender.key] = TrackStatistics(from: Array(_report.statistics.values),
+                                                                    prevStatistics: prevSimulcastStatistics[_sender.key])
+            }
+
+            _state.mutate {
+                $0.statistics = trackStatistics
+                $0.simulcastStatistics = _simulcastStatistics
+            }
         }
     }
 }

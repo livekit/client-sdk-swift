@@ -37,8 +37,8 @@ public protocol TrackDelegate: AnyObject {
     func track(_ track: Track, didUpdate muted: Bool, shouldSendSignal: Bool)
 
     /// Statistics for the track has been generated (v2).
-    @objc(track:didUpdateStatistics:) optional
-    func track(_ track: Track, didUpdateStatistics: TrackStatistics)
+    @objc(track:didUpdateStatistics:simulcastStatistics:) optional
+    func track(_ track: Track, didUpdateStatistics: TrackStatistics, simulcastStatistics: [VideoCodec: TrackStatistics])
 }
 
 protocol TrackDelegateInternal: TrackDelegate {
