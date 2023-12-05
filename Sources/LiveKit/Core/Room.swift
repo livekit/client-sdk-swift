@@ -50,7 +50,15 @@ public class Room: NSObject, ObservableObject, Loggable {
     public var serverNodeId: String? { _state.serverInfo?.nodeID.nilIfEmpty }
 
     @objc
-    public var remoteParticipants: [Sid: RemoteParticipant] { _state.remoteParticipants }
+    // public var remoteParticipants: [Identity: RemoteParticipant] { _state.remoteParticipants }
+    public var remoteParticipants: [Identity: RemoteParticipant] {
+        _state.remoteParticipants.reduce(into: [:]) { result, pair in
+            let (_, participant) = pair
+            if let identity = participant.identity {
+                result[identity] = participant
+            }
+        }
+    }
 
     @objc
     public var activeSpeakers: [Participant] { _state.activeSpeakers }

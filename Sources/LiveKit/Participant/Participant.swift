@@ -53,7 +53,7 @@ public class Participant: NSObject, ObservableObject, Loggable {
     public var joinedAt: Date? { _state.joinedAt }
 
     @objc
-    public var tracks: [String: TrackPublication] { _state.tracks }
+    public var tracksPublications: [Sid: TrackPublication] { _state.tracks }
 
     @objc
     public var audioTracks: [TrackPublication] {

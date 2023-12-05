@@ -63,7 +63,7 @@ public class E2EEManager: NSObject, ObservableObject, Loggable {
         }
         self.room = room
         self.room?.delegates.add(delegate: self)
-        self.room?.localParticipant.tracks.forEach { (_: Sid, publication: TrackPublication) in
+        self.room?.localParticipant.tracksPublications.forEach { (_: Sid, publication: TrackPublication) in
             if publication.encryptionType == EncryptionType.none {
                 self.log("E2EEManager::setup: local participant \(self.room!.localParticipant.sid) track \(publication.sid) encryptionType is none, skip")
                 return
@@ -77,7 +77,7 @@ public class E2EEManager: NSObject, ObservableObject, Loggable {
         }
 
         self.room?.remoteParticipants.forEach { (_: Sid, participant: RemoteParticipant) in
-            participant.tracks.forEach { (_: Sid, publication: TrackPublication) in
+            participant.tracksPublications.forEach { (_: Sid, publication: TrackPublication) in
                 if publication.encryptionType == EncryptionType.none {
                     self.log("E2EEManager::setup: remote participant \(participant.sid) track \(publication.sid) encryptionType is none, skip")
                     return
