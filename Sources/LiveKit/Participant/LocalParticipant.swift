@@ -307,7 +307,7 @@ public class LocalParticipant: Participant {
     @objc
     public func publish(data: Data,
                         reliability: Reliability = .reliable,
-                        destinations: [Sid]? = nil,
+                        destinationIdentities: [Identity]? = nil,
                         topic: String? = nil,
                         options: DataPublishOptions? = nil) async throws
     {
@@ -316,7 +316,7 @@ public class LocalParticipant: Participant {
         let userPacket = Livekit_UserPacket.with {
             $0.participantSid = self.sid
             $0.payload = data
-            $0.destinationSids = destinations ?? options.destinations
+            $0.destinationIdentities = destinationIdentities ?? options.destinationIdentities
             $0.topic = topic ?? options.topic ?? ""
         }
 
