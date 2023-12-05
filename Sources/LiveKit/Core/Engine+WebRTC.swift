@@ -75,6 +75,9 @@ extension Engine {
 
     static let audioProcessingModule: LKRTCDefaultAudioProcessingModule = .init()
 
+    static let videoSenderCapabilities = peerConnectionFactory.rtpSenderCapabilities(for: .video)
+    static let audioSenderCapabilities = peerConnectionFactory.rtpSenderCapabilities(for: .audio)
+
     static let peerConnectionFactory: LKRTCPeerConnectionFactory = {
         logger.log("Initializing SSL...", type: Engine.self)
 
@@ -153,7 +156,8 @@ extension Engine {
     static func createRtpEncodingParameters(rid: String? = nil,
                                             encoding: MediaEncoding? = nil,
                                             scaleDownBy: Double? = nil,
-                                            active: Bool = true) -> LKRTCRtpEncodingParameters
+                                            active: Bool = true,
+                                            scalabilityMode: ScalabilityMode? = nil) -> LKRTCRtpEncodingParameters
     {
         let result = DispatchQueue.liveKitWebRTC.sync { LKRTCRtpEncodingParameters() }
 
@@ -171,6 +175,10 @@ extension Engine {
             if let videoEncoding = encoding as? VideoEncoding {
                 result.maxFramerate = NSNumber(value: videoEncoding.maxFps)
             }
+        }
+
+        if let scalabilityMode {
+            result.scalabilityMode = scalabilityMode.rawStringValue
         }
 
         return result

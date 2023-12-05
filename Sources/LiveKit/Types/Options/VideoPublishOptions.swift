@@ -39,12 +39,20 @@ public class VideoPublishOptions: NSObject, PublishOptions {
     @objc
     public let screenShareSimulcastLayers: [VideoParameters]
 
+    @objc
+    public let preferredCodec: VideoCodec?
+
+    @objc
+    public let preferredBackupCodec: VideoCodec?
+
     public init(name: String? = nil,
                 encoding: VideoEncoding? = nil,
                 screenShareEncoding: VideoEncoding? = nil,
                 simulcast: Bool = true,
                 simulcastLayers: [VideoParameters] = [],
-                screenShareSimulcastLayers: [VideoParameters] = [])
+                screenShareSimulcastLayers: [VideoParameters] = [],
+                preferredCodec: VideoCodec? = nil,
+                preferredBackupCodec: VideoCodec? = nil)
     {
         self.name = name
         self.encoding = encoding
@@ -52,6 +60,8 @@ public class VideoPublishOptions: NSObject, PublishOptions {
         self.simulcast = simulcast
         self.simulcastLayers = simulcastLayers
         self.screenShareSimulcastLayers = screenShareSimulcastLayers
+        self.preferredCodec = preferredCodec
+        self.preferredBackupCodec = preferredBackupCodec
     }
 
     // MARK: - Equal
@@ -63,7 +73,9 @@ public class VideoPublishOptions: NSObject, PublishOptions {
             screenShareEncoding == other.screenShareEncoding &&
             simulcast == other.simulcast &&
             simulcastLayers == other.simulcastLayers &&
-            screenShareSimulcastLayers == other.screenShareSimulcastLayers
+            screenShareSimulcastLayers == other.screenShareSimulcastLayers &&
+            preferredCodec == other.preferredCodec &&
+            preferredBackupCodec == other.preferredBackupCodec
     }
 
     override public var hash: Int {
@@ -74,6 +86,8 @@ public class VideoPublishOptions: NSObject, PublishOptions {
         hasher.combine(simulcast)
         hasher.combine(simulcastLayers)
         hasher.combine(screenShareSimulcastLayers)
+        hasher.combine(preferredCodec)
+        hasher.combine(preferredBackupCodec)
         return hasher.finalize()
     }
 }

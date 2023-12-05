@@ -286,11 +286,11 @@ private extension SignalClient {
             notify { $0.signalClient(self, didUpdateTrackStreamStates: states.streamStates) }
 
         case let .subscribedQualityUpdate(update):
-            // ignore 0.15.1
-            if latestJoinResponse?.serverVersion == "0.15.1" {
-                return
-            }
-            notify { $0.signalClient(self, didUpdateTrack: update.trackSid, subscribedQualities: update.subscribedQualities) }
+            notify { $0.signalClient(self,
+                                     didUpdateTrack: update.trackSid,
+                                     subscribedQualities: update.subscribedQualities,
+                                     subscribedCodecs: update.subscribedCodecs) }
+
         case let .subscriptionPermissionUpdate(permissionUpdate):
             notify { $0.signalClient(self, didUpdateSubscriptionPermission: permissionUpdate) }
         case let .refreshToken(token):

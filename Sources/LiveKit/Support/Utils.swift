@@ -215,18 +215,29 @@ class Utils {
         }
     }
 
-    static func computeEncodings(
+    static func computeVideoEncodings(
         dimensions: Dimensions,
         publishOptions: VideoPublishOptions?,
-        isScreenShare: Bool = false
+        isScreenShare: Bool = false,
+        overrideVideoCodec: VideoCodec? = nil
     ) -> [LKRTCRtpEncodingParameters] {
         let publishOptions = publishOptions ?? VideoPublishOptions()
         let preferredEncoding: VideoEncoding? = isScreenShare ? publishOptions.screenShareEncoding : publishOptions.encoding
         let encoding = preferredEncoding ?? dimensions.computeSuggestedPreset(in: dimensions.computeSuggestedPresets(isScreenShare: isScreenShare))
 
-        guard publishOptions.simulcast else {
-            return [Engine.createRtpEncodingParameters(encoding: encoding, scaleDownBy: 1)]
+        let videoCodec = overrideVideoCodec ?? publishOptions.preferredCodec
+
+        if let videoCodec, videoCodec.isSVC {
+            // SVC mode
+            logger.log("Using SVC mode", type: Utils.self)
+            return [Engine.createRtpEncodingParameters(encoding: encoding, scalabilityMode: .L3T3_KEY)]
+        } else if !publishOptions.simulcast {
+            // Not-simulcast mode
+            logger.log("Simulcast not enabled", type: Utils.self)
+            return [Engine.createRtpEncodingParameters(encoding: encoding)]
         }
+
+        // Continue to simulcast encoding computation...
 
         let baseParameters = VideoParameters(dimensions: dimensions,
                                              encoding: encoding)

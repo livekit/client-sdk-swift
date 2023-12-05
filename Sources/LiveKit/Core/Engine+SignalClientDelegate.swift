@@ -96,7 +96,7 @@ extension Engine: SignalClientDelegate {
     func signalClient(_: SignalClient, didUpdateConnectionQuality _: [Livekit_ConnectionQualityInfo]) {}
     func signalClient(_: SignalClient, didUpdateRemoteMute _: String, muted _: Bool) {}
     func signalClient(_: SignalClient, didUpdateTrackStreamStates _: [Livekit_StreamStateInfo]) {}
-    func signalClient(_: SignalClient, didUpdateTrack _: String, subscribedQualities _: [Livekit_SubscribedQuality]) {}
+    func signalClient(_: SignalClient, didUpdateTrack _: String, subscribedQualities _: [Livekit_SubscribedQuality], subscribedCodecs _: [Livekit_SubscribedCodec]) {}
     func signalClient(_: SignalClient, didUpdateSubscriptionPermission _: Livekit_SubscriptionPermissionUpdate) {}
     func signalClient(_: SignalClient, didReceiveLeave _: Bool, reason _: Livekit_DisconnectReason) {}
 }

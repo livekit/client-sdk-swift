@@ -87,9 +87,9 @@ public class LocalParticipant: Participant {
 
                     let publishOptions = (publishOptions as? VideoPublishOptions) ?? self.room._state.options.defaultVideoPublishOptions
 
-                    let encodings = Utils.computeEncodings(dimensions: dimensions,
-                                                           publishOptions: publishOptions,
-                                                           isScreenShare: track.source == .screenShareVideo)
+                    let encodings = Utils.computeVideoEncodings(dimensions: dimensions,
+                                                                publishOptions: publishOptions,
+                                                                isScreenShare: track.source == .screenShareVideo)
 
                     self.log("[publish] using encodings: \(encodings)")
                     transInit.sendEncodings = encodings
@@ -98,9 +98,29 @@ public class LocalParticipant: Participant {
 
                     self.log("[publish] using layers: \(videoLayers.map { String(describing: $0) }.joined(separator: ", "))")
 
+                    var simulcastCodecs: [Livekit_SimulcastCodec] = [
+                        // Always add first codec...
+                        Livekit_SimulcastCodec.with {
+                            $0.cid = track.mediaTrack.trackId
+                            if let preferredCodec = publishOptions.preferredCodec {
+                                $0.codec = preferredCodec.id
+                            }
+                        },
+                    ]
+
+                    if let backupCodec = publishOptions.preferredBackupCodec {
+                        // Add backup codec to simulcast codecs...
+                        let lkSimulcastCodec = Livekit_SimulcastCodec.with {
+                            $0.cid = ""
+                            $0.codec = backupCodec.id
+                        }
+                        simulcastCodecs.append(lkSimulcastCodec)
+                    }
+
                     populator.width = UInt32(dimensions.width)
                     populator.height = UInt32(dimensions.height)
                     populator.layers = videoLayers
+                    populator.simulcastCodecs = simulcastCodecs
 
                     self.log("[publish] requesting add track to server with \(populator)...")
 
@@ -146,6 +166,13 @@ public class LocalParticipant: Participant {
                 track.set(transport: publisher, rtpSender: transceiver.sender)
 
                 if track is LocalVideoTrack {
+                    if let firstCodecMime = addTrackResult.trackInfo.codecs.first?.mimeType,
+                       let firstVideoCodec = try? VideoCodec.from(mimeType: firstCodecMime)
+                    {
+                        log("[Publish] First video codec: \(firstVideoCodec)")
+                        track._videoCodec = firstVideoCodec
+                    }
+
                     let publishOptions = (publishOptions as? VideoPublishOptions) ?? room._state.options.defaultVideoPublishOptions
                     // if screen share or simulcast is enabled,
                     // degrade resolution by using server's layer switching logic instead of WebRTC's logic
@@ -156,6 +183,10 @@ public class LocalParticipant: Participant {
                         // changing params directly doesn't work so we need to update params
                         // and set it back to sender.parameters
                         transceiver.sender.parameters = params
+                    }
+
+                    if let preferredCodec = publishOptions.preferredCodec {
+                        transceiver.set(preferredVideoCodec: preferredCodec)
                     }
                 }
 
@@ -249,7 +280,13 @@ public class LocalParticipant: Participant {
         }
 
         if let publisher = engine.publisher, let sender = track.rtpSender {
+            // Remove all simulcast senders...
+            for simulcastSender in track._simulcastRtpSenders.values {
+                try publisher.remove(track: simulcastSender)
+            }
+            // Remove main sender...
             try publisher.remove(track: sender)
+            // Mark re-negotiation required...
             try await engine.publisherShouldNegotiate()
         }
 
@@ -350,55 +387,13 @@ public class LocalParticipant: Participant {
                                                                             trackPermissions: trackPermissions)
     }
 
-    func onSubscribedQualitiesUpdate(trackSid: String, subscribedQualities: [Livekit_SubscribedQuality]) {
-        if !room._state.options.dynacast {
-            return
-        }
-
+    func _set(subscribedQualities qualities: [Livekit_SubscribedQuality], forTrackSid trackSid: String) {
         guard let pub = getTrackPublication(sid: trackSid),
               let track = pub.track as? LocalVideoTrack,
               let sender = track.rtpSender
         else { return }
 
-        let parameters = sender.parameters
-        let encodings = parameters.encodings
-
-        var hasChanged = false
-        for quality in subscribedQualities {
-            var rid: String
-            switch quality.quality {
-            case Livekit_VideoQuality.high: rid = "f"
-            case Livekit_VideoQuality.medium: rid = "h"
-            case Livekit_VideoQuality.low: rid = "q"
-            default: continue
-            }
-
-            guard let encoding = encodings.first(where: { $0.rid == rid }) else {
-                continue
-            }
-
-            if encoding.isActive != quality.enabled {
-                hasChanged = true
-                encoding.isActive = quality.enabled
-                log("setting layer \(quality.quality) to \(quality.enabled)", .info)
-            }
-        }
-
-        // Non simulcast streams don't have rids, handle here.
-        if encodings.count == 1, subscribedQualities.count >= 1 {
-            let encoding = encodings[0]
-            let quality = subscribedQualities[0]
-
-            if encoding.isActive != quality.enabled {
-                hasChanged = true
-                encoding.isActive = quality.enabled
-                log("setting layer \(quality.quality) to \(quality.enabled)", .info)
-            }
-        }
-
-        if hasChanged {
-            sender.parameters = parameters
-        }
+        sender._set(subscribedQualities: qualities)
     }
 
     override func set(permissions newValue: ParticipantPermissions) -> Bool {
@@ -544,5 +539,90 @@ public extension LocalParticipant {
         }
 
         return nil
+    }
+}
+
+// MARK: - Simulcast codecs
+
+extension LocalParticipant {
+    // Publish additional (backup) codec when requested by server
+    func publish(additionalVideoCodec subscribedCodec: Livekit_SubscribedCodec,
+                 for localTrackPublication: LocalTrackPublication) async throws
+    {
+        let videoCodec = try subscribedCodec.toVideoCodec()
+
+        log("[Publish/Backup] Additional video codec: \(videoCodec)...")
+
+        guard let track = localTrackPublication.track as? LocalVideoTrack else {
+            throw EngineError.state(message: "Track is nil")
+        }
+
+        if !videoCodec.isBackup {
+            throw EngineError.state(message: "Attempted to publish a non-backup video codec as backup")
+        }
+
+        let publisher = try room.engine.requirePublisher()
+
+        let publishOptions = (track.publishOptions as? VideoPublishOptions) ?? room._state.options.defaultVideoPublishOptions
+
+        // Should be already resolved...
+        let dimensions = try await track.capturer.dimensionsCompleter.wait()
+
+        let encodings = Utils.computeVideoEncodings(dimensions: dimensions,
+                                                    publishOptions: publishOptions,
+                                                    overrideVideoCodec: videoCodec)
+        log("[Publish/Backup] Using encodings \(encodings)...")
+
+        // Add transceiver first...
+
+        let transInit = DispatchQueue.liveKitWebRTC.sync { LKRTCRtpTransceiverInit() }
+        transInit.direction = .sendOnly
+        transInit.sendEncodings = encodings
+
+        // Add transceiver to publisher pc...
+        let transceiver = try publisher.addTransceiver(with: track.mediaTrack, transceiverInit: transInit)
+        log("[Publish] Added transceiver...")
+
+        // Set codec...
+        transceiver.set(preferredVideoCodec: videoCodec)
+
+        let sender = transceiver.sender
+
+        // Request a new track to the server
+        let addTrackResult = try await room.engine.signalClient.sendAddTrack(cid: sender.senderId,
+                                                                             name: track.name,
+                                                                             type: track.kind.toPBType(),
+                                                                             source: track.source.toPBType())
+        {
+            $0.sid = localTrackPublication.sid
+            $0.simulcastCodecs = [
+                Livekit_SimulcastCodec.with { sc in
+                    sc.cid = sender.senderId
+                    sc.codec = videoCodec.id
+                },
+            ]
+
+            $0.layers = dimensions.videoLayers(for: encodings)
+        }
+
+        log("[Publish] server responded trackInfo: \(addTrackResult.trackInfo)")
+
+        sender._set(subscribedQualities: subscribedCodec.qualities)
+
+        // Attach multi-codec sender...
+        track._simulcastRtpSenders[videoCodec] = sender
+
+        try await room.engine.publisherShouldNegotiate()
+    }
+}
+
+// MARK: - Helper
+
+extension [Livekit_SubscribedQuality] {
+    /// Find the highest quality in the array
+    var highest: Livekit_VideoQuality {
+        reduce(Livekit_VideoQuality.off) { maxQuality, subscribedQuality in
+            subscribedQuality.enabled && subscribedQuality.quality > maxQuality ? subscribedQuality.quality : maxQuality
+        }
     }
 }

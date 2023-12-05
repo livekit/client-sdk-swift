@@ -63,6 +63,12 @@ extension Livekit_SubscribedQuality: CustomStringConvertible {
     }
 }
 
+extension Livekit_SubscribedCodec: CustomStringConvertible {
+    public var description: String {
+        "SubscribedCodec(codec: \(codec), qualities: \(qualities.map { String(describing: $0) }.joined(separator: ", "))"
+    }
+}
+
 extension Livekit_ServerInfo: CustomStringConvertible {
     public var description: String {
         "ServerInfo(edition: \(edition), " +
