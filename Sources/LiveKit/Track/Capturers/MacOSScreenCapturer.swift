@@ -121,8 +121,9 @@ import Foundation
             return true
         }
 
-        // common capture func
-        private func capture(_ sampleBuffer: CMSampleBuffer, cropRect: CGRect? = nil) {
+        // Common capture func
+        private func capture(_ sampleBuffer: CMSampleBuffer, contentRect: CGRect, scaleFactor: CGFloat = 1.0) {
+            // Exit if delegate is nil
             guard let delegate else { return }
 
             // Get the pixel buffer that contains the image data.
@@ -131,16 +132,8 @@ import Foundation
             let timeStamp = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
             let timeStampNs = Int64(CMTimeGetSeconds(timeStamp) * Double(NSEC_PER_SEC))
 
-            let sourceDimensions: Dimensions
-            if let cropRect {
-                // use dimensions from provided rect
-                sourceDimensions = Dimensions(width: Int32((cropRect.width * 2).rounded(.down)),
-                                              height: Int32((cropRect.height * 2).rounded(.down)))
-            } else {
-                // use pixel buffer dimensions
-                sourceDimensions = Dimensions(width: Int32(CVPixelBufferGetWidth(pixelBuffer)),
-                                              height: Int32(CVPixelBufferGetHeight(pixelBuffer)))
-            }
+            let sourceDimensions = Dimensions(width: Int32((contentRect.width * scaleFactor).rounded(.down)),
+                                              height: Int32((contentRect.height * scaleFactor).rounded(.down)))
 
             let targetDimensions = sourceDimensions
                 .aspectFit(size: options.dimensions.max)
@@ -154,8 +147,8 @@ import Foundation
                                                adaptedHeight: targetDimensions.height,
                                                cropWidth: sourceDimensions.width,
                                                cropHeight: sourceDimensions.height,
-                                               cropX: Int32(cropRect?.origin.x ?? 0),
-                                               cropY: Int32(cropRect?.origin.y ?? 0))
+                                               cropX: Int32(contentRect.origin.x * scaleFactor),
+                                               cropY: Int32(contentRect.origin.y * scaleFactor))
 
             let rtcFrame = LKRTCVideoFrame(buffer: rtcBuffer,
                                            rotation: ._0,
@@ -198,52 +191,37 @@ import Foundation
 
     @available(macOS 12.3, *)
     extension MacOSScreenCapturer: SCStreamOutput {
-        public func stream(_: SCStream, didOutputSampleBuffer sampleBuffer: CMSampleBuffer, of _: SCStreamOutputType) {
+        public func stream(_: SCStream, didOutputSampleBuffer sampleBuffer: CMSampleBuffer,
+
+                           of outputType: SCStreamOutputType)
+        {
             guard case .started = captureState else {
                 log("Skipping capture since captureState is not .started")
                 return
             }
 
+            // Return early if the sample buffer is invalid.
+            guard sampleBuffer.isValid else { return }
+
+            guard case .screen = outputType else { return }
+
+            // Retrieve the array of metadata attachments from the sample buffer.
             guard let attachmentsArray = CMSampleBufferGetSampleAttachmentsArray(sampleBuffer,
                                                                                  createIfNecessary: false) as? [[SCStreamFrameInfo: Any]],
                 let attachments = attachmentsArray.first else { return }
 
             // Validate the status of the frame. If it isn't `.complete`, return nil.
             guard let statusRawValue = attachments[SCStreamFrameInfo.status] as? Int,
-                  let status = SCFrameStatus(rawValue: statusRawValue)
-            else {
-                return
-            }
-
-            /// @constant SCFrameStatusComplete new frame was generated.
-            /// @constant SCFrameStatusIdle new frame was not generated because the display did not change.
-            /// @constant SCFrameStatusBlank new frame was not generated because the display has gone blank.
-            /// @constant SCFrameStatusSuspended new frame was not generated because updates haves been suspended
-            /// @constant SCFrameStatusStarted new frame that is indicated as the first frame sent after the stream has started.
-            /// @constant SCFrameStatusStopped the stream was stopped.
-            guard status == .complete else {
-                return
-            }
-
-            // Get the pixel buffer that contains the image data.
-            // guard let pixelBuffer = sampleBuffer.imageBuffer else { return }
-
-            // Get the backing IOSurface.
-            // guard let surfaceRef = CVPixelBufferGetIOSurface(pixelBuffer)?.takeUnretainedValue() else { return }
-            // let surface = unsafeBitCast(surfaceRef, to: IOSurface.self)
+                  let status = SCFrameStatus(rawValue: statusRawValue),
+                  status == .complete else { return }
 
             // Retrieve the content rectangle, scale, and scale factor.
+            guard let contentRectDict = attachments[.contentRect],
+                  let contentRect = CGRect(dictionaryRepresentation: contentRectDict as! CFDictionary),
+                  // let contentScale = attachments[.contentScale] as? CGFloat,
+                  let scaleFactor = attachments[.scaleFactor] as? CGFloat else { return }
 
-            // let contentScale = attachments[.contentScale] as? CGFloat,
-            // let scaleFactor = attachments[.scaleFactor] as? CGFloat
-
-            guard let dict = attachments[.contentRect] as? NSDictionary,
-                  let contentRect = CGRect(dictionaryRepresentation: dict)
-            else {
-                return
-            }
-
-            capture(sampleBuffer, cropRect: contentRect)
+            capture(sampleBuffer, contentRect: contentRect, scaleFactor: scaleFactor)
 
             _resendTimer?.cancel()
             _resendTimer = Task.detached(priority: .utility) { [weak self] in
