@@ -152,7 +152,7 @@ extension Room: SignalClientDelegate {
     func signalClient(_: SignalClient, didUpdateRemoteMute trackSid: String, muted: Bool) {
         log("trackSid: \(trackSid) muted: \(muted)")
 
-        guard let publication = localParticipant._state.tracks[trackSid] as? LocalTrackPublication else {
+        guard let publication = localParticipant._state.trackPublications[trackSid] as? LocalTrackPublication else {
             // publication was not found but the delegate was handled
             return
         }
@@ -185,7 +185,7 @@ extension Room: SignalClientDelegate {
             // Try to find RemoteParticipant
             guard let participant = _state.remoteParticipants[update.participantSid] else { continue }
             // Try to find RemoteTrackPublication
-            guard let trackPublication = participant._state.tracks[update.trackSid] as? RemoteTrackPublication else { continue }
+            guard let trackPublication = participant._state.trackPublications[update.trackSid] as? RemoteTrackPublication else { continue }
             // Update streamState (and notify)
             trackPublication._state.mutate { $0.streamState = update.state.toLKType() }
         }
@@ -240,7 +240,7 @@ extension Room: SignalClientDelegate {
     func signalClient(_: SignalClient, didUnpublishLocalTrack localTrack: Livekit_TrackUnpublishedResponse) {
         log()
 
-        guard let publication = localParticipant._state.tracks[localTrack.trackSid] as? LocalTrackPublication else {
+        guard let publication = localParticipant._state.trackPublications[localTrack.trackSid] as? LocalTrackPublication else {
             log("track publication not found", .warning)
             return
         }

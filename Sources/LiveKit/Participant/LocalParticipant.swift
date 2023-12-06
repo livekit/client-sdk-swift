@@ -38,7 +38,7 @@ public class LocalParticipant: Participant {
     }
 
     func getTrackPublication(sid: Sid) -> LocalTrackPublication? {
-        _state.tracks[sid] as? LocalTrackPublication
+        _state.trackPublications[sid] as? LocalTrackPublication
     }
 
     @objc
@@ -50,7 +50,7 @@ public class LocalParticipant: Participant {
             throw EngineError.state(message: "Publisher is nil")
         }
 
-        guard _state.tracks.values.first(where: { $0.track === track }) == nil else {
+        guard _state.trackPublications.values.first(where: { $0.track === track }) == nil else {
             throw TrackError.publish(message: "This track has already been published.")
         }
 
@@ -240,7 +240,7 @@ public class LocalParticipant: Participant {
     @objc
     override public func unpublishAll(notify _notify: Bool = true) async {
         // Build a list of Publications
-        let publications = _state.tracks.values.compactMap { $0 as? LocalTrackPublication }
+        let publications = _state.trackPublications.values.compactMap { $0 as? LocalTrackPublication }
         for publication in publications {
             do {
                 try await unpublish(publication: publication, notify: _notify)
@@ -267,7 +267,7 @@ public class LocalParticipant: Participant {
         let engine = room.engine
 
         // Remove the publication
-        _state.mutate { $0.tracks.removeValue(forKey: publication.sid) }
+        _state.mutate { $0.trackPublications.removeValue(forKey: publication.sid) }
 
         // If track is nil, only notify unpublish and return
         guard let track = publication.track as? LocalTrack else {
@@ -416,7 +416,7 @@ public class LocalParticipant: Participant {
 
 extension LocalParticipant {
     func publishedTracksInfo() -> [Livekit_TrackPublishedResponse] {
-        _state.tracks.values.filter { $0.track != nil }
+        _state.trackPublications.values.filter { $0.track != nil }
             .map { publication in
                 Livekit_TrackPublishedResponse.with {
                     $0.cid = publication.track!.mediaTrack.trackId
@@ -428,7 +428,7 @@ extension LocalParticipant {
     }
 
     func republishTracks() async throws {
-        let mediaTracks = _state.tracks.values.map { $0.track as? LocalTrack }.compactMap { $0 }
+        let mediaTracks = _state.trackPublications.values.map { $0.track as? LocalTrack }.compactMap { $0 }
 
         await unpublishAll()
 

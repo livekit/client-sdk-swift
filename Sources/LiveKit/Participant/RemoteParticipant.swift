@@ -33,7 +33,7 @@ public class RemoteParticipant: Participant {
     }
 
     func getTrackPublication(sid: Sid) -> RemoteTrackPublication? {
-        _state.tracks[sid] as? RemoteTrackPublication
+        _state.trackPublications[sid] as? RemoteTrackPublication
     }
 
     override func updateFromInfo(info: Livekit_ParticipantInfo) {
@@ -67,7 +67,7 @@ public class RemoteParticipant: Participant {
             }
         }
 
-        let unpublishRemoteTrackPublications = _state.tracks.values
+        let unpublishRemoteTrackPublications = _state.trackPublications.values
             .filter { validTrackPublications[$0.sid] == nil }
             .compactMap { $0 as? RemoteTrackPublication }
 
@@ -86,7 +86,7 @@ public class RemoteParticipant: Participant {
         let track: Track
 
         guard let publication = getTrackPublication(sid: sid) else {
-            log("Could not subscribe to mediaTrack \(sid), unable to locate track publication. existing sids: (\(_state.tracks.keys.joined(separator: ", ")))", .error)
+            log("Could not subscribe to mediaTrack \(sid), unable to locate track publication. existing sids: (\(_state.trackPublications.keys.joined(separator: ", ")))", .error)
             let error = TrackError.state(message: "Could not find published track with sid: \(sid)")
             delegates.notify(label: { "participant.didFailToSubscribe trackSid: \(sid)" }) {
                 $0.participant?(self, didFailToSubscribe: sid, error: error)
@@ -149,7 +149,7 @@ public class RemoteParticipant: Participant {
 
     override public func unpublishAll(notify _notify: Bool = true) async {
         // Build a list of Publications
-        let publications = _state.tracks.values.compactMap { $0 as? RemoteTrackPublication }
+        let publications = _state.trackPublications.values.compactMap { $0 as? RemoteTrackPublication }
         for publication in publications {
             do {
                 try await unpublish(publication: publication, notify: _notify)
@@ -171,7 +171,7 @@ public class RemoteParticipant: Participant {
         }
 
         // Remove the publication
-        _state.mutate { $0.tracks.removeValue(forKey: publication.sid) }
+        _state.mutate { $0.trackPublications.removeValue(forKey: publication.sid) }
 
         // Continue if the publication has a track
         guard let track = publication.track else {

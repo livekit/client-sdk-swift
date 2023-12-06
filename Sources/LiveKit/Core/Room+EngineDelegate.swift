@@ -161,7 +161,7 @@ extension Room: EngineDelegate {
 
     func engine(_: Engine, didRemove track: LKRTCMediaStreamTrack) {
         // find the publication
-        guard let publication = _state.remoteParticipants.values.map(\._state.tracks.values).joined()
+        guard let publication = _state.remoteParticipants.values.map(\._state.trackPublications.values).joined()
             .first(where: { $0.sid == track.trackId }) else { return }
         publication.set(track: nil)
     }

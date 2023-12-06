@@ -338,7 +338,7 @@ extension Room {
 
         // create an array of RemoteTrackPublication
         let remoteTrackPublications = _state.remoteParticipants.values.map {
-            $0._state.tracks.values.compactMap { $0 as? RemoteTrackPublication }
+            $0._state.trackPublications.values.compactMap { $0 as? RemoteTrackPublication }
         }.joined()
 
         // reset track settings for all RemoteTrackPublication

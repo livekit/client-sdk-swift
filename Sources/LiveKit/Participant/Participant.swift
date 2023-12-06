@@ -53,16 +53,16 @@ public class Participant: NSObject, ObservableObject, Loggable {
     public var joinedAt: Date? { _state.joinedAt }
 
     @objc
-    public var tracksPublications: [Sid: TrackPublication] { _state.tracks }
+    public var trackPublications: [Sid: TrackPublication] { _state.trackPublications }
 
     @objc
     public var audioTracks: [TrackPublication] {
-        _state.tracks.values.filter { $0.kind == .audio }
+        _state.trackPublications.values.filter { $0.kind == .audio }
     }
 
     @objc
     public var videoTracks: [TrackPublication] {
-        _state.tracks.values.filter { $0.kind == .video }
+        _state.trackPublications.values.filter { $0.kind == .video }
     }
 
     var info: Livekit_ParticipantInfo?
@@ -82,7 +82,7 @@ public class Participant: NSObject, ObservableObject, Loggable {
         var joinedAt: Date?
         var connectionQuality: ConnectionQuality = .unknown
         var permissions = ParticipantPermissions()
-        var tracks = [String: TrackPublication]()
+        var trackPublications = [Sid: TrackPublication]()
     }
 
     var _state: StateSync<State>
@@ -161,7 +161,7 @@ public class Participant: NSObject, ObservableObject, Loggable {
     }
 
     func add(publication: TrackPublication) {
-        _state.mutate { $0.tracks[publication.sid] = publication }
+        _state.mutate { $0.trackPublications[publication.sid] = publication }
         publication.track?._state.mutate { $0.sid = publication.sid }
     }
 
@@ -207,7 +207,7 @@ public extension Participant {
     }
 
     internal func getTrackPublication(name: String) -> TrackPublication? {
-        _state.tracks.values.first(where: { $0.name == name })
+        _state.trackPublications.values.first(where: { $0.name == name })
     }
 
     /// find the first publication matching `source` or any compatible.
@@ -215,11 +215,11 @@ public extension Participant {
         // if source is unknown return nil
         guard source != .unknown else { return nil }
         // try to find a Publication with matching source
-        if let result = _state.tracks.values.first(where: { $0.source == source }) {
+        if let result = _state.trackPublications.values.first(where: { $0.source == source }) {
             return result
         }
         // try to find a compatible Publication
-        if let result = _state.tracks.values.filter({ $0.source == .unknown }).first(where: {
+        if let result = _state.trackPublications.values.filter({ $0.source == .unknown }).first(where: {
             (source == .microphone && $0.kind == .audio) ||
                 (source == .camera && $0.kind == .video && $0.name != Track.screenShareVideoName) ||
                 (source == .screenShareVideo && $0.kind == .video && $0.name == Track.screenShareVideoName) ||
