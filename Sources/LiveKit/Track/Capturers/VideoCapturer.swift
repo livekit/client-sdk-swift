@@ -84,7 +84,7 @@ public class VideoCapturer: NSObject, Loggable, VideoCapturerProtocol {
                 log("[publish] dimensions: \(String(describing: dimensions))")
                 dimensionsCompleter.resume(returning: dimensions)
             } else {
-                dimensionsCompleter.cancel()
+                dimensionsCompleter.reset()
             }
         }
     }
@@ -160,7 +160,7 @@ public class VideoCapturer: NSObject, Loggable, VideoCapturerProtocol {
             $0.capturer?(self, didUpdate: .stopped)
         }
 
-        dimensionsCompleter.cancel()
+        dimensionsCompleter.reset()
 
         return true
     }

@@ -267,8 +267,8 @@ extension Room {
 
         // Start Engine cleanUp sequence
 
-        engine.primaryTransportConnectedCompleter.cancel()
-        engine.publisherTransportConnectedCompleter.cancel()
+        engine.primaryTransportConnectedCompleter.reset()
+        engine.publisherTransportConnectedCompleter.reset()
 
         engine._state.mutate {
             // if isFullReconnect, keep connection related states

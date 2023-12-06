@@ -77,7 +77,7 @@ class DataChannelPair: NSObject, Loggable {
         _reliableChannel = nil
         _lossyChannel = nil
 
-        openCompleter.cancel()
+        openCompleter.reset()
 
         // execute on .webRTC queue
         DispatchQueue.liveKitWebRTC.sync {

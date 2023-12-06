@@ -165,7 +165,7 @@ class SignalClient: MulticastDelegate<SignalClientDelegate> {
         _webSocket?.close()
         _webSocket = nil
 
-        _joinResponseCompleter.cancel()
+        _joinResponseCompleter.reset()
         latestJoinResponse = nil
 
         // Reset state
