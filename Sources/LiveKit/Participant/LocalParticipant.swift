@@ -34,7 +34,7 @@ public class LocalParticipant: Participant {
     private var trackPermissions: [ParticipantTrackPermission] = []
 
     init(room: Room) {
-        super.init(sid: "", room: room)
+        super.init(sid: "", identity: "", room: room)
     }
 
     func getTrackPublication(sid: Sid) -> LocalTrackPublication? {
