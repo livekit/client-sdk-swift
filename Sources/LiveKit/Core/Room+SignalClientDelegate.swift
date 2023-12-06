@@ -194,7 +194,7 @@ extension Room: SignalClientDelegate {
     func signalClient(_: SignalClient, didUpdateParticipants participants: [Livekit_ParticipantInfo]) {
         log("participants: \(participants)")
 
-        var disconnectedParticipants = [Sid]()
+        var disconnectedParticipantIdentities = [Identity]()
         var newParticipants = [RemoteParticipant]()
 
         _state.mutate {
@@ -206,7 +206,7 @@ extension Room: SignalClientDelegate {
 
                 if info.state == .disconnected {
                     // when it's disconnected, send updates
-                    disconnectedParticipants.append(info.sid)
+                    disconnectedParticipantIdentities.append(info.identity)
                 } else {
                     let isNewParticipant = $0.remoteParticipant(sid: info.sid) == nil
                     let participant = $0.updateRemoteParticipant(info: info, room: self)
@@ -220,9 +220,9 @@ extension Room: SignalClientDelegate {
             }
         }
 
-        for sid in disconnectedParticipants {
+        for identity in disconnectedParticipantIdentities {
             Task {
-                try await onParticipantDisconnect(sid: sid)
+                try await _onParticipantDidDisconnect(identity: identity)
             }
         }
 

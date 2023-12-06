@@ -314,9 +314,9 @@ extension Room {
         }
     }
 
-    func onParticipantDisconnect(sid: Sid) async throws {
-        guard let participant = _state.mutate({ $0.remoteParticipants.removeValue(forKey: sid) }) else {
-            throw EngineError.state(message: "Participant not found for \(sid)")
+    func _onParticipantDidDisconnect(identity: Identity) async throws {
+        guard let participant = _state.mutate({ $0.remoteParticipants.removeValue(forKey: identity) }) else {
+            throw EngineError.state(message: "Participant not found for \(identity)")
         }
 
         await participant.cleanUp(notify: true)
