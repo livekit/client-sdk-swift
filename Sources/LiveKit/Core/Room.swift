@@ -300,8 +300,7 @@ extension Room {
         log("notify: \(_notify)")
 
         // Stop all local & remote tracks
-        let allParticipants = ([[localParticipant],
-                                _state.remoteParticipants.map(\.value)] as [[Participant?]])
+        let allParticipants = ([[localParticipant], Array(_state.remoteParticipants.values)] as [[Participant?]])
             .joined()
             .compactMap { $0 }
 
