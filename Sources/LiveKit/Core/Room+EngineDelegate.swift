@@ -89,7 +89,7 @@ extension Room: EngineDelegate {
                     }
                     activeSpeakers.append(localParticipant)
                 } else {
-                    if let participant = state.remoteParticipants[speaker.sid] {
+                    if let participant = state.remoteParticipant(sid: speaker.sid) {
                         participant._state.mutate {
                             $0.audioLevel = speaker.level
                             $0.isSpeaking = true
@@ -140,9 +140,14 @@ extension Room: EngineDelegate {
             trackSid = track.trackId
         }
 
-        let participant = _state.mutate { $0.getOrCreateRemoteParticipant(sid: participantSid, room: self) }
+        let participant = _state.read {
+            $0.remoteParticipants.values.first { $0.sid == participantSid }
+        }
 
-        log("added media track from: \(participantSid), sid: \(trackSid)")
+        guard let participant else {
+            log("RemoteParticipant not found for new track", .warning)
+            return
+        }
 
         let task = Task.retrying(retryDelay: 0.2) { _, _ in
             // TODO: Only retry for TrackError.state = error
@@ -163,7 +168,7 @@ extension Room: EngineDelegate {
 
     func engine(_ engine: Engine, didReceive userPacket: Livekit_UserPacket) {
         // participant could be null if data broadcasted from server
-        let participant = _state.remoteParticipants[userPacket.participantSid]
+        let participant = _state.remoteParticipants[userPacket.participantIdentity]
 
         engine.executeIfConnected { [weak self] in
             guard let self else { return }

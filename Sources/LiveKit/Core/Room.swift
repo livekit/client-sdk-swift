@@ -114,14 +114,18 @@ public class Room: NSObject, ObservableObject, Loggable {
         var serverInfo: Livekit_ServerInfo?
 
         @discardableResult
-        mutating func getOrCreateRemoteParticipant(sid: Sid, info: Livekit_ParticipantInfo? = nil, room: Room) -> RemoteParticipant {
-            if let participant = remoteParticipants[sid] {
-                return participant
-            }
-
-            let participant = RemoteParticipant(sid: sid, info: info, room: room)
-            remoteParticipants[sid] = participant
+        mutating func updateRemoteParticipant(info: Livekit_ParticipantInfo, room: Room) -> RemoteParticipant {
+            // Check if RemoteParticipant with same identity exists...
+            if let participant = remoteParticipants[info.identity] { return participant }
+            // Create new RemoteParticipant...
+            let participant = RemoteParticipant(info: info, room: room)
+            remoteParticipants[info.identity] = participant
             return participant
+        }
+
+        // Find RemoteParticipant by Sid
+        func remoteParticipant(sid: Sid) -> RemoteParticipant? {
+            remoteParticipants.values.first(where: { $0.sid == sid })
         }
     }
 

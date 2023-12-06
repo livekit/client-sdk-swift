@@ -20,12 +20,16 @@ import Foundation
 
 @objc
 public class RemoteParticipant: Participant {
-    init(sid: Sid, info: Livekit_ParticipantInfo?, room: Room) {
-        super.init(sid: sid, identity: info?.identity ?? "", room: room)
+    init(info: Livekit_ParticipantInfo, room: Room) {
+        super.init(sid: info.sid,
+                   identity: info.identity,
+                   room: room)
 
-        if let info {
-            updateFromInfo(info: info)
+        if identity.isEmpty {
+            log("RemoteParticipant.identity is empty", .error)
         }
+
+        updateFromInfo(info: info)
     }
 
     func getTrackPublication(sid: Sid) -> RemoteTrackPublication? {
