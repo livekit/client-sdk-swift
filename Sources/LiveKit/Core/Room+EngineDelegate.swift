@@ -145,7 +145,7 @@ extension Room: EngineDelegate {
         }
 
         guard let participant else {
-            log("RemoteParticipant not found for new track", .warning)
+            log("RemoteParticipant not found for sid: \(participantSid), remoteParticipants: \(remoteParticipants)", .warning)
             return
         }
 
