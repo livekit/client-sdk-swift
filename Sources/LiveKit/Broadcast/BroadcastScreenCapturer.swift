@@ -91,7 +91,8 @@
         /// Creates a track that captures screen capture from a broadcast upload extension
         static func createBroadcastScreenCapturerTrack(name: String = Track.screenShareVideoName,
                                                        source: VideoTrack.Source = .screenShareVideo,
-                                                       options: ScreenShareCaptureOptions = ScreenShareCaptureOptions()) -> LocalVideoTrack
+                                                       options: ScreenShareCaptureOptions = ScreenShareCaptureOptions(),
+                                                       reportStatistics: Bool = false) -> LocalVideoTrack
         {
             let videoSource = Engine.createVideoSource(forScreenShare: true)
             let capturer = BroadcastScreenCapturer(delegate: videoSource, options: BufferCaptureOptions(from: options))
@@ -99,7 +100,8 @@
                 name: name,
                 source: source,
                 capturer: capturer,
-                videoSource: videoSource
+                videoSource: videoSource,
+                reportStatistics: reportStatistics
             )
         }
     }
