@@ -19,6 +19,7 @@ import Foundation
 @_implementationOnly import WebRTC
 
 public typealias Sid = String
+public typealias Identity = String
 
 @objc
 public enum Reliability: Int {

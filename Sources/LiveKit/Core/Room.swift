@@ -50,7 +50,7 @@ public class Room: NSObject, ObservableObject, Loggable {
     public var serverNodeId: String? { _state.serverInfo?.nodeID.nilIfEmpty }
 
     @objc
-    public var remoteParticipants: [Sid: RemoteParticipant] { _state.remoteParticipants }
+    public var remoteParticipants: [Identity: RemoteParticipant] { _state.remoteParticipants }
 
     @objc
     public var activeSpeakers: [Participant] { _state.activeSpeakers }
@@ -102,7 +102,7 @@ public class Room: NSObject, ObservableObject, Loggable {
         var name: String?
         var metadata: String?
 
-        var remoteParticipants = [Sid: RemoteParticipant]()
+        var remoteParticipants = [Identity: RemoteParticipant]()
         var activeSpeakers = [Participant]()
 
         var isRecording: Bool = false
@@ -114,14 +114,18 @@ public class Room: NSObject, ObservableObject, Loggable {
         var serverInfo: Livekit_ServerInfo?
 
         @discardableResult
-        mutating func getOrCreateRemoteParticipant(sid: Sid, info: Livekit_ParticipantInfo? = nil, room: Room) -> RemoteParticipant {
-            if let participant = remoteParticipants[sid] {
-                return participant
-            }
-
-            let participant = RemoteParticipant(sid: sid, info: info, room: room)
-            remoteParticipants[sid] = participant
+        mutating func updateRemoteParticipant(info: Livekit_ParticipantInfo, room: Room) -> RemoteParticipant {
+            // Check if RemoteParticipant with same identity exists...
+            if let participant = remoteParticipants[info.identity] { return participant }
+            // Create new RemoteParticipant...
+            let participant = RemoteParticipant(info: info, room: room)
+            remoteParticipants[info.identity] = participant
             return participant
+        }
+
+        // Find RemoteParticipant by Sid
+        func remoteParticipant(sid: Sid) -> RemoteParticipant? {
+            remoteParticipants.values.first(where: { $0.sid == sid })
         }
     }
 
@@ -296,8 +300,7 @@ extension Room {
         log("notify: \(_notify)")
 
         // Stop all local & remote tracks
-        let allParticipants = ([[localParticipant],
-                                _state.remoteParticipants.map(\.value)] as [[Participant?]])
+        let allParticipants = ([[localParticipant], Array(_state.remoteParticipants.values)] as [[Participant?]])
             .joined()
             .compactMap { $0 }
 
@@ -310,9 +313,9 @@ extension Room {
         }
     }
 
-    func onParticipantDisconnect(sid: Sid) async throws {
-        guard let participant = _state.mutate({ $0.remoteParticipants.removeValue(forKey: sid) }) else {
-            throw EngineError.state(message: "Participant not found for \(sid)")
+    func _onParticipantDidDisconnect(identity: Identity) async throws {
+        guard let participant = _state.mutate({ $0.remoteParticipants.removeValue(forKey: identity) }) else {
+            throw EngineError.state(message: "Participant not found for \(identity)")
         }
 
         await participant.cleanUp(notify: true)

@@ -416,7 +416,7 @@ public class VideoView: NativeView, Loggable {
 
         // dimensions are required to continue computation
         guard let dimensions = track._state.dimensions else {
-            log("dimensions are nil, cannot layout without dimensions, track: \(track)", .warning)
+            // log("dimensions are nil, cannot layout without dimensions, track: \(track)", .debug)
             return
         }
 

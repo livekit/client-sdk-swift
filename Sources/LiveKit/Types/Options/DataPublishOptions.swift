@@ -22,17 +22,17 @@ public class DataPublishOptions: NSObject, PublishOptions {
     public let name: String?
 
     @objc
-    public let destinations: [Sid]
+    public let destinationIdentities: [Identity]
 
     @objc
     public let topic: String?
 
     public init(name: String? = nil,
-                destinations: [String] = [],
+                destinationIdentities: [Identity] = [],
                 topic: String? = nil)
     {
         self.name = name
-        self.destinations = destinations
+        self.destinationIdentities = destinationIdentities
         self.topic = topic
     }
 
@@ -41,14 +41,14 @@ public class DataPublishOptions: NSObject, PublishOptions {
     override public func isEqual(_ object: Any?) -> Bool {
         guard let other = object as? Self else { return false }
         return name == other.name &&
-            destinations == other.destinations &&
+            destinationIdentities == other.destinationIdentities &&
             topic == other.topic
     }
 
     override public var hash: Int {
         var hasher = Hasher()
         hasher.combine(name)
-        hasher.combine(destinations)
+        hasher.combine(destinationIdentities)
         hasher.combine(topic)
         return hasher.finalize()
     }

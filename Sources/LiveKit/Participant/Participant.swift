@@ -29,7 +29,7 @@ public class Participant: NSObject, ObservableObject, Loggable {
     public var sid: Sid { _state.sid }
 
     @objc
-    public var identity: String? { _state.identity }
+    public var identity: String { _state.identity }
 
     @objc
     public var name: String? { _state.name }
@@ -53,7 +53,7 @@ public class Participant: NSObject, ObservableObject, Loggable {
     public var joinedAt: Date? { _state.joinedAt }
 
     @objc
-    public var tracks: [String: TrackPublication] { _state.tracks }
+    public var tracksPublications: [Sid: TrackPublication] { _state.tracks }
 
     @objc
     public var audioTracks: [TrackPublication] {
@@ -74,7 +74,7 @@ public class Participant: NSObject, ObservableObject, Loggable {
 
     struct State: Equatable, Hashable {
         var sid: Sid
-        var identity: String?
+        var identity: String
         var name: String?
         var audioLevel: Float = 0.0
         var isSpeaking: Bool = false
@@ -87,11 +87,11 @@ public class Participant: NSObject, ObservableObject, Loggable {
 
     var _state: StateSync<State>
 
-    init(sid: String, room: Room) {
+    init(sid: Sid, identity: Identity, room: Room) {
         self.room = room
 
         // initial state
-        _state = StateSync(State(sid: sid))
+        _state = StateSync(State(sid: sid, identity: identity))
 
         super.init()
 
@@ -153,7 +153,7 @@ public class Participant: NSObject, ObservableObject, Loggable {
     func cleanUp(notify _notify: Bool = true) async {
         await unpublishAll(notify: _notify)
         // Reset state
-        _state.mutate { $0 = State(sid: "") }
+        _state.mutate { $0 = State(sid: "", identity: "") }
     }
 
     func unpublishAll(notify _: Bool = true) async {
