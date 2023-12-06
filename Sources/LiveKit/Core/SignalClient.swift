@@ -72,6 +72,7 @@ class SignalClient: MulticastDelegate<SignalClientDelegate> {
         log()
     }
 
+    @discardableResult
     func connect(_ urlString: String,
                  _ token: String,
                  connectOptions: ConnectOptions? = nil,
