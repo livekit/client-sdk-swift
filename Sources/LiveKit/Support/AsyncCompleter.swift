@@ -30,7 +30,11 @@ enum AsyncCompleterError: LiveKitError {
 
 /// Manages a map of AsyncCompleters
 actor CompleterMapActor<T> {
-    public let label: String
+    // MARK: - Public
+
+    public nonisolated let label: String
+
+    // MARK: - Private
 
     private let _timeOut: DispatchTimeInterval
     private var _completerMap = [String: AsyncCompleter<T>]()
