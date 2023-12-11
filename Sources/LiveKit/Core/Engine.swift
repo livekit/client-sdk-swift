@@ -64,8 +64,16 @@ class Engine: MulticastDelegate<EngineDelegate> {
 
     // MARK: - DataChannels
 
-    public internal(set) var subscriberDC = DataChannelPair(target: .subscriber)
-    public internal(set) var publisherDC = DataChannelPair(target: .publisher)
+    lazy var subscriberDC: DataChannelPair = .init(onDataPacket: { [weak self] dataPacket in
+        guard let self else { return }
+        switch dataPacket.value {
+        case let .speaker(update): self.notify { $0.engine(self, didUpdate: update.speakers) }
+        case let .user(userPacket): self.notify { $0.engine(self, didReceive: userPacket) }
+        default: return
+        }
+    })
+
+    let publisherDC = DataChannelPair()
 
     private var _blockProcessQueue = DispatchQueue(label: "LiveKitSDK.engine.pendingBlocks",
                                                    qos: .default)
@@ -112,17 +120,6 @@ class Engine: MulticastDelegate<EngineDelegate> {
                     // remove this entry
                     return true
                 }
-            }
-        }
-
-        subscriberDC.onDataPacket = { [weak self] (dataPacket: Livekit_DataPacket) in
-
-            guard let self else { return }
-
-            switch dataPacket.value {
-            case let .speaker(update): self.notify { $0.engine(self, didUpdate: update.speakers) }
-            case let .user(userPacket): self.notify { $0.engine(self, didReceive: userPacket) }
-            default: return
             }
         }
     }
@@ -181,8 +178,8 @@ class Engine: MulticastDelegate<EngineDelegate> {
     // Resets state of transports
     func cleanUpRTC() async {
         // Close data channels
-        publisherDC.close()
-        subscriberDC.close()
+        publisherDC.reset()
+        subscriberDC.reset()
 
         // Close transports
         await publisher?.close()
