@@ -64,7 +64,7 @@ class Engine: MulticastDelegate<EngineDelegate> {
 
     // MARK: - DataChannels
 
-    lazy var subscriberDC: DataChannelPair = .init(onDataPacket: { [weak self] dataPacket in
+    lazy var subscriberDataChannel: DataChannelPairActor = .init(onDataPacket: { [weak self] dataPacket in
         guard let self else { return }
         switch dataPacket.value {
         case let .speaker(update): self.notify { $0.engine(self, didUpdate: update.speakers) }
@@ -73,7 +73,7 @@ class Engine: MulticastDelegate<EngineDelegate> {
         }
     })
 
-    let publisherDC = DataChannelPair()
+    let publisherDataChannel = DataChannelPairActor()
 
     private var _blockProcessQueue = DispatchQueue(label: "LiveKitSDK.engine.pendingBlocks",
                                                    qos: .default)
@@ -178,8 +178,8 @@ class Engine: MulticastDelegate<EngineDelegate> {
     // Resets state of transports
     func cleanUpRTC() async {
         // Close data channels
-        publisherDC.reset()
-        subscriberDC.reset()
+        await publisherDataChannel.reset()
+        await subscriberDataChannel.reset()
 
         // Close transports
         await publisher?.close()
@@ -211,17 +211,18 @@ class Engine: MulticastDelegate<EngineDelegate> {
             }
 
             try await publisherTransportConnectedCompleter.wait()
-            try await publisherDC.openCompleter.wait()
+            try await publisherDataChannel.openCompleter.wait()
         }
 
         try await ensurePublisherConnected()
 
         // At this point publisher should be .connected and dc should be .open
         assert(publisher?.isConnected ?? false, "publisher is not .connected")
-        assert(publisherDC.isOpen, "publisher data channel is not .open")
+        let dataChannelIsOpen = await publisherDataChannel.isOpen
+        assert(dataChannelIsOpen, "publisher data channel is not .open")
 
         // Should return true if successful
-        try publisherDC.send(userPacket: userPacket, reliability: reliability)
+        try await publisherDataChannel.send(userPacket: userPacket, reliability: reliability)
     }
 }
 
@@ -275,17 +276,17 @@ extension Engine {
 
         // data over pub channel for backwards compatibility
 
-        let publisherReliableDC = publisher.dataChannel(for: LKRTCDataChannel.labels.reliable,
+        let reliableDataChannel = publisher.dataChannel(for: LKRTCDataChannel.labels.reliable,
                                                         configuration: Engine.createDataChannelConfiguration())
 
-        let publisherLossyDC = publisher.dataChannel(for: LKRTCDataChannel.labels.lossy,
+        let lossyDataChannel = publisher.dataChannel(for: LKRTCDataChannel.labels.lossy,
                                                      configuration: Engine.createDataChannelConfiguration(maxRetransmits: 0))
 
-        publisherDC.set(reliable: publisherReliableDC)
-        publisherDC.set(lossy: publisherLossyDC)
+        await publisherDataChannel.set(reliable: reliableDataChannel)
+        await publisherDataChannel.set(lossy: lossyDataChannel)
 
-        log("dataChannel.\(String(describing: publisherReliableDC?.label)) : \(String(describing: publisherReliableDC?.channelId))")
-        log("dataChannel.\(String(describing: publisherLossyDC?.label)) : \(String(describing: publisherLossyDC?.channelId))")
+        log("dataChannel.\(String(describing: reliableDataChannel?.label)) : \(String(describing: reliableDataChannel?.channelId))")
+        log("dataChannel.\(String(describing: lossyDataChannel?.label)) : \(String(describing: lossyDataChannel?.channelId))")
 
         if !subscriberPrimary {
             // lazy negotiation for protocol v3+
@@ -508,7 +509,7 @@ extension Engine {
         try await signalClient.sendSyncState(answer: previousAnswer.toPBType(),
                                              offer: previousOffer?.toPBType(),
                                              subscription: subscription, publishTracks: room.localParticipant.publishedTracksInfo(),
-                                             dataChannels: publisherDC.infos())
+                                             dataChannels: publisherDataChannel.infos())
     }
 }
 

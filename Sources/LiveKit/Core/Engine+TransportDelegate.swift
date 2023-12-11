@@ -73,11 +73,13 @@ extension Engine: TransportDelegate {
     func transport(_ transport: Transport, didOpen dataChannel: LKRTCDataChannel) {
         log("Server opened data channel \(dataChannel.label)(\(dataChannel.readyState))")
 
-        if subscriberPrimary, transport.target == .subscriber {
-            switch dataChannel.label {
-            case LKRTCDataChannel.labels.reliable: subscriberDC.set(reliable: dataChannel)
-            case LKRTCDataChannel.labels.lossy: subscriberDC.set(lossy: dataChannel)
-            default: log("Unknown data channel label \(dataChannel.label)", .warning)
+        Task {
+            if subscriberPrimary, transport.target == .subscriber {
+                switch dataChannel.label {
+                case LKRTCDataChannel.labels.reliable: await subscriberDataChannel.set(reliable: dataChannel)
+                case LKRTCDataChannel.labels.lossy: await subscriberDataChannel.set(lossy: dataChannel)
+                default: log("Unknown data channel label \(dataChannel.label)", .warning)
+                }
             }
         }
     }
