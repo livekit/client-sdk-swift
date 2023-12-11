@@ -319,6 +319,7 @@ enum Livekit_ConnectionQuality: SwiftProtobuf.Enum {
   case poor // = 0
   case good // = 1
   case excellent // = 2
+  case lost // = 3
   case UNRECOGNIZED(Int)
 
   init() {
@@ -330,6 +331,7 @@ enum Livekit_ConnectionQuality: SwiftProtobuf.Enum {
     case 0: self = .poor
     case 1: self = .good
     case 2: self = .excellent
+    case 3: self = .lost
     default: self = .UNRECOGNIZED(rawValue)
     }
   }
@@ -339,6 +341,7 @@ enum Livekit_ConnectionQuality: SwiftProtobuf.Enum {
     case .poor: return 0
     case .good: return 1
     case .excellent: return 2
+    case .lost: return 3
     case .UNRECOGNIZED(let i): return i
     }
   }
@@ -353,6 +356,7 @@ extension Livekit_ConnectionQuality: CaseIterable {
     .poor,
     .good,
     .excellent,
+    .lost,
   ]
 }
 
@@ -649,6 +653,9 @@ struct Livekit_ParticipantPermission {
 
   /// indicates that participant can update own metadata
   var canUpdateMetadata: Bool = false
+
+  /// indicates that participant is an agent
+  var agent: Bool = false
 
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
@@ -1829,6 +1836,7 @@ extension Livekit_ConnectionQuality: SwiftProtobuf._ProtoNameProviding {
     0: .same(proto: "POOR"),
     1: .same(proto: "GOOD"),
     2: .same(proto: "EXCELLENT"),
+    3: .same(proto: "LOST"),
   ]
 }
 
@@ -2055,6 +2063,7 @@ extension Livekit_ParticipantPermission: SwiftProtobuf.Message, SwiftProtobuf._M
     7: .same(proto: "hidden"),
     8: .same(proto: "recorder"),
     10: .standard(proto: "can_update_metadata"),
+    11: .same(proto: "agent"),
   ]
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -2070,6 +2079,7 @@ extension Livekit_ParticipantPermission: SwiftProtobuf.Message, SwiftProtobuf._M
       case 8: try { try decoder.decodeSingularBoolField(value: &self.recorder) }()
       case 9: try { try decoder.decodeRepeatedEnumField(value: &self.canPublishSources) }()
       case 10: try { try decoder.decodeSingularBoolField(value: &self.canUpdateMetadata) }()
+      case 11: try { try decoder.decodeSingularBoolField(value: &self.agent) }()
       default: break
       }
     }
@@ -2097,6 +2107,9 @@ extension Livekit_ParticipantPermission: SwiftProtobuf.Message, SwiftProtobuf._M
     if self.canUpdateMetadata != false {
       try visitor.visitSingularBoolField(value: self.canUpdateMetadata, fieldNumber: 10)
     }
+    if self.agent != false {
+      try visitor.visitSingularBoolField(value: self.agent, fieldNumber: 11)
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -2108,6 +2121,7 @@ extension Livekit_ParticipantPermission: SwiftProtobuf.Message, SwiftProtobuf._M
     if lhs.hidden != rhs.hidden {return false}
     if lhs.recorder != rhs.recorder {return false}
     if lhs.canUpdateMetadata != rhs.canUpdateMetadata {return false}
+    if lhs.agent != rhs.agent {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
