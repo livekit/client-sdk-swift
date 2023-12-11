@@ -110,6 +110,7 @@ public class TrackPublication: NSObject, ObservableObject, Loggable {
             mimeType: info.mimeType,
             simulcasted: info.simulcast,
             dimensions: info.type == .video ? Dimensions(width: Int32(info.width), height: Int32(info.height)) : nil,
+            metadataMuted: info.muted,
             encryptionType: info.encryption.toLKType(),
 
             // store the whole info
