@@ -17,10 +17,11 @@
 import Foundation
 
 public extension Room {
-    var allParticipants: [Sid: Participant] {
-        var result: [Sid: Participant] = remoteParticipants
-        if !localParticipant.sid.isEmpty {
-            result.updateValue(localParticipant, forKey: localParticipant.sid)
+    /// Returns a dictionary containing both local and remote participants.
+    var allParticipants: [Identity: Participant] {
+        var result: [Identity: Participant] = remoteParticipants
+        if !localParticipant.identity.isEmpty {
+            result.updateValue(localParticipant, forKey: localParticipant.identity)
         }
         return result
     }
