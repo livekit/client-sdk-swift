@@ -69,6 +69,22 @@ public class RoomOptions: NSObject {
     @objc
     public let reportRemoteTrackStatistics: Bool
 
+    override public init() {
+        defaultCameraCaptureOptions = CameraCaptureOptions()
+        defaultScreenShareCaptureOptions = ScreenShareCaptureOptions()
+        defaultAudioCaptureOptions = AudioCaptureOptions()
+        defaultVideoPublishOptions = VideoPublishOptions()
+        defaultAudioPublishOptions = AudioPublishOptions()
+        defaultDataPublishOptions = DataPublishOptions()
+        adaptiveStream = false
+        dynacast = false
+        stopLocalTrackOnUnpublish = true
+        suspendLocalVideoTracksInBackground = true
+        e2eeOptions = nil
+        reportRemoteTrackStatistics = false
+    }
+
+    @objc
     public init(defaultCameraCaptureOptions: CameraCaptureOptions = CameraCaptureOptions(),
                 defaultScreenShareCaptureOptions: ScreenShareCaptureOptions = ScreenShareCaptureOptions(),
                 defaultAudioCaptureOptions: AudioCaptureOptions = AudioCaptureOptions(),
@@ -80,7 +96,7 @@ public class RoomOptions: NSObject {
                 stopLocalTrackOnUnpublish: Bool = true,
                 suspendLocalVideoTracksInBackground: Bool = true,
                 e2eeOptions: E2EEOptions? = nil,
-                reportTrackStatistics: Bool = false)
+                reportRemoteTrackStatistics: Bool = false)
     {
         self.defaultCameraCaptureOptions = defaultCameraCaptureOptions
         self.defaultScreenShareCaptureOptions = defaultScreenShareCaptureOptions
@@ -93,7 +109,7 @@ public class RoomOptions: NSObject {
         self.stopLocalTrackOnUnpublish = stopLocalTrackOnUnpublish
         self.suspendLocalVideoTracksInBackground = suspendLocalVideoTracksInBackground
         self.e2eeOptions = e2eeOptions
-        reportRemoteTrackStatistics = reportTrackStatistics
+        self.reportRemoteTrackStatistics = reportRemoteTrackStatistics
     }
 
     // MARK: - Equal

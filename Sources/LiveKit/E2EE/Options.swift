@@ -45,9 +45,13 @@ extension Livekit_Encryption.TypeEnum {
     }
 }
 
-public class E2EEOptions {
-    var keyProvider: BaseKeyProvider
-    var encryptionType: EncryptionType = .gcm
+@objc
+public class E2EEOptions: NSObject {
+    let keyProvider: BaseKeyProvider
+
+    @objc
+    let encryptionType: EncryptionType = .gcm
+
     public init(keyProvider: BaseKeyProvider) {
         self.keyProvider = keyProvider
     }
