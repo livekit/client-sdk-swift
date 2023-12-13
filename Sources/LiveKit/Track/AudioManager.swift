@@ -18,15 +18,24 @@ import Foundation
 
 @_implementationOnly import WebRTC
 
+// Wrapper for LKRTCAudioBuffer
 @objc
-public class AudioBuffer: NSObject {
+public class LKAudioBuffer: NSObject {
     private let _audioBuffer: LKRTCAudioBuffer
 
+    @objc
     public var channels: Int { _audioBuffer.channels }
+
+    @objc
     public var frames: Int { _audioBuffer.frames }
+
+    @objc
     public var framesPerBand: Int { _audioBuffer.framesPerBand }
+
+    @objc
     public var bands: Int { _audioBuffer.bands }
 
+    @objc
     public func rawBuffer(for channel: Int) -> UnsafeMutablePointer<Float> {
         _audioBuffer.rawBuffer(forChannel: channel)
     }
@@ -39,7 +48,7 @@ public class AudioBuffer: NSObject {
 @objc
 public protocol AudioCustomProcessingDelegate {
     func audioProcessingInitialize(sampleRate sampleRateHz: Int, channels: Int)
-    func audioProcessingProcess(audioBuffer: AudioBuffer)
+    func audioProcessingProcess(audioBuffer: LKAudioBuffer)
     func audioProcessingRelease()
 }
 
@@ -55,7 +64,7 @@ class AudioCustomProcessingDelegateAdapter: NSObject, LKRTCAudioCustomProcessing
     }
 
     func audioProcessingProcess(audioBuffer: LKRTCAudioBuffer) {
-        target?.audioProcessingProcess(audioBuffer: AudioBuffer(audioBuffer: audioBuffer))
+        target?.audioProcessingProcess(audioBuffer: LKAudioBuffer(audioBuffer: audioBuffer))
     }
 
     func audioProcessingRelease() {
