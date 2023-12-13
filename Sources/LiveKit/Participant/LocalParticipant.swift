@@ -227,12 +227,14 @@ public class LocalParticipant: Participant {
 
     /// publish a new audio track to the Room
     @objc
+    @discardableResult
     public func publish(audioTrack: LocalAudioTrack, publishOptions: AudioPublishOptions? = nil) async throws -> LocalTrackPublication {
         try await publish(track: audioTrack, publishOptions: publishOptions)
     }
 
     /// publish a new video track to the Room
     @objc
+    @discardableResult
     public func publish(videoTrack: LocalVideoTrack, publishOptions: VideoPublishOptions? = nil) async throws -> LocalTrackPublication {
         try await publish(track: videoTrack, publishOptions: publishOptions)
     }
