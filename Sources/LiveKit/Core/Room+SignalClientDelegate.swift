@@ -28,7 +28,7 @@ extension Room: SignalClientDelegate {
         } else {
             Task {
                 // Server indicates it's not recoverable
-                await cleanUp(reason: reason.toLKType())
+                await cleanUp(withError: LiveKitError.from(reason: reason))
             }
         }
     }

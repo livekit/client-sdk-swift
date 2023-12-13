@@ -18,123 +18,151 @@ import Foundation
 
 @_implementationOnly import WebRTC
 
-public protocol LiveKitError: Error, CustomStringConvertible {}
+public enum LiveKitErrorType: Int {
+    case unknown = 0
+    case cancelled = 100
+    case timedOut = 101
+    case failedToParseUrl = 102
+    case failedToConvertData = 103
+    case invalidState = 104
+
+    case webRTC = 201
+
+    case network // Network issue
+
+    // Server
+    case duplicateIdentity = 500
+    case serverShutdown = 501
+    case participantRemoved = 502
+    case roomDeleted = 503
+    case stateMismatch = 504
+    case joinFailure = 505
+
+    //
+    case serverPingTimedOut = 601
+
+    // Device related
+    case deviceNotFound = 701
+    case captureFormatNotFound = 702
+    case unableToResolveFPSRange = 703
+    case capturerDimensionsNotResolved = 704
+}
+
+extension LiveKitErrorType: CustomStringConvertible {
+    public var description: String {
+        switch self {
+        case .cancelled:
+            return "Cancelled"
+        case .timedOut:
+            return "Timed out"
+        case .failedToParseUrl:
+            return "Failed to parse URL"
+        case .failedToConvertData:
+            return "Failed to convert data"
+        case .invalidState:
+            return "Invalid state"
+        case .webRTC:
+            return "WebRTC error"
+        case .network:
+            return "Network error"
+        case .duplicateIdentity:
+            return "Duplicate Participant identity"
+        case .serverShutdown:
+            return "Server shutdown"
+        case .participantRemoved:
+            return "Participant removed"
+        case .roomDeleted:
+            return "Reoom deleted"
+        case .stateMismatch:
+            return "Server state mismatch"
+        case .joinFailure:
+            return "Server join failure"
+        case .serverPingTimedOut:
+            return "Server ping timed out"
+        case .deviceNotFound:
+            return "Device not found"
+        case .captureFormatNotFound:
+            return "Capture format not found"
+        case .unableToResolveFPSRange:
+            return "Unable to resolved FPS range"
+        case .capturerDimensionsNotResolved:
+            return "Capturer dimensions not resolved"
+        default: return "Unknown"
+        }
+    }
+}
+
+@objc
+public class LiveKitError: NSError {
+    public let type: LiveKitErrorType
+    public let message: String?
+    public let underlyingError: Error?
+
+    override public var underlyingErrors: [Error] {
+        [underlyingError].compactMap { $0 }
+    }
+
+    override public var domain: String { "io.livekit.swift-sdk" }
+    override public var code: Int { type.rawValue }
+    override public var userInfo: [String: Any] {
+        [NSLocalizedDescriptionKey: _computeDescription()]
+    }
+
+    private func _computeDescription() -> String {
+        if let message {
+            return "\(String(describing: type))(\(message))"
+        }
+        return String(describing: type)
+    }
+
+    public init(_ type: LiveKitErrorType,
+                message: String? = nil,
+                internalError: Error? = nil)
+    {
+        self.type = type
+        self.message = message
+        underlyingError = internalError
+        super.init()
+    }
+
+    @available(*, unavailable)
+    required init?(coder _: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+}
 
 extension LiveKitError {
-    func buildDescription(_ name: String, _ message: String? = nil, rawError: Error? = nil) -> String {
-        "\(String(describing: type(of: self))).\(name)" + (message != nil ? " \(message!)" : "") + (rawError != nil ? " rawError: \(rawError!.localizedDescription)" : "")
-    }
-}
-
-public extension LiveKitError where Self: LocalizedError {
-    var localizedDescription: String {
-        description
-    }
-}
-
-public enum RoomError: LiveKitError {
-    case missingRoomId(String)
-    case invalidURL(String)
-    case protocolError(String)
-
-    public var description: String {
-        "RoomError"
-    }
-}
-
-public enum InternalError: LiveKitError {
-    case state(message: String? = nil)
-    case parse(message: String? = nil)
-    case convert(message: String? = nil)
-    case timeout(message: String? = nil)
-
-    public var description: String {
-        switch self {
-        case let .state(message): return buildDescription("state", message)
-        case let .parse(message): return buildDescription("parse", message)
-        case let .convert(message): return buildDescription("convert", message)
-        case let .timeout(message): return buildDescription("timeout", message)
+    static func from(error: Error?) -> LiveKitError? {
+        guard let error else { return nil }
+        if let error = error as? LiveKitError {
+            return error
         }
-    }
-}
 
-public enum EngineError: LiveKitError {
-    // WebRTC lib returned error
-    case webRTC(message: String?, Error? = nil)
-    case state(message: String? = nil)
-    case timedOut(message: String? = nil)
-
-    public var description: String {
-        switch self {
-        case let .webRTC(message, _): return buildDescription("webRTC", message)
-        case let .state(message): return buildDescription("state", message)
-        case let .timedOut(message): return buildDescription("timedOut", message)
+        if error is CancellationError {
+            return LiveKitError(.cancelled)
         }
+
+        // TODO: Identify more network error types
+        logger.log("Uncategorized error for: \(String(describing: error))", type: LiveKitError.self)
+        return LiveKitError(.unknown)
+    }
+
+    static func from(reason: Livekit_DisconnectReason) -> LiveKitError {
+        LiveKitError(reason.toLKType())
     }
 }
 
-public enum TrackError: LiveKitError {
-    case state(message: String? = nil)
-    case type(message: String? = nil)
-    case duplicate(message: String? = nil)
-    case capturer(message: String? = nil)
-    case publish(message: String? = nil)
-    case unpublish(message: String? = nil)
-    case timedOut(message: String? = nil)
-
-    public var description: String {
+extension Livekit_DisconnectReason {
+    func toLKType() -> LiveKitErrorType {
         switch self {
-        case let .state(message): return buildDescription("state", message)
-        case let .type(message): return buildDescription("type", message)
-        case let .duplicate(message): return buildDescription("duplicate", message)
-        case let .capturer(message): return buildDescription("capturer", message)
-        case let .publish(message): return buildDescription("publish", message)
-        case let .unpublish(message): return buildDescription("unpublish", message)
-        case let .timedOut(message): return buildDescription("timedOut", message)
-        }
-    }
-}
-
-public enum SignalClientError: LiveKitError {
-    case cancelled
-    case state(message: String? = nil)
-    case socketError(rawError: Error?)
-    case close(message: String? = nil)
-    case connect(message: String? = nil)
-    case timedOut(message: String? = nil)
-    case serverPingTimedOut(message: String? = nil)
-
-    public var description: String {
-        switch self {
-        case .cancelled: return buildDescription("cancelled")
-        case let .state(message): return buildDescription("state", message)
-        case let .socketError(rawError): return buildDescription("socketError", rawError: rawError)
-        case let .close(message): return buildDescription("close", message)
-        case let .connect(message): return buildDescription("connect", message)
-        case let .timedOut(message): return buildDescription("timedOut", message)
-        case let .serverPingTimedOut(message): return buildDescription("serverPingTimedOut", message)
-        }
-    }
-}
-
-public enum NetworkError: LiveKitError {
-    case disconnected(message: String? = nil, rawError: Error? = nil)
-    case response(message: String? = nil)
-
-    public var description: String {
-        switch self {
-        case let .disconnected(message, rawError): return buildDescription("disconnected", message, rawError: rawError)
-        case let .response(message): return buildDescription("response", message)
-        }
-    }
-}
-
-public enum TransportError: LiveKitError {
-    case timedOut(message: String? = nil)
-
-    public var description: String {
-        switch self {
-        case let .timedOut(message): return buildDescription("timedOut", message)
+        case .clientInitiated: return .cancelled
+        case .duplicateIdentity: return .duplicateIdentity
+        case .serverShutdown: return .serverShutdown
+        case .participantRemoved: return .participantRemoved
+        case .roomDeleted: return .roomDeleted
+        case .stateMismatch: return .stateMismatch
+        case .joinFailure: return .joinFailure
+        default: return .unknown
         }
     }
 }

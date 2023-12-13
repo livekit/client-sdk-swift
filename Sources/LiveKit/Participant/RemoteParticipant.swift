@@ -87,7 +87,7 @@ public class RemoteParticipant: Participant {
 
         guard let publication = getTrackPublication(sid: sid) else {
             log("Could not subscribe to mediaTrack \(sid), unable to locate track publication. existing sids: (\(_state.trackPublications.keys.joined(separator: ", ")))", .error)
-            let error = TrackError.state(message: "Could not find published track with sid: \(sid)")
+            let error = LiveKitError(.invalidState, message: "Could not find published track with sid: \(sid)")
             delegates.notify(label: { "participant.didFailToSubscribe trackSid: \(sid)" }) {
                 $0.participant?(self, didFailToSubscribe: sid, error: error)
             }
@@ -109,7 +109,7 @@ public class RemoteParticipant: Participant {
                                      track: rtcTrack,
                                      reportStatistics: room._state.options.reportRemoteTrackStatistics)
         default:
-            let error = TrackError.type(message: "Unsupported type: \(rtcTrack.kind.description)")
+            let error = LiveKitError(.invalidState, message: "Unsupported type: \(rtcTrack.kind.description)")
             delegates.notify(label: { "participant.didFailToSubscribe trackSid: \(sid)" }) {
                 $0.participant?(self, didFailToSubscribe: sid, error: error)
             }

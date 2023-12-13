@@ -16,18 +16,6 @@
 
 import Foundation
 
-enum AsyncCompleterError: LiveKitError {
-    case timedOut
-    case cancelled
-
-    public var description: String {
-        switch self {
-        case .timedOut: return "Timed out"
-        case .cancelled: return "Cancelled"
-        }
-    }
-}
-
 /// Manages a map of AsyncCompleters
 actor CompleterMapActor<T> {
     // MARK: - Public
@@ -104,8 +92,8 @@ class AsyncCompleter<T>: Loggable {
         _lock.sync {
             _cancelTimer()
             if let continuation = _continuation {
-                log("\(label) cancelled")
-                continuation.resume(throwing: AsyncCompleterError.cancelled)
+                log("\(label) Cancelled")
+                continuation.resume(throwing: LiveKitError(.cancelled))
             }
             _continuation = nil
             _returningValue = nil
@@ -159,7 +147,7 @@ class AsyncCompleter<T>: Loggable {
                     guard let self else { return }
                     self.log("\(self.label) timedOut")
                     self._lock.sync {
-                        self._continuation?.resume(throwing: AsyncCompleterError.timedOut)
+                        self._continuation?.resume(throwing: LiveKitError(.timedOut))
                         self._continuation = nil
                     }
                     self.reset()

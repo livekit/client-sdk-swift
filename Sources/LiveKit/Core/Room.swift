@@ -24,7 +24,7 @@ import Foundation
 public class Room: NSObject, ObservableObject, Loggable {
     // MARK: - MulticastDelegate
 
-    public let delegates = MulticastDelegate<RoomDelegateObjC>()
+    public let delegates = MulticastDelegate<RoomDelegate>()
 
     // MARK: - Public
 
@@ -76,12 +76,11 @@ public class Room: NSObject, ObservableObject, Loggable {
     public var token: String? { engine._state.token }
 
     /// Current ``ConnectionState`` of the ``Room``.
+    @objc
     public var connectionState: ConnectionState { engine._state.connectionState }
 
-    /// Only for Objective-C.
-    @objc(connectionState)
-    @available(swift, obsoleted: 1.0)
-    public var connectionStateObjC: ConnectionStateObjC { engine._state.connectionState.toObjCType() }
+    @objc
+    public var disconnectError: LiveKitError? { engine._state.disconnectError }
 
     public var connectStopwatch: Stopwatch { engine._state.connectStopwatch }
 
@@ -141,7 +140,7 @@ public class Room: NSObject, ObservableObject, Loggable {
     }
 
     @objc
-    public init(delegate: RoomDelegateObjC? = nil,
+    public init(delegate: RoomDelegate? = nil,
                 connectOptions: ConnectOptions? = nil,
                 roomOptions: RoomOptions? = nil)
     {
@@ -252,7 +251,7 @@ public class Room: NSObject, ObservableObject, Loggable {
             log("Failed to send leave with error: \(error)")
         }
 
-        await cleanUp(reason: .user)
+        await cleanUp()
     }
 }
 
@@ -260,10 +259,10 @@ public class Room: NSObject, ObservableObject, Loggable {
 
 extension Room {
     // Resets state of Room
-    func cleanUp(reason: DisconnectReason? = nil,
+    func cleanUp(withError disconnectError: Error? = nil,
                  isFullReconnect: Bool = false) async
     {
-        log("Reason: \(String(describing: reason))")
+        log("withError: \(String(describing: disconnectError))")
 
         // Start Engine cleanUp sequence
 
@@ -281,11 +280,12 @@ extension Room {
                 connectionState: $0.connectionState
             ) : Engine.State(
                 connectOptions: $0.connectOptions,
-                connectionState: .disconnected(reason: reason)
+                connectionState: .disconnected,
+                disconnectError: LiveKitError.from(error: disconnectError)
             )
         }
 
-        await engine.signalClient.cleanUp(reason: reason)
+        await engine.signalClient.cleanUp(withError: disconnectError)
         await engine.cleanUpRTC()
         await cleanUpParticipants()
         // Reset state
@@ -315,7 +315,7 @@ extension Room {
 
     func _onParticipantDidDisconnect(identity: Identity) async throws {
         guard let participant = _state.mutate({ $0.remoteParticipants.removeValue(forKey: identity) }) else {
-            throw EngineError.state(message: "Participant not found for \(identity)")
+            throw LiveKitError(.invalidState, message: "Participant not found for \(identity)")
         }
 
         await participant.cleanUp(notify: true)

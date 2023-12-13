@@ -27,7 +27,8 @@ class SignalClient: MulticastDelegate<SignalClientDelegate> {
     // MARK: - Internal
 
     public struct State: Equatable {
-        var connectionState: ConnectionState = .disconnected()
+        var connectionState: ConnectionState = .disconnected
+        var disconnectError: LiveKitError?
     }
 
     // MARK: - Private
@@ -89,7 +90,7 @@ class SignalClient: MulticastDelegate<SignalClientDelegate> {
                                        reconnectMode: reconnectMode,
                                        adaptiveStream: adaptiveStream)
         else {
-            throw InternalError.parse(message: "Failed to parse url")
+            throw LiveKitError(.failedToParseUrl)
         }
 
         log("Connecting with url: \(urlString)")
@@ -110,7 +111,7 @@ class SignalClient: MulticastDelegate<SignalClientDelegate> {
                         self.onWebSocketMessage(message: message)
                     }
                 } catch {
-                    await self.cleanUp(reason: .networkError(error))
+                    await self.cleanUp(withError: error)
                 }
                 self.log("Did exit WebSocket message loop...")
             }
@@ -123,17 +124,17 @@ class SignalClient: MulticastDelegate<SignalClientDelegate> {
         } catch {
             // Skip validation if user cancelled
             if error is CancellationError {
-                await cleanUp(reason: .user)
+                await cleanUp(withError: error)
                 throw error
             }
 
             // Skip validation if reconnect mode
             if reconnectMode != nil {
-                await cleanUp(reason: .networkError(error))
+                await cleanUp(withError: error)
                 throw error
             }
 
-            await cleanUp(reason: .networkError(error))
+            await cleanUp(withError: error)
 
             // Validate...
 
@@ -143,21 +144,24 @@ class SignalClient: MulticastDelegate<SignalClientDelegate> {
                                                    adaptiveStream: adaptiveStream,
                                                    validate: true)
             else {
-                throw InternalError.parse(message: "Failed to parse validation url")
+                throw LiveKitError(.failedToParseUrl, message: "Failed to parse validation url")
             }
 
             log("Validating with url: \(validateUrl)...")
             let validationResponse = try await HTTP.requestString(from: validateUrl)
             log("Validate response: \(validationResponse)")
             // re-throw with validation response
-            throw SignalClientError.connect(message: "Validation response: \"\(validationResponse)\"")
+            throw LiveKitError(.network, message: "Validation response: \"\(validationResponse)\"")
         }
     }
 
-    func cleanUp(reason: DisconnectReason? = nil) async {
-        log("reason: \(String(describing: reason))")
+    func cleanUp(withError disconnectError: Error? = nil) async {
+        log("withError: \(String(describing: disconnectError))")
 
-        _state.mutate { $0.connectionState = .disconnected(reason: reason) }
+        _state.mutate {
+            $0.connectionState = .disconnected
+            $0.disconnectError = LiveKitError.from(error: disconnectError)
+        }
 
         _pingIntervalTimer = nil
         _pingTimeoutTimer = nil
@@ -182,24 +186,23 @@ class SignalClient: MulticastDelegate<SignalClientDelegate> {
 private extension SignalClient {
     // send request or enqueue while reconnecting
     func sendRequest(_ request: Livekit_SignalRequest, enqueueIfReconnecting: Bool = true) async throws {
-        guard !(_state.connectionState.isReconnecting && request.canEnqueue() && enqueueIfReconnecting) else {
+        guard !(_state.connectionState == .reconnecting && request.canEnqueue() && enqueueIfReconnecting) else {
             log("Queuing request while reconnecting, request: \(request)")
             await _requestQueue.enqueue(request)
             return
         }
 
         guard case .connected = _state.connectionState else {
-            log("not connected", .error)
-            throw SignalClientError.state(message: "Not connected")
+            log("Not connected", .error)
+            throw LiveKitError(.invalidState, message: "Not connected")
         }
 
         guard let data = try? request.serializedData() else {
-            log("could not serialize data", .error)
-            throw InternalError.convert(message: "Could not serialize data")
+            log("Could not serialize request data", .error)
+            throw LiveKitError(.failedToConvertData, message: "Failed to convert data")
         }
 
-        let webSocket = try await requireWebSocket()
-
+        let webSocket = try requireWebSocket()
         try await webSocket.send(data: data)
     }
 
@@ -529,7 +532,7 @@ extension SignalClient {
         defer {
             if shouldDisconnect {
                 Task {
-                    await cleanUp(reason: .networkError(NetworkError.disconnected(message: "Simulate scenario")))
+                    await cleanUp()
                 }
             }
         }
@@ -563,7 +566,7 @@ private extension SignalClient {
                     guard let self else { return }
                     self.log("ping/pong timed out", .error)
                     Task {
-                        await self.cleanUp(reason: .networkError(SignalClientError.serverPingTimedOut()))
+                        await self.cleanUp(withError: LiveKitError(.serverPingTimedOut))
                     }
                 }
                 timer.resume()
@@ -618,10 +621,11 @@ extension Livekit_SignalRequest {
 }
 
 private extension SignalClient {
-    func requireWebSocket() async throws -> WebSocket {
+    func requireWebSocket() throws -> WebSocket {
         // This shouldn't happen
         guard let result = _webSocket else {
-            throw SignalClientError.state(message: "WebSocket is nil")
+            log("WebSocket is nil", .error)
+            throw LiveKitError(.invalidState, message: "WebSocket is nil")
         }
 
         return result

@@ -21,7 +21,7 @@ public class VideoCodec: NSObject, Identifiable {
     public static func from(id: String) throws -> VideoCodec {
         // Try to find codec from id...
         guard let codec = all.first(where: { $0.id == id }) else {
-            throw EngineError.state(message: "Failed to create VideoCodec from id")
+            throw LiveKitError(.invalidState, message: "Failed to create VideoCodec from id")
         }
 
         return codec
@@ -31,7 +31,7 @@ public class VideoCodec: NSObject, Identifiable {
         let parts = mimeType.lowercased().split(separator: "/")
         var id = String(parts.first!)
         if parts.count > 1 {
-            if parts[0] != "video" { throw EngineError.state(message: "MIME type must be video") }
+            if parts[0] != "video" { throw LiveKitError(.invalidState, message: "MIME type must be video") }
             id = String(parts[1])
         }
         return try from(id: id)

@@ -47,15 +47,15 @@ public class LocalParticipant: Participant {
         log("[publish] \(track) options: \(String(describing: publishOptions ?? nil))...", .info)
 
         guard let publisher = room.engine.publisher else {
-            throw EngineError.state(message: "Publisher is nil")
+            throw LiveKitError(.invalidState, message: "Publisher is nil")
         }
 
         guard _state.trackPublications.values.first(where: { $0.track === track }) == nil else {
-            throw TrackError.publish(message: "This track has already been published.")
+            throw LiveKitError(.invalidState, message: "This track has already been published.")
         }
 
         guard track is LocalVideoTrack || track is LocalAudioTrack else {
-            throw TrackError.publish(message: "Unknown LocalTrack type")
+            throw LiveKitError(.invalidState, message: "Unknown LocalTrack type")
         }
 
         // Try to start the Track
@@ -80,7 +80,7 @@ public class LocalParticipant: Participant {
 
                 if let track = track as? LocalVideoTrack {
                     guard let dimensions else {
-                        throw TrackError.publish(message: "VideoCapturer dimensions are unknown")
+                        throw LiveKitError(.capturerDimensionsNotResolved, message: "VideoCapturer dimensions are not resolved")
                     }
 
                     self.log("[publish] computing encode settings with dimensions: \(dimensions)...")
@@ -550,11 +550,11 @@ extension LocalParticipant {
         log("[Publish/Backup] Additional video codec: \(videoCodec)...")
 
         guard let track = localTrackPublication.track as? LocalVideoTrack else {
-            throw EngineError.state(message: "Track is nil")
+            throw LiveKitError(.invalidState, message: "Track is nil")
         }
 
         if !videoCodec.isBackup {
-            throw EngineError.state(message: "Attempted to publish a non-backup video codec as backup")
+            throw LiveKitError(.invalidState, message: "Attempted to publish a non-backup video codec as backup")
         }
 
         let publisher = try room.engine.requirePublisher()

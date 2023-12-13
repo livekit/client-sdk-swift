@@ -164,7 +164,7 @@ private extension RemoteTrackPublication {
     var engineConnectionState: ConnectionState {
         guard let participant else {
             log("Participant is nil", .warning)
-            return .disconnected()
+            return .disconnected
         }
 
         return participant.room.engine._state.connectionState
@@ -173,7 +173,7 @@ private extension RemoteTrackPublication {
     func userCanModifyTrackSettings() async throws {
         // adaptiveStream must be disabled and must be subscribed
         if isAdaptiveStreamEnabled || !subscribed {
-            throw TrackError.state(message: "adaptiveStream must be disabled and track must be subscribed")
+            throw LiveKitError(.invalidState, message: "adaptiveStream must be disabled and track must be subscribed")
         }
     }
 }
@@ -238,7 +238,7 @@ extension RemoteTrackPublication {
 
         if state.isSendingTrackSettings {
             // Previous send hasn't completed yet...
-            throw EngineError.state(message: "Already busy sending new track settings")
+            throw LiveKitError(.invalidState, message: "Already busy sending new track settings")
         }
 
         // update state
@@ -303,7 +303,7 @@ extension RemoteTrackPublication {
         asTimer.suspend()
 
         // don't continue if the engine is disconnected
-        guard !engineConnectionState.isDisconnected else {
+        guard engineConnectionState != .disconnected else {
             log("engine is disconnected")
             return
         }

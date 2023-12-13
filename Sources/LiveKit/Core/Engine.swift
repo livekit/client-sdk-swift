@@ -34,7 +34,8 @@ class Engine: MulticastDelegate<EngineDelegate> {
         // preferred reconnect mode which will be used only for next attempt
         var nextPreferredReconnectMode: ReconnectMode?
         var reconnectMode: ReconnectMode?
-        var connectionState: ConnectionState = .disconnected()
+        var connectionState: ConnectionState = .disconnected
+        var disconnectError: LiveKitError?
         var connectStopwatch = Stopwatch(label: "connect")
         var hasPublished: Bool = false
     }
@@ -159,20 +160,20 @@ class Engine: MulticastDelegate<EngineDelegate> {
                 $0.connectionState = .connected
             }
 
-        } catch is CancellationError {
-            // Cancelled by .user
-            try await cleanUp(reason: .user)
         } catch {
-            try await cleanUp(reason: .networkError(error))
+            try await cleanUp(withError: error)
         }
     }
 
     // cleanUp (reset) both Room & Engine's state
-    func cleanUp(reason: DisconnectReason? = nil, isFullReconnect: Bool = false) async throws {
+    func cleanUp(withError disconnectError: Error? = nil,
+                 isFullReconnect: Bool = false) async throws
+    {
         // This should never happen since Engine is owned by Room
         let room = try requireRoom()
         // Call Room's cleanUp
-        await room.cleanUp(reason: reason, isFullReconnect: isFullReconnect)
+        await room.cleanUp(withError: disconnectError,
+                           isFullReconnect: isFullReconnect)
     }
 
     // Resets state of transports
@@ -362,18 +363,18 @@ extension Engine {
 
     func startReconnect() async throws {
         guard case .connected = _state.connectionState else {
-            log("[reconnect] must be called with connected state", .warning)
-            throw EngineError.state(message: "Must be called with connected state")
+            log("[Reconnect] Must be called with connected state", .error)
+            throw LiveKitError(.invalidState)
         }
 
         guard let url = _state.url, let token = _state.token else {
-            log("[reconnect] url or token is nil", .warning)
-            throw EngineError.state(message: "url or token is nil")
+            log("[Reconnect] Url or token is nil", .error)
+            throw LiveKitError(.invalidState)
         }
 
         guard subscriber != nil, publisher != nil else {
-            log("[reconnect] publisher or subscriber is nil", .warning)
-            throw EngineError.state(message: "Publisher or Subscriber is nil")
+            log("[Reconnect] Publisher or subscriber is nil", .error)
+            throw LiveKitError(.invalidState)
         }
 
         // quick connect sequence, does not update connection state
@@ -420,7 +421,8 @@ extension Engine {
             guard let url = _state.url,
                   let token = _state.token
             else {
-                throw EngineError.state(message: "url or token is nil")
+                log("[Reconnect] Url or token is nil")
+                throw LiveKitError(.invalidState)
             }
 
             try await fullConnectSequence(url, token)
@@ -461,12 +463,12 @@ extension Engine {
         do {
             try await retryingTask.value
             // Re-connect sequence successful
-            log("[reconnect] sequence completed")
+            log("[reconnect] Sequence completed")
             _state.mutate { $0.connectionState = .connected }
         } catch {
             log("[Reconnect] Sequence failed with error: \(error)")
             // Finally disconnect if all attempts fail
-            try await cleanUp(reason: .networkError(error))
+            try await cleanUp(withError: error)
         }
     }
 }
@@ -517,12 +519,12 @@ extension Engine {
 
 extension Engine {
     func requireRoom() throws -> Room {
-        guard let room = _room else { throw EngineError.state(message: "Room is nil") }
+        guard let room = _room else { throw LiveKitError(.invalidState, message: "Room is nil") }
         return room
     }
 
     func requirePublisher() throws -> Transport {
-        guard let publisher else { throw EngineError.state(message: "Publisher is nil") }
+        guard let publisher else { throw LiveKitError(.invalidState, message: "Publisher is nil") }
         return publisher
     }
 }

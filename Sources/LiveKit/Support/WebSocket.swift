@@ -64,7 +64,7 @@ class WebSocket: NSObject, Loggable, AsyncSequence, URLSessionWebSocketDelegate 
 
     func close() {
         task.cancel(with: .goingAway, reason: nil)
-        connectContinuation?.resume(throwing: SignalClientError.socketError(rawError: nil))
+        connectContinuation?.resume(throwing: LiveKitError(.cancelled))
         connectContinuation = nil
         streamContinuation?.finish()
         streamContinuation = nil
@@ -115,8 +115,7 @@ class WebSocket: NSObject, Loggable, AsyncSequence, URLSessionWebSocketDelegate 
 
     func urlSession(_: URLSession, task _: URLSessionTask, didCompleteWithError error: Error?) {
         log("didCompleteWithError: \(String(describing: error))", .error)
-        let error = error ?? NetworkError.disconnected(message: "WebSocket didCompleteWithError")
-        connectContinuation?.resume(throwing: error)
+        connectContinuation?.resume(throwing: LiveKitError.from(error: error) ?? LiveKitError(.unknown))
         connectContinuation = nil
         streamContinuation?.finish()
         streamContinuation = nil

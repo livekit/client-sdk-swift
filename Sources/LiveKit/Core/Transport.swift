@@ -83,7 +83,8 @@ class Transport: MulticastDelegate<TransportDelegate> {
         guard let pc = Engine.createPeerConnection(config,
                                                    constraints: .defaultPCConstraints)
         else {
-            throw EngineError.webRTC(message: "failed to create peerConnection")
+            // log("[WebRTC] Failed to create PeerConnection", .error)
+            throw LiveKitError(.webRTC, message: "Failed to create PeerConnection")
         }
 
         self.target = target
@@ -277,7 +278,7 @@ extension Transport {
                         transceiverInit: LKRTCRtpTransceiverInit) throws -> LKRTCRtpTransceiver
     {
         guard let transceiver = DispatchQueue.liveKitWebRTC.sync(execute: { _pc.addTransceiver(with: track, init: transceiverInit) }) else {
-            throw EngineError.webRTC(message: "Failed to add transceiver")
+            throw LiveKitError(.webRTC, message: "Failed to add transceiver")
         }
 
         return transceiver
@@ -285,7 +286,7 @@ extension Transport {
 
     func remove(track sender: LKRTCRtpSender) throws {
         guard DispatchQueue.liveKitWebRTC.sync(execute: { _pc.removeTrack(sender) }) else {
-            throw EngineError.webRTC(message: "Failed to remove track")
+            throw LiveKitError(.webRTC, message: "Failed to remove track")
         }
     }
 

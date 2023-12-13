@@ -40,29 +40,23 @@ extension Room: EngineDelegate {
             }
 
             delegates.notify(label: { "room.didUpdate connectionState: \(state.connectionState) oldValue: \(oldState.connectionState)" }) {
-                // Objective-C support
-                $0.room?(self, didUpdate: state.connectionState.toObjCType(), oldValue: oldState.connectionState.toObjCType())
-                // Swift only
-                if let delegateSwift = $0 as? RoomDelegate {
-                    delegateSwift.room(self, didUpdate: state.connectionState, oldValue: oldState.connectionState)
-                }
+                $0.room?(self, didUpdate: state.connectionState, oldValue: oldState.connectionState)
             }
 
             // Legacy connection delegates
             if case .connected = state.connectionState {
                 let didReconnect = oldState.connectionState == .reconnecting
                 delegates.notify { $0.room?(self, didConnect: didReconnect) }
-            } else if case let .disconnected(reason) = state.connectionState {
+            } else if case .disconnected = state.connectionState {
                 if case .connecting = oldState.connectionState {
-                    let error = reason?.networkError ?? NetworkError.disconnected(message: "Did fail to connect", rawError: nil)
-                    delegates.notify { $0.room?(self, didFailToConnect: error) }
+                    delegates.notify { $0.room?(self, didFailToConnect: oldState.disconnectError) }
                 } else {
-                    delegates.notify { $0.room?(self, didDisconnect: reason?.networkError) }
+                    delegates.notify { $0.room?(self, didDisconnect: state.disconnectError) }
                 }
             }
         }
 
-        if state.connectionState.isReconnecting, state.reconnectMode == .full, oldState.reconnectMode != .full {
+        if state.connectionState == .reconnecting, state.reconnectMode == .full, oldState.reconnectMode != .full {
             Task {
                 // Started full reconnect
                 await cleanUpParticipants(notify: true)
