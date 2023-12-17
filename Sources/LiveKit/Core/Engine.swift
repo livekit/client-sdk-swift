@@ -162,6 +162,8 @@ class Engine: MulticastDelegate<EngineDelegate> {
 
         } catch {
             try await cleanUp(withError: error)
+            // Re-throw error
+            throw error
         }
     }
 

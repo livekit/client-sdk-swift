@@ -102,27 +102,23 @@ public class LiveKitError: NSError {
         [underlyingError].compactMap { $0 }
     }
 
-    override public var domain: String { "io.livekit.swift-sdk" }
-    override public var code: Int { type.rawValue }
-    override public var userInfo: [String: Any] {
-        [NSLocalizedDescriptionKey: _computeDescription()]
-    }
-
-    private func _computeDescription() -> String {
-        if let message {
-            return "\(String(describing: type))(\(message))"
-        }
-        return String(describing: type)
-    }
-
     public init(_ type: LiveKitErrorType,
                 message: String? = nil,
                 internalError: Error? = nil)
     {
+        func _computeDescription() -> String {
+            if let message {
+                return "\(String(describing: type))(\(message))"
+            }
+            return String(describing: type)
+        }
+
         self.type = type
         self.message = message
         underlyingError = internalError
-        super.init()
+        super.init(domain: "io.livekit.swift-sdk",
+                   code: type.rawValue,
+                   userInfo: [NSLocalizedDescriptionKey: _computeDescription()])
     }
 
     @available(*, unavailable)
