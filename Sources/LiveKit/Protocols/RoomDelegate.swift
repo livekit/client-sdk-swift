@@ -32,9 +32,9 @@ import Foundation
 /// ```
 /// See the source code of [Swift Example App](https://github.com/livekit/client-example-swift) for more examples.
 @objc
-public protocol RoomDelegateObjC: AnyObject {
+public protocol RoomDelegate: AnyObject {
     @objc(room:didUpdateConnectionState:oldConnectionState:) optional
-    func room(_ room: Room, didUpdate connectionState: ConnectionStateObjC, oldValue oldConnectionState: ConnectionStateObjC)
+    func room(_ room: Room, didUpdate connectionState: ConnectionState, oldValue oldConnectionState: ConnectionState)
 
     /// Successfully connected to the room.
     @objc(room:didConnectIsReconnect:) optional
@@ -42,12 +42,12 @@ public protocol RoomDelegateObjC: AnyObject {
 
     /// Could not connect to the room.
     @objc(room:didFailToConnectWithError:) optional
-    func room(_ room: Room, didFailToConnect error: Error)
+    func room(_ room: Room, didFailToConnect error: LiveKitError?)
 
     /// Client disconnected from the room unexpectedly.
     /// Using ``room(_:didUpdate:oldValue:)`` is preferred since `.disconnected` state of ``ConnectionState`` provides ``DisconnectReason`` (Swift only).
     @objc(room:didDisconnectWithError:) optional
-    func room(_ room: Room, didDisconnect error: Error?)
+    func room(_ room: Room, didDisconnect error: LiveKitError?)
 
     /// When a ``RemoteParticipant`` joins after the ``LocalParticipant``.
     /// It will not emit events for participants that are already in the room.
@@ -136,14 +136,4 @@ public protocol RoomDelegateObjC: AnyObject {
     /// ``Room``'e2ee state has been updated.
     @objc(room:publication:didUpdateE2EEState:) optional
     func room(_ room: Room, publication: TrackPublication, didUpdateE2EEState: E2EEState)
-}
-
-public protocol RoomDelegate: RoomDelegateObjC {
-    /// When the ``ConnectionState`` has updated.
-    func room(_ room: Room, didUpdate connectionState: ConnectionState, oldValue: ConnectionState)
-}
-
-/// Default implementation for ``RoomDelegate``
-public extension RoomDelegate {
-    func room(_: Room, didUpdate _: ConnectionState, oldValue _: ConnectionState) {}
 }

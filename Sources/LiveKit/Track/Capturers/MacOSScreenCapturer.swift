@@ -56,7 +56,8 @@ import Foundation
             guard didStart else { return false }
 
             guard let captureSource else {
-                throw TrackError.capturer(message: "captureSource is nil")
+                log("captureSource is nil", .error)
+                throw LiveKitError(.invalidState, message: "captureSource is nil")
             }
 
             let filter: SCContentFilter
@@ -74,7 +75,8 @@ import Foundation
 
                 filter = SCContentFilter(display: nativeDisplay, excludingApplications: excludedApps, exceptingWindows: [])
             } else {
-                throw TrackError.capturer(message: "Unable to resolve SCContentFilter")
+                log("Unable to resolve SCContentFilter", .error)
+                throw LiveKitError(.invalidState, message: "Unable to resolve SCContentFilter")
             }
 
             let configuration = SCStreamConfiguration()
@@ -107,7 +109,7 @@ import Foundation
             guard didStop else { return false }
 
             guard let stream = _scStream else {
-                throw TrackError.capturer(message: "SCStream is nil")
+                throw LiveKitError(.invalidState, message: "SCStream is nil")
             }
 
             // Stop resending paused frames
@@ -398,7 +400,7 @@ import Foundation
             let displaySources = try await sources(for: .display)
 
             guard let source = displaySources.compactMap({ $0 as? MacOSDisplay }).first(where: { $0.displayID == CGMainDisplayID() }) else {
-                throw TrackError.capturer(message: "Main display source not found")
+                throw LiveKitError(.invalidState, message: "Main display source not found")
             }
 
             return source

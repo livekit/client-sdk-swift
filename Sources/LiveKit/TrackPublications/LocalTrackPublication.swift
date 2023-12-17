@@ -29,7 +29,7 @@ public class LocalTrackPublication: TrackPublication {
 
     public func mute() async throws {
         guard let track = track as? LocalTrack else {
-            throw InternalError.state(message: "track is nil or not a LocalTrack")
+            throw LiveKitError(.invalidState, message: "track is nil or not a LocalTrack")
         }
 
         try await track._mute()
@@ -37,7 +37,7 @@ public class LocalTrackPublication: TrackPublication {
 
     public func unmute() async throws {
         guard let track = track as? LocalTrack else {
-            throw InternalError.state(message: "track is nil or not a LocalTrack")
+            throw LiveKitError(.invalidState, message: "track is nil or not a LocalTrack")
         }
 
         try await track._unmute()

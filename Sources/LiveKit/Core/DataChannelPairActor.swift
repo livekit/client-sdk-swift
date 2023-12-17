@@ -76,7 +76,7 @@ actor DataChannelPairActor: NSObject, Loggable {
 
     public func send(userPacket: Livekit_UserPacket, reliability: Reliability) throws {
         guard isOpen else {
-            throw InternalError.state(message: "Data channel is not open")
+            throw LiveKitError(.invalidState, message: "Data channel is not open")
         }
 
         let packet = Livekit_DataPacket.with {
@@ -89,7 +89,7 @@ actor DataChannelPairActor: NSObject, Loggable {
 
         let channel = (reliability == .reliable) ? _reliableChannel : _lossyChannel
         guard let sendDataResult = channel?.sendData(rtcData), sendDataResult else {
-            throw InternalError.state(message: "sendData failed")
+            throw LiveKitError(.invalidState, message: "sendData failed")
         }
     }
 

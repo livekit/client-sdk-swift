@@ -34,7 +34,7 @@ class HTTP: NSObject {
     public static func requestString(from url: URL) async throws -> String {
         let data = try await requestData(from: url)
         guard let string = String(data: data, encoding: .utf8) else {
-            throw InternalError.state(message: "Failed to convert string")
+            throw LiveKitError(.failedToConvertData, message: "Failed to convert string")
         }
         return string
     }

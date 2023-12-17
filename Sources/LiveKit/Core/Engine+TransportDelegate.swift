@@ -32,7 +32,7 @@ extension Engine: TransportDelegate {
             publisherTransportConnectedCompleter.resume(returning: ())
         }
 
-        if _state.connectionState.isConnected {
+        if _state.connectionState == .connected {
             // Attempt re-connect if primary or publisher transport failed
             if transport.isPrimary || (_state.hasPublished && transport.target == .publisher), [.disconnected, .failed].contains(pcState) {
                 log("[reconnect] starting, reason: transport disconnected or failed")
@@ -56,7 +56,7 @@ extension Engine: TransportDelegate {
             // execute block when connected
             execute(when: { state, _ in state.connectionState == .connected },
                     // always remove this block when disconnected
-                    removeWhen: { state, _ in state.connectionState == .disconnected() })
+                    removeWhen: { state, _ in state.connectionState == .disconnected })
             { [weak self] in
                 guard let self else { return }
                 self.notify { $0.engine(self, didAddTrack: track, rtpReceiver: rtpReceiver, streams: streams) }
