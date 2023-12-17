@@ -66,7 +66,7 @@ extension Engine: TransportDelegate {
 
     func transport(_ transport: Transport, didRemove track: LKRTCMediaStreamTrack) {
         if transport.target == .subscriber {
-            notify { $0.engine(self, didRemove: track) }
+            notify { $0.engine(self, didRemoveTrack: track) }
         }
     }
 

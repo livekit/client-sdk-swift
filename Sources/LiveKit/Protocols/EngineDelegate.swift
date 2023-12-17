@@ -19,9 +19,9 @@ import Foundation
 @_implementationOnly import WebRTC
 
 protocol EngineDelegate: AnyObject {
-    func engine(_ engine: Engine, didMutate state: Engine.State, oldState: Engine.State)
-    func engine(_ engine: Engine, didUpdate speakers: [Livekit_SpeakerInfo])
+    func engine(_ engine: Engine, didMutateState state: Engine.State, oldState: Engine.State)
+    func engine(_ engine: Engine, didUpdateSpeakers speakers: [Livekit_SpeakerInfo])
     func engine(_ engine: Engine, didAddTrack track: LKRTCMediaStreamTrack, rtpReceiver: LKRTCRtpReceiver, streams: [LKRTCMediaStream])
-    func engine(_ engine: Engine, didRemove track: LKRTCMediaStreamTrack)
-    func engine(_ engine: Engine, didReceive userPacket: Livekit_UserPacket)
+    func engine(_ engine: Engine, didRemoveTrack track: LKRTCMediaStreamTrack)
+    func engine(_ engine: Engine, didReceiveUserPacket packet: Livekit_UserPacket)
 }

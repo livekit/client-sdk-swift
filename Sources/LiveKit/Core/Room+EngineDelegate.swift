@@ -19,7 +19,7 @@ import Foundation
 @_implementationOnly import WebRTC
 
 extension Room: EngineDelegate {
-    func engine(_: Engine, didMutate state: Engine.State, oldState: Engine.State) {
+    func engine(_: Engine, didMutateState state: Engine.State, oldState: Engine.State) {
         if state.connectionState != oldState.connectionState {
             // connectionState did update
 
@@ -69,7 +69,7 @@ extension Room: EngineDelegate {
         }
     }
 
-    func engine(_ engine: Engine, didUpdate speakers: [Livekit_SpeakerInfo]) {
+    func engine(_ engine: Engine, didUpdateSpeakers speakers: [Livekit_SpeakerInfo]) {
         let activeSpeakers = _state.mutate { state -> [Participant] in
 
             var activeSpeakers: [Participant] = []
@@ -153,28 +153,28 @@ extension Room: EngineDelegate {
         }
     }
 
-    func engine(_: Engine, didRemove track: LKRTCMediaStreamTrack) {
+    func engine(_: Engine, didRemoveTrack track: LKRTCMediaStreamTrack) {
         // find the publication
         guard let publication = _state.remoteParticipants.values.map(\._state.trackPublications.values).joined()
             .first(where: { $0.sid == track.trackId }) else { return }
         publication.set(track: nil)
     }
 
-    func engine(_ engine: Engine, didReceive userPacket: Livekit_UserPacket) {
+    func engine(_ engine: Engine, didReceiveUserPacket packet: Livekit_UserPacket) {
         // participant could be null if data broadcasted from server
-        let participant = _state.remoteParticipants[userPacket.participantIdentity]
+        let participant = _state.remoteParticipants[packet.participantIdentity]
 
         engine.executeIfConnected { [weak self] in
             guard let self else { return }
 
-            self.delegates.notify(label: { "room.didReceive data: \(userPacket.payload)" }) {
-                $0.room?(self, participant: participant, didReceiveData: userPacket.payload, topic: userPacket.topic)
+            self.delegates.notify(label: { "room.didReceive data: \(packet.payload)" }) {
+                $0.room?(self, participant: participant, didReceiveData: packet.payload, topic: packet.topic)
             }
 
             if let participant {
-                participant.delegates.notify(label: { "participant.didReceive data: \(userPacket.payload)" }) { [weak participant] delegate in
+                participant.delegates.notify(label: { "participant.didReceive data: \(packet.payload)" }) { [weak participant] delegate in
                     guard let participant else { return }
-                    delegate.participant?(participant, didReceiveData: userPacket.payload, topic: userPacket.topic)
+                    delegate.participant?(participant, didReceiveData: packet.payload, topic: packet.topic)
                 }
             }
         }
