@@ -28,9 +28,9 @@ public enum SubscriptionState: Int, Codable {
 
 @objc
 public class RemoteTrackPublication: TrackPublication {
-    public var subscriptionAllowed: Bool { _state.subscriptionAllowed }
-    public var enabled: Bool { _state.trackSettings.enabled }
-    override public var muted: Bool { track?.muted ?? _state.metadataMuted }
+    public var isSubscriptionAllowed: Bool { _state.isSubscriptionAllowed }
+    public var isEnabled: Bool { _state.trackSettings.isEnabled }
+    override public var isMuted: Bool { track?.isMuted ?? _state.isMetadataMuted }
 
     // MARK: - Private
 
@@ -59,23 +59,23 @@ public class RemoteTrackPublication: TrackPublication {
         set(metadataMuted: info.muted)
     }
 
-    override public var subscribed: Bool {
-        if !subscriptionAllowed { return false }
-        return _state.preferSubscribed != false && super.subscribed
+    override public var isSubscribed: Bool {
+        if !isSubscriptionAllowed { return false }
+        return _state.isSubscribePreferred != false && super.isSubscribed
     }
 
     public var subscriptionState: SubscriptionState {
-        if !subscriptionAllowed { return .notAllowed }
-        return subscribed ? .subscribed : .unsubscribed
+        if !isSubscriptionAllowed { return .notAllowed }
+        return isSubscribed ? .subscribed : .unsubscribed
     }
 
     /// Subscribe or unsubscribe from this track.
     public func set(subscribed newValue: Bool) async throws {
-        guard _state.preferSubscribed != newValue else { return }
+        guard _state.isSubscribePreferred != newValue else { return }
 
         let participant = try await requireParticipant()
 
-        _state.mutate { $0.preferSubscribed = newValue }
+        _state.mutate { $0.isSubscribePreferred = newValue }
 
         try await participant.room.engine.signalClient.sendUpdateSubscription(participantSid: participant.sid,
                                                                               trackSid: sid,
@@ -88,11 +88,11 @@ public class RemoteTrackPublication: TrackPublication {
     public func set(enabled newValue: Bool) async throws {
         // No-op if already the desired value
         let trackSettings = _state.trackSettings
-        guard trackSettings.enabled != newValue else { return }
+        guard trackSettings.isEnabled != newValue else { return }
 
         try await userCanModifyTrackSettings()
 
-        let settings = trackSettings.copyWith(enabled: newValue)
+        let settings = trackSettings.copyWith(isEnabled: newValue)
         // Attempt to set the new settings
         try await send(trackSettings: settings)
     }
@@ -138,7 +138,7 @@ public class RemoteTrackPublication: TrackPublication {
 
                 // if new Track has been set to this RemoteTrackPublication,
                 // update the Track's muted state from the latest info.
-                newValue.set(muted: _state.metadataMuted,
+                newValue.set(muted: _state.isMetadataMuted,
                              notify: false)
             }
 
@@ -172,7 +172,7 @@ private extension RemoteTrackPublication {
 
     func userCanModifyTrackSettings() async throws {
         // adaptiveStream must be disabled and must be subscribed
-        if isAdaptiveStreamEnabled || !subscribed {
+        if isAdaptiveStreamEnabled || !isSubscribed {
             throw LiveKitError(.invalidState, message: "adaptiveStream must be disabled and track must be subscribed")
         }
     }
@@ -182,14 +182,14 @@ private extension RemoteTrackPublication {
 
 extension RemoteTrackPublication {
     func set(metadataMuted newValue: Bool) {
-        guard _state.metadataMuted != newValue else { return }
+        guard _state.isMetadataMuted != newValue else { return }
 
         guard let participant else {
             log("Participant is nil", .warning)
             return
         }
 
-        _state.mutate { $0.metadataMuted = newValue }
+        _state.mutate { $0.isMetadataMuted = newValue }
 
         // if track exists, track will emit the following events
         if track == nil {
@@ -203,8 +203,8 @@ extension RemoteTrackPublication {
     }
 
     func set(subscriptionAllowed newValue: Bool) {
-        guard _state.subscriptionAllowed != newValue else { return }
-        _state.mutate { $0.subscriptionAllowed = newValue }
+        guard _state.isSubscriptionAllowed != newValue else { return }
+        _state.mutate { $0.isSubscriptionAllowed = newValue }
 
         guard let participant = participant as? RemoteParticipant else { return }
         participant.delegates.notify(label: { "participant.didUpdate permission: \(newValue)" }) {
@@ -270,7 +270,7 @@ extension Collection<VideoRenderer> {
         // not visible if no entry
         if isEmpty { return false }
         // at least 1 entry should be visible
-        return contains { $0.adaptiveStreamIsEnabled }
+        return contains { $0.isAdaptiveStreamEnabled }
     }
 
     func largestSize() -> CGSize? {
@@ -281,7 +281,7 @@ extension Collection<VideoRenderer> {
 
         // use post-layout nativeRenderer's view size otherwise return nil
         // which results lower layer to be requested (enabled: true, dimensions: 0x0)
-        return filter(\.adaptiveStreamIsEnabled)
+        return filter(\.isAdaptiveStreamEnabled)
             .compactMap { $0.adaptiveStreamSize != .zero ? $0.adaptiveStreamSize : nil }
             .reduce(into: nil as CGSize?) { previous, current in
                 guard let unwrappedPrevious = previous else {
@@ -309,16 +309,16 @@ extension RemoteTrackPublication {
         }
 
         let videoRenderers = track?.videoRenderers.allObjects ?? []
-        let enabled = videoRenderers.containsOneOrMoreAdaptiveStreamEnabledRenderers()
+        let isEnabled = videoRenderers.containsOneOrMoreAdaptiveStreamEnabledRenderers()
         var dimensions: Dimensions = .zero
 
         // compute the largest video view size
-        if enabled, let maxSize = videoRenderers.largestSize() {
+        if isEnabled, let maxSize = videoRenderers.largestSize() {
             dimensions = Dimensions(width: Int32(ceil(maxSize.width)),
                                     height: Int32(ceil(maxSize.height)))
         }
 
-        let newSettings = _state.trackSettings.copyWith(enabled: enabled, dimensions: dimensions)
+        let newSettings = _state.trackSettings.copyWith(isEnabled: isEnabled, dimensions: dimensions)
 
         guard _state.trackSettings != newSettings else {
             // no settings updated
@@ -332,14 +332,14 @@ extension RemoteTrackPublication {
         _state.mutate { $0.trackSettings = newSettings }
 
         // log when flipping from enabled -> disabled
-        if oldSettings.enabled, !newSettings.enabled {
-            let viewsString = videoRenderers.enumerated().map { i, v in "videoRenderer\(i)(adaptiveStreamIsEnabled: \(v.adaptiveStreamIsEnabled), adaptiveStreamSize: \(v.adaptiveStreamSize))" }.joined(separator: ", ")
+        if oldSettings.isEnabled, !newSettings.isEnabled {
+            let viewsString = videoRenderers.enumerated().map { i, v in "videoRenderer\(i)(adaptiveStreamIsEnabled: \(v.isAdaptiveStreamEnabled), adaptiveStreamSize: \(v.adaptiveStreamSize))" }.joined(separator: ", ")
             log("[adaptiveStream] disabling sid: \(sid), videoRenderersCount: \(videoRenderers.count), \(viewsString)")
         }
 
         if let videoTrack = track?.mediaTrack as? LKRTCVideoTrack {
-            log("VideoTrack.shouldReceive: \(enabled)")
-            DispatchQueue.liveKitWebRTC.sync { videoTrack.shouldReceive = enabled }
+            log("VideoTrack.shouldReceive: \(isEnabled)")
+            DispatchQueue.liveKitWebRTC.sync { videoTrack.shouldReceive = isEnabled }
         }
 
         Task {

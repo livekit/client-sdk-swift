@@ -76,7 +76,7 @@ public class LocalTrackPublication: TrackPublication {
 extension LocalTrackPublication {
     func suspend() async throws {
         // Do nothing if already muted
-        guard !muted else { return }
+        guard !isMuted else { return }
         try await mute()
         _suspended = true
     }

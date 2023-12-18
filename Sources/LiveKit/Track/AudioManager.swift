@@ -114,7 +114,7 @@ public class AudioManager: Loggable {
         public static func == (lhs: AudioManager.State, rhs: AudioManager.State) -> Bool {
             lhs.localTracksCount == rhs.localTracksCount &&
                 lhs.remoteTracksCount == rhs.remoteTracksCount &&
-                lhs.preferSpeakerOutput == rhs.preferSpeakerOutput
+                lhs.isSpeakerOutputPreferred == rhs.isSpeakerOutputPreferred
         }
 
         // Keep this var within State so it's protected by UnfairLock
@@ -122,7 +122,7 @@ public class AudioManager: Loggable {
 
         public var localTracksCount: Int = 0
         public var remoteTracksCount: Int = 0
-        public var preferSpeakerOutput: Bool = true
+        public var isSpeakerOutputPreferred: Bool = true
 
         public var trackState: TrackState {
             if localTracksCount > 0, remoteTracksCount == 0 {
@@ -139,9 +139,9 @@ public class AudioManager: Loggable {
 
     /// Set this to false if you prefer using the device's receiver instead of speaker. Defaults to true.
     /// This only works when the audio output is set to the built-in speaker / receiver.
-    public var preferSpeakerOutput: Bool {
-        get { _state.preferSpeakerOutput }
-        set { _state.mutate { $0.preferSpeakerOutput = newValue } }
+    public var isSpeakerOutputPreferred: Bool {
+        get { _state.isSpeakerOutputPreferred }
+        set { _state.mutate { $0.isSpeakerOutputPreferred = newValue } }
     }
 
     // MARK: - AudioProcessingModule
@@ -264,7 +264,7 @@ public class AudioManager: Loggable {
                 // prepare config
                 let configuration = LKRTCAudioSessionConfiguration.webRTC()
 
-                if newState.trackState == .remoteOnly && newState.preferSpeakerOutput {
+                if newState.trackState == .remoteOnly && newState.isSpeakerOutputPreferred {
                     /* .playback */
                     configuration.category = AVAudioSession.Category.playback.rawValue
                     configuration.mode = AVAudioSession.Mode.spokenAudio.rawValue
@@ -273,12 +273,12 @@ public class AudioManager: Loggable {
                     ]
 
                 } else if [.localOnly, .localAndRemote].contains(newState.trackState) ||
-                    (newState.trackState == .remoteOnly && !newState.preferSpeakerOutput)
+                    (newState.trackState == .remoteOnly && !newState.isSpeakerOutputPreferred)
                 {
                     /* .playAndRecord */
                     configuration.category = AVAudioSession.Category.playAndRecord.rawValue
 
-                    if newState.preferSpeakerOutput {
+                    if newState.isSpeakerOutputPreferred {
                         // use .videoChat if speakerOutput is preferred
                         configuration.mode = AVAudioSession.Mode.videoChat.rawValue
                     } else {

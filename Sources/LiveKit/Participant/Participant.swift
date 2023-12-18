@@ -195,15 +195,15 @@ public class Participant: NSObject, ObservableObject, Loggable {
 
 public extension Participant {
     func isCameraEnabled() -> Bool {
-        !(getTrackPublication(source: .camera)?.muted ?? true)
+        !(getTrackPublication(source: .camera)?.isMuted ?? true)
     }
 
     func isMicrophoneEnabled() -> Bool {
-        !(getTrackPublication(source: .microphone)?.muted ?? true)
+        !(getTrackPublication(source: .microphone)?.isMuted ?? true)
     }
 
     func isScreenShareEnabled() -> Bool {
-        !(getTrackPublication(source: .screenShareVideo)?.muted ?? true)
+        !(getTrackPublication(source: .screenShareVideo)?.isMuted ?? true)
     }
 
     internal func getTrackPublication(name: String) -> TrackPublication? {

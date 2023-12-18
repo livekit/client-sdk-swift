@@ -153,7 +153,7 @@ extension Room: SignalClientDelegate {
     }
 
     func signalClient(_: SignalClient, didUpdateRemoteMute trackSid: String, muted: Bool) {
-        log("trackSid: \(trackSid) muted: \(muted)")
+        log("trackSid: \(trackSid) isMuted: \(muted)")
 
         guard let publication = localParticipant._state.trackPublications[trackSid] as? LocalTrackPublication else {
             // publication was not found but the delegate was handled

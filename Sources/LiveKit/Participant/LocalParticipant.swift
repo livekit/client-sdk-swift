@@ -436,7 +436,7 @@ extension LocalParticipant {
 
         for mediaTrack in mediaTracks {
             // Don't re-publish muted tracks
-            if mediaTrack.muted { continue }
+            if mediaTrack.isMuted { continue }
             try await publish(track: mediaTrack, publishOptions: mediaTrack.publishOptions)
         }
     }

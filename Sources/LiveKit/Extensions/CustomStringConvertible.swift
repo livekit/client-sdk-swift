@@ -20,7 +20,7 @@ import Foundation
 
 extension TrackSettings: CustomStringConvertible {
     public var description: String {
-        "TrackSettings(enabled: \(enabled), dimensions: \(dimensions), videoQuality: \(videoQuality))"
+        "TrackSettings(enabled: \(isEnabled), dimensions: \(dimensions), videoQuality: \(videoQuality))"
     }
 }
 
@@ -50,7 +50,7 @@ extension Livekit_TrackInfo: CustomStringConvertible {
             "source: \(source), " +
             "width: \(width), " +
             "height: \(height), " +
-            "muted: \(muted), " +
+            "isMuted: \(muted), " +
             "simulcast: \(simulcast), " +
             "codecs: \(codecs.map { String(describing: $0) }), " +
             "layers: \(layers.map { String(describing: $0) }))"

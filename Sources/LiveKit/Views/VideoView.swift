@@ -132,9 +132,9 @@ public class VideoView: NativeView, Loggable {
     }
 
     @objc
-    public var debugMode: Bool {
-        get { _state.debugMode }
-        set { _state.mutate { $0.debugMode = newValue } }
+    public var isDebugMode: Bool {
+        get { _state.isDebugMode }
+        set { _state.mutate { $0.isDebugMode = newValue } }
     }
 
     @objc
@@ -167,7 +167,7 @@ public class VideoView: NativeView, Loggable {
         var renderMode: RenderMode = .auto
         var rotationOverride: VideoRotation?
 
-        var debugMode: Bool = false
+        var isDebugMode: Bool = false
 
         // render states
         var renderDate: Date?
@@ -308,7 +308,7 @@ public class VideoView: NativeView, Loggable {
             // nativeRenderer.asMetalView?.isPaused = !shouldAttach
 
             // layout is required if any of the following vars mutate
-            if newState.debugMode != oldState.debugMode ||
+            if newState.isDebugMode != oldState.isDebugMode ||
                 newState.layoutMode != oldState.layoutMode ||
                 newState.mirrorMode != oldState.mirrorMode ||
                 newState.renderMode != oldState.renderMode ||
@@ -322,9 +322,9 @@ public class VideoView: NativeView, Loggable {
                 }
             }
 
-            if newState.debugMode != oldState.debugMode {
+            if newState.isDebugMode != oldState.isDebugMode {
                 // fps timer
-                if newState.debugMode {
+                if newState.isDebugMode {
                     self._fpsTimer.restart()
                 } else {
                     self._fpsTimer.suspend()
@@ -384,7 +384,7 @@ public class VideoView: NativeView, Loggable {
             }
         }
 
-        if state.debugMode {
+        if state.isDebugMode {
             let _trackSid = state.track?.sid ?? "nil"
             let _dimensions = state.track?.dimensions ?? .zero
             let _didRenderFirstFrame = state.didRenderFirstFrame ? "true" : "false"
@@ -392,7 +392,7 @@ public class VideoView: NativeView, Loggable {
             let _renderMode = String(describing: state.renderMode)
             let _viewCount = state.track?.videoRenderers.allObjects.count ?? 0
             let debugView = ensureDebugTextView()
-            debugView.text = "#\(hashValue)\n" + "\(_trackSid)\n" + "\(_dimensions.width)x\(_dimensions.height)\n" + "enabled: \(isEnabled)\n" + "firstFrame: \(_didRenderFirstFrame)\n" + "isRendering: \(_isRendering)\n" + "renderMode: \(_renderMode)\n" + "viewCount: \(_viewCount)\n" + "FPS: \(_currentFPS)\n"
+            debugView.text = "#\(hashValue)\n" + "\(_trackSid)\n" + "\(_dimensions.width)x\(_dimensions.height)\n" + "isEnabled: \(isEnabled)\n" + "firstFrame: \(_didRenderFirstFrame)\n" + "isRendering: \(_isRendering)\n" + "renderMode: \(_renderMode)\n" + "viewCount: \(_viewCount)\n" + "FPS: \(_currentFPS)\n"
             debugView.frame = bounds
             #if os(iOS)
                 debugView.layer.borderColor = (state.shouldRender ? UIColor.green : UIColor.red).withAlphaComponent(0.5).cgColor
@@ -517,7 +517,7 @@ private extension VideoView {
 // MARK: - RTCVideoRenderer
 
 extension VideoView: VideoRenderer {
-    public var adaptiveStreamIsEnabled: Bool {
+    public var isAdaptiveStreamEnabled: Bool {
         _state.read { $0.didLayout && !$0.isHidden && $0.isEnabled }
     }
 
@@ -572,7 +572,7 @@ extension VideoView: VideoRenderer {
             $0.renderDate = Date()
         }
 
-        if _state.debugMode {
+        if _state.isDebugMode {
             Task.detached { @MainActor in
                 self._frameCount += 1
             }

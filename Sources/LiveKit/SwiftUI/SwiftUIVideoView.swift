@@ -118,7 +118,7 @@ public struct SwiftUIVideoView: NativeViewRepresentable {
         videoView.layoutMode = layoutMode
         videoView.mirrorMode = mirrorMode
         videoView.renderMode = renderMode
-        videoView.debugMode = debugMode
+        videoView.isDebugMode = debugMode
 
         // update
         Task.detached { @MainActor in

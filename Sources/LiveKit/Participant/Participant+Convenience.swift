@@ -42,19 +42,19 @@ public extension Participant {
     }
 
     var firstCameraVideoTrack: VideoTrack? {
-        guard let pub = firstCameraPublication, !pub.muted, pub.subscribed,
+        guard let pub = firstCameraPublication, !pub.isMuted, pub.isSubscribed,
               let track = pub.track else { return nil }
         return track as? VideoTrack
     }
 
     var firstScreenShareVideoTrack: VideoTrack? {
-        guard let pub = firstScreenSharePublication, !pub.muted, pub.subscribed,
+        guard let pub = firstScreenSharePublication, !pub.isMuted, pub.isSubscribed,
               let track = pub.track else { return nil }
         return track as? VideoTrack
     }
 
     var firstAudioTrack: AudioTrack? {
-        guard let pub = firstAudioPublication, !pub.muted,
+        guard let pub = firstAudioPublication, !pub.isMuted,
               let track = pub.track else { return nil }
         return track as? AudioTrack
     }

@@ -79,7 +79,7 @@ public class Track: NSObject, Loggable {
     public var sid: Sid? { _state.sid }
 
     @objc
-    public var muted: Bool { _state.muted }
+    public var isMuted: Bool { _state.isMuted }
 
     @objc
     public var statistics: TrackStatistics? { _state.statistics }
@@ -129,7 +129,7 @@ public class Track: NSObject, Loggable {
         var dimensions: Dimensions?
         var videoFrame: VideoFrame?
         var trackState: TrackState = .stopped
-        var muted: Bool = false
+        var isMuted: Bool = false
         var statistics: TrackStatistics?
         var simulcastStatistics: [VideoCodec: TrackStatistics] = [:]
         var reportStatistics: Bool = false
@@ -271,8 +271,8 @@ public class Track: NSObject, Loggable {
              notify _notify: Bool = true,
              shouldSendSignal: Bool = false)
     {
-        guard _state.muted != newValue else { return }
-        _state.mutate { $0.muted = newValue }
+        guard _state.isMuted != newValue else { return }
+        _state.mutate { $0.isMuted = newValue }
 
         if newValue {
             // clear video frame cache if muted
@@ -341,7 +341,7 @@ extension Track {
     //
     func _mute() async throws {
         // LocalTrack only, already muted
-        guard self is LocalTrack, !muted else { return }
+        guard self is LocalTrack, !isMuted else { return }
         try await disable()
         try await stop()
         set(muted: true, shouldSendSignal: true)
@@ -349,7 +349,7 @@ extension Track {
 
     func _unmute() async throws {
         // LocalTrack only, already un-muted
-        guard self is LocalTrack, muted else { return }
+        guard self is LocalTrack, isMuted else { return }
         try await enable()
         try await start()
         set(muted: false, shouldSendSignal: true)

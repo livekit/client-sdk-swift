@@ -498,7 +498,7 @@ extension Engine {
         let autoSubscribe = _state.connectOptions.autoSubscribe
         let trackSids = room._state.remoteParticipants.values.flatMap { participant in
             participant._state.trackPublications.values
-                .filter { $0.subscribed != autoSubscribe }
+                .filter { $0.isSubscribed != autoSubscribe }
                 .map(\.sid)
         }
 

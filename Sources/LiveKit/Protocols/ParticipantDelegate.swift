@@ -106,7 +106,7 @@ public protocol ParticipantDelegate: AnyObject {
     @objc(participant:publication:didUpdateStreamState:) optional
     func participant(_ participant: RemoteParticipant, didUpdatePublication publication: RemoteTrackPublication, streamState: StreamState)
 
-    /// ``RemoteTrackPublication/subscriptionAllowed`` has updated for the ``RemoteTrackPublication``.
+    /// ``RemoteTrackPublication/isSubscriptionAllowed`` has updated for the ``RemoteTrackPublication``.
     @objc(participant:publication:didUpdateCanSubscribe:) optional
     func participant(_ participant: RemoteParticipant, didUpdatePublication publication: RemoteTrackPublication, isSubscriptionAllowed: Bool)
 

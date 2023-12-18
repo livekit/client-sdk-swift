@@ -32,7 +32,7 @@ public protocol TrackDelegate: AnyObject {
     @objc optional
     func track(_ track: VideoTrack, didDetach videoView: VideoView)
 
-    /// ``Track/muted`` has updated.
+    /// ``Track/isMuted`` has updated.
     @objc(track:didUpdateMuted:shouldSendSignal:) optional
     func track(_ track: Track, didUpdate muted: Bool, shouldSendSignal: Bool)
 

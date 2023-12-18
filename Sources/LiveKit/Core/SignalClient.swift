@@ -408,7 +408,7 @@ extension SignalClient {
         let r = Livekit_SignalRequest.with {
             $0.trackSetting = Livekit_UpdateTrackSettings.with {
                 $0.trackSids = [sid]
-                $0.disabled = !settings.enabled
+                $0.disabled = !settings.isEnabled
                 $0.width = UInt32(settings.dimensions.width)
                 $0.height = UInt32(settings.dimensions.height)
                 $0.quality = settings.videoQuality.toPBType()

@@ -23,7 +23,7 @@ public protocol VideoRenderer {
     /// Whether this ``VideoRenderer`` should be considered visible or not for AdaptiveStream.
     /// This will be invoked on the .main thread.
     @objc
-    var adaptiveStreamIsEnabled: Bool { get }
+    var isAdaptiveStreamEnabled: Bool { get }
     /// The size used for AdaptiveStream computation. Return .zero if size is unknown yet.
     /// This will be invoked on the .main thread.
     @objc
