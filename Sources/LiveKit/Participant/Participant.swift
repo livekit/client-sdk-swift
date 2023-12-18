@@ -102,7 +102,7 @@ public class Participant: NSObject, ObservableObject, Loggable {
 
             if newState.isSpeaking != oldState.isSpeaking {
                 self.delegates.notify(label: { "participant.didUpdate isSpeaking: \(self.isSpeaking)" }) {
-                    $0.participant?(self, didUpdate: self.isSpeaking)
+                    $0.participant?(self, didUpdateIsSpeaking: self.isSpeaking)
                 }
             }
 
@@ -112,7 +112,7 @@ public class Participant: NSObject, ObservableObject, Loggable {
                oldState.metadata == nil ? !metadata.isEmpty : true
             {
                 self.delegates.notify(label: { "participant.didUpdate metadata: \(metadata)" }) {
-                    $0.participant?(self, didUpdate: metadata)
+                    $0.participant?(self, didUpdateMetadata: metadata)
                 }
                 self.room.delegates.notify(label: { "room.didUpdate metadata: \(metadata)" }) {
                     $0.room?(self.room, participant: self, didUpdateMetadata: metadata)
@@ -133,7 +133,7 @@ public class Participant: NSObject, ObservableObject, Loggable {
 
             if newState.connectionQuality != oldState.connectionQuality {
                 self.delegates.notify(label: { "participant.didUpdate connectionQuality: \(self.connectionQuality)" }) {
-                    $0.participant?(self, didUpdate: self.connectionQuality)
+                    $0.participant?(self, didUpdateConnectionQuality: self.connectionQuality)
                 }
                 self.room.delegates.notify(label: { "room.didUpdate connectionQuality: \(self.connectionQuality)" }) {
                     $0.room?(self.room, participant: self, didUpdateConnectionQuality: self.connectionQuality)

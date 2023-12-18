@@ -59,7 +59,7 @@ public class RemoteParticipant: Participant {
 
             for publication in newTrackPublications.values {
                 self.delegates.notify(label: { "participant.didPublish \(publication)" }) {
-                    $0.participant?(self, didPublish: publication)
+                    $0.participant?(self, didPublishPublication: publication)
                 }
                 self.room.delegates.notify(label: { "room.didPublish \(publication)" }) {
                     $0.room?(self.room, participant: self, didPublishPublication: publication)
@@ -132,7 +132,7 @@ public class RemoteParticipant: Participant {
         try await track.start()
 
         delegates.notify(label: { "participant.didSubscribe \(publication)" }) {
-            $0.participant?(self, didSubscribe: publication, track: track)
+            $0.participant?(self, didSubscribePublication: publication)
         }
         room.delegates.notify(label: { "room.didSubscribe \(publication)" }) {
             $0.room?(self.room, participant: self, didSubscribePublication: publication)
@@ -163,7 +163,7 @@ public class RemoteParticipant: Participant {
         func _notifyUnpublish() async {
             guard _notify else { return }
             delegates.notify(label: { "participant.didUnpublish \(publication)" }) {
-                $0.participant?(self, didUnpublish: publication)
+                $0.participant?(self, didUnpublishPublication: publication)
             }
             room.delegates.notify(label: { "room.didUnpublish \(publication)" }) {
                 $0.room?(self.room, participant: self, didUnpublishPublication: publication)
@@ -183,7 +183,7 @@ public class RemoteParticipant: Participant {
         if _notify {
             // Notify unsubscribe
             delegates.notify(label: { "participant.didUnsubscribe \(publication)" }) {
-                $0.participant?(self, didUnsubscribe: publication, track: track)
+                $0.participant?(self, didUnsubscribePublication: publication)
             }
             room.delegates.notify(label: { "room.didUnsubscribe \(publication)" }) {
                 $0.room?(self.room, participant: self, didUnsubscribePublication: publication)

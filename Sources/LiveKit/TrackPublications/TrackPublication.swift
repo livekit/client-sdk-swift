@@ -132,7 +132,7 @@ public class TrackPublication: NSObject, ObservableObject, Loggable {
             if newState.streamState != oldState.streamState {
                 if let participant = self.participant as? RemoteParticipant, let trackPublication = self as? RemoteTrackPublication {
                     participant.delegates.notify(label: { "participant.didUpdate \(trackPublication) streamState: \(newState.streamState)" }) {
-                        $0.participant?(participant, didUpdate: trackPublication, streamState: newState.streamState)
+                        $0.participant?(participant, didUpdatePublication: trackPublication, streamState: newState.streamState)
                     }
                     participant.room.delegates.notify(label: { "room.didUpdate \(trackPublication) streamState: \(newState.streamState)" }) {
                         $0.room?(participant.room, participant: participant, didUpdatePublication: trackPublication, streamState: newState.streamState)
@@ -216,7 +216,7 @@ extension TrackPublication: TrackDelegateInternal {
             }
 
             participant.delegates.notify {
-                $0.participant?(participant, didUpdate: self, muted: muted)
+                $0.participant?(participant, didUpdatePublication: self, isMuted: muted)
             }
             participant.room.delegates.notify {
                 $0.room?(participant.room, participant: participant, didUpdatePublication: self, isMuted: self.muted)

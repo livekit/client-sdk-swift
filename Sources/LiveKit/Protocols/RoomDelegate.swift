@@ -47,7 +47,6 @@ public protocol RoomDelegate: AnyObject {
     func room(_ room: Room, didFailToConnectWithError error: LiveKitError?)
 
     /// Client disconnected from the room unexpectedly.
-    /// Using ``room(_:didUpdate:oldValue:)`` is preferred since `.disconnected` state of ``ConnectionState`` provides ``DisconnectReason`` (Swift only).
     @objc(room:didDisconnectWithError:) optional
     func room(_ room: Room, didDisconnectWithError error: LiveKitError?)
 
@@ -77,7 +76,7 @@ public protocol RoomDelegate: AnyObject {
     @objc(room:didUpdateSpeakingParticipants:) optional
     func room(_ room: Room, didUpdateSpeakingParticipants participants: [Participant])
 
-    /// Same with ``ParticipantDelegate/participant(_:didUpdate:)-46iut``.
+    /// Same with ``ParticipantDelegate/participant(_:didUpdateMetadata:)``.
     @objc(room:participant:didUpdateMetadata:) optional
     func room(_ room: Room, participant: Participant, didUpdateMetadata: String?)
 
@@ -85,11 +84,11 @@ public protocol RoomDelegate: AnyObject {
     @objc(room:participant:didUpdateName:) optional
     func room(_ room: Room, participant: Participant, didUpdateName: String?)
 
-    /// Same with ``ParticipantDelegate/participant(_:didUpdate:)-7zxk1``.
+    /// Same with ``ParticipantDelegate/participant(_:didUpdateConnectionQuality:)``.
     @objc(room:participant:didUpdateConnectionQuality:) optional
     func room(_ room: Room, participant: Participant, didUpdateConnectionQuality connectionQuality: ConnectionQuality)
 
-    /// Same with ``ParticipantDelegate/participant(_:didUpdate:)-84m89``.
+    /// Same with ``ParticipantDelegate/participant(_:didUpdatePublication:isMuted:)``.
     @objc(room:participant:publication:didUpdateIsMuted:) optional
     func room(_ room: Room, participant: Participant, didUpdatePublication publication: TrackPublication, isMuted: Bool)
 
@@ -98,47 +97,47 @@ public protocol RoomDelegate: AnyObject {
 
     // MARK: - LocalTrackPublication
 
-    /// Same with ``ParticipantDelegate/localParticipant(_:didPublish:)-90j2m``.
+    /// Same with ``ParticipantDelegate/localParticipant(_:didPublishPublication:)``.
     @objc(room:localParticipant:didPublishPublication:) optional
     func room(_ room: Room, localParticipant: LocalParticipant, didPublishPublication publication: LocalTrackPublication)
 
-    /// Same with ``ParticipantDelegate/participant(_:didUnpublish:)-3bkga``.
+    /// Same with ``ParticipantDelegate/localParticipant(_:didUnpublishPublication:)``.
     @objc(room:localParticipant:didUnpublishPublication:) optional
     func room(_ room: Room, localParticipant: LocalParticipant, didUnpublishPublication publication: LocalTrackPublication)
 
     // MARK: - RemoteTrackPublication
 
-    /// Same with ``ParticipantDelegate/participant(_:didPublish:)-60en3``.
+    /// Same with ``ParticipantDelegate/participant(_:didPublishPublication:)``.
     @objc(room:participant:didPublishPublication:) optional
     func room(_ room: Room, participant: RemoteParticipant, didPublishPublication publication: RemoteTrackPublication)
 
-    /// Same with ``ParticipantDelegate/participant(_:didUnpublish:)-3bkga``.
+    /// Same with ``ParticipantDelegate/participant(_:didUnpublishPublication:)``.
     @objc(room:participant:didUnpublishPublication:) optional
     func room(_ room: Room, participant: RemoteParticipant, didUnpublishPublication publication: RemoteTrackPublication)
 
-    /// Same with ``ParticipantDelegate/participant(_:didSubscribe:track:)-7mngl``.
+    /// Same with ``ParticipantDelegate/participant(_:didSubscribePublication:)``.
     @objc(room:participant:didSubscribePublication:) optional
     func room(_ room: Room, participant: RemoteParticipant, didSubscribePublication publication: RemoteTrackPublication)
 
-    /// Same with ``ParticipantDelegate/participant(_:didUnsubscribe:track:)-3ksvp``.
+    /// Same with ``ParticipantDelegate/participant(_:didUnsubscribePublication:)``.
     @objc(room:publication:didUnsubscribePublication:) optional
     func room(_ room: Room, participant: RemoteParticipant, didUnsubscribePublication publication: RemoteTrackPublication)
 
-    /// Same with ``ParticipantDelegate/participant(_:didUpdate:streamState:)-1lu8t``.
+    /// Same with ``ParticipantDelegate/participant(_:didUpdatePublication:streamState:)``.
     @objc(room:participant:publication:didUpdateStreamState:) optional
     func room(_ room: Room, participant: RemoteParticipant, didUpdatePublication publication: RemoteTrackPublication, streamState: StreamState)
 
-    /// Same with ``ParticipantDelegate/participant(_:didUpdate:permission:)``.
+    /// Same with ``ParticipantDelegate/participant(_:didUpdatePublication:isSubscriptionAllowed:)``.
     @objc optional
     func room(_ room: Room, participant: RemoteParticipant, didUpdatePublication publication: RemoteTrackPublication, isSubscriptionAllowed: Bool)
 
-    /// Same with ``ParticipantDelegate/participant(_:didFailToSubscribe:error:)-10pn4``.
+    /// Same with ``ParticipantDelegate/participant(_:didFailToSubscribe:error:)``.
     @objc optional
     func room(_ room: Room, participant: RemoteParticipant, didFailToSubscribe trackSid: String, error: LiveKitError)
 
     // MARK: - Data
 
-    /// Same with ``ParticipantDelegate/participant(_:didReceive:)-2t55a``
+    /// Same with ``ParticipantDelegate/participant(_:didReceiveData:topic:)``
     /// participant could be nil if data was sent by server api.
     @objc(room:participant:didReceiveData:topic:) optional
     func room(_ room: Room, participant: RemoteParticipant?, didReceiveData data: Data, topic: String)
