@@ -219,7 +219,7 @@ extension TrackPublication: TrackDelegateInternal {
                 $0.participant?(participant, didUpdate: self, muted: muted)
             }
             participant.room.delegates.notify {
-                $0.room?(participant.room, participant: participant, didUpdate: self, muted: self.muted)
+                $0.room?(participant.room, participant: participant, didUpdatePublication: self, isMuted: self.muted)
             }
 
             // TrackPublication.muted is a computed property depending on Track.muted

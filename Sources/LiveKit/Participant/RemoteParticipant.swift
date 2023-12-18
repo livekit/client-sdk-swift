@@ -62,7 +62,7 @@ public class RemoteParticipant: Participant {
                     $0.participant?(self, didPublish: publication)
                 }
                 self.room.delegates.notify(label: { "room.didPublish \(publication)" }) {
-                    $0.room?(self.room, participant: self, didPublish: publication)
+                    $0.room?(self.room, participant: self, didPublishPublication: publication)
                 }
             }
         }
@@ -135,7 +135,7 @@ public class RemoteParticipant: Participant {
             $0.participant?(self, didSubscribe: publication, track: track)
         }
         room.delegates.notify(label: { "room.didSubscribe \(publication)" }) {
-            $0.room?(self.room, participant: self, didSubscribe: publication, track: track)
+            $0.room?(self.room, participant: self, didSubscribePublication: publication, track: track)
         }
     }
 
@@ -166,7 +166,7 @@ public class RemoteParticipant: Participant {
                 $0.participant?(self, didUnpublish: publication)
             }
             room.delegates.notify(label: { "room.didUnpublish \(publication)" }) {
-                $0.room?(self.room, participant: self, didUnpublish: publication)
+                $0.room?(self.room, participant: self, didUnpublishPublication: publication)
             }
         }
 
@@ -186,7 +186,7 @@ public class RemoteParticipant: Participant {
                 $0.participant?(self, didUnsubscribe: publication, track: track)
             }
             room.delegates.notify(label: { "room.didUnsubscribe \(publication)" }) {
-                $0.room?(self.room, participant: self, didUnsubscribe: publication, track: track)
+                $0.room?(self.room, participant: self, didUnsubscribePublication: publication, track: track)
             }
         }
 

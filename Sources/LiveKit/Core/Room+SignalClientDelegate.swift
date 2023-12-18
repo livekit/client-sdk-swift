@@ -133,7 +133,7 @@ extension Room: SignalClientDelegate {
             guard let self else { return }
 
             self.delegates.notify(label: { "room.didUpdate speakers: \(speakers)" }) {
-                $0.room?(self, didUpdate: activeSpeakers)
+                $0.room?(self, didUpdateSpeakingParticipants: activeSpeakers)
             }
         }
     }

@@ -115,7 +115,7 @@ public class Participant: NSObject, ObservableObject, Loggable {
                     $0.participant?(self, didUpdate: metadata)
                 }
                 self.room.delegates.notify(label: { "room.didUpdate metadata: \(metadata)" }) {
-                    $0.room?(self.room, participant: self, didUpdate: metadata)
+                    $0.room?(self.room, participant: self, didUpdateMetadata: metadata)
                 }
             }
 
@@ -136,7 +136,7 @@ public class Participant: NSObject, ObservableObject, Loggable {
                     $0.participant?(self, didUpdate: self.connectionQuality)
                 }
                 self.room.delegates.notify(label: { "room.didUpdate connectionQuality: \(self.connectionQuality)" }) {
-                    $0.room?(self.room, participant: self, didUpdate: self.connectionQuality)
+                    $0.room?(self.room, participant: self, didUpdateConnectionQuality: self.connectionQuality)
                 }
             }
 

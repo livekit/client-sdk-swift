@@ -147,7 +147,7 @@ public class RemoteTrackPublication: TrackPublication {
                     $0.participant?(participant, didUnsubscribe: self, track: oldValue)
                 }
                 participant.room.delegates.notify(label: { "room.didUnsubscribe \(self)" }) {
-                    $0.room?(participant.room, participant: participant, didUnsubscribe: self, track: oldValue)
+                    $0.room?(participant.room, participant: participant, didUnsubscribePublication: self, track: oldValue)
                 }
             }
         }
@@ -197,7 +197,7 @@ extension RemoteTrackPublication {
                 $0.participant?(participant, didUpdate: self, muted: newValue)
             }
             participant.room.delegates.notify(label: { "room.didUpdate muted: \(newValue)" }) {
-                $0.room?(participant.room, participant: participant, didUpdate: self, muted: newValue)
+                $0.room?(participant.room, participant: participant, didUpdatePublication: self, isMuted: newValue)
             }
         }
     }
@@ -211,7 +211,7 @@ extension RemoteTrackPublication {
             $0.participant?(participant, didUpdate: self, permission: newValue)
         }
         participant.room.delegates.notify(label: { "room.didUpdate permission: \(newValue)" }) {
-            $0.room?(participant.room, participant: participant, didUpdate: self, permission: newValue)
+            $0.room?(participant.room, participant: participant, didUpdatePublication: self, isSubscriptionAllowed: newValue)
         }
     }
 }
