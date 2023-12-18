@@ -135,7 +135,7 @@ public class TrackPublication: NSObject, ObservableObject, Loggable {
                         $0.participant?(participant, didUpdate: trackPublication, streamState: newState.streamState)
                     }
                     participant.room.delegates.notify(label: { "room.didUpdate \(trackPublication) streamState: \(newState.streamState)" }) {
-                        $0.room?(participant.room, participant: participant, didUpdate: trackPublication, streamState: newState.streamState)
+                        $0.room?(participant.room, participant: participant, didUpdatePublication: trackPublication, streamState: newState.streamState)
                     }
                 }
             }

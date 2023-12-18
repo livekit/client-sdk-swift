@@ -147,7 +147,7 @@ public class RemoteTrackPublication: TrackPublication {
                     $0.participant?(participant, didUnsubscribe: self, track: oldValue)
                 }
                 participant.room.delegates.notify(label: { "room.didUnsubscribe \(self)" }) {
-                    $0.room?(participant.room, participant: participant, didUnsubscribePublication: self, track: oldValue)
+                    $0.room?(participant.room, participant: participant, didUnsubscribePublication: self)
                 }
             }
         }

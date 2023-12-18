@@ -135,7 +135,7 @@ public class RemoteParticipant: Participant {
             $0.participant?(self, didSubscribe: publication, track: track)
         }
         room.delegates.notify(label: { "room.didSubscribe \(publication)" }) {
-            $0.room?(self.room, participant: self, didSubscribePublication: publication, track: track)
+            $0.room?(self.room, participant: self, didSubscribePublication: publication)
         }
     }
 
@@ -186,7 +186,7 @@ public class RemoteParticipant: Participant {
                 $0.participant?(self, didUnsubscribe: publication, track: track)
             }
             room.delegates.notify(label: { "room.didUnsubscribe \(publication)" }) {
-                $0.room?(self.room, participant: self, didUnsubscribePublication: publication, track: track)
+                $0.room?(self.room, participant: self, didUnsubscribePublication: publication)
             }
         }
 
