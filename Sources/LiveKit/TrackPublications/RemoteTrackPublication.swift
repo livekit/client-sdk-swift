@@ -144,10 +144,10 @@ public class RemoteTrackPublication: TrackPublication {
 
             if let oldValue, newValue == nil, let participant = participant as? RemoteParticipant {
                 participant.delegates.notify(label: { "participant.didUnsubscribe \(self)" }) {
-                    $0.participant?(participant, didUnsubscribe: self, track: oldValue)
+                    $0.participant?(participant, didUnsubscribePublication: self)
                 }
                 participant.room.delegates.notify(label: { "room.didUnsubscribe \(self)" }) {
-                    $0.room?(participant.room, participant: participant, didUnsubscribe: self, track: oldValue)
+                    $0.room?(participant.room, participant: participant, didUnsubscribePublication: self)
                 }
             }
         }
@@ -193,11 +193,11 @@ extension RemoteTrackPublication {
 
         // if track exists, track will emit the following events
         if track == nil {
-            participant.delegates.notify(label: { "participant.didUpdate muted: \(newValue)" }) {
-                $0.participant?(participant, didUpdate: self, muted: newValue)
+            participant.delegates.notify(label: { "participant.didUpdatePublication isMuted: \(newValue)" }) {
+                $0.participant?(participant, didUpdatePublication: self, isMuted: newValue)
             }
-            participant.room.delegates.notify(label: { "room.didUpdate muted: \(newValue)" }) {
-                $0.room?(participant.room, participant: participant, didUpdate: self, muted: newValue)
+            participant.room.delegates.notify(label: { "room.didUpdatePublication isMuted: \(newValue)" }) {
+                $0.room?(participant.room, participant: participant, didUpdatePublication: self, isMuted: newValue)
             }
         }
     }
@@ -208,10 +208,10 @@ extension RemoteTrackPublication {
 
         guard let participant = participant as? RemoteParticipant else { return }
         participant.delegates.notify(label: { "participant.didUpdate permission: \(newValue)" }) {
-            $0.participant?(participant, didUpdate: self, permission: newValue)
+            $0.participant?(participant, didUpdatePublication: self, isSubscriptionAllowed: newValue)
         }
         participant.room.delegates.notify(label: { "room.didUpdate permission: \(newValue)" }) {
-            $0.room?(participant.room, participant: participant, didUpdate: self, permission: newValue)
+            $0.room?(participant.room, participant: participant, didUpdatePublication: self, isSubscriptionAllowed: newValue)
         }
     }
 }

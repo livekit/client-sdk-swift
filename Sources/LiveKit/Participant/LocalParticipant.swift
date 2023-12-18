@@ -207,10 +207,10 @@ public class LocalParticipant: Participant {
 
             // Notify didPublish
             delegates.notify(label: { "localParticipant.didPublish \(publication)" }) {
-                $0.localParticipant?(self, didPublish: publication)
+                $0.localParticipant?(self, didPublishPublication: publication)
             }
             room.delegates.notify(label: { "localParticipant.didPublish \(publication)" }) {
-                $0.room?(self.room, localParticipant: self, didPublish: publication)
+                $0.room?(self.room, localParticipant: self, didPublishPublication: publication)
             }
 
             log("[publish] success \(publication)", .info)
@@ -259,10 +259,10 @@ public class LocalParticipant: Participant {
         func _notifyDidUnpublish() async {
             guard _notify else { return }
             delegates.notify(label: { "localParticipant.didUnpublish \(publication)" }) {
-                $0.localParticipant?(self, didUnpublish: publication)
+                $0.localParticipant?(self, didUnpublishPublication: publication)
             }
             room.delegates.notify(label: { "room.didUnpublish \(publication)" }) {
-                $0.room?(self.room, localParticipant: self, didUnpublish: publication)
+                $0.room?(self.room, localParticipant: self, didUnpublishPublication: publication)
             }
         }
 
@@ -402,11 +402,11 @@ public class LocalParticipant: Participant {
         let didUpdate = super.set(permissions: newValue)
 
         if didUpdate {
-            delegates.notify(label: { "participant.didUpdate permissions: \(newValue)" }) {
-                $0.participant?(self, didUpdate: newValue)
+            delegates.notify(label: { "participant.didUpdatePermissions: \(newValue)" }) {
+                $0.participant?(self, didUpdatePermissions: newValue)
             }
-            room.delegates.notify(label: { "room.didUpdate permissions: \(newValue)" }) {
-                $0.room?(self.room, participant: self, didUpdate: newValue)
+            room.delegates.notify(label: { "room.didUpdatePermissions: \(newValue)" }) {
+                $0.room?(self.room, participant: self, didUpdatePermissions: newValue)
             }
         }
 

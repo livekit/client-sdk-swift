@@ -40,7 +40,7 @@ extension Room: EngineDelegate {
             }
 
             delegates.notify(label: { "room.didUpdate connectionState: \(state.connectionState) oldValue: \(oldState.connectionState)" }) {
-                $0.room?(self, didUpdate: state.connectionState, oldValue: oldState.connectionState)
+                $0.room?(self, didUpdateConnectionState: state.connectionState, oldConnectionState: oldState.connectionState)
             }
 
             // Legacy connection delegates
@@ -49,9 +49,9 @@ extension Room: EngineDelegate {
                 delegates.notify { $0.room?(self, didConnect: didReconnect) }
             } else if case .disconnected = state.connectionState {
                 if case .connecting = oldState.connectionState {
-                    delegates.notify { $0.room?(self, didFailToConnect: oldState.disconnectError) }
+                    delegates.notify { $0.room?(self, didFailToConnectWithError: oldState.disconnectError) }
                 } else {
-                    delegates.notify { $0.room?(self, didDisconnect: state.disconnectError) }
+                    delegates.notify { $0.room?(self, didDisconnectWithError: state.disconnectError) }
                 }
             }
         }
@@ -116,7 +116,7 @@ extension Room: EngineDelegate {
             guard let self else { return }
 
             self.delegates.notify(label: { "room.didUpdate speakers: \(activeSpeakers)" }) {
-                $0.room?(self, didUpdate: activeSpeakers)
+                $0.room?(self, didUpdateSpeakingParticipants: activeSpeakers)
             }
         }
     }

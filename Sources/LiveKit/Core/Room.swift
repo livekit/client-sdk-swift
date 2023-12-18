@@ -181,7 +181,7 @@ public class Room: NSObject, ObservableObject, Loggable {
                     guard let self else { return }
 
                     self.delegates.notify(label: { "room.didUpdate metadata: \(metadata)" }) {
-                        $0.room?(self, didUpdate: metadata)
+                        $0.room?(self, didUpdateMetadata: metadata)
                     }
                 }
             }
@@ -194,7 +194,7 @@ public class Room: NSObject, ObservableObject, Loggable {
                     guard let self else { return }
 
                     self.delegates.notify(label: { "room.didUpdate isRecording: \(newState.isRecording)" }) {
-                        $0.room?(self, didUpdate: newState.isRecording)
+                        $0.room?(self, didUpdateIsRecording: newState.isRecording)
                     }
                 }
             }
