@@ -22,19 +22,7 @@ import Foundation
 public protocol TrackDelegate: AnyObject {
     /// Dimensions of the video track has updated
     @objc(track:didUpdateDimensions:) optional
-    func track(_ track: VideoTrack, didUpdate dimensions: Dimensions?)
-
-    /// A ``VideoView`` was attached to the ``VideoTrack``
-    @objc optional
-    func track(_ track: VideoTrack, didAttach videoView: VideoView)
-
-    /// A ``VideoView`` was detached from the ``VideoTrack``
-    @objc optional
-    func track(_ track: VideoTrack, didDetach videoView: VideoView)
-
-    /// ``Track/isMuted`` has updated.
-    @objc(track:didUpdateMuted:shouldSendSignal:) optional
-    func track(_ track: Track, didUpdate muted: Bool, shouldSendSignal: Bool)
+    func track(_ track: VideoTrack, didUpdateDimensions dimensions: Dimensions?)
 
     /// Statistics for the track has been generated (v2).
     @objc(track:didUpdateStatistics:simulcastStatistics:) optional
@@ -42,6 +30,9 @@ public protocol TrackDelegate: AnyObject {
 }
 
 protocol TrackDelegateInternal: TrackDelegate {
+    /// Notify RemoteTrackPublication to send isMuted state to server.
+    func track(_ track: Track, didUpdateIsMuted isMuted: Bool, shouldSendSignal: Bool)
+
     /// Used to report track state mutation to TrackPublication if attached.
     func track(_ track: Track, didMutateState newState: Track.State, oldState: Track.State)
 }

@@ -205,18 +205,18 @@ extension TrackPublication: TrackDelegateInternal {
         }
     }
 
-    public func track(_: Track, didUpdate muted: Bool, shouldSendSignal: Bool) {
-        log("isMuted: \(muted) shouldSendSignal: \(shouldSendSignal)")
+    public func track(_: Track, didUpdateIsMuted isMuted: Bool, shouldSendSignal: Bool) {
+        log("isMuted: \(isMuted) shouldSendSignal: \(shouldSendSignal)")
 
         Task {
             let participant = try await requireParticipant()
 
             if shouldSendSignal {
-                try await participant.room.engine.signalClient.sendMuteTrack(trackSid: sid, muted: muted)
+                try await participant.room.engine.signalClient.sendMuteTrack(trackSid: sid, muted: isMuted)
             }
 
             participant.delegates.notify {
-                $0.participant?(participant, didUpdatePublication: self, isMuted: muted)
+                $0.participant?(participant, didUpdatePublication: self, isMuted: isMuted)
             }
             participant.room.delegates.notify {
                 $0.room?(participant.room, participant: participant, didUpdatePublication: self, isMuted: self.isMuted)

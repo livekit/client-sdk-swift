@@ -239,12 +239,6 @@ public class VideoView: NativeView, Loggable {
                             if let localTrack = track as? LocalVideoTrack {
                                 localTrack.capturer.remove(delegate: self)
                             }
-
-                            // notify detach
-                            track.delegates.notify(label: { "track.didDetach videoView: \(self)" }) { [weak self, weak track] delegate in
-                                guard let self, let track else { return }
-                                delegate.track?(track, didDetach: self)
-                            }
                         }
 
                         // set new track
@@ -264,12 +258,6 @@ public class VideoView: NativeView, Loggable {
                             // CapturerDelegate
                             if let localTrack = track as? LocalVideoTrack {
                                 localTrack.capturer.add(delegate: self)
-                            }
-
-                            // notify attach
-                            track.delegates.notify(label: { "track.didAttach videoView: \(self)" }) { [weak self, weak track] delegate in
-                                guard let self, let track else { return }
-                                delegate.track?(track, didAttach: self)
                             }
                         }
                     }

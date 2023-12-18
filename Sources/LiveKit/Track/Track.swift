@@ -280,8 +280,10 @@ public class Track: NSObject, Loggable {
         }
 
         if _notify {
-            delegates.notify(label: { "track.didUpdate muted: \(newValue)" }) {
-                $0.track?(self, didUpdate: newValue, shouldSendSignal: shouldSendSignal)
+            delegates.notify(label: { "track.didUpdateIsMuted: \(newValue)" }) { delegate in
+                if let delegate = delegate as? TrackDelegateInternal {
+                    delegate.track(self, didUpdateIsMuted: newValue, shouldSendSignal: shouldSendSignal)
+                }
             }
         }
     }
@@ -320,8 +322,8 @@ extension Track {
         _state.mutate { $0.dimensions = newValue }
 
         guard let videoTrack = self as? VideoTrack else { return true }
-        delegates.notify(label: { "track.didUpdate dimensions: \(newValue == nil ? "nil" : String(describing: newValue))" }) {
-            $0.track?(videoTrack, didUpdate: newValue)
+        delegates.notify(label: { "track.didUpdateDimensions: \(newValue == nil ? "nil" : String(describing: newValue))" }) {
+            $0.track?(videoTrack, didUpdateDimensions: newValue)
         }
 
         return true
