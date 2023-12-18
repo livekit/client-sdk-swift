@@ -19,10 +19,10 @@ import Foundation
 @_implementationOnly import WebRTC
 
 protocol TransportDelegate: AnyObject {
-    func transport(_ transport: Transport, didUpdate state: RTCPeerConnectionState)
-    func transport(_ transport: Transport, didGenerate iceCandidate: LKRTCIceCandidate)
-    func transport(_ transport: Transport, didOpen dataChannel: LKRTCDataChannel)
-    func transport(_ transport: Transport, didAddTrack: LKRTCMediaStreamTrack, rtpReceiver: LKRTCRtpReceiver, streams: [LKRTCMediaStream])
-    func transport(_ transport: Transport, didRemove track: LKRTCMediaStreamTrack)
+    func transport(_ transport: Transport, didUpdateState state: RTCPeerConnectionState)
+    func transport(_ transport: Transport, didGenerateIceCandidate iceCandidate: LKRTCIceCandidate)
+    func transport(_ transport: Transport, didOpenDataChannel dataChannel: LKRTCDataChannel)
+    func transport(_ transport: Transport, didAddTrack track: LKRTCMediaStreamTrack, rtpReceiver: LKRTCRtpReceiver, streams: [LKRTCMediaStream])
+    func transport(_ transport: Transport, didRemoveTrack track: LKRTCMediaStreamTrack)
     func transportShouldNegotiate(_ transport: Transport)
 }

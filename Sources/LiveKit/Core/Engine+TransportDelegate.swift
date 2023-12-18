@@ -19,7 +19,7 @@ import Foundation
 @_implementationOnly import WebRTC
 
 extension Engine: TransportDelegate {
-    func transport(_ transport: Transport, didUpdate pcState: RTCPeerConnectionState) {
+    func transport(_ transport: Transport, didUpdateState pcState: RTCPeerConnectionState) {
         log("target: \(transport.target), state: \(pcState)")
 
         // primary connected
@@ -43,7 +43,7 @@ extension Engine: TransportDelegate {
         }
     }
 
-    func transport(_ transport: Transport, didGenerate iceCandidate: LKRTCIceCandidate) {
+    func transport(_ transport: Transport, didGenerateIceCandidate iceCandidate: LKRTCIceCandidate) {
         log("didGenerate iceCandidate")
         Task {
             try await signalClient.sendCandidate(candidate: iceCandidate, target: transport.target)
@@ -64,13 +64,13 @@ extension Engine: TransportDelegate {
         }
     }
 
-    func transport(_ transport: Transport, didRemove track: LKRTCMediaStreamTrack) {
+    func transport(_ transport: Transport, didRemoveTrack track: LKRTCMediaStreamTrack) {
         if transport.target == .subscriber {
             notify { $0.engine(self, didRemoveTrack: track) }
         }
     }
 
-    func transport(_ transport: Transport, didOpen dataChannel: LKRTCDataChannel) {
+    func transport(_ transport: Transport, didOpenDataChannel dataChannel: LKRTCDataChannel) {
         log("Server opened data channel \(dataChannel.label)(\(dataChannel.readyState))")
 
         Task {

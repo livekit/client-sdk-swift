@@ -33,7 +33,10 @@ extension Room: SignalClientDelegate {
         }
     }
 
-    func signalClient(_: SignalClient, didUpdateTrack trackSid: String, subscribedQualities qualities: [Livekit_SubscribedQuality], subscribedCodecs codecs: [Livekit_SubscribedCodec]) {
+    func signalClient(_: SignalClient, didUpdateSubscribedCodecs codecs: [Livekit_SubscribedCodec],
+                      qualities: [Livekit_SubscribedQuality],
+                      forTrackSid trackSid: String)
+    {
         log("[Publish/Backup] Qualities: \(qualities.map { String(describing: $0) }.joined(separator: ", ")), Codecs: \(codecs.map { String(describing: $0) }.joined(separator: ", "))")
 
         guard let publication = localParticipant.getTrackPublication(sid: trackSid) else {

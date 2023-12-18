@@ -290,10 +290,9 @@ private extension SignalClient {
             notify { $0.signalClient(self, didUpdateTrackStreamStates: states.streamStates) }
 
         case let .subscribedQualityUpdate(update):
-            notify { $0.signalClient(self,
-                                     didUpdateTrack: update.trackSid,
-                                     subscribedQualities: update.subscribedQualities,
-                                     subscribedCodecs: update.subscribedCodecs) }
+            notify { $0.signalClient(self, didUpdateSubscribedCodecs: update.subscribedCodecs,
+                                     qualities: update.subscribedQualities,
+                                     forTrackSid: update.trackSid) }
 
         case let .subscriptionPermissionUpdate(permissionUpdate):
             notify { $0.signalClient(self, didUpdateSubscriptionPermission: permissionUpdate) }

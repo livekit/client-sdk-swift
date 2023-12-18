@@ -196,14 +196,14 @@ extension Transport {
 extension Transport: LKRTCPeerConnectionDelegate {
     func peerConnection(_: LKRTCPeerConnection, didChange state: RTCPeerConnectionState) {
         log("did update state \(state) for \(target)")
-        notify { $0.transport(self, didUpdate: state) }
+        notify { $0.transport(self, didUpdateState: state) }
     }
 
     func peerConnection(_: LKRTCPeerConnection,
                         didGenerate candidate: LKRTCIceCandidate)
     {
         log("Did generate ice candidates \(candidate) for \(target)")
-        notify { $0.transport(self, didGenerate: candidate) }
+        notify { $0.transport(self, didGenerateIceCandidate: candidate) }
     }
 
     func peerConnectionShouldNegotiate(_: LKRTCPeerConnection) {
@@ -233,12 +233,12 @@ extension Transport: LKRTCPeerConnectionDelegate {
         }
 
         log("didRemove track: \(track.trackId)")
-        notify { $0.transport(self, didRemove: track) }
+        notify { $0.transport(self, didRemoveTrack: track) }
     }
 
     func peerConnection(_: LKRTCPeerConnection, didOpen dataChannel: LKRTCDataChannel) {
         log("Received data channel \(dataChannel.label) for \(target)")
-        notify { $0.transport(self, didOpen: dataChannel) }
+        notify { $0.transport(self, didOpenDataChannel: dataChannel) }
     }
 
     func peerConnection(_: LKRTCPeerConnection, didChange _: RTCIceConnectionState) {}
