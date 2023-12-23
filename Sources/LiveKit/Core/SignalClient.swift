@@ -42,6 +42,7 @@ class SignalClient: MulticastDelegate<SignalClientDelegate> {
     private let _responseQueue = AsyncQueueActor<Livekit_SignalResponse>()
 
     private var _webSocket: WebSocket?
+    private var _messageLoopTask: Task<Void, Never>?
     private var latestJoinResponse: Livekit_JoinResponse?
 
     private let _joinResponseCompleter = AsyncCompleter<Livekit_JoinResponse>(label: "Join response", timeOut: .defaultJoinResponse)
@@ -95,20 +96,16 @@ class SignalClient: MulticastDelegate<SignalClientDelegate> {
 
         log("Connecting with url: \(urlString)")
 
-        _state.mutate {
-            $0.connectionState = .connecting
-        }
+        _state.mutate { $0.connectionState = (reconnectMode != nil ? .reconnecting : .connecting) }
 
         do {
             let socket = try await WebSocket(url: url)
-            _webSocket = socket
-            _state.mutate { $0.connectionState = .connected }
 
-            Task.detached {
+            _messageLoopTask = Task.detached {
                 self.log("Did enter WebSocket message loop...")
                 do {
                     for try await message in socket {
-                        self.onWebSocketMessage(message: message)
+                        self._onWebSocketMessage(message: message)
                     }
                 } catch {
                     await self.cleanUp(withError: error)
@@ -119,6 +116,10 @@ class SignalClient: MulticastDelegate<SignalClientDelegate> {
             let jr = try await _joinResponseCompleter.wait()
             // Check cancellation after received join response
             try Task.checkCancellation()
+
+            // Successfully connected
+            _webSocket = socket
+            _state.mutate { $0.connectionState = .connected }
 
             return jr
         } catch {
@@ -137,7 +138,6 @@ class SignalClient: MulticastDelegate<SignalClientDelegate> {
             await cleanUp(withError: error)
 
             // Validate...
-
             guard let validateUrl = Utils.buildUrl(urlString,
                                                    token,
                                                    connectOptions: connectOptions,
@@ -166,6 +166,9 @@ class SignalClient: MulticastDelegate<SignalClientDelegate> {
         _pingIntervalTimer = nil
         _pingTimeoutTimer = nil
 
+        _messageLoopTask?.cancel()
+        _messageLoopTask = nil
+
         _webSocket?.close()
         _webSocket = nil
 
@@ -184,17 +187,17 @@ class SignalClient: MulticastDelegate<SignalClientDelegate> {
 // MARK: - Private
 
 private extension SignalClient {
-    // send request or enqueue while reconnecting
-    func sendRequest(_ request: Livekit_SignalRequest, enqueueIfReconnecting: Bool = true) async throws {
+    // Send request or enqueue while reconnecting
+    func _sendRequest(_ request: Livekit_SignalRequest, enqueueIfReconnecting: Bool = true) async throws {
         guard !(_state.connectionState == .reconnecting && request.canEnqueue() && enqueueIfReconnecting) else {
             log("Queuing request while reconnecting, request: \(request)")
             await _requestQueue.enqueue(request)
             return
         }
 
-        guard case .connected = _state.connectionState else {
-            log("Not connected", .error)
-            throw LiveKitError(.invalidState, message: "Not connected")
+        guard _state.connectionState != .disconnected else {
+            log("connectionState is .disconnected", .error)
+            throw LiveKitError(.invalidState, message: "connectionState is .disconnected")
         }
 
         guard let data = try? request.serializedData() else {
@@ -206,7 +209,7 @@ private extension SignalClient {
         try await webSocket.send(data: data)
     }
 
-    func onWebSocketMessage(message: URLSessionWebSocketTask.Message) {
+    func _onWebSocketMessage(message: URLSessionWebSocketTask.Message) {
         var response: Livekit_SignalResponse?
 
         if case let .data(data) = message {
@@ -221,17 +224,18 @@ private extension SignalClient {
         }
 
         Task {
-            await _responseQueue.enqueue(response) { await processSignalResponse($0) }
+            await _responseQueue.enqueue(response) { await _process(signalResponse: $0) }
         }
     }
 
-    func processSignalResponse(_ response: Livekit_SignalResponse) async {
-        guard case .connected = _state.connectionState else {
-            log("Not connected", .warning)
+    func _process(signalResponse: Livekit_SignalResponse) async {
+
+        guard _state.connectionState != .disconnected else {
+            log("connectionState is .disconnected", .error)
             return
         }
 
-        guard let message = response.message else {
+        guard let message = signalResponse.message else {
             log("Failed to decode SignalResponse", .warning)
             return
         }
@@ -315,7 +319,7 @@ private extension SignalClient {
 extension SignalClient {
     func resumeResponseQueue() async throws {
         try await _responseQueue.resume { response in
-            await processSignalResponse(response)
+            await _process(signalResponse: response)
         }
     }
 }
@@ -326,7 +330,7 @@ extension SignalClient {
     func sendQueuedRequests() async throws {
         try await _requestQueue.resume { element in
             do {
-                try await sendRequest(element, enqueueIfReconnecting: false)
+                try await _sendRequest(element, enqueueIfReconnecting: false)
             } catch {
                 log("Failed to send queued request \(element) with error: \(error)", .error)
             }
@@ -338,7 +342,7 @@ extension SignalClient {
             $0.offer = offer.toPBType()
         }
 
-        try await sendRequest(r)
+        try await _sendRequest(r)
     }
 
     func send(answer: LKRTCSessionDescription) async throws {
@@ -346,7 +350,7 @@ extension SignalClient {
             $0.answer = answer.toPBType()
         }
 
-        try await sendRequest(r)
+        try await _sendRequest(r)
     }
 
     func sendCandidate(candidate: LKRTCIceCandidate, target: Livekit_SignalTarget) async throws {
@@ -357,7 +361,7 @@ extension SignalClient {
             }
         }
 
-        try await sendRequest(r)
+        try await _sendRequest(r)
     }
 
     func sendMuteTrack(trackSid: String, muted: Bool) async throws {
@@ -368,7 +372,7 @@ extension SignalClient {
             }
         }
 
-        try await sendRequest(r)
+        try await _sendRequest(r)
     }
 
     func sendAddTrack<R>(cid: String,
@@ -396,7 +400,7 @@ extension SignalClient {
         let completer = await _addTrackCompleters.completer(for: cid)
 
         // Send the request to server...
-        try await sendRequest(request)
+        try await _sendRequest(request)
 
         // Wait for the trackInfo...
         let trackInfo = try await completer.wait()
@@ -416,7 +420,7 @@ extension SignalClient {
             }
         }
 
-        try await sendRequest(r)
+        try await _sendRequest(r)
     }
 
     func sendUpdateVideoLayers(trackSid: Sid,
@@ -429,7 +433,7 @@ extension SignalClient {
             }
         }
 
-        try await sendRequest(r)
+        try await _sendRequest(r)
     }
 
     func sendUpdateSubscription(participantSid: Sid,
@@ -449,7 +453,7 @@ extension SignalClient {
             }
         }
 
-        try await sendRequest(r)
+        try await _sendRequest(r)
     }
 
     func sendUpdateSubscriptionPermission(allParticipants: Bool,
@@ -462,7 +466,7 @@ extension SignalClient {
             }
         }
 
-        try await sendRequest(r)
+        try await _sendRequest(r)
     }
 
     func sendUpdateLocalMetadata(_ metadata: String, name: String) async throws {
@@ -473,7 +477,7 @@ extension SignalClient {
             }
         }
 
-        try await sendRequest(r)
+        try await _sendRequest(r)
     }
 
     func sendSyncState(answer: Livekit_SessionDescription,
@@ -494,7 +498,7 @@ extension SignalClient {
             }
         }
 
-        try await sendRequest(r)
+        try await _sendRequest(r)
     }
 
     func sendLeave() async throws {
@@ -505,7 +509,7 @@ extension SignalClient {
             }
         }
 
-        try await sendRequest(r)
+        try await _sendRequest(r)
     }
 
     func sendSimulate(scenario: SimulateScenario) async throws {
@@ -536,7 +540,7 @@ extension SignalClient {
             }
         }
 
-        try await sendRequest(r)
+        try await _sendRequest(r)
     }
 
     private func sendPing() async throws {
@@ -544,7 +548,7 @@ extension SignalClient {
             $0.ping = Int64(Date().timeIntervalSince1970)
         }
 
-        try await sendRequest(r)
+        try await _sendRequest(r)
     }
 }
 

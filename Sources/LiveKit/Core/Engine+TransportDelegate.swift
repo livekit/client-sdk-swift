@@ -35,9 +35,8 @@ extension Engine: TransportDelegate {
         if _state.connectionState == .connected {
             // Attempt re-connect if primary or publisher transport failed
             if transport.isPrimary || (_state.hasPublished && transport.target == .publisher), [.disconnected, .failed].contains(pcState) {
-                log("[reconnect] starting, reason: transport disconnected or failed")
                 Task {
-                    try await startReconnect()
+                    try await startReconnect(reason: .transport)
                 }
             }
         }

@@ -338,6 +338,12 @@ extension Engine {
 
 // MARK: - Connection / Reconnection logic
 
+enum StartReconnectReason {
+    case websocket
+    case transport
+    case networkSwitch
+}
+
 extension Engine {
     // full connect sequence, doesn't update connection state
     func fullConnectSequence(_ url: String, _ token: String) async throws {
@@ -363,7 +369,9 @@ extension Engine {
         log("\(_state.connectStopwatch)")
     }
 
-    func startReconnect() async throws {
+    func startReconnect(reason: StartReconnectReason) async throws {
+        log("[Reconnect] Starting, reason: \(reason)")
+
         guard case .connected = _state.connectionState else {
             log("[Reconnect] Must be called with connected state", .error)
             throw LiveKitError(.invalidState)
@@ -379,6 +387,12 @@ extension Engine {
             throw LiveKitError(.invalidState)
         }
 
+        _state.mutate {
+            // Mark as Re-connecting
+            $0.connectionState = .reconnecting
+            $0.reconnectMode = .quick
+        }
+
         // quick connect sequence, does not update connection state
         func quickReconnectSequence() async throws {
             log("[Reconnect] Starting .quick reconnect sequence...")
@@ -392,7 +406,7 @@ extension Engine {
                                            reconnectMode: _state.reconnectMode,
                                            adaptiveStream: room._state.options.adaptiveStream)
 
-            log("[Reconnect] waiting for socket to connect...")
+            log("[Reconnect] Waiting for socket to connect...")
             // Wait for primary transport to connect (if not already)
             try await primaryTransportConnectedCompleter.wait()
 
@@ -404,12 +418,12 @@ extension Engine {
             // Only if published, continue...
             guard let publisher, _state.hasPublished else { return }
 
-            log("[reconnect] waiting for publisher to connect...")
+            log("[Reconnect] Waiting for publisher to connect...")
 
             try await publisher.createAndSendOffer(iceRestart: true)
             try await publisherTransportConnectedCompleter.wait()
 
-            log("[reconnect] Sending queued requests...")
+            log("[Reconnect] Sending queued requests...")
             // always check if there are queued requests
             try await signalClient.sendQueuedRequests()
         }
@@ -418,6 +432,7 @@ extension Engine {
         // as a last resort, try to do a clean re-connection and re-publish existing tracks
         func fullReconnectSequence() async throws {
             log("[Reconnect] starting .full reconnect sequence...")
+
             try await cleanUp(isFullReconnect: true)
 
             guard let url = _state.url,
@@ -435,12 +450,15 @@ extension Engine {
         { totalAttempts, currentAttempt in
 
             // Not reconnecting state anymore
-            guard case .reconnecting = _state.connectionState else { return }
+            guard case .reconnecting = _state.connectionState else {
+                self.log("[Reconnect] Not in reconnect state anymore, exiting retry cycle.")
+                return
+            }
 
             // Full reconnect failed, give up
             guard _state.reconnectMode != .full else { return }
 
-            self.log("[Reconnect] retry in \(_state.connectOptions.reconnectAttemptDelay) seconds, \(currentAttempt)/\(totalAttempts) tries left...")
+            self.log("[Reconnect] Retry in \(_state.connectOptions.reconnectAttemptDelay) seconds, \(currentAttempt)/\(totalAttempts) tries left.")
 
             // Try full reconnect for the final attempt
             if totalAttempts == currentAttempt, _state.nextPreferredReconnectMode == nil {
@@ -449,23 +467,28 @@ extension Engine {
 
             let mode: ReconnectMode = self._state.mutate {
                 let mode: ReconnectMode = ($0.nextPreferredReconnectMode == .full || $0.reconnectMode == .full) ? .full : .quick
-                $0.connectionState = .reconnecting
                 $0.reconnectMode = mode
                 $0.nextPreferredReconnectMode = nil
                 return mode
             }
 
-            if case .quick = mode {
-                try await quickReconnectSequence()
-            } else if case .full = mode {
-                try await fullReconnectSequence()
+            do {
+                if case .quick = mode {
+                    try await quickReconnectSequence()
+                } else if case .full = mode {
+                    try await fullReconnectSequence()
+                }
+            } catch {
+                log("[Reconnect] Reconnect mode: \(mode) failed with error: \(error)", .error)
+                // Re-throw
+                throw error
             }
         }
 
         do {
             try await retryingTask.value
             // Re-connect sequence successful
-            log("[reconnect] Sequence completed")
+            log("[Reconnect] Sequence completed")
             _state.mutate { $0.connectionState = .connected }
         } catch {
             log("[Reconnect] Sequence failed with error: \(error)")
@@ -539,8 +562,7 @@ extension Engine: ConnectivityListenerDelegate {
         Task {
             // Network has been switched, e.g. wifi <-> cellular
             if case .connected = _state.connectionState {
-                log("[Reconnect] Starting, reason: network path changed")
-                try await startReconnect()
+                try await startReconnect(reason: .networkSwitch)
             }
         }
     }
