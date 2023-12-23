@@ -32,7 +32,7 @@ public class Participant: NSObject, ObservableObject, Loggable {
     public var identity: String { _state.identity }
 
     @objc
-    public var name: String? { _state.name }
+    public var name: String { _state.name }
 
     @objc
     public var audioLevel: Float { _state.audioLevel }
@@ -75,7 +75,7 @@ public class Participant: NSObject, ObservableObject, Loggable {
     struct State: Equatable, Hashable {
         var sid: Sid
         var identity: String
-        var name: String?
+        var name: String
         var audioLevel: Float = 0.0
         var isSpeaking: Bool = false
         var metadata: String?
@@ -91,7 +91,7 @@ public class Participant: NSObject, ObservableObject, Loggable {
         self.room = room
 
         // initial state
-        _state = StateSync(State(sid: sid, identity: identity))
+        _state = StateSync(State(sid: sid, identity: identity, name: ""))
 
         super.init()
 
@@ -153,7 +153,7 @@ public class Participant: NSObject, ObservableObject, Loggable {
     func cleanUp(notify _notify: Bool = true) async {
         await unpublishAll(notify: _notify)
         // Reset state
-        _state.mutate { $0 = State(sid: "", identity: "") }
+        _state.mutate { $0 = State(sid: "", identity: "", name: "") }
     }
 
     func unpublishAll(notify _: Bool = true) async {
