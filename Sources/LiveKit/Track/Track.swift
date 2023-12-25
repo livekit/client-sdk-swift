@@ -340,21 +340,24 @@ extension Track {
 extension Track {
     // workaround for error:
     // @objc can only be used with members of classes, @objc protocols, and concrete extensions of classes
-    //
     func _mute() async throws {
         // LocalTrack only, already muted
-        guard self is LocalTrack, !isMuted else { return }
+        guard self is LocalTrack else { throw LiveKitError(.invalidState, message: "Must be a LocalTrack") }
+        guard !_state.isMuted else { throw LiveKitError(.invalidState, message: "Already muted") }
         try await disable()
         try await stop()
         set(muted: true, shouldSendSignal: true)
+        AudioManager.shared.trackDidMute(.local)
     }
 
     func _unmute() async throws {
         // LocalTrack only, already un-muted
-        guard self is LocalTrack, isMuted else { return }
+        guard self is LocalTrack else { throw LiveKitError(.invalidState, message: "Must be a LocalTrack") }
+        guard !_state.isMuted else { throw LiveKitError(.invalidState, message: "Already un-muted") }
         try await enable()
         try await start()
         set(muted: false, shouldSendSignal: true)
+        AudioManager.shared.trackDidUnmute(.local)
     }
 }
 
