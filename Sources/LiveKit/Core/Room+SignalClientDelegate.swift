@@ -71,7 +71,7 @@ extension Room: SignalClientDelegate {
         log("\(joinResponse.serverInfo)", .info)
 
         if e2eeManager != nil, !joinResponse.sifTrailer.isEmpty {
-            e2eeManager?.keyProvider().setSifTrailer(trailer: joinResponse.sifTrailer)
+            e2eeManager?.keyProvider.setSifTrailer(trailer: joinResponse.sifTrailer)
         }
 
         _state.mutate {
