@@ -112,24 +112,28 @@ public class AudioManager: Loggable {
     public struct State: Equatable {
         // Only consider State mutated when public vars change
         public static func == (lhs: AudioManager.State, rhs: AudioManager.State) -> Bool {
-            lhs.localTracksCount == rhs.localTracksCount &&
-                lhs.remoteTracksCount == rhs.remoteTracksCount &&
+            lhs.localTracksStartedCount == rhs.localTracksStartedCount &&
+                lhs.remoteTracksStartedCount == rhs.remoteTracksStartedCount &&
+                lhs.localTracksMutedCount == rhs.localTracksMutedCount &&
+                lhs.remoteTracksMutedCount == rhs.remoteTracksMutedCount &&
                 lhs.isSpeakerOutputPreferred == rhs.isSpeakerOutputPreferred
         }
 
         // Keep this var within State so it's protected by UnfairLock
         var customConfigureFunc: ConfigureAudioSessionFunc?
 
-        public var localTracksCount: Int = 0
-        public var remoteTracksCount: Int = 0
+        public var localTracksStartedCount: Int = 0
+        public var localTracksMutedCount: Int = 0
+        public var remoteTracksStartedCount: Int = 0
+        public var remoteTracksMutedCount: Int = 0
         public var isSpeakerOutputPreferred: Bool = true
 
         public var trackState: TrackState {
-            if localTracksCount > 0, remoteTracksCount == 0 {
+            if localTracksStartedCount > 0, remoteTracksStartedCount == 0 {
                 return .localOnly
-            } else if localTracksCount == 0, remoteTracksCount > 0 {
+            } else if localTracksStartedCount == 0, remoteTracksStartedCount > 0 {
                 return .remoteOnly
-            } else if localTracksCount > 0, remoteTracksCount > 0 {
+            } else if localTracksStartedCount > 0, remoteTracksStartedCount > 0 {
                 return .localAndRemote
             }
 
@@ -203,9 +207,9 @@ public class AudioManager: Loggable {
 
     // MARK: - Internal
 
-    var localTracksCount: Int { _state.localTracksCount }
+    var localTracksCount: Int { _state.localTracksStartedCount }
 
-    var remoteTracksCount: Int { _state.remoteTracksCount }
+    var remoteTracksCount: Int { _state.remoteTracksStartedCount }
 
     enum `Type` {
         case local
@@ -232,18 +236,44 @@ public class AudioManager: Loggable {
     }
 
     func trackDidStart(_ type: Type) {
-        // async mutation
         _state.mutate { state in
-            if type == .local { state.localTracksCount += 1 }
-            if type == .remote { state.remoteTracksCount += 1 }
+            if type == .local { state.localTracksStartedCount += 1 }
+            if type == .remote { state.remoteTracksStartedCount += 1 }
         }
     }
 
     func trackDidStop(_ type: Type) {
-        // async mutation
-        _state.mutate { state in
-            if type == .local { state.localTracksCount -= 1 }
-            if type == .remote { state.remoteTracksCount -= 1 }
+        _state.mutate {
+            if type == .local {
+                $0.localTracksStartedCount = max(0, $0.localTracksStartedCount - 1)
+                $0.localTracksMutedCount = min($0.localTracksMutedCount, $0.localTracksStartedCount)
+            }
+            if type == .remote {
+                $0.remoteTracksStartedCount = max(0, $0.remoteTracksStartedCount - 1)
+                $0.remoteTracksMutedCount = min($0.remoteTracksMutedCount, $0.remoteTracksStartedCount)
+            }
+        }
+    }
+
+    func trackDidMute(_ type: Type) {
+        _state.mutate {
+            if type == .local {
+                $0.localTracksMutedCount = min($0.localTracksMutedCount + 1, $0.localTracksStartedCount)
+            }
+            if type == .remote {
+                $0.remoteTracksMutedCount = min($0.remoteTracksMutedCount + 1, $0.remoteTracksStartedCount)
+            }
+        }
+    }
+
+    func trackDidUnmute(_ type: Type) {
+        _state.mutate {
+            if type == .local {
+                $0.localTracksMutedCount = min(max(0, $0.localTracksMutedCount - 1), $0.localTracksStartedCount)
+            }
+            if type == .remote {
+                $0.remoteTracksMutedCount = min(max(0, $0.remoteTracksMutedCount - 1), $0.remoteTracksStartedCount)
+            }
         }
     }
 
