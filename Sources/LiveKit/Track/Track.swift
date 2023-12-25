@@ -353,7 +353,7 @@ extension Track {
     func _unmute() async throws {
         // LocalTrack only, already un-muted
         guard self is LocalTrack else { throw LiveKitError(.invalidState, message: "Must be a LocalTrack") }
-        guard !_state.isMuted else { throw LiveKitError(.invalidState, message: "Already un-muted") }
+        guard _state.isMuted else { throw LiveKitError(.invalidState, message: "Already un-muted") }
         try await enable()
         try await start()
         set(muted: false, shouldSendSignal: true)
