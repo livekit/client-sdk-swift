@@ -182,11 +182,11 @@ extension E2EEManager {
 }
 
 extension E2EEManager: RoomDelegate {
-    public func room(_: Room, localParticipant: LocalParticipant, didPublish publication: LocalTrackPublication) {
+    public func room(_: Room, localParticipant: LocalParticipant, didPublishPublication publication: LocalTrackPublication) {
         addRtpSender(publication: publication, participantSid: localParticipant.sid)
     }
 
-    public func room(_: Room, localParticipant: LocalParticipant, didUnpublish publication: LocalTrackPublication) {
+    public func room(_: Room, localParticipant: LocalParticipant, didUnpublishPublication publication: LocalTrackPublication) {
         _state.mutate {
             if let frameCryptor = ($0.frameCryptors.first { (key: [String: Sid], _: LKRTCFrameCryptor) in
                 key[localParticipant.sid] == publication.sid
@@ -200,11 +200,11 @@ extension E2EEManager: RoomDelegate {
         }
     }
 
-    public func room(_: Room, participant: RemoteParticipant, didSubscribe publication: RemoteTrackPublication, track _: Track) {
+    public func room(_: Room, participant: RemoteParticipant, didSubscribePublication publication: RemoteTrackPublication) {
         addRtpReceiver(publication: publication, participantSid: participant.sid)
     }
 
-    public func room(_: Room, participant: RemoteParticipant, didUnsubscribe publication: RemoteTrackPublication, track _: Track) {
+    public func room(_: Room, participant: RemoteParticipant, didUnsubscribePublication publication: RemoteTrackPublication) {
         _state.mutate {
             if let frameCryptor = ($0.frameCryptors.first { (key: [String: Sid], _: LKRTCFrameCryptor) in
                 key[participant.sid] == publication.sid
