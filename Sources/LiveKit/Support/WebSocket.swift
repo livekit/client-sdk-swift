@@ -32,6 +32,11 @@ class WebSocket: NSObject, Loggable, AsyncSequence, URLSessionWebSocketDelegate 
         // explicitly set timeout intervals
         config.timeoutIntervalForRequest = TimeInterval(60)
         config.timeoutIntervalForResource = TimeInterval(604_800)
+        config.shouldUseExtendedBackgroundIdleMode = true
+        config.networkServiceType = .callSignaling
+        #if os(iOS)
+            config.multipathServiceType = .handover
+        #endif
         return URLSession(configuration: config, delegate: self, delegateQueue: nil)
     }()
 
