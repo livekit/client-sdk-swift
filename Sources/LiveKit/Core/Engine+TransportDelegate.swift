@@ -43,9 +43,13 @@ extension Engine: TransportDelegate {
     }
 
     func transport(_ transport: Transport, didGenerateIceCandidate iceCandidate: LKRTCIceCandidate) {
-        log("didGenerate iceCandidate")
         Task {
-            try await signalClient.sendCandidate(candidate: iceCandidate, target: transport.target)
+            do {
+                log("sending iceCandidate")
+                try await signalClient.sendCandidate(candidate: iceCandidate, target: transport.target)
+            } catch {
+                log("Failed to send iceCandidate", .error)
+            }
         }
     }
 

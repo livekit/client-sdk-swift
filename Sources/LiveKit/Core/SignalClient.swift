@@ -31,6 +31,25 @@ class SignalClient: MulticastDelegate<SignalClientDelegate> {
         var disconnectError: LiveKitError?
     }
 
+    public enum ConnectResponse {
+        case join(Livekit_JoinResponse)
+        case reconnect(Livekit_ReconnectResponse)
+
+        public var rtcIceServers: [LKRTCIceServer] {
+            switch self {
+            case let .join(response): return response.iceServers.map { $0.toRTCType() }
+            case let .reconnect(response): return response.iceServers.map { $0.toRTCType() }
+            }
+        }
+
+        public var clientConfiguration: Livekit_ClientConfiguration {
+            switch self {
+            case let .join(response): return response.clientConfiguration
+            case let .reconnect(response): return response.clientConfiguration
+            }
+        }
+    }
+
     // MARK: - Private
 
     private let _state = StateSync(State())
@@ -45,7 +64,7 @@ class SignalClient: MulticastDelegate<SignalClientDelegate> {
     private var _messageLoopTask: Task<Void, Never>?
     private var latestJoinResponse: Livekit_JoinResponse?
 
-    private let _joinResponseCompleter = AsyncCompleter<Livekit_JoinResponse>(label: "Join response", timeOut: .defaultJoinResponse)
+    private let _connectResponseCompleter = AsyncCompleter<ConnectResponse>(label: "Join response", timeOut: .defaultJoinResponse)
     private let _addTrackCompleters = CompleterMapActor<Livekit_TrackInfo>(label: "Completers for add track", timeOut: .defaultPublish)
 
     private var _pingIntervalTimer: DispatchQueueTimer?
@@ -79,11 +98,13 @@ class SignalClient: MulticastDelegate<SignalClientDelegate> {
                  _ token: String,
                  connectOptions: ConnectOptions? = nil,
                  reconnectMode: ReconnectMode? = nil,
-                 adaptiveStream: Bool) async throws -> Livekit_JoinResponse
+                 adaptiveStream: Bool) async throws -> ConnectResponse
     {
         await cleanUp()
 
-        log("reconnectMode: \(String(describing: reconnectMode))")
+        if let reconnectMode {
+            log("[Reconnect] mode: \(String(describing: reconnectMode))")
+        }
 
         guard let url = Utils.buildUrl(urlString,
                                        token,
@@ -94,7 +115,11 @@ class SignalClient: MulticastDelegate<SignalClientDelegate> {
             throw LiveKitError(.failedToParseUrl)
         }
 
-        log("Connecting with url: \(urlString)")
+        if reconnectMode != nil {
+            log("[Reconnect] with url: \(url)")
+        } else {
+            log("Connecting with url: \(url)")
+        }
 
         _state.mutate { $0.connectionState = (reconnectMode != nil ? .reconnecting : .connecting) }
 
@@ -113,7 +138,7 @@ class SignalClient: MulticastDelegate<SignalClientDelegate> {
                 self.log("Did exit WebSocket message loop...")
             }
 
-            let jr = try await _joinResponseCompleter.wait()
+            let connectResponse = try await _connectResponseCompleter.wait()
             // Check cancellation after received join response
             try Task.checkCancellation()
 
@@ -121,7 +146,7 @@ class SignalClient: MulticastDelegate<SignalClientDelegate> {
             _webSocket = socket
             _state.mutate { $0.connectionState = .connected }
 
-            return jr
+            return connectResponse
         } catch {
             // Skip validation if user cancelled
             if error is CancellationError {
@@ -172,7 +197,7 @@ class SignalClient: MulticastDelegate<SignalClientDelegate> {
         _webSocket?.close()
         _webSocket = nil
 
-        _joinResponseCompleter.reset()
+        _connectResponseCompleter.reset()
         latestJoinResponse = nil
 
         // Reset state
@@ -229,7 +254,6 @@ private extension SignalClient {
     }
 
     func _process(signalResponse: Livekit_SignalResponse) async {
-
         guard _state.connectionState != .disconnected else {
             log("connectionState is .disconnected", .error)
             return
@@ -245,8 +269,14 @@ private extension SignalClient {
             await _responseQueue.suspend()
             latestJoinResponse = joinResponse
             restartPingTimer()
-            notify { $0.signalClient(self, didReceiveJoinResponse: joinResponse) }
-            _joinResponseCompleter.resume(returning: joinResponse)
+            notify { $0.signalClient(self, didReceiveConnectResponse: .join(joinResponse)) }
+            _connectResponseCompleter.resume(returning: .join(joinResponse))
+
+        case let .reconnect(response):
+            await _responseQueue.suspend()
+            restartPingTimer()
+            notify { $0.signalClient(self, didReceiveConnectResponse: .reconnect(response)) }
+            _connectResponseCompleter.resume(returning: .reconnect(response))
 
         case let .answer(sd):
             notify { $0.signalClient(self, didReceiveAnswer: sd.toRTCType()) }
@@ -304,8 +334,6 @@ private extension SignalClient {
             notify { $0.signalClient(self, didUpdateToken: token) }
         case let .pong(r):
             onReceivedPong(r)
-        case .reconnect:
-            log("received reconnect message")
         case .pongResp:
             log("received pongResp message")
         case .subscriptionResponse:

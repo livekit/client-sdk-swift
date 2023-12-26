@@ -86,7 +86,7 @@ extension Engine: SignalClientDelegate {
         _state.mutate { $0.token = token }
     }
 
-    func signalClient(_: SignalClient, didReceiveJoinResponse _: Livekit_JoinResponse) {}
+    func signalClient(_: SignalClient, didReceiveConnectResponse _: SignalClient.ConnectResponse) {}
     func signalClient(_: SignalClient, didPublishLocalTrack _: Livekit_TrackPublishedResponse) {}
     func signalClient(_: SignalClient, didUnpublishLocalTrack _: Livekit_TrackUnpublishedResponse) {}
     func signalClient(_: SignalClient, didUpdateParticipants _: [Livekit_ParticipantInfo]) {}

@@ -20,7 +20,7 @@ import Foundation
 
 protocol SignalClientDelegate: AnyObject {
     func signalClient(_ signalClient: SignalClient, didMutateState state: SignalClient.State, oldState: SignalClient.State)
-    func signalClient(_ signalClient: SignalClient, didReceiveJoinResponse joinResponse: Livekit_JoinResponse)
+    func signalClient(_ signalClient: SignalClient, didReceiveConnectResponse connectResponse: SignalClient.ConnectResponse)
     func signalClient(_ signalClient: SignalClient, didReceiveAnswer answer: LKRTCSessionDescription)
     func signalClient(_ signalClient: SignalClient, didReceiveOffer offer: LKRTCSessionDescription)
     func signalClient(_ signalClient: SignalClient, didReceiveIceCandidate iceCandidate: LKRTCIceCandidate, target: Livekit_SignalTarget)

@@ -232,72 +232,90 @@ class Engine: MulticastDelegate<EngineDelegate> {
 // MARK: - Internal
 
 extension Engine {
-    func configureTransports(joinResponse: Livekit_JoinResponse) async throws {
-        log("Configuring transports...")
+    func configureTransports(connectResponse: SignalClient.ConnectResponse) async throws {
+        func makeConfiguration() -> LKRTCConfiguration {
+            let connectOptions = _state.connectOptions
 
-        guard subscriber == nil, publisher == nil else {
-            log("Transports are already configured")
-            return
+            // Make a copy, instead of modifying the user-supplied RTCConfiguration object.
+            let rtcConfiguration = LKRTCConfiguration.liveKitDefault()
+
+            // Set iceServers provided by the server
+            rtcConfiguration.iceServers = connectResponse.rtcIceServers
+
+            if !connectOptions.iceServers.isEmpty {
+                // Override with user provided iceServers
+                rtcConfiguration.iceServers = connectOptions.iceServers.map { $0.toRTCType() }
+            }
+
+            if connectResponse.clientConfiguration.forceRelay == .enabled {
+                rtcConfiguration.iceTransportPolicy = .relay
+            }
+
+            return rtcConfiguration
         }
 
-        // protocol v3
-        subscriberPrimary = joinResponse.subscriberPrimary
-        log("subscriberPrimary: \(joinResponse.subscriberPrimary)")
+        let rtcConfiguration = makeConfiguration()
 
-        let connectOptions = _state.connectOptions
+        if case let .join(joinResponse) = connectResponse {
+            log("Configuring transports with JOIN response...")
 
-        // Make a copy, instead of modifying the user-supplied RTCConfiguration object.
-        let rtcConfiguration = LKRTCConfiguration.liveKitDefault()
+            guard subscriber == nil, publisher == nil else {
+                log("Transports are already configured")
+                return
+            }
 
-        // Set iceServers provided by the server
-        rtcConfiguration.iceServers = joinResponse.iceServers.map { $0.toRTCType() }
+            // protocol v3
+            subscriberPrimary = joinResponse.subscriberPrimary
+            log("subscriberPrimary: \(joinResponse.subscriberPrimary)")
 
-        if !connectOptions.iceServers.isEmpty {
-            // Override with user provided iceServers
-            rtcConfiguration.iceServers = connectOptions.iceServers.map { $0.toRTCType() }
+            let subscriber = try Transport(config: rtcConfiguration,
+                                           target: .subscriber,
+                                           primary: subscriberPrimary,
+                                           delegate: self)
+
+            let publisher = try Transport(config: rtcConfiguration,
+                                          target: .publisher,
+                                          primary: !subscriberPrimary,
+                                          delegate: self)
+
+            publisher.onOffer = { [weak self] offer in
+                guard let self else { return }
+                log("Publisher onOffer \(offer.sdp)")
+                try await signalClient.send(offer: offer)
+            }
+
+            // data over pub channel for backwards compatibility
+
+            let reliableDataChannel = publisher.dataChannel(for: LKRTCDataChannel.labels.reliable,
+                                                            configuration: Engine.createDataChannelConfiguration())
+
+            let lossyDataChannel = publisher.dataChannel(for: LKRTCDataChannel.labels.lossy,
+                                                         configuration: Engine.createDataChannelConfiguration(maxRetransmits: 0))
+
+            await publisherDataChannel.set(reliable: reliableDataChannel)
+            await publisherDataChannel.set(lossy: lossyDataChannel)
+
+            log("dataChannel.\(String(describing: reliableDataChannel?.label)) : \(String(describing: reliableDataChannel?.channelId))")
+            log("dataChannel.\(String(describing: lossyDataChannel?.label)) : \(String(describing: lossyDataChannel?.channelId))")
+
+            if !subscriberPrimary {
+                // lazy negotiation for protocol v3+
+                try await publisherShouldNegotiate()
+            }
+
+            self.subscriber = subscriber
+            self.publisher = publisher
+
+        } else if case .reconnect = connectResponse {
+            log("[Reconnect] Configuring transports with RECONNECT response...")
+            guard let subscriber, let publisher else {
+                log("[Reconnect] Subscriber or Publisher is nil", .error)
+                return
+            }
+
+            try subscriber.set(configuration: rtcConfiguration)
+            try publisher.set(configuration: rtcConfiguration)
         }
-
-        if joinResponse.clientConfiguration.forceRelay == .enabled {
-            rtcConfiguration.iceTransportPolicy = .relay
-        }
-
-        let subscriber = try Transport(config: rtcConfiguration,
-                                       target: .subscriber,
-                                       primary: subscriberPrimary,
-                                       delegate: self)
-
-        let publisher = try Transport(config: rtcConfiguration,
-                                      target: .publisher,
-                                      primary: !subscriberPrimary,
-                                      delegate: self)
-
-        publisher.onOffer = { [weak self] offer in
-            guard let self else { return }
-            log("Publisher onOffer \(offer.sdp)")
-            try await signalClient.send(offer: offer)
-        }
-
-        // data over pub channel for backwards compatibility
-
-        let reliableDataChannel = publisher.dataChannel(for: LKRTCDataChannel.labels.reliable,
-                                                        configuration: Engine.createDataChannelConfiguration())
-
-        let lossyDataChannel = publisher.dataChannel(for: LKRTCDataChannel.labels.lossy,
-                                                     configuration: Engine.createDataChannelConfiguration(maxRetransmits: 0))
-
-        await publisherDataChannel.set(reliable: reliableDataChannel)
-        await publisherDataChannel.set(lossy: lossyDataChannel)
-
-        log("dataChannel.\(String(describing: reliableDataChannel?.label)) : \(String(describing: reliableDataChannel?.channelId))")
-        log("dataChannel.\(String(describing: lossyDataChannel?.label)) : \(String(describing: lossyDataChannel?.channelId))")
-
-        if !subscriberPrimary {
-            // lazy negotiation for protocol v3+
-            try await publisherShouldNegotiate()
-        }
-
-        self.subscriber = subscriber
-        self.publisher = publisher
     }
 }
 
@@ -338,7 +356,7 @@ extension Engine {
 
 // MARK: - Connection / Reconnection logic
 
-enum StartReconnectReason {
+public enum StartReconnectReason {
     case websocket
     case transport
     case networkSwitch
@@ -350,16 +368,16 @@ extension Engine {
         // This should never happen since Engine is owned by Room
         let room = try requireRoom()
 
-        let jr = try await signalClient.connect(url,
-                                                token,
-                                                connectOptions: _state.connectOptions,
-                                                reconnectMode: _state.reconnectMode,
-                                                adaptiveStream: room._state.options.adaptiveStream)
+        let connectResponse = try await signalClient.connect(url,
+                                                             token,
+                                                             connectOptions: _state.connectOptions,
+                                                             reconnectMode: _state.reconnectMode,
+                                                             adaptiveStream: room._state.options.adaptiveStream)
         // Check cancellation after WebSocket connected
         try Task.checkCancellation()
 
         _state.mutate { $0.connectStopwatch.split(label: "signal") }
-        try await configureTransports(joinResponse: jr)
+        try await configureTransports(connectResponse: connectResponse)
         // Check cancellation after configuring transports
         try Task.checkCancellation()
 
@@ -400,18 +418,21 @@ extension Engine {
             // This should never happen since Engine is owned by Room
             let room = try requireRoom()
 
-            try await signalClient.connect(url,
-                                           token,
-                                           connectOptions: _state.connectOptions,
-                                           reconnectMode: _state.reconnectMode,
-                                           adaptiveStream: room._state.options.adaptiveStream)
+            let connectResponse = try await signalClient.connect(url,
+                                                                 token,
+                                                                 connectOptions: _state.connectOptions,
+                                                                 reconnectMode: _state.reconnectMode,
+                                                                 adaptiveStream: room._state.options.adaptiveStream)
 
+            // Update configuration
+            try await configureTransports(connectResponse: connectResponse)
+            try await signalClient.resumeResponseQueue()
             log("[Reconnect] Waiting for socket to connect...")
             // Wait for primary transport to connect (if not already)
             try await primaryTransportConnectedCompleter.wait()
 
             // send SyncState before offer
-            try await sendSyncState()
+            // try await sendSyncState()
 
             subscriber?.isRestartingIce = true
 
