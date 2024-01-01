@@ -99,3 +99,26 @@ public extension Track {
         "\(String(describing: type(of: self)))(sid: \(sid ?? "nil"), name: \(name), source: \(source))"
     }
 }
+
+extension RTCPeerConnectionState {
+    var description: String {
+        switch self {
+        case .new: return ".new"
+        case .connecting: return ".connecting"
+        case .connected: return ".connected"
+        case .disconnected: return ".disconnected"
+        case .failed: return ".failed"
+        case .closed: return ".closed"
+        @unknown default: return "unknown"
+        }
+    }
+}
+
+extension ReconnectMode: CustomStringConvertible {
+    public var description: String {
+        switch self {
+        case .quick: return ".quick"
+        case .full: return ".full"
+        }
+    }
+}

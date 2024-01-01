@@ -147,7 +147,7 @@ class AsyncCompleter<T>: Loggable {
                     guard let self else { return }
                     self.log("\(self.label) timedOut")
                     self._lock.sync {
-                        self._continuation?.resume(throwing: LiveKitError(.timedOut))
+                        self._continuation?.resume(throwing: LiveKitError(.timedOut, message: "\(self.label) AsyncCompleter timed out"))
                         self._continuation = nil
                     }
                     self.reset()

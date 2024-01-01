@@ -328,6 +328,10 @@ public extension Room {
     func sendSimulate(scenario: SimulateScenario) async throws {
         try await engine.signalClient.sendSimulate(scenario: scenario)
     }
+
+    func debug_triggerReconnect(reason: StartReconnectReason) async throws {
+        try await engine.startReconnect(reason: reason)
+    }
 }
 
 // MARK: - Session Migration

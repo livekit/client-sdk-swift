@@ -67,25 +67,27 @@ extension Room: SignalClientDelegate {
         }
     }
 
-    func signalClient(_: SignalClient, didReceiveJoinResponse joinResponse: Livekit_JoinResponse) {
-        log("\(joinResponse.serverInfo)", .info)
+    func signalClient(_: SignalClient, didReceiveConnectResponse connectResponse: SignalClient.ConnectResponse) {
+        if case let .join(joinResponse) = connectResponse {
+            log("\(joinResponse.serverInfo)", .info)
 
-        if e2eeManager != nil, !joinResponse.sifTrailer.isEmpty {
-            e2eeManager?.keyProvider.setSifTrailer(trailer: joinResponse.sifTrailer)
-        }
+            if e2eeManager != nil, !joinResponse.sifTrailer.isEmpty {
+                e2eeManager?.keyProvider.setSifTrailer(trailer: joinResponse.sifTrailer)
+            }
 
-        _state.mutate {
-            $0.sid = joinResponse.room.sid
-            $0.name = joinResponse.room.name
-            $0.metadata = joinResponse.room.metadata
-            $0.isRecording = joinResponse.room.activeRecording
-            $0.serverInfo = joinResponse.serverInfo
+            _state.mutate {
+                $0.sid = joinResponse.room.sid
+                $0.name = joinResponse.room.name
+                $0.metadata = joinResponse.room.metadata
+                $0.isRecording = joinResponse.room.activeRecording
+                $0.serverInfo = joinResponse.serverInfo
 
-            localParticipant.updateFromInfo(info: joinResponse.participant)
+                localParticipant.updateFromInfo(info: joinResponse.participant)
 
-            if !joinResponse.otherParticipants.isEmpty {
-                for otherParticipant in joinResponse.otherParticipants {
-                    $0.updateRemoteParticipant(info: otherParticipant, room: self)
+                if !joinResponse.otherParticipants.isEmpty {
+                    for otherParticipant in joinResponse.otherParticipants {
+                        $0.updateRemoteParticipant(info: otherParticipant, room: self)
+                    }
                 }
             }
         }

@@ -29,9 +29,8 @@ extension Engine: SignalClientDelegate {
            // engine is currently connected state
            case .connected = _state.connectionState
         {
-            log("[reconnect] starting, reason: socket network error. connectionState: \(_state.connectionState)")
             Task {
-                try await startReconnect()
+                try await startReconnect(reason: .websocket)
             }
         }
     }
@@ -87,7 +86,7 @@ extension Engine: SignalClientDelegate {
         _state.mutate { $0.token = token }
     }
 
-    func signalClient(_: SignalClient, didReceiveJoinResponse _: Livekit_JoinResponse) {}
+    func signalClient(_: SignalClient, didReceiveConnectResponse _: SignalClient.ConnectResponse) {}
     func signalClient(_: SignalClient, didPublishLocalTrack _: Livekit_TrackPublishedResponse) {}
     func signalClient(_: SignalClient, didUnpublishLocalTrack _: Livekit_TrackUnpublishedResponse) {}
     func signalClient(_: SignalClient, didUpdateParticipants _: [Livekit_ParticipantInfo]) {}

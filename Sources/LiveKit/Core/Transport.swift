@@ -129,6 +129,12 @@ class Transport: MulticastDelegate<TransportDelegate> {
         }
     }
 
+    func set(configuration: LKRTCConfiguration) throws {
+        if !_pc.setConfiguration(configuration) {
+            throw LiveKitError(.webRTC, message: "Failed to set configuration")
+        }
+    }
+
     func createAndSendOffer(iceRestart: Bool = false) async throws {
         guard let onOffer else {
             log("onOffer is nil", .warning)
@@ -195,14 +201,14 @@ extension Transport {
 
 extension Transport: LKRTCPeerConnectionDelegate {
     func peerConnection(_: LKRTCPeerConnection, didChange state: RTCPeerConnectionState) {
-        log("did update state \(state) for \(target)")
+        log("[Connect] Transport(\(target)) did update state: \(state.description)")
         notify { $0.transport(self, didUpdateState: state) }
     }
 
     func peerConnection(_: LKRTCPeerConnection,
                         didGenerate candidate: LKRTCIceCandidate)
     {
-        log("Did generate ice candidates \(candidate) for \(target)")
+        // log("Did generate ice candidates \(candidate) for \(target)")
         notify { $0.transport(self, didGenerateIceCandidate: candidate) }
     }
 
