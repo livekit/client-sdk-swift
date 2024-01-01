@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 LiveKit
+ * Copyright 2024 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -103,7 +103,7 @@ class SignalClient: MulticastDelegate<SignalClientDelegate> {
         await cleanUp()
 
         if let reconnectMode {
-            log("[Reconnect] mode: \(String(describing: reconnectMode))")
+            log("[Connect] mode: \(String(describing: reconnectMode))")
         }
 
         guard let url = Utils.buildUrl(urlString,
@@ -116,7 +116,7 @@ class SignalClient: MulticastDelegate<SignalClientDelegate> {
         }
 
         if reconnectMode != nil {
-            log("[Reconnect] with url: \(url)")
+            log("[Connect] with url: \(url)")
         } else {
             log("Connecting with url: \(url)")
         }
@@ -356,6 +356,9 @@ extension SignalClient {
 
 extension SignalClient {
     func sendQueuedRequests() async throws {
+        let queueCount = await _requestQueue.count
+        log("[Connect] Sending queued requests (\(queueCount))...")
+
         try await _requestQueue.resume { element in
             do {
                 try await _sendRequest(element, enqueueIfReconnecting: false)

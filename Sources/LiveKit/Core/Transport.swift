@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 LiveKit
+ * Copyright 2024 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -201,7 +201,7 @@ extension Transport {
 
 extension Transport: LKRTCPeerConnectionDelegate {
     func peerConnection(_: LKRTCPeerConnection, didChange state: RTCPeerConnectionState) {
-        log("did update state \(state) for \(target)")
+        log("[Connect] Transport(\(target)) did update state: \(state.description)")
         notify { $0.transport(self, didUpdateState: state) }
     }
 

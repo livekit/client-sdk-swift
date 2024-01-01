@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 LiveKit
+ * Copyright 2024 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,13 +16,20 @@
 
 import Foundation
 
-actor AsyncQueueActor<T> {
+actor AsyncQueueActor<T>: Loggable {
+    // MARK: - Public
+
     public enum State {
         case resumed
         case suspended
     }
 
     public private(set) var state: State = .resumed
+
+    public var count: Int { queue.count }
+
+    // MARK: - Private
+
     private var queue = [T]()
 
     /// Mark as `.suspended`.
@@ -31,6 +38,7 @@ actor AsyncQueueActor<T> {
     }
 
     func enqueue(_ value: T) {
+        log("Queued value: \(value)")
         queue.append(value)
     }
 

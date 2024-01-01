@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 LiveKit
+ * Copyright 2024 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -97,5 +97,28 @@ public extension Participant {
 public extension Track {
     override var description: String {
         "\(String(describing: type(of: self)))(sid: \(sid ?? "nil"), name: \(name), source: \(source))"
+    }
+}
+
+extension RTCPeerConnectionState {
+    var description: String {
+        switch self {
+        case .new: return ".new"
+        case .connecting: return ".connecting"
+        case .connected: return ".connected"
+        case .disconnected: return ".disconnected"
+        case .failed: return ".failed"
+        case .closed: return ".closed"
+        @unknown default: return "unknown"
+        }
+    }
+}
+
+extension ReconnectMode: CustomStringConvertible {
+    public var description: String {
+        switch self {
+        case .quick: return ".quick"
+        case .full: return ".full"
+        }
     }
 }

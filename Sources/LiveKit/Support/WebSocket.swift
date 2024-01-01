@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 LiveKit
+ * Copyright 2024 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -119,7 +119,8 @@ class WebSocket: NSObject, Loggable, AsyncSequence, URLSessionWebSocketDelegate 
     }
 
     func urlSession(_: URLSession, task _: URLSessionTask, didCompleteWithError error: Error?) {
-        log("didCompleteWithError: \(String(describing: error))", .error)
+        log("didCompleteWithError: \(String(describing: error))", error != nil ? .error : .debug)
+
         connectContinuation?.resume(throwing: LiveKitError.from(error: error) ?? LiveKitError(.unknown))
         connectContinuation = nil
         streamContinuation?.finish()

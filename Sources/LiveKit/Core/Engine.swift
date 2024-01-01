@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 LiveKit
+ * Copyright 2024 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -307,9 +307,9 @@ extension Engine {
             self.publisher = publisher
 
         } else if case .reconnect = connectResponse {
-            log("[Reconnect] Configuring transports with RECONNECT response...")
+            log("[Connect] Configuring transports with RECONNECT response...")
             guard let subscriber, let publisher else {
-                log("[Reconnect] Subscriber or Publisher is nil", .error)
+                log("[Connect] Subscriber or Publisher is nil", .error)
                 return
             }
 
@@ -388,20 +388,20 @@ extension Engine {
     }
 
     func startReconnect(reason: StartReconnectReason) async throws {
-        log("[Reconnect] Starting, reason: \(reason)")
+        log("[Connect] Starting, reason: \(reason)")
 
         guard case .connected = _state.connectionState else {
-            log("[Reconnect] Must be called with connected state", .error)
+            log("[Connect] Must be called with connected state", .error)
             throw LiveKitError(.invalidState)
         }
 
         guard let url = _state.url, let token = _state.token else {
-            log("[Reconnect] Url or token is nil", .error)
+            log("[Connect] Url or token is nil", .error)
             throw LiveKitError(.invalidState)
         }
 
         guard subscriber != nil, publisher != nil else {
-            log("[Reconnect] Publisher or subscriber is nil", .error)
+            log("[Connect] Publisher or subscriber is nil", .error)
             throw LiveKitError(.invalidState)
         }
 
@@ -413,7 +413,7 @@ extension Engine {
 
         // quick connect sequence, does not update connection state
         func quickReconnectSequence() async throws {
-            log("[Reconnect] Starting .quick reconnect sequence...")
+            log("[Connect] Starting .quick reconnect sequence...")
 
             // This should never happen since Engine is owned by Room
             let room = try requireRoom()
@@ -427,23 +427,22 @@ extension Engine {
             // Update configuration
             try await configureTransports(connectResponse: connectResponse)
             try await signalClient.resumeResponseQueue()
-            log("[Reconnect] Waiting for socket to connect...")
+            log("[Connect] Waiting for socket to connect...")
             // Wait for primary transport to connect (if not already)
             try await primaryTransportConnectedCompleter.wait()
 
             // send SyncState before offer
-            // try await sendSyncState()
+            try await sendSyncState()
 
             subscriber?.isRestartingIce = true
 
             if let publisher, _state.hasPublished {
                 // Only if published, wait for publisher to connect...
-                log("[Reconnect] Waiting for publisher to connect...")
+                log("[Connect] Waiting for publisher to connect...")
                 try await publisher.createAndSendOffer(iceRestart: true)
                 try await publisherTransportConnectedCompleter.wait()
             }
 
-            log("[Reconnect] Sending queued requests...")
             // always check if there are queued requests
             try await signalClient.sendQueuedRequests()
         }
@@ -451,14 +450,14 @@ extension Engine {
         // "full" re-connection sequence
         // as a last resort, try to do a clean re-connection and re-publish existing tracks
         func fullReconnectSequence() async throws {
-            log("[Reconnect] starting .full reconnect sequence...")
+            log("[Connect] starting .full reconnect sequence...")
 
             try await cleanUp(isFullReconnect: true)
 
             guard let url = _state.url,
                   let token = _state.token
             else {
-                log("[Reconnect] Url or token is nil")
+                log("[Connect] Url or token is nil")
                 throw LiveKitError(.invalidState)
             }
 
@@ -471,14 +470,14 @@ extension Engine {
 
             // Not reconnecting state anymore
             guard case .reconnecting = _state.connectionState else {
-                self.log("[Reconnect] Not in reconnect state anymore, exiting retry cycle.")
+                self.log("[Connect] Not in reconnect state anymore, exiting retry cycle.")
                 return
             }
 
             // Full reconnect failed, give up
             guard _state.reconnectMode != .full else { return }
 
-            self.log("[Reconnect] Retry in \(_state.connectOptions.reconnectAttemptDelay) seconds, \(currentAttempt)/\(totalAttempts) tries left.")
+            self.log("[Connect] Retry in \(_state.connectOptions.reconnectAttemptDelay) seconds, \(currentAttempt)/\(totalAttempts) tries left.")
 
             // Try full reconnect for the final attempt
             if totalAttempts == currentAttempt, _state.nextPreferredReconnectMode == nil {
@@ -499,7 +498,7 @@ extension Engine {
                     try await fullReconnectSequence()
                 }
             } catch {
-                log("[Reconnect] Reconnect mode: \(mode) failed with error: \(error)", .error)
+                log("[Connect] Reconnect mode: \(mode) failed with error: \(error)", .error)
                 // Re-throw
                 throw error
             }
@@ -508,10 +507,10 @@ extension Engine {
         do {
             try await retryingTask.value
             // Re-connect sequence successful
-            log("[Reconnect] Sequence completed")
+            log("[Connect] Sequence completed")
             _state.mutate { $0.connectionState = .connected }
         } catch {
-            log("[Reconnect] Sequence failed with error: \(error)")
+            log("[Connect] Sequence failed with error: \(error)")
             // Finally disconnect if all attempts fail
             try await cleanUp(withError: error)
         }
