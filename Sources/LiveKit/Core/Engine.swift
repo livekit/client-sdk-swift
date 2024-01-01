@@ -436,13 +436,12 @@ extension Engine {
 
             subscriber?.isRestartingIce = true
 
-            // Only if published, continue...
-            guard let publisher, _state.hasPublished else { return }
-
-            log("[Reconnect] Waiting for publisher to connect...")
-
-            try await publisher.createAndSendOffer(iceRestart: true)
-            try await publisherTransportConnectedCompleter.wait()
+            if let publisher, _state.hasPublished {
+                // Only if published, wait for publisher to connect...
+                log("[Reconnect] Waiting for publisher to connect...")
+                try await publisher.createAndSendOffer(iceRestart: true)
+                try await publisherTransportConnectedCompleter.wait()
+            }
 
             log("[Reconnect] Sending queued requests...")
             // always check if there are queued requests
