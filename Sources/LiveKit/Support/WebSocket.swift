@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 LiveKit
+ * Copyright 2024 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -68,10 +68,10 @@ class WebSocket: NSObject, Loggable, AsyncSequence, URLSessionWebSocketDelegate 
     }
 
     func close() {
-        task.cancel(with: .goingAway, reason: nil)
+        task.cancel(with: .normalClosure, reason: nil)
         connectContinuation?.resume(throwing: LiveKitError(.cancelled))
         connectContinuation = nil
-        streamContinuation?.finish()
+        streamContinuation?.finish(throwing: LiveKitError(.cancelled))
         streamContinuation = nil
     }
 
@@ -83,7 +83,7 @@ class WebSocket: NSObject, Loggable, AsyncSequence, URLSessionWebSocketDelegate 
 
     private func waitForNextValue() {
         guard task.closeCode == .invalid else {
-            streamContinuation?.finish()
+            streamContinuation?.finish(throwing: LiveKitError(.invalidState))
             streamContinuation = nil
             return
         }
@@ -98,7 +98,7 @@ class WebSocket: NSObject, Loggable, AsyncSequence, URLSessionWebSocketDelegate 
                 continuation.yield(message)
                 self?.waitForNextValue()
             } catch {
-                continuation.finish(throwing: error)
+                continuation.finish(throwing: LiveKitError.from(error: error))
                 self?.streamContinuation = nil
             }
         })
@@ -119,10 +119,18 @@ class WebSocket: NSObject, Loggable, AsyncSequence, URLSessionWebSocketDelegate 
     }
 
     func urlSession(_: URLSession, task _: URLSessionTask, didCompleteWithError error: Error?) {
-        log("didCompleteWithError: \(String(describing: error))", .error)
-        connectContinuation?.resume(throwing: LiveKitError.from(error: error) ?? LiveKitError(.unknown))
+        log("didCompleteWithError: \(String(describing: error))", error != nil ? .error : .debug)
+
+        if let error {
+            let lkError = LiveKitError.from(error: error) ?? LiveKitError(.unknown)
+            connectContinuation?.resume(throwing: lkError)
+            streamContinuation?.finish(throwing: lkError)
+        } else {
+            connectContinuation?.resume()
+            streamContinuation?.finish()
+        }
+
         connectContinuation = nil
-        streamContinuation?.finish()
         streamContinuation = nil
     }
 }

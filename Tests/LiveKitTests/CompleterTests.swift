@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 LiveKit
+ * Copyright 2024 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,13 +26,13 @@ class CompleterTests: XCTestCase {
         let completer = AsyncCompleter<Void>(label: "Test01", timeOut: .seconds(1))
         do {
             try await completer.wait()
-        } catch AsyncCompleterError.timedOut {
+        } catch let error as LiveKitError where error.type == .timedOut {
             print("Timed out 1")
         }
         // Re-use
         do {
             try await completer.wait()
-        } catch AsyncCompleterError.timedOut {
+        } catch let error as LiveKitError where error.type == .timedOut {
             print("Timed out 2")
         }
     }
@@ -53,14 +53,14 @@ class CompleterTests: XCTestCase {
                     // Cancel after 1 second
                     try await Task.sleep(until: .now + .seconds(1), clock: .continuous)
                     print("Task 2: Cancelling completer...")
-                    completer.cancel()
+                    completer.reset()
                 }
 
                 try await group.waitForAll()
             }
-        } catch let error as AsyncCompleterError where error == .timedOut {
+        } catch let error as LiveKitError where error.type == .timedOut {
             print("Completer timed out")
-        } catch let error as AsyncCompleterError where error == .cancelled {
+        } catch let error as LiveKitError where error.type == .cancelled {
             print("Completer cancelled")
         } catch {
             print("Unknown error: \(error)")
