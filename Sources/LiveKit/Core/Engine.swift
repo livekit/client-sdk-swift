@@ -381,7 +381,7 @@ extension Engine {
         // Check cancellation after configuring transports
         try Task.checkCancellation()
 
-        try await signalClient.resumeResponseQueue()
+        await signalClient.resumeResponseQueue()
         try await primaryTransportConnectedCompleter.wait()
         _state.mutate { $0.connectStopwatch.split(label: "engine") }
         log("\(_state.connectStopwatch)")
@@ -426,7 +426,7 @@ extension Engine {
 
             // Update configuration
             try await configureTransports(connectResponse: connectResponse)
-            try await signalClient.resumeResponseQueue()
+            await signalClient.resumeResponseQueue()
             log("[Connect] Waiting for socket to connect...")
             // Wait for primary transport to connect (if not already)
             try await primaryTransportConnectedCompleter.wait()
@@ -444,7 +444,7 @@ extension Engine {
             }
 
             // always check if there are queued requests
-            try await signalClient.sendQueuedRequests()
+            try await signalClient.resumeRequestQueue()
         }
 
         // "full" re-connection sequence

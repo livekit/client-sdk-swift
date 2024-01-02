@@ -122,3 +122,9 @@ extension ReconnectMode: CustomStringConvertible {
         }
     }
 }
+
+extension Livekit_SignalResponse: CustomStringConvertible {
+    var description: String {
+        "Livekit_SignalResponse(\(String(describing: message)))"
+    }
+}

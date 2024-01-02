@@ -69,7 +69,16 @@ class Transport: MulticastDelegate<TransportDelegate> {
 
     // forbid direct access to PeerConnection
     private let _pc: LKRTCPeerConnection
-    private var _pendingCandidatesQueue = AsyncQueueActor<LKRTCIceCandidate>()
+
+    private lazy var _iceCandidatesQueue = QueueActor<LKRTCIceCandidate>(onProcess: { [weak self] iceCandidate in
+        guard let self else { return }
+
+        do {
+            try await self._pc.add(iceCandidate)
+        } catch {
+            log("Failed to add(iceCandidate:) with error: \(error)", .error)
+        }
+    })
 
     // keep reference to cancel later
     private var _debounceWorkItem: DispatchWorkItem?
@@ -103,23 +112,13 @@ class Transport: MulticastDelegate<TransportDelegate> {
     }
 
     func add(iceCandidate candidate: LKRTCIceCandidate) async throws {
-        if remoteDescription != nil, !isRestartingIce {
-            return try await _pc.add(candidate)
-        }
-
-        await _pendingCandidatesQueue.enqueue(candidate)
+        await _iceCandidatesQueue.process(candidate, if: remoteDescription != nil && !isRestartingIce)
     }
 
     func set(remoteDescription sd: LKRTCSessionDescription) async throws {
         try await _pc.setRemoteDescription(sd)
 
-        try await _pendingCandidatesQueue.resume { candidate in
-            do {
-                try await add(iceCandidate: candidate)
-            } catch {
-                log("Failed to add(iceCandidate:) with error: \(error)", .error)
-            }
-        }
+        await _iceCandidatesQueue.resume()
 
         isRestartingIce = false
 

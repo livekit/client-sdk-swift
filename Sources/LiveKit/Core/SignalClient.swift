@@ -57,8 +57,29 @@ class SignalClient: MulticastDelegate<SignalClientDelegate> {
     private let _queue = DispatchQueue(label: "LiveKitSDK.signalClient", qos: .default)
 
     // Queue to store requests while reconnecting
-    private let _requestQueue = AsyncQueueActor<Livekit_SignalRequest>()
-    private let _responseQueue = AsyncQueueActor<Livekit_SignalResponse>()
+    private lazy var _requestQueue = QueueActor<Livekit_SignalRequest>(onProcess: { [weak self] request in
+        guard let self else { return }
+
+        do {
+            // Prepare request data...
+            guard let data = try? request.serializedData() else {
+                log("Could not serialize request data", .error)
+                throw LiveKitError(.failedToConvertData, message: "Failed to convert data")
+            }
+
+            let webSocket = try requireWebSocket()
+            try await webSocket.send(data: data)
+
+        } catch {
+            log("Failed to send queued request \(request) with error: \(error)", .error)
+        }
+    })
+
+    private lazy var _responseQueue = QueueActor<Livekit_SignalResponse>(onProcess: { [weak self] response in
+        guard let self else { return }
+
+        await self._process(signalResponse: response)
+    })
 
     private var _webSocket: WebSocket?
     private var _messageLoopTask: Task<Void, Never>?
@@ -213,25 +234,14 @@ class SignalClient: MulticastDelegate<SignalClientDelegate> {
 
 private extension SignalClient {
     // Send request or enqueue while reconnecting
-    func _sendRequest(_ request: Livekit_SignalRequest, enqueueIfReconnecting: Bool = true) async throws {
-        guard !(_state.connectionState == .reconnecting && request.canEnqueue() && enqueueIfReconnecting) else {
-            log("Queuing request while reconnecting, request: \(request)")
-            await _requestQueue.enqueue(request)
-            return
-        }
-
+    func _sendRequest(_ request: Livekit_SignalRequest) async throws {
         guard _state.connectionState != .disconnected else {
             log("connectionState is .disconnected", .error)
             throw LiveKitError(.invalidState, message: "connectionState is .disconnected")
         }
 
-        guard let data = try? request.serializedData() else {
-            log("Could not serialize request data", .error)
-            throw LiveKitError(.failedToConvertData, message: "Failed to convert data")
-        }
-
-        let webSocket = try requireWebSocket()
-        try await webSocket.send(data: data)
+        let processImmediately = !(_state.connectionState == .reconnecting && request.canEnqueue())
+        await _requestQueue.process(request, if: processImmediately)
     }
 
     func _onWebSocketMessage(message: URLSessionWebSocketTask.Message) {
@@ -249,7 +259,7 @@ private extension SignalClient {
         }
 
         Task {
-            await _responseQueue.enqueue(response) { await _process(signalResponse: $0) }
+            await _responseQueue.processIfResumed(response)
         }
     }
 
@@ -345,27 +355,19 @@ private extension SignalClient {
 // MARK: - Internal
 
 extension SignalClient {
-    func resumeResponseQueue() async throws {
-        try await _responseQueue.resume { response in
-            await _process(signalResponse: response)
-        }
+    func resumeResponseQueue() async {
+        await _responseQueue.resume()
     }
 }
 
 // MARK: - Send methods
 
 extension SignalClient {
-    func sendQueuedRequests() async throws {
+    func resumeRequestQueue() async throws {
         let queueCount = await _requestQueue.count
         log("[Connect] Sending queued requests (\(queueCount))...")
 
-        try await _requestQueue.resume { element in
-            do {
-                try await _sendRequest(element, enqueueIfReconnecting: false)
-            } catch {
-                log("Failed to send queued request \(element) with error: \(error)", .error)
-            }
-        }
+        await _requestQueue.resume()
     }
 
     func send(offer: LKRTCSessionDescription) async throws {
