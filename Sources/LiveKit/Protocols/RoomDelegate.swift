@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 LiveKit
+ * Copyright 2024 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -39,14 +39,22 @@ public protocol RoomDelegate: AnyObject {
     func room(_ room: Room, didUpdateConnectionState connectionState: ConnectionState, oldConnectionState: ConnectionState)
 
     /// Successfully connected to the room.
-    @objc(room:didConnectIsReconnect:) optional
-    func room(_ room: Room, didConnect isReconnect: Bool)
+    @objc(roomDidConnect:) optional
+    func roomDidConnect(_ room: Room)
 
-    /// Could not connect to the room.
+    /// Successfully re-connected to the room.
+    @objc(roomIsReconnecting:) optional
+    func roomIsReconnecting(_ room: Room)
+
+    /// Successfully re-connected to the room.
+    @objc(roomDidReconnect:) optional
+    func roomDidReconnect(_ room: Room)
+
+    /// Could not connect to the room. Only triggered when the initial connect attempt fails.
     @objc(room:didFailToConnectWithError:) optional
     func room(_ room: Room, didFailToConnectWithError error: LiveKitError?)
 
-    /// Client disconnected from the room unexpectedly.
+    /// Client disconnected from the room unexpectedly after a successful connection.
     @objc(room:didDisconnectWithError:) optional
     func room(_ room: Room, didDisconnectWithError error: LiveKitError?)
 

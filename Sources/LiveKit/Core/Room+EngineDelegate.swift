@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 LiveKit
+ * Copyright 2024 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -43,11 +43,19 @@ extension Room: EngineDelegate {
                 $0.room?(self, didUpdateConnectionState: state.connectionState, oldConnectionState: oldState.connectionState)
             }
 
-            // Legacy connection delegates
+            // Individual connectionState delegates
             if case .connected = state.connectionState {
-                let didReconnect = oldState.connectionState == .reconnecting
-                delegates.notify { $0.room?(self, didConnect: didReconnect) }
+                // Connected
+                if case .reconnecting = oldState.connectionState {
+                    delegates.notify { $0.roomDidReconnect?(self) }
+                } else {
+                    delegates.notify { $0.roomDidConnect?(self) }
+                }
+            } else if case .reconnecting = state.connectionState {
+                // Re-connecting
+                delegates.notify { $0.roomIsReconnecting?(self) }
             } else if case .disconnected = state.connectionState {
+                // Disconnected
                 if case .connecting = oldState.connectionState {
                     delegates.notify { $0.room?(self, didFailToConnectWithError: oldState.disconnectError) }
                 } else {
