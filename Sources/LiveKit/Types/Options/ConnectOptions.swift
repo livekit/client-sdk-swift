@@ -52,7 +52,7 @@ public class ConnectOptions: NSObject {
         reconnectAttempts = 3
         reconnectAttemptDelay = .defaultReconnectAttemptDelay
         iceServers = []
-        protocolVersion = .v10
+        protocolVersion = .v11
     }
 
     @objc
@@ -61,7 +61,7 @@ public class ConnectOptions: NSObject {
                 reconnectAttempts: Int = 3,
                 reconnectAttemptDelay: TimeInterval = .defaultReconnectAttemptDelay,
                 iceServers: [IceServer] = [],
-                protocolVersion: ProtocolVersion = .v10)
+                protocolVersion: ProtocolVersion = .v11)
     {
         self.autoSubscribe = autoSubscribe
         self.publishOnlyMode = publishOnlyMode
