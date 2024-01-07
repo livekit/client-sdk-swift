@@ -593,9 +593,20 @@ struct Livekit_Room {
 
   var activeRecording: Bool = false
 
+  var version: Livekit_TimedVersion {
+    get {return _version ?? Livekit_TimedVersion()}
+    set {_version = newValue}
+  }
+  /// Returns true if `version` has been explicitly set.
+  var hasVersion: Bool {return self._version != nil}
+  /// Clears the value of `version`. Subsequent reads from it will return its default value.
+  mutating func clearVersion() {self._version = nil}
+
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   init() {}
+
+  fileprivate var _version: Livekit_TimedVersion? = nil
 }
 
 struct Livekit_Codec {
@@ -729,6 +740,11 @@ struct Livekit_ParticipantInfo {
     set {_uniqueStorage()._isPublisher = newValue}
   }
 
+  var kind: Livekit_ParticipantInfo.Kind {
+    get {return _storage._kind}
+    set {_uniqueStorage()._kind = newValue}
+  }
+
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   enum State: SwiftProtobuf.Enum {
@@ -773,6 +789,53 @@ struct Livekit_ParticipantInfo {
 
   }
 
+  enum Kind: SwiftProtobuf.Enum {
+    typealias RawValue = Int
+
+    /// standard participants, e.g. web clients
+    case standard // = 0
+
+    /// only ingests streams
+    case ingress // = 1
+
+    /// only consumes streams
+    case egress // = 2
+
+    /// SIP participants
+    case sip // = 3
+
+    /// LiveKit agents
+    case agent // = 4
+    case UNRECOGNIZED(Int)
+
+    init() {
+      self = .standard
+    }
+
+    init?(rawValue: Int) {
+      switch rawValue {
+      case 0: self = .standard
+      case 1: self = .ingress
+      case 2: self = .egress
+      case 3: self = .sip
+      case 4: self = .agent
+      default: self = .UNRECOGNIZED(rawValue)
+      }
+    }
+
+    var rawValue: Int {
+      switch self {
+      case .standard: return 0
+      case .ingress: return 1
+      case .egress: return 2
+      case .sip: return 3
+      case .agent: return 4
+      case .UNRECOGNIZED(let i): return i
+      }
+    }
+
+  }
+
   init() {}
 
   fileprivate var _storage = _StorageClass.defaultInstance
@@ -787,6 +850,17 @@ extension Livekit_ParticipantInfo.State: CaseIterable {
     .joined,
     .active,
     .disconnected,
+  ]
+}
+
+extension Livekit_ParticipantInfo.Kind: CaseIterable {
+  // The compiler won't synthesize support with the UNRECOGNIZED case.
+  static let allCases: [Livekit_ParticipantInfo.Kind] = [
+    .standard,
+    .ingress,
+    .egress,
+    .sip,
+    .agent,
   ]
 }
 
@@ -961,6 +1035,15 @@ struct Livekit_TrackInfo {
     get {return _storage._stream}
     set {_uniqueStorage()._stream = newValue}
   }
+
+  var version: Livekit_TimedVersion {
+    get {return _storage._version ?? Livekit_TimedVersion()}
+    set {_uniqueStorage()._version = newValue}
+  }
+  /// Returns true if `version` has been explicitly set.
+  var hasVersion: Bool {return _storage._version != nil}
+  /// Clears the value of `version`. Subsequent reads from it will return its default value.
+  mutating func clearVersion() {_uniqueStorage()._version = nil}
 
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
@@ -1751,6 +1834,7 @@ extension Livekit_PlayoutDelay: @unchecked Sendable {}
 extension Livekit_ParticipantPermission: @unchecked Sendable {}
 extension Livekit_ParticipantInfo: @unchecked Sendable {}
 extension Livekit_ParticipantInfo.State: @unchecked Sendable {}
+extension Livekit_ParticipantInfo.Kind: @unchecked Sendable {}
 extension Livekit_Encryption: @unchecked Sendable {}
 extension Livekit_Encryption.TypeEnum: @unchecked Sendable {}
 extension Livekit_SimulcastCodecInfo: @unchecked Sendable {}
@@ -1893,6 +1977,7 @@ extension Livekit_Room: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementat
     9: .standard(proto: "num_participants"),
     11: .standard(proto: "num_publishers"),
     10: .standard(proto: "active_recording"),
+    13: .same(proto: "version"),
   ]
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -1912,12 +1997,17 @@ extension Livekit_Room: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementat
       case 9: try { try decoder.decodeSingularUInt32Field(value: &self.numParticipants) }()
       case 10: try { try decoder.decodeSingularBoolField(value: &self.activeRecording) }()
       case 11: try { try decoder.decodeSingularUInt32Field(value: &self.numPublishers) }()
+      case 13: try { try decoder.decodeSingularMessageField(value: &self._version) }()
       default: break
       }
     }
   }
 
   func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    // The use of inline closures is to circumvent an issue where the compiler
+    // allocates stack space for every if/case branch local when no optimizations
+    // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+    // https://github.com/apple/swift-protobuf/issues/1182
     if !self.sid.isEmpty {
       try visitor.visitSingularStringField(value: self.sid, fieldNumber: 1)
     }
@@ -1951,6 +2041,9 @@ extension Livekit_Room: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementat
     if self.numPublishers != 0 {
       try visitor.visitSingularUInt32Field(value: self.numPublishers, fieldNumber: 11)
     }
+    try { if let v = self._version {
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 13)
+    } }()
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -1966,6 +2059,7 @@ extension Livekit_Room: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementat
     if lhs.numParticipants != rhs.numParticipants {return false}
     if lhs.numPublishers != rhs.numPublishers {return false}
     if lhs.activeRecording != rhs.activeRecording {return false}
+    if lhs._version != rhs._version {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
@@ -2141,6 +2235,7 @@ extension Livekit_ParticipantInfo: SwiftProtobuf.Message, SwiftProtobuf._Message
     11: .same(proto: "permission"),
     12: .same(proto: "region"),
     13: .standard(proto: "is_publisher"),
+    14: .same(proto: "kind"),
   ]
 
   fileprivate class _StorageClass {
@@ -2155,6 +2250,7 @@ extension Livekit_ParticipantInfo: SwiftProtobuf.Message, SwiftProtobuf._Message
     var _permission: Livekit_ParticipantPermission? = nil
     var _region: String = String()
     var _isPublisher: Bool = false
+    var _kind: Livekit_ParticipantInfo.Kind = .standard
 
     static let defaultInstance = _StorageClass()
 
@@ -2172,6 +2268,7 @@ extension Livekit_ParticipantInfo: SwiftProtobuf.Message, SwiftProtobuf._Message
       _permission = source._permission
       _region = source._region
       _isPublisher = source._isPublisher
+      _kind = source._kind
     }
   }
 
@@ -2201,6 +2298,7 @@ extension Livekit_ParticipantInfo: SwiftProtobuf.Message, SwiftProtobuf._Message
         case 11: try { try decoder.decodeSingularMessageField(value: &_storage._permission) }()
         case 12: try { try decoder.decodeSingularStringField(value: &_storage._region) }()
         case 13: try { try decoder.decodeSingularBoolField(value: &_storage._isPublisher) }()
+        case 14: try { try decoder.decodeSingularEnumField(value: &_storage._kind) }()
         default: break
         }
       }
@@ -2246,6 +2344,9 @@ extension Livekit_ParticipantInfo: SwiftProtobuf.Message, SwiftProtobuf._Message
       if _storage._isPublisher != false {
         try visitor.visitSingularBoolField(value: _storage._isPublisher, fieldNumber: 13)
       }
+      if _storage._kind != .standard {
+        try visitor.visitSingularEnumField(value: _storage._kind, fieldNumber: 14)
+      }
     }
     try unknownFields.traverse(visitor: &visitor)
   }
@@ -2266,6 +2367,7 @@ extension Livekit_ParticipantInfo: SwiftProtobuf.Message, SwiftProtobuf._Message
         if _storage._permission != rhs_storage._permission {return false}
         if _storage._region != rhs_storage._region {return false}
         if _storage._isPublisher != rhs_storage._isPublisher {return false}
+        if _storage._kind != rhs_storage._kind {return false}
         return true
       }
       if !storagesAreEqual {return false}
@@ -2281,6 +2383,16 @@ extension Livekit_ParticipantInfo.State: SwiftProtobuf._ProtoNameProviding {
     1: .same(proto: "JOINED"),
     2: .same(proto: "ACTIVE"),
     3: .same(proto: "DISCONNECTED"),
+  ]
+}
+
+extension Livekit_ParticipantInfo.Kind: SwiftProtobuf._ProtoNameProviding {
+  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
+    0: .same(proto: "STANDARD"),
+    1: .same(proto: "INGRESS"),
+    2: .same(proto: "EGRESS"),
+    3: .same(proto: "SIP"),
+    4: .same(proto: "AGENT"),
   ]
 }
 
@@ -2381,6 +2493,7 @@ extension Livekit_TrackInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImplem
     15: .standard(proto: "disable_red"),
     16: .same(proto: "encryption"),
     17: .same(proto: "stream"),
+    18: .same(proto: "version"),
   ]
 
   fileprivate class _StorageClass {
@@ -2401,6 +2514,7 @@ extension Livekit_TrackInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImplem
     var _disableRed: Bool = false
     var _encryption: Livekit_Encryption.TypeEnum = .none
     var _stream: String = String()
+    var _version: Livekit_TimedVersion? = nil
 
     static let defaultInstance = _StorageClass()
 
@@ -2424,6 +2538,7 @@ extension Livekit_TrackInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImplem
       _disableRed = source._disableRed
       _encryption = source._encryption
       _stream = source._stream
+      _version = source._version
     }
   }
 
@@ -2459,6 +2574,7 @@ extension Livekit_TrackInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImplem
         case 15: try { try decoder.decodeSingularBoolField(value: &_storage._disableRed) }()
         case 16: try { try decoder.decodeSingularEnumField(value: &_storage._encryption) }()
         case 17: try { try decoder.decodeSingularStringField(value: &_storage._stream) }()
+        case 18: try { try decoder.decodeSingularMessageField(value: &_storage._version) }()
         default: break
         }
       }
@@ -2467,6 +2583,10 @@ extension Livekit_TrackInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImplem
 
   func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
     try withExtendedLifetime(_storage) { (_storage: _StorageClass) in
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every if/case branch local when no optimizations
+      // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+      // https://github.com/apple/swift-protobuf/issues/1182
       if !_storage._sid.isEmpty {
         try visitor.visitSingularStringField(value: _storage._sid, fieldNumber: 1)
       }
@@ -2518,6 +2638,9 @@ extension Livekit_TrackInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImplem
       if !_storage._stream.isEmpty {
         try visitor.visitSingularStringField(value: _storage._stream, fieldNumber: 17)
       }
+      try { if let v = _storage._version {
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 18)
+      } }()
     }
     try unknownFields.traverse(visitor: &visitor)
   }
@@ -2544,6 +2667,7 @@ extension Livekit_TrackInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImplem
         if _storage._disableRed != rhs_storage._disableRed {return false}
         if _storage._encryption != rhs_storage._encryption {return false}
         if _storage._stream != rhs_storage._stream {return false}
+        if _storage._version != rhs_storage._version {return false}
         return true
       }
       if !storagesAreEqual {return false}

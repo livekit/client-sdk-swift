@@ -5,8 +5,6 @@ proto: protoc protoc-swift
 		${PROTO_SOURCE}/livekit_models.proto \
 		${PROTO_SOURCE}/livekit_rtc.proto
 
-	protoc --swift_opt=Visibility=Public --swift_out=Sources/LiveKit/protos -I=. livekit_ipc.proto
-
 docs: swift-docs
 	swift doc generate Sources/LiveKit \
 		--module-name "LiveKit Swift Client SDK" \
