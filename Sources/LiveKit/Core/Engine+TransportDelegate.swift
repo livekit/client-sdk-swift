@@ -54,7 +54,11 @@ extension Engine: TransportDelegate {
     }
 
     func transport(_ transport: Transport, didAddTrack track: LKRTCMediaStreamTrack, rtpReceiver: LKRTCRtpReceiver, streams: [LKRTCMediaStream]) {
-        log("did add track")
+        guard !streams.isEmpty else {
+            log("Received onTrack with no streams!", .warning)
+            return
+        }
+
         if transport.target == .subscriber {
             // execute block when connected
             execute(when: { state, _ in state.connectionState == .connected },
@@ -62,7 +66,7 @@ extension Engine: TransportDelegate {
                     removeWhen: { state, _ in state.connectionState == .disconnected })
             { [weak self] in
                 guard let self else { return }
-                self.notify { $0.engine(self, didAddTrack: track, rtpReceiver: rtpReceiver, streams: streams) }
+                self.notify { $0.engine(self, didAddTrack: track, rtpReceiver: rtpReceiver, stream: streams.first!) }
             }
         }
     }
