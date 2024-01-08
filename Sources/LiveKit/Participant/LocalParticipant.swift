@@ -214,10 +214,10 @@ public class LocalParticipant: Participant {
 
             // Notify didPublish
             delegates.notify(label: { "localParticipant.didPublish \(publication)" }) {
-                $0.localParticipant?(self, didPublishPublication: publication)
+                $0.localParticipant?(self, didPublishTrack: publication)
             }
             room.delegates.notify(label: { "localParticipant.didPublish \(publication)" }) {
-                $0.room?(self.room, localParticipant: self, didPublishPublication: publication)
+                $0.room?(self.room, localParticipant: self, didPublishTrack: publication)
             }
 
             log("[publish] success \(publication)", .info)
@@ -266,10 +266,10 @@ public class LocalParticipant: Participant {
         func _notifyDidUnpublish() async {
             guard _notify else { return }
             delegates.notify(label: { "localParticipant.didUnpublish \(publication)" }) {
-                $0.localParticipant?(self, didUnpublishPublication: publication)
+                $0.localParticipant?(self, didUnpublishTrack: publication)
             }
             room.delegates.notify(label: { "room.didUnpublish \(publication)" }) {
-                $0.room?(self.room, localParticipant: self, didUnpublishPublication: publication)
+                $0.room?(self.room, localParticipant: self, didUnpublishTrack: publication)
             }
         }
 

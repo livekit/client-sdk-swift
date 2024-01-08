@@ -74,12 +74,12 @@ public protocol RoomDelegate: AnyObject {
 
     /// When a ``RemoteParticipant`` joins after the ``LocalParticipant``.
     /// It will not emit events for participants that are already in the room.
-    @objc(room:participantDidJoin:) optional
-    func room(_ room: Room, participantDidJoin participant: RemoteParticipant)
+    @objc(room:participantDidConnect:) optional
+    func room(_ room: Room, remoteParticipantDidConnect remoteParticipant: RemoteParticipant)
 
     /// When a ``RemoteParticipant`` leaves after the ``LocalParticipant`` has joined.
-    @objc(room:participantDidLeave:) optional
-    func room(_ room: Room, participantDidLeave participant: RemoteParticipant)
+    @objc(room:participantDidDisconnect:) optional
+    func room(_ room: Room, remoteParticipantDidDisconnect remoteParticipant: RemoteParticipant)
 
     /// Active speakers changed.
     ///
@@ -100,63 +100,63 @@ public protocol RoomDelegate: AnyObject {
     @objc(room:participant:didUpdateConnectionQuality:) optional
     func room(_ room: Room, participant: Participant, didUpdateConnectionQuality connectionQuality: ConnectionQuality)
 
-    /// Same with ``ParticipantDelegate/participant(_:didUpdatePublication:isMuted:)``.
-    @objc(room:participant:publication:didUpdateIsMuted:) optional
-    func room(_ room: Room, participant: Participant, didUpdatePublication publication: TrackPublication, isMuted: Bool)
+    /// Same with ``ParticipantDelegate/participant(_:track:didUpdateIsMuted:)``.
+    @objc(room:participant:track:didUpdateIsMuted:) optional
+    func room(_ room: Room, participant: Participant, track: TrackPublication, didUpdateIsMuted isMuted: Bool)
 
     @objc(room:participant:didUpdatePermissions:) optional
     func room(_ room: Room, participant: Participant, didUpdatePermissions permissions: ParticipantPermissions)
 
     // MARK: - LocalTrackPublication
 
-    /// Same with ``ParticipantDelegate/localParticipant(_:didPublishPublication:)``.
-    @objc(room:localParticipant:didPublishPublication:) optional
-    func room(_ room: Room, localParticipant: LocalParticipant, didPublishPublication publication: LocalTrackPublication)
+    /// Same with ``ParticipantDelegate/localParticipant(_:didPublishTrack:)``.
+    @objc(room:localParticipant:didPublishTrack:) optional
+    func room(_ room: Room, localParticipant: LocalParticipant, didPublishTrack publication: LocalTrackPublication)
 
-    /// Same with ``ParticipantDelegate/localParticipant(_:didUnpublishPublication:)``.
-    @objc(room:localParticipant:didUnpublishPublication:) optional
-    func room(_ room: Room, localParticipant: LocalParticipant, didUnpublishPublication publication: LocalTrackPublication)
+    /// Same with ``ParticipantDelegate/localParticipant(_:didUnpublishTrack:)``.
+    @objc(room:localParticipant:didUnpublishTrack:) optional
+    func room(_ room: Room, localParticipant: LocalParticipant, didUnpublishTrack publication: LocalTrackPublication)
 
     // MARK: - RemoteTrackPublication
 
     /// Same with ``ParticipantDelegate/participant(_:didPublishPublication:)``.
-    @objc(room:participant:didPublishPublication:) optional
-    func room(_ room: Room, participant: RemoteParticipant, didPublishPublication publication: RemoteTrackPublication)
+    @objc(room:remoteParticipant:didPublishTrack:) optional
+    func room(_ room: Room, remoteParticipant: RemoteParticipant, didPublishTrack publication: RemoteTrackPublication)
 
     /// Same with ``ParticipantDelegate/participant(_:didUnpublishPublication:)``.
-    @objc(room:participant:didUnpublishPublication:) optional
-    func room(_ room: Room, participant: RemoteParticipant, didUnpublishPublication publication: RemoteTrackPublication)
+    @objc(room:remoteParticipant:didUnpublishTrack:) optional
+    func room(_ room: Room, remoteParticipant: RemoteParticipant, didUnpublishTrack publication: RemoteTrackPublication)
 
     /// Same with ``ParticipantDelegate/participant(_:didSubscribePublication:)``.
-    @objc(room:participant:didSubscribePublication:) optional
-    func room(_ room: Room, participant: RemoteParticipant, didSubscribePublication publication: RemoteTrackPublication)
+    @objc(room:remoteParticipant:didSubscribeTrack:) optional
+    func room(_ room: Room, remoteParticipant: RemoteParticipant, didSubscribeTrack publication: RemoteTrackPublication)
 
     /// Same with ``ParticipantDelegate/participant(_:didUnsubscribePublication:)``.
-    @objc(room:publication:didUnsubscribePublication:) optional
-    func room(_ room: Room, participant: RemoteParticipant, didUnsubscribePublication publication: RemoteTrackPublication)
+    @objc(room:remoteParticipant:didUnsubscribeTrack:) optional
+    func room(_ room: Room, remoteParticipant: RemoteParticipant, didUnsubscribeTrack publication: RemoteTrackPublication)
 
     /// Same with ``ParticipantDelegate/participant(_:didUpdatePublication:streamState:)``.
-    @objc(room:participant:publication:didUpdateStreamState:) optional
-    func room(_ room: Room, participant: RemoteParticipant, didUpdatePublication publication: RemoteTrackPublication, streamState: StreamState)
+    @objc(room:remoteParticipant:track:didUpdateStreamState:) optional
+    func room(_ room: Room, remoteParticipant: RemoteParticipant, track: RemoteTrackPublication, didUpdateStreamState streamState: StreamState)
 
     /// Same with ``ParticipantDelegate/participant(_:didUpdatePublication:isSubscriptionAllowed:)``.
-    @objc optional
-    func room(_ room: Room, participant: RemoteParticipant, didUpdatePublication publication: RemoteTrackPublication, isSubscriptionAllowed: Bool)
+    @objc(room:remoteParticipant:track:didUpdateIsSubscriptionAllowed:) optional
+    func room(_ room: Room, remoteParticipant: RemoteParticipant, track: RemoteTrackPublication, didUpdateIsSubscriptionAllowed isSubscriptionAllowed: Bool)
 
     /// Same with ``ParticipantDelegate/participant(_:didFailToSubscribe:error:)``.
-    @objc optional
-    func room(_ room: Room, participant: RemoteParticipant, didFailToSubscribe trackSid: String, error: LiveKitError)
+    @objc(room:remoteParticipant:didFailToSubscribeTrack:withError:) optional
+    func room(_ room: Room, remoteParticipant: RemoteParticipant, didFailToSubscribeTrack trackSid: String, withError error: LiveKitError)
 
     // MARK: - Data
 
     /// Same with ``ParticipantDelegate/participant(_:didReceiveData:topic:)``
     /// participant could be nil if data was sent by server api.
-    @objc(room:participant:didReceiveData:topic:) optional
-    func room(_ room: Room, participant: RemoteParticipant?, didReceiveData data: Data, topic: String)
+    @objc(room:participant:didReceiveData:forTopic:) optional
+    func room(_ room: Room, remoteParticipant: RemoteParticipant?, didReceiveData data: Data, forTopic topic: String)
 
     // MARK: - E2EE
 
     /// ``Room``'e2ee state has been updated.
-    @objc(room:publication:didUpdateE2EEState:) optional
-    func room(_ room: Room, publication: TrackPublication, didUpdateE2EEState e2eeState: E2EEState)
+    @objc(room:track:didUpdateE2EEState:) optional
+    func room(_ room: Room, track: TrackPublication, didUpdateE2EEState e2eeState: E2EEState)
 }

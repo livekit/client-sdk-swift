@@ -166,13 +166,13 @@ extension Room: EngineDelegate {
             guard let self else { return }
 
             self.delegates.notify(label: { "room.didReceive data: \(packet.payload)" }) {
-                $0.room?(self, participant: participant, didReceiveData: packet.payload, topic: packet.topic)
+                $0.room?(self, remoteParticipant: participant, didReceiveData: packet.payload, forTopic: packet.topic)
             }
 
             if let participant {
                 participant.delegates.notify(label: { "participant.didReceive data: \(packet.payload)" }) { [weak participant] delegate in
                     guard let participant else { return }
-                    delegate.participant?(participant, didReceiveData: packet.payload, topic: packet.topic)
+                    delegate.participant?(participant, didReceiveData: packet.payload, forTopic: packet.topic)
                 }
             }
         }

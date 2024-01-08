@@ -59,60 +59,60 @@ public protocol ParticipantDelegate: AnyObject {
     /// or if the server has requested the participant to be muted.
     ///
     /// `participant` Can be a ``LocalParticipant`` or a ``RemoteParticipant``.
-    @objc(participant:publication:didUpdateMuted:) optional
-    func participant(_ participant: Participant, didUpdatePublication publication: TrackPublication, isMuted: Bool)
+    @objc(participant:track:didUpdateIsMuted:) optional
+    func participant(_ participant: Participant, track publication: TrackPublication, didUpdateIsMuted isMuted: Bool)
 
     // MARK: - LocalTrackPublication
 
     /// The ``LocalParticipant`` has published a ``LocalTrackPublication``.
-    @objc(localParticipant:didPublish:) optional
-    func localParticipant(_ participant: LocalParticipant, didPublishPublication publication: LocalTrackPublication)
+    @objc(localParticipant:didPublishTrack:) optional
+    func localParticipant(_ participant: LocalParticipant, didPublishTrack publication: LocalTrackPublication)
 
     /// The ``LocalParticipant`` has unpublished a ``LocalTrackPublication``.
-    @objc(localParticipant:didUnpublish:) optional
-    func localParticipant(_ participant: LocalParticipant, didUnpublishPublication publication: LocalTrackPublication)
+    @objc(localParticipant:didUnpublishTrack:) optional
+    func localParticipant(_ participant: LocalParticipant, didUnpublishTrack publication: LocalTrackPublication)
 
     // MARK: - RemoteTrackPublication
 
     /// When a new ``RemoteTrackPublication`` is published to ``Room`` after the ``LocalParticipant`` has joined.
     ///
     /// This delegate method will not be called for tracks that are already published.
-    @objc(remoteParticipant:didPublish:) optional
-    func participant(_ participant: RemoteParticipant, didPublishPublication publication: RemoteTrackPublication)
+    @objc(remoteParticipant:didPublishTrack:) optional
+    func remoteParticipant(_ participant: RemoteParticipant, didPublishTrack publication: RemoteTrackPublication)
 
     /// The ``RemoteParticipant`` has unpublished a ``RemoteTrackPublication``.
-    @objc(remoteParticipant:didUnpublish:) optional
-    func participant(_ participant: RemoteParticipant, didUnpublishPublication publication: RemoteTrackPublication)
+    @objc(remoteParticipant:didUnpublishTrack:) optional
+    func remoteParticipant(_ participant: RemoteParticipant, didUnpublishTrack publication: RemoteTrackPublication)
 
     /// The ``LocalParticipant`` has subscribed to a new ``RemoteTrackPublication``.
     ///
     /// This event will always fire as long as new tracks are ready for use.
-    @objc(participant:didSubscribe:) optional
-    func participant(_ participant: RemoteParticipant, didSubscribePublication publication: RemoteTrackPublication)
+    @objc(remoteParticipant:didSubscribeTrack:) optional
+    func remoteParticipant(_ participant: RemoteParticipant, didSubscribeTrack publication: RemoteTrackPublication)
 
     /// Unsubscribed from a ``RemoteTrackPublication`` and  is no longer available.
     ///
     /// Clients should listen to this event and handle cleanup.
-    @objc(participant:didUnsubscribePublication:) optional
-    func participant(_ participant: RemoteParticipant, didUnsubscribePublication publication: RemoteTrackPublication)
+    @objc(remoteParticipant:didUnsubscribeTrack:) optional
+    func remoteParticipant(_ participant: RemoteParticipant, didUnsubscribeTrack publication: RemoteTrackPublication)
 
     /// Could not subscribe to a track.
     ///
     /// This is an error state, the subscription can be retried.
-    @objc(participant:didFailToSubscribeTrackWithSid:error:) optional
-    func participant(_ participant: RemoteParticipant, didFailToSubscribe trackSid: String, error: LiveKitError)
+    @objc(remoteParticipant:didFailToSubscribeTrack:withError:) optional
+    func remoteParticipant(_ participant: RemoteParticipant, didFailToSubscribeTrack trackSid: String, withError error: LiveKitError)
 
     /// ``TrackPublication/streamState`` has updated for the ``RemoteTrackPublication``.
-    @objc(participant:publication:didUpdateStreamState:) optional
-    func participant(_ participant: RemoteParticipant, didUpdatePublication publication: RemoteTrackPublication, streamState: StreamState)
+    @objc(remoteParticipant:track:didUpdateStreamState:) optional
+    func remoteParticipant(_ participant: RemoteParticipant, track: RemoteTrackPublication, didUpdateStreamState streamState: StreamState)
 
     /// ``RemoteTrackPublication/isSubscriptionAllowed`` has updated for the ``RemoteTrackPublication``.
-    @objc(participant:publication:didUpdateCanSubscribe:) optional
-    func participant(_ participant: RemoteParticipant, didUpdatePublication publication: RemoteTrackPublication, isSubscriptionAllowed: Bool)
+    @objc(participant:track:didUpdateIsSubscriptionAllowed:) optional
+    func remoteParticipant(_ participant: RemoteParticipant, track: RemoteTrackPublication, didUpdateIsSubscriptionAllowed isSubscriptionAllowed: Bool)
 
     // MARK: - Data
 
     /// Data was received from a ``RemoteParticipant``.
-    @objc(participant:didReceiveData:topic:) optional
-    func participant(_ participant: RemoteParticipant, didReceiveData data: Data, topic: String)
+    @objc(participant:didReceiveData:forTopic:) optional
+    func participant(_ participant: RemoteParticipant, didReceiveData data: Data, forTopic topic: String)
 }
