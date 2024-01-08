@@ -58,6 +58,10 @@ public protocol RoomDelegate: AnyObject {
     @objc(room:didDisconnectWithError:) optional
     func room(_ room: Room, didDisconnectWithError error: LiveKitError?)
 
+    /// ``Room``'s id has been updated after a successful connection.
+    @objc(room:didUpdateRoomId:) optional
+    func room(_ room: Room, didUpdateRoomId roomId: String)
+
     /// ``Room``'s metadata has been updated.
     @objc(room:didUpdateMetadata:) optional
     func room(_ room: Room, didUpdateMetadata metadata: String?)

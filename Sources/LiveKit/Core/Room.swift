@@ -170,6 +170,13 @@ public class Room: NSObject, ObservableObject, Loggable {
 
             guard let self else { return }
 
+            // roomId updated
+            if let roomId = newState.sid, roomId != oldState.sid {
+                self.delegates.notify(label: { "room.didUpdateRoomId:" }) {
+                    $0.room?(self, didUpdateRoomId: roomId)
+                }
+            }
+
             // metadata updated
             if let metadata = newState.metadata, metadata != oldState.metadata,
                // don't notify if empty string (first time only)
