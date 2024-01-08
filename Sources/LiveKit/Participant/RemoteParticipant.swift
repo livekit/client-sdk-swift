@@ -59,7 +59,7 @@ public class RemoteParticipant: Participant {
 
             for publication in newTrackPublications.values {
                 self.delegates.notify(label: { "participant.didPublish \(publication)" }) {
-                    $0.remoteParticipant?(self, didPublishTrack: publication)
+                    $0.participant?(self, didPublishTrack: publication)
                 }
                 self.room.delegates.notify(label: { "room.didPublish \(publication)" }) {
                     $0.room?(self.room, participant: self, didPublishTrack: publication)
@@ -89,7 +89,7 @@ public class RemoteParticipant: Participant {
             log("Could not subscribe to mediaTrack \(sid), unable to locate track publication. existing sids: (\(_state.trackPublications.keys.joined(separator: ", ")))", .error)
             let error = LiveKitError(.invalidState, message: "Could not find published track with sid: \(sid)")
             delegates.notify(label: { "participant.didFailToSubscribe trackSid: \(sid)" }) {
-                $0.remoteParticipant?(self, didFailToSubscribeTrack: sid, withError: error)
+                $0.participant?(self, didFailToSubscribeTrack: sid, withError: error)
             }
             room.delegates.notify(label: { "room.didFailToSubscribe trackSid: \(sid)" }) {
                 $0.room?(self.room, participant: self, didFailToSubscribeTrack: sid, withError: error)
@@ -111,7 +111,7 @@ public class RemoteParticipant: Participant {
         default:
             let error = LiveKitError(.invalidState, message: "Unsupported type: \(rtcTrack.kind.description)")
             delegates.notify(label: { "participant.didFailToSubscribe trackSid: \(sid)" }) {
-                $0.remoteParticipant?(self, didFailToSubscribeTrack: sid, withError: error)
+                $0.participant?(self, didFailToSubscribeTrack: sid, withError: error)
             }
             room.delegates.notify(label: { "room.didFailToSubscribe trackSid: \(sid)" }) {
                 $0.room?(self.room, participant: self, didFailToSubscribeTrack: sid, withError: error)
@@ -132,7 +132,7 @@ public class RemoteParticipant: Participant {
         try await track.start()
 
         delegates.notify(label: { "participant.didSubscribe \(publication)" }) {
-            $0.remoteParticipant?(self, didSubscribeTrack: publication)
+            $0.participant?(self, didSubscribeTrack: publication)
         }
         room.delegates.notify(label: { "room.didSubscribe \(publication)" }) {
             $0.room?(self.room, participant: self, didSubscribeTrack: publication)
@@ -163,7 +163,7 @@ public class RemoteParticipant: Participant {
         func _notifyUnpublish() async {
             guard _notify else { return }
             delegates.notify(label: { "participant.didUnpublish \(publication)" }) {
-                $0.remoteParticipant?(self, didUnpublishTrack: publication)
+                $0.participant?(self, didUnpublishTrack: publication)
             }
             room.delegates.notify(label: { "room.didUnpublish \(publication)" }) {
                 $0.room?(self.room, participant: self, didUnpublishTrack: publication)
@@ -183,7 +183,7 @@ public class RemoteParticipant: Participant {
         if _notify {
             // Notify unsubscribe
             delegates.notify(label: { "participant.didUnsubscribe \(publication)" }) {
-                $0.remoteParticipant?(self, didUnsubscribeTrack: publication)
+                $0.participant?(self, didUnsubscribeTrack: publication)
             }
             room.delegates.notify(label: { "room.didUnsubscribe \(publication)" }) {
                 $0.room?(self.room, participant: self, didUnsubscribeTrack: publication)

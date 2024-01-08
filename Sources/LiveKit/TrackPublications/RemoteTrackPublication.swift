@@ -144,7 +144,7 @@ public class RemoteTrackPublication: TrackPublication {
 
             if oldValue != nil, newValue == nil, let participant = participant as? RemoteParticipant {
                 participant.delegates.notify(label: { "participant.didUnsubscribe \(self)" }) {
-                    $0.remoteParticipant?(participant, didUnsubscribeTrack: self)
+                    $0.participant?(participant, didUnsubscribeTrack: self)
                 }
                 participant.room.delegates.notify(label: { "room.didUnsubscribe \(self)" }) {
                     $0.room?(participant.room, participant: participant, didUnsubscribeTrack: self)
@@ -208,7 +208,7 @@ extension RemoteTrackPublication {
 
         guard let participant = participant as? RemoteParticipant else { return }
         participant.delegates.notify(label: { "participant.didUpdate permission: \(newValue)" }) {
-            $0.remoteParticipant?(participant, track: self, didUpdateIsSubscriptionAllowed: newValue)
+            $0.participant?(participant, track: self, didUpdateIsSubscriptionAllowed: newValue)
         }
         participant.room.delegates.notify(label: { "room.didUpdate permission: \(newValue)" }) {
             $0.room?(participant.room, participant: participant, track: self, didUpdateIsSubscriptionAllowed: newValue)

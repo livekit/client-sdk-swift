@@ -214,7 +214,7 @@ public class LocalParticipant: Participant {
 
             // Notify didPublish
             delegates.notify(label: { "localParticipant.didPublish \(publication)" }) {
-                $0.localParticipant?(self, didPublishTrack: publication)
+                $0.participant?(self, didPublishTrack: publication)
             }
             room.delegates.notify(label: { "localParticipant.didPublish \(publication)" }) {
                 $0.room?(self.room, participant: self, didPublishTrack: publication)
@@ -266,7 +266,7 @@ public class LocalParticipant: Participant {
         func _notifyDidUnpublish() async {
             guard _notify else { return }
             delegates.notify(label: { "localParticipant.didUnpublish \(publication)" }) {
-                $0.localParticipant?(self, didUnpublishTrack: publication)
+                $0.participant?(self, didUnpublishTrack: publication)
             }
             room.delegates.notify(label: { "room.didUnpublish \(publication)" }) {
                 $0.room?(self.room, participant: self, didUnpublishTrack: publication)
