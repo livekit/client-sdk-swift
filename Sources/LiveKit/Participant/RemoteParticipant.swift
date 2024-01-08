@@ -62,7 +62,7 @@ public class RemoteParticipant: Participant {
                     $0.remoteParticipant?(self, didPublishTrack: publication)
                 }
                 self.room.delegates.notify(label: { "room.didPublish \(publication)" }) {
-                    $0.room?(self.room, remoteParticipant: self, didPublishTrack: publication)
+                    $0.room?(self.room, participant: self, didPublishTrack: publication)
                 }
             }
         }
@@ -92,7 +92,7 @@ public class RemoteParticipant: Participant {
                 $0.remoteParticipant?(self, didFailToSubscribeTrack: sid, withError: error)
             }
             room.delegates.notify(label: { "room.didFailToSubscribe trackSid: \(sid)" }) {
-                $0.room?(self.room, remoteParticipant: self, didFailToSubscribeTrack: sid, withError: error)
+                $0.room?(self.room, participant: self, didFailToSubscribeTrack: sid, withError: error)
             }
             throw error
         }
@@ -114,7 +114,7 @@ public class RemoteParticipant: Participant {
                 $0.remoteParticipant?(self, didFailToSubscribeTrack: sid, withError: error)
             }
             room.delegates.notify(label: { "room.didFailToSubscribe trackSid: \(sid)" }) {
-                $0.room?(self.room, remoteParticipant: self, didFailToSubscribeTrack: sid, withError: error)
+                $0.room?(self.room, participant: self, didFailToSubscribeTrack: sid, withError: error)
             }
             throw error
         }
@@ -135,7 +135,7 @@ public class RemoteParticipant: Participant {
             $0.remoteParticipant?(self, didSubscribeTrack: publication)
         }
         room.delegates.notify(label: { "room.didSubscribe \(publication)" }) {
-            $0.room?(self.room, remoteParticipant: self, didSubscribeTrack: publication)
+            $0.room?(self.room, participant: self, didSubscribeTrack: publication)
         }
     }
 
@@ -143,7 +143,7 @@ public class RemoteParticipant: Participant {
         await super.cleanUp(notify: _notify)
 
         room.delegates.notify(label: { "room.remoteParticipantDidDisconnect:" }) {
-            $0.room?(self.room, remoteParticipantDidDisconnect: self)
+            $0.room?(self.room, participantDidDisconnect: self)
         }
     }
 
@@ -166,7 +166,7 @@ public class RemoteParticipant: Participant {
                 $0.remoteParticipant?(self, didUnpublishTrack: publication)
             }
             room.delegates.notify(label: { "room.didUnpublish \(publication)" }) {
-                $0.room?(self.room, remoteParticipant: self, didUnpublishTrack: publication)
+                $0.room?(self.room, participant: self, didUnpublishTrack: publication)
             }
         }
 
@@ -186,7 +186,7 @@ public class RemoteParticipant: Participant {
                 $0.remoteParticipant?(self, didUnsubscribeTrack: publication)
             }
             room.delegates.notify(label: { "room.didUnsubscribe \(publication)" }) {
-                $0.room?(self.room, remoteParticipant: self, didUnsubscribeTrack: publication)
+                $0.room?(self.room, participant: self, didUnsubscribeTrack: publication)
             }
         }
 

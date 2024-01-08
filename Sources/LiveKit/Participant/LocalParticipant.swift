@@ -217,7 +217,7 @@ public class LocalParticipant: Participant {
                 $0.localParticipant?(self, didPublishTrack: publication)
             }
             room.delegates.notify(label: { "localParticipant.didPublish \(publication)" }) {
-                $0.room?(self.room, localParticipant: self, didPublishTrack: publication)
+                $0.room?(self.room, participant: self, didPublishTrack: publication)
             }
 
             log("[publish] success \(publication)", .info)
@@ -269,7 +269,7 @@ public class LocalParticipant: Participant {
                 $0.localParticipant?(self, didUnpublishTrack: publication)
             }
             room.delegates.notify(label: { "room.didUnpublish \(publication)" }) {
-                $0.room?(self.room, localParticipant: self, didUnpublishTrack: publication)
+                $0.room?(self.room, participant: self, didUnpublishTrack: publication)
             }
         }
 

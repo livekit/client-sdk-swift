@@ -40,7 +40,7 @@ extension Room: EngineDelegate {
             }
 
             delegates.notify(label: { "room.didUpdate connectionState: \(state.connectionState) oldValue: \(oldState.connectionState)" }) {
-                $0.room?(self, didUpdateConnectionState: state.connectionState, oldConnectionState: oldState.connectionState)
+                $0.room?(self, didUpdateConnectionState: state.connectionState, from: oldState.connectionState)
             }
 
             // Individual connectionState delegates
@@ -166,7 +166,7 @@ extension Room: EngineDelegate {
             guard let self else { return }
 
             self.delegates.notify(label: { "room.didReceive data: \(packet.payload)" }) {
-                $0.room?(self, remoteParticipant: participant, didReceiveData: packet.payload, forTopic: packet.topic)
+                $0.room?(self, participant: participant, didReceiveData: packet.payload, forTopic: packet.topic)
             }
 
             if let participant {

@@ -33,130 +33,121 @@ import Foundation
 /// See the source code of [Swift Example App](https://github.com/livekit/client-example-swift) for more examples.
 @objc
 public protocol RoomDelegate: AnyObject {
-    // MARK: - Room
+    // MARK: - Connection Events
 
-    @objc(room:didUpdateConnectionState:oldConnectionState:) optional
-    func room(_ room: Room, didUpdateConnectionState connectionState: ConnectionState, oldConnectionState: ConnectionState)
+    /// ``Room/connectionState`` has updated.
+    @objc optional
+    func room(_ room: Room, didUpdateConnectionState connectionState: ConnectionState, from oldConnectionState: ConnectionState)
 
     /// Successfully connected to the room.
-    @objc(roomDidConnect:) optional
+    @objc optional
     func roomDidConnect(_ room: Room)
 
-    /// Successfully re-connected to the room.
-    @objc(roomIsReconnecting:) optional
+    /// Previously connected to room but re-attempting to connect due to network issues.
+    @objc optional
     func roomIsReconnecting(_ room: Room)
 
     /// Successfully re-connected to the room.
-    @objc(roomDidReconnect:) optional
+    @objc optional
     func roomDidReconnect(_ room: Room)
 
     /// Could not connect to the room. Only triggered when the initial connect attempt fails.
-    @objc(room:didFailToConnectWithError:) optional
+    @objc optional
     func room(_ room: Room, didFailToConnectWithError error: LiveKitError?)
 
     /// Client disconnected from the room unexpectedly after a successful connection.
-    @objc(room:didDisconnectWithError:) optional
+    @objc optional
     func room(_ room: Room, didDisconnectWithError error: LiveKitError?)
 
-    /// ``Room``'s id has been updated after a successful connection.
-    @objc(room:didUpdateRoomId:) optional
+    // MARK: - Room State Updates
+
+    /// ``Room/sid`` has updated.
+    @objc optional
     func room(_ room: Room, didUpdateRoomId roomId: String)
 
-    /// ``Room``'s metadata has been updated.
-    @objc(room:didUpdateMetadata:) optional
+    /// ``Room/metadata`` has updated.
+    @objc optional
     func room(_ room: Room, didUpdateMetadata metadata: String?)
 
-    /// ``Room``'s recording state has been updated.
-    @objc(room:didUpdateIsRecording:) optional
+    /// ``Room/isRecording`` has updated.
+    @objc optional
     func room(_ room: Room, didUpdateIsRecording isRecording: Bool)
 
-    // MARK: - Participant
+    // MARK: - Participant Management
 
-    /// When a ``RemoteParticipant`` joins after the ``LocalParticipant``.
-    /// It will not emit events for participants that are already in the room.
-    @objc(room:participantDidConnect:) optional
-    func room(_ room: Room, remoteParticipantDidConnect remoteParticipant: RemoteParticipant)
+    /// A ``RemoteParticipant`` joined the room.
+    @objc optional
+    func room(_ room: Room, participantDidConnect participant: RemoteParticipant)
 
-    /// When a ``RemoteParticipant`` leaves after the ``LocalParticipant`` has joined.
-    @objc(room:participantDidDisconnect:) optional
-    func room(_ room: Room, remoteParticipantDidDisconnect remoteParticipant: RemoteParticipant)
+    /// A ``RemoteParticipant`` left the room.
+    @objc optional
+    func room(_ room: Room, participantDidDisconnect participant: RemoteParticipant)
 
-    /// Active speakers changed.
-    ///
-    /// List of speakers are ordered by their ``Participant/audioLevel``, loudest speakers first.
-    /// This will include the ``LocalParticipant`` too.
-    @objc(room:didUpdateSpeakingParticipants:) optional
+    /// Speakers in the room has updated.
+    @objc optional
     func room(_ room: Room, didUpdateSpeakingParticipants participants: [Participant])
 
-    /// Same with ``ParticipantDelegate/participant(_:didUpdateMetadata:)``.
-    @objc(room:participant:didUpdateMetadata:) optional
+    /// ``Participant/metadata`` has updated.
+    @objc optional
     func room(_ room: Room, participant: Participant, didUpdateMetadata: String?)
 
-    /// Same with ``ParticipantDelegate/participant(_:didUpdateName:)``.
-    @objc(room:participant:didUpdateName:) optional
+    /// ``Participant/name`` has updated.
+    @objc optional
     func room(_ room: Room, participant: Participant, didUpdateName: String?)
 
-    /// Same with ``ParticipantDelegate/participant(_:didUpdateConnectionQuality:)``.
-    @objc(room:participant:didUpdateConnectionQuality:) optional
-    func room(_ room: Room, participant: Participant, didUpdateConnectionQuality connectionQuality: ConnectionQuality)
+    /// ``Participant/connectionQuality`` has updated.
+    @objc optional
+    func room(_ room: Room, participant: Participant, didUpdateConnectionQuality quality: ConnectionQuality)
 
-    /// Same with ``ParticipantDelegate/participant(_:track:didUpdateIsMuted:)``.
-    @objc(room:participant:track:didUpdateIsMuted:) optional
-    func room(_ room: Room, participant: Participant, track: TrackPublication, didUpdateIsMuted isMuted: Bool)
-
-    @objc(room:participant:didUpdatePermissions:) optional
+    /// ``Participant/permissions`` has updated.
+    @objc optional
     func room(_ room: Room, participant: Participant, didUpdatePermissions permissions: ParticipantPermissions)
 
-    // MARK: - LocalTrackPublication
+    // MARK: - Track Publications
 
-    /// Same with ``ParticipantDelegate/localParticipant(_:didPublishTrack:)``.
+    /// The ``LocalParticipant`` has published a ``LocalTrack``.
     @objc(room:localParticipant:didPublishTrack:) optional
-    func room(_ room: Room, localParticipant: LocalParticipant, didPublishTrack publication: LocalTrackPublication)
+    func room(_ room: Room, participant: LocalParticipant, didPublishTrack publication: LocalTrackPublication)
 
-    /// Same with ``ParticipantDelegate/localParticipant(_:didUnpublishTrack:)``.
-    @objc(room:localParticipant:didUnpublishTrack:) optional
-    func room(_ room: Room, localParticipant: LocalParticipant, didUnpublishTrack publication: LocalTrackPublication)
-
-    // MARK: - RemoteTrackPublication
-
-    /// Same with ``ParticipantDelegate/participant(_:didPublishPublication:)``.
+    /// A ``RemoteParticipant`` has published a ``RemoteTrack``.
     @objc(room:remoteParticipant:didPublishTrack:) optional
-    func room(_ room: Room, remoteParticipant: RemoteParticipant, didPublishTrack publication: RemoteTrackPublication)
+    func room(_ room: Room, participant: RemoteParticipant, didPublishTrack publication: RemoteTrackPublication)
 
-    /// Same with ``ParticipantDelegate/participant(_:didUnpublishPublication:)``.
+    /// The ``LocalParticipant`` has un-published a ``LocalTrack``.
+    @objc(room:localParticipant:didUnpublishTrack:) optional
+    func room(_ room: Room, participant: LocalParticipant, didUnpublishTrack publication: LocalTrackPublication)
+
+    /// A ``RemoteParticipant`` has un-published a ``RemoteTrack``.
     @objc(room:remoteParticipant:didUnpublishTrack:) optional
-    func room(_ room: Room, remoteParticipant: RemoteParticipant, didUnpublishTrack publication: RemoteTrackPublication)
+    func room(_ room: Room, participant: RemoteParticipant, didUnpublishTrack publication: RemoteTrackPublication)
 
-    /// Same with ``ParticipantDelegate/participant(_:didSubscribePublication:)``.
-    @objc(room:remoteParticipant:didSubscribeTrack:) optional
-    func room(_ room: Room, remoteParticipant: RemoteParticipant, didSubscribeTrack publication: RemoteTrackPublication)
+    @objc optional
+    func room(_ room: Room, participant: RemoteParticipant, didSubscribeTrack publication: RemoteTrackPublication)
 
-    /// Same with ``ParticipantDelegate/participant(_:didUnsubscribePublication:)``.
-    @objc(room:remoteParticipant:didUnsubscribeTrack:) optional
-    func room(_ room: Room, remoteParticipant: RemoteParticipant, didUnsubscribeTrack publication: RemoteTrackPublication)
+    @objc optional
+    func room(_ room: Room, participant: RemoteParticipant, didUnsubscribeTrack publication: RemoteTrackPublication)
 
-    /// Same with ``ParticipantDelegate/participant(_:didUpdatePublication:streamState:)``.
-    @objc(room:remoteParticipant:track:didUpdateStreamState:) optional
-    func room(_ room: Room, remoteParticipant: RemoteParticipant, track: RemoteTrackPublication, didUpdateStreamState streamState: StreamState)
+    @objc optional
+    func room(_ room: Room, participant: RemoteParticipant, didFailToSubscribeTrack: String, withError error: LiveKitError)
 
-    /// Same with ``ParticipantDelegate/participant(_:didUpdatePublication:isSubscriptionAllowed:)``.
-    @objc(room:remoteParticipant:track:didUpdateIsSubscriptionAllowed:) optional
-    func room(_ room: Room, remoteParticipant: RemoteParticipant, track: RemoteTrackPublication, didUpdateIsSubscriptionAllowed isSubscriptionAllowed: Bool)
+    // MARK: - Data and Encryption
 
-    /// Same with ``ParticipantDelegate/participant(_:didFailToSubscribe:error:)``.
-    @objc(room:remoteParticipant:didFailToSubscribeTrack:withError:) optional
-    func room(_ room: Room, remoteParticipant: RemoteParticipant, didFailToSubscribeTrack trackSid: String, withError error: LiveKitError)
+    /// Received data from from a user or server. `participant` will be nil if broadcasted from server.
+    @objc optional
+    func room(_ room: Room, participant: RemoteParticipant?, didReceiveData data: Data, forTopic topic: String)
 
-    // MARK: - Data
+    @objc optional
+    func room(_ room: Room, track: TrackPublication, didUpdateE2EEState state: E2EEState)
 
-    /// Same with ``ParticipantDelegate/participant(_:didReceiveData:topic:)``
-    /// participant could be nil if data was sent by server api.
-    @objc(room:participant:didReceiveData:forTopic:) optional
-    func room(_ room: Room, remoteParticipant: RemoteParticipant?, didReceiveData data: Data, forTopic topic: String)
+    /// ``TrackPublication/isMuted`` has updated.
+    @objc optional
+    func room(_ room: Room, participant: Participant, track: TrackPublication, didUpdateIsMuted isMuted: Bool)
 
-    // MARK: - E2EE
+    /// ``TrackPublication/streamState`` has updated.
+    @objc optional
+    func room(_ room: Room, participant: RemoteParticipant, track: RemoteTrackPublication, didUpdateStreamState streamState: StreamState)
 
-    /// ``Room``'e2ee state has been updated.
-    @objc(room:track:didUpdateE2EEState:) optional
-    func room(_ room: Room, track: TrackPublication, didUpdateE2EEState e2eeState: E2EEState)
+    /// ``RemoteTrackPublication/isSubscriptionAllowed`` has updated.
+    @objc optional
+    func room(_ room: Room, participant: RemoteParticipant, track: RemoteTrackPublication, didUpdateIsSubscriptionAllowed isSubscriptionAllowed: Bool)
 }
