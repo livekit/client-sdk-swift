@@ -139,6 +139,13 @@ public class LocalParticipant: Participant {
                     ]
                 }
 
+                if let mediaPublishOptions = publishOptions as? MediaPublishOptions,
+                   let streamName = mediaPublishOptions.streamName
+                {
+                    // Set stream name if specified in options
+                    populator.stream = streamName
+                }
+
                 return transInit
             }
 
