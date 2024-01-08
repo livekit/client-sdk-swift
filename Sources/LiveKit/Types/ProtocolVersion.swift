@@ -20,7 +20,9 @@ import Foundation
 public enum ProtocolVersion: Int {
     case v8 = 8
     case v9 = 9
-    case v10 = 10
+    case v10 = 10 /// Sync stream id
+    case v11 = 11 /// Supports ``ConnectionQuality/lost``
+    case v12 = 12 /// Faster room join (delayed ``Room/sid``)
 }
 
 // MARK: - Comparable
