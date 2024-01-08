@@ -17,7 +17,7 @@
 import Foundation
 
 @objc
-public class VideoPublishOptions: NSObject, PublishOptions {
+public class VideoPublishOptions: NSObject, MediaPublishOptions {
     @objc
     public let name: String?
 
@@ -45,6 +45,9 @@ public class VideoPublishOptions: NSObject, PublishOptions {
     @objc
     public let preferredBackupCodec: VideoCodec?
 
+    @objc
+    public let streamName: String?
+
     public init(name: String? = nil,
                 encoding: VideoEncoding? = nil,
                 screenShareEncoding: VideoEncoding? = nil,
@@ -52,7 +55,8 @@ public class VideoPublishOptions: NSObject, PublishOptions {
                 simulcastLayers: [VideoParameters] = [],
                 screenShareSimulcastLayers: [VideoParameters] = [],
                 preferredCodec: VideoCodec? = nil,
-                preferredBackupCodec: VideoCodec? = nil)
+                preferredBackupCodec: VideoCodec? = nil,
+                streamName: String? = nil)
     {
         self.name = name
         self.encoding = encoding
@@ -62,6 +66,7 @@ public class VideoPublishOptions: NSObject, PublishOptions {
         self.screenShareSimulcastLayers = screenShareSimulcastLayers
         self.preferredCodec = preferredCodec
         self.preferredBackupCodec = preferredBackupCodec
+        self.streamName = streamName
     }
 
     // MARK: - Equal
@@ -75,7 +80,8 @@ public class VideoPublishOptions: NSObject, PublishOptions {
             simulcastLayers == other.simulcastLayers &&
             screenShareSimulcastLayers == other.screenShareSimulcastLayers &&
             preferredCodec == other.preferredCodec &&
-            preferredBackupCodec == other.preferredBackupCodec
+            preferredBackupCodec == other.preferredBackupCodec &&
+            streamName == other.streamName
     }
 
     override public var hash: Int {
@@ -88,6 +94,7 @@ public class VideoPublishOptions: NSObject, PublishOptions {
         hasher.combine(screenShareSimulcastLayers)
         hasher.combine(preferredCodec)
         hasher.combine(preferredBackupCodec)
+        hasher.combine(streamName)
         return hasher.finalize()
     }
 }
