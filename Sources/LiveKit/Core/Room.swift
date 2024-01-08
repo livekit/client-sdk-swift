@@ -29,6 +29,8 @@ public class Room: NSObject, ObservableObject, Loggable {
     // MARK: - Public
 
     @objc
+    /// Server assigned id of the Room.
+    /// This will be empty until ``RoomDelegate/room(_:didUpdateRoomId:)`` is called.
     public var sid: Sid? { _state.sid }
 
     @objc
@@ -169,6 +171,13 @@ public class Room: NSObject, ObservableObject, Loggable {
         _state.onDidMutate = { [weak self] newState, oldState in
 
             guard let self else { return }
+
+            // roomId updated
+            if let roomId = newState.sid, roomId != oldState.sid {
+                self.delegates.notify(label: { "room.didUpdateRoomId:" }) {
+                    $0.room?(self, didUpdateRoomId: roomId)
+                }
+            }
 
             // metadata updated
             if let metadata = newState.metadata, metadata != oldState.metadata,
