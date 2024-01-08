@@ -129,31 +129,21 @@ extension Room: EngineDelegate {
         }
     }
 
-    func engine(_: Engine, didAddTrack track: LKRTCMediaStreamTrack, rtpReceiver: LKRTCRtpReceiver, streams: [LKRTCMediaStream]) {
-        guard !streams.isEmpty else {
-            log("Received onTrack with no streams!", .warning)
-            return
-        }
-
-        let unpacked = streams[0].streamId.unpack()
-        let participantSid = unpacked.sid
-        var trackSid = unpacked.trackId
-        if trackSid == "" {
-            trackSid = track.trackId
-        }
+    func engine(_: Engine, didAddTrack track: LKRTCMediaStreamTrack, rtpReceiver: LKRTCRtpReceiver, stream: LKRTCMediaStream) {
+        let parts = stream.streamId.unpack()
 
         let participant = _state.read {
-            $0.remoteParticipants.values.first { $0.sid == participantSid }
+            $0.remoteParticipants.values.first { $0.sid == parts.participantSid }
         }
 
         guard let participant else {
-            log("RemoteParticipant not found for sid: \(participantSid), remoteParticipants: \(remoteParticipants)", .warning)
+            log("RemoteParticipant not found for sid: \(parts.participantSid), remoteParticipants: \(remoteParticipants)", .warning)
             return
         }
 
         let task = Task.retrying(retryDelay: 0.2) { _, _ in
             // TODO: Only retry for TrackError.state = error
-            try await participant.addSubscribedMediaTrack(rtcTrack: track, rtpReceiver: rtpReceiver, sid: trackSid)
+            try await participant.addSubscribedMediaTrack(rtcTrack: track, rtpReceiver: rtpReceiver, sid: track.trackId)
         }
 
         Task {

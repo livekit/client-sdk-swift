@@ -218,15 +218,15 @@ extension Transport: LKRTCPeerConnectionDelegate {
 
     func peerConnection(_: LKRTCPeerConnection,
                         didAdd rtpReceiver: LKRTCRtpReceiver,
-                        streams mediaStreams: [LKRTCMediaStream])
+                        streams: [LKRTCMediaStream])
     {
         guard let track = rtpReceiver.track else {
             log("Track is empty for \(target)", .warning)
             return
         }
 
-        log("didAddTrack type: \(type(of: track)), id: \(track.trackId)")
-        notify { $0.transport(self, didAddTrack: track, rtpReceiver: rtpReceiver, streams: mediaStreams) }
+        log("type: \(type(of: track)), track.id: \(track.trackId), streams: \(streams.map { "Stream(hash: \($0.hash), id: \($0.streamId), videoTracks: \($0.videoTracks.count), audioTracks: \($0.audioTracks.count))" })")
+        notify { $0.transport(self, didAddTrack: track, rtpReceiver: rtpReceiver, streams: streams) }
     }
 
     func peerConnection(_: LKRTCPeerConnection,
