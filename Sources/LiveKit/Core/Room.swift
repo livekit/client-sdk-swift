@@ -29,6 +29,8 @@ public class Room: NSObject, ObservableObject, Loggable {
     // MARK: - Public
 
     @objc
+    /// Server assigned id of the Room.
+    /// This will be empty until ``RoomDelegate/room(_:didUpdateRoomId:)`` is called.
     public var sid: Sid? { _state.sid }
 
     @objc
