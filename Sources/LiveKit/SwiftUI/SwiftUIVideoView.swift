@@ -27,7 +27,7 @@ class TrackDelegateReceiver: TrackDelegate, Loggable {
         _statistics = statistics
     }
 
-    func track(_: VideoTrack, didUpdate dimensions: Dimensions?) {
+    func track(_: VideoTrack, didUpdateDimensions dimensions: Dimensions?) {
         Task.detached { @MainActor in
             self.dimensions = dimensions
         }

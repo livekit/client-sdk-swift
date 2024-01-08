@@ -371,7 +371,7 @@ public class LocalParticipant: Participant {
 
         // TODO: Revert internal state on failure
 
-        try await room.engine.signalClient.sendUpdateLocalMetadata(metadata, name: name ?? "")
+        try await room.engine.signalClient.sendUpdateLocalMetadata(metadata, name: name)
     }
 
     /// Sets and updates the name of the local participant.
