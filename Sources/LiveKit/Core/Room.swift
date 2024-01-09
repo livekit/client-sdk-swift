@@ -28,10 +28,18 @@ public class Room: NSObject, ObservableObject, Loggable {
 
     // MARK: - Public
 
-    @objc
+    @objc(sid)
     /// Server assigned id of the Room.
     /// This will be empty until ``RoomDelegate/room(_:didUpdateRoomId:)`` is called.
-    public var sid: Sid? { _state.sid }
+    public var sidValue: Sid? { _state.sid }
+
+    // Work-around error: Property with 'throws' or 'async' is not representable in Objective-C
+    /// Server assigned id of the Room. async version of ``Room/sidValue``.
+    public var sid: Sid {
+        get async throws {
+            try await _roomIdCompleter.wait()
+        }
+    }
 
     @objc
     public var name: String? { _state.name }
@@ -132,6 +140,8 @@ public class Room: NSObject, ObservableObject, Loggable {
 
     var _state: StateSync<State>
 
+    private let _roomIdCompleter = AsyncCompleter<Sid>(label: "Room.roomId", timeOut: .defaultJoinResponse)
+
     // MARK: Objective-C Support
 
     @objc
@@ -175,6 +185,7 @@ public class Room: NSObject, ObservableObject, Loggable {
             // roomId updated
             if let roomId = newState.sid, roomId != oldState.sid {
                 self.delegates.notify(label: { "room.didUpdateRoomId:" }) {
+                    self._roomIdCompleter.resume(returning: roomId)
                     $0.room?(self, didUpdateRoomId: roomId)
                 }
             }
@@ -299,6 +310,9 @@ extension Room {
         await cleanUpParticipants()
         // Reset state
         _state.mutate { $0 = State(options: $0.options) }
+
+        // Reset completers
+        _roomIdCompleter.reset()
     }
 }
 
