@@ -49,10 +49,10 @@ class CompleterTests: XCTestCase {
                 }
 
                 group.addTask {
-                    print("Task 2: Started...")
+                    print("Timer task: Started...")
                     // Cancel after 3 seconds
                     try await Task.sleep(until: .now + .seconds(3), clock: .continuous)
-                    print("Task 2: Cancelling completer...")
+                    print("Timer task: Cancelling...")
                     completer.reset()
                 }
 

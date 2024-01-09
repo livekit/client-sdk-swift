@@ -175,8 +175,8 @@ class AsyncCompleter<T>: Loggable {
                     self._lock.sync {
                         continuation.resume(throwing: LiveKitError(.timedOut, message: "\(self.label) AsyncCompleter timed out"))
                         self._continuations.removeValue(forKey: continuationId)
-                        if let _block = self._timeOutBlocks[timeOutBlockId] {
-                            _block.cancel()
+                        if let _timeOutBlock = self._timeOutBlocks[timeOutBlockId] {
+                            _timeOutBlock.cancel()
                             self._timeOutBlocks.removeValue(forKey: timeOutBlockId)
                         }
                     }
@@ -193,7 +193,17 @@ class AsyncCompleter<T>: Loggable {
             }
         } onCancel: {
             // Cancel only this completer when Task gets cancelled
-            // reset()
+            _lock.sync {
+                if let continuation = _continuations[continuationId] {
+                    continuation.resume(throwing: LiveKitError(.cancelled))
+                    _continuations.removeValue(forKey: continuationId)
+                }
+
+                if let timeOutBlock = _timeOutBlocks[timeOutBlockId] {
+                    timeOutBlock.cancel()
+                    _timeOutBlocks.removeValue(forKey: timeOutBlockId)
+                }
+            }
         }
     }
 }
