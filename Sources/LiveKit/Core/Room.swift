@@ -28,13 +28,13 @@ public class Room: NSObject, ObservableObject, Loggable {
 
     // MARK: - Public
 
-    @objc(sid)
+    @objc
     /// Server assigned id of the Room.
-    /// This will be empty until ``RoomDelegate/room(_:didUpdateRoomId:)`` is called.
     public var sid: Sid? { _state.sid }
 
     // Work-around error: Property with 'throws' or 'async' is not representable in Objective-C
-    /// Server assigned id of the Room. async version of ``Room/sidValue``.
+    /// Server assigned id of the Room. **async** version of ``Room/sid``.
+    /// Example: `let sid = try await room.asyncSid`
     public var asyncSid: Sid {
         get async throws {
             try await _sidCompleter.wait()
