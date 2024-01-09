@@ -93,7 +93,7 @@ public protocol RoomDelegate: AnyObject {
 
     /// ``Participant/name`` has updated.
     @objc optional
-    func room(_ room: Room, participant: Participant, didUpdateName: String?)
+    func room(_ room: Room, participant: Participant, didUpdateName: String)
 
     /// ``Participant/connectionQuality`` has updated.
     @objc optional
@@ -203,10 +203,10 @@ public protocol RoomDelegate: AnyObject {
     @objc(room:participant:didUpdateMetadata_:) optional
     func room(_ room: Room, participant: Participant, didUpdate metadata: String?)
 
-    /// Renamed to ``RoomDelegate/room(_:participant:didUpdateName:)``.
-    @available(*, unavailable, renamed: "room(_:participant:didUpdateName:)")
-    @objc(room:participant:didUpdateName_:) optional
-    func room(_ room: Room, participant: Participant, didUpdateName: String)
+    // Renamed to ``RoomDelegate/room(_:participant:didUpdateName:)``.
+    // @available(*, unavailable, renamed: "room(_:participant:didUpdateName:)")
+    // @objc(room:participant:didUpdateName_:) optional
+    // func room(_ room: Room, participant: Participant, didUpdateName: String)
 
     /// Renamed to ``RoomDelegate/room(_:participant:didUpdateConnectionQuality:)``.
     @available(*, unavailable, renamed: "room(_:participant:didUpdateConnectionQuality:)")

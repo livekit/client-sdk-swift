@@ -36,7 +36,7 @@ public protocol ParticipantDelegate: AnyObject {
     /// A ``Participant``'s name has updated.
     /// `participant` Can be a ``LocalParticipant`` or a ``RemoteParticipant``.
     @objc optional
-    func participant(_ participant: Participant, didUpdateName name: String?)
+    func participant(_ participant: Participant, didUpdateName name: String)
 
     /// The isSpeaking status of a ``Participant`` has changed.
     /// `participant` Can be a ``LocalParticipant`` or a ``RemoteParticipant``.
