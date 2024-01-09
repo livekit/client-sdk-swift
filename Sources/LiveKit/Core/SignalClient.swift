@@ -85,8 +85,8 @@ class SignalClient: MulticastDelegate<SignalClientDelegate> {
     private var _messageLoopTask: Task<Void, Never>?
     private var latestJoinResponse: Livekit_JoinResponse?
 
-    private let _connectResponseCompleter = AsyncCompleter<ConnectResponse>(label: "Join response", timeOut: .defaultJoinResponse)
-    private let _addTrackCompleters = CompleterMapActor<Livekit_TrackInfo>(label: "Completers for add track", timeOut: .defaultPublish)
+    private let _connectResponseCompleter = AsyncCompleter<ConnectResponse>(label: "Join response", defaultTimeOut: .defaultJoinResponse)
+    private let _addTrackCompleters = CompleterMapActor<Livekit_TrackInfo>(label: "Completers for add track", defaultTimeOut: .defaultPublish)
 
     private var _pingIntervalTimer: DispatchQueueTimer?
     private var _pingTimeoutTimer: DispatchQueueTimer?
