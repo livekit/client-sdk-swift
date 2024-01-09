@@ -23,7 +23,7 @@ class CompleterTests: XCTestCase {
     override func tearDown() async throws {}
 
     func testCompleterReuse() async throws {
-        let completer = AsyncCompleter<Void>(label: "Test01", timeOut: .seconds(1))
+        let completer = AsyncCompleter<Void>(label: "Test01", defaultTimeOut: .seconds(1))
         do {
             try await completer.wait()
         } catch let error as LiveKitError where error.type == .timedOut {
@@ -38,7 +38,7 @@ class CompleterTests: XCTestCase {
     }
 
     func testCompleterCancel() async throws {
-        let completer = AsyncCompleter<Void>(label: "cancel-test", timeOut: .never)
+        let completer = AsyncCompleter<Void>(label: "cancel-test", defaultTimeOut: .never)
         do {
             // Run Tasks in parallel
             try await withThrowingTaskGroup(of: Void.self) { group in
@@ -50,10 +50,53 @@ class CompleterTests: XCTestCase {
 
                 group.addTask {
                     print("Task 2: Started...")
-                    // Cancel after 1 second
-                    try await Task.sleep(until: .now + .seconds(1), clock: .continuous)
+                    // Cancel after 3 seconds
+                    try await Task.sleep(until: .now + .seconds(3), clock: .continuous)
                     print("Task 2: Cancelling completer...")
                     completer.reset()
+                }
+
+                try await group.waitForAll()
+            }
+        } catch let error as LiveKitError where error.type == .timedOut {
+            print("Completer timed out")
+        } catch let error as LiveKitError where error.type == .cancelled {
+            print("Completer cancelled")
+        } catch {
+            print("Unknown error: \(error)")
+        }
+    }
+
+    func testCompleterConcurrentWait() async throws {
+        let completer = AsyncCompleter<Void>(label: "cancel-test", defaultTimeOut: .never)
+        do {
+            // Run Tasks in parallel
+            try await withThrowingTaskGroup(of: Void.self) { group in
+
+                group.addTask {
+                    print("Task 1: Waiting...")
+                    try await completer.wait()
+                    print("Task 1: Completed")
+                }
+
+                group.addTask {
+                    print("Task 2: Waiting...")
+                    try await completer.wait()
+                    print("Task 2: Completed")
+                }
+
+                group.addTask {
+                    print("Task 3: Waiting...")
+                    try await completer.wait()
+                    print("Task 3: Completed")
+                }
+
+                group.addTask {
+                    print("Timer task: Started...")
+                    // Cancel after 3 seconds
+                    try await Task.sleep(until: .now + .seconds(3), clock: .continuous)
+                    print("Timer task: Completing...")
+                    completer.resume(returning: ())
                 }
 
                 try await group.waitForAll()
