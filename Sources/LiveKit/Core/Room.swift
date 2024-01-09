@@ -32,13 +32,10 @@ public class Room: NSObject, ObservableObject, Loggable {
     /// Server assigned id of the Room.
     public var sid: Sid? { _state.sid }
 
-    // Work-around error: Property with 'throws' or 'async' is not representable in Objective-C
-    /// Server assigned id of the Room. **async** version of ``Room/sid``.
-    /// Example: `let sid = try await room.asyncSid`
-    public var asyncSid: Sid {
-        get async throws {
-            try await _sidCompleter.wait()
-        }
+    /// Server assigned id of the Room. *async* version of ``Room/sid``.
+    @objc
+    public func sid() async throws -> Sid {
+        try await _sidCompleter.wait()
     }
 
     @objc
@@ -140,7 +137,7 @@ public class Room: NSObject, ObservableObject, Loggable {
 
     var _state: StateSync<State>
 
-    private let _sidCompleter = AsyncCompleter<Sid>(label: "sid", timeOut: .sid)
+    private let _sidCompleter = AsyncCompleter<Sid>(label: "sid", defaultTimeOut: .sid)
 
     // MARK: Objective-C Support
 
