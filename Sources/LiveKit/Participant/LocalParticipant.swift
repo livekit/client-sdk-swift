@@ -314,10 +314,7 @@ public class LocalParticipant: Participant {
     ///     For data that should arrive as quickly as possible, but you are ok with dropped packets, use Lossy.
     ///   - options: Provide options with a ``DataPublishOptions`` class.
     @objc
-    public func publish(data: Data,
-                        reliability: Reliability = .reliable,
-                        options: DataPublishOptions? = nil) async throws
-    {
+    public func publish(data: Data, options: DataPublishOptions? = nil) async throws {
         let options = options ?? room._state.options.defaultDataPublishOptions
 
         let userPacket = Livekit_UserPacket.with {
@@ -327,7 +324,7 @@ public class LocalParticipant: Participant {
             $0.topic = options.topic ?? ""
         }
 
-        try await room.engine.send(userPacket: userPacket, reliability: reliability)
+        try await room.engine.send(userPacket: userPacket, kind: options.reliable ? .reliable : .lossy)
     }
 
     /**

@@ -21,19 +21,6 @@ import Foundation
 public typealias Sid = String
 public typealias Identity = String
 
-@objc
-public enum Reliability: Int {
-    case reliable
-    case lossy
-}
-
-extension Reliability {
-    func toPBType() -> Livekit_DataPacket.Kind {
-        if self == .lossy { return .lossy }
-        return .reliable
-    }
-}
-
 public enum SimulateScenario {
     case nodeFailure
     case migration
