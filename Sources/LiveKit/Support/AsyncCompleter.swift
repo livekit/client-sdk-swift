@@ -131,7 +131,7 @@ class AsyncCompleter<T>: Loggable {
         resume(with: .failure(error))
     }
 
-    public func wait() async throws -> T {
+    public func wait(timeOut: DispatchTimeInterval? = nil) async throws -> T {
         // Read value
         if let result = _lock.sync({ _result }) {
             // Already resolved...
@@ -169,7 +169,7 @@ class AsyncCompleter<T>: Loggable {
 
                 _lock.sync {
                     // Schedule time-out block
-                    _timerQueue.asyncAfter(deadline: .now() + _defaultTimeOut, execute: timeOutBlock)
+                    _timerQueue.asyncAfter(deadline: .now() + (timeOut ?? _defaultTimeOut), execute: timeOutBlock)
                     // Store entry
                     _entries[entryId] = WaitEntry(continuation: continuation, timeOutBlock: timeOutBlock)
                 }
