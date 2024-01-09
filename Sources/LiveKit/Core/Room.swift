@@ -183,9 +183,9 @@ public class Room: NSObject, ObservableObject, Loggable {
             guard let self else { return }
 
             // sid updated
-            if let roomId = newState.sid, roomId != oldState.sid {
+            if let sid = newState.sid, sid != oldState.sid {
                 // Resolve sid
-                self._sidCompleter.resume(returning: roomId)
+                self._sidCompleter.resume(returning: sid)
             }
 
             // metadata updated
