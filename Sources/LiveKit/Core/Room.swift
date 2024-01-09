@@ -37,7 +37,7 @@ public class Room: NSObject, ObservableObject, Loggable {
     /// Server assigned id of the Room. async version of ``Room/sidValue``.
     public var asyncSid: Sid {
         get async throws {
-            try await _roomIdCompleter.wait()
+            try await _sidCompleter.wait()
         }
     }
 
@@ -140,7 +140,7 @@ public class Room: NSObject, ObservableObject, Loggable {
 
     var _state: StateSync<State>
 
-    private let _roomIdCompleter = AsyncCompleter<Sid>(label: "Room.roomId", timeOut: .defaultJoinResponse)
+    private let _sidCompleter = AsyncCompleter<Sid>(label: "sid", timeOut: .sid)
 
     // MARK: Objective-C Support
 
@@ -185,7 +185,7 @@ public class Room: NSObject, ObservableObject, Loggable {
             // roomId updated
             if let roomId = newState.sid, roomId != oldState.sid {
                 self.delegates.notify(label: { "room.didUpdateRoomId:" }) {
-                    self._roomIdCompleter.resume(returning: roomId)
+                    self._sidCompleter.resume(returning: roomId)
                     $0.room?(self, didUpdateRoomId: roomId)
                 }
             }
@@ -312,7 +312,7 @@ extension Room {
         _state.mutate { $0 = State(options: $0.options) }
 
         // Reset completers
-        _roomIdCompleter.reset()
+        _sidCompleter.reset()
     }
 }
 

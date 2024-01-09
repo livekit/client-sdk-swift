@@ -34,4 +34,6 @@ public extension DispatchTimeInterval {
     static let defaultTransportState: Self = .seconds(10)
     // used for validation mode
     static let defaultPublisherDataChannelOpen: Self = .seconds(7)
+
+    static let sid: Self = .seconds(7 + 5) // Join response + 5
 }
