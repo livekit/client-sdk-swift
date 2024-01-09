@@ -61,10 +61,6 @@ public protocol RoomDelegate: AnyObject {
 
     // MARK: - Room State Updates
 
-    /// ``Room/sid`` has updated.
-    @objc optional
-    func room(_ room: Room, didUpdateRoomId roomId: String)
-
     /// ``Room/metadata`` has updated.
     @objc optional
     func room(_ room: Room, didUpdateMetadata metadata: String?)

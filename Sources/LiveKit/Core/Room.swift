@@ -182,12 +182,10 @@ public class Room: NSObject, ObservableObject, Loggable {
 
             guard let self else { return }
 
-            // roomId updated
+            // sid updated
             if let roomId = newState.sid, roomId != oldState.sid {
-                self.delegates.notify(label: { "room.didUpdateRoomId:" }) {
-                    self._sidCompleter.resume(returning: roomId)
-                    $0.room?(self, didUpdateRoomId: roomId)
-                }
+                // Resolve sid
+                self._sidCompleter.resume(returning: roomId)
             }
 
             // metadata updated
