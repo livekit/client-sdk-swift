@@ -62,7 +62,7 @@ actor CompleterMapActor<T> {
 class AsyncCompleter<T>: Loggable {
     //
     struct WaitEntry {
-        let continuation: UnsafeContinuation<T, any Error>
+        let continuation: UnsafeContinuation<T, Error>
         let timeOutBlock: DispatchWorkItem
 
         func cancel() {
