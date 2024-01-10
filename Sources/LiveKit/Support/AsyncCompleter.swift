@@ -24,12 +24,12 @@ actor CompleterMapActor<T> {
 
     // MARK: - Private
 
-    private let _timeOut: DispatchTimeInterval
+    private let _defaultTimeOut: DispatchTimeInterval
     private var _completerMap = [String: AsyncCompleter<T>]()
 
-    public init(label: String, timeOut: DispatchTimeInterval) {
+    public init(label: String, defaultTimeOut: DispatchTimeInterval) {
         self.label = label
-        _timeOut = timeOut
+        _defaultTimeOut = defaultTimeOut
     }
 
     public func completer(for key: String) -> AsyncCompleter<T> {
@@ -38,7 +38,7 @@ actor CompleterMapActor<T> {
             return element
         }
 
-        let newCompleter = AsyncCompleter<T>(label: label, timeOut: _timeOut)
+        let newCompleter = AsyncCompleter<T>(label: label, defaultTimeOut: _defaultTimeOut)
         _completerMap[key] = newCompleter
         return newCompleter
     }
@@ -60,110 +60,128 @@ actor CompleterMapActor<T> {
 }
 
 class AsyncCompleter<T>: Loggable {
+    //
+    struct WaitEntry {
+        let continuation: UnsafeContinuation<T, any Error>
+        let timeOutBlock: DispatchWorkItem
+
+        func cancel() {
+            continuation.resume(throwing: LiveKitError(.cancelled))
+            timeOutBlock.cancel()
+        }
+
+        func timeOut() {
+            continuation.resume(throwing: LiveKitError(.timedOut))
+            timeOutBlock.cancel()
+        }
+
+        func resume(with result: Result<T, Error>) {
+            continuation.resume(with: result)
+            timeOutBlock.cancel()
+        }
+    }
+
     public let label: String
 
-    private let _timeOut: DispatchTimeInterval
-    private let _queue = DispatchQueue(label: "LiveKitSDK.AsyncCompleter", qos: .background)
-    // Internal states
-    private var _continuation: CheckedContinuation<T, any Error>?
-    private var _timeOutBlock: DispatchWorkItem?
+    private let _defaultTimeOut: DispatchTimeInterval
+    private let _timerQueue = DispatchQueue(label: "LiveKitSDK.AsyncCompleter", qos: .background)
 
-    private var _returningValue: T?
-    private var _throwingError: Error?
+    // Internal states
+    private var _entries: [UUID: WaitEntry] = [:]
+    private var _result: Result<T, Error>?
 
     private let _lock = UnfairLock()
 
-    public init(label: String, timeOut: DispatchTimeInterval) {
+    public init(label: String, defaultTimeOut: DispatchTimeInterval) {
         self.label = label
-        _timeOut = timeOut
+        _defaultTimeOut = defaultTimeOut
     }
 
     deinit {
         reset()
     }
 
-    private func _cancelTimer() {
-        // Make sure time-out blocked doesn't fire
-        _timeOutBlock?.cancel()
-        _timeOutBlock = nil
-    }
-
     public func reset() {
         _lock.sync {
-            _cancelTimer()
-            if let continuation = _continuation {
-                log("\(label) Cancelled")
-                continuation.resume(throwing: LiveKitError(.cancelled))
+            for entry in _entries.values {
+                entry.cancel()
             }
-            _continuation = nil
-            _returningValue = nil
-            _throwingError = nil
+            _entries.removeAll()
+            _result = nil
+        }
+    }
+
+    public func resume(with result: Result<T, Error>) {
+        _lock.sync {
+            for entry in _entries.values {
+                entry.resume(with: result)
+            }
+            _entries.removeAll()
+            _result = result
         }
     }
 
     public func resume(returning value: T) {
         log("\(label)")
-        _lock.sync {
-            _cancelTimer()
-            _returningValue = value
-            _continuation?.resume(returning: value)
-            _continuation = nil
-        }
+        resume(with: .success(value))
     }
 
     public func resume(throwing error: Error) {
         log("\(label)")
-        _lock.sync {
-            _cancelTimer()
-            _throwingError = error
-            _continuation?.resume(throwing: error)
-            _continuation = nil
-        }
+        resume(with: .failure(error))
     }
 
-    public func wait() async throws -> T {
-        // resume(returning:) already called
-        if let returningValue = _lock.sync({ _returningValue }) {
-            log("\(label) returning value...")
-            return returningValue
+    public func wait(timeOut: DispatchTimeInterval? = nil) async throws -> T {
+        // Read value
+        if let result = _lock.sync({ _result }) {
+            // Already resolved...
+            if case let .success(value) = result {
+                // resume(returning:) already called
+                log("\(label) returning value...")
+                return value
+            } else if case let .failure(error) = result {
+                // resume(throwing:) already called
+                log("\(label) throwing error...")
+                throw error
+            }
         }
 
-        // resume(throwing:) already called
-        if let throwingError = _lock.sync({ _throwingError }) {
-            log("\(label) throwing error...")
-            throw throwingError
-        }
+        // Create ids for continuation & timeOutBlock
+        let entryId = UUID()
 
-        log("\(label) waiting...")
-
-        // Cancel any previous waits
-        reset()
+        log("\(label) waiting with id: \(entryId)")
 
         // Create a cancel-aware timed continuation
         return try await withTaskCancellationHandler {
-            try await withCheckedThrowingContinuation { continuation in
+            try await withUnsafeThrowingContinuation { continuation in
+
                 // Create time-out block
                 let timeOutBlock = DispatchWorkItem { [weak self] in
                     guard let self else { return }
-                    self.log("\(self.label) timedOut")
+                    self.log("Wait \(entryId) timedOut")
                     self._lock.sync {
-                        self._continuation?.resume(throwing: LiveKitError(.timedOut, message: "\(self.label) AsyncCompleter timed out"))
-                        self._continuation = nil
+                        if let entry = self._entries[entryId] {
+                            entry.timeOut()
+                        }
+                        self._entries.removeValue(forKey: entryId)
                     }
-                    self.reset()
                 }
+
                 _lock.sync {
                     // Schedule time-out block
-                    _queue.asyncAfter(deadline: .now() + _timeOut, execute: timeOutBlock)
-                    // Store reference to continuation
-                    _continuation = continuation
-                    // Store reference to time-out block
-                    _timeOutBlock = timeOutBlock
+                    _timerQueue.asyncAfter(deadline: .now() + (timeOut ?? _defaultTimeOut), execute: timeOutBlock)
+                    // Store entry
+                    _entries[entryId] = WaitEntry(continuation: continuation, timeOutBlock: timeOutBlock)
                 }
             }
         } onCancel: {
-            // Cancel completer when Task gets cancelled
-            reset()
+            // Cancel only this completer when Task gets cancelled
+            _lock.sync {
+                if let entry = self._entries[entryId] {
+                    entry.cancel()
+                }
+                self._entries.removeValue(forKey: entryId)
+            }
         }
     }
 }
