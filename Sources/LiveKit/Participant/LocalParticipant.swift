@@ -309,27 +309,19 @@ public class LocalParticipant: Participant {
     /// Data is forwarded to each participant in the room. Each payload must not exceed 15k.
     /// - Parameters:
     ///   - data: Data to send
-    ///   - reliability: Toggle between sending relialble vs lossy delivery.
-    ///     For data that you need delivery guarantee (such as chat messages), use Reliable.
-    ///     For data that should arrive as quickly as possible, but you are ok with dropped packets, use Lossy.
-    ///   - destinations: SIDs of the participants who will receive the message. If empty, deliver to everyone
+    ///   - options: Provide options with a ``DataPublishOptions`` class.
     @objc
-    public func publish(data: Data,
-                        reliability: Reliability = .reliable,
-                        destinationIdentities: [Identity]? = nil,
-                        topic: String? = nil,
-                        options: DataPublishOptions? = nil) async throws
-    {
+    public func publish(data: Data, options: DataPublishOptions? = nil) async throws {
         let options = options ?? room._state.options.defaultDataPublishOptions
 
         let userPacket = Livekit_UserPacket.with {
             $0.participantSid = self.sid
             $0.payload = data
-            $0.destinationIdentities = destinationIdentities ?? options.destinationIdentities
-            $0.topic = topic ?? options.topic ?? ""
+            $0.destinationIdentities = options.destinationIdentities
+            $0.topic = options.topic ?? ""
         }
 
-        try await room.engine.send(userPacket: userPacket, reliability: reliability)
+        try await room.engine.send(userPacket: userPacket, kind: options.reliable ? .reliable : .lossy)
     }
 
     /**
