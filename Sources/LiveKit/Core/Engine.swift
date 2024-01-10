@@ -203,7 +203,7 @@ class Engine: MulticastDelegate<EngineDelegate> {
         _state.mutate { $0.hasPublished = true }
     }
 
-    func send(userPacket: Livekit_UserPacket, reliability: Reliability = .reliable) async throws {
+    func send(userPacket: Livekit_UserPacket, kind: Livekit_DataPacket.Kind) async throws {
         func ensurePublisherConnected() async throws {
             guard subscriberPrimary else { return }
 
@@ -225,7 +225,7 @@ class Engine: MulticastDelegate<EngineDelegate> {
         assert(dataChannelIsOpen, "publisher data channel is not .open")
 
         // Should return true if successful
-        try await publisherDataChannel.send(userPacket: userPacket, reliability: reliability)
+        try await publisherDataChannel.send(userPacket: userPacket, kind: kind)
     }
 }
 
