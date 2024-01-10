@@ -165,7 +165,7 @@ public class Track: NSObject, Loggable {
             guard let self else { return }
 
             if oldState.dimensions != newState.dimensions {
-                log("Track.dimensions \(String(describing: oldState.dimensions)) -> \(String(describing: newState.dimensions))")
+                self.log("Track.dimensions \(String(describing: oldState.dimensions)) -> \(String(describing: newState.dimensions))")
             }
 
             self.delegates.notify {

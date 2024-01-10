@@ -76,7 +76,7 @@ class Transport: MulticastDelegate<TransportDelegate> {
         do {
             try await self._pc.add(iceCandidate)
         } catch {
-            log("Failed to add(iceCandidate:) with error: \(error)", .error)
+            self.log("Failed to add(iceCandidate:) with error: \(error)", .error)
         }
     })
 

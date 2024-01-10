@@ -280,8 +280,8 @@ extension Engine {
 
             publisher.onOffer = { [weak self] offer in
                 guard let self else { return }
-                log("Publisher onOffer \(offer.sdp)")
-                try await signalClient.send(offer: offer)
+                self.log("Publisher onOffer \(offer.sdp)")
+                try await self.signalClient.send(offer: offer)
             }
 
             // data over pub channel for backwards compatibility

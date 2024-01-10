@@ -63,15 +63,15 @@ class SignalClient: MulticastDelegate<SignalClientDelegate> {
         do {
             // Prepare request data...
             guard let data = try? request.serializedData() else {
-                log("Could not serialize request data", .error)
+                self.log("Could not serialize request data", .error)
                 throw LiveKitError(.failedToConvertData, message: "Failed to convert data")
             }
 
-            let webSocket = try requireWebSocket()
+            let webSocket = try self.requireWebSocket()
             try await webSocket.send(data: data)
 
         } catch {
-            log("Failed to send queued request \(request) with error: \(error)", .error)
+            self.log("Failed to send queued request \(request) with error: \(error)", .error)
         }
     })
 
