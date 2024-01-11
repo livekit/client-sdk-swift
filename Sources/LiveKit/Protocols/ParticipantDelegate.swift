@@ -36,7 +36,7 @@ public protocol ParticipantDelegate: AnyObject {
     /// A ``Participant``'s name has updated.
     /// `participant` Can be a ``LocalParticipant`` or a ``RemoteParticipant``.
     @objc optional
-    func participant(_ participant: Participant, didUpdateName name: String?)
+    func participant(_ participant: Participant, didUpdateName name: String)
 
     /// The isSpeaking status of a ``Participant`` has changed.
     /// `participant` Can be a ``LocalParticipant`` or a ``RemoteParticipant``.
@@ -115,4 +115,91 @@ public protocol ParticipantDelegate: AnyObject {
     /// Data was received from a ``RemoteParticipant``.
     @objc optional
     func participant(_ participant: RemoteParticipant, didReceiveData data: Data, forTopic topic: String)
+
+    // MARK: - Deprecated
+
+    /// Renamed to ``ParticipantDelegate/participant(_:didUpdateMetadata:)``.
+    @available(*, unavailable, renamed: "participant(_:didUpdateMetadata:)")
+    @objc(participant:didUpdateMetadata_:) optional
+    func participant(_ participant: Participant, didUpdate metadata: String?)
+
+    // Renamed to ``ParticipantDelegate/participant(_:didUpdateName:)``.
+    // @available(*, unavailable, renamed: "participant(_:didUpdateName:)")
+    // @objc(participant:didUpdateName_:) optional
+    // func participant(_ participant: Participant, didUpdateName: String)
+
+    /// Renamed to ``ParticipantDelegate/participant(_:didUpdateIsSpeaking:)``.
+    @available(*, unavailable, renamed: "participant(_:didUpdateIsSpeaking:)")
+    @objc(participant:didUpdateSpeaking:) optional
+    func participant(_ participant: Participant, didUpdate speaking: Bool)
+
+    /// Renamed to ``ParticipantDelegate/participant(_:didUpdateConnectionQuality:)``.
+    @available(*, unavailable, renamed: "participant(_:didUpdateConnectionQuality:)")
+    @objc(participant:didUpdateConnectionQuality_:) optional
+    func participant(_ participant: Participant, didUpdate connectionQuality: ConnectionQuality)
+
+    /// Renamed to ``ParticipantDelegate/participant(_:track:didUpdateIsMuted:)``.
+    @available(*, unavailable, renamed: "participant(_:track:didUpdateIsMuted:)")
+    @objc(participant:publication:didUpdateMuted:) optional
+    func participant(_ participant: Participant, didUpdate publication: TrackPublication, muted: Bool)
+
+    /// Renamed to ``ParticipantDelegate/participant(_:didUpdatePermissions:)``.
+    @available(*, unavailable, renamed: "participant(_:didUpdatePermissions:)")
+    @objc(participant:didUpdatePermissions_:) optional
+    func participant(_ participant: Participant, didUpdate permissions: ParticipantPermissions)
+
+    /// Renamed to ``ParticipantDelegate/participant(_:track:didUpdateStreamState:)``.
+    @available(*, unavailable, renamed: "participant(_:track:didUpdateStreamState:)")
+    @objc(participant:publication:didUpdateStreamState:) optional
+    func participant(_ participant: RemoteParticipant, didUpdate publication: RemoteTrackPublication, streamState: StreamState)
+
+    /// Renamed to ``ParticipantDelegate/participant(_:track:didUpdateIsSubscriptionAllowed:)``.
+    @available(*, unavailable, renamed: "participant(_:track:didUpdateIsSubscriptionAllowed:)")
+    @objc(participant:publication:didUpdateCanSubscribe:) optional
+    func participant(_ participant: RemoteParticipant, didUpdate publication: RemoteTrackPublication, permission allowed: Bool)
+
+    /// Renamed to ``ParticipantDelegate/participant(_:didPublishTrack:)-8e9iw``.
+    @available(*, unavailable, renamed: "participant(_:didPublishTrack:)")
+    @objc(remoteParticipant:didPublish:) optional
+    func participant(_ participant: RemoteParticipant, didPublish publication: RemoteTrackPublication)
+
+    /// Renamed to ``ParticipantDelegate/participant(_:didUnpublishTrack:)-1roup``.
+    @available(*, unavailable, renamed: "participant(_:didUnpublishTrack:)")
+    @objc(remoteParticipant:didUnpublish:) optional
+    func participant(_ participant: RemoteParticipant, didUnpublish publication: RemoteTrackPublication)
+
+    /// Renamed to ``ParticipantDelegate/participant(_:didPublishTrack:)-7emm``.
+    @available(*, unavailable, renamed: "participant(_:didPublishTrack:)")
+    @objc(localParticipant:didPublish:) optional
+    func localParticipant(_ participant: LocalParticipant, didPublish publication: LocalTrackPublication)
+
+    /// Renamed to ``ParticipantDelegate/participant(_:didUnpublishTrack:)-4pv3r``.
+    @available(*, unavailable, renamed: "participant(_:didUnpublishTrack:)")
+    @objc(localParticipant:didUnpublish:) optional
+    func localParticipant(_ participant: LocalParticipant, didUnpublish publication: LocalTrackPublication)
+
+    /// Renamed to ``ParticipantDelegate/participant(_:didSubscribeTrack:)``.
+    @available(*, unavailable, renamed: "participant(_:didSubscribeTrack:)")
+    @objc(participant:didSubscribe:track:) optional
+    func participant(_ participant: RemoteParticipant, didSubscribe publication: RemoteTrackPublication, track: Track)
+
+    /// Renamed to ``ParticipantDelegate/participant(_:didFailToSubscribeTrack:withError:)``.
+    @available(*, unavailable, renamed: "participant(_:didFailToSubscribeTrack:withError:)")
+    @objc(participant:didFailToSubscribeTrackWithSid:error:) optional
+    func participant(_ participant: RemoteParticipant, didFailToSubscribe trackSid: String, error: Error)
+
+    /// Renamed to ``ParticipantDelegate/participant(_:didUnsubscribeTrack:)``.
+    @available(*, unavailable, renamed: "participant(_:didUnsubscribeTrack:)")
+    @objc(participant:didUnsubscribePublication:track:) optional
+    func participant(_ participant: RemoteParticipant, didUnsubscribe publication: RemoteTrackPublication, track: Track)
+
+    /// Renamed to ``ParticipantDelegate/participant(_:didReceiveData:forTopic:)``.
+    @available(*, unavailable, renamed: "participant(_:didReceiveData:forTopic:)")
+    @objc(participant:didReceiveData:) optional
+    func participant(_ participant: RemoteParticipant, didReceive data: Data)
+
+    /// Renamed to ``ParticipantDelegate/participant(_:didReceiveData:forTopic:)``.
+    @available(*, unavailable, renamed: "participant(_:didReceiveData:forTopic:)")
+    @objc(participant:didReceiveData:topic:) optional
+    func participant(_ participant: RemoteParticipant, didReceiveData data: Data, topic: String)
 }
