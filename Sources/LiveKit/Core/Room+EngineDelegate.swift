@@ -132,6 +132,12 @@ extension Room: EngineDelegate {
     func engine(_: Engine, didAddTrack track: LKRTCMediaStreamTrack, rtpReceiver: LKRTCRtpReceiver, stream: LKRTCMediaStream) {
         let parts = stream.streamId.unpack()
 
+        let trackId = if !parts.trackId.isEmpty {
+            parts.trackId
+        } else {
+            track.trackId
+        }
+
         let participant = _state.read {
             $0.remoteParticipants.values.first { $0.sid == parts.participantSid }
         }
@@ -143,7 +149,7 @@ extension Room: EngineDelegate {
 
         let task = Task.retrying(retryDelay: 0.2) { _, _ in
             // TODO: Only retry for TrackError.state = error
-            try await participant.addSubscribedMediaTrack(rtcTrack: track, rtpReceiver: rtpReceiver, sid: track.trackId)
+            try await participant.addSubscribedMediaTrack(rtcTrack: track, rtpReceiver: rtpReceiver, sid: trackId)
         }
 
         Task {
