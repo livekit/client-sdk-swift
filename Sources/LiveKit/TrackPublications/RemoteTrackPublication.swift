@@ -28,8 +28,14 @@ public enum SubscriptionState: Int, Codable {
 
 @objc
 public class RemoteTrackPublication: TrackPublication {
+    // MARK: - Public
+
+    @objc
     public var isSubscriptionAllowed: Bool { _state.isSubscriptionAllowed }
+
+    @objc
     public var isEnabled: Bool { _state.trackSettings.isEnabled }
+
     override public var isMuted: Bool { track?.isMuted ?? _state.isMetadataMuted }
 
     // MARK: - Private
@@ -64,12 +70,14 @@ public class RemoteTrackPublication: TrackPublication {
         return _state.isSubscribePreferred != false && super.isSubscribed
     }
 
+    @objc
     public var subscriptionState: SubscriptionState {
         if !isSubscriptionAllowed { return .notAllowed }
         return isSubscribed ? .subscribed : .unsubscribed
     }
 
     /// Subscribe or unsubscribe from this track.
+    @objc
     public func set(subscribed newValue: Bool) async throws {
         guard _state.isSubscribePreferred != newValue else { return }
 
@@ -79,12 +87,13 @@ public class RemoteTrackPublication: TrackPublication {
 
         try await participant.room.engine.signalClient.sendUpdateSubscription(participantSid: participant.sid,
                                                                               trackSid: sid,
-                                                                              subscribed: newValue)
+                                                                              isSubscribed: newValue)
     }
 
     /// Enable or disable server from sending down data for this track.
     ///
     /// This is useful when the participant is off screen, you may disable streaming down their video to reduce bandwidth requirements.
+    @objc
     public func set(enabled newValue: Bool) async throws {
         // No-op if already the desired value
         let trackSettings = _state.trackSettings
@@ -98,6 +107,7 @@ public class RemoteTrackPublication: TrackPublication {
     }
 
     /// Set preferred video FPS for this track.
+    @objc
     public func set(preferredFPS newValue: UInt) async throws {
         // No-op if already the desired value
         let trackSettings = _state.trackSettings
