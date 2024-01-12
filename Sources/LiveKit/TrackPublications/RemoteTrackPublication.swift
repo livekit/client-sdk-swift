@@ -120,6 +120,20 @@ public class RemoteTrackPublication: TrackPublication {
         try await send(trackSettings: settings)
     }
 
+    /// Set preferred video dimensions for this track.
+    @objc
+    public func set(preferredDimensions newValue: Dimensions) async throws {
+        // No-op if already the desired value
+        let trackSettings = _state.trackSettings
+        guard trackSettings.dimensions != newValue else { return }
+
+        try await userCanModifyTrackSettings()
+
+        let settings = trackSettings.copyWith(dimensions: newValue)
+        // Attempt to set the new settings
+        try await send(trackSettings: settings)
+    }
+
     @discardableResult
     override func set(track newValue: Track?) -> Track? {
         log("RemoteTrackPublication set track: \(String(describing: newValue))")
