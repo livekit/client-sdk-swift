@@ -322,8 +322,13 @@ extension Room {
             .joined()
             .compactMap { $0 }
 
-        for participant in allParticipants {
-            await participant.cleanUp(notify: _notify)
+        // Clean up Participants concurrently
+        await withTaskGroup(of: Void.self) { group in
+            for participant in allParticipants {
+                group.addTask {
+                    await participant.cleanUp(notify: _notify)
+                }
+            }
         }
 
         _state.mutate {
