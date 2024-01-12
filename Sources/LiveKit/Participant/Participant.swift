@@ -153,6 +153,12 @@ public class Participant: NSObject, ObservableObject, Loggable {
     func cleanUp(notify _notify: Bool = true) async {
         await unpublishAll(notify: _notify)
         // Reset state
+        if let self = self as? RemoteParticipant {
+            // ...
+            room.delegates.notify(label: { "room.remoteParticipantDidDisconnect:" }) {
+                $0.room?(self.room, participantDidDisconnect: self)
+            }
+        }
         _state.mutate { $0 = State(sid: "", identity: "", name: "") }
     }
 
