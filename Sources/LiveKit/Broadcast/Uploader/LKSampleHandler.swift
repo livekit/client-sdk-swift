@@ -16,9 +16,6 @@
 
 #if os(iOS)
 
-    import Logging
-    import OSLog
-
     #if canImport(ReplayKit)
         import ReplayKit
     #endif
