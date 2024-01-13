@@ -19,7 +19,7 @@ jobs:
           --target LiveKit \
           --output-path ./docs \
           --transform-for-static-hosting \
-          --hosting-base-path /client-sdk-swift
+          --hosting-base-path https://docs.livekit.io/client-sdk-swift/
 
       - name: S3 Upload
         run: aws s3 cp docs/ s3://livekit-docs/client-sdk-swift --recursive
@@ -27,3 +27,6 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.DOCS_DEPLOY_AWS_ACCESS_KEY }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.DOCS_DEPLOY_AWS_API_SECRET }}
           AWS_DEFAULT_REGION: "us-east-1"
+
+      - name: Invalidate cache
+        run: aws cloudfront create-invalidation --distribution-id EJJ40KLJ3TRY9 --paths "/*"
