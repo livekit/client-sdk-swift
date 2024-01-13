@@ -1,20 +1,16 @@
 name: Publish Docs
 
-# Controls when the action will run.
 on:
-  # Triggers the workflow on push or pull request events but only for the main branch
+  workflow_dispatch:
   push:
-    branches: [ "main" ]
+    tags:
+      - "*"
 
-# A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
   publish:
-    # The type of runner that the job will run on
     runs-on: macos-latest
 
-    # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
-      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - uses: actions/checkout@v3
 
       - name: Build DocC
@@ -24,18 +20,6 @@ jobs:
           --output-path ./docs \
           --transform-for-static-hosting \
           --hosting-base-path /client-sdk-swift
-
-      - name: Get Actions user id
-        id: get_uid
-        run: |
-          actions_user_id=`id -u $USER`
-          echo $actions_user_id
-          echo ::set-output name=uid::$actions_user_id
-
-      - name: Correct Ownership in GITHUB_WORKSPACE directory
-        uses: peter-murray/reset-workspace-ownership-action@v1
-        with:
-          user_id: ${{ steps.get_uid.outputs.uid }}
 
       - name: S3 Upload
         run: aws s3 sync docs/ s3://livekit-docs/client-sdk-swift/
