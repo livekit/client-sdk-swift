@@ -121,6 +121,9 @@ public class RemoteTrackPublication: TrackPublication {
     }
 
     /// Set preferred video dimensions for this track.
+    ///
+    /// Based on this value, server will decide which layer to send.
+    /// Use ``RemoteTrackPublication/set(videoQuality:)`` to explicitly set layer instead.
     @objc
     public func set(preferredDimensions newValue: Dimensions) async throws {
         // No-op if already the desired value
@@ -134,7 +137,11 @@ public class RemoteTrackPublication: TrackPublication {
         try await send(trackSettings: settings)
     }
 
-    /// Set preferred video dimensions for this track.
+    /// For tracks that support simulcasting, adjust subscribed quality.
+    ///
+    /// This indicates the highest quality the client can accept. if network
+    /// bandwidth does not allow, server will automatically reduce quality to
+    /// optimize for uninterrupted video.
     @objc
     public func set(videoQuality newValue: VideoQuality) async throws {
         // No-op if already the desired value
