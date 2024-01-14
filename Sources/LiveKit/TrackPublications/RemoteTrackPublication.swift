@@ -99,7 +99,7 @@ public class RemoteTrackPublication: TrackPublication {
         let trackSettings = _state.trackSettings
         guard trackSettings.isEnabled != newValue else { return }
 
-        try await userCanModifyTrackSettings()
+        try await checkUserCanModifyTrackSettings()
 
         let settings = trackSettings.copyWith(isEnabled: newValue)
         // Attempt to set the new settings
@@ -113,9 +113,50 @@ public class RemoteTrackPublication: TrackPublication {
         let trackSettings = _state.trackSettings
         guard trackSettings.preferredFPS != newValue else { return }
 
-        try await userCanModifyTrackSettings()
+        try await checkUserCanModifyTrackSettings()
 
         let settings = trackSettings.copyWith(preferredFPS: newValue)
+        // Attempt to set the new settings
+        try await send(trackSettings: settings)
+    }
+
+    /// Set preferred video dimensions for this track.
+    ///
+    /// Based on this value, server will decide which layer to send.
+    /// Use ``RemoteTrackPublication/set(videoQuality:)`` to explicitly set layer instead.
+    @objc
+    public func set(preferredDimensions newValue: Dimensions) async throws {
+        // No-op if already the desired value
+        let trackSettings = _state.trackSettings
+        guard trackSettings.dimensions != newValue else { return }
+
+        try await checkUserCanModifyTrackSettings()
+
+        let settings = trackSettings.copyWith(
+            dimensions: newValue,
+            videoQuality: nil
+        )
+        // Attempt to set the new settings
+        try await send(trackSettings: settings)
+    }
+
+    /// For tracks that support simulcasting, adjust subscribed quality.
+    ///
+    /// This indicates the highest quality the client can accept. if network
+    /// bandwidth does not allow, server will automatically reduce quality to
+    /// optimize for uninterrupted video.
+    @objc
+    public func set(videoQuality newValue: VideoQuality) async throws {
+        // No-op if already the desired value
+        let trackSettings = _state.trackSettings
+        guard trackSettings.videoQuality != newValue else { return }
+
+        try await checkUserCanModifyTrackSettings()
+
+        let settings = trackSettings.copyWith(
+            dimensions: nil,
+            videoQuality: newValue
+        )
         // Attempt to set the new settings
         try await send(trackSettings: settings)
     }
@@ -180,7 +221,7 @@ private extension RemoteTrackPublication {
         return participant.room.engine._state.connectionState
     }
 
-    func userCanModifyTrackSettings() async throws {
+    func checkUserCanModifyTrackSettings() async throws {
         // adaptiveStream must be disabled and must be subscribed
         if isAdaptiveStreamEnabled || !isSubscribed {
             throw LiveKitError(.invalidState, message: "adaptiveStream must be disabled and track must be subscribed")
