@@ -16,7 +16,8 @@
 
 import Foundation
 
-enum VideoQuality {
+@objc
+public enum VideoQuality: Int {
     case low
     case medium
     case high

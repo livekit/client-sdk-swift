@@ -139,14 +139,6 @@ public class RemoteParticipant: Participant {
         }
     }
 
-    override func cleanUp(notify _notify: Bool = true) async {
-        await super.cleanUp(notify: _notify)
-
-        room.delegates.notify(label: { "room.remoteParticipantDidDisconnect:" }) {
-            $0.room?(self.room, participantDidDisconnect: self)
-        }
-    }
-
     override public func unpublishAll(notify _notify: Bool = true) async {
         // Build a list of Publications
         let publications = _state.trackPublications.values.compactMap { $0 as? RemoteTrackPublication }

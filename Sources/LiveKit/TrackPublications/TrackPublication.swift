@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-import Combine
-import CoreGraphics
 import Foundation
 
 @objc
@@ -94,7 +92,7 @@ public class TrackPublication: NSObject, ObservableObject, Loggable {
         var latestInfo: Livekit_TrackInfo?
     }
 
-    var _state: StateSync<State>
+    let _state: StateSync<State>
 
     init(info: Livekit_TrackInfo,
          track: Track? = nil,
