@@ -56,7 +56,6 @@ actor QueueActor<T>: Loggable {
         } else {
             queue.append(value)
         }
-        log("process if: \(condition ? "true" : "false"), count: \(queue.count)")
     }
 
     func clear() {
@@ -70,14 +69,11 @@ actor QueueActor<T>: Loggable {
 
     /// Mark as `.resumed` and process each element with an async `block`.
     func resume() async {
-        log("resuming...")
-
         state = .resumed
         if queue.isEmpty { return }
         for element in queue {
             // Check cancellation before processing next block...
             // try Task.checkCancellation()
-            log("resume: processing element...")
             await onProcess(element)
         }
         queue.removeAll()
