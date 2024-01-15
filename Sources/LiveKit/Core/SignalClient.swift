@@ -284,14 +284,12 @@ private extension SignalClient {
 
         switch message {
         case let .join(joinResponse):
-            // await _responseQueue.suspend()
             latestJoinResponse = joinResponse
             restartPingTimer()
             notify { $0.signalClient(self, didReceiveConnectResponse: .join(joinResponse)) }
             _connectResponseCompleter.resume(returning: .join(joinResponse))
 
         case let .reconnect(response):
-            // await _responseQueue.suspend()
             restartPingTimer()
             notify { $0.signalClient(self, didReceiveConnectResponse: .reconnect(response)) }
             _connectResponseCompleter.resume(returning: .reconnect(response))
