@@ -262,16 +262,11 @@ private extension SignalClient {
         }
 
         Task {
-            let isJoinOrReconnect = if case .join = response.message {
-                true
-            } else if case .reconnect = response.message {
-                true
-            } else {
-                false
+            let isJoinOrReconnect = switch response.message {
+            case .join, .reconnect: true
+            default: false
             }
-
-            print("Type: \(String(describing: response.message)), isJoinOrReconnect: \(isJoinOrReconnect)")
-
+            // Always process join or reconnect messages even if suspended...
             await _responseQueue.processIfResumed(response, or: isJoinOrReconnect)
         }
     }
