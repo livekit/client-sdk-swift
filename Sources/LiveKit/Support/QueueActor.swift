@@ -45,8 +45,8 @@ actor QueueActor<T>: Loggable {
     }
 
     /// Only process if `.resumed` state, otherwise enqueue.
-    func processIfResumed(_ value: T) async {
-        await process(value, if: state == .resumed)
+    func processIfResumed(_ value: T, or condition: Bool = false) async {
+        await process(value, if: state == .resumed || condition)
     }
 
     /// Only process if `condition` is true, otherwise enqueue.
