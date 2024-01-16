@@ -19,13 +19,13 @@ import Foundation
 @_implementationOnly import WebRTC
 
 extension Engine: SignalClientDelegate {
-    func signalClient(_: SignalClient, didMutateState state: SignalClient.State, oldState: SignalClient.State) {
+    func signalClient(_: SignalClient, didUpdateConnectionState connectionState: ConnectionState, oldState: ConnectionState, disconnectError: LiveKitError?) {
         // connectionState did update
-        if state.connectionState != oldState.connectionState,
+        if connectionState != oldState,
            // did disconnect
-           case .disconnected = state.connectionState,
+           case .disconnected = connectionState,
            // only attempt re-connect if disconnected(reason: network)
-           case .network = state.disconnectError?.type,
+           case .network = disconnectError?.type,
            // engine is currently connected state
            case .connected = _state.connectionState
         {
