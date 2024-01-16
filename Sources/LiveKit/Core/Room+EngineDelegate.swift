@@ -131,12 +131,7 @@ extension Room: EngineDelegate {
 
     func engine(_: Engine, didAddTrack track: LKRTCMediaStreamTrack, rtpReceiver: LKRTCRtpReceiver, stream: LKRTCMediaStream) {
         let parts = stream.streamId.unpack()
-
-        let trackId = if !parts.trackId.isEmpty {
-            parts.trackId
-        } else {
-            track.trackId
-        }
+        let trackId = !parts.trackId.isEmpty ? parts.trackId : track.trackId
 
         let participant = _state.read {
             $0.remoteParticipants.values.first { $0.sid == parts.participantSid }

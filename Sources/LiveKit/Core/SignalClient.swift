@@ -123,6 +123,9 @@ class SignalClient: MulticastDelegate<SignalClientDelegate> {
     {
         await cleanUp()
 
+        // Start suspended...
+        await _responseQueue.suspend()
+
         if let reconnectMode {
             log("[Connect] mode: \(String(describing: reconnectMode))")
         }
@@ -245,13 +248,13 @@ private extension SignalClient {
     }
 
     func _onWebSocketMessage(message: URLSessionWebSocketTask.Message) {
-        var response: Livekit_SignalResponse?
-
-        if case let .data(data) = message {
-            response = try? Livekit_SignalResponse(contiguousBytes: data)
-        } else if case let .string(string) = message {
-            response = try? Livekit_SignalResponse(jsonString: string)
-        }
+        let response: Livekit_SignalResponse? = {
+            switch message {
+            case let .data(data): return try? Livekit_SignalResponse(contiguousBytes: data)
+            case let .string(string): return try? Livekit_SignalResponse(jsonString: string)
+            default: return nil
+            }
+        }()
 
         guard let response else {
             log("Failed to decode SignalResponse", .warning)
@@ -259,7 +262,14 @@ private extension SignalClient {
         }
 
         Task {
-            await _responseQueue.processIfResumed(response)
+            let isJoinOrReconnect: Bool = {
+                switch response.message {
+                case .join, .reconnect: return true
+                default: return false
+                }
+            }()
+            // Always process join or reconnect messages even if suspended...
+            await _responseQueue.processIfResumed(response, or: isJoinOrReconnect)
         }
     }
 
@@ -276,14 +286,12 @@ private extension SignalClient {
 
         switch message {
         case let .join(joinResponse):
-            await _responseQueue.suspend()
             latestJoinResponse = joinResponse
             restartPingTimer()
             notify { $0.signalClient(self, didReceiveConnectResponse: .join(joinResponse)) }
             _connectResponseCompleter.resume(returning: .join(joinResponse))
 
         case let .reconnect(response):
-            await _responseQueue.suspend()
             restartPingTimer()
             notify { $0.signalClient(self, didReceiveConnectResponse: .reconnect(response)) }
             _connectResponseCompleter.resume(returning: .reconnect(response))
