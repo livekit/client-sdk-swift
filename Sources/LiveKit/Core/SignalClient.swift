@@ -248,13 +248,13 @@ private extension SignalClient {
     }
 
     func _onWebSocketMessage(message: URLSessionWebSocketTask.Message) {
-        let response: Livekit_SignalResponse? = if case let .data(data) = message {
-            try? Livekit_SignalResponse(contiguousBytes: data)
-        } else if case let .string(string) = message {
-            try? Livekit_SignalResponse(jsonString: string)
-        } else {
-            nil
-        }
+        let response: Livekit_SignalResponse? = {
+            switch message {
+            case let .data(data): return try? Livekit_SignalResponse(contiguousBytes: data)
+            case let .string(string): return try? Livekit_SignalResponse(jsonString: string)
+            default: return nil
+            }
+        }()
 
         guard let response else {
             log("Failed to decode SignalResponse", .warning)
@@ -262,10 +262,12 @@ private extension SignalClient {
         }
 
         Task {
-            let isJoinOrReconnect = switch response.message {
-            case .join, .reconnect: true
-            default: false
-            }
+            let isJoinOrReconnect: Bool = {
+                switch response.message {
+                case .join, .reconnect: return true
+                default: return false
+                }
+            }()
             // Always process join or reconnect messages even if suspended...
             await _responseQueue.processIfResumed(response, or: isJoinOrReconnect)
         }
