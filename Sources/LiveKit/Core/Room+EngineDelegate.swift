@@ -19,7 +19,7 @@ import Foundation
 @_implementationOnly import WebRTC
 
 extension Room: EngineDelegate {
-    func engine(_: Engine, didMutateState state: Engine.State, oldState: Engine.State) {
+    func engine(_: Engine, didMutateState state: Engine.State, oldState: Engine.State) async {
         if state.connectionState != oldState.connectionState {
             // connectionState did update
 
@@ -30,12 +30,10 @@ extension Room: EngineDelegate {
 
             // Re-send track permissions
             if case .connected = state.connectionState {
-                Task {
-                    do {
-                        try await localParticipant.sendTrackSubscriptionPermissions()
-                    } catch {
-                        log("Failed to send track subscription permissions, error: \(error)", .error)
-                    }
+                do {
+                    try await localParticipant.sendTrackSubscriptionPermissions()
+                } catch {
+                    log("Failed to send track subscription permissions, error: \(error)", .error)
                 }
             }
 
@@ -65,10 +63,8 @@ extension Room: EngineDelegate {
         }
 
         if state.connectionState == .reconnecting, state.reconnectMode == .full, oldState.reconnectMode != .full {
-            Task {
-                // Started full reconnect
-                await cleanUpParticipants(notify: true)
-            }
+            // Started full reconnect
+            await cleanUpParticipants(notify: true)
         }
 
         // Notify change when engine's state mutates
@@ -77,7 +73,7 @@ extension Room: EngineDelegate {
         }
     }
 
-    func engine(_ engine: Engine, didUpdateSpeakers speakers: [Livekit_SpeakerInfo]) {
+    func engine(_ engine: Engine, didUpdateSpeakers speakers: [Livekit_SpeakerInfo]) async {
         let activeSpeakers = _state.mutate { state -> [Participant] in
 
             var activeSpeakers: [Participant] = []
@@ -129,7 +125,7 @@ extension Room: EngineDelegate {
         }
     }
 
-    func engine(_: Engine, didAddTrack track: LKRTCMediaStreamTrack, rtpReceiver: LKRTCRtpReceiver, stream: LKRTCMediaStream) {
+    func engine(_: Engine, didAddTrack track: LKRTCMediaStreamTrack, rtpReceiver: LKRTCRtpReceiver, stream: LKRTCMediaStream) async {
         let parts = stream.streamId.unpack()
         let trackId = !parts.trackId.isEmpty ? parts.trackId : track.trackId
 
@@ -147,19 +143,21 @@ extension Room: EngineDelegate {
             try await participant.addSubscribedMediaTrack(rtcTrack: track, rtpReceiver: rtpReceiver, sid: trackId)
         }
 
-        Task {
+        do {
             try await task.value
+        } catch {
+            log("addSubscribedMediaTrack failed, error: \(error)", .error)
         }
     }
 
-    func engine(_: Engine, didRemoveTrack track: LKRTCMediaStreamTrack) {
+    func engine(_: Engine, didRemoveTrack track: LKRTCMediaStreamTrack) async {
         // find the publication
         guard let publication = _state.remoteParticipants.values.map(\._state.trackPublications.values).joined()
             .first(where: { $0.sid == track.trackId }) else { return }
         publication.set(track: nil)
     }
 
-    func engine(_ engine: Engine, didReceiveUserPacket packet: Livekit_UserPacket) {
+    func engine(_ engine: Engine, didReceiveUserPacket packet: Livekit_UserPacket) async {
         // participant could be null if data broadcasted from server
         let participant = _state.remoteParticipants[packet.participantIdentity]
 

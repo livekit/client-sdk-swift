@@ -201,19 +201,18 @@ extension Transport {
 extension Transport: LKRTCPeerConnectionDelegate {
     func peerConnection(_: LKRTCPeerConnection, didChange state: RTCPeerConnectionState) {
         log("[Connect] Transport(\(target)) did update state: \(state.description)")
-        notify { $0.transport(self, didUpdateState: state) }
+        notifyAsync { await $0.transport(self, didUpdateState: state) }
     }
 
     func peerConnection(_: LKRTCPeerConnection,
                         didGenerate candidate: LKRTCIceCandidate)
     {
-        // log("Did generate ice candidates \(candidate) for \(target)")
-        notify { $0.transport(self, didGenerateIceCandidate: candidate) }
+        notifyAsync { await $0.transport(self, didGenerateIceCandidate: candidate) }
     }
 
     func peerConnectionShouldNegotiate(_: LKRTCPeerConnection) {
         log("ShouldNegotiate for \(target)")
-        notify { $0.transportShouldNegotiate(self) }
+        notifyAsync { await $0.transportShouldNegotiate(self) }
     }
 
     func peerConnection(_: LKRTCPeerConnection,
@@ -226,7 +225,7 @@ extension Transport: LKRTCPeerConnectionDelegate {
         }
 
         log("type: \(type(of: track)), track.id: \(track.trackId), streams: \(streams.map { "Stream(hash: \($0.hash), id: \($0.streamId), videoTracks: \($0.videoTracks.count), audioTracks: \($0.audioTracks.count))" })")
-        notify { $0.transport(self, didAddTrack: track, rtpReceiver: rtpReceiver, streams: streams) }
+        notifyAsync { await $0.transport(self, didAddTrack: track, rtpReceiver: rtpReceiver, streams: streams) }
     }
 
     func peerConnection(_: LKRTCPeerConnection,
@@ -238,12 +237,12 @@ extension Transport: LKRTCPeerConnectionDelegate {
         }
 
         log("didRemove track: \(track.trackId)")
-        notify { $0.transport(self, didRemoveTrack: track) }
+        notifyAsync { await $0.transport(self, didRemoveTrack: track) }
     }
 
     func peerConnection(_: LKRTCPeerConnection, didOpen dataChannel: LKRTCDataChannel) {
         log("Received data channel \(dataChannel.label) for \(target)")
-        notify { $0.transport(self, didOpenDataChannel: dataChannel) }
+        notifyAsync { await $0.transport(self, didOpenDataChannel: dataChannel) }
     }
 
     func peerConnection(_: LKRTCPeerConnection, didChange _: RTCIceConnectionState) {}

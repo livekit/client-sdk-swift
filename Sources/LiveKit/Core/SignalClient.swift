@@ -52,7 +52,7 @@ actor SignalClient: Loggable {
                 log("\(oldValue) -> \(connectionState)")
             }
 
-            _delegates.notify { $0.signalClient(self, didUpdateConnectionState: self.connectionState, oldState: oldValue, disconnectError: self.disconnectError) }
+            _delegates.notifyAsync { await $0.signalClient(self, didUpdateConnectionState: self.connectionState, oldState: oldValue, disconnectError: self.disconnectError) }
         }
     }
 
@@ -291,69 +291,69 @@ private extension SignalClient {
         case let .join(joinResponse):
             _lastJoinResponse = joinResponse
             restartPingTimer()
-            _delegates.notify { $0.signalClient(self, didReceiveConnectResponse: .join(joinResponse)) }
+            _delegates.notifyAsync { await $0.signalClient(self, didReceiveConnectResponse: .join(joinResponse)) }
             _connectResponseCompleter.resume(returning: .join(joinResponse))
 
         case let .reconnect(response):
             restartPingTimer()
-            _delegates.notify { $0.signalClient(self, didReceiveConnectResponse: .reconnect(response)) }
+            _delegates.notifyAsync { await $0.signalClient(self, didReceiveConnectResponse: .reconnect(response)) }
             _connectResponseCompleter.resume(returning: .reconnect(response))
 
         case let .answer(sd):
-            _delegates.notify { $0.signalClient(self, didReceiveAnswer: sd.toRTCType()) }
+            _delegates.notifyAsync { await $0.signalClient(self, didReceiveAnswer: sd.toRTCType()) }
 
         case let .offer(sd):
-            _delegates.notify { $0.signalClient(self, didReceiveOffer: sd.toRTCType()) }
+            _delegates.notifyAsync { await $0.signalClient(self, didReceiveOffer: sd.toRTCType()) }
 
         case let .trickle(trickle):
             guard let rtcCandidate = try? Engine.createIceCandidate(fromJsonString: trickle.candidateInit) else {
                 return
             }
 
-            _delegates.notify { $0.signalClient(self, didReceiveIceCandidate: rtcCandidate, target: trickle.target) }
+            _delegates.notifyAsync { await $0.signalClient(self, didReceiveIceCandidate: rtcCandidate, target: trickle.target) }
 
         case let .update(update):
-            _delegates.notify { $0.signalClient(self, didUpdateParticipants: update.participants) }
+            _delegates.notifyAsync { await $0.signalClient(self, didUpdateParticipants: update.participants) }
 
         case let .roomUpdate(update):
-            _delegates.notify { $0.signalClient(self, didUpdateRoom: update.room) }
+            _delegates.notifyAsync { await $0.signalClient(self, didUpdateRoom: update.room) }
 
         case let .trackPublished(trackPublished):
             // not required to be handled because we use completer pattern for this case
-            _delegates.notify { $0.signalClient(self, didPublishLocalTrack: trackPublished) }
+            _delegates.notifyAsync { await $0.signalClient(self, didPublishLocalTrack: trackPublished) }
 
             log("[publish] resolving completer for cid: \(trackPublished.cid)")
             // Complete
             await _addTrackCompleters.resume(returning: trackPublished.track, for: trackPublished.cid)
 
         case let .trackUnpublished(trackUnpublished):
-            _delegates.notify { $0.signalClient(self, didUnpublishLocalTrack: trackUnpublished) }
+            _delegates.notifyAsync { await $0.signalClient(self, didUnpublishLocalTrack: trackUnpublished) }
 
         case let .speakersChanged(speakers):
-            _delegates.notify { $0.signalClient(self, didUpdateSpeakers: speakers.speakers) }
+            _delegates.notifyAsync { await $0.signalClient(self, didUpdateSpeakers: speakers.speakers) }
 
         case let .connectionQuality(quality):
-            _delegates.notify { $0.signalClient(self, didUpdateConnectionQuality: quality.updates) }
+            _delegates.notifyAsync { await $0.signalClient(self, didUpdateConnectionQuality: quality.updates) }
 
         case let .mute(mute):
-            _delegates.notify { $0.signalClient(self, didUpdateRemoteMute: mute.sid, muted: mute.muted) }
+            _delegates.notifyAsync { await $0.signalClient(self, didUpdateRemoteMute: mute.sid, muted: mute.muted) }
 
         case let .leave(leave):
-            _delegates.notify { $0.signalClient(self, didReceiveLeave: leave.canReconnect, reason: leave.reason) }
+            _delegates.notifyAsync { await $0.signalClient(self, didReceiveLeave: leave.canReconnect, reason: leave.reason) }
 
         case let .streamStateUpdate(states):
-            _delegates.notify { $0.signalClient(self, didUpdateTrackStreamStates: states.streamStates) }
+            _delegates.notifyAsync { await $0.signalClient(self, didUpdateTrackStreamStates: states.streamStates) }
 
         case let .subscribedQualityUpdate(update):
-            _delegates.notify { $0.signalClient(self, didUpdateSubscribedCodecs: update.subscribedCodecs,
-                                                qualities: update.subscribedQualities,
-                                                forTrackSid: update.trackSid) }
+            _delegates.notifyAsync { await $0.signalClient(self, didUpdateSubscribedCodecs: update.subscribedCodecs,
+                                                           qualities: update.subscribedQualities,
+                                                           forTrackSid: update.trackSid) }
 
         case let .subscriptionPermissionUpdate(permissionUpdate):
-            _delegates.notify { $0.signalClient(self, didUpdateSubscriptionPermission: permissionUpdate) }
+            _delegates.notifyAsync { await $0.signalClient(self, didUpdateSubscriptionPermission: permissionUpdate) }
 
         case let .refreshToken(token):
-            _delegates.notify { $0.signalClient(self, didUpdateToken: token) }
+            _delegates.notifyAsync { await $0.signalClient(self, didUpdateToken: token) }
 
         case let .pong(r):
             onReceivedPong(r)

@@ -81,13 +81,34 @@ public class MulticastDelegate<T>: NSObject, Loggable {
                 self.log("[notify] \(label())", .debug)
             }
 
-            for delegate in self.set.allObjects {
-                guard let delegate = delegate as? T else {
-                    self.log("MulticastDelegate: skipping notify for \(delegate), not a type of \(T.self)", .warning)
-                    continue
-                }
+            let delegates = self.set.allObjects.compactMap { $0 as? T }
 
+            for delegate in delegates {
                 fnc(delegate)
+            }
+        }
+    }
+
+    /// Notify delegates inside the queue.
+    /// Label is captured inside the queue for thread safety reasons.
+    func notifyAsync(label: (() -> String)? = nil, _ fnc: @escaping (T) async -> Void) {
+        multicastQueue.async {
+            if let label {
+                self.log("[notifyAsync] \(label())", .debug)
+            }
+
+            let delegates = self.set.allObjects.compactMap { $0 as? T }
+
+            // Invoke delegate in a detached Task...
+            Task.detached {
+                // Invoke concurrently...
+                await withTaskGroup(of: Void.self) { group in
+                    for delegate in delegates {
+                        group.addTask {
+                            await fnc(delegate)
+                        }
+                    }
+                }
             }
         }
     }
