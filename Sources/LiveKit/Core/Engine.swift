@@ -199,7 +199,7 @@ class Engine: MulticastDelegate<EngineDelegate> {
         log()
 
         let publisher = try requirePublisher()
-        publisher.negotiate()
+        await publisher.negotiate()
         _state.mutate { $0.hasPublished = true }
     }
 
@@ -278,7 +278,7 @@ extension Engine {
                                           primary: !subscriberPrimary,
                                           delegate: self)
 
-            publisher.onOffer = { [weak self] offer in
+            await publisher.set { [weak self] offer in
                 guard let self else { return }
                 self.log("Publisher onOffer \(offer.sdp)")
                 try await self.signalClient.send(offer: offer)
@@ -286,11 +286,11 @@ extension Engine {
 
             // data over pub channel for backwards compatibility
 
-            let reliableDataChannel = publisher.dataChannel(for: LKRTCDataChannel.labels.reliable,
-                                                            configuration: Engine.createDataChannelConfiguration())
+            let reliableDataChannel = await publisher.dataChannel(for: LKRTCDataChannel.labels.reliable,
+                                                                  configuration: Engine.createDataChannelConfiguration())
 
-            let lossyDataChannel = publisher.dataChannel(for: LKRTCDataChannel.labels.lossy,
-                                                         configuration: Engine.createDataChannelConfiguration(maxRetransmits: 0))
+            let lossyDataChannel = await publisher.dataChannel(for: LKRTCDataChannel.labels.lossy,
+                                                               configuration: Engine.createDataChannelConfiguration(maxRetransmits: 0))
 
             await publisherDataChannel.set(reliable: reliableDataChannel)
             await publisherDataChannel.set(lossy: lossyDataChannel)
@@ -313,8 +313,8 @@ extension Engine {
                 return
             }
 
-            try subscriber.set(configuration: rtcConfiguration)
-            try publisher.set(configuration: rtcConfiguration)
+            try await subscriber.set(configuration: rtcConfiguration)
+            try await publisher.set(configuration: rtcConfiguration)
         }
     }
 }
@@ -440,7 +440,7 @@ extension Engine {
             // send SyncState before offer
             try await sendSyncState()
 
-            subscriber?.isRestartingIce = true
+            await subscriber?.setIsRestartingIce()
 
             if let publisher, _state.hasPublished {
                 // Only if published, wait for publisher to connect...

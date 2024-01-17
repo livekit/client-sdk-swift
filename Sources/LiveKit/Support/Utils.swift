@@ -201,20 +201,6 @@ class Utils {
         return builder.url
     }
 
-    static func createDebounceFunc(on queue: DispatchQueue,
-                                   wait: TimeInterval,
-                                   onCreateWorkItem: ((DispatchWorkItem) -> Void)? = nil,
-                                   fnc: @escaping @convention(block) () -> Void) -> DebouncFunc
-    {
-        var workItem: DispatchWorkItem?
-        return {
-            workItem?.cancel()
-            workItem = DispatchWorkItem { fnc() }
-            onCreateWorkItem?(workItem!)
-            queue.asyncAfter(deadline: .now() + wait, execute: workItem!)
-        }
-    }
-
     static func computeVideoEncodings(
         dimensions: Dimensions,
         publishOptions: VideoPublishOptions?,

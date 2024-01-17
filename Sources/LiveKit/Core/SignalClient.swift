@@ -220,22 +220,6 @@ actor SignalClient: Loggable {
     }
 }
 
-extension SignalClient: MulticastDelegateProtocol {
-    typealias Delegate = SignalClientDelegate
-
-    public nonisolated func add(delegate: SignalClientDelegate) {
-        _delegates.add(delegate: delegate)
-    }
-
-    public nonisolated func remove(delegate: SignalClientDelegate) {
-        _delegates.remove(delegate: delegate)
-    }
-
-    public nonisolated func removeAllDelegates() {
-        _delegates.removeAllDelegates()
-    }
-}
-
 // MARK: - Private
 
 private extension SignalClient {
@@ -676,5 +660,23 @@ private extension SignalClient {
         }
 
         return result
+    }
+}
+
+// MARK: - MulticastDelegateProtocol
+
+extension SignalClient: MulticastDelegateProtocol {
+    typealias Delegate = SignalClientDelegate
+
+    public nonisolated func add(delegate: SignalClientDelegate) {
+        _delegates.add(delegate: delegate)
+    }
+
+    public nonisolated func remove(delegate: SignalClientDelegate) {
+        _delegates.remove(delegate: delegate)
+    }
+
+    public nonisolated func removeAllDelegates() {
+        _delegates.removeAllDelegates()
     }
 }

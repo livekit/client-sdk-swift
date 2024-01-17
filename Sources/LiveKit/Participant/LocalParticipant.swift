@@ -160,7 +160,7 @@ public class LocalParticipant: Participant {
             log("[Publish] server responded trackInfo: \(addTrackResult.trackInfo)")
 
             // Add transceiver to pc
-            let transceiver = try publisher.addTransceiver(with: track.mediaTrack, transceiverInit: addTrackResult.result)
+            let transceiver = try await publisher.addTransceiver(with: track.mediaTrack, transceiverInit: addTrackResult.result)
             log("[Publish] Added transceiver: \(addTrackResult.trackInfo)...")
 
             do {
@@ -203,7 +203,7 @@ public class LocalParticipant: Participant {
             } catch {
                 // Rollback
                 track.set(transport: nil, rtpSender: nil)
-                try publisher.remove(track: transceiver.sender)
+                try await publisher.remove(track: transceiver.sender)
                 // Rethrow
                 throw error
             }
@@ -291,10 +291,10 @@ public class LocalParticipant: Participant {
         if let publisher = engine.publisher, let sender = track.rtpSender {
             // Remove all simulcast senders...
             for simulcastSender in track._simulcastRtpSenders.values {
-                try publisher.remove(track: simulcastSender)
+                try await publisher.remove(track: simulcastSender)
             }
             // Remove main sender...
-            try publisher.remove(track: sender)
+            try await publisher.remove(track: sender)
             // Mark re-negotiation required...
             try await engine.publisherShouldNegotiate()
         }
@@ -575,7 +575,7 @@ extension LocalParticipant {
         transInit.sendEncodings = encodings
 
         // Add transceiver to publisher pc...
-        let transceiver = try publisher.addTransceiver(with: track.mediaTrack, transceiverInit: transInit)
+        let transceiver = try await publisher.addTransceiver(with: track.mediaTrack, transceiverInit: transInit)
         log("[Publish] Added transceiver...")
 
         // Set codec...
