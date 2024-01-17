@@ -124,7 +124,7 @@ public class RemoteParticipant: Participant {
 
         assert(room.engine.subscriber != nil, "Subscriber is nil")
         if let transport = room.engine.subscriber {
-            track.set(transport: transport, rtpReceiver: rtpReceiver)
+            await track.set(transport: transport, rtpReceiver: rtpReceiver)
         }
 
         add(publication: publication)

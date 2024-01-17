@@ -170,7 +170,7 @@ public class LocalParticipant: Participant {
                 track._publishOptions = publishOptions
 
                 // Attach sender to track...
-                track.set(transport: publisher, rtpSender: transceiver.sender)
+                await track.set(transport: publisher, rtpSender: transceiver.sender)
 
                 if track is LocalVideoTrack {
                     if let firstCodecMime = addTrackResult.trackInfo.codecs.first?.mimeType,
@@ -202,7 +202,7 @@ public class LocalParticipant: Participant {
 
             } catch {
                 // Rollback
-                track.set(transport: nil, rtpSender: nil)
+                await track.set(transport: nil, rtpSender: nil)
                 try await publisher.remove(track: transceiver.sender)
                 // Rethrow
                 throw error

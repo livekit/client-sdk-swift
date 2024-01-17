@@ -140,7 +140,7 @@ public class Track: NSObject, Loggable {
     // MARK: - Private
 
     private weak var transport: Transport?
-    private let statisticsTimer = DispatchQueueTimer(timeInterval: 1, queue: .liveKitWebRTC)
+    private let statisticsTimer = AsyncTimer(delay: 1)
 
     init(name: String,
          kind: Kind,
@@ -180,43 +180,44 @@ public class Track: NSObject, Loggable {
                 self.delegates.notify { $0.track?(self, didUpdateStatistics: statistics, simulcastStatistics: newState.simulcastStatistics) }
             }
         }
-
-        statisticsTimer.handler = { [weak self] in
-            self?.onStatsTimer()
-        }
-
-        resumeOrSuspendStatisticsTimer()
     }
 
     deinit {
-        statisticsTimer.suspend()
+        Task.detached {
+            await self.statisticsTimer.cancel()
+        }
         log("sid: \(String(describing: sid))")
     }
 
-    func set(transport: Transport?, rtpSender: LKRTCRtpSender?) {
+    func set(transport: Transport?, rtpSender: LKRTCRtpSender?) async {
         self.transport = transport
         self.rtpSender = rtpSender
-        resumeOrSuspendStatisticsTimer()
+        await _resumeOrSuspendStatisticsTimer()
     }
 
-    func set(transport: Transport?, rtpReceiver: LKRTCRtpReceiver?) {
+    func set(transport: Transport?, rtpReceiver: LKRTCRtpReceiver?) async {
         self.transport = transport
         self.rtpReceiver = rtpReceiver
-        resumeOrSuspendStatisticsTimer()
+        await _resumeOrSuspendStatisticsTimer()
     }
 
-    func resumeOrSuspendStatisticsTimer() {
-        if _state.reportStatistics, rtpSender != nil || rtpReceiver != nil {
-            statisticsTimer.resume()
+    private func _resumeOrSuspendStatisticsTimer() async {
+        let shouldStart = _state.reportStatistics && (rtpSender != nil || rtpReceiver != nil)
+
+        if shouldStart {
+            await statisticsTimer.setTimerBlock { [weak self] in
+                await self?._onStatsTimer()
+            }
+            await statisticsTimer.start()
         } else {
-            statisticsTimer.suspend()
+            await statisticsTimer.cancel()
         }
     }
 
     @objc
-    public func set(reportStatistics: Bool) {
+    public func set(reportStatistics: Bool) async {
         _state.mutate { $0.reportStatistics = reportStatistics }
-        resumeOrSuspendStatisticsTimer()
+        await _resumeOrSuspendStatisticsTimer()
     }
 
     func set(trackState: TrackState) {
@@ -446,44 +447,41 @@ public extension InboundRtpStreamStatistics {
 }
 
 extension Track {
-    func onStatsTimer() {
+    func _onStatsTimer() async {
+        // Transport is required...
         guard let transport else { return }
 
-        statisticsTimer.suspend()
+        // Main statistics
 
-        Task {
-            defer { statisticsTimer.resume() }
+        var statisticsReport: LKRTCStatisticsReport?
+        let prevStatistics = _state.read { $0.statistics }
 
-            // Main tatistics
+        if let sender = rtpSender {
+            statisticsReport = await transport.statistics(for: sender)
+        } else if let receiver = rtpReceiver {
+            statisticsReport = await transport.statistics(for: receiver)
+        }
 
-            var statisticsReport: LKRTCStatisticsReport?
-            let prevStatistics = _state.read { $0.statistics }
+        guard let statisticsReport else {
+            log("statisticsReport is nil", .error)
+            return
+        }
 
-            if let sender = rtpSender {
-                statisticsReport = await transport.statistics(for: sender)
-            } else if let receiver = rtpReceiver {
-                statisticsReport = await transport.statistics(for: receiver)
-            }
+        let trackStatistics = TrackStatistics(from: Array(statisticsReport.statistics.values), prevStatistics: prevStatistics)
 
-            assert(statisticsReport != nil, "statisticsReport is nil")
-            guard let statisticsReport else { return }
+        // Simulcast statistics
 
-            let trackStatistics = TrackStatistics(from: Array(statisticsReport.statistics.values), prevStatistics: prevStatistics)
+        let prevSimulcastStatistics = _state.read { $0.simulcastStatistics }
+        var _simulcastStatistics: [VideoCodec: TrackStatistics] = [:]
+        for _sender in _simulcastRtpSenders {
+            let _report = await transport.statistics(for: _sender.value)
+            _simulcastStatistics[_sender.key] = TrackStatistics(from: Array(_report.statistics.values),
+                                                                prevStatistics: prevSimulcastStatistics[_sender.key])
+        }
 
-            // Simulcast statistics
-
-            let prevSimulcastStatistics = _state.read { $0.simulcastStatistics }
-            var _simulcastStatistics: [VideoCodec: TrackStatistics] = [:]
-            for _sender in _simulcastRtpSenders {
-                let _report = await transport.statistics(for: _sender.value)
-                _simulcastStatistics[_sender.key] = TrackStatistics(from: Array(_report.statistics.values),
-                                                                    prevStatistics: prevSimulcastStatistics[_sender.key])
-            }
-
-            _state.mutate {
-                $0.statistics = trackStatistics
-                $0.simulcastStatistics = _simulcastStatistics
-            }
+        _state.mutate {
+            $0.statistics = trackStatistics
+            $0.simulcastStatistics = _simulcastStatistics
         }
     }
 }
