@@ -246,7 +246,7 @@ private extension SignalClient {
             throw LiveKitError(.invalidState, message: "connectionState is .disconnected")
         }
 
-        let processImmediately = !(connectionState == .reconnecting && request.canEnqueue())
+        let processImmediately = !(connectionState == .reconnecting && request.canBeQueued())
         await _requestQueue.process(request, if: processImmediately)
     }
 
@@ -265,14 +265,14 @@ private extension SignalClient {
         }
 
         Task {
-            let isJoinOrReconnect: Bool = {
+            let alwaysProcess: Bool = {
                 switch response.message {
-                case .join, .reconnect: return true
+                case .join, .reconnect, .leave: return true
                 default: return false
                 }
             }()
             // Always process join or reconnect messages even if suspended...
-            await _responseQueue.processIfResumed(response, or: isJoinOrReconnect)
+            await _responseQueue.processIfResumed(response, or: alwaysProcess)
         }
     }
 
@@ -658,14 +658,9 @@ private extension SignalClient {
 }
 
 extension Livekit_SignalRequest {
-    func canEnqueue() -> Bool {
+    func canBeQueued() -> Bool {
         switch message {
-        case .syncState: return false
-        case .trickle: return false
-        case .offer: return false
-        case .answer: return false
-        case .simulate: return false
-        case .leave: return false
+        case .syncState, .trickle, .offer, .answer, .simulate, .leave: return false
         default: return true
         }
     }
