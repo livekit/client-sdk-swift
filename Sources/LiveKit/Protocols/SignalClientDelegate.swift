@@ -19,7 +19,7 @@ import Foundation
 @_implementationOnly import WebRTC
 
 protocol SignalClientDelegate: AnyObject {
-    func signalClient(_ signalClient: SignalClient, didMutateState state: SignalClient.State, oldState: SignalClient.State)
+    func signalClient(_ signalClient: SignalClient, didUpdateConnectionState newState: ConnectionState, oldState: ConnectionState, disconnectError: LiveKitError?)
     func signalClient(_ signalClient: SignalClient, didReceiveConnectResponse connectResponse: SignalClient.ConnectResponse)
     func signalClient(_ signalClient: SignalClient, didReceiveAnswer answer: LKRTCSessionDescription)
     func signalClient(_ signalClient: SignalClient, didReceiveOffer offer: LKRTCSessionDescription)
