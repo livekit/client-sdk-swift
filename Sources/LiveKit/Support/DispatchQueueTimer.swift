@@ -18,71 +18,97 @@ import Foundation
 
 internal class DispatchQueueTimer: Loggable {
 
+    typealias OnTimer = (() -> Void)
+
     public enum State {
         case suspended
         case resumed
     }
 
-    private let queue: DispatchQueue?
-    private let timeInterval: TimeInterval
-    private var timer: DispatchSourceTimer!
-    public var handler: (() -> Void)?
-    public private(set) var state: State = .suspended
+    private let _queue: DispatchQueue?
+    private let _timeInterval: TimeInterval
+    private var _timer: DispatchSourceTimer!
+    private var _state: State = .suspended
+    private var _handler: OnTimer?
+
+    private let _lock = UnfairLock()
 
     public init(timeInterval: TimeInterval, queue: DispatchQueue? = nil) {
-        self.timeInterval = timeInterval
-        self.queue = queue
-        self.timer = createTimer()
+        _timeInterval = timeInterval
+        _queue = queue
+        _timer = _createTimer()
     }
 
     deinit {
-        cleanUpTimer()
-        handler = nil
+        _cleanUpTimer()
+        _handler = nil
     }
 
-    // reset the state
-    public func reset() {
-        cleanUpTimer()
-        timer = createTimer()
-        state = .suspended
-    }
+    // MARK: - Public
 
-    public func restart() {
-        reset()
-        resume()
-    }
-
-    // continue from where it was suspended
-    public func resume() {
-        if state == .resumed {
-            return
+    public func setOnTimer(_ block: @escaping OnTimer) {
+        _lock.sync {
+            _handler = block
         }
-        state = .resumed
-        timer.resume()
+    }
+
+    public func resume() {
+        _lock.sync {
+            _resume()
+        }
     }
 
     public func suspend() {
-        if state == .suspended {
-            return
+        _lock.sync {
+            _suspend()
         }
-        state = .suspended
-        timer.suspend()
     }
 
-    private func createTimer() -> DispatchSourceTimer {
-        let timer = DispatchSource.makeTimerSource(queue: queue)
-        timer.schedule(deadline: .now() + self.timeInterval, repeating: self.timeInterval)
-        timer.setEventHandler { [weak self] in self?.handler?() }
+    public func restart() {
+        _lock.sync {
+            _restart()
+        }
+    }
+
+    // MARK: - Private
+
+    private func _reset() {
+        _cleanUpTimer()
+        _timer = _createTimer()
+        _state = .suspended
+    }
+
+    private func _restart() {
+        _reset()
+        _resume()
+    }
+
+    private func _resume() {
+        if _state == .resumed { return }
+        _state = .resumed
+        _timer.resume()
+    }
+
+    private func _suspend() {
+        if _state == .suspended { return }
+        _state = .suspended
+        _timer.suspend()
+    }
+
+    private func _createTimer() -> DispatchSourceTimer {
+        let timer = DispatchSource.makeTimerSource(queue: _queue)
+        timer.schedule(deadline: .now() + self._timeInterval, repeating: self._timeInterval)
+        timer.setEventHandler { [weak self] in self?._handler?() }
         return timer
     }
 
-    private func cleanUpTimer() {
-        timer.setEventHandler {}
-        timer.cancel()
+    private func _cleanUpTimer() {
+        _timer.setEventHandler {}
+        _timer.cancel()
         /*
          If the timer is suspended, calling cancel without resuming
          triggers a crash. This is documented here https://forums.developer.apple.com/thread/15902
          */
-        resume()
+        _resume()
     }
 }

@@ -696,7 +696,7 @@ private extension SignalClient {
 
                 self.pingTimeoutTimer = {
                     let timer = DispatchQueueTimer(timeInterval: TimeInterval(jr.pingTimeout), queue: self.queue)
-                    timer.handler = { [weak self] in
+                    timer.setOnTimer { [weak self] in
                         guard let self = self else { return }
                         self.log("ping/pong timed out", .error)
                         self.cleanUp(reason: .networkError(SignalClientError.serverPingTimedOut()))
@@ -729,7 +729,7 @@ private extension SignalClient {
 
         pingIntervalTimer = {
             let timer = DispatchQueueTimer(timeInterval: TimeInterval(jr.pingInterval), queue: queue)
-            timer.handler = { [weak self] in self?.onPingIntervalTimer() }
+            timer.setOnTimer { [weak self] in self?.onPingIntervalTimer() }
             timer.resume()
             return timer
         }()

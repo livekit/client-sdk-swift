@@ -101,7 +101,7 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
         DispatchQueue.liveKitWebRTC.sync { pc.delegate = self }
         add(delegate: delegate)
 
-        statsTimer.handler = { [weak self] in
+        statsTimer.setOnTimer { [weak self] in
             self?.onStatsTimer()
         }
 

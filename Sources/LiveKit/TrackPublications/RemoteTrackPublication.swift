@@ -47,7 +47,7 @@ public class RemoteTrackPublication: TrackPublication {
                    track: track,
                    participant: participant)
 
-        asTimer.handler = { [weak self] in self?.onAdaptiveStreamTimer() }
+        asTimer.setOnTimer { [weak self] in self?.onAdaptiveStreamTimer() }
     }
 
     deinit {
