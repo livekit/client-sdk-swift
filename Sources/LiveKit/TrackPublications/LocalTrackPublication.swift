@@ -61,9 +61,6 @@ public class LocalTrackPublication: TrackPublication {
 
     deinit {
         log()
-        Task.detached {
-            await self._debounce.cancel()
-        }
     }
 }
 
