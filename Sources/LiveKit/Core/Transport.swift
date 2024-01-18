@@ -63,14 +63,11 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
 
     // MARK: - Private
 
-    private var renegotiate: Bool = false
-
     // forbid direct access to PeerConnection
     private let pc: RTCPeerConnection
 
     // used for stats timer
     private let statsTimer = DispatchQueueTimer(timeInterval: 1, queue: .liveKitWebRTC)
-    private var stats = [String: TrackStats]()
 
     // keep reference to cancel later
     private var debounceWorkItem: DispatchWorkItem?
@@ -78,6 +75,8 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
     internal struct State: Equatable {
         var isRestartingIce: Bool = false
         var pendingCandidates: [RTCIceCandidate] = []
+        var shouldRenegotiate: Bool = false
+        var stats = [String: TrackStats]() // Deprecated version
     }
 
     private let _state = StateSync(State())
@@ -149,8 +148,8 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
                 $0.isRestartingIce = false
             }
 
-            if self.renegotiate {
-                self.renegotiate = false
+            if self._state.shouldRenegotiate {
+                self._state.mutate { $0.shouldRenegotiate = false }
                 return self.createAndSendOffer()
             }
 
@@ -176,7 +175,9 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
         }
 
         if signalingState == .haveLocalOffer, !(iceRestart && remoteDescription != nil) {
-            renegotiate = true
+            _state.mutate {
+                $0.shouldRenegotiate = true
+            }
             return Promise(())
         }
 
@@ -255,7 +256,7 @@ extension Transport {
 
                     let findPrevious = { () -> TrackStats? in
                         guard let ssrc = entry.values[TrackStats.keyTypeSSRC],
-                              let previous = self.stats[ssrc] else { return nil }
+                              let previous = self._state.stats[ssrc] else { return nil }
                         return previous
                     }
 
@@ -263,21 +264,16 @@ extension Transport {
                 }
                 .compactMap { $0 }
 
-            for track in tracks {
-                // cache
-                self.stats[track.ssrc] = track
+            _state.mutate {
+                for track in tracks {
+                    // cache
+                    $0.stats[track.ssrc] = track
+                }
             }
 
             if !tracks.isEmpty {
                 self.notify { $0.transport(self, didGenerate: tracks, target: self.target) }
             }
-
-            // clean up
-            // for key in self.stats.keys {
-            //    if !tracks.contains(where: { $0.ssrc == key }) {
-            //        self.stats.removeValue(forKey: key)
-            //    }
-            // }
         }
     }
 }
