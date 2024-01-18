@@ -30,7 +30,6 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
     public let target: Livekit_SignalTarget
     public let primary: Bool
 
-    public var restartingIce: Bool = false
     public var onOffer: TransportOnOffer?
 
     public var connectionState: RTCPeerConnectionState {
@@ -64,18 +63,23 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
 
     // MARK: - Private
 
-    private var renegotiate: Bool = false
-
     // forbid direct access to PeerConnection
     private let pc: RTCPeerConnection
-    private var pendingCandidates: [RTCIceCandidate] = []
 
     // used for stats timer
     private let statsTimer = DispatchQueueTimer(timeInterval: 1, queue: .liveKitWebRTC)
-    private var stats = [String: TrackStats]()
 
     // keep reference to cancel later
     private var debounceWorkItem: DispatchWorkItem?
+
+    internal struct State: Equatable {
+        var isRestartingIce: Bool = false
+        var pendingCandidates: [RTCIceCandidate] = []
+        var shouldRenegotiate: Bool = false
+        var stats = [String: TrackStats]() // Deprecated version
+    }
+
+    private let _state = StateSync(State())
 
     init(config: RTCConfiguration,
          target: Livekit_SignalTarget,
@@ -121,12 +125,14 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
     @discardableResult
     func addIceCandidate(_ candidate: RTCIceCandidate) -> Promise<Void> {
 
-        if remoteDescription != nil && !restartingIce {
+        if remoteDescription != nil && !_state.isRestartingIce {
             return addIceCandidatePromise(candidate)
         }
 
         return Promise(on: queue) {
-            self.pendingCandidates.append(candidate)
+            self._state.mutate {
+                $0.pendingCandidates.append(candidate)
+            }
         }
     }
 
@@ -134,14 +140,16 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
     func setRemoteDescription(_ sd: RTCSessionDescription) -> Promise<Void> {
 
         self.setRemoteDescriptionPromise(sd).then(on: queue) { _ in
-            self.pendingCandidates.map { self.addIceCandidatePromise($0) }.all(on: self.queue)
+            self._state.pendingCandidates.map { self.addIceCandidatePromise($0) }.all(on: self.queue)
         }.then(on: queue) { () -> Promise<Void> in
 
-            self.pendingCandidates = []
-            self.restartingIce = false
+            self._state.mutate {
+                $0.pendingCandidates = []
+                $0.isRestartingIce = false
+            }
 
-            if self.renegotiate {
-                self.renegotiate = false
+            if self._state.shouldRenegotiate {
+                self._state.mutate { $0.shouldRenegotiate = false }
                 return self.createAndSendOffer()
             }
 
@@ -161,11 +169,15 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
         if iceRestart {
             log("Restarting ICE...")
             constraints[kRTCMediaConstraintsIceRestart] = kRTCMediaConstraintsValueTrue
-            restartingIce = true
+            _state.mutate {
+                $0.isRestartingIce = true
+            }
         }
 
         if signalingState == .haveLocalOffer, !(iceRestart && remoteDescription != nil) {
-            renegotiate = true
+            _state.mutate {
+                $0.shouldRenegotiate = true
+            }
             return Promise(())
         }
 
@@ -210,6 +222,10 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
             }
         }
     }
+
+    func setIsRestartingIce() {
+        _state.mutate { $0.isRestartingIce = true }
+    }
 }
 
 // MARK: - Stats
@@ -240,7 +256,7 @@ extension Transport {
 
                     let findPrevious = { () -> TrackStats? in
                         guard let ssrc = entry.values[TrackStats.keyTypeSSRC],
-                              let previous = self.stats[ssrc] else { return nil }
+                              let previous = self._state.stats[ssrc] else { return nil }
                         return previous
                     }
 
@@ -248,21 +264,16 @@ extension Transport {
                 }
                 .compactMap { $0 }
 
-            for track in tracks {
-                // cache
-                self.stats[track.ssrc] = track
+            _state.mutate {
+                for track in tracks {
+                    // cache
+                    $0.stats[track.ssrc] = track
+                }
             }
 
             if !tracks.isEmpty {
                 self.notify { $0.transport(self, didGenerate: tracks, target: self.target) }
             }
-
-            // clean up
-            // for key in self.stats.keys {
-            //    if !tracks.contains(where: { $0.ssrc == key }) {
-            //        self.stats.removeValue(forKey: key)
-            //    }
-            // }
         }
     }
 }
