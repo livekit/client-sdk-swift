@@ -43,10 +43,8 @@ extension Room: SignalClientDelegate {
 
     func signalClient(_ signalClient: SignalClient, didReceive joinResponse: Livekit_JoinResponse) {
 
-        log("server version: \(joinResponse.serverVersion), region: \(joinResponse.serverRegion)", .info)
-
-        if self.e2eeManager != nil && !joinResponse.sifTrailer.isEmpty {
-            self.e2eeManager?.keyProvider().setSifTrailer(trailer: joinResponse.sifTrailer)
+        if e2eeManager != nil, !joinResponse.sifTrailer.isEmpty {
+            e2eeManager?.keyProvider.setSifTrailer(trailer: joinResponse.sifTrailer)
         }
 
         _state.mutate {

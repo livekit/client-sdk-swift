@@ -19,110 +19,144 @@ import WebRTC
 
 @objc
 public class E2EEManager: NSObject, ObservableObject, Loggable {
-    // Reference to Room
-    internal weak var room: Room?
-    internal var enabled: Bool = true
-    public var e2eeOptions: E2EEOptions
-    internal var frameCryptors = [[String: Sid]: RTCFrameCryptor]()
-    internal var trackPublications = [RTCFrameCryptor: TrackPublication]()
+
+    // MARK: - Public
+
+    public let e2eeOptions: E2EEOptions
+    public var keyProvider: BaseKeyProvider {
+        e2eeOptions.keyProvider
+    }
+
+    // MARK: - Private
+
+    private weak var _room: Room?
+    private var _state = StateSync(State())
+
+    private struct State: Equatable {
+        var enabled: Bool = true
+        var frameCryptors = [[String: Sid]: RTCFrameCryptor]()
+        var trackPublications = [RTCFrameCryptor: TrackPublication]()
+    }
 
     public init(e2eeOptions: E2EEOptions) {
         self.e2eeOptions = e2eeOptions
     }
 
-    public func keyProvider() -> BaseKeyProvider {
-        return self.e2eeOptions.keyProvider
-    }
-
-    public func getFrameCryptors() -> [[String: Sid]: RTCFrameCryptor] {
-        return self.frameCryptors
-    }
-
     public func setup(room: Room) {
-        if self.room != room {
-            cleanUp()
-        }
-        self.room = room
-        self.room?.delegates.add(delegate: self)
-        self.room?.localParticipant?.tracks.forEach({ (_: Sid, publication: TrackPublication) in
-            if publication.encryptionType == EncryptionType.none {
-                self.log("E2EEManager::setup: local participant \(self.room!.localParticipant!.identity) track \(publication.sid) encryptionType is none, skip")
-                return
-            }
-            if publication.track?.rtpSender == nil {
-                self.log("E2EEManager::setup: publication.track?.rtpSender is nil, skip to create FrameCryptor!")
-                return
-            }
-            let fc = addRtpSender(sender: publication.track!.rtpSender!, participantId: self.room!.localParticipant!.identity, trackSid: publication.sid)
-            trackPublications[fc] = publication
-        })
+        if _room != room { cleanUp() }
+        _room = room
 
-        self.room?.remoteParticipants.forEach({ (_: Sid, participant: RemoteParticipant) in
-            participant.tracks.forEach({ (_: Sid, publication: TrackPublication) in
-                if publication.encryptionType == EncryptionType.none {
-                    self.log("E2EEManager::setup: remote participant \(participant.identity) track \(publication.sid) encryptionType is none, skip")
-                    return
-                }
-                if publication.track?.rtpReceiver == nil {
-                    self.log("E2EEManager::setup: publication.track?.rtpReceiver is nil, skip to create FrameCryptor!")
-                    return
-                }
-                let fc = addRtpReceiver(receiver: publication.track!.rtpReceiver!, participantId: participant.identity, trackSid: publication.sid)
-                trackPublications[fc] = publication
-            })
-        })
+        room.delegates.add(delegate: self)
+
+        if let localParticipant = room.localParticipant {
+            let localPublications = localParticipant.tracks.values.compactMap { $0 as? LocalTrackPublication }
+            for publication in localPublications {
+                addRtpSender(publication: publication, participantSid: localParticipant.sid)
+            }
+        }
+
+        for remoteParticipant in room.remoteParticipants.values {
+            let remotePublications = remoteParticipant.tracks.values.compactMap { $0 as? RemoteTrackPublication }
+
+            for publication in remotePublications {
+                addRtpReceiver(publication: publication, participantSid: remoteParticipant.sid)
+            }
+        }
     }
 
     public func enableE2EE(enabled: Bool) {
-        self.enabled = enabled
-        for (_, frameCryptor) in frameCryptors {
-            frameCryptor.enabled = enabled
+        _state.mutate {
+            $0.enabled = enabled
+            for (_, frameCryptor) in $0.frameCryptors {
+                frameCryptor.enabled = enabled
+            }
         }
     }
 
-    func addRtpSender(sender: RTCRtpSender, participantId: String, trackSid: Sid) -> RTCFrameCryptor {
-        self.log("addRtpSender \(participantId) to E2EEManager")
-        let frameCryptor = RTCFrameCryptor(factory: Engine.peerConnectionFactory, rtpSender: sender, participantId: participantId, algorithm: RTCCyrptorAlgorithm.aesGcm, keyProvider: self.e2eeOptions.keyProvider.rtcKeyProvider!)
+    func addRtpSender(publication: LocalTrackPublication, participantSid: String) {
+        guard publication.encryptionType != .none else {
+            log("encryptionType is .none, skipping creating frame cryptor...", .warning)
+            return
+        }
+
+        guard let sender = publication.track?.rtpSender else {
+            log("sender is nil, skipping creating frame cryptor...", .warning)
+            return
+        }
+
+        let frameCryptor = RTCFrameCryptor(factory: Engine.peerConnectionFactory,
+                                           rtpSender: sender,
+                                           participantId: participantSid,
+                                           algorithm: RTCCyrptorAlgorithm.aesGcm,
+                                           keyProvider: e2eeOptions.keyProvider.rtcKeyProvider!)
+
         frameCryptor.delegate = self
-        frameCryptors[[participantId: trackSid]] = frameCryptor
-        frameCryptor.enabled = self.enabled
-        return frameCryptor
+
+        return _state.mutate {
+            $0.frameCryptors[[participantSid: publication.sid]] = frameCryptor
+            $0.trackPublications[frameCryptor] = publication
+            frameCryptor.enabled = $0.enabled
+        }
     }
 
-    func addRtpReceiver(receiver: RTCRtpReceiver, participantId: String, trackSid: Sid) -> RTCFrameCryptor {
-        self.log("addRtpReceiver \(participantId)  to E2EEManager")
-        let frameCryptor = RTCFrameCryptor(factory: Engine.peerConnectionFactory, rtpReceiver: receiver, participantId: participantId, algorithm: RTCCyrptorAlgorithm.aesGcm, keyProvider: self.e2eeOptions.keyProvider.rtcKeyProvider!)
+    func addRtpReceiver(publication: RemoteTrackPublication, participantSid: String) {
+        guard publication.encryptionType != .none else {
+            log("encryptionType is .none, skipping creating frame cryptor...", .warning)
+            return
+        }
+
+        guard let receiver = publication.track?.rtpReceiver else {
+            log("receiver is nil, skipping creating frame cryptor...", .warning)
+            return
+        }
+
+        let frameCryptor = RTCFrameCryptor(factory: Engine.peerConnectionFactory,
+                                           rtpReceiver: receiver,
+                                           participantId: participantSid,
+                                           algorithm: RTCCyrptorAlgorithm.aesGcm,
+                                           keyProvider: e2eeOptions.keyProvider.rtcKeyProvider!)
+
         frameCryptor.delegate = self
-        frameCryptors[[participantId: trackSid]] = frameCryptor
-        frameCryptor.enabled = self.enabled
-        return frameCryptor
+
+        return _state.mutate {
+            $0.frameCryptors[[participantSid: publication.sid]] = frameCryptor
+            $0.trackPublications[frameCryptor] = publication
+            frameCryptor.enabled = $0.enabled
+        }
     }
 
     public func cleanUp() {
-        self.room?.delegates.remove(delegate: self)
-        for (_, frameCryptor) in frameCryptors {
-            frameCryptor.delegate = nil
+        _room?.delegates.remove(delegate: self)
+
+        _state.mutate {
+            for (_, frameCryptor) in $0.frameCryptors {
+                frameCryptor.delegate = nil
+            }
+            $0.frameCryptors.removeAll()
+            $0.trackPublications.removeAll()
         }
-        frameCryptors.removeAll()
-        trackPublications.removeAll()
     }
 }
 
 extension E2EEManager: RTCFrameCryptorDelegate {
+    public func frameCryptor(_ frameCryptor: RTCFrameCryptor,
+                             didStateChangeWithParticipantId participantId: String,
+                             with e2eeState: FrameCryptionState) {
 
-    public func frameCryptor(_ frameCryptor: RTCFrameCryptor, didStateChangeWithParticipantId participantId: String, with state: FrameCryptionState) {
-        self.log("frameCryptor didStateChangeWithParticipantId \(participantId) with state \(state.rawValue)")
-        let publication: TrackPublication? = trackPublications[frameCryptor]
-        if publication == nil {
-            self.log("frameCryptor didStateChangeWithParticipantId \(participantId) with state \(state.rawValue) publication is nil")
+        guard let room = _room else {
+            log("room is nil", .warning)
             return
         }
-        if self.room == nil {
-            self.log("frameCryptor didStateChangeWithParticipantId \(participantId) with state \(state.rawValue) room is nil")
+
+        guard let publication = _state.read({ $0.trackPublications[frameCryptor] }) else {
+            log("publication is nil", .warning)
             return
         }
-        self.room?.delegates.notify { delegate in
-            delegate.room?(self.room!, publication: publication!, didUpdateE2EEState: state.toLKType())
+
+        log("frameCryptor didStateChangeWithParticipantId \(participantId) with state \(e2eeState)")
+
+        room.delegates.notify { delegate in
+            delegate.room?(room, publication: publication, didUpdateE2EEState: e2eeState.toLKType())
         }
     }
 }
@@ -130,56 +164,38 @@ extension E2EEManager: RTCFrameCryptorDelegate {
 extension E2EEManager: RoomDelegate {
 
     public func room(_ room: Room, localParticipant: LocalParticipant, didPublish publication: LocalTrackPublication) {
-        if publication.encryptionType == EncryptionType.none {
-            self.log("E2EEManager::RoomDelegate: local participant \(localParticipant.identity) track \(publication.sid) encryptionType is none, skip")
-            return
-        }
-        if publication.track?.rtpSender == nil {
-            self.log("E2EEManager::RoomDelegate: publication.track?.rtpSender is nil, skip to create FrameCryptor!")
-            return
-        }
-        let fc = addRtpSender(sender: publication.track!.rtpSender!, participantId: localParticipant.identity, trackSid: publication.sid)
-        trackPublications[fc] = publication
+        addRtpSender(publication: publication, participantSid: localParticipant.sid)
     }
 
     public func room(_ room: Room, localParticipant: LocalParticipant, didUnpublish publication: LocalTrackPublication) {
-        let frameCryptor = frameCryptors.first(where: { (key: [String: Sid], _: RTCFrameCryptor) -> Bool in
-            return key[localParticipant.identity] == publication.sid
-        })?.value
+        _state.mutate {
+            if let frameCryptor = ($0.frameCryptors.first { (key: [String: Sid], _: RTCFrameCryptor) in
+                key[localParticipant.sid] == publication.sid
+            })?.value {
+                frameCryptor.delegate = nil
+                frameCryptor.enabled = false
 
-        frameCryptor?.delegate = nil
-        frameCryptor?.enabled = false
-        frameCryptors.removeValue(forKey: [localParticipant.identity: publication.sid])
-
-        if frameCryptor != nil {
-            trackPublications.removeValue(forKey: frameCryptor!)
+                $0.trackPublications.removeValue(forKey: frameCryptor)
+                $0.frameCryptors.removeValue(forKey: [localParticipant.sid: publication.sid])
+            }
         }
     }
 
     public func room(_ room: Room, participant: RemoteParticipant, didSubscribe publication: RemoteTrackPublication, track: Track) {
-        if publication.encryptionType == EncryptionType.none {
-            self.log("E2EEManager::RoomDelegate: remote participant \(participant.identity) track \(publication.sid) encryptionType is none, skip")
-            return
-        }
-        if publication.track?.rtpReceiver == nil {
-            self.log("E2EEManager::RoomDelegate: publication.track?.rtpReceiver is nil, skip to create FrameCryptor!")
-            return
-        }
-        let fc = addRtpReceiver(receiver: publication.track!.rtpReceiver!, participantId: participant.identity, trackSid: publication.sid)
-        trackPublications[fc] = publication
+        addRtpReceiver(publication: publication, participantSid: participant.sid)
     }
 
     public func room(_ room: Room, participant: RemoteParticipant, didUnsubscribe publication: RemoteTrackPublication, track: Track) {
-        let frameCryptor = frameCryptors.first(where: { (key: [String: Sid], _: RTCFrameCryptor) -> Bool in
-            return key[participant.identity] == publication.sid
-        })?.value
+        _state.mutate {
+            if let frameCryptor = ($0.frameCryptors.first { (key: [String: Sid], _: RTCFrameCryptor) in
+                key[participant.sid] == publication.sid
+            })?.value {
+                frameCryptor.delegate = nil
+                frameCryptor.enabled = false
 
-        frameCryptor?.delegate = nil
-        frameCryptor?.enabled = false
-        frameCryptors.removeValue(forKey: [participant.identity: publication.sid])
-
-        if frameCryptor != nil {
-            trackPublications.removeValue(forKey: frameCryptor!)
+                $0.trackPublications.removeValue(forKey: frameCryptor)
+                $0.frameCryptors.removeValue(forKey: [participant.sid: publication.sid])
+            }
         }
     }
 }
