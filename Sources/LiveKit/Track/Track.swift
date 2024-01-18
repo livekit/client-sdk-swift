@@ -184,7 +184,7 @@ public class Track: NSObject, Loggable {
             }
         }
 
-        statsTimer.handler = { [weak self] in
+        statsTimer.setOnTimer { [weak self] in
             self?.onStatsTimer()
         }
     }

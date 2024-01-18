@@ -112,7 +112,7 @@ public class MacOSScreenCapturer: VideoCapturer {
 
         let timeInterval: TimeInterval = 1 / Double(options.fps)
         dispatchSourceTimer = DispatchQueueTimer(timeInterval: timeInterval, queue: captureQueue)
-        dispatchSourceTimer?.handler = { [weak self] in self?.onDispatchSourceTimer() }
+        dispatchSourceTimer?.setOnTimer { [weak self] in self?.onDispatchSourceTimer() }
         dispatchSourceTimer?.resume()
     }
 
@@ -447,7 +447,7 @@ extension MacOSScreenCapturer {
 
         frameResendTimer = {
             let timer = DispatchQueueTimer(timeInterval: timeInterval, queue: self.captureQueue)
-            timer.handler = { [weak self] in self?.onFrameResendTimer() }
+            timer.setOnTimer { [weak self] in self?.onFrameResendTimer() }
             timer.resume()
             return timer
         }()

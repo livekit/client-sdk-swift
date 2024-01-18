@@ -339,7 +339,7 @@ public class VideoView: NativeView, Loggable {
             }
         }
 
-        _renderTimer.handler = { [weak self] in
+        _renderTimer.setOnTimer { [weak self] in
 
             guard let self = self else { return }
 
@@ -351,7 +351,7 @@ public class VideoView: NativeView, Loggable {
             }
         }
 
-        _fpsTimer.handler = { [weak self] in
+        _fpsTimer.setOnTimer { [weak self] in
 
             guard let self = self else { return }
 
