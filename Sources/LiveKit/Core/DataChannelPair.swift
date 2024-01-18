@@ -31,17 +31,18 @@ internal class DataChannelPair: NSObject, Loggable {
 
     // MARK: - Private
 
-    private var _reliableChannel: RTCDataChannel?
-    private var _lossyChannel: RTCDataChannel?
+    internal struct State: Equatable {
+        var reliableChannel: RTCDataChannel?
+        var lossyChannel: RTCDataChannel?
+    }
+
+    private let _state: StateSync<State>
 
     public var isOpen: Bool {
-
-        guard let r = _reliableChannel,
-              let l = _lossyChannel else {
-            return false
+        _state.read {
+            guard let reliable = $0.reliableChannel, let lossy = $0.lossyChannel else { return false }
+            return .open == reliable.readyState && .open == lossy.readyState
         }
-
-        return .open == r.readyState && .open == l.readyState
     }
 
     public init(target: Livekit_SignalTarget,
@@ -49,13 +50,15 @@ internal class DataChannelPair: NSObject, Loggable {
                 lossyChannel: RTCDataChannel? = nil) {
 
         self.target = target
-        self._reliableChannel = reliableChannel
-        self._lossyChannel = lossyChannel
+        _state = StateSync(State(reliableChannel: reliableChannel,
+                                 lossyChannel: lossyChannel))
     }
 
     public func set(reliable channel: RTCDataChannel?) {
-        self._reliableChannel = channel
-        channel?.delegate = self
+        _state.mutate {
+            $0.reliableChannel = channel
+            $0.reliableChannel?.delegate = self
+        }
 
         if isOpen {
             openCompleter.fulfill(())
@@ -63,8 +66,11 @@ internal class DataChannelPair: NSObject, Loggable {
     }
 
     public func set(lossy channel: RTCDataChannel?) {
-        self._lossyChannel = channel
-        channel?.delegate = self
+
+        _state.mutate {
+            $0.lossyChannel = channel
+            $0.lossyChannel?.delegate = self
+        }
 
         if isOpen {
             openCompleter.fulfill(())
@@ -73,11 +79,10 @@ internal class DataChannelPair: NSObject, Loggable {
 
     public func close() -> Promise<Void> {
 
-        let r = _reliableChannel
-        let l = _lossyChannel
-
-        _reliableChannel = nil
-        _lossyChannel = nil
+        let (reliable, lossy) = _state.mutate { state in
+            defer { state = State() }
+            return (state.reliableChannel, state.lossyChannel)
+        }
 
         // reset completer
         openCompleter.reject(InternalError.state(message: "openCompleter did not complete"))
@@ -85,16 +90,16 @@ internal class DataChannelPair: NSObject, Loggable {
 
         // execute on .webRTC queue
         return Promise(on: .liveKitWebRTC) {
-            r?.close()
-            l?.close()
+            reliable?.close()
+            lossy?.close()
         }
     }
 
     public func send(userPacket: Livekit_UserPacket, reliability: Reliability) throws {
 
-        guard let reliableChannel = _reliableChannel,
-              let lossyChannel = _lossyChannel else {
+        let (reliable, lossy) = _state.read { ($0.reliableChannel, $0.lossyChannel) }
 
+        guard let reliable, let lossy else {
             throw InternalError.state(message: "Data channel is nil")
         }
 
@@ -110,8 +115,8 @@ internal class DataChannelPair: NSObject, Loggable {
 
         let result = { () -> Bool in
             switch reliability {
-            case .reliable: return reliableChannel.sendData(rtcData)
-            case .lossy: return lossyChannel.sendData(rtcData)
+            case .reliable: return reliable.sendData(rtcData)
+            case .lossy: return lossy.sendData(rtcData)
             }
         }()
 
@@ -122,7 +127,9 @@ internal class DataChannelPair: NSObject, Loggable {
 
     public func infos() -> [Livekit_DataChannelInfo] {
 
-        [_lossyChannel, _reliableChannel]
+        let channels = _state.read { [$0.reliableChannel, $0.lossyChannel] }
+
+        return channels
             .compactMap { $0 }
             .map { $0.toLKInfoType() }
     }
