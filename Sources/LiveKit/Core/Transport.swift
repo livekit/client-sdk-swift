@@ -30,7 +30,6 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
     public let target: Livekit_SignalTarget
     public let primary: Bool
 
-    public var restartingIce: Bool = false
     public var onOffer: TransportOnOffer?
 
     public var connectionState: RTCPeerConnectionState {
@@ -68,7 +67,6 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
 
     // forbid direct access to PeerConnection
     private let pc: RTCPeerConnection
-    private var pendingCandidates: [RTCIceCandidate] = []
 
     // used for stats timer
     private let statsTimer = DispatchQueueTimer(timeInterval: 1, queue: .liveKitWebRTC)
@@ -76,6 +74,13 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
 
     // keep reference to cancel later
     private var debounceWorkItem: DispatchWorkItem?
+
+    internal struct State: Equatable {
+        var isRestartingIce: Bool = false
+        var pendingCandidates: [RTCIceCandidate] = []
+    }
+
+    private let _state = StateSync(State())
 
     init(config: RTCConfiguration,
          target: Livekit_SignalTarget,
@@ -121,12 +126,14 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
     @discardableResult
     func addIceCandidate(_ candidate: RTCIceCandidate) -> Promise<Void> {
 
-        if remoteDescription != nil && !restartingIce {
+        if remoteDescription != nil && !_state.isRestartingIce {
             return addIceCandidatePromise(candidate)
         }
 
         return Promise(on: queue) {
-            self.pendingCandidates.append(candidate)
+            self._state.mutate {
+                $0.pendingCandidates.append(candidate)
+            }
         }
     }
 
@@ -134,11 +141,13 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
     func setRemoteDescription(_ sd: RTCSessionDescription) -> Promise<Void> {
 
         self.setRemoteDescriptionPromise(sd).then(on: queue) { _ in
-            self.pendingCandidates.map { self.addIceCandidatePromise($0) }.all(on: self.queue)
+            self._state.pendingCandidates.map { self.addIceCandidatePromise($0) }.all(on: self.queue)
         }.then(on: queue) { () -> Promise<Void> in
 
-            self.pendingCandidates = []
-            self.restartingIce = false
+            self._state.mutate {
+                $0.pendingCandidates = []
+                $0.isRestartingIce = false
+            }
 
             if self.renegotiate {
                 self.renegotiate = false
@@ -161,7 +170,9 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
         if iceRestart {
             log("Restarting ICE...")
             constraints[kRTCMediaConstraintsIceRestart] = kRTCMediaConstraintsValueTrue
-            restartingIce = true
+            _state.mutate {
+                $0.isRestartingIce = true
+            }
         }
 
         if signalingState == .haveLocalOffer, !(iceRestart && remoteDescription != nil) {
@@ -209,6 +220,10 @@ internal class Transport: MulticastDelegate<TransportDelegate> {
                 self.pc.close()
             }
         }
+    }
+
+    func setIsRestartingIce() {
+        _state.mutate { $0.isRestartingIce = true }
     }
 }
 
