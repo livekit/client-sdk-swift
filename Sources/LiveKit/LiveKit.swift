@@ -32,7 +32,7 @@ let logger = Logger(label: "LiveKitSDK")
 /// Download the [Multiplatform SwiftUI Example](https://github.com/livekit/multiplatform-swiftui-example)
 /// to try out the features.
 @objc
-public class LiveKit: NSObject {
+public class LiveKitSDK: NSObject {
     @objc(sdkVersion)
     public static let version = "2.0.0"
 

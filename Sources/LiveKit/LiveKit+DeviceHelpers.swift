@@ -16,7 +16,7 @@
 
 import AVFoundation
 
-public extension LiveKit {
+public extension LiveKitSDK {
     /// Helper method to ensure authorization for video(camera) / audio(microphone) permissions in a single call.
     static func ensureDeviceAccess(for types: Set<AVMediaType>) async -> Bool {
         assert(!types.isEmpty, "Please specify at least 1 type")

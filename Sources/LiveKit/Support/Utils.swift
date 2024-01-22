@@ -173,7 +173,7 @@ class Utils {
             URLQueryItem(name: "access_token", value: token),
             URLQueryItem(name: "protocol", value: connectOptions.protocolVersion.description),
             URLQueryItem(name: "sdk", value: "swift"),
-            URLQueryItem(name: "version", value: LiveKit.version),
+            URLQueryItem(name: "version", value: LiveKitSDK.version),
             // Additional client info
             URLQueryItem(name: "os", value: String(describing: os())),
             URLQueryItem(name: "os_version", value: osVersionString()),
