@@ -79,12 +79,22 @@ public class LocalParticipant: Participant {
                                                                               throw: { TrackError.timedOut(message: "unable to resolve dimensions") }) }.then(on: self.queue) { $0 }
 
         }.then(on: queue) { dimensions -> Promise<(result: RTCRtpTransceiverInit, trackInfo: Livekit_TrackInfo)> in
+
+            var publishName: String?
+            if track is LocalVideoTrack {
+                let publishOptions = (publishOptions as? VideoPublishOptions) ?? self.room._state.options.defaultVideoPublishOptions
+                publishName = publishOptions.name
+            } else if track is LocalAudioTrack {
+                let publishOptions = (publishOptions as? AudioPublishOptions) ?? self.room._state.options.defaultAudioPublishOptions
+                publishName = publishOptions.name
+            }
+
             // request a new track to the server
-            self.room.engine.signalClient.sendAddTrack(cid: track.mediaTrack.trackId,
-                                                       name: track.name,
-                                                       type: track.kind.toPBType(),
-                                                       source: track.source.toPBType(),
-                                                       encryption: self.room.e2eeManager?.e2eeOptions.encryptionType.toPBType() ?? .none ) { populator in
+            return self.room.engine.signalClient.sendAddTrack(cid: track.mediaTrack.trackId,
+                                                              name: publishName ?? track.name,
+                                                              type: track.kind.toPBType(),
+                                                              source: track.source.toPBType(),
+                                                              encryption: self.room.e2eeManager?.e2eeOptions.encryptionType.toPBType() ?? .none ) { populator in
 
                 let transInit = DispatchQueue.liveKitWebRTC.sync { RTCRtpTransceiverInit() }
                 transInit.direction = .sendOnly
