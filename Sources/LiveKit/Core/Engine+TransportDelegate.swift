@@ -19,7 +19,7 @@ import Foundation
 @_implementationOnly import WebRTC
 
 extension Engine: TransportDelegate {
-    func transport(_ transport: Transport, didUpdateState pcState: RTCPeerConnectionState) async {
+    func transport(_ transport: Transport, didUpdateState pcState: RTCPeerConnectionState) {
         log("target: \(transport.target), state: \(pcState)")
 
         // primary connected
@@ -35,25 +35,31 @@ extension Engine: TransportDelegate {
         if _state.connectionState == .connected {
             // Attempt re-connect if primary or publisher transport failed
             if transport.isPrimary || (_state.hasPublished && transport.target == .publisher), [.disconnected, .failed].contains(pcState) {
-                do {
-                    try await startReconnect(reason: .transport)
-                } catch {
-                    log("Failed calling startReconnect, error: \(error)", .error)
+                Task.detached { [weak self] in
+                    guard let self else { return }
+                    do {
+                        try await startReconnect(reason: .transport)
+                    } catch {
+                        log("Failed calling startReconnect, error: \(error)", .error)
+                    }
                 }
             }
         }
     }
 
-    func transport(_ transport: Transport, didGenerateIceCandidate iceCandidate: LKRTCIceCandidate) async {
-        do {
-            log("sending iceCandidate")
-            try await signalClient.sendCandidate(candidate: iceCandidate, target: transport.target)
-        } catch {
-            log("Failed to send iceCandidate, error: \(error)", .error)
+    func transport(_ transport: Transport, didGenerateIceCandidate iceCandidate: LKRTCIceCandidate) {
+        Task.detached { [weak self] in
+            guard let self else { return }
+            do {
+                log("sending iceCandidate")
+                try await signalClient.sendCandidate(candidate: iceCandidate, target: transport.target)
+            } catch {
+                log("Failed to send iceCandidate, error: \(error)", .error)
+            }
         }
     }
 
-    func transport(_ transport: Transport, didAddTrack track: LKRTCMediaStreamTrack, rtpReceiver: LKRTCRtpReceiver, streams: [LKRTCMediaStream]) async {
+    func transport(_ transport: Transport, didAddTrack track: LKRTCMediaStreamTrack, rtpReceiver: LKRTCRtpReceiver, streams: [LKRTCMediaStream]) {
         guard !streams.isEmpty else {
             log("Received onTrack with no streams!", .warning)
             return
@@ -66,28 +72,31 @@ extension Engine: TransportDelegate {
                     removeWhen: { state, _ in state.connectionState == .disconnected })
             { [weak self] in
                 guard let self else { return }
-                self.notifyAsync { await $0.engine(self, didAddTrack: track, rtpReceiver: rtpReceiver, stream: streams.first!) }
+                self.notify { $0.engine(self, didAddTrack: track, rtpReceiver: rtpReceiver, stream: streams.first!) }
             }
         }
     }
 
-    func transport(_ transport: Transport, didRemoveTrack track: LKRTCMediaStreamTrack) async {
+    func transport(_ transport: Transport, didRemoveTrack track: LKRTCMediaStreamTrack) {
         if transport.target == .subscriber {
-            notifyAsync { await $0.engine(self, didRemoveTrack: track) }
+            notify { $0.engine(self, didRemoveTrack: track) }
         }
     }
 
-    func transport(_ transport: Transport, didOpenDataChannel dataChannel: LKRTCDataChannel) async {
+    func transport(_ transport: Transport, didOpenDataChannel dataChannel: LKRTCDataChannel) {
         log("Server opened data channel \(dataChannel.label)(\(dataChannel.readyState))")
 
-        if subscriberPrimary, transport.target == .subscriber {
-            switch dataChannel.label {
-            case LKRTCDataChannel.labels.reliable: await subscriberDataChannel.set(reliable: dataChannel)
-            case LKRTCDataChannel.labels.lossy: await subscriberDataChannel.set(lossy: dataChannel)
-            default: log("Unknown data channel label \(dataChannel.label)", .warning)
+        Task.detached { [weak self] in
+            guard let self else { return }
+            if subscriberPrimary, transport.target == .subscriber {
+                switch dataChannel.label {
+                case LKRTCDataChannel.labels.reliable: await subscriberDataChannel.set(reliable: dataChannel)
+                case LKRTCDataChannel.labels.lossy: await subscriberDataChannel.set(lossy: dataChannel)
+                default: log("Unknown data channel label \(dataChannel.label)", .warning)
+                }
             }
         }
     }
 
-    func transportShouldNegotiate(_: Transport) async {}
+    func transportShouldNegotiate(_: Transport) {}
 }

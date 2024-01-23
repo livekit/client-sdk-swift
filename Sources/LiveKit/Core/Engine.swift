@@ -68,8 +68,8 @@ class Engine: MulticastDelegate<EngineDelegate> {
     lazy var subscriberDataChannel: DataChannelPairActor = .init(onDataPacket: { [weak self] dataPacket in
         guard let self else { return }
         switch dataPacket.value {
-        case let .speaker(update): self.notifyAsync { await $0.engine(self, didUpdateSpeakers: update.speakers) }
-        case let .user(userPacket): self.notifyAsync { await $0.engine(self, didReceiveUserPacket: userPacket) }
+        case let .speaker(update): self.notify { $0.engine(self, didUpdateSpeakers: update.speakers) }
+        case let .user(userPacket): self.notify { $0.engine(self, didReceiveUserPacket: userPacket) }
         default: return
         }
     })
@@ -102,7 +102,7 @@ class Engine: MulticastDelegate<EngineDelegate> {
                 self.log("connectionState: \(oldState.connectionState) -> \(newState.connectionState), reconnectMode: \(String(describing: newState.reconnectMode))")
             }
 
-            self.notifyAsync { await $0.engine(self, didMutateState: newState, oldState: oldState) }
+            self.notify { $0.engine(self, didMutateState: newState, oldState: oldState) }
 
             // execution control
             self._blockProcessQueue.async { [weak self] in

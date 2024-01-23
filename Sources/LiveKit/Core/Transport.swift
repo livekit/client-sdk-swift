@@ -204,16 +204,16 @@ extension Transport {
 extension Transport: LKRTCPeerConnectionDelegate {
     nonisolated func peerConnection(_: LKRTCPeerConnection, didChange state: RTCPeerConnectionState) {
         log("[Connect] Transport(\(target)) did update state: \(state.description)")
-        _delegates.notifyAsync { await $0.transport(self, didUpdateState: state) }
+        _delegates.notify { $0.transport(self, didUpdateState: state) }
     }
 
     nonisolated func peerConnection(_: LKRTCPeerConnection, didGenerate candidate: LKRTCIceCandidate) {
-        _delegates.notifyAsync { await $0.transport(self, didGenerateIceCandidate: candidate) }
+        _delegates.notify { $0.transport(self, didGenerateIceCandidate: candidate) }
     }
 
     nonisolated func peerConnectionShouldNegotiate(_: LKRTCPeerConnection) {
         log("ShouldNegotiate for \(target)")
-        _delegates.notifyAsync { await $0.transportShouldNegotiate(self) }
+        _delegates.notify { $0.transportShouldNegotiate(self) }
     }
 
     nonisolated func peerConnection(_: LKRTCPeerConnection, didAdd rtpReceiver: LKRTCRtpReceiver, streams: [LKRTCMediaStream]) {
@@ -223,7 +223,7 @@ extension Transport: LKRTCPeerConnectionDelegate {
         }
 
         log("type: \(type(of: track)), track.id: \(track.trackId), streams: \(streams.map { "Stream(hash: \($0.hash), id: \($0.streamId), videoTracks: \($0.videoTracks.count), audioTracks: \($0.audioTracks.count))" })")
-        _delegates.notifyAsync { await $0.transport(self, didAddTrack: track, rtpReceiver: rtpReceiver, streams: streams) }
+        _delegates.notify { $0.transport(self, didAddTrack: track, rtpReceiver: rtpReceiver, streams: streams) }
     }
 
     nonisolated func peerConnection(_: LKRTCPeerConnection, didRemove rtpReceiver: LKRTCRtpReceiver) {
@@ -233,12 +233,12 @@ extension Transport: LKRTCPeerConnectionDelegate {
         }
 
         log("didRemove track: \(track.trackId)")
-        _delegates.notifyAsync { await $0.transport(self, didRemoveTrack: track) }
+        _delegates.notify { $0.transport(self, didRemoveTrack: track) }
     }
 
     nonisolated func peerConnection(_: LKRTCPeerConnection, didOpen dataChannel: LKRTCDataChannel) {
         log("Received data channel \(dataChannel.label) for \(target)")
-        _delegates.notifyAsync { await $0.transport(self, didOpenDataChannel: dataChannel) }
+        _delegates.notify { $0.transport(self, didOpenDataChannel: dataChannel) }
     }
 
     nonisolated func peerConnection(_: LKRTCPeerConnection, didChange _: RTCIceConnectionState) {}
