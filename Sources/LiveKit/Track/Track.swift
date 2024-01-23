@@ -106,7 +106,7 @@ public class Track: NSObject, Loggable {
 
     /// ``publishOptions`` used for this track if already published.
     /// Only for ``LocalTrack``s.
-    var _publishOptions: PublishOptions?
+    var _publishOptions: TrackPublishOptions?
 
     let mediaTrack: LKRTCMediaStreamTrack
 

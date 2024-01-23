@@ -74,8 +74,7 @@ public extension LocalVideoTrack {
 }
 
 public extension LocalVideoTrack {
-    var publishOptions: PublishOptions? { super._publishOptions }
-
+    var publishOptions: TrackPublishOptions? { super._publishOptions }
     var publishState: Track.PublishState { super._publishState }
 }
 

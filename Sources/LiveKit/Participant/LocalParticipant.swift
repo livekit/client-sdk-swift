@@ -43,7 +43,7 @@ public class LocalParticipant: Participant {
 
     @objc
     @discardableResult
-    func publish(track: LocalTrack, publishOptions: MediaPublishOptions? = nil) async throws -> LocalTrackPublication {
+    func publish(track: LocalTrack, publishOptions: TrackPublishOptions? = nil) async throws -> LocalTrackPublication {
         log("[publish] \(track) options: \(String(describing: publishOptions ?? nil))...", .info)
 
         guard let publisher = room.engine.publisher else {
