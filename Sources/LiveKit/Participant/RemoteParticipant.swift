@@ -119,7 +119,7 @@ public class RemoteParticipant: Participant {
             throw error
         }
 
-        publication.set(track: track)
+        await publication.set(track: track)
         publication.set(subscriptionAllowed: true)
 
         assert(room.engine.subscriber != nil, "Subscriber is nil")

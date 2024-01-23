@@ -154,7 +154,7 @@ extension Room: EngineDelegate {
         // find the publication
         guard let publication = _state.remoteParticipants.values.map(\._state.trackPublications.values).joined()
             .first(where: { $0.sid == track.trackId }) else { return }
-        publication.set(track: nil)
+        await publication.set(track: nil)
     }
 
     func engine(_ engine: Engine, didReceiveUserPacket packet: Livekit_UserPacket) async {

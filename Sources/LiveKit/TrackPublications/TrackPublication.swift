@@ -94,10 +94,7 @@ public class TrackPublication: NSObject, ObservableObject, Loggable {
 
     let _state: StateSync<State>
 
-    init(info: Livekit_TrackInfo,
-         track: Track? = nil,
-         participant: Participant)
-    {
+    init(info: Livekit_TrackInfo, participant: Participant) {
         _state = StateSync(State(
             sid: info.sid,
             kind: info.type.toLKType(),
@@ -116,11 +113,6 @@ public class TrackPublication: NSObject, ObservableObject, Loggable {
         self.participant = participant
 
         super.init()
-
-        set(track: track)
-
-        // listen for events from Track
-        track?.add(delegate: self)
 
         // trigger events when state mutates
         _state.onDidMutate = { [weak self] newState, oldState in
@@ -175,7 +167,7 @@ public class TrackPublication: NSObject, ObservableObject, Loggable {
     }
 
     @discardableResult
-    func set(track newValue: Track?) -> Track? {
+    func set(track newValue: Track?) async -> Track? {
         // keep ref to old value
         let oldValue = track
         // continue only if updated
