@@ -140,7 +140,7 @@ public class Track: NSObject, Loggable {
     // MARK: - Private
 
     private weak var transport: Transport?
-    private let statisticsTimer = AsyncTimer(delay: 1)
+    private let _statisticsTimer = AsyncTimer(interval: 1.0)
 
     init(name: String,
          kind: Kind,
@@ -202,12 +202,12 @@ public class Track: NSObject, Loggable {
         let shouldStart = _state.reportStatistics && (rtpSender != nil || rtpReceiver != nil)
 
         if shouldStart {
-            await statisticsTimer.setTimerBlock { [weak self] in
+            await _statisticsTimer.setTimerBlock { [weak self] in
                 await self?._onStatsTimer()
             }
-            await statisticsTimer.start()
+            await _statisticsTimer.restart()
         } else {
-            await statisticsTimer.cancel()
+            await _statisticsTimer.cancel()
         }
     }
 

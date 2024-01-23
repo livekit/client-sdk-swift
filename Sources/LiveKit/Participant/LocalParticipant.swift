@@ -210,8 +210,8 @@ public class LocalParticipant: Participant {
                 throw error
             }
 
-            let publication = LocalTrackPublication(info: addTrackResult.trackInfo, track: track, participant: self)
-
+            let publication = LocalTrackPublication(info: addTrackResult.trackInfo, participant: self)
+            await publication.set(track: track)
             add(publication: publication)
 
             // Notify didPublish

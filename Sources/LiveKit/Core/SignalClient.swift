@@ -95,8 +95,8 @@ actor SignalClient: Loggable {
     private let _connectResponseCompleter = AsyncCompleter<ConnectResponse>(label: "Join response", defaultTimeOut: .defaultJoinResponse)
     private let _addTrackCompleters = CompleterMapActor<Livekit_TrackInfo>(label: "Completers for add track", defaultTimeOut: .defaultPublish)
 
-    private var _pingIntervalTimer: DispatchQueueTimer?
-    private var _pingTimeoutTimer: DispatchQueueTimer?
+    private var _pingIntervalTimer = AsyncTimer(interval: 1)
+    private var _pingTimeoutTimer = AsyncTimer(interval: 1)
 
     init() {
         log()
@@ -202,8 +202,8 @@ actor SignalClient: Loggable {
         connectionState = .disconnected
         self.disconnectError = LiveKitError.from(error: disconnectError)
 
-        _pingIntervalTimer = nil
-        _pingTimeoutTimer = nil
+        await _pingIntervalTimer.cancel()
+        await _pingTimeoutTimer.cancel()
 
         _messageLoopTask?.cancel()
         _messageLoopTask = nil
@@ -274,14 +274,14 @@ private extension SignalClient {
         switch message {
         case let .join(joinResponse):
             _lastJoinResponse = joinResponse
-            restartPingTimer()
             _delegates.notifyAsync { await $0.signalClient(self, didReceiveConnectResponse: .join(joinResponse)) }
             _connectResponseCompleter.resume(returning: .join(joinResponse))
+            await _restartPingTimer()
 
         case let .reconnect(response):
-            restartPingTimer()
             _delegates.notifyAsync { await $0.signalClient(self, didReceiveConnectResponse: .reconnect(response)) }
             _connectResponseCompleter.resume(returning: .reconnect(response))
+            await _restartPingTimer()
 
         case let .answer(sd):
             _delegates.notifyAsync { await $0.signalClient(self, didReceiveAnswer: sd.toRTCType()) }
@@ -340,7 +340,7 @@ private extension SignalClient {
             _delegates.notifyAsync { await $0.signalClient(self, didUpdateToken: token) }
 
         case let .pong(r):
-            onReceivedPong(r)
+            await _onReceivedPong(r)
 
         case .pongResp:
             log("received pongResp message")
@@ -575,7 +575,7 @@ extension SignalClient {
         try await _sendRequest(r)
     }
 
-    private func sendPing() async throws {
+    private func _sendPing() async throws {
         let r = Livekit_SignalRequest.with {
             $0.ping = Int64(Date().timeIntervalSince1970)
         }
@@ -587,57 +587,47 @@ extension SignalClient {
 // MARK: - Server ping/pong logic
 
 private extension SignalClient {
-    func onPingIntervalTimer() async throws {
+    func _onPingIntervalTimer() async throws {
         guard let jr = _lastJoinResponse else { return }
+        log("ping/pong sending ping...")
+        try await _sendPing()
 
-        try await sendPing()
-
-        if _pingTimeoutTimer == nil {
-            // start timeout timer
-
-            _pingTimeoutTimer = {
-                let timer = DispatchQueueTimer(timeInterval: TimeInterval(jr.pingTimeout), queue: self._queue)
-                timer.handler = { [weak self] in
-                    guard let self else { return }
-                    self.log("ping/pong timed out", .error)
-                    Task {
-                        await self.cleanUp(withError: LiveKitError(.serverPingTimedOut))
-                    }
-                }
-                timer.resume()
-                return timer
-            }()
+        await _pingTimeoutTimer.setTimerInterval(TimeInterval(jr.pingTimeout))
+        await _pingTimeoutTimer.setTimerBlock { [weak self] in
+            guard let self else { return }
+            self.log("ping/pong timed out", .error)
+            await self.cleanUp(withError: LiveKitError(.serverPingTimedOut))
         }
+
+        await _pingTimeoutTimer.startIfStopped()
     }
 
-    func onReceivedPong(_: Int64) {
-        log("ping/pong received pong from server", .trace)
-        // clear timeout timer
-        _pingTimeoutTimer = nil
+    func _onReceivedPong(_: Int64) async {
+        log("ping/pong received pong from server")
+        // Clear timeout timer
+        await _pingTimeoutTimer.cancel()
     }
 
-    func restartPingTimer() {
-        // always suspend first
-        _pingIntervalTimer = nil
-        _pingTimeoutTimer = nil
-        // check received joinResponse already
+    func _restartPingTimer() async {
+        // Always cancel first...
+        await _pingIntervalTimer.cancel()
+        await _pingTimeoutTimer.cancel()
+
+        // Check previously received joinResponse
         guard let jr = _lastJoinResponse,
-              // check server supports ping/pong
+              // Check if server supports ping/pong
               jr.pingTimeout > 0,
               jr.pingInterval > 0 else { return }
 
         log("ping/pong starting with interval: \(jr.pingInterval), timeout: \(jr.pingTimeout)")
 
-        _pingIntervalTimer = {
-            let timer = DispatchQueueTimer(timeInterval: TimeInterval(jr.pingInterval), queue: _queue)
-            timer.handler = { [weak self] in
-                Task { [weak self] in
-                    try await self?.onPingIntervalTimer()
-                }
-            }
-            timer.resume()
-            return timer
-        }()
+        // Update interval...
+        await _pingIntervalTimer.setTimerInterval(TimeInterval(jr.pingInterval))
+        await _pingIntervalTimer.setTimerBlock { [weak self] in
+            guard let self else { return }
+            try await self._onPingIntervalTimer()
+        }
+        await _pingIntervalTimer.restart()
     }
 }
 

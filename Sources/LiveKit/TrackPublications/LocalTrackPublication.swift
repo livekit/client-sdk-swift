@@ -44,8 +44,8 @@ public class LocalTrackPublication: TrackPublication {
         try await track._unmute()
     }
 
-    override func set(track newValue: Track?) -> Track? {
-        let oldValue = super.set(track: newValue)
+    override func set(track newValue: Track?) async -> Track? {
+        let oldValue = await super.set(track: newValue)
 
         // listen for VideoCapturerDelegate
         if let oldLocalVideoTrack = oldValue as? LocalVideoTrack {
