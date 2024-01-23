@@ -313,7 +313,7 @@ public class VideoView: NativeView, Loggable {
         }
 
         Task {
-            await _fpsTimer.setTimerBlock { [weak self] in
+            await _fpsTimer.setTimerBlock { @MainActor [weak self] in
                 guard let self else { return }
 
                 self._currentFPS = self._frameCount
