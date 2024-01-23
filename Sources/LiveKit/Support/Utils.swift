@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 LiveKit
+ * Copyright 2024 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -173,7 +173,7 @@ class Utils {
             URLQueryItem(name: "access_token", value: token),
             URLQueryItem(name: "protocol", value: connectOptions.protocolVersion.description),
             URLQueryItem(name: "sdk", value: "swift"),
-            URLQueryItem(name: "version", value: LiveKit.version),
+            URLQueryItem(name: "version", value: LiveKitSDK.version),
             // Additional client info
             URLQueryItem(name: "os", value: String(describing: os())),
             URLQueryItem(name: "os_version", value: osVersionString()),
@@ -199,20 +199,6 @@ class Utils {
         builder.queryItems = queryItems
 
         return builder.url
-    }
-
-    static func createDebounceFunc(on queue: DispatchQueue,
-                                   wait: TimeInterval,
-                                   onCreateWorkItem: ((DispatchWorkItem) -> Void)? = nil,
-                                   fnc: @escaping @convention(block) () -> Void) -> DebouncFunc
-    {
-        var workItem: DispatchWorkItem?
-        return {
-            workItem?.cancel()
-            workItem = DispatchWorkItem { fnc() }
-            onCreateWorkItem?(workItem!)
-            queue.asyncAfter(deadline: .now() + wait, execute: workItem!)
-        }
     }
 
     static func computeVideoEncodings(

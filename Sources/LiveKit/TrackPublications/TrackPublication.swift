@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 LiveKit
+ * Copyright 2024 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-import Combine
-import CoreGraphics
 import Foundation
 
 @objc
@@ -94,7 +92,7 @@ public class TrackPublication: NSObject, ObservableObject, Loggable {
         var latestInfo: Livekit_TrackInfo?
     }
 
-    var _state: StateSync<State>
+    let _state: StateSync<State>
 
     init(info: Livekit_TrackInfo,
          track: Track? = nil,
@@ -132,10 +130,10 @@ public class TrackPublication: NSObject, ObservableObject, Loggable {
             if newState.streamState != oldState.streamState {
                 if let participant = self.participant as? RemoteParticipant, let trackPublication = self as? RemoteTrackPublication {
                     participant.delegates.notify(label: { "participant.didUpdate \(trackPublication) streamState: \(newState.streamState)" }) {
-                        $0.participant?(participant, didUpdatePublication: trackPublication, streamState: newState.streamState)
+                        $0.participant?(participant, track: trackPublication, didUpdateStreamState: newState.streamState)
                     }
                     participant.room.delegates.notify(label: { "room.didUpdate \(trackPublication) streamState: \(newState.streamState)" }) {
-                        $0.room?(participant.room, participant: participant, didUpdatePublication: trackPublication, streamState: newState.streamState)
+                        $0.room?(participant.room, participant: participant, track: trackPublication, didUpdateStreamState: newState.streamState)
                     }
                 }
             }
@@ -216,10 +214,10 @@ extension TrackPublication: TrackDelegateInternal {
             }
 
             participant.delegates.notify {
-                $0.participant?(participant, didUpdatePublication: self, isMuted: isMuted)
+                $0.participant?(participant, track: self, didUpdateIsMuted: isMuted)
             }
             participant.room.delegates.notify {
-                $0.room?(participant.room, participant: participant, didUpdatePublication: self, isMuted: self.isMuted)
+                $0.room?(participant.room, participant: participant, track: self, didUpdateIsMuted: self.isMuted)
             }
 
             // TrackPublication.isMuted is a computed property depending on Track.isMuted

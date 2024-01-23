@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 LiveKit
+ * Copyright 2024 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,8 +28,14 @@ public enum SubscriptionState: Int, Codable {
 
 @objc
 public class RemoteTrackPublication: TrackPublication {
+    // MARK: - Public
+
+    @objc
     public var isSubscriptionAllowed: Bool { _state.isSubscriptionAllowed }
+
+    @objc
     public var isEnabled: Bool { _state.trackSettings.isEnabled }
+
     override public var isMuted: Bool { track?.isMuted ?? _state.isMetadataMuted }
 
     // MARK: - Private
@@ -64,12 +70,14 @@ public class RemoteTrackPublication: TrackPublication {
         return _state.isSubscribePreferred != false && super.isSubscribed
     }
 
+    @objc
     public var subscriptionState: SubscriptionState {
         if !isSubscriptionAllowed { return .notAllowed }
         return isSubscribed ? .subscribed : .unsubscribed
     }
 
     /// Subscribe or unsubscribe from this track.
+    @objc
     public func set(subscribed newValue: Bool) async throws {
         guard _state.isSubscribePreferred != newValue else { return }
 
@@ -79,18 +87,19 @@ public class RemoteTrackPublication: TrackPublication {
 
         try await participant.room.engine.signalClient.sendUpdateSubscription(participantSid: participant.sid,
                                                                               trackSid: sid,
-                                                                              subscribed: newValue)
+                                                                              isSubscribed: newValue)
     }
 
     /// Enable or disable server from sending down data for this track.
     ///
     /// This is useful when the participant is off screen, you may disable streaming down their video to reduce bandwidth requirements.
+    @objc
     public func set(enabled newValue: Bool) async throws {
         // No-op if already the desired value
         let trackSettings = _state.trackSettings
         guard trackSettings.isEnabled != newValue else { return }
 
-        try await userCanModifyTrackSettings()
+        try await checkUserCanModifyTrackSettings()
 
         let settings = trackSettings.copyWith(isEnabled: newValue)
         // Attempt to set the new settings
@@ -98,14 +107,56 @@ public class RemoteTrackPublication: TrackPublication {
     }
 
     /// Set preferred video FPS for this track.
+    @objc
     public func set(preferredFPS newValue: UInt) async throws {
         // No-op if already the desired value
         let trackSettings = _state.trackSettings
         guard trackSettings.preferredFPS != newValue else { return }
 
-        try await userCanModifyTrackSettings()
+        try await checkUserCanModifyTrackSettings()
 
         let settings = trackSettings.copyWith(preferredFPS: newValue)
+        // Attempt to set the new settings
+        try await send(trackSettings: settings)
+    }
+
+    /// Set preferred video dimensions for this track.
+    ///
+    /// Based on this value, server will decide which layer to send.
+    /// Use ``RemoteTrackPublication/set(videoQuality:)`` to explicitly set layer instead.
+    @objc
+    public func set(preferredDimensions newValue: Dimensions) async throws {
+        // No-op if already the desired value
+        let trackSettings = _state.trackSettings
+        guard trackSettings.dimensions != newValue else { return }
+
+        try await checkUserCanModifyTrackSettings()
+
+        let settings = trackSettings.copyWith(
+            dimensions: newValue,
+            videoQuality: nil
+        )
+        // Attempt to set the new settings
+        try await send(trackSettings: settings)
+    }
+
+    /// For tracks that support simulcasting, adjust subscribed quality.
+    ///
+    /// This indicates the highest quality the client can accept. if network
+    /// bandwidth does not allow, server will automatically reduce quality to
+    /// optimize for uninterrupted video.
+    @objc
+    public func set(videoQuality newValue: VideoQuality) async throws {
+        // No-op if already the desired value
+        let trackSettings = _state.trackSettings
+        guard trackSettings.videoQuality != newValue else { return }
+
+        try await checkUserCanModifyTrackSettings()
+
+        let settings = trackSettings.copyWith(
+            dimensions: nil,
+            videoQuality: newValue
+        )
         // Attempt to set the new settings
         try await send(trackSettings: settings)
     }
@@ -142,12 +193,12 @@ public class RemoteTrackPublication: TrackPublication {
                              notify: false)
             }
 
-            if let oldValue, newValue == nil, let participant = participant as? RemoteParticipant {
+            if oldValue != nil, newValue == nil, let participant = participant as? RemoteParticipant {
                 participant.delegates.notify(label: { "participant.didUnsubscribe \(self)" }) {
-                    $0.participant?(participant, didUnsubscribePublication: self)
+                    $0.participant?(participant, didUnsubscribeTrack: self)
                 }
                 participant.room.delegates.notify(label: { "room.didUnsubscribe \(self)" }) {
-                    $0.room?(participant.room, participant: participant, didUnsubscribePublication: self)
+                    $0.room?(participant.room, participant: participant, didUnsubscribeTrack: self)
                 }
             }
         }
@@ -170,7 +221,7 @@ private extension RemoteTrackPublication {
         return participant.room.engine._state.connectionState
     }
 
-    func userCanModifyTrackSettings() async throws {
+    func checkUserCanModifyTrackSettings() async throws {
         // adaptiveStream must be disabled and must be subscribed
         if isAdaptiveStreamEnabled || !isSubscribed {
             throw LiveKitError(.invalidState, message: "adaptiveStream must be disabled and track must be subscribed")
@@ -194,10 +245,10 @@ extension RemoteTrackPublication {
         // if track exists, track will emit the following events
         if track == nil {
             participant.delegates.notify(label: { "participant.didUpdatePublication isMuted: \(newValue)" }) {
-                $0.participant?(participant, didUpdatePublication: self, isMuted: newValue)
+                $0.participant?(participant, track: self, didUpdateIsMuted: newValue)
             }
             participant.room.delegates.notify(label: { "room.didUpdatePublication isMuted: \(newValue)" }) {
-                $0.room?(participant.room, participant: participant, didUpdatePublication: self, isMuted: newValue)
+                $0.room?(participant.room, participant: participant, track: self, didUpdateIsMuted: newValue)
             }
         }
     }
@@ -208,10 +259,10 @@ extension RemoteTrackPublication {
 
         guard let participant = participant as? RemoteParticipant else { return }
         participant.delegates.notify(label: { "participant.didUpdate permission: \(newValue)" }) {
-            $0.participant?(participant, didUpdatePublication: self, isSubscriptionAllowed: newValue)
+            $0.participant?(participant, track: self, didUpdateIsSubscriptionAllowed: newValue)
         }
         participant.room.delegates.notify(label: { "room.didUpdate permission: \(newValue)" }) {
-            $0.room?(participant.room, participant: participant, didUpdatePublication: self, isSubscriptionAllowed: newValue)
+            $0.room?(participant.room, participant: participant, track: self, didUpdateIsSubscriptionAllowed: newValue)
         }
     }
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 LiveKit
+ * Copyright 2024 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,55 +18,88 @@ import Foundation
 
 @_implementationOnly import WebRTC
 
-class SignalClient: MulticastDelegate<SignalClientDelegate> {
+actor SignalClient: Loggable {
     // MARK: - Types
 
     typealias AddTrackRequestPopulator<R> = (inout Livekit_AddTrackRequest) throws -> R
     typealias AddTrackResult<R> = (result: R, trackInfo: Livekit_TrackInfo)
 
-    // MARK: - Internal
+    public enum ConnectResponse {
+        case join(Livekit_JoinResponse)
+        case reconnect(Livekit_ReconnectResponse)
 
-    public struct State: Equatable {
-        var connectionState: ConnectionState = .disconnected
-        var disconnectError: LiveKitError?
+        public var rtcIceServers: [LKRTCIceServer] {
+            switch self {
+            case let .join(response): return response.iceServers.map { $0.toRTCType() }
+            case let .reconnect(response): return response.iceServers.map { $0.toRTCType() }
+            }
+        }
+
+        public var clientConfiguration: Livekit_ClientConfiguration {
+            switch self {
+            case let .join(response): return response.clientConfiguration
+            case let .reconnect(response): return response.clientConfiguration
+            }
+        }
     }
+
+    // MARK: - Public
+
+    public private(set) var connectionState: ConnectionState = .disconnected {
+        didSet {
+            // connectionState Updated...
+            if connectionState != oldValue {
+                log("\(oldValue) -> \(connectionState)")
+            }
+
+            _delegates.notifyAsync { await $0.signalClient(self, didUpdateConnectionState: self.connectionState, oldState: oldValue, disconnectError: self.disconnectError) }
+        }
+    }
+
+    public private(set) var disconnectError: LiveKitError?
 
     // MARK: - Private
 
-    private let _state = StateSync(State())
-
+    private let _delegates = MulticastDelegate<SignalClientDelegate>()
     private let _queue = DispatchQueue(label: "LiveKitSDK.signalClient", qos: .default)
 
     // Queue to store requests while reconnecting
-    private let _requestQueue = AsyncQueueActor<Livekit_SignalRequest>()
-    private let _responseQueue = AsyncQueueActor<Livekit_SignalResponse>()
+    private lazy var _requestQueue = QueueActor<Livekit_SignalRequest>(onProcess: { [weak self] request in
+        guard let self else { return }
+
+        do {
+            // Prepare request data...
+            guard let data = try? request.serializedData() else {
+                self.log("Could not serialize request data", .error)
+                throw LiveKitError(.failedToConvertData, message: "Failed to convert data")
+            }
+
+            let webSocket = try await self.requireWebSocket()
+            try await webSocket.send(data: data)
+
+        } catch {
+            self.log("Failed to send queued request \(request) with error: \(error)", .error)
+        }
+    })
+
+    private lazy var _responseQueue = QueueActor<Livekit_SignalResponse>(onProcess: { [weak self] response in
+        guard let self else { return }
+
+        await self._process(signalResponse: response)
+    })
 
     private var _webSocket: WebSocket?
-    private var latestJoinResponse: Livekit_JoinResponse?
+    private var _messageLoopTask: Task<Void, Never>?
+    private var _lastJoinResponse: Livekit_JoinResponse?
 
-    private let _joinResponseCompleter = AsyncCompleter<Livekit_JoinResponse>(label: "Join response", timeOut: .defaultJoinResponse)
-    private let _addTrackCompleters = CompleterMapActor<Livekit_TrackInfo>(label: "Completers for add track", timeOut: .defaultPublish)
+    private let _connectResponseCompleter = AsyncCompleter<ConnectResponse>(label: "Join response", defaultTimeOut: .defaultJoinResponse)
+    private let _addTrackCompleters = CompleterMapActor<Livekit_TrackInfo>(label: "Completers for add track", defaultTimeOut: .defaultPublish)
 
     private var _pingIntervalTimer: DispatchQueueTimer?
     private var _pingTimeoutTimer: DispatchQueueTimer?
 
     init() {
-        super.init()
-
         log()
-
-        // Trigger events when state mutates
-        _state.onDidMutate = { [weak self] newState, oldState in
-
-            guard let self else { return }
-
-            // connectionState Updated...
-            if newState.connectionState != oldState.connectionState {
-                self.log("\(oldState.connectionState) -> \(newState.connectionState)")
-            }
-
-            self.notify { $0.signalClient(self, didMutateState: newState, oldState: oldState) }
-        }
     }
 
     deinit {
@@ -78,11 +111,16 @@ class SignalClient: MulticastDelegate<SignalClientDelegate> {
                  _ token: String,
                  connectOptions: ConnectOptions? = nil,
                  reconnectMode: ReconnectMode? = nil,
-                 adaptiveStream: Bool) async throws -> Livekit_JoinResponse
+                 adaptiveStream: Bool) async throws -> ConnectResponse
     {
         await cleanUp()
 
-        log("reconnectMode: \(String(describing: reconnectMode))")
+        // Start suspended...
+        await _responseQueue.suspend()
+
+        if let reconnectMode {
+            log("[Connect] mode: \(String(describing: reconnectMode))")
+        }
 
         guard let url = Utils.buildUrl(urlString,
                                        token,
@@ -93,22 +131,22 @@ class SignalClient: MulticastDelegate<SignalClientDelegate> {
             throw LiveKitError(.failedToParseUrl)
         }
 
-        log("Connecting with url: \(urlString)")
-
-        _state.mutate {
-            $0.connectionState = .connecting
+        if reconnectMode != nil {
+            log("[Connect] with url: \(url)")
+        } else {
+            log("Connecting with url: \(url)")
         }
+
+        connectionState = (reconnectMode != nil ? .reconnecting : .connecting)
 
         do {
             let socket = try await WebSocket(url: url)
-            _webSocket = socket
-            _state.mutate { $0.connectionState = .connected }
 
-            Task.detached {
+            _messageLoopTask = Task.detached {
                 self.log("Did enter WebSocket message loop...")
                 do {
                     for try await message in socket {
-                        self.onWebSocketMessage(message: message)
+                        await self._onWebSocketMessage(message: message)
                     }
                 } catch {
                     await self.cleanUp(withError: error)
@@ -116,11 +154,15 @@ class SignalClient: MulticastDelegate<SignalClientDelegate> {
                 self.log("Did exit WebSocket message loop...")
             }
 
-            let jr = try await _joinResponseCompleter.wait()
+            let connectResponse = try await _connectResponseCompleter.wait()
             // Check cancellation after received join response
             try Task.checkCancellation()
 
-            return jr
+            // Successfully connected
+            _webSocket = socket
+            connectionState = .connected
+
+            return connectResponse
         } catch {
             // Skip validation if user cancelled
             if error is CancellationError {
@@ -137,7 +179,6 @@ class SignalClient: MulticastDelegate<SignalClientDelegate> {
             await cleanUp(withError: error)
 
             // Validate...
-
             guard let validateUrl = Utils.buildUrl(urlString,
                                                    token,
                                                    connectOptions: connectOptions,
@@ -158,22 +199,20 @@ class SignalClient: MulticastDelegate<SignalClientDelegate> {
     func cleanUp(withError disconnectError: Error? = nil) async {
         log("withError: \(String(describing: disconnectError))")
 
-        _state.mutate {
-            $0.connectionState = .disconnected
-            $0.disconnectError = LiveKitError.from(error: disconnectError)
-        }
+        connectionState = .disconnected
+        self.disconnectError = LiveKitError.from(error: disconnectError)
 
         _pingIntervalTimer = nil
         _pingTimeoutTimer = nil
 
+        _messageLoopTask?.cancel()
+        _messageLoopTask = nil
+
         _webSocket?.close()
         _webSocket = nil
 
-        _joinResponseCompleter.reset()
-        latestJoinResponse = nil
-
-        // Reset state
-        _state.mutate { $0 = State() }
+        _connectResponseCompleter.reset()
+        _lastJoinResponse = nil
 
         await _addTrackCompleters.reset()
         await _requestQueue.clear()
@@ -184,36 +223,25 @@ class SignalClient: MulticastDelegate<SignalClientDelegate> {
 // MARK: - Private
 
 private extension SignalClient {
-    // send request or enqueue while reconnecting
-    func sendRequest(_ request: Livekit_SignalRequest, enqueueIfReconnecting: Bool = true) async throws {
-        guard !(_state.connectionState == .reconnecting && request.canEnqueue() && enqueueIfReconnecting) else {
-            log("Queuing request while reconnecting, request: \(request)")
-            await _requestQueue.enqueue(request)
-            return
+    // Send request or enqueue while reconnecting
+    func _sendRequest(_ request: Livekit_SignalRequest) async throws {
+        guard connectionState != .disconnected else {
+            log("connectionState is .disconnected", .error)
+            throw LiveKitError(.invalidState, message: "connectionState is .disconnected")
         }
 
-        guard case .connected = _state.connectionState else {
-            log("Not connected", .error)
-            throw LiveKitError(.invalidState, message: "Not connected")
-        }
-
-        guard let data = try? request.serializedData() else {
-            log("Could not serialize request data", .error)
-            throw LiveKitError(.failedToConvertData, message: "Failed to convert data")
-        }
-
-        let webSocket = try requireWebSocket()
-        try await webSocket.send(data: data)
+        let processImmediately = !(connectionState == .reconnecting && request.canBeQueued())
+        await _requestQueue.process(request, if: processImmediately)
     }
 
-    func onWebSocketMessage(message: URLSessionWebSocketTask.Message) {
-        var response: Livekit_SignalResponse?
-
-        if case let .data(data) = message {
-            response = try? Livekit_SignalResponse(contiguousBytes: data)
-        } else if case let .string(string) = message {
-            response = try? Livekit_SignalResponse(jsonString: string)
-        }
+    func _onWebSocketMessage(message: URLSessionWebSocketTask.Message) async {
+        let response: Livekit_SignalResponse? = {
+            switch message {
+            case let .data(data): return try? Livekit_SignalResponse(contiguousBytes: data)
+            case let .string(string): return try? Livekit_SignalResponse(jsonString: string)
+            default: return nil
+            }
+        }()
 
         guard let response else {
             log("Failed to decode SignalResponse", .warning)
@@ -221,89 +249,102 @@ private extension SignalClient {
         }
 
         Task {
-            await _responseQueue.enqueue(response) { await processSignalResponse($0) }
+            let alwaysProcess: Bool = {
+                switch response.message {
+                case .join, .reconnect, .leave: return true
+                default: return false
+                }
+            }()
+            // Always process join or reconnect messages even if suspended...
+            await _responseQueue.processIfResumed(response, or: alwaysProcess)
         }
     }
 
-    func processSignalResponse(_ response: Livekit_SignalResponse) async {
-        guard case .connected = _state.connectionState else {
-            log("Not connected", .warning)
+    func _process(signalResponse: Livekit_SignalResponse) async {
+        guard connectionState != .disconnected else {
+            log("connectionState is .disconnected", .error)
             return
         }
 
-        guard let message = response.message else {
+        guard let message = signalResponse.message else {
             log("Failed to decode SignalResponse", .warning)
             return
         }
 
         switch message {
         case let .join(joinResponse):
-            await _responseQueue.suspend()
-            latestJoinResponse = joinResponse
+            _lastJoinResponse = joinResponse
             restartPingTimer()
-            notify { $0.signalClient(self, didReceiveJoinResponse: joinResponse) }
-            _joinResponseCompleter.resume(returning: joinResponse)
+            _delegates.notifyAsync { await $0.signalClient(self, didReceiveConnectResponse: .join(joinResponse)) }
+            _connectResponseCompleter.resume(returning: .join(joinResponse))
+
+        case let .reconnect(response):
+            restartPingTimer()
+            _delegates.notifyAsync { await $0.signalClient(self, didReceiveConnectResponse: .reconnect(response)) }
+            _connectResponseCompleter.resume(returning: .reconnect(response))
 
         case let .answer(sd):
-            notify { $0.signalClient(self, didReceiveAnswer: sd.toRTCType()) }
+            _delegates.notifyAsync { await $0.signalClient(self, didReceiveAnswer: sd.toRTCType()) }
 
         case let .offer(sd):
-            notify { $0.signalClient(self, didReceiveOffer: sd.toRTCType()) }
+            _delegates.notifyAsync { await $0.signalClient(self, didReceiveOffer: sd.toRTCType()) }
 
         case let .trickle(trickle):
             guard let rtcCandidate = try? Engine.createIceCandidate(fromJsonString: trickle.candidateInit) else {
                 return
             }
 
-            notify { $0.signalClient(self, didReceiveIceCandidate: rtcCandidate, target: trickle.target) }
+            _delegates.notifyAsync { await $0.signalClient(self, didReceiveIceCandidate: rtcCandidate, target: trickle.target) }
 
         case let .update(update):
-            notify { $0.signalClient(self, didUpdateParticipants: update.participants) }
+            _delegates.notifyAsync { await $0.signalClient(self, didUpdateParticipants: update.participants) }
 
         case let .roomUpdate(update):
-            notify { $0.signalClient(self, didUpdateRoom: update.room) }
+            _delegates.notifyAsync { await $0.signalClient(self, didUpdateRoom: update.room) }
 
         case let .trackPublished(trackPublished):
             // not required to be handled because we use completer pattern for this case
-            notify { $0.signalClient(self, didPublishLocalTrack: trackPublished) }
+            _delegates.notifyAsync { await $0.signalClient(self, didPublishLocalTrack: trackPublished) }
 
             log("[publish] resolving completer for cid: \(trackPublished.cid)")
             // Complete
             await _addTrackCompleters.resume(returning: trackPublished.track, for: trackPublished.cid)
 
         case let .trackUnpublished(trackUnpublished):
-            notify { $0.signalClient(self, didUnpublishLocalTrack: trackUnpublished) }
+            _delegates.notifyAsync { await $0.signalClient(self, didUnpublishLocalTrack: trackUnpublished) }
 
         case let .speakersChanged(speakers):
-            notify { $0.signalClient(self, didUpdateSpeakers: speakers.speakers) }
+            _delegates.notifyAsync { await $0.signalClient(self, didUpdateSpeakers: speakers.speakers) }
 
         case let .connectionQuality(quality):
-            notify { $0.signalClient(self, didUpdateConnectionQuality: quality.updates) }
+            _delegates.notifyAsync { await $0.signalClient(self, didUpdateConnectionQuality: quality.updates) }
 
         case let .mute(mute):
-            notify { $0.signalClient(self, didUpdateRemoteMute: mute.sid, muted: mute.muted) }
+            _delegates.notifyAsync { await $0.signalClient(self, didUpdateRemoteMute: mute.sid, muted: mute.muted) }
 
         case let .leave(leave):
-            notify { $0.signalClient(self, didReceiveLeave: leave.canReconnect, reason: leave.reason) }
+            _delegates.notifyAsync { await $0.signalClient(self, didReceiveLeave: leave.canReconnect, reason: leave.reason) }
 
         case let .streamStateUpdate(states):
-            notify { $0.signalClient(self, didUpdateTrackStreamStates: states.streamStates) }
+            _delegates.notifyAsync { await $0.signalClient(self, didUpdateTrackStreamStates: states.streamStates) }
 
         case let .subscribedQualityUpdate(update):
-            notify { $0.signalClient(self, didUpdateSubscribedCodecs: update.subscribedCodecs,
-                                     qualities: update.subscribedQualities,
-                                     forTrackSid: update.trackSid) }
+            _delegates.notifyAsync { await $0.signalClient(self, didUpdateSubscribedCodecs: update.subscribedCodecs,
+                                                           qualities: update.subscribedQualities,
+                                                           forTrackSid: update.trackSid) }
 
         case let .subscriptionPermissionUpdate(permissionUpdate):
-            notify { $0.signalClient(self, didUpdateSubscriptionPermission: permissionUpdate) }
+            _delegates.notifyAsync { await $0.signalClient(self, didUpdateSubscriptionPermission: permissionUpdate) }
+
         case let .refreshToken(token):
-            notify { $0.signalClient(self, didUpdateToken: token) }
+            _delegates.notifyAsync { await $0.signalClient(self, didUpdateToken: token) }
+
         case let .pong(r):
             onReceivedPong(r)
-        case .reconnect:
-            log("received reconnect message")
+
         case .pongResp:
             log("received pongResp message")
+
         case .subscriptionResponse:
             log("received subscriptionResponse message")
         }
@@ -313,24 +354,19 @@ private extension SignalClient {
 // MARK: - Internal
 
 extension SignalClient {
-    func resumeResponseQueue() async throws {
-        try await _responseQueue.resume { response in
-            await processSignalResponse(response)
-        }
+    func resumeResponseQueue() async {
+        await _responseQueue.resume()
     }
 }
 
 // MARK: - Send methods
 
 extension SignalClient {
-    func sendQueuedRequests() async throws {
-        try await _requestQueue.resume { element in
-            do {
-                try await sendRequest(element, enqueueIfReconnecting: false)
-            } catch {
-                log("Failed to send queued request \(element) with error: \(error)", .error)
-            }
-        }
+    func resumeRequestQueue() async throws {
+        let queueCount = await _requestQueue.count
+        log("[Connect] Sending queued requests (\(queueCount))...")
+
+        await _requestQueue.resume()
     }
 
     func send(offer: LKRTCSessionDescription) async throws {
@@ -338,7 +374,7 @@ extension SignalClient {
             $0.offer = offer.toPBType()
         }
 
-        try await sendRequest(r)
+        try await _sendRequest(r)
     }
 
     func send(answer: LKRTCSessionDescription) async throws {
@@ -346,7 +382,7 @@ extension SignalClient {
             $0.answer = answer.toPBType()
         }
 
-        try await sendRequest(r)
+        try await _sendRequest(r)
     }
 
     func sendCandidate(candidate: LKRTCIceCandidate, target: Livekit_SignalTarget) async throws {
@@ -357,7 +393,7 @@ extension SignalClient {
             }
         }
 
-        try await sendRequest(r)
+        try await _sendRequest(r)
     }
 
     func sendMuteTrack(trackSid: String, muted: Bool) async throws {
@@ -368,7 +404,7 @@ extension SignalClient {
             }
         }
 
-        try await sendRequest(r)
+        try await _sendRequest(r)
     }
 
     func sendAddTrack<R>(cid: String,
@@ -396,7 +432,7 @@ extension SignalClient {
         let completer = await _addTrackCompleters.completer(for: cid)
 
         // Send the request to server...
-        try await sendRequest(request)
+        try await _sendRequest(request)
 
         // Wait for the trackInfo...
         let trackInfo = try await completer.wait()
@@ -416,7 +452,7 @@ extension SignalClient {
             }
         }
 
-        try await sendRequest(r)
+        try await _sendRequest(r)
     }
 
     func sendUpdateVideoLayers(trackSid: Sid,
@@ -429,12 +465,12 @@ extension SignalClient {
             }
         }
 
-        try await sendRequest(r)
+        try await _sendRequest(r)
     }
 
     func sendUpdateSubscription(participantSid: Sid,
                                 trackSid: String,
-                                subscribed: Bool) async throws
+                                isSubscribed: Bool) async throws
     {
         let p = Livekit_ParticipantTracks.with {
             $0.participantSid = participantSid
@@ -445,11 +481,11 @@ extension SignalClient {
             $0.subscription = Livekit_UpdateSubscription.with {
                 $0.trackSids = [trackSid] // Deprecated
                 $0.participantTracks = [p]
-                $0.subscribe = subscribed
+                $0.subscribe = isSubscribed
             }
         }
 
-        try await sendRequest(r)
+        try await _sendRequest(r)
     }
 
     func sendUpdateSubscriptionPermission(allParticipants: Bool,
@@ -462,7 +498,7 @@ extension SignalClient {
             }
         }
 
-        try await sendRequest(r)
+        try await _sendRequest(r)
     }
 
     func sendUpdateLocalMetadata(_ metadata: String, name: String) async throws {
@@ -473,7 +509,7 @@ extension SignalClient {
             }
         }
 
-        try await sendRequest(r)
+        try await _sendRequest(r)
     }
 
     func sendSyncState(answer: Livekit_SessionDescription,
@@ -494,7 +530,7 @@ extension SignalClient {
             }
         }
 
-        try await sendRequest(r)
+        try await _sendRequest(r)
     }
 
     func sendLeave() async throws {
@@ -505,7 +541,7 @@ extension SignalClient {
             }
         }
 
-        try await sendRequest(r)
+        try await _sendRequest(r)
     }
 
     func sendSimulate(scenario: SimulateScenario) async throws {
@@ -536,7 +572,7 @@ extension SignalClient {
             }
         }
 
-        try await sendRequest(r)
+        try await _sendRequest(r)
     }
 
     private func sendPing() async throws {
@@ -544,7 +580,7 @@ extension SignalClient {
             $0.ping = Int64(Date().timeIntervalSince1970)
         }
 
-        try await sendRequest(r)
+        try await _sendRequest(r)
     }
 }
 
@@ -552,7 +588,7 @@ extension SignalClient {
 
 private extension SignalClient {
     func onPingIntervalTimer() async throws {
-        guard let jr = latestJoinResponse else { return }
+        guard let jr = _lastJoinResponse else { return }
 
         try await sendPing()
 
@@ -585,7 +621,7 @@ private extension SignalClient {
         _pingIntervalTimer = nil
         _pingTimeoutTimer = nil
         // check received joinResponse already
-        guard let jr = latestJoinResponse,
+        guard let jr = _lastJoinResponse,
               // check server supports ping/pong
               jr.pingTimeout > 0,
               jr.pingInterval > 0 else { return }
@@ -606,27 +642,41 @@ private extension SignalClient {
 }
 
 extension Livekit_SignalRequest {
-    func canEnqueue() -> Bool {
+    func canBeQueued() -> Bool {
         switch message {
-        case .syncState: return false
-        case .trickle: return false
-        case .offer: return false
-        case .answer: return false
-        case .simulate: return false
-        case .leave: return false
+        case .syncState, .trickle, .offer, .answer, .simulate, .leave: return false
         default: return true
         }
     }
 }
 
 private extension SignalClient {
-    func requireWebSocket() throws -> WebSocket {
-        // This shouldn't happen
+    func requireWebSocket() async throws -> WebSocket {
         guard let result = _webSocket else {
             log("WebSocket is nil", .error)
+            // This shouldn't happen
+            assertionFailure("WebSocket is nil")
             throw LiveKitError(.invalidState, message: "WebSocket is nil")
         }
 
         return result
+    }
+}
+
+// MARK: - MulticastDelegateProtocol
+
+extension SignalClient: MulticastDelegateProtocol {
+    typealias Delegate = SignalClientDelegate
+
+    public nonisolated func add(delegate: SignalClientDelegate) {
+        _delegates.add(delegate: delegate)
+    }
+
+    public nonisolated func remove(delegate: SignalClientDelegate) {
+        _delegates.remove(delegate: delegate)
+    }
+
+    public nonisolated func removeAllDelegates() {
+        _delegates.removeAllDelegates()
     }
 }

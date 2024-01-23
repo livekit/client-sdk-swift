@@ -17,16 +17,21 @@
 @testable import LiveKit
 import XCTest
 
-//
-// For testing state-less functions
-//
-class FunctionTests: XCTestCase {
-    func testRangeMerge() async throws {
-        let range1 = 10 ... 20
-        let range2 = 5 ... 15
+class QueueActorTests: XCTestCase {
+    private lazy var queue = QueueActor<String> { print($0) }
 
-        let merged = merge(range: range1, with: range2)
-        print("merged: \(merged)")
-        XCTAssert(merged == 5 ... 20)
+    override func setUpWithError() throws {}
+
+    override func tearDown() async throws {}
+
+    func testQueueActor01() async throws {
+        await queue.processIfResumed("Value 0")
+        await queue.suspend()
+        await queue.processIfResumed("Value 1")
+        await queue.processIfResumed("Value 2")
+        await queue.processIfResumed("Value 3")
+        await print("Count: \(queue.count)")
+        await queue.resume()
+        await print("Count: \(queue.count)")
     }
 }

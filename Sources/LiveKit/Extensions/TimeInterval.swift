@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 LiveKit
+ * Copyright 2024 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,4 +34,6 @@ public extension DispatchTimeInterval {
     static let defaultTransportState: Self = .seconds(10)
     // used for validation mode
     static let defaultPublisherDataChannelOpen: Self = .seconds(7)
+
+    static let sid: Self = .seconds(7 + 5) // Join response + 5
 }

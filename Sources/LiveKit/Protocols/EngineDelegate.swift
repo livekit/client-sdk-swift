@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 LiveKit
+ * Copyright 2024 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,9 +19,9 @@ import Foundation
 @_implementationOnly import WebRTC
 
 protocol EngineDelegate: AnyObject {
-    func engine(_ engine: Engine, didMutateState state: Engine.State, oldState: Engine.State)
-    func engine(_ engine: Engine, didUpdateSpeakers speakers: [Livekit_SpeakerInfo])
-    func engine(_ engine: Engine, didAddTrack track: LKRTCMediaStreamTrack, rtpReceiver: LKRTCRtpReceiver, streams: [LKRTCMediaStream])
-    func engine(_ engine: Engine, didRemoveTrack track: LKRTCMediaStreamTrack)
-    func engine(_ engine: Engine, didReceiveUserPacket packet: Livekit_UserPacket)
+    func engine(_ engine: Engine, didMutateState state: Engine.State, oldState: Engine.State) async
+    func engine(_ engine: Engine, didUpdateSpeakers speakers: [Livekit_SpeakerInfo]) async
+    func engine(_ engine: Engine, didAddTrack track: LKRTCMediaStreamTrack, rtpReceiver: LKRTCRtpReceiver, stream: LKRTCMediaStream) async
+    func engine(_ engine: Engine, didRemoveTrack track: LKRTCMediaStreamTrack) async
+    func engine(_ engine: Engine, didReceiveUserPacket packet: Livekit_UserPacket) async
 }

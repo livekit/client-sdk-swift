@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 LiveKit
+ * Copyright 2024 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -153,6 +153,11 @@ public class Participant: NSObject, ObservableObject, Loggable {
     func cleanUp(notify _notify: Bool = true) async {
         await unpublishAll(notify: _notify)
         // Reset state
+        if let self = self as? RemoteParticipant {
+            room.delegates.notify(label: { "room.participantDidDisconnect:" }) {
+                $0.room?(self.room, participantDidDisconnect: self)
+            }
+        }
         _state.mutate { $0 = State(sid: "", identity: "", name: "") }
     }
 

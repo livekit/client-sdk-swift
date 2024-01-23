@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 LiveKit
+ * Copyright 2024 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -52,7 +52,7 @@ public class ConnectOptions: NSObject {
         reconnectAttempts = 3
         reconnectAttemptDelay = .defaultReconnectAttemptDelay
         iceServers = []
-        protocolVersion = .v10
+        protocolVersion = .v12
     }
 
     @objc
@@ -61,7 +61,7 @@ public class ConnectOptions: NSObject {
                 reconnectAttempts: Int = 3,
                 reconnectAttemptDelay: TimeInterval = .defaultReconnectAttemptDelay,
                 iceServers: [IceServer] = [],
-                protocolVersion: ProtocolVersion = .v10)
+                protocolVersion: ProtocolVersion = .v12)
     {
         self.autoSubscribe = autoSubscribe
         self.publishOnlyMode = publishOnlyMode

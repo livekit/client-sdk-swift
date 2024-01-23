@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 LiveKit
+ * Copyright 2024 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,7 +29,14 @@ public class Room: NSObject, ObservableObject, Loggable {
     // MARK: - Public
 
     @objc
+    /// Server assigned id of the Room.
     public var sid: Sid? { _state.sid }
+
+    /// Server assigned id of the Room. *async* version of ``Room/sid``.
+    @objc
+    public func sid() async throws -> Sid {
+        try await _sidCompleter.wait()
+    }
 
     @objc
     public var name: String? { _state.name }
@@ -130,6 +137,8 @@ public class Room: NSObject, ObservableObject, Loggable {
 
     var _state: StateSync<State>
 
+    private let _sidCompleter = AsyncCompleter<Sid>(label: "sid", defaultTimeOut: .sid)
+
     // MARK: Objective-C Support
 
     @objc
@@ -169,6 +178,12 @@ public class Room: NSObject, ObservableObject, Loggable {
         _state.onDidMutate = { [weak self] newState, oldState in
 
             guard let self else { return }
+
+            // sid updated
+            if let sid = newState.sid, sid != oldState.sid {
+                // Resolve sid
+                self._sidCompleter.resume(returning: sid)
+            }
 
             // metadata updated
             if let metadata = newState.metadata, metadata != oldState.metadata,
@@ -297,6 +312,9 @@ extension Room {
         await cleanUpParticipants()
         // Reset state
         _state.mutate { $0 = State(options: $0.options) }
+
+        // Reset completers
+        _sidCompleter.reset()
     }
 }
 
@@ -311,8 +329,13 @@ extension Room {
             .joined()
             .compactMap { $0 }
 
-        for participant in allParticipants {
-            await participant.cleanUp(notify: _notify)
+        // Clean up Participants concurrently
+        await withTaskGroup(of: Void.self) { group in
+            for participant in allParticipants {
+                group.addTask {
+                    await participant.cleanUp(notify: _notify)
+                }
+            }
         }
 
         _state.mutate {
@@ -334,6 +357,10 @@ extension Room {
 public extension Room {
     func sendSimulate(scenario: SimulateScenario) async throws {
         try await engine.signalClient.sendSimulate(scenario: scenario)
+    }
+
+    func debug_triggerReconnect(reason: StartReconnectReason) async throws {
+        try await engine.startReconnect(reason: reason)
     }
 }
 

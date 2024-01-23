@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 LiveKit
+ * Copyright 2024 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -43,7 +43,7 @@ public class LocalParticipant: Participant {
 
     @objc
     @discardableResult
-    func publish(track: LocalTrack, publishOptions: PublishOptions? = nil) async throws -> LocalTrackPublication {
+    func publish(track: LocalTrack, publishOptions: MediaPublishOptions? = nil) async throws -> LocalTrackPublication {
         log("[publish] \(track) options: \(String(describing: publishOptions ?? nil))...", .info)
 
         guard let publisher = room.engine.publisher else {
@@ -73,6 +73,8 @@ public class LocalParticipant: Participant {
                 dimensions = try await track.capturer.dimensionsCompleter.wait()
             }
 
+            var publishName: String? = nil
+
             let populatorFunc: SignalClient.AddTrackRequestPopulator<LKRTCRtpTransceiverInit> = { populator in
 
                 let transInit = DispatchQueue.liveKitWebRTC.sync { LKRTCRtpTransceiverInit() }
@@ -86,6 +88,7 @@ public class LocalParticipant: Participant {
                     self.log("[publish] computing encode settings with dimensions: \(dimensions)...")
 
                     let publishOptions = (publishOptions as? VideoPublishOptions) ?? self.room._state.options.defaultVideoPublishOptions
+                    publishName = publishOptions.name
 
                     let encodings = Utils.computeVideoEncodings(dimensions: dimensions,
                                                                 publishOptions: publishOptions,
@@ -127,6 +130,7 @@ public class LocalParticipant: Participant {
                 } else if track is LocalAudioTrack {
                     // additional params for Audio
                     let publishOptions = (publishOptions as? AudioPublishOptions) ?? self.room._state.options.defaultAudioPublishOptions
+                    publishName = publishOptions.name
 
                     populator.disableDtx = !publishOptions.dtx
 
@@ -139,12 +143,17 @@ public class LocalParticipant: Participant {
                     ]
                 }
 
+                if let streamName = publishOptions?.streamName {
+                    // Set stream name if specified in options
+                    populator.stream = streamName
+                }
+
                 return transInit
             }
 
             // Request a new track to the server
             let addTrackResult = try await room.engine.signalClient.sendAddTrack(cid: track.mediaTrack.trackId,
-                                                                                 name: track.name,
+                                                                                 name: publishName ?? track.name,
                                                                                  type: track.kind.toPBType(),
                                                                                  source: track.source.toPBType(),
                                                                                  encryption: room.e2eeManager?.e2eeOptions.encryptionType.toPBType() ?? .none,
@@ -153,7 +162,7 @@ public class LocalParticipant: Participant {
             log("[Publish] server responded trackInfo: \(addTrackResult.trackInfo)")
 
             // Add transceiver to pc
-            let transceiver = try publisher.addTransceiver(with: track.mediaTrack, transceiverInit: addTrackResult.result)
+            let transceiver = try await publisher.addTransceiver(with: track.mediaTrack, transceiverInit: addTrackResult.result)
             log("[Publish] Added transceiver: \(addTrackResult.trackInfo)...")
 
             do {
@@ -163,7 +172,7 @@ public class LocalParticipant: Participant {
                 track._publishOptions = publishOptions
 
                 // Attach sender to track...
-                track.set(transport: publisher, rtpSender: transceiver.sender)
+                await track.set(transport: publisher, rtpSender: transceiver.sender)
 
                 if track is LocalVideoTrack {
                     if let firstCodecMime = addTrackResult.trackInfo.codecs.first?.mimeType,
@@ -195,8 +204,8 @@ public class LocalParticipant: Participant {
 
             } catch {
                 // Rollback
-                track.set(transport: nil, rtpSender: nil)
-                try publisher.remove(track: transceiver.sender)
+                await track.set(transport: nil, rtpSender: nil)
+                try await publisher.remove(track: transceiver.sender)
                 // Rethrow
                 throw error
             }
@@ -207,10 +216,10 @@ public class LocalParticipant: Participant {
 
             // Notify didPublish
             delegates.notify(label: { "localParticipant.didPublish \(publication)" }) {
-                $0.localParticipant?(self, didPublishPublication: publication)
+                $0.participant?(self, didPublishTrack: publication)
             }
             room.delegates.notify(label: { "localParticipant.didPublish \(publication)" }) {
-                $0.room?(self.room, localParticipant: self, didPublishPublication: publication)
+                $0.room?(self.room, participant: self, didPublishTrack: publication)
             }
 
             log("[publish] success \(publication)", .info)
@@ -259,10 +268,10 @@ public class LocalParticipant: Participant {
         func _notifyDidUnpublish() async {
             guard _notify else { return }
             delegates.notify(label: { "localParticipant.didUnpublish \(publication)" }) {
-                $0.localParticipant?(self, didUnpublishPublication: publication)
+                $0.participant?(self, didUnpublishTrack: publication)
             }
             room.delegates.notify(label: { "room.didUnpublish \(publication)" }) {
-                $0.room?(self.room, localParticipant: self, didUnpublishPublication: publication)
+                $0.room?(self.room, participant: self, didUnpublishTrack: publication)
             }
         }
 
@@ -284,10 +293,10 @@ public class LocalParticipant: Participant {
         if let publisher = engine.publisher, let sender = track.rtpSender {
             // Remove all simulcast senders...
             for simulcastSender in track._simulcastRtpSenders.values {
-                try publisher.remove(track: simulcastSender)
+                try await publisher.remove(track: simulcastSender)
             }
             // Remove main sender...
-            try publisher.remove(track: sender)
+            try await publisher.remove(track: sender)
             // Mark re-negotiation required...
             try await engine.publisherShouldNegotiate()
         }
@@ -302,27 +311,19 @@ public class LocalParticipant: Participant {
     /// Data is forwarded to each participant in the room. Each payload must not exceed 15k.
     /// - Parameters:
     ///   - data: Data to send
-    ///   - reliability: Toggle between sending relialble vs lossy delivery.
-    ///     For data that you need delivery guarantee (such as chat messages), use Reliable.
-    ///     For data that should arrive as quickly as possible, but you are ok with dropped packets, use Lossy.
-    ///   - destinations: SIDs of the participants who will receive the message. If empty, deliver to everyone
+    ///   - options: Provide options with a ``DataPublishOptions`` class.
     @objc
-    public func publish(data: Data,
-                        reliability: Reliability = .reliable,
-                        destinationIdentities: [Identity]? = nil,
-                        topic: String? = nil,
-                        options: DataPublishOptions? = nil) async throws
-    {
+    public func publish(data: Data, options: DataPublishOptions? = nil) async throws {
         let options = options ?? room._state.options.defaultDataPublishOptions
 
         let userPacket = Livekit_UserPacket.with {
             $0.participantSid = self.sid
             $0.payload = data
-            $0.destinationIdentities = destinationIdentities ?? options.destinationIdentities
-            $0.topic = topic ?? options.topic ?? ""
+            $0.destinationIdentities = options.destinationIdentities
+            $0.topic = options.topic ?? ""
         }
 
-        try await room.engine.send(userPacket: userPacket, reliability: reliability)
+        try await room.engine.send(userPacket: userPacket, kind: options.reliable ? .reliable : .lossy)
     }
 
     /**
@@ -364,7 +365,7 @@ public class LocalParticipant: Participant {
 
         // TODO: Revert internal state on failure
 
-        try await room.engine.signalClient.sendUpdateLocalMetadata(metadata, name: name ?? "")
+        try await room.engine.signalClient.sendUpdateLocalMetadata(metadata, name: name)
     }
 
     /// Sets and updates the name of the local participant.
@@ -576,7 +577,7 @@ extension LocalParticipant {
         transInit.sendEncodings = encodings
 
         // Add transceiver to publisher pc...
-        let transceiver = try publisher.addTransceiver(with: track.mediaTrack, transceiverInit: transInit)
+        let transceiver = try await publisher.addTransceiver(with: track.mediaTrack, transceiverInit: transInit)
         log("[Publish] Added transceiver...")
 
         // Set codec...

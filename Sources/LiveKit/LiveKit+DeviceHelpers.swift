@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 LiveKit
+ * Copyright 2024 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@
 
 import AVFoundation
 
-public extension LiveKit {
+public extension LiveKitSDK {
     /// Helper method to ensure authorization for video(camera) / audio(microphone) permissions in a single call.
     static func ensureDeviceAccess(for types: Set<AVMediaType>) async -> Bool {
         assert(!types.isEmpty, "Please specify at least 1 type")

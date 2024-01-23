@@ -16,17 +16,29 @@
 
 import Foundation
 
-// MARK: - Equatable for NSObject
+actor Debounce {
+    private var _task: Task<Void, Never>?
+    private let _delay: TimeInterval
 
-public extension Track {
-    override func isEqual(_ object: Any?) -> Bool {
-        guard let other = object as? Self else { return false }
-        return mediaTrack.trackId == other.mediaTrack.trackId
+    init(delay: TimeInterval) {
+        _delay = delay
     }
 
-    override var hash: Int {
-        var hasher = Hasher()
-        hasher.combine(mediaTrack.trackId)
-        return hasher.finalize()
+    deinit {
+        _task?.cancel()
+    }
+
+    func cancel() {
+        _task?.cancel()
+    }
+
+    func schedule(_ action: @escaping () async throws -> Void) {
+        _task?.cancel()
+        _task = Task.detached(priority: .utility) {
+            try? await Task.sleep(nanoseconds: UInt64(self._delay * 1_000_000_000))
+            if !Task.isCancelled {
+                try? await action()
+            }
+        }
     }
 }

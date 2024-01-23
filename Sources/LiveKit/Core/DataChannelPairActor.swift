@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 LiveKit
+ * Copyright 2024 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,7 +25,7 @@ actor DataChannelPairActor: NSObject, Loggable {
 
     // MARK: - Public
 
-    public let openCompleter = AsyncCompleter<Void>(label: "Data channel open", timeOut: .defaultPublisherDataChannelOpen)
+    public let openCompleter = AsyncCompleter<Void>(label: "Data channel open", defaultTimeOut: .defaultPublisherDataChannelOpen)
 
     public var isOpen: Bool {
         guard let reliable = _reliableChannel, let lossy = _lossyChannel else { return false }
@@ -74,20 +74,20 @@ actor DataChannelPairActor: NSObject, Loggable {
         openCompleter.reset()
     }
 
-    public func send(userPacket: Livekit_UserPacket, reliability: Reliability) throws {
+    public func send(userPacket: Livekit_UserPacket, kind: Livekit_DataPacket.Kind) throws {
         guard isOpen else {
             throw LiveKitError(.invalidState, message: "Data channel is not open")
         }
 
         let packet = Livekit_DataPacket.with {
-            $0.kind = reliability.toPBType()
+            $0.kind = kind
             $0.user = userPacket
         }
 
         let serializedData = try packet.serializedData()
         let rtcData = Engine.createDataBuffer(data: serializedData)
 
-        let channel = (reliability == .reliable) ? _reliableChannel : _lossyChannel
+        let channel = (kind == .reliable) ? _reliableChannel : _lossyChannel
         guard let sendDataResult = channel?.sendData(rtcData), sendDataResult else {
             throw LiveKitError(.invalidState, message: "sendData failed")
         }

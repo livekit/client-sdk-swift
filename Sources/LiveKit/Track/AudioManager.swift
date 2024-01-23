@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 LiveKit
+ * Copyright 2024 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -222,7 +222,7 @@ public class AudioManager: Loggable {
         _state.onDidMutate = { [weak self] newState, oldState in
             guard let self else { return }
 
-            log("\(oldState) -> \(newState)")
+            self.log("\(oldState) -> \(newState)")
 
             #if os(iOS)
                 let configureFunc = newState.customConfigureFunc ?? defaultConfigureAudioSessionFunc
