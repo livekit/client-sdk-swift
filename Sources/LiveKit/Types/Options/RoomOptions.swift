@@ -65,6 +65,9 @@ public class RoomOptions: NSObject {
 
     /// E2EE Options
     public let e2eeOptions: E2EEOptions?
+    
+    /// Audio Processor
+    public let audioProcessor: AudioProcessor?
 
     @objc
     public let reportRemoteTrackStatistics: Bool
@@ -81,6 +84,7 @@ public class RoomOptions: NSObject {
         stopLocalTrackOnUnpublish = true
         suspendLocalVideoTracksInBackground = true
         e2eeOptions = nil
+        audioProcessor = nil
         reportRemoteTrackStatistics = false
     }
 
@@ -96,6 +100,7 @@ public class RoomOptions: NSObject {
                 stopLocalTrackOnUnpublish: Bool = true,
                 suspendLocalVideoTracksInBackground: Bool = true,
                 e2eeOptions: E2EEOptions? = nil,
+                audioProcessor: AudioProcessor? = nil,
                 reportRemoteTrackStatistics: Bool = false)
     {
         self.defaultCameraCaptureOptions = defaultCameraCaptureOptions
@@ -109,6 +114,7 @@ public class RoomOptions: NSObject {
         self.stopLocalTrackOnUnpublish = stopLocalTrackOnUnpublish
         self.suspendLocalVideoTracksInBackground = suspendLocalVideoTracksInBackground
         self.e2eeOptions = e2eeOptions
+        self.audioProcessor = audioProcessor
         self.reportRemoteTrackStatistics = reportRemoteTrackStatistics
     }
 

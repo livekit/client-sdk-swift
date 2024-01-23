@@ -234,6 +234,13 @@ public class Room: NSObject, ObservableObject, Loggable {
             e2eeManager = E2EEManager(e2eeOptions: roomOptions!.e2eeOptions!)
             e2eeManager!.setup(room: self)
         }
+        
+        // enable external audio processor
+        if roomOptions?.audioProcessor != nil {
+            if roomOptions!.audioProcessor!.isEnabled(url: url, token: token) {
+                AudioManager.shared.capturePostProcessingDelegate = roomOptions?.audioProcessor
+            }
+        }
 
         try await engine.connect(url, token, connectOptions: connectOptions)
 
