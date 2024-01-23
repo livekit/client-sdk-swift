@@ -205,7 +205,7 @@ public class Track: NSObject, Loggable {
             await _statisticsTimer.setTimerBlock { [weak self] in
                 await self?._onStatsTimer()
             }
-            await _statisticsTimer.start()
+            await _statisticsTimer.restart()
         } else {
             await _statisticsTimer.cancel()
         }

@@ -23,23 +23,23 @@ actor AsyncTimer: Loggable {
 
     // MARK: - Private
 
-    private let _interval: TimeInterval
+    private var _interval: TimeInterval
     private var _task: Task<Void, Never>?
     private var _block: TimerBlock?
-    private var _isStarted: Bool = false
+    public var isStarted: Bool = false
 
     init(interval: TimeInterval) {
         _interval = interval
     }
 
     deinit {
-        _isStarted = false
+        isStarted = false
         _task?.cancel()
         log()
     }
 
     func cancel() {
-        _isStarted = false
+        isStarted = false
         _task?.cancel()
     }
 
@@ -48,20 +48,30 @@ actor AsyncTimer: Loggable {
         _block = block
     }
 
+    /// Update timer interval
+    func setTimerInterval(_ timerInterval: TimeInterval) {
+        _interval = timerInterval
+    }
+
     private func _invoke() async {
-        if !_isStarted { return }
+        if !isStarted { return }
         _task = Task.detached(priority: .utility) { [weak self] in
             guard let self else { return }
             try? await Task.sleep(nanoseconds: UInt64(self._interval * 1_000_000_000))
-            if await !(self._isStarted) || Task.isCancelled { return }
+            if await !(self.isStarted) || Task.isCancelled { return }
             try? await self._block?()
             await self._invoke()
         }
     }
 
-    func start() async {
+    func restart() async {
         _task?.cancel()
-        _isStarted = true
+        isStarted = true
         await _invoke()
+    }
+
+    func startIfStopped() async {
+        if isStarted { return }
+        await restart()
     }
 }

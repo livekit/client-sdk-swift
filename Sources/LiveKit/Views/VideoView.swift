@@ -305,7 +305,7 @@ public class VideoView: NativeView, Loggable {
             if newState.isDebugMode != oldState.isDebugMode {
                 // fps timer
                 if newState.isDebugMode {
-                    Task { await self._fpsTimer.start() }
+                    Task { await self._fpsTimer.restart() }
                 } else {
                     Task { await self._fpsTimer.cancel() }
                 }
@@ -333,7 +333,7 @@ public class VideoView: NativeView, Loggable {
                 }
             }
 
-            await _renderTimer.start()
+            await _renderTimer.restart()
         }
     }
 
