@@ -188,7 +188,7 @@ public class VideoView: NativeView, Loggable {
     private var _debugTextView: TextView?
 
     // used for stats timer
-    private lazy var _renderTimer = DispatchQueueTimer(timeInterval: 0.1)
+    private let _renderTimer = AsyncTimer(interval: 0.1)
 
     private let _fpsTimer = DispatchQueueTimer(timeInterval: 1, queue: .main)
     private var _currentFPS: Int = 0
@@ -271,13 +271,6 @@ public class VideoView: NativeView, Loggable {
             // isRendering updated
             if newState.isRendering != oldState.isRendering {
                 self.log("isRendering \(oldState.isRendering) -> \(newState.isRendering)")
-
-                if newState.isRendering {
-                    self._renderTimer.restart()
-                } else {
-                    self._renderTimer.suspend()
-                }
-
                 self.delegates.notify(label: { "videoView.didUpdate isRendering: \(newState.isRendering)" }) {
                     $0.videoView?(self, didUpdate: newState.isRendering)
                 }
@@ -320,18 +313,6 @@ public class VideoView: NativeView, Loggable {
             }
         }
 
-        _renderTimer.handler = { [weak self] in
-
-            guard let self else { return }
-
-            if self._state.isRendering, let renderDate = self._state.renderDate {
-                let diff = Date().timeIntervalSince(renderDate)
-                if diff >= Self._freezeDetectThreshold {
-                    self._state.mutate { $0.isRendering = false }
-                }
-            }
-        }
-
         _fpsTimer.handler = { [weak self] in
 
             guard let self else { return }
@@ -340,6 +321,21 @@ public class VideoView: NativeView, Loggable {
             self._frameCount = 0
 
             self.setNeedsLayout()
+        }
+
+        Task {
+            await self._renderTimer.setTimerBlock { [weak self] in
+                guard let self else { return }
+
+                if self._state.isRendering, let renderDate = self._state.renderDate {
+                    let diff = Date().timeIntervalSince(renderDate)
+                    if diff >= Self._freezeDetectThreshold {
+                        self._state.mutate { $0.isRendering = false }
+                    }
+                }
+            }
+
+            await _renderTimer.start()
         }
     }
 

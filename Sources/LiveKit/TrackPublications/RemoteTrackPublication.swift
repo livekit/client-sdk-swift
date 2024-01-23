@@ -42,7 +42,7 @@ public class RemoteTrackPublication: TrackPublication {
 
     // adaptiveStream
     // this must be on .main queue
-    private var _asTimer = AsyncTimer(delay: 0.3)
+    private var _asTimer = AsyncTimer(interval: 0.3)
 
     override func updateFromInfo(info: Livekit_TrackInfo) {
         super.updateFromInfo(info: info)

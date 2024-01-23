@@ -16,22 +16,30 @@
 
 import Foundation
 
-actor AsyncTimer {
+actor AsyncTimer: Loggable {
+    // MARK: - Public types
+
     typealias TimerBlock = () async throws -> Void
 
-    private let _delay: TimeInterval
+    // MARK: - Private
+
+    private let _interval: TimeInterval
     private var _task: Task<Void, Never>?
     private var _block: TimerBlock?
+    private var _isStarted: Bool = false
 
-    init(delay: TimeInterval) {
-        _delay = delay
+    init(interval: TimeInterval) {
+        _interval = interval
     }
 
     deinit {
+        _isStarted = false
         _task?.cancel()
+        log()
     }
 
     func cancel() {
+        _isStarted = false
         _task?.cancel()
     }
 
@@ -40,14 +48,20 @@ actor AsyncTimer {
         _block = block
     }
 
-    func start() {
-        _task?.cancel()
-        _task = Task.detached(priority: .utility) {
-            while true {
-                try? await Task.sleep(nanoseconds: UInt64(self._delay * 1_000_000_000))
-                if Task.isCancelled { break }
-                try? await self._block?()
-            }
+    private func _invoke() async {
+        if !_isStarted { return }
+        _task = Task.detached(priority: .utility) { [weak self] in
+            guard let self else { return }
+            try? await Task.sleep(nanoseconds: UInt64(self._interval * 1_000_000_000))
+            if await !(self._isStarted) || Task.isCancelled { return }
+            try? await self._block?()
+            await self._invoke()
         }
+    }
+
+    func start() async {
+        _task?.cancel()
+        _isStarted = true
+        await _invoke()
     }
 }
