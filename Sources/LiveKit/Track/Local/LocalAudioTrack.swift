@@ -89,7 +89,6 @@ public class LocalAudioTrack: Track, LocalTrack, AudioTrack {
 }
 
 public extension LocalAudioTrack {
-    var publishOptions: PublishOptions? { super._publishOptions }
-
+    var publishOptions: TrackPublishOptions? { super._publishOptions }
     var publishState: Track.PublishState { super._publishState }
 }

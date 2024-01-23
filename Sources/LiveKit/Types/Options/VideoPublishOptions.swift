@@ -17,7 +17,7 @@
 import Foundation
 
 @objc
-public class VideoPublishOptions: NSObject, MediaPublishOptions {
+public class VideoPublishOptions: NSObject, TrackPublishOptions {
     @objc
     public let name: String?
 

@@ -285,7 +285,7 @@ public class VideoView: NativeView, Loggable {
 
             // viewSize updated
             if newState.viewSize != oldState.viewSize {
-                self.delegates.notify(label: { "videoView.didUpdate viewSize: \(newState.viewSize)" }) {
+                self.delegates.notify {
                     $0.videoView?(self, didUpdate: newState.viewSize)
                 }
             }

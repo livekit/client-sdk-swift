@@ -19,7 +19,7 @@ import Foundation
 @objc
 public protocol LocalTrack where Self: Track {
     @objc
-    var publishOptions: PublishOptions? { get }
+    var publishOptions: TrackPublishOptions? { get }
 
     @objc
     var publishState: PublishState { get }

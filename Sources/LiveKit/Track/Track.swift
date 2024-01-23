@@ -106,7 +106,7 @@ public class Track: NSObject, Loggable {
 
     /// ``publishOptions`` used for this track if already published.
     /// Only for ``LocalTrack``s.
-    var _publishOptions: PublishOptions?
+    var _publishOptions: TrackPublishOptions?
 
     let mediaTrack: LKRTCMediaStreamTrack
 
@@ -183,9 +183,6 @@ public class Track: NSObject, Loggable {
     }
 
     deinit {
-        Task.detached {
-            await self.statisticsTimer.cancel()
-        }
         log("sid: \(String(describing: sid))")
     }
 
