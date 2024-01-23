@@ -43,7 +43,7 @@ public class LocalParticipant: Participant {
 
     @objc
     @discardableResult
-    func publish(track: LocalTrack, publishOptions: PublishOptions? = nil) async throws -> LocalTrackPublication {
+    func publish(track: LocalTrack, publishOptions: MediaPublishOptions? = nil) async throws -> LocalTrackPublication {
         log("[publish] \(track) options: \(String(describing: publishOptions ?? nil))...", .info)
 
         guard let publisher = room.engine.publisher else {
@@ -73,6 +73,8 @@ public class LocalParticipant: Participant {
                 dimensions = try await track.capturer.dimensionsCompleter.wait()
             }
 
+            var publishName: String? = nil
+
             let populatorFunc: SignalClient.AddTrackRequestPopulator<LKRTCRtpTransceiverInit> = { populator in
 
                 let transInit = DispatchQueue.liveKitWebRTC.sync { LKRTCRtpTransceiverInit() }
@@ -86,6 +88,7 @@ public class LocalParticipant: Participant {
                     self.log("[publish] computing encode settings with dimensions: \(dimensions)...")
 
                     let publishOptions = (publishOptions as? VideoPublishOptions) ?? self.room._state.options.defaultVideoPublishOptions
+                    publishName = publishOptions.name
 
                     let encodings = Utils.computeVideoEncodings(dimensions: dimensions,
                                                                 publishOptions: publishOptions,
@@ -127,6 +130,7 @@ public class LocalParticipant: Participant {
                 } else if track is LocalAudioTrack {
                     // additional params for Audio
                     let publishOptions = (publishOptions as? AudioPublishOptions) ?? self.room._state.options.defaultAudioPublishOptions
+                    publishName = publishOptions.name
 
                     populator.disableDtx = !publishOptions.dtx
 
@@ -139,9 +143,7 @@ public class LocalParticipant: Participant {
                     ]
                 }
 
-                if let mediaPublishOptions = publishOptions as? MediaPublishOptions,
-                   let streamName = mediaPublishOptions.streamName
-                {
+                if let streamName = publishOptions?.streamName {
                     // Set stream name if specified in options
                     populator.stream = streamName
                 }
@@ -151,7 +153,7 @@ public class LocalParticipant: Participant {
 
             // Request a new track to the server
             let addTrackResult = try await room.engine.signalClient.sendAddTrack(cid: track.mediaTrack.trackId,
-                                                                                 name: track.name,
+                                                                                 name: publishName ?? track.name,
                                                                                  type: track.kind.toPBType(),
                                                                                  source: track.source.toPBType(),
                                                                                  encryption: room.e2eeManager?.e2eeOptions.encryptionType.toPBType() ?? .none,
