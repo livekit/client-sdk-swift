@@ -183,9 +183,6 @@ public class Track: NSObject, Loggable {
     }
 
     deinit {
-        Task.detached {
-            await self.statisticsTimer.cancel()
-        }
         log("sid: \(String(describing: sid))")
     }
 
