@@ -189,8 +189,7 @@ public class VideoView: NativeView, Loggable {
 
     // used for stats timer
     private let _renderTimer = AsyncTimer(interval: 0.1)
-
-    private let _fpsTimer = DispatchQueueTimer(timeInterval: 1, queue: .main)
+    private let _fpsTimer = AsyncTimer(interval: 1)
     private var _currentFPS: Int = 0
     private var _frameCount: Int = 0
 
@@ -306,25 +305,24 @@ public class VideoView: NativeView, Loggable {
             if newState.isDebugMode != oldState.isDebugMode {
                 // fps timer
                 if newState.isDebugMode {
-                    self._fpsTimer.restart()
+                    Task { await self._fpsTimer.start() }
                 } else {
-                    self._fpsTimer.suspend()
+                    Task { await self._fpsTimer.cancel() }
                 }
             }
         }
 
-        _fpsTimer.handler = { [weak self] in
-
-            guard let self else { return }
-
-            self._currentFPS = self._frameCount
-            self._frameCount = 0
-
-            self.setNeedsLayout()
-        }
-
         Task {
-            await self._renderTimer.setTimerBlock { [weak self] in
+            await _fpsTimer.setTimerBlock { [weak self] in
+                guard let self else { return }
+
+                self._currentFPS = self._frameCount
+                self._frameCount = 0
+
+                self.setNeedsLayout()
+            }
+
+            await _renderTimer.setTimerBlock { [weak self] in
                 guard let self else { return }
 
                 if self._state.isRendering, let renderDate = self._state.renderDate {
