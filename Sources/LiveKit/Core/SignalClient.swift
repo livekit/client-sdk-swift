@@ -53,9 +53,9 @@ actor SignalClient: Loggable {
             }
 
             // Create copy
-            let disconnectedError = disconnectError
+            let error = disconnectError
 
-            _delegates.notify { $0.signalClient(self, didUpdateConnectionState: self.connectionState, oldState: oldValue, disconnectError: disconnectedError) }
+            _delegates.notify { $0.signalClient(self, didUpdateConnectionState: self.connectionState, oldState: oldValue, disconnectError: error) }
         }
     }
 

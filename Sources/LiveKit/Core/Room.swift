@@ -215,7 +215,8 @@ public class Room: NSObject, ObservableObject, Loggable {
             }
 
             // Notify Room when state mutates
-            Task.detached { @MainActor in
+            Task.detached { @MainActor [weak self] in
+                guard let self else { return }
                 self.objectWillChange.send()
             }
         }
@@ -223,10 +224,6 @@ public class Room: NSObject, ObservableObject, Loggable {
 
     deinit {
         log()
-        // cleanup for E2EE
-        if self.e2eeManager != nil {
-            self.e2eeManager?.cleanUp()
-        }
     }
 
     @objc
@@ -305,6 +302,11 @@ extension Room {
         await cleanUpParticipants()
         // Reset state
         _state.mutate { $0 = State(options: $0.options) }
+
+        // cleanup for E2EE
+        if let e2eeManager {
+            e2eeManager.cleanUp()
+        }
 
         // Reset completers
         _sidCompleter.reset()
@@ -385,7 +387,9 @@ extension Room: AppStateDelegate {
 
         guard !cameraVideoTracks.isEmpty else { return }
 
-        Task {
+        Task.detached { [weak self] in
+            guard let self else { return }
+
             for cameraVideoTrack in cameraVideoTracks {
                 do {
                     try await cameraVideoTrack.suspend()
@@ -401,7 +405,9 @@ extension Room: AppStateDelegate {
 
         guard !cameraVideoTracks.isEmpty else { return }
 
-        Task {
+        Task.detached { [weak self] in
+            guard let self else { return }
+
             for cameraVideoTrack in cameraVideoTracks {
                 do {
                     try await cameraVideoTrack.resume()
