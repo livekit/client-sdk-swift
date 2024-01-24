@@ -105,8 +105,8 @@ extension LocalTrackPublication {
         // get current parameters
         let parameters = sender.parameters
 
-        guard let participant else { return }
-        let publishOptions = (track.publishOptions as? VideoPublishOptions) ?? participant.room._state.options.defaultVideoPublishOptions
+        guard let participant, let room = participant._room else { return }
+        let publishOptions = (track.publishOptions as? VideoPublishOptions) ?? room._state.options.defaultVideoPublishOptions
 
         // re-compute encodings
         let encodings = Utils.computeVideoEncodings(dimensions: dimensions,
@@ -144,7 +144,8 @@ extension LocalTrackPublication {
 
         Task {
             let participant = try await requireParticipant()
-            try await participant.room.engine.signalClient.sendUpdateVideoLayers(trackSid: track.sid!, layers: layers)
+            let room = try participant.requireRoom()
+            try await room.engine.signalClient.sendUpdateVideoLayers(trackSid: track.sid!, layers: layers)
         }
     }
 }

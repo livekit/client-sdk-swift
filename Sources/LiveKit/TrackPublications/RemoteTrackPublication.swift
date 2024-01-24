@@ -67,12 +67,13 @@ public class RemoteTrackPublication: TrackPublication {
         guard _state.isSubscribePreferred != newValue else { return }
 
         let participant = try await requireParticipant()
+        let room = try participant.requireRoom()
 
         _state.mutate { $0.isSubscribePreferred = newValue }
 
-        try await participant.room.engine.signalClient.sendUpdateSubscription(participantSid: participant.sid,
-                                                                              trackSid: sid,
-                                                                              isSubscribed: newValue)
+        try await room.engine.signalClient.sendUpdateSubscription(participantSid: participant.sid,
+                                                                  trackSid: sid,
+                                                                  isSubscribed: newValue)
     }
 
     /// Enable or disable server from sending down data for this track.
@@ -181,12 +182,15 @@ public class RemoteTrackPublication: TrackPublication {
                              notify: false)
             }
 
-            if oldValue != nil, newValue == nil, let participant = participant as? RemoteParticipant {
+            if oldValue != nil, newValue == nil,
+               let participant = participant as? RemoteParticipant,
+               let room = participant._room
+            {
                 participant.delegates.notify(label: { "participant.didUnsubscribe \(self)" }) {
                     $0.participant?(participant, didUnsubscribeTrack: self)
                 }
-                participant.room.delegates.notify(label: { "room.didUnsubscribe \(self)" }) {
-                    $0.room?(participant.room, participant: participant, didUnsubscribeTrack: self)
+                room.delegates.notify(label: { "room.didUnsubscribe \(self)" }) {
+                    $0.room?(room, participant: participant, didUnsubscribeTrack: self)
                 }
             }
         }
@@ -198,15 +202,15 @@ public class RemoteTrackPublication: TrackPublication {
 // MARK: - Private
 
 private extension RemoteTrackPublication {
-    var isAdaptiveStreamEnabled: Bool { (participant?.room._state.options ?? RoomOptions()).adaptiveStream && kind == .video }
+    var isAdaptiveStreamEnabled: Bool { (participant?._room?._state.options ?? RoomOptions()).adaptiveStream && kind == .video }
 
     var engineConnectionState: ConnectionState {
-        guard let participant else {
+        guard let participant, let room = participant._room else {
             log("Participant is nil", .warning)
             return .disconnected
         }
 
-        return participant.room.engine._state.connectionState
+        return room.engine._state.connectionState
     }
 
     func checkUserCanModifyTrackSettings() async throws {
@@ -223,7 +227,7 @@ extension RemoteTrackPublication {
     func set(metadataMuted newValue: Bool) {
         guard _state.isMetadataMuted != newValue else { return }
 
-        guard let participant else {
+        guard let participant, let room = participant._room else {
             log("Participant is nil", .warning)
             return
         }
@@ -235,8 +239,8 @@ extension RemoteTrackPublication {
             participant.delegates.notify(label: { "participant.didUpdatePublication isMuted: \(newValue)" }) {
                 $0.participant?(participant, track: self, didUpdateIsMuted: newValue)
             }
-            participant.room.delegates.notify(label: { "room.didUpdatePublication isMuted: \(newValue)" }) {
-                $0.room?(participant.room, participant: participant, track: self, didUpdateIsMuted: newValue)
+            room.delegates.notify(label: { "room.didUpdatePublication isMuted: \(newValue)" }) {
+                $0.room?(room, participant: participant, track: self, didUpdateIsMuted: newValue)
             }
         }
     }
@@ -245,12 +249,12 @@ extension RemoteTrackPublication {
         guard _state.isSubscriptionAllowed != newValue else { return }
         _state.mutate { $0.isSubscriptionAllowed = newValue }
 
-        guard let participant = participant as? RemoteParticipant else { return }
+        guard let participant = participant as? RemoteParticipant, let room = participant._room else { return }
         participant.delegates.notify(label: { "participant.didUpdate permission: \(newValue)" }) {
             $0.participant?(participant, track: self, didUpdateIsSubscriptionAllowed: newValue)
         }
-        participant.room.delegates.notify(label: { "room.didUpdate permission: \(newValue)" }) {
-            $0.room?(participant.room, participant: participant, track: self, didUpdateIsSubscriptionAllowed: newValue)
+        room.delegates.notify(label: { "room.didUpdate permission: \(newValue)" }) {
+            $0.room?(room, participant: participant, track: self, didUpdateIsSubscriptionAllowed: newValue)
         }
     }
 }
@@ -268,6 +272,7 @@ extension RemoteTrackPublication {
     // attempt to send track settings
     func send(trackSettings newValue: TrackSettings) async throws {
         let participant = try await requireParticipant()
+        let room = try participant.requireRoom()
 
         log("[adaptiveStream] sending \(newValue), sid: \(sid)")
 
@@ -288,7 +293,7 @@ extension RemoteTrackPublication {
 
         // Attempt to set the new settings
         do {
-            try await participant.room.engine.signalClient.sendUpdateTrackSettings(sid: sid, settings: newValue)
+            try await room.engine.signalClient.sendUpdateTrackSettings(sid: sid, settings: newValue)
             _state.mutate { $0.isSendingTrackSettings = false }
         } catch {
             // Revert track settings on failure

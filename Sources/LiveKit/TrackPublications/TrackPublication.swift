@@ -120,12 +120,15 @@ public class TrackPublication: NSObject, ObservableObject, Loggable {
             guard let self else { return }
 
             if newState.streamState != oldState.streamState {
-                if let participant = self.participant as? RemoteParticipant, let trackPublication = self as? RemoteTrackPublication {
+                if let participant = self.participant as? RemoteParticipant,
+                   let room = participant._room,
+                   let trackPublication = self as? RemoteTrackPublication
+                {
                     participant.delegates.notify(label: { "participant.didUpdate \(trackPublication) streamState: \(newState.streamState)" }) {
                         $0.participant?(participant, track: trackPublication, didUpdateStreamState: newState.streamState)
                     }
-                    participant.room.delegates.notify(label: { "room.didUpdate \(trackPublication) streamState: \(newState.streamState)" }) {
-                        $0.room?(participant.room, participant: participant, track: trackPublication, didUpdateStreamState: newState.streamState)
+                    room.delegates.notify(label: { "room.didUpdate \(trackPublication) streamState: \(newState.streamState)" }) {
+                        $0.room?(room, participant: participant, track: trackPublication, didUpdateStreamState: newState.streamState)
                     }
                 }
             }
@@ -147,8 +150,11 @@ public class TrackPublication: NSObject, ObservableObject, Loggable {
             if let participant = self.participant {
                 // Notify Participant
                 participant.objectWillChange.send()
-                // Notify Room
-                participant.room.objectWillChange.send()
+
+                if let room = participant._room {
+                    // Notify Room
+                    room.objectWillChange.send()
+                }
             }
         }
     }
@@ -200,16 +206,17 @@ extension TrackPublication: TrackDelegateInternal {
 
         Task {
             let participant = try await requireParticipant()
+            let room = try participant.requireRoom()
 
             if shouldSendSignal {
-                try await participant.room.engine.signalClient.sendMuteTrack(trackSid: sid, muted: isMuted)
+                try await room.engine.signalClient.sendMuteTrack(trackSid: sid, muted: isMuted)
             }
 
             participant.delegates.notify {
                 $0.participant?(participant, track: self, didUpdateIsMuted: isMuted)
             }
-            participant.room.delegates.notify {
-                $0.room?(participant.room, participant: participant, track: self, didUpdateIsMuted: self.isMuted)
+            room.delegates.notify {
+                $0.room?(room, participant: participant, track: self, didUpdateIsMuted: self.isMuted)
             }
 
             // TrackPublication.isMuted is a computed property depending on Track.isMuted
