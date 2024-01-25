@@ -88,7 +88,7 @@ class Engine: MulticastDelegate<EngineDelegate> {
         // log sdk & os versions
         log("sdk: \(LiveKitSDK.version), os: \(String(describing: Utils.os()))(\(Utils.osVersionString())), modelId: \(String(describing: Utils.modelIdentifier() ?? "unknown"))")
 
-        signalClient.add(delegate: self)
+        signalClient._delegate.set(delegate: self)
         ConnectivityListener.shared.add(delegate: self)
 
         // trigger events when state mutates
