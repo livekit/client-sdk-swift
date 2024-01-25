@@ -77,11 +77,11 @@ public class RemoteParticipant: Participant {
             .compactMap { $0 as? RemoteTrackPublication }
 
         for unpublishRemoteTrackPublication in unpublishRemoteTrackPublications {
-            Task {
+            Task.detached {
                 do {
-                    try await unpublish(publication: unpublishRemoteTrackPublication)
+                    try await self.unpublish(publication: unpublishRemoteTrackPublication)
                 } catch {
-                    log("Failed to unpublish with error: \(error)")
+                    self.log("Failed to unpublish with error: \(error)")
                 }
             }
         }

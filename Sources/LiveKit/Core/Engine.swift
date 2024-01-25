@@ -581,10 +581,10 @@ extension Engine {
 extension Engine: ConnectivityListenerDelegate {
     func connectivityListener(_: ConnectivityListener, didSwitch path: NWPath) {
         log("didSwitch path: \(path)")
-        Task {
+        Task.detached {
             // Network has been switched, e.g. wifi <-> cellular
-            if case .connected = _state.connectionState {
-                try await startReconnect(reason: .networkSwitch)
+            if case .connected = self._state.connectionState {
+                try await self.startReconnect(reason: .networkSwitch)
             }
         }
     }

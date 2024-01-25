@@ -385,12 +385,12 @@ extension Room: AppStateDelegate {
 
         guard !cameraVideoTracks.isEmpty else { return }
 
-        Task {
+        Task.detached {
             for cameraVideoTrack in cameraVideoTracks {
                 do {
                     try await cameraVideoTrack.suspend()
                 } catch {
-                    log("Failed to suspend video track with error: \(error)")
+                    self.log("Failed to suspend video track with error: \(error)")
                 }
             }
         }
@@ -401,12 +401,12 @@ extension Room: AppStateDelegate {
 
         guard !cameraVideoTracks.isEmpty else { return }
 
-        Task {
+        Task.detached {
             for cameraVideoTrack in cameraVideoTracks {
                 do {
                     try await cameraVideoTrack.resume()
                 } catch {
-                    log("Failed to resumed video track with error: \(error)")
+                    self.log("Failed to resumed video track with error: \(error)")
                 }
             }
         }
@@ -415,8 +415,8 @@ extension Room: AppStateDelegate {
     func appWillTerminate() {
         // attempt to disconnect if already connected.
         // this is not guranteed since there is no reliable way to detect app termination.
-        Task {
-            await disconnect()
+        Task.detached {
+            await self.disconnect()
         }
     }
 }

@@ -305,15 +305,15 @@ public class VideoView: NativeView, Loggable {
             if newState.isDebugMode != oldState.isDebugMode {
                 // fps timer
                 if newState.isDebugMode {
-                    Task { await self._fpsTimer.restart() }
+                    Task.detached { await self._fpsTimer.restart() }
                 } else {
-                    Task { await self._fpsTimer.cancel() }
+                    Task.detached { await self._fpsTimer.cancel() }
                 }
             }
         }
 
-        Task {
-            await _fpsTimer.setTimerBlock { @MainActor [weak self] in
+        Task.detached {
+            await self._fpsTimer.setTimerBlock { @MainActor [weak self] in
                 guard let self else { return }
 
                 self._currentFPS = self._frameCount
@@ -322,18 +322,18 @@ public class VideoView: NativeView, Loggable {
                 self.setNeedsLayout()
             }
 
-            await _renderTimer.setTimerBlock { [weak self] in
+            await self._renderTimer.setTimerBlock { [weak self] in
                 guard let self else { return }
 
-                if self._state.isRendering, let renderDate = self._state.renderDate {
+                if await self._state.isRendering, let renderDate = await self._state.renderDate {
                     let diff = Date().timeIntervalSince(renderDate)
                     if diff >= Self._freezeDetectThreshold {
-                        self._state.mutate { $0.isRendering = false }
+                        await self._state.mutate { $0.isRendering = false }
                     }
                 }
             }
 
-            await _renderTimer.restart()
+            await self._renderTimer.restart()
         }
     }
 

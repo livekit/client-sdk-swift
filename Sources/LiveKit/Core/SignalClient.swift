@@ -248,7 +248,7 @@ private extension SignalClient {
             return
         }
 
-        Task {
+        Task.detached {
             let alwaysProcess: Bool = {
                 switch response.message {
                 case .join, .reconnect, .leave: return true
@@ -256,7 +256,7 @@ private extension SignalClient {
                 }
             }()
             // Always process join or reconnect messages even if suspended...
-            await _responseQueue.processIfResumed(response, or: alwaysProcess)
+            await self._responseQueue.processIfResumed(response, or: alwaysProcess)
         }
     }
 
@@ -566,8 +566,8 @@ extension SignalClient {
 
         defer {
             if shouldDisconnect {
-                Task {
-                    await cleanUp()
+                Task.detached {
+                    await self.cleanUp()
                 }
             }
         }

@@ -142,8 +142,8 @@ extension LocalTrackPublication {
 
         log("Using encodings layers: \(layers.map { String(describing: $0) }.joined(separator: ", "))")
 
-        Task {
-            let participant = try await requireParticipant()
+        Task.detached {
+            let participant = try await self.requireParticipant()
             let room = try participant.requireRoom()
             try await room.engine.signalClient.sendUpdateVideoLayers(trackSid: track.sid!, layers: layers)
         }

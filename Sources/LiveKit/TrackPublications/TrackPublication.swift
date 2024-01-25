@@ -204,12 +204,12 @@ extension TrackPublication: TrackDelegateInternal {
     public func track(_: Track, didUpdateIsMuted isMuted: Bool, shouldSendSignal: Bool) {
         log("isMuted: \(isMuted) shouldSendSignal: \(shouldSendSignal)")
 
-        Task {
-            let participant = try await requireParticipant()
+        Task.detached {
+            let participant = try await self.requireParticipant()
             let room = try participant.requireRoom()
 
             if shouldSendSignal {
-                try await room.engine.signalClient.sendMuteTrack(trackSid: sid, muted: isMuted)
+                try await room.engine.signalClient.sendMuteTrack(trackSid: self.sid, muted: isMuted)
             }
 
             participant.delegates.notify {
