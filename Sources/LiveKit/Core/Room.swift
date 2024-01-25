@@ -223,10 +223,6 @@ public class Room: NSObject, ObservableObject, Loggable {
 
     deinit {
         log()
-        // cleanup for E2EE
-        if self.e2eeManager != nil {
-            self.e2eeManager?.cleanUp()
-        }
     }
 
     @objc
@@ -303,6 +299,12 @@ extension Room {
         await engine.signalClient.cleanUp(withError: disconnectError)
         await engine.cleanUpRTC()
         await cleanUpParticipants()
+
+        // Cleanup for E2EE
+        if let e2eeManager {
+            e2eeManager.cleanUp()
+        }
+
         // Reset state
         _state.mutate { $0 = State(options: $0.options) }
 

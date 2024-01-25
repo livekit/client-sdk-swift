@@ -65,12 +65,10 @@ public class E2EEManager: NSObject, ObservableObject, Loggable {
     }
 
     public func setup(room: Room) {
-        if _room != room {
-            cleanUp()
-        }
+        if _room != room { cleanUp() }
         _room = room
 
-        room.delegates.add(delegate: self)
+        room.add(delegate: self)
 
         let localPublications = room.localParticipant.trackPublications.values.compactMap { $0 as? LocalTrackPublication }
 
@@ -149,8 +147,6 @@ public class E2EEManager: NSObject, ObservableObject, Loggable {
     }
 
     public func cleanUp() {
-        _room?.delegates.remove(delegate: self)
-
         _state.mutate {
             for (_, frameCryptor) in $0.frameCryptors {
                 frameCryptor.delegate = nil
@@ -182,29 +178,29 @@ extension E2EEManager {
 }
 
 extension E2EEManager: RoomDelegate {
-    public func room(_: Room, localParticipant: LocalParticipant, didPublishPublication publication: LocalTrackPublication) {
-        addRtpSender(publication: publication, participantSid: localParticipant.sid)
+    public func room(_: Room, participant: LocalParticipant, didPublishTrack publication: LocalTrackPublication) {
+        addRtpSender(publication: publication, participantSid: participant.sid)
     }
 
-    public func room(_: Room, localParticipant: LocalParticipant, didUnpublishPublication publication: LocalTrackPublication) {
+    public func room(_: Room, participant: LocalParticipant, didUnpublishTrack publication: LocalTrackPublication) {
         _state.mutate {
             if let frameCryptor = ($0.frameCryptors.first { (key: [String: Sid], _: LKRTCFrameCryptor) in
-                key[localParticipant.sid] == publication.sid
+                key[participant.sid] == publication.sid
             })?.value {
                 frameCryptor.delegate = nil
                 frameCryptor.enabled = false
 
                 $0.trackPublications.removeValue(forKey: frameCryptor)
-                $0.frameCryptors.removeValue(forKey: [localParticipant.sid: publication.sid])
+                $0.frameCryptors.removeValue(forKey: [participant.sid: publication.sid])
             }
         }
     }
 
-    public func room(_: Room, participant: RemoteParticipant, didSubscribePublication publication: RemoteTrackPublication) {
+    public func room(_: Room, participant: RemoteParticipant, didSubscribeTrack publication: RemoteTrackPublication) {
         addRtpReceiver(publication: publication, participantSid: participant.sid)
     }
 
-    public func room(_: Room, participant: RemoteParticipant, didUnsubscribePublication publication: RemoteTrackPublication) {
+    public func room(_: Room, participant: RemoteParticipant, didUnsubscribeTrack publication: RemoteTrackPublication) {
         _state.mutate {
             if let frameCryptor = ($0.frameCryptors.first { (key: [String: Sid], _: LKRTCFrameCryptor) in
                 key[participant.sid] == publication.sid
