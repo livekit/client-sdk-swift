@@ -53,6 +53,8 @@ public protocol AudioCustomProcessingDelegate {
 }
 
 class AudioCustomProcessingDelegateAdapter: NSObject, LKRTCAudioCustomProcessingDelegate {
+    var bypass: Bool = false
+
     weak var target: AudioCustomProcessingDelegate?
 
     init(target: AudioCustomProcessingDelegate? = nil) {
@@ -64,6 +66,9 @@ class AudioCustomProcessingDelegateAdapter: NSObject, LKRTCAudioCustomProcessing
     }
 
     func audioProcessingProcess(audioBuffer: LKRTCAudioBuffer) {
+        if bypass {
+            return
+        }
         target?.audioProcessingProcess(audioBuffer: LKAudioBuffer(audioBuffer: audioBuffer))
     }
 
@@ -163,9 +168,19 @@ public class AudioManager: Loggable {
         set { capturePostProcessingDelegateAdapter.target = newValue }
     }
 
+    public var bypassForCapturePostProcessing: Bool {
+        get { capturePostProcessingDelegateAdapter.bypass }
+        set { capturePostProcessingDelegateAdapter.bypass = newValue }
+    }
+
     public var renderPreProcessingDelegate: AudioCustomProcessingDelegate? {
         get { renderPreProcessingDelegateAdapter.target }
         set { renderPreProcessingDelegateAdapter.target = newValue }
+    }
+
+    public var bypassForRenderPreProcessing: Bool {
+        get { renderPreProcessingDelegateAdapter.bypass }
+        set { renderPreProcessingDelegateAdapter.bypass = newValue }
     }
 
     // MARK: - AudioDeviceModule

@@ -98,6 +98,10 @@ public class Room: NSObject, ObservableObject, Loggable {
 
     public var e2eeManager: E2EEManager?
 
+    public var audioProcessorIsEnabled: Bool { audioProcessor != nil }
+
+    public var audioProcessor: AudioProcessor?
+
     @objc
     public lazy var localParticipant: LocalParticipant = .init(room: self)
 
@@ -254,6 +258,7 @@ public class Room: NSObject, ObservableObject, Loggable {
         if roomOptions?.audioProcessor != nil {
             if roomOptions!.audioProcessor!.isEnabled(url: url, token: token) {
                 AudioManager.shared.capturePostProcessingDelegate = roomOptions?.audioProcessor
+                audioProcessor = roomOptions?.audioProcessor
             }
         }
 
