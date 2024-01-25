@@ -163,7 +163,7 @@ public class Room: NSObject, ObservableObject, Loggable {
         engine._room = self
 
         // listen to engine & signalClient
-        engine.add(delegate: self)
+        engine._delegate.set(delegate: self)
 
         if let delegate {
             log("delegate: \(String(describing: delegate))")

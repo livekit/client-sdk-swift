@@ -66,14 +66,14 @@ extension Engine: TransportDelegate {
                     removeWhen: { state, _ in state.connectionState == .disconnected })
             { [weak self] in
                 guard let self else { return }
-                self.notifyAsync { await $0.engine(self, didAddTrack: track, rtpReceiver: rtpReceiver, stream: streams.first!) }
+                _delegate.notifyAsync { await $0.engine(self, didAddTrack: track, rtpReceiver: rtpReceiver, stream: streams.first!) }
             }
         }
     }
 
     func transport(_ transport: Transport, didRemoveTrack track: LKRTCMediaStreamTrack) async {
         if transport.target == .subscriber {
-            notifyAsync { await $0.engine(self, didRemoveTrack: track) }
+            _delegate.notifyAsync { await $0.engine(self, didRemoveTrack: track) }
         }
     }
 
