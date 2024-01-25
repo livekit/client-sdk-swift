@@ -18,53 +18,61 @@ import Foundation
 import Combine
 
 @dynamicMemberLookup
-internal final class StateSync<Value: Equatable> {
+final class StateSync<State: Equatable> {
+    // MARK: - Types
 
-    typealias OnDidMutate<Value> = (_ newState: Value, _ oldState: Value) -> Void
+    typealias OnDidMutate = (_ newState: State, _ oldState: State) -> Void
 
-    private let subject: CurrentValueSubject<Value, Never>
-    private let lock = UnfairLock()
+    // MARK: - Public
 
-    public var onDidMutate: OnDidMutate<Value>?
-
-    public var valuePublisher: AnyPublisher<Value, Never> {
-        subject.eraseToAnyPublisher()
+    public var onDidMutate: OnDidMutate? {
+        get { _lock.sync { _onDidMutate } }
+        set { _lock.sync { _onDidMutate = newValue } }
     }
 
-    public init(_ value: Value, onMutate: OnDidMutate<Value>? = nil) {
-        self.subject = CurrentValueSubject(value)
-        self.onDidMutate = onMutate
+    // MARK: - Private
+
+    private var _state: State
+    private let _lock = UnfairLock()
+    private var _onDidMutate: OnDidMutate?
+    private let _onDidMutateQueue = DispatchQueue(label: "LiveKit.StateSync")
+
+    public init(_ state: State, onDidMutate: OnDidMutate? = nil) {
+        _state = state
+        _onDidMutate = onDidMutate
     }
 
     // mutate sync
     @discardableResult
-    public func mutate<Result>(_ block: (inout Value) throws -> Result) rethrows -> Result {
-        try lock.sync {
-            let oldValue = subject.value
-            var valueCopy = oldValue
-            let result = try block(&valueCopy)
-            subject.send(valueCopy)
-            // trigger onMutate if mutaed value isn't equal any more (Equatable protocol)
-            if oldValue != valueCopy {
-                onDidMutate?(valueCopy, oldValue)
+    public func mutate<Result>(_ block: (inout State) throws -> Result) rethrows -> Result {
+        try _lock.sync {
+            let oldState = _state
+            let result = try block(&_state)
+            let newState = _state
+
+            // Trigger onDidMutate if muted state isn't equal any more (Equatable protocol)
+            if oldState != _state {
+                _onDidMutateQueue.async {
+                    self.onDidMutate?(newState, oldState)
+                }
             }
             return result
         }
     }
 
     // read sync and return copy
-    public func copy() -> Value {
-        lock.sync { subject.value }
+    public func copy() -> State {
+        _lock.sync { _state }
     }
 
     // read with block
-    public func read<Result>(_ block: (Value) throws -> Result) rethrows -> Result {
-        try lock.sync { try block(subject.value) }
+    public func read<Result>(_ block: (State) throws -> Result) rethrows -> Result {
+        try _lock.sync { try block(_state) }
     }
 
     // property read sync
-    subscript<Property>(dynamicMember keyPath: KeyPath<Value, Property>) -> Property {
-        lock.sync { subject.value[keyPath: keyPath] }
+    subscript<Property>(dynamicMember keyPath: KeyPath<State, Property>) -> Property {
+        _lock.sync { _state[keyPath: keyPath] }
     }
 }
 
