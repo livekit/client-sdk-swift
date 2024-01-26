@@ -42,22 +42,7 @@ public class RemoteTrackPublication: TrackPublication {
 
     // adaptiveStream
     // this must be on .main queue
-    private var asTimer = DispatchQueueTimer(timeInterval: 0.3, queue: .main)
-
-    override init(info: Livekit_TrackInfo,
-                  track: Track? = nil,
-                  participant: Participant)
-    {
-        super.init(info: info,
-                   track: track,
-                   participant: participant)
-
-        asTimer.handler = { [weak self] in self?.onAdaptiveStreamTimer() }
-    }
-
-    deinit {
-        asTimer.suspend()
-    }
+    private var _asTimer = AsyncTimer(interval: 0.3)
 
     override func updateFromInfo(info: Livekit_TrackInfo) {
         super.updateFromInfo(info: info)
@@ -82,12 +67,13 @@ public class RemoteTrackPublication: TrackPublication {
         guard _state.isSubscribePreferred != newValue else { return }
 
         let participant = try await requireParticipant()
+        let room = try participant.requireRoom()
 
         _state.mutate { $0.isSubscribePreferred = newValue }
 
-        try await participant.room.engine.signalClient.sendUpdateSubscription(participantSid: participant.sid,
-                                                                              trackSid: sid,
-                                                                              isSubscribed: newValue)
+        try await room.engine.signalClient.sendUpdateSubscription(participantSid: participant.sid,
+                                                                  trackSid: sid,
+                                                                  isSubscribed: newValue)
     }
 
     /// Enable or disable server from sending down data for this track.
@@ -162,13 +148,13 @@ public class RemoteTrackPublication: TrackPublication {
     }
 
     @discardableResult
-    override func set(track newValue: Track?) -> Track? {
+    override func set(track newValue: Track?) async -> Track? {
         log("RemoteTrackPublication set track: \(String(describing: newValue))")
 
-        let oldValue = super.set(track: newValue)
+        let oldValue = await super.set(track: newValue)
         if newValue != oldValue {
             // always suspend adaptiveStream timer first
-            asTimer.suspend()
+            await _asTimer.cancel()
 
             if let newValue {
                 // Copy meta-data to track
@@ -184,7 +170,10 @@ public class RemoteTrackPublication: TrackPublication {
 
                 // start adaptiveStream timer only if it's a video track
                 if isAdaptiveStreamEnabled {
-                    asTimer.restart()
+                    await _asTimer.setTimerBlock {
+                        [weak self] in await self?.onAdaptiveStreamTimer()
+                    }
+                    await _asTimer.restart()
                 }
 
                 // if new Track has been set to this RemoteTrackPublication,
@@ -193,12 +182,15 @@ public class RemoteTrackPublication: TrackPublication {
                              notify: false)
             }
 
-            if oldValue != nil, newValue == nil, let participant = participant as? RemoteParticipant {
+            if oldValue != nil, newValue == nil,
+               let participant = participant as? RemoteParticipant,
+               let room = participant._room
+            {
                 participant.delegates.notify(label: { "participant.didUnsubscribe \(self)" }) {
                     $0.participant?(participant, didUnsubscribeTrack: self)
                 }
-                participant.room.delegates.notify(label: { "room.didUnsubscribe \(self)" }) {
-                    $0.room?(participant.room, participant: participant, didUnsubscribeTrack: self)
+                room.delegates.notify(label: { "room.didUnsubscribe \(self)" }) {
+                    $0.room?(room, participant: participant, didUnsubscribeTrack: self)
                 }
             }
         }
@@ -210,15 +202,15 @@ public class RemoteTrackPublication: TrackPublication {
 // MARK: - Private
 
 private extension RemoteTrackPublication {
-    var isAdaptiveStreamEnabled: Bool { (participant?.room._state.options ?? RoomOptions()).adaptiveStream && kind == .video }
+    var isAdaptiveStreamEnabled: Bool { (participant?._room?._state.options ?? RoomOptions()).adaptiveStream && kind == .video }
 
     var engineConnectionState: ConnectionState {
-        guard let participant else {
+        guard let participant, let room = participant._room else {
             log("Participant is nil", .warning)
             return .disconnected
         }
 
-        return participant.room.engine._state.connectionState
+        return room.engine._state.connectionState
     }
 
     func checkUserCanModifyTrackSettings() async throws {
@@ -235,7 +227,7 @@ extension RemoteTrackPublication {
     func set(metadataMuted newValue: Bool) {
         guard _state.isMetadataMuted != newValue else { return }
 
-        guard let participant else {
+        guard let participant, let room = participant._room else {
             log("Participant is nil", .warning)
             return
         }
@@ -247,8 +239,8 @@ extension RemoteTrackPublication {
             participant.delegates.notify(label: { "participant.didUpdatePublication isMuted: \(newValue)" }) {
                 $0.participant?(participant, track: self, didUpdateIsMuted: newValue)
             }
-            participant.room.delegates.notify(label: { "room.didUpdatePublication isMuted: \(newValue)" }) {
-                $0.room?(participant.room, participant: participant, track: self, didUpdateIsMuted: newValue)
+            room.delegates.notify(label: { "room.didUpdatePublication isMuted: \(newValue)" }) {
+                $0.room?(room, participant: participant, track: self, didUpdateIsMuted: newValue)
             }
         }
     }
@@ -257,12 +249,12 @@ extension RemoteTrackPublication {
         guard _state.isSubscriptionAllowed != newValue else { return }
         _state.mutate { $0.isSubscriptionAllowed = newValue }
 
-        guard let participant = participant as? RemoteParticipant else { return }
+        guard let participant = participant as? RemoteParticipant, let room = participant._room else { return }
         participant.delegates.notify(label: { "participant.didUpdate permission: \(newValue)" }) {
             $0.participant?(participant, track: self, didUpdateIsSubscriptionAllowed: newValue)
         }
-        participant.room.delegates.notify(label: { "room.didUpdate permission: \(newValue)" }) {
-            $0.room?(participant.room, participant: participant, track: self, didUpdateIsSubscriptionAllowed: newValue)
+        room.delegates.notify(label: { "room.didUpdate permission: \(newValue)" }) {
+            $0.room?(room, participant: participant, track: self, didUpdateIsSubscriptionAllowed: newValue)
         }
     }
 }
@@ -280,6 +272,7 @@ extension RemoteTrackPublication {
     // attempt to send track settings
     func send(trackSettings newValue: TrackSettings) async throws {
         let participant = try await requireParticipant()
+        let room = try participant.requireRoom()
 
         log("[adaptiveStream] sending \(newValue), sid: \(sid)")
 
@@ -300,7 +293,7 @@ extension RemoteTrackPublication {
 
         // Attempt to set the new settings
         do {
-            try await participant.room.engine.signalClient.sendUpdateTrackSettings(sid: sid, settings: newValue)
+            try await room.engine.signalClient.sendUpdateTrackSettings(sid: sid, settings: newValue)
             _state.mutate { $0.isSendingTrackSettings = false }
         } catch {
             // Revert track settings on failure
@@ -346,12 +339,10 @@ extension Collection<VideoRenderer> {
 
 extension RemoteTrackPublication {
     // executed on .main
-    private func onAdaptiveStreamTimer() {
+    @MainActor
+    private func onAdaptiveStreamTimer() async {
         // this should never happen
         assert(Thread.current.isMainThread, "this method must be called from main thread")
-
-        // suspend timer first
-        asTimer.suspend()
 
         // don't continue if the engine is disconnected
         guard engineConnectionState != .disconnected else {
@@ -373,7 +364,6 @@ extension RemoteTrackPublication {
 
         guard _state.trackSettings != newSettings else {
             // no settings updated
-            asTimer.resume()
             return
         }
 
@@ -393,16 +383,12 @@ extension RemoteTrackPublication {
             DispatchQueue.liveKitWebRTC.sync { videoTrack.shouldReceive = isEnabled }
         }
 
-        Task {
-            do {
-                try await send(trackSettings: newSettings)
-            } catch {
-                // Revert to old settings on failure
-                _state.mutate { $0.trackSettings = oldSettings }
-                log("[adaptiveStream] failed to send trackSettings, sid: \(self.sid) error: \(error)", .error)
-            }
-
-            asTimer.restart()
+        do {
+            try await send(trackSettings: newSettings)
+        } catch {
+            // Revert to old settings on failure
+            _state.mutate { $0.trackSettings = oldSettings }
+            log("[adaptiveStream] failed to send trackSettings, sid: \(sid) error: \(error)", .error)
         }
     }
 }

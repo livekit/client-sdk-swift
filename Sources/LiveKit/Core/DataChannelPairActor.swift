@@ -104,9 +104,9 @@ actor DataChannelPairActor: NSObject, Loggable {
 
 extension DataChannelPairActor: LKRTCDataChannelDelegate {
     nonisolated func dataChannelDidChangeState(_: LKRTCDataChannel) {
-        Task {
-            if await isOpen {
-                openCompleter.resume(returning: ())
+        Task.detached {
+            if await self.isOpen {
+                self.openCompleter.resume(returning: ())
             }
         }
     }

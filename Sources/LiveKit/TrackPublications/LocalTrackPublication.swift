@@ -44,8 +44,8 @@ public class LocalTrackPublication: TrackPublication {
         try await track._unmute()
     }
 
-    override func set(track newValue: Track?) -> Track? {
-        let oldValue = super.set(track: newValue)
+    override func set(track newValue: Track?) async -> Track? {
+        let oldValue = await super.set(track: newValue)
 
         // listen for VideoCapturerDelegate
         if let oldLocalVideoTrack = oldValue as? LocalVideoTrack {
@@ -105,8 +105,8 @@ extension LocalTrackPublication {
         // get current parameters
         let parameters = sender.parameters
 
-        guard let participant else { return }
-        let publishOptions = (track.publishOptions as? VideoPublishOptions) ?? participant.room._state.options.defaultVideoPublishOptions
+        guard let participant, let room = participant._room else { return }
+        let publishOptions = (track.publishOptions as? VideoPublishOptions) ?? room._state.options.defaultVideoPublishOptions
 
         // re-compute encodings
         let encodings = Utils.computeVideoEncodings(dimensions: dimensions,
@@ -142,9 +142,10 @@ extension LocalTrackPublication {
 
         log("Using encodings layers: \(layers.map { String(describing: $0) }.joined(separator: ", "))")
 
-        Task {
-            let participant = try await requireParticipant()
-            try await participant.room.engine.signalClient.sendUpdateVideoLayers(trackSid: track.sid!, layers: layers)
+        Task.detached {
+            let participant = try await self.requireParticipant()
+            let room = try participant.requireRoom()
+            try await room.engine.signalClient.sendUpdateVideoLayers(trackSid: track.sid!, layers: layers)
         }
     }
 }

@@ -94,10 +94,7 @@ public class TrackPublication: NSObject, ObservableObject, Loggable {
 
     let _state: StateSync<State>
 
-    init(info: Livekit_TrackInfo,
-         track: Track? = nil,
-         participant: Participant)
-    {
+    init(info: Livekit_TrackInfo, participant: Participant) {
         _state = StateSync(State(
             sid: info.sid,
             kind: info.type.toLKType(),
@@ -117,23 +114,21 @@ public class TrackPublication: NSObject, ObservableObject, Loggable {
 
         super.init()
 
-        set(track: track)
-
-        // listen for events from Track
-        track?.add(delegate: self)
-
         // trigger events when state mutates
         _state.onDidMutate = { [weak self] newState, oldState in
 
             guard let self else { return }
 
             if newState.streamState != oldState.streamState {
-                if let participant = self.participant as? RemoteParticipant, let trackPublication = self as? RemoteTrackPublication {
+                if let participant = self.participant as? RemoteParticipant,
+                   let room = participant._room,
+                   let trackPublication = self as? RemoteTrackPublication
+                {
                     participant.delegates.notify(label: { "participant.didUpdate \(trackPublication) streamState: \(newState.streamState)" }) {
                         $0.participant?(participant, track: trackPublication, didUpdateStreamState: newState.streamState)
                     }
-                    participant.room.delegates.notify(label: { "room.didUpdate \(trackPublication) streamState: \(newState.streamState)" }) {
-                        $0.room?(participant.room, participant: participant, track: trackPublication, didUpdateStreamState: newState.streamState)
+                    room.delegates.notify(label: { "room.didUpdate \(trackPublication) streamState: \(newState.streamState)" }) {
+                        $0.room?(room, participant: participant, track: trackPublication, didUpdateStreamState: newState.streamState)
                     }
                 }
             }
@@ -155,8 +150,11 @@ public class TrackPublication: NSObject, ObservableObject, Loggable {
             if let participant = self.participant {
                 // Notify Participant
                 participant.objectWillChange.send()
-                // Notify Room
-                participant.room.objectWillChange.send()
+
+                if let room = participant._room {
+                    // Notify Room
+                    room.objectWillChange.send()
+                }
             }
         }
     }
@@ -175,7 +173,7 @@ public class TrackPublication: NSObject, ObservableObject, Loggable {
     }
 
     @discardableResult
-    func set(track newValue: Track?) -> Track? {
+    func set(track newValue: Track?) async -> Track? {
         // keep ref to old value
         let oldValue = track
         // continue only if updated
@@ -206,18 +204,19 @@ extension TrackPublication: TrackDelegateInternal {
     public func track(_: Track, didUpdateIsMuted isMuted: Bool, shouldSendSignal: Bool) {
         log("isMuted: \(isMuted) shouldSendSignal: \(shouldSendSignal)")
 
-        Task {
-            let participant = try await requireParticipant()
+        Task.detached {
+            let participant = try await self.requireParticipant()
+            let room = try participant.requireRoom()
 
             if shouldSendSignal {
-                try await participant.room.engine.signalClient.sendMuteTrack(trackSid: sid, muted: isMuted)
+                try await room.engine.signalClient.sendMuteTrack(trackSid: self.sid, muted: isMuted)
             }
 
             participant.delegates.notify {
                 $0.participant?(participant, track: self, didUpdateIsMuted: isMuted)
             }
-            participant.room.delegates.notify {
-                $0.room?(participant.room, participant: participant, track: self, didUpdateIsMuted: self.isMuted)
+            room.delegates.notify {
+                $0.room?(room, participant: participant, track: self, didUpdateIsMuted: self.isMuted)
             }
 
             // TrackPublication.isMuted is a computed property depending on Track.isMuted

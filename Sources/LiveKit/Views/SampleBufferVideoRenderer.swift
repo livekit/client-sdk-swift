@@ -73,8 +73,8 @@ extension SampleBufferVideoRenderer: LKRTCVideoRenderer {
             return
         }
 
-        Task { @MainActor in
-            sampleBufferDisplayLayer.enqueue(sampleBuffer)
+        Task.detached { @MainActor in
+            self.sampleBufferDisplayLayer.enqueue(sampleBuffer)
         }
     }
 }

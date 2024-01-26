@@ -68,7 +68,7 @@ public class Participant: NSObject, ObservableObject, Loggable {
     var info: Livekit_ParticipantInfo?
 
     // Reference to the Room this Participant belongs to
-    public let room: Room
+    weak var _room: Room?
 
     // MARK: - Internal
 
@@ -88,7 +88,7 @@ public class Participant: NSObject, ObservableObject, Loggable {
     var _state: StateSync<State>
 
     init(sid: Sid, identity: Identity, room: Room) {
-        self.room = room
+        _room = room
 
         // initial state
         _state = StateSync(State(sid: sid, identity: identity, name: ""))
@@ -98,7 +98,7 @@ public class Participant: NSObject, ObservableObject, Loggable {
         // trigger events when state mutates
         _state.onDidMutate = { [weak self] newState, oldState in
 
-            guard let self else { return }
+            guard let self, let room = self._room else { return }
 
             if newState.isSpeaking != oldState.isSpeaking {
                 self.delegates.notify(label: { "participant.didUpdate isSpeaking: \(self.isSpeaking)" }) {
@@ -114,8 +114,8 @@ public class Participant: NSObject, ObservableObject, Loggable {
                 self.delegates.notify(label: { "participant.didUpdate metadata: \(metadata)" }) {
                     $0.participant?(self, didUpdateMetadata: metadata)
                 }
-                self.room.delegates.notify(label: { "room.didUpdate metadata: \(metadata)" }) {
-                    $0.room?(self.room, participant: self, didUpdateMetadata: metadata)
+                room.delegates.notify(label: { "room.didUpdate metadata: \(metadata)" }) {
+                    $0.room?(room, participant: self, didUpdateMetadata: metadata)
                 }
             }
 
@@ -126,8 +126,8 @@ public class Participant: NSObject, ObservableObject, Loggable {
                     $0.participant?(self, didUpdateName: newState.name)
                 }
                 // notify room delegates
-                self.room.delegates.notify(label: { "room.didUpdateName: \(String(describing: newState.name))" }) {
-                    $0.room?(self.room, participant: self, didUpdateName: newState.name)
+                room.delegates.notify(label: { "room.didUpdateName: \(String(describing: newState.name))" }) {
+                    $0.room?(room, participant: self, didUpdateName: newState.name)
                 }
             }
 
@@ -135,8 +135,8 @@ public class Participant: NSObject, ObservableObject, Loggable {
                 self.delegates.notify(label: { "participant.didUpdate connectionQuality: \(self.connectionQuality)" }) {
                     $0.participant?(self, didUpdateConnectionQuality: self.connectionQuality)
                 }
-                self.room.delegates.notify(label: { "room.didUpdate connectionQuality: \(self.connectionQuality)" }) {
-                    $0.room?(self.room, participant: self, didUpdateConnectionQuality: self.connectionQuality)
+                room.delegates.notify(label: { "room.didUpdate connectionQuality: \(self.connectionQuality)" }) {
+                    $0.room?(room, participant: self, didUpdateConnectionQuality: self.connectionQuality)
                 }
             }
 
@@ -144,8 +144,10 @@ public class Participant: NSObject, ObservableObject, Loggable {
             Task.detached { @MainActor in
                 // Notify Participant
                 self.objectWillChange.send()
-                // Notify Room
-                self.room.objectWillChange.send()
+                if let room = self._room {
+                    // Notify Room
+                    room.objectWillChange.send()
+                }
             }
         }
     }
@@ -153,9 +155,9 @@ public class Participant: NSObject, ObservableObject, Loggable {
     func cleanUp(notify _notify: Bool = true) async {
         await unpublishAll(notify: _notify)
         // Reset state
-        if let self = self as? RemoteParticipant {
+        if let self = self as? RemoteParticipant, let room = self._room {
             room.delegates.notify(label: { "room.participantDidDisconnect:" }) {
-                $0.room?(self.room, participantDidDisconnect: self)
+                $0.room?(room, participantDidDisconnect: self)
             }
         }
         _state.mutate { $0 = State(sid: "", identity: "", name: "") }
@@ -234,5 +236,14 @@ public extension Participant {
         }
 
         return nil
+    }
+}
+
+// MARK: - Private helpers
+
+extension Participant {
+    func requireRoom() throws -> Room {
+        guard let room = _room else { throw LiveKitError(.invalidState, message: "Room is nil") }
+        return room
     }
 }

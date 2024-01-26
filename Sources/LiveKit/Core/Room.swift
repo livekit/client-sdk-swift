@@ -167,8 +167,7 @@ public class Room: NSObject, ObservableObject, Loggable {
         engine._room = self
 
         // listen to engine & signalClient
-        engine.add(delegate: self)
-        engine.signalClient.add(delegate: self)
+        engine._delegate.set(delegate: self)
 
         if let delegate {
             log("delegate: \(String(describing: delegate))")
@@ -227,10 +226,6 @@ public class Room: NSObject, ObservableObject, Loggable {
 
     deinit {
         log()
-        // cleanup for E2EE
-        if self.e2eeManager != nil {
-            self.e2eeManager?.cleanUp()
-        }
     }
 
     @objc
@@ -315,6 +310,12 @@ extension Room {
         await engine.signalClient.cleanUp(withError: disconnectError)
         await engine.cleanUpRTC()
         await cleanUpParticipants()
+
+        // Cleanup for E2EE
+        if let e2eeManager {
+            e2eeManager.cleanUp()
+        }
+
         // Reset state
         _state.mutate { $0 = State(options: $0.options) }
 
@@ -397,12 +398,12 @@ extension Room: AppStateDelegate {
 
         guard !cameraVideoTracks.isEmpty else { return }
 
-        Task {
+        Task.detached {
             for cameraVideoTrack in cameraVideoTracks {
                 do {
                     try await cameraVideoTrack.suspend()
                 } catch {
-                    log("Failed to suspend video track with error: \(error)")
+                    self.log("Failed to suspend video track with error: \(error)")
                 }
             }
         }
@@ -413,12 +414,12 @@ extension Room: AppStateDelegate {
 
         guard !cameraVideoTracks.isEmpty else { return }
 
-        Task {
+        Task.detached {
             for cameraVideoTrack in cameraVideoTracks {
                 do {
                     try await cameraVideoTrack.resume()
                 } catch {
-                    log("Failed to resumed video track with error: \(error)")
+                    self.log("Failed to resumed video track with error: \(error)")
                 }
             }
         }
@@ -427,8 +428,8 @@ extension Room: AppStateDelegate {
     func appWillTerminate() {
         // attempt to disconnect if already connected.
         // this is not guranteed since there is no reliable way to detect app termination.
-        Task {
-            await disconnect()
+        Task.detached {
+            await self.disconnect()
         }
     }
 }

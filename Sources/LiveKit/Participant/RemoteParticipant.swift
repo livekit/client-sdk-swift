@@ -54,6 +54,11 @@ public class RemoteParticipant: Participant {
             validTrackPublications[trackInfo.sid] = publication!
         }
 
+        guard let room = _room else {
+            log("_room is nil", .error)
+            return
+        }
+
         room.engine.executeIfConnected { [weak self] in
             guard let self else { return }
 
@@ -61,8 +66,8 @@ public class RemoteParticipant: Participant {
                 self.delegates.notify(label: { "participant.didPublish \(publication)" }) {
                     $0.participant?(self, didPublishTrack: publication)
                 }
-                self.room.delegates.notify(label: { "room.didPublish \(publication)" }) {
-                    $0.room?(self.room, participant: self, didPublishTrack: publication)
+                room.delegates.notify(label: { "room.didPublish \(publication)" }) {
+                    $0.room?(room, participant: self, didPublishTrack: publication)
                 }
             }
         }
@@ -72,17 +77,18 @@ public class RemoteParticipant: Participant {
             .compactMap { $0 as? RemoteTrackPublication }
 
         for unpublishRemoteTrackPublication in unpublishRemoteTrackPublications {
-            Task {
+            Task.detached {
                 do {
-                    try await unpublish(publication: unpublishRemoteTrackPublication)
+                    try await self.unpublish(publication: unpublishRemoteTrackPublication)
                 } catch {
-                    log("Failed to unpublish with error: \(error)")
+                    self.log("Failed to unpublish with error: \(error)")
                 }
             }
         }
     }
 
     func addSubscribedMediaTrack(rtcTrack: LKRTCMediaStreamTrack, rtpReceiver: LKRTCRtpReceiver, sid: Sid) async throws {
+        let room = try requireRoom()
         let track: Track
 
         guard let publication = getTrackPublication(sid: sid) else {
@@ -92,7 +98,7 @@ public class RemoteParticipant: Participant {
                 $0.participant?(self, didFailToSubscribeTrack: sid, withError: error)
             }
             room.delegates.notify(label: { "room.didFailToSubscribe trackSid: \(sid)" }) {
-                $0.room?(self.room, participant: self, didFailToSubscribeTrack: sid, withError: error)
+                $0.room?(room, participant: self, didFailToSubscribeTrack: sid, withError: error)
             }
             throw error
         }
@@ -114,12 +120,12 @@ public class RemoteParticipant: Participant {
                 $0.participant?(self, didFailToSubscribeTrack: sid, withError: error)
             }
             room.delegates.notify(label: { "room.didFailToSubscribe trackSid: \(sid)" }) {
-                $0.room?(self.room, participant: self, didFailToSubscribeTrack: sid, withError: error)
+                $0.room?(room, participant: self, didFailToSubscribeTrack: sid, withError: error)
             }
             throw error
         }
 
-        publication.set(track: track)
+        await publication.set(track: track)
         publication.set(subscriptionAllowed: true)
 
         assert(room.engine.subscriber != nil, "Subscriber is nil")
@@ -135,7 +141,7 @@ public class RemoteParticipant: Participant {
             $0.participant?(self, didSubscribeTrack: publication)
         }
         room.delegates.notify(label: { "room.didSubscribe \(publication)" }) {
-            $0.room?(self.room, participant: self, didSubscribeTrack: publication)
+            $0.room?(room, participant: self, didSubscribeTrack: publication)
         }
     }
 
@@ -152,13 +158,15 @@ public class RemoteParticipant: Participant {
     }
 
     func unpublish(publication: RemoteTrackPublication, notify _notify: Bool = true) async throws {
+        let room = try requireRoom()
+
         func _notifyUnpublish() async {
             guard _notify else { return }
             delegates.notify(label: { "participant.didUnpublish \(publication)" }) {
                 $0.participant?(self, didUnpublishTrack: publication)
             }
             room.delegates.notify(label: { "room.didUnpublish \(publication)" }) {
-                $0.room?(self.room, participant: self, didUnpublishTrack: publication)
+                $0.room?(room, participant: self, didUnpublishTrack: publication)
             }
         }
 
@@ -178,7 +186,7 @@ public class RemoteParticipant: Participant {
                 $0.participant?(self, didUnsubscribeTrack: publication)
             }
             room.delegates.notify(label: { "room.didUnsubscribe \(publication)" }) {
-                $0.room?(self.room, participant: self, didUnsubscribeTrack: publication)
+                $0.room?(room, participant: self, didUnsubscribeTrack: publication)
             }
         }
 

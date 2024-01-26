@@ -46,6 +46,8 @@ public class LocalParticipant: Participant {
     func publish(track: LocalTrack, publishOptions: TrackPublishOptions? = nil) async throws -> LocalTrackPublication {
         log("[publish] \(track) options: \(String(describing: publishOptions ?? nil))...", .info)
 
+        let room = try requireRoom()
+
         guard let publisher = room.engine.publisher else {
             throw LiveKitError(.invalidState, message: "Publisher is nil")
         }
@@ -87,7 +89,7 @@ public class LocalParticipant: Participant {
 
                     self.log("[publish] computing encode settings with dimensions: \(dimensions)...")
 
-                    let publishOptions = (publishOptions as? VideoPublishOptions) ?? self.room._state.options.defaultVideoPublishOptions
+                    let publishOptions = (publishOptions as? VideoPublishOptions) ?? room._state.options.defaultVideoPublishOptions
                     publishName = publishOptions.name
 
                     let encodings = Utils.computeVideoEncodings(dimensions: dimensions,
@@ -129,7 +131,7 @@ public class LocalParticipant: Participant {
 
                 } else if track is LocalAudioTrack {
                     // additional params for Audio
-                    let publishOptions = (publishOptions as? AudioPublishOptions) ?? self.room._state.options.defaultAudioPublishOptions
+                    let publishOptions = (publishOptions as? AudioPublishOptions) ?? room._state.options.defaultAudioPublishOptions
                     publishName = publishOptions.name
 
                     populator.disableDtx = !publishOptions.dtx
@@ -210,8 +212,8 @@ public class LocalParticipant: Participant {
                 throw error
             }
 
-            let publication = LocalTrackPublication(info: addTrackResult.trackInfo, track: track, participant: self)
-
+            let publication = LocalTrackPublication(info: addTrackResult.trackInfo, participant: self)
+            await publication.set(track: track)
             add(publication: publication)
 
             // Notify didPublish
@@ -219,7 +221,7 @@ public class LocalParticipant: Participant {
                 $0.participant?(self, didPublishTrack: publication)
             }
             room.delegates.notify(label: { "localParticipant.didPublish \(publication)" }) {
-                $0.room?(self.room, participant: self, didPublishTrack: publication)
+                $0.room?(room, participant: self, didPublishTrack: publication)
             }
 
             log("[publish] success \(publication)", .info)
@@ -265,17 +267,17 @@ public class LocalParticipant: Participant {
     /// this will also stop the track
     @objc
     public func unpublish(publication: LocalTrackPublication, notify _notify: Bool = true) async throws {
+        let room = try requireRoom()
+
         func _notifyDidUnpublish() async {
             guard _notify else { return }
             delegates.notify(label: { "localParticipant.didUnpublish \(publication)" }) {
                 $0.participant?(self, didUnpublishTrack: publication)
             }
             room.delegates.notify(label: { "room.didUnpublish \(publication)" }) {
-                $0.room?(self.room, participant: self, didUnpublishTrack: publication)
+                $0.room?(room, participant: self, didUnpublishTrack: publication)
             }
         }
-
-        let engine = room.engine
 
         // Remove the publication
         _state.mutate { $0.trackPublications.removeValue(forKey: publication.sid) }
@@ -290,7 +292,7 @@ public class LocalParticipant: Participant {
             try await track.stop()
         }
 
-        if let publisher = engine.publisher, let sender = track.rtpSender {
+        if let publisher = room.engine.publisher, let sender = track.rtpSender {
             // Remove all simulcast senders...
             for simulcastSender in track._simulcastRtpSenders.values {
                 try await publisher.remove(track: simulcastSender)
@@ -298,7 +300,7 @@ public class LocalParticipant: Participant {
             // Remove main sender...
             try await publisher.remove(track: sender)
             // Mark re-negotiation required...
-            try await engine.publisherShouldNegotiate()
+            try await room.engine.publisherShouldNegotiate()
         }
 
         try await track.onUnpublish()
@@ -314,6 +316,7 @@ public class LocalParticipant: Participant {
     ///   - options: Provide options with a ``DataPublishOptions`` class.
     @objc
     public func publish(data: Data, options: DataPublishOptions? = nil) async throws {
+        let room = try requireRoom()
         let options = options ?? room._state.options.defaultDataPublishOptions
 
         let userPacket = Livekit_UserPacket.with {
@@ -364,7 +367,7 @@ public class LocalParticipant: Participant {
         }
 
         // TODO: Revert internal state on failure
-
+        let room = try requireRoom()
         try await room.engine.signalClient.sendUpdateLocalMetadata(metadata, name: name)
     }
 
@@ -379,11 +382,12 @@ public class LocalParticipant: Participant {
         }
 
         // TODO: Revert internal state on failure
-
+        let room = try requireRoom()
         try await room.engine.signalClient.sendUpdateLocalMetadata(metadata ?? "", name: name)
     }
 
     func sendTrackSubscriptionPermissions() async throws {
+        let room = try requireRoom()
         guard room.engine._state.connectionState == .connected else { return }
 
         try await room.engine.signalClient.sendUpdateSubscriptionPermission(allParticipants: allParticipantsAllowed,
@@ -400,6 +404,7 @@ public class LocalParticipant: Participant {
     }
 
     override func set(permissions newValue: ParticipantPermissions) -> Bool {
+        guard let room = _room else { return false }
         let didUpdate = super.set(permissions: newValue)
 
         if didUpdate {
@@ -407,7 +412,7 @@ public class LocalParticipant: Participant {
                 $0.participant?(self, didUpdatePermissions: newValue)
             }
             room.delegates.notify(label: { "room.didUpdatePermissions: \(newValue)" }) {
-                $0.room?(self.room, participant: self, didUpdatePermissions: newValue)
+                $0.room?(room, participant: self, didUpdatePermissions: newValue)
             }
         }
 
@@ -492,6 +497,8 @@ public extension LocalParticipant {
              captureOptions: CaptureOptions? = nil,
              publishOptions: PublishOptions? = nil) async throws -> LocalTrackPublication?
     {
+        let room = try requireRoom()
+
         // Try to get existing publication
         if let publication = getTrackPublication(source: source) as? LocalTrackPublication {
             if enabled {
@@ -527,7 +534,7 @@ public extension LocalParticipant {
                     if #available(macOS 12.3, *) {
                         let mainDisplay = try await MacOSScreenCapturer.mainDisplaySource()
                         let track = LocalVideoTrack.createMacOSScreenShareTrack(source: mainDisplay,
-                                                                                options: (captureOptions as? ScreenShareCaptureOptions) ?? self.room._state.options.defaultScreenShareCaptureOptions,
+                                                                                options: (captureOptions as? ScreenShareCaptureOptions) ?? room._state.options.defaultScreenShareCaptureOptions,
                                                                                 reportStatistics: room._state.options.reportRemoteTrackStatistics)
                         return try await publish(videoTrack: track, publishOptions: publishOptions as? VideoPublishOptions)
                     }
@@ -546,6 +553,8 @@ extension LocalParticipant {
     func publish(additionalVideoCodec subscribedCodec: Livekit_SubscribedCodec,
                  for localTrackPublication: LocalTrackPublication) async throws
     {
+        let room = try requireRoom()
+
         let videoCodec = try subscribedCodec.toVideoCodec()
 
         log("[Publish/Backup] Additional video codec: \(videoCodec)...")

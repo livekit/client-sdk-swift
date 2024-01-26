@@ -22,7 +22,7 @@ import Foundation
 
 @_implementationOnly import WebRTC
 
-class Engine: MulticastDelegate<EngineDelegate> {
+class Engine: Loggable {
     // MARK: - Public
 
     public typealias ConditionEvalFunc = (_ newState: State, _ oldState: State?) -> Bool
@@ -55,6 +55,8 @@ class Engine: MulticastDelegate<EngineDelegate> {
 
     // MARK: - Private
 
+    let _delegate = AsyncSerialDelegate<EngineDelegate>()
+
     private struct ConditionalExecutionEntry {
         let executeCondition: ConditionEvalFunc
         let removeCondition: ConditionEvalFunc
@@ -68,8 +70,8 @@ class Engine: MulticastDelegate<EngineDelegate> {
     lazy var subscriberDataChannel: DataChannelPairActor = .init(onDataPacket: { [weak self] dataPacket in
         guard let self else { return }
         switch dataPacket.value {
-        case let .speaker(update): self.notifyAsync { await $0.engine(self, didUpdateSpeakers: update.speakers) }
-        case let .user(userPacket): self.notifyAsync { await $0.engine(self, didReceiveUserPacket: userPacket) }
+        case let .speaker(update): _delegate.notifyAsync { await $0.engine(self, didUpdateSpeakers: update.speakers) }
+        case let .user(userPacket): _delegate.notifyAsync { await $0.engine(self, didReceiveUserPacket: userPacket) }
         default: return
         }
     })
@@ -83,12 +85,11 @@ class Engine: MulticastDelegate<EngineDelegate> {
 
     init(connectOptions: ConnectOptions) {
         _state = StateSync(State(connectOptions: connectOptions))
-        super.init()
 
         // log sdk & os versions
         log("sdk: \(LiveKitSDK.version), os: \(String(describing: Utils.os()))(\(Utils.osVersionString())), modelId: \(String(describing: Utils.modelIdentifier() ?? "unknown"))")
 
-        signalClient.add(delegate: self)
+        signalClient._delegate.set(delegate: self)
         ConnectivityListener.shared.add(delegate: self)
 
         // trigger events when state mutates
@@ -102,7 +103,7 @@ class Engine: MulticastDelegate<EngineDelegate> {
                 self.log("connectionState: \(oldState.connectionState) -> \(newState.connectionState), reconnectMode: \(String(describing: newState.reconnectMode))")
             }
 
-            self.notifyAsync { await $0.engine(self, didMutateState: newState, oldState: oldState) }
+            _delegate.notifyAsync { await $0.engine(self, didMutateState: newState, oldState: oldState) }
 
             // execution control
             self._blockProcessQueue.async { [weak self] in
@@ -581,10 +582,10 @@ extension Engine {
 extension Engine: ConnectivityListenerDelegate {
     func connectivityListener(_: ConnectivityListener, didSwitch path: NWPath) {
         log("didSwitch path: \(path)")
-        Task {
+        Task.detached {
             // Network has been switched, e.g. wifi <-> cellular
-            if case .connected = _state.connectionState {
-                try await startReconnect(reason: .networkSwitch)
+            if case .connected = self._state.connectionState {
+                try await self.startReconnect(reason: .networkSwitch)
             }
         }
     }

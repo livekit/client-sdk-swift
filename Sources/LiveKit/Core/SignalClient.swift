@@ -52,7 +52,7 @@ actor SignalClient: Loggable {
                 log("\(oldValue) -> \(connectionState)")
             }
 
-            _delegates.notifyAsync { await $0.signalClient(self, didUpdateConnectionState: self.connectionState, oldState: oldValue, disconnectError: self.disconnectError) }
+            _delegate.notifyAsync { await $0.signalClient(self, didUpdateConnectionState: self.connectionState, oldState: oldValue, disconnectError: self.disconnectError) }
         }
     }
 
@@ -60,7 +60,7 @@ actor SignalClient: Loggable {
 
     // MARK: - Private
 
-    private let _delegates = MulticastDelegate<SignalClientDelegate>()
+    let _delegate = AsyncSerialDelegate<SignalClientDelegate>()
     private let _queue = DispatchQueue(label: "LiveKitSDK.signalClient", qos: .default)
 
     // Queue to store requests while reconnecting
@@ -95,8 +95,8 @@ actor SignalClient: Loggable {
     private let _connectResponseCompleter = AsyncCompleter<ConnectResponse>(label: "Join response", defaultTimeOut: .defaultJoinResponse)
     private let _addTrackCompleters = CompleterMapActor<Livekit_TrackInfo>(label: "Completers for add track", defaultTimeOut: .defaultPublish)
 
-    private var _pingIntervalTimer: DispatchQueueTimer?
-    private var _pingTimeoutTimer: DispatchQueueTimer?
+    private var _pingIntervalTimer = AsyncTimer(interval: 1)
+    private var _pingTimeoutTimer = AsyncTimer(interval: 1)
 
     init() {
         log()
@@ -202,8 +202,8 @@ actor SignalClient: Loggable {
         connectionState = .disconnected
         self.disconnectError = LiveKitError.from(error: disconnectError)
 
-        _pingIntervalTimer = nil
-        _pingTimeoutTimer = nil
+        await _pingIntervalTimer.cancel()
+        await _pingTimeoutTimer.cancel()
 
         _messageLoopTask?.cancel()
         _messageLoopTask = nil
@@ -248,7 +248,7 @@ private extension SignalClient {
             return
         }
 
-        Task {
+        Task.detached {
             let alwaysProcess: Bool = {
                 switch response.message {
                 case .join, .reconnect, .leave: return true
@@ -256,7 +256,7 @@ private extension SignalClient {
                 }
             }()
             // Always process join or reconnect messages even if suspended...
-            await _responseQueue.processIfResumed(response, or: alwaysProcess)
+            await self._responseQueue.processIfResumed(response, or: alwaysProcess)
         }
     }
 
@@ -274,73 +274,73 @@ private extension SignalClient {
         switch message {
         case let .join(joinResponse):
             _lastJoinResponse = joinResponse
-            restartPingTimer()
-            _delegates.notifyAsync { await $0.signalClient(self, didReceiveConnectResponse: .join(joinResponse)) }
+            _delegate.notifyAsync { await $0.signalClient(self, didReceiveConnectResponse: .join(joinResponse)) }
             _connectResponseCompleter.resume(returning: .join(joinResponse))
+            await _restartPingTimer()
 
         case let .reconnect(response):
-            restartPingTimer()
-            _delegates.notifyAsync { await $0.signalClient(self, didReceiveConnectResponse: .reconnect(response)) }
+            _delegate.notifyAsync { await $0.signalClient(self, didReceiveConnectResponse: .reconnect(response)) }
             _connectResponseCompleter.resume(returning: .reconnect(response))
+            await _restartPingTimer()
 
         case let .answer(sd):
-            _delegates.notifyAsync { await $0.signalClient(self, didReceiveAnswer: sd.toRTCType()) }
+            _delegate.notifyAsync { await $0.signalClient(self, didReceiveAnswer: sd.toRTCType()) }
 
         case let .offer(sd):
-            _delegates.notifyAsync { await $0.signalClient(self, didReceiveOffer: sd.toRTCType()) }
+            _delegate.notifyAsync { await $0.signalClient(self, didReceiveOffer: sd.toRTCType()) }
 
         case let .trickle(trickle):
             guard let rtcCandidate = try? Engine.createIceCandidate(fromJsonString: trickle.candidateInit) else {
                 return
             }
 
-            _delegates.notifyAsync { await $0.signalClient(self, didReceiveIceCandidate: rtcCandidate, target: trickle.target) }
+            _delegate.notifyAsync { await $0.signalClient(self, didReceiveIceCandidate: rtcCandidate, target: trickle.target) }
 
         case let .update(update):
-            _delegates.notifyAsync { await $0.signalClient(self, didUpdateParticipants: update.participants) }
+            _delegate.notifyAsync { await $0.signalClient(self, didUpdateParticipants: update.participants) }
 
         case let .roomUpdate(update):
-            _delegates.notifyAsync { await $0.signalClient(self, didUpdateRoom: update.room) }
+            _delegate.notifyAsync { await $0.signalClient(self, didUpdateRoom: update.room) }
 
         case let .trackPublished(trackPublished):
             // not required to be handled because we use completer pattern for this case
-            _delegates.notifyAsync { await $0.signalClient(self, didPublishLocalTrack: trackPublished) }
+            _delegate.notifyAsync { await $0.signalClient(self, didPublishLocalTrack: trackPublished) }
 
             log("[publish] resolving completer for cid: \(trackPublished.cid)")
             // Complete
             await _addTrackCompleters.resume(returning: trackPublished.track, for: trackPublished.cid)
 
         case let .trackUnpublished(trackUnpublished):
-            _delegates.notifyAsync { await $0.signalClient(self, didUnpublishLocalTrack: trackUnpublished) }
+            _delegate.notifyAsync { await $0.signalClient(self, didUnpublishLocalTrack: trackUnpublished) }
 
         case let .speakersChanged(speakers):
-            _delegates.notifyAsync { await $0.signalClient(self, didUpdateSpeakers: speakers.speakers) }
+            _delegate.notifyAsync { await $0.signalClient(self, didUpdateSpeakers: speakers.speakers) }
 
         case let .connectionQuality(quality):
-            _delegates.notifyAsync { await $0.signalClient(self, didUpdateConnectionQuality: quality.updates) }
+            _delegate.notifyAsync { await $0.signalClient(self, didUpdateConnectionQuality: quality.updates) }
 
         case let .mute(mute):
-            _delegates.notifyAsync { await $0.signalClient(self, didUpdateRemoteMute: mute.sid, muted: mute.muted) }
+            _delegate.notifyAsync { await $0.signalClient(self, didUpdateRemoteMute: mute.sid, muted: mute.muted) }
 
         case let .leave(leave):
-            _delegates.notifyAsync { await $0.signalClient(self, didReceiveLeave: leave.canReconnect, reason: leave.reason) }
+            _delegate.notifyAsync { await $0.signalClient(self, didReceiveLeave: leave.canReconnect, reason: leave.reason) }
 
         case let .streamStateUpdate(states):
-            _delegates.notifyAsync { await $0.signalClient(self, didUpdateTrackStreamStates: states.streamStates) }
+            _delegate.notifyAsync { await $0.signalClient(self, didUpdateTrackStreamStates: states.streamStates) }
 
         case let .subscribedQualityUpdate(update):
-            _delegates.notifyAsync { await $0.signalClient(self, didUpdateSubscribedCodecs: update.subscribedCodecs,
-                                                           qualities: update.subscribedQualities,
-                                                           forTrackSid: update.trackSid) }
+            _delegate.notifyAsync { await $0.signalClient(self, didUpdateSubscribedCodecs: update.subscribedCodecs,
+                                                          qualities: update.subscribedQualities,
+                                                          forTrackSid: update.trackSid) }
 
         case let .subscriptionPermissionUpdate(permissionUpdate):
-            _delegates.notifyAsync { await $0.signalClient(self, didUpdateSubscriptionPermission: permissionUpdate) }
+            _delegate.notifyAsync { await $0.signalClient(self, didUpdateSubscriptionPermission: permissionUpdate) }
 
         case let .refreshToken(token):
-            _delegates.notifyAsync { await $0.signalClient(self, didUpdateToken: token) }
+            _delegate.notifyAsync { await $0.signalClient(self, didUpdateToken: token) }
 
         case let .pong(r):
-            onReceivedPong(r)
+            await _onReceivedPong(r)
 
         case .pongResp:
             log("received pongResp message")
@@ -566,8 +566,8 @@ extension SignalClient {
 
         defer {
             if shouldDisconnect {
-                Task {
-                    await cleanUp()
+                Task.detached {
+                    await self.cleanUp()
                 }
             }
         }
@@ -575,7 +575,7 @@ extension SignalClient {
         try await _sendRequest(r)
     }
 
-    private func sendPing() async throws {
+    private func _sendPing() async throws {
         let r = Livekit_SignalRequest.with {
             $0.ping = Int64(Date().timeIntervalSince1970)
         }
@@ -587,57 +587,47 @@ extension SignalClient {
 // MARK: - Server ping/pong logic
 
 private extension SignalClient {
-    func onPingIntervalTimer() async throws {
+    func _onPingIntervalTimer() async throws {
         guard let jr = _lastJoinResponse else { return }
+        log("ping/pong sending ping...")
+        try await _sendPing()
 
-        try await sendPing()
-
-        if _pingTimeoutTimer == nil {
-            // start timeout timer
-
-            _pingTimeoutTimer = {
-                let timer = DispatchQueueTimer(timeInterval: TimeInterval(jr.pingTimeout), queue: self._queue)
-                timer.handler = { [weak self] in
-                    guard let self else { return }
-                    self.log("ping/pong timed out", .error)
-                    Task {
-                        await self.cleanUp(withError: LiveKitError(.serverPingTimedOut))
-                    }
-                }
-                timer.resume()
-                return timer
-            }()
+        await _pingTimeoutTimer.setTimerInterval(TimeInterval(jr.pingTimeout))
+        await _pingTimeoutTimer.setTimerBlock { [weak self] in
+            guard let self else { return }
+            self.log("ping/pong timed out", .error)
+            await self.cleanUp(withError: LiveKitError(.serverPingTimedOut))
         }
+
+        await _pingTimeoutTimer.startIfStopped()
     }
 
-    func onReceivedPong(_: Int64) {
-        log("ping/pong received pong from server", .trace)
-        // clear timeout timer
-        _pingTimeoutTimer = nil
+    func _onReceivedPong(_: Int64) async {
+        log("ping/pong received pong from server")
+        // Clear timeout timer
+        await _pingTimeoutTimer.cancel()
     }
 
-    func restartPingTimer() {
-        // always suspend first
-        _pingIntervalTimer = nil
-        _pingTimeoutTimer = nil
-        // check received joinResponse already
+    func _restartPingTimer() async {
+        // Always cancel first...
+        await _pingIntervalTimer.cancel()
+        await _pingTimeoutTimer.cancel()
+
+        // Check previously received joinResponse
         guard let jr = _lastJoinResponse,
-              // check server supports ping/pong
+              // Check if server supports ping/pong
               jr.pingTimeout > 0,
               jr.pingInterval > 0 else { return }
 
         log("ping/pong starting with interval: \(jr.pingInterval), timeout: \(jr.pingTimeout)")
 
-        _pingIntervalTimer = {
-            let timer = DispatchQueueTimer(timeInterval: TimeInterval(jr.pingInterval), queue: _queue)
-            timer.handler = { [weak self] in
-                Task { [weak self] in
-                    try await self?.onPingIntervalTimer()
-                }
-            }
-            timer.resume()
-            return timer
-        }()
+        // Update interval...
+        await _pingIntervalTimer.setTimerInterval(TimeInterval(jr.pingInterval))
+        await _pingIntervalTimer.setTimerBlock { [weak self] in
+            guard let self else { return }
+            try await self._onPingIntervalTimer()
+        }
+        await _pingIntervalTimer.restart()
     }
 }
 
@@ -660,23 +650,5 @@ private extension SignalClient {
         }
 
         return result
-    }
-}
-
-// MARK: - MulticastDelegateProtocol
-
-extension SignalClient: MulticastDelegateProtocol {
-    typealias Delegate = SignalClientDelegate
-
-    public nonisolated func add(delegate: SignalClientDelegate) {
-        _delegates.add(delegate: delegate)
-    }
-
-    public nonisolated func remove(delegate: SignalClientDelegate) {
-        _delegates.remove(delegate: delegate)
-    }
-
-    public nonisolated func removeAllDelegates() {
-        _delegates.removeAllDelegates()
     }
 }
