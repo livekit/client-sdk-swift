@@ -88,28 +88,4 @@ public class MulticastDelegate<T>: NSObject, Loggable {
             }
         }
     }
-
-    /// Notify delegates inside the queue.
-    /// Label is captured inside the queue for thread safety reasons.
-    func notifyAsync(label: (() -> String)? = nil, _ fnc: @escaping (T) async -> Void) {
-        multicastQueue.async {
-            if let label {
-                self.log("[notifyAsync] \(label())", .debug)
-            }
-
-            let delegates = self.set.allObjects.compactMap { $0 as? T }
-
-            // Invoke delegate in a detached Task...
-            Task.detached {
-                // Invoke concurrently...
-                await withTaskGroup(of: Void.self) { group in
-                    for delegate in delegates {
-                        group.addTask {
-                            await fnc(delegate)
-                        }
-                    }
-                }
-            }
-        }
-    }
 }
