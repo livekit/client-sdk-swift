@@ -237,10 +237,10 @@ extension RemoteTrackPublication {
         // if track exists, track will emit the following events
         if track == nil {
             participant.delegates.notify(label: { "participant.didUpdatePublication isMuted: \(newValue)" }) {
-                $0.participant?(participant, track: self, didUpdateIsMuted: newValue)
+                $0.participant?(participant, trackPublication: self, didUpdateIsMuted: newValue)
             }
             room.delegates.notify(label: { "room.didUpdatePublication isMuted: \(newValue)" }) {
-                $0.room?(room, participant: participant, track: self, didUpdateIsMuted: newValue)
+                $0.room?(room, participant: participant, trackPublication: self, didUpdateIsMuted: newValue)
             }
         }
     }
@@ -251,10 +251,10 @@ extension RemoteTrackPublication {
 
         guard let participant = participant as? RemoteParticipant, let room = participant._room else { return }
         participant.delegates.notify(label: { "participant.didUpdate permission: \(newValue)" }) {
-            $0.participant?(participant, track: self, didUpdateIsSubscriptionAllowed: newValue)
+            $0.participant?(participant, trackPublication: self, didUpdateIsSubscriptionAllowed: newValue)
         }
         room.delegates.notify(label: { "room.didUpdate permission: \(newValue)" }) {
-            $0.room?(room, participant: participant, track: self, didUpdateIsSubscriptionAllowed: newValue)
+            $0.room?(room, participant: participant, trackPublication: self, didUpdateIsSubscriptionAllowed: newValue)
         }
     }
 }

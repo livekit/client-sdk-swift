@@ -95,10 +95,10 @@ public class RemoteParticipant: Participant {
             log("Could not subscribe to mediaTrack \(sid), unable to locate track publication. existing sids: (\(_state.trackPublications.keys.joined(separator: ", ")))", .error)
             let error = LiveKitError(.invalidState, message: "Could not find published track with sid: \(sid)")
             delegates.notify(label: { "participant.didFailToSubscribe trackSid: \(sid)" }) {
-                $0.participant?(self, didFailToSubscribeTrack: sid, withError: error)
+                $0.participant?(self, didFailToSubscribeTrackWithSid: sid, error: error)
             }
             room.delegates.notify(label: { "room.didFailToSubscribe trackSid: \(sid)" }) {
-                $0.room?(room, participant: self, didFailToSubscribeTrack: sid, withError: error)
+                $0.room?(room, participant: self, didFailToSubscribeTrackWithSid: sid, error: error)
             }
             throw error
         }
@@ -117,10 +117,10 @@ public class RemoteParticipant: Participant {
         default:
             let error = LiveKitError(.invalidState, message: "Unsupported type: \(rtcTrack.kind.description)")
             delegates.notify(label: { "participant.didFailToSubscribe trackSid: \(sid)" }) {
-                $0.participant?(self, didFailToSubscribeTrack: sid, withError: error)
+                $0.participant?(self, didFailToSubscribeTrackWithSid: sid, error: error)
             }
             room.delegates.notify(label: { "room.didFailToSubscribe trackSid: \(sid)" }) {
-                $0.room?(room, participant: self, didFailToSubscribeTrack: sid, withError: error)
+                $0.room?(room, participant: self, didFailToSubscribeTrackWithSid: sid, error: error)
             }
             throw error
         }
