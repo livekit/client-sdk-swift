@@ -98,9 +98,7 @@ public class Room: NSObject, ObservableObject, Loggable {
 
     public var e2eeManager: E2EEManager?
 
-    public var audioProcessorIsEnabled: Bool { audioProcessor != nil }
-
-    public var audioProcessor: AudioProcessor?
+    public var audioProcessorOptions: AudioProcessorOptions?
 
     @objc
     public lazy var localParticipant: LocalParticipant = .init(room: self)
@@ -250,10 +248,19 @@ public class Room: NSObject, ObservableObject, Loggable {
         }
         
         // enable external audio processor
-        if roomOptions?.audioProcessor != nil {
-            if roomOptions!.audioProcessor!.isEnabled(url: url, token: token) {
-                AudioManager.shared.capturePostProcessingDelegate = roomOptions?.audioProcessor
-                audioProcessor = roomOptions?.audioProcessor
+        if roomOptions?.audioProcessorOptions != nil {
+            audioProcessorOptions = roomOptions?.audioProcessorOptions
+
+            let capturePostProcessor = audioProcessorOptions?.getCapturePostProcessor()
+            if capturePostProcessor != nil && capturePostProcessor!.isEnabled(url: url, token: token) {
+                AudioManager.shared.capturePostProcessingDelegate = capturePostProcessor
+                AudioManager.shared.bypassForCapturePostProcessing = audioProcessorOptions?.capturePostProcessorBypass() ?? false
+            }
+
+            let renderPreProcessor = audioProcessorOptions?.getRenderPreProcessor()
+            if renderPreProcessor != nil && renderPreProcessor!.isEnabled(url: url, token: token) {
+                AudioManager.shared.renderPreProcessingDelegate = renderPreProcessor
+                AudioManager.shared.bypassForRenderPreProcessing = audioProcessorOptions?.renderPreProcessorBypass() ?? false
             }
         }
 
