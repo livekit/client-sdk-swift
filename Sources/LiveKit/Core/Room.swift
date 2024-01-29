@@ -548,18 +548,6 @@ extension Room {
     }
 }
 
-// MARK: - Debugging
-
-public extension Room {
-    func sendSimulate(scenario: SimulateScenario) async throws {
-        try await signalClient.sendSimulate(scenario: scenario)
-    }
-
-    func debug_triggerReconnect(reason: StartReconnectReason) async throws {
-        try await startReconnect(reason: reason)
-    }
-}
-
 // MARK: - Session Migration
 
 extension Room {
@@ -574,52 +562,6 @@ extension Room {
         // reset track settings for all RemoteTrackPublication
         for publication in remoteTrackPublications {
             publication.resetTrackSettings()
-        }
-    }
-}
-
-// MARK: - AppStateDelegate
-
-extension Room: AppStateDelegate {
-    func appDidEnterBackground() {
-        guard _state.roomOptions.suspendLocalVideoTracksInBackground else { return }
-
-        let cameraVideoTracks = localParticipant.localVideoTracks.filter { $0.source == .camera }
-
-        guard !cameraVideoTracks.isEmpty else { return }
-
-        Task.detached {
-            for cameraVideoTrack in cameraVideoTracks {
-                do {
-                    try await cameraVideoTrack.suspend()
-                } catch {
-                    self.log("Failed to suspend video track with error: \(error)")
-                }
-            }
-        }
-    }
-
-    func appWillEnterForeground() {
-        let cameraVideoTracks = localParticipant.localVideoTracks.filter { $0.source == .camera }
-
-        guard !cameraVideoTracks.isEmpty else { return }
-
-        Task.detached {
-            for cameraVideoTrack in cameraVideoTracks {
-                do {
-                    try await cameraVideoTrack.resume()
-                } catch {
-                    self.log("Failed to resumed video track with error: \(error)")
-                }
-            }
-        }
-    }
-
-    func appWillTerminate() {
-        // attempt to disconnect if already connected.
-        // this is not guranteed since there is no reliable way to detect app termination.
-        Task.detached {
-            await self.disconnect()
         }
     }
 }
@@ -747,12 +689,6 @@ extension Room {
 }
 
 // MARK: - Connection / Reconnection logic
-
-public enum StartReconnectReason {
-    case websocket
-    case transport
-    case networkSwitch
-}
 
 extension Room {
     // full connect sequence, doesn't update connection state
@@ -952,19 +888,5 @@ extension Room {
     func requirePublisher() throws -> Transport {
         guard let publisher else { throw LiveKitError(.invalidState, message: "Publisher is nil") }
         return publisher
-    }
-}
-
-// MARK: - ConnectivityListenerDelegate
-
-extension Room: ConnectivityListenerDelegate {
-    func connectivityListener(_: ConnectivityListener, didSwitch path: NWPath) {
-        log("didSwitch path: \(path)")
-        Task.detached {
-            // Network has been switched, e.g. wifi <-> cellular
-            if case .connected = self._state.connectionState {
-                try await self.startReconnect(reason: .networkSwitch)
-            }
-        }
     }
 }

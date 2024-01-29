@@ -16,22 +16,12 @@
 
 import Foundation
 
-@_implementationOnly import WebRTC
+public extension Room {
+    func debug_sendSimulate(scenario: SimulateScenario) async throws {
+        try await signalClient.sendSimulate(scenario: scenario)
+    }
 
-public typealias Sid = String
-public typealias Identity = String
-
-public enum SimulateScenario {
-    case nodeFailure
-    case migration
-    case serverLeave
-    case speakerUpdate(seconds: Int)
-    case forceTCP
-    case forceTLS
-}
-
-public enum StartReconnectReason {
-    case websocket
-    case transport
-    case networkSwitch
+    func debug_triggerReconnect(reason: StartReconnectReason) async throws {
+        try await startReconnect(reason: reason)
+    }
 }

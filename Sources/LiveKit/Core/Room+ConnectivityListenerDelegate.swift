@@ -15,23 +15,16 @@
  */
 
 import Foundation
+import Network
 
-@_implementationOnly import WebRTC
-
-public typealias Sid = String
-public typealias Identity = String
-
-public enum SimulateScenario {
-    case nodeFailure
-    case migration
-    case serverLeave
-    case speakerUpdate(seconds: Int)
-    case forceTCP
-    case forceTLS
-}
-
-public enum StartReconnectReason {
-    case websocket
-    case transport
-    case networkSwitch
+extension Room: ConnectivityListenerDelegate {
+    func connectivityListener(_: ConnectivityListener, didSwitch path: NWPath) {
+        log("didSwitch path: \(path)")
+        Task.detached {
+            // Network has been switched, e.g. wifi <-> cellular
+            if case .connected = self._state.connectionState {
+                try await self.startReconnect(reason: .networkSwitch)
+            }
+        }
+    }
 }
