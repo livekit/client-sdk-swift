@@ -127,7 +127,7 @@ public class TrackPublication: NSObject, ObservableObject, Loggable {
                     participant.delegates.notify(label: { "participant.didUpdate \(trackPublication) streamState: \(newState.streamState)" }) {
                         $0.participant?(participant, trackPublication: trackPublication, didUpdateStreamState: newState.streamState)
                     }
-                    room.delegates.notify(label: { "room.didUpdate \(trackPublication) streamState: \(newState.streamState)" }) {
+                    room._delegates.notify(label: { "room.didUpdate \(trackPublication) streamState: \(newState.streamState)" }) {
                         $0.room?(room, participant: participant, trackPublication: trackPublication, didUpdateStreamState: newState.streamState)
                     }
                 }
@@ -209,13 +209,13 @@ extension TrackPublication: TrackDelegateInternal {
             let room = try participant.requireRoom()
 
             if shouldSendSignal {
-                try await room.engine.signalClient.sendMuteTrack(trackSid: self.sid, muted: isMuted)
+                try await room.signalClient.sendMuteTrack(trackSid: self.sid, muted: isMuted)
             }
 
             participant.delegates.notify {
                 $0.participant?(participant, trackPublication: self, didUpdateIsMuted: isMuted)
             }
-            room.delegates.notify {
+            room._delegates.notify {
                 $0.room?(room, participant: participant, trackPublication: self, didUpdateIsMuted: self.isMuted)
             }
 

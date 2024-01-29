@@ -246,7 +246,7 @@ public extension LocalVideoTrack {
                                   options: CameraCaptureOptions? = nil,
                                   reportStatistics: Bool = false) -> LocalVideoTrack
     {
-        let videoSource = Engine.createVideoSource(forScreenShare: false)
+        let videoSource = Room.createVideoSource(forScreenShare: false)
         let capturer = CameraCapturer(delegate: videoSource, options: options ?? CameraCaptureOptions())
         return LocalVideoTrack(name: name ?? Track.cameraName,
                                source: .camera,

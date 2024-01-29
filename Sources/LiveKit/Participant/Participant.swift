@@ -114,7 +114,7 @@ public class Participant: NSObject, ObservableObject, Loggable {
                 self.delegates.notify(label: { "participant.didUpdate metadata: \(metadata)" }) {
                     $0.participant?(self, didUpdateMetadata: metadata)
                 }
-                room.delegates.notify(label: { "room.didUpdate metadata: \(metadata)" }) {
+                room._delegates.notify(label: { "room.didUpdate metadata: \(metadata)" }) {
                     $0.room?(room, participant: self, didUpdateMetadata: metadata)
                 }
             }
@@ -126,7 +126,7 @@ public class Participant: NSObject, ObservableObject, Loggable {
                     $0.participant?(self, didUpdateName: newState.name)
                 }
                 // notify room delegates
-                room.delegates.notify(label: { "room.didUpdateName: \(String(describing: newState.name))" }) {
+                room._delegates.notify(label: { "room.didUpdateName: \(String(describing: newState.name))" }) {
                     $0.room?(room, participant: self, didUpdateName: newState.name)
                 }
             }
@@ -135,7 +135,7 @@ public class Participant: NSObject, ObservableObject, Loggable {
                 self.delegates.notify(label: { "participant.didUpdate connectionQuality: \(self.connectionQuality)" }) {
                     $0.participant?(self, didUpdateConnectionQuality: self.connectionQuality)
                 }
-                room.delegates.notify(label: { "room.didUpdate connectionQuality: \(self.connectionQuality)" }) {
+                room._delegates.notify(label: { "room.didUpdate connectionQuality: \(self.connectionQuality)" }) {
                     $0.room?(room, participant: self, didUpdateConnectionQuality: self.connectionQuality)
                 }
             }
@@ -156,7 +156,7 @@ public class Participant: NSObject, ObservableObject, Loggable {
         await unpublishAll(notify: _notify)
         // Reset state
         if let self = self as? RemoteParticipant, let room = self._room {
-            room.delegates.notify(label: { "room.participantDidDisconnect:" }) {
+            room._delegates.notify(label: { "room.participantDidDisconnect:" }) {
                 $0.room?(room, participantDidDisconnect: self)
             }
         }
@@ -172,7 +172,7 @@ public class Participant: NSObject, ObservableObject, Loggable {
         publication.track?._state.mutate { $0.sid = publication.sid }
     }
 
-    func updateFromInfo(info: Livekit_ParticipantInfo) {
+    func updateFromInfo(info: Livekit_ParticipantInfo, shouldNotify _: Bool) {
         _state.mutate {
             $0.sid = info.sid
             $0.identity = info.identity

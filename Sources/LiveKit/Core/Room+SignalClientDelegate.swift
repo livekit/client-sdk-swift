@@ -24,7 +24,7 @@ extension Room: SignalClientDelegate {
 
         if canReconnect {
             // force .full for next reconnect
-            engine._state.mutate { $0.nextPreferredReconnectMode = .full }
+            _state.mutate { $0.nextPreferredReconnectMode = .full }
         } else {
             // Server indicates it's not recoverable
             await cleanUp(withError: LiveKitError.from(reason: reason))
@@ -78,7 +78,8 @@ extension Room: SignalClientDelegate {
                 $0.isRecording = joinResponse.room.activeRecording
                 $0.serverInfo = joinResponse.serverInfo
 
-                localParticipant.updateFromInfo(info: joinResponse.participant)
+                localParticipant.updateFromInfo(info: joinResponse.participant,
+                                                shouldNotify: $0.connectionState == .connected)
 
                 if !joinResponse.otherParticipants.isEmpty {
                     for otherParticipant in joinResponse.otherParticipants {
@@ -127,10 +128,9 @@ extension Room: SignalClientDelegate {
             return state.activeSpeakers
         }
 
-        engine.executeIfConnected { [weak self] in
-            guard let self else { return }
-
-            self.delegates.notify(label: { "room.didUpdate speakers: \(speakers)" }) {
+        // Proceed only if connected...
+        if case .connected = _state.connectionState {
+            _delegates.notify(label: { "room.didUpdate speakers: \(speakers)" }) {
                 $0.room?(self, didUpdateSpeakingParticipants: activeSpeakers)
             }
         }
@@ -203,7 +203,7 @@ extension Room: SignalClientDelegate {
         _state.mutate {
             for info in participants {
                 if info.sid == localParticipant.sid {
-                    localParticipant.updateFromInfo(info: info)
+                    localParticipant.updateFromInfo(info: info, shouldNotify: $0.connectionState == .connected)
                     continue
                 }
 
@@ -217,7 +217,7 @@ extension Room: SignalClientDelegate {
                     if isNewParticipant {
                         newParticipants.append(participant)
                     } else {
-                        participant.updateFromInfo(info: info)
+                        participant.updateFromInfo(info: info, shouldNotify: $0.connectionState == .connected)
                     }
                 }
             }
@@ -235,11 +235,10 @@ extension Room: SignalClientDelegate {
             }
         }
 
-        for participant in newParticipants {
-            engine.executeIfConnected { [weak self] in
-                guard let self else { return }
-
-                self.delegates.notify(label: { "room.remoteParticipantDidConnect: \(participant)" }) {
+        // Proceed only if connected...
+        if case .connected = _state.connectionState {
+            for participant in newParticipants {
+                _delegates.notify(label: { "room.remoteParticipantDidConnect: \(participant)" }) {
                     $0.room?(self, participantDidConnect: participant)
                 }
             }
@@ -262,15 +261,67 @@ extension Room: SignalClientDelegate {
         }
     }
 
-    func signalClient(_: SignalClient, didUpdateConnectionState _: ConnectionState, oldState _: ConnectionState, disconnectError _: LiveKitError?) async {}
+    func signalClient(_: SignalClient, didUpdateConnectionState connectionState: ConnectionState, oldState: ConnectionState, disconnectError: LiveKitError?) async {
+        // connectionState did update
+        if connectionState != oldState,
+           // did disconnect
+           case .disconnected = connectionState,
+           // only attempt re-connect if disconnected(reason: network)
+           case .network = disconnectError?.type,
+           // engine is currently connected state
+           case .connected = _state.connectionState
+        {
+            do {
+                try await startReconnect(reason: .websocket)
+            } catch {
+                log("Failed calling startReconnect, error: \(error)", .error)
+            }
+        }
+    }
 
-    func signalClient(_: SignalClient, didReceiveAnswer _: LKRTCSessionDescription) async {}
+    func signalClient(_: SignalClient, didReceiveAnswer answer: LKRTCSessionDescription) async {
+        do {
+            let publisher = try requirePublisher()
+            try await publisher.set(remoteDescription: answer)
+        } catch {
+            log("Failed to set remote description, error: \(error)", .error)
+        }
+    }
 
-    func signalClient(_: SignalClient, didReceiveOffer _: LKRTCSessionDescription) async {}
+    func signalClient(_: SignalClient, didReceiveOffer offer: LKRTCSessionDescription) async {
+        log("Received offer, creating & sending answer...")
 
-    func signalClient(_: SignalClient, didReceiveIceCandidate _: LKRTCIceCandidate, target _: Livekit_SignalTarget) async {}
+        guard let subscriber else {
+            log("failed to send answer, subscriber is nil", .error)
+            return
+        }
+
+        do {
+            try await subscriber.set(remoteDescription: offer)
+            let answer = try await subscriber.createAnswer()
+            try await subscriber.set(localDescription: answer)
+            try await signalClient.send(answer: answer)
+        } catch {
+            log("Failed to send answer with error: \(error)", .error)
+        }
+    }
+
+    func signalClient(_: SignalClient, didReceiveIceCandidate iceCandidate: LKRTCIceCandidate, target: Livekit_SignalTarget) async {
+        guard let transport = target == .subscriber ? subscriber : publisher else {
+            log("Failed to add ice candidate, transport is nil for target: \(target)", .error)
+            return
+        }
+
+        do {
+            try await transport.add(iceCandidate: iceCandidate)
+        } catch {
+            log("Failed to add ice candidate for transport: \(transport), error: \(error)", .error)
+        }
+    }
 
     func signalClient(_: SignalClient, didPublishLocalTrack _: Livekit_TrackPublishedResponse) async {}
 
-    func signalClient(_: SignalClient, didUpdateToken _: String) async {}
+    func signalClient(_: SignalClient, didUpdateToken newToken: String) async {
+        _state.mutate { $0.token = newToken }
+    }
 }

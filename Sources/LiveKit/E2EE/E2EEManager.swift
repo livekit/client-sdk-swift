@@ -105,7 +105,7 @@ public class E2EEManager: NSObject, ObservableObject, Loggable {
             return
         }
 
-        let frameCryptor = LKRTCFrameCryptor(factory: Engine.peerConnectionFactory,
+        let frameCryptor = LKRTCFrameCryptor(factory: Room.peerConnectionFactory,
                                              rtpSender: sender,
                                              participantId: participantSid,
                                              algorithm: RTCCyrptorAlgorithm.aesGcm,
@@ -131,7 +131,7 @@ public class E2EEManager: NSObject, ObservableObject, Loggable {
             return
         }
 
-        let frameCryptor = LKRTCFrameCryptor(factory: Engine.peerConnectionFactory,
+        let frameCryptor = LKRTCFrameCryptor(factory: Room.peerConnectionFactory,
                                              rtpReceiver: receiver,
                                              participantId: participantSid,
                                              algorithm: RTCCyrptorAlgorithm.aesGcm,
@@ -171,7 +171,7 @@ extension E2EEManager {
 
         log("frameCryptor didStateChangeWithParticipantId \(participantId) with state \(state.rawValue)")
 
-        room.delegates.notify { delegate in
+        room._delegates.notify { delegate in
             delegate.room?(room, trackPublication: publication, didUpdateE2EEState: state.toLKType())
         }
     }

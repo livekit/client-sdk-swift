@@ -18,7 +18,7 @@ import Foundation
 
 @_implementationOnly import WebRTC
 
-extension Engine: TransportDelegate {
+extension Room: TransportDelegate {
     func transport(_ transport: Transport, didUpdateState pcState: RTCPeerConnectionState) async {
         log("target: \(transport.target), state: \(pcState)")
 
@@ -66,21 +66,25 @@ extension Engine: TransportDelegate {
                     removeWhen: { state, _ in state.connectionState == .disconnected })
             { [weak self] in
                 guard let self else { return }
-                _delegate.notifyAsync { await $0.engine(self, didAddTrack: track, rtpReceiver: rtpReceiver, stream: streams.first!) }
+                Task.detached {
+                    await self.onDidAddTrack(track: track, rtpReceiver: rtpReceiver, stream: streams.first!)
+                }
             }
         }
     }
 
     func transport(_ transport: Transport, didRemoveTrack track: LKRTCMediaStreamTrack) async {
         if transport.target == .subscriber {
-            _delegate.notifyAsync { await $0.engine(self, didRemoveTrack: track) }
+            Task.detached {
+                await self.onDidRemoveTrack(track: track)
+            }
         }
     }
 
     func transport(_ transport: Transport, didOpenDataChannel dataChannel: LKRTCDataChannel) async {
         log("Server opened data channel \(dataChannel.label)(\(dataChannel.readyState))")
 
-        if subscriberPrimary, transport.target == .subscriber {
+        if _state.subscriberPrimary, transport.target == .subscriber {
             switch dataChannel.label {
             case LKRTCDataChannel.labels.reliable: await subscriberDataChannel.set(reliable: dataChannel)
             case LKRTCDataChannel.labels.lossy: await subscriberDataChannel.set(lossy: dataChannel)

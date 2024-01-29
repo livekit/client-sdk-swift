@@ -31,7 +31,7 @@ public class LocalVideoTrack: Track, LocalTrack, VideoTrack {
          videoSource: LKRTCVideoSource,
          reportStatistics: Bool)
     {
-        let rtcTrack = Engine.createVideoTrack(source: videoSource)
+        let rtcTrack = Room.createVideoTrack(source: videoSource)
         rtcTrack.isEnabled = true
 
         self.capturer = capturer

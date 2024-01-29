@@ -27,7 +27,7 @@ import Foundation
 
     @available(macOS 12.3, *)
     public class MacOSScreenCapturer: VideoCapturer {
-        private let capturer = Engine.createVideoCapturer()
+        private let capturer = Room.createVideoCapturer()
 
         // TODO: Make it possible to change dynamically
         public let captureSource: MacOSScreenCaptureSource?
@@ -41,11 +41,11 @@ import Foundation
 
         /// The ``ScreenShareCaptureOptions`` used for this capturer.
         /// It is possible to modify the options but `restartCapture` must be called.
-        public var options: ScreenShareCaptureOptions
+        public var roomOptions: ScreenShareCaptureOptions
 
-        init(delegate: LKRTCVideoCapturerDelegate, captureSource: MacOSScreenCaptureSource, options: ScreenShareCaptureOptions) {
+        init(delegate: LKRTCVideoCapturerDelegate, captureSource: MacOSScreenCaptureSource, roomOptions: ScreenShareCaptureOptions) {
             self.captureSource = captureSource
-            self.options = options
+            self.roomOptions = roomOptions
             super.init(delegate: delegate)
         }
 
@@ -69,7 +69,7 @@ import Foundation
                       let content = displaySource.scContent as? SCShareableContent,
                       let nativeDisplay = displaySource.nativeType as? SCDisplay
             {
-                let excludedApps = !options.includeCurrentApplication ? content.applications.filter { app in
+                let excludedApps = !roomOptions.includeCurrentApplication ? content.applications.filter { app in
                     Bundle.main.bundleIdentifier == app.bundleIdentifier
                 } : []
 
@@ -87,10 +87,10 @@ import Foundation
             configuration.height = CGDisplayPixelsHigh(mainDisplay) * 2
 
             configuration.scalesToFit = false
-            configuration.minimumFrameInterval = CMTime(value: 1, timescale: CMTimeScale(options.fps))
+            configuration.minimumFrameInterval = CMTime(value: 1, timescale: CMTimeScale(roomOptions.fps))
             configuration.queueDepth = 5
             configuration.pixelFormat = kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
-            configuration.showsCursor = options.showCursor
+            configuration.showsCursor = roomOptions.showCursor
 
             // Why does SCStream hold strong reference to delegate?
             let stream = SCStream(filter: filter, configuration: configuration, delegate: nil)
@@ -138,7 +138,7 @@ import Foundation
                                               height: Int32((contentRect.height * scaleFactor).rounded(.down)))
 
             let targetDimensions = sourceDimensions
-                .aspectFit(size: options.dimensions.max)
+                .aspectFit(size: roomOptions.dimensions.max)
                 .toEncodeSafeDimensions()
 
             // notify capturer for dimensions
@@ -244,11 +244,11 @@ import Foundation
         @objc
         static func createMacOSScreenShareTrack(name: String = Track.screenShareVideoName,
                                                 source: MacOSScreenCaptureSource,
-                                                options: ScreenShareCaptureOptions = ScreenShareCaptureOptions(),
+                                                roomOptions: ScreenShareCaptureOptions = ScreenShareCaptureOptions(),
                                                 reportStatistics: Bool = false) -> LocalVideoTrack
         {
-            let videoSource = Engine.createVideoSource(forScreenShare: true)
-            let capturer = MacOSScreenCapturer(delegate: videoSource, captureSource: source, options: options)
+            let videoSource = Room.createVideoSource(forScreenShare: true)
+            let capturer = MacOSScreenCapturer(delegate: videoSource, captureSource: source, roomOptions: roomOptions)
             return LocalVideoTrack(name: name,
                                    source: .screenShareVideo,
                                    capturer: capturer,

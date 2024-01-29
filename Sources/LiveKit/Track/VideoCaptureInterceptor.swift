@@ -34,7 +34,7 @@ public class VideoCaptureInterceptor: NSObject, Loggable {
         }
     }
 
-    let output = Engine.createVideoSource(forScreenShare: true)
+    let output = Room.createVideoSource(forScreenShare: true)
     let interceptFunc: InterceptFunc
 
     private lazy var delegateAdapter: DelegateAdapter = .init(target: self)

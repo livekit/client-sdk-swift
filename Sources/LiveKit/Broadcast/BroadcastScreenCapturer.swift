@@ -47,7 +47,7 @@
             // pre fill dimensions, so that we don't have to wait for the broadcast to start to get actual dimensions.
             // should be able to safely predict using actual screen dimensions.
             let targetDimensions = screenDimension
-                .aspectFit(size: options.dimensions.max)
+                .aspectFit(size: roomOptions.dimensions.max)
                 .toEncodeSafeDimensions()
 
             defer { self.dimensions = targetDimensions }
@@ -91,11 +91,11 @@
         /// Creates a track that captures screen capture from a broadcast upload extension
         static func createBroadcastScreenCapturerTrack(name: String = Track.screenShareVideoName,
                                                        source: VideoTrack.Source = .screenShareVideo,
-                                                       options: ScreenShareCaptureOptions = ScreenShareCaptureOptions(),
+                                                       roomOptions: ScreenShareCaptureOptions = ScreenShareCaptureOptions(),
                                                        reportStatistics: Bool = false) -> LocalVideoTrack
         {
             let videoSource = Engine.createVideoSource(forScreenShare: true)
-            let capturer = BroadcastScreenCapturer(delegate: videoSource, options: BufferCaptureOptions(from: options))
+            let capturer = BroadcastScreenCapturer(delegate: videoSource, roomOptions: BufferCaptureOptions(from: roomOptions))
             return LocalVideoTrack(
                 name: name,
                 source: source,

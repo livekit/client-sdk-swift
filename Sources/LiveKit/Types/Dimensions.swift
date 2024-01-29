@@ -139,7 +139,7 @@ extension Dimensions {
                 continue
             }
 
-            let parameters = Engine.createRtpEncodingParameters(
+            let parameters = Room.createRtpEncodingParameters(
                 rid: rid,
                 encoding: preset.encoding,
                 scaleDownBy: Double(max) / Double(preset.dimensions.max)

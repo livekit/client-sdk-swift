@@ -78,8 +78,8 @@ actor Transport: NSObject, Loggable {
          delegate: TransportDelegate) throws
     {
         // try create peerConnection
-        guard let pc = Engine.createPeerConnection(config,
-                                                   constraints: .defaultPCConstraints)
+        guard let pc = Room.createPeerConnection(config,
+                                                 constraints: .defaultPCConstraints)
         else {
             // log("[WebRTC] Failed to create PeerConnection", .error)
             throw LiveKitError(.webRTC, message: "Failed to create PeerConnection")

@@ -71,9 +71,9 @@ public class RemoteTrackPublication: TrackPublication {
 
         _state.mutate { $0.isSubscribePreferred = newValue }
 
-        try await room.engine.signalClient.sendUpdateSubscription(participantSid: participant.sid,
-                                                                  trackSid: sid,
-                                                                  isSubscribed: newValue)
+        try await room.signalClient.sendUpdateSubscription(participantSid: participant.sid,
+                                                           trackSid: sid,
+                                                           isSubscribed: newValue)
     }
 
     /// Enable or disable server from sending down data for this track.
@@ -189,7 +189,7 @@ public class RemoteTrackPublication: TrackPublication {
                 participant.delegates.notify(label: { "participant.didUnsubscribe \(self)" }) {
                     $0.participant?(participant, didUnsubscribeTrack: self)
                 }
-                room.delegates.notify(label: { "room.didUnsubscribe \(self)" }) {
+                room._delegates.notify(label: { "room.didUnsubscribe \(self)" }) {
                     $0.room?(room, participant: participant, didUnsubscribeTrack: self)
                 }
             }
@@ -202,7 +202,7 @@ public class RemoteTrackPublication: TrackPublication {
 // MARK: - Private
 
 private extension RemoteTrackPublication {
-    var isAdaptiveStreamEnabled: Bool { (participant?._room?._state.options ?? RoomOptions()).adaptiveStream && kind == .video }
+    var isAdaptiveStreamEnabled: Bool { (participant?._room?._state.roomOptions ?? RoomOptions()).adaptiveStream && kind == .video }
 
     var engineConnectionState: ConnectionState {
         guard let participant, let room = participant._room else {
@@ -210,7 +210,7 @@ private extension RemoteTrackPublication {
             return .disconnected
         }
 
-        return room.engine._state.connectionState
+        return room._state.connectionState
     }
 
     func checkUserCanModifyTrackSettings() async throws {
@@ -239,7 +239,7 @@ extension RemoteTrackPublication {
             participant.delegates.notify(label: { "participant.didUpdatePublication isMuted: \(newValue)" }) {
                 $0.participant?(participant, trackPublication: self, didUpdateIsMuted: newValue)
             }
-            room.delegates.notify(label: { "room.didUpdatePublication isMuted: \(newValue)" }) {
+            room._delegates.notify(label: { "room.didUpdatePublication isMuted: \(newValue)" }) {
                 $0.room?(room, participant: participant, trackPublication: self, didUpdateIsMuted: newValue)
             }
         }
@@ -253,7 +253,7 @@ extension RemoteTrackPublication {
         participant.delegates.notify(label: { "participant.didUpdate permission: \(newValue)" }) {
             $0.participant?(participant, trackPublication: self, didUpdateIsSubscriptionAllowed: newValue)
         }
-        room.delegates.notify(label: { "room.didUpdate permission: \(newValue)" }) {
+        room._delegates.notify(label: { "room.didUpdate permission: \(newValue)" }) {
             $0.room?(room, participant: participant, trackPublication: self, didUpdateIsSubscriptionAllowed: newValue)
         }
     }
@@ -293,7 +293,7 @@ extension RemoteTrackPublication {
 
         // Attempt to set the new settings
         do {
-            try await room.engine.signalClient.sendUpdateTrackSettings(sid: sid, settings: newValue)
+            try await room.signalClient.sendUpdateTrackSettings(sid: sid, settings: newValue)
             _state.mutate { $0.isSendingTrackSettings = false }
         } catch {
             // Revert track settings on failure

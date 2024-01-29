@@ -20,7 +20,8 @@ import Foundation
 
 @objc
 public class RemoteParticipant: Participant {
-    init(info: Livekit_ParticipantInfo, room: Room) {
+    // Room.state will be locked when this is invoked
+    init(info: Livekit_ParticipantInfo, room: Room, shouldNotify: Bool) {
         super.init(sid: info.sid,
                    identity: info.identity,
                    room: room)
@@ -29,15 +30,15 @@ public class RemoteParticipant: Participant {
             log("RemoteParticipant.identity is empty", .error)
         }
 
-        updateFromInfo(info: info)
+        updateFromInfo(info: info, shouldNotify: shouldNotify)
     }
 
     func getTrackPublication(sid: Sid) -> RemoteTrackPublication? {
         _state.trackPublications[sid] as? RemoteTrackPublication
     }
 
-    override func updateFromInfo(info: Livekit_ParticipantInfo) {
-        super.updateFromInfo(info: info)
+    override func updateFromInfo(info: Livekit_ParticipantInfo, shouldNotify: Bool) {
+        super.updateFromInfo(info: info, shouldNotify: shouldNotify)
 
         var validTrackPublications = [String: RemoteTrackPublication]()
         var newTrackPublications = [String: RemoteTrackPublication]()
@@ -59,14 +60,12 @@ public class RemoteParticipant: Participant {
             return
         }
 
-        room.engine.executeIfConnected { [weak self] in
-            guard let self else { return }
-
+        if shouldNotify {
             for publication in newTrackPublications.values {
-                self.delegates.notify(label: { "participant.didPublish \(publication)" }) {
+                delegates.notify(label: { "participant.didPublish \(publication)" }) {
                     $0.participant?(self, didPublishTrack: publication)
                 }
-                room.delegates.notify(label: { "room.didPublish \(publication)" }) {
+                room._delegates.notify(label: { "room.didPublish \(publication)" }) {
                     $0.room?(room, participant: self, didPublishTrack: publication)
                 }
             }
@@ -97,7 +96,7 @@ public class RemoteParticipant: Participant {
             delegates.notify(label: { "participant.didFailToSubscribe trackSid: \(sid)" }) {
                 $0.participant?(self, didFailToSubscribeTrackWithSid: sid, error: error)
             }
-            room.delegates.notify(label: { "room.didFailToSubscribe trackSid: \(sid)" }) {
+            room._delegates.notify(label: { "room.didFailToSubscribe trackSid: \(sid)" }) {
                 $0.room?(room, participant: self, didFailToSubscribeTrackWithSid: sid, error: error)
             }
             throw error
@@ -108,18 +107,18 @@ public class RemoteParticipant: Participant {
             track = RemoteAudioTrack(name: publication.name,
                                      source: publication.source,
                                      track: rtcTrack,
-                                     reportStatistics: room._state.options.reportRemoteTrackStatistics)
+                                     reportStatistics: room._state.roomOptions.reportRemoteTrackStatistics)
         case "video":
             track = RemoteVideoTrack(name: publication.name,
                                      source: publication.source,
                                      track: rtcTrack,
-                                     reportStatistics: room._state.options.reportRemoteTrackStatistics)
+                                     reportStatistics: room._state.roomOptions.reportRemoteTrackStatistics)
         default:
             let error = LiveKitError(.invalidState, message: "Unsupported type: \(rtcTrack.kind.description)")
             delegates.notify(label: { "participant.didFailToSubscribe trackSid: \(sid)" }) {
                 $0.participant?(self, didFailToSubscribeTrackWithSid: sid, error: error)
             }
-            room.delegates.notify(label: { "room.didFailToSubscribe trackSid: \(sid)" }) {
+            room._delegates.notify(label: { "room.didFailToSubscribe trackSid: \(sid)" }) {
                 $0.room?(room, participant: self, didFailToSubscribeTrackWithSid: sid, error: error)
             }
             throw error
@@ -128,8 +127,9 @@ public class RemoteParticipant: Participant {
         await publication.set(track: track)
         publication.set(subscriptionAllowed: true)
 
-        assert(room.engine.subscriber != nil, "Subscriber is nil")
-        if let transport = room.engine.subscriber {
+        assert(room.subscriber != nil, "Subscriber is nil")
+
+        if let transport = room.subscriber {
             await track.set(transport: transport, rtpReceiver: rtpReceiver)
         }
 
@@ -140,7 +140,7 @@ public class RemoteParticipant: Participant {
         delegates.notify(label: { "participant.didSubscribe \(publication)" }) {
             $0.participant?(self, didSubscribeTrack: publication)
         }
-        room.delegates.notify(label: { "room.didSubscribe \(publication)" }) {
+        room._delegates.notify(label: { "room.didSubscribe \(publication)" }) {
             $0.room?(room, participant: self, didSubscribeTrack: publication)
         }
     }
@@ -165,7 +165,7 @@ public class RemoteParticipant: Participant {
             delegates.notify(label: { "participant.didUnpublish \(publication)" }) {
                 $0.participant?(self, didUnpublishTrack: publication)
             }
-            room.delegates.notify(label: { "room.didUnpublish \(publication)" }) {
+            room._delegates.notify(label: { "room.didUnpublish \(publication)" }) {
                 $0.room?(room, participant: self, didUnpublishTrack: publication)
             }
         }
@@ -185,7 +185,7 @@ public class RemoteParticipant: Participant {
             delegates.notify(label: { "participant.didUnsubscribe \(publication)" }) {
                 $0.participant?(self, didUnsubscribeTrack: publication)
             }
-            room.delegates.notify(label: { "room.didUnsubscribe \(publication)" }) {
+            room._delegates.notify(label: { "room.didUnsubscribe \(publication)" }) {
                 $0.room?(room, participant: self, didUnsubscribeTrack: publication)
             }
         }
