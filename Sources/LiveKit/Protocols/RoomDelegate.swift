@@ -124,7 +124,7 @@ public protocol RoomDelegate: AnyObject {
     func room(_ room: Room, participant: RemoteParticipant, didUnsubscribeTrack publication: RemoteTrackPublication)
 
     @objc optional
-    func room(_ room: Room, participant: RemoteParticipant, didFailToSubscribeTrack: String, withError error: LiveKitError)
+    func room(_ room: Room, participant: RemoteParticipant, didFailToSubscribeTrackWithSid trackSid: String, error: LiveKitError)
 
     // MARK: - Data and Encryption
 
@@ -133,19 +133,19 @@ public protocol RoomDelegate: AnyObject {
     func room(_ room: Room, participant: RemoteParticipant?, didReceiveData data: Data, forTopic topic: String)
 
     @objc optional
-    func room(_ room: Room, track: TrackPublication, didUpdateE2EEState state: E2EEState)
+    func room(_ room: Room, trackPublication: TrackPublication, didUpdateE2EEState state: E2EEState)
 
     /// ``TrackPublication/isMuted`` has updated.
     @objc optional
-    func room(_ room: Room, participant: Participant, track: TrackPublication, didUpdateIsMuted isMuted: Bool)
+    func room(_ room: Room, participant: Participant, trackPublication: TrackPublication, didUpdateIsMuted isMuted: Bool)
 
     /// ``TrackPublication/streamState`` has updated.
     @objc optional
-    func room(_ room: Room, participant: RemoteParticipant, track: RemoteTrackPublication, didUpdateStreamState streamState: StreamState)
+    func room(_ room: Room, participant: RemoteParticipant, trackPublication: RemoteTrackPublication, didUpdateStreamState streamState: StreamState)
 
     /// ``RemoteTrackPublication/isSubscriptionAllowed`` has updated.
     @objc optional
-    func room(_ room: Room, participant: RemoteParticipant, track: RemoteTrackPublication, didUpdateIsSubscriptionAllowed isSubscriptionAllowed: Bool)
+    func room(_ room: Room, participant: RemoteParticipant, trackPublication: RemoteTrackPublication, didUpdateIsSubscriptionAllowed isSubscriptionAllowed: Bool)
 
     // MARK: - Deprecated
 
@@ -209,8 +209,8 @@ public protocol RoomDelegate: AnyObject {
     @objc(room:participant:didUpdateConnectionQuality_:) optional
     func room(_ room: Room, participant: Participant, didUpdate connectionQuality: ConnectionQuality)
 
-    /// Renamed to ``RoomDelegate/room(_:participant:track:didUpdateIsMuted:)``.
-    @available(*, unavailable, renamed: "room(_:participant:track:didUpdateIsMuted:)")
+    /// Renamed to ``RoomDelegate/room(_:participant:trackPublication:didUpdateIsMuted:)``.
+    @available(*, unavailable, renamed: "room(_:participant:trackPublication:didUpdateIsMuted:)")
     @objc(room:participant:publication:didUpdateMuted:) optional
     func room(_ room: Room, participant: Participant, didUpdate publication: TrackPublication, muted: Bool)
 
@@ -219,8 +219,8 @@ public protocol RoomDelegate: AnyObject {
     @objc(room:participant:didUpdatePermissions_:) optional
     func room(_ room: Room, participant: Participant, didUpdate permissions: ParticipantPermissions)
 
-    /// Renamed to ``RoomDelegate/room(_:participant:track:didUpdateStreamState:)``.
-    @available(*, unavailable, renamed: "room(_:participant:track:didUpdateStreamState:)")
+    /// Renamed to ``RoomDelegate/room(_:participant:trackPublication:didUpdateStreamState:)``.
+    @available(*, unavailable, renamed: "room(_:participant:trackPublication:didUpdateStreamState:)")
     @objc(room:participant:publication:didUpdateStreamState:) optional
     func room(_ room: Room, participant: RemoteParticipant, didUpdate publication: RemoteTrackPublication, streamState: StreamState)
 
@@ -274,8 +274,8 @@ public protocol RoomDelegate: AnyObject {
     @objc optional
     func room(_ room: Room, participant: RemoteParticipant, didUpdate publication: RemoteTrackPublication, permission allowed: Bool)
 
-    /// Renamed to ``RoomDelegate/room(_:track:didUpdateE2EEState:)``.
-    @available(*, unavailable, renamed: "room(_:track:didUpdateE2EEState:)")
+    /// Renamed to ``RoomDelegate/room(_:trackPublication:didUpdateE2EEState:)``.
+    @available(*, unavailable, renamed: "room(_:trackPublication:didUpdateE2EEState:)")
     @objc(room:publication:didUpdateE2EEState:) optional
     func room(_ room: Room, publication: TrackPublication, didUpdateE2EEState: E2EEState)
 }

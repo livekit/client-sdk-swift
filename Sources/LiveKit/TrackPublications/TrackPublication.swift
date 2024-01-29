@@ -125,10 +125,10 @@ public class TrackPublication: NSObject, ObservableObject, Loggable {
                    let trackPublication = self as? RemoteTrackPublication
                 {
                     participant.delegates.notify(label: { "participant.didUpdate \(trackPublication) streamState: \(newState.streamState)" }) {
-                        $0.participant?(participant, track: trackPublication, didUpdateStreamState: newState.streamState)
+                        $0.participant?(participant, trackPublication: trackPublication, didUpdateStreamState: newState.streamState)
                     }
                     room.delegates.notify(label: { "room.didUpdate \(trackPublication) streamState: \(newState.streamState)" }) {
-                        $0.room?(room, participant: participant, track: trackPublication, didUpdateStreamState: newState.streamState)
+                        $0.room?(room, participant: participant, trackPublication: trackPublication, didUpdateStreamState: newState.streamState)
                     }
                 }
             }
@@ -213,10 +213,10 @@ extension TrackPublication: TrackDelegateInternal {
             }
 
             participant.delegates.notify {
-                $0.participant?(participant, track: self, didUpdateIsMuted: isMuted)
+                $0.participant?(participant, trackPublication: self, didUpdateIsMuted: isMuted)
             }
             room.delegates.notify {
-                $0.room?(room, participant: participant, track: self, didUpdateIsMuted: self.isMuted)
+                $0.room?(room, participant: participant, trackPublication: self, didUpdateIsMuted: self.isMuted)
             }
 
             // TrackPublication.isMuted is a computed property depending on Track.isMuted

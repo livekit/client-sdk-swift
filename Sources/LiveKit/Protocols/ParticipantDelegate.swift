@@ -60,7 +60,7 @@ public protocol ParticipantDelegate: AnyObject {
     ///
     /// `participant` Can be a ``LocalParticipant`` or a ``RemoteParticipant``.
     @objc optional
-    func participant(_ participant: Participant, track: TrackPublication, didUpdateIsMuted isMuted: Bool)
+    func participant(_ participant: Participant, trackPublication: TrackPublication, didUpdateIsMuted isMuted: Bool)
 
     // MARK: - LocalTrackPublication
 
@@ -100,15 +100,15 @@ public protocol ParticipantDelegate: AnyObject {
     ///
     /// This is an error state, the subscription can be retried.
     @objc optional
-    func participant(_ participant: RemoteParticipant, didFailToSubscribeTrack trackSid: String, withError error: LiveKitError)
+    func participant(_ participant: RemoteParticipant, didFailToSubscribeTrackWithSid trackSid: String, error: LiveKitError)
 
     /// ``TrackPublication/streamState`` has updated for the ``RemoteTrackPublication``.
     @objc optional
-    func participant(_ participant: RemoteParticipant, track: RemoteTrackPublication, didUpdateStreamState streamState: StreamState)
+    func participant(_ participant: RemoteParticipant, trackPublication: RemoteTrackPublication, didUpdateStreamState streamState: StreamState)
 
     /// ``RemoteTrackPublication/isSubscriptionAllowed`` has updated for the ``RemoteTrackPublication``.
     @objc optional
-    func participant(_ participant: RemoteParticipant, track: RemoteTrackPublication, didUpdateIsSubscriptionAllowed isSubscriptionAllowed: Bool)
+    func participant(_ participant: RemoteParticipant, trackPublication: RemoteTrackPublication, didUpdateIsSubscriptionAllowed isSubscriptionAllowed: Bool)
 
     // MARK: - Data
 
@@ -138,8 +138,8 @@ public protocol ParticipantDelegate: AnyObject {
     @objc(participant:didUpdateConnectionQuality_:) optional
     func participant(_ participant: Participant, didUpdate connectionQuality: ConnectionQuality)
 
-    /// Renamed to ``ParticipantDelegate/participant(_:track:didUpdateIsMuted:)``.
-    @available(*, unavailable, renamed: "participant(_:track:didUpdateIsMuted:)")
+    /// Renamed to ``ParticipantDelegate/participant(_:trackPublication:didUpdateIsMuted:)``.
+    @available(*, unavailable, renamed: "participant(_:trackPublication:didUpdateIsMuted:)")
     @objc(participant:publication:didUpdateMuted:) optional
     func participant(_ participant: Participant, didUpdate publication: TrackPublication, muted: Bool)
 
@@ -148,13 +148,13 @@ public protocol ParticipantDelegate: AnyObject {
     @objc(participant:didUpdatePermissions_:) optional
     func participant(_ participant: Participant, didUpdate permissions: ParticipantPermissions)
 
-    /// Renamed to ``ParticipantDelegate/participant(_:track:didUpdateStreamState:)``.
-    @available(*, unavailable, renamed: "participant(_:track:didUpdateStreamState:)")
+    /// Renamed to ``ParticipantDelegate/participant(_:trackPublication:didUpdateStreamState:)``.
+    @available(*, unavailable, renamed: "participant(_:trackPublication:didUpdateStreamState:)")
     @objc(participant:publication:didUpdateStreamState:) optional
     func participant(_ participant: RemoteParticipant, didUpdate publication: RemoteTrackPublication, streamState: StreamState)
 
-    /// Renamed to ``ParticipantDelegate/participant(_:track:didUpdateIsSubscriptionAllowed:)``.
-    @available(*, unavailable, renamed: "participant(_:track:didUpdateIsSubscriptionAllowed:)")
+    /// Renamed to ``ParticipantDelegate/participant(_:trackPublication:didUpdateIsSubscriptionAllowed:)``.
+    @available(*, unavailable, renamed: "participant(_:trackPublication:didUpdateIsSubscriptionAllowed:)")
     @objc(participant:publication:didUpdateCanSubscribe:) optional
     func participant(_ participant: RemoteParticipant, didUpdate publication: RemoteTrackPublication, permission allowed: Bool)
 
@@ -183,9 +183,8 @@ public protocol ParticipantDelegate: AnyObject {
     @objc(participant:didSubscribe:track:) optional
     func participant(_ participant: RemoteParticipant, didSubscribe publication: RemoteTrackPublication, track: Track)
 
-    /// Renamed to ``ParticipantDelegate/participant(_:didFailToSubscribeTrack:withError:)``.
-    @available(*, unavailable, renamed: "participant(_:didFailToSubscribeTrack:withError:)")
-    @objc(participant:didFailToSubscribeTrackWithSid:error:) optional
+    /// Renamed to ``ParticipantDelegate/participant(_:didFailToSubscribeTrackWithSid:error:)``.
+    @available(*, unavailable, renamed: "participant(_:didFailToSubscribeTrackWithSid:error:)")
     func participant(_ participant: RemoteParticipant, didFailToSubscribe trackSid: String, error: Error)
 
     /// Renamed to ``ParticipantDelegate/participant(_:didUnsubscribeTrack:)``.
