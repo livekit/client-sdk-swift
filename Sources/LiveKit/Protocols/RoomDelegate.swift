@@ -264,8 +264,8 @@ public protocol RoomDelegate: AnyObject {
     @objc(room:localParticipant:didPublishPublication:) optional
     func room(_ room: Room, localParticipant: LocalParticipant, didPublish publication: LocalTrackPublication)
 
-    /// Renamed to ``RoomDelegate/room(_:localParticipant:didUnpublish:)``.
-    @available(*, unavailable, renamed: "room(_:localParticipant:didUnpublish:)")
+    /// Renamed to ``RoomDelegate/room(_:participant:didUnpublishTrack:)-4r2nn``.
+    @available(*, unavailable, renamed: "room(_:participant:didUnpublishTrack:)")
     @objc(room:localParticipant:didUnpublishPublication:) optional
     func room(_ room: Room, localParticipant: LocalParticipant, didUnpublish publication: LocalTrackPublication)
 

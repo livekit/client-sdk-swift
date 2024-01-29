@@ -185,7 +185,6 @@ public protocol ParticipantDelegate: AnyObject {
 
     /// Renamed to ``ParticipantDelegate/participant(_:didFailToSubscribeTrackWithSid:error:)``.
     @available(*, unavailable, renamed: "participant(_:didFailToSubscribeTrackWithSid:error:)")
-    @objc(participant:didFailToSubscribeTrackWithSid:error:) optional
     func participant(_ participant: RemoteParticipant, didFailToSubscribe trackSid: String, error: Error)
 
     /// Renamed to ``ParticipantDelegate/participant(_:didUnsubscribeTrack:)``.
