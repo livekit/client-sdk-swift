@@ -521,13 +521,13 @@ public extension LocalParticipant {
             } else if source == .screenShareVideo {
                 #if os(iOS)
                     let localTrack: LocalVideoTrack
-                    let roomOptions = (captureOptions as? ScreenShareCaptureOptions) ?? room._state.roomOptions.defaultScreenShareCaptureOptions
-                    if roomOptions.useBroadcastExtension {
+                    let options = (captureOptions as? ScreenShareCaptureOptions) ?? room._state.roomOptions.defaultScreenShareCaptureOptions
+                    if options.useBroadcastExtension {
                         let screenShareExtensionId = Bundle.main.infoDictionary?[BroadcastScreenCapturer.kRTCScreenSharingExtension] as? String
                         await RPSystemBroadcastPickerView.show(for: screenShareExtensionId, showsMicrophoneButton: false)
-                        localTrack = LocalVideoTrack.createBroadcastScreenCapturerTrack(roomOptions: roomOptions)
+                        localTrack = LocalVideoTrack.createBroadcastScreenCapturerTrack(options: options)
                     } else {
-                        localTrack = LocalVideoTrack.createInAppScreenShareTrack(roomOptions: roomOptions)
+                        localTrack = LocalVideoTrack.createInAppScreenShareTrack(options: options)
                     }
                     return try await publish(videoTrack: localTrack, publishOptions: publishOptions as? VideoPublishOptions)
                 #elseif os(macOS)

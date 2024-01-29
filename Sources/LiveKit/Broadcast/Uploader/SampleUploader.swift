@@ -27,7 +27,7 @@
     }
 
     class SampleUploader {
-        private static var imageContext = CIContext(roomOptions: nil)
+        private static var imageContext = CIContext(options: nil)
 
         @Atomic private var isReady = false
         private var connection: BroadcastUploadSocketConnection
@@ -151,9 +151,9 @@
                 return nil
             }
 
-            let roomOptions: [CIImageRepresentationOption: Float] = [kCGImageDestinationLossyCompressionQuality as CIImageRepresentationOption: 1.0]
+            let options: [CIImageRepresentationOption: Float] = [kCGImageDestinationLossyCompressionQuality as CIImageRepresentationOption: 1.0]
 
-            return SampleUploader.imageContext.jpegRepresentation(of: image, colorSpace: colorSpace, roomOptions: roomOptions)
+            return SampleUploader.imageContext.jpegRepresentation(of: image, colorSpace: colorSpace, options: options)
         }
     }
 
