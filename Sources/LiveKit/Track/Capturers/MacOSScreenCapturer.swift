@@ -41,11 +41,11 @@ import Foundation
 
         /// The ``ScreenShareCaptureOptions`` used for this capturer.
         /// It is possible to modify the options but `restartCapture` must be called.
-        public var roomOptions: ScreenShareCaptureOptions
+        public var options: ScreenShareCaptureOptions
 
-        init(delegate: LKRTCVideoCapturerDelegate, captureSource: MacOSScreenCaptureSource, roomOptions: ScreenShareCaptureOptions) {
+        init(delegate: LKRTCVideoCapturerDelegate, captureSource: MacOSScreenCaptureSource, options: ScreenShareCaptureOptions) {
             self.captureSource = captureSource
-            self.roomOptions = roomOptions
+            self.options = options
             super.init(delegate: delegate)
         }
 
@@ -69,7 +69,7 @@ import Foundation
                       let content = displaySource.scContent as? SCShareableContent,
                       let nativeDisplay = displaySource.nativeType as? SCDisplay
             {
-                let excludedApps = !roomOptions.includeCurrentApplication ? content.applications.filter { app in
+                let excludedApps = !options.includeCurrentApplication ? content.applications.filter { app in
                     Bundle.main.bundleIdentifier == app.bundleIdentifier
                 } : []
 
@@ -87,10 +87,10 @@ import Foundation
             configuration.height = CGDisplayPixelsHigh(mainDisplay) * 2
 
             configuration.scalesToFit = false
-            configuration.minimumFrameInterval = CMTime(value: 1, timescale: CMTimeScale(roomOptions.fps))
+            configuration.minimumFrameInterval = CMTime(value: 1, timescale: CMTimeScale(options.fps))
             configuration.queueDepth = 5
             configuration.pixelFormat = kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
-            configuration.showsCursor = roomOptions.showCursor
+            configuration.showsCursor = options.showCursor
 
             // Why does SCStream hold strong reference to delegate?
             let stream = SCStream(filter: filter, configuration: configuration, delegate: nil)
@@ -138,7 +138,7 @@ import Foundation
                                               height: Int32((contentRect.height * scaleFactor).rounded(.down)))
 
             let targetDimensions = sourceDimensions
-                .aspectFit(size: roomOptions.dimensions.max)
+                .aspectFit(size: options.dimensions.max)
                 .toEncodeSafeDimensions()
 
             // notify capturer for dimensions
@@ -244,11 +244,11 @@ import Foundation
         @objc
         static func createMacOSScreenShareTrack(name: String = Track.screenShareVideoName,
                                                 source: MacOSScreenCaptureSource,
-                                                roomOptions: ScreenShareCaptureOptions = ScreenShareCaptureOptions(),
+                                                options: ScreenShareCaptureOptions = ScreenShareCaptureOptions(),
                                                 reportStatistics: Bool = false) -> LocalVideoTrack
         {
             let videoSource = Room.createVideoSource(forScreenShare: true)
-            let capturer = MacOSScreenCapturer(delegate: videoSource, captureSource: source, roomOptions: roomOptions)
+            let capturer = MacOSScreenCapturer(delegate: videoSource, captureSource: source, options: options)
             return LocalVideoTrack(name: name,
                                    source: .screenShareVideo,
                                    capturer: capturer,

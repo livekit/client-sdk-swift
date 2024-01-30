@@ -534,7 +534,7 @@ public extension LocalParticipant {
                     if #available(macOS 12.3, *) {
                         let mainDisplay = try await MacOSScreenCapturer.mainDisplaySource()
                         let track = LocalVideoTrack.createMacOSScreenShareTrack(source: mainDisplay,
-                                                                                roomOptions: (captureOptions as? ScreenShareCaptureOptions) ?? room._state.roomOptions.defaultScreenShareCaptureOptions,
+                                                                                options: (captureOptions as? ScreenShareCaptureOptions) ?? room._state.roomOptions.defaultScreenShareCaptureOptions,
                                                                                 reportStatistics: room._state.roomOptions.reportRemoteTrackStatistics)
                         return try await publish(videoTrack: track, publishOptions: publishOptions as? VideoPublishOptions)
                     }
