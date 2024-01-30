@@ -89,7 +89,7 @@ public class LocalParticipant: Participant {
 
                     self.log("[publish] computing encode settings with dimensions: \(dimensions)...")
 
-                    let publishOptions = (options as? VideoPublishOptions) ?? room._state.options.defaultVideoPublishOptions
+                    let publishOptions = (options as? VideoPublishOptions) ?? room._state.roomOptions.defaultVideoPublishOptions
                     publishName = publishOptions.name
 
                     let encodings = Utils.computeVideoEncodings(dimensions: dimensions,
@@ -131,7 +131,7 @@ public class LocalParticipant: Participant {
 
                 } else if track is LocalAudioTrack {
                     // additional params for Audio
-                    let publishOptions = (options as? AudioPublishOptions) ?? room._state.options.defaultAudioPublishOptions
+                    let publishOptions = (options as? AudioPublishOptions) ?? room._state.roomOptions.defaultAudioPublishOptions
                     publishName = publishOptions.name
 
                     populator.disableDtx = !publishOptions.dtx
@@ -184,7 +184,7 @@ public class LocalParticipant: Participant {
                         track._videoCodec = firstVideoCodec
                     }
 
-                    let publishOptions = (options as? VideoPublishOptions) ?? room._state.options.defaultVideoPublishOptions
+                    let publishOptions = (options as? VideoPublishOptions) ?? room._state.roomOptions.defaultVideoPublishOptions
                     // if screen share or simulcast is enabled,
                     // degrade resolution by using server's layer switching logic instead of WebRTC's logic
                     if track.source == .screenShareVideo || publishOptions.simulcast {
@@ -511,12 +511,12 @@ public extension LocalParticipant {
         } else if enabled {
             // Try to create a new track
             if source == .camera {
-                let localTrack = LocalVideoTrack.createCameraTrack(options: (captureOptions as? CameraCaptureOptions) ?? room._state.options.defaultCameraCaptureOptions,
-                                                                   reportStatistics: room._state.options.reportRemoteTrackStatistics)
+                let localTrack = LocalVideoTrack.createCameraTrack(options: (captureOptions as? CameraCaptureOptions) ?? room._state.roomOptions.defaultCameraCaptureOptions,
+                                                                   reportStatistics: room._state.roomOptions.reportRemoteTrackStatistics)
                 return try await publish(videoTrack: localTrack, options: publishOptions as? VideoPublishOptions)
             } else if source == .microphone {
-                let localTrack = LocalAudioTrack.createTrack(options: (captureOptions as? AudioCaptureOptions) ?? room._state.options.defaultAudioCaptureOptions,
-                                                             reportStatistics: room._state.options.reportRemoteTrackStatistics)
+                let localTrack = LocalAudioTrack.createTrack(options: (captureOptions as? AudioCaptureOptions) ?? room._state.roomOptions.defaultAudioCaptureOptions,
+                                                             reportStatistics: room._state.roomOptions.reportRemoteTrackStatistics)
                 return try await publish(audioTrack: localTrack, options: publishOptions as? AudioPublishOptions)
             } else if source == .screenShareVideo {
                 #if os(iOS)
@@ -534,8 +534,8 @@ public extension LocalParticipant {
                     if #available(macOS 12.3, *) {
                         let mainDisplay = try await MacOSScreenCapturer.mainDisplaySource()
                         let track = LocalVideoTrack.createMacOSScreenShareTrack(source: mainDisplay,
-                                                                                options: (captureOptions as? ScreenShareCaptureOptions) ?? room._state.options.defaultScreenShareCaptureOptions,
-                                                                                reportStatistics: room._state.options.reportRemoteTrackStatistics)
+                                                                                options: (captureOptions as? ScreenShareCaptureOptions) ?? room._state.roomOptions.defaultScreenShareCaptureOptions,
+                                                                                reportStatistics: room._state.roomOptions.reportRemoteTrackStatistics)
                         return try await publish(videoTrack: track, options: publishOptions as? VideoPublishOptions)
                     }
                 #endif
