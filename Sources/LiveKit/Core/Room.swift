@@ -349,7 +349,7 @@ extension Room {
 // MARK: - Debugging
 
 public extension Room {
-    func sendSimulate(scenario: SimulateScenario) async throws {
+    func debug_sendSimulate(scenario: SimulateScenario) async throws {
         try await engine.signalClient.sendSimulate(scenario: scenario)
     }
 
