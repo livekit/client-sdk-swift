@@ -43,8 +43,8 @@ public class LocalParticipant: Participant {
 
     @objc
     @discardableResult
-    func publish(track: LocalTrack, publishOptions: TrackPublishOptions? = nil) async throws -> LocalTrackPublication {
-        log("[publish] \(track) options: \(String(describing: publishOptions ?? nil))...", .info)
+    func publish(track: LocalTrack, options: TrackPublishOptions? = nil) async throws -> LocalTrackPublication {
+        log("[publish] \(track) options: \(String(describing: options ?? nil))...", .info)
 
         let room = try requireRoom()
 
@@ -89,7 +89,7 @@ public class LocalParticipant: Participant {
 
                     self.log("[publish] computing encode settings with dimensions: \(dimensions)...")
 
-                    let publishOptions = (publishOptions as? VideoPublishOptions) ?? room._state.options.defaultVideoPublishOptions
+                    let publishOptions = (options as? VideoPublishOptions) ?? room._state.options.defaultVideoPublishOptions
                     publishName = publishOptions.name
 
                     let encodings = Utils.computeVideoEncodings(dimensions: dimensions,
@@ -131,7 +131,7 @@ public class LocalParticipant: Participant {
 
                 } else if track is LocalAudioTrack {
                     // additional params for Audio
-                    let publishOptions = (publishOptions as? AudioPublishOptions) ?? room._state.options.defaultAudioPublishOptions
+                    let publishOptions = (options as? AudioPublishOptions) ?? room._state.options.defaultAudioPublishOptions
                     publishName = publishOptions.name
 
                     populator.disableDtx = !publishOptions.dtx
@@ -145,7 +145,7 @@ public class LocalParticipant: Participant {
                     ]
                 }
 
-                if let streamName = publishOptions?.streamName {
+                if let streamName = options?.streamName {
                     // Set stream name if specified in options
                     populator.stream = streamName
                 }
@@ -171,7 +171,7 @@ public class LocalParticipant: Participant {
                 try await track.onPublish()
 
                 // Store publishOptions used for this track...
-                track._publishOptions = publishOptions
+                track._publishOptions = options
 
                 // Attach sender to track...
                 await track.set(transport: publisher, rtpSender: transceiver.sender)
@@ -184,7 +184,7 @@ public class LocalParticipant: Participant {
                         track._videoCodec = firstVideoCodec
                     }
 
-                    let publishOptions = (publishOptions as? VideoPublishOptions) ?? room._state.options.defaultVideoPublishOptions
+                    let publishOptions = (options as? VideoPublishOptions) ?? room._state.options.defaultVideoPublishOptions
                     // if screen share or simulcast is enabled,
                     // degrade resolution by using server's layer switching logic instead of WebRTC's logic
                     if track.source == .screenShareVideo || publishOptions.simulcast {
@@ -239,15 +239,15 @@ public class LocalParticipant: Participant {
     /// publish a new audio track to the Room
     @objc
     @discardableResult
-    public func publish(audioTrack: LocalAudioTrack, publishOptions: AudioPublishOptions? = nil) async throws -> LocalTrackPublication {
-        try await publish(track: audioTrack, publishOptions: publishOptions)
+    public func publish(audioTrack: LocalAudioTrack, options: AudioPublishOptions? = nil) async throws -> LocalTrackPublication {
+        try await publish(track: audioTrack, options: options)
     }
 
     /// publish a new video track to the Room
     @objc
     @discardableResult
-    public func publish(videoTrack: LocalVideoTrack, publishOptions: VideoPublishOptions? = nil) async throws -> LocalTrackPublication {
-        try await publish(track: videoTrack, publishOptions: publishOptions)
+    public func publish(videoTrack: LocalVideoTrack, options: VideoPublishOptions? = nil) async throws -> LocalTrackPublication {
+        try await publish(track: videoTrack, options: options)
     }
 
     @objc
@@ -443,7 +443,7 @@ extension LocalParticipant {
         for mediaTrack in mediaTracks {
             // Don't re-publish muted tracks
             if mediaTrack.isMuted { continue }
-            try await publish(track: mediaTrack, publishOptions: mediaTrack.publishOptions)
+            try await publish(track: mediaTrack, options: mediaTrack.publishOptions)
         }
     }
 }
@@ -513,11 +513,11 @@ public extension LocalParticipant {
             if source == .camera {
                 let localTrack = LocalVideoTrack.createCameraTrack(options: (captureOptions as? CameraCaptureOptions) ?? room._state.options.defaultCameraCaptureOptions,
                                                                    reportStatistics: room._state.options.reportRemoteTrackStatistics)
-                return try await publish(videoTrack: localTrack, publishOptions: publishOptions as? VideoPublishOptions)
+                return try await publish(videoTrack: localTrack, options: publishOptions as? VideoPublishOptions)
             } else if source == .microphone {
                 let localTrack = LocalAudioTrack.createTrack(options: (captureOptions as? AudioCaptureOptions) ?? room._state.options.defaultAudioCaptureOptions,
                                                              reportStatistics: room._state.options.reportRemoteTrackStatistics)
-                return try await publish(audioTrack: localTrack, publishOptions: publishOptions as? AudioPublishOptions)
+                return try await publish(audioTrack: localTrack, options: publishOptions as? AudioPublishOptions)
             } else if source == .screenShareVideo {
                 #if os(iOS)
                     let localTrack: LocalVideoTrack
@@ -536,7 +536,7 @@ public extension LocalParticipant {
                         let track = LocalVideoTrack.createMacOSScreenShareTrack(source: mainDisplay,
                                                                                 options: (captureOptions as? ScreenShareCaptureOptions) ?? room._state.options.defaultScreenShareCaptureOptions,
                                                                                 reportStatistics: room._state.options.reportRemoteTrackStatistics)
-                        return try await publish(videoTrack: track, publishOptions: publishOptions as? VideoPublishOptions)
+                        return try await publish(videoTrack: track, options: publishOptions as? VideoPublishOptions)
                     }
                 #endif
             }
