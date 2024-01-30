@@ -548,6 +548,18 @@ extension Room {
     }
 }
 
+// MARK: - Debugging
+
+public extension Room {
+    func debug_sendSimulate(scenario: SimulateScenario) async throws {
+        try await engine.signalClient.sendSimulate(scenario: scenario)
+    }
+
+    func debug_triggerReconnect(reason: StartReconnectReason) async throws {
+        try await engine.startReconnect(reason: reason)
+    }
+}
+
 // MARK: - Session Migration
 
 extension Room {
