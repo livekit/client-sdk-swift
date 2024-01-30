@@ -24,10 +24,6 @@ import Foundation
 
 @objc
 public class Room: NSObject, ObservableObject, Loggable {
-    // MARK: - MulticastDelegate
-
-    let _delegates = MulticastDelegate<RoomDelegate>()
-
     // MARK: - Public
 
     @objc
@@ -91,14 +87,12 @@ public class Room: NSObject, ObservableObject, Loggable {
     @objc
     public var disconnectError: LiveKitError? { _state.disconnectError }
 
+    @objc
+    public lazy var localParticipant: LocalParticipant = .init(room: self)
+
     public var connectStopwatch: Stopwatch { _state.connectStopwatch }
 
     // MARK: - Internal
-
-    public var e2eeManager: E2EEManager?
-
-    @objc
-    public lazy var localParticipant: LocalParticipant = .init(room: self)
 
     struct State: Equatable {
         var connectOptions: ConnectOptions
@@ -152,11 +146,9 @@ public class Room: NSObject, ObservableObject, Loggable {
         }
     }
 
+    let _delegates = MulticastDelegate<RoomDelegate>()
+    var e2eeManager: E2EEManager?
     var _state: StateSync<State>
-
-    private let _sidCompleter = AsyncCompleter<Sid>(label: "sid", defaultTimeOut: .sid)
-
-    typealias ConditionEvalFunc = (_ newState: State, _ oldState: State?) -> Bool
 
     let signalClient = SignalClient()
     var publisher: Transport?
@@ -164,14 +156,6 @@ public class Room: NSObject, ObservableObject, Loggable {
 
     let primaryTransportConnectedCompleter = AsyncCompleter<Void>(label: "Primary transport connect", defaultTimeOut: .defaultTransportState)
     let publisherTransportConnectedCompleter = AsyncCompleter<Void>(label: "Publisher transport connect", defaultTimeOut: .defaultTransportState)
-
-    private struct ConditionalExecutionEntry {
-        let executeCondition: ConditionEvalFunc
-        let removeCondition: ConditionEvalFunc
-        let block: () -> Void
-    }
-
-    // MARK: - DataChannels
 
     lazy var subscriberDataChannel: DataChannelPairActor = .init(onDataPacket: { [weak self] dataPacket in
         guard let self else { return }
@@ -182,11 +166,20 @@ public class Room: NSObject, ObservableObject, Loggable {
         }
     })
 
-    private let publisherDataChannel = DataChannelPairActor()
+    // MARK: - Private
 
+    typealias ConditionEvalFunc = (_ newState: State, _ oldState: State?) -> Bool
+
+    private struct ConditionalExecutionEntry {
+        let executeCondition: ConditionEvalFunc
+        let removeCondition: ConditionEvalFunc
+        let block: () -> Void
+    }
+
+    private let _sidCompleter = AsyncCompleter<Sid>(label: "sid", defaultTimeOut: .sid)
+    private let _publisherDataChannel = DataChannelPairActor()
     private var _blockProcessQueue = DispatchQueue(label: "LiveKitSDK.engine.pendingBlocks",
                                                    qos: .default)
-
     private var _queuedBlocks = [ConditionalExecutionEntry]()
 
     // MARK: Objective-C Support
@@ -194,8 +187,8 @@ public class Room: NSObject, ObservableObject, Loggable {
     @objc
     override public convenience init() {
         self.init(delegate: nil,
-                  connectOptions: ConnectOptions(),
-                  roomOptions: RoomOptions())
+                  connectOptions: nil,
+                  roomOptions: nil)
     }
 
     @objc
@@ -230,43 +223,42 @@ public class Room: NSObject, ObservableObject, Loggable {
 
             assert(!(newState.connectionState == .reconnecting && newState.reconnectMode == .none), "reconnectMode should not be .none")
 
+            // Logging...
+            if (newState.connectionState != oldState.connectionState) || (newState.reconnectMode != oldState.reconnectMode) {
+                self.log("connectionState: \(oldState.connectionState) -> \(newState.connectionState), reconnectMode: \(String(describing: newState.reconnectMode))")
+            }
+
             // sid updated
             if let sid = newState.sid, sid != oldState.sid {
                 // Resolve sid
                 self._sidCompleter.resume(returning: sid)
             }
 
-            // metadata updated
-            if let metadata = newState.metadata, metadata != oldState.metadata,
-               // don't notify if empty string (first time only)
-               oldState.metadata == nil ? !metadata.isEmpty : true
-            {
-                // Proceed only if connected...
-                if case .connected = _state.connectionState {
+            // Proceed only if connected...
+            if case .connected = newState.connectionState {
+                // metadata updated
+                if let metadata = newState.metadata, metadata != oldState.metadata,
+                   // don't notify if empty string (first time only)
+                   oldState.metadata == nil ? !metadata.isEmpty : true
+                {
+                    // Proceed only if connected...
+
                     _delegates.notify(label: { "room.didUpdate metadata: \(metadata)" }) {
                         $0.room?(self, didUpdateMetadata: metadata)
                     }
                 }
-            }
 
-            // isRecording updated
-            if newState.isRecording != oldState.isRecording {
-                // Proceed only if connected...
-                if case .connected = _state.connectionState {
+                // isRecording updated
+                if newState.isRecording != oldState.isRecording {
                     _delegates.notify(label: { "room.didUpdate isRecording: \(newState.isRecording)" }) {
                         $0.room?(self, didUpdateIsRecording: newState.isRecording)
                     }
                 }
             }
 
-            if (newState.connectionState != oldState.connectionState) || (newState.reconnectMode != oldState.reconnectMode) {
-                self.log("connectionState: \(oldState.connectionState) -> \(newState.connectionState), reconnectMode: \(String(describing: newState.reconnectMode))")
-            }
-
+            // connectionState updated...
             if newState.connectionState != oldState.connectionState {
-                // connectionState did update
-
-                // only if quick-reconnect
+                // Only if quick-reconnect
                 if case .connected = newState.connectionState, case .quick = newState.reconnectMode {
                     resetTrackSettings()
                 }
@@ -280,10 +272,6 @@ public class Room: NSObject, ObservableObject, Loggable {
                             self.log("Failed to send track subscription permissions, error: \(error)", .error)
                         }
                     }
-                }
-
-                _delegates.notify(label: { "room.didUpdate connectionState: \(newState.connectionState) oldValue: \(oldState.connectionState)" }) {
-                    $0.room?(self, didUpdateConnectionState: newState.connectionState, from: oldState.connectionState)
                 }
 
                 // Individual connectionState delegates
@@ -350,13 +338,16 @@ public class Room: NSObject, ObservableObject, Loggable {
                         connectOptions: ConnectOptions? = nil,
                         roomOptions: RoomOptions? = nil) async throws
     {
-        log("connecting to room...", .info)
+        log("Connecting to room...", .info)
 
-        let state = _state.copy()
+        await cleanUp()
 
-        // update options if specified
-        if let roomOptions, roomOptions != state.roomOptions {
-            _state.mutate { $0.roomOptions = roomOptions }
+        try Task.checkCancellation()
+
+        _state.mutate {
+            $0.connectOptions = connectOptions ?? $0.connectOptions
+            $0.roomOptions = roomOptions ?? $0.roomOptions
+            $0.connectionState = .connecting
         }
 
         // enable E2EE
@@ -364,18 +355,6 @@ public class Room: NSObject, ObservableObject, Loggable {
             e2eeManager = E2EEManager(e2eeOptions: roomOptions!.e2eeOptions!)
             e2eeManager!.setup(room: self)
         }
-
-        // try await engine.connect(url, token, connectOptions: connectOptions)
-
-        // update options if specified
-        if let connectOptions, connectOptions != _state.connectOptions {
-            _state.mutate { $0.connectOptions = connectOptions }
-        }
-
-        await cleanUp()
-        try Task.checkCancellation()
-
-        _state.mutate { $0.connectionState = .connecting }
 
         do {
             try await fullConnectSequence(url, token)
@@ -393,13 +372,13 @@ public class Room: NSObject, ObservableObject, Loggable {
                 $0.connectionState = .connected
             }
 
+            log("Connected to \(String(describing: self))", .info)
+
         } catch {
             await cleanUp(withError: error)
             // Re-throw error
             throw error
         }
-
-        log("Connected to \(String(describing: self))", .info)
     }
 
     @objc
@@ -423,7 +402,7 @@ extension Room {
     // Resets state of transports
     func cleanUpRTC() async {
         // Close data channels
-        await publisherDataChannel.reset()
+        await _publisherDataChannel.reset()
         await subscriberDataChannel.reset()
 
         // Close transports
@@ -456,25 +435,23 @@ extension Room {
             }
 
             try await publisherTransportConnectedCompleter.wait()
-            try await publisherDataChannel.openCompleter.wait()
+            try await _publisherDataChannel.openCompleter.wait()
         }
 
         try await ensurePublisherConnected()
 
         // At this point publisher should be .connected and dc should be .open
         assert(publisher?.isConnected ?? false, "publisher is not .connected")
-        let dataChannelIsOpen = await publisherDataChannel.isOpen
+        let dataChannelIsOpen = await _publisherDataChannel.isOpen
         assert(dataChannelIsOpen, "publisher data channel is not .open")
 
         // Should return true if successful
-        try await publisherDataChannel.send(userPacket: userPacket, kind: kind)
+        try await _publisherDataChannel.send(userPacket: userPacket, kind: kind)
     }
 
     // Resets state of Room
     func cleanUp(withError disconnectError: Error? = nil, isFullReconnect: Bool = false) async {
         log("withError: \(String(describing: disconnectError))")
-
-        // Start Engine cleanUp sequence
 
         primaryTransportConnectedCompleter.reset()
         publisherTransportConnectedCompleter.reset()
@@ -505,9 +482,6 @@ extension Room {
         if let e2eeManager {
             e2eeManager.cleanUp()
         }
-
-        // Reset state
-        // _state.mutate { $0 = State(roomOptions: $0.roomOptions, connectOptions: $0.connectOptions) }
 
         // Reset completers
         _sidCompleter.reset()
@@ -633,8 +607,8 @@ extension Room {
             let lossyDataChannel = await publisher.dataChannel(for: LKRTCDataChannel.labels.lossy,
                                                                configuration: RTC.createDataChannelConfiguration(maxRetransmits: 0))
 
-            await publisherDataChannel.set(reliable: reliableDataChannel)
-            await publisherDataChannel.set(lossy: lossyDataChannel)
+            await _publisherDataChannel.set(reliable: reliableDataChannel)
+            await _publisherDataChannel.set(lossy: lossyDataChannel)
 
             log("dataChannel.\(String(describing: reliableDataChannel?.label)) : \(String(describing: reliableDataChannel?.channelId))")
             log("dataChannel.\(String(describing: lossyDataChannel?.label)) : \(String(describing: lossyDataChannel?.channelId))")
@@ -878,7 +852,7 @@ extension Room {
         try await signalClient.sendSyncState(answer: previousAnswer.toPBType(),
                                              offer: previousOffer?.toPBType(),
                                              subscription: subscription, publishTracks: localParticipant.publishedTracksInfo(),
-                                             dataChannels: publisherDataChannel.infos())
+                                             dataChannels: _publisherDataChannel.infos())
     }
 }
 
