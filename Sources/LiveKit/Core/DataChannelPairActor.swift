@@ -85,7 +85,7 @@ actor DataChannelPairActor: NSObject, Loggable {
         }
 
         let serializedData = try packet.serializedData()
-        let rtcData = Room.createDataBuffer(data: serializedData)
+        let rtcData = RTC.createDataBuffer(data: serializedData)
 
         let channel = (kind == .reliable) ? _reliableChannel : _lossyChannel
         guard let sendDataResult = channel?.sendData(rtcData), sendDataResult else {

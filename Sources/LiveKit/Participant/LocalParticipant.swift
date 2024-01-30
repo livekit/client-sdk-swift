@@ -141,7 +141,7 @@ public class LocalParticipant: Participant {
                     self.log("[publish] maxBitrate: \(encoding.maxBitrate)")
 
                     transInit.sendEncodings = [
-                        Room.createRtpEncodingParameters(encoding: encoding),
+                        RTC.createRtpEncodingParameters(encoding: encoding),
                     ]
                 }
 

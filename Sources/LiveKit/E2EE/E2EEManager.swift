@@ -105,7 +105,7 @@ public class E2EEManager: NSObject, ObservableObject, Loggable {
             return
         }
 
-        let frameCryptor = LKRTCFrameCryptor(factory: Room.peerConnectionFactory,
+        let frameCryptor = LKRTCFrameCryptor(factory: RTC.peerConnectionFactory,
                                              rtpSender: sender,
                                              participantId: participantSid,
                                              algorithm: RTCCyrptorAlgorithm.aesGcm,
@@ -131,7 +131,7 @@ public class E2EEManager: NSObject, ObservableObject, Loggable {
             return
         }
 
-        let frameCryptor = LKRTCFrameCryptor(factory: Room.peerConnectionFactory,
+        let frameCryptor = LKRTCFrameCryptor(factory: RTC.peerConnectionFactory,
                                              rtpReceiver: receiver,
                                              participantId: participantSid,
                                              algorithm: RTCCyrptorAlgorithm.aesGcm,

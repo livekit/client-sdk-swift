@@ -44,6 +44,6 @@ extension Livekit_SessionDescription {
         default: fatalError("Unknown state \(type)") // This should never happen
         }
 
-        return Room.createSessionDescription(type: sdpType, sdp: sdp)
+        return RTC.createSessionDescription(type: sdpType, sdp: sdp)
     }
 }

@@ -22,7 +22,7 @@ extension LKRTCRtpTransceiver: Loggable {
     /// Attempts to set preferred video codec.
     func set(preferredVideoCodec codec: VideoCodec, exceptCodec: VideoCodec? = nil) {
         // Get list of supported codecs...
-        let allVideoCodecs = Room.videoSenderCapabilities.codecs
+        let allVideoCodecs = RTC.videoSenderCapabilities.codecs
 
         // Get the RTCRtpCodecCapability of the preferred codec
         let preferredCodecCapability = allVideoCodecs.first { $0.name.lowercased() == codec.id }

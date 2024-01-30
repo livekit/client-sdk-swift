@@ -27,7 +27,7 @@ import Foundation
 
     @available(macOS 12.3, *)
     public class MacOSScreenCapturer: VideoCapturer {
-        private let capturer = Room.createVideoCapturer()
+        private let capturer = RTC.createVideoCapturer()
 
         // TODO: Make it possible to change dynamically
         public let captureSource: MacOSScreenCaptureSource?
@@ -247,7 +247,7 @@ import Foundation
                                                 options: ScreenShareCaptureOptions = ScreenShareCaptureOptions(),
                                                 reportStatistics: Bool = false) -> LocalVideoTrack
         {
-            let videoSource = Room.createVideoSource(forScreenShare: true)
+            let videoSource = RTC.createVideoSource(forScreenShare: true)
             let capturer = MacOSScreenCapturer(delegate: videoSource, captureSource: source, options: options)
             return LocalVideoTrack(name: name,
                                    source: .screenShareVideo,
