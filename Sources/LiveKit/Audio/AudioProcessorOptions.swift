@@ -16,47 +16,21 @@
 
 import Foundation
 
-public enum AudioProcessorType {
-    case CapturePost
-    case RenderPre
-}
-
 @objc
 public class AudioProcessorOptions: NSObject {
+    public var capturePostProcessor: AudioProcessor?
+    public var capturePostBypass: Bool = false
 
-    var process = [AudioProcessorType: AudioProcessor]()
-    var bypass = [AudioProcessorType: Bool]()
+    public var renderPreProcessor: AudioProcessor?
+    public var renderPreBypass: Bool = false
 
-    public func getCapturePostProcessor() -> AudioProcessor? {
-        return process[.CapturePost]
-    }
-
-    public func capturePostProcessorBypass() -> Bool? {
-        return bypass[.CapturePost]
-    }
-
-    public func getRenderPreProcessor() -> AudioProcessor? {
-        return process[.RenderPre]
-    }
-
-    public func renderPreProcessorBypass() -> Bool? {
-        return bypass[.RenderPre]
-    }
-
-    public init(
-        capturePost: AudioProcessor? = nil,
-        bypassCapturePost: Bool? = nil,
-        renderPre: AudioProcessor? = nil,
-        bypassRenderPre: Bool? = nil
-    ) {
-        if let capturePost = capturePost {
-            process[.CapturePost] = capturePost
-            bypass[.CapturePost] = bypassCapturePost ?? false
-        }
-    
-        if let renderPre = renderPre {
-            process[.RenderPre] = renderPre
-            bypass[.RenderPre] = bypassRenderPre ?? false
-        }
+    public init(capturePostProcessor: AudioProcessor? = nil,
+         capturePostBypass: Bool? = false,
+         renderPreProcessor: AudioProcessor? = nil,
+         renderPreBypass: Bool? = false) {
+        self.capturePostProcessor = capturePostProcessor
+        self.capturePostBypass = capturePostBypass ?? false
+        self.renderPreProcessor = renderPreProcessor
+        self.renderPreBypass = renderPreBypass ?? false
     }
 }

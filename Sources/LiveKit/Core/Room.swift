@@ -251,16 +251,16 @@ public class Room: NSObject, ObservableObject, Loggable {
         if roomOptions?.audioProcessorOptions != nil {
             audioProcessorOptions = roomOptions?.audioProcessorOptions
 
-            let capturePostProcessor = audioProcessorOptions?.getCapturePostProcessor()
+            let capturePostProcessor = audioProcessorOptions?.capturePostProcessor
             if capturePostProcessor != nil && capturePostProcessor!.isEnabled(url: url, token: token) {
                 AudioManager.shared.capturePostProcessingDelegate = capturePostProcessor
-                AudioManager.shared.bypassForCapturePostProcessing = audioProcessorOptions?.capturePostProcessorBypass() ?? false
+                AudioManager.shared.bypassForCapturePostProcessing = audioProcessorOptions!.capturePostBypass
             }
 
-            let renderPreProcessor = audioProcessorOptions?.getRenderPreProcessor()
+            let renderPreProcessor = audioProcessorOptions?.renderPreProcessor
             if renderPreProcessor != nil && renderPreProcessor!.isEnabled(url: url, token: token) {
                 AudioManager.shared.renderPreProcessingDelegate = renderPreProcessor
-                AudioManager.shared.bypassForRenderPreProcessing = audioProcessorOptions?.renderPreProcessorBypass() ?? false
+                AudioManager.shared.bypassForRenderPreProcessing = audioProcessorOptions!.renderPreBypass
             }
         }
 
