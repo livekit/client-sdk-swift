@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 LiveKit
+ * Copyright 2024 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,4 +32,42 @@ protocol VideoTrack_Internal where Self: Track {
     func add(rtcVideoRenderer: LKRTCVideoRenderer)
 
     func remove(rtcVideoRenderer: LKRTCVideoRenderer)
+}
+
+extension VideoTrack {
+    // Update a single SubscribedCodec
+    func _set(subscribedCodec: Livekit_SubscribedCodec) throws -> Bool {
+        // ...
+        let videoCodec = try VideoCodec.from(id: subscribedCodec.codec)
+
+        // Check if main sender is sending the codec...
+        if let rtpSender, videoCodec == _videoCodec {
+            rtpSender._set(subscribedQualities: subscribedCodec.qualities)
+            return true
+        }
+
+        // Find simulcast sender for codec...
+        if let rtpSender = _simulcastRtpSenders[videoCodec] {
+            rtpSender._set(subscribedQualities: subscribedCodec.qualities)
+            return true
+        }
+
+        return false
+    }
+
+    // Update an array of SubscribedCodecs
+    func _set(subscribedCodecs: [Livekit_SubscribedCodec]) throws -> [Livekit_SubscribedCodec] {
+        // ...
+        var missingCodecs: [Livekit_SubscribedCodec] = []
+
+        for subscribedCodec in subscribedCodecs {
+            let didUpdate = try _set(subscribedCodec: subscribedCodec)
+            if !didUpdate {
+                log("Sender for codec \(subscribedCodec.codec) not found", .info)
+                missingCodecs.append(subscribedCodec)
+            }
+        }
+
+        return missingCodecs
+    }
 }

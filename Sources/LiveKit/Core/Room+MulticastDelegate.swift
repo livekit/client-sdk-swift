@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 LiveKit
+ * Copyright 2024 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,10 +17,12 @@
 import Foundation
 
 extension Room: MulticastDelegateProtocol {
+    @objc(addDelegate:)
     public func add(delegate: RoomDelegate) {
         delegates.add(delegate: delegate)
     }
 
+    @objc(removeDelegate:)
     public func remove(delegate: RoomDelegate) {
         delegates.remove(delegate: delegate)
     }
@@ -28,19 +30,5 @@ extension Room: MulticastDelegateProtocol {
     @objc
     public func removeAllDelegates() {
         delegates.removeAllDelegates()
-    }
-
-    /// Only for Objective-C.
-    @objc(addDelegate:)
-    @available(swift, obsoleted: 1.0)
-    public func addObjC(delegate: RoomDelegateObjC) {
-        delegates.add(delegate: delegate)
-    }
-
-    /// Only for Objective-C.
-    @objc(removeDelegate:)
-    @available(swift, obsoleted: 1.0)
-    public func removeObjC(delegate: RoomDelegateObjC) {
-        delegates.remove(delegate: delegate)
     }
 }

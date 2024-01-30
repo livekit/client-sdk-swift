@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 LiveKit
+ * Copyright 2024 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,14 +24,19 @@ import Foundation
 public class Room: NSObject, ObservableObject, Loggable {
     // MARK: - MulticastDelegate
 
-    var delegates = MulticastDelegate<RoomDelegateObjC>()
-
-    let queue = DispatchQueue(label: "LiveKitSDK.room", qos: .default)
+    public let delegates = MulticastDelegate<RoomDelegate>()
 
     // MARK: - Public
 
     @objc
+    /// Server assigned id of the Room.
     public var sid: Sid? { _state.sid }
+
+    /// Server assigned id of the Room. *async* version of ``Room/sid``.
+    @objc
+    public func sid() async throws -> Sid {
+        try await _sidCompleter.wait()
+    }
 
     @objc
     public var name: String? { _state.name }
@@ -41,14 +46,18 @@ public class Room: NSObject, ObservableObject, Loggable {
     public var metadata: String? { _state.metadata }
 
     @objc
-    public var serverVersion: String? { _state.serverVersion }
+    public var serverVersion: String? { _state.serverInfo?.version.nilIfEmpty }
 
     /// Region code the client is currently connected to.
     @objc
-    public var serverRegion: String? { _state.serverRegion }
+    public var serverRegion: String? { _state.serverInfo?.region.nilIfEmpty }
+
+    /// Region code the client is currently connected to.
+    @objc
+    public var serverNodeId: String? { _state.serverInfo?.nodeID.nilIfEmpty }
 
     @objc
-    public var remoteParticipants: [Sid: RemoteParticipant] { _state.remoteParticipants }
+    public var remoteParticipants: [Identity: RemoteParticipant] { _state.remoteParticipants }
 
     @objc
     public var activeSpeakers: [Participant] { _state.activeSpeakers }
@@ -74,12 +83,11 @@ public class Room: NSObject, ObservableObject, Loggable {
     public var token: String? { engine._state.token }
 
     /// Current ``ConnectionState`` of the ``Room``.
+    @objc
     public var connectionState: ConnectionState { engine._state.connectionState }
 
-    /// Only for Objective-C.
-    @objc(connectionState)
-    @available(swift, obsoleted: 1.0)
-    public var connectionStateObjC: ConnectionStateObjC { engine._state.connectionState.toObjCType() }
+    @objc
+    public var disconnectError: LiveKitError? { engine._state.disconnectError }
 
     public var connectStopwatch: Stopwatch { engine._state.connectStopwatch }
 
@@ -99,10 +107,8 @@ public class Room: NSObject, ObservableObject, Loggable {
         var sid: String?
         var name: String?
         var metadata: String?
-        var serverVersion: String?
-        var serverRegion: String?
 
-        var remoteParticipants = [Sid: RemoteParticipant]()
+        var remoteParticipants = [Identity: RemoteParticipant]()
         var activeSpeakers = [Participant]()
 
         var isRecording: Bool = false
@@ -111,19 +117,27 @@ public class Room: NSObject, ObservableObject, Loggable {
         var numParticipants: Int = 0
         var numPublishers: Int = 0
 
-        @discardableResult
-        mutating func getOrCreateRemoteParticipant(sid: Sid, info: Livekit_ParticipantInfo? = nil, room: Room) -> RemoteParticipant {
-            if let participant = remoteParticipants[sid] {
-                return participant
-            }
+        var serverInfo: Livekit_ServerInfo?
 
-            let participant = RemoteParticipant(sid: sid, info: info, room: room)
-            remoteParticipants[sid] = participant
+        @discardableResult
+        mutating func updateRemoteParticipant(info: Livekit_ParticipantInfo, room: Room) -> RemoteParticipant {
+            // Check if RemoteParticipant with same identity exists...
+            if let participant = remoteParticipants[info.identity] { return participant }
+            // Create new RemoteParticipant...
+            let participant = RemoteParticipant(info: info, room: room)
+            remoteParticipants[info.identity] = participant
             return participant
+        }
+
+        // Find RemoteParticipant by Sid
+        func remoteParticipant(sid: Sid) -> RemoteParticipant? {
+            remoteParticipants.values.first(where: { $0.sid == sid })
         }
     }
 
     var _state: StateSync<State>
+
+    private let _sidCompleter = AsyncCompleter<Sid>(label: "sid", defaultTimeOut: .sid)
 
     // MARK: Objective-C Support
 
@@ -135,7 +149,7 @@ public class Room: NSObject, ObservableObject, Loggable {
     }
 
     @objc
-    public init(delegate: RoomDelegateObjC? = nil,
+    public init(delegate: RoomDelegate? = nil,
                 connectOptions: ConnectOptions? = nil,
                 roomOptions: RoomOptions? = nil)
     {
@@ -149,8 +163,7 @@ public class Room: NSObject, ObservableObject, Loggable {
         engine._room = self
 
         // listen to engine & signalClient
-        engine.add(delegate: self)
-        engine.signalClient.add(delegate: self)
+        engine._delegate.set(delegate: self)
 
         if let delegate {
             log("delegate: \(String(describing: delegate))")
@@ -165,6 +178,12 @@ public class Room: NSObject, ObservableObject, Loggable {
 
             guard let self else { return }
 
+            // sid updated
+            if let sid = newState.sid, sid != oldState.sid {
+                // Resolve sid
+                self._sidCompleter.resume(returning: sid)
+            }
+
             // metadata updated
             if let metadata = newState.metadata, metadata != oldState.metadata,
                // don't notify if empty string (first time only)
@@ -176,7 +195,7 @@ public class Room: NSObject, ObservableObject, Loggable {
                     guard let self else { return }
 
                     self.delegates.notify(label: { "room.didUpdate metadata: \(metadata)" }) {
-                        $0.room?(self, didUpdate: metadata)
+                        $0.room?(self, didUpdateMetadata: metadata)
                     }
                 }
             }
@@ -189,7 +208,7 @@ public class Room: NSObject, ObservableObject, Loggable {
                     guard let self else { return }
 
                     self.delegates.notify(label: { "room.didUpdate isRecording: \(newState.isRecording)" }) {
-                        $0.room?(self, didUpdate: newState.isRecording)
+                        $0.room?(self, didUpdateIsRecording: newState.isRecording)
                     }
                 }
             }
@@ -203,10 +222,6 @@ public class Room: NSObject, ObservableObject, Loggable {
 
     deinit {
         log()
-        // cleanup for E2EE
-        if self.e2eeManager != nil {
-            self.e2eeManager?.cleanUp()
-        }
     }
 
     @objc
@@ -246,7 +261,7 @@ public class Room: NSObject, ObservableObject, Loggable {
             log("Failed to send leave with error: \(error)")
         }
 
-        await cleanUp(reason: .user)
+        await cleanUp()
     }
 }
 
@@ -254,15 +269,15 @@ public class Room: NSObject, ObservableObject, Loggable {
 
 extension Room {
     // Resets state of Room
-    func cleanUp(reason: DisconnectReason? = nil,
+    func cleanUp(withError disconnectError: Error? = nil,
                  isFullReconnect: Bool = false) async
     {
-        log("Reason: \(String(describing: reason))")
+        log("withError: \(String(describing: disconnectError))")
 
         // Start Engine cleanUp sequence
 
-        engine.primaryTransportConnectedCompleter.cancel()
-        engine.publisherTransportConnectedCompleter.cancel()
+        engine.primaryTransportConnectedCompleter.reset()
+        engine.publisherTransportConnectedCompleter.reset()
 
         engine._state.mutate {
             // if isFullReconnect, keep connection related states
@@ -275,15 +290,25 @@ extension Room {
                 connectionState: $0.connectionState
             ) : Engine.State(
                 connectOptions: $0.connectOptions,
-                connectionState: .disconnected(reason: reason)
+                connectionState: .disconnected,
+                disconnectError: LiveKitError.from(error: disconnectError)
             )
         }
 
-        await engine.signalClient.cleanUp(reason: reason)
+        await engine.signalClient.cleanUp(withError: disconnectError)
         await engine.cleanUpRTC()
         await cleanUpParticipants()
+
+        // Cleanup for E2EE
+        if let e2eeManager {
+            e2eeManager.cleanUp()
+        }
+
         // Reset state
         _state.mutate { $0 = State(options: $0.options) }
+
+        // Reset completers
+        _sidCompleter.reset()
     }
 }
 
@@ -294,13 +319,17 @@ extension Room {
         log("notify: \(_notify)")
 
         // Stop all local & remote tracks
-        let allParticipants = ([[localParticipant],
-                                _state.remoteParticipants.map(\.value)] as [[Participant?]])
+        let allParticipants = ([[localParticipant], Array(_state.remoteParticipants.values)] as [[Participant?]])
             .joined()
             .compactMap { $0 }
 
-        for participant in allParticipants {
-            await participant.cleanUp(notify: _notify)
+        // Clean up Participants concurrently
+        await withTaskGroup(of: Void.self) { group in
+            for participant in allParticipants {
+                group.addTask {
+                    await participant.cleanUp(notify: _notify)
+                }
+            }
         }
 
         _state.mutate {
@@ -308,9 +337,9 @@ extension Room {
         }
     }
 
-    func onParticipantDisconnect(sid: Sid) async throws {
-        guard let participant = _state.mutate({ $0.remoteParticipants.removeValue(forKey: sid) }) else {
-            throw EngineError.state(message: "Participant not found for \(sid)")
+    func _onParticipantDidDisconnect(identity: Identity) async throws {
+        guard let participant = _state.mutate({ $0.remoteParticipants.removeValue(forKey: identity) }) else {
+            throw LiveKitError(.invalidState, message: "Participant not found for \(identity)")
         }
 
         await participant.cleanUp(notify: true)
@@ -320,8 +349,12 @@ extension Room {
 // MARK: - Debugging
 
 public extension Room {
-    func sendSimulate(scenario: SimulateScenario) async throws {
+    func debug_sendSimulate(scenario: SimulateScenario) async throws {
         try await engine.signalClient.sendSimulate(scenario: scenario)
+    }
+
+    func debug_triggerReconnect(reason: StartReconnectReason) async throws {
+        try await engine.startReconnect(reason: reason)
     }
 }
 
@@ -333,7 +366,7 @@ extension Room {
 
         // create an array of RemoteTrackPublication
         let remoteTrackPublications = _state.remoteParticipants.values.map {
-            $0._state.tracks.values.compactMap { $0 as? RemoteTrackPublication }
+            $0._state.trackPublications.values.compactMap { $0 as? RemoteTrackPublication }
         }.joined()
 
         // reset track settings for all RemoteTrackPublication
@@ -353,12 +386,12 @@ extension Room: AppStateDelegate {
 
         guard !cameraVideoTracks.isEmpty else { return }
 
-        Task {
+        Task.detached {
             for cameraVideoTrack in cameraVideoTracks {
                 do {
                     try await cameraVideoTrack.suspend()
                 } catch {
-                    log("Failed to suspend video track with error: \(error)")
+                    self.log("Failed to suspend video track with error: \(error)")
                 }
             }
         }
@@ -369,12 +402,12 @@ extension Room: AppStateDelegate {
 
         guard !cameraVideoTracks.isEmpty else { return }
 
-        Task {
+        Task.detached {
             for cameraVideoTrack in cameraVideoTracks {
                 do {
                     try await cameraVideoTrack.resume()
                 } catch {
-                    log("Failed to resumed video track with error: \(error)")
+                    self.log("Failed to resumed video track with error: \(error)")
                 }
             }
         }
@@ -383,8 +416,8 @@ extension Room: AppStateDelegate {
     func appWillTerminate() {
         // attempt to disconnect if already connected.
         // this is not guranteed since there is no reliable way to detect app termination.
-        Task {
-            await disconnect()
+        Task.detached {
+            await self.disconnect()
         }
     }
 }

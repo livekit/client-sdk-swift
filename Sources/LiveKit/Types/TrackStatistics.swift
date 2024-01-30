@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 LiveKit
+ * Copyright 2024 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -104,7 +104,7 @@ public extension TrackStatistics {
 extension OutboundRtpStreamStatistics {
     /// Index of the rid.
     var ridIndex: Int {
-        guard let rid, let idx = VideoQuality.rids.firstIndex(of: rid) else {
+        guard let rid, let idx = VideoQuality.RIDs.firstIndex(of: rid) else {
             return -1
         }
         return idx

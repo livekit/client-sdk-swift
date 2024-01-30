@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 LiveKit
+ * Copyright 2024 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,19 +19,7 @@ import Foundation
 @_implementationOnly import WebRTC
 
 public typealias Sid = String
-
-@objc
-public enum Reliability: Int {
-    case reliable
-    case lossy
-}
-
-extension Reliability {
-    func toPBType() -> Livekit_DataPacket.Kind {
-        if self == .lossy { return .lossy }
-        return .reliable
-    }
-}
+public typealias Identity = String
 
 public enum SimulateScenario {
     case nodeFailure

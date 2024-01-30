@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 LiveKit
+ * Copyright 2024 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,19 +21,29 @@ public class DataPublishOptions: NSObject, PublishOptions {
     @objc
     public let name: String?
 
+    /// The identities of participants who will receive the message, will be sent to every one if empty.
     @objc
-    public let destinations: [Sid]
+    public let destinationIdentities: [Identity]
 
+    /// The topic under which the message gets published.
     @objc
     public let topic: String?
 
+    /// Whether to send this as reliable or lossy.
+    /// For data that you need delivery guarantee (such as chat messages) set to true (reliable).
+    /// For data that should arrive as quickly as possible, but you are ok with dropped packets, set to false (lossy).
+    @objc
+    public let reliable: Bool
+
     public init(name: String? = nil,
-                destinations: [String] = [],
-                topic: String? = nil)
+                destinationIdentities: [Identity] = [],
+                topic: String? = nil,
+                reliable: Bool = false)
     {
         self.name = name
-        self.destinations = destinations
+        self.destinationIdentities = destinationIdentities
         self.topic = topic
+        self.reliable = reliable
     }
 
     // MARK: - Equal
@@ -41,15 +51,17 @@ public class DataPublishOptions: NSObject, PublishOptions {
     override public func isEqual(_ object: Any?) -> Bool {
         guard let other = object as? Self else { return false }
         return name == other.name &&
-            destinations == other.destinations &&
-            topic == other.topic
+            destinationIdentities == other.destinationIdentities &&
+            topic == other.topic &&
+            reliable == other.reliable
     }
 
     override public var hash: Int {
         var hasher = Hasher()
         hasher.combine(name)
-        hasher.combine(destinations)
+        hasher.combine(destinationIdentities)
         hasher.combine(topic)
+        hasher.combine(reliable)
         return hasher.finalize()
     }
 }

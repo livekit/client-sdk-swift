@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 LiveKit
+ * Copyright 2024 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,7 +25,7 @@ class AsyncRetryTests: XCTestCase {
     func testRetry1() async throws {
         let test = Task.retrying(maxRetryCount: 1) { totalAttempts, currentAttempt in
             print("[TEST] Retrying with remaining attemps: \(currentAttempt)/\(totalAttempts)...")
-            throw EngineError.state(message: "Test error")
+            throw LiveKitError(.invalidState, message: "Test error")
             return "Complete"
         }
 

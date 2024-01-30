@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 LiveKit
+ * Copyright 2024 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -96,8 +96,8 @@ public class CameraCapturer: VideoCapturer {
     public func switchCameraPosition() async throws -> Bool {
         // Cannot toggle if current position is unknown
         guard position != .unspecified else {
-            log("Failed to toggle camera position", .warning)
-            throw TrackError.state(message: "Camera position unknown")
+            log("Failed to toggle camera position", .error)
+            throw LiveKitError(.invalidState, message: "Failed to toggle camera position")
         }
 
         return try await set(cameraPosition: position == .front ? .back : .front)
@@ -130,7 +130,7 @@ public class CameraCapturer: VideoCapturer {
 
         guard let device = devices.first(where: { $0.position == self.options.position }) ?? devices.first else {
             log("No camera video capture devices available", .error)
-            throw TrackError.capturer(message: "No camera video capture devices available")
+            throw LiveKitError(.deviceNotFound, message: "No camera video capture devices available")
         }
 
         // list of all formats in order of dimensions size
@@ -161,16 +161,16 @@ public class CameraCapturer: VideoCapturer {
 
         // format should be resolved at this point
         guard let selectedFormat else {
-            log("Unable to resolve format", .error)
-            throw TrackError.capturer(message: "Unable to determine format for camera capturer")
+            log("Unable to resolve capture format", .error)
+            throw LiveKitError(.captureFormatNotFound, message: "Unable to resolve capture format")
         }
 
         let fpsRange = selectedFormat.format.fpsRange()
 
         // this should never happen
         guard fpsRange != 0 ... 0 else {
-            log("unable to resolve fps range", .error)
-            throw TrackError.capturer(message: "Unable to determine supported fps range for format: \(selectedFormat)")
+            log("Unable to determine supported fps range for format: \(selectedFormat)", .error)
+            throw LiveKitError(.unableToResolveFPSRange, message: "Unable to determine supported fps range for format: \(selectedFormat)")
         }
 
         // default to fps in options
@@ -243,16 +243,16 @@ public extension LocalVideoTrack {
 
     @objc
     static func createCameraTrack(name: String? = nil,
-                                  options: CameraCaptureOptions? = nil) -> LocalVideoTrack
+                                  options: CameraCaptureOptions? = nil,
+                                  reportStatistics: Bool = false) -> LocalVideoTrack
     {
         let videoSource = Engine.createVideoSource(forScreenShare: false)
         let capturer = CameraCapturer(delegate: videoSource, options: options ?? CameraCaptureOptions())
-        return LocalVideoTrack(
-            name: name ?? Track.cameraName,
-            source: .camera,
-            capturer: capturer,
-            videoSource: videoSource
-        )
+        return LocalVideoTrack(name: name ?? Track.cameraName,
+                               source: .camera,
+                               capturer: capturer,
+                               videoSource: videoSource,
+                               reportStatistics: reportStatistics)
     }
 }
 

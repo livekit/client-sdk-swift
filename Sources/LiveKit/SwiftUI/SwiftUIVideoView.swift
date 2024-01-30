@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 LiveKit
+ * Copyright 2024 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,7 +27,7 @@ class TrackDelegateReceiver: TrackDelegate, Loggable {
         _statistics = statistics
     }
 
-    func track(_: VideoTrack, didUpdate dimensions: Dimensions?) {
+    func track(_: VideoTrack, didUpdateDimensions dimensions: Dimensions?) {
         Task.detached { @MainActor in
             self.dimensions = dimensions
         }
@@ -118,7 +118,7 @@ public struct SwiftUIVideoView: NativeViewRepresentable {
         videoView.layoutMode = layoutMode
         videoView.mirrorMode = mirrorMode
         videoView.renderMode = renderMode
-        videoView.debugMode = debugMode
+        videoView.isDebugMode = debugMode
 
         // update
         Task.detached { @MainActor in

@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 LiveKit
+ * Copyright 2024 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -42,19 +42,19 @@ public extension Participant {
     }
 
     var firstCameraVideoTrack: VideoTrack? {
-        guard let pub = firstCameraPublication, !pub.muted, pub.subscribed,
+        guard let pub = firstCameraPublication, !pub.isMuted, pub.isSubscribed,
               let track = pub.track else { return nil }
         return track as? VideoTrack
     }
 
     var firstScreenShareVideoTrack: VideoTrack? {
-        guard let pub = firstScreenSharePublication, !pub.muted, pub.subscribed,
+        guard let pub = firstScreenSharePublication, !pub.isMuted, pub.isSubscribed,
               let track = pub.track else { return nil }
         return track as? VideoTrack
     }
 
     var firstAudioTrack: AudioTrack? {
-        guard let pub = firstAudioPublication, !pub.muted,
+        guard let pub = firstAudioPublication, !pub.isMuted,
               let track = pub.track else { return nil }
         return track as? AudioTrack
     }

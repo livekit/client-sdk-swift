@@ -16,9 +16,11 @@ let package = Package(
         ),
     ],
     dependencies: [
-        .package(name: "WebRTC", url: "https://github.com/livekit/webrtc-xcframework-static.git", .exact("114.5735.09")),
-        .package(name: "SwiftProtobuf", url: "https://github.com/apple/swift-protobuf.git", .upToNextMajor(from: "1.21.0")),
-        .package(url: "https://github.com/apple/swift-log.git", .upToNextMajor(from: "1.5.2")),
+        // LK-Prefixed Dynamic WebRTC XCFramework
+        .package(name: "WebRTC", url: "https://github.com/livekit/webrtc-xcframework.git", .exact("114.5735.10")),
+        .package(name: "SwiftProtobuf", url: "https://github.com/apple/swift-protobuf.git", .upToNextMajor(from: "1.25.2")),
+        .package(url: "https://github.com/apple/swift-log.git", .upToNextMajor(from: "1.5.3")),
+        .package(url: "https://github.com/apple/swift-docc-plugin", from: "1.3.0"),
     ],
     targets: [
         .systemLibrary(name: "CHeaders"),

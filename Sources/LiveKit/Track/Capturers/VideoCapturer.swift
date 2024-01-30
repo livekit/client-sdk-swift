@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 LiveKit
+ * Copyright 2024 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -41,9 +41,7 @@ public protocol VideoCapturerDelegate: AnyObject {
 public class VideoCapturer: NSObject, Loggable, VideoCapturerProtocol {
     // MARK: - MulticastDelegate
 
-    var delegates = MulticastDelegate<VideoCapturerDelegate>()
-
-    let queue = DispatchQueue(label: "LiveKitSDK.videoCapturer", qos: .default)
+    public let delegates = MulticastDelegate<VideoCapturerDelegate>()
 
     /// Array of supported pixel formats that can be used to capture a frame.
     ///
@@ -67,7 +65,7 @@ public class VideoCapturer: NSObject, Loggable, VideoCapturerProtocol {
 
     weak var delegate: LKRTCVideoCapturerDelegate?
 
-    let dimensionsCompleter = AsyncCompleter<Dimensions?>(label: "Dimensions", timeOut: .defaultCaptureStart)
+    let dimensionsCompleter = AsyncCompleter<Dimensions>(label: "Dimensions", defaultTimeOut: .defaultCaptureStart)
 
     struct State: Equatable {
         // Counts calls to start/stopCapturer so multiple Tracks can use the same VideoCapturer.
@@ -82,8 +80,12 @@ public class VideoCapturer: NSObject, Loggable, VideoCapturerProtocol {
             log("[publish] \(String(describing: oldValue)) -> \(String(describing: dimensions))")
             delegates.notify { $0.capturer?(self, didUpdate: self.dimensions) }
 
-            log("[publish] dimensions: \(String(describing: dimensions))")
-            dimensionsCompleter.resume(returning: dimensions)
+            if let dimensions {
+                log("[publish] dimensions: \(String(describing: dimensions))")
+                dimensionsCompleter.resume(returning: dimensions)
+            } else {
+                dimensionsCompleter.reset()
+            }
         }
     }
 
@@ -158,7 +160,7 @@ public class VideoCapturer: NSObject, Loggable, VideoCapturerProtocol {
             $0.capturer?(self, didUpdate: .stopped)
         }
 
-        dimensionsCompleter.cancel()
+        dimensionsCompleter.reset()
 
         return true
     }

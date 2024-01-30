@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 LiveKit
+ * Copyright 2024 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,19 +22,17 @@ import Foundation
 public class Participant: NSObject, ObservableObject, Loggable {
     // MARK: - MulticastDelegate
 
-    var delegates = MulticastDelegate<ParticipantDelegate>()
-
-    let queue = DispatchQueue(label: "LiveKitSDK.participant", qos: .default)
+    public let delegates = MulticastDelegate<ParticipantDelegate>()
 
     /// This will be an empty String for LocalParticipants until connected.
     @objc
     public var sid: Sid { _state.sid }
 
     @objc
-    public var identity: String? { _state.identity }
+    public var identity: String { _state.identity }
 
     @objc
-    public var name: String? { _state.name }
+    public var name: String { _state.name }
 
     @objc
     public var audioLevel: Float { _state.audioLevel }
@@ -55,56 +53,56 @@ public class Participant: NSObject, ObservableObject, Loggable {
     public var joinedAt: Date? { _state.joinedAt }
 
     @objc
-    public var tracks: [String: TrackPublication] { _state.tracks }
+    public var trackPublications: [Sid: TrackPublication] { _state.trackPublications }
 
     @objc
     public var audioTracks: [TrackPublication] {
-        _state.tracks.values.filter { $0.kind == .audio }
+        _state.trackPublications.values.filter { $0.kind == .audio }
     }
 
     @objc
     public var videoTracks: [TrackPublication] {
-        _state.tracks.values.filter { $0.kind == .video }
+        _state.trackPublications.values.filter { $0.kind == .video }
     }
 
     var info: Livekit_ParticipantInfo?
 
     // Reference to the Room this Participant belongs to
-    public let room: Room
+    weak var _room: Room?
 
     // MARK: - Internal
 
     struct State: Equatable, Hashable {
         var sid: Sid
-        var identity: String?
-        var name: String?
+        var identity: String
+        var name: String
         var audioLevel: Float = 0.0
         var isSpeaking: Bool = false
         var metadata: String?
         var joinedAt: Date?
         var connectionQuality: ConnectionQuality = .unknown
         var permissions = ParticipantPermissions()
-        var tracks = [String: TrackPublication]()
+        var trackPublications = [Sid: TrackPublication]()
     }
 
     var _state: StateSync<State>
 
-    init(sid: String, room: Room) {
-        self.room = room
+    init(sid: Sid, identity: Identity, room: Room) {
+        _room = room
 
         // initial state
-        _state = StateSync(State(sid: sid))
+        _state = StateSync(State(sid: sid, identity: identity, name: ""))
 
         super.init()
 
         // trigger events when state mutates
         _state.onDidMutate = { [weak self] newState, oldState in
 
-            guard let self else { return }
+            guard let self, let room = self._room else { return }
 
             if newState.isSpeaking != oldState.isSpeaking {
                 self.delegates.notify(label: { "participant.didUpdate isSpeaking: \(self.isSpeaking)" }) {
-                    $0.participant?(self, didUpdate: self.isSpeaking)
+                    $0.participant?(self, didUpdateIsSpeaking: self.isSpeaking)
                 }
             }
 
@@ -114,10 +112,10 @@ public class Participant: NSObject, ObservableObject, Loggable {
                oldState.metadata == nil ? !metadata.isEmpty : true
             {
                 self.delegates.notify(label: { "participant.didUpdate metadata: \(metadata)" }) {
-                    $0.participant?(self, didUpdate: metadata)
+                    $0.participant?(self, didUpdateMetadata: metadata)
                 }
-                self.room.delegates.notify(label: { "room.didUpdate metadata: \(metadata)" }) {
-                    $0.room?(self.room, participant: self, didUpdate: metadata)
+                room.delegates.notify(label: { "room.didUpdate metadata: \(metadata)" }) {
+                    $0.room?(room, participant: self, didUpdateMetadata: metadata)
                 }
             }
 
@@ -128,17 +126,17 @@ public class Participant: NSObject, ObservableObject, Loggable {
                     $0.participant?(self, didUpdateName: newState.name)
                 }
                 // notify room delegates
-                self.room.delegates.notify(label: { "room.didUpdateName: \(String(describing: newState.name))" }) {
-                    $0.room?(self.room, participant: self, didUpdateName: newState.name)
+                room.delegates.notify(label: { "room.didUpdateName: \(String(describing: newState.name))" }) {
+                    $0.room?(room, participant: self, didUpdateName: newState.name)
                 }
             }
 
             if newState.connectionQuality != oldState.connectionQuality {
                 self.delegates.notify(label: { "participant.didUpdate connectionQuality: \(self.connectionQuality)" }) {
-                    $0.participant?(self, didUpdate: self.connectionQuality)
+                    $0.participant?(self, didUpdateConnectionQuality: self.connectionQuality)
                 }
-                self.room.delegates.notify(label: { "room.didUpdate connectionQuality: \(self.connectionQuality)" }) {
-                    $0.room?(self.room, participant: self, didUpdate: self.connectionQuality)
+                room.delegates.notify(label: { "room.didUpdate connectionQuality: \(self.connectionQuality)" }) {
+                    $0.room?(room, participant: self, didUpdateConnectionQuality: self.connectionQuality)
                 }
             }
 
@@ -146,8 +144,10 @@ public class Participant: NSObject, ObservableObject, Loggable {
             Task.detached { @MainActor in
                 // Notify Participant
                 self.objectWillChange.send()
-                // Notify Room
-                self.room.objectWillChange.send()
+                if let room = self._room {
+                    // Notify Room
+                    room.objectWillChange.send()
+                }
             }
         }
     }
@@ -155,7 +155,12 @@ public class Participant: NSObject, ObservableObject, Loggable {
     func cleanUp(notify _notify: Bool = true) async {
         await unpublishAll(notify: _notify)
         // Reset state
-        _state.mutate { $0 = State(sid: "") }
+        if let self = self as? RemoteParticipant, let room = self._room {
+            room.delegates.notify(label: { "room.participantDidDisconnect:" }) {
+                $0.room?(room, participantDidDisconnect: self)
+            }
+        }
+        _state.mutate { $0 = State(sid: "", identity: "", name: "") }
     }
 
     func unpublishAll(notify _: Bool = true) async {
@@ -163,7 +168,7 @@ public class Participant: NSObject, ObservableObject, Loggable {
     }
 
     func add(publication: TrackPublication) {
-        _state.mutate { $0.tracks[publication.sid] = publication }
+        _state.mutate { $0.trackPublications[publication.sid] = publication }
         publication.track?._state.mutate { $0.sid = publication.sid }
     }
 
@@ -197,19 +202,19 @@ public class Participant: NSObject, ObservableObject, Loggable {
 
 public extension Participant {
     func isCameraEnabled() -> Bool {
-        !(getTrackPublication(source: .camera)?.muted ?? true)
+        !(getTrackPublication(source: .camera)?.isMuted ?? true)
     }
 
     func isMicrophoneEnabled() -> Bool {
-        !(getTrackPublication(source: .microphone)?.muted ?? true)
+        !(getTrackPublication(source: .microphone)?.isMuted ?? true)
     }
 
     func isScreenShareEnabled() -> Bool {
-        !(getTrackPublication(source: .screenShareVideo)?.muted ?? true)
+        !(getTrackPublication(source: .screenShareVideo)?.isMuted ?? true)
     }
 
     internal func getTrackPublication(name: String) -> TrackPublication? {
-        _state.tracks.values.first(where: { $0.name == name })
+        _state.trackPublications.values.first(where: { $0.name == name })
     }
 
     /// find the first publication matching `source` or any compatible.
@@ -217,11 +222,11 @@ public extension Participant {
         // if source is unknown return nil
         guard source != .unknown else { return nil }
         // try to find a Publication with matching source
-        if let result = _state.tracks.values.first(where: { $0.source == source }) {
+        if let result = _state.trackPublications.values.first(where: { $0.source == source }) {
             return result
         }
         // try to find a compatible Publication
-        if let result = _state.tracks.values.filter({ $0.source == .unknown }).first(where: {
+        if let result = _state.trackPublications.values.filter({ $0.source == .unknown }).first(where: {
             (source == .microphone && $0.kind == .audio) ||
                 (source == .camera && $0.kind == .video && $0.name != Track.screenShareVideoName) ||
                 (source == .screenShareVideo && $0.kind == .video && $0.name == Track.screenShareVideoName) ||
@@ -231,5 +236,14 @@ public extension Participant {
         }
 
         return nil
+    }
+}
+
+// MARK: - Private helpers
+
+extension Participant {
+    func requireRoom() throws -> Room {
+        guard let room = _room else { throw LiveKitError(.invalidState, message: "Room is nil") }
+        return room
     }
 }

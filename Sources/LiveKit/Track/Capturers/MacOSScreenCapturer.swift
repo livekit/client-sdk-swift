@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 LiveKit
+ * Copyright 2024 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -56,7 +56,8 @@ import Foundation
             guard didStart else { return false }
 
             guard let captureSource else {
-                throw TrackError.capturer(message: "captureSource is nil")
+                log("captureSource is nil", .error)
+                throw LiveKitError(.invalidState, message: "captureSource is nil")
             }
 
             let filter: SCContentFilter
@@ -68,12 +69,14 @@ import Foundation
                       let content = displaySource.scContent as? SCShareableContent,
                       let nativeDisplay = displaySource.nativeType as? SCDisplay
             {
-                let excludedApps = content.applications.filter { app in
+                let excludedApps = !options.includeCurrentApplication ? content.applications.filter { app in
                     Bundle.main.bundleIdentifier == app.bundleIdentifier
-                }
+                } : []
+
                 filter = SCContentFilter(display: nativeDisplay, excludingApplications: excludedApps, exceptingWindows: [])
             } else {
-                throw TrackError.capturer(message: "Unable to resolve SCContentFilter")
+                log("Unable to resolve SCContentFilter", .error)
+                throw LiveKitError(.invalidState, message: "Unable to resolve SCContentFilter")
             }
 
             let configuration = SCStreamConfiguration()
@@ -106,7 +109,7 @@ import Foundation
             guard didStop else { return false }
 
             guard let stream = _scStream else {
-                throw TrackError.capturer(message: "SCStream is nil")
+                throw LiveKitError(.invalidState, message: "SCStream is nil")
             }
 
             // Stop resending paused frames
@@ -120,8 +123,9 @@ import Foundation
             return true
         }
 
-        // common capture func
-        private func capture(_ sampleBuffer: CMSampleBuffer, cropRect: CGRect? = nil) {
+        // Common capture func
+        private func capture(_ sampleBuffer: CMSampleBuffer, contentRect: CGRect, scaleFactor: CGFloat = 1.0) {
+            // Exit if delegate is nil
             guard let delegate else { return }
 
             // Get the pixel buffer that contains the image data.
@@ -130,16 +134,8 @@ import Foundation
             let timeStamp = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
             let timeStampNs = Int64(CMTimeGetSeconds(timeStamp) * Double(NSEC_PER_SEC))
 
-            let sourceDimensions: Dimensions
-            if let cropRect {
-                // use dimensions from provided rect
-                sourceDimensions = Dimensions(width: Int32((cropRect.width * 2).rounded(.down)),
-                                              height: Int32((cropRect.height * 2).rounded(.down)))
-            } else {
-                // use pixel buffer dimensions
-                sourceDimensions = Dimensions(width: Int32(CVPixelBufferGetWidth(pixelBuffer)),
-                                              height: Int32(CVPixelBufferGetHeight(pixelBuffer)))
-            }
+            let sourceDimensions = Dimensions(width: Int32((contentRect.width * scaleFactor).rounded(.down)),
+                                              height: Int32((contentRect.height * scaleFactor).rounded(.down)))
 
             let targetDimensions = sourceDimensions
                 .aspectFit(size: options.dimensions.max)
@@ -153,8 +149,8 @@ import Foundation
                                                adaptedHeight: targetDimensions.height,
                                                cropWidth: sourceDimensions.width,
                                                cropHeight: sourceDimensions.height,
-                                               cropX: Int32(cropRect?.origin.x ?? 0),
-                                               cropY: Int32(cropRect?.origin.y ?? 0))
+                                               cropX: Int32(contentRect.origin.x * scaleFactor),
+                                               cropY: Int32(contentRect.origin.y * scaleFactor))
 
             let rtcFrame = LKRTCVideoFrame(buffer: rtcBuffer,
                                            rotation: ._0,
@@ -197,52 +193,37 @@ import Foundation
 
     @available(macOS 12.3, *)
     extension MacOSScreenCapturer: SCStreamOutput {
-        public func stream(_: SCStream, didOutputSampleBuffer sampleBuffer: CMSampleBuffer, of _: SCStreamOutputType) {
+        public func stream(_: SCStream, didOutputSampleBuffer sampleBuffer: CMSampleBuffer,
+
+                           of outputType: SCStreamOutputType)
+        {
             guard case .started = captureState else {
                 log("Skipping capture since captureState is not .started")
                 return
             }
 
+            // Return early if the sample buffer is invalid.
+            guard sampleBuffer.isValid else { return }
+
+            guard case .screen = outputType else { return }
+
+            // Retrieve the array of metadata attachments from the sample buffer.
             guard let attachmentsArray = CMSampleBufferGetSampleAttachmentsArray(sampleBuffer,
                                                                                  createIfNecessary: false) as? [[SCStreamFrameInfo: Any]],
                 let attachments = attachmentsArray.first else { return }
 
             // Validate the status of the frame. If it isn't `.complete`, return nil.
             guard let statusRawValue = attachments[SCStreamFrameInfo.status] as? Int,
-                  let status = SCFrameStatus(rawValue: statusRawValue)
-            else {
-                return
-            }
-
-            /// @constant SCFrameStatusComplete new frame was generated.
-            /// @constant SCFrameStatusIdle new frame was not generated because the display did not change.
-            /// @constant SCFrameStatusBlank new frame was not generated because the display has gone blank.
-            /// @constant SCFrameStatusSuspended new frame was not generated because updates haves been suspended
-            /// @constant SCFrameStatusStarted new frame that is indicated as the first frame sent after the stream has started.
-            /// @constant SCFrameStatusStopped the stream was stopped.
-            guard status == .complete else {
-                return
-            }
-
-            // Get the pixel buffer that contains the image data.
-            // guard let pixelBuffer = sampleBuffer.imageBuffer else { return }
-
-            // Get the backing IOSurface.
-            // guard let surfaceRef = CVPixelBufferGetIOSurface(pixelBuffer)?.takeUnretainedValue() else { return }
-            // let surface = unsafeBitCast(surfaceRef, to: IOSurface.self)
+                  let status = SCFrameStatus(rawValue: statusRawValue),
+                  status == .complete else { return }
 
             // Retrieve the content rectangle, scale, and scale factor.
+            guard let contentRectDict = attachments[.contentRect],
+                  let contentRect = CGRect(dictionaryRepresentation: contentRectDict as! CFDictionary),
+                  // let contentScale = attachments[.contentScale] as? CGFloat,
+                  let scaleFactor = attachments[.scaleFactor] as? CGFloat else { return }
 
-            // let contentScale = attachments[.contentScale] as? CGFloat,
-            // let scaleFactor = attachments[.scaleFactor] as? CGFloat
-
-            guard let dict = attachments[.contentRect] as? NSDictionary,
-                  let contentRect = CGRect(dictionaryRepresentation: dict)
-            else {
-                return
-            }
-
-            capture(sampleBuffer, cropRect: contentRect)
+            capture(sampleBuffer, contentRect: contentRect, scaleFactor: scaleFactor)
 
             _resendTimer?.cancel()
             _resendTimer = Task.detached(priority: .utility) { [weak self] in
@@ -263,16 +244,16 @@ import Foundation
         @objc
         static func createMacOSScreenShareTrack(name: String = Track.screenShareVideoName,
                                                 source: MacOSScreenCaptureSource,
-                                                options: ScreenShareCaptureOptions = ScreenShareCaptureOptions()) -> LocalVideoTrack
+                                                options: ScreenShareCaptureOptions = ScreenShareCaptureOptions(),
+                                                reportStatistics: Bool = false) -> LocalVideoTrack
         {
             let videoSource = Engine.createVideoSource(forScreenShare: true)
             let capturer = MacOSScreenCapturer(delegate: videoSource, captureSource: source, options: options)
-            return LocalVideoTrack(
-                name: name,
-                source: .screenShareVideo,
-                capturer: capturer,
-                videoSource: videoSource
-            )
+            return LocalVideoTrack(name: name,
+                                   source: .screenShareVideo,
+                                   capturer: capturer,
+                                   videoSource: videoSource,
+                                   reportStatistics: reportStatistics)
         }
     }
 
@@ -419,7 +400,7 @@ import Foundation
             let displaySources = try await sources(for: .display)
 
             guard let source = displaySources.compactMap({ $0 as? MacOSDisplay }).first(where: { $0.displayID == CGMainDisplayID() }) else {
-                throw TrackError.capturer(message: "Main display source not found")
+                throw LiveKitError(.invalidState, message: "Main display source not found")
             }
 
             return source

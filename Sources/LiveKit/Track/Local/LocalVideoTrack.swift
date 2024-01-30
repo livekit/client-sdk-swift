@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 LiveKit
+ * Copyright 2024 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,7 +28,8 @@ public class LocalVideoTrack: Track, LocalTrack, VideoTrack {
     init(name: String,
          source: Track.Source,
          capturer: VideoCapturer,
-         videoSource: LKRTCVideoSource)
+         videoSource: LKRTCVideoSource,
+         reportStatistics: Bool)
     {
         let rtcTrack = Engine.createVideoTrack(source: videoSource)
         rtcTrack.isEnabled = true
@@ -39,7 +40,8 @@ public class LocalVideoTrack: Track, LocalTrack, VideoTrack {
         super.init(name: name,
                    kind: .video,
                    source: source,
-                   track: rtcTrack)
+                   track: rtcTrack,
+                   reportStatistics: reportStatistics)
     }
 
     public func mute() async throws {
@@ -72,8 +74,7 @@ public extension LocalVideoTrack {
 }
 
 public extension LocalVideoTrack {
-    var publishOptions: PublishOptions? { super._publishOptions }
-
+    var publishOptions: TrackPublishOptions? { super._publishOptions }
     var publishState: Track.PublishState { super._publishState }
 }
 
@@ -83,6 +84,7 @@ public extension LocalVideoTrack {
         LocalVideoTrack(name: name,
                         source: source,
                         capturer: capturer,
-                        videoSource: videoSource)
+                        videoSource: videoSource,
+                        reportStatistics: _state.reportStatistics)
     }
 }

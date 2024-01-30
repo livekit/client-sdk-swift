@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 LiveKit
+ * Copyright 2024 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -81,12 +81,9 @@ public class MulticastDelegate<T>: NSObject, Loggable {
                 self.log("[notify] \(label())", .debug)
             }
 
-            for delegate in self.set.allObjects {
-                guard let delegate = delegate as? T else {
-                    self.log("MulticastDelegate: skipping notify for \(delegate), not a type of \(T.self)", .warning)
-                    continue
-                }
+            let delegates = self.set.allObjects.compactMap { $0 as? T }
 
+            for delegate in delegates {
                 fnc(delegate)
             }
         }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 LiveKit
+ * Copyright 2024 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@
 import Foundation
 
 @objc
-public class VideoPublishOptions: NSObject, PublishOptions {
+public class VideoPublishOptions: NSObject, TrackPublishOptions {
     @objc
     public let name: String?
 
@@ -39,12 +39,24 @@ public class VideoPublishOptions: NSObject, PublishOptions {
     @objc
     public let screenShareSimulcastLayers: [VideoParameters]
 
+    @objc
+    public let preferredCodec: VideoCodec?
+
+    @objc
+    public let preferredBackupCodec: VideoCodec?
+
+    @objc
+    public let streamName: String?
+
     public init(name: String? = nil,
                 encoding: VideoEncoding? = nil,
                 screenShareEncoding: VideoEncoding? = nil,
                 simulcast: Bool = true,
                 simulcastLayers: [VideoParameters] = [],
-                screenShareSimulcastLayers: [VideoParameters] = [])
+                screenShareSimulcastLayers: [VideoParameters] = [],
+                preferredCodec: VideoCodec? = nil,
+                preferredBackupCodec: VideoCodec? = nil,
+                streamName: String? = nil)
     {
         self.name = name
         self.encoding = encoding
@@ -52,6 +64,9 @@ public class VideoPublishOptions: NSObject, PublishOptions {
         self.simulcast = simulcast
         self.simulcastLayers = simulcastLayers
         self.screenShareSimulcastLayers = screenShareSimulcastLayers
+        self.preferredCodec = preferredCodec
+        self.preferredBackupCodec = preferredBackupCodec
+        self.streamName = streamName
     }
 
     // MARK: - Equal
@@ -63,7 +78,10 @@ public class VideoPublishOptions: NSObject, PublishOptions {
             screenShareEncoding == other.screenShareEncoding &&
             simulcast == other.simulcast &&
             simulcastLayers == other.simulcastLayers &&
-            screenShareSimulcastLayers == other.screenShareSimulcastLayers
+            screenShareSimulcastLayers == other.screenShareSimulcastLayers &&
+            preferredCodec == other.preferredCodec &&
+            preferredBackupCodec == other.preferredBackupCodec &&
+            streamName == other.streamName
     }
 
     override public var hash: Int {
@@ -74,6 +92,9 @@ public class VideoPublishOptions: NSObject, PublishOptions {
         hasher.combine(simulcast)
         hasher.combine(simulcastLayers)
         hasher.combine(screenShareSimulcastLayers)
+        hasher.combine(preferredCodec)
+        hasher.combine(preferredBackupCodec)
+        hasher.combine(streamName)
         return hasher.finalize()
     }
 }

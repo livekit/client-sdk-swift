@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 LiveKit
+ * Copyright 2024 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,26 +22,17 @@ import Foundation
 public protocol TrackDelegate: AnyObject {
     /// Dimensions of the video track has updated
     @objc(track:didUpdateDimensions:) optional
-    func track(_ track: VideoTrack, didUpdate dimensions: Dimensions?)
-
-    /// A ``VideoView`` was attached to the ``VideoTrack``
-    @objc optional
-    func track(_ track: VideoTrack, didAttach videoView: VideoView)
-
-    /// A ``VideoView`` was detached from the ``VideoTrack``
-    @objc optional
-    func track(_ track: VideoTrack, didDetach videoView: VideoView)
-
-    /// ``Track/muted`` has updated.
-    @objc(track:didUpdateMuted:shouldSendSignal:) optional
-    func track(_ track: Track, didUpdate muted: Bool, shouldSendSignal: Bool)
+    func track(_ track: VideoTrack, didUpdateDimensions dimensions: Dimensions?)
 
     /// Statistics for the track has been generated (v2).
-    @objc(track:didUpdateStatistics:) optional
-    func track(_ track: Track, didUpdateStatistics: TrackStatistics)
+    @objc(track:didUpdateStatistics:simulcastStatistics:) optional
+    func track(_ track: Track, didUpdateStatistics: TrackStatistics, simulcastStatistics: [VideoCodec: TrackStatistics])
 }
 
 protocol TrackDelegateInternal: TrackDelegate {
+    /// Notify RemoteTrackPublication to send isMuted state to server.
+    func track(_ track: Track, didUpdateIsMuted isMuted: Bool, shouldSendSignal: Bool)
+
     /// Used to report track state mutation to TrackPublication if attached.
     func track(_ track: Track, didMutateState newState: Track.State, oldState: Track.State)
 }

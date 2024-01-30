@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 LiveKit
+ * Copyright 2024 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,16 +22,19 @@ import Foundation
 public class LocalAudioTrack: Track, LocalTrack, AudioTrack {
     init(name: String,
          source: Track.Source,
-         track: LKRTCMediaStreamTrack)
+         track: LKRTCMediaStreamTrack,
+         reportStatistics: Bool)
     {
         super.init(name: name,
                    kind: .audio,
                    source: source,
-                   track: track)
+                   track: track,
+                   reportStatistics: reportStatistics)
     }
 
     public static func createTrack(name: String = Track.microphoneName,
-                                   options: AudioCaptureOptions? = nil) -> LocalAudioTrack
+                                   options: AudioCaptureOptions? = nil,
+                                   reportStatistics: Bool = false) -> LocalAudioTrack
     {
         let options = options ?? AudioCaptureOptions()
 
@@ -54,7 +57,8 @@ public class LocalAudioTrack: Track, LocalTrack, AudioTrack {
 
         return LocalAudioTrack(name: name,
                                source: .microphone,
-                               track: rtcTrack)
+                               track: rtcTrack,
+                               reportStatistics: reportStatistics)
     }
 
     @discardableResult
@@ -85,7 +89,6 @@ public class LocalAudioTrack: Track, LocalTrack, AudioTrack {
 }
 
 public extension LocalAudioTrack {
-    var publishOptions: PublishOptions? { super._publishOptions }
-
+    var publishOptions: TrackPublishOptions? { super._publishOptions }
     var publishState: Track.PublishState { super._publishState }
 }

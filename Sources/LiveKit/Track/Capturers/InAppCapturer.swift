@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 LiveKit
+ * Copyright 2024 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -79,15 +79,15 @@ public extension LocalVideoTrack {
     /// Creates a track that captures in-app screen only (due to limitation of ReplayKit)
     @available(macOS 11.0, iOS 11.0, *)
     static func createInAppScreenShareTrack(name: String = Track.screenShareVideoName,
-                                            options: ScreenShareCaptureOptions = ScreenShareCaptureOptions()) -> LocalVideoTrack
+                                            options: ScreenShareCaptureOptions = ScreenShareCaptureOptions(),
+                                            reportStatistics: Bool = false) -> LocalVideoTrack
     {
         let videoSource = Engine.createVideoSource(forScreenShare: true)
         let capturer = InAppScreenCapturer(delegate: videoSource, options: options)
-        return LocalVideoTrack(
-            name: name,
-            source: .screenShareVideo,
-            capturer: capturer,
-            videoSource: videoSource
-        )
+        return LocalVideoTrack(name: name,
+                               source: .screenShareVideo,
+                               capturer: capturer,
+                               videoSource: videoSource,
+                               reportStatistics: reportStatistics)
     }
 }

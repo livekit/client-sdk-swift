@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 LiveKit
+ * Copyright 2024 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,15 +21,16 @@ public class LocalTrackPublication: TrackPublication {
     // indicates whether the track was suspended(muted) by the SDK
     var _suspended: Bool = false
 
-    // keep reference to cancel later
-    private weak var debounceWorkItem: DispatchWorkItem?
-
     // stream state is always active for local tracks
     override public var streamState: StreamState { .active }
 
+    // MARK: - Private
+
+    private let _debounce = Debounce(delay: 0.1)
+
     public func mute() async throws {
         guard let track = track as? LocalTrack else {
-            throw InternalError.state(message: "track is nil or not a LocalTrack")
+            throw LiveKitError(.invalidState, message: "track is nil or not a LocalTrack")
         }
 
         try await track._mute()
@@ -37,14 +38,14 @@ public class LocalTrackPublication: TrackPublication {
 
     public func unmute() async throws {
         guard let track = track as? LocalTrack else {
-            throw InternalError.state(message: "track is nil or not a LocalTrack")
+            throw LiveKitError(.invalidState, message: "track is nil or not a LocalTrack")
         }
 
         try await track._unmute()
     }
 
-    override func set(track newValue: Track?) -> Track? {
-        let oldValue = super.set(track: newValue)
+    override func set(track newValue: Track?) async -> Track? {
+        let oldValue = await super.set(track: newValue)
 
         // listen for VideoCapturerDelegate
         if let oldLocalVideoTrack = oldValue as? LocalVideoTrack {
@@ -60,23 +61,13 @@ public class LocalTrackPublication: TrackPublication {
 
     deinit {
         log()
-        debounceWorkItem?.cancel()
     }
-
-    // create debounce func
-    lazy var shouldRecomputeSenderParameters = Utils.createDebounceFunc(on: queue,
-                                                                        wait: 0.1,
-                                                                        onCreateWorkItem: { [weak self] workItem in
-                                                                            self?.debounceWorkItem = workItem
-                                                                        }, fnc: { [weak self] in
-                                                                            self?.recomputeSenderParameters()
-                                                                        })
 }
 
 extension LocalTrackPublication {
     func suspend() async throws {
         // Do nothing if already muted
-        guard !muted else { return }
+        guard !isMuted else { return }
         try await mute()
         _suspended = true
     }
@@ -91,7 +82,11 @@ extension LocalTrackPublication {
 
 extension LocalTrackPublication: VideoCapturerDelegate {
     public func capturer(_: VideoCapturer, didUpdate _: Dimensions?) {
-        shouldRecomputeSenderParameters()
+        Task.detached {
+            await self._debounce.schedule {
+                self.recomputeSenderParameters()
+            }
+        }
     }
 }
 
@@ -110,13 +105,13 @@ extension LocalTrackPublication {
         // get current parameters
         let parameters = sender.parameters
 
-        guard let participant else { return }
-        let publishOptions = (track.publishOptions as? VideoPublishOptions) ?? participant.room._state.options.defaultVideoPublishOptions
+        guard let participant, let room = participant._room else { return }
+        let publishOptions = (track.publishOptions as? VideoPublishOptions) ?? room._state.options.defaultVideoPublishOptions
 
         // re-compute encodings
-        let encodings = Utils.computeEncodings(dimensions: dimensions,
-                                               publishOptions: publishOptions,
-                                               isScreenShare: track.source == .screenShareVideo)
+        let encodings = Utils.computeVideoEncodings(dimensions: dimensions,
+                                                    publishOptions: publishOptions,
+                                                    isScreenShare: track.source == .screenShareVideo)
 
         log("Computed encodings: \(encodings)")
 
@@ -147,9 +142,10 @@ extension LocalTrackPublication {
 
         log("Using encodings layers: \(layers.map { String(describing: $0) }.joined(separator: ", "))")
 
-        Task {
-            let participant = try await requireParticipant()
-            try await participant.room.engine.signalClient.sendUpdateVideoLayers(trackSid: track.sid!, layers: layers)
+        Task.detached {
+            let participant = try await self.requireParticipant()
+            let room = try participant.requireRoom()
+            try await room.engine.signalClient.sendUpdateVideoLayers(trackSid: track.sid!, layers: layers)
         }
     }
 }

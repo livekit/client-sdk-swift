@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 LiveKit
+ * Copyright 2024 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,15 +18,24 @@ import Foundation
 
 @_implementationOnly import WebRTC
 
+// Wrapper for LKRTCAudioBuffer
 @objc
-public class AudioBuffer: NSObject {
+public class LKAudioBuffer: NSObject {
     private let _audioBuffer: LKRTCAudioBuffer
 
+    @objc
     public var channels: Int { _audioBuffer.channels }
+
+    @objc
     public var frames: Int { _audioBuffer.frames }
+
+    @objc
     public var framesPerBand: Int { _audioBuffer.framesPerBand }
+
+    @objc
     public var bands: Int { _audioBuffer.bands }
 
+    @objc
     public func rawBuffer(for channel: Int) -> UnsafeMutablePointer<Float> {
         _audioBuffer.rawBuffer(forChannel: channel)
     }
@@ -39,7 +48,7 @@ public class AudioBuffer: NSObject {
 @objc
 public protocol AudioCustomProcessingDelegate {
     func audioProcessingInitialize(sampleRate sampleRateHz: Int, channels: Int)
-    func audioProcessingProcess(audioBuffer: AudioBuffer)
+    func audioProcessingProcess(audioBuffer: LKAudioBuffer)
     func audioProcessingRelease()
 }
 
@@ -55,7 +64,7 @@ class AudioCustomProcessingDelegateAdapter: NSObject, LKRTCAudioCustomProcessing
     }
 
     func audioProcessingProcess(audioBuffer: LKRTCAudioBuffer) {
-        target?.audioProcessingProcess(audioBuffer: AudioBuffer(audioBuffer: audioBuffer))
+        target?.audioProcessingProcess(audioBuffer: LKAudioBuffer(audioBuffer: audioBuffer))
     }
 
     func audioProcessingRelease() {
@@ -105,7 +114,7 @@ public class AudioManager: Loggable {
         public static func == (lhs: AudioManager.State, rhs: AudioManager.State) -> Bool {
             lhs.localTracksCount == rhs.localTracksCount &&
                 lhs.remoteTracksCount == rhs.remoteTracksCount &&
-                lhs.preferSpeakerOutput == rhs.preferSpeakerOutput
+                lhs.isSpeakerOutputPreferred == rhs.isSpeakerOutputPreferred
         }
 
         // Keep this var within State so it's protected by UnfairLock
@@ -113,7 +122,7 @@ public class AudioManager: Loggable {
 
         public var localTracksCount: Int = 0
         public var remoteTracksCount: Int = 0
-        public var preferSpeakerOutput: Bool = true
+        public var isSpeakerOutputPreferred: Bool = true
 
         public var trackState: TrackState {
             if localTracksCount > 0, remoteTracksCount == 0 {
@@ -130,9 +139,9 @@ public class AudioManager: Loggable {
 
     /// Set this to false if you prefer using the device's receiver instead of speaker. Defaults to true.
     /// This only works when the audio output is set to the built-in speaker / receiver.
-    public var preferSpeakerOutput: Bool {
-        get { _state.preferSpeakerOutput }
-        set { _state.mutate { $0.preferSpeakerOutput = newValue } }
+    public var isSpeakerOutputPreferred: Bool {
+        get { _state.isSpeakerOutputPreferred }
+        set { _state.mutate { $0.isSpeakerOutputPreferred = newValue } }
     }
 
     // MARK: - AudioProcessingModule
@@ -213,7 +222,7 @@ public class AudioManager: Loggable {
         _state.onDidMutate = { [weak self] newState, oldState in
             guard let self else { return }
 
-            log("\(oldState) -> \(newState)")
+            self.log("\(oldState) -> \(newState)")
 
             #if os(iOS)
                 let configureFunc = newState.customConfigureFunc ?? defaultConfigureAudioSessionFunc
@@ -255,7 +264,7 @@ public class AudioManager: Loggable {
                 // prepare config
                 let configuration = LKRTCAudioSessionConfiguration.webRTC()
 
-                if newState.trackState == .remoteOnly && newState.preferSpeakerOutput {
+                if newState.trackState == .remoteOnly && newState.isSpeakerOutputPreferred {
                     /* .playback */
                     configuration.category = AVAudioSession.Category.playback.rawValue
                     configuration.mode = AVAudioSession.Mode.spokenAudio.rawValue
@@ -264,12 +273,12 @@ public class AudioManager: Loggable {
                     ]
 
                 } else if [.localOnly, .localAndRemote].contains(newState.trackState) ||
-                    (newState.trackState == .remoteOnly && !newState.preferSpeakerOutput)
+                    (newState.trackState == .remoteOnly && !newState.isSpeakerOutputPreferred)
                 {
                     /* .playAndRecord */
                     configuration.category = AVAudioSession.Category.playAndRecord.rawValue
 
-                    if newState.preferSpeakerOutput {
+                    if newState.isSpeakerOutputPreferred {
                         // use .videoChat if speakerOutput is preferred
                         configuration.mode = AVAudioSession.Mode.videoChat.rawValue
                     } else {

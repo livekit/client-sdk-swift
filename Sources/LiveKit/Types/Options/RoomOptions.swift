@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 LiveKit
+ * Copyright 2024 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -66,6 +66,25 @@ public class RoomOptions: NSObject {
     /// E2EE Options
     public let e2eeOptions: E2EEOptions?
 
+    @objc
+    public let reportRemoteTrackStatistics: Bool
+
+    override public init() {
+        defaultCameraCaptureOptions = CameraCaptureOptions()
+        defaultScreenShareCaptureOptions = ScreenShareCaptureOptions()
+        defaultAudioCaptureOptions = AudioCaptureOptions()
+        defaultVideoPublishOptions = VideoPublishOptions()
+        defaultAudioPublishOptions = AudioPublishOptions()
+        defaultDataPublishOptions = DataPublishOptions()
+        adaptiveStream = false
+        dynacast = false
+        stopLocalTrackOnUnpublish = true
+        suspendLocalVideoTracksInBackground = true
+        e2eeOptions = nil
+        reportRemoteTrackStatistics = false
+    }
+
+    @objc
     public init(defaultCameraCaptureOptions: CameraCaptureOptions = CameraCaptureOptions(),
                 defaultScreenShareCaptureOptions: ScreenShareCaptureOptions = ScreenShareCaptureOptions(),
                 defaultAudioCaptureOptions: AudioCaptureOptions = AudioCaptureOptions(),
@@ -76,7 +95,8 @@ public class RoomOptions: NSObject {
                 dynacast: Bool = false,
                 stopLocalTrackOnUnpublish: Bool = true,
                 suspendLocalVideoTracksInBackground: Bool = true,
-                e2eeOptions: E2EEOptions? = nil)
+                e2eeOptions: E2EEOptions? = nil,
+                reportRemoteTrackStatistics: Bool = false)
     {
         self.defaultCameraCaptureOptions = defaultCameraCaptureOptions
         self.defaultScreenShareCaptureOptions = defaultScreenShareCaptureOptions
@@ -89,6 +109,7 @@ public class RoomOptions: NSObject {
         self.stopLocalTrackOnUnpublish = stopLocalTrackOnUnpublish
         self.suspendLocalVideoTracksInBackground = suspendLocalVideoTracksInBackground
         self.e2eeOptions = e2eeOptions
+        self.reportRemoteTrackStatistics = reportRemoteTrackStatistics
     }
 
     // MARK: - Equal
@@ -104,7 +125,8 @@ public class RoomOptions: NSObject {
             adaptiveStream == other.adaptiveStream &&
             dynacast == other.dynacast &&
             stopLocalTrackOnUnpublish == other.stopLocalTrackOnUnpublish &&
-            suspendLocalVideoTracksInBackground == other.suspendLocalVideoTracksInBackground
+            suspendLocalVideoTracksInBackground == other.suspendLocalVideoTracksInBackground &&
+            reportRemoteTrackStatistics == other.reportRemoteTrackStatistics
     }
 
     override public var hash: Int {
@@ -119,6 +141,7 @@ public class RoomOptions: NSObject {
         hasher.combine(dynacast)
         hasher.combine(stopLocalTrackOnUnpublish)
         hasher.combine(suspendLocalVideoTracksInBackground)
+        hasher.combine(reportRemoteTrackStatistics)
         return hasher.finalize()
     }
 }

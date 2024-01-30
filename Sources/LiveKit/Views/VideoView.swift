@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 LiveKit
+ * Copyright 2024 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,7 +30,7 @@ protocol Mirrorable {
 public class VideoView: NativeView, Loggable {
     // MARK: - MulticastDelegate
 
-    var delegates = MulticastDelegate<VideoViewDelegate>()
+    public let delegates = MulticastDelegate<VideoViewDelegate>()
 
     // MARK: - Static
 
@@ -132,9 +132,9 @@ public class VideoView: NativeView, Loggable {
     }
 
     @objc
-    public var debugMode: Bool {
-        get { _state.debugMode }
-        set { _state.mutate { $0.debugMode = newValue } }
+    public var isDebugMode: Bool {
+        get { _state.isDebugMode }
+        set { _state.mutate { $0.isDebugMode = newValue } }
     }
 
     @objc
@@ -167,7 +167,7 @@ public class VideoView: NativeView, Loggable {
         var renderMode: RenderMode = .auto
         var rotationOverride: VideoRotation?
 
-        var debugMode: Bool = false
+        var isDebugMode: Bool = false
 
         // render states
         var renderDate: Date?
@@ -188,9 +188,8 @@ public class VideoView: NativeView, Loggable {
     private var _debugTextView: TextView?
 
     // used for stats timer
-    private lazy var _renderTimer = DispatchQueueTimer(timeInterval: 0.1)
-
-    private let _fpsTimer = DispatchQueueTimer(timeInterval: 1, queue: .main)
+    private let _renderTimer = AsyncTimer(interval: 0.1)
+    private let _fpsTimer = AsyncTimer(interval: 1)
     private var _currentFPS: Int = 0
     private var _frameCount: Int = 0
 
@@ -239,12 +238,6 @@ public class VideoView: NativeView, Loggable {
                             if let localTrack = track as? LocalVideoTrack {
                                 localTrack.capturer.remove(delegate: self)
                             }
-
-                            // notify detach
-                            track.delegates.notify(label: { "track.didDetach videoView: \(self)" }) { [weak self, weak track] delegate in
-                                guard let self, let track else { return }
-                                delegate.track?(track, didDetach: self)
-                            }
                         }
 
                         // set new track
@@ -265,12 +258,6 @@ public class VideoView: NativeView, Loggable {
                             if let localTrack = track as? LocalVideoTrack {
                                 localTrack.capturer.add(delegate: self)
                             }
-
-                            // notify attach
-                            track.delegates.notify(label: { "track.didAttach videoView: \(self)" }) { [weak self, weak track] delegate in
-                                guard let self, let track else { return }
-                                delegate.track?(track, didAttach: self)
-                            }
                         }
                     }
 
@@ -283,13 +270,6 @@ public class VideoView: NativeView, Loggable {
             // isRendering updated
             if newState.isRendering != oldState.isRendering {
                 self.log("isRendering \(oldState.isRendering) -> \(newState.isRendering)")
-
-                if newState.isRendering {
-                    self._renderTimer.restart()
-                } else {
-                    self._renderTimer.suspend()
-                }
-
                 self.delegates.notify(label: { "videoView.didUpdate isRendering: \(newState.isRendering)" }) {
                     $0.videoView?(self, didUpdate: newState.isRendering)
                 }
@@ -297,7 +277,7 @@ public class VideoView: NativeView, Loggable {
 
             // viewSize updated
             if newState.viewSize != oldState.viewSize {
-                self.delegates.notify(label: { "videoView.didUpdate viewSize: \(newState.viewSize)" }) {
+                self.delegates.notify {
                     $0.videoView?(self, didUpdate: newState.viewSize)
                 }
             }
@@ -308,7 +288,7 @@ public class VideoView: NativeView, Loggable {
             // nativeRenderer.asMetalView?.isPaused = !shouldAttach
 
             // layout is required if any of the following vars mutate
-            if newState.debugMode != oldState.debugMode ||
+            if newState.isDebugMode != oldState.isDebugMode ||
                 newState.layoutMode != oldState.layoutMode ||
                 newState.mirrorMode != oldState.mirrorMode ||
                 newState.renderMode != oldState.renderMode ||
@@ -322,36 +302,38 @@ public class VideoView: NativeView, Loggable {
                 }
             }
 
-            if newState.debugMode != oldState.debugMode {
+            if newState.isDebugMode != oldState.isDebugMode {
                 // fps timer
-                if newState.debugMode {
-                    self._fpsTimer.restart()
+                if newState.isDebugMode {
+                    Task.detached { await self._fpsTimer.restart() }
                 } else {
-                    self._fpsTimer.suspend()
+                    Task.detached { await self._fpsTimer.cancel() }
                 }
             }
         }
 
-        _renderTimer.handler = { [weak self] in
+        Task.detached {
+            await self._fpsTimer.setTimerBlock { @MainActor [weak self] in
+                guard let self else { return }
 
-            guard let self else { return }
+                self._currentFPS = self._frameCount
+                self._frameCount = 0
 
-            if self._state.isRendering, let renderDate = self._state.renderDate {
-                let diff = Date().timeIntervalSince(renderDate)
-                if diff >= Self._freezeDetectThreshold {
-                    self._state.mutate { $0.isRendering = false }
+                self.setNeedsLayout()
+            }
+
+            await self._renderTimer.setTimerBlock { [weak self] in
+                guard let self else { return }
+
+                if await self._state.isRendering, let renderDate = await self._state.renderDate {
+                    let diff = Date().timeIntervalSince(renderDate)
+                    if diff >= Self._freezeDetectThreshold {
+                        await self._state.mutate { $0.isRendering = false }
+                    }
                 }
             }
-        }
 
-        _fpsTimer.handler = { [weak self] in
-
-            guard let self else { return }
-
-            self._currentFPS = self._frameCount
-            self._frameCount = 0
-
-            self.setNeedsLayout()
+            await self._renderTimer.restart()
         }
     }
 
@@ -384,7 +366,7 @@ public class VideoView: NativeView, Loggable {
             }
         }
 
-        if state.debugMode {
+        if state.isDebugMode {
             let _trackSid = state.track?.sid ?? "nil"
             let _dimensions = state.track?.dimensions ?? .zero
             let _didRenderFirstFrame = state.didRenderFirstFrame ? "true" : "false"
@@ -392,7 +374,7 @@ public class VideoView: NativeView, Loggable {
             let _renderMode = String(describing: state.renderMode)
             let _viewCount = state.track?.videoRenderers.allObjects.count ?? 0
             let debugView = ensureDebugTextView()
-            debugView.text = "#\(hashValue)\n" + "\(_trackSid)\n" + "\(_dimensions.width)x\(_dimensions.height)\n" + "enabled: \(isEnabled)\n" + "firstFrame: \(_didRenderFirstFrame)\n" + "isRendering: \(_isRendering)\n" + "renderMode: \(_renderMode)\n" + "viewCount: \(_viewCount)\n" + "FPS: \(_currentFPS)\n"
+            debugView.text = "#\(hashValue)\n" + "\(_trackSid)\n" + "\(_dimensions.width)x\(_dimensions.height)\n" + "isEnabled: \(isEnabled)\n" + "firstFrame: \(_didRenderFirstFrame)\n" + "isRendering: \(_isRendering)\n" + "renderMode: \(_renderMode)\n" + "viewCount: \(_viewCount)\n" + "FPS: \(_currentFPS)\n"
             debugView.frame = bounds
             #if os(iOS)
                 debugView.layer.borderColor = (state.shouldRender ? UIColor.green : UIColor.red).withAlphaComponent(0.5).cgColor
@@ -416,7 +398,7 @@ public class VideoView: NativeView, Loggable {
 
         // dimensions are required to continue computation
         guard let dimensions = track._state.dimensions else {
-            log("dimensions are nil, cannot layout without dimensions, track: \(track)", .warning)
+            // log("dimensions are nil, cannot layout without dimensions, track: \(track)", .debug)
             return
         }
 
@@ -517,7 +499,7 @@ private extension VideoView {
 // MARK: - RTCVideoRenderer
 
 extension VideoView: VideoRenderer {
-    public var adaptiveStreamIsEnabled: Bool {
+    public var isAdaptiveStreamEnabled: Bool {
         _state.read { $0.didLayout && !$0.isHidden && $0.isEnabled }
     }
 
@@ -572,7 +554,7 @@ extension VideoView: VideoRenderer {
             $0.renderDate = Date()
         }
 
-        if _state.debugMode {
+        if _state.isDebugMode {
             Task.detached { @MainActor in
                 self._frameCount += 1
             }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 LiveKit
+ * Copyright 2024 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -45,9 +45,13 @@ extension Livekit_Encryption.TypeEnum {
     }
 }
 
-public class E2EEOptions {
-    var keyProvider: BaseKeyProvider
-    var encryptionType: EncryptionType = .gcm
+@objc
+public class E2EEOptions: NSObject {
+    let keyProvider: BaseKeyProvider
+
+    @objc
+    let encryptionType: EncryptionType = .gcm
+
     public init(keyProvider: BaseKeyProvider) {
         self.keyProvider = keyProvider
     }

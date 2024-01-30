@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 LiveKit
+ * Copyright 2024 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,63 +22,16 @@ public enum ReconnectMode: Int {
     case full
 }
 
-public enum ConnectionState {
-    case disconnected(reason: DisconnectReason? = nil)
+@objc
+public enum ConnectionState: Int {
+    case disconnected
     case connecting
     case reconnecting
     case connected
-
-    func toObjCType() -> ConnectionStateObjC {
-        switch self {
-        case .disconnected: return .disconnected
-        case .connecting: return .connecting
-        case .reconnecting: return .reconnecting
-        case .connected: return .connected
-        }
-    }
 }
 
 extension ConnectionState: Identifiable {
-    public var id: String {
-        String(describing: self)
+    public var id: Int {
+        rawValue
     }
-}
-
-extension ConnectionState: Equatable {
-    public static func == (lhs: ConnectionState, rhs: ConnectionState) -> Bool {
-        switch (lhs, rhs) {
-        case (.disconnected, .disconnected),
-             (.connecting, .connecting),
-             (.reconnecting, .reconnecting),
-             (.connected, .connected):
-            return true
-        default: return false
-        }
-    }
-
-    public var isConnected: Bool {
-        guard case .connected = self else { return false }
-        return true
-    }
-
-    public var isReconnecting: Bool {
-        guard case .reconnecting = self else { return false }
-        return true
-    }
-
-    public var isDisconnected: Bool {
-        guard case .disconnected = self else { return false }
-        return true
-    }
-
-    public var disconnectedWithNetworkError: Error? {
-        guard case let .disconnected(reason) = self,
-              case let .networkError(error) = reason else { return nil }
-        return error
-    }
-}
-
-protocol ReconnectableState {
-    var reconnectMode: ReconnectMode? { get }
-    var connectionState: ConnectionState { get }
 }
