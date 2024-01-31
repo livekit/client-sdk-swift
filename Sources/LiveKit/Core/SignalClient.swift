@@ -157,8 +157,6 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
 
         if let socket = webSocket {
             socket.cleanUp(reason: reason, notify: false)
-            socket.onMessage = nil
-            socket.onDisconnect = nil
             self.webSocket = nil
         }
 
