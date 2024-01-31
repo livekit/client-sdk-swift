@@ -28,36 +28,35 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
 
     // MARK: - Internal
 
-    internal struct State: ReconnectableState, Equatable {
+    internal struct State: ReconnectableState {
         var reconnectMode: ReconnectMode?
         var connectionState: ConnectionState = .disconnected()
         var joinResponseCompleter = Completer<Livekit_JoinResponse>()
         var completersForAddTrack = [String: Completer<Livekit_TrackInfo>]()
+
+        var webSocket: WebSocket?
+        var latestJoinResponse: Livekit_JoinResponse?
+        var pingIntervalTimer: DispatchQueueTimer?
+        var pingTimeoutTimer: DispatchQueueTimer?
     }
 
     internal var _state = StateSync(State())
 
     // MARK: - Private
 
-    private enum QueueState {
+    internal enum QueueState {
         case resumed
         case suspended
     }
-
-    // queue to store requests while reconnecting
-    private var requestQueue = [Livekit_SignalRequest]()
-    private var responseQueue = [Livekit_SignalResponse]()
 
     private let requestDispatchQueue = DispatchQueue(label: "LiveKitSDK.signalClient.requestQueue", qos: .default)
     private let responseDispatchQueue = DispatchQueue(label: "LiveKitSDK.signalClient.responseQueue", qos: .default)
 
     private var responseQueueState: QueueState = .resumed
 
-    private var webSocket: WebSocket?
-    private var latestJoinResponse: Livekit_JoinResponse?
-
-    private var pingIntervalTimer: DispatchQueueTimer?
-    private var pingTimeoutTimer: DispatchQueueTimer?
+    // queue to store requests while reconnecting
+    private var requestQueue = [Livekit_SignalRequest]()
+    private var responseQueue = [Livekit_SignalResponse]()
 
     init() {
         super.init()
@@ -111,12 +110,14 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
         return WebSocket.connect(url: url,
                                  onMessage: self.onWebSocketMessage,
                                  onDisconnect: { reason in
-                                    self.webSocket = nil
+
                                     self.cleanUp(reason: reason)
                                  })
             .then(on: queue) { (webSocket: WebSocket) -> Void in
-                self.webSocket = webSocket
-                self._state.mutate { $0.connectionState = .connected }
+                self._state.mutate {
+                    $0.connectionState = .connected
+                    $0.webSocket = webSocket
+                }
             }.recover(on: queue) { error -> Promise<Void> in
                 // Skip validation if reconnect mode
                 if reconnectMode != nil { throw error }
@@ -150,19 +151,12 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
 
         log("reason: \(String(describing: reason))")
 
-        _state.mutate { $0.connectionState = .disconnected(reason: reason) }
-
-        pingIntervalTimer = nil
-        pingTimeoutTimer = nil
-
-        if let socket = webSocket {
-            socket.cleanUp(reason: reason, notify: false)
-            self.webSocket = nil
-        }
-
-        latestJoinResponse = nil
-
         _state.mutate {
+
+            if let socket = $0.webSocket {
+                socket.cleanUp(reason: reason, notify: false)
+            }
+
             for var completer in $0.completersForAddTrack.values {
                 completer.reset()
             }
@@ -170,7 +164,9 @@ internal class SignalClient: MulticastDelegate<SignalClientDelegate> {
             $0.joinResponseCompleter.reset()
 
             // reset state
-            $0 = State()
+            $0 = State(
+                connectionState: .disconnected(reason: reason)
+            )
         }
 
         requestDispatchQueue.async { [weak self] in
@@ -237,7 +233,7 @@ private extension SignalClient {
             }
 
             // this shouldn't happen
-            guard let webSocket = self.webSocket else {
+            guard let webSocket = self._state.webSocket else {
                 self.log("webSocket is nil", .error)
                 throw SignalClientError.state(message: "WebSocket is nil")
             }
@@ -291,7 +287,7 @@ private extension SignalClient {
         switch message {
         case .join(let joinResponse):
             responseQueueState = .suspended
-            latestJoinResponse = joinResponse
+            _state.mutate { $0.latestJoinResponse = joinResponse }
             restartPingTimer()
             notify { $0.signalClient(self, didReceive: joinResponse) }
             _state.mutate { $0.joinResponseCompleter.set(value: joinResponse) }
@@ -343,7 +339,7 @@ private extension SignalClient {
 
         case .subscribedQualityUpdate(let update):
             // ignore 0.15.1
-            if latestJoinResponse?.serverVersion == "0.15.1" {
+            if _state.latestJoinResponse?.serverVersion == "0.15.1" {
                 return
             }
             notify { $0.signalClient(self, didUpdate: update.trackSid, subscribedQualities: update.subscribedQualities)}
@@ -683,16 +679,15 @@ private extension SignalClient {
 
     func onPingIntervalTimer() {
 
-        guard let jr = latestJoinResponse else { return }
+        guard let jr = _state.latestJoinResponse else { return }
 
         sendPing().then(on: queue) { [weak self] in
-
             guard let self = self else { return }
 
-            if self.pingTimeoutTimer == nil {
+            if self._state.pingTimeoutTimer == nil {
                 // start timeout timer
 
-                self.pingTimeoutTimer = {
+                let pingTimeoutTimer = {
                     let timer = DispatchQueueTimer(timeInterval: TimeInterval(jr.pingTimeout), queue: self.queue)
                     timer.setOnTimer { [weak self] in
                         guard let self = self else { return }
@@ -702,35 +697,42 @@ private extension SignalClient {
                     timer.resume()
                     return timer
                 }()
+
+                self._state.mutate { $0.pingTimeoutTimer = pingTimeoutTimer }
             }
         }
     }
 
     func onReceivedPong(_ r: Int64) {
-
         log("ping/pong received pong from server", .trace)
-        // clear timeout timer
-        pingTimeoutTimer = nil
+        _state.mutate {
+            // Clear timeout timer
+            $0.pingTimeoutTimer = nil
+        }
     }
 
     func restartPingTimer() {
         // always suspend first
-        pingIntervalTimer = nil
-        pingTimeoutTimer = nil
+        _state.mutate {
+            $0.pingIntervalTimer = nil
+            $0.pingTimeoutTimer = nil
+        }
         // check received joinResponse already
-        guard let jr = latestJoinResponse,
+        guard let jr = _state.latestJoinResponse,
               // check server supports ping/pong
               jr.pingTimeout > 0,
               jr.pingInterval > 0 else { return }
 
         log("ping/pong starting with interval: \(jr.pingInterval), timeout: \(jr.pingTimeout)")
 
-        pingIntervalTimer = {
+        let pingIntervalTimer = {
             let timer = DispatchQueueTimer(timeInterval: TimeInterval(jr.pingInterval), queue: queue)
             timer.setOnTimer { [weak self] in self?.onPingIntervalTimer() }
             timer.resume()
             return timer
         }()
+
+        _state.mutate { $0.pingTimeoutTimer = pingIntervalTimer }
     }
 }
 
