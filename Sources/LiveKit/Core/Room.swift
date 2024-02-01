@@ -57,7 +57,7 @@ public class Room: NSObject, ObservableObject, Loggable {
     public var serverNodeId: String? { _state.serverInfo?.nodeID.nilIfEmpty }
 
     @objc
-    public var remoteParticipants: [Identity: RemoteParticipant] { _state.remoteParticipants }
+    public var remoteParticipants: [Participant.Identity: RemoteParticipant] { _state.remoteParticipants }
 
     @objc
     public var activeSpeakers: [Participant] { _state.activeSpeakers }
@@ -104,11 +104,11 @@ public class Room: NSObject, ObservableObject, Loggable {
     struct State: Equatable {
         var options: RoomOptions
 
-        var sid: String?
+        var sid: Sid?
         var name: String?
         var metadata: String?
 
-        var remoteParticipants = [Identity: RemoteParticipant]()
+        var remoteParticipants = [Participant.Identity: RemoteParticipant]()
         var activeSpeakers = [Participant]()
 
         var isRecording: Bool = false
@@ -121,16 +121,17 @@ public class Room: NSObject, ObservableObject, Loggable {
 
         @discardableResult
         mutating func updateRemoteParticipant(info: Livekit_ParticipantInfo, room: Room) -> RemoteParticipant {
+            let identity = Participant.Identity(from: info.identity)
             // Check if RemoteParticipant with same identity exists...
-            if let participant = remoteParticipants[info.identity] { return participant }
+            if let participant = remoteParticipants[identity] { return participant }
             // Create new RemoteParticipant...
             let participant = RemoteParticipant(info: info, room: room)
-            remoteParticipants[info.identity] = participant
+            remoteParticipants[identity] = participant
             return participant
         }
 
         // Find RemoteParticipant by Sid
-        func remoteParticipant(sid: Sid) -> RemoteParticipant? {
+        func remoteParticipant(forSid sid: Participant.Sid) -> RemoteParticipant? {
             remoteParticipants.values.first(where: { $0.sid == sid })
         }
     }
@@ -337,7 +338,7 @@ extension Room {
         }
     }
 
-    func _onParticipantDidDisconnect(identity: Identity) async throws {
+    func _onParticipantDidDisconnect(identity: Participant.Identity) async throws {
         guard let participant = _state.mutate({ $0.remoteParticipants.removeValue(forKey: identity) }) else {
             throw LiveKitError(.invalidState, message: "Participant not found for \(identity)")
         }

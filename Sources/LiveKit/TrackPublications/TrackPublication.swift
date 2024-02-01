@@ -21,7 +21,7 @@ public class TrackPublication: NSObject, ObservableObject, Loggable {
     // MARK: - Public properties
 
     @objc
-    public var sid: Sid { _state.sid }
+    public var sid: Track.Sid { _state.sid }
 
     @objc
     public var kind: Track.Kind { _state.kind }
@@ -66,7 +66,7 @@ public class TrackPublication: NSObject, ObservableObject, Loggable {
     weak var participant: Participant?
 
     struct State: Equatable, Hashable {
-        let sid: Sid
+        let sid: Track.Sid
         let kind: Track.Kind
         let source: Track.Source
 
@@ -96,7 +96,7 @@ public class TrackPublication: NSObject, ObservableObject, Loggable {
 
     init(info: Livekit_TrackInfo, participant: Participant) {
         _state = StateSync(State(
-            sid: info.sid,
+            sid: Track.Sid(from: info.sid),
             kind: info.type.toLKType(),
             source: info.source.toLKType(),
             name: info.name,

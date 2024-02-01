@@ -77,17 +77,18 @@ extension Room: EngineDelegate {
         let activeSpeakers = _state.mutate { state -> [Participant] in
 
             var activeSpeakers: [Participant] = []
-            var seenSids = [String: Bool]()
+            var seenParticipantSids = [Participant.Sid: Bool]()
             for speaker in speakers {
-                seenSids[speaker.sid] = true
-                if speaker.sid == localParticipant.sid {
+                let participantSid = Participant.Sid(from: speaker.sid)
+                seenParticipantSids[participantSid] = true
+                if participantSid == localParticipant.sid {
                     localParticipant._state.mutate {
                         $0.audioLevel = speaker.level
                         $0.isSpeaking = true
                     }
                     activeSpeakers.append(localParticipant)
                 } else {
-                    if let participant = state.remoteParticipant(sid: speaker.sid) {
+                    if let participant = state.remoteParticipant(forSid: participantSid) {
                         participant._state.mutate {
                             $0.audioLevel = speaker.level
                             $0.isSpeaking = true
@@ -97,7 +98,7 @@ extension Room: EngineDelegate {
                 }
             }
 
-            if seenSids[localParticipant.sid] == nil {
+            if let localParticipantSid = localParticipant.sid, seenParticipantSids[localParticipantSid] == nil {
                 localParticipant._state.mutate {
                     $0.audioLevel = 0.0
                     $0.isSpeaking = false
@@ -105,7 +106,7 @@ extension Room: EngineDelegate {
             }
 
             for participant in state.remoteParticipants.values {
-                if seenSids[participant.sid] == nil {
+                if let participantSid = participant.sid, seenParticipantSids[participantSid] == nil {
                     participant._state.mutate {
                         $0.audioLevel = 0.0
                         $0.isSpeaking = false
@@ -127,7 +128,7 @@ extension Room: EngineDelegate {
 
     func engine(_: Engine, didAddTrack track: LKRTCMediaStreamTrack, rtpReceiver: LKRTCRtpReceiver, stream: LKRTCMediaStream) async {
         let parts = stream.streamId.unpack()
-        let trackId = !parts.trackId.isEmpty ? parts.trackId : track.trackId
+        let trackId = parts.trackId ?? Track.Sid(from: track.trackId)
 
         let participant = _state.read {
             $0.remoteParticipants.values.first { $0.sid == parts.participantSid }
@@ -140,7 +141,7 @@ extension Room: EngineDelegate {
 
         let task = Task.retrying(retryDelay: 0.2) { _, _ in
             // TODO: Only retry for TrackError.state = error
-            try await participant.addSubscribedMediaTrack(rtcTrack: track, rtpReceiver: rtpReceiver, sid: trackId)
+            try await participant.addSubscribedMediaTrack(rtcTrack: track, rtpReceiver: rtpReceiver, trackSid: trackId)
         }
 
         do {
@@ -151,15 +152,17 @@ extension Room: EngineDelegate {
     }
 
     func engine(_: Engine, didRemoveTrack track: LKRTCMediaStreamTrack) async {
-        // find the publication
+        // Find the publication
+        let trackSid = Track.Sid(from: track.trackId)
         guard let publication = _state.remoteParticipants.values.map(\._state.trackPublications.values).joined()
-            .first(where: { $0.sid == track.trackId }) else { return }
+            .first(where: { $0.sid == trackSid }) else { return }
         await publication.set(track: nil)
     }
 
     func engine(_ engine: Engine, didReceiveUserPacket packet: Livekit_UserPacket) async {
         // participant could be null if data broadcasted from server
-        let participant = _state.remoteParticipants[packet.participantIdentity]
+        let identity = Participant.Identity(from: packet.participantIdentity)
+        let participant = _state.remoteParticipants[identity]
 
         engine.executeIfConnected { [weak self] in
             guard let self else { return }

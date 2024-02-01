@@ -37,7 +37,8 @@ extension Room: SignalClientDelegate {
     {
         log("[Publish/Backup] Qualities: \(qualities.map { String(describing: $0) }.joined(separator: ", ")), Codecs: \(codecs.map { String(describing: $0) }.joined(separator: ", "))")
 
-        guard let publication = localParticipant.getTrackPublication(sid: trackSid) else {
+        let trackSid = Track.Sid(from: trackSid)
+        guard let publication = localParticipant.trackPublications[trackSid] as? LocalTrackPublication else {
             log("Received subscribed quality update for an unknown track", .warning)
             return
         }
@@ -72,7 +73,7 @@ extension Room: SignalClientDelegate {
             }
 
             _state.mutate {
-                $0.sid = joinResponse.room.sid
+                $0.sid = Room.Sid(from: joinResponse.room.sid)
                 $0.name = joinResponse.room.name
                 $0.metadata = joinResponse.room.metadata
                 $0.isRecording = joinResponse.room.activeRecording
@@ -106,7 +107,8 @@ extension Room: SignalClientDelegate {
 
             var lastSpeakers = state.activeSpeakers.reduce(into: [Sid: Participant]()) { $0[$1.sid] = $1 }
             for speaker in speakers {
-                guard let participant = speaker.sid == localParticipant.sid ? localParticipant : state.remoteParticipant(sid: speaker.sid) else {
+                let participantSid = Participant.Sid(from: speaker.sid)
+                guard let participant = participantSid == localParticipant.sid ? localParticipant : state.remoteParticipant(forSid: participantSid) else {
                     continue
                 }
 
@@ -116,9 +118,9 @@ extension Room: SignalClientDelegate {
                 }
 
                 if speaker.active {
-                    lastSpeakers[speaker.sid] = participant
+                    lastSpeakers[participantSid] = participant
                 } else {
-                    lastSpeakers.removeValue(forKey: speaker.sid)
+                    lastSpeakers.removeValue(forKey: participantSid)
                 }
             }
 
@@ -140,17 +142,18 @@ extension Room: SignalClientDelegate {
         log("connectionQuality: \(connectionQuality)", .trace)
 
         for entry in connectionQuality {
-            if entry.participantSid == localParticipant.sid {
+            let participantSid = Participant.Sid(from: entry.participantSid)
+            if participantSid == localParticipant.sid {
                 // update for LocalParticipant
                 localParticipant._state.mutate { $0.connectionQuality = entry.quality.toLKType() }
-            } else if let participant = _state.read({ $0.remoteParticipant(sid: entry.participantSid) }) {
+            } else if let participant = _state.read({ $0.remoteParticipant(forSid: participantSid) }) {
                 // udpate for RemoteParticipant
                 participant._state.mutate { $0.connectionQuality = entry.quality.toLKType() }
             }
         }
     }
 
-    func signalClient(_: SignalClient, didUpdateRemoteMute trackSid: String, muted: Bool) async {
+    func signalClient(_: SignalClient, didUpdateRemoteMute trackSid: Track.Sid, muted: Bool) async {
         log("trackSid: \(trackSid) isMuted: \(muted)")
 
         guard let publication = localParticipant._state.trackPublications[trackSid] as? LocalTrackPublication else {
@@ -172,8 +175,11 @@ extension Room: SignalClientDelegate {
     func signalClient(_: SignalClient, didUpdateSubscriptionPermission subscriptionPermission: Livekit_SubscriptionPermissionUpdate) async {
         log("did update subscriptionPermission: \(subscriptionPermission)")
 
-        guard let participant = _state.read({ $0.remoteParticipant(sid: subscriptionPermission.participantSid) }),
-              let publication = participant.getTrackPublication(sid: subscriptionPermission.trackSid)
+        let participantSid = Participant.Sid(from: subscriptionPermission.participantSid)
+        let trackSid = Track.Sid(from: subscriptionPermission.trackSid)
+
+        guard let participant = _state.read({ $0.remoteParticipant(forSid: participantSid) }),
+              let publication = participant.trackPublications[trackSid] as? RemoteTrackPublication
         else {
             return
         }
@@ -185,10 +191,13 @@ extension Room: SignalClientDelegate {
         log("did update trackStates: \(trackStates.map { "(\($0.trackSid): \(String(describing: $0.state)))" }.joined(separator: ", "))")
 
         for update in trackStates {
+            let participantSid = Participant.Sid(from: update.participantSid)
+            let trackSid = Track.Sid(from: update.trackSid)
+
             // Try to find RemoteParticipant
-            guard let participant = _state.remoteParticipants[update.participantSid] else { continue }
+            guard let participant = _state.read({ $0.remoteParticipant(forSid: participantSid) }) else { continue }
             // Try to find RemoteTrackPublication
-            guard let trackPublication = participant._state.trackPublications[update.trackSid] as? RemoteTrackPublication else { continue }
+            guard let trackPublication = participant._state.trackPublications[trackSid] as? RemoteTrackPublication else { continue }
             // Update streamState (and notify)
             trackPublication._state.mutate { $0.streamState = update.state.toLKType() }
         }
@@ -197,21 +206,23 @@ extension Room: SignalClientDelegate {
     func signalClient(_: SignalClient, didUpdateParticipants participants: [Livekit_ParticipantInfo]) async {
         log("participants: \(participants)")
 
-        var disconnectedParticipantIdentities = [Identity]()
+        var disconnectedParticipantIdentities = [Participant.Identity]()
         var newParticipants = [RemoteParticipant]()
 
         _state.mutate {
             for info in participants {
-                if info.sid == localParticipant.sid {
+                let infoIdentity = Participant.Identity(from: info.identity)
+
+                if infoIdentity == localParticipant.identity {
                     localParticipant.updateFromInfo(info: info)
                     continue
                 }
 
                 if info.state == .disconnected {
                     // when it's disconnected, send updates
-                    disconnectedParticipantIdentities.append(info.identity)
+                    disconnectedParticipantIdentities.append(infoIdentity)
                 } else {
-                    let isNewParticipant = $0.remoteParticipant(sid: info.sid) == nil
+                    let isNewParticipant = $0.remoteParticipants[infoIdentity] == nil
                     let participant = $0.updateRemoteParticipant(info: info, room: self)
 
                     if isNewParticipant {
@@ -249,7 +260,9 @@ extension Room: SignalClientDelegate {
     func signalClient(_: SignalClient, didUnpublishLocalTrack localTrack: Livekit_TrackUnpublishedResponse) async {
         log()
 
-        guard let publication = localParticipant._state.trackPublications[localTrack.trackSid] as? LocalTrackPublication else {
+        let trackSid = Track.Sid(from: localTrack.trackSid)
+
+        guard let publication = localParticipant._state.trackPublications[trackSid] as? LocalTrackPublication else {
             log("track publication not found", .warning)
             return
         }

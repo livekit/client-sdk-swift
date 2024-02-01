@@ -17,12 +17,23 @@
 import Foundation
 
 public extension Room {
-    /// Returns a dictionary containing both local and remote participants.
-    var allParticipants: [Participant.Identity: Participant] {
-        var result: [Participant.Identity: Participant] = remoteParticipants
-        if let localParticipantIdentity = localParticipant.identity {
-            result.updateValue(localParticipant, forKey: localParticipantIdentity)
+    @objc
+    class Sid: NSObject, Codable {
+        let stringValue: String
+
+        init(from stringValue: String) {
+            self.stringValue = stringValue
         }
-        return result
+
+        override public func isEqual(_ object: Any?) -> Bool {
+            guard let other = object as? Self else { return false }
+            return stringValue == other.stringValue
+        }
+
+        override public var hash: Int {
+            var hasher = Hasher()
+            stringValue.hash(into: &hasher)
+            return hasher.finalize()
+        }
     }
 }

@@ -69,9 +69,11 @@ public class RemoteTrackPublication: TrackPublication {
         let participant = try await requireParticipant()
         let room = try participant.requireRoom()
 
+        guard let participantSid = participant.sid else { return }
+
         _state.mutate { $0.isSubscribePreferred = newValue }
 
-        try await room.engine.signalClient.sendUpdateSubscription(participantSid: participant.sid,
+        try await room.engine.signalClient.sendUpdateSubscription(participantSid: participantSid,
                                                                   trackSid: sid,
                                                                   isSubscribed: newValue)
     }
@@ -293,7 +295,7 @@ extension RemoteTrackPublication {
 
         // Attempt to set the new settings
         do {
-            try await room.engine.signalClient.sendUpdateTrackSettings(sid: sid, settings: newValue)
+            try await room.engine.signalClient.sendUpdateTrackSettings(trackSid: sid, settings: newValue)
             _state.mutate { $0.isSendingTrackSettings = false }
         } catch {
             // Revert track settings on failure
