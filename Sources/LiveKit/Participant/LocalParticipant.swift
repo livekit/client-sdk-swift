@@ -320,7 +320,7 @@ public class LocalParticipant: Participant {
         let options = options ?? room._state.options.defaultDataPublishOptions
 
         let userPacket = Livekit_UserPacket.with {
-            $0.participantSid = self.sid
+            $0.participantIdentity = _state.identity
             $0.payload = data
             $0.destinationIdentities = options.destinationIdentities
             $0.topic = options.topic ?? ""

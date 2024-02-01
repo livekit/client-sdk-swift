@@ -130,7 +130,7 @@ public class Room: NSObject, ObservableObject, Loggable {
         }
 
         // Find RemoteParticipant by Sid
-        func remoteParticipant(sid: Sid) -> RemoteParticipant? {
+        func remoteParticipant(forSid sid: Sid) -> RemoteParticipant? {
             remoteParticipants.values.first(where: { $0.sid == sid })
         }
     }

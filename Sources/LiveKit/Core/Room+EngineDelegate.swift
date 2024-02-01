@@ -87,7 +87,7 @@ extension Room: EngineDelegate {
                     }
                     activeSpeakers.append(localParticipant)
                 } else {
-                    if let participant = state.remoteParticipant(sid: speaker.sid) {
+                    if let participant = state.remoteParticipant(forSid: speaker.sid) {
                         participant._state.mutate {
                             $0.audioLevel = speaker.level
                             $0.isSpeaking = true
