@@ -211,7 +211,7 @@ extension Room: SignalClientDelegate {
                     // when it's disconnected, send updates
                     disconnectedParticipantIdentities.append(info.identity)
                 } else {
-                    let isNewParticipant = $0.remoteParticipants[info.sid] == nil
+                    let isNewParticipant = $0.remoteParticipants[info.identity] == nil
                     let participant = $0.updateRemoteParticipant(info: info, room: self)
 
                     if isNewParticipant {
