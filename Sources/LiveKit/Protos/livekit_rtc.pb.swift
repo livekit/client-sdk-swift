@@ -1063,14 +1063,79 @@ struct Livekit_LeaveRequest {
 
   /// sent when server initiates the disconnect due to server-restart
   /// indicates clients should attempt full-reconnect sequence
+  /// NOTE: `can_reconnect` obsoleted by `action` starting in protocol version 13
   var canReconnect: Bool = false
 
   var reason: Livekit_DisconnectReason = .unknownReason
 
+  var action: Livekit_LeaveRequest.Action = .disconnect
+
+  var regions: Livekit_RegionSettings {
+    get {return _regions ?? Livekit_RegionSettings()}
+    set {_regions = newValue}
+  }
+  /// Returns true if `regions` has been explicitly set.
+  var hasRegions: Bool {return self._regions != nil}
+  /// Clears the value of `regions`. Subsequent reads from it will return its default value.
+  mutating func clearRegions() {self._regions = nil}
+
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
+  /// indicates action clients should take on receiving this message
+  enum Action: SwiftProtobuf.Enum {
+    typealias RawValue = Int
+
+    /// should disconnect
+    case disconnect // = 0
+
+    /// should attempt a resume with `reconnect=1` in join URL
+    case resume // = 1
+
+    /// should attempt a reconnect, i. e. no `reconnect=1`
+    case reconnect // = 2
+    case UNRECOGNIZED(Int)
+
+    init() {
+      self = .disconnect
+    }
+
+    init?(rawValue: Int) {
+      switch rawValue {
+      case 0: self = .disconnect
+      case 1: self = .resume
+      case 2: self = .reconnect
+      default: self = .UNRECOGNIZED(rawValue)
+      }
+    }
+
+    var rawValue: Int {
+      switch self {
+      case .disconnect: return 0
+      case .resume: return 1
+      case .reconnect: return 2
+      case .UNRECOGNIZED(let i): return i
+      }
+    }
+
+  }
+
   init() {}
+
+  fileprivate var _regions: Livekit_RegionSettings? = nil
 }
+
+#if swift(>=4.2)
+
+extension Livekit_LeaveRequest.Action: CaseIterable {
+  // The compiler won't synthesize support with the UNRECOGNIZED case.
+  static let allCases: [Livekit_LeaveRequest.Action] = [
+    .disconnect,
+    .resume,
+    .reconnect,
+  ]
+}
+
+#endif  // swift(>=4.2)
 
 /// message to indicate published video track dimensions are changing
 struct Livekit_UpdateVideoLayers {
@@ -1424,6 +1489,24 @@ struct Livekit_SimulateScenario {
     set {scenario = .subscriberBandwidth(newValue)}
   }
 
+  /// disconnect signal on resume
+  var disconnectSignalOnResume: Bool {
+    get {
+      if case .disconnectSignalOnResume(let v)? = scenario {return v}
+      return false
+    }
+    set {scenario = .disconnectSignalOnResume(newValue)}
+  }
+
+  /// disconnect signal on resume before sending any messages from server
+  var disconnectSignalOnResumeNoMessages: Bool {
+    get {
+      if case .disconnectSignalOnResumeNoMessages(let v)? = scenario {return v}
+      return false
+    }
+    set {scenario = .disconnectSignalOnResumeNoMessages(newValue)}
+  }
+
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   enum OneOf_Scenario: Equatable {
@@ -1440,6 +1523,10 @@ struct Livekit_SimulateScenario {
     /// maximum bandwidth for subscribers, in bps
     /// when zero, clears artificial bandwidth limit
     case subscriberBandwidth(Int64)
+    /// disconnect signal on resume
+    case disconnectSignalOnResume(Bool)
+    /// disconnect signal on resume before sending any messages from server
+    case disconnectSignalOnResumeNoMessages(Bool)
 
   #if !swift(>=4.1)
     static func ==(lhs: Livekit_SimulateScenario.OneOf_Scenario, rhs: Livekit_SimulateScenario.OneOf_Scenario) -> Bool {
@@ -1469,6 +1556,14 @@ struct Livekit_SimulateScenario {
       }()
       case (.subscriberBandwidth, .subscriberBandwidth): return {
         guard case .subscriberBandwidth(let l) = lhs, case .subscriberBandwidth(let r) = rhs else { preconditionFailure() }
+        return l == r
+      }()
+      case (.disconnectSignalOnResume, .disconnectSignalOnResume): return {
+        guard case .disconnectSignalOnResume(let l) = lhs, case .disconnectSignalOnResume(let r) = rhs else { preconditionFailure() }
+        return l == r
+      }()
+      case (.disconnectSignalOnResumeNoMessages, .disconnectSignalOnResumeNoMessages): return {
+        guard case .disconnectSignalOnResumeNoMessages(let l) = lhs, case .disconnectSignalOnResumeNoMessages(let r) = rhs else { preconditionFailure() }
         return l == r
       }()
       default: return false
@@ -1573,6 +1668,7 @@ extension Livekit_ParticipantUpdate: @unchecked Sendable {}
 extension Livekit_UpdateSubscription: @unchecked Sendable {}
 extension Livekit_UpdateTrackSettings: @unchecked Sendable {}
 extension Livekit_LeaveRequest: @unchecked Sendable {}
+extension Livekit_LeaveRequest.Action: @unchecked Sendable {}
 extension Livekit_UpdateVideoLayers: @unchecked Sendable {}
 extension Livekit_UpdateParticipantMetadata: @unchecked Sendable {}
 extension Livekit_ICEServer: @unchecked Sendable {}
@@ -3005,6 +3101,8 @@ extension Livekit_LeaveRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImp
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     1: .standard(proto: "can_reconnect"),
     2: .same(proto: "reason"),
+    3: .same(proto: "action"),
+    4: .same(proto: "regions"),
   ]
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -3015,27 +3113,49 @@ extension Livekit_LeaveRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImp
       switch fieldNumber {
       case 1: try { try decoder.decodeSingularBoolField(value: &self.canReconnect) }()
       case 2: try { try decoder.decodeSingularEnumField(value: &self.reason) }()
+      case 3: try { try decoder.decodeSingularEnumField(value: &self.action) }()
+      case 4: try { try decoder.decodeSingularMessageField(value: &self._regions) }()
       default: break
       }
     }
   }
 
   func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    // The use of inline closures is to circumvent an issue where the compiler
+    // allocates stack space for every if/case branch local when no optimizations
+    // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+    // https://github.com/apple/swift-protobuf/issues/1182
     if self.canReconnect != false {
       try visitor.visitSingularBoolField(value: self.canReconnect, fieldNumber: 1)
     }
     if self.reason != .unknownReason {
       try visitor.visitSingularEnumField(value: self.reason, fieldNumber: 2)
     }
+    if self.action != .disconnect {
+      try visitor.visitSingularEnumField(value: self.action, fieldNumber: 3)
+    }
+    try { if let v = self._regions {
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 4)
+    } }()
     try unknownFields.traverse(visitor: &visitor)
   }
 
   static func ==(lhs: Livekit_LeaveRequest, rhs: Livekit_LeaveRequest) -> Bool {
     if lhs.canReconnect != rhs.canReconnect {return false}
     if lhs.reason != rhs.reason {return false}
+    if lhs.action != rhs.action {return false}
+    if lhs._regions != rhs._regions {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
+}
+
+extension Livekit_LeaveRequest.Action: SwiftProtobuf._ProtoNameProviding {
+  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
+    0: .same(proto: "DISCONNECT"),
+    1: .same(proto: "RESUME"),
+    2: .same(proto: "RECONNECT"),
+  ]
 }
 
 extension Livekit_UpdateVideoLayers: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
@@ -3743,6 +3863,8 @@ extension Livekit_SimulateScenario: SwiftProtobuf.Message, SwiftProtobuf._Messag
     4: .standard(proto: "server_leave"),
     5: .standard(proto: "switch_candidate_protocol"),
     6: .standard(proto: "subscriber_bandwidth"),
+    7: .standard(proto: "disconnect_signal_on_resume"),
+    8: .standard(proto: "disconnect_signal_on_resume_no_messages"),
   ]
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -3799,6 +3921,22 @@ extension Livekit_SimulateScenario: SwiftProtobuf.Message, SwiftProtobuf._Messag
           self.scenario = .subscriberBandwidth(v)
         }
       }()
+      case 7: try {
+        var v: Bool?
+        try decoder.decodeSingularBoolField(value: &v)
+        if let v = v {
+          if self.scenario != nil {try decoder.handleConflictingOneOf()}
+          self.scenario = .disconnectSignalOnResume(v)
+        }
+      }()
+      case 8: try {
+        var v: Bool?
+        try decoder.decodeSingularBoolField(value: &v)
+        if let v = v {
+          if self.scenario != nil {try decoder.handleConflictingOneOf()}
+          self.scenario = .disconnectSignalOnResumeNoMessages(v)
+        }
+      }()
       default: break
       }
     }
@@ -3833,6 +3971,14 @@ extension Livekit_SimulateScenario: SwiftProtobuf.Message, SwiftProtobuf._Messag
     case .subscriberBandwidth?: try {
       guard case .subscriberBandwidth(let v)? = self.scenario else { preconditionFailure() }
       try visitor.visitSingularInt64Field(value: v, fieldNumber: 6)
+    }()
+    case .disconnectSignalOnResume?: try {
+      guard case .disconnectSignalOnResume(let v)? = self.scenario else { preconditionFailure() }
+      try visitor.visitSingularBoolField(value: v, fieldNumber: 7)
+    }()
+    case .disconnectSignalOnResumeNoMessages?: try {
+      guard case .disconnectSignalOnResumeNoMessages(let v)? = self.scenario else { preconditionFailure() }
+      try visitor.visitSingularBoolField(value: v, fieldNumber: 8)
     }()
     case nil: break
     }
