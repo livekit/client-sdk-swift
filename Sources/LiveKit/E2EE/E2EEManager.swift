@@ -73,7 +73,7 @@ public class E2EEManager: NSObject, ObservableObject, Loggable {
         let localPublications = room.localParticipant.trackPublications.values.compactMap { $0 as? LocalTrackPublication }
 
         for publication in localPublications {
-            addRtpSender(publication: publication, participantSid: room.localParticipant.identity)
+            addRtpSender(publication: publication, participantIdentity: room.localParticipant.identity)
         }
 
         for remoteParticipant in room.remoteParticipants.values {
@@ -94,7 +94,7 @@ public class E2EEManager: NSObject, ObservableObject, Loggable {
         }
     }
 
-    func addRtpSender(publication: LocalTrackPublication, participantSid: String) {
+    func addRtpSender(publication: LocalTrackPublication, participantIdentity: String) {
         guard publication.encryptionType != .none else {
             log("encryptionType is .none, skipping creating frame cryptor...", .warning)
             return
@@ -107,14 +107,14 @@ public class E2EEManager: NSObject, ObservableObject, Loggable {
 
         let frameCryptor = LKRTCFrameCryptor(factory: Engine.peerConnectionFactory,
                                              rtpSender: sender,
-                                             participantId: participantSid,
+                                             participantId: participantIdentity,
                                              algorithm: RTCCyrptorAlgorithm.aesGcm,
                                              keyProvider: e2eeOptions.keyProvider.rtcKeyProvider!)
 
         frameCryptor.delegate = delegateAdapter
 
         return _state.mutate {
-            $0.frameCryptors[[participantSid: publication.sid]] = frameCryptor
+            $0.frameCryptors[[participantIdentity: publication.sid]] = frameCryptor
             $0.trackPublications[frameCryptor] = publication
             frameCryptor.enabled = $0.enabled
         }
@@ -179,7 +179,7 @@ extension E2EEManager {
 
 extension E2EEManager: RoomDelegate {
     public func room(_: Room, participant: LocalParticipant, didPublishTrack publication: LocalTrackPublication) {
-        addRtpSender(publication: publication, participantSid: participant.identity)
+        addRtpSender(publication: publication, participantIdentity: participant.identity)
     }
 
     public func room(_: Room, participant: LocalParticipant, didUnpublishTrack publication: LocalTrackPublication) {
