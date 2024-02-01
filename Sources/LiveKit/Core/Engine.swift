@@ -551,7 +551,7 @@ extension Engine {
         log("trackSids: \(trackSids)")
 
         let subscription = Livekit_UpdateSubscription.with {
-            $0.trackSids = trackSids
+            $0.trackSids = trackSids.map(\.stringValue)
             $0.participantTracks = []
             $0.subscribe = !autoSubscribe
         }

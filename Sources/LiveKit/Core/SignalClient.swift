@@ -320,7 +320,7 @@ private extension SignalClient {
             _delegate.notifyAsync { await $0.signalClient(self, didUpdateConnectionQuality: quality.updates) }
 
         case let .mute(mute):
-            _delegate.notifyAsync { await $0.signalClient(self, didUpdateRemoteMute: mute.sid, muted: mute.muted) }
+            _delegate.notifyAsync { await $0.signalClient(self, didUpdateRemoteMute: Track.Sid(from: mute.sid), muted: mute.muted) }
 
         case let .leave(leave):
             _delegate.notifyAsync { await $0.signalClient(self, didReceiveLeave: leave.canReconnect, reason: leave.reason) }
@@ -396,10 +396,10 @@ extension SignalClient {
         try await _sendRequest(r)
     }
 
-    func sendMuteTrack(trackSid: String, muted: Bool) async throws {
+    func sendMuteTrack(trackSid: Track.Sid, muted: Bool) async throws {
         let r = Livekit_SignalRequest.with {
             $0.mute = Livekit_MuteTrackRequest.with {
-                $0.sid = trackSid
+                $0.sid = trackSid.stringValue
                 $0.muted = muted
             }
         }
@@ -440,10 +440,10 @@ extension SignalClient {
         return AddTrackResult(result: populateResult, trackInfo: trackInfo)
     }
 
-    func sendUpdateTrackSettings(sid: Sid, settings: TrackSettings) async throws {
+    func sendUpdateTrackSettings(trackSid: Track.Sid, settings: TrackSettings) async throws {
         let r = Livekit_SignalRequest.with {
             $0.trackSetting = Livekit_UpdateTrackSettings.with {
-                $0.trackSids = [sid]
+                $0.trackSids = [trackSid.stringValue]
                 $0.disabled = !settings.isEnabled
                 $0.width = UInt32(settings.dimensions.width)
                 $0.height = UInt32(settings.dimensions.height)
@@ -455,12 +455,10 @@ extension SignalClient {
         try await _sendRequest(r)
     }
 
-    func sendUpdateVideoLayers(trackSid: Sid,
-                               layers: [Livekit_VideoLayer]) async throws
-    {
+    func sendUpdateVideoLayers(trackSid: Track.Sid, layers: [Livekit_VideoLayer]) async throws {
         let r = Livekit_SignalRequest.with {
             $0.updateLayers = Livekit_UpdateVideoLayers.with {
-                $0.trackSid = trackSid
+                $0.trackSid = trackSid.stringValue
                 $0.layers = layers
             }
         }
@@ -468,18 +466,18 @@ extension SignalClient {
         try await _sendRequest(r)
     }
 
-    func sendUpdateSubscription(participantSid: Sid,
-                                trackSid: String,
+    func sendUpdateSubscription(participantSid: Participant.Sid,
+                                trackSid: Track.Sid,
                                 isSubscribed: Bool) async throws
     {
         let p = Livekit_ParticipantTracks.with {
-            $0.participantSid = participantSid
-            $0.trackSids = [trackSid]
+            $0.participantSid = participantSid.stringValue
+            $0.trackSids = [trackSid.stringValue]
         }
 
         let r = Livekit_SignalRequest.with {
             $0.subscription = Livekit_UpdateSubscription.with {
-                $0.trackSids = [trackSid] // Deprecated
+                $0.trackSids = [trackSid.stringValue]
                 $0.participantTracks = [p]
                 $0.subscribe = isSubscribed
             }
@@ -501,11 +499,11 @@ extension SignalClient {
         try await _sendRequest(r)
     }
 
-    func sendUpdateLocalMetadata(_ metadata: String, name: String) async throws {
+    func sendUpdateParticipant(metadata: String? = nil, name: String? = nil) async throws {
         let r = Livekit_SignalRequest.with {
             $0.updateMetadata = Livekit_UpdateParticipantMetadata.with {
-                $0.metadata = metadata
-                $0.name = name
+                $0.metadata = metadata ?? ""
+                $0.name = name ?? ""
             }
         }
 

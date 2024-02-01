@@ -120,7 +120,7 @@ extension Engine: SignalClientDelegate {
         await _room?.signalClient(signalClient, didUpdateConnectionQuality: quality)
     }
 
-    func signalClient(_ signalClient: SignalClient, didUpdateRemoteMute trackSid: String, muted: Bool) async {
+    func signalClient(_ signalClient: SignalClient, didUpdateRemoteMute trackSid: Track.Sid, muted: Bool) async {
         await _room?.signalClient(signalClient, didUpdateRemoteMute: trackSid, muted: muted)
     }
 

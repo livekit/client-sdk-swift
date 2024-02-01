@@ -56,7 +56,7 @@ public class E2EEManager: NSObject, ObservableObject, Loggable {
 
     private struct State: Equatable {
         var enabled: Bool = true
-        var frameCryptors = [[Identity: Sid]: LKRTCFrameCryptor]()
+        var frameCryptors = [[Participant.Identity: Track.Sid]: LKRTCFrameCryptor]()
         var trackPublications = [LKRTCFrameCryptor: TrackPublication]()
     }
 
@@ -73,14 +73,18 @@ public class E2EEManager: NSObject, ObservableObject, Loggable {
         let localPublications = room.localParticipant.trackPublications.values.compactMap { $0 as? LocalTrackPublication }
 
         for publication in localPublications {
-            addRtpSender(publication: publication, participantIdentity: room.localParticipant.identity)
+            if let participantIdentity = room.localParticipant.identity {
+                addRtpSender(publication: publication, participantIdentity: participantIdentity)
+            }
         }
 
         for remoteParticipant in room.remoteParticipants.values {
             let remotePublications = remoteParticipant.trackPublications.values.compactMap { $0 as? RemoteTrackPublication }
 
             for publication in remotePublications {
-                addRtpReceiver(publication: publication, participantIdentity: remoteParticipant.identity)
+                if let participantIdentity = remoteParticipant.identity {
+                    addRtpReceiver(publication: publication, participantIdentity: participantIdentity)
+                }
             }
         }
     }
@@ -94,7 +98,7 @@ public class E2EEManager: NSObject, ObservableObject, Loggable {
         }
     }
 
-    func addRtpSender(publication: LocalTrackPublication, participantIdentity: String) {
+    func addRtpSender(publication: LocalTrackPublication, participantIdentity: Participant.Identity) {
         guard publication.encryptionType != .none else {
             log("encryptionType is .none, skipping creating frame cryptor...", .warning)
             return
@@ -107,7 +111,7 @@ public class E2EEManager: NSObject, ObservableObject, Loggable {
 
         let frameCryptor = LKRTCFrameCryptor(factory: Engine.peerConnectionFactory,
                                              rtpSender: sender,
-                                             participantId: participantIdentity,
+                                             participantId: participantIdentity.stringValue,
                                              algorithm: RTCCyrptorAlgorithm.aesGcm,
                                              keyProvider: e2eeOptions.keyProvider.rtcKeyProvider!)
 
@@ -120,7 +124,7 @@ public class E2EEManager: NSObject, ObservableObject, Loggable {
         }
     }
 
-    func addRtpReceiver(publication: RemoteTrackPublication, participantIdentity: String) {
+    func addRtpReceiver(publication: RemoteTrackPublication, participantIdentity: Participant.Identity) {
         guard publication.encryptionType != .none else {
             log("encryptionType is .none, skipping creating frame cryptor...", .warning)
             return
@@ -133,7 +137,7 @@ public class E2EEManager: NSObject, ObservableObject, Loggable {
 
         let frameCryptor = LKRTCFrameCryptor(factory: Engine.peerConnectionFactory,
                                              rtpReceiver: receiver,
-                                             participantId: participantIdentity,
+                                             participantId: participantIdentity.stringValue,
                                              algorithm: RTCCyrptorAlgorithm.aesGcm,
                                              keyProvider: e2eeOptions.keyProvider.rtcKeyProvider!)
 
@@ -179,37 +183,45 @@ extension E2EEManager {
 
 extension E2EEManager: RoomDelegate {
     public func room(_: Room, participant: LocalParticipant, didPublishTrack publication: LocalTrackPublication) {
-        addRtpSender(publication: publication, participantIdentity: participant.identity)
+        if let participantIdentity = participant.identity {
+            addRtpSender(publication: publication, participantIdentity: participantIdentity)
+        }
     }
 
     public func room(_: Room, participant: LocalParticipant, didUnpublishTrack publication: LocalTrackPublication) {
         _state.mutate {
-            if let frameCryptor = ($0.frameCryptors.first { (key: [String: Sid], _: LKRTCFrameCryptor) in
-                key[participant.identity] == publication.sid
-            })?.value {
-                frameCryptor.delegate = nil
-                frameCryptor.enabled = false
+            if let participantIdentity = participant.identity {
+                if let frameCryptor = ($0.frameCryptors.first { (key: [Participant.Identity: Track.Sid], _: LKRTCFrameCryptor) in
+                    key[participantIdentity] == publication.sid
+                })?.value {
+                    frameCryptor.delegate = nil
+                    frameCryptor.enabled = false
 
-                $0.trackPublications.removeValue(forKey: frameCryptor)
-                $0.frameCryptors.removeValue(forKey: [participant.identity: publication.sid])
+                    $0.trackPublications.removeValue(forKey: frameCryptor)
+                    $0.frameCryptors.removeValue(forKey: [participantIdentity: publication.sid])
+                }
             }
         }
     }
 
     public func room(_: Room, participant: RemoteParticipant, didSubscribeTrack publication: RemoteTrackPublication) {
-        addRtpReceiver(publication: publication, participantIdentity: participant.identity)
+        if let participantIdentity = participant.identity {
+            addRtpReceiver(publication: publication, participantIdentity: participantIdentity)
+        }
     }
 
     public func room(_: Room, participant: RemoteParticipant, didUnsubscribeTrack publication: RemoteTrackPublication) {
         _state.mutate {
-            if let frameCryptor = ($0.frameCryptors.first { (key: [String: Sid], _: LKRTCFrameCryptor) in
-                key[participant.identity] == publication.sid
-            })?.value {
-                frameCryptor.delegate = nil
-                frameCryptor.enabled = false
+            if let participantIdentity = participant.identity {
+                if let frameCryptor = ($0.frameCryptors.first { (key: [Participant.Identity: Track.Sid], _: LKRTCFrameCryptor) in
+                    key[participantIdentity] == publication.sid
+                })?.value {
+                    frameCryptor.delegate = nil
+                    frameCryptor.enabled = false
 
-                $0.trackPublications.removeValue(forKey: frameCryptor)
-                $0.frameCryptors.removeValue(forKey: [participant.identity: publication.sid])
+                    $0.trackPublications.removeValue(forKey: frameCryptor)
+                    $0.frameCryptors.removeValue(forKey: [participantIdentity: publication.sid])
+                }
             }
         }
     }

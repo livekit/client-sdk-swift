@@ -24,15 +24,14 @@ public class Participant: NSObject, ObservableObject, Loggable {
 
     public let delegates = MulticastDelegate<ParticipantDelegate>()
 
-    /// This will be an empty String for LocalParticipants until connected.
     @objc
-    public var sid: Sid { _state.sid }
+    public var sid: Sid? { _state.sid }
 
     @objc
-    public var identity: String { _state.identity }
+    public var identity: Identity? { _state.identity }
 
     @objc
-    public var name: String { _state.name }
+    public var name: String? { _state.name }
 
     @objc
     public var audioLevel: Float { _state.audioLevel }
@@ -53,7 +52,7 @@ public class Participant: NSObject, ObservableObject, Loggable {
     public var joinedAt: Date? { _state.joinedAt }
 
     @objc
-    public var trackPublications: [Sid: TrackPublication] { _state.trackPublications }
+    public var trackPublications: [Track.Sid: TrackPublication] { _state.trackPublications }
 
     @objc
     public var audioTracks: [TrackPublication] {
@@ -73,25 +72,25 @@ public class Participant: NSObject, ObservableObject, Loggable {
     // MARK: - Internal
 
     struct State: Equatable, Hashable {
-        var sid: Sid
-        var identity: String
-        var name: String
+        var sid: Sid?
+        var identity: Identity?
+        var name: String?
         var audioLevel: Float = 0.0
         var isSpeaking: Bool = false
         var metadata: String?
         var joinedAt: Date?
         var connectionQuality: ConnectionQuality = .unknown
         var permissions = ParticipantPermissions()
-        var trackPublications = [Sid: TrackPublication]()
+        var trackPublications = [Track.Sid: TrackPublication]()
     }
 
     var _state: StateSync<State>
 
-    init(sid: Sid, identity: Identity, room: Room) {
+    init(room: Room, sid: Sid? = nil, identity: Identity? = nil) {
         _room = room
 
         // initial state
-        _state = StateSync(State(sid: sid, identity: identity, name: ""))
+        _state = StateSync(State(sid: sid, identity: identity))
 
         super.init()
 
@@ -107,27 +106,27 @@ public class Participant: NSObject, ObservableObject, Loggable {
             }
 
             // metadata updated
-            if let metadata = newState.metadata, metadata != oldState.metadata,
+            if let newMetadata = newState.metadata, newMetadata != oldState.metadata,
                // don't notify if empty string (first time only)
-               oldState.metadata == nil ? !metadata.isEmpty : true
+               oldState.metadata == nil ? !newMetadata.isEmpty : true
             {
-                self.delegates.notify(label: { "participant.didUpdate metadata: \(metadata)" }) {
-                    $0.participant?(self, didUpdateMetadata: metadata)
+                self.delegates.notify(label: { "participant.didUpdate metadata: \(newMetadata)" }) {
+                    $0.participant?(self, didUpdateMetadata: newMetadata)
                 }
-                room.delegates.notify(label: { "room.didUpdate metadata: \(metadata)" }) {
-                    $0.room?(room, participant: self, didUpdateMetadata: metadata)
+                room.delegates.notify(label: { "room.didUpdate metadata: \(newMetadata)" }) {
+                    $0.room?(room, participant: self, didUpdateMetadata: newMetadata)
                 }
             }
 
             // name updated
-            if newState.name != oldState.name {
+            if let newName = newState.name, newName != oldState.name {
                 // notfy participant delegates
-                self.delegates.notify(label: { "participant.didUpdateName: \(String(describing: newState.name))" }) {
-                    $0.participant?(self, didUpdateName: newState.name)
+                self.delegates.notify(label: { "participant.didUpdateName: \(String(describing: newName))" }) {
+                    $0.participant?(self, didUpdateName: newName)
                 }
                 // notify room delegates
-                room.delegates.notify(label: { "room.didUpdateName: \(String(describing: newState.name))" }) {
-                    $0.room?(room, participant: self, didUpdateName: newState.name)
+                room.delegates.notify(label: { "room.didUpdateName: \(String(describing: newName))" }) {
+                    $0.room?(room, participant: self, didUpdateName: newName)
                 }
             }
 
@@ -160,7 +159,8 @@ public class Participant: NSObject, ObservableObject, Loggable {
                 $0.room?(room, participantDidDisconnect: self)
             }
         }
-        _state.mutate { $0 = State(sid: "", identity: "", name: "") }
+
+        _state.mutate { $0 = State() }
     }
 
     func unpublishAll(notify _: Bool = true) async {
@@ -174,8 +174,8 @@ public class Participant: NSObject, ObservableObject, Loggable {
 
     func updateFromInfo(info: Livekit_ParticipantInfo) {
         _state.mutate {
-            $0.sid = info.sid
-            $0.identity = info.identity
+            $0.sid = Sid(from: info.sid)
+            $0.identity = Identity(from: info.identity)
             $0.name = info.name
             $0.metadata = info.metadata
             $0.joinedAt = Date(timeIntervalSince1970: TimeInterval(info.joinedAt))

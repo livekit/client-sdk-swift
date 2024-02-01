@@ -17,12 +17,12 @@
 import Foundation
 
 extension String {
-    func unpack() -> (participantSid: Sid, trackId: String) {
+    func unpack() -> (participantSid: Participant.Sid, trackId: Track.Sid?) {
         let parts = split(separator: "|")
         if parts.count == 2 {
-            return (String(parts[0]), String(parts[1]))
+            return (Participant.Sid(from: String(parts[0])), Track.Sid(from: String(parts[1])))
         }
-        return (self, "")
+        return (Participant.Sid(from: self), nil)
     }
 }
 

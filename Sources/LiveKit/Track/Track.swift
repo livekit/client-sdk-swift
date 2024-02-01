@@ -393,7 +393,7 @@ extension Track {
 
 extension Track: Identifiable {
     public var id: String {
-        "\(type(of: self))-\(sid ?? String(hash))"
+        "\(type(of: self))-\(sid?.stringValue ?? String(hash))"
     }
 }
 

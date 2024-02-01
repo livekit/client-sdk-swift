@@ -124,7 +124,7 @@ public protocol RoomDelegate: AnyObject {
     func room(_ room: Room, participant: RemoteParticipant, didUnsubscribeTrack publication: RemoteTrackPublication)
 
     @objc optional
-    func room(_ room: Room, participant: RemoteParticipant, didFailToSubscribeTrackWithSid trackSid: String, error: LiveKitError)
+    func room(_ room: Room, participant: RemoteParticipant, didFailToSubscribeTrackWithSid trackSid: Track.Sid, error: LiveKitError)
 
     // MARK: - Data and Encryption
 

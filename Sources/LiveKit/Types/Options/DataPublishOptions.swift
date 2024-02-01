@@ -23,7 +23,7 @@ public class DataPublishOptions: NSObject, PublishOptions {
 
     /// The identities of participants who will receive the message, will be sent to every one if empty.
     @objc
-    public let destinationIdentities: [Identity]
+    public let destinationIdentities: [Participant.Identity]
 
     /// The topic under which the message gets published.
     @objc
@@ -36,7 +36,7 @@ public class DataPublishOptions: NSObject, PublishOptions {
     public let reliable: Bool
 
     public init(name: String? = nil,
-                destinationIdentities: [Identity] = [],
+                destinationIdentities: [Participant.Identity] = [],
                 topic: String? = nil,
                 reliable: Bool = false)
     {
