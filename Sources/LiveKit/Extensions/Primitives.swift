@@ -16,14 +16,18 @@
 
 import Foundation
 
-extension String {
-    func unpack() -> (participantSid: Participant.Sid, trackId: Track.Sid?) {
-        let parts = split(separator: "|")
-        if parts.count == 2 {
-            return (Participant.Sid(from: String(parts[0])), Track.Sid(from: String(parts[1])))
-        }
-        return (Participant.Sid(from: self), nil)
+struct ParseStreamIdResult {
+    let participantSid: Participant.Sid
+    let streamId: String?
+    // let trackId: Track.Sid?
+}
+
+func parse(streamId: String) -> ParseStreamIdResult {
+    let parts = streamId.split(separator: "|")
+    if parts.count >= 2 {
+        return ParseStreamIdResult(participantSid: Participant.Sid(from: String(parts[0])), streamId: String(parts[1]))
     }
+    return ParseStreamIdResult(participantSid: Participant.Sid(from: streamId), streamId: nil)
 }
 
 extension Bool {

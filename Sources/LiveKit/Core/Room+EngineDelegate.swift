@@ -127,15 +127,15 @@ extension Room: EngineDelegate {
     }
 
     func engine(_: Engine, didAddTrack track: LKRTCMediaStreamTrack, rtpReceiver: LKRTCRtpReceiver, stream: LKRTCMediaStream) async {
-        let parts = stream.streamId.unpack()
-        let trackId = parts.trackId ?? Track.Sid(from: track.trackId)
+        let parseResult = parse(streamId: stream.streamId)
+        let trackId = Track.Sid(from: track.trackId)
 
         let participant = _state.read {
-            $0.remoteParticipants.values.first { $0.sid == parts.participantSid }
+            $0.remoteParticipants.values.first { $0.sid == parseResult.participantSid }
         }
 
         guard let participant else {
-            log("RemoteParticipant not found for sid: \(parts.participantSid), remoteParticipants: \(remoteParticipants)", .warning)
+            log("RemoteParticipant not found for sid: \(parseResult.participantSid), remoteParticipants: \(remoteParticipants)", .warning)
             return
         }
 
