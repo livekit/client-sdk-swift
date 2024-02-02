@@ -458,7 +458,6 @@ extension Engine {
             _state.mutate {
                 // Mark as Re-connecting
                 $0.connectionState = .reconnecting
-                $0.isReconnectingWithMode = .full
             }
 
             try await cleanUp(isFullReconnect: true)
