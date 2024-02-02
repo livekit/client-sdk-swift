@@ -24,7 +24,7 @@ extension Room: SignalClientDelegate {
 
         if canReconnect {
             // force .full for next reconnect
-            engine._state.mutate { $0.nextPreferredReconnectMode = .full }
+            engine._state.mutate { $0.nextReconnectMode = .full }
         } else {
             // Server indicates it's not recoverable
             await cleanUp(withError: LiveKitError.from(reason: reason))

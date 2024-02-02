@@ -24,7 +24,7 @@ extension Room: EngineDelegate {
             // connectionState did update
 
             // only if quick-reconnect
-            if case .connected = state.connectionState, case .quick = state.reconnectMode {
+            if case .connected = state.connectionState, case .quick = state.isReconnectingWithMode {
                 resetTrackSettings()
             }
 
@@ -62,7 +62,7 @@ extension Room: EngineDelegate {
             }
         }
 
-        if state.connectionState == .reconnecting, state.reconnectMode == .full, oldState.reconnectMode != .full {
+        if state.connectionState == .reconnecting, state.isReconnectingWithMode == .full, oldState.isReconnectingWithMode != .full {
             // Started full reconnect
             await cleanUpParticipants(notify: true)
         }

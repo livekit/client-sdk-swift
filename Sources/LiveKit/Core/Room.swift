@@ -286,8 +286,8 @@ extension Room {
                 connectOptions: $0.connectOptions,
                 url: $0.url,
                 token: $0.token,
-                nextPreferredReconnectMode: $0.nextPreferredReconnectMode,
-                reconnectMode: $0.reconnectMode,
+                nextReconnectMode: $0.nextReconnectMode,
+                isReconnectingWithMode: $0.isReconnectingWithMode,
                 connectionState: $0.connectionState
             ) : Engine.State(
                 connectOptions: $0.connectOptions,

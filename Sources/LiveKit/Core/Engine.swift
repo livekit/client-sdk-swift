@@ -32,8 +32,8 @@ class Engine: Loggable {
         var url: String?
         var token: String?
         // preferred reconnect mode which will be used only for next attempt
-        var nextPreferredReconnectMode: ReconnectMode?
-        var reconnectMode: ReconnectMode?
+        var nextReconnectMode: ReconnectMode?
+        var isReconnectingWithMode: ReconnectMode?
         var connectionState: ConnectionState = .disconnected
         var disconnectError: LiveKitError?
         var connectStopwatch = Stopwatch(label: "connect")
@@ -97,10 +97,10 @@ class Engine: Loggable {
 
             guard let self else { return }
 
-            assert(!(newState.connectionState == .reconnecting && newState.reconnectMode == .none), "reconnectMode should not be .none")
+            assert(!(newState.connectionState == .reconnecting && newState.isReconnectingWithMode == .none), "reconnectMode should not be .none")
 
-            if (newState.connectionState != oldState.connectionState) || (newState.reconnectMode != oldState.reconnectMode) {
-                self.log("connectionState: \(oldState.connectionState) -> \(newState.connectionState), reconnectMode: \(String(describing: newState.reconnectMode))")
+            if (newState.connectionState != oldState.connectionState) || (newState.isReconnectingWithMode != oldState.isReconnectingWithMode) {
+                self.log("connectionState: \(oldState.connectionState) -> \(newState.connectionState), reconnectMode: \(String(describing: newState.isReconnectingWithMode))")
             }
 
             _delegate.notifyAsync { await $0.engine(self, didMutateState: newState, oldState: oldState) }
@@ -372,7 +372,7 @@ extension Engine {
         let connectResponse = try await signalClient.connect(url,
                                                              token,
                                                              connectOptions: _state.connectOptions,
-                                                             reconnectMode: _state.reconnectMode,
+                                                             reconnectMode: _state.isReconnectingWithMode,
                                                              adaptiveStream: room._state.options.adaptiveStream)
         // Check cancellation after WebSocket connected
         try Task.checkCancellation()
@@ -411,9 +411,8 @@ extension Engine {
         }
 
         _state.mutate {
-            // Mark as Re-connecting
-            $0.connectionState = .reconnecting
-            $0.reconnectMode = .quick
+            // Mark as Re-connecting internally
+            $0.isReconnectingWithMode = .quick
         }
 
         // quick connect sequence, does not update connection state
@@ -426,7 +425,7 @@ extension Engine {
             let connectResponse = try await signalClient.connect(url,
                                                                  token,
                                                                  connectOptions: _state.connectOptions,
-                                                                 reconnectMode: _state.reconnectMode,
+                                                                 reconnectMode: _state.isReconnectingWithMode,
                                                                  adaptiveStream: room._state.options.adaptiveStream)
 
             // Update configuration
@@ -456,6 +455,11 @@ extension Engine {
         func fullReconnectSequence() async throws {
             log("[Connect] starting .full reconnect sequence...")
 
+            _state.mutate {
+                // Mark as Re-connecting
+                $0.connectionState = .reconnecting
+            }
+
             try await cleanUp(isFullReconnect: true)
 
             guard let url = _state.url,
@@ -473,25 +477,25 @@ extension Engine {
         { totalAttempts, currentAttempt in
 
             // Not reconnecting state anymore
-            guard case .reconnecting = _state.connectionState else {
+            guard let currentMode = _state.isReconnectingWithMode else {
                 self.log("[Connect] Not in reconnect state anymore, exiting retry cycle.")
                 return
             }
 
             // Full reconnect failed, give up
-            guard _state.reconnectMode != .full else { return }
+            guard currentMode != .full else { return }
 
             self.log("[Connect] Retry in \(_state.connectOptions.reconnectAttemptDelay) seconds, \(currentAttempt)/\(totalAttempts) tries left.")
 
             // Try full reconnect for the final attempt
-            if totalAttempts == currentAttempt, _state.nextPreferredReconnectMode == nil {
-                _state.mutate { $0.nextPreferredReconnectMode = .full }
+            if totalAttempts == currentAttempt, _state.nextReconnectMode == nil {
+                _state.mutate { $0.nextReconnectMode = .full }
             }
 
             let mode: ReconnectMode = self._state.mutate {
-                let mode: ReconnectMode = ($0.nextPreferredReconnectMode == .full || $0.reconnectMode == .full) ? .full : .quick
-                $0.reconnectMode = mode
-                $0.nextPreferredReconnectMode = nil
+                let mode: ReconnectMode = ($0.nextReconnectMode == .full || $0.isReconnectingWithMode == .full) ? .full : .quick
+                $0.isReconnectingWithMode = mode
+                $0.nextReconnectMode = nil
                 return mode
             }
 
