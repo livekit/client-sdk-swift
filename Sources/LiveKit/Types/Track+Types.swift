@@ -35,5 +35,9 @@ public extension Track {
             stringValue.hash(into: &hasher)
             return hasher.finalize()
         }
+
+        override public var description: String {
+            stringValue
+        }
     }
 }

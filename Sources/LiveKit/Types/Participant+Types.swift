@@ -35,6 +35,10 @@ public extension Participant {
             stringValue.hash(into: &hasher)
             return hasher.finalize()
         }
+
+        override public var description: String {
+            stringValue
+        }
     }
 
     @objc
@@ -54,6 +58,10 @@ public extension Participant {
             var hasher = Hasher()
             stringValue.hash(into: &hasher)
             return hasher.finalize()
+        }
+
+        override public var description: String {
+            stringValue
         }
     }
 }
