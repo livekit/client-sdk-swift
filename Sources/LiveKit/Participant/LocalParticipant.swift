@@ -31,15 +31,8 @@ public class LocalParticipant: Participant {
     public var localVideoTracks: [LocalTrackPublication] { videoTracks.compactMap { $0 as? LocalTrackPublication } }
 
     private var allParticipantsAllowed: Bool = true
+
     private var trackPermissions: [ParticipantTrackPermission] = []
-
-    init(room: Room) {
-        super.init(sid: "", identity: "", room: room)
-    }
-
-    func getTrackPublication(sid: Sid) -> LocalTrackPublication? {
-        _state.trackPublications[sid] as? LocalTrackPublication
-    }
 
     @objc
     @discardableResult
@@ -319,10 +312,14 @@ public class LocalParticipant: Participant {
         let room = try requireRoom()
         let options = options ?? room._state.roomOptions.defaultDataPublishOptions
 
+        guard let identityString = _state.identity?.stringValue else {
+            throw LiveKitError(.invalidState, message: "identity is nil")
+        }
+
         let userPacket = Livekit_UserPacket.with {
-            $0.participantSid = self.sid
+            $0.participantIdentity = identityString
             $0.payload = data
-            $0.destinationIdentities = options.destinationIdentities
+            $0.destinationIdentities = options.destinationIdentities.map(\.stringValue)
             $0.topic = options.topic ?? ""
         }
 
@@ -360,30 +357,18 @@ public class LocalParticipant: Participant {
     ///
     /// Note: this requires `CanUpdateOwnMetadata` permission encoded in the token.
     public func set(metadata: String) async throws {
-        // Mutate state to set metadata and copy name from state
-        let name = _state.mutate {
-            $0.metadata = metadata
-            return $0.name
-        }
-
-        // TODO: Revert internal state on failure
         let room = try requireRoom()
-        try await room.signalClient.sendUpdateLocalMetadata(metadata, name: name)
+        try await room.signalClient.sendUpdateParticipant(metadata: metadata)
+        _state.mutate { $0.metadata = metadata }
     }
 
     /// Sets and updates the name of the local participant.
     ///
     /// Note: this requires `CanUpdateOwnMetadata` permission encoded in the token.
     public func set(name: String) async throws {
-        // Mutate state to set name and copy metadata from state
-        let metadata = _state.mutate {
-            $0.name = name
-            return $0.metadata
-        }
-
-        // TODO: Revert internal state on failure
         let room = try requireRoom()
-        try await room.signalClient.sendUpdateLocalMetadata(metadata ?? "", name: name)
+        try await room.signalClient.sendUpdateParticipant(name: name)
+        _state.mutate { $0.name = name }
     }
 
     func sendTrackSubscriptionPermissions() async throws {
@@ -394,9 +379,9 @@ public class LocalParticipant: Participant {
                                                                      trackPermissions: trackPermissions)
     }
 
-    func _set(subscribedQualities qualities: [Livekit_SubscribedQuality], forTrackSid trackSid: String) {
-        guard let pub = getTrackPublication(sid: trackSid),
-              let track = pub.track as? LocalVideoTrack,
+    func _set(subscribedQualities qualities: [Livekit_SubscribedQuality], forTrackSid trackSid: Track.Sid) {
+        guard let publication = trackPublications[trackSid],
+              let track = publication.track as? LocalVideoTrack,
               let sender = track.rtpSender
         else { return }
 
@@ -600,7 +585,7 @@ extension LocalParticipant {
                                                                       type: track.kind.toPBType(),
                                                                       source: track.source.toPBType())
         {
-            $0.sid = localTrackPublication.sid
+            $0.sid = localTrackPublication.sid.stringValue
             $0.simulcastCodecs = [
                 Livekit_SimulcastCodec.with { sc in
                     sc.cid = sender.senderId

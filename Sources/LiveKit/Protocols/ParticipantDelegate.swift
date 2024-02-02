@@ -100,7 +100,7 @@ public protocol ParticipantDelegate: AnyObject {
     ///
     /// This is an error state, the subscription can be retried.
     @objc optional
-    func participant(_ participant: RemoteParticipant, didFailToSubscribeTrackWithSid trackSid: String, error: LiveKitError)
+    func participant(_ participant: RemoteParticipant, didFailToSubscribeTrackWithSid trackSid: Track.Sid, error: LiveKitError)
 
     /// ``TrackPublication/streamState`` has updated for the ``RemoteTrackPublication``.
     @objc optional

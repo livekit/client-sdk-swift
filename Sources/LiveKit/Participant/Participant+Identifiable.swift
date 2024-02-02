@@ -19,9 +19,7 @@ import Foundation
 // Identify by sid
 
 extension Participant: Identifiable {
-    public typealias ID = Sid
-
-    public var id: Sid {
-        _state.sid
+    public var id: String {
+        "\(type(of: self))-\(sid?.stringValue ?? String(hash))"
     }
 }
