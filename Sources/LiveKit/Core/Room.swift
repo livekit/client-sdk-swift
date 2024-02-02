@@ -134,7 +134,7 @@ public class Room: NSObject, ObservableObject, Loggable {
             // Check if RemoteParticipant with same identity exists...
             if let participant = remoteParticipants[identity] { return participant }
             // Create new RemoteParticipant...
-            let participant = RemoteParticipant(info: info, room: room)
+            let participant = RemoteParticipant(info: info, room: room, shouldNotify: connectionState == .connected)
             remoteParticipants[identity] = participant
             return participant
         }
@@ -843,7 +843,7 @@ extension Room {
         log("trackSids: \(trackSids)")
 
         let subscription = Livekit_UpdateSubscription.with {
-            $0.trackSids = trackSids
+            $0.trackSids = trackSids.map(\.stringValue)
             $0.participantTracks = []
             $0.subscribe = !autoSubscribe
         }

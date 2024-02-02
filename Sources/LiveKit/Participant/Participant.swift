@@ -113,7 +113,7 @@ public class Participant: NSObject, ObservableObject, Loggable {
                 self.delegates.notify(label: { "participant.didUpdate metadata: \(newMetadata)" }) {
                     $0.participant?(self, didUpdateMetadata: newMetadata)
                 }
-                room.delegates.notify(label: { "room.didUpdate metadata: \(newMetadata)" }) {
+                room._delegates.notify(label: { "room.didUpdate metadata: \(newMetadata)" }) {
                     $0.room?(room, participant: self, didUpdateMetadata: newMetadata)
                 }
             }
@@ -125,7 +125,7 @@ public class Participant: NSObject, ObservableObject, Loggable {
                     $0.participant?(self, didUpdateName: newName)
                 }
                 // notify room delegates
-                room.delegates.notify(label: { "room.didUpdateName: \(String(describing: newName))" }) {
+                room._delegates.notify(label: { "room.didUpdateName: \(String(describing: newName))" }) {
                     $0.room?(room, participant: self, didUpdateName: newName)
                 }
             }

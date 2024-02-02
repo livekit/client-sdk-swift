@@ -26,8 +26,8 @@ public class RemoteParticipant: Participant {
         updateFromInfo(info: info, shouldNotify: shouldNotify)
     }
 
-    override func updateFromInfo(info: Livekit_ParticipantInfo) {
-        super.updateFromInfo(info: info)
+    override func updateFromInfo(info: Livekit_ParticipantInfo, shouldNotify: Bool) {
+        super.updateFromInfo(info: info, shouldNotify: shouldNotify)
 
         var validTrackPublications = [Track.Sid: RemoteTrackPublication]()
         var newTrackPublications = [Track.Sid: RemoteTrackPublication]()
@@ -86,7 +86,7 @@ public class RemoteParticipant: Participant {
             delegates.notify(label: { "participant.didFailToSubscribe trackSid: \(trackSid)" }) {
                 $0.participant?(self, didFailToSubscribeTrackWithSid: trackSid, error: error)
             }
-            room.delegates.notify(label: { "room.didFailToSubscribe trackSid: \(trackSid)" }) {
+            room._delegates.notify(label: { "room.didFailToSubscribe trackSid: \(trackSid)" }) {
                 $0.room?(room, participant: self, didFailToSubscribeTrackWithSid: trackSid, error: error)
             }
             throw error
@@ -108,7 +108,7 @@ public class RemoteParticipant: Participant {
             delegates.notify(label: { "participant.didFailToSubscribe trackSid: \(trackSid)" }) {
                 $0.participant?(self, didFailToSubscribeTrackWithSid: trackSid, error: error)
             }
-            room.delegates.notify(label: { "room.didFailToSubscribe trackSid: \(trackSid)" }) {
+            room._delegates.notify(label: { "room.didFailToSubscribe trackSid: \(trackSid)" }) {
                 $0.room?(room, participant: self, didFailToSubscribeTrackWithSid: trackSid, error: error)
             }
             throw error

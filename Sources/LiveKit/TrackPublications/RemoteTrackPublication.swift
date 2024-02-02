@@ -74,8 +74,8 @@ public class RemoteTrackPublication: TrackPublication {
         _state.mutate { $0.isSubscribePreferred = newValue }
 
         try await room.signalClient.sendUpdateSubscription(participantSid: participantSid,
-                                                                  trackSid: sid,
-                                                                  isSubscribed: newValue)
+                                                           trackSid: sid,
+                                                           isSubscribed: newValue)
     }
 
     /// Enable or disable server from sending down data for this track.
@@ -295,7 +295,7 @@ extension RemoteTrackPublication {
 
         // Attempt to set the new settings
         do {
-            try await room.engine.signalClient.sendUpdateTrackSettings(trackSid: sid, settings: newValue)
+            try await room.signalClient.sendUpdateTrackSettings(trackSid: sid, settings: newValue)
             _state.mutate { $0.isSendingTrackSettings = false }
         } catch {
             // Revert track settings on failure
