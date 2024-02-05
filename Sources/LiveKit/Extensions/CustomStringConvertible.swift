@@ -90,7 +90,7 @@ public extension Room {
 
 public extension Participant {
     override var description: String {
-        "\(String(describing: type(of: self)))(sid: \(sid))"
+        "\(String(describing: type(of: self)))(sid: \(String(describing: sid)))"
     }
 }
 

@@ -44,6 +44,7 @@ public class LocalTrackPublication: TrackPublication {
         try await track._unmute()
     }
 
+    @discardableResult
     override func set(track newValue: Track?) async -> Track? {
         let oldValue = await super.set(track: newValue)
 

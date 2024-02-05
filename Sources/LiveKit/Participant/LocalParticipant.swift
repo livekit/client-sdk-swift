@@ -207,6 +207,7 @@ public class LocalParticipant: Participant {
 
             let publication = LocalTrackPublication(info: addTrackResult.trackInfo, participant: self)
             await publication.set(track: track)
+
             add(publication: publication)
 
             // Notify didPublish
