@@ -66,7 +66,7 @@ extension Engine: TransportDelegate {
                     removeWhen: { state, _ in state.connectionState == .disconnected })
             { [weak self] in
                 guard let self else { return }
-                _delegate.notifyAsync { await $0.engine(self, didAddTrack: track, rtpReceiver: rtpReceiver, stream: streams.first!) }
+                self._delegate.notifyAsync { await $0.engine(self, didAddTrack: track, rtpReceiver: rtpReceiver, stream: streams.first!) }
             }
         }
     }
