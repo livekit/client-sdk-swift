@@ -515,7 +515,7 @@ public extension LocalParticipant {
                     } else {
                         localTrack = LocalVideoTrack.createInAppScreenShareTrack(options: options)
                     }
-                    return try await publish(videoTrack: localTrack, publishOptions: publishOptions as? VideoPublishOptions)
+                    return try await publish(videoTrack: localTrack, options: publishOptions as? VideoPublishOptions)
                 #elseif os(macOS)
                     if #available(macOS 12.3, *) {
                         let mainDisplay = try await MacOSScreenCapturer.mainDisplaySource()
