@@ -264,7 +264,7 @@ extension Transport {
                 }
                 .compactMap { $0 }
 
-            _state.mutate {
+            self._state.mutate {
                 for track in tracks {
                     // cache
                     $0.stats[track.ssrc] = track
