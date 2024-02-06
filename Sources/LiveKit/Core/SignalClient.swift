@@ -587,7 +587,7 @@ extension SignalClient {
 private extension SignalClient {
     func _onPingIntervalTimer() async throws {
         guard let jr = _lastJoinResponse else { return }
-        log("ping/pong sending ping...")
+        log("ping/pong sending ping...", .trace)
         try await _sendPing()
 
         await _pingTimeoutTimer.setTimerInterval(TimeInterval(jr.pingTimeout))
@@ -601,7 +601,7 @@ private extension SignalClient {
     }
 
     func _onReceivedPong(_: Int64) async {
-        log("ping/pong received pong from server")
+        log("ping/pong received pong from server", .trace)
         // Clear timeout timer
         await _pingTimeoutTimer.cancel()
     }
