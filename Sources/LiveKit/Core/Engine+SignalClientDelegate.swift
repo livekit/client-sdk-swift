@@ -24,8 +24,8 @@ extension Engine: SignalClientDelegate {
         if connectionState != oldState,
            // did disconnect
            case .disconnected = connectionState,
-           // only attempt re-connect if disconnected(reason: network)
-           case .network = disconnectError?.type,
+           // Only attempt re-connect if not cancelled
+           let errorType = disconnectError?.type, errorType != .cancelled,
            // engine is currently connected state
            case .connected = _state.connectionState
         {

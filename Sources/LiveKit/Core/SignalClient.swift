@@ -47,10 +47,9 @@ actor SignalClient: Loggable {
 
     public private(set) var connectionState: ConnectionState = .disconnected {
         didSet {
+            guard connectionState != oldValue else { return }
             // connectionState Updated...
-            if connectionState != oldValue {
-                log("\(oldValue) -> \(connectionState)")
-            }
+            log("\(oldValue) -> \(connectionState)")
 
             _delegate.notifyAsync { await $0.signalClient(self, didUpdateConnectionState: self.connectionState, oldState: oldValue, disconnectError: self.disconnectError) }
         }
@@ -197,9 +196,6 @@ actor SignalClient: Loggable {
     func cleanUp(withError disconnectError: Error? = nil) async {
         log("withError: \(String(describing: disconnectError))")
 
-        connectionState = .disconnected
-        self.disconnectError = LiveKitError.from(error: disconnectError)
-
         await _pingIntervalTimer.cancel()
         await _pingTimeoutTimer.cancel()
 
@@ -215,6 +211,9 @@ actor SignalClient: Loggable {
         await _addTrackCompleters.reset()
         await _requestQueue.clear()
         await _responseQueue.clear()
+
+        self.disconnectError = LiveKitError.from(error: disconnectError)
+        connectionState = .disconnected
     }
 }
 
