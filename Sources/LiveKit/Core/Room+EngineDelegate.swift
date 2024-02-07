@@ -128,7 +128,7 @@ extension Room: EngineDelegate {
 
     func engine(_: Engine, didAddTrack track: LKRTCMediaStreamTrack, rtpReceiver: LKRTCRtpReceiver, stream: LKRTCMediaStream) async {
         let parseResult = parse(streamId: stream.streamId)
-        let trackId = Track.Sid(from: track.trackId)
+        let trackId = parseResult.trackId ?? Track.Sid(from: track.trackId)
 
         let participant = _state.read {
             $0.remoteParticipants.values.first { $0.sid == parseResult.participantSid }
