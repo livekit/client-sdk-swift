@@ -382,7 +382,7 @@ extension Engine {
         try Task.checkCancellation()
 
         // Resume after configuring transports...
-        await signalClient.resumeResponseQueue()
+        await signalClient.resumeQueues()
 
         // Wait for transport...
         try await primaryTransportConnectedCompleter.wait()
@@ -439,7 +439,7 @@ extension Engine {
             try Task.checkCancellation()
 
             // Resume after configuring transports...
-            await signalClient.resumeResponseQueue()
+            await signalClient.resumeQueues()
 
             log("[Connect] Waiting for subscriber to connect...")
             // Wait for primary transport to connect (if not already)

@@ -158,9 +158,6 @@ actor SignalClient: Loggable {
             _webSocket = socket
             connectionState = .connected
 
-            // Resume request queue...
-            await _requestQueue.resume()
-
             return connectResponse
         } catch {
             // Skip validation if user cancelled
@@ -352,8 +349,9 @@ private extension SignalClient {
 // MARK: - Internal
 
 extension SignalClient {
-    func resumeResponseQueue() async {
+    func resumeQueues() async {
         await _responseQueue.resume()
+        await _requestQueue.resume()
     }
 }
 
