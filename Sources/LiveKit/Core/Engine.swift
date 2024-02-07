@@ -360,6 +360,7 @@ public enum StartReconnectReason {
     case websocket
     case transport
     case networkSwitch
+    case debug
 }
 
 extension Engine {
@@ -485,7 +486,7 @@ extension Engine {
         do {
             try await Task.retrying(totalAttempts: _state.connectOptions.reconnectAttempts,
                                     retryDelay: _state.connectOptions.reconnectAttemptDelay)
-            { totalAttempts, currentAttempt in
+            { currentAttempt, totalAttempts in
 
                 // Not reconnecting state anymore
                 guard let currentMode = self._state.isReconnectingWithMode else {
