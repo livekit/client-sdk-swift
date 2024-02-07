@@ -78,7 +78,7 @@ public class MulticastDelegate<T>: NSObject, Loggable {
     func notify(label: (() -> String)? = nil, _ fnc: @escaping (T) -> Void) {
         multicastQueue.async {
             if let label {
-                self.log("[notify] \(label())", .debug)
+                self.log("[notify] \(label())", .trace)
             }
 
             let delegates = self.set.allObjects.compactMap { $0 as? T }

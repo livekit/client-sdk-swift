@@ -444,6 +444,7 @@ extension Engine {
             log("[Connect] Waiting for subscriber to connect...")
             // Wait for primary transport to connect (if not already)
             try await primaryTransportConnectedCompleter.wait()
+            log("[Connect] Subscriber.connectionState: \(String(describing: subscriber?.connectionState.description))")
             try Task.checkCancellation()
 
             // send SyncState before offer
@@ -482,7 +483,7 @@ extension Engine {
         }
 
         do {
-            try await Task.retrying(maxRetryCount: _state.connectOptions.reconnectAttempts,
+            try await Task.retrying(totalAttempts: _state.connectOptions.reconnectAttempts,
                                     retryDelay: _state.connectOptions.reconnectAttemptDelay)
             { totalAttempts, currentAttempt in
 
@@ -544,15 +545,12 @@ extension Engine {
 
 extension Engine {
     func sendSyncState() async throws {
-        let room = try requireRoom()
-
-        guard let subscriber,
-              let previousAnswer = subscriber.localDescription
-        else {
-            // No-op
+        guard let room = _room, let subscriber else {
+            log("Subscriber is nil", .warning)
             return
         }
 
+        let previousAnswer = subscriber.localDescription
         let previousOffer = subscriber.remoteDescription
 
         // 1. autosubscribe on, so subscribed tracks = all tracks - unsub tracks,
@@ -575,9 +573,10 @@ extension Engine {
             $0.subscribe = !autoSubscribe
         }
 
-        try await signalClient.sendSyncState(answer: previousAnswer.toPBType(),
+        try await signalClient.sendSyncState(answer: previousAnswer?.toPBType(),
                                              offer: previousOffer?.toPBType(),
-                                             subscription: subscription, publishTracks: room.localParticipant.publishedTracksInfo(),
+                                             subscription: subscription,
+                                             publishTracks: room.localParticipant.publishedTracksInfo(),
                                              dataChannels: publisherDataChannel.infos())
     }
 }

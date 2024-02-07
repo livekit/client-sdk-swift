@@ -157,6 +157,8 @@ actor SignalClient: Loggable {
             // Successfully connected
             _webSocket = socket
             connectionState = .connected
+
+            // Resume request queue...
             await _requestQueue.resume()
 
             return connectResponse
@@ -499,7 +501,7 @@ extension SignalClient {
         try await _sendRequest(r)
     }
 
-    func sendSyncState(answer: Livekit_SessionDescription,
+    func sendSyncState(answer: Livekit_SessionDescription?,
                        offer: Livekit_SessionDescription?,
                        subscription: Livekit_UpdateSubscription,
                        publishTracks: [Livekit_TrackPublishedResponse]? = nil,
@@ -507,7 +509,9 @@ extension SignalClient {
     {
         let r = Livekit_SignalRequest.with {
             $0.syncState = Livekit_SyncState.with {
-                $0.answer = answer
+                if let answer {
+                    $0.answer = answer
+                }
                 if let offer {
                     $0.offer = offer
                 }

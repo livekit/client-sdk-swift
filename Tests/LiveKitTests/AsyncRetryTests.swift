@@ -23,13 +23,12 @@ class AsyncRetryTests: XCTestCase {
     override func tearDown() async throws {}
 
     func testRetry1() async throws {
-        let test = Task.retrying(maxRetryCount: 1) { totalAttempts, currentAttempt in
+        let test = Task.retrying(totalAttempts: 3) { currentAttempt, totalAttempts in
             print("[TEST] Retrying with remaining attemps: \(currentAttempt)/\(totalAttempts)...")
             throw LiveKitError(.invalidState, message: "Test error")
-            return "Complete"
         }
 
-        let value = try await test.value
+        let value: () = try await test.value
         print("[TEST] Ended with value: '\(value)'...")
     }
 }
