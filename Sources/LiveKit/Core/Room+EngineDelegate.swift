@@ -71,9 +71,9 @@ extension Room: EngineDelegate {
             Task.detached { [weak self] in
                 guard let self else { return }
                 do {
-                    try await localParticipant.rePublishAllTracks()
+                    try await self.localParticipant.rePublishAllTracks()
                 } catch {
-                    log("Failed to re-publish local tracks, error: \(error)", .error)
+                    self.log("Failed to re-publish local tracks, error: \(error)", .error)
                 }
             }
         }
