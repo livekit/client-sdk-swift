@@ -97,7 +97,7 @@ class Engine: Loggable {
             guard let self else { return }
 
             if newState.connectionState == .reconnecting, newState.isReconnectingWithMode == nil {
-                log("reconnectMode should not be .none", .error)
+                self.log("reconnectMode should not be .none", .error)
             }
 
             if (newState.connectionState != oldState.connectionState) || (newState.isReconnectingWithMode != oldState.isReconnectingWithMode) {

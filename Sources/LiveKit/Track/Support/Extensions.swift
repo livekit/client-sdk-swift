@@ -104,7 +104,7 @@ public extension CGImage {
                          showsMicrophoneButton: Bool = true)
         {
             if !Thread.current.isMainThread {
-                log("Must be called on main thread", .error)
+                logger.log("Must be called on main thread", .error, type: RPSystemBroadcastPickerView.self)
             }
 
             let view = RPSystemBroadcastPickerView()
