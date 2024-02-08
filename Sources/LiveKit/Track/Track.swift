@@ -182,10 +182,6 @@ public class Track: NSObject, Loggable {
         }
     }
 
-    deinit {
-        log("sid: \(String(describing: sid))")
-    }
-
     func set(transport: Transport?, rtpSender: LKRTCRtpSender?) async {
         self.transport = transport
         self.rtpSender = rtpSender

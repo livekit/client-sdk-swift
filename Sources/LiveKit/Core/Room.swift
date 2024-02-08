@@ -298,7 +298,7 @@ extension Room {
 
         await engine.signalClient.cleanUp(withError: disconnectError)
         await engine.cleanUpRTC()
-        await cleanUpParticipants()
+        await cleanUpParticipants(isFullReconnect: isFullReconnect)
 
         // Cleanup for E2EE
         if let e2eeManager {
@@ -316,13 +316,14 @@ extension Room {
 // MARK: - Internal
 
 extension Room {
-    func cleanUpParticipants(notify _notify: Bool = true) async {
+    func cleanUpParticipants(isFullReconnect: Bool = false, notify _notify: Bool = true) async {
         log("notify: \(_notify)")
 
         // Stop all local & remote tracks
-        let allParticipants = ([[localParticipant], Array(_state.remoteParticipants.values)] as [[Participant?]])
-            .joined()
-            .compactMap { $0 }
+        var allParticipants: [Participant] = Array(_state.remoteParticipants.values)
+        if !isFullReconnect {
+            allParticipants.append(localParticipant)
+        }
 
         // Clean up Participants concurrently
         await withTaskGroup(of: Void.self) { group in

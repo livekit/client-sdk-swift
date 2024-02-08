@@ -62,9 +62,20 @@ extension Room: EngineDelegate {
             }
         }
 
-        if state.connectionState == .reconnecting, state.isReconnectingWithMode == .full, oldState.isReconnectingWithMode != .full {
-            // Started full reconnect
-            await cleanUpParticipants(notify: true)
+        if state.connectionState == .connected,
+           oldState.connectionState == .reconnecting,
+           oldState.isReconnectingWithMode == .full
+        {
+            // Did complete a full reconnect
+            log("Re-publishing local tracks...")
+            Task.detached { [weak self] in
+                guard let self else { return }
+                do {
+                    try await self.localParticipant.republishAllTracks()
+                } catch {
+                    self.log("Failed to re-publish local tracks, error: \(error)", .error)
+                }
+            }
         }
 
         // Notify change when engine's state mutates

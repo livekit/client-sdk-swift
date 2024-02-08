@@ -137,10 +137,6 @@ public class TrackPublication: NSObject, ObservableObject, Loggable {
         }
     }
 
-    deinit {
-        log("sid: \(sid)")
-    }
-
     func notifyObjectWillChange() {
         // Notify UI that the object has changed
         Task.detached { @MainActor in

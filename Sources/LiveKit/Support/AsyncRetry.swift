@@ -19,29 +19,26 @@ import Foundation
 extension Task where Failure == Error {
     static func retrying(
         priority: TaskPriority? = nil,
-        maxRetryCount: Int = 3,
+        totalAttempts: Int = 3,
         retryDelay: TimeInterval = 1,
-        @_implicitSelfCapture operation: @escaping (_ totalAttempts: Int, _ currentAttempt: Int) async throws -> Success
+        @_implicitSelfCapture operation: @escaping (_ currentAttempt: Int, _ totalAttempts: Int) async throws -> Success
     ) -> Task {
-        assert(maxRetryCount >= 1, "Value must be larger than 1")
-
-        return Task(priority: priority) {
-            for currentCount in 0 ..< (maxRetryCount - 1) {
+        Task(priority: priority) {
+            for currentAttempt in 1 ..< max(1, totalAttempts) {
+                print("[Retry] Attempt \(currentAttempt) of \(totalAttempts), delay: \(retryDelay)")
                 do {
-                    return try await operation(maxRetryCount, currentCount + 1)
+                    return try await operation(currentAttempt, totalAttempts)
                 } catch {
                     let oneSecond = TimeInterval(1_000_000_000)
-                    let delay = UInt64(oneSecond * retryDelay)
-
-                    // print("Retry waiting for \(retryDelay) seconds...")
-                    try await Task<Never, Never>.sleep(nanoseconds: delay)
-
+                    let delayNS = UInt64(oneSecond * retryDelay)
+                    print("[Retry] Waiting for \(retryDelay) seconds...")
+                    try await Task<Never, Never>.sleep(nanoseconds: delayNS)
                     continue
                 }
             }
 
             try Task<Never, Never>.checkCancellation()
-            return try await operation(maxRetryCount, maxRetryCount)
+            return try await operation(totalAttempts, totalAttempts)
         }
     }
 }

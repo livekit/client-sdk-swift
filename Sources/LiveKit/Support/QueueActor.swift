@@ -26,7 +26,7 @@ actor QueueActor<T>: Loggable {
         case suspended
     }
 
-    public private(set) var state: State = .resumed
+    public private(set) var state: State = .suspended
 
     public var count: Int { queue.count }
 
@@ -45,15 +45,15 @@ actor QueueActor<T>: Loggable {
     }
 
     /// Only process if `.resumed` state, otherwise enqueue.
-    func processIfResumed(_ value: T, or condition: Bool = false) async {
-        await process(value, if: state == .resumed || condition)
+    func processIfResumed(_ value: T, or condition: Bool = false, elseEnqueue: Bool = true) async {
+        await process(value, if: state == .resumed || condition, elseEnqueue: elseEnqueue)
     }
 
     /// Only process if `condition` is true, otherwise enqueue.
-    func process(_ value: T, if condition: Bool) async {
+    func process(_ value: T, if condition: Bool, elseEnqueue: Bool = true) async {
         if condition {
             await onProcess(value)
-        } else {
+        } else if elseEnqueue {
             queue.append(value)
         }
     }
@@ -64,7 +64,7 @@ actor QueueActor<T>: Loggable {
         }
 
         queue.removeAll()
-        state = .resumed
+        state = .suspended
     }
 
     /// Mark as `.resumed` and process each element with an async `block`.

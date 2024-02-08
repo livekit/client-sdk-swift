@@ -47,10 +47,9 @@ actor SignalClient: Loggable {
 
     public private(set) var connectionState: ConnectionState = .disconnected {
         didSet {
+            guard connectionState != oldValue else { return }
             // connectionState Updated...
-            if connectionState != oldValue {
-                log("\(oldValue) -> \(connectionState)")
-            }
+            log("\(oldValue) -> \(connectionState)")
 
             _delegate.notifyAsync { await $0.signalClient(self, didUpdateConnectionState: self.connectionState, oldState: oldValue, disconnectError: self.disconnectError) }
         }
@@ -78,7 +77,7 @@ actor SignalClient: Loggable {
             try await webSocket.send(data: data)
 
         } catch {
-            self.log("Failed to send queued request \(request) with error: \(error)", .error)
+            self.log("Failed to send queued request \(request) with error: \(error)", .warning)
         }
     })
 
@@ -114,9 +113,6 @@ actor SignalClient: Loggable {
                  adaptiveStream: Bool) async throws -> ConnectResponse
     {
         await cleanUp()
-
-        // Start suspended...
-        await _responseQueue.suspend()
 
         if let reconnectMode {
             log("[Connect] mode: \(String(describing: reconnectMode))")
@@ -199,9 +195,6 @@ actor SignalClient: Loggable {
     func cleanUp(withError disconnectError: Error? = nil) async {
         log("withError: \(String(describing: disconnectError))")
 
-        connectionState = .disconnected
-        self.disconnectError = LiveKitError.from(error: disconnectError)
-
         await _pingIntervalTimer.cancel()
         await _pingTimeoutTimer.cancel()
 
@@ -217,6 +210,9 @@ actor SignalClient: Loggable {
         await _addTrackCompleters.reset()
         await _requestQueue.clear()
         await _responseQueue.clear()
+
+        self.disconnectError = LiveKitError.from(error: disconnectError)
+        connectionState = .disconnected
     }
 }
 
@@ -230,8 +226,7 @@ private extension SignalClient {
             throw LiveKitError(.invalidState, message: "connectionState is .disconnected")
         }
 
-        let processImmediately = !(connectionState == .reconnecting && request.canBeQueued())
-        await _requestQueue.process(request, if: processImmediately)
+        await _requestQueue.processIfResumed(request, elseEnqueue: request.canBeQueued())
     }
 
     func _onWebSocketMessage(message: URLSessionWebSocketTask.Message) async {
@@ -354,21 +349,15 @@ private extension SignalClient {
 // MARK: - Internal
 
 extension SignalClient {
-    func resumeResponseQueue() async {
+    func resumeQueues() async {
         await _responseQueue.resume()
+        await _requestQueue.resume()
     }
 }
 
 // MARK: - Send methods
 
 extension SignalClient {
-    func resumeRequestQueue() async throws {
-        let queueCount = await _requestQueue.count
-        log("[Connect] Sending queued requests (\(queueCount))...")
-
-        await _requestQueue.resume()
-    }
-
     func send(offer: LKRTCSessionDescription) async throws {
         let r = Livekit_SignalRequest.with {
             $0.offer = offer.toPBType()
@@ -510,7 +499,7 @@ extension SignalClient {
         try await _sendRequest(r)
     }
 
-    func sendSyncState(answer: Livekit_SessionDescription,
+    func sendSyncState(answer: Livekit_SessionDescription?,
                        offer: Livekit_SessionDescription?,
                        subscription: Livekit_UpdateSubscription,
                        publishTracks: [Livekit_TrackPublishedResponse]? = nil,
@@ -518,7 +507,9 @@ extension SignalClient {
     {
         let r = Livekit_SignalRequest.with {
             $0.syncState = Livekit_SyncState.with {
-                $0.answer = answer
+                if let answer {
+                    $0.answer = answer
+                }
                 if let offer {
                     $0.offer = offer
                 }
@@ -641,9 +632,7 @@ extension Livekit_SignalRequest {
 private extension SignalClient {
     func requireWebSocket() async throws -> WebSocket {
         guard let result = _webSocket else {
-            log("WebSocket is nil", .error)
-            // This shouldn't happen
-            assertionFailure("WebSocket is nil")
+            log("WebSocket is nil", .warning)
             throw LiveKitError(.invalidState, message: "WebSocket is nil")
         }
 
