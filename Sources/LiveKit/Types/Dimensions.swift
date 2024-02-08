@@ -20,7 +20,7 @@ import Foundation
 @_implementationOnly import WebRTC
 
 @objc
-public class Dimensions: NSObject {
+public class Dimensions: NSObject, Loggable {
     @objc
     public let width: Int32
 
@@ -121,7 +121,10 @@ extension Dimensions {
     }
 
     func computeSuggestedPreset(in presets: [VideoParameters]) -> VideoEncoding {
-        assert(!presets.isEmpty)
+        if presets.isEmpty {
+            log("presets is empty", .error)
+        }
+
         var result = presets[0].encoding
         for preset in presets {
             result = preset.encoding

@@ -364,8 +364,9 @@ extension Track {
             return
         }
 
-        // must always be called on main thread
-        assert(Thread.current.isMainThread, "must be called on main thread")
+        if !Thread.current.isMainThread {
+            log("Must be called on main thread", .error)
+        }
 
         videoRenderers.add(videoRenderer)
         rtcVideoTrack.add(VideoRendererAdapter(target: videoRenderer))
@@ -377,8 +378,9 @@ extension Track {
             return
         }
 
-        // must always be called on main thread
-        assert(Thread.current.isMainThread, "must be called on main thread")
+        if !Thread.current.isMainThread {
+            log("Must be called on main thread", .error)
+        }
 
         videoRenderers.remove(videoRenderer)
         rtcVideoTrack.remove(VideoRendererAdapter(target: videoRenderer))

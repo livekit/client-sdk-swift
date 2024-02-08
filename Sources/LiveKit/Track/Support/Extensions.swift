@@ -103,8 +103,9 @@ public extension CGImage {
         static func show(for preferredExtension: String? = nil,
                          showsMicrophoneButton: Bool = true)
         {
-            // Must be called on main thread
-            assert(Thread.current.isMainThread, "must be called on main thread")
+            if !Thread.current.isMainThread {
+                log("Must be called on main thread", .error)
+            }
 
             let view = RPSystemBroadcastPickerView()
             view.preferredExtension = preferredExtension

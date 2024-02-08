@@ -280,9 +280,8 @@ extension RemoteTrackPublication {
 
         let state = _state.copy()
 
-        assert(!state.isSendingTrackSettings, "send(trackSettings:) called while previous send not completed")
-
         if state.isSendingTrackSettings {
+            log("send(trackSettings:) called while previous send not completed", .error)
             // Previous send hasn't completed yet...
             throw LiveKitError(.invalidState, message: "Already busy sending new track settings")
         }
@@ -343,9 +342,6 @@ extension RemoteTrackPublication {
     // executed on .main
     @MainActor
     private func onAdaptiveStreamTimer() async {
-        // this should never happen
-        assert(Thread.current.isMainThread, "this method must be called from main thread")
-
         // don't continue if the engine is disconnected
         guard engineConnectionState != .disconnected else {
             log("engine is disconnected")

@@ -118,7 +118,10 @@ public class RemoteParticipant: Participant {
         await publication.set(track: track)
         publication.set(subscriptionAllowed: true)
 
-        assert(room.engine.subscriber != nil, "Subscriber is nil")
+        if room.engine.subscriber == nil {
+            log("Subscriber is nil", .error)
+        }
+
         if let transport = room.engine.subscriber {
             await track.set(transport: transport, rtpReceiver: rtpReceiver)
         }

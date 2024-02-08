@@ -69,7 +69,7 @@ extension Engine: SignalClientDelegate {
         log("Received offer, creating & sending answer...")
 
         guard let subscriber else {
-            log("failed to send answer, subscriber is nil", .error)
+            log("Failed to send answer, subscriber is nil", .error)
             return
         }
 

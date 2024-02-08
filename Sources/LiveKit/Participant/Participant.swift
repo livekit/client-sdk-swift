@@ -243,7 +243,11 @@ public extension Participant {
 
 extension Participant {
     func requireRoom() throws -> Room {
-        guard let room = _room else { throw LiveKitError(.invalidState, message: "Room is nil") }
+        guard let room = _room else {
+            log("Room is nil", .error)
+            throw LiveKitError(.invalidState, message: "Room is nil")
+        }
+
         return room
     }
 }

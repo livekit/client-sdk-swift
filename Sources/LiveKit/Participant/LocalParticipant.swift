@@ -40,10 +40,7 @@ public class LocalParticipant: Participant {
         log("[publish] \(track) options: \(String(describing: options ?? nil))...", .info)
 
         let room = try requireRoom()
-
-        guard let publisher = room.engine.publisher else {
-            throw LiveKitError(.invalidState, message: "Publisher is nil")
-        }
+        let publisher = try room.engine.requirePublisher()
 
         guard _state.trackPublications.values.first(where: { $0.track === track }) == nil else {
             throw LiveKitError(.invalidState, message: "This track has already been published.")

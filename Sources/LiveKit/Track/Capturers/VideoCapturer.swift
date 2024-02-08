@@ -106,7 +106,9 @@ public class VideoCapturer: NSObject, Loggable, VideoCapturerProtocol {
     }
 
     deinit {
-        assert(captureState == .stopped, "captureState is not .stopped, capturer must be stopped before deinit.")
+        if captureState != .stopped {
+            log("captureState is not .stopped, capturer must be stopped before deinit.", .error)
+        }
     }
 
     /// Requests video capturer to start generating frames. ``Track/start()-dk8x`` calls this automatically.

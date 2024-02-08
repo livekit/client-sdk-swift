@@ -96,7 +96,9 @@ class Engine: Loggable {
 
             guard let self else { return }
 
-            assert(!(newState.connectionState == .reconnecting && newState.isReconnectingWithMode == .none), "reconnectMode should not be .none")
+            if newState.connectionState == .reconnecting, newState.isReconnectingWithMode == nil {
+                log("reconnectMode should not be .none", .error)
+            }
 
             if (newState.connectionState != oldState.connectionState) || (newState.isReconnectingWithMode != oldState.isReconnectingWithMode) {
                 self.log("connectionState: \(oldState.connectionState) -> \(newState.connectionState), reconnectMode: \(String(describing: newState.isReconnectingWithMode))")
@@ -220,9 +222,14 @@ class Engine: Loggable {
         try await ensurePublisherConnected()
 
         // At this point publisher should be .connected and dc should be .open
-        assert(publisher?.isConnected ?? false, "publisher is not .connected")
+        if !(publisher?.isConnected ?? false) {
+            log("publisher is not .connected", .error)
+        }
+
         let dataChannelIsOpen = await publisherDataChannel.isOpen
-        assert(dataChannelIsOpen, "publisher data channel is not .open")
+        if !dataChannelIsOpen {
+            log("publisher data channel is not .open", .error)
+        }
 
         // Should return true if successful
         try await publisherDataChannel.send(userPacket: userPacket, kind: kind)
@@ -586,12 +593,20 @@ extension Engine {
 
 extension Engine {
     func requireRoom() throws -> Room {
-        guard let room = _room else { throw LiveKitError(.invalidState, message: "Room is nil") }
+        guard let room = _room else {
+            log("Room is nil", .error)
+            throw LiveKitError(.invalidState, message: "Room is nil")
+        }
+
         return room
     }
 
     func requirePublisher() throws -> Transport {
-        guard let publisher else { throw LiveKitError(.invalidState, message: "Publisher is nil") }
+        guard let publisher else {
+            log("Publisher is nil", .error)
+            throw LiveKitError(.invalidState, message: "Publisher is nil")
+        }
+
         return publisher
     }
 }
