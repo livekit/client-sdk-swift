@@ -400,7 +400,7 @@ extension Engine {
         log("\(_state.connectStopwatch)")
     }
 
-    func startReconnect(reason: StartReconnectReason) async throws {
+    func startReconnect(reason: StartReconnectReason, nextReconnectMode: ReconnectMode? = nil) async throws {
         log("[Connect] Starting, reason: \(reason)")
 
         guard case .connected = _state.connectionState else {
@@ -426,6 +426,7 @@ extension Engine {
         _state.mutate {
             // Mark as Re-connecting internally
             $0.isReconnectingWithMode = .quick
+            $0.nextReconnectMode = nextReconnectMode
         }
 
         // quick connect sequence, does not update connection state

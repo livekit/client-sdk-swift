@@ -549,6 +549,7 @@ extension SignalClient {
                 case .forceTLS:
                     $0.switchCandidateProtocol = Livekit_CandidateProtocol.tls
                     shouldDisconnect = true
+                default: break
                 }
             }
         }
