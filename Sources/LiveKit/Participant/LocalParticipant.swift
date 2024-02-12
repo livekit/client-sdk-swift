@@ -161,7 +161,7 @@ public class LocalParticipant: Participant {
                 try await track.onPublish()
 
                 // Store publishOptions used for this track...
-                track._publishOptions = options
+                track._state.mutate { $0.lastPublishOptions = options }
 
                 // Attach sender to track...
                 await track.set(transport: publisher, rtpSender: transceiver.sender)
@@ -171,7 +171,7 @@ public class LocalParticipant: Participant {
                        let firstVideoCodec = try? VideoCodec.from(mimeType: firstCodecMime)
                     {
                         log("[Publish] First video codec: \(firstVideoCodec)")
-                        track._videoCodec = firstVideoCodec
+                        track._state.mutate { $0.videoCodec = firstVideoCodec }
                     }
 
                     let publishOptions = (options as? VideoPublishOptions) ?? room._state.options.defaultVideoPublishOptions
@@ -285,7 +285,8 @@ public class LocalParticipant: Participant {
 
         if let publisher = room.engine.publisher, let sender = track._state.rtpSender {
             // Remove all simulcast senders...
-            for simulcastSender in track._simulcastRtpSenders.values {
+            let simulcastSenders = track._state.read { Array($0.rtpSenderForCodec.values) }
+            for simulcastSender in simulcastSenders {
                 try await publisher.remove(track: simulcastSender)
             }
             // Remove main sender...
@@ -599,7 +600,7 @@ extension LocalParticipant {
         sender._set(subscribedQualities: subscribedCodec.qualities)
 
         // Attach multi-codec sender...
-        track._simulcastRtpSenders[videoCodec] = sender
+        track._state.mutate { $0.rtpSenderForCodec[videoCodec] = sender }
 
         try await room.engine.publisherShouldNegotiate()
     }
