@@ -63,7 +63,7 @@ public class RoomOptions: NSObject {
     @objc
     public let suspendLocalVideoTracksInBackground: Bool
 
-    /// End-to-end encryption. Defaults to true.
+    /// End-to-end encryption. Defaults to true. (to not break compatibility with previous versions)
     /// E2EE is only turned on when valid ``e2eeOptions`` is provided.
     @objc
     public let isE2eeEnabled: Bool

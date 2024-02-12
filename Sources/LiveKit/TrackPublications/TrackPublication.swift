@@ -222,6 +222,19 @@ extension TrackPublication: TrackDelegateInternal {
             }
         }
     }
+
+    public func track(_: Track, didUpdateE2eeState e2eeState: E2EEState) {
+        log("didUpdateE2eeState: \(e2eeState)")
+
+        Task.detached {
+            let participant = try await self.requireParticipant()
+            let room = try participant.requireRoom()
+
+            room.delegates.notify {
+                $0.room?(room, trackPublication: self, didUpdateE2EEState: e2eeState)
+            }
+        }
+    }
 }
 
 // MARK: - Internal helpers

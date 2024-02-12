@@ -148,6 +148,7 @@ public class Track: NSObject, Loggable {
     // MARK: - Private
 
     private let _statisticsTimer = AsyncTimer(interval: 1.0)
+    private lazy var _frameCryptorDelegateAdapter = FrameCryptorDelegateAdapter(target: self)
 
     init(name: String,
          kind: Kind,
@@ -193,7 +194,17 @@ public class Track: NSObject, Loggable {
         _state.mutate {
             $0.transport = transport
             $0.senderCryptorPair = senderCryptorPair
+
+            if $0.receiverCryptorPair != nil {
+                log("Sender already attached to this track", .error)
+            }
         }
+
+        if let frameCryptor = senderCryptorPair?.frameCryptor {
+            // Attach delegate
+            frameCryptor.delegate = _frameCryptorDelegateAdapter
+        }
+
         await _resumeOrSuspendStatisticsTimer()
     }
 
@@ -201,7 +212,17 @@ public class Track: NSObject, Loggable {
         _state.mutate {
             $0.transport = transport
             $0.receiverCryptorPair = receiverCryptorPair
+
+            if $0.senderCryptorPair != nil {
+                log("Sender already attached to this track", .error)
+            }
         }
+
+        if let frameCryptor = receiverCryptorPair?.frameCryptor {
+            // Attach delegate
+            frameCryptor.delegate = _frameCryptorDelegateAdapter
+        }
+
         await _resumeOrSuspendStatisticsTimer()
     }
 
@@ -520,5 +541,25 @@ extension Track {
                 cryptor.enabled = isEnabled
             }
         }
+    }
+}
+
+extension Track {
+    // Private delegate adapter to hide LKRTCFrameCryptorDelegate symbol
+    private class FrameCryptorDelegateAdapter: NSObject, LKRTCFrameCryptorDelegate {
+        weak var target: Track?
+
+        init(target: Track? = nil) {
+            self.target = target
+        }
+
+        func frameCryptor(_ frameCryptor: LKRTCFrameCryptor, didStateChangeWithParticipantId participantId: String, with stateChanged: FrameCryptionState) {
+            // Redirect
+            target?.frameCryptor(frameCryptor, didStateChangeWithParticipantId: participantId, with: stateChanged)
+        }
+    }
+
+    private func frameCryptor(_: LKRTCFrameCryptor, didStateChangeWithParticipantId _: String, with e2eeState: FrameCryptionState) {
+        delegates.notify { $0.track(self, didUpdateE2eeState: e2eeState.toLKType()) }
     }
 }
