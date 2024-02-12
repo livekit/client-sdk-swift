@@ -171,13 +171,14 @@ public class LocalParticipant: Participant {
                                                 participantId: identity.stringValue,
                                                 algorithm: RTCCyrptorAlgorithm.aesGcm,
                                                 keyProvider: keyProvider)
-                    cryptor?.enabled = true
                 }
 
                 let senderCryptorPair = Track.SenderCryptorPair(sender: transceiver.sender, frameCryptor: cryptor)
 
                 // Attach sender to track...
                 await track.set(transport: publisher, senderCryptorPair: senderCryptorPair)
+
+                track.set(isCryptorEnabled: room._state.options.isE2eeEnabled)
 
                 if track is LocalVideoTrack {
                     if let firstCodecMime = addTrackResult.trackInfo.codecs.first?.mimeType,
@@ -620,13 +621,14 @@ extension LocalParticipant {
                                         participantId: identity.stringValue,
                                         algorithm: RTCCyrptorAlgorithm.aesGcm,
                                         keyProvider: keyProvider)
-            cryptor?.enabled = true
         }
 
         let senderCryptorPair = Track.SenderCryptorPair(sender: sender, frameCryptor: cryptor)
 
         // Attach multi-codec sender...
         track._state.mutate { $0.rtpSenderForCodec[videoCodec] = senderCryptorPair }
+
+        track.set(isCryptorEnabled: room._state.options.isE2eeEnabled)
 
         try await room.engine.publisherShouldNegotiate()
     }

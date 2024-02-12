@@ -96,6 +96,9 @@ public class Room: NSObject, ObservableObject, Loggable {
     @objc
     public var e2eeOptions: E2EEOptions? { _state.options.e2eeOptions }
 
+    @objc
+    public var isE2eeEnabled: Bool { _state.options.isE2eeEnabled }
+
     // MARK: - Internal
 
     // Reference to Engine
@@ -413,5 +416,22 @@ public extension Room {
     static var bypassVoiceProcessing: Bool {
         get { Engine.bypassVoiceProcessing }
         set { Engine.bypassVoiceProcessing = newValue }
+    }
+}
+
+// MARK: - E2EE
+
+public extension Room {
+    /// Set ``Room`` level e2ee dynamically. Room must be created with ``E2EEOptions``.
+    func set(isE2eeEnabled isEnabled: Bool) {
+        // Update RoomOptions...
+        _state.mutate { $0.options = $0.options.copyWith(isE2eeEnabled: isEnabled) }
+
+        let localTracks = Array(localParticipant.trackPublications.values).compactMap(\.track)
+        let remoteTracks = Array(remoteParticipants.values.map { $0.trackPublications.values.compactMap(\.track) }.joined())
+
+        for track in [localTracks, remoteTracks].joined() {
+            track.set(isCryptorEnabled: isEnabled)
+        }
     }
 }

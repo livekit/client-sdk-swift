@@ -63,7 +63,13 @@ public class RoomOptions: NSObject {
     @objc
     public let suspendLocalVideoTracksInBackground: Bool
 
+    /// End-to-end encryption. Defaults to true.
+    /// E2EE is only turned on when valid ``e2eeOptions`` is provided.
+    @objc
+    public let isE2eeEnabled: Bool
+
     /// E2EE Options
+    @objc
     public let e2eeOptions: E2EEOptions?
 
     @objc
@@ -80,6 +86,7 @@ public class RoomOptions: NSObject {
         dynacast = false
         stopLocalTrackOnUnpublish = true
         suspendLocalVideoTracksInBackground = true
+        isE2eeEnabled = true
         e2eeOptions = nil
         reportRemoteTrackStatistics = false
     }
@@ -95,6 +102,7 @@ public class RoomOptions: NSObject {
                 dynacast: Bool = false,
                 stopLocalTrackOnUnpublish: Bool = true,
                 suspendLocalVideoTracksInBackground: Bool = true,
+                isE2eeEnabled: Bool = true,
                 e2eeOptions: E2EEOptions? = nil,
                 reportRemoteTrackStatistics: Bool = false)
     {
@@ -108,6 +116,7 @@ public class RoomOptions: NSObject {
         self.dynacast = dynacast
         self.stopLocalTrackOnUnpublish = stopLocalTrackOnUnpublish
         self.suspendLocalVideoTracksInBackground = suspendLocalVideoTracksInBackground
+        self.isE2eeEnabled = isE2eeEnabled
         self.e2eeOptions = e2eeOptions
         self.reportRemoteTrackStatistics = reportRemoteTrackStatistics
     }
@@ -126,6 +135,8 @@ public class RoomOptions: NSObject {
             dynacast == other.dynacast &&
             stopLocalTrackOnUnpublish == other.stopLocalTrackOnUnpublish &&
             suspendLocalVideoTracksInBackground == other.suspendLocalVideoTracksInBackground &&
+            isE2eeEnabled == other.isE2eeEnabled &&
+            e2eeOptions == other.e2eeOptions &&
             reportRemoteTrackStatistics == other.reportRemoteTrackStatistics
     }
 
@@ -141,7 +152,25 @@ public class RoomOptions: NSObject {
         hasher.combine(dynacast)
         hasher.combine(stopLocalTrackOnUnpublish)
         hasher.combine(suspendLocalVideoTracksInBackground)
+        hasher.combine(isE2eeEnabled)
+        hasher.combine(e2eeOptions)
         hasher.combine(reportRemoteTrackStatistics)
         return hasher.finalize()
+    }
+
+    func copyWith(isE2eeEnabled: Bool) -> RoomOptions {
+        RoomOptions(defaultCameraCaptureOptions: defaultCameraCaptureOptions,
+                    defaultScreenShareCaptureOptions: defaultScreenShareCaptureOptions,
+                    defaultAudioCaptureOptions: defaultAudioCaptureOptions,
+                    defaultVideoPublishOptions: defaultVideoPublishOptions,
+                    defaultAudioPublishOptions: defaultAudioPublishOptions,
+                    defaultDataPublishOptions: defaultDataPublishOptions,
+                    adaptiveStream: adaptiveStream,
+                    dynacast: dynacast,
+                    stopLocalTrackOnUnpublish: stopLocalTrackOnUnpublish,
+                    suspendLocalVideoTracksInBackground: suspendLocalVideoTracksInBackground,
+                    isE2eeEnabled: isE2eeEnabled,
+                    e2eeOptions: e2eeOptions,
+                    reportRemoteTrackStatistics: reportRemoteTrackStatistics)
     }
 }

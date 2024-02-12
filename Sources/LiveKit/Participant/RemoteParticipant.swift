@@ -131,12 +131,13 @@ public class RemoteParticipant: Participant {
                                             participantId: identity.stringValue,
                                             algorithm: RTCCyrptorAlgorithm.aesGcm,
                                             keyProvider: keyProvider)
-                cryptor?.enabled = true
             }
 
             let receiverCryptorPair = Track.ReceiverCryptorPair(receiver: rtpReceiver, frameCryptor: cryptor)
 
             await track.set(transport: transport, receiverCryptorPair: receiverCryptorPair)
+
+            track.set(isCryptorEnabled: room._state.options.isE2eeEnabled)
         }
 
         add(publication: publication)

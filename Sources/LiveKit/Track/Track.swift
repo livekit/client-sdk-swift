@@ -497,3 +497,28 @@ extension Track {
         }
     }
 }
+
+// MARK: - E2EE (Internal)
+
+extension Track {
+    /// Set e2ee enabled state dynamically
+    func set(isCryptorEnabled isEnabled: Bool) {
+        _state.mutate {
+            // Sender
+            if let cryptor = $0.senderCryptorPair?.frameCryptor {
+                cryptor.enabled = isEnabled
+            }
+
+            // Simulcast senders
+            let sendersCryptors = Array($0.rtpSenderForCodec.values).compactMap(\.frameCryptor)
+            for cryptor in sendersCryptors {
+                cryptor.enabled = isEnabled
+            }
+
+            // Receiver
+            if let cryptor = $0.receiverCryptorPair?.frameCryptor {
+                cryptor.enabled = isEnabled
+            }
+        }
+    }
+}
