@@ -104,7 +104,7 @@ public class E2EEManager: NSObject, ObservableObject, Loggable {
             return
         }
 
-        guard let sender = publication.track?.rtpSender else {
+        guard let sender = publication.track?._state.rtpSender else {
             log("sender is nil, skipping creating frame cryptor...", .warning)
             return
         }
@@ -130,7 +130,7 @@ public class E2EEManager: NSObject, ObservableObject, Loggable {
             return
         }
 
-        guard let receiver = publication.track?.rtpReceiver else {
+        guard let receiver = publication.track?._state.rtpReceiver else {
             log("receiver is nil, skipping creating frame cryptor...", .warning)
             return
         }
