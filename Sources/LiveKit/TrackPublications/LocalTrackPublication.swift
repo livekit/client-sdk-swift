@@ -94,7 +94,7 @@ extension LocalTrackPublication: VideoCapturerDelegate {
 extension LocalTrackPublication {
     func recomputeSenderParameters() {
         guard let track = track as? LocalVideoTrack,
-              let sender = track._state.rtpSender else { return }
+              let senderCryptorPair = track._state.senderCryptorPair else { return }
 
         guard let dimensions = track.capturer.dimensions else {
             log("Cannot re-compute sender parameters without dimensions", .warning)
@@ -104,7 +104,7 @@ extension LocalTrackPublication {
         log("Re-computing sender parameters, dimensions: \(String(describing: track.capturer.dimensions))")
 
         // get current parameters
-        let parameters = sender.parameters
+        let parameters = senderCryptorPair.sender.parameters
 
         guard let participant, let room = participant._room else { return }
         let publishOptions = (track.publishOptions as? VideoPublishOptions) ?? room._state.options.defaultVideoPublishOptions
@@ -133,9 +133,9 @@ extension LocalTrackPublication {
         }
 
         // set the updated parameters
-        sender.parameters = parameters
+        senderCryptorPair.sender.parameters = parameters
 
-        log("Using encodings: \(sender.parameters.encodings), degradationPreference: \(String(describing: sender.parameters.degradationPreference))")
+        log("Using encodings: \(senderCryptorPair.sender.parameters.encodings), degradationPreference: \(String(describing: senderCryptorPair.sender.parameters.degradationPreference))")
 
         // Report updated encodings to server
 

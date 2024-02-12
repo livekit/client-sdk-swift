@@ -97,6 +97,18 @@ public class Track: NSObject, Loggable {
     @objc
     public var trackState: TrackState { _state.trackState }
 
+    // MARK: - Internal types
+
+    struct SenderCryptorPair {
+        let sender: LKRTCRtpSender
+        let frameCryptor: LKRTCFrameCryptor?
+    }
+
+    struct ReceiverCryptorPair {
+        let receiver: LKRTCRtpReceiver
+        let frameCryptor: LKRTCFrameCryptor?
+    }
+
     // MARK: - Internal
 
     let delegates = MulticastDelegate<TrackDelegate>()
@@ -126,9 +138,9 @@ public class Track: NSObject, Loggable {
 
         weak var transport: Transport?
         var videoCodec: VideoCodec?
-        var rtpSender: LKRTCRtpSender?
+        var senderCryptorPair: SenderCryptorPair?
         var rtpSenderForCodec: [VideoCodec: LKRTCRtpSender] = [:] // simulcastSender
-        var rtpReceiver: LKRTCRtpReceiver?
+        var receiverCryptorPair: ReceiverCryptorPair?
     }
 
     let _state: StateSync<State>
@@ -177,25 +189,25 @@ public class Track: NSObject, Loggable {
         }
     }
 
-    func set(transport: Transport?, rtpSender: LKRTCRtpSender?) async {
+    func set(transport: Transport?, senderCryptorPair: SenderCryptorPair?) async {
         _state.mutate {
             $0.transport = transport
-            $0.rtpSender = rtpSender
+            $0.senderCryptorPair = senderCryptorPair
         }
         await _resumeOrSuspendStatisticsTimer()
     }
 
-    func set(transport: Transport?, rtpReceiver: LKRTCRtpReceiver?) async {
+    func set(transport: Transport?, receiverCryptorPair: ReceiverCryptorPair?) async {
         _state.mutate {
             $0.transport = transport
-            $0.rtpReceiver = rtpReceiver
+            $0.receiverCryptorPair = receiverCryptorPair
         }
         await _resumeOrSuspendStatisticsTimer()
     }
 
     private func _resumeOrSuspendStatisticsTimer() async {
         let shouldStart = _state.read {
-            $0.reportStatistics && ($0.rtpSender != nil || $0.rtpReceiver != nil)
+            $0.reportStatistics && ($0.senderCryptorPair != nil || $0.receiverCryptorPair != nil)
         }
 
         if shouldStart {
@@ -445,7 +457,7 @@ public extension InboundRtpStreamStatistics {
 extension Track {
     func _onStatsTimer() async {
         // Read from state
-        let (transport, rtpSender, rtpReceiver, simulcastRtpSenders) = _state.read { ($0.transport, $0.rtpSender, $0.rtpReceiver, $0.rtpSenderForCodec) }
+        let (transport, rtpSender, rtpReceiver, simulcastRtpSenders) = _state.read { ($0.transport, $0.senderCryptorPair, $0.receiverCryptorPair, $0.rtpSenderForCodec) }
 
         // Transport is required...
         guard let transport else { return }
@@ -455,9 +467,9 @@ extension Track {
         var statisticsReport: LKRTCStatisticsReport?
         let prevStatistics = _state.read { $0.statistics }
 
-        if let sender = rtpSender {
+        if let sender = rtpSender?.sender {
             statisticsReport = await transport.statistics(for: sender)
-        } else if let receiver = rtpReceiver {
+        } else if let receiver = rtpReceiver?.receiver {
             statisticsReport = await transport.statistics(for: receiver)
         }
 

@@ -94,21 +94,18 @@ public class Room: NSObject, ObservableObject, Loggable {
     // MARK: - E2EE
 
     @objc
-    public var e2eeOptions: E2EEOptions? { _state.e2eeOptions }
+    public var e2eeOptions: E2EEOptions? { _state.options.e2eeOptions }
 
     // MARK: - Internal
 
     // Reference to Engine
     let engine: Engine
 
-    public var e2eeManager: E2EEManager?
-
     @objc
     public lazy var localParticipant: LocalParticipant = .init(room: self)
 
     struct State: Equatable {
         var options: RoomOptions
-        var e2eeOptions: E2EEOptions?
 
         var sid: Sid?
         var name: String?
@@ -246,12 +243,6 @@ public class Room: NSObject, ObservableObject, Loggable {
             _state.mutate { $0.options = roomOptions }
         }
 
-        // enable E2EE
-        if roomOptions?.e2eeOptions != nil {
-            e2eeManager = E2EEManager(e2eeOptions: roomOptions!.e2eeOptions!)
-            e2eeManager!.setup(room: self)
-        }
-
         try await engine.connect(url, token, connectOptions: connectOptions)
 
         log("Connected to \(String(describing: self))", .info)
@@ -305,11 +296,6 @@ extension Room {
         await engine.signalClient.cleanUp(withError: disconnectError)
         await engine.cleanUpRTC()
         await cleanUpParticipants(isFullReconnect: isFullReconnect)
-
-        // Cleanup for E2EE
-        if let e2eeManager {
-            e2eeManager.cleanUp()
-        }
 
         // Reset state
         _state.mutate { $0 = State(options: $0.options) }
