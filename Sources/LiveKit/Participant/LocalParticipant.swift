@@ -283,7 +283,7 @@ public class LocalParticipant: Participant {
             try await track.stop()
         }
 
-        if let publisher = room.engine.publisher, let sender = track.rtpSender {
+        if let publisher = room.engine.publisher, let sender = track._state.rtpSender {
             // Remove all simulcast senders...
             for simulcastSender in track._simulcastRtpSenders.values {
                 try await publisher.remove(track: simulcastSender)
@@ -380,7 +380,7 @@ public class LocalParticipant: Participant {
     func _set(subscribedQualities qualities: [Livekit_SubscribedQuality], forTrackSid trackSid: Track.Sid) {
         guard let publication = trackPublications[trackSid],
               let track = publication.track as? LocalVideoTrack,
-              let sender = track.rtpSender
+              let sender = track._state.rtpSender
         else { return }
 
         sender._set(subscribedQualities: qualities)

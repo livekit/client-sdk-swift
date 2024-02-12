@@ -41,7 +41,7 @@ extension VideoTrack {
         let videoCodec = try VideoCodec.from(id: subscribedCodec.codec)
 
         // Check if main sender is sending the codec...
-        if let rtpSender, videoCodec == _videoCodec {
+        if let rtpSender = _state.rtpSender, videoCodec == _videoCodec {
             rtpSender._set(subscribedQualities: subscribedCodec.qualities)
             return true
         }

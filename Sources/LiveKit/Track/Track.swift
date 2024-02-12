@@ -110,15 +110,11 @@ public class Track: NSObject, Loggable {
 
     let mediaTrack: LKRTCMediaStreamTrack
 
-    private(set) var rtpSender: LKRTCRtpSender?
-    private(set) var rtpReceiver: LKRTCRtpReceiver?
-
     var _videoCodec: VideoCodec?
     var _simulcastRtpSenders: [VideoCodec: LKRTCRtpSender] = [:]
 
     // Weak reference to all VideoViews attached to this track. Must be accessed from main thread.
     var videoRenderers = NSHashTable<VideoRenderer>.weakObjects()
-    // internal var rtcVideoRenderers = NSHashTable<RTCVideoRenderer>.weakObjects()
 
     struct State: Equatable {
         let name: String
@@ -133,13 +129,16 @@ public class Track: NSObject, Loggable {
         var statistics: TrackStatistics?
         var simulcastStatistics: [VideoCodec: TrackStatistics] = [:]
         var reportStatistics: Bool = false
+
+        weak var transport: Transport?
+        var rtpSender: LKRTCRtpSender?
+        var rtpReceiver: LKRTCRtpReceiver?
     }
 
-    var _state: StateSync<State>
+    let _state: StateSync<State>
 
     // MARK: - Private
 
-    private weak var transport: Transport?
     private let _statisticsTimer = AsyncTimer(interval: 1.0)
 
     init(name: String,
@@ -183,19 +182,25 @@ public class Track: NSObject, Loggable {
     }
 
     func set(transport: Transport?, rtpSender: LKRTCRtpSender?) async {
-        self.transport = transport
-        self.rtpSender = rtpSender
+        _state.mutate {
+            $0.transport = transport
+            $0.rtpSender = rtpSender
+        }
         await _resumeOrSuspendStatisticsTimer()
     }
 
     func set(transport: Transport?, rtpReceiver: LKRTCRtpReceiver?) async {
-        self.transport = transport
-        self.rtpReceiver = rtpReceiver
+        _state.mutate {
+            $0.transport = transport
+            $0.rtpReceiver = rtpReceiver
+        }
         await _resumeOrSuspendStatisticsTimer()
     }
 
     private func _resumeOrSuspendStatisticsTimer() async {
-        let shouldStart = _state.reportStatistics && (rtpSender != nil || rtpReceiver != nil)
+        let shouldStart = _state.read {
+            $0.reportStatistics && ($0.rtpSender != nil || $0.rtpReceiver != nil)
+        }
 
         if shouldStart {
             await _statisticsTimer.setTimerBlock { [weak self] in
@@ -443,6 +448,9 @@ public extension InboundRtpStreamStatistics {
 
 extension Track {
     func _onStatsTimer() async {
+        // Read from state
+        let (transport, rtpSender, rtpReceiver) = _state.read { ($0.transport, $0.rtpSender, $0.rtpReceiver) }
+
         // Transport is required...
         guard let transport else { return }
 
