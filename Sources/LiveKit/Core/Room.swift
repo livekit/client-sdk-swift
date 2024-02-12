@@ -91,6 +91,11 @@ public class Room: NSObject, ObservableObject, Loggable {
 
     public var connectStopwatch: Stopwatch { engine._state.connectStopwatch }
 
+    // MARK: - E2EE
+
+    @objc
+    public var e2eeOptions: E2EEOptions? { _state.e2eeOptions }
+
     // MARK: - Internal
 
     // Reference to Engine
@@ -103,6 +108,7 @@ public class Room: NSObject, ObservableObject, Loggable {
 
     struct State: Equatable {
         var options: RoomOptions
+        var e2eeOptions: E2EEOptions?
 
         var sid: Sid?
         var name: String?
