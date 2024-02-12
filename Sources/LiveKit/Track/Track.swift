@@ -139,7 +139,7 @@ public class Track: NSObject, Loggable {
         weak var transport: Transport?
         var videoCodec: VideoCodec?
         var senderCryptorPair: SenderCryptorPair?
-        var rtpSenderForCodec: [VideoCodec: LKRTCRtpSender] = [:] // simulcastSender
+        var rtpSenderForCodec: [VideoCodec: SenderCryptorPair] = [:] // simulcastSender
         var receiverCryptorPair: ReceiverCryptorPair?
     }
 
@@ -483,17 +483,17 @@ extension Track {
         // Simulcast statistics
 
         let prevSimulcastStatistics = _state.read { $0.simulcastStatistics }
-        var _simulcastStatistics: [VideoCodec: TrackStatistics] = [:]
+        var simulcastStatistics: [VideoCodec: TrackStatistics] = [:]
 
-        for _sender in simulcastRtpSenders {
-            let _report = await transport.statistics(for: _sender.value)
-            _simulcastStatistics[_sender.key] = TrackStatistics(from: Array(_report.statistics.values),
-                                                                prevStatistics: prevSimulcastStatistics[_sender.key])
+        for simulcastRtpSender in simulcastRtpSenders {
+            let report = await transport.statistics(for: simulcastRtpSender.value.sender)
+            simulcastStatistics[simulcastRtpSender.key] = TrackStatistics(from: Array(report.statistics.values),
+                                                                          prevStatistics: prevSimulcastStatistics[simulcastRtpSender.key])
         }
 
         _state.mutate {
             $0.statistics = trackStatistics
-            $0.simulcastStatistics = _simulcastStatistics
+            $0.simulcastStatistics = simulcastStatistics
         }
     }
 }

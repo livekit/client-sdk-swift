@@ -299,8 +299,8 @@ public class LocalParticipant: Participant {
         if let publisher = room.engine.publisher, let senderCryptorPair = track._state.senderCryptorPair {
             // Remove all simulcast senders...
             let simulcastSenders = track._state.read { Array($0.rtpSenderForCodec.values) }
-            for simulcastSender in simulcastSenders {
-                try await publisher.remove(track: simulcastSender)
+            for senderCryptorPair in simulcastSenders {
+                try await publisher.remove(track: senderCryptorPair.sender)
             }
             // Remove main sender...
             try await publisher.remove(track: senderCryptorPair.sender)
@@ -612,8 +612,21 @@ extension LocalParticipant {
 
         sender._set(subscribedQualities: subscribedCodec.qualities)
 
+        // E2EE
+        var cryptor: LKRTCFrameCryptor?
+        if let identity, let keyProvider = room._state.options.e2eeOptions?.keyProvider.rtcKeyProvider {
+            cryptor = LKRTCFrameCryptor(factory: Engine.peerConnectionFactory,
+                                        rtpSender: sender,
+                                        participantId: identity.stringValue,
+                                        algorithm: RTCCyrptorAlgorithm.aesGcm,
+                                        keyProvider: keyProvider)
+            cryptor?.enabled = true
+        }
+
+        let senderCryptorPair = Track.SenderCryptorPair(sender: sender, frameCryptor: cryptor)
+
         // Attach multi-codec sender...
-        track._state.mutate { $0.rtpSenderForCodec[videoCodec] = sender }
+        track._state.mutate { $0.rtpSenderForCodec[videoCodec] = senderCryptorPair }
 
         try await room.engine.publisherShouldNegotiate()
     }
