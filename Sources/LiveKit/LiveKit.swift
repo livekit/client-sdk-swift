@@ -16,8 +16,8 @@
 
 import Foundation
 
+@_implementationOnly import LiveKitWebRTC
 @_implementationOnly import Logging
-@_implementationOnly import WebRTC
 
 let logger = Logger(label: "LiveKitSDK")
 

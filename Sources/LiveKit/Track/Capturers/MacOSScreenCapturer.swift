@@ -21,7 +21,7 @@ import Foundation
     import ScreenCaptureKit
 #endif
 
-@_implementationOnly import WebRTC
+@_implementationOnly import LiveKitWebRTC
 
 #if os(macOS)
 
