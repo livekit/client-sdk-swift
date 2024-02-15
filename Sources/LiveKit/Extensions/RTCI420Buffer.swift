@@ -16,7 +16,7 @@
 
 import Foundation
 
-@_implementationOnly import WebRTC
+@_implementationOnly import LiveKitWebRTC
 
 extension LKRTCI420Buffer {
     func toPixelBuffer() -> CVPixelBuffer? {

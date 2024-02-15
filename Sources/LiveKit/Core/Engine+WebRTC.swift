@@ -16,7 +16,7 @@
 
 import Foundation
 
-@_implementationOnly import WebRTC
+@_implementationOnly import LiveKitWebRTC
 
 private extension Array where Element: LKRTCVideoCodecInfo {
     func rewriteCodecsIfNeeded() -> [LKRTCVideoCodecInfo] {

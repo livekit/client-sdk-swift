@@ -16,7 +16,7 @@
 
 import Foundation
 
-@_implementationOnly import WebRTC
+@_implementationOnly import LiveKitWebRTC
 
 @objc
 public class AudioCaptureOptions: NSObject, CaptureOptions {

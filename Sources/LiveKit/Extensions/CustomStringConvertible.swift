@@ -16,7 +16,7 @@
 
 import Foundation
 
-@_implementationOnly import WebRTC
+@_implementationOnly import LiveKitWebRTC
 
 extension TrackSettings: CustomStringConvertible {
     public var description: String {

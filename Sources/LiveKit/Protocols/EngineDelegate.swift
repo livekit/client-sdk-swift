@@ -16,7 +16,7 @@
 
 import Foundation
 
-@_implementationOnly import WebRTC
+@_implementationOnly import LiveKitWebRTC
 
 protocol EngineDelegate: AnyObject {
     func engine(_ engine: Engine, didMutateState state: Engine.State, oldState: Engine.State) async

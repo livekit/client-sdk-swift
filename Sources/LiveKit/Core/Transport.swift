@@ -17,7 +17,7 @@
 import Foundation
 import SwiftProtobuf
 
-@_implementationOnly import WebRTC
+@_implementationOnly import LiveKitWebRTC
 
 actor Transport: NSObject, Loggable {
     // MARK: - Types
