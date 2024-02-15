@@ -17,7 +17,7 @@
 import CoreMedia
 import Foundation
 
-@_implementationOnly import WebRTC
+@_implementationOnly import LiveKitWebRTC
 
 public protocol VideoBuffer {}
 

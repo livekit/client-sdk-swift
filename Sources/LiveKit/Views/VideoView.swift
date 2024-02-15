@@ -18,7 +18,7 @@ import AVFoundation
 import Foundation
 import MetalKit
 
-@_implementationOnly import WebRTC
+@_implementationOnly import LiveKitWebRTC
 
 /// A ``NativeViewType`` that conforms to ``RTCVideoRenderer``.
 typealias NativeRendererView = LKRTCVideoRenderer & Mirrorable & NativeViewType

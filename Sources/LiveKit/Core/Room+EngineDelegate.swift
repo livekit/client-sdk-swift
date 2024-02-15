@@ -16,7 +16,7 @@
 
 import Foundation
 
-@_implementationOnly import WebRTC
+@_implementationOnly import LiveKitWebRTC
 
 extension Room: EngineDelegate {
     func engine(_: Engine, didMutateState state: Engine.State, oldState: Engine.State) async {

@@ -16,7 +16,7 @@
 
 import Foundation
 
-@_implementationOnly import WebRTC
+@_implementationOnly import LiveKitWebRTC
 
 extension LKRTCSessionDescription {
     func toPBType() -> Livekit_SessionDescription {
