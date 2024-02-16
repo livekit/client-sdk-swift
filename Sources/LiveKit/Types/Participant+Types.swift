@@ -19,7 +19,7 @@ import Foundation
 public extension Participant {
     @objc
     class Sid: NSObject, Codable {
-        let stringValue: String
+        public let stringValue: String
 
         init(from stringValue: String) {
             self.stringValue = stringValue
@@ -43,7 +43,7 @@ public extension Participant {
 
     @objc
     class Identity: NSObject, Codable {
-        let stringValue: String
+        public let stringValue: String
 
         init(from stringValue: String) {
             self.stringValue = stringValue

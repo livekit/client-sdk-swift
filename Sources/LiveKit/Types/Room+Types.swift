@@ -19,7 +19,7 @@ import Foundation
 public extension Room {
     @objc
     class Sid: NSObject, Codable {
-        let stringValue: String
+        public let stringValue: String
 
         init(from stringValue: String) {
             self.stringValue = stringValue
