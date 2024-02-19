@@ -27,33 +27,39 @@ protocol RTCCompatibleVideoBuffer {
 
 public class CVPixelVideoBuffer: VideoBuffer, RTCCompatibleVideoBuffer {
     // Internal RTC type
-    let rtcType: LKRTCCVPixelBuffer
+    private let _rtcType: LKRTCCVPixelBuffer
+
+    public var pixelBuffer: CVPixelBuffer {
+        _rtcType.pixelBuffer
+    }
+
     init(rtcCVPixelBuffer: LKRTCCVPixelBuffer) {
-        rtcType = rtcCVPixelBuffer
+        _rtcType = rtcCVPixelBuffer
     }
 
     func toRTCType() -> LKRTCVideoFrameBuffer {
-        rtcType
+        _rtcType
     }
 }
 
 public struct I420VideoBuffer: VideoBuffer, RTCCompatibleVideoBuffer {
     // Internal RTC type
-    let rtcType: LKRTCI420Buffer
+    private let _rtcType: LKRTCI420Buffer
+
     init(rtcI420Buffer: LKRTCI420Buffer) {
-        rtcType = rtcI420Buffer
+        _rtcType = rtcI420Buffer
     }
 
     func toRTCType() -> LKRTCVideoFrameBuffer {
-        rtcType
+        _rtcType
     }
 }
 
 public class VideoFrame: NSObject {
-    let dimensions: Dimensions
-    let rotation: VideoRotation
-    let timeStampNs: Int64
-    let buffer: VideoBuffer
+    public let dimensions: Dimensions
+    public let rotation: VideoRotation
+    public let timeStampNs: Int64
+    public let buffer: VideoBuffer
 
     // TODO: Implement
 
@@ -78,7 +84,7 @@ extension LKRTCVideoFrame {
         } else if let rtcI420Buffer = buffer as? LKRTCI420Buffer {
             lkBuffer = I420VideoBuffer(rtcI420Buffer: rtcI420Buffer)
         } else {
-            logger.error("RTCVideoFrame.buffer is not a known type (\(type(of: buffer)))")
+            logger.log("RTCVideoFrame.buffer is not a known type (\(type(of: buffer)))", .error, type: LKRTCVideoFrame.self)
             return nil
         }
 
