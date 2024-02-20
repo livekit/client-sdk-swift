@@ -29,6 +29,7 @@ public class CVPixelVideoBuffer: VideoBuffer, RTCCompatibleVideoBuffer {
     // Internal RTC type
     private let _rtcType: LKRTCCVPixelBuffer
 
+    // Returns the underlying CVPixelBuffer
     public var pixelBuffer: CVPixelBuffer {
         _rtcType.pixelBuffer
     }
@@ -53,6 +54,20 @@ public struct I420VideoBuffer: VideoBuffer, RTCCompatibleVideoBuffer {
     func toRTCType() -> LKRTCVideoFrameBuffer {
         _rtcType
     }
+
+    // Converts to CVPixelBuffer
+    public func toPixelBuffer() -> CVPixelBuffer? {
+        _rtcType.toPixelBuffer()
+    }
+
+    public var chromaWidth: Int32 { _rtcType.chromaWidth }
+    public var chromaHeight: Int32 { _rtcType.chromaHeight }
+    public var dataY: UnsafePointer<UInt8> { _rtcType.dataY }
+    public var dataU: UnsafePointer<UInt8> { _rtcType.dataU }
+    public var dataV: UnsafePointer<UInt8> { _rtcType.dataV }
+    public var strideY: Int32 { _rtcType.strideY }
+    public var strideU: Int32 { _rtcType.strideU }
+    public var strideV: Int32 { _rtcType.strideV }
 }
 
 public class VideoFrame: NSObject {
