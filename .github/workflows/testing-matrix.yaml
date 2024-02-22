@@ -5,7 +5,7 @@ on:
   push:
 
 jobs:
-  example_matrix:
+  basic_test:
     strategy:
       matrix:
         platform: [iOS, macOS]
@@ -21,6 +21,9 @@ jobs:
 
       - name: Show SDKs
         run: xcodebuild -showsdks
+
+      - name: List Schemes
+        run: xcodebuild -list
 
       - name: Execute Test
         run: xcodebuild -scheme LiveKitTests -destination 'platform=macOS,arch=arm64' -only-testing 'LiveKitTests/Basic' test
