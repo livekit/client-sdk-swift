@@ -10,7 +10,7 @@ jobs:
       fail-fast: false
       matrix:
         xcode-version: [14.2, 15.2]
-        destination: ['platform=iOS Simulator,OS=17.2', 'platform=macOS', 'platform=macOS,variant=Mac Catalyst']
+        destination: ['platform=iOS Simulator,OS=17.2,name=iPhone 14 Pro', 'platform=macOS', 'platform=macOS,variant=Mac Catalyst']
 
     runs-on: macos-13
 
