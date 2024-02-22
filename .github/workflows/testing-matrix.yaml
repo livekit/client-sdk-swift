@@ -30,6 +30,6 @@ jobs:
         run: xcodebuild -list
 
       - name: Execute Test
-        run: xcodebuild test -scheme LiveKit -destination 'platform=macOS,arch=arm64'
+        run: xcodebuild test -scheme LiveKit -destination 'platform=${{ matrix.platform }}'
 
       # xcodebuild test -scheme LiveKit -sdk iphonesimulator17.2 -destination "OS=17.4,name=iPhone 13 Mini"
