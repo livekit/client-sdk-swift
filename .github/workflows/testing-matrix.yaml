@@ -5,7 +5,7 @@ on:
   push:
 
 jobs:
-  basic_test:
+  run_all_tests:
     strategy:
       fail-fast: false
       matrix:
@@ -27,10 +27,8 @@ jobs:
       - name: Show SDKs
         run: xcodebuild -showsdks
 
-      # - name: List Schemes
-      #   run: xcodebuild -list
+      - name: Show Destinations
+        run: xcodebuild -scheme LiveKit -showdestinations
 
-      - name: Execute Test
+      - name: Run All Tests
         run: xcodebuild test -scheme LiveKit -destination 'platform=${{ matrix.platform }}'
-
-      # xcodebuild test -scheme LiveKit -sdk iphonesimulator17.2 -destination "OS=17.4,name=iPhone 13 Mini"
