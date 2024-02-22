@@ -9,8 +9,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: [iOS, macOS]
         xcode-version: [14.2, 15.2]
+        destination: ['platform=iOS Simulator,OS=17.2', 'platform=macOS', 'platform=macOS,variant=Mac Catalyst']
 
     runs-on: macos-13
 
@@ -31,4 +31,4 @@ jobs:
         run: xcodebuild -scheme LiveKit -showdestinations
 
       - name: Run All Tests
-        run: xcodebuild test -scheme LiveKit -destination 'platform=${{ matrix.platform }}'
+        run: xcodebuild test -scheme LiveKit -destination '${{ matrix.destination }}'
