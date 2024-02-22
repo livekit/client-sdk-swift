@@ -27,6 +27,9 @@ jobs:
       - name: Show SDKs
         run: xcodebuild -showsdks
 
+      - name: Download iOS platforms
+        run: xcodebuild -downloadPlatform iOS
+
       - name: Show Destinations
         run: xcodebuild -scheme LiveKit -showdestinations
 
