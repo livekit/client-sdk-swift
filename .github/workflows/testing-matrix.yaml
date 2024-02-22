@@ -1,0 +1,28 @@
+name: Testing Matrix
+
+on:
+  workflow_dispatch:
+  push:
+
+jobs:
+  example_matrix:
+    strategy:
+      matrix:
+        platform: [iOS, macOS]
+        xcode-version: [14.2, 15.2]
+
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Xcode Version
+        run: xcodebuild -version
+
+      - name: Show SDKs
+        run: xcodebuild -showsdks
+
+      - name: Execute Test
+        run: xcodebuild -scheme LiveKitTests -destination 'platform=macOS,arch=arm64' -only-testing 'LiveKitTests/Basic' test
+
+      # xcodebuild test -scheme LiveKit -sdk iphonesimulator17.2 -destination "OS=17.4,name=iPhone 13 Mini"
