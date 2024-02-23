@@ -31,8 +31,8 @@ jobs:
         run: xcodebuild -downloadPlatform iOS
 
       # xcode-installを用いて指定のiOSをインストール
-      - name: Install iOS 13
-        run: xcversion simulators --install='iOS 13.0'
+      # - name: Install iOS 13
+      # run: xcversion simulators --install='iOS 13.0'
 
       - name: Show Destinations
         run: xcodebuild -scheme LiveKit -showdestinations
