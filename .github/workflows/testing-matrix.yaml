@@ -31,7 +31,7 @@ jobs:
       - name: Download iOS platforms
         run: xcodebuild -downloadPlatform iOS
 
-      # xcode-installを用いて指定のiOSをインストール
+      # TODO: Add step to install iOS 13
       # - name: Install iOS 13
       # run: xcversion simulators --install='iOS 13.0'
 
