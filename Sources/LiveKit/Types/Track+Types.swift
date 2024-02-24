@@ -17,8 +17,9 @@
 import Foundation
 
 public extension Track {
-    @objc
+    @objc(TrackSid)
     class Sid: NSObject, Codable {
+        @objc
         public let stringValue: String
 
         init(from stringValue: String) {

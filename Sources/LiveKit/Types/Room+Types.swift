@@ -17,8 +17,9 @@
 import Foundation
 
 public extension Room {
-    @objc
+    @objc(RoomSid)
     class Sid: NSObject, Codable {
+        @objc
         public let stringValue: String
 
         init(from stringValue: String) {

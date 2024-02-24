@@ -17,8 +17,9 @@
 import Foundation
 
 public extension Participant {
-    @objc
+    @objc(ParticipantSid)
     class Sid: NSObject, Codable {
+        @objc
         public let stringValue: String
 
         init(from stringValue: String) {
@@ -41,8 +42,9 @@ public extension Participant {
         }
     }
 
-    @objc
+    @objc(ParticipantIdentity)
     class Identity: NSObject, Codable {
+        @objc
         public let stringValue: String
 
         init(from stringValue: String) {
