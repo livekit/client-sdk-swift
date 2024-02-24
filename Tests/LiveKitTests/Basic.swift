@@ -17,18 +17,4 @@
 @testable import LiveKit
 import XCTest
 
-class AsyncRetryTests: XCTestCase {
-    override func setUpWithError() throws {}
-
-    override func tearDown() async throws {}
-
-//    func testRetry1() async throws {
-//        let test = Task.retrying(totalAttempts: 3) { currentAttempt, totalAttempts in
-//            print("[TEST] Retrying with remaining attemps: \(currentAttempt)/\(totalAttempts)...")
-//            throw LiveKitError(.invalidState, message: "Test error")
-//        }
-//
-//        let value: () = try await test.value
-//        print("[TEST] Ended with value: '\(value)'...")
-//    }
-}
+class Basic: XCTestCase {}

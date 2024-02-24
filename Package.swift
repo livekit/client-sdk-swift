@@ -39,5 +39,9 @@ let package = Package(
             name: "LiveKitTests",
             dependencies: ["LiveKit"]
         ),
+        .testTarget(
+            name: "LiveKitTestsObjC",
+            dependencies: ["LiveKit"]
+        ),
     ]
 )

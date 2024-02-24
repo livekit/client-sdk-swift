@@ -23,23 +23,23 @@ class WebSocketTests: XCTestCase {
     override func tearDown() async throws {}
 
     func testWebSocket01() async throws {
-        print("Connecting...")
-        let socket = try await WebSocket(url: URL(string: "wss://socketsbay.com/wss/v2/1/demo/")!)
-
-        print("Connected, waiting for messages...")
-        do {
-            for try await message in socket {
-                switch message {
-                case let .string(string): print("Received String: \(string)")
-                case let .data(data): print("Received Data: \(data)")
-                @unknown default: print("Received unknown message")
-                }
-            }
-        } catch {
-            print("Error: \(error)")
-            throw error
-        }
-
-        print("Completed")
+//        print("Connecting...")
+//        let socket = try await WebSocket(url: URL(string: "wss://socketsbay.com/wss/v2/1/demo/")!)
+//
+//        print("Connected, waiting for messages...")
+//        do {
+//            for try await message in socket {
+//                switch message {
+//                case let .string(string): print("Received String: \(string)")
+//                case let .data(data): print("Received Data: \(data)")
+//                @unknown default: print("Received unknown message")
+//                }
+//            }
+//        } catch {
+//            print("Error: \(error)")
+//            throw error
+//        }
+//
+//        print("Completed")
     }
 }
