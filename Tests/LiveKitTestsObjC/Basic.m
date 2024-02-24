@@ -14,7 +14,16 @@
  * limitations under the License.
  */
 
-@testable import LiveKit
-import XCTest
+#import <XCTest/XCTest.h>
+@import LiveKit;
 
-class Basic: XCTestCase {}
+@interface Basic : XCTestCase
+@end
+
+@implementation Basic
+
+- (void)sdkVersion {
+    NSLog(@"%@", LiveKitSDK.sdkVersion);
+}
+
+@end
