@@ -3,6 +3,7 @@ name: Testing Matrix
 on:
   workflow_dispatch:
   push:
+  pull_request:
 
 jobs:
   run_all_tests:
