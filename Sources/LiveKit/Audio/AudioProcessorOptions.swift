@@ -25,9 +25,10 @@ public class AudioProcessorOptions: NSObject {
     public var renderPreBypass: Bool = false
 
     public init(capturePostProcessor: AudioProcessor? = nil,
-         capturePostBypass: Bool? = false,
-         renderPreProcessor: AudioProcessor? = nil,
-         renderPreBypass: Bool? = false) {
+                capturePostBypass: Bool? = false,
+                renderPreProcessor: AudioProcessor? = nil,
+                renderPreBypass: Bool? = false)
+    {
         self.capturePostProcessor = capturePostProcessor
         self.capturePostBypass = capturePostBypass ?? false
         self.renderPreProcessor = renderPreProcessor

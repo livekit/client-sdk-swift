@@ -65,7 +65,7 @@ public class RoomOptions: NSObject {
 
     /// E2EE Options
     public let e2eeOptions: E2EEOptions?
-    
+
     /// Audio Processor
     public let audioProcessorOptions: AudioProcessorOptions?
 
