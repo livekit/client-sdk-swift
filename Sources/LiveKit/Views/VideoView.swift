@@ -212,7 +212,7 @@ public class VideoView: NativeView, Loggable {
 
             guard let self else { return }
 
-            self.log("Mutating in main thread: \(Thread.current.isMainThread)")
+            self.log("Mutating in main thread: \(Thread.current.isMainThread)", .trace)
 
             let shouldRenderDidUpdate = newState.shouldRender != oldState.shouldRender
             let renderModeDidUpdate = newState.renderMode != oldState.renderMode
