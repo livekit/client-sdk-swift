@@ -48,4 +48,7 @@ jobs:
         run: xcodebuild -scheme LiveKit -showdestinations
 
       - name: Run All Tests
-        run: xcodebuild test -scheme LiveKit -destination '${{ matrix.destination }}'
+        env:
+          LIVEKIT_URL: ${{ secrets.LIVEKIT_URL }}
+          LIVEKIT_TOKEN: ${{ secrets.LIVEKIT_TOKEN }}
+        run: xcodebuild test -scheme LiveKit -destination '${{ matrix.destination }}' LIVEKIT_URL='$LIVEKIT_URL' LIVEKIT_TOKEN='$LIVEKIT_TOKEN'
