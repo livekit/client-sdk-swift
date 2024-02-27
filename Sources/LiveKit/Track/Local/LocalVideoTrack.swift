@@ -16,7 +16,7 @@
 
 import Foundation
 
-@_implementationOnly import WebRTC
+@_implementationOnly import LiveKitWebRTC
 
 @objc
 public class LocalVideoTrack: Track, LocalTrack, VideoTrack {
@@ -74,8 +74,8 @@ public extension LocalVideoTrack {
 }
 
 public extension LocalVideoTrack {
-    var publishOptions: TrackPublishOptions? { super._publishOptions }
-    var publishState: Track.PublishState { super._publishState }
+    var publishOptions: TrackPublishOptions? { super._state.lastPublishOptions }
+    var publishState: Track.PublishState { super._state.publishState }
 }
 
 public extension LocalVideoTrack {

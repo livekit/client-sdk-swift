@@ -19,9 +19,9 @@ import Foundation
 // Identify by sid
 
 extension TrackPublication: Identifiable {
-    public typealias ID = Sid
+    public typealias ID = Track.Sid
 
-    public var id: Sid {
+    public var id: Track.Sid {
         _state.sid
     }
 }

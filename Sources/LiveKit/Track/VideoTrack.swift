@@ -16,7 +16,7 @@
 
 import Foundation
 
-@_implementationOnly import WebRTC
+@_implementationOnly import LiveKitWebRTC
 
 @objc
 public protocol VideoTrack where Self: Track {
@@ -41,13 +41,13 @@ extension VideoTrack {
         let videoCodec = try VideoCodec.from(id: subscribedCodec.codec)
 
         // Check if main sender is sending the codec...
-        if let rtpSender, videoCodec == _videoCodec {
+        if let rtpSender = _state.rtpSender, videoCodec == _state.videoCodec {
             rtpSender._set(subscribedQualities: subscribedCodec.qualities)
             return true
         }
 
         // Find simulcast sender for codec...
-        if let rtpSender = _simulcastRtpSenders[videoCodec] {
+        if let rtpSender = _state.rtpSenderForCodec[videoCodec] {
             rtpSender._set(subscribedQualities: subscribedCodec.qualities)
             return true
         }

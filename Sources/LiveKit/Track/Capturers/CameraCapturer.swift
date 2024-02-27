@@ -20,7 +20,7 @@ import Foundation
     import ReplayKit
 #endif
 
-@_implementationOnly import WebRTC
+@_implementationOnly import LiveKitWebRTC
 
 public class CameraCapturer: VideoCapturer {
     @objc
@@ -49,7 +49,7 @@ public class CameraCapturer: VideoCapturer {
     public var options: CameraCaptureOptions
 
     public var isMultitaskingAccessSupported: Bool {
-        #if os(iOS) || os(tvOS)
+        #if (os(iOS) || os(tvOS)) && !targetEnvironment(macCatalyst)
             if #available(iOS 16, *, tvOS 17, *) {
                 self.capturer.captureSession.beginConfiguration()
                 defer { self.capturer.captureSession.commitConfiguration() }
@@ -61,7 +61,7 @@ public class CameraCapturer: VideoCapturer {
 
     public var isMultitaskingAccessEnabled: Bool {
         get {
-            #if os(iOS) || os(tvOS)
+            #if (os(iOS) || os(tvOS)) && !targetEnvironment(macCatalyst)
                 if #available(iOS 16, *, tvOS 17, *) {
                     return self.capturer.captureSession.isMultitaskingCameraAccessEnabled
                 }
@@ -69,7 +69,7 @@ public class CameraCapturer: VideoCapturer {
             return false
         }
         set {
-            #if os(iOS) || os(tvOS)
+            #if (os(iOS) || os(tvOS)) && !targetEnvironment(macCatalyst)
                 if #available(iOS 16, *, tvOS 17, *) {
                     self.capturer.captureSession.isMultitaskingCameraAccessEnabled = newValue
                 }

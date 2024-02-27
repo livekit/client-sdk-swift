@@ -17,7 +17,7 @@
 import Foundation
 import SwiftProtobuf
 
-@_implementationOnly import WebRTC
+@_implementationOnly import LiveKitWebRTC
 
 actor Transport: NSObject, Loggable {
     // MARK: - Types
@@ -139,7 +139,7 @@ actor Transport: NSObject, Loggable {
 
     func createAndSendOffer(iceRestart: Bool = false) async throws {
         guard let _onOffer else {
-            log("_onOffer is nil", .warning)
+            log("_onOffer is nil", .error)
             return
         }
 

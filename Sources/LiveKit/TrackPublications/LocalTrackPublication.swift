@@ -44,6 +44,7 @@ public class LocalTrackPublication: TrackPublication {
         try await track._unmute()
     }
 
+    @discardableResult
     override func set(track newValue: Track?) async -> Track? {
         let oldValue = await super.set(track: newValue)
 
@@ -93,7 +94,7 @@ extension LocalTrackPublication: VideoCapturerDelegate {
 extension LocalTrackPublication {
     func recomputeSenderParameters() {
         guard let track = track as? LocalVideoTrack,
-              let sender = track.rtpSender else { return }
+              let sender = track._state.rtpSender else { return }
 
         guard let dimensions = track.capturer.dimensions else {
             log("Cannot re-compute sender parameters without dimensions", .warning)

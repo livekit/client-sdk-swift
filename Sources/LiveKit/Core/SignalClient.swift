@@ -16,7 +16,7 @@
 
 import Foundation
 
-@_implementationOnly import WebRTC
+@_implementationOnly import LiveKitWebRTC
 
 actor SignalClient: Loggable {
     // MARK: - Types
@@ -47,10 +47,9 @@ actor SignalClient: Loggable {
 
     public private(set) var connectionState: ConnectionState = .disconnected {
         didSet {
+            guard connectionState != oldValue else { return }
             // connectionState Updated...
-            if connectionState != oldValue {
-                log("\(oldValue) -> \(connectionState)")
-            }
+            log("\(oldValue) -> \(connectionState)")
 
             _delegate.notifyAsync { await $0.signalClient(self, didUpdateConnectionState: self.connectionState, oldState: oldValue, disconnectError: self.disconnectError) }
         }
@@ -78,7 +77,7 @@ actor SignalClient: Loggable {
             try await webSocket.send(data: data)
 
         } catch {
-            self.log("Failed to send queued request \(request) with error: \(error)", .error)
+            self.log("Failed to send queued request \(request) with error: \(error)", .warning)
         }
     })
 
@@ -114,9 +113,6 @@ actor SignalClient: Loggable {
                  adaptiveStream: Bool) async throws -> ConnectResponse
     {
         await cleanUp()
-
-        // Start suspended...
-        await _responseQueue.suspend()
 
         if let reconnectMode {
             log("[Connect] mode: \(String(describing: reconnectMode))")
@@ -199,9 +195,6 @@ actor SignalClient: Loggable {
     func cleanUp(withError disconnectError: Error? = nil) async {
         log("withError: \(String(describing: disconnectError))")
 
-        connectionState = .disconnected
-        self.disconnectError = LiveKitError.from(error: disconnectError)
-
         await _pingIntervalTimer.cancel()
         await _pingTimeoutTimer.cancel()
 
@@ -217,6 +210,9 @@ actor SignalClient: Loggable {
         await _addTrackCompleters.reset()
         await _requestQueue.clear()
         await _responseQueue.clear()
+
+        self.disconnectError = LiveKitError.from(error: disconnectError)
+        connectionState = .disconnected
     }
 }
 
@@ -230,8 +226,7 @@ private extension SignalClient {
             throw LiveKitError(.invalidState, message: "connectionState is .disconnected")
         }
 
-        let processImmediately = !(connectionState == .reconnecting && request.canBeQueued())
-        await _requestQueue.process(request, if: processImmediately)
+        await _requestQueue.processIfResumed(request, elseEnqueue: request.canBeQueued())
     }
 
     func _onWebSocketMessage(message: URLSessionWebSocketTask.Message) async {
@@ -320,7 +315,7 @@ private extension SignalClient {
             _delegate.notifyAsync { await $0.signalClient(self, didUpdateConnectionQuality: quality.updates) }
 
         case let .mute(mute):
-            _delegate.notifyAsync { await $0.signalClient(self, didUpdateRemoteMute: mute.sid, muted: mute.muted) }
+            _delegate.notifyAsync { await $0.signalClient(self, didUpdateRemoteMute: Track.Sid(from: mute.sid), muted: mute.muted) }
 
         case let .leave(leave):
             _delegate.notifyAsync { await $0.signalClient(self, didReceiveLeave: leave.canReconnect, reason: leave.reason) }
@@ -354,21 +349,15 @@ private extension SignalClient {
 // MARK: - Internal
 
 extension SignalClient {
-    func resumeResponseQueue() async {
+    func resumeQueues() async {
         await _responseQueue.resume()
+        await _requestQueue.resume()
     }
 }
 
 // MARK: - Send methods
 
 extension SignalClient {
-    func resumeRequestQueue() async throws {
-        let queueCount = await _requestQueue.count
-        log("[Connect] Sending queued requests (\(queueCount))...")
-
-        await _requestQueue.resume()
-    }
-
     func send(offer: LKRTCSessionDescription) async throws {
         let r = Livekit_SignalRequest.with {
             $0.offer = offer.toPBType()
@@ -396,10 +385,10 @@ extension SignalClient {
         try await _sendRequest(r)
     }
 
-    func sendMuteTrack(trackSid: String, muted: Bool) async throws {
+    func sendMuteTrack(trackSid: Track.Sid, muted: Bool) async throws {
         let r = Livekit_SignalRequest.with {
             $0.mute = Livekit_MuteTrackRequest.with {
-                $0.sid = trackSid
+                $0.sid = trackSid.stringValue
                 $0.muted = muted
             }
         }
@@ -440,10 +429,10 @@ extension SignalClient {
         return AddTrackResult(result: populateResult, trackInfo: trackInfo)
     }
 
-    func sendUpdateTrackSettings(sid: Sid, settings: TrackSettings) async throws {
+    func sendUpdateTrackSettings(trackSid: Track.Sid, settings: TrackSettings) async throws {
         let r = Livekit_SignalRequest.with {
             $0.trackSetting = Livekit_UpdateTrackSettings.with {
-                $0.trackSids = [sid]
+                $0.trackSids = [trackSid.stringValue]
                 $0.disabled = !settings.isEnabled
                 $0.width = UInt32(settings.dimensions.width)
                 $0.height = UInt32(settings.dimensions.height)
@@ -455,12 +444,10 @@ extension SignalClient {
         try await _sendRequest(r)
     }
 
-    func sendUpdateVideoLayers(trackSid: Sid,
-                               layers: [Livekit_VideoLayer]) async throws
-    {
+    func sendUpdateVideoLayers(trackSid: Track.Sid, layers: [Livekit_VideoLayer]) async throws {
         let r = Livekit_SignalRequest.with {
             $0.updateLayers = Livekit_UpdateVideoLayers.with {
-                $0.trackSid = trackSid
+                $0.trackSid = trackSid.stringValue
                 $0.layers = layers
             }
         }
@@ -468,18 +455,18 @@ extension SignalClient {
         try await _sendRequest(r)
     }
 
-    func sendUpdateSubscription(participantSid: Sid,
-                                trackSid: String,
+    func sendUpdateSubscription(participantSid: Participant.Sid,
+                                trackSid: Track.Sid,
                                 isSubscribed: Bool) async throws
     {
         let p = Livekit_ParticipantTracks.with {
-            $0.participantSid = participantSid
-            $0.trackSids = [trackSid]
+            $0.participantSid = participantSid.stringValue
+            $0.trackSids = [trackSid.stringValue]
         }
 
         let r = Livekit_SignalRequest.with {
             $0.subscription = Livekit_UpdateSubscription.with {
-                $0.trackSids = [trackSid] // Deprecated
+                $0.trackSids = [trackSid.stringValue]
                 $0.participantTracks = [p]
                 $0.subscribe = isSubscribed
             }
@@ -501,18 +488,18 @@ extension SignalClient {
         try await _sendRequest(r)
     }
 
-    func sendUpdateLocalMetadata(_ metadata: String, name: String) async throws {
+    func sendUpdateParticipant(metadata: String? = nil, name: String? = nil) async throws {
         let r = Livekit_SignalRequest.with {
             $0.updateMetadata = Livekit_UpdateParticipantMetadata.with {
-                $0.metadata = metadata
-                $0.name = name
+                $0.metadata = metadata ?? ""
+                $0.name = name ?? ""
             }
         }
 
         try await _sendRequest(r)
     }
 
-    func sendSyncState(answer: Livekit_SessionDescription,
+    func sendSyncState(answer: Livekit_SessionDescription?,
                        offer: Livekit_SessionDescription?,
                        subscription: Livekit_UpdateSubscription,
                        publishTracks: [Livekit_TrackPublishedResponse]? = nil,
@@ -520,7 +507,9 @@ extension SignalClient {
     {
         let r = Livekit_SignalRequest.with {
             $0.syncState = Livekit_SyncState.with {
-                $0.answer = answer
+                if let answer {
+                    $0.answer = answer
+                }
                 if let offer {
                     $0.offer = offer
                 }
@@ -560,6 +549,7 @@ extension SignalClient {
                 case .forceTLS:
                     $0.switchCandidateProtocol = Livekit_CandidateProtocol.tls
                     shouldDisconnect = true
+                default: break
                 }
             }
         }
@@ -589,7 +579,7 @@ extension SignalClient {
 private extension SignalClient {
     func _onPingIntervalTimer() async throws {
         guard let jr = _lastJoinResponse else { return }
-        log("ping/pong sending ping...")
+        log("ping/pong sending ping...", .trace)
         try await _sendPing()
 
         await _pingTimeoutTimer.setTimerInterval(TimeInterval(jr.pingTimeout))
@@ -603,7 +593,7 @@ private extension SignalClient {
     }
 
     func _onReceivedPong(_: Int64) async {
-        log("ping/pong received pong from server")
+        log("ping/pong received pong from server", .trace)
         // Clear timeout timer
         await _pingTimeoutTimer.cancel()
     }
@@ -644,8 +634,6 @@ private extension SignalClient {
     func requireWebSocket() async throws -> WebSocket {
         guard let result = _webSocket else {
             log("WebSocket is nil", .error)
-            // This shouldn't happen
-            assertionFailure("WebSocket is nil")
             throw LiveKitError(.invalidState, message: "WebSocket is nil")
         }
 

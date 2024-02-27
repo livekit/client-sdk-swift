@@ -82,38 +82,38 @@ class ThreadSafetyTests: XCTestCase {
     }
 
     // this will crash
-    func testUnsafe() async throws {
-        for queue in concurrentQueues {
-            for i in 1 ... blockCount {
-                // perform write
-                queue.async(group: group) {
-                    // random sleep
-                    let interval = 0.1 / Double.random(in: 1 ... 100)
-                    // print("sleeping for \(interval)")
-                    Thread.sleep(forTimeInterval: interval)
-
-                    // high possibility it will crash here
-                    self.unsafeState.dictionary["key"] = "\(i)"
-                    self.unsafeState.counter += 1
-                }
-
-                // perform read
-                queue.async(group: group) {
-                    // expected to be out-of-order since concurrent queue and random sleep
-                    print("current counter value: \(self.safeState.counter)")
-                }
-            }
-        }
-
-        await withCheckedContinuation { continuation in
-            group.notify(queue: .main) {
-                continuation.resume()
-            }
-        }
-
-        print("state \(unsafeState)")
-
-        let totalBlocks = queueCount * blockCount
-        XCTAssert(unsafeState.counter == totalBlocks, "counter must be \(totalBlocks)")
-    }
+//    func testUnsafe() async throws {
+//        for queue in concurrentQueues {
+//            for i in 1 ... blockCount {
+//                // perform write
+//                queue.async(group: group) {
+//                    // random sleep
+//                    let interval = 0.1 / Double.random(in: 1 ... 100)
+//                    // print("sleeping for \(interval)")
+//                    Thread.sleep(forTimeInterval: interval)
+//
+//                    // high possibility it will crash here
+//                    self.unsafeState.dictionary["key"] = "\(i)"
+//                    self.unsafeState.counter += 1
+//                }
+//
+//                // perform read
+//                queue.async(group: group) {
+//                    // expected to be out-of-order since concurrent queue and random sleep
+//                    print("current counter value: \(self.safeState.counter)")
+//                }
+//            }
+//        }
+//
+//        await withCheckedContinuation { continuation in
+//            group.notify(queue: .main) {
+//                continuation.resume()
+//            }
+//        }
+//
+//        print("state \(unsafeState)")
+//
+//        let totalBlocks = queueCount * blockCount
+//        XCTAssert(unsafeState.counter == totalBlocks, "counter must be \(totalBlocks)")
+//    }
 }

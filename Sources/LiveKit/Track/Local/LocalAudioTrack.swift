@@ -16,7 +16,7 @@
 
 import Foundation
 
-@_implementationOnly import WebRTC
+@_implementationOnly import LiveKitWebRTC
 
 @objc
 public class LocalAudioTrack: Track, LocalTrack, AudioTrack {
@@ -89,6 +89,6 @@ public class LocalAudioTrack: Track, LocalTrack, AudioTrack {
 }
 
 public extension LocalAudioTrack {
-    var publishOptions: TrackPublishOptions? { super._publishOptions }
-    var publishState: Track.PublishState { super._publishState }
+    var publishOptions: TrackPublishOptions? { super._state.lastPublishOptions }
+    var publishState: Track.PublishState { super._state.publishState }
 }

@@ -16,6 +16,10 @@ Use this SDK to add real-time video, audio and data features to your Swift app. 
 
 ## Docs & Example app
 
+> [!NOTE]
+> Version 2 of the Swift SDK contains breaking changes from Version 1.
+> Read the [migration guide](https://docs.livekit.io/guides/migrate-from-v1/) for a detailed overview of what has changed.
+
 Docs and guides are at [https://docs.livekit.io](https://docs.livekit.io).
 
 There is full source code of a [iOS/macOS Swift UI Example App](https://github.com/livekit/client-example-swift).
@@ -34,7 +38,7 @@ Add the dependency and also to your target
 let package = Package(
   ...
   dependencies: [
-    .package(name: "LiveKit", url: "https://github.com/livekit/client-sdk-swift.git", .upToNextMajor("1.0.0")),
+    .package(name: "LiveKit", url: "https://github.com/livekit/client-sdk-swift.git", .upToNextMajor("2.0.4")),
   ],
   targets: [
     .target(
@@ -66,14 +70,14 @@ class RoomViewController: UIViewController {
     lazy var remoteVideoView: VideoView = {
         let videoView = VideoView()
         view.addSubview(videoView)
-        // additional initialization ...
+        // Additional initialization ...
         return videoView
     }()
 
     lazy var localVideoView: VideoView = {
         let videoView = VideoView()
         view.addSubview(videoView)
-        // additional initialization ...
+        // Additional initialization ...
         return videoView
     }()
 
@@ -81,36 +85,33 @@ class RoomViewController: UIViewController {
         super.viewDidLoad()
         view.backgroundColor = .white
 
-        let url: String = "ws://your_host"
-        let token: String = "your_jwt_token"
+        let url = "ws://your_host"
+        let token = "your_jwt_token"
 
-        room.connect(url, token).then { room in
+        do {
+            try await room.connect(url: url, token: token)
+            // Connection successful...
 
-            // Publish camera & mic
-            room.localParticipant?.setCamera(enabled: true)
-            room.localParticipant?.setMicrophone(enabled: true)
-
-        }.catch { error in
-            // failed to connect
+            // Publishing camera & mic...
+            try await room.localParticipant.setCamera(enabled: true)
+            try await room.localParticipant.setMicrophone(enabled: true)
+        } catch let error in {
+            // Failed to connect
         }
     }
 }
 
 extension RoomViewController: RoomDelegate {
 
-    func room(_ room: Room, localParticipant: LocalParticipant, didPublish publication: LocalTrackPublication) {
-        guard let track = publication?.track as? VideoTrack else {
-            return
-        }
+    func room(_: Room, participant _: LocalParticipant, didPublishTrack publication: LocalTrackPublication) {
+        guard let track = publication?.track as? VideoTrack else { return }
         DispatchQueue.main.async {
             localVideoView.track = track
         }
     }
 
-    func room(_ room: Room, participant: RemoteParticipant, didSubscribe publication: RemoteTrackPublication, track: Track) {
-        guard let track = track as? VideoTrack else {
-          return
-        }
+    func room(_: Room, participant _: RemoteParticipant, didSubscribeTrack publication: RemoteTrackPublication) {
+        guard let track = publication?.track as? VideoTrack else { return }
         DispatchQueue.main.async {
             remoteVideoView.track = track
         }
@@ -131,7 +132,7 @@ Since `VideoView` is a UI component, all operations (read/write properties etc) 
 Other core classes can be accessed from any thread.
 
 Delegates will be called on the SDK's internal thread.
-Make sure any access to the UI is within the main thread, for example by using `DispatchQueue.main.async`.
+Make sure any access to your app's UI elements are from the main thread, for example by using `@MainActor` or `DispatchQueue.main.async`.
 
 ### Memory management
 
@@ -148,7 +149,6 @@ However, if you'd like to customize this behavior, you would override `AudioMana
 
 ### iOS Simulator limitations
 
-- Currently, `VideoView` will use OpenGL for iOS Simulator.
 - Publishing the camera track is not supported by iOS Simulator.
 
 ### ScrollView performance
@@ -214,15 +214,10 @@ For the full example, see 👉 [UIKit Minimal Example](https://github.com/liveki
 
 # Frequently asked questions
 
-### Mic privacy indicator (orange dot) remains on even after muting audio track
-
-You will need to un-publish the LocalAudioTrack for the indicator to turn off.
-More discussion here https://github.com/livekit/client-sdk-swift/issues/140
-
 ### How to publish camera in 60 FPS ?
 
 - Create a `LocalVideoTrack` by calling `LocalVideoTrack.createCameraTrack(options: CameraCaptureOptions(fps: 60))`.
-- Publish with `LocalParticipant.publishVideoTrack(track: track, publishOptions: VideoPublishOptions(encoding: VideoEncoding(maxFps: 60)))`.
+- Publish with `LocalParticipant.publish(videoTrack: track, publishOptions: VideoPublishOptions(encoding: VideoEncoding(maxFps: 60)))`.
 
 # Known issues
 

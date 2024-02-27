@@ -18,7 +18,7 @@ import AVFoundation
 import Foundation
 import MetalKit
 
-@_implementationOnly import WebRTC
+@_implementationOnly import LiveKitWebRTC
 
 /// A ``NativeViewType`` that conforms to ``RTCVideoRenderer``.
 typealias NativeRendererView = LKRTCVideoRenderer & Mirrorable & NativeViewType
@@ -194,13 +194,14 @@ public class VideoView: NativeView, Loggable {
     private var _frameCount: Int = 0
 
     override public init(frame: CGRect = .zero) {
-        // should always be on main thread
-        assert(Thread.current.isMainThread, "must be on the main thread")
-
         // initial state
         _state = StateSync(State(viewSize: frame.size))
 
         super.init(frame: frame)
+
+        if !Thread.current.isMainThread {
+            log("Must be called on main thread", .error)
+        }
 
         #if os(iOS)
             clipsToBounds = true
@@ -249,7 +250,7 @@ public class VideoView: NativeView, Loggable {
                             track.add(videoRenderer: self)
 
                             if let frame = track._state.videoFrame {
-                                self.log("rendering cached frame tack: \(track._state.sid ?? "nil")")
+                                self.log("rendering cached frame tack: \(String(describing: track._state.sid))")
                                 nr.renderFrame(frame.toRTCType())
                                 self.setNeedsLayout()
                             }
@@ -349,8 +350,9 @@ public class VideoView: NativeView, Loggable {
     override func performLayout() {
         super.performLayout()
 
-        // should always be on main thread
-        assert(Thread.current.isMainThread, "must be called on main thread")
+        if !Thread.current.isMainThread {
+            log("Must be called on main thread", .error)
+        }
 
         let state = _state.copy()
 
@@ -367,14 +369,14 @@ public class VideoView: NativeView, Loggable {
         }
 
         if state.isDebugMode {
-            let _trackSid = state.track?.sid ?? "nil"
+            let _trackSid = state.track?.sid
             let _dimensions = state.track?.dimensions ?? .zero
             let _didRenderFirstFrame = state.didRenderFirstFrame ? "true" : "false"
             let _isRendering = state.isRendering ? "true" : "false"
             let _renderMode = String(describing: state.renderMode)
             let _viewCount = state.track?.videoRenderers.allObjects.count ?? 0
             let debugView = ensureDebugTextView()
-            debugView.text = "#\(hashValue)\n" + "\(_trackSid)\n" + "\(_dimensions.width)x\(_dimensions.height)\n" + "isEnabled: \(isEnabled)\n" + "firstFrame: \(_didRenderFirstFrame)\n" + "isRendering: \(_isRendering)\n" + "renderMode: \(_renderMode)\n" + "viewCount: \(_viewCount)\n" + "FPS: \(_currentFPS)\n"
+            debugView.text = "#\(hashValue)\n" + "\(String(describing: _trackSid))\n" + "\(_dimensions.width)x\(_dimensions.height)\n" + "isEnabled: \(isEnabled)\n" + "firstFrame: \(_didRenderFirstFrame)\n" + "isRendering: \(_isRendering)\n" + "renderMode: \(_renderMode)\n" + "viewCount: \(_viewCount)\n" + "FPS: \(_currentFPS)\n"
             debugView.frame = bounds
             #if os(iOS)
                 debugView.layer.borderColor = (state.shouldRender ? UIColor.green : UIColor.red).withAlphaComponent(0.5).cgColor
@@ -457,8 +459,9 @@ private extension VideoView {
 
     @discardableResult
     func reCreateNativeRenderer() -> NativeRendererView {
-        // should always be on main thread
-        assert(Thread.current.isMainThread, "must be called on main thread")
+        if !Thread.current.isMainThread {
+            log("Must be called on main thread", .error)
+        }
 
         // create a new rendererView
         let newView = VideoView.createNativeRendererView(for: _state.renderMode)

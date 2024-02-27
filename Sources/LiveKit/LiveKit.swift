@@ -16,8 +16,8 @@
 
 import Foundation
 
+@_implementationOnly import LiveKitWebRTC
 @_implementationOnly import Logging
-@_implementationOnly import WebRTC
 
 let logger = Logger(label: "LiveKitSDK")
 
@@ -34,7 +34,7 @@ let logger = Logger(label: "LiveKitSDK")
 @objc
 public class LiveKitSDK: NSObject {
     @objc(sdkVersion)
-    public static let version = "2.0.0"
+    public static let version = "2.0.4"
 
     @objc
     public static func setLoggerStandardOutput() {

@@ -16,7 +16,7 @@
 
 import Foundation
 
-@_implementationOnly import WebRTC
+@_implementationOnly import LiveKitWebRTC
 
 class SampleBufferVideoRenderer: NativeView, Loggable {
     public let sampleBufferDisplayLayer: AVSampleBufferDisplayLayer
@@ -44,6 +44,7 @@ class SampleBufferVideoRenderer: NativeView, Loggable {
     override func performLayout() {
         super.performLayout()
         sampleBufferDisplayLayer.frame = bounds
+        sampleBufferDisplayLayer.removeAllAnimations()
     }
 }
 

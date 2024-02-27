@@ -20,7 +20,7 @@ import Foundation
     import Network
 #endif
 
-@_implementationOnly import WebRTC
+@_implementationOnly import LiveKitWebRTC
 
 class Engine: Loggable {
     // MARK: - Public
@@ -32,8 +32,8 @@ class Engine: Loggable {
         var url: String?
         var token: String?
         // preferred reconnect mode which will be used only for next attempt
-        var nextPreferredReconnectMode: ReconnectMode?
-        var reconnectMode: ReconnectMode?
+        var nextReconnectMode: ReconnectMode?
+        var isReconnectingWithMode: ReconnectMode?
         var connectionState: ConnectionState = .disconnected
         var disconnectError: LiveKitError?
         var connectStopwatch = Stopwatch(label: "connect")
@@ -70,8 +70,8 @@ class Engine: Loggable {
     lazy var subscriberDataChannel: DataChannelPairActor = .init(onDataPacket: { [weak self] dataPacket in
         guard let self else { return }
         switch dataPacket.value {
-        case let .speaker(update): _delegate.notifyAsync { await $0.engine(self, didUpdateSpeakers: update.speakers) }
-        case let .user(userPacket): _delegate.notifyAsync { await $0.engine(self, didReceiveUserPacket: userPacket) }
+        case let .speaker(update): self._delegate.notifyAsync { await $0.engine(self, didUpdateSpeakers: update.speakers) }
+        case let .user(userPacket): self._delegate.notifyAsync { await $0.engine(self, didReceiveUserPacket: userPacket) }
         default: return
         }
     })
@@ -90,20 +90,21 @@ class Engine: Loggable {
         log("sdk: \(LiveKitSDK.version), os: \(String(describing: Utils.os()))(\(Utils.osVersionString())), modelId: \(String(describing: Utils.modelIdentifier() ?? "unknown"))")
 
         signalClient._delegate.set(delegate: self)
-        ConnectivityListener.shared.add(delegate: self)
 
         // trigger events when state mutates
         _state.onDidMutate = { [weak self] newState, oldState in
 
             guard let self else { return }
 
-            assert(!(newState.connectionState == .reconnecting && newState.reconnectMode == .none), "reconnectMode should not be .none")
-
-            if (newState.connectionState != oldState.connectionState) || (newState.reconnectMode != oldState.reconnectMode) {
-                self.log("connectionState: \(oldState.connectionState) -> \(newState.connectionState), reconnectMode: \(String(describing: newState.reconnectMode))")
+            if newState.connectionState == .reconnecting, newState.isReconnectingWithMode == nil {
+                self.log("reconnectMode should not be .none", .error)
             }
 
-            _delegate.notifyAsync { await $0.engine(self, didMutateState: newState, oldState: oldState) }
+            if (newState.connectionState != oldState.connectionState) || (newState.isReconnectingWithMode != oldState.isReconnectingWithMode) {
+                self.log("connectionState: \(oldState.connectionState) -> \(newState.connectionState), reconnectMode: \(String(describing: newState.isReconnectingWithMode))")
+            }
+
+            self._delegate.notifyAsync { await $0.engine(self, didMutateState: newState, oldState: oldState) }
 
             // execution control
             self._blockProcessQueue.async { [weak self] in
@@ -221,9 +222,14 @@ class Engine: Loggable {
         try await ensurePublisherConnected()
 
         // At this point publisher should be .connected and dc should be .open
-        assert(publisher?.isConnected ?? false, "publisher is not .connected")
+        if !(publisher?.isConnected ?? false) {
+            log("publisher is not .connected", .error)
+        }
+
         let dataChannelIsOpen = await publisherDataChannel.isOpen
-        assert(dataChannelIsOpen, "publisher data channel is not .open")
+        if !dataChannelIsOpen {
+            log("publisher data channel is not .open", .error)
+        }
 
         // Should return true if successful
         try await publisherDataChannel.send(userPacket: userPacket, kind: kind)
@@ -361,6 +367,7 @@ public enum StartReconnectReason {
     case websocket
     case transport
     case networkSwitch
+    case debug
 }
 
 extension Engine {
@@ -372,7 +379,7 @@ extension Engine {
         let connectResponse = try await signalClient.connect(url,
                                                              token,
                                                              connectOptions: _state.connectOptions,
-                                                             reconnectMode: _state.reconnectMode,
+                                                             reconnectMode: _state.isReconnectingWithMode,
                                                              adaptiveStream: room._state.options.adaptiveStream)
         // Check cancellation after WebSocket connected
         try Task.checkCancellation()
@@ -383,16 +390,17 @@ extension Engine {
         try Task.checkCancellation()
 
         // Resume after configuring transports...
-        await signalClient.resumeResponseQueue()
+        await signalClient.resumeQueues()
 
         // Wait for transport...
         try await primaryTransportConnectedCompleter.wait()
+        try Task.checkCancellation()
 
         _state.mutate { $0.connectStopwatch.split(label: "engine") }
         log("\(_state.connectStopwatch)")
     }
 
-    func startReconnect(reason: StartReconnectReason) async throws {
+    func startReconnect(reason: StartReconnectReason, nextReconnectMode: ReconnectMode? = nil) async throws {
         log("[Connect] Starting, reason: \(reason)")
 
         guard case .connected = _state.connectionState else {
@@ -410,14 +418,19 @@ extension Engine {
             throw LiveKitError(.invalidState)
         }
 
+        guard _state.isReconnectingWithMode == nil else {
+            log("[Connect] Reconnect already in progress...", .warning)
+            throw LiveKitError(.invalidState)
+        }
+
         _state.mutate {
-            // Mark as Re-connecting
-            $0.connectionState = .reconnecting
-            $0.reconnectMode = .quick
+            // Mark as Re-connecting internally
+            $0.isReconnectingWithMode = .quick
+            $0.nextReconnectMode = nextReconnectMode
         }
 
         // quick connect sequence, does not update connection state
-        func quickReconnectSequence() async throws {
+        @Sendable func quickReconnectSequence() async throws {
             log("[Connect] Starting .quick reconnect sequence...")
 
             // This should never happen since Engine is owned by Room
@@ -426,17 +439,22 @@ extension Engine {
             let connectResponse = try await signalClient.connect(url,
                                                                  token,
                                                                  connectOptions: _state.connectOptions,
-                                                                 reconnectMode: _state.reconnectMode,
+                                                                 reconnectMode: _state.isReconnectingWithMode,
                                                                  adaptiveStream: room._state.options.adaptiveStream)
+            try Task.checkCancellation()
 
             // Update configuration
             try await configureTransports(connectResponse: connectResponse)
-            // Resume after configuring transports...
-            await signalClient.resumeResponseQueue()
+            try Task.checkCancellation()
 
-            log("[Connect] Waiting for socket to connect...")
+            // Resume after configuring transports...
+            await signalClient.resumeQueues()
+
+            log("[Connect] Waiting for subscriber to connect...")
             // Wait for primary transport to connect (if not already)
             try await primaryTransportConnectedCompleter.wait()
+            log("[Connect] Subscriber.connectionState: \(String(describing: subscriber?.connectionState.description))")
+            try Task.checkCancellation()
 
             // send SyncState before offer
             try await sendSyncState()
@@ -453,8 +471,13 @@ extension Engine {
 
         // "full" re-connection sequence
         // as a last resort, try to do a clean re-connection and re-publish existing tracks
-        func fullReconnectSequence() async throws {
+        @Sendable func fullReconnectSequence() async throws {
             log("[Connect] starting .full reconnect sequence...")
+
+            _state.mutate {
+                // Mark as Re-connecting
+                $0.connectionState = .reconnecting
+            }
 
             try await cleanUp(isFullReconnect: true)
 
@@ -468,55 +491,61 @@ extension Engine {
             try await fullConnectSequence(url, token)
         }
 
-        let retryingTask = Task.retrying(maxRetryCount: _state.connectOptions.reconnectAttempts,
-                                         retryDelay: _state.connectOptions.reconnectAttemptDelay)
-        { totalAttempts, currentAttempt in
-
-            // Not reconnecting state anymore
-            guard case .reconnecting = _state.connectionState else {
-                self.log("[Connect] Not in reconnect state anymore, exiting retry cycle.")
-                return
-            }
-
-            // Full reconnect failed, give up
-            guard _state.reconnectMode != .full else { return }
-
-            self.log("[Connect] Retry in \(_state.connectOptions.reconnectAttemptDelay) seconds, \(currentAttempt)/\(totalAttempts) tries left.")
-
-            // Try full reconnect for the final attempt
-            if totalAttempts == currentAttempt, _state.nextPreferredReconnectMode == nil {
-                _state.mutate { $0.nextPreferredReconnectMode = .full }
-            }
-
-            let mode: ReconnectMode = self._state.mutate {
-                let mode: ReconnectMode = ($0.nextPreferredReconnectMode == .full || $0.reconnectMode == .full) ? .full : .quick
-                $0.reconnectMode = mode
-                $0.nextPreferredReconnectMode = nil
-                return mode
-            }
-
-            do {
-                if case .quick = mode {
-                    try await quickReconnectSequence()
-                } else if case .full = mode {
-                    try await fullReconnectSequence()
-                }
-            } catch {
-                log("[Connect] Reconnect mode: \(mode) failed with error: \(error)", .error)
-                // Re-throw
-                throw error
-            }
-        }
-
         do {
-            try await retryingTask.value
+            try await Task.retrying(totalAttempts: _state.connectOptions.reconnectAttempts,
+                                    retryDelay: _state.connectOptions.reconnectAttemptDelay)
+            { currentAttempt, totalAttempts in
+
+                // Not reconnecting state anymore
+                guard let currentMode = self._state.isReconnectingWithMode else {
+                    self.log("[Connect] Not in reconnect state anymore, exiting retry cycle.")
+                    return
+                }
+
+                // Full reconnect failed, give up
+                guard currentMode != .full else { return }
+
+                self.log("[Connect] Retry in \(self._state.connectOptions.reconnectAttemptDelay) seconds, \(currentAttempt)/\(totalAttempts) tries left.")
+
+                // Try full reconnect for the final attempt
+                if totalAttempts == currentAttempt, self._state.nextReconnectMode == nil {
+                    self._state.mutate { $0.nextReconnectMode = .full }
+                }
+
+                let mode: ReconnectMode = self._state.mutate {
+                    let mode: ReconnectMode = ($0.nextReconnectMode == .full || $0.isReconnectingWithMode == .full) ? .full : .quick
+                    $0.isReconnectingWithMode = mode
+                    $0.nextReconnectMode = nil
+                    return mode
+                }
+
+                do {
+                    if case .quick = mode {
+                        try await quickReconnectSequence()
+                    } else if case .full = mode {
+                        try await fullReconnectSequence()
+                    }
+                } catch {
+                    self.log("[Connect] Reconnect mode: \(mode) failed with error: \(error)", .error)
+                    // Re-throw
+                    throw error
+                }
+            }.value
+
             // Re-connect sequence successful
             log("[Connect] Sequence completed")
-            _state.mutate { $0.connectionState = .connected }
+            _state.mutate {
+                $0.connectionState = .connected
+                $0.isReconnectingWithMode = nil
+                $0.nextReconnectMode = nil
+            }
         } catch {
             log("[Connect] Sequence failed with error: \(error)")
-            // Finally disconnect if all attempts fail
-            try await cleanUp(withError: error)
+
+            if !Task.isCancelled {
+                // Finally disconnect if all attempts fail
+                try await cleanUp(withError: error)
+            }
         }
     }
 }
@@ -525,15 +554,12 @@ extension Engine {
 
 extension Engine {
     func sendSyncState() async throws {
-        let room = try requireRoom()
-
-        guard let subscriber,
-              let previousAnswer = subscriber.localDescription
-        else {
-            // No-op
+        guard let room = _room, let subscriber else {
+            log("Subscriber is nil", .warning)
             return
         }
 
+        let previousAnswer = subscriber.localDescription
         let previousOffer = subscriber.remoteDescription
 
         // 1. autosubscribe on, so subscribed tracks = all tracks - unsub tracks,
@@ -551,14 +577,15 @@ extension Engine {
         log("trackSids: \(trackSids)")
 
         let subscription = Livekit_UpdateSubscription.with {
-            $0.trackSids = trackSids
+            $0.trackSids = trackSids.map(\.stringValue)
             $0.participantTracks = []
             $0.subscribe = !autoSubscribe
         }
 
-        try await signalClient.sendSyncState(answer: previousAnswer.toPBType(),
+        try await signalClient.sendSyncState(answer: previousAnswer?.toPBType(),
                                              offer: previousOffer?.toPBType(),
-                                             subscription: subscription, publishTracks: room.localParticipant.publishedTracksInfo(),
+                                             subscription: subscription,
+                                             publishTracks: room.localParticipant.publishedTracksInfo(),
                                              dataChannels: publisherDataChannel.infos())
     }
 }
@@ -567,26 +594,20 @@ extension Engine {
 
 extension Engine {
     func requireRoom() throws -> Room {
-        guard let room = _room else { throw LiveKitError(.invalidState, message: "Room is nil") }
+        guard let room = _room else {
+            log("Room is nil", .error)
+            throw LiveKitError(.invalidState, message: "Room is nil")
+        }
+
         return room
     }
 
     func requirePublisher() throws -> Transport {
-        guard let publisher else { throw LiveKitError(.invalidState, message: "Publisher is nil") }
-        return publisher
-    }
-}
-
-// MARK: - ConnectivityListenerDelegate
-
-extension Engine: ConnectivityListenerDelegate {
-    func connectivityListener(_: ConnectivityListener, didSwitch path: NWPath) {
-        log("didSwitch path: \(path)")
-        Task.detached {
-            // Network has been switched, e.g. wifi <-> cellular
-            if case .connected = self._state.connectionState {
-                try await self.startReconnect(reason: .networkSwitch)
-            }
+        guard let publisher else {
+            log("Publisher is nil", .error)
+            throw LiveKitError(.invalidState, message: "Publisher is nil")
         }
+
+        return publisher
     }
 }

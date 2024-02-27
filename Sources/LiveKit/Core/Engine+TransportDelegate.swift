@@ -16,25 +16,43 @@
 
 import Foundation
 
-@_implementationOnly import WebRTC
+@_implementationOnly import LiveKitWebRTC
+
+extension RTCPeerConnectionState {
+    var isConnected: Bool {
+        self == .connected
+    }
+
+    var isDisconnected: Bool {
+        [.disconnected, .failed].contains(self)
+    }
+}
 
 extension Engine: TransportDelegate {
     func transport(_ transport: Transport, didUpdateState pcState: RTCPeerConnectionState) async {
         log("target: \(transport.target), state: \(pcState)")
 
         // primary connected
-        if transport.isPrimary, case .connected = pcState {
-            primaryTransportConnectedCompleter.resume(returning: ())
+        if transport.isPrimary {
+            if pcState.isConnected {
+                primaryTransportConnectedCompleter.resume(returning: ())
+            } else if pcState.isDisconnected {
+                primaryTransportConnectedCompleter.reset()
+            }
         }
 
         // publisher connected
-        if case .publisher = transport.target, case .connected = pcState {
-            publisherTransportConnectedCompleter.resume(returning: ())
+        if case .publisher = transport.target {
+            if pcState.isConnected {
+                publisherTransportConnectedCompleter.resume(returning: ())
+            } else if pcState.isDisconnected {
+                publisherTransportConnectedCompleter.reset()
+            }
         }
 
         if _state.connectionState == .connected {
             // Attempt re-connect if primary or publisher transport failed
-            if transport.isPrimary || (_state.hasPublished && transport.target == .publisher), [.disconnected, .failed].contains(pcState) {
+            if transport.isPrimary || (_state.hasPublished && transport.target == .publisher), pcState.isDisconnected {
                 do {
                     try await startReconnect(reason: .transport)
                 } catch {
@@ -66,7 +84,7 @@ extension Engine: TransportDelegate {
                     removeWhen: { state, _ in state.connectionState == .disconnected })
             { [weak self] in
                 guard let self else { return }
-                _delegate.notifyAsync { await $0.engine(self, didAddTrack: track, rtpReceiver: rtpReceiver, stream: streams.first!) }
+                self._delegate.notifyAsync { await $0.engine(self, didAddTrack: track, rtpReceiver: rtpReceiver, stream: streams.first!) }
             }
         }
     }

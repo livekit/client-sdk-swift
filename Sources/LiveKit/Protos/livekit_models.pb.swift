@@ -416,6 +416,8 @@ enum Livekit_DisconnectReason: SwiftProtobuf.Enum {
   case roomDeleted // = 5
   case stateMismatch // = 6
   case joinFailure // = 7
+  case migration // = 8
+  case signalClose // = 9
   case UNRECOGNIZED(Int)
 
   init() {
@@ -432,6 +434,8 @@ enum Livekit_DisconnectReason: SwiftProtobuf.Enum {
     case 5: self = .roomDeleted
     case 6: self = .stateMismatch
     case 7: self = .joinFailure
+    case 8: self = .migration
+    case 9: self = .signalClose
     default: self = .UNRECOGNIZED(rawValue)
     }
   }
@@ -446,6 +450,8 @@ enum Livekit_DisconnectReason: SwiftProtobuf.Enum {
     case .roomDeleted: return 5
     case .stateMismatch: return 6
     case .joinFailure: return 7
+    case .migration: return 8
+    case .signalClose: return 9
     case .UNRECOGNIZED(let i): return i
     }
   }
@@ -465,6 +471,8 @@ extension Livekit_DisconnectReason: CaseIterable {
     .roomDeleted,
     .stateMismatch,
     .joinFailure,
+    .migration,
+    .signalClose,
   ]
 }
 
@@ -1942,6 +1950,8 @@ extension Livekit_DisconnectReason: SwiftProtobuf._ProtoNameProviding {
     5: .same(proto: "ROOM_DELETED"),
     6: .same(proto: "STATE_MISMATCH"),
     7: .same(proto: "JOIN_FAILURE"),
+    8: .same(proto: "MIGRATION"),
+    9: .same(proto: "SIGNAL_CLOSE"),
   ]
 }
 

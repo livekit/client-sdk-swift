@@ -16,42 +16,32 @@
 
 import Foundation
 
-@_implementationOnly import WebRTC
+@_implementationOnly import LiveKitWebRTC
 
 @objc
 public class RemoteParticipant: Participant {
     init(info: Livekit_ParticipantInfo, room: Room) {
-        super.init(sid: info.sid,
-                   identity: info.identity,
-                   room: room)
-
-        if identity.isEmpty {
-            log("RemoteParticipant.identity is empty", .error)
-        }
-
+        super.init(room: room, sid: Participant.Sid(from: info.sid), identity: Participant.Identity(from: info.identity))
         updateFromInfo(info: info)
-    }
-
-    func getTrackPublication(sid: Sid) -> RemoteTrackPublication? {
-        _state.trackPublications[sid] as? RemoteTrackPublication
     }
 
     override func updateFromInfo(info: Livekit_ParticipantInfo) {
         super.updateFromInfo(info: info)
 
-        var validTrackPublications = [String: RemoteTrackPublication]()
-        var newTrackPublications = [String: RemoteTrackPublication]()
+        var validTrackPublications = [Track.Sid: RemoteTrackPublication]()
+        var newTrackPublications = [Track.Sid: RemoteTrackPublication]()
 
         for trackInfo in info.tracks {
-            var publication = getTrackPublication(sid: trackInfo.sid)
+            let trackSid = Track.Sid(from: trackInfo.sid)
+            var publication = _state.trackPublications[trackSid] as? RemoteTrackPublication
             if publication == nil {
                 publication = RemoteTrackPublication(info: trackInfo, participant: self)
-                newTrackPublications[trackInfo.sid] = publication
+                newTrackPublications[trackSid] = publication
                 add(publication: publication!)
             } else {
                 publication!.updateFromInfo(info: trackInfo)
             }
-            validTrackPublications[trackInfo.sid] = publication!
+            validTrackPublications[trackSid] = publication!
         }
 
         guard let room = _room else {
@@ -87,18 +77,18 @@ public class RemoteParticipant: Participant {
         }
     }
 
-    func addSubscribedMediaTrack(rtcTrack: LKRTCMediaStreamTrack, rtpReceiver: LKRTCRtpReceiver, sid: Sid) async throws {
+    func addSubscribedMediaTrack(rtcTrack: LKRTCMediaStreamTrack, rtpReceiver: LKRTCRtpReceiver, trackSid: Track.Sid) async throws {
         let room = try requireRoom()
         let track: Track
 
-        guard let publication = getTrackPublication(sid: sid) else {
-            log("Could not subscribe to mediaTrack \(sid), unable to locate track publication. existing sids: (\(_state.trackPublications.keys.joined(separator: ", ")))", .error)
-            let error = LiveKitError(.invalidState, message: "Could not find published track with sid: \(sid)")
-            delegates.notify(label: { "participant.didFailToSubscribe trackSid: \(sid)" }) {
-                $0.participant?(self, didFailToSubscribeTrack: sid, withError: error)
+        guard let publication = trackPublications[trackSid] as? RemoteTrackPublication else {
+            log("Could not subscribe to mediaTrack \(trackSid), unable to locate track publication. existing sids: (\(_state.trackPublications.keys.map { String(describing: $0) }.joined(separator: ", ")))", .error)
+            let error = LiveKitError(.invalidState, message: "Could not find published track with sid: \(trackSid)")
+            delegates.notify(label: { "participant.didFailToSubscribe trackSid: \(trackSid)" }) {
+                $0.participant?(self, didFailToSubscribeTrackWithSid: trackSid, error: error)
             }
-            room.delegates.notify(label: { "room.didFailToSubscribe trackSid: \(sid)" }) {
-                $0.room?(room, participant: self, didFailToSubscribeTrack: sid, withError: error)
+            room.delegates.notify(label: { "room.didFailToSubscribe trackSid: \(trackSid)" }) {
+                $0.room?(room, participant: self, didFailToSubscribeTrackWithSid: trackSid, error: error)
             }
             throw error
         }
@@ -116,11 +106,11 @@ public class RemoteParticipant: Participant {
                                      reportStatistics: room._state.options.reportRemoteTrackStatistics)
         default:
             let error = LiveKitError(.invalidState, message: "Unsupported type: \(rtcTrack.kind.description)")
-            delegates.notify(label: { "participant.didFailToSubscribe trackSid: \(sid)" }) {
-                $0.participant?(self, didFailToSubscribeTrack: sid, withError: error)
+            delegates.notify(label: { "participant.didFailToSubscribe trackSid: \(trackSid)" }) {
+                $0.participant?(self, didFailToSubscribeTrackWithSid: trackSid, error: error)
             }
-            room.delegates.notify(label: { "room.didFailToSubscribe trackSid: \(sid)" }) {
-                $0.room?(room, participant: self, didFailToSubscribeTrack: sid, withError: error)
+            room.delegates.notify(label: { "room.didFailToSubscribe trackSid: \(trackSid)" }) {
+                $0.room?(room, participant: self, didFailToSubscribeTrackWithSid: trackSid, error: error)
             }
             throw error
         }
@@ -128,7 +118,10 @@ public class RemoteParticipant: Participant {
         await publication.set(track: track)
         publication.set(subscriptionAllowed: true)
 
-        assert(room.engine.subscriber != nil, "Subscriber is nil")
+        if room.engine.subscriber == nil {
+            log("Subscriber is nil", .error)
+        }
+
         if let transport = room.engine.subscriber {
             await track.set(transport: transport, rtpReceiver: rtpReceiver)
         }

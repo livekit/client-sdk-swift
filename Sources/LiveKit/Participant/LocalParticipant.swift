@@ -20,7 +20,7 @@ import Foundation
     import ReplayKit
 #endif
 
-@_implementationOnly import WebRTC
+@_implementationOnly import LiveKitWebRTC
 
 @objc
 public class LocalParticipant: Participant {
@@ -31,26 +31,16 @@ public class LocalParticipant: Participant {
     public var localVideoTracks: [LocalTrackPublication] { videoTracks.compactMap { $0 as? LocalTrackPublication } }
 
     private var allParticipantsAllowed: Bool = true
+
     private var trackPermissions: [ParticipantTrackPermission] = []
-
-    init(room: Room) {
-        super.init(sid: "", identity: "", room: room)
-    }
-
-    func getTrackPublication(sid: Sid) -> LocalTrackPublication? {
-        _state.trackPublications[sid] as? LocalTrackPublication
-    }
 
     @objc
     @discardableResult
-    func publish(track: LocalTrack, publishOptions: TrackPublishOptions? = nil) async throws -> LocalTrackPublication {
-        log("[publish] \(track) options: \(String(describing: publishOptions ?? nil))...", .info)
+    func publish(track: LocalTrack, options: TrackPublishOptions? = nil) async throws -> LocalTrackPublication {
+        log("[publish] \(track) options: \(String(describing: options ?? nil))...", .info)
 
         let room = try requireRoom()
-
-        guard let publisher = room.engine.publisher else {
-            throw LiveKitError(.invalidState, message: "Publisher is nil")
-        }
+        let publisher = try room.engine.requirePublisher()
 
         guard _state.trackPublications.values.first(where: { $0.track === track }) == nil else {
             throw LiveKitError(.invalidState, message: "This track has already been published.")
@@ -89,7 +79,7 @@ public class LocalParticipant: Participant {
 
                     self.log("[publish] computing encode settings with dimensions: \(dimensions)...")
 
-                    let publishOptions = (publishOptions as? VideoPublishOptions) ?? room._state.options.defaultVideoPublishOptions
+                    let publishOptions = (options as? VideoPublishOptions) ?? room._state.options.defaultVideoPublishOptions
                     publishName = publishOptions.name
 
                     let encodings = Utils.computeVideoEncodings(dimensions: dimensions,
@@ -131,7 +121,7 @@ public class LocalParticipant: Participant {
 
                 } else if track is LocalAudioTrack {
                     // additional params for Audio
-                    let publishOptions = (publishOptions as? AudioPublishOptions) ?? room._state.options.defaultAudioPublishOptions
+                    let publishOptions = (options as? AudioPublishOptions) ?? room._state.options.defaultAudioPublishOptions
                     publishName = publishOptions.name
 
                     populator.disableDtx = !publishOptions.dtx
@@ -145,7 +135,7 @@ public class LocalParticipant: Participant {
                     ]
                 }
 
-                if let streamName = publishOptions?.streamName {
+                if let streamName = options?.streamName {
                     // Set stream name if specified in options
                     populator.stream = streamName
                 }
@@ -171,7 +161,7 @@ public class LocalParticipant: Participant {
                 try await track.onPublish()
 
                 // Store publishOptions used for this track...
-                track._publishOptions = publishOptions
+                track._state.mutate { $0.lastPublishOptions = options }
 
                 // Attach sender to track...
                 await track.set(transport: publisher, rtpSender: transceiver.sender)
@@ -181,10 +171,10 @@ public class LocalParticipant: Participant {
                        let firstVideoCodec = try? VideoCodec.from(mimeType: firstCodecMime)
                     {
                         log("[Publish] First video codec: \(firstVideoCodec)")
-                        track._videoCodec = firstVideoCodec
+                        track._state.mutate { $0.videoCodec = firstVideoCodec }
                     }
 
-                    let publishOptions = (publishOptions as? VideoPublishOptions) ?? room._state.options.defaultVideoPublishOptions
+                    let publishOptions = (options as? VideoPublishOptions) ?? room._state.options.defaultVideoPublishOptions
                     // if screen share or simulcast is enabled,
                     // degrade resolution by using server's layer switching logic instead of WebRTC's logic
                     if track.source == .screenShareVideo || publishOptions.simulcast {
@@ -214,6 +204,7 @@ public class LocalParticipant: Participant {
 
             let publication = LocalTrackPublication(info: addTrackResult.trackInfo, participant: self)
             await publication.set(track: track)
+
             add(publication: publication)
 
             // Notify didPublish
@@ -239,15 +230,15 @@ public class LocalParticipant: Participant {
     /// publish a new audio track to the Room
     @objc
     @discardableResult
-    public func publish(audioTrack: LocalAudioTrack, publishOptions: AudioPublishOptions? = nil) async throws -> LocalTrackPublication {
-        try await publish(track: audioTrack, publishOptions: publishOptions)
+    public func publish(audioTrack: LocalAudioTrack, options: AudioPublishOptions? = nil) async throws -> LocalTrackPublication {
+        try await publish(track: audioTrack, options: options)
     }
 
     /// publish a new video track to the Room
     @objc
     @discardableResult
-    public func publish(videoTrack: LocalVideoTrack, publishOptions: VideoPublishOptions? = nil) async throws -> LocalTrackPublication {
-        try await publish(track: videoTrack, publishOptions: publishOptions)
+    public func publish(videoTrack: LocalVideoTrack, options: VideoPublishOptions? = nil) async throws -> LocalTrackPublication {
+        try await publish(track: videoTrack, options: options)
     }
 
     @objc
@@ -292,9 +283,10 @@ public class LocalParticipant: Participant {
             try await track.stop()
         }
 
-        if let publisher = room.engine.publisher, let sender = track.rtpSender {
+        if let publisher = room.engine.publisher, let sender = track._state.rtpSender {
             // Remove all simulcast senders...
-            for simulcastSender in track._simulcastRtpSenders.values {
+            let simulcastSenders = track._state.read { Array($0.rtpSenderForCodec.values) }
+            for simulcastSender in simulcastSenders {
                 try await publisher.remove(track: simulcastSender)
             }
             // Remove main sender...
@@ -319,10 +311,14 @@ public class LocalParticipant: Participant {
         let room = try requireRoom()
         let options = options ?? room._state.options.defaultDataPublishOptions
 
+        guard let identityString = _state.identity?.stringValue else {
+            throw LiveKitError(.invalidState, message: "identity is nil")
+        }
+
         let userPacket = Livekit_UserPacket.with {
-            $0.participantSid = self.sid
+            $0.participantIdentity = identityString
             $0.payload = data
-            $0.destinationIdentities = options.destinationIdentities
+            $0.destinationIdentities = options.destinationIdentities.map(\.stringValue)
             $0.topic = options.topic ?? ""
         }
 
@@ -360,30 +356,18 @@ public class LocalParticipant: Participant {
     ///
     /// Note: this requires `CanUpdateOwnMetadata` permission encoded in the token.
     public func set(metadata: String) async throws {
-        // Mutate state to set metadata and copy name from state
-        let name = _state.mutate {
-            $0.metadata = metadata
-            return $0.name
-        }
-
-        // TODO: Revert internal state on failure
         let room = try requireRoom()
-        try await room.engine.signalClient.sendUpdateLocalMetadata(metadata, name: name)
+        try await room.engine.signalClient.sendUpdateParticipant(metadata: metadata)
+        _state.mutate { $0.metadata = metadata }
     }
 
     /// Sets and updates the name of the local participant.
     ///
     /// Note: this requires `CanUpdateOwnMetadata` permission encoded in the token.
     public func set(name: String) async throws {
-        // Mutate state to set name and copy metadata from state
-        let metadata = _state.mutate {
-            $0.name = name
-            return $0.metadata
-        }
-
-        // TODO: Revert internal state on failure
         let room = try requireRoom()
-        try await room.engine.signalClient.sendUpdateLocalMetadata(metadata ?? "", name: name)
+        try await room.engine.signalClient.sendUpdateParticipant(name: name)
+        _state.mutate { $0.name = name }
     }
 
     func sendTrackSubscriptionPermissions() async throws {
@@ -394,10 +378,10 @@ public class LocalParticipant: Participant {
                                                                             trackPermissions: trackPermissions)
     }
 
-    func _set(subscribedQualities qualities: [Livekit_SubscribedQuality], forTrackSid trackSid: String) {
-        guard let pub = getTrackPublication(sid: trackSid),
-              let track = pub.track as? LocalVideoTrack,
-              let sender = track.rtpSender
+    func _set(subscribedQualities qualities: [Livekit_SubscribedQuality], forTrackSid trackSid: Track.Sid) {
+        guard let publication = trackPublications[trackSid],
+              let track = publication.track as? LocalVideoTrack,
+              let sender = track._state.rtpSender
         else { return }
 
         sender._set(subscribedQualities: qualities)
@@ -435,7 +419,7 @@ extension LocalParticipant {
             }
     }
 
-    func republishTracks() async throws {
+    func republishAllTracks() async throws {
         let mediaTracks = _state.trackPublications.values.map { $0.track as? LocalTrack }.compactMap { $0 }
 
         await unpublishAll()
@@ -443,7 +427,7 @@ extension LocalParticipant {
         for mediaTrack in mediaTracks {
             // Don't re-publish muted tracks
             if mediaTrack.isMuted { continue }
-            try await publish(track: mediaTrack, publishOptions: mediaTrack.publishOptions)
+            try await publish(track: mediaTrack, options: mediaTrack.publishOptions)
         }
     }
 }
@@ -513,11 +497,11 @@ public extension LocalParticipant {
             if source == .camera {
                 let localTrack = LocalVideoTrack.createCameraTrack(options: (captureOptions as? CameraCaptureOptions) ?? room._state.options.defaultCameraCaptureOptions,
                                                                    reportStatistics: room._state.options.reportRemoteTrackStatistics)
-                return try await publish(videoTrack: localTrack, publishOptions: publishOptions as? VideoPublishOptions)
+                return try await publish(videoTrack: localTrack, options: publishOptions as? VideoPublishOptions)
             } else if source == .microphone {
                 let localTrack = LocalAudioTrack.createTrack(options: (captureOptions as? AudioCaptureOptions) ?? room._state.options.defaultAudioCaptureOptions,
                                                              reportStatistics: room._state.options.reportRemoteTrackStatistics)
-                return try await publish(audioTrack: localTrack, publishOptions: publishOptions as? AudioPublishOptions)
+                return try await publish(audioTrack: localTrack, options: publishOptions as? AudioPublishOptions)
             } else if source == .screenShareVideo {
                 #if os(iOS)
                     let localTrack: LocalVideoTrack
@@ -529,14 +513,14 @@ public extension LocalParticipant {
                     } else {
                         localTrack = LocalVideoTrack.createInAppScreenShareTrack(options: options)
                     }
-                    return try await publish(videoTrack: localTrack, publishOptions: publishOptions as? VideoPublishOptions)
+                    return try await publish(videoTrack: localTrack, options: publishOptions as? VideoPublishOptions)
                 #elseif os(macOS)
                     if #available(macOS 12.3, *) {
                         let mainDisplay = try await MacOSScreenCapturer.mainDisplaySource()
                         let track = LocalVideoTrack.createMacOSScreenShareTrack(source: mainDisplay,
                                                                                 options: (captureOptions as? ScreenShareCaptureOptions) ?? room._state.options.defaultScreenShareCaptureOptions,
                                                                                 reportStatistics: room._state.options.reportRemoteTrackStatistics)
-                        return try await publish(videoTrack: track, publishOptions: publishOptions as? VideoPublishOptions)
+                        return try await publish(videoTrack: track, options: publishOptions as? VideoPublishOptions)
                     }
                 #endif
             }
@@ -600,7 +584,7 @@ extension LocalParticipant {
                                                                              type: track.kind.toPBType(),
                                                                              source: track.source.toPBType())
         {
-            $0.sid = localTrackPublication.sid
+            $0.sid = localTrackPublication.sid.stringValue
             $0.simulcastCodecs = [
                 Livekit_SimulcastCodec.with { sc in
                     sc.cid = sender.senderId
@@ -616,7 +600,7 @@ extension LocalParticipant {
         sender._set(subscribedQualities: subscribedCodec.qualities)
 
         // Attach multi-codec sender...
-        track._simulcastRtpSenders[videoCodec] = sender
+        track._state.mutate { $0.rtpSenderForCodec[videoCodec] = sender }
 
         try await room.engine.publisherShouldNegotiate()
     }

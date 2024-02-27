@@ -14,18 +14,16 @@
  * limitations under the License.
  */
 
-import Foundation
+#import <XCTest/XCTest.h>
+@import LiveKit;
 
-@_implementationOnly import WebRTC
+@interface Basic : XCTestCase
+@end
 
-public typealias Sid = String
-public typealias Identity = String
+@implementation Basic
 
-public enum SimulateScenario {
-    case nodeFailure
-    case migration
-    case serverLeave
-    case speakerUpdate(seconds: Int)
-    case forceTCP
-    case forceTLS
+- (void)sdkVersion {
+    NSLog(@"%@", LiveKitSDK.sdkVersion);
 }
+
+@end

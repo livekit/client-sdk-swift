@@ -16,7 +16,7 @@
 
 import Foundation
 
-@_implementationOnly import WebRTC
+@_implementationOnly import LiveKitWebRTC
 
 extension Engine: SignalClientDelegate {
     func signalClient(_ signalClient: SignalClient, didUpdateConnectionState connectionState: ConnectionState, oldState: ConnectionState, disconnectError: LiveKitError?) async {
@@ -24,8 +24,8 @@ extension Engine: SignalClientDelegate {
         if connectionState != oldState,
            // did disconnect
            case .disconnected = connectionState,
-           // only attempt re-connect if disconnected(reason: network)
-           case .network = disconnectError?.type,
+           // Only attempt re-connect if not cancelled
+           let errorType = disconnectError?.type, errorType != .cancelled,
            // engine is currently connected state
            case .connected = _state.connectionState
         {
@@ -69,7 +69,7 @@ extension Engine: SignalClientDelegate {
         log("Received offer, creating & sending answer...")
 
         guard let subscriber else {
-            log("failed to send answer, subscriber is nil", .error)
+            log("Failed to send answer, subscriber is nil", .error)
             return
         }
 
@@ -120,7 +120,7 @@ extension Engine: SignalClientDelegate {
         await _room?.signalClient(signalClient, didUpdateConnectionQuality: quality)
     }
 
-    func signalClient(_ signalClient: SignalClient, didUpdateRemoteMute trackSid: String, muted: Bool) async {
+    func signalClient(_ signalClient: SignalClient, didUpdateRemoteMute trackSid: Track.Sid, muted: Bool) async {
         await _room?.signalClient(signalClient, didUpdateRemoteMute: trackSid, muted: muted)
     }
 

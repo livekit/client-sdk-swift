@@ -16,7 +16,7 @@
 
 import Foundation
 
-@_implementationOnly import WebRTC
+@_implementationOnly import LiveKitWebRTC
 
 extension LKRTCRtpTransceiver: Loggable {
     /// Attempts to set preferred video codec.
@@ -40,6 +40,8 @@ extension LKRTCRtpTransceiver: Loggable {
 
         log("codecPreferences set: \(codecPreferences.map { String(describing: $0) }.joined(separator: ", "))")
 
-        assert(codecPreferences.first?.name.lowercased() == codec.id, "Preferred codec is not first in the list")
+        if codecPreferences.first?.name.lowercased() != codec.id {
+            log("Preferred codec is not first of codecPreferences", .error)
+        }
     }
 }

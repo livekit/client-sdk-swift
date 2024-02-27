@@ -57,7 +57,7 @@ public class Room: NSObject, ObservableObject, Loggable {
     public var serverNodeId: String? { _state.serverInfo?.nodeID.nilIfEmpty }
 
     @objc
-    public var remoteParticipants: [Identity: RemoteParticipant] { _state.remoteParticipants }
+    public var remoteParticipants: [Participant.Identity: RemoteParticipant] { _state.remoteParticipants }
 
     @objc
     public var activeSpeakers: [Participant] { _state.activeSpeakers }
@@ -106,11 +106,11 @@ public class Room: NSObject, ObservableObject, Loggable {
     struct State: Equatable {
         var options: RoomOptions
 
-        var sid: String?
+        var sid: Sid?
         var name: String?
         var metadata: String?
 
-        var remoteParticipants = [Identity: RemoteParticipant]()
+        var remoteParticipants = [Participant.Identity: RemoteParticipant]()
         var activeSpeakers = [Participant]()
 
         var isRecording: Bool = false
@@ -123,16 +123,17 @@ public class Room: NSObject, ObservableObject, Loggable {
 
         @discardableResult
         mutating func updateRemoteParticipant(info: Livekit_ParticipantInfo, room: Room) -> RemoteParticipant {
+            let identity = Participant.Identity(from: info.identity)
             // Check if RemoteParticipant with same identity exists...
-            if let participant = remoteParticipants[info.identity] { return participant }
+            if let participant = remoteParticipants[identity] { return participant }
             // Create new RemoteParticipant...
             let participant = RemoteParticipant(info: info, room: room)
-            remoteParticipants[info.identity] = participant
+            remoteParticipants[identity] = participant
             return participant
         }
 
         // Find RemoteParticipant by Sid
-        func remoteParticipant(sid: Sid) -> RemoteParticipant? {
+        func remoteParticipant(forSid sid: Participant.Sid) -> RemoteParticipant? {
             remoteParticipants.values.first(where: { $0.sid == sid })
         }
     }
@@ -304,8 +305,8 @@ extension Room {
                 connectOptions: $0.connectOptions,
                 url: $0.url,
                 token: $0.token,
-                nextPreferredReconnectMode: $0.nextPreferredReconnectMode,
-                reconnectMode: $0.reconnectMode,
+                nextReconnectMode: $0.nextReconnectMode,
+                isReconnectingWithMode: $0.isReconnectingWithMode,
                 connectionState: $0.connectionState
             ) : Engine.State(
                 connectOptions: $0.connectOptions,
@@ -316,7 +317,7 @@ extension Room {
 
         await engine.signalClient.cleanUp(withError: disconnectError)
         await engine.cleanUpRTC()
-        await cleanUpParticipants()
+        await cleanUpParticipants(isFullReconnect: isFullReconnect)
 
         // Cleanup for E2EE
         if let e2eeManager {
@@ -334,13 +335,14 @@ extension Room {
 // MARK: - Internal
 
 extension Room {
-    func cleanUpParticipants(notify _notify: Bool = true) async {
+    func cleanUpParticipants(isFullReconnect: Bool = false, notify _notify: Bool = true) async {
         log("notify: \(_notify)")
 
         // Stop all local & remote tracks
-        let allParticipants = ([[localParticipant], Array(_state.remoteParticipants.values)] as [[Participant?]])
-            .joined()
-            .compactMap { $0 }
+        var allParticipants: [Participant] = Array(_state.remoteParticipants.values)
+        if !isFullReconnect {
+            allParticipants.append(localParticipant)
+        }
 
         // Clean up Participants concurrently
         await withTaskGroup(of: Void.self) { group in
@@ -356,24 +358,12 @@ extension Room {
         }
     }
 
-    func _onParticipantDidDisconnect(identity: Identity) async throws {
+    func _onParticipantDidDisconnect(identity: Participant.Identity) async throws {
         guard let participant = _state.mutate({ $0.remoteParticipants.removeValue(forKey: identity) }) else {
             throw LiveKitError(.invalidState, message: "Participant not found for \(identity)")
         }
 
         await participant.cleanUp(notify: true)
-    }
-}
-
-// MARK: - Debugging
-
-public extension Room {
-    func sendSimulate(scenario: SimulateScenario) async throws {
-        try await engine.signalClient.sendSimulate(scenario: scenario)
-    }
-
-    func debug_triggerReconnect(reason: StartReconnectReason) async throws {
-        try await engine.startReconnect(reason: reason)
     }
 }
 

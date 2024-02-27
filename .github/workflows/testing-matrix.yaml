@@ -1,0 +1,51 @@
+name: Testing Matrix
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  run_all_tests:
+    strategy:
+      fail-fast: false
+      matrix:
+        xcode-version: [14.2, 15.2]
+        destination: ['platform=iOS Simulator,OS=17.2,name=iPhone 14 Pro', 'platform=macOS', 'platform=macOS,variant=Mac Catalyst']
+
+    runs-on: macos-13
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: ${{ matrix.xcode-version }}
+
+      - name: Xcode Version
+        run: xcodebuild -version
+
+      - name: Show SDKs
+        run: xcodebuild -showsdks
+
+      - name: Download iOS platforms
+        run: xcodebuild -downloadPlatform iOS
+
+      # TODO: Add step to install iOS 13
+      # - name: Install iOS 13
+      #   run: xcversion simulators --install='iOS 13.0'
+
+      # - name: Download iOS platforms
+      #   run: xcodebuild -downloadPlatform iOS
+
+      - name: Show Destinations
+        run: xcodebuild -scheme LiveKit -showdestinations
+
+      - name: Run All Tests
+        run: xcodebuild test -scheme LiveKit -destination '${{ matrix.destination }}'

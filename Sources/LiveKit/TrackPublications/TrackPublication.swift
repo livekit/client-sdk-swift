@@ -21,7 +21,7 @@ public class TrackPublication: NSObject, ObservableObject, Loggable {
     // MARK: - Public properties
 
     @objc
-    public var sid: Sid { _state.sid }
+    public var sid: Track.Sid { _state.sid }
 
     @objc
     public var kind: Track.Kind { _state.kind }
@@ -66,7 +66,7 @@ public class TrackPublication: NSObject, ObservableObject, Loggable {
     weak var participant: Participant?
 
     struct State: Equatable, Hashable {
-        let sid: Sid
+        let sid: Track.Sid
         let kind: Track.Kind
         let source: Track.Source
 
@@ -96,7 +96,7 @@ public class TrackPublication: NSObject, ObservableObject, Loggable {
 
     init(info: Livekit_TrackInfo, participant: Participant) {
         _state = StateSync(State(
-            sid: info.sid,
+            sid: Track.Sid(from: info.sid),
             kind: info.type.toLKType(),
             source: info.source.toLKType(),
             name: info.name,
@@ -125,20 +125,16 @@ public class TrackPublication: NSObject, ObservableObject, Loggable {
                    let trackPublication = self as? RemoteTrackPublication
                 {
                     participant.delegates.notify(label: { "participant.didUpdate \(trackPublication) streamState: \(newState.streamState)" }) {
-                        $0.participant?(participant, track: trackPublication, didUpdateStreamState: newState.streamState)
+                        $0.participant?(participant, trackPublication: trackPublication, didUpdateStreamState: newState.streamState)
                     }
                     room.delegates.notify(label: { "room.didUpdate \(trackPublication) streamState: \(newState.streamState)" }) {
-                        $0.room?(room, participant: participant, track: trackPublication, didUpdateStreamState: newState.streamState)
+                        $0.room?(room, participant: participant, trackPublication: trackPublication, didUpdateStreamState: newState.streamState)
                     }
                 }
             }
 
             self.notifyObjectWillChange()
         }
-    }
-
-    deinit {
-        log("sid: \(sid)")
     }
 
     func notifyObjectWillChange() {
@@ -213,10 +209,10 @@ extension TrackPublication: TrackDelegateInternal {
             }
 
             participant.delegates.notify {
-                $0.participant?(participant, track: self, didUpdateIsMuted: isMuted)
+                $0.participant?(participant, trackPublication: self, didUpdateIsMuted: isMuted)
             }
             room.delegates.notify {
-                $0.room?(room, participant: participant, track: self, didUpdateIsMuted: self.isMuted)
+                $0.room?(room, participant: participant, trackPublication: self, didUpdateIsMuted: self.isMuted)
             }
 
             // TrackPublication.isMuted is a computed property depending on Track.isMuted
@@ -233,6 +229,7 @@ extension TrackPublication: TrackDelegateInternal {
 extension TrackPublication {
     func requireParticipant() async throws -> Participant {
         guard let participant else {
+            log("Participant is nil", .error)
             throw LiveKitError(.invalidState, message: "Participant is nil")
         }
 

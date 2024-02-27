@@ -16,7 +16,7 @@
 
 import Foundation
 
-@_implementationOnly import WebRTC
+@_implementationOnly import LiveKitWebRTC
 
 // Wrapper for LKRTCAudioBuffer
 @objc
@@ -240,7 +240,7 @@ public class AudioManager: Loggable {
             self.log("\(oldState) -> \(newState)")
 
             #if os(iOS)
-                let configureFunc = newState.customConfigureFunc ?? defaultConfigureAudioSessionFunc
+                let configureFunc = newState.customConfigureFunc ?? self.defaultConfigureAudioSessionFunc
                 configureFunc(newState, oldState)
             #endif
         }

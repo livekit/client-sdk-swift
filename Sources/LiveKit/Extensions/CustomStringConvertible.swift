@@ -16,7 +16,7 @@
 
 import Foundation
 
-@_implementationOnly import WebRTC
+@_implementationOnly import LiveKitWebRTC
 
 extension TrackSettings: CustomStringConvertible {
     public var description: String {
@@ -84,19 +84,19 @@ extension Livekit_ServerInfo: CustomStringConvertible {
 
 public extension Room {
     override var description: String {
-        "Room(sid: \(sid ?? "nil"), name: \(name ?? "nil"), serverVersion: \(serverVersion ?? "nil"), serverRegion: \(serverRegion ?? "nil"))"
+        "Room(sid: \(String(describing: sid)), name: \(name ?? "nil"), serverVersion: \(serverVersion ?? "nil"), serverRegion: \(serverRegion ?? "nil"))"
     }
 }
 
 public extension Participant {
     override var description: String {
-        "\(String(describing: type(of: self)))(sid: \(sid))"
+        "\(String(describing: type(of: self)))(sid: \(String(describing: sid)))"
     }
 }
 
 public extension Track {
     override var description: String {
-        "\(String(describing: type(of: self)))(sid: \(sid ?? "nil"), name: \(name), source: \(source))"
+        "\(String(describing: type(of: self)))(sid: \(String(describing: sid)), name: \(name), source: \(source))"
     }
 }
 

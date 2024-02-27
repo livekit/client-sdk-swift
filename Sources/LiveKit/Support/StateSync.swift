@@ -18,7 +18,7 @@ import Combine
 import Foundation
 
 @dynamicMemberLookup
-final class StateSync<State: Equatable> {
+final class StateSync<State> {
     // MARK: - Types
 
     typealias OnDidMutate = (_ newState: State, _ oldState: State) -> Void
@@ -50,11 +50,9 @@ final class StateSync<State: Equatable> {
             let result = try block(&_state)
             let newState = _state
 
-            // Trigger onDidMutate if muted state isn't equal any more (Equatable protocol)
-            if oldState != _state {
-                _onDidMutateQueue.async {
-                    self.onDidMutate?(newState, oldState)
-                }
+            // Always invoke onDidMutate
+            _onDidMutateQueue.async {
+                self.onDidMutate?(newState, oldState)
             }
             return result
         }

@@ -16,7 +16,7 @@
 
 import Foundation
 
-@_implementationOnly import WebRTC
+@_implementationOnly import LiveKitWebRTC
 
 @objc
 public class Track: NSObject, Loggable {
@@ -99,28 +99,14 @@ public class Track: NSObject, Loggable {
 
     // MARK: - Internal
 
-    public let delegates = MulticastDelegate<TrackDelegate>()
-
-    /// Only for ``LocalTrack``s.
-    private(set) var _publishState: PublishState = .unpublished
-
-    /// ``publishOptions`` used for this track if already published.
-    /// Only for ``LocalTrack``s.
-    var _publishOptions: TrackPublishOptions?
+    let delegates = MulticastDelegate<TrackDelegate>()
 
     let mediaTrack: LKRTCMediaStreamTrack
 
-    private(set) var rtpSender: LKRTCRtpSender?
-    private(set) var rtpReceiver: LKRTCRtpReceiver?
-
-    var _videoCodec: VideoCodec?
-    var _simulcastRtpSenders: [VideoCodec: LKRTCRtpSender] = [:]
-
     // Weak reference to all VideoViews attached to this track. Must be accessed from main thread.
     var videoRenderers = NSHashTable<VideoRenderer>.weakObjects()
-    // internal var rtcVideoRenderers = NSHashTable<RTCVideoRenderer>.weakObjects()
 
-    struct State: Equatable {
+    struct State {
         let name: String
         let kind: Kind
         let source: Source
@@ -133,13 +119,22 @@ public class Track: NSObject, Loggable {
         var statistics: TrackStatistics?
         var simulcastStatistics: [VideoCodec: TrackStatistics] = [:]
         var reportStatistics: Bool = false
+
+        // Only for LocalTracks
+        var lastPublishOptions: TrackPublishOptions?
+        var publishState: PublishState = .unpublished
+
+        weak var transport: Transport?
+        var videoCodec: VideoCodec?
+        var rtpSender: LKRTCRtpSender?
+        var rtpSenderForCodec: [VideoCodec: LKRTCRtpSender] = [:] // simulcastSender
+        var rtpReceiver: LKRTCRtpReceiver?
     }
 
-    var _state: StateSync<State>
+    let _state: StateSync<State>
 
     // MARK: - Private
 
-    private weak var transport: Transport?
     private let _statisticsTimer = AsyncTimer(interval: 1.0)
 
     init(name: String,
@@ -182,24 +177,26 @@ public class Track: NSObject, Loggable {
         }
     }
 
-    deinit {
-        log("sid: \(String(describing: sid))")
-    }
-
     func set(transport: Transport?, rtpSender: LKRTCRtpSender?) async {
-        self.transport = transport
-        self.rtpSender = rtpSender
+        _state.mutate {
+            $0.transport = transport
+            $0.rtpSender = rtpSender
+        }
         await _resumeOrSuspendStatisticsTimer()
     }
 
     func set(transport: Transport?, rtpReceiver: LKRTCRtpReceiver?) async {
-        self.transport = transport
-        self.rtpReceiver = rtpReceiver
+        _state.mutate {
+            $0.transport = transport
+            $0.rtpReceiver = rtpReceiver
+        }
         await _resumeOrSuspendStatisticsTimer()
     }
 
     private func _resumeOrSuspendStatisticsTimer() async {
-        let shouldStart = _state.reportStatistics && (rtpSender != nil || rtpReceiver != nil)
+        let shouldStart = _state.read {
+            $0.reportStatistics && ($0.rtpSender != nil || $0.rtpReceiver != nil)
+        }
 
         if shouldStart {
             await _statisticsTimer.setTimerBlock { [weak self] in
@@ -293,8 +290,8 @@ public class Track: NSObject, Loggable {
     func onPublish() async throws -> Bool {
         // For LocalTrack only...
         guard self is LocalTrack else { return false }
-        guard _publishState != .published else { return false }
-        _publishState = .published
+        guard _state.publishState != .published else { return false }
+        _state.mutate { $0.publishState = .published }
         return true
     }
 
@@ -303,8 +300,8 @@ public class Track: NSObject, Loggable {
     func onUnpublish() async throws -> Bool {
         // For LocalTrack only...
         guard self is LocalTrack else { return false }
-        guard _publishState != .unpublished else { return false }
-        _publishState = .unpublished
+        guard _state.publishState != .unpublished else { return false }
+        _state.mutate { $0.publishState = .unpublished }
         return true
     }
 }
@@ -368,8 +365,9 @@ extension Track {
             return
         }
 
-        // must always be called on main thread
-        assert(Thread.current.isMainThread, "must be called on main thread")
+        if !Thread.current.isMainThread {
+            log("Must be called on main thread", .error)
+        }
 
         videoRenderers.add(videoRenderer)
         rtcVideoTrack.add(VideoRendererAdapter(target: videoRenderer))
@@ -381,8 +379,9 @@ extension Track {
             return
         }
 
-        // must always be called on main thread
-        assert(Thread.current.isMainThread, "must be called on main thread")
+        if !Thread.current.isMainThread {
+            log("Must be called on main thread", .error)
+        }
 
         videoRenderers.remove(videoRenderer)
         rtcVideoTrack.remove(VideoRendererAdapter(target: videoRenderer))
@@ -393,7 +392,7 @@ extension Track {
 
 extension Track: Identifiable {
     public var id: String {
-        "\(type(of: self))-\(sid ?? String(hash))"
+        "\(type(of: self))-\(sid?.stringValue ?? String(hash))"
     }
 }
 
@@ -445,6 +444,9 @@ public extension InboundRtpStreamStatistics {
 
 extension Track {
     func _onStatsTimer() async {
+        // Read from state
+        let (transport, rtpSender, rtpReceiver, simulcastRtpSenders) = _state.read { ($0.transport, $0.rtpSender, $0.rtpReceiver, $0.rtpSenderForCodec) }
+
         // Transport is required...
         guard let transport else { return }
 
@@ -470,7 +472,8 @@ extension Track {
 
         let prevSimulcastStatistics = _state.read { $0.simulcastStatistics }
         var _simulcastStatistics: [VideoCodec: TrackStatistics] = [:]
-        for _sender in _simulcastRtpSenders {
+
+        for _sender in simulcastRtpSenders {
             let _report = await transport.statistics(for: _sender.value)
             _simulcastStatistics[_sender.key] = TrackStatistics(from: Array(_report.statistics.values),
                                                                 prevStatistics: prevSimulcastStatistics[_sender.key])

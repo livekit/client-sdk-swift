@@ -17,7 +17,7 @@
 import CoreGraphics
 import Foundation
 
-@_implementationOnly import WebRTC
+@_implementationOnly import LiveKitWebRTC
 
 @objc
 public enum SubscriptionState: Int, Codable {
@@ -69,9 +69,11 @@ public class RemoteTrackPublication: TrackPublication {
         let participant = try await requireParticipant()
         let room = try participant.requireRoom()
 
+        guard let participantSid = participant.sid else { return }
+
         _state.mutate { $0.isSubscribePreferred = newValue }
 
-        try await room.engine.signalClient.sendUpdateSubscription(participantSid: participant.sid,
+        try await room.engine.signalClient.sendUpdateSubscription(participantSid: participantSid,
                                                                   trackSid: sid,
                                                                   isSubscribed: newValue)
     }
@@ -237,10 +239,10 @@ extension RemoteTrackPublication {
         // if track exists, track will emit the following events
         if track == nil {
             participant.delegates.notify(label: { "participant.didUpdatePublication isMuted: \(newValue)" }) {
-                $0.participant?(participant, track: self, didUpdateIsMuted: newValue)
+                $0.participant?(participant, trackPublication: self, didUpdateIsMuted: newValue)
             }
             room.delegates.notify(label: { "room.didUpdatePublication isMuted: \(newValue)" }) {
-                $0.room?(room, participant: participant, track: self, didUpdateIsMuted: newValue)
+                $0.room?(room, participant: participant, trackPublication: self, didUpdateIsMuted: newValue)
             }
         }
     }
@@ -251,10 +253,10 @@ extension RemoteTrackPublication {
 
         guard let participant = participant as? RemoteParticipant, let room = participant._room else { return }
         participant.delegates.notify(label: { "participant.didUpdate permission: \(newValue)" }) {
-            $0.participant?(participant, track: self, didUpdateIsSubscriptionAllowed: newValue)
+            $0.participant?(participant, trackPublication: self, didUpdateIsSubscriptionAllowed: newValue)
         }
         room.delegates.notify(label: { "room.didUpdate permission: \(newValue)" }) {
-            $0.room?(room, participant: participant, track: self, didUpdateIsSubscriptionAllowed: newValue)
+            $0.room?(room, participant: participant, trackPublication: self, didUpdateIsSubscriptionAllowed: newValue)
         }
     }
 }
@@ -278,9 +280,8 @@ extension RemoteTrackPublication {
 
         let state = _state.copy()
 
-        assert(!state.isSendingTrackSettings, "send(trackSettings:) called while previous send not completed")
-
         if state.isSendingTrackSettings {
+            log("send(trackSettings:) called while previous send not completed", .error)
             // Previous send hasn't completed yet...
             throw LiveKitError(.invalidState, message: "Already busy sending new track settings")
         }
@@ -293,7 +294,7 @@ extension RemoteTrackPublication {
 
         // Attempt to set the new settings
         do {
-            try await room.engine.signalClient.sendUpdateTrackSettings(sid: sid, settings: newValue)
+            try await room.engine.signalClient.sendUpdateTrackSettings(trackSid: sid, settings: newValue)
             _state.mutate { $0.isSendingTrackSettings = false }
         } catch {
             // Revert track settings on failure
@@ -341,9 +342,6 @@ extension RemoteTrackPublication {
     // executed on .main
     @MainActor
     private func onAdaptiveStreamTimer() async {
-        // this should never happen
-        assert(Thread.current.isMainThread, "this method must be called from main thread")
-
         // don't continue if the engine is disconnected
         guard engineConnectionState != .disconnected else {
             log("engine is disconnected")
