@@ -21,6 +21,11 @@ import Foundation
 final class StateSync<State> {
     // MARK: - Types
 
+    enum Mode {
+        case sync
+        case async
+    }
+
     typealias OnDidMutate = (_ newState: State, _ oldState: State) -> Void
 
     // MARK: - Public
@@ -32,13 +37,15 @@ final class StateSync<State> {
 
     // MARK: - Private
 
+    private let _mode: Mode
     private var _state: State
     private let _lock = UnfairLock()
     private var _onDidMutate: OnDidMutate?
     private let _onDidMutateQueue = DispatchQueue(label: "LiveKit.StateSync")
 
-    public init(_ state: State, onDidMutate: OnDidMutate? = nil) {
+    public init(_ state: State, mode: Mode = .async, onDidMutate: OnDidMutate? = nil) {
         _state = state
+        _mode = mode
         _onDidMutate = onDidMutate
     }
 
@@ -51,9 +58,16 @@ final class StateSync<State> {
             let newState = _state
 
             // Always invoke onDidMutate
-            _onDidMutateQueue.async {
-                self.onDidMutate?(newState, oldState)
+            if case .sync = _mode {
+                // Invoke inside the lock (sync)
+                _onDidMutate?(newState, oldState)
+            } else if case .async = _mode {
+                // Invoke on queue (async)
+                _onDidMutateQueue.async {
+                    self.onDidMutate?(newState, oldState)
+                }
             }
+
             return result
         }
     }
