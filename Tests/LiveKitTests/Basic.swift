@@ -17,4 +17,8 @@
 @testable import LiveKit
 import XCTest
 
-class Basic: XCTestCase {}
+class Basic: XCTestCase {
+    func testReadVersion() {
+        print("LiveKitSDK.version: \(LiveKitSDK.version)")
+    }
+}
