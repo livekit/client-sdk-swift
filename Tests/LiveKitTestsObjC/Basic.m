@@ -22,7 +22,7 @@
 
 @implementation Basic
 
-- (void)sdkVersion {
+- (void)testSdkVersion {
     NSLog(@"%@", LiveKitSDK.sdkVersion);
 }
 

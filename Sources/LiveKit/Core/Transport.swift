@@ -15,7 +15,6 @@
  */
 
 import Foundation
-import SwiftProtobuf
 
 @_implementationOnly import LiveKitWebRTC
 

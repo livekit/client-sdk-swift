@@ -21,20 +21,28 @@ class PublishTests: XCTestCase {
     let room = Room()
 
     override func setUp() async throws {
-        let url = ProcessInfo.processInfo.environment["LIVEKIT_URL"]
-        let token = ProcessInfo.processInfo.environment["LIVEKIT_TOKEN"]
+        let url = ProcessInfo.processInfo.environment["LIVEKIT_TESTING_URL"]
+        let apiKey = ProcessInfo.processInfo.environment["LIVEKIT_TESTING_API_KEY"]
+        let apiSecret = ProcessInfo.processInfo.environment["LIVEKIT_TESTING_API_SECRET"]
 
         guard let url else {
-            XCTFail("LIVEKIT_URL is nil")
+            XCTFail("LIVEKIT_TESTING_URL is nil")
             return
         }
 
-        guard let token else {
-            XCTFail("LIVEKIT_TOKEN is nil")
+        guard let apiKey else {
+            XCTFail("LIVEKIT_TESTING_API_KEY is nil")
             return
         }
 
-        try await room.connect(url: url, token: token)
+        guard let apiSecret else {
+            XCTFail("LIVEKIT_TESTING_API_SECRET is nil")
+            return
+        }
+
+        let g = TokenGenerator(apiKey: apiKey, apiSecret: apiSecret, identity: "test_publisher01")
+
+        try await room.connect(url: url, token: g.sign())
     }
 
     override func tearDown() async throws {

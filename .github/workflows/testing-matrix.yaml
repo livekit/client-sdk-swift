@@ -3,9 +3,9 @@ name: Testing Matrix
 on:
   workflow_dispatch:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -17,7 +17,12 @@ jobs:
       fail-fast: false
       matrix:
         xcode-version: [14.2, 15.2]
-        destination: ['platform=iOS Simulator,OS=17.2,name=iPhone 14 Pro', 'platform=macOS', 'platform=macOS,variant=Mac Catalyst']
+        destination:
+          [
+            "platform=iOS Simulator,OS=17.2,name=iPhone 14 Pro",
+            "platform=macOS",
+            "platform=macOS,variant=Mac Catalyst",
+          ]
 
     runs-on: macos-13
 
@@ -49,6 +54,11 @@ jobs:
 
       - name: Run All Tests
         env:
-          LIVEKIT_URL: ${{ secrets.LIVEKIT_URL }}
-          LIVEKIT_TOKEN: ${{ secrets.LIVEKIT_TOKEN }}
-        run: xcodebuild test -scheme LiveKit -destination '${{ matrix.destination }}' LIVEKIT_URL='$LIVEKIT_URL' LIVEKIT_TOKEN='$LIVEKIT_TOKEN'
+          LIVEKIT_TESTING_URL: ${{ secrets.LIVEKIT_TESTING_URL }}
+          LIVEKIT_TESTING_API_KEY: ${{ secrets.LIVEKIT_TESTING_API_KEY }}
+          LIVEKIT_TESTING_API_SECRET: ${{ secrets.LIVEKIT_TESTING_API_SECRET }}
+        run: |
+          xcodebuild test -scheme LiveKit -destination '${{ matrix.destination }}' \
+          LIVEKIT_TESTING_URL='$LIVEKIT_TESTING_URL' \
+          LIVEKIT_TESTING_API_KEY='$LIVEKIT_TESTING_API_KEY' \
+          LIVEKIT_TESTING_API_SECRET='$LIVEKIT_TESTING_API_SECRET'

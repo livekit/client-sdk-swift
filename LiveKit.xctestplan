@@ -11,12 +11,16 @@
   "defaultOptions" : {
     "environmentVariableEntries" : [
       {
-        "key" : "LIVEKIT_URL",
-        "value" : "$(LIVEKIT_URL)"
+        "key" : "LIVEKIT_TESTING_URL",
+        "value" : "$(LIVEKIT_TESTING_URL)"
       },
       {
-        "key" : "LIVEKIT_TOKEN",
-        "value" : "$(LIVEKIT_TOKEN)"
+        "key" : "LIVEKIT_TESTING_API_KEY",
+        "value" : "$(LIVEKIT_TESTING_API_KEY)"
+      },
+      {
+        "key" : "LIVEKIT_TESTING_API_SECRET",
+        "value" : "$(LIVEKIT_TESTING_API_SECRET)"
       }
     ],
     "targetForVariableExpansion" : {
