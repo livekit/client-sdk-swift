@@ -35,18 +35,18 @@ extension Engine: TransportDelegate {
         // primary connected
         if transport.isPrimary {
             if pcState.isConnected {
-                primaryTransportConnectedCompleter.resume(returning: ())
+                _state.primaryTransportConnectedCompleter.resume(returning: ())
             } else if pcState.isDisconnected {
-                primaryTransportConnectedCompleter.reset()
+                _state.primaryTransportConnectedCompleter.reset()
             }
         }
 
         // publisher connected
         if case .publisher = transport.target {
             if pcState.isConnected {
-                publisherTransportConnectedCompleter.resume(returning: ())
+                _state.publisherTransportConnectedCompleter.resume(returning: ())
             } else if pcState.isDisconnected {
-                publisherTransportConnectedCompleter.reset()
+                _state.publisherTransportConnectedCompleter.reset()
             }
         }
 
