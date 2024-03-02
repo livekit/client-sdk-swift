@@ -44,6 +44,7 @@ class SampleBufferVideoRenderer: NativeView, Loggable {
     override func performLayout() {
         super.performLayout()
         sampleBufferDisplayLayer.frame = bounds
+        sampleBufferDisplayLayer.removeAllAnimations()
     }
 }
 
