@@ -21,11 +21,6 @@ import Foundation
 final class StateSync<State> {
     // MARK: - Types
 
-    enum Mode {
-        case sync
-        case async
-    }
-
     typealias OnDidMutate = (_ newState: State, _ oldState: State) -> Void
 
     // MARK: - Public
@@ -37,14 +32,12 @@ final class StateSync<State> {
 
     // MARK: - Private
 
-    private let _mode: Mode
     private var _state: State
     private let _lock = UnfairLock()
     private var _onDidMutate: OnDidMutate?
 
-    public init(_ state: State, mode: Mode = .async, onDidMutate: OnDidMutate? = nil) {
+    public init(_ state: State, onDidMutate: OnDidMutate? = nil) {
         _state = state
-        _mode = mode
         _onDidMutate = onDidMutate
     }
 

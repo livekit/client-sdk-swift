@@ -195,7 +195,7 @@ public class VideoView: NativeView, Loggable {
 
     override public init(frame: CGRect = .zero) {
         // initial state
-        _state = StateSync(State(viewSize: frame.size), mode: .sync)
+        _state = StateSync(State(viewSize: frame.size))
 
         super.init(frame: frame)
 
