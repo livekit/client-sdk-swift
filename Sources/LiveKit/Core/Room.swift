@@ -277,10 +277,9 @@ extension Room {
 
         // Start Engine cleanUp sequence
 
-        engine.primaryTransportConnectedCompleter.reset()
-        engine.publisherTransportConnectedCompleter.reset()
-
         engine._state.mutate {
+            $0.primaryTransportConnectedCompleter.reset()
+            $0.publisherTransportConnectedCompleter.reset()
             // if isFullReconnect, keep connection related states
             $0 = isFullReconnect ? Engine.State(
                 connectOptions: $0.connectOptions,
