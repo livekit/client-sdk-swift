@@ -212,6 +212,8 @@ public class VideoView: NativeView, Loggable {
 
             guard let self else { return }
 
+            self.log("Mutating in main thread: \(Thread.current.isMainThread)", .trace)
+
             let shouldRenderDidUpdate = newState.shouldRender != oldState.shouldRender
             let renderModeDidUpdate = newState.renderMode != oldState.renderMode
 
@@ -220,8 +222,8 @@ public class VideoView: NativeView, Loggable {
 
             // Enter .main only if the following conditions are met...
             if trackDidUpdate || shouldRenderDidUpdate || renderModeDidUpdate {
-                Task.detached { @MainActor in
-
+                // Execute on main thread
+                self.mainSyncOrAsync {
                     var didReCreateNativeRenderer = false
 
                     if trackDidUpdate || shouldRenderDidUpdate {
@@ -244,7 +246,7 @@ public class VideoView: NativeView, Loggable {
                         // set new track
                         if let track = newState.track as? VideoTrack, newState.shouldRender {
                             // re-create renderer on main thread
-                            let nr = self.reCreateNativeRenderer()
+                            let nr = self.reCreateNativeRenderer(for: newState.renderMode)
                             didReCreateNativeRenderer = true
 
                             track.add(videoRenderer: self)
@@ -263,7 +265,7 @@ public class VideoView: NativeView, Loggable {
                     }
 
                     if renderModeDidUpdate, !didReCreateNativeRenderer {
-                        self.reCreateNativeRenderer()
+                        self.reCreateNativeRenderer(for: newState.renderMode)
                     }
                 }
             }
@@ -458,13 +460,13 @@ private extension VideoView {
     }
 
     @discardableResult
-    func reCreateNativeRenderer() -> NativeRendererView {
+    func reCreateNativeRenderer(for renderMode: VideoView.RenderMode) -> NativeRendererView {
         if !Thread.current.isMainThread {
             log("Must be called on main thread", .error)
         }
 
         // create a new rendererView
-        let newView = VideoView.createNativeRendererView(for: _state.renderMode)
+        let newView = VideoView.createNativeRendererView(for: renderMode)
         addSubview(newView)
 
         // keep the old rendererView
@@ -689,6 +691,18 @@ extension LKRTCMTLVideoView: Mirrorable {
             #elseif os(iOS)
                 layer.transform = CATransform3DIdentity
             #endif
+        }
+    }
+}
+
+private extension VideoView {
+    func mainSyncOrAsync(operation: @escaping () -> Void) {
+        if Thread.current.isMainThread {
+            operation()
+        } else {
+            Task.detached { @MainActor in
+                operation()
+            }
         }
     }
 }
