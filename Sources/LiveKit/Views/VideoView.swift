@@ -222,7 +222,7 @@ public class VideoView: NativeView, Loggable {
 
             // Enter .main only if the following conditions are met...
             if trackDidUpdate || shouldRenderDidUpdate || renderModeDidUpdate {
-                // ...
+                // Execute on main thread
                 self.mainSyncOrAsync {
                     var didReCreateNativeRenderer = false
 
