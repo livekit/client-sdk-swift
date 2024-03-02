@@ -58,7 +58,7 @@ jobs:
           LIVEKIT_TESTING_API_KEY: ${{ secrets.LIVEKIT_TESTING_API_KEY }}
           LIVEKIT_TESTING_API_SECRET: ${{ secrets.LIVEKIT_TESTING_API_SECRET }}
         run: |
-          xcodebuild test -scheme LiveKit -destination '${{ matrix.destination }}' \
+          xcodebuild test -quiet -scheme LiveKit -destination '${{ matrix.destination }}' \
           TEST_RUNNER_LIVEKIT_TESTING_URL='$LIVEKIT_TESTING_URL' \
           TEST_RUNNER_LIVEKIT_TESTING_API_KEY='$LIVEKIT_TESTING_API_KEY' \
           TEST_RUNNER_LIVEKIT_TESTING_API_SECRET='$LIVEKIT_TESTING_API_SECRET'
