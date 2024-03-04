@@ -91,12 +91,18 @@ public class Room: NSObject, ObservableObject, Loggable {
 
     public var connectStopwatch: Stopwatch { engine._state.connectStopwatch }
 
+    // MARK: - E2EE
+
+    @objc
+    public var e2eeOptions: E2EEOptions? { _state.options.e2eeOptions }
+
+    @objc
+    public var isE2eeEnabled: Bool { _state.options.isE2eeEnabled }
+
     // MARK: - Internal
 
     // Reference to Engine
     let engine: Engine
-
-    public var e2eeManager: E2EEManager?
 
     @objc
     public lazy var localParticipant: LocalParticipant = .init(room: self)
@@ -240,12 +246,6 @@ public class Room: NSObject, ObservableObject, Loggable {
             _state.mutate { $0.options = roomOptions }
         }
 
-        // enable E2EE
-        if roomOptions?.e2eeOptions != nil {
-            e2eeManager = E2EEManager(e2eeOptions: roomOptions!.e2eeOptions!)
-            e2eeManager!.setup(room: self)
-        }
-
         try await engine.connect(url, token, connectOptions: connectOptions)
 
         log("Connected to \(String(describing: self))", .info)
@@ -298,11 +298,6 @@ extension Room {
         await engine.signalClient.cleanUp(withError: disconnectError)
         await engine.cleanUpRTC()
         await cleanUpParticipants(isFullReconnect: isFullReconnect)
-
-        // Cleanup for E2EE
-        if let e2eeManager {
-            e2eeManager.cleanUp()
-        }
 
         // Reset state
         _state.mutate { $0 = State(options: $0.options) }
@@ -420,5 +415,22 @@ public extension Room {
     static var bypassVoiceProcessing: Bool {
         get { Engine.bypassVoiceProcessing }
         set { Engine.bypassVoiceProcessing = newValue }
+    }
+}
+
+// MARK: - E2EE
+
+public extension Room {
+    /// Set ``Room`` level e2ee dynamically. Room must be created with ``E2EEOptions``.
+    func set(isE2eeEnabled isEnabled: Bool) {
+        // Update RoomOptions...
+        _state.mutate { $0.options = $0.options.copyWith(isE2eeEnabled: isEnabled) }
+
+        let localTracks = Array(localParticipant.trackPublications.values).compactMap(\.track)
+        let remoteTracks = Array(remoteParticipants.values.map { $0.trackPublications.values.compactMap(\.track) }.joined())
+
+        for track in [localTracks, remoteTracks].joined() {
+            track.set(isCryptorEnabled: isEnabled)
+        }
     }
 }

@@ -29,8 +29,8 @@ public enum E2EEState: Int {
     case internal_error
 }
 
-public extension E2EEState {
-    func toString() -> String {
+extension E2EEState: CustomStringConvertible {
+    public var description: String {
         switch self {
         case .new: return "new"
         case .ok: return "ok"

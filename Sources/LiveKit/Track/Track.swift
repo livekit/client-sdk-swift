@@ -97,6 +97,18 @@ public class Track: NSObject, Loggable {
     @objc
     public var trackState: TrackState { _state.trackState }
 
+    // MARK: - Internal types
+
+    struct SenderCryptorPair {
+        let sender: LKRTCRtpSender
+        let frameCryptor: LKRTCFrameCryptor?
+    }
+
+    struct ReceiverCryptorPair {
+        let receiver: LKRTCRtpReceiver
+        let frameCryptor: LKRTCFrameCryptor?
+    }
+
     // MARK: - Internal
 
     let delegates = MulticastDelegate<TrackDelegate>()
@@ -126,9 +138,9 @@ public class Track: NSObject, Loggable {
 
         weak var transport: Transport?
         var videoCodec: VideoCodec?
-        var rtpSender: LKRTCRtpSender?
-        var rtpSenderForCodec: [VideoCodec: LKRTCRtpSender] = [:] // simulcastSender
-        var rtpReceiver: LKRTCRtpReceiver?
+        var senderCryptorPair: SenderCryptorPair?
+        var rtpSenderForCodec: [VideoCodec: SenderCryptorPair] = [:] // simulcastSender
+        var receiverCryptorPair: ReceiverCryptorPair?
     }
 
     let _state: StateSync<State>
@@ -136,6 +148,7 @@ public class Track: NSObject, Loggable {
     // MARK: - Private
 
     private let _statisticsTimer = AsyncTimer(interval: 1.0)
+    private lazy var _frameCryptorDelegateAdapter = FrameCryptorDelegateAdapter(target: self)
 
     init(name: String,
          kind: Kind,
@@ -177,25 +190,45 @@ public class Track: NSObject, Loggable {
         }
     }
 
-    func set(transport: Transport?, rtpSender: LKRTCRtpSender?) async {
+    func set(transport: Transport?, senderCryptorPair: SenderCryptorPair?) async {
         _state.mutate {
             $0.transport = transport
-            $0.rtpSender = rtpSender
+            $0.senderCryptorPair = senderCryptorPair
+
+            if $0.receiverCryptorPair != nil {
+                log("Sender already attached to this track", .error)
+            }
         }
+
+        if let frameCryptor = senderCryptorPair?.frameCryptor {
+            // Attach delegate
+            frameCryptor.delegate = _frameCryptorDelegateAdapter
+        }
+
         await _resumeOrSuspendStatisticsTimer()
     }
 
-    func set(transport: Transport?, rtpReceiver: LKRTCRtpReceiver?) async {
+    func set(transport: Transport?, receiverCryptorPair: ReceiverCryptorPair?) async {
         _state.mutate {
             $0.transport = transport
-            $0.rtpReceiver = rtpReceiver
+            $0.receiverCryptorPair = receiverCryptorPair
+
+            if $0.senderCryptorPair != nil {
+                log("Sender already attached to this track", .error)
+            }
         }
+
+        if let frameCryptor = receiverCryptorPair?.frameCryptor {
+            // Attach delegate
+            frameCryptor.delegate = _frameCryptorDelegateAdapter
+        }
+
         await _resumeOrSuspendStatisticsTimer()
     }
 
     private func _resumeOrSuspendStatisticsTimer() async {
         let shouldStart = _state.read {
-            $0.reportStatistics && ($0.rtpSender != nil || $0.rtpReceiver != nil)
+            $0.reportStatistics && ($0.senderCryptorPair != nil || $0.receiverCryptorPair != nil)
         }
 
         if shouldStart {
@@ -445,7 +478,7 @@ public extension InboundRtpStreamStatistics {
 extension Track {
     func _onStatsTimer() async {
         // Read from state
-        let (transport, rtpSender, rtpReceiver, simulcastRtpSenders) = _state.read { ($0.transport, $0.rtpSender, $0.rtpReceiver, $0.rtpSenderForCodec) }
+        let (transport, rtpSender, rtpReceiver, simulcastRtpSenders) = _state.read { ($0.transport, $0.senderCryptorPair, $0.receiverCryptorPair, $0.rtpSenderForCodec) }
 
         // Transport is required...
         guard let transport else { return }
@@ -455,9 +488,9 @@ extension Track {
         var statisticsReport: LKRTCStatisticsReport?
         let prevStatistics = _state.read { $0.statistics }
 
-        if let sender = rtpSender {
+        if let sender = rtpSender?.sender {
             statisticsReport = await transport.statistics(for: sender)
-        } else if let receiver = rtpReceiver {
+        } else if let receiver = rtpReceiver?.receiver {
             statisticsReport = await transport.statistics(for: receiver)
         }
 
@@ -471,17 +504,62 @@ extension Track {
         // Simulcast statistics
 
         let prevSimulcastStatistics = _state.read { $0.simulcastStatistics }
-        var _simulcastStatistics: [VideoCodec: TrackStatistics] = [:]
+        var simulcastStatistics: [VideoCodec: TrackStatistics] = [:]
 
-        for _sender in simulcastRtpSenders {
-            let _report = await transport.statistics(for: _sender.value)
-            _simulcastStatistics[_sender.key] = TrackStatistics(from: Array(_report.statistics.values),
-                                                                prevStatistics: prevSimulcastStatistics[_sender.key])
+        for simulcastRtpSender in simulcastRtpSenders {
+            let report = await transport.statistics(for: simulcastRtpSender.value.sender)
+            simulcastStatistics[simulcastRtpSender.key] = TrackStatistics(from: Array(report.statistics.values),
+                                                                          prevStatistics: prevSimulcastStatistics[simulcastRtpSender.key])
         }
 
         _state.mutate {
             $0.statistics = trackStatistics
-            $0.simulcastStatistics = _simulcastStatistics
+            $0.simulcastStatistics = simulcastStatistics
         }
+    }
+}
+
+// MARK: - E2EE (Internal)
+
+extension Track {
+    /// Set e2ee enabled state dynamically
+    func set(isCryptorEnabled isEnabled: Bool) {
+        _state.mutate {
+            // Sender
+            if let cryptor = $0.senderCryptorPair?.frameCryptor {
+                cryptor.enabled = isEnabled
+            }
+
+            // Simulcast senders
+            let sendersCryptors = Array($0.rtpSenderForCodec.values).compactMap(\.frameCryptor)
+            for cryptor in sendersCryptors {
+                cryptor.enabled = isEnabled
+            }
+
+            // Receiver
+            if let cryptor = $0.receiverCryptorPair?.frameCryptor {
+                cryptor.enabled = isEnabled
+            }
+        }
+    }
+}
+
+extension Track {
+    // Private delegate adapter to hide LKRTCFrameCryptorDelegate symbol
+    private class FrameCryptorDelegateAdapter: NSObject, LKRTCFrameCryptorDelegate {
+        weak var target: Track?
+
+        init(target: Track? = nil) {
+            self.target = target
+        }
+
+        func frameCryptor(_ frameCryptor: LKRTCFrameCryptor, didStateChangeWithParticipantId participantId: String, with stateChanged: FrameCryptionState) {
+            // Redirect
+            target?.frameCryptor(frameCryptor, didStateChangeWithParticipantId: participantId, with: stateChanged)
+        }
+    }
+
+    private func frameCryptor(_: LKRTCFrameCryptor, didStateChangeWithParticipantId _: String, with e2eeState: FrameCryptionState) {
+        delegates.notify { $0.track(self, didUpdateE2eeState: e2eeState.toLKType()) }
     }
 }

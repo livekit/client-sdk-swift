@@ -23,6 +23,7 @@ public class TrackDelegateObserver: ObservableObject, TrackDelegate {
     @Published public var dimensions: Dimensions?
     @Published public var statistics: TrackStatistics?
     @Published public var simulcastStatistics: [VideoCodec: TrackStatistics]
+    @Published public var e2eeState: E2EEState?
 
     public var allStatisticts: [TrackStatistics] {
         var result: [TrackStatistics] = []
@@ -55,6 +56,12 @@ public class TrackDelegateObserver: ObservableObject, TrackDelegate {
         Task.detached { @MainActor in
             self.statistics = statistics
             self.simulcastStatistics = simulcastStatistics
+        }
+    }
+
+    public func track(_: Track, didUpdateE2eeState e2eeState: E2EEState) {
+        Task.detached { @MainActor in
+            self.e2eeState = e2eeState
         }
     }
 }

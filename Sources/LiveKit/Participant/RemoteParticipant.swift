@@ -123,7 +123,21 @@ public class RemoteParticipant: Participant {
         }
 
         if let transport = room.engine.subscriber {
-            await track.set(transport: transport, rtpReceiver: rtpReceiver)
+            // E2EE
+            var cryptor: LKRTCFrameCryptor?
+            if let identity, let keyProvider = room._state.options.e2eeOptions?.keyProvider.rtcKeyProvider {
+                cryptor = LKRTCFrameCryptor(factory: Engine.peerConnectionFactory,
+                                            rtpReceiver: rtpReceiver,
+                                            participantId: identity.stringValue,
+                                            algorithm: RTCCyrptorAlgorithm.aesGcm,
+                                            keyProvider: keyProvider)
+            }
+
+            let receiverCryptorPair = Track.ReceiverCryptorPair(receiver: rtpReceiver, frameCryptor: cryptor)
+
+            await track.set(transport: transport, receiverCryptorPair: receiverCryptorPair)
+
+            track.set(isCryptorEnabled: room._state.options.isE2eeEnabled)
         }
 
         add(publication: publication)

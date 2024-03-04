@@ -68,11 +68,12 @@ extension Room: SignalClientDelegate {
         if case let .join(joinResponse) = connectResponse {
             log("\(joinResponse.serverInfo)", .info)
 
-            if e2eeManager != nil, !joinResponse.sifTrailer.isEmpty {
-                e2eeManager?.keyProvider.setSifTrailer(trailer: joinResponse.sifTrailer)
-            }
-
             _state.mutate {
+                // E2EE
+                if !joinResponse.sifTrailer.isEmpty {
+                    $0.options.e2eeOptions?.keyProvider.setSifTrailer(trailer: joinResponse.sifTrailer)
+                }
+
                 $0.sid = Room.Sid(from: joinResponse.room.sid)
                 $0.name = joinResponse.room.name
                 $0.metadata = joinResponse.room.metadata

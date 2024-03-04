@@ -148,7 +148,7 @@ public class LocalParticipant: Participant {
                                                                                  name: publishName ?? track.name,
                                                                                  type: track.kind.toPBType(),
                                                                                  source: track.source.toPBType(),
-                                                                                 encryption: room.e2eeManager?.e2eeOptions.encryptionType.toPBType() ?? .none,
+                                                                                 encryption: room._state.options.e2eeOptions?.encryptionType.toPBType() ?? .none,
                                                                                  populatorFunc)
 
             log("[Publish] server responded trackInfo: \(addTrackResult.trackInfo)")
@@ -163,8 +163,22 @@ public class LocalParticipant: Participant {
                 // Store publishOptions used for this track...
                 track._state.mutate { $0.lastPublishOptions = options }
 
+                // E2EE
+                var cryptor: LKRTCFrameCryptor?
+                if let identity, let keyProvider = room._state.options.e2eeOptions?.keyProvider.rtcKeyProvider {
+                    cryptor = LKRTCFrameCryptor(factory: Engine.peerConnectionFactory,
+                                                rtpSender: transceiver.sender,
+                                                participantId: identity.stringValue,
+                                                algorithm: RTCCyrptorAlgorithm.aesGcm,
+                                                keyProvider: keyProvider)
+                }
+
+                let senderCryptorPair = Track.SenderCryptorPair(sender: transceiver.sender, frameCryptor: cryptor)
+
                 // Attach sender to track...
-                await track.set(transport: publisher, rtpSender: transceiver.sender)
+                await track.set(transport: publisher, senderCryptorPair: senderCryptorPair)
+
+                track.set(isCryptorEnabled: room._state.options.isE2eeEnabled)
 
                 if track is LocalVideoTrack {
                     if let firstCodecMime = addTrackResult.trackInfo.codecs.first?.mimeType,
@@ -196,7 +210,7 @@ public class LocalParticipant: Participant {
 
             } catch {
                 // Rollback
-                await track.set(transport: nil, rtpSender: nil)
+                await track.set(transport: nil, senderCryptorPair: nil)
                 try await publisher.remove(track: transceiver.sender)
                 // Rethrow
                 throw error
@@ -283,14 +297,14 @@ public class LocalParticipant: Participant {
             try await track.stop()
         }
 
-        if let publisher = room.engine.publisher, let sender = track._state.rtpSender {
+        if let publisher = room.engine.publisher, let senderCryptorPair = track._state.senderCryptorPair {
             // Remove all simulcast senders...
             let simulcastSenders = track._state.read { Array($0.rtpSenderForCodec.values) }
-            for simulcastSender in simulcastSenders {
-                try await publisher.remove(track: simulcastSender)
+            for senderCryptorPair in simulcastSenders {
+                try await publisher.remove(track: senderCryptorPair.sender)
             }
             // Remove main sender...
-            try await publisher.remove(track: sender)
+            try await publisher.remove(track: senderCryptorPair.sender)
             // Mark re-negotiation required...
             try await room.engine.publisherShouldNegotiate()
         }
@@ -381,10 +395,10 @@ public class LocalParticipant: Participant {
     func _set(subscribedQualities qualities: [Livekit_SubscribedQuality], forTrackSid trackSid: Track.Sid) {
         guard let publication = trackPublications[trackSid],
               let track = publication.track as? LocalVideoTrack,
-              let sender = track._state.rtpSender
+              let senderCryptorPair = track._state.senderCryptorPair
         else { return }
 
-        sender._set(subscribedQualities: qualities)
+        senderCryptorPair.sender._set(subscribedQualities: qualities)
     }
 
     override func set(permissions newValue: ParticipantPermissions) -> Bool {
@@ -599,8 +613,22 @@ extension LocalParticipant {
 
         sender._set(subscribedQualities: subscribedCodec.qualities)
 
+        // E2EE
+        var cryptor: LKRTCFrameCryptor?
+        if let identity, let keyProvider = room._state.options.e2eeOptions?.keyProvider.rtcKeyProvider {
+            cryptor = LKRTCFrameCryptor(factory: Engine.peerConnectionFactory,
+                                        rtpSender: sender,
+                                        participantId: identity.stringValue,
+                                        algorithm: RTCCyrptorAlgorithm.aesGcm,
+                                        keyProvider: keyProvider)
+        }
+
+        let senderCryptorPair = Track.SenderCryptorPair(sender: sender, frameCryptor: cryptor)
+
         // Attach multi-codec sender...
-        track._state.mutate { $0.rtpSenderForCodec[videoCodec] = sender }
+        track._state.mutate { $0.rtpSenderForCodec[videoCodec] = senderCryptorPair }
+
+        track.set(isCryptorEnabled: room._state.options.isE2eeEnabled)
 
         try await room.engine.publisherShouldNegotiate()
     }

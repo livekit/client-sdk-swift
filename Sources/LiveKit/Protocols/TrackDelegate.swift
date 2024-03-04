@@ -27,6 +27,10 @@ public protocol TrackDelegate: AnyObject {
     /// Statistics for the track has been generated (v2).
     @objc(track:didUpdateStatistics:simulcastStatistics:) optional
     func track(_ track: Track, didUpdateStatistics: TrackStatistics, simulcastStatistics: [VideoCodec: TrackStatistics])
+
+    /// E2EE state of the track. E2EE state of sender will be used for a LocalTrack and state of receiver will be used for RemoteTrack.
+    /// Currently doesn't report state for simulcast senders (back up codecs).
+    func track(_ track: Track, didUpdateE2eeState e2ee: E2EEState)
 }
 
 protocol TrackDelegateInternal: TrackDelegate {

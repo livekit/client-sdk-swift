@@ -41,14 +41,14 @@ extension VideoTrack {
         let videoCodec = try VideoCodec.from(id: subscribedCodec.codec)
 
         // Check if main sender is sending the codec...
-        if let rtpSender = _state.rtpSender, videoCodec == _state.videoCodec {
-            rtpSender._set(subscribedQualities: subscribedCodec.qualities)
+        if let senderCryptorPair = _state.senderCryptorPair, videoCodec == _state.videoCodec {
+            senderCryptorPair.sender._set(subscribedQualities: subscribedCodec.qualities)
             return true
         }
 
         // Find simulcast sender for codec...
-        if let rtpSender = _state.rtpSenderForCodec[videoCodec] {
-            rtpSender._set(subscribedQualities: subscribedCodec.qualities)
+        if let senderCryptorPair = _state.rtpSenderForCodec[videoCodec] {
+            senderCryptorPair.sender._set(subscribedQualities: subscribedCodec.qualities)
             return true
         }
 
