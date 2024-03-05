@@ -40,13 +40,13 @@ class PublishTests: XCTestCase {
             return
         }
 
-        let g = TokenGenerator(apiKey: apiKey, apiSecret: apiSecret, identity: "test_publisher01")
+        let tokenGenerator = TokenGenerator(apiKey: apiKey, apiSecret: apiSecret, identity: "test_publisher01")
 
-        g.videoGrant = VideoGrant(room: "swiftsdk_test_01",
-                                  roomJoin: true,
-                                  canPublish: true)
+        tokenGenerator.videoGrant = VideoGrant(room: "swiftsdk_test_01",
+                                               roomJoin: true,
+                                               canPublish: true)
 
-        try await room.connect(url: url, token: g.sign())
+        try await room.connect(url: url, token: tokenGenerator.sign())
     }
 
     override func tearDown() async throws {
