@@ -36,7 +36,7 @@ public class LocalParticipant: Participant {
 
     @objc
     @discardableResult
-    func publish(track: LocalTrack, options: TrackPublishOptions? = nil) async throws -> LocalTrackPublication {
+    public func publish(track: LocalTrack, options: TrackPublishOptions? = nil) async throws -> LocalTrackPublication {
         log("[publish] \(track) options: \(String(describing: options ?? nil))...", .info)
 
         let room = try requireRoom()
@@ -258,46 +258,7 @@ public class LocalParticipant: Participant {
     /// this will also stop the track
     @objc
     public func unpublish(publication: LocalTrackPublication, notify _notify: Bool = true) async throws {
-        let room = try requireRoom()
-
-        func _notifyDidUnpublish() async {
-            guard _notify else { return }
-            delegates.notify(label: { "localParticipant.didUnpublish \(publication)" }) {
-                $0.participant?(self, didUnpublishTrack: publication)
-            }
-            room.delegates.notify(label: { "room.didUnpublish \(publication)" }) {
-                $0.room?(room, participant: self, didUnpublishTrack: publication)
-            }
-        }
-
-        // Remove the publication
-        _state.mutate { $0.trackPublications.removeValue(forKey: publication.sid) }
-
-        // If track is nil, only notify unpublish and return
-        guard let track = publication.track as? LocalTrack else {
-            return await _notifyDidUnpublish()
-        }
-
-        // Wait for track to stop (if required)
-        if room._state.options.stopLocalTrackOnUnpublish {
-            try await track.stop()
-        }
-
-        if let publisher = room.engine.publisher, let sender = track._state.rtpSender {
-            // Remove all simulcast senders...
-            let simulcastSenders = track._state.read { Array($0.rtpSenderForCodec.values) }
-            for simulcastSender in simulcastSenders {
-                try await publisher.remove(track: simulcastSender)
-            }
-            // Remove main sender...
-            try await publisher.remove(track: sender)
-            // Mark re-negotiation required...
-            try await room.engine.publisherShouldNegotiate()
-        }
-
-        try await track.onUnpublish()
-
-        await _notifyDidUnpublish()
+        try await _actor.unpublish(localPublication: publication, notify: _notify)
     }
 
     /// Publish data to the other participants in the room
@@ -408,7 +369,7 @@ public class LocalParticipant: Participant {
 
 extension LocalParticipant {
     func publishedTracksInfo() -> [Livekit_TrackPublishedResponse] {
-        _state.trackPublications.values.filter { $0.track != nil }
+        _actor._state.trackPublications.values.filter { $0.track != nil }
             .map { publication in
                 Livekit_TrackPublishedResponse.with {
                     $0.cid = publication.track!.mediaTrack.trackId
@@ -420,7 +381,7 @@ extension LocalParticipant {
     }
 
     func republishAllTracks() async throws {
-        let mediaTracks = _state.trackPublications.values.map { $0.track as? LocalTrack }.compactMap { $0 }
+        let mediaTracks = _actor._state.trackPublications.values.map { $0.track as? LocalTrack }.compactMap { $0 }
 
         await unpublishAll()
 
@@ -484,7 +445,7 @@ public extension LocalParticipant {
         let room = try requireRoom()
 
         // Try to get existing publication
-        if let publication = getTrackPublication(source: source) as? LocalTrackPublication {
+        if let publication = _actor.trackPublication(forSource: source) as? LocalTrackPublication {
             if enabled {
                 try await publication.unmute()
                 return publication

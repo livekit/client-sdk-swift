@@ -25,77 +25,62 @@ public class Participant: NSObject, ObservableObject, Loggable {
     public let delegates = MulticastDelegate<ParticipantDelegate>()
 
     @objc
-    public var sid: Sid? { _state.sid }
+    public var sid: Sid? { _actor._state.sid }
 
     @objc
-    public var identity: Identity? { _state.identity }
+    public var identity: Identity? { _actor._state.identity }
 
     @objc
-    public var name: String? { _state.name }
+    public var name: String? { _actor._state.name }
 
     @objc
-    public var audioLevel: Float { _state.audioLevel }
+    public var audioLevel: Float { _actor._state.audioLevel }
 
     @objc
-    public var isSpeaking: Bool { _state.isSpeaking }
+    public var isSpeaking: Bool { _actor._state.isSpeaking }
 
     @objc
-    public var metadata: String? { _state.metadata }
+    public var metadata: String? { _actor._state.metadata }
 
     @objc
-    public var connectionQuality: ConnectionQuality { _state.connectionQuality }
+    public var connectionQuality: ConnectionQuality { _actor._state.connectionQuality }
 
     @objc
-    public var permissions: ParticipantPermissions { _state.permissions }
+    public var permissions: ParticipantPermissions { _actor._state.permissions }
 
     @objc
-    public var joinedAt: Date? { _state.joinedAt }
+    public var joinedAt: Date? { _actor._state.joinedAt }
 
     @objc
-    public var trackPublications: [Track.Sid: TrackPublication] { _state.trackPublications }
+    public var trackPublications: [Track.Sid: TrackPublication] { _actor._state.trackPublications }
 
     @objc
     public var audioTracks: [TrackPublication] {
-        _state.trackPublications.values.filter { $0.kind == .audio }
+        _actor._state.trackPublications.values.filter { $0.kind == .audio }
     }
 
     @objc
     public var videoTracks: [TrackPublication] {
-        _state.trackPublications.values.filter { $0.kind == .video }
+        _actor._state.trackPublications.values.filter { $0.kind == .video }
     }
-
-    var info: Livekit_ParticipantInfo?
 
     // Reference to the Room this Participant belongs to
     weak var _room: Room?
 
-    // MARK: - Internal
-
-    struct State: Equatable, Hashable {
-        var sid: Sid?
-        var identity: Identity?
-        var name: String?
-        var audioLevel: Float = 0.0
-        var isSpeaking: Bool = false
-        var metadata: String?
-        var joinedAt: Date?
-        var connectionQuality: ConnectionQuality = .unknown
-        var permissions = ParticipantPermissions()
-        var trackPublications = [Track.Sid: TrackPublication]()
-    }
-
-    var _state: StateSync<State>
+    let _actor: ParticipantActor
 
     init(room: Room, sid: Sid? = nil, identity: Identity? = nil) {
+        // Weak reference to Room
         _room = room
 
-        // initial state
-        _state = StateSync(State(sid: sid, identity: identity))
+        // Initialize actor
+        _actor = ParticipantActor(room: room, participantType: type(of: self),
+                                  state: ParticipantActor.State(sid: sid, identity: identity))
 
         super.init()
 
-        // trigger events when state mutates
-        _state.onDidMutate = { [weak self] newState, oldState in
+        // Trigger events when state mutates
+        _actor.onDidMutateState = { [weak self] newState, oldState in
 
             guard let self, let room = self._room else { return }
 
@@ -130,12 +115,23 @@ public class Participant: NSObject, ObservableObject, Loggable {
                 }
             }
 
+            // connectionQuality updated
             if newState.connectionQuality != oldState.connectionQuality {
                 self.delegates.notify(label: { "participant.didUpdate connectionQuality: \(self.connectionQuality)" }) {
                     $0.participant?(self, didUpdateConnectionQuality: self.connectionQuality)
                 }
                 room.delegates.notify(label: { "room.didUpdate connectionQuality: \(self.connectionQuality)" }) {
                     $0.room?(room, participant: self, didUpdateConnectionQuality: self.connectionQuality)
+                }
+            }
+
+            // permissions updated
+            if newState.permissions != oldState.permissions {
+                self.delegates.notify(label: { "participant.didUpdatePermissions: \(newState.permissions)" }) {
+                    $0.participant?(self, didUpdatePermissions: newState.permissions)
+                }
+                room.delegates.notify(label: { "room.didUpdatePermissions: \(newState.permissions)" }) {
+                    $0.room?(room, participant: self, didUpdatePermissions: newState.permissions)
                 }
             }
 
@@ -150,15 +146,91 @@ public class Participant: NSObject, ObservableObject, Loggable {
             }
         }
     }
+}
+
+// MARK: - Simplified API
+
+public extension Participant {
+    func isCameraEnabled() -> Bool {
+        !(_actor.trackPublication(forSource: .camera)?.isMuted ?? true)
+    }
+
+    func isMicrophoneEnabled() -> Bool {
+        !(_actor.trackPublication(forSource: .microphone)?.isMuted ?? true)
+    }
+
+    func isScreenShareEnabled() -> Bool {
+        !(_actor.trackPublication(forSource: .screenShareVideo)?.isMuted ?? true)
+    }
+}
+
+// MARK: - Private helpers
+
+extension ParticipantActor {
+    func requireRoom() throws -> Room {
+        guard let room = _room else {
+            log("Room is nil", .error)
+            throw LiveKitError(.invalidState, message: "Room is nil")
+        }
+
+        return room
+    }
+}
+
+actor ParticipantActor: Loggable {
+    // Reference to the Room this Participant belongs to
+    weak var _room: Room?
+    let _participantType: Participant.Type
+
+    // MARK: - Internal
+
+    struct State {
+        var onDidMutateState: StateSync<State>.OnDidMutate?
+
+        var info: Livekit_ParticipantInfo?
+
+        var sid: Participant.Sid?
+        var identity: Participant.Identity?
+        var name: String?
+        var audioLevel: Float = 0.0
+        var isSpeaking: Bool = false
+        var metadata: String?
+        var joinedAt: Date?
+        var connectionQuality: ConnectionQuality = .unknown
+        var permissions = ParticipantPermissions()
+        var trackPublications = [Track.Sid: TrackPublication]()
+    }
+
+    nonisolated
+    let _state: StateSync<State>
+
+    nonisolated
+    var onDidMutateState: StateSync<State>.OnDidMutate? {
+        get { _state.onDidMutateState }
+        set { _state.mutate { $0.onDidMutateState = newValue } }
+    }
+
+    init(room: Room?, participantType: Participant.Type, state: State) {
+        _room = room
+        _participantType = participantType
+        _state = StateSync(state)
+        _state.onDidMutate = _onDidMutate
+    }
+
+    nonisolated
+    func _onDidMutate(newState: State, oldState: State) {
+        // ...
+        _state.onDidMutateState?(newState, oldState)
+    }
 
     func cleanUp(notify _notify: Bool = true) async {
         await unpublishAll(notify: _notify)
         // Reset state
-        if let self = self as? RemoteParticipant, let room = self._room {
-            room.delegates.notify(label: { "room.participantDidDisconnect:" }) {
-                $0.room?(room, participantDidDisconnect: self)
-            }
-        }
+//        if let self = self as? RemoteParticipant, let room = self._room {
+//            room.delegates.notify(label: { "room.participantDidDisconnect:" }) {
+//                $0.room?(room, participantDidDisconnect: self)
+//            }
+//        }
 
         _state.mutate { $0 = State() }
     }
@@ -172,53 +244,90 @@ public class Participant: NSObject, ObservableObject, Loggable {
         publication.track?._state.mutate { $0.sid = publication.sid }
     }
 
-    func updateFromInfo(info: Livekit_ParticipantInfo) {
+    // MARK: - Actor-isolated (Internal)
+
+    /// unpublish an existing published track
+    /// this will also stop the track
+    public func unpublish(localPublication publication: LocalTrackPublication, notify _notify: Bool = true) async throws {
+        let room = try requireRoom()
+
+        func _notifyDidUnpublish() async {
+            guard _notify else { return }
+//            delegates.notify(label: { "localParticipant.didUnpublish \(publication)" }) {
+//                $0.participant?(self, didUnpublishTrack: publication)
+//            }
+//            room.delegates.notify(label: { "room.didUnpublish \(publication)" }) {
+//                $0.room?(room, participant: self, didUnpublishTrack: publication)
+//            }
+        }
+
+        // Remove the publication
+        _state.mutate { $0.trackPublications.removeValue(forKey: publication.sid) }
+
+        // If track is nil, only notify unpublish and return
+        guard let track = publication.track as? LocalTrack else {
+            return await _notifyDidUnpublish()
+        }
+
+        // Wait for track to stop (if required)
+        if room._state.options.stopLocalTrackOnUnpublish {
+            try await track.stop()
+        }
+
+        if let publisher = room.engine.publisher, let sender = track._state.rtpSender {
+            // Remove all simulcast senders...
+            let simulcastSenders = track._state.read { Array($0.rtpSenderForCodec.values) }
+            for simulcastSender in simulcastSenders {
+                try await publisher.remove(track: simulcastSender)
+            }
+            // Remove main sender...
+            try await publisher.remove(track: sender)
+            // Mark re-negotiation required...
+            try await room.engine.publisherShouldNegotiate()
+        }
+
+        try await track.onUnpublish()
+
+        await _notifyDidUnpublish()
+    }
+
+    // MARK: - Non-isolated (Internal)
+
+    nonisolated
+    func set(info: Livekit_ParticipantInfo) {
         _state.mutate {
-            $0.sid = Sid(from: info.sid)
-            $0.identity = Identity(from: info.identity)
+            $0.info = info
+            $0.sid = Participant.Sid(from: info.sid)
+            $0.identity = Participant.Identity(from: info.identity)
             $0.name = info.name
             $0.metadata = info.metadata
             $0.joinedAt = Date(timeIntervalSince1970: TimeInterval(info.joinedAt))
+            $0.permissions = info.permission.toLKType()
         }
-
-        self.info = info
-        set(permissions: info.permission.toLKType())
     }
 
-    @discardableResult
-    func set(permissions newValue: ParticipantPermissions) -> Bool {
-        guard permissions != newValue else {
-            // no change
-            return false
-        }
-
+    nonisolated
+    func set(permissions newValue: ParticipantPermissions) {
         _state.mutate { $0.permissions = newValue }
-
-        return true
-    }
-}
-
-// MARK: - Simplified API
-
-public extension Participant {
-    func isCameraEnabled() -> Bool {
-        !(getTrackPublication(source: .camera)?.isMuted ?? true)
     }
 
-    func isMicrophoneEnabled() -> Bool {
-        !(getTrackPublication(source: .microphone)?.isMuted ?? true)
+    nonisolated
+    func set(isSpeaking: Bool, audioLevel: Float) {
+        _state.mutate {
+            $0.isSpeaking = isSpeaking
+            $0.audioLevel = audioLevel
+        }
     }
 
-    func isScreenShareEnabled() -> Bool {
-        !(getTrackPublication(source: .screenShareVideo)?.isMuted ?? true)
-    }
+    // MARK: - Helpers (Internal)
 
-    internal func getTrackPublication(name: String) -> TrackPublication? {
+    nonisolated
+    func trackPublication(forName name: String) -> TrackPublication? {
         _state.trackPublications.values.first(where: { $0.name == name })
     }
 
-    /// find the first publication matching `source` or any compatible.
-    internal func getTrackPublication(source: Track.Source) -> TrackPublication? {
+    nonisolated
+    func trackPublication(forSource source: Track.Source) -> TrackPublication? {
         // if source is unknown return nil
         guard source != .unknown else { return nil }
         // try to find a Publication with matching source
@@ -236,18 +345,5 @@ public extension Participant {
         }
 
         return nil
-    }
-}
-
-// MARK: - Private helpers
-
-extension Participant {
-    func requireRoom() throws -> Room {
-        guard let room = _room else {
-            log("Room is nil", .error)
-            throw LiveKitError(.invalidState, message: "Room is nil")
-        }
-
-        return room
     }
 }

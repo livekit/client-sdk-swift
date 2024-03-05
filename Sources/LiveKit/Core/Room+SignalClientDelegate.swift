@@ -79,7 +79,7 @@ extension Room: SignalClientDelegate {
                 $0.isRecording = joinResponse.room.activeRecording
                 $0.serverInfo = joinResponse.serverInfo
 
-                localParticipant.updateFromInfo(info: joinResponse.participant)
+                localParticipant._actor.set(info: joinResponse.participant)
 
                 if !joinResponse.otherParticipants.isEmpty {
                     for otherParticipant in joinResponse.otherParticipants {
@@ -112,10 +112,8 @@ extension Room: SignalClientDelegate {
                     continue
                 }
 
-                participant._state.mutate {
-                    $0.audioLevel = speaker.level
-                    $0.isSpeaking = speaker.active
-                }
+                participant._actor.set(isSpeaking: speaker.active,
+                                       audioLevel: speaker.level)
 
                 if speaker.active {
                     lastSpeakers[participantSid] = participant
