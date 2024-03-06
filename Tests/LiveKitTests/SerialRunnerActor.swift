@@ -21,6 +21,8 @@ class AsyncSerialExecutorTests: XCTestCase {
     var serialExecutor1Counter: Int = 0
     let serialExecutor1 = SerialRunnerActor<Void>()
 
+    // Test whether tasks, when invoked concurrently, continue to run in a serial manner.
+    // Access to the counter value should be synchronized, aiming for a final count of 0.
     func testSerialExecution() async throws {
         // Run Tasks concurrently
         try await withThrowingTaskGroup(of: Void.self) { group in
@@ -46,6 +48,8 @@ class AsyncSerialExecutorTests: XCTestCase {
         XCTAssert(serialExecutor1Counter == 0)
     }
 
+    // Test whether tasks invoked concurrently, and randomly cancelled, continue to run in a serial manner.
+    // Access to the counter value should be synchronized, resulting in a count of 0.
     func testSerialExecutionCancel() async throws {
         // Run Tasks concurrently
         await withTaskGroup(of: Void.self) { group in
