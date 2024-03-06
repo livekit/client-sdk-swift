@@ -84,7 +84,9 @@ public class Participant: NSObject, ObservableObject, Loggable {
         var trackPublications = [Track.Sid: TrackPublication]()
     }
 
-    var _state: StateSync<State>
+    let _state: StateSync<State>
+
+    let _publishSerialRunner = SerialRunnerActor<LocalTrackPublication?>()
 
     init(room: Room, sid: Sid? = nil, identity: Identity? = nil) {
         _room = room
