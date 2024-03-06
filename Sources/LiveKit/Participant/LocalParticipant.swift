@@ -481,7 +481,7 @@ public extension LocalParticipant {
              captureOptions: CaptureOptions? = nil,
              publishOptions: PublishOptions? = nil) async throws -> LocalTrackPublication?
     {
-        try await _simplifiedPublishSerialExecutor.execute {
+        try await _simplifiedPublishSerialRunner.run {
             let room = try self.requireRoom()
 
             // Try to get existing publication

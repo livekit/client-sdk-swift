@@ -16,10 +16,10 @@
 
 import Foundation
 
-actor AsyncSerialExecutor<Value: Sendable> {
+actor SerialRunnerActor<Value: Sendable> {
     private var previousTask: Task<Value, Error>?
 
-    func execute(block: @Sendable @escaping () async throws -> Value) async throws -> Value {
+    func run(block: @Sendable @escaping () async throws -> Value) async throws -> Value {
         let task = Task { [previousTask] in
             let _ = try? await previousTask?.value
             return try await block()

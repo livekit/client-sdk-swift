@@ -19,14 +19,14 @@ import XCTest
 
 class AsyncSerialExecutorTests: XCTestCase {
     var serialExecutor1Counter: Int = 0
-    let serialExecutor1 = AsyncSerialExecutor<Void>()
+    let serialExecutor1 = SerialRunnerActor<Void>()
 
     func testSerialExecution() async throws {
         // Run Tasks concurrently
         try await withThrowingTaskGroup(of: Void.self) { group in
             for i in 1 ... 1000 {
                 group.addTask {
-                    try await self.serialExecutor1.execute {
+                    try await self.serialExecutor1.run {
                         self.serialExecutor1Counter += 1
                         let ns = UInt64(Double.random(in: 1 ..< 3) * 1_000_000)
                         print("executor1 task \(i) start, will wait \(ns)ns")
@@ -53,7 +53,7 @@ class AsyncSerialExecutorTests: XCTestCase {
                 group.addTask {
                     let subTask = Task {
                         do {
-                            try await self.serialExecutor1.execute {
+                            try await self.serialExecutor1.run {
                                 // Increment counter
                                 self.serialExecutor1Counter += 1
                                 defer {
