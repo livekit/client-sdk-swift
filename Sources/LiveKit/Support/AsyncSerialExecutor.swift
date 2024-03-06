@@ -21,12 +21,7 @@ actor AsyncSerialExecutor<Value: Sendable> {
 
     func execute(block: @Sendable @escaping () async throws -> Value) async throws -> Value {
         let task = Task { [previousTask] in
-            try await withTaskCancellationHandler {
-                let _ = try await previousTask?.value
-            } onCancel: {
-                previousTask?.cancel()
-            }
-
+            let _ = try? await previousTask?.value
             return try await block()
         }
 

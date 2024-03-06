@@ -22,9 +22,8 @@ class AsyncSerialExecutorTests: XCTestCase {
     let serialExecutor1 = AsyncSerialExecutor<Void>()
 
     func testSerialExecution() async throws {
-        // Run Tasks in parallel
+        // Run Tasks concurrently
         try await withThrowingTaskGroup(of: Void.self) { group in
-
             for i in 1 ... 1000 {
                 group.addTask {
                     try await self.serialExecutor1.execute {
@@ -40,6 +39,52 @@ class AsyncSerialExecutorTests: XCTestCase {
             }
 
             try await group.waitForAll()
+        }
+
+        print("serialExecutor1Counter: \(serialExecutor1Counter)")
+        // Should end up being 0
+        XCTAssert(serialExecutor1Counter == 0)
+    }
+
+    func testSerialExecutionCancel() async throws {
+        // Run Tasks concurrently
+        await withTaskGroup(of: Void.self) { group in
+            for i in 1 ... 1000 {
+                group.addTask {
+                    let subTask = Task {
+                        do {
+                            try await self.serialExecutor1.execute {
+                                // Increment counter
+                                self.serialExecutor1Counter += 1
+                                defer {
+                                    // Decrement counter
+                                    self.serialExecutor1Counter -= 1
+                                }
+
+                                let ns = UInt64(Double.random(in: 1 ..< 3) * 1_000_000)
+                                print("executor1 task \(i) start, will wait \(ns)ns")
+                                // Simulate random-ish time consuming task
+                                try await Task.sleep(nanoseconds: ns)
+
+                                print("executor1 task \(i) done")
+                            }
+                        } catch {
+                            // Handle exceptions so test will continue
+                            print("Task \(i) was cancelled")
+                        }
+                    }
+
+                    // Cancel randomly
+                    if Bool.random() {
+                        print("Cancelling task \(i)...")
+                        subTask.cancel()
+                    }
+
+                    return await subTask.value
+                }
+            }
+
+            await group.waitForAll()
         }
 
         print("serialExecutor1Counter: \(serialExecutor1Counter)")
