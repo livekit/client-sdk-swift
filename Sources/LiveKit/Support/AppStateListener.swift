@@ -30,7 +30,7 @@ class AppStateListener: MulticastDelegate<AppStateDelegate> {
     static let shared = AppStateListener()
 
     private init() {
-        super.init()
+        super.init(label: "AppStateDelegate")
 
         let center = NotificationCenter.default
 

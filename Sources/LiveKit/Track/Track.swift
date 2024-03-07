@@ -99,7 +99,7 @@ public class Track: NSObject, Loggable {
 
     // MARK: - Internal
 
-    let delegates = MulticastDelegate<TrackDelegate>()
+    let delegates = MulticastDelegate<TrackDelegate>(label: "TrackDelegate")
 
     let mediaTrack: LKRTCMediaStreamTrack
 
