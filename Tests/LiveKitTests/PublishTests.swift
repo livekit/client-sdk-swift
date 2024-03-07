@@ -17,8 +17,9 @@
 @testable import LiveKit
 import XCTest
 
-#if !os(iOS)
-// TODO: Make this work with iOS
+#if !targetEnvironment(simulator)
+// TODO: Make this work with iOS Simulator
+
 class PublishTests: XCTestCase {
     let room = Room()
 
