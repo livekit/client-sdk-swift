@@ -24,7 +24,7 @@ public class RemoteAudioTrack: Track, RemoteTrack, AudioTrack {
     // State used to manage AudioRenderers
     private struct RendererState {
         var didAttacheAudioRendererAdapter: Bool = false
-        let audioRenderers = MulticastDelegate<AudioRenderer>()
+        let audioRenderers = MulticastDelegate<AudioRenderer>(label: "AudioRenderer")
     }
 
     private lazy var _audioRendererAdapter = AudioRendererAdapter(target: self)
