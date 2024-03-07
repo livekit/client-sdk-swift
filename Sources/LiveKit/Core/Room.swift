@@ -222,7 +222,7 @@ public class Room: NSObject, ObservableObject, Loggable {
     }
 
     deinit {
-        log()
+        log(nil, .trace)
     }
 
     @objc

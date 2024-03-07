@@ -128,7 +128,7 @@ class Engine: Loggable {
     }
 
     deinit {
-        log()
+        log(nil, .trace)
     }
 
     // Connect sequence, resets existing state

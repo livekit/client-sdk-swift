@@ -346,7 +346,7 @@ public class VideoView: NativeView, Loggable {
     }
 
     deinit {
-        log()
+        log(nil, .trace)
     }
 
     override func performLayout() {

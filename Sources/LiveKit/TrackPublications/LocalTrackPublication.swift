@@ -61,7 +61,7 @@ public class LocalTrackPublication: TrackPublication {
     }
 
     deinit {
-        log()
+        log(nil, .trace)
     }
 }
 

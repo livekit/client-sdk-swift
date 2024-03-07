@@ -35,7 +35,7 @@ actor AsyncTimer: Loggable {
     deinit {
         isStarted = false
         _task?.cancel()
-        log()
+        log(nil, .trace)
     }
 
     func cancel() {
