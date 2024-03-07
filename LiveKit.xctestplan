@@ -1,0 +1,49 @@
+{
+  "configurations" : [
+    {
+      "id" : "C13DBD7E-A26D-4166-987B-8BB0E3A8A56F",
+      "name" : "Test Scheme Action",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "environmentVariableEntries" : [
+      {
+        "key" : "LIVEKIT_TESTING_URL",
+        "value" : "$(LIVEKIT_TESTING_URL)"
+      },
+      {
+        "key" : "LIVEKIT_TESTING_API_KEY",
+        "value" : "$(LIVEKIT_TESTING_API_KEY)"
+      },
+      {
+        "key" : "LIVEKIT_TESTING_API_SECRET",
+        "value" : "$(LIVEKIT_TESTING_API_SECRET)"
+      }
+    ],
+    "targetForVariableExpansion" : {
+      "containerPath" : "container:",
+      "identifier" : "LiveKit",
+      "name" : "LiveKit"
+    }
+  },
+  "testTargets" : [
+    {
+      "target" : {
+        "containerPath" : "container:",
+        "identifier" : "LiveKitTests",
+        "name" : "LiveKitTests"
+      }
+    },
+    {
+      "target" : {
+        "containerPath" : "container:",
+        "identifier" : "LiveKitTestsObjC",
+        "name" : "LiveKitTestsObjC"
+      }
+    }
+  ],
+  "version" : 1
+}

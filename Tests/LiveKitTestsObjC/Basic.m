@@ -14,15 +14,16 @@
  * limitations under the License.
  */
 
-#import <XCTest/XCTest.h>
+@import XCTest;
 @import LiveKit;
 
+// Simple ObjC test just to ensure ObjC SDK code compiles.
 @interface Basic : XCTestCase
 @end
 
 @implementation Basic
 
-- (void)sdkVersion {
+- (void)testSdkVersion {
     NSLog(@"%@", LiveKitSDK.sdkVersion);
 }
 
