@@ -18,7 +18,7 @@ import Foundation
 import XCTest
 
 /// Support for Xcode 14.2
-#if !swift(>=5.7)
+#if !compiler(>=5.8)
 extension XCTestCase {
     func fulfillment(of expectations: [XCTestExpectation], timeout: TimeInterval, enforceOrder: Bool = false) async {
         await withCheckedContinuation { continuation in
