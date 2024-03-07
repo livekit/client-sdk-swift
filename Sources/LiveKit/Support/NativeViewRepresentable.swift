@@ -18,15 +18,15 @@ import Foundation
 import SwiftUI
 
 #if canImport(UIKit)
-    import UIKit
+import UIKit
 #elseif canImport(AppKit)
-    import AppKit
+import AppKit
 #endif
 
 #if os(iOS)
-    public typealias NativeViewRepresentableType = UIViewRepresentable
+public typealias NativeViewRepresentableType = UIViewRepresentable
 #elseif os(macOS)
-    public typealias NativeViewRepresentableType = NSViewRepresentable
+public typealias NativeViewRepresentableType = NSViewRepresentable
 #endif
 
 // multiplatform version of UI/NSViewRepresentable
@@ -41,29 +41,29 @@ protocol NativeViewRepresentable: NativeViewRepresentableType {
 
 extension NativeViewRepresentable {
     #if os(iOS)
-        public func makeUIView(context: Context) -> Self.ViewType {
-            makeView(context: context)
-        }
+    public func makeUIView(context: Context) -> Self.ViewType {
+        makeView(context: context)
+    }
 
-        public func updateUIView(_ view: Self.ViewType, context: Context) {
-            updateView(view, context: context)
-        }
+    public func updateUIView(_ view: Self.ViewType, context: Context) {
+        updateView(view, context: context)
+    }
 
-        public static func dismantleUIView(_ view: Self.ViewType, coordinator: Self.Coordinator) {
-            dismantleView(view, coordinator: coordinator)
-        }
+    public static func dismantleUIView(_ view: Self.ViewType, coordinator: Self.Coordinator) {
+        dismantleView(view, coordinator: coordinator)
+    }
 
     #elseif os(macOS)
-        public func makeNSView(context: Context) -> Self.ViewType {
-            makeView(context: context)
-        }
+    public func makeNSView(context: Context) -> Self.ViewType {
+        makeView(context: context)
+    }
 
-        public func updateNSView(_ view: Self.ViewType, context: Context) {
-            updateView(view, context: context)
-        }
+    public func updateNSView(_ view: Self.ViewType, context: Context) {
+        updateView(view, context: context)
+    }
 
-        public static func dismantleNSView(_ view: Self.ViewType, coordinator: Self.Coordinator) {
-            dismantleView(view, coordinator: coordinator)
-        }
+    public static func dismantleNSView(_ view: Self.ViewType, coordinator: Self.Coordinator) {
+        dismantleView(view, coordinator: coordinator)
+    }
     #endif
 }

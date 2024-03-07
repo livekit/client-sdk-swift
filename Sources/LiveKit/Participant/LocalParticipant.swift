@@ -17,7 +17,7 @@
 import Foundation
 
 #if canImport(ReplayKit)
-    import ReplayKit
+import ReplayKit
 #endif
 
 @_implementationOnly import LiveKitWebRTC
@@ -320,24 +320,24 @@ public extension LocalParticipant {
                     return try await self._publish(track: localTrack, options: publishOptions)
                 } else if source == .screenShareVideo {
                     #if os(iOS)
-                        let localTrack: LocalVideoTrack
-                        let options = (captureOptions as? ScreenShareCaptureOptions) ?? room._state.options.defaultScreenShareCaptureOptions
-                        if options.useBroadcastExtension {
-                            let screenShareExtensionId = Bundle.main.infoDictionary?[BroadcastScreenCapturer.kRTCScreenSharingExtension] as? String
-                            await RPSystemBroadcastPickerView.show(for: screenShareExtensionId, showsMicrophoneButton: false)
-                            localTrack = LocalVideoTrack.createBroadcastScreenCapturerTrack(options: options)
-                        } else {
-                            localTrack = LocalVideoTrack.createInAppScreenShareTrack(options: options)
-                        }
-                        return try await self._publish(track: localTrack, options: publishOptions)
+                    let localTrack: LocalVideoTrack
+                    let options = (captureOptions as? ScreenShareCaptureOptions) ?? room._state.options.defaultScreenShareCaptureOptions
+                    if options.useBroadcastExtension {
+                        let screenShareExtensionId = Bundle.main.infoDictionary?[BroadcastScreenCapturer.kRTCScreenSharingExtension] as? String
+                        await RPSystemBroadcastPickerView.show(for: screenShareExtensionId, showsMicrophoneButton: false)
+                        localTrack = LocalVideoTrack.createBroadcastScreenCapturerTrack(options: options)
+                    } else {
+                        localTrack = LocalVideoTrack.createInAppScreenShareTrack(options: options)
+                    }
+                    return try await self._publish(track: localTrack, options: publishOptions)
                     #elseif os(macOS)
-                        if #available(macOS 12.3, *) {
-                            let mainDisplay = try await MacOSScreenCapturer.mainDisplaySource()
-                            let track = LocalVideoTrack.createMacOSScreenShareTrack(source: mainDisplay,
-                                                                                    options: (captureOptions as? ScreenShareCaptureOptions) ?? room._state.options.defaultScreenShareCaptureOptions,
-                                                                                    reportStatistics: room._state.options.reportRemoteTrackStatistics)
-                            return try await self._publish(track: track, options: publishOptions)
-                        }
+                    if #available(macOS 12.3, *) {
+                        let mainDisplay = try await MacOSScreenCapturer.mainDisplaySource()
+                        let track = LocalVideoTrack.createMacOSScreenShareTrack(source: mainDisplay,
+                                                                                options: (captureOptions as? ScreenShareCaptureOptions) ?? room._state.options.defaultScreenShareCaptureOptions,
+                                                                                reportStatistics: room._state.options.reportRemoteTrackStatistics)
+                        return try await self._publish(track: track, options: publishOptions)
+                    }
                     #endif
                 }
             }

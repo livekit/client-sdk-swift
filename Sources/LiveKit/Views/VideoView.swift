@@ -204,7 +204,7 @@ public class VideoView: NativeView, Loggable {
         }
 
         #if os(iOS)
-            clipsToBounds = true
+        clipsToBounds = true
         #endif
 
         // trigger events when state mutates
@@ -381,12 +381,12 @@ public class VideoView: NativeView, Loggable {
             debugView.text = "#\(hashValue)\n" + "\(String(describing: _trackSid))\n" + "\(_dimensions.width)x\(_dimensions.height)\n" + "isEnabled: \(isEnabled)\n" + "firstFrame: \(_didRenderFirstFrame)\n" + "isRendering: \(_isRendering)\n" + "renderMode: \(_renderMode)\n" + "viewCount: \(_viewCount)\n" + "FPS: \(_currentFPS)\n"
             debugView.frame = bounds
             #if os(iOS)
-                debugView.layer.borderColor = (state.shouldRender ? UIColor.green : UIColor.red).withAlphaComponent(0.5).cgColor
-                debugView.layer.borderWidth = 3
+            debugView.layer.borderColor = (state.shouldRender ? UIColor.green : UIColor.red).withAlphaComponent(0.5).cgColor
+            debugView.layer.borderWidth = 3
             #elseif os(macOS)
-                debugView.wantsLayer = true
-                debugView.layer!.borderColor = (state.shouldRender ? NSColor.green : NSColor.red).withAlphaComponent(0.5).cgColor
-                debugView.layer!.borderWidth = 3
+            debugView.wantsLayer = true
+            debugView.layer!.borderColor = (state.shouldRender ? NSColor.green : NSColor.red).withAlphaComponent(0.5).cgColor
+            debugView.layer!.borderWidth = 3
             #endif
         } else {
             if let debugView = _debugTextView {
@@ -597,10 +597,10 @@ extension VideoView {
 extension VideoView {
     public static func isMetalAvailable() -> Bool {
         #if os(iOS)
-            MTLCreateSystemDefaultDevice() != nil
+        MTLCreateSystemDefaultDevice() != nil
         #elseif os(macOS)
-            // same method used with WebRTC
-            !MTLCopyAllDevices().isEmpty
+        // same method used with WebRTC
+        !MTLCopyAllDevices().isEmpty
         #endif
     }
 
@@ -613,16 +613,16 @@ extension VideoView {
             let result = LKRTCMTLVideoView()
 
             #if os(iOS)
-                result.contentMode = .scaleAspectFit
-                result.videoContentMode = .scaleAspectFit
+            result.contentMode = .scaleAspectFit
+            result.videoContentMode = .scaleAspectFit
             #endif
 
             // extra checks for MTKView
             if let mtkView = result.findMTKView() {
                 #if os(iOS)
-                    mtkView.contentMode = .scaleAspectFit
+                mtkView.contentMode = .scaleAspectFit
                 #elseif os(macOS)
-                    mtkView.layerContentsPlacement = .scaleProportionallyToFit
+                mtkView.layerContentsPlacement = .scaleProportionallyToFit
                 #endif
                 // ensure it's capable of rendering 60fps
                 // https://developer.apple.com/documentation/metalkit/mtkview/1536027-preferredframespersecond
@@ -644,52 +644,52 @@ extension NativeViewType {
 }
 
 #if os(macOS)
-    extension NSView {
-        //
-        // Converted to Swift + NSView from:
-        // http://stackoverflow.com/a/10700737
-        //
-        func set(anchorPoint: CGPoint) {
-            if let layer {
-                var newPoint = CGPoint(x: bounds.size.width * anchorPoint.x,
-                                       y: bounds.size.height * anchorPoint.y)
-                var oldPoint = CGPoint(x: bounds.size.width * layer.anchorPoint.x,
-                                       y: bounds.size.height * layer.anchorPoint.y)
+extension NSView {
+    //
+    // Converted to Swift + NSView from:
+    // http://stackoverflow.com/a/10700737
+    //
+    func set(anchorPoint: CGPoint) {
+        if let layer {
+            var newPoint = CGPoint(x: bounds.size.width * anchorPoint.x,
+                                   y: bounds.size.height * anchorPoint.y)
+            var oldPoint = CGPoint(x: bounds.size.width * layer.anchorPoint.x,
+                                   y: bounds.size.height * layer.anchorPoint.y)
 
-                newPoint = newPoint.applying(layer.affineTransform())
-                oldPoint = oldPoint.applying(layer.affineTransform())
+            newPoint = newPoint.applying(layer.affineTransform())
+            oldPoint = oldPoint.applying(layer.affineTransform())
 
-                var position = layer.position
+            var position = layer.position
 
-                position.x -= oldPoint.x
-                position.x += newPoint.x
+            position.x -= oldPoint.x
+            position.x += newPoint.x
 
-                position.y -= oldPoint.y
-                position.y += newPoint.y
+            position.y -= oldPoint.y
+            position.y += newPoint.y
 
-                layer.position = position
-                layer.anchorPoint = anchorPoint
-            }
+            layer.position = position
+            layer.anchorPoint = anchorPoint
         }
     }
+}
 #endif
 
 extension LKRTCMTLVideoView: Mirrorable {
     func set(mirrored: Bool) {
         if mirrored {
             #if os(macOS)
-                // This is required for macOS
-                wantsLayer = true
-                set(anchorPoint: CGPoint(x: 0.5, y: 0.5))
-                layer!.sublayerTransform = VideoView.mirrorTransform
+            // This is required for macOS
+            wantsLayer = true
+            set(anchorPoint: CGPoint(x: 0.5, y: 0.5))
+            layer!.sublayerTransform = VideoView.mirrorTransform
             #elseif os(iOS)
-                layer.transform = VideoView.mirrorTransform
+            layer.transform = VideoView.mirrorTransform
             #endif
         } else {
             #if os(macOS)
-                layer?.sublayerTransform = CATransform3DIdentity
+            layer?.sublayerTransform = CATransform3DIdentity
             #elseif os(iOS)
-                layer.transform = CATransform3DIdentity
+            layer.transform = CATransform3DIdentity
             #endif
         }
     }

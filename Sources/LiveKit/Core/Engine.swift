@@ -17,7 +17,7 @@
 import Foundation
 
 #if canImport(Network)
-    import Network
+import Network
 #endif
 
 @_implementationOnly import LiveKitWebRTC

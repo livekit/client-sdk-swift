@@ -18,7 +18,7 @@ import CoreImage
 import Foundation
 
 #if canImport(ReplayKit)
-    import ReplayKit
+import ReplayKit
 #endif
 
 public extension CIImage {
@@ -97,23 +97,23 @@ public extension CGImage {
 }
 
 #if os(iOS)
-    @available(iOS 12, *)
-    public extension RPSystemBroadcastPickerView {
-        /// Convenience function to show broadcast extension picker
-        static func show(for preferredExtension: String? = nil,
-                         showsMicrophoneButton: Bool = true)
-        {
-            if !Thread.current.isMainThread {
-                logger.log("Must be called on main thread", .error, type: RPSystemBroadcastPickerView.self)
-            }
+@available(iOS 12, *)
+public extension RPSystemBroadcastPickerView {
+    /// Convenience function to show broadcast extension picker
+    static func show(for preferredExtension: String? = nil,
+                     showsMicrophoneButton: Bool = true)
+    {
+        if !Thread.current.isMainThread {
+            logger.log("Must be called on main thread", .error, type: RPSystemBroadcastPickerView.self)
+        }
 
-            let view = RPSystemBroadcastPickerView()
-            view.preferredExtension = preferredExtension
-            view.showsMicrophoneButton = showsMicrophoneButton
-            let selector = NSSelectorFromString("buttonPressed:")
-            if view.responds(to: selector) {
-                view.perform(selector, with: nil)
-            }
+        let view = RPSystemBroadcastPickerView()
+        view.preferredExtension = preferredExtension
+        view.showsMicrophoneButton = showsMicrophoneButton
+        let selector = NSSelectorFromString("buttonPressed:")
+        if view.responds(to: selector) {
+            view.perform(selector, with: nil)
         }
     }
+}
 #endif
