@@ -15,6 +15,7 @@
  */
 
 import Combine
+import CoreMedia
 @testable import LiveKit
 import XCTest
 
@@ -100,5 +101,8 @@ class PublishTests: XCTestCase {
 
             try await group.waitForAll()
         }
+
+        // Reset
+        await room1.localParticipant.unpublishAll()
     }
 }
