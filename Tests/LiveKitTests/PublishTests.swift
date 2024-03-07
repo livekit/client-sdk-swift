@@ -25,7 +25,6 @@ class PublishTests: XCTestCase {
     var watchRoom1: AnyCancellable?
     var watchRoom2: AnyCancellable?
 
-    @MainActor
     override func setUp() async throws {
         let url = testUrl()
 
@@ -42,18 +41,14 @@ class PublishTests: XCTestCase {
         room2ParticipantCountIs2.assertForOverFulfill = false
 
         watchRoom1 = room1.objectWillChange.sink { _ in
-            DispatchQueue.main.async {
-                if self.room1.participantCount == 2 {
-                    room1ParticipantCountIs2.fulfill()
-                }
+            if self.room1.allParticipants.count == 2 {
+                room1ParticipantCountIs2.fulfill()
             }
         }
 
         watchRoom2 = room2.objectWillChange.sink { _ in
-            DispatchQueue.main.async {
-                if self.room2.participantCount == 2 {
-                    room2ParticipantCountIs2.fulfill()
-                }
+            if self.room2.allParticipants.count == 2 {
+                room2ParticipantCountIs2.fulfill()
             }
         }
 
