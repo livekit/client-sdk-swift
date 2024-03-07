@@ -14,45 +14,67 @@
  * limitations under the License.
  */
 
+import Combine
 @testable import LiveKit
 import XCTest
 
 class PublishTests: XCTestCase {
-    let room = Room()
+    let room1 = Room()
+    let room2 = Room()
+
+    var watchRoom1: AnyCancellable?
+    var watchRoom2: AnyCancellable?
 
     override func setUp() async throws {
-        let url = ProcessInfo.processInfo.environment["LIVEKIT_TESTING_URL"] ?? "ws://localhost:7880"
-        let apiKey = ProcessInfo.processInfo.environment["LIVEKIT_TESTING_API_KEY"] ?? "devkey"
-        let apiSecret = ProcessInfo.processInfo.environment["LIVEKIT_TESTING_API_SECRET"] ?? "secret"
+        let url = testUrl()
 
-        let tokenGenerator = TokenGenerator(apiKey: apiKey, apiSecret: apiSecret, identity: "test_publisher01")
+        let token1 = try testToken(for: "room01", identity: "identity01")
+        try await room1.connect(url: url, token: token1)
 
-        tokenGenerator.videoGrant = VideoGrant(room: "swiftsdk_test_01",
-                                               roomJoin: true,
-                                               canPublish: true)
+        let token2 = try testToken(for: "room01", identity: "identity02")
+        try await room2.connect(url: url, token: token2)
 
-        try await room.connect(url: url, token: tokenGenerator.sign())
+        let room1ParticipantCountIs2 = expectation(description: "Room1 Participant count is 2")
+        room1ParticipantCountIs2.assertForOverFulfill = false
+
+        let room2ParticipantCountIs2 = expectation(description: "Room2 Participant count is 2")
+        room2ParticipantCountIs2.assertForOverFulfill = false
+
+        watchRoom1 = room1.objectWillChange.sink { _ in
+            if self.room1.participantCount == 2 {
+                room1ParticipantCountIs2.fulfill()
+            }
+        }
+
+        watchRoom2 = room2.objectWillChange.sink { _ in
+            if self.room2.participantCount == 2 {
+                room2ParticipantCountIs2.fulfill()
+            }
+        }
+
+        // Wait until both room's participant count is 2
+        await fulfillment(of: [room1ParticipantCountIs2, room2ParticipantCountIs2], timeout: 10)
     }
 
     override func tearDown() async throws {
-        await room.disconnect()
+        await room1.disconnect()
+        await room2.disconnect()
+        watchRoom1?.cancel()
+        watchRoom2?.cancel()
     }
 
     func testResolveSid() async throws {
-        XCTAssert(room.connectionState == .connected)
+        XCTAssert(room1.connectionState == .connected)
 
-        let sid = try await room.sid()
+        let sid = try await room1.sid()
         print("Room.sid(): \(String(describing: sid))")
         XCTAssert(sid.stringValue.starts(with: "RM_"))
     }
 
     func testPublishMic() async throws {
-        XCTAssert(room.connectionState == .connected)
+        XCTAssert(room1.connectionState == .connected)
 
-        try await room.localParticipant.setMicrophone(enabled: true)
+        try await room1.localParticipant.setMicrophone(enabled: true)
         sleep(5)
-
-        let stats = room.localParticipant.localAudioTracks.first?.track?.statistics
-        print("Stats: \(String(describing: stats))")
     }
 }
