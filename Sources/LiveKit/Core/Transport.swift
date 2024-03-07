@@ -96,7 +96,7 @@ actor Transport: NSObject, Loggable {
     }
 
     deinit {
-        log()
+        log(nil, .trace)
     }
 
     func negotiate() async {

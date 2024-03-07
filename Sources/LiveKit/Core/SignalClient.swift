@@ -102,7 +102,7 @@ actor SignalClient: Loggable {
     }
 
     deinit {
-        log()
+        log(nil, .trace)
     }
 
     @discardableResult

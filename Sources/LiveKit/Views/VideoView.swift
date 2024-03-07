@@ -30,7 +30,7 @@ protocol Mirrorable {
 public class VideoView: NativeView, Loggable {
     // MARK: - MulticastDelegate
 
-    public let delegates = MulticastDelegate<VideoViewDelegate>()
+    public let delegates = MulticastDelegate<VideoViewDelegate>(label: "VideoViewDelegate")
 
     // MARK: - Static
 
@@ -346,7 +346,7 @@ public class VideoView: NativeView, Loggable {
     }
 
     deinit {
-        log()
+        log(nil, .trace)
     }
 
     override func performLayout() {

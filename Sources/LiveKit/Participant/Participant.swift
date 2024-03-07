@@ -22,7 +22,7 @@ import Foundation
 public class Participant: NSObject, ObservableObject, Loggable {
     // MARK: - MulticastDelegate
 
-    public let delegates = MulticastDelegate<ParticipantDelegate>()
+    public let delegates = MulticastDelegate<ParticipantDelegate>(label: "ParticipantDelegate")
 
     @objc
     public var sid: Sid? { _state.sid }

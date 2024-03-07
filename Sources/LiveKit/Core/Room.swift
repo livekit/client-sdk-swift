@@ -24,7 +24,7 @@ import Network
 public class Room: NSObject, ObservableObject, Loggable {
     // MARK: - MulticastDelegate
 
-    public let delegates = MulticastDelegate<RoomDelegate>()
+    public let delegates = MulticastDelegate<RoomDelegate>(label: "RoomDelegate")
 
     // MARK: - Public
 
@@ -222,7 +222,7 @@ public class Room: NSObject, ObservableObject, Loggable {
     }
 
     deinit {
-        log()
+        log(nil, .trace)
     }
 
     @objc

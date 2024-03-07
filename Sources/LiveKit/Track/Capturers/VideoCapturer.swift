@@ -41,7 +41,7 @@ public protocol VideoCapturerDelegate: AnyObject {
 public class VideoCapturer: NSObject, Loggable, VideoCapturerProtocol {
     // MARK: - MulticastDelegate
 
-    public let delegates = MulticastDelegate<VideoCapturerDelegate>()
+    public let delegates = MulticastDelegate<VideoCapturerDelegate>(label: "VideoCapturerDelegate")
 
     /// Array of supported pixel formats that can be used to capture a frame.
     ///
