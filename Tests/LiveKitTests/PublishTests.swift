@@ -120,12 +120,13 @@ class PublishTests: XCTestCase {
             return
         }
 
+        // Set up expectation...
         let didSubscribeToRemoteAudioTrack = expectation(description: "Did subscribe to remote audio track")
         didSubscribeToRemoteAudioTrack.assertForOverFulfill = false
 
         var remoteAudioTrack: RemoteAudioTrack?
 
-        // Watch events...
+        // Start watching RemoteParticipant for audio track...
         let watchParticipant = remoteParticipant.objectWillChange.sink { _ in
             if let track = remoteParticipant.firstAudioPublication?.track as? RemoteAudioTrack, remoteAudioTrack == nil {
                 remoteAudioTrack = track
@@ -148,9 +149,11 @@ class PublishTests: XCTestCase {
         // Received RemoteAudioTrack...
         print("remoteAudioTrack: \(String(describing: remoteAudioTrack))")
 
+        // Set up expectation...
         let didReceiveAudioFrame = expectation(description: "Did receive audio frame")
         didReceiveAudioFrame.assertForOverFulfill = false
 
+        // Start watching for audio frame...
         let audioFrameWatcher = AudioFrameWatcher(id: "notifier01") { _ in
             didReceiveAudioFrame.fulfill()
         }
