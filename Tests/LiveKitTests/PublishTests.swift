@@ -71,10 +71,34 @@ class PublishTests: XCTestCase {
         XCTAssert(sid.stringValue.starts(with: "RM_"))
     }
 
-    func testPublishMic() async throws {
-        XCTAssert(room1.connectionState == .connected)
+    func testConcurrentMicPublish() async throws {
+        // Lock
+        struct State {
+            var firstMicPublication: LocalTrackPublication?
+        }
 
-        try await room1.localParticipant.setMicrophone(enabled: true)
-        sleep(5)
+        let _state = StateSync(State())
+
+        // Run Tasks concurrently
+        try await withThrowingTaskGroup(of: Void.self) { group in
+            for _ in 1 ... 100 {
+                group.addTask {
+                    let result = try await self.room1.localParticipant.setMicrophone(enabled: true)
+
+                    if let result {
+                        _state.mutate {
+                            if let firstMicPublication = $0.firstMicPublication {
+                                XCTAssert(result == firstMicPublication, "Duplicate mic track has been published")
+                            } else {
+                                $0.firstMicPublication = result
+                                print("Did publish first mic track: \(String(describing: result))")
+                            }
+                        }
+                    }
+                }
+            }
+
+            try await group.waitForAll()
+        }
     }
 }
