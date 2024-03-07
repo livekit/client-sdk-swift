@@ -35,7 +35,7 @@ class WebSocket: NSObject, Loggable, AsyncSequence, URLSessionWebSocketDelegate 
         config.shouldUseExtendedBackgroundIdleMode = true
         config.networkServiceType = .callSignaling
         #if os(iOS)
-            config.multipathServiceType = .handover
+        config.multipathServiceType = .handover
         #endif
         return URLSession(configuration: config, delegate: self, delegateQueue: nil)
     }()

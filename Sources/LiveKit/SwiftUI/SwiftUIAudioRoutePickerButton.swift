@@ -31,9 +31,9 @@ public struct SwiftUIAudioRoutePickerButton: NativeViewRepresentable {
         let routePickerView = AVRoutePickerView()
 
         #if os(iOS)
-            routePickerView.prioritizesVideoDevices = false
+        routePickerView.prioritizesVideoDevices = false
         #elseif os(macOS)
-            routePickerView.isRoutePickerButtonBordered = false
+        routePickerView.isRoutePickerButtonBordered = false
         #endif
 
         return routePickerView

@@ -17,7 +17,7 @@
 import Foundation
 
 #if canImport(ReplayKit)
-    import ReplayKit
+import ReplayKit
 #endif
 
 @_implementationOnly import LiveKitWebRTC

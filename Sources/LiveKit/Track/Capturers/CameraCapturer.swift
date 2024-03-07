@@ -17,7 +17,7 @@
 import Foundation
 
 #if canImport(ReplayKit)
-    import ReplayKit
+import ReplayKit
 #endif
 
 @_implementationOnly import LiveKitWebRTC
@@ -50,11 +50,11 @@ public class CameraCapturer: VideoCapturer {
 
     public var isMultitaskingAccessSupported: Bool {
         #if (os(iOS) || os(tvOS)) && !targetEnvironment(macCatalyst)
-            if #available(iOS 16, *, tvOS 17, *) {
-                self.capturer.captureSession.beginConfiguration()
-                defer { self.capturer.captureSession.commitConfiguration() }
-                return self.capturer.captureSession.isMultitaskingCameraAccessSupported
-            }
+        if #available(iOS 16, *, tvOS 17, *) {
+            self.capturer.captureSession.beginConfiguration()
+            defer { self.capturer.captureSession.commitConfiguration() }
+            return self.capturer.captureSession.isMultitaskingCameraAccessSupported
+        }
         #endif
         return false
     }
@@ -62,17 +62,17 @@ public class CameraCapturer: VideoCapturer {
     public var isMultitaskingAccessEnabled: Bool {
         get {
             #if (os(iOS) || os(tvOS)) && !targetEnvironment(macCatalyst)
-                if #available(iOS 16, *, tvOS 17, *) {
-                    return self.capturer.captureSession.isMultitaskingCameraAccessEnabled
-                }
+            if #available(iOS 16, *, tvOS 17, *) {
+                return self.capturer.captureSession.isMultitaskingCameraAccessEnabled
+            }
             #endif
             return false
         }
         set {
             #if (os(iOS) || os(tvOS)) && !targetEnvironment(macCatalyst)
-                if #available(iOS 16, *, tvOS 17, *) {
-                    self.capturer.captureSession.isMultitaskingCameraAccessEnabled = newValue
-                }
+            if #available(iOS 16, *, tvOS 17, *) {
+                self.capturer.captureSession.isMultitaskingCameraAccessEnabled = newValue
+            }
             #endif
         }
     }
