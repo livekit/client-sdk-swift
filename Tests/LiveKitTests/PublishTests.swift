@@ -158,11 +158,15 @@ class PublishTests: XCTestCase {
             didReceiveAudioFrame.fulfill()
         }
 
+        // Attach audio frame watcher...
         remoteAudioTrack.add(audioRenderer: audioFrameWatcher)
 
         // Wait for audio frame...
         print("Waiting for first audio frame...")
         await fulfillment(of: [didReceiveAudioFrame], timeout: 30)
+
+        // Remove audio frame watcher...
+        remoteAudioTrack.remove(audioRenderer: audioFrameWatcher)
 
         // Clean up
         watchParticipant.cancel()
