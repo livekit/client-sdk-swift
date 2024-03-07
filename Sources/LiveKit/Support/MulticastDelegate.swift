@@ -38,9 +38,9 @@ public class MulticastDelegate<T>: NSObject, Loggable {
     }
 
     public var allDelegates: [T] {
-        multicastQueue.sync { [weak self] in
+        _queue.sync { [weak self] in
             guard let self else { return [] }
-            return self.set.allObjects.compactMap { $0 as? T }
+            return self._set.allObjects.compactMap { $0 as? T }
         }
     }
 
