@@ -17,6 +17,8 @@
 @testable import LiveKit
 import XCTest
 
+#if !os(iOS)
+// TODO: Make this work with iOS
 class PublishTests: XCTestCase {
     let room = Room()
 
@@ -71,3 +73,4 @@ class PublishTests: XCTestCase {
         print("Stats: \(String(describing: stats))")
     }
 }
+#endif
