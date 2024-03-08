@@ -37,6 +37,13 @@ public class MulticastDelegate<T>: NSObject, Loggable {
         _queue = DispatchQueue(label: "LiveKitSDK.Multicast.\(label)", qos: qos, attributes: [])
     }
 
+    public var allDelegates: [T] {
+        _queue.sync { [weak self] in
+            guard let self else { return [] }
+            return self._set.allObjects.compactMap { $0 as? T }
+        }
+    }
+
     /// Add a single delegate.
     public func add(delegate: T) {
         guard let delegate = delegate as AnyObject? else {

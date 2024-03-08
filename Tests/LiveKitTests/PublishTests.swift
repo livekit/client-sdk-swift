@@ -105,4 +105,102 @@ class PublishTests: XCTestCase {
         // Reset
         await room1.localParticipant.unpublishAll()
     }
+
+    // Test if possible to receive audio buffer by adding audio renderer to RemoteAudioTrack.
+    func testAddAudioRenderer() async throws {
+        // LocalParticipant's identity should not be nil after a sucessful connection
+        guard let publisherIdentity = room1.localParticipant.identity else {
+            XCTFail("Publisher's identity is nil")
+            return
+        }
+
+        // Get publisher's participant
+        guard let remoteParticipant = room2.remoteParticipants[publisherIdentity] else {
+            XCTFail("Failed to lookup Publisher (RemoteParticipant)")
+            return
+        }
+
+        // Set up expectation...
+        let didSubscribeToRemoteAudioTrack = expectation(description: "Did subscribe to remote audio track")
+        didSubscribeToRemoteAudioTrack.assertForOverFulfill = false
+
+        var remoteAudioTrack: RemoteAudioTrack?
+
+        // Start watching RemoteParticipant for audio track...
+        let watchParticipant = remoteParticipant.objectWillChange.sink { _ in
+            if let track = remoteParticipant.firstAudioPublication?.track as? RemoteAudioTrack, remoteAudioTrack == nil {
+                remoteAudioTrack = track
+                didSubscribeToRemoteAudioTrack.fulfill()
+            }
+        }
+
+        // Publish mic
+        try await room1.localParticipant.setMicrophone(enabled: true)
+
+        // Wait for track...
+        print("Waiting for first audio track...")
+        await fulfillment(of: [didSubscribeToRemoteAudioTrack], timeout: 30)
+
+        guard let remoteAudioTrack else {
+            XCTFail("RemoteAudioTrack is nil")
+            return
+        }
+
+        // Received RemoteAudioTrack...
+        print("remoteAudioTrack: \(String(describing: remoteAudioTrack))")
+
+        // Set up expectation...
+        let didReceiveAudioFrame = expectation(description: "Did receive audio frame")
+        didReceiveAudioFrame.assertForOverFulfill = false
+
+        // Start watching for audio frame...
+        let audioFrameWatcher = AudioFrameWatcher(id: "notifier01") { _ in
+            didReceiveAudioFrame.fulfill()
+        }
+
+        // Attach audio frame watcher...
+        remoteAudioTrack.add(audioRenderer: audioFrameWatcher)
+
+        // Wait for audio frame...
+        print("Waiting for first audio frame...")
+        await fulfillment(of: [didReceiveAudioFrame], timeout: 30)
+
+        // Remove audio frame watcher...
+        remoteAudioTrack.remove(audioRenderer: audioFrameWatcher)
+
+        // Clean up
+        watchParticipant.cancel()
+        // Reset
+        await room1.localParticipant.unpublishAll()
+    }
+}
+
+actor AudioFrameWatcher: AudioRenderer {
+    public let id: String
+    private let onReceivedFirstFrame: (_ sid: String) -> Void
+    public private(set) var didReceiveFirstFrame: Bool = false
+
+    init(id: String, onReceivedFrame: @escaping (String) -> Void) {
+        self.id = id
+        onReceivedFirstFrame = onReceivedFrame
+    }
+
+    public func reset() {
+        didReceiveFirstFrame = false
+    }
+
+    private func onDidReceiveFirstFrame() {
+        if !didReceiveFirstFrame {
+            didReceiveFirstFrame = true
+            onReceivedFirstFrame(id)
+        }
+    }
+
+    nonisolated
+    func render(sampleBuffer: CMSampleBuffer) {
+        print("did receive first audio frame: \(String(describing: sampleBuffer))")
+        Task {
+            await onDidReceiveFirstFrame()
+        }
+    }
 }
