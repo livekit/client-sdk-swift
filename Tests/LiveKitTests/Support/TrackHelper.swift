@@ -119,8 +119,10 @@ class VideoTrackWatcher: TrackDelegate, VideoRenderer {
                 onDidRenderFirstFrame?(id)
             }
 
-            if let expectation = $0.expectationsForDimensions[frame.dimensions] {
-                expectation.fulfill()
+            for (key, value) in $0.expectationsForDimensions {
+                if frame.dimensions.area >= key.area {
+                    value.fulfill()
+                }
             }
         }
     }

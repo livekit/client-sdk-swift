@@ -83,8 +83,8 @@ class BufferCapturerTest: XCTestCase {
             await self.fulfillment(of: [expectTargetDimensions], timeout: 30)
             print("Did render target dimensions: \(targetDimensions)")
 
-            // Wait until finish reading buffer...
-            try await captureTask.value
+            // Cancel buffer capturing...
+            captureTask.cancel()
             // Clean up
             watchParticipant.cancel()
         }
