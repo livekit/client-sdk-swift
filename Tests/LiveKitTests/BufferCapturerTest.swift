@@ -100,7 +100,7 @@ class BufferCapturerTest: XCTestCase {
 
             // Start watching RemoteParticipant for audio track...
             let watchParticipant = remoteParticipant.objectWillChange.sink { _ in
-                if let track = remoteParticipant.firstScreenShareVideoTrack as? RemoteVideoTrack, remoteVideoTrack == nil {
+                if let track = remoteParticipant.videoTracks.first?.track as? RemoteVideoTrack, remoteVideoTrack == nil {
                     remoteVideoTrack = track
                     didSubscribeToRemoteVideoTrack.fulfill()
                 }
