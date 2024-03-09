@@ -18,7 +18,6 @@ import AVFoundation
 @testable import LiveKit
 import XCTest
 
-@available(iOS 15.0, *)
 class BufferCapturerTest: XCTestCase {
     func testPublishBufferTrack() async throws {
         try await with2Rooms { room1, room2 in

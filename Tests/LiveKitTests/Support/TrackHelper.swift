@@ -20,14 +20,12 @@ import XCTest
 
 extension XCTestCase {
     // Creates a LocalVideoTrack with BufferCapturer, generates frames for approx 30 seconds
-    @available(iOS 15.0, *)
     func createSampleVideoTrack(targetFps: Int = 30, _ onCapture: @escaping (CMSampleBuffer) -> Void) async throws -> (Task<Void, any Error>) {
         // Sample video
         let url = URL(string: "https://storage.unxpected.co.jp/public/sample-videos/ocean-1080p.mp4")!
 
         print("Downloading sample video from \(url)...")
-        // TODO: Backport for iOS13
-        let (downloadedLocalUrl, _) = try await URLSession.shared.download(from: url)
+        let (downloadedLocalUrl, _) = try await URLSession.shared.downloadBackport(from: url)
 
         // Move the file to a new temporary location with a more descriptive name, if desired
         let tempLocalUrl = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString).appendingPathExtension("mp4")
