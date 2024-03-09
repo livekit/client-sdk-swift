@@ -76,6 +76,7 @@ class VideoTrackWatcher: TrackDelegate, VideoRenderer {
 
     private struct State {
         var didRenderFirstFrame: Bool = false
+        var expectationsForDimensions: [Dimensions: XCTestExpectation] = [:]
     }
 
     public let id: String
@@ -91,6 +92,16 @@ class VideoTrackWatcher: TrackDelegate, VideoRenderer {
         _state.mutate { $0.didRenderFirstFrame = false }
     }
 
+    public func expect(dimensions: Dimensions) -> XCTestExpectation {
+        let expectation = XCTestExpectation(description: "Did render dimension \(dimensions)")
+        expectation.assertForOverFulfill = false
+
+        return _state.mutate {
+            $0.expectationsForDimensions[dimensions] = expectation
+            return expectation
+        }
+    }
+
     // MARK: - VideoRenderer
 
     var isAdaptiveStreamEnabled: Bool { true }
@@ -101,11 +112,15 @@ class VideoTrackWatcher: TrackDelegate, VideoRenderer {
         print("\(type(of: self)) set(size: \(size))")
     }
 
-    func render(frame _: LiveKit.VideoFrame) {
+    func render(frame: LiveKit.VideoFrame) {
         _state.mutate {
             if !$0.didRenderFirstFrame {
                 $0.didRenderFirstFrame = true
                 onDidRenderFirstFrame?(id)
+            }
+
+            if let expectation = $0.expectationsForDimensions[frame.dimensions] {
+                expectation.fulfill()
             }
         }
     }

@@ -23,7 +23,12 @@ class BufferCapturerTest: XCTestCase {
     func testPublishBufferTrack() async throws {
         try await with2Rooms { room1, room2 in
 
-            let bufferTrack = LocalVideoTrack.createBufferTrack()
+            let targetDimensions: Dimensions = .h1080_169
+
+            let bufferTrack = LocalVideoTrack.createBufferTrack(
+                options: BufferCaptureOptions(dimensions: targetDimensions)
+            )
+
             let bufferCapturer = bufferTrack.capturer as! BufferCapturer
 
             let captureTask = try await self.createSampleVideoTrack { buffer in
@@ -69,12 +74,14 @@ class BufferCapturerTest: XCTestCase {
             // Received RemoteAudioTrack...
             print("remoteVideoTrack: \(String(describing: remoteVideoTrack))")
 
-            let videoTrackWatcher = VideoTrackWatcher(id: "watcher01") { id in
-                print("Did render first frame for watcher: \(id)")
-            }
-
+            let videoTrackWatcher = VideoTrackWatcher(id: "watcher01")
             remoteVideoTrack.add(videoRenderer: videoTrackWatcher)
             remoteVideoTrack.add(delegate: videoTrackWatcher)
+
+            print("Waiting for target dimensions: \(targetDimensions)")
+            let expectTargetDimensions = videoTrackWatcher.expect(dimensions: targetDimensions)
+            await self.fulfillment(of: [expectTargetDimensions], timeout: 30)
+            print("Did render target dimensions: \(targetDimensions)")
 
             // Wait until finish reading buffer...
             try await captureTask.value
