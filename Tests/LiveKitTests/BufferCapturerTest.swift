@@ -70,7 +70,7 @@ class BufferCapturerTest: XCTestCase {
     }
 
     func testPublishBufferTrack() async throws {
-        try await with2Rooms { room1, _ in
+        try await with2Rooms { room1, room2 in
 
             let bufferTrack = LocalVideoTrack.createBufferTrack()
             let bufferCapturer = bufferTrack.capturer as! BufferCapturer
@@ -81,8 +81,103 @@ class BufferCapturerTest: XCTestCase {
 
             try await room1.localParticipant.publish(videoTrack: bufferTrack)
 
+            guard let publisherIdentity = room1.localParticipant.identity else {
+                XCTFail("Publisher's identity is nil")
+                return
+            }
+
+            // Get publisher's participant
+            guard let remoteParticipant = room2.remoteParticipants[publisherIdentity] else {
+                XCTFail("Failed to lookup Publisher (RemoteParticipant)")
+                return
+            }
+
+            // Set up expectation...
+            let didSubscribeToRemoteVideoTrack = self.expectation(description: "Did subscribe to remote video track")
+            didSubscribeToRemoteVideoTrack.assertForOverFulfill = false
+
+            var remoteVideoTrack: RemoteVideoTrack?
+
+            // Start watching RemoteParticipant for audio track...
+            let watchParticipant = remoteParticipant.objectWillChange.sink { _ in
+                if let track = remoteParticipant.firstScreenShareVideoTrack as? RemoteVideoTrack, remoteVideoTrack == nil {
+                    remoteVideoTrack = track
+                    didSubscribeToRemoteVideoTrack.fulfill()
+                }
+            }
+
+            // Wait for track...
+            print("Waiting for first video track...")
+            await self.fulfillment(of: [didSubscribeToRemoteVideoTrack], timeout: 30)
+
+            guard let remoteVideoTrack else {
+                XCTFail("RemoteVideoTrack is nil")
+                return
+            }
+
+            // Received RemoteAudioTrack...
+            print("remoteVideoTrack: \(String(describing: remoteVideoTrack))")
+
+            let videoTrackWatcher = VideoTrackWatcher(id: "watcher01") { id in
+                print("Did render first frame for watcher: \(id)")
+            }
+
+            remoteVideoTrack.add(videoRenderer: videoTrackWatcher)
+            remoteVideoTrack.add(delegate: videoTrackWatcher)
+
             // Wait until finish reading buffer...
             try await captureTask.value
+            // Clean up
+            watchParticipant.cancel()
         }
+    }
+}
+
+class VideoTrackWatcher: TrackDelegate, VideoRenderer {
+    // MARK: - Public
+
+    typealias OnDidRenderFirstFrame = (_ sid: String) -> Void
+    public var didRenderFirstFrame: Bool { _state.didRenderFirstFrame }
+
+    private struct State {
+        var didRenderFirstFrame: Bool = false
+    }
+
+    public let id: String
+    private let _state = StateSync(State())
+    private let onDidRenderFirstFrame: OnDidRenderFirstFrame?
+
+    init(id: String, onDidRenderFirstFrame: OnDidRenderFirstFrame? = nil) {
+        self.id = id
+        self.onDidRenderFirstFrame = onDidRenderFirstFrame
+    }
+
+    public func reset() {
+        _state.mutate { $0.didRenderFirstFrame = false }
+    }
+
+    // MARK: - VideoRenderer
+
+    var isAdaptiveStreamEnabled: Bool { true }
+
+    var adaptiveStreamSize: CGSize { .init(width: 1920, height: 1080) }
+
+    func set(size: CGSize) {
+        print("\(type(of: self)) set(size: \(size))")
+    }
+
+    func render(frame _: LiveKit.VideoFrame) {
+        _state.mutate {
+            if !$0.didRenderFirstFrame {
+                $0.didRenderFirstFrame = true
+                onDidRenderFirstFrame?(id)
+            }
+        }
+    }
+
+    // MARK: - TrackDelegate
+
+    func track(_: Track, didUpdateStatistics statistics: TrackStatistics, simulcastStatistics _: [VideoCodec: TrackStatistics]) {
+        print("didUpdateStatistics: \(statistics)")
     }
 }
