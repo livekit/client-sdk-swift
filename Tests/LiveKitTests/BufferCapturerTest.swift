@@ -18,63 +18,71 @@ import AVFoundation
 @testable import LiveKit
 import XCTest
 
+@available(iOS 15.0, *)
 class BufferCapturerTest: XCTestCase {
-    @available(iOS 15.0, *)
-    func testX() async throws {
+    // Creates a LocalVideoTrack with BufferCapturer, generates frames for approx 30 seconds
+    func createSampleVideoTrack(targetFps: Int = 30, _ onCapture: @escaping (CMSampleBuffer) -> Void) async throws -> (Task<Void, any Error>) {
+        // Sample video
         let url = URL(string: "https://storage.unxpected.co.jp/public/sample-videos/ocean-1080p.mp4")!
 
-        print("Downloading...")
-        let (tempLocalURL, _) = try await URLSession.shared.download(from: url)
+        print("Downloading sample video from \(url)...")
+        // TODO: Backport for iOS13
+        let (downloadedLocalUrl, _) = try await URLSession.shared.download(from: url)
 
         // Move the file to a new temporary location with a more descriptive name, if desired
-        let fileManager = FileManager.default
-        let tempDirectory = fileManager.temporaryDirectory
-        let targetURL = tempDirectory.appendingPathComponent(UUID().uuidString).appendingPathExtension("mp4")
+        let tempLocalUrl = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString).appendingPathExtension("mp4")
+        try FileManager.default.moveItem(at: downloadedLocalUrl, to: tempLocalUrl)
 
-        try fileManager.moveItem(at: tempLocalURL, to: targetURL)
-
-        print("Opening \(targetURL)...")
-
-        let asset = AVAsset(url: targetURL)
-
+        print("Opening \(tempLocalUrl) with asset reader...")
+        let asset = AVAsset(url: tempLocalUrl)
         let assetReader = try AVAssetReader(asset: asset)
 
         guard let track = asset.tracks(withMediaType: .video).first else {
-            return
+            XCTFail("No video track found in sample video file")
+            fatalError()
         }
 
         let outputSettings: [String: Any] = [
             kCVPixelBufferPixelFormatTypeKey as String: Int(kCVPixelFormatType_32BGRA),
         ]
 
-        let trackOutput = AVAssetReaderTrackOutput(track: track, outputSettings: outputSettings) // nil for outputSettings to get samples in their original format
+        let trackOutput = AVAssetReaderTrackOutput(track: track, outputSettings: outputSettings)
         assetReader.add(trackOutput)
 
+        // Start reading...
+        guard assetReader.startReading() else {
+            XCTFail("Could not start reading the asset.")
+            fatalError()
+        }
+
+        // XCTAssert(assetReader.status == .reading)
+
+        let readBufferTask = Task.detached {
+            let frameDuration = UInt64(1_000_000_000 / targetFps)
+            while !Task.isCancelled, assetReader.status == .reading, let sampleBuffer = trackOutput.copyNextSampleBuffer() {
+                onCapture(sampleBuffer)
+                // Sleep for the frame duration to regulate to ~30 fps
+                try await Task.sleep(nanoseconds: frameDuration)
+            }
+        }
+
+        return readBufferTask
+    }
+
+    func testPublishBufferTrack() async throws {
         try await with2Rooms { room1, _ in
 
             let bufferTrack = LocalVideoTrack.createBufferTrack()
             let bufferCapturer = bufferTrack.capturer as! BufferCapturer
 
-            // Start reading...
-            guard assetReader.startReading() else {
-                XCTFail("Could not start reading the asset.")
-                return
-            }
-
-            let readBufferTask = Task.detached {
-                let frameDuration = UInt64(1_000_000_000 / 30) // 30 fps
-                while !Task.isCancelled, let sampleBuffer = trackOutput.copyNextSampleBuffer() {
-                    // print("sampleBuffer: \(sampleBuffer)")
-                    bufferCapturer.capture(sampleBuffer)
-                    // Sleep for the frame duration to regulate to ~30 fps
-                    try await Task.sleep(nanoseconds: frameDuration)
-                }
+            let captureTask = try await self.createSampleVideoTrack { buffer in
+                bufferCapturer.capture(buffer)
             }
 
             try await room1.localParticipant.publish(videoTrack: bufferTrack)
 
             // Wait until finish reading buffer...
-            try await readBufferTask.value
+            try await captureTask.value
         }
     }
 }
