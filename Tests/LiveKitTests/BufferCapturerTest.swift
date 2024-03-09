@@ -178,6 +178,21 @@ class VideoTrackWatcher: TrackDelegate, VideoRenderer {
     // MARK: - TrackDelegate
 
     func track(_: Track, didUpdateStatistics statistics: TrackStatistics, simulcastStatistics _: [VideoCodec: TrackStatistics]) {
-        print("didUpdateStatistics: \(statistics)")
+        guard let stream = statistics.inboundRtpStream.first else { return }
+        var segments: [String] = []
+
+        if let codec = statistics.codec.first(where: { $0.id == stream.codecId }), let mimeType = codec.mimeType {
+            segments.append("codec: \(mimeType)")
+        }
+
+        if let width = stream.frameWidth, let height = stream.frameHeight {
+            segments.append("dimensions: \(width)x\(height)")
+        }
+
+        if let fps = stream.framesPerSecond {
+            segments.append("fps: \(fps)")
+        }
+
+        print("\(type(of: self)) didUpdateStatistics (\(segments.joined(separator: ", ")))")
     }
 }
