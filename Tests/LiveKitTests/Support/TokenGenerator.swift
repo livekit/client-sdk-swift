@@ -17,24 +17,6 @@
 import Foundation
 import JWTKit
 
-public func testUrl() -> String {
-    ProcessInfo.processInfo.environment["LIVEKIT_TESTING_URL"] ?? "ws://localhost:7880"
-}
-
-public func testToken(for room: String, identity: String) throws -> String {
-    let apiKey = ProcessInfo.processInfo.environment["LIVEKIT_TESTING_API_KEY"] ?? "devkey"
-    let apiSecret = ProcessInfo.processInfo.environment["LIVEKIT_TESTING_API_SECRET"] ?? "secret"
-
-    let tokenGenerator = TokenGenerator(apiKey: apiKey,
-                                        apiSecret: apiSecret,
-                                        identity: identity)
-
-    tokenGenerator.videoGrant = VideoGrant(room: room,
-                                           roomJoin: true,
-                                           canPublish: true)
-    return try tokenGenerator.sign()
-}
-
 public struct VideoGrant: Codable, Equatable {
     /** name of the room, must be set for admin or join permissions */
     let room: String?
