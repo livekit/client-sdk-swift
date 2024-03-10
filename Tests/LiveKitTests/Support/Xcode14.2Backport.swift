@@ -17,7 +17,29 @@
 import Foundation
 import XCTest
 
-/// Support for Xcode 14.2
+// Support iOS 13
+public extension URLSession {
+    func downloadBackport(from url: URL) async throws -> (URL, URLResponse) {
+        if #available(iOS 15.0, macOS 12.0, *) {
+            return try await download(from: url)
+        } else {
+            return try await withCheckedThrowingContinuation { continuation in
+                let task = downloadTask(with: url) { url, response, error in
+                    if let url, let response {
+                        continuation.resume(returning: (url, response))
+                    } else if let error {
+                        continuation.resume(throwing: error)
+                    } else {
+                        fatalError("Unknown state")
+                    }
+                }
+                task.resume()
+            }
+        }
+    }
+}
+
+// Support for Xcode 14.2
 #if !compiler(>=5.8)
 extension XCTestCase {
     func fulfillment(of expectations: [XCTestExpectation], timeout: TimeInterval, enforceOrder: Bool = false) async {

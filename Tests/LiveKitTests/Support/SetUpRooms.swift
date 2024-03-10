@@ -38,8 +38,11 @@ extension XCTestCase {
 
     // Set up 2 Rooms
     func with2Rooms(_ block: @escaping (Room, Room) async throws -> Void) async throws {
-        let room1 = Room()
-        let room2 = Room()
+        // Turn on stats
+        let roomOptions = RoomOptions(reportRemoteTrackStatistics: true)
+
+        let room1 = Room(roomOptions: roomOptions)
+        let room2 = Room(roomOptions: roomOptions)
 
         let url = testUrl()
 
