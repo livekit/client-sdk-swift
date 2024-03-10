@@ -82,8 +82,8 @@ class BufferCapturerTest: XCTestCase {
             await self.fulfillment(of: [expectTargetDimensions], timeout: 30)
             print("Did render target dimensions: \(targetDimensions)")
 
-            // Cancel buffer capturing...
-            captureTask.cancel()
+            // Wait for video to complete...
+            try await captureTask.value
             // Clean up
             watchParticipant.cancel()
         }
