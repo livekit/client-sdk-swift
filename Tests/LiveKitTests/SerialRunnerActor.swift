@@ -131,8 +131,8 @@ class AsyncSerialExecutorTests: XCTestCase {
                 return await subTask.value
             }
 
-            // Schedule task 2 after 1 second
-            try await Task.sleep(nanoseconds: UInt64(1 * 1_000_000_000))
+            // Schedule task 2
+            try await Task.sleep(nanoseconds: UInt64(0.5 * 1_000_000_000))
             print("Scheduling task 2...")
             group.addTask {
                 try await self.serialRunner.run {
@@ -141,11 +141,21 @@ class AsyncSerialExecutorTests: XCTestCase {
                 }
             }
 
+            // Schedule task 3
+            try await Task.sleep(nanoseconds: UInt64(0.5 * 1_000_000_000))
+            print("Scheduling task 3...")
+            group.addTask {
+                try await self.serialRunner.run {
+                    self.resultValues.append("task3")
+                    print("task 3 done")
+                }
+            }
+
             try await group.waitForAll()
         }
 
         print("completed tasks order: \(resultValues)")
         // Should be in order
-        XCTAssertEqual(resultValues, ["task1", "task2"])
+        XCTAssertEqual(resultValues, ["task1", "task2", "task3"])
     }
 }
