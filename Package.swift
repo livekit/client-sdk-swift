@@ -27,11 +27,9 @@ let package = Package(
         .package(url: "https://github.com/vapor/jwt-kit.git", .upToNextMajor(from: "4.13.2")),
     ],
     targets: [
-        .systemLibrary(name: "CHeaders"),
         .target(
             name: "LiveKit",
             dependencies: [
-                .target(name: "CHeaders"),
                 .product(name: "LiveKitWebRTC", package: "webrtc-xcframework"),
                 .product(name: "SwiftProtobuf", package: "swift-protobuf"),
                 .product(name: "Logging", package: "swift-log"),
