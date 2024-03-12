@@ -211,7 +211,8 @@ class Engine: Loggable {
 
             let publisher = try requirePublisher()
 
-            if !publisher.isConnected, publisher.connectionState != .connecting {
+            let connectionState = await publisher.connectionState
+            if connectionState != .connected, connectionState != .connecting {
                 try await publisherShouldNegotiate()
             }
 
@@ -222,7 +223,7 @@ class Engine: Loggable {
         try await ensurePublisherConnected()
 
         // At this point publisher should be .connected and dc should be .open
-        if !(publisher?.isConnected ?? false) {
+        if await !(publisher?.isConnected ?? false) {
             log("publisher is not .connected", .error)
         }
 
@@ -453,7 +454,6 @@ extension Engine {
             log("[Connect] Waiting for subscriber to connect...")
             // Wait for primary transport to connect (if not already)
             try await _state.primaryTransportConnectedCompleter.wait()
-            log("[Connect] Subscriber.connectionState: \(String(describing: subscriber?.connectionState.description))")
             try Task.checkCancellation()
 
             // send SyncState before offer
@@ -559,8 +559,8 @@ extension Engine {
             return
         }
 
-        let previousAnswer = subscriber.localDescription
-        let previousOffer = subscriber.remoteDescription
+        let previousAnswer = await subscriber.localDescription
+        let previousOffer = await subscriber.remoteDescription
 
         // 1. autosubscribe on, so subscribed tracks = all tracks - unsub tracks,
         //    in this case, we send unsub tracks, so server add all tracks to this
