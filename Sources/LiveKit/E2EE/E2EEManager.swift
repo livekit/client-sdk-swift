@@ -109,13 +109,16 @@ public class E2EEManager: NSObject, ObservableObject, Loggable {
             return
         }
 
-        let frameCryptor = LKRTCFrameCryptor(factory: Engine.peerConnectionFactory,
-                                             rtpSender: sender,
-                                             participantId: participantIdentity.stringValue,
-                                             algorithm: RTCCyrptorAlgorithm.aesGcm,
-                                             keyProvider: e2eeOptions.keyProvider.rtcKeyProvider!)
+        let frameCryptor = DispatchQueue.liveKitWebRTC.sync {
+            let result = LKRTCFrameCryptor(factory: Engine.peerConnectionFactory,
+                                           rtpSender: sender,
+                                           participantId: participantIdentity.stringValue,
+                                           algorithm: RTCCyrptorAlgorithm.aesGcm,
+                                           keyProvider: e2eeOptions.keyProvider.rtcKeyProvider)
 
-        frameCryptor.delegate = delegateAdapter
+            result.delegate = delegateAdapter
+            return result
+        }
 
         return _state.mutate {
             $0.frameCryptors[[participantIdentity: publication.sid]] = frameCryptor
@@ -135,13 +138,16 @@ public class E2EEManager: NSObject, ObservableObject, Loggable {
             return
         }
 
-        let frameCryptor = LKRTCFrameCryptor(factory: Engine.peerConnectionFactory,
-                                             rtpReceiver: receiver,
-                                             participantId: participantIdentity.stringValue,
-                                             algorithm: RTCCyrptorAlgorithm.aesGcm,
-                                             keyProvider: e2eeOptions.keyProvider.rtcKeyProvider!)
+        let frameCryptor = DispatchQueue.liveKitWebRTC.sync {
+            let result = LKRTCFrameCryptor(factory: Engine.peerConnectionFactory,
+                                           rtpReceiver: receiver,
+                                           participantId: participantIdentity.stringValue,
+                                           algorithm: RTCCyrptorAlgorithm.aesGcm,
+                                           keyProvider: e2eeOptions.keyProvider.rtcKeyProvider)
 
-        frameCryptor.delegate = delegateAdapter
+            result.delegate = delegateAdapter
+            return result
+        }
 
         return _state.mutate {
             $0.frameCryptors[[participantIdentity: publication.sid]] = frameCryptor

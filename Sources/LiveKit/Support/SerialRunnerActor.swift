@@ -14,11 +14,23 @@
  * limitations under the License.
  */
 
-@testable import LiveKit
-import XCTest
+import Foundation
 
-class Basic: XCTestCase {
-    func testReadVersion() {
-        print("LiveKitSDK.version: \(LiveKitSDK.version)")
+actor SerialRunnerActor<Value: Sendable> {
+    private var previousTask: Task<Value, Error>?
+
+    func run(block: @Sendable @escaping () async throws -> Value) async throws -> Value {
+        let task = Task { [previousTask] in
+            let _ = try? await previousTask?.value
+            return try await block()
+        }
+
+        previousTask = task
+
+        return try await withTaskCancellationHandler {
+            try await task.value
+        } onCancel: {
+            task.cancel()
+        }
     }
 }

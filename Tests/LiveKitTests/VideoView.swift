@@ -17,8 +17,19 @@
 @testable import LiveKit
 import XCTest
 
-class Basic: XCTestCase {
-    func testReadVersion() {
-        print("LiveKitSDK.version: \(LiveKitSDK.version)")
+class VideoViewTests: XCTestCase {
+    override class func setUp() {
+        LiveKitSDK.setLoggerStandardOutput()
+    }
+
+    /// Test if avSampleBufferDisplayLayer is available immediately after creating VideoView.
+    @MainActor
+    func testAVSampleBufferDisplayLayer() {
+        let track = LocalVideoTrack.createCameraTrack()
+        let view = VideoView()
+        view.renderMode = .sampleBuffer
+        view.track = track
+        // avSampleBufferDisplayLayer should not be nil at this point
+        XCTAssert(view.avSampleBufferDisplayLayer != nil)
     }
 }

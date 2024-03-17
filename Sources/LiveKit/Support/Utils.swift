@@ -55,9 +55,9 @@ class Utils {
     /// Returns current OS.
     static func os() -> OS {
         #if os(macOS)
-            .macOS
+        .macOS
         #elseif os(iOS)
-            .iOS
+        .iOS
         #endif
     }
 
@@ -79,35 +79,35 @@ class Utils {
     /// format: `MacBookPro18,3`, `iPhone13,3` or `iOSSimulator,arm64`
     static func modelIdentifier() -> String? {
         #if os(macOS)
-            let service = IOServiceGetMatchingService(kIOMasterPortDefault,
-                                                      IOServiceMatching("IOPlatformExpertDevice"))
-            defer { IOObjectRelease(service) }
+        let service = IOServiceGetMatchingService(kIOMasterPortDefault,
+                                                  IOServiceMatching("IOPlatformExpertDevice"))
+        defer { IOObjectRelease(service) }
 
-            guard let modelData = IORegistryEntryCreateCFProperty(service,
-                                                                  "model" as CFString,
-                                                                  kCFAllocatorDefault,
-                                                                  0).takeRetainedValue() as? Data
-            else {
-                return nil
-            }
+        guard let modelData = IORegistryEntryCreateCFProperty(service,
+                                                              "model" as CFString,
+                                                              kCFAllocatorDefault,
+                                                              0).takeRetainedValue() as? Data
+        else {
+            return nil
+        }
 
-            return modelData.withUnsafeBytes { (pointer: UnsafeRawBufferPointer) -> String? in
-                guard let cString = pointer.baseAddress?.assumingMemoryBound(to: UInt8.self) else { return nil }
-                return String(cString: cString)
-            }
+        return modelData.withUnsafeBytes { (pointer: UnsafeRawBufferPointer) -> String? in
+            guard let cString = pointer.baseAddress?.assumingMemoryBound(to: UInt8.self) else { return nil }
+            return String(cString: cString)
+        }
         #elseif os(iOS)
-            var systemInfo = utsname()
-            uname(&systemInfo)
-            let machineMirror = Mirror(reflecting: systemInfo.machine)
-            let identifier = machineMirror.children.reduce("") { identifier, element in
-                guard let value = element.value as? Int8, value != 0 else { return identifier }
-                return identifier + String(UnicodeScalar(UInt8(value)))
-            }
-            // for simulator, the following codes are returned
-            guard !["i386", "x86_64", "arm64"].contains(where: { $0 == identifier }) else {
-                return "iOSSimulator,\(identifier)"
-            }
-            return identifier
+        var systemInfo = utsname()
+        uname(&systemInfo)
+        let machineMirror = Mirror(reflecting: systemInfo.machine)
+        let identifier = machineMirror.children.reduce("") { identifier, element in
+            guard let value = element.value as? Int8, value != 0 else { return identifier }
+            return identifier + String(UnicodeScalar(UInt8(value)))
+        }
+        // for simulator, the following codes are returned
+        guard !["i386", "x86_64", "arm64"].contains(where: { $0 == identifier }) else {
+            return "iOSSimulator,\(identifier)"
+        }
+        return identifier
         #endif
     }
 

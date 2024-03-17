@@ -17,14 +17,14 @@
 import Foundation
 
 #if canImport(Network)
-    import Network
+import Network
 #endif
 
 @objc
 public class Room: NSObject, ObservableObject, Loggable {
     // MARK: - MulticastDelegate
 
-    public let delegates = MulticastDelegate<RoomDelegate>()
+    public let delegates = MulticastDelegate<RoomDelegate>(label: "RoomDelegate")
 
     // MARK: - Public
 
@@ -224,7 +224,7 @@ public class Room: NSObject, ObservableObject, Loggable {
     }
 
     deinit {
-        log()
+        log(nil, .trace)
     }
 
     @objc
@@ -296,10 +296,9 @@ extension Room {
 
         // Start Engine cleanUp sequence
 
-        engine.primaryTransportConnectedCompleter.reset()
-        engine.publisherTransportConnectedCompleter.reset()
-
         engine._state.mutate {
+            $0.primaryTransportConnectedCompleter.reset()
+            $0.publisherTransportConnectedCompleter.reset()
             // if isFullReconnect, keep connection related states
             $0 = isFullReconnect ? Engine.State(
                 connectOptions: $0.connectOptions,

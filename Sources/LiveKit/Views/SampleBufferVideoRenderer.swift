@@ -26,13 +26,13 @@ class SampleBufferVideoRenderer: NativeView, Loggable {
         super.init(frame: frame)
         sampleBufferDisplayLayer.videoGravity = .resizeAspectFill
         #if os(macOS)
-            // this is required for macOS
-            wantsLayer = true
-            layer?.insertSublayer(sampleBufferDisplayLayer, at: 0)
+        // this is required for macOS
+        wantsLayer = true
+        layer?.insertSublayer(sampleBufferDisplayLayer, at: 0)
         #elseif os(iOS)
-            layer.insertSublayer(sampleBufferDisplayLayer, at: 0)
+        layer.insertSublayer(sampleBufferDisplayLayer, at: 0)
         #else
-            fatalError("Unimplemented")
+        fatalError("Unimplemented")
         #endif
     }
 

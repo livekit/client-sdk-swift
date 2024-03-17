@@ -54,7 +54,7 @@ class ConnectivityListener: MulticastDelegate<ConnectivityListenerDelegate> {
     private let switchInterval: TimeInterval = 3
 
     private init() {
-        super.init()
+        super.init(label: "ConnectivityListenerDelegate")
 
         log("initial path: \(monitor.currentPath), has: \(monitor.currentPath.isSatisfied())")
 

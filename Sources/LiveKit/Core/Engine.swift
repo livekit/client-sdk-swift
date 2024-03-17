@@ -17,7 +17,7 @@
 import Foundation
 
 #if canImport(Network)
-    import Network
+import Network
 #endif
 
 @_implementationOnly import LiveKitWebRTC
@@ -27,7 +27,7 @@ class Engine: Loggable {
 
     public typealias ConditionEvalFunc = (_ newState: State, _ oldState: State?) -> Bool
 
-    struct State: Equatable {
+    struct State {
         var connectOptions: ConnectOptions
         var url: String?
         var token: String?
@@ -38,10 +38,10 @@ class Engine: Loggable {
         var disconnectError: LiveKitError?
         var connectStopwatch = Stopwatch(label: "connect")
         var hasPublished: Bool = false
-    }
 
-    let primaryTransportConnectedCompleter = AsyncCompleter<Void>(label: "Primary transport connect", defaultTimeOut: .defaultTransportState)
-    let publisherTransportConnectedCompleter = AsyncCompleter<Void>(label: "Publisher transport connect", defaultTimeOut: .defaultTransportState)
+        let primaryTransportConnectedCompleter = AsyncCompleter<Void>(label: "Primary transport connect", defaultTimeOut: .defaultTransportState)
+        let publisherTransportConnectedCompleter = AsyncCompleter<Void>(label: "Publisher transport connect", defaultTimeOut: .defaultTransportState)
+    }
 
     public var _state: StateSync<State>
 
@@ -128,7 +128,7 @@ class Engine: Loggable {
     }
 
     deinit {
-        log()
+        log(nil, .trace)
     }
 
     // Connect sequence, resets existing state
@@ -211,18 +211,19 @@ class Engine: Loggable {
 
             let publisher = try requirePublisher()
 
-            if !publisher.isConnected, publisher.connectionState != .connecting {
+            let connectionState = await publisher.connectionState
+            if connectionState != .connected, connectionState != .connecting {
                 try await publisherShouldNegotiate()
             }
 
-            try await publisherTransportConnectedCompleter.wait()
+            try await _state.publisherTransportConnectedCompleter.wait()
             try await publisherDataChannel.openCompleter.wait()
         }
 
         try await ensurePublisherConnected()
 
         // At this point publisher should be .connected and dc should be .open
-        if !(publisher?.isConnected ?? false) {
+        if await !(publisher?.isConnected ?? false) {
             log("publisher is not .connected", .error)
         }
 
@@ -393,7 +394,7 @@ extension Engine {
         await signalClient.resumeQueues()
 
         // Wait for transport...
-        try await primaryTransportConnectedCompleter.wait()
+        try await _state.primaryTransportConnectedCompleter.wait()
         try Task.checkCancellation()
 
         _state.mutate { $0.connectStopwatch.split(label: "engine") }
@@ -452,8 +453,7 @@ extension Engine {
 
             log("[Connect] Waiting for subscriber to connect...")
             // Wait for primary transport to connect (if not already)
-            try await primaryTransportConnectedCompleter.wait()
-            log("[Connect] Subscriber.connectionState: \(String(describing: subscriber?.connectionState.description))")
+            try await _state.primaryTransportConnectedCompleter.wait()
             try Task.checkCancellation()
 
             // send SyncState before offer
@@ -465,7 +465,7 @@ extension Engine {
                 // Only if published, wait for publisher to connect...
                 log("[Connect] Waiting for publisher to connect...")
                 try await publisher.createAndSendOffer(iceRestart: true)
-                try await publisherTransportConnectedCompleter.wait()
+                try await _state.publisherTransportConnectedCompleter.wait()
             }
         }
 
@@ -559,8 +559,8 @@ extension Engine {
             return
         }
 
-        let previousAnswer = subscriber.localDescription
-        let previousOffer = subscriber.remoteDescription
+        let previousAnswer = await subscriber.localDescription
+        let previousOffer = await subscriber.remoteDescription
 
         // 1. autosubscribe on, so subscribed tracks = all tracks - unsub tracks,
         //    in this case, we send unsub tracks, so server add all tracks to this

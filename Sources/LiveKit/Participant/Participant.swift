@@ -22,7 +22,7 @@ import Foundation
 public class Participant: NSObject, ObservableObject, Loggable {
     // MARK: - MulticastDelegate
 
-    public let delegates = MulticastDelegate<ParticipantDelegate>()
+    public let delegates = MulticastDelegate<ParticipantDelegate>(label: "ParticipantDelegate")
 
     @objc
     public var sid: Sid? { _state.sid }
@@ -84,7 +84,9 @@ public class Participant: NSObject, ObservableObject, Loggable {
         var trackPublications = [Track.Sid: TrackPublication]()
     }
 
-    var _state: StateSync<State>
+    let _state: StateSync<State>
+
+    let _publishSerialRunner = SerialRunnerActor<LocalTrackPublication?>()
 
     init(room: Room, sid: Sid? = nil, identity: Identity? = nil) {
         _room = room

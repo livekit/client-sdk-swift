@@ -17,7 +17,7 @@
 import Foundation
 
 #if canImport(UIKit)
-    import UIKit
+import UIKit
 #endif
 
 protocol AppStateDelegate: AnyObject {
@@ -30,37 +30,37 @@ class AppStateListener: MulticastDelegate<AppStateDelegate> {
     static let shared = AppStateListener()
 
     private init() {
-        super.init()
+        super.init(label: "AppStateDelegate")
 
         let center = NotificationCenter.default
 
         #if os(iOS)
-            center.addObserver(forName: UIApplication.didEnterBackgroundNotification,
-                               object: nil,
-                               queue: OperationQueue.main)
-            { _ in
+        center.addObserver(forName: UIApplication.didEnterBackgroundNotification,
+                           object: nil,
+                           queue: OperationQueue.main)
+        { _ in
 
-                self.log("UIApplication.didEnterBackground")
-                self.notify { $0.appDidEnterBackground() }
-            }
+            self.log("UIApplication.didEnterBackground")
+            self.notify { $0.appDidEnterBackground() }
+        }
 
-            center.addObserver(forName: UIApplication.willEnterForegroundNotification,
-                               object: nil,
-                               queue: OperationQueue.main)
-            { _ in
+        center.addObserver(forName: UIApplication.willEnterForegroundNotification,
+                           object: nil,
+                           queue: OperationQueue.main)
+        { _ in
 
-                self.log("UIApplication.willEnterForeground")
-                self.notify { $0.appWillEnterForeground() }
-            }
+            self.log("UIApplication.willEnterForeground")
+            self.notify { $0.appWillEnterForeground() }
+        }
 
-            center.addObserver(forName: UIApplication.willTerminateNotification,
-                               object: nil,
-                               queue: OperationQueue.main)
-            { _ in
+        center.addObserver(forName: UIApplication.willTerminateNotification,
+                           object: nil,
+                           queue: OperationQueue.main)
+        { _ in
 
-                self.log("UIApplication.willTerminate")
-                self.notify { $0.appWillTerminate() }
-            }
+            self.log("UIApplication.willTerminate")
+            self.notify { $0.appWillTerminate() }
+        }
         #endif
     }
 }

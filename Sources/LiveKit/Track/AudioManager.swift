@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+import Accelerate
+import AVFoundation
 import Foundation
 
 @_implementationOnly import LiveKitWebRTC
@@ -36,12 +38,51 @@ public class LKAudioBuffer: NSObject {
     public var bands: Int { _audioBuffer.bands }
 
     @objc
+    @available(*, deprecated, renamed: "rawBuffer(forChannel:)")
     public func rawBuffer(for channel: Int) -> UnsafeMutablePointer<Float> {
+        _audioBuffer.rawBuffer(forChannel: channel)
+    }
+
+    @objc
+    public func rawBuffer(forChannel channel: Int) -> UnsafeMutablePointer<Float> {
         _audioBuffer.rawBuffer(forChannel: channel)
     }
 
     init(audioBuffer: LKRTCAudioBuffer) {
         _audioBuffer = audioBuffer
+    }
+}
+
+// MARK: - Helper extension
+
+public extension LKAudioBuffer {
+    @objc
+    func toAVAudioPCMBuffer() -> AVAudioPCMBuffer? {
+        guard let audioFormat = AVAudioFormat(commonFormat: .pcmFormatFloat32,
+                                              sampleRate: 48000,
+                                              channels: AVAudioChannelCount(channels),
+                                              interleaved: false),
+            let pcmBuffer = AVAudioPCMBuffer(pcmFormat: audioFormat,
+                                             frameCapacity: AVAudioFrameCount(frames))
+        else {
+            return nil
+        }
+
+        pcmBuffer.frameLength = AVAudioFrameCount(frames)
+
+        guard let targetBufferPointer = pcmBuffer.floatChannelData?[0] else { return nil }
+
+        // Optimized version
+        var normalizationFactor: Float = 1.0 / 32768.0
+
+        vDSP_vsmul(rawBuffer(forChannel: 0),
+                   1,
+                   &normalizationFactor,
+                   targetBufferPointer,
+                   1,
+                   vDSP_Length(frames))
+
+        return pcmBuffer
     }
 }
 
@@ -240,8 +281,8 @@ public class AudioManager: Loggable {
             self.log("\(oldState) -> \(newState)")
 
             #if os(iOS)
-                let configureFunc = newState.customConfigureFunc ?? self.defaultConfigureAudioSessionFunc
-                configureFunc(newState, oldState)
+            let configureFunc = newState.customConfigureFunc ?? self.defaultConfigureAudioSessionFunc
+            configureFunc(newState, oldState)
             #endif
         }
     }
@@ -263,86 +304,86 @@ public class AudioManager: Loggable {
     }
 
     #if os(iOS)
-        /// The default implementation when audio session configuration is requested by the SDK.
-        /// Configure the `RTCAudioSession` of `WebRTC` framework.
-        ///
-        /// > Note: It is recommended to use `RTCAudioSessionConfiguration.webRTC()` to obtain an instance of `RTCAudioSessionConfiguration` instead of instantiating directly.
-        ///
-        /// - Parameters:
-        ///   - configuration: A configured RTCAudioSessionConfiguration
-        ///   - setActive: passing true/false will call `AVAudioSession.setActive` internally
-        public func defaultConfigureAudioSessionFunc(newState: State, oldState: State) {
-            DispatchQueue.liveKitWebRTC.async { [weak self] in
+    /// The default implementation when audio session configuration is requested by the SDK.
+    /// Configure the `RTCAudioSession` of `WebRTC` framework.
+    ///
+    /// > Note: It is recommended to use `RTCAudioSessionConfiguration.webRTC()` to obtain an instance of `RTCAudioSessionConfiguration` instead of instantiating directly.
+    ///
+    /// - Parameters:
+    ///   - configuration: A configured RTCAudioSessionConfiguration
+    ///   - setActive: passing true/false will call `AVAudioSession.setActive` internally
+    public func defaultConfigureAudioSessionFunc(newState: State, oldState: State) {
+        DispatchQueue.liveKitWebRTC.async { [weak self] in
 
-                guard let self else { return }
+            guard let self else { return }
 
-                // prepare config
-                let configuration = LKRTCAudioSessionConfiguration.webRTC()
+            // prepare config
+            let configuration = LKRTCAudioSessionConfiguration.webRTC()
 
-                if newState.trackState == .remoteOnly && newState.isSpeakerOutputPreferred {
-                    /* .playback */
-                    configuration.category = AVAudioSession.Category.playback.rawValue
-                    configuration.mode = AVAudioSession.Mode.spokenAudio.rawValue
-                    configuration.categoryOptions = [
-                        .mixWithOthers,
-                    ]
+            if newState.trackState == .remoteOnly && newState.isSpeakerOutputPreferred {
+                /* .playback */
+                configuration.category = AVAudioSession.Category.playback.rawValue
+                configuration.mode = AVAudioSession.Mode.spokenAudio.rawValue
+                configuration.categoryOptions = [
+                    .mixWithOthers,
+                ]
 
-                } else if [.localOnly, .localAndRemote].contains(newState.trackState) ||
-                    (newState.trackState == .remoteOnly && !newState.isSpeakerOutputPreferred)
-                {
-                    /* .playAndRecord */
-                    configuration.category = AVAudioSession.Category.playAndRecord.rawValue
+            } else if [.localOnly, .localAndRemote].contains(newState.trackState) ||
+                (newState.trackState == .remoteOnly && !newState.isSpeakerOutputPreferred)
+            {
+                /* .playAndRecord */
+                configuration.category = AVAudioSession.Category.playAndRecord.rawValue
 
-                    if newState.isSpeakerOutputPreferred {
-                        // use .videoChat if speakerOutput is preferred
-                        configuration.mode = AVAudioSession.Mode.videoChat.rawValue
-                    } else {
-                        // use .voiceChat if speakerOutput is not preferred
-                        configuration.mode = AVAudioSession.Mode.voiceChat.rawValue
-                    }
-
-                    configuration.categoryOptions = [
-                        .allowBluetooth,
-                        .allowBluetoothA2DP,
-                        .allowAirPlay,
-                    ]
-
+                if newState.isSpeakerOutputPreferred {
+                    // use .videoChat if speakerOutput is preferred
+                    configuration.mode = AVAudioSession.Mode.videoChat.rawValue
                 } else {
-                    /* .soloAmbient */
-                    configuration.category = AVAudioSession.Category.soloAmbient.rawValue
-                    configuration.mode = AVAudioSession.Mode.default.rawValue
-                    configuration.categoryOptions = []
+                    // use .voiceChat if speakerOutput is not preferred
+                    configuration.mode = AVAudioSession.Mode.voiceChat.rawValue
                 }
 
-                var setActive: Bool?
+                configuration.categoryOptions = [
+                    .allowBluetooth,
+                    .allowBluetoothA2DP,
+                    .allowAirPlay,
+                ]
 
-                if newState.trackState != .none, oldState.trackState == .none {
-                    // activate audio session when there is any local/remote audio track
-                    setActive = true
-                } else if newState.trackState == .none, oldState.trackState != .none {
-                    // deactivate audio session when there are no more local/remote audio tracks
-                    setActive = false
+            } else {
+                /* .soloAmbient */
+                configuration.category = AVAudioSession.Category.soloAmbient.rawValue
+                configuration.mode = AVAudioSession.Mode.default.rawValue
+                configuration.categoryOptions = []
+            }
+
+            var setActive: Bool?
+
+            if newState.trackState != .none, oldState.trackState == .none {
+                // activate audio session when there is any local/remote audio track
+                setActive = true
+            } else if newState.trackState == .none, oldState.trackState != .none {
+                // deactivate audio session when there are no more local/remote audio tracks
+                setActive = false
+            }
+
+            // configure session
+            let session = LKRTCAudioSession.sharedInstance()
+            session.lockForConfiguration()
+            // always unlock
+            defer { session.unlockForConfiguration() }
+
+            do {
+                self.log("configuring audio session category: \(configuration.category), mode: \(configuration.mode), setActive: \(String(describing: setActive))")
+
+                if let setActive {
+                    try session.setConfiguration(configuration, active: setActive)
+                } else {
+                    try session.setConfiguration(configuration)
                 }
 
-                // configure session
-                let session = LKRTCAudioSession.sharedInstance()
-                session.lockForConfiguration()
-                // always unlock
-                defer { session.unlockForConfiguration() }
-
-                do {
-                    self.log("configuring audio session category: \(configuration.category), mode: \(configuration.mode), setActive: \(String(describing: setActive))")
-
-                    if let setActive {
-                        try session.setConfiguration(configuration, active: setActive)
-                    } else {
-                        try session.setConfiguration(configuration)
-                    }
-
-                } catch {
-                    self.log("Failed to configure audio session with error: \(error)", .error)
-                }
+            } catch {
+                self.log("Failed to configure audio session with error: \(error)", .error)
             }
         }
+    }
     #endif
 }

@@ -11,4 +11,4 @@ Documentation
 /build_docs/
 *.doccarchive
 # Local WebRTC
-WebRTC.xcframework
+LiveKitWebRTC.xcframework
