@@ -46,7 +46,7 @@ public class KeyProviderOptions {
 
 public class BaseKeyProvider: Loggable {
     var options: KeyProviderOptions
-    var rtcKeyProvider: LKRTCFrameCryptorKeyProvider?
+    var rtcKeyProvider: LKRTCFrameCryptorKeyProvider
     public init(isSharedKey: Bool, sharedKey: String? = nil) {
         options = KeyProviderOptions(sharedKey: isSharedKey)
         rtcKeyProvider = LKRTCFrameCryptorKeyProvider(ratchetSalt: options.ratchetSalt,
@@ -56,7 +56,7 @@ public class BaseKeyProvider: Loggable {
                                                       failureTolerance: options.failureTolerance)
         if isSharedKey, sharedKey != nil {
             let keyData = sharedKey!.data(using: .utf8)!
-            rtcKeyProvider?.setSharedKey(keyData, with: 0)
+            rtcKeyProvider.setSharedKey(keyData, with: 0)
         }
     }
 
@@ -71,7 +71,7 @@ public class BaseKeyProvider: Loggable {
     public func setKey(key: String, participantId: String? = nil, index: Int32? = 0) {
         if options.sharedKey {
             let keyData = key.data(using: .utf8)!
-            rtcKeyProvider?.setSharedKey(keyData, with: index ?? 0)
+            rtcKeyProvider.setSharedKey(keyData, with: index ?? 0)
             return
         }
 
@@ -81,12 +81,12 @@ public class BaseKeyProvider: Loggable {
         }
 
         let keyData = key.data(using: .utf8)!
-        rtcKeyProvider?.setKey(keyData, with: index!, forParticipant: participantId!)
+        rtcKeyProvider.setKey(keyData, with: index!, forParticipant: participantId!)
     }
 
     public func ratchetKey(participantId: String? = nil, index: Int32? = 0) -> Data? {
         if options.sharedKey {
-            return rtcKeyProvider?.ratchetSharedKey(index ?? 0)
+            return rtcKeyProvider.ratchetSharedKey(index ?? 0)
         }
 
         if participantId == nil {
@@ -94,12 +94,12 @@ public class BaseKeyProvider: Loggable {
             return nil
         }
 
-        return rtcKeyProvider?.ratchetKey(participantId!, with: index ?? 0)
+        return rtcKeyProvider.ratchetKey(participantId!, with: index ?? 0)
     }
 
     public func exportKey(participantId: String? = nil, index: Int32? = 0) -> Data? {
         if options.sharedKey {
-            return rtcKeyProvider?.exportSharedKey(index ?? 0)
+            return rtcKeyProvider.exportSharedKey(index ?? 0)
         }
 
         if participantId == nil {
@@ -107,10 +107,10 @@ public class BaseKeyProvider: Loggable {
             return nil
         }
 
-        return rtcKeyProvider?.exportKey(participantId!, with: index ?? 0)
+        return rtcKeyProvider.exportKey(participantId!, with: index ?? 0)
     }
 
     public func setSifTrailer(trailer: Data) {
-        rtcKeyProvider?.setSifTrailer(trailer)
+        rtcKeyProvider.setSifTrailer(trailer)
     }
 }

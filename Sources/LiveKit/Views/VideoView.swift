@@ -147,7 +147,7 @@ public class VideoView: NativeView, Loggable {
     /// This is only available when the renderer is using AVSampleBufferDisplayLayer.
     /// Recommended to be accessed from main thread.
     public var avSampleBufferDisplayLayer: AVSampleBufferDisplayLayer? {
-        guard let nr = nativeRenderer as? SampleBufferVideoRenderer else { return nil }
+        guard let nr = _nativeRenderer as? SampleBufferVideoRenderer else { return nil }
         return nr.sampleBufferDisplayLayer
     }
 
@@ -184,7 +184,7 @@ public class VideoView: NativeView, Loggable {
 
     // MARK: - Private
 
-    private var nativeRenderer: NativeRendererView?
+    private var _nativeRenderer: NativeRendererView?
     private var _debugTextView: TextView?
 
     // used for stats timer
@@ -231,10 +231,10 @@ public class VideoView: NativeView, Loggable {
                         if let track = oldState.track as? VideoTrack {
                             track.remove(videoRenderer: self)
 
-                            if let nr = self.nativeRenderer {
+                            if let nr = self._nativeRenderer {
                                 self.log("removing nativeRenderer")
                                 nr.removeFromSuperview()
-                                self.nativeRenderer = nil
+                                self._nativeRenderer = nil
                             }
 
                             // CapturerDelegate
@@ -432,11 +432,11 @@ public class VideoView: NativeView, Loggable {
         // nativeRenderer.layer!.borderColor = NSColor.red.cgColor
         // nativeRenderer.layer!.borderWidth = 3
 
-        guard let nativeRenderer else { return }
+        guard let _nativeRenderer else { return }
 
-        nativeRenderer.frame = rendererFrame
+        _nativeRenderer.frame = rendererFrame
 
-        if let mtlVideoView = nativeRenderer as? LKRTCMTLVideoView {
+        if let mtlVideoView = _nativeRenderer as? LKRTCMTLVideoView {
             if let rotationOverride = state.rotationOverride {
                 mtlVideoView.rotationOverride = NSNumber(value: rotationOverride.rawValue)
             } else {
@@ -444,7 +444,7 @@ public class VideoView: NativeView, Loggable {
             }
         }
 
-        nativeRenderer.set(mirrored: shouldMirror())
+        _nativeRenderer.set(mirrored: shouldMirror())
     }
 }
 
@@ -470,8 +470,8 @@ private extension VideoView {
         addSubview(newView)
 
         // keep the old rendererView
-        let oldView = nativeRenderer
-        nativeRenderer = newView
+        let oldView = _nativeRenderer
+        _nativeRenderer = newView
 
         if let oldView {
             // copy frame from old renderer
@@ -513,15 +513,17 @@ extension VideoView: VideoRenderer {
     }
 
     public func set(size: CGSize) {
-        guard let nr = nativeRenderer else { return }
-        nr.setSize(size)
+        DispatchQueue.main.async { [weak self] in
+            guard let self, let nr = self._nativeRenderer else { return }
+            nr.setSize(size)
+        }
     }
 
     public func render(frame: VideoFrame) {
         let state = _state.copy()
 
         // prevent any extra rendering if already !isEnabled etc.
-        guard state.shouldRender, let nr = nativeRenderer else {
+        guard state.shouldRender, let nr = _nativeRenderer else {
             log("canRender is false, skipping render...")
             return
         }

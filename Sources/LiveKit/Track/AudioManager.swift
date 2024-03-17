@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+import Accelerate
+import AVFoundation
 import Foundation
 
 @_implementationOnly import LiveKitWebRTC
@@ -36,12 +38,51 @@ public class LKAudioBuffer: NSObject {
     public var bands: Int { _audioBuffer.bands }
 
     @objc
+    @available(*, deprecated, renamed: "rawBuffer(forChannel:)")
     public func rawBuffer(for channel: Int) -> UnsafeMutablePointer<Float> {
+        _audioBuffer.rawBuffer(forChannel: channel)
+    }
+
+    @objc
+    public func rawBuffer(forChannel channel: Int) -> UnsafeMutablePointer<Float> {
         _audioBuffer.rawBuffer(forChannel: channel)
     }
 
     init(audioBuffer: LKRTCAudioBuffer) {
         _audioBuffer = audioBuffer
+    }
+}
+
+// MARK: - Helper extension
+
+public extension LKAudioBuffer {
+    @objc
+    func toAVAudioPCMBuffer() -> AVAudioPCMBuffer? {
+        guard let audioFormat = AVAudioFormat(commonFormat: .pcmFormatFloat32,
+                                              sampleRate: 48000,
+                                              channels: AVAudioChannelCount(channels),
+                                              interleaved: false),
+            let pcmBuffer = AVAudioPCMBuffer(pcmFormat: audioFormat,
+                                             frameCapacity: AVAudioFrameCount(frames))
+        else {
+            return nil
+        }
+
+        pcmBuffer.frameLength = AVAudioFrameCount(frames)
+
+        guard let targetBufferPointer = pcmBuffer.floatChannelData?[0] else { return nil }
+
+        // Optimized version
+        var normalizationFactor: Float = 1.0 / 32768.0
+
+        vDSP_vsmul(rawBuffer(forChannel: 0),
+                   1,
+                   &normalizationFactor,
+                   targetBufferPointer,
+                   1,
+                   vDSP_Length(frames))
+
+        return pcmBuffer
     }
 }
 

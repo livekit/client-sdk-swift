@@ -28,30 +28,29 @@ actor Transport: NSObject, Loggable {
     nonisolated let target: Livekit_SignalTarget
     nonisolated let isPrimary: Bool
 
-    nonisolated var connectionState: RTCPeerConnectionState {
-        DispatchQueue.liveKitWebRTC.sync { _pc.connectionState }
+    var connectionState: RTCPeerConnectionState {
+        _pc.connectionState
     }
 
-    nonisolated var isConnected: Bool {
+    var isConnected: Bool {
         connectionState == .connected
     }
 
-    nonisolated var localDescription: LKRTCSessionDescription? {
-        DispatchQueue.liveKitWebRTC.sync { _pc.localDescription }
+    var localDescription: LKRTCSessionDescription? {
+        _pc.localDescription
     }
 
-    nonisolated var remoteDescription: LKRTCSessionDescription? {
-        DispatchQueue.liveKitWebRTC.sync { _pc.remoteDescription }
+    var remoteDescription: LKRTCSessionDescription? {
+        _pc.remoteDescription
     }
 
-    nonisolated var signalingState: RTCSignalingState {
-        DispatchQueue.liveKitWebRTC.sync { _pc.signalingState }
+    var signalingState: RTCSignalingState {
+        _pc.signalingState
     }
 
     // MARK: - Private
 
     private let _delegate = AsyncSerialDelegate<TransportDelegate>()
-    private let _queue = DispatchQueue(label: "LiveKitSDK.transport", qos: .default)
     private let _debounce = Debounce(delay: 0.1)
 
     private var _reNegotiate: Bool = false
@@ -91,7 +90,7 @@ actor Transport: NSObject, Loggable {
         super.init()
         log()
 
-        DispatchQueue.liveKitWebRTC.sync { pc.delegate = self }
+        _pc.delegate = self
         _delegate.set(delegate: delegate)
     }
 
@@ -118,7 +117,15 @@ actor Transport: NSObject, Loggable {
     }
 
     func set(remoteDescription sd: LKRTCSessionDescription) async throws {
-        try await _pc.setRemoteDescription(sd)
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            _pc.setRemoteDescription(sd) { error in
+                if let error {
+                    continuation.resume(throwing: error)
+                } else {
+                    continuation.resume()
+                }
+            }
+        }
 
         await _iceCandidatesQueue.resume()
 
@@ -157,7 +164,7 @@ actor Transport: NSObject, Loggable {
         // Actually negotiate
         func _negotiateSequence() async throws {
             let offer = try await createOffer(for: constraints)
-            try await _pc.setLocalDescription(offer)
+            try await set(localDescription: offer)
             try await _onOffer(offer)
         }
 
@@ -173,16 +180,14 @@ actor Transport: NSObject, Loggable {
         // prevent debounced negotiate firing
         await _debounce.cancel()
 
-        DispatchQueue.liveKitWebRTC.sync {
-            // Stop listening to delegate
-            self._pc.delegate = nil
-            // Remove all senders (if any)
-            for sender in self._pc.senders {
-                self._pc.removeTrack(sender)
-            }
-
-            self._pc.close()
+        // Stop listening to delegate
+        _pc.delegate = nil
+        // Remove all senders (if any)
+        for sender in _pc.senders {
+            _pc.removeTrack(sender)
         }
+
+        _pc.close()
     }
 }
 
@@ -190,11 +195,19 @@ actor Transport: NSObject, Loggable {
 
 extension Transport {
     func statistics(for sender: LKRTCRtpSender) async -> LKRTCStatisticsReport {
-        await _pc.statistics(for: sender)
+        await withCheckedContinuation { (continuation: CheckedContinuation<LKRTCStatisticsReport, Never>) in
+            _pc.statistics(for: sender) { sd in
+                continuation.resume(returning: sd)
+            }
+        }
     }
 
     func statistics(for receiver: LKRTCRtpReceiver) async -> LKRTCStatisticsReport {
-        await _pc.statistics(for: receiver)
+        await withCheckedContinuation { (continuation: CheckedContinuation<LKRTCStatisticsReport, Never>) in
+            _pc.statistics(for: receiver) { sd in
+                continuation.resume(returning: sd)
+            }
+        }
     }
 }
 
@@ -255,7 +268,17 @@ private extension Transport {
         let mediaConstraints = LKRTCMediaConstraints(mandatoryConstraints: constraints,
                                                      optionalConstraints: nil)
 
-        return try await _pc.offer(for: mediaConstraints)
+        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<LKRTCSessionDescription, Error>) in
+            _pc.offer(for: mediaConstraints) { sd, error in
+                if let error {
+                    continuation.resume(throwing: error)
+                } else if let sd {
+                    continuation.resume(returning: sd)
+                } else {
+                    continuation.resume(throwing: LiveKitError(.invalidState, message: "No session description and no error were provided."))
+                }
+            }
+        }
     }
 }
 
@@ -266,17 +289,35 @@ extension Transport {
         let mediaConstraints = LKRTCMediaConstraints(mandatoryConstraints: constraints,
                                                      optionalConstraints: nil)
 
-        return try await _pc.answer(for: mediaConstraints)
+        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<LKRTCSessionDescription, Error>) in
+            _pc.answer(for: mediaConstraints) { sd, error in
+                if let error {
+                    continuation.resume(throwing: error)
+                } else if let sd {
+                    continuation.resume(returning: sd)
+                } else {
+                    continuation.resume(throwing: LiveKitError(.invalidState, message: "No session description and no error were provided."))
+                }
+            }
+        }
     }
 
     func set(localDescription sd: LKRTCSessionDescription) async throws {
-        try await _pc.setLocalDescription(sd)
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            _pc.setLocalDescription(sd) { error in
+                if let error {
+                    continuation.resume(throwing: error)
+                } else {
+                    continuation.resume()
+                }
+            }
+        }
     }
 
     func addTransceiver(with track: LKRTCMediaStreamTrack,
                         transceiverInit: LKRTCRtpTransceiverInit) throws -> LKRTCRtpTransceiver
     {
-        guard let transceiver = DispatchQueue.liveKitWebRTC.sync(execute: { _pc.addTransceiver(with: track, init: transceiverInit) }) else {
+        guard let transceiver = _pc.addTransceiver(with: track, init: transceiverInit) else {
             throw LiveKitError(.webRTC, message: "Failed to add transceiver")
         }
 
@@ -284,7 +325,7 @@ extension Transport {
     }
 
     func remove(track sender: LKRTCRtpSender) throws {
-        guard DispatchQueue.liveKitWebRTC.sync(execute: { _pc.removeTrack(sender) }) else {
+        guard _pc.removeTrack(sender) else {
             throw LiveKitError(.webRTC, message: "Failed to remove track")
         }
     }
@@ -293,7 +334,7 @@ extension Transport {
                      configuration: LKRTCDataChannelConfiguration,
                      delegate: LKRTCDataChannelDelegate? = nil) -> LKRTCDataChannel?
     {
-        let result = DispatchQueue.liveKitWebRTC.sync { _pc.dataChannel(forLabel: label, configuration: configuration) }
+        let result = _pc.dataChannel(forLabel: label, configuration: configuration)
         result?.delegate = delegate
         return result
     }
