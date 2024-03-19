@@ -162,3 +162,13 @@ extension Livekit_DisconnectReason {
         }
     }
 }
+
+// MARK: - LocalizedError
+
+// Conform to LocalizedError for convenience with SwiftUI etc.
+extension LiveKitError: LocalizedError {
+    public var errorDescription: String? {
+        // Simply return description for now
+        description
+    }
+}
