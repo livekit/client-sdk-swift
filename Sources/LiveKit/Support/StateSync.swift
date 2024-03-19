@@ -18,10 +18,10 @@ import Combine
 import Foundation
 
 @dynamicMemberLookup
-final class StateSync<State> {
+public final class StateSync<State> {
     // MARK: - Types
 
-    typealias OnDidMutate = (_ newState: State, _ oldState: State) -> Void
+    public typealias OnDidMutate = (_ newState: State, _ oldState: State) -> Void
 
     // MARK: - Public
 
@@ -75,7 +75,7 @@ final class StateSync<State> {
 }
 
 extension StateSync: CustomStringConvertible {
-    var description: String {
+    public var description: String {
         "StateSync(\(String(describing: copy()))"
     }
 }
