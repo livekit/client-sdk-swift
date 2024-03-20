@@ -102,9 +102,6 @@ public protocol AudioCustomProcessingDelegate {
     /// Invoked everytime when a Room connects.
     @objc optional
     func audioProcessingRoomDidConnect(withUrl url: String, token: String)
-
-    @objc optional
-    func audioProcessingName() -> String
 }
 
 class AudioCustomProcessingDelegateAdapter: NSObject, LKRTCAudioCustomProcessingDelegate {
