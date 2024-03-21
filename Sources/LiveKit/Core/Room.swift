@@ -98,6 +98,8 @@ public class Room: NSObject, ObservableObject, Loggable {
 
     public var e2eeManager: E2EEManager?
 
+    public var audioProcessorOptions: AudioProcessorOptions?
+
     @objc
     public lazy var localParticipant: LocalParticipant = .init(room: self)
 
@@ -244,6 +246,23 @@ public class Room: NSObject, ObservableObject, Loggable {
         if roomOptions?.e2eeOptions != nil {
             e2eeManager = E2EEManager(e2eeOptions: roomOptions!.e2eeOptions!)
             e2eeManager!.setup(room: self)
+        }
+
+        // enable external audio processor
+        if roomOptions?.audioProcessorOptions != nil {
+            audioProcessorOptions = roomOptions?.audioProcessorOptions
+
+            let capturePostProcessor = audioProcessorOptions?.capturePostProcessor
+            if capturePostProcessor != nil, capturePostProcessor!.isEnabled(url: url, token: token) {
+                AudioManager.shared.capturePostProcessingDelegate = capturePostProcessor
+                AudioManager.shared.bypassForCapturePostProcessing = audioProcessorOptions!.capturePostBypass
+            }
+
+            let renderPreProcessor = audioProcessorOptions?.renderPreProcessor
+            if renderPreProcessor != nil, renderPreProcessor!.isEnabled(url: url, token: token) {
+                AudioManager.shared.renderPreProcessingDelegate = renderPreProcessor
+                AudioManager.shared.bypassForRenderPreProcessing = audioProcessorOptions!.renderPreBypass
+            }
         }
 
         try await engine.connect(url, token, connectOptions: connectOptions)
