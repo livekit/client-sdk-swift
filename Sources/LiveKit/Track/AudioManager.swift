@@ -53,39 +53,6 @@ public class LKAudioBuffer: NSObject {
     }
 }
 
-// MARK: - Helper extension
-
-public extension LKAudioBuffer {
-    @objc
-    func toAVAudioPCMBuffer() -> AVAudioPCMBuffer? {
-        guard let audioFormat = AVAudioFormat(commonFormat: .pcmFormatFloat32,
-                                              sampleRate: 48000,
-                                              channels: AVAudioChannelCount(channels),
-                                              interleaved: false),
-            let pcmBuffer = AVAudioPCMBuffer(pcmFormat: audioFormat,
-                                             frameCapacity: AVAudioFrameCount(frames))
-        else {
-            return nil
-        }
-
-        pcmBuffer.frameLength = AVAudioFrameCount(frames)
-
-        guard let targetBufferPointer = pcmBuffer.floatChannelData?[0] else { return nil }
-
-        // Optimized version
-        var normalizationFactor: Float = 1.0 / 32768.0
-
-        vDSP_vsmul(rawBuffer(forChannel: 0),
-                   1,
-                   &normalizationFactor,
-                   targetBufferPointer,
-                   1,
-                   vDSP_Length(frames))
-
-        return pcmBuffer
-    }
-}
-
 @objc
 public protocol AudioCustomProcessingDelegate {
     func audioProcessingInitialize(sampleRate sampleRateHz: Int, channels: Int)
