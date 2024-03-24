@@ -18,13 +18,21 @@
 import XCTest
 
 extension XCTestCase {
+    private func readEnvironmentString(for key: String, defaultValue: String) -> String {
+        if let string = ProcessInfo.processInfo.environment[key]?.trimmingCharacters(in: .whitespacesAndNewlines), !string.isEmpty {
+            return string
+        }
+
+        return defaultValue
+    }
+
     func testUrl() -> String {
-        ProcessInfo.processInfo.environment["LIVEKIT_TESTING_URL"] ?? "ws://localhost:7880"
+        readEnvironmentString(for: "LIVEKIT_TESTING_URL", defaultValue: "ws://localhost:7880")
     }
 
     func testToken(for room: String, identity: String) throws -> String {
-        let apiKey = ProcessInfo.processInfo.environment["LIVEKIT_TESTING_API_KEY"] ?? "devkey"
-        let apiSecret = ProcessInfo.processInfo.environment["LIVEKIT_TESTING_API_SECRET"] ?? "secret"
+        let apiKey = readEnvironmentString(for: "LIVEKIT_TESTING_API_KEY", defaultValue: "devkey")
+        let apiSecret = readEnvironmentString(for: "LIVEKIT_TESTING_API_SECRET", defaultValue: "secret")
 
         let tokenGenerator = TokenGenerator(apiKey: apiKey,
                                             apiSecret: apiSecret,
@@ -37,14 +45,18 @@ extension XCTestCase {
     }
 
     // Set up 2 Rooms
-    func with2Rooms(_ block: @escaping (Room, Room) async throws -> Void) async throws {
+    func with2Rooms(delegate1: RoomDelegate? = nil,
+                    delegate2: RoomDelegate? = nil,
+                    _ block: @escaping (Room, Room) async throws -> Void) async throws
+    {
         // Turn on stats
         let roomOptions = RoomOptions(reportRemoteTrackStatistics: true)
 
-        let room1 = Room(roomOptions: roomOptions)
-        let room2 = Room(roomOptions: roomOptions)
+        let room1 = Room(delegate: delegate1, roomOptions: roomOptions)
+        let room2 = Room(delegate: delegate2, roomOptions: roomOptions)
 
         let url = testUrl()
+        print("url: \(url)")
 
         let roomName = UUID().uuidString
 
