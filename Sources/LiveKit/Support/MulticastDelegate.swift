@@ -95,4 +95,22 @@ public class MulticastDelegate<T>: NSObject, Loggable {
             }
         }
     }
+
+    func notifyAsync(label: (() -> String)? = nil, _ fnc: @escaping (T) -> Void) async {
+        await withCheckedContinuation { continuation in
+            _queue.async {
+                if let label {
+                    self.log("[notify] \(label())", .trace)
+                }
+
+                let delegates = self._set.allObjects.compactMap { $0 as? T }
+
+                for delegate in delegates {
+                    fnc(delegate)
+                }
+
+                continuation.resume()
+            }
+        }
+    }
 }

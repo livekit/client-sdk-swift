@@ -157,7 +157,7 @@ public class Participant: NSObject, ObservableObject, Loggable {
         await unpublishAll(notify: _notify)
         // Reset state
         if let self = self as? RemoteParticipant, let room = self._room {
-            room.delegates.notify(label: { "room.participantDidDisconnect:" }) {
+            await room.delegates.notifyAsync(label: { "room.participantDidDisconnect:" }) {
                 $0.room?(room, participantDidDisconnect: self)
             }
         }
