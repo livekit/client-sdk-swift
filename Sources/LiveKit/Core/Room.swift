@@ -248,6 +248,15 @@ public class Room: NSObject, ObservableObject, Loggable {
 
         try await engine.connect(url, token, connectOptions: connectOptions)
 
+        // Notify audio processing delegates
+        if let capturePost = AudioManager.shared.capturePostProcessingDelegate {
+            capturePost.audioProcessingRoomDidConnect?(withUrl: url, token: token)
+        }
+
+        if let renderPre = AudioManager.shared.renderPreProcessingDelegate {
+            renderPre.audioProcessingRoomDidConnect?(withUrl: url, token: token)
+        }
+
         log("Connected to \(String(describing: self))", .info)
     }
 

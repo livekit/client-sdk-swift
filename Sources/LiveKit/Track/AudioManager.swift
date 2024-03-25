@@ -55,9 +55,20 @@ public class LKAudioBuffer: NSObject {
 
 @objc
 public protocol AudioCustomProcessingDelegate {
+    @objc
     func audioProcessingInitialize(sampleRate sampleRateHz: Int, channels: Int)
+
+    @objc
     func audioProcessingProcess(audioBuffer: LKAudioBuffer)
+
+    @objc
     func audioProcessingRelease()
+
+    // MARK: - Available from 2.0.6 (Optional)
+
+    /// Invoked everytime when a Room connects.
+    @objc optional
+    func audioProcessingRoomDidConnect(withUrl url: String, token: String)
 }
 
 class AudioCustomProcessingDelegateAdapter: NSObject, LKRTCAudioCustomProcessingDelegate {
