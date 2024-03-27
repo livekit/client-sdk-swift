@@ -17,14 +17,14 @@
 @testable import LiveKit
 import XCTest
 
-class AsyncSerialExecutorTests: XCTestCase {
+class SerialRunnerActorTests: XCTestCase {
     let serialRunner = SerialRunnerActor<Void>()
     var counterValue: Int = 0
     var resultValues: [String] = []
 
     // Test whether tasks, when invoked concurrently, continue to run in a serial manner.
     // Access to the counter value should be synchronized, aiming for a final count of 0.
-    func testSerialExecution() async throws {
+    func testSerialRuuner() async throws {
         // Run Tasks concurrently
         try await withThrowingTaskGroup(of: Void.self) { group in
             for i in 1 ... 1000 {
@@ -51,7 +51,7 @@ class AsyncSerialExecutorTests: XCTestCase {
 
     // Test whether tasks invoked concurrently, and randomly cancelled, continue to run in a serial manner.
     // Access to the counter value should be synchronized, resulting in a count of 0.
-    func testSerialExecutionCancel() async throws {
+    func testSerialRunnerCancel() async throws {
         // Run Tasks concurrently
         await withTaskGroup(of: Void.self) { group in
             for i in 1 ... 1000 {
@@ -97,7 +97,7 @@ class AsyncSerialExecutorTests: XCTestCase {
         XCTAssert(counterValue == 0)
     }
 
-    func testSerialExecutionOrderWithCancel() async throws {
+    func testSerialRunnerOrderWithCancel() async throws {
         // Run Tasks concurrently
         try await withThrowingTaskGroup(of: Void.self) { group in
 

@@ -26,11 +26,11 @@ extension XCTestCase {
         return defaultValue
     }
 
-    func testUrl() -> String {
+    func liveKitServerUrl() -> String {
         readEnvironmentString(for: "LIVEKIT_TESTING_URL", defaultValue: "ws://localhost:7880")
     }
 
-    func testToken(for room: String, identity: String) throws -> String {
+    func liveKitServerToken(for room: String, identity: String) throws -> String {
         let apiKey = readEnvironmentString(for: "LIVEKIT_TESTING_API_KEY", defaultValue: "devkey")
         let apiSecret = readEnvironmentString(for: "LIVEKIT_TESTING_API_SECRET", defaultValue: "secret")
 
@@ -55,18 +55,18 @@ extension XCTestCase {
         let room1 = Room(delegate: delegate1, roomOptions: roomOptions)
         let room2 = Room(delegate: delegate2, roomOptions: roomOptions)
 
-        let url = testUrl()
+        let url = liveKitServerUrl()
         print("url: \(url)")
 
         let roomName = UUID().uuidString
 
-        let token1 = try testToken(for: roomName, identity: "identity01")
+        let token1 = try liveKitServerToken(for: roomName, identity: "identity01")
         try await room1.connect(url: url, token: token1)
 
-        let token2 = try testToken(for: roomName, identity: "identity02")
+        let token2 = try liveKitServerToken(for: roomName, identity: "identity02")
         try await room2.connect(url: url, token: token2)
 
-        let observerToken = try testToken(for: roomName, identity: "observer")
+        let observerToken = try liveKitServerToken(for: roomName, identity: "observer")
         print("Observer token: \(observerToken) for room: \(roomName)")
 
         let room1ParticipantCountIs2 = expectation(description: "Room1 Participant count is 2")
