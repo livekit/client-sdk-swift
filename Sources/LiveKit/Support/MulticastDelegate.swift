@@ -34,10 +34,11 @@ public class MulticastDelegate<T>: NSObject, Loggable {
         var delegates = NSHashTable<AnyObject>.weakObjects()
     }
 
+    public let label: String
     private let _state = StateSync(State())
 
-    init(label _: String) {
-        // _queue = DispatchQueue(label: "LiveKitSDK.Multicast.\(label)", qos: qos, attributes: [])
+    init(label: String) {
+        self.label = label
     }
 
     public var allDelegates: [T] {
