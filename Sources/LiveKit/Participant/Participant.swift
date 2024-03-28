@@ -102,7 +102,7 @@ public class Participant: NSObject, ObservableObject, Loggable {
             guard let self, let room = self._room else { return }
 
             if newState.isSpeaking != oldState.isSpeaking {
-                self.delegates.notify(label: { "participant.didUpdate isSpeaking: \(self.isSpeaking)" }) {
+                self.delegates.notifyDetached {
                     $0.participant?(self, didUpdateIsSpeaking: self.isSpeaking)
                 }
             }
@@ -112,10 +112,10 @@ public class Participant: NSObject, ObservableObject, Loggable {
                // don't notify if empty string (first time only)
                oldState.metadata == nil ? !newMetadata.isEmpty : true
             {
-                self.delegates.notify(label: { "participant.didUpdate metadata: \(newMetadata)" }) {
+                self.delegates.notifyDetached {
                     $0.participant?(self, didUpdateMetadata: newMetadata)
                 }
-                room.delegates.notify(label: { "room.didUpdate metadata: \(newMetadata)" }) {
+                room.delegates.notifyDetached {
                     $0.room?(room, participant: self, didUpdateMetadata: newMetadata)
                 }
             }
@@ -123,20 +123,20 @@ public class Participant: NSObject, ObservableObject, Loggable {
             // name updated
             if let newName = newState.name, newName != oldState.name {
                 // notfy participant delegates
-                self.delegates.notify(label: { "participant.didUpdateName: \(String(describing: newName))" }) {
+                self.delegates.notifyDetached {
                     $0.participant?(self, didUpdateName: newName)
                 }
                 // notify room delegates
-                room.delegates.notify(label: { "room.didUpdateName: \(String(describing: newName))" }) {
+                room.delegates.notifyDetached {
                     $0.room?(room, participant: self, didUpdateName: newName)
                 }
             }
 
             if newState.connectionQuality != oldState.connectionQuality {
-                self.delegates.notify(label: { "participant.didUpdate connectionQuality: \(self.connectionQuality)" }) {
+                self.delegates.notifyDetached {
                     $0.participant?(self, didUpdateConnectionQuality: self.connectionQuality)
                 }
-                room.delegates.notify(label: { "room.didUpdate connectionQuality: \(self.connectionQuality)" }) {
+                room.delegates.notifyDetached {
                     $0.room?(room, participant: self, didUpdateConnectionQuality: self.connectionQuality)
                 }
             }
@@ -157,7 +157,7 @@ public class Participant: NSObject, ObservableObject, Loggable {
         await unpublishAll(notify: _notify)
         // Reset state
         if let self = self as? RemoteParticipant, let room = self._room {
-            await room.delegates.notifyAsync(label: { "room.participantDidDisconnect:" }) {
+            await room.delegates.notifyAsync {
                 $0.room?(room, participantDidDisconnect: self)
             }
         }

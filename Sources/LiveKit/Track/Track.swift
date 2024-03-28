@@ -163,7 +163,7 @@ public class Track: NSObject, Loggable {
                 self.log("Track.dimensions \(String(describing: oldState.dimensions)) -> \(String(describing: newState.dimensions))")
             }
 
-            self.delegates.notify {
+            self.delegates.notifyDetached {
                 if let delegateInternal = $0 as? TrackDelegateInternal {
                     delegateInternal.track(self, didMutateState: newState, oldState: oldState)
                 }
@@ -172,7 +172,7 @@ public class Track: NSObject, Loggable {
             if newState.statistics != oldState.statistics || newState.simulcastStatistics != oldState.simulcastStatistics,
                let statistics = newState.statistics
             {
-                self.delegates.notify { $0.track?(self, didUpdateStatistics: statistics, simulcastStatistics: newState.simulcastStatistics) }
+                self.delegates.notifyDetached { $0.track?(self, didUpdateStatistics: statistics, simulcastStatistics: newState.simulcastStatistics) }
             }
         }
     }
@@ -275,7 +275,7 @@ public class Track: NSObject, Loggable {
         }
 
         if _notify {
-            delegates.notify(label: { "track.didUpdateIsMuted: \(newValue)" }) { delegate in
+            delegates.notifyDetached { delegate in
                 if let delegate = delegate as? TrackDelegateInternal {
                     delegate.track(self, didUpdateIsMuted: newValue, shouldSendSignal: shouldSendSignal)
                 }
@@ -317,7 +317,7 @@ extension Track {
         _state.mutate { $0.dimensions = newValue }
 
         guard let videoTrack = self as? VideoTrack else { return true }
-        delegates.notify(label: { "track.didUpdateDimensions: \(newValue == nil ? "nil" : String(describing: newValue))" }) {
+        delegates.notifyDetached {
             $0.track?(videoTrack, didUpdateDimensions: newValue)
         }
 

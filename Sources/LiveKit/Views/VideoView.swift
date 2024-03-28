@@ -273,14 +273,14 @@ public class VideoView: NativeView, Loggable {
             // isRendering updated
             if newState.isRendering != oldState.isRendering {
                 self.log("isRendering \(oldState.isRendering) -> \(newState.isRendering)")
-                self.delegates.notify(label: { "videoView.didUpdate isRendering: \(newState.isRendering)" }) {
+                self.delegates.notifyDetached {
                     $0.videoView?(self, didUpdate: newState.isRendering)
                 }
             }
 
             // viewSize updated
             if newState.viewSize != oldState.viewSize {
-                self.delegates.notify {
+                self.delegates.notifyDetached {
                     $0.videoView?(self, didUpdate: newState.viewSize)
                 }
             }

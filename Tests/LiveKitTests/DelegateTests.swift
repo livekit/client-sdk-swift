@@ -26,8 +26,8 @@ class DelegateTests: XCTestCase {
 }
 
 extension DelegateTests: RoomDelegate {
-    func roomDidConnect(_: Room) {
-        print("Room did connect !")
+    func roomDidConnect(_ room: Room) {
+        print("Room did connect, connectionState: \(room.connectionState)")
     }
 
     func room(_: Room, participantDidDisconnect participant: RemoteParticipant) {

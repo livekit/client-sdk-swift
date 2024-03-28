@@ -77,10 +77,10 @@ public class LocalParticipant: Participant {
 
         func _notifyDidUnpublish() async {
             guard _notify else { return }
-            delegates.notify(label: { "localParticipant.didUnpublish \(publication)" }) {
+            delegates.notifyDetached {
                 $0.participant?(self, didUnpublishTrack: publication)
             }
-            room.delegates.notify(label: { "room.didUnpublish \(publication)" }) {
+            room.delegates.notifyDetached {
                 $0.room?(room, participant: self, didUnpublishTrack: publication)
             }
         }
@@ -207,10 +207,10 @@ public class LocalParticipant: Participant {
         let didUpdate = super.set(permissions: newValue)
 
         if didUpdate {
-            delegates.notify(label: { "participant.didUpdatePermissions: \(newValue)" }) {
+            delegates.notifyDetached {
                 $0.participant?(self, didUpdatePermissions: newValue)
             }
-            room.delegates.notify(label: { "room.didUpdatePermissions: \(newValue)" }) {
+            room.delegates.notifyDetached {
                 $0.room?(room, participant: self, didUpdatePermissions: newValue)
             }
         }
@@ -610,10 +610,10 @@ private extension LocalParticipant {
             add(publication: publication)
 
             // Notify didPublish
-            delegates.notify(label: { "localParticipant.didPublish \(publication)" }) {
+            delegates.notifyDetached {
                 $0.participant?(self, didPublishTrack: publication)
             }
-            room.delegates.notify(label: { "localParticipant.didPublish \(publication)" }) {
+            room.delegates.notifyDetached {
                 $0.room?(room, participant: self, didPublishTrack: publication)
             }
 

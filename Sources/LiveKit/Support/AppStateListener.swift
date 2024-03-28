@@ -41,7 +41,7 @@ class AppStateListener: MulticastDelegate<AppStateDelegate> {
         { _ in
 
             self.log("UIApplication.didEnterBackground")
-            self.notify { $0.appDidEnterBackground() }
+            self.notifyDetached { $0.appDidEnterBackground() }
         }
 
         center.addObserver(forName: UIApplication.willEnterForegroundNotification,
@@ -50,7 +50,7 @@ class AppStateListener: MulticastDelegate<AppStateDelegate> {
         { _ in
 
             self.log("UIApplication.willEnterForeground")
-            self.notify { $0.appWillEnterForeground() }
+            self.notifyDetached { $0.appWillEnterForeground() }
         }
 
         center.addObserver(forName: UIApplication.willTerminateNotification,
@@ -59,7 +59,7 @@ class AppStateListener: MulticastDelegate<AppStateDelegate> {
         { _ in
 
             self.log("UIApplication.willTerminate")
-            self.notify { $0.appWillTerminate() }
+            self.notifyDetached { $0.appWillTerminate() }
         }
         #endif
     }

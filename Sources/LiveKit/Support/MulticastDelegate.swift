@@ -30,30 +30,29 @@ public protocol MulticastDelegateProtocol {
 ///
 /// > Note: `NSHashTable` may not immediately deinit the un-referenced object, due to Apple's implementation, therefore `.count` is unreliable.
 public class MulticastDelegate<T>: NSObject, Loggable {
-    private let _queue: DispatchQueue
-    private let _set = NSHashTable<AnyObject>.weakObjects()
+    private struct State {
+        var delegates = NSHashTable<AnyObject>.weakObjects()
+    }
 
-    init(label: String, qos: DispatchQoS = .default) {
-        _queue = DispatchQueue(label: "LiveKitSDK.Multicast.\(label)", qos: qos, attributes: [])
+    private let _state = StateSync(State())
+
+    init(label _: String) {
+        // _queue = DispatchQueue(label: "LiveKitSDK.Multicast.\(label)", qos: qos, attributes: [])
     }
 
     public var allDelegates: [T] {
-        _queue.sync { [weak self] in
-            guard let self else { return [] }
-            return self._set.allObjects.compactMap { $0 as? T }
-        }
+        _state.read { $0.delegates.allObjects.compactMap { $0 as? T } }
     }
 
     /// Add a single delegate.
     public func add(delegate: T) {
         guard let delegate = delegate as AnyObject? else {
-            log("MulticastDelegate: delegate is not an AnyObject")
+            log("MulticastDelegate: delegate is not an AnyObject", .error)
             return
         }
 
-        _queue.sync { [weak self] in
-            guard let self else { return }
-            self._set.add(delegate)
+        _state.mutate {
+            $0.delegates.add(delegate)
         }
     }
 
@@ -62,55 +61,37 @@ public class MulticastDelegate<T>: NSObject, Loggable {
     /// In most cases this is not required to be called explicitly since all delegates are weak.
     public func remove(delegate: T) {
         guard let delegate = delegate as AnyObject? else {
-            log("MulticastDelegate: delegate is not an AnyObject")
+            log("MulticastDelegate: delegate is not an AnyObject", .error)
             return
         }
 
-        _queue.sync { [weak self] in
-            guard let self else { return }
-            self._set.remove(delegate)
+        _state.mutate {
+            $0.delegates.remove(delegate)
         }
     }
 
     /// Remove all delegates.
     public func removeAllDelegates() {
-        _queue.sync { [weak self] in
-            guard let self else { return }
-            self._set.removeAllObjects()
+        _state.mutate {
+            $0.delegates.removeAllObjects()
         }
     }
 
-    /// Notify delegates inside the queue.
-    /// Label is captured inside the queue for thread safety reasons.
-    func notify(label: (() -> String)? = nil, _ fnc: @escaping (T) -> Void) {
-        _queue.async {
-            if let label {
-                self.log("[notify] \(label())", .trace)
-            }
+    func notifyDetached(_ fnc: @escaping (T) -> Void) {
+        Task.detached {
+            await self.notifyAsync(fnc)
+        }
+    }
 
-            let delegates = self._set.allObjects.compactMap { $0 as? T }
-
+    func notifyAsync(_ fnc: @escaping (T) -> Void) async {
+        let delegates = _state.read { $0.delegates.allObjects.compactMap { $0 as? T } }
+        await withTaskGroup(of: Void.self) { group in
             for delegate in delegates {
-                fnc(delegate)
-            }
-        }
-    }
-
-    func notifyAsync(label: (() -> String)? = nil, _ fnc: @escaping (T) -> Void) async {
-        await withCheckedContinuation { continuation in
-            _queue.async {
-                if let label {
-                    self.log("[notify] \(label())", .trace)
-                }
-
-                let delegates = self._set.allObjects.compactMap { $0 as? T }
-
-                for delegate in delegates {
+                group.addTask {
                     fnc(delegate)
                 }
-
-                continuation.resume()
             }
+            await group.waitForAll()
         }
     }
 }
