@@ -188,10 +188,10 @@ public class RemoteTrackPublication: TrackPublication {
                let participant = participant as? RemoteParticipant,
                let room = participant._room
             {
-                participant.delegates.notify(label: { "participant.didUnsubscribe \(self)" }) {
+                participant.delegates.notifyDetached {
                     $0.participant?(participant, didUnsubscribeTrack: self)
                 }
-                room.delegates.notify(label: { "room.didUnsubscribe \(self)" }) {
+                room.delegates.notifyDetached {
                     $0.room?(room, participant: participant, didUnsubscribeTrack: self)
                 }
             }
@@ -238,10 +238,10 @@ extension RemoteTrackPublication {
 
         // if track exists, track will emit the following events
         if track == nil {
-            participant.delegates.notify(label: { "participant.didUpdatePublication isMuted: \(newValue)" }) {
+            participant.delegates.notifyDetached {
                 $0.participant?(participant, trackPublication: self, didUpdateIsMuted: newValue)
             }
-            room.delegates.notify(label: { "room.didUpdatePublication isMuted: \(newValue)" }) {
+            room.delegates.notifyDetached {
                 $0.room?(room, participant: participant, trackPublication: self, didUpdateIsMuted: newValue)
             }
         }
@@ -252,10 +252,10 @@ extension RemoteTrackPublication {
         _state.mutate { $0.isSubscriptionAllowed = newValue }
 
         guard let participant = participant as? RemoteParticipant, let room = participant._room else { return }
-        participant.delegates.notify(label: { "participant.didUpdate permission: \(newValue)" }) {
+        participant.delegates.notifyDetached {
             $0.participant?(participant, trackPublication: self, didUpdateIsSubscriptionAllowed: newValue)
         }
-        room.delegates.notify(label: { "room.didUpdate permission: \(newValue)" }) {
+        room.delegates.notifyDetached {
             $0.room?(room, participant: participant, trackPublication: self, didUpdateIsSubscriptionAllowed: newValue)
         }
     }

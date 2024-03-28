@@ -181,7 +181,7 @@ extension E2EEManager {
 
         log("frameCryptor didStateChangeWithParticipantId \(participantId) with state \(state.rawValue)")
 
-        room.delegates.notify { delegate in
+        room.delegates.notifyDetached { delegate in
             delegate.room?(room, trackPublication: publication, didUpdateE2EEState: state.toLKType())
         }
     }

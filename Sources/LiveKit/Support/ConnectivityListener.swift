@@ -34,7 +34,7 @@ class ConnectivityListener: MulticastDelegate<ConnectivityListenerDelegate> {
     public private(set) var hasConnectivity: Bool? {
         didSet {
             guard let newValue = hasConnectivity, oldValue != newValue else { return }
-            notify { $0.connectivityListener(self, didUpdate: newValue) }
+            notifyDetached { $0.connectivityListener(self, didUpdate: newValue) }
         }
     }
 
@@ -123,7 +123,7 @@ private extension ConnectivityListener {
             isPossiblySwitchingNetwork = false
 
             log("didSwitch type: quick on & off")
-            notify { $0.connectivityListener(self, didSwitch: newValue) }
+            notifyDetached { $0.connectivityListener(self, didSwitch: newValue) }
         } else if oldValue.isSatisfied(), newValue.isSatisfied() {
             // satisfied -> satisfied
 
@@ -134,7 +134,7 @@ private extension ConnectivityListener {
                 || (oldIpValue != newIpValue) // or, same interface but ip changed (detect wifi network switch)
             {
                 log("didSwitch type: network or ip change")
-                notify { $0.connectivityListener(self, didSwitch: newValue) }
+                notifyDetached { $0.connectivityListener(self, didSwitch: newValue) }
             }
         }
     }

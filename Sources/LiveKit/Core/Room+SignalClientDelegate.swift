@@ -132,7 +132,7 @@ extension Room: SignalClientDelegate {
         engine.executeIfConnected { [weak self] in
             guard let self else { return }
 
-            self.delegates.notify(label: { "room.didUpdate speakers: \(speakers)" }) {
+            self.delegates.notifyDetached {
                 $0.room?(self, didUpdateSpeakingParticipants: activeSpeakers)
             }
         }
@@ -250,7 +250,7 @@ extension Room: SignalClientDelegate {
             engine.executeIfConnected { [weak self] in
                 guard let self else { return }
 
-                self.delegates.notify(label: { "room.remoteParticipantDidConnect: \(participant)" }) {
+                self.delegates.notifyDetached {
                     $0.room?(self, participantDidConnect: participant)
                 }
             }

@@ -37,7 +37,7 @@ extension Room: EngineDelegate {
                 }
             }
 
-            delegates.notify(label: { "room.didUpdate connectionState: \(state.connectionState) oldValue: \(oldState.connectionState)" }) {
+            delegates.notifyDetached {
                 $0.room?(self, didUpdateConnectionState: state.connectionState, from: oldState.connectionState)
             }
 
@@ -45,19 +45,19 @@ extension Room: EngineDelegate {
             if case .connected = state.connectionState {
                 // Connected
                 if case .reconnecting = oldState.connectionState {
-                    delegates.notify { $0.roomDidReconnect?(self) }
+                    delegates.notifyDetached { $0.roomDidReconnect?(self) }
                 } else {
-                    delegates.notify { $0.roomDidConnect?(self) }
+                    delegates.notifyDetached { $0.roomDidConnect?(self) }
                 }
             } else if case .reconnecting = state.connectionState {
                 // Re-connecting
-                delegates.notify { $0.roomIsReconnecting?(self) }
+                delegates.notifyDetached { $0.roomIsReconnecting?(self) }
             } else if case .disconnected = state.connectionState {
                 // Disconnected
                 if case .connecting = oldState.connectionState {
-                    delegates.notify { $0.room?(self, didFailToConnectWithError: oldState.disconnectError) }
+                    delegates.notifyDetached { $0.room?(self, didFailToConnectWithError: oldState.disconnectError) }
                 } else {
-                    delegates.notify { $0.room?(self, didDisconnectWithError: state.disconnectError) }
+                    delegates.notifyDetached { $0.room?(self, didDisconnectWithError: state.disconnectError) }
                 }
             }
         }
@@ -131,7 +131,7 @@ extension Room: EngineDelegate {
         engine.executeIfConnected { [weak self] in
             guard let self else { return }
 
-            self.delegates.notify(label: { "room.didUpdate speakers: \(activeSpeakers)" }) {
+            self.delegates.notifyDetached {
                 $0.room?(self, didUpdateSpeakingParticipants: activeSpeakers)
             }
         }
@@ -178,12 +178,12 @@ extension Room: EngineDelegate {
         engine.executeIfConnected { [weak self] in
             guard let self else { return }
 
-            self.delegates.notify(label: { "room.didReceive data: \(packet.payload)" }) {
+            self.delegates.notifyDetached {
                 $0.room?(self, participant: participant, didReceiveData: packet.payload, forTopic: packet.topic)
             }
 
             if let participant {
-                participant.delegates.notify(label: { "participant.didReceive data: \(packet.payload)" }) { [weak participant] delegate in
+                participant.delegates.notifyDetached { [weak participant] delegate in
                     guard let participant else { return }
                     delegate.participant?(participant, didReceiveData: packet.payload, forTopic: packet.topic)
                 }
