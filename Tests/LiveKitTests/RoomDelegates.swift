@@ -17,22 +17,42 @@
 @testable import LiveKit
 import XCTest
 
-class DelegateTests: XCTestCase {
+class RoomDelegates: XCTestCase {
     func testDelegate1() async throws {
-        try await with2Rooms(delegate1: self) { _, _ in
+        let exp = expectation(description: "")
+        exp.assertForOverFulfill = false
+
+        let delegateObserver = RoomDelegateObserver()
+        delegateObserver.onDidPublishTrack = { exp.fulfill() }
+
+        try await with2Rooms(delegate1: delegateObserver) { _, _ in
             print("Rooms are ready...")
+            // Wait for track...
+            print("Waiting for publish track...")
+            await self.fulfillment(of: [exp], timeout: 30)
         }
     }
 }
 
-extension DelegateTests: RoomDelegate {
+class RoomDelegateObserver: RoomDelegate {
+    var onDidPublishTrack: (() -> Void)?
+
     func roomDidConnect(_ room: Room) {
         print("Room did connect, connectionState: \(room.connectionState)")
+        // Test of calling instance methods within the delegate
+        Task {
+            try await room.localParticipant.setMicrophone(enabled: true)
+        }
     }
 
     func room(_: Room, participantDidDisconnect participant: RemoteParticipant) {
         XCTAssert(participant.sid != nil)
         XCTAssert(participant.identity != nil)
         print("participantDidDisconnect: \(String(describing: participant.sid))")
+    }
+
+    func room(_: Room, participant _: LocalParticipant, didPublishTrack publication: LocalTrackPublication) {
+        print("didPublishTrack: \(publication)")
+        onDidPublishTrack?()
     }
 }
