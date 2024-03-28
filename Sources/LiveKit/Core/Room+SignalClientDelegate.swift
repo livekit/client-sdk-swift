@@ -129,10 +129,8 @@ extension Room: SignalClientDelegate {
             return state.activeSpeakers
         }
 
-        engine.executeIfConnected { [weak self] in
-            guard let self else { return }
-
-            self.delegates.notifyDetached {
+        if case .connected = engine._state.connectionState {
+            delegates.notifyDetached {
                 $0.room?(self, didUpdateSpeakingParticipants: activeSpeakers)
             }
         }
@@ -246,11 +244,9 @@ extension Room: SignalClientDelegate {
             }
         }
 
-        for participant in newParticipants {
-            engine.executeIfConnected { [weak self] in
-                guard let self else { return }
-
-                self.delegates.notifyDetached {
+        if case .connected = engine._state.connectionState {
+            for participant in newParticipants {
+                delegates.notifyDetached {
                     $0.room?(self, participantDidConnect: participant)
                 }
             }

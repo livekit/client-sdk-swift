@@ -330,13 +330,6 @@ extension Engine {
 // MARK: - Execution control (Internal)
 
 extension Engine {
-    func executeIfConnected(_ block: @escaping @convention(block) () -> Void) {
-        if case .connected = _state.connectionState {
-            // execute immediately
-            block()
-        }
-    }
-
     func execute(when condition: @escaping ConditionEvalFunc,
                  removeWhen removeCondition: @escaping ConditionEvalFunc,
                  _ block: @escaping () -> Void)

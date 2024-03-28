@@ -128,10 +128,8 @@ extension Room: EngineDelegate {
             return activeSpeakers
         }
 
-        engine.executeIfConnected { [weak self] in
-            guard let self else { return }
-
-            self.delegates.notifyDetached {
+        if case .connected = engine._state.connectionState {
+            delegates.notifyDetached {
                 $0.room?(self, didUpdateSpeakingParticipants: activeSpeakers)
             }
         }
@@ -175,10 +173,8 @@ extension Room: EngineDelegate {
         let identity = Participant.Identity(from: packet.participantIdentity)
         let participant = _state.remoteParticipants[identity]
 
-        engine.executeIfConnected { [weak self] in
-            guard let self else { return }
-
-            self.delegates.notifyDetached {
+        if case .connected = engine._state.connectionState {
+            delegates.notifyDetached {
                 $0.room?(self, participant: participant, didReceiveData: packet.payload, forTopic: packet.topic)
             }
 
