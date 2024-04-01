@@ -31,13 +31,13 @@ public typealias NativeViewType = NSView
 /// A simple abstraction of a View that is native to the platform.
 /// When built for iOS this will be a UIView.
 /// When built for macOS this will be a NSView.
-public class NativeView: NativeViewType {
-    override init(frame: CGRect) {
+open class NativeView: NativeViewType {
+    override public init(frame: CGRect) {
         super.init(frame: frame)
     }
 
     @available(*, unavailable)
-    required init?(coder _: NSCoder) {
+    public required init?(coder _: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
 
@@ -55,18 +55,18 @@ public class NativeView: NativeViewType {
 
     #if os(macOS)
     // for compatibility with macOS
-    func setNeedsLayout() {
+    public func setNeedsLayout() {
         needsLayout = true
     }
     #endif
 
     #if os(macOS)
-    func bringSubviewToFront(_ view: NSView) {
+    public func bringSubviewToFront(_ view: NSView) {
         addSubview(view)
     }
     #endif
 
-    func performLayout() {
+    open func performLayout() {
         //
     }
 }

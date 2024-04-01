@@ -349,7 +349,7 @@ public class VideoView: NativeView, Loggable {
         log(nil, .trace)
     }
 
-    override func performLayout() {
+    override public func performLayout() {
         super.performLayout()
 
         if !Thread.current.isMainThread {

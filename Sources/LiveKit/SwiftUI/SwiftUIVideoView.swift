@@ -20,7 +20,7 @@ import SwiftUI
 /// A ``VideoView`` that can be used in SwiftUI.
 /// Supports both iOS and macOS.
 public struct SwiftUIVideoView: NativeViewRepresentable {
-    typealias ViewType = VideoView
+    public typealias ViewType = VideoView
 
     /// Pass a ``VideoTrack`` of a ``Participant``.
     let track: VideoTrack
