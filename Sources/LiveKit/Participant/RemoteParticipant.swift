@@ -49,11 +49,9 @@ public class RemoteParticipant: Participant {
             return
         }
 
-        room.engine.executeIfConnected { [weak self] in
-            guard let self else { return }
-
+        if case .connected = room.engine._state.connectionState {
             for publication in newTrackPublications.values {
-                self.delegates.notify(label: { "participant.didPublish \(publication)" }) {
+                delegates.notify(label: { "participant.didPublish \(publication)" }) {
                     $0.participant?(self, didPublishTrack: publication)
                 }
                 room.delegates.notify(label: { "room.didPublish \(publication)" }) {

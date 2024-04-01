@@ -18,13 +18,21 @@
 import XCTest
 
 extension XCTestCase {
-    func testUrl() -> String {
-        ProcessInfo.processInfo.environment["LIVEKIT_TESTING_URL"] ?? "ws://localhost:7880"
+    private func readEnvironmentString(for key: String, defaultValue: String) -> String {
+        if let string = ProcessInfo.processInfo.environment[key]?.trimmingCharacters(in: .whitespacesAndNewlines), !string.isEmpty {
+            return string
+        }
+
+        return defaultValue
     }
 
-    func testToken(for room: String, identity: String) throws -> String {
-        let apiKey = ProcessInfo.processInfo.environment["LIVEKIT_TESTING_API_KEY"] ?? "devkey"
-        let apiSecret = ProcessInfo.processInfo.environment["LIVEKIT_TESTING_API_SECRET"] ?? "secret"
+    func liveKitServerUrl() -> String {
+        readEnvironmentString(for: "LIVEKIT_TESTING_URL", defaultValue: "ws://localhost:7880")
+    }
+
+    func liveKitServerToken(for room: String, identity: String) throws -> String {
+        let apiKey = readEnvironmentString(for: "LIVEKIT_TESTING_API_KEY", defaultValue: "devkey")
+        let apiSecret = readEnvironmentString(for: "LIVEKIT_TESTING_API_SECRET", defaultValue: "secret")
 
         let tokenGenerator = TokenGenerator(apiKey: apiKey,
                                             apiSecret: apiSecret,
@@ -37,24 +45,28 @@ extension XCTestCase {
     }
 
     // Set up 2 Rooms
-    func with2Rooms(_ block: @escaping (Room, Room) async throws -> Void) async throws {
+    func with2Rooms(delegate1: RoomDelegate? = nil,
+                    delegate2: RoomDelegate? = nil,
+                    _ block: @escaping (Room, Room) async throws -> Void) async throws
+    {
         // Turn on stats
         let roomOptions = RoomOptions(reportRemoteTrackStatistics: true)
 
-        let room1 = Room(roomOptions: roomOptions)
-        let room2 = Room(roomOptions: roomOptions)
+        let room1 = Room(delegate: delegate1, roomOptions: roomOptions)
+        let room2 = Room(delegate: delegate2, roomOptions: roomOptions)
 
-        let url = testUrl()
+        let url = liveKitServerUrl()
+        print("url: \(url)")
 
         let roomName = UUID().uuidString
 
-        let token1 = try testToken(for: roomName, identity: "identity01")
+        let token1 = try liveKitServerToken(for: roomName, identity: "identity01")
         try await room1.connect(url: url, token: token1)
 
-        let token2 = try testToken(for: roomName, identity: "identity02")
+        let token2 = try liveKitServerToken(for: roomName, identity: "identity02")
         try await room2.connect(url: url, token: token2)
 
-        let observerToken = try testToken(for: roomName, identity: "observer")
+        let observerToken = try liveKitServerToken(for: roomName, identity: "observer")
         print("Observer token: \(observerToken) for room: \(roomName)")
 
         let room1ParticipantCountIs2 = expectation(description: "Room1 Participant count is 2")

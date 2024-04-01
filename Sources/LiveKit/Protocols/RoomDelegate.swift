@@ -85,11 +85,11 @@ public protocol RoomDelegate: AnyObject {
 
     /// ``Participant/metadata`` has updated.
     @objc optional
-    func room(_ room: Room, participant: Participant, didUpdateMetadata: String?)
+    func room(_ room: Room, participant: Participant, didUpdateMetadata metadata: String?)
 
     /// ``Participant/name`` has updated.
     @objc optional
-    func room(_ room: Room, participant: Participant, didUpdateName: String)
+    func room(_ room: Room, participant: Participant, didUpdateName name: String)
 
     /// ``Participant/connectionQuality`` has updated.
     @objc optional

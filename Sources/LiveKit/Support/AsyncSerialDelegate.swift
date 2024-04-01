@@ -16,31 +16,28 @@
 
 import Foundation
 
-actor AsyncSerialDelegate<T>: Loggable {
-    public weak var _delegate: AnyObject?
-
-    // This is isolated so will execute serially
-    private func invoke(_ fnc: @escaping (T) async -> Void) async {
-        guard let delegate = _delegate as? T else { return }
-        await fnc(delegate)
+class AsyncSerialDelegate<T> {
+    private struct State {
+        weak var delegate: AnyObject?
     }
 
-    private func _set(delegate: T) {
-        _delegate = delegate as AnyObject
+    private let _state = StateSync(State())
+    private let _serialRunner = SerialRunnerActor<Void>()
+
+    public func set(delegate: T) {
+        _state.mutate { $0.delegate = delegate as AnyObject }
     }
 
-    nonisolated func set(delegate: T) {
-        Task.detached {
-            await self._set(delegate: delegate)
+    public func notifyAsync(_ fnc: @escaping (T) async -> Void) async throws {
+        guard let delegate = _state.read({ $0.delegate }) as? T else { return }
+        try await _serialRunner.run {
+            await fnc(delegate)
         }
     }
 
-    /// Notify delegates inside the queue.
-    /// Label is captured inside the queue for thread safety reasons.
-    nonisolated
-    func notifyAsync(label _: (() -> String)? = nil, _ fnc: @escaping (T) async -> Void) {
+    public func notifyDetached(_ fnc: @escaping (T) async -> Void) {
         Task.detached {
-            await self.invoke(fnc)
+            try await self.notifyAsync(fnc)
         }
     }
 }

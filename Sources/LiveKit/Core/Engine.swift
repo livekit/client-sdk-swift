@@ -70,8 +70,8 @@ class Engine: Loggable {
     lazy var subscriberDataChannel: DataChannelPairActor = .init(onDataPacket: { [weak self] dataPacket in
         guard let self else { return }
         switch dataPacket.value {
-        case let .speaker(update): self._delegate.notifyAsync { await $0.engine(self, didUpdateSpeakers: update.speakers) }
-        case let .user(userPacket): self._delegate.notifyAsync { await $0.engine(self, didReceiveUserPacket: userPacket) }
+        case let .speaker(update): self._delegate.notifyDetached { await $0.engine(self, didUpdateSpeakers: update.speakers) }
+        case let .user(userPacket): self._delegate.notifyDetached { await $0.engine(self, didReceiveUserPacket: userPacket) }
         default: return
         }
     })
@@ -104,7 +104,7 @@ class Engine: Loggable {
                 self.log("connectionState: \(oldState.connectionState) -> \(newState.connectionState), reconnectMode: \(String(describing: newState.isReconnectingWithMode))")
             }
 
-            self._delegate.notifyAsync { await $0.engine(self, didMutateState: newState, oldState: oldState) }
+            self._delegate.notifyDetached { await $0.engine(self, didMutateState: newState, oldState: oldState) }
 
             // execution control
             self._blockProcessQueue.async { [weak self] in
@@ -330,13 +330,6 @@ extension Engine {
 // MARK: - Execution control (Internal)
 
 extension Engine {
-    func executeIfConnected(_ block: @escaping @convention(block) () -> Void) {
-        if case .connected = _state.connectionState {
-            // execute immediately
-            block()
-        }
-    }
-
     func execute(when condition: @escaping ConditionEvalFunc,
                  removeWhen removeCondition: @escaping ConditionEvalFunc,
                  _ block: @escaping () -> Void)

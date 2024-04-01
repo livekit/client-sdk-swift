@@ -185,29 +185,19 @@ public class Room: NSObject, ObservableObject, Loggable {
                 self._sidCompleter.resume(returning: sid)
             }
 
-            // metadata updated
-            if let metadata = newState.metadata, metadata != oldState.metadata,
-               // don't notify if empty string (first time only)
-               oldState.metadata == nil ? !metadata.isEmpty : true
-            {
-                // proceed only if connected...
-                self.engine.executeIfConnected { [weak self] in
-
-                    guard let self else { return }
-
+            if case .connected = engine._state.connectionState {
+                // metadata updated
+                if let metadata = newState.metadata, metadata != oldState.metadata,
+                   // don't notify if empty string (first time only)
+                   oldState.metadata == nil ? !metadata.isEmpty : true
+                {
                     self.delegates.notify(label: { "room.didUpdate metadata: \(metadata)" }) {
                         $0.room?(self, didUpdateMetadata: metadata)
                     }
                 }
-            }
 
-            // isRecording updated
-            if newState.isRecording != oldState.isRecording {
-                // proceed only if connected...
-                self.engine.executeIfConnected { [weak self] in
-
-                    guard let self else { return }
-
+                // isRecording updated
+                if newState.isRecording != oldState.isRecording {
                     self.delegates.notify(label: { "room.didUpdate isRecording: \(newState.isRecording)" }) {
                         $0.room?(self, didUpdateIsRecording: newState.isRecording)
                     }
