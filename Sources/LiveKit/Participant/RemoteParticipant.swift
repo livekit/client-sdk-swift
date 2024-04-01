@@ -153,10 +153,10 @@ public class RemoteParticipant: Participant {
 
         func _notifyUnpublish() async {
             guard _notify else { return }
-            delegates.notifyDetached {
+            await delegates.notifyAsync {
                 $0.participant?(self, didUnpublishTrack: publication)
             }
-            room.delegates.notifyDetached {
+            await room.delegates.notifyAsync {
                 $0.room?(room, participant: self, didUnpublishTrack: publication)
             }
         }

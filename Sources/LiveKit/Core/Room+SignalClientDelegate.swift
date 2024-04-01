@@ -246,7 +246,7 @@ extension Room: SignalClientDelegate {
 
         if case .connected = engine._state.connectionState {
             for participant in newParticipants {
-                delegates.notifyDetached {
+                await delegates.notifyAsync {
                     $0.room?(self, participantDidConnect: participant)
                 }
             }

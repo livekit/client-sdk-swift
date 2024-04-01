@@ -41,6 +41,11 @@ class MulticastDelegates: XCTestCase {
         await d.notifyAsync { $0.onDelegateMethod() }
         print("All delegates completed")
     }
+
+    func testNestedCalls() async {
+        func methodA() {}
+        func methodB() {}
+    }
 }
 
 class QuickDelegate: TestDelegate {

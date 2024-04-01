@@ -188,10 +188,10 @@ public class RemoteTrackPublication: TrackPublication {
                let participant = participant as? RemoteParticipant,
                let room = participant._room
             {
-                participant.delegates.notifyDetached {
+                await participant.delegates.notifyAsync {
                     $0.participant?(participant, didUnsubscribeTrack: self)
                 }
-                room.delegates.notifyDetached {
+                await room.delegates.notifyAsync {
                     $0.room?(room, participant: participant, didUnsubscribeTrack: self)
                 }
             }

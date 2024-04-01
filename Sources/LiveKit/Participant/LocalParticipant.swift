@@ -610,10 +610,10 @@ private extension LocalParticipant {
             add(publication: publication)
 
             // Notify didPublish
-            delegates.notifyDetached {
+            await delegates.notifyAsync {
                 $0.participant?(self, didPublishTrack: publication)
             }
-            room.delegates.notifyDetached {
+            await room.delegates.notifyAsync {
                 $0.room?(room, participant: self, didPublishTrack: publication)
             }
 
