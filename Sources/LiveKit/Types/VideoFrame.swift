@@ -120,3 +120,19 @@ extension VideoFrame {
                                timeStampNs: timeStampNs)
     }
 }
+
+public extension VideoFrame {
+    func toCVPixelBuffer() -> CVPixelBuffer? {
+        if let cvPixelVideoBuffer = buffer as? CVPixelVideoBuffer {
+            return cvPixelVideoBuffer.pixelBuffer
+        } else if let i420VideoBuffer = buffer as? I420VideoBuffer {
+            return i420VideoBuffer.toPixelBuffer()
+        }
+        return nil
+    }
+
+    func toCMSampleBuffer() -> CMSampleBuffer? {
+        guard let cvPixelBuffer = toCVPixelBuffer() else { return nil }
+        return CMSampleBuffer.from(cvPixelBuffer)
+    }
+}
