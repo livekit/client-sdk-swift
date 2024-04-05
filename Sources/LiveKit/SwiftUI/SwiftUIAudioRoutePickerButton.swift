@@ -21,13 +21,7 @@ import SwiftUI
 @_implementationOnly import LiveKitWebRTC
 
 public struct SwiftUIAudioRoutePickerButton: NativeViewRepresentable {
-    typealias ViewType = AVRoutePickerView
-
-    public init() {
-        //
-    }
-
-    func makeView(context _: Context) -> AVRoutePickerView {
+    public func makeView(context _: Context) -> AVRoutePickerView {
         let routePickerView = AVRoutePickerView()
 
         #if os(iOS)
@@ -39,11 +33,6 @@ public struct SwiftUIAudioRoutePickerButton: NativeViewRepresentable {
         return routePickerView
     }
 
-    func updateView(_: AVRoutePickerView, context _: Context) {
-        //
-    }
-
-    static func dismantleView(_: AVRoutePickerView, coordinator _: ()) {
-        //
-    }
+    public func updateView(_: AVRoutePickerView, context _: Context) {}
+    public static func dismantleView(_: AVRoutePickerView, coordinator _: ()) {}
 }
