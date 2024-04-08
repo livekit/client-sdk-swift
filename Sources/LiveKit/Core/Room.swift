@@ -185,7 +185,7 @@ public class Room: NSObject, ObservableObject, Loggable {
                 self._sidCompleter.resume(returning: sid)
             }
 
-            if case .connected = engine._state.connectionState {
+            if case .connected = self.engine._state.connectionState {
                 // metadata updated
                 if let metadata = newState.metadata, metadata != oldState.metadata,
                    // don't notify if empty string (first time only)
