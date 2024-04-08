@@ -69,7 +69,7 @@ public final class StateSync<State> {
     }
 
     // property read sync
-    subscript<Property>(dynamicMember keyPath: KeyPath<State, Property>) -> Property {
+    public subscript<Property>(dynamicMember keyPath: KeyPath<State, Property>) -> Property {
         _lock.sync { _state[keyPath: keyPath] }
     }
 }
