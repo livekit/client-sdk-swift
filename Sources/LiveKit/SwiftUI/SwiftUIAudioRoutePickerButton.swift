@@ -21,6 +21,8 @@ import SwiftUI
 @_implementationOnly import LiveKitWebRTC
 
 public struct SwiftUIAudioRoutePickerButton: NativeViewRepresentable {
+    public init() {}
+
     public func makeView(context _: Context) -> AVRoutePickerView {
         let routePickerView = AVRoutePickerView()
 
