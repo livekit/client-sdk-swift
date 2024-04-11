@@ -34,7 +34,9 @@ let package = Package(
                 .product(name: "SwiftProtobuf", package: "swift-protobuf"),
                 .product(name: "Logging", package: "swift-log"),
             ],
-            path: "Sources"
+            resources: [
+                .process("PrivacyInfo.xcprivacy"),
+            ]
         ),
         .testTarget(
             name: "LiveKitTests",
