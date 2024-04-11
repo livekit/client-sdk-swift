@@ -4,7 +4,6 @@
 <dict>
 	<key>NSPrivacyAccessedAPITypes</key>
 	<array>
-		<dict/>
 		<dict>
 			<key>NSPrivacyAccessedAPIType</key>
 			<string>NSPrivacyAccessedAPICategorySystemBootTime</string>
