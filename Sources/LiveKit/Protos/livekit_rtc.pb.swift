@@ -297,6 +297,24 @@ struct Livekit_SignalRequest {
     set {message = .pingReq(newValue)}
   }
 
+  /// Update local audio track settings
+  var updateAudioTrack: Livekit_UpdateLocalAudioTrack {
+    get {
+      if case .updateAudioTrack(let v)? = message {return v}
+      return Livekit_UpdateLocalAudioTrack()
+    }
+    set {message = .updateAudioTrack(newValue)}
+  }
+
+  /// Update local video track settings
+  var updateVideoTrack: Livekit_UpdateLocalVideoTrack {
+    get {
+      if case .updateVideoTrack(let v)? = message {return v}
+      return Livekit_UpdateLocalVideoTrack()
+    }
+    set {message = .updateVideoTrack(newValue)}
+  }
+
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   enum OneOf_Message: Equatable {
@@ -327,6 +345,10 @@ struct Livekit_SignalRequest {
     /// update a participant's own metadata and/or name
     case updateMetadata(Livekit_UpdateParticipantMetadata)
     case pingReq(Livekit_Ping)
+    /// Update local audio track settings
+    case updateAudioTrack(Livekit_UpdateLocalAudioTrack)
+    /// Update local video track settings
+    case updateVideoTrack(Livekit_UpdateLocalVideoTrack)
 
   #if !swift(>=4.1)
     static func ==(lhs: Livekit_SignalRequest.OneOf_Message, rhs: Livekit_SignalRequest.OneOf_Message) -> Bool {
@@ -392,6 +414,14 @@ struct Livekit_SignalRequest {
       }()
       case (.pingReq, .pingReq): return {
         guard case .pingReq(let l) = lhs, case .pingReq(let r) = rhs else { preconditionFailure() }
+        return l == r
+      }()
+      case (.updateAudioTrack, .updateAudioTrack): return {
+        guard case .updateAudioTrack(let l) = lhs, case .updateAudioTrack(let r) = rhs else { preconditionFailure() }
+        return l == r
+      }()
+      case (.updateVideoTrack, .updateVideoTrack): return {
+        guard case .updateVideoTrack(let l) = lhs, case .updateVideoTrack(let r) = rhs else { preconditionFailure() }
         return l == r
       }()
       default: return false
@@ -1056,6 +1086,36 @@ struct Livekit_UpdateTrackSettings {
   init() {}
 }
 
+struct Livekit_UpdateLocalAudioTrack {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  var trackSid: String = String()
+
+  var features: [Livekit_AudioTrackFeature] = []
+
+  var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  init() {}
+}
+
+struct Livekit_UpdateLocalVideoTrack {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  var trackSid: String = String()
+
+  var width: UInt32 = 0
+
+  var height: UInt32 = 0
+
+  var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  init() {}
+}
+
 struct Livekit_LeaveRequest {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
@@ -1402,6 +1462,8 @@ struct Livekit_SyncState {
   /// Clears the value of `offer`. Subsequent reads from it will return its default value.
   mutating func clearOffer() {self._offer = nil}
 
+  var trackSidsDisabled: [String] = []
+
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   init() {}
@@ -1667,6 +1729,8 @@ extension Livekit_SessionDescription: @unchecked Sendable {}
 extension Livekit_ParticipantUpdate: @unchecked Sendable {}
 extension Livekit_UpdateSubscription: @unchecked Sendable {}
 extension Livekit_UpdateTrackSettings: @unchecked Sendable {}
+extension Livekit_UpdateLocalAudioTrack: @unchecked Sendable {}
+extension Livekit_UpdateLocalVideoTrack: @unchecked Sendable {}
 extension Livekit_LeaveRequest: @unchecked Sendable {}
 extension Livekit_LeaveRequest.Action: @unchecked Sendable {}
 extension Livekit_UpdateVideoLayers: @unchecked Sendable {}
@@ -1739,6 +1803,8 @@ extension Livekit_SignalRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageIm
     14: .same(proto: "ping"),
     15: .standard(proto: "update_metadata"),
     16: .standard(proto: "ping_req"),
+    17: .standard(proto: "update_audio_track"),
+    18: .standard(proto: "update_video_track"),
   ]
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -1937,6 +2003,32 @@ extension Livekit_SignalRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageIm
           self.message = .pingReq(v)
         }
       }()
+      case 17: try {
+        var v: Livekit_UpdateLocalAudioTrack?
+        var hadOneofValue = false
+        if let current = self.message {
+          hadOneofValue = true
+          if case .updateAudioTrack(let m) = current {v = m}
+        }
+        try decoder.decodeSingularMessageField(value: &v)
+        if let v = v {
+          if hadOneofValue {try decoder.handleConflictingOneOf()}
+          self.message = .updateAudioTrack(v)
+        }
+      }()
+      case 18: try {
+        var v: Livekit_UpdateLocalVideoTrack?
+        var hadOneofValue = false
+        if let current = self.message {
+          hadOneofValue = true
+          if case .updateVideoTrack(let m) = current {v = m}
+        }
+        try decoder.decodeSingularMessageField(value: &v)
+        if let v = v {
+          if hadOneofValue {try decoder.handleConflictingOneOf()}
+          self.message = .updateVideoTrack(v)
+        }
+      }()
       default: break
       }
     }
@@ -2007,6 +2099,14 @@ extension Livekit_SignalRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageIm
     case .pingReq?: try {
       guard case .pingReq(let v)? = self.message else { preconditionFailure() }
       try visitor.visitSingularMessageField(value: v, fieldNumber: 16)
+    }()
+    case .updateAudioTrack?: try {
+      guard case .updateAudioTrack(let v)? = self.message else { preconditionFailure() }
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 17)
+    }()
+    case .updateVideoTrack?: try {
+      guard case .updateVideoTrack(let v)? = self.message else { preconditionFailure() }
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 18)
     }()
     case nil: break
     }
@@ -2667,7 +2767,15 @@ extension Livekit_JoinResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageImp
     var _serverInfo: Livekit_ServerInfo? = nil
     var _sifTrailer: Data = Data()
 
-    static let defaultInstance = _StorageClass()
+    #if swift(>=5.10)
+      // This property is used as the initial default value for new instances of the type.
+      // The type itself is protecting the reference to its storage via CoW semantics.
+      // This will force a copy to be made of this reference when the first mutation occurs;
+      // hence, it is safe to mark this as `nonisolated(unsafe)`.
+      static nonisolated(unsafe) let defaultInstance = _StorageClass()
+    #else
+      static let defaultInstance = _StorageClass()
+    #endif
 
     private init() {}
 
@@ -3091,6 +3199,88 @@ extension Livekit_UpdateTrackSettings: SwiftProtobuf.Message, SwiftProtobuf._Mes
     if lhs.height != rhs.height {return false}
     if lhs.fps != rhs.fps {return false}
     if lhs.priority != rhs.priority {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+extension Livekit_UpdateLocalAudioTrack: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  static let protoMessageName: String = _protobuf_package + ".UpdateLocalAudioTrack"
+  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
+    1: .standard(proto: "track_sid"),
+    2: .same(proto: "features"),
+  ]
+
+  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularStringField(value: &self.trackSid) }()
+      case 2: try { try decoder.decodeRepeatedEnumField(value: &self.features) }()
+      default: break
+      }
+    }
+  }
+
+  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    if !self.trackSid.isEmpty {
+      try visitor.visitSingularStringField(value: self.trackSid, fieldNumber: 1)
+    }
+    if !self.features.isEmpty {
+      try visitor.visitPackedEnumField(value: self.features, fieldNumber: 2)
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  static func ==(lhs: Livekit_UpdateLocalAudioTrack, rhs: Livekit_UpdateLocalAudioTrack) -> Bool {
+    if lhs.trackSid != rhs.trackSid {return false}
+    if lhs.features != rhs.features {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+extension Livekit_UpdateLocalVideoTrack: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  static let protoMessageName: String = _protobuf_package + ".UpdateLocalVideoTrack"
+  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
+    1: .standard(proto: "track_sid"),
+    2: .same(proto: "width"),
+    3: .same(proto: "height"),
+  ]
+
+  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularStringField(value: &self.trackSid) }()
+      case 2: try { try decoder.decodeSingularUInt32Field(value: &self.width) }()
+      case 3: try { try decoder.decodeSingularUInt32Field(value: &self.height) }()
+      default: break
+      }
+    }
+  }
+
+  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    if !self.trackSid.isEmpty {
+      try visitor.visitSingularStringField(value: self.trackSid, fieldNumber: 1)
+    }
+    if self.width != 0 {
+      try visitor.visitSingularUInt32Field(value: self.width, fieldNumber: 2)
+    }
+    if self.height != 0 {
+      try visitor.visitSingularUInt32Field(value: self.height, fieldNumber: 3)
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  static func ==(lhs: Livekit_UpdateLocalVideoTrack, rhs: Livekit_UpdateLocalVideoTrack) -> Bool {
+    if lhs.trackSid != rhs.trackSid {return false}
+    if lhs.width != rhs.width {return false}
+    if lhs.height != rhs.height {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
@@ -3758,6 +3948,7 @@ extension Livekit_SyncState: SwiftProtobuf.Message, SwiftProtobuf._MessageImplem
     3: .standard(proto: "publish_tracks"),
     4: .standard(proto: "data_channels"),
     5: .same(proto: "offer"),
+    6: .standard(proto: "track_sids_disabled"),
   ]
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -3771,6 +3962,7 @@ extension Livekit_SyncState: SwiftProtobuf.Message, SwiftProtobuf._MessageImplem
       case 3: try { try decoder.decodeRepeatedMessageField(value: &self.publishTracks) }()
       case 4: try { try decoder.decodeRepeatedMessageField(value: &self.dataChannels) }()
       case 5: try { try decoder.decodeSingularMessageField(value: &self._offer) }()
+      case 6: try { try decoder.decodeRepeatedStringField(value: &self.trackSidsDisabled) }()
       default: break
       }
     }
@@ -3796,6 +3988,9 @@ extension Livekit_SyncState: SwiftProtobuf.Message, SwiftProtobuf._MessageImplem
     try { if let v = self._offer {
       try visitor.visitSingularMessageField(value: v, fieldNumber: 5)
     } }()
+    if !self.trackSidsDisabled.isEmpty {
+      try visitor.visitRepeatedStringField(value: self.trackSidsDisabled, fieldNumber: 6)
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -3805,6 +4000,7 @@ extension Livekit_SyncState: SwiftProtobuf.Message, SwiftProtobuf._MessageImplem
     if lhs.publishTracks != rhs.publishTracks {return false}
     if lhs.dataChannels != rhs.dataChannels {return false}
     if lhs._offer != rhs._offer {return false}
+    if lhs.trackSidsDisabled != rhs.trackSidsDisabled {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
