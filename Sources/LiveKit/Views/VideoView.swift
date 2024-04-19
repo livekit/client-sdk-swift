@@ -519,7 +519,6 @@ extension VideoView: VideoRenderer {
     }
 
     public func render(frame: VideoFrame, videoCaptureOptions: VideoCaptureOptions?) {
-        log("videoCaptureOptions: \(String(describing: videoCaptureOptions))")
         let state = _state.copy()
 
         // prevent any extra rendering if already !isEnabled etc.
