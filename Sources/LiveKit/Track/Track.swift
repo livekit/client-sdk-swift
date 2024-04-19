@@ -370,7 +370,7 @@ extension Track {
         }
 
         videoRenderers.add(videoRenderer)
-        rtcVideoTrack.add(VideoRendererAdapter(target: videoRenderer))
+        rtcVideoTrack.add(VideoRendererAdapter(target: videoRenderer, localVideoTrack: self as? LocalVideoTrack))
     }
 
     func _remove(videoRenderer: VideoRenderer) {
@@ -384,7 +384,7 @@ extension Track {
         }
 
         videoRenderers.remove(videoRenderer)
-        rtcVideoTrack.remove(VideoRendererAdapter(target: videoRenderer))
+        rtcVideoTrack.remove(VideoRendererAdapter(target: videoRenderer, localVideoTrack: self as? LocalVideoTrack))
     }
 }
 
