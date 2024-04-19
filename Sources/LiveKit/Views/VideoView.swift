@@ -236,11 +236,6 @@ public class VideoView: NativeView, Loggable {
                                 nr.removeFromSuperview()
                                 self._nativeRenderer = nil
                             }
-
-                            // CapturerDelegate
-                            if let localTrack = track as? LocalVideoTrack {
-                                localTrack.capturer.remove(delegate: self)
-                            }
                         }
 
                         // set new track
@@ -255,11 +250,6 @@ public class VideoView: NativeView, Loggable {
                                 self.log("rendering cached frame tack: \(String(describing: track._state.sid))")
                                 nr.renderFrame(frame.toRTCType())
                                 self.setNeedsLayout()
-                            }
-
-                            // CapturerDelegate
-                            if let localTrack = track as? LocalVideoTrack {
-                                localTrack.capturer.add(delegate: self)
                             }
                         }
                     }
@@ -444,7 +434,7 @@ public class VideoView: NativeView, Loggable {
             }
         }
 
-        _nativeRenderer.set(mirrored: shouldMirror())
+        _nativeRenderer.set(mirrored: _shouldMirror())
     }
 }
 
@@ -488,7 +478,7 @@ private extension VideoView {
         return newView
     }
 
-    func shouldMirror() -> Bool {
+    func _shouldMirror() -> Bool {
         switch _state.mirrorMode {
         case .auto:
             guard let localVideoTrack = _state.track as? LocalVideoTrack,
@@ -565,18 +555,6 @@ extension VideoView: VideoRenderer {
         if _state.isDebugMode {
             Task.detached { @MainActor in
                 self._frameCount += 1
-            }
-        }
-    }
-}
-
-// MARK: - VideoCapturerDelegate
-
-extension VideoView: VideoCapturerDelegate {
-    public func capturer(_: VideoCapturer, didUpdate state: VideoCapturer.CapturerState) {
-        if case .started = state {
-            Task.detached { @MainActor in
-                self.setNeedsLayout()
             }
         }
     }
