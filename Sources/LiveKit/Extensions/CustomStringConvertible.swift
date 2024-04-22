@@ -114,6 +114,17 @@ extension RTCPeerConnectionState {
     }
 }
 
+extension ConnectionState: CustomStringConvertible {
+    public var description: String {
+        switch self {
+        case .disconnected: ".disconnected"
+        case .connecting: ".connecting"
+        case .reconnecting: ".reconnecting"
+        case .connected: ".connected"
+        }
+    }
+}
+
 extension ReconnectMode: CustomStringConvertible {
     public var description: String {
         switch self {

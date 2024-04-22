@@ -30,7 +30,7 @@ extension RTCPeerConnectionState {
 
 extension Engine: TransportDelegate {
     func transport(_ transport: Transport, didUpdateState pcState: RTCPeerConnectionState) async {
-        log("target: \(transport.target), state: \(pcState)")
+        log("target: \(transport.target), connectionState: \(pcState.description)")
 
         // primary connected
         if transport.isPrimary {
