@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+import AVFoundation
 import Foundation
 
 @_implementationOnly import LiveKitWebRTC
@@ -30,25 +31,36 @@ public protocol VideoRenderer {
     var adaptiveStreamSize: CGSize { get }
 
     /// Size of the frame.
+    @objc optional
     func set(size: CGSize)
 
+    @objc optional
     func render(frame: VideoFrame)
+
+    // Only invoked for local tracks, provides additional capture time options
+    @objc optional
+    func render(frame: VideoFrame, videoCaptureOptions: VideoCaptureOptions?)
 }
 
 class VideoRendererAdapter: NSObject, LKRTCVideoRenderer {
     private weak var target: VideoRenderer?
+    private weak var localVideoTrack: LocalVideoTrack?
 
-    init(target: VideoRenderer) {
+    init(target: VideoRenderer, localVideoTrack: LocalVideoTrack?) {
         self.target = target
+        self.localVideoTrack = localVideoTrack
     }
 
     func setSize(_ size: CGSize) {
-        target?.set(size: size)
+        target?.set?(size: size)
     }
 
     func renderFrame(_ frame: LKRTCVideoFrame?) {
         guard let frame = frame?.toLKType() else { return }
-        target?.render(frame: frame)
+        target?.render?(frame: frame)
+
+        let cameraCapturer = localVideoTrack?.capturer as? CameraCapturer
+        target?.render?(frame: frame, videoCaptureOptions: cameraCapturer?.options)
     }
 
     // Proxy the equality operators

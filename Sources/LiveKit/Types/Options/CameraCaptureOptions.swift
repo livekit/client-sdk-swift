@@ -82,4 +82,10 @@ public class CameraCaptureOptions: NSObject, VideoCaptureOptions {
         hasher.combine(fps)
         return hasher.finalize()
     }
+
+    // MARK: - CustomStringConvertible
+
+    override public var description: String {
+        "CameraCaptureOptions(position: \(String(describing: position))"
+    }
 }

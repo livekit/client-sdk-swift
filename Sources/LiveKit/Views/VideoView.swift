@@ -153,7 +153,7 @@ public class VideoView: NativeView, Loggable {
 
     // MARK: - Internal
 
-    struct State: Equatable {
+    struct State {
         weak var track: Track?
         var isEnabled: Bool = true
         var isHidden: Bool = false
@@ -173,6 +173,9 @@ public class VideoView: NativeView, Loggable {
         var renderDate: Date?
         var didRenderFirstFrame: Bool = false
         var isRendering: Bool = false
+
+        // Only used for rendering local tracks
+        var videoCaptureOptions: VideoCaptureOptions? = nil
 
         // whether if current state should be rendering
         var shouldRender: Bool {
@@ -236,11 +239,6 @@ public class VideoView: NativeView, Loggable {
                                 nr.removeFromSuperview()
                                 self._nativeRenderer = nil
                             }
-
-                            // CapturerDelegate
-                            if let localTrack = track as? LocalVideoTrack {
-                                localTrack.capturer.remove(delegate: self)
-                            }
                         }
 
                         // set new track
@@ -255,11 +253,6 @@ public class VideoView: NativeView, Loggable {
                                 self.log("rendering cached frame tack: \(String(describing: track._state.sid))")
                                 nr.renderFrame(frame.toRTCType())
                                 self.setNeedsLayout()
-                            }
-
-                            // CapturerDelegate
-                            if let localTrack = track as? LocalVideoTrack {
-                                localTrack.capturer.add(delegate: self)
                             }
                         }
                     }
@@ -290,6 +283,13 @@ public class VideoView: NativeView, Loggable {
             // https://developer.apple.com/forums/thread/105252
             // nativeRenderer.asMetalView?.isPaused = !shouldAttach
 
+            var capturePositionDidUpdate = false
+            if let oldCameraCaptureOptions = oldState.videoCaptureOptions as? CameraCaptureOptions,
+               let newCameraCaptureOptions = newState.videoCaptureOptions as? CameraCaptureOptions
+            {
+                capturePositionDidUpdate = oldCameraCaptureOptions.position != newCameraCaptureOptions.position
+            }
+
             // layout is required if any of the following vars mutate
             if newState.isDebugMode != oldState.isDebugMode ||
                 newState.layoutMode != oldState.layoutMode ||
@@ -297,7 +297,7 @@ public class VideoView: NativeView, Loggable {
                 newState.renderMode != oldState.renderMode ||
                 newState.rotationOverride != oldState.rotationOverride ||
                 newState.didRenderFirstFrame != oldState.didRenderFirstFrame ||
-                shouldRenderDidUpdate || trackDidUpdate
+                shouldRenderDidUpdate || trackDidUpdate || capturePositionDidUpdate
             {
                 // must be on main
                 Task.detached { @MainActor in
@@ -444,7 +444,7 @@ public class VideoView: NativeView, Loggable {
             }
         }
 
-        _nativeRenderer.set(mirrored: shouldMirror())
+        _nativeRenderer.set(mirrored: _shouldMirror())
     }
 }
 
@@ -488,12 +488,11 @@ private extension VideoView {
         return newView
     }
 
-    func shouldMirror() -> Bool {
+    func _shouldMirror() -> Bool {
         switch _state.mirrorMode {
         case .auto:
-            guard let localVideoTrack = _state.track as? LocalVideoTrack,
-                  let cameraCapturer = localVideoTrack.capturer as? CameraCapturer,
-                  case .front = cameraCapturer.options.position else { return false }
+            guard let cameraCaptureOptions = _state.videoCaptureOptions as? CameraCaptureOptions,
+                  case .front = cameraCaptureOptions.position else { return false }
             return true
         case .off: return false
         case .mirror: return true
@@ -519,7 +518,7 @@ extension VideoView: VideoRenderer {
         }
     }
 
-    public func render(frame: VideoFrame) {
+    public func render(frame: VideoFrame, videoCaptureOptions: VideoCaptureOptions?) {
         let state = _state.copy()
 
         // prevent any extra rendering if already !isEnabled etc.
@@ -556,6 +555,7 @@ extension VideoView: VideoRenderer {
         track?.set(videoFrame: frame)
 
         _state.mutate {
+            $0.videoCaptureOptions = videoCaptureOptions
             $0.didRenderFirstFrame = true
             $0.isRendering = true
             $0.renderDate = Date()
@@ -564,18 +564,6 @@ extension VideoView: VideoRenderer {
         if _state.isDebugMode {
             Task.detached { @MainActor in
                 self._frameCount += 1
-            }
-        }
-    }
-}
-
-// MARK: - VideoCapturerDelegate
-
-extension VideoView: VideoCapturerDelegate {
-    public func capturer(_: VideoCapturer, didUpdate state: VideoCapturer.CapturerState) {
-        if case .started = state {
-            Task.detached { @MainActor in
-                self.setNeedsLayout()
             }
         }
     }
