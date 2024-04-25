@@ -53,7 +53,8 @@ public class BaseKeyProvider: Loggable {
                                                       ratchetWindowSize: options.ratchetWindowSize,
                                                       sharedKeyMode: isSharedKey,
                                                       uncryptedMagicBytes: options.uncryptedMagicBytes,
-                                                      failureTolerance: options.failureTolerance)
+                                                      failureTolerance: options.failureTolerance,
+                                                      keyRingSize: 16)
         if isSharedKey, sharedKey != nil {
             let keyData = sharedKey!.data(using: .utf8)!
             rtcKeyProvider.setSharedKey(keyData, with: 0)

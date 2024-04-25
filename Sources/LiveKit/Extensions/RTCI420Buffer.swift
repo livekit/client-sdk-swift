@@ -62,7 +62,7 @@ extension LKRTCI420Buffer {
                                 dstUV: dstUV,
                                 dstStrideUV: Int32(dstUVStride),
                                 width: width,
-                                width: height)
+                                height: height)
 
         } else {
             let dst = CVPixelBufferGetBaseAddress(outputPixelBuffer)
