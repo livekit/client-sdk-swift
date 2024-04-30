@@ -139,3 +139,13 @@ extension Livekit_SignalResponse: CustomStringConvertible {
         "Livekit_SignalResponse(\(String(describing: message)))"
     }
 }
+
+extension VideoView.RenderMode: CustomStringConvertible {
+    public var description: String {
+        switch self {
+        case .auto: return ".auto"
+        case .metal: return ".metal"
+        case .sampleBuffer: return ".sampleBuffer"
+        }
+    }
+}

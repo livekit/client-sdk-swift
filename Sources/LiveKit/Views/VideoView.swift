@@ -22,9 +22,6 @@ import MetalKit
 
 /// A ``NativeViewType`` that conforms to ``RTCVideoRenderer``.
 typealias NativeRendererView = LKRTCVideoRenderer & Mirrorable & NativeViewType
-protocol Mirrorable {
-    func set(mirrored: Bool)
-}
 
 @objc
 public class VideoView: NativeView, Loggable {
@@ -55,18 +52,10 @@ public class VideoView: NativeView, Loggable {
     }
 
     @objc
-    public enum RenderMode: Int, Codable, CustomStringConvertible {
+    public enum RenderMode: Int, Codable {
         case auto
         case metal
         case sampleBuffer
-
-        public var description: String {
-            switch self {
-            case .auto: return ".auto"
-            case .metal: return ".metal"
-            case .sampleBuffer: return ".sampleBuffer"
-            }
-        }
     }
 
     /// ``LayoutMode-swift.enum`` of the ``VideoView``.
@@ -351,10 +340,6 @@ public class VideoView: NativeView, Loggable {
 
     override public func performLayout() {
         super.performLayout()
-
-        if !Thread.current.isMainThread {
-            log("Must be called on main thread", .error)
-        }
 
         let state = _state.copy()
 
