@@ -24,11 +24,6 @@ public class ConnectOptions: NSObject {
     @objc
     public let autoSubscribe: Bool
 
-    /// Providing a string will make the connection publish-only, suitable for iOS Broadcast Upload Extensions.
-    /// The string can be used to identify the publisher.
-    @objc
-    public let publishOnlyMode: String?
-
     /// The number of attempts to reconnect when the network disconnects.
     @objc
     public let reconnectAttempts: Int
@@ -48,7 +43,6 @@ public class ConnectOptions: NSObject {
     @objc
     override public init() {
         autoSubscribe = true
-        publishOnlyMode = nil
         reconnectAttempts = 3
         reconnectAttemptDelay = .defaultReconnectAttemptDelay
         iceServers = []
@@ -57,14 +51,12 @@ public class ConnectOptions: NSObject {
 
     @objc
     public init(autoSubscribe: Bool = true,
-                publishOnlyMode: String? = nil,
                 reconnectAttempts: Int = 3,
                 reconnectAttemptDelay: TimeInterval = .defaultReconnectAttemptDelay,
                 iceServers: [IceServer] = [],
                 protocolVersion: ProtocolVersion = .v12)
     {
         self.autoSubscribe = autoSubscribe
-        self.publishOnlyMode = publishOnlyMode
         self.reconnectAttempts = reconnectAttempts
         self.reconnectAttemptDelay = reconnectAttemptDelay
         self.iceServers = iceServers
@@ -76,7 +68,6 @@ public class ConnectOptions: NSObject {
     override public func isEqual(_ object: Any?) -> Bool {
         guard let other = object as? Self else { return false }
         return autoSubscribe == other.autoSubscribe &&
-            publishOnlyMode == other.publishOnlyMode &&
             reconnectAttempts == other.reconnectAttempts &&
             reconnectAttemptDelay == other.reconnectAttemptDelay &&
             iceServers == other.iceServers &&
@@ -86,7 +77,6 @@ public class ConnectOptions: NSObject {
     override public var hash: Int {
         var hasher = Hasher()
         hasher.combine(autoSubscribe)
-        hasher.combine(publishOnlyMode)
         hasher.combine(reconnectAttempts)
         hasher.combine(reconnectAttemptDelay)
         hasher.combine(iceServers)

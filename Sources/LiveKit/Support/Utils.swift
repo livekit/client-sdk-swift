@@ -192,10 +192,6 @@ class Utils {
         queryItems.append(URLQueryItem(name: "auto_subscribe", value: connectOptions.autoSubscribe ? "1" : "0"))
         queryItems.append(URLQueryItem(name: "adaptive_stream", value: adaptiveStream ? "1" : "0"))
 
-        if let publish = connectOptions.publishOnlyMode {
-            queryItems.append(URLQueryItem(name: "publish", value: publish))
-        }
-
         builder.queryItems = queryItems
 
         return builder.url
