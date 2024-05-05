@@ -137,7 +137,7 @@ public class CameraCapturer: VideoCapturer {
         let devices = CameraCapturer.captureDevices()
         // TODO: FaceTime Camera for macOS uses .unspecified, fall back to first device
 
-        guard let device = devices.first(where: { $0.position == self.options.position }) ?? devices.first else {
+        guard let device = options.device ?? devices.first(where: { $0.position == self.options.position }) ?? devices.first else {
             log("No camera video capture devices available", .error)
             throw LiveKitError(.deviceNotFound, message: "No camera video capture devices available")
         }
