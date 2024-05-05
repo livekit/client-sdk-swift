@@ -89,7 +89,7 @@ public class RemoteTrackPublication: TrackPublication {
 
         try await checkUserCanModifyTrackSettings()
 
-        let settings = trackSettings.copyWith(isEnabled: newValue)
+        let settings = trackSettings.copyWith(isEnabled: .value(newValue))
         // Attempt to set the new settings
         try await send(trackSettings: settings)
     }
@@ -103,7 +103,7 @@ public class RemoteTrackPublication: TrackPublication {
 
         try await checkUserCanModifyTrackSettings()
 
-        let settings = trackSettings.copyWith(preferredFPS: newValue)
+        let settings = trackSettings.copyWith(preferredFPS: .value(newValue))
         // Attempt to set the new settings
         try await send(trackSettings: settings)
     }
@@ -120,10 +120,7 @@ public class RemoteTrackPublication: TrackPublication {
 
         try await checkUserCanModifyTrackSettings()
 
-        let settings = trackSettings.copyWith(
-            dimensions: newValue,
-            videoQuality: nil
-        )
+        let settings = trackSettings.copyWith(dimensions: .value(newValue))
         // Attempt to set the new settings
         try await send(trackSettings: settings)
     }
@@ -141,10 +138,7 @@ public class RemoteTrackPublication: TrackPublication {
 
         try await checkUserCanModifyTrackSettings()
 
-        let settings = trackSettings.copyWith(
-            dimensions: nil,
-            videoQuality: newValue
-        )
+        let settings = trackSettings.copyWith(videoQuality: .value(newValue))
         // Attempt to set the new settings
         try await send(trackSettings: settings)
     }
@@ -358,7 +352,10 @@ extension RemoteTrackPublication {
                                     height: Int32(ceil(maxSize.height)))
         }
 
-        let newSettings = _state.trackSettings.copyWith(isEnabled: isEnabled, dimensions: dimensions)
+        let newSettings = _state.trackSettings.copyWith(
+            isEnabled: .value(isEnabled),
+            dimensions: .value(dimensions)
+        )
 
         guard _state.trackSettings != newSettings else {
             // no settings updated

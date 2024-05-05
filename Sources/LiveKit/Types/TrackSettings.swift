@@ -33,14 +33,14 @@ struct TrackSettings: Equatable, Hashable {
         self.preferredFPS = preferredFPS
     }
 
-    func copyWith(isEnabled: Bool? = nil,
-                  dimensions: Dimensions? = nil,
-                  videoQuality: VideoQuality? = nil,
-                  preferredFPS: UInt? = nil) -> TrackSettings
+    func copyWith(isEnabled: ValueOrAbsent<Bool> = .absent,
+                  dimensions: ValueOrAbsent<Dimensions> = .absent,
+                  videoQuality: ValueOrAbsent<VideoQuality> = .absent,
+                  preferredFPS: ValueOrAbsent<UInt> = .absent) -> TrackSettings
     {
-        TrackSettings(enabled: isEnabled ?? self.isEnabled,
-                      dimensions: dimensions ?? self.dimensions,
-                      videoQuality: videoQuality ?? self.videoQuality,
-                      preferredFPS: preferredFPS ?? self.preferredFPS)
+        TrackSettings(enabled: isEnabled.value(ifAbsent: self.isEnabled),
+                      dimensions: dimensions.value(ifAbsent: self.dimensions),
+                      videoQuality: videoQuality.value(ifAbsent: self.videoQuality),
+                      preferredFPS: preferredFPS.value(ifAbsent: self.preferredFPS))
     }
 }

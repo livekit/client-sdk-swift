@@ -53,17 +53,6 @@ public class CameraCaptureOptions: NSObject, VideoCaptureOptions {
         self.fps = fps
     }
 
-    public func copyWith(position: AVCaptureDevice.Position? = nil,
-                         preferredFormat: AVCaptureDevice.Format? = nil,
-                         dimensions: Dimensions? = nil,
-                         fps: Int? = nil) -> CameraCaptureOptions
-    {
-        CameraCaptureOptions(position: position ?? self.position,
-                             preferredFormat: preferredFormat ?? self.preferredFormat,
-                             dimensions: dimensions ?? self.dimensions,
-                             fps: fps ?? self.fps)
-    }
-
     // MARK: - Equal
 
     override public func isEqual(_ object: Any?) -> Bool {

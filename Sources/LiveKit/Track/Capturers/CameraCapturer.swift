@@ -110,7 +110,7 @@ public class CameraCapturer: VideoCapturer {
         log("set(cameraPosition:) \(position)")
 
         // update options to use new position
-        options = options.copyWith(position: position)
+        options = options.copyWith(position: .value(position))
 
         // Restart capturer
         return try await restartCapture()
