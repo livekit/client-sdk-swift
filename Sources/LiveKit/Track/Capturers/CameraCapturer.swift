@@ -128,8 +128,17 @@ public class CameraCapturer: VideoCapturer {
     public func set(cameraPosition position: AVCaptureDevice.Position) async throws -> Bool {
         log("set(cameraPosition:) \(position)")
 
-        // update options to use new position
-        options = options.copyWith(position: .value(position))
+        return try await set(options: options.copyWith(position: .value(position)))
+    }
+
+    /// Sets new options at runtime and resstarts capturing.
+    @objc
+    @discardableResult
+    public func set(options newOptions: CameraCaptureOptions) async throws -> Bool {
+        log("set(options:) \(options)")
+
+        // Update to new options
+        options = newOptions
 
         // Restart capturer
         return try await restartCapture()
@@ -144,10 +153,15 @@ public class CameraCapturer: VideoCapturer {
         let preferredPixelFormat = capturer.preferredOutputPixelFormat()
         log("CameraCapturer.preferredPixelFormat: \(preferredPixelFormat.toString())")
 
-        let devices = CameraCapturer.captureDevices()
         // TODO: FaceTime Camera for macOS uses .unspecified, fall back to first device
+        var device: AVCaptureDevice? = options.device
 
-        guard let device = devices.first(where: { $0.position == self.options.position }) ?? devices.first else {
+        if device == nil {
+            let devices = CameraCapturer.captureDevices()
+            device = devices.first(where: { $0.position == self.options.position }) ?? devices.first
+        }
+
+        guard let device else {
             log("No camera video capture devices available", .error)
             throw LiveKitError(.deviceNotFound, message: "No camera video capture devices available")
         }
