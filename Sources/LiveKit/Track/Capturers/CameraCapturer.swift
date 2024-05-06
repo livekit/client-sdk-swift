@@ -153,10 +153,15 @@ public class CameraCapturer: VideoCapturer {
         let preferredPixelFormat = capturer.preferredOutputPixelFormat()
         log("CameraCapturer.preferredPixelFormat: \(preferredPixelFormat.toString())")
 
-        let devices = CameraCapturer.captureDevices()
         // TODO: FaceTime Camera for macOS uses .unspecified, fall back to first device
+        var device: AVCaptureDevice? = options.device
 
-        guard let device = options.device ?? devices.first(where: { $0.position == self.options.position }) ?? devices.first else {
+        if device == nil {
+            let devices = CameraCapturer.captureDevices()
+            device = devices.first(where: { $0.position == self.options.position }) ?? devices.first
+        }
+
+        guard let device else {
             log("No camera video capture devices available", .error)
             throw LiveKitError(.deviceNotFound, message: "No camera video capture devices available")
         }
