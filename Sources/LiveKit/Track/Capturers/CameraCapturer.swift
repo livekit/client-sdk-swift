@@ -25,7 +25,26 @@ import ReplayKit
 public class CameraCapturer: VideoCapturer {
     @objc
     public static func captureDevices() -> [AVCaptureDevice] {
-        DispatchQueue.liveKitWebRTC.sync { LKRTCCameraVideoCapturer.captureDevices() }
+        let deviceTypes: [AVCaptureDevice.DeviceType]
+        #if os(iOS)
+        deviceTypes = [
+            .builtInDualCamera,
+            .builtInDualWideCamera,
+            .builtInTripleCamera,
+            .builtInWideAngleCamera,
+            .builtInTelephotoCamera,
+            .builtInUltraWideCamera,
+        ]
+        #else
+        deviceTypes = [
+            .builtInWideAngleCamera,
+        ]
+        #endif
+
+        let session = AVCaptureDevice.DiscoverySession(deviceTypes: deviceTypes,
+                                                       mediaType: .video,
+                                                       position: .unspecified)
+        return session.devices
     }
 
     /// Checks whether both front and back capturing devices exist, and can be switched.
