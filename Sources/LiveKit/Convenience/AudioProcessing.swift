@@ -27,9 +27,9 @@ public struct AudioLevel {
 public extension LKAudioBuffer {
     /// Convert to AVAudioPCMBuffer float buffer will be normalized to 32 bit.
     @objc
-    func toAVAudioPCMBuffer() -> AVAudioPCMBuffer? {
+    func toAVAudioPCMBuffer(sampleRate: Double) -> AVAudioPCMBuffer? {
         guard let audioFormat = AVAudioFormat(commonFormat: .pcmFormatFloat32,
-                                              sampleRate: 48000,
+                                              sampleRate: sampleRate,
                                               channels: AVAudioChannelCount(channels),
                                               interleaved: false),
             let pcmBuffer = AVAudioPCMBuffer(pcmFormat: audioFormat,
