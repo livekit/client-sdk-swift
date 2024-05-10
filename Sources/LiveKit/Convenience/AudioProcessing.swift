@@ -29,7 +29,7 @@ public extension LKAudioBuffer {
     @objc
     func toAVAudioPCMBuffer() -> AVAudioPCMBuffer? {
         guard let audioFormat = AVAudioFormat(commonFormat: .pcmFormatFloat32,
-                                              sampleRate: 48000,
+                                              sampleRate: Double(frames * 100),
                                               channels: AVAudioChannelCount(channels),
                                               interleaved: false),
             let pcmBuffer = AVAudioPCMBuffer(pcmFormat: audioFormat,
