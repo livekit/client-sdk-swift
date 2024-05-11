@@ -23,17 +23,17 @@ public extension TimeInterval {
     static let defaultSocketConnect: Self = 10
     // used for validation mode
     static let defaultHTTPConnect: Self = 5
+
+    static let defaultJoinResponse: Self = 7
+    static let defaultTransportState: Self = 10
+    static let defaultPublisherDataChannelOpen: Self = 7
+    static let resolveSid: Self = 7 + 5 // Join response + 5
+    static let defaultPublish: Self = 10
+    static let defaultCaptureStart: Self = 5
 }
 
-public extension DispatchTimeInterval {
-    static let defaultCaptureStart: Self = .seconds(5)
-    static let defaultConnectivity: Self = .seconds(10)
-    static let defaultPublish: Self = .seconds(10)
-    // the following 3 timeouts are used for a typical connect sequence
-    static let defaultJoinResponse: Self = .seconds(7)
-    static let defaultTransportState: Self = .seconds(10)
-    // used for validation mode
-    static let defaultPublisherDataChannelOpen: Self = .seconds(7)
-
-    static let sid: Self = .seconds(7 + 5) // Join response + 5
+extension TimeInterval {
+    var toDispatchTimeInterval: DispatchTimeInterval {
+        .milliseconds(Int(self * 1000))
+    }
 }
