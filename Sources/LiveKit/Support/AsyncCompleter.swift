@@ -83,10 +83,10 @@ class AsyncCompleter<T>: Loggable {
 
     public let label: String
 
-    private let _defaultTimeOut: DispatchTimeInterval
     private let _timerQueue = DispatchQueue(label: "LiveKitSDK.AsyncCompleter", qos: .background)
 
     // Internal states
+    private var _defaultTimeOut: DispatchTimeInterval
     private var _entries: [UUID: WaitEntry] = [:]
     private var _result: Result<T, Error>?
 
@@ -99,6 +99,12 @@ class AsyncCompleter<T>: Loggable {
 
     deinit {
         reset()
+    }
+
+    public func set(defaultTimeOut: TimeInterval) {
+        _lock.sync {
+            _defaultTimeOut = defaultTimeOut.toDispatchTimeInterval
+        }
     }
 
     public func reset() {
@@ -131,7 +137,7 @@ class AsyncCompleter<T>: Loggable {
         resume(with: .failure(error))
     }
 
-    public func wait(timeOut: DispatchTimeInterval? = nil) async throws -> T {
+    public func wait(timeOut: TimeInterval? = nil) async throws -> T {
         // Read value
         if let result = _lock.sync({ _result }) {
             // Already resolved...
@@ -148,8 +154,6 @@ class AsyncCompleter<T>: Loggable {
 
         // Create ids for continuation & timeOutBlock
         let entryId = UUID()
-
-        log("\(label) waiting with id: \(entryId)")
 
         // Create a cancel-aware timed continuation
         return try await withTaskCancellationHandler {
@@ -169,9 +173,12 @@ class AsyncCompleter<T>: Loggable {
 
                 _lock.sync {
                     // Schedule time-out block
-                    _timerQueue.asyncAfter(deadline: .now() + (timeOut ?? _defaultTimeOut), execute: timeOutBlock)
+                    let t = (timeOut?.toDispatchTimeInterval ?? _defaultTimeOut)
+                    _timerQueue.asyncAfter(deadline: .now() + t, execute: timeOutBlock)
                     // Store entry
                     _entries[entryId] = WaitEntry(continuation: continuation, timeOutBlock: timeOutBlock)
+
+                    log("\(label) waiting \(t) with id: \(entryId)")
                 }
             }
         } onCancel: {

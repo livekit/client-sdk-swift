@@ -32,6 +32,12 @@ public class ConnectOptions: NSObject {
     @objc
     public let reconnectAttemptDelay: TimeInterval
 
+    @objc
+    public let primaryTransportConnectTimeOut: TimeInterval
+
+    @objc
+    public let publisherTransportConnectTimeOut: TimeInterval
+
     /// Custom ice servers
     @objc
     public let iceServers: [IceServer]
@@ -45,6 +51,8 @@ public class ConnectOptions: NSObject {
         autoSubscribe = true
         reconnectAttempts = 3
         reconnectAttemptDelay = .defaultReconnectAttemptDelay
+        primaryTransportConnectTimeOut = .defaultTransportState
+        publisherTransportConnectTimeOut = .defaultTransportState
         iceServers = []
         protocolVersion = .v12
     }
@@ -53,12 +61,16 @@ public class ConnectOptions: NSObject {
     public init(autoSubscribe: Bool = true,
                 reconnectAttempts: Int = 3,
                 reconnectAttemptDelay: TimeInterval = .defaultReconnectAttemptDelay,
+                primaryTransportConnectTimeOut: TimeInterval = .defaultTransportState,
+                publisherTransportConnectTimeOut: TimeInterval = .defaultTransportState,
                 iceServers: [IceServer] = [],
                 protocolVersion: ProtocolVersion = .v12)
     {
         self.autoSubscribe = autoSubscribe
         self.reconnectAttempts = reconnectAttempts
         self.reconnectAttemptDelay = reconnectAttemptDelay
+        self.primaryTransportConnectTimeOut = primaryTransportConnectTimeOut
+        self.publisherTransportConnectTimeOut = publisherTransportConnectTimeOut
         self.iceServers = iceServers
         self.protocolVersion = protocolVersion
     }
@@ -70,6 +82,8 @@ public class ConnectOptions: NSObject {
         return autoSubscribe == other.autoSubscribe &&
             reconnectAttempts == other.reconnectAttempts &&
             reconnectAttemptDelay == other.reconnectAttemptDelay &&
+            primaryTransportConnectTimeOut == other.primaryTransportConnectTimeOut &&
+            publisherTransportConnectTimeOut == other.publisherTransportConnectTimeOut &&
             iceServers == other.iceServers &&
             protocolVersion == other.protocolVersion
     }
@@ -79,6 +93,8 @@ public class ConnectOptions: NSObject {
         hasher.combine(autoSubscribe)
         hasher.combine(reconnectAttempts)
         hasher.combine(reconnectAttemptDelay)
+        hasher.combine(primaryTransportConnectTimeOut)
+        hasher.combine(publisherTransportConnectTimeOut)
         hasher.combine(iceServers)
         hasher.combine(protocolVersion)
         return hasher.finalize()
