@@ -49,8 +49,11 @@ extension XCTestCase {
                     delegate2: RoomDelegate? = nil,
                     _ block: @escaping (Room, Room) async throws -> Void) async throws
     {
+        let e2eeKey = UUID().uuidString
+        let e2eeOptions = E2EEOptions(keyProvider: BaseKeyProvider(isSharedKey: true, sharedKey: e2eeKey))
+
         // Turn on stats
-        let roomOptions = RoomOptions(reportRemoteTrackStatistics: true)
+        let roomOptions = RoomOptions(e2eeOptions: e2eeOptions, reportRemoteTrackStatistics: true)
 
         let room1 = Room(delegate: delegate1, roomOptions: roomOptions)
         let room2 = Room(delegate: delegate2, roomOptions: roomOptions)
