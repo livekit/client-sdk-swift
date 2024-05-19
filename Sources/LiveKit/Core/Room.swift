@@ -223,16 +223,19 @@ public class Room: NSObject, ObservableObject, Loggable {
     {
         log("connecting to room...", .info)
 
-        let state = _state.copy()
+        var state = _state.copy()
 
         // update options if specified
         if let roomOptions, roomOptions != state.options {
-            _state.mutate { $0.options = roomOptions }
+            state = _state.mutate {
+                $0.options = roomOptions
+                return $0
+            }
         }
 
         // enable E2EE
-        if roomOptions?.e2eeOptions != nil {
-            e2eeManager = E2EEManager(e2eeOptions: roomOptions!.e2eeOptions!)
+        if let e2eeOptions = state.options.e2eeOptions {
+            e2eeManager = E2EEManager(e2eeOptions: e2eeOptions)
             e2eeManager!.setup(room: self)
         }
 
