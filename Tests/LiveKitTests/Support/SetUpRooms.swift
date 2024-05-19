@@ -64,10 +64,18 @@ extension XCTestCase {
         let roomName = UUID().uuidString
 
         let token1 = try liveKitServerToken(for: roomName, identity: "identity01")
-        try await room1.connect(url: url, token: token1)
-
         let token2 = try liveKitServerToken(for: roomName, identity: "identity02")
-        try await room2.connect(url: url, token: token2)
+
+        try await withThrowingTaskGroup(of: Void.self) { group in
+            group.addTask {
+                try await room1.connect(url: url, token: token1)
+            }
+            group.addTask {
+                try await room2.connect(url: url, token: token2)
+            }
+
+            try await group.waitForAll()
+        }
 
         let observerToken = try liveKitServerToken(for: roomName, identity: "observer")
         print("Observer token: \(observerToken) for room: \(roomName)")
