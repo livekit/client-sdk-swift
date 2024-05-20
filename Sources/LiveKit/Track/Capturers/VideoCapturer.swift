@@ -104,14 +104,26 @@ public class VideoCapturer: NSObject, Loggable, VideoCapturerProtocol {
         }
     }
 
-    func capture(capturer: LKRTCVideoCapturer, didCapture frame: LKRTCVideoFrame, withOptions options: VideoCaptureOptions) {
+    func capture(capturer: LKRTCVideoCapturer,
+                 didCapture frame: LKRTCVideoFrame,
+                 withOptions options: VideoCaptureOptions)
+    {
         delegate?.capturer(capturer, didCapture: frame)
-        // TODO: Optimize
-        if let lkVideoFrame = frame.toLKType() {
-            rendererDelegates.notify { renderer in
-                renderer.render?(frame: lkVideoFrame, videoCaptureOptions: options)
+        if rendererDelegates.isDelegatesNotEmpty {
+            if let lkVideoFrame = frame.toLKType() {
+                rendererDelegates.notify { renderer in
+                    renderer.render?(frame: lkVideoFrame, videoCaptureOptions: options)
+                }
             }
         }
+    }
+
+    func capturer(_ capturer: LKRTCVideoCapturer,
+                  didCapture sampleBuffer: CMSampleBuffer,
+                  onResolveSourceDimensions: LKRTCVideoCapturerDelegate.OnResolveSourceDimensions? = nil)
+    {
+        delegate?.capturer(capturer, didCapture: sampleBuffer, onResolveSourceDimensions: onResolveSourceDimensions)
+        // TODO: Implement
     }
 
     deinit {
