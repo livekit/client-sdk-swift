@@ -91,8 +91,8 @@ actor SignalClient: Loggable {
     private var _messageLoopTask: Task<Void, Never>?
     private var _lastJoinResponse: Livekit_JoinResponse?
 
-    private let _connectResponseCompleter = AsyncCompleter<ConnectResponse>(label: "Join response", defaultTimeOut: .defaultJoinResponse)
-    private let _addTrackCompleters = CompleterMapActor<Livekit_TrackInfo>(label: "Completers for add track", defaultTimeOut: .defaultPublish)
+    private let _connectResponseCompleter = AsyncCompleter<ConnectResponse>(label: "Join response", defaultTimeout: .defaultJoinResponse)
+    private let _addTrackCompleters = CompleterMapActor<Livekit_TrackInfo>(label: "Completers for add track", defaultTimeout: .defaultPublish)
 
     private var _pingIntervalTimer = AsyncTimer(interval: 1)
     private var _pingTimeoutTimer = AsyncTimer(interval: 1)

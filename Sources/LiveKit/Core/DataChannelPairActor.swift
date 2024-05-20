@@ -25,7 +25,7 @@ actor DataChannelPairActor: NSObject, Loggable {
 
     // MARK: - Public
 
-    public let openCompleter = AsyncCompleter<Void>(label: "Data channel open", defaultTimeOut: .defaultPublisherDataChannelOpen)
+    public let openCompleter = AsyncCompleter<Void>(label: "Data channel open", defaultTimeout: .defaultPublisherDataChannelOpen)
 
     public var isOpen: Bool {
         guard let reliable = _reliableChannel, let lossy = _lossyChannel else { return false }

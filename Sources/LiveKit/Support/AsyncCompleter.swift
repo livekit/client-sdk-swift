@@ -24,12 +24,12 @@ actor CompleterMapActor<T> {
 
     // MARK: - Private
 
-    private let _defaultTimeOut: TimeInterval
+    private let _defaultTimeout: TimeInterval
     private var _completerMap = [String: AsyncCompleter<T>]()
 
-    public init(label: String, defaultTimeOut: TimeInterval) {
+    public init(label: String, defaultTimeout: TimeInterval) {
         self.label = label
-        _defaultTimeOut = defaultTimeOut
+        _defaultTimeout = defaultTimeout
     }
 
     public func completer(for key: String) -> AsyncCompleter<T> {
@@ -38,7 +38,7 @@ actor CompleterMapActor<T> {
             return element
         }
 
-        let newCompleter = AsyncCompleter<T>(label: label, defaultTimeOut: _defaultTimeOut)
+        let newCompleter = AsyncCompleter<T>(label: label, defaultTimeout: _defaultTimeout)
         _completerMap[key] = newCompleter
         return newCompleter
     }
@@ -63,42 +63,48 @@ class AsyncCompleter<T>: Loggable {
     //
     struct WaitEntry {
         let continuation: UnsafeContinuation<T, Error>
-        let timeOutBlock: DispatchWorkItem
+        let timeoutBlock: DispatchWorkItem
 
         func cancel() {
             continuation.resume(throwing: LiveKitError(.cancelled))
-            timeOutBlock.cancel()
+            timeoutBlock.cancel()
         }
 
-        func timeOut() {
+        func timeout() {
             continuation.resume(throwing: LiveKitError(.timedOut))
-            timeOutBlock.cancel()
+            timeoutBlock.cancel()
         }
 
         func resume(with result: Result<T, Error>) {
             continuation.resume(with: result)
-            timeOutBlock.cancel()
+            timeoutBlock.cancel()
         }
     }
 
     public let label: String
 
-    private let _defaultTimeOut: DispatchTimeInterval
     private let _timerQueue = DispatchQueue(label: "LiveKitSDK.AsyncCompleter", qos: .background)
 
     // Internal states
+    private var _defaultTimeout: DispatchTimeInterval
     private var _entries: [UUID: WaitEntry] = [:]
     private var _result: Result<T, Error>?
 
     private let _lock = UnfairLock()
 
-    public init(label: String, defaultTimeOut: TimeInterval) {
+    public init(label: String, defaultTimeout: TimeInterval) {
         self.label = label
-        _defaultTimeOut = defaultTimeOut.toDispatchTimeInterval
+        _defaultTimeout = defaultTimeout.toDispatchTimeInterval
     }
 
     deinit {
         reset()
+    }
+
+    public func set(defaultTimeout: TimeInterval) {
+        _lock.sync {
+            _defaultTimeout = defaultTimeout.toDispatchTimeInterval
+        }
     }
 
     public func reset() {
@@ -131,7 +137,7 @@ class AsyncCompleter<T>: Loggable {
         resume(with: .failure(error))
     }
 
-    public func wait(timeOut: DispatchTimeInterval? = nil) async throws -> T {
+    public func wait(timeout: TimeInterval? = nil) async throws -> T {
         // Read value
         if let result = _lock.sync({ _result }) {
             // Already resolved...
@@ -146,22 +152,20 @@ class AsyncCompleter<T>: Loggable {
             }
         }
 
-        // Create ids for continuation & timeOutBlock
+        // Create ids for continuation & timeoutBlock
         let entryId = UUID()
-
-        log("\(label) waiting with id: \(entryId)")
 
         // Create a cancel-aware timed continuation
         return try await withTaskCancellationHandler {
             try await withUnsafeThrowingContinuation { continuation in
 
                 // Create time-out block
-                let timeOutBlock = DispatchWorkItem { [weak self] in
+                let timeoutBlock = DispatchWorkItem { [weak self] in
                     guard let self else { return }
                     self.log("Wait \(entryId) timedOut")
                     self._lock.sync {
                         if let entry = self._entries[entryId] {
-                            entry.timeOut()
+                            entry.timeout()
                         }
                         self._entries.removeValue(forKey: entryId)
                     }
@@ -169,9 +173,12 @@ class AsyncCompleter<T>: Loggable {
 
                 _lock.sync {
                     // Schedule time-out block
-                    _timerQueue.asyncAfter(deadline: .now() + (timeOut ?? _defaultTimeOut), execute: timeOutBlock)
+                    let computedTimeout = (timeout?.toDispatchTimeInterval ?? _defaultTimeout)
+                    _timerQueue.asyncAfter(deadline: .now() + computedTimeout, execute: timeoutBlock)
                     // Store entry
-                    _entries[entryId] = WaitEntry(continuation: continuation, timeOutBlock: timeOutBlock)
+                    _entries[entryId] = WaitEntry(continuation: continuation, timeoutBlock: timeoutBlock)
+
+                    log("\(label) waiting \(computedTimeout) with id: \(entryId)")
                 }
             }
         } onCancel: {

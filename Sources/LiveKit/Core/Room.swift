@@ -138,7 +138,7 @@ public class Room: NSObject, ObservableObject, Loggable {
 
     var _state: StateSync<State>
 
-    private let _sidCompleter = AsyncCompleter<Sid>(label: "sid", defaultTimeOut: .resolveSid)
+    private let _sidCompleter = AsyncCompleter<Sid>(label: "sid", defaultTimeout: .resolveSid)
 
     // MARK: Objective-C Support
 
@@ -271,8 +271,6 @@ extension Room {
         // Start Engine cleanUp sequence
 
         engine._state.mutate {
-            $0.primaryTransportConnectedCompleter.reset()
-            $0.publisherTransportConnectedCompleter.reset()
             // if isFullReconnect, keep connection related states
             $0 = isFullReconnect ? Engine.State(
                 connectOptions: $0.connectOptions,
@@ -287,6 +285,9 @@ extension Room {
                 disconnectError: LiveKitError.from(error: disconnectError)
             )
         }
+
+        engine.primaryTransportConnectedCompleter.reset()
+        engine.publisherTransportConnectedCompleter.reset()
 
         await engine.signalClient.cleanUp(withError: disconnectError)
         await engine.cleanUpRTC()

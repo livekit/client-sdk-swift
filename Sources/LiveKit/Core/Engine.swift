@@ -38,10 +38,10 @@ class Engine: Loggable {
         var disconnectError: LiveKitError?
         var connectStopwatch = Stopwatch(label: "connect")
         var hasPublished: Bool = false
-
-        let primaryTransportConnectedCompleter = AsyncCompleter<Void>(label: "Primary transport connect", defaultTimeOut: .defaultTransportState)
-        let publisherTransportConnectedCompleter = AsyncCompleter<Void>(label: "Publisher transport connect", defaultTimeOut: .defaultTransportState)
     }
+
+    let primaryTransportConnectedCompleter = AsyncCompleter<Void>(label: "Primary transport connect", defaultTimeout: .defaultTransportState)
+    let publisherTransportConnectedCompleter = AsyncCompleter<Void>(label: "Publisher transport connect", defaultTimeout: .defaultTransportState)
 
     public var _state: StateSync<State>
 
@@ -216,7 +216,7 @@ class Engine: Loggable {
                 try await publisherShouldNegotiate()
             }
 
-            try await _state.publisherTransportConnectedCompleter.wait()
+            try await publisherTransportConnectedCompleter.wait(timeout: _state.connectOptions.publisherTransportConnectTimeout)
             try await publisherDataChannel.openCompleter.wait()
         }
 
@@ -387,7 +387,7 @@ extension Engine {
         await signalClient.resumeQueues()
 
         // Wait for transport...
-        try await _state.primaryTransportConnectedCompleter.wait()
+        try await primaryTransportConnectedCompleter.wait(timeout: _state.connectOptions.primaryTransportConnectTimeout)
         try Task.checkCancellation()
 
         _state.mutate { $0.connectStopwatch.split(label: "engine") }
@@ -446,7 +446,7 @@ extension Engine {
 
             log("[Connect] Waiting for subscriber to connect...")
             // Wait for primary transport to connect (if not already)
-            try await _state.primaryTransportConnectedCompleter.wait()
+            try await primaryTransportConnectedCompleter.wait(timeout: _state.connectOptions.primaryTransportConnectTimeout)
             try Task.checkCancellation()
 
             // send SyncState before offer
@@ -458,7 +458,7 @@ extension Engine {
                 // Only if published, wait for publisher to connect...
                 log("[Connect] Waiting for publisher to connect...")
                 try await publisher.createAndSendOffer(iceRestart: true)
-                try await _state.publisherTransportConnectedCompleter.wait()
+                try await publisherTransportConnectedCompleter.wait(timeout: _state.connectOptions.publisherTransportConnectTimeout)
             }
         }
 
