@@ -577,14 +577,23 @@ private extension LocalParticipant {
                     }
 
                     let publishOptions = (options as? VideoPublishOptions) ?? room._state.options.defaultVideoPublishOptions
-                    // if screen share or simulcast is enabled,
-                    // degrade resolution by using server's layer switching logic instead of WebRTC's logic
-                    if track.source == .screenShareVideo || publishOptions.simulcast {
-                        log("[publish] set degradationPreference to .maintainResolution")
+
+                    var setDegradationPreference: NSNumber? = nil
+
+                    if let rtcDegradationPreference = publishOptions.degradationPreference.toRTCType() {
+                        setDegradationPreference = NSNumber(value: rtcDegradationPreference.rawValue)
+                    } else {
+                        // If screen share or simulcast is enabled, degrade resolution by using server's layer switching logic instead of WebRTC's logic
+                        if track.source == .screenShareVideo || publishOptions.simulcast {
+                            setDegradationPreference = NSNumber(value: RTCDegradationPreference.maintainResolution.rawValue)
+                        }
+                    }
+
+                    if let setDegradationPreference {
+                        log("[publish] set degradationPreference to \(setDegradationPreference)")
                         let params = transceiver.sender.parameters
-                        params.degradationPreference = NSNumber(value: RTCDegradationPreference.maintainResolution.rawValue)
-                        // changing params directly doesn't work so we need to update params
-                        // and set it back to sender.parameters
+                        params.degradationPreference = setDegradationPreference
+                        // Changing params directly doesn't work so we need to update params and set it back to sender.parameters
                         transceiver.sender.parameters = params
                     }
 
