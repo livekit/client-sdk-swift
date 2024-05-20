@@ -578,16 +578,14 @@ private extension LocalParticipant {
 
                     let publishOptions = (options as? VideoPublishOptions) ?? room._state.options.defaultVideoPublishOptions
 
-                    var setDegradationPreference: NSNumber? = nil
-
-                    if let rtcDegradationPreference = publishOptions.degradationPreference.toRTCType() {
-                        setDegradationPreference = NSNumber(value: rtcDegradationPreference.rawValue)
-                    } else {
-                        // If screen share or simulcast is enabled, degrade resolution by using server's layer switching logic instead of WebRTC's logic
-                        if track.source == .screenShareVideo || publishOptions.simulcast {
-                            setDegradationPreference = NSNumber(value: RTCDegradationPreference.maintainResolution.rawValue)
+                    let setDegradationPreference: NSNumber? = {
+                        if let rtcDegradationPreference = publishOptions.degradationPreference.toRTCType() {
+                            return NSNumber(value: rtcDegradationPreference.rawValue)
+                        } else if track.source == .screenShareVideo || publishOptions.simulcast {
+                            return NSNumber(value: RTCDegradationPreference.maintainResolution.rawValue)
                         }
-                    }
+                        return nil
+                    }()
 
                     if let setDegradationPreference {
                         log("[publish] set degradationPreference to \(setDegradationPreference)")
