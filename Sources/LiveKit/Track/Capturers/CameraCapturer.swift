@@ -23,12 +23,20 @@ import ReplayKit
 @_implementationOnly import LiveKitWebRTC
 
 // Internal-only for now
-internal class DeviceManager: Loggable {
+class DeviceManager: Loggable {
     // MARK: - Public
 
     public static let shared = DeviceManager()
 
-    public lazy var session : AVCaptureDevice.DiscoverySession = {
+    public var devices: [AVCaptureDevice] { _state.devices }
+
+    struct State {
+        var devices: [AVCaptureDevice] = []
+    }
+
+    private var _state = StateSync(State())
+
+    public lazy var session: AVCaptureDevice.DiscoverySession = {
         let deviceTypes: [AVCaptureDevice.DeviceType]
         #if os(iOS)
         deviceTypes = [
@@ -46,8 +54,8 @@ internal class DeviceManager: Loggable {
         #endif
 
         return AVCaptureDevice.DiscoverySession(deviceTypes: deviceTypes,
-                                                       mediaType: .video,
-                                                       position: .unspecified)
+                                                mediaType: .video,
+                                                position: .unspecified)
     }()
 
     var _observation: NSKeyValueObservation?
@@ -55,8 +63,12 @@ internal class DeviceManager: Loggable {
     init() {
         log()
 
-        _observation = session.observe(\.devices, options: [.initial, .new]) { session, value in
+        _observation = session.observe(\.devices, options: [.initial, .new]) { [weak self] _, value in
+            guard let self else { return }
             self.log("Devices: \(String(describing: value.newValue))")
+            self._state.mutate {
+                $0.devices = value.newValue ?? []
+            }
         }
     }
 }
@@ -64,26 +76,7 @@ internal class DeviceManager: Loggable {
 public class CameraCapturer: VideoCapturer {
     @objc
     public static func captureDevices() -> [AVCaptureDevice] {
-        let deviceTypes: [AVCaptureDevice.DeviceType]
-        #if os(iOS)
-        deviceTypes = [
-            .builtInDualCamera,
-            .builtInDualWideCamera,
-            .builtInTripleCamera,
-            .builtInWideAngleCamera,
-            .builtInTelephotoCamera,
-            .builtInUltraWideCamera,
-        ]
-        #else
-        deviceTypes = [
-            .builtInWideAngleCamera,
-        ]
-        #endif
-
-        let session = AVCaptureDevice.DiscoverySession(deviceTypes: deviceTypes,
-                                                       mediaType: .video,
-                                                       position: .unspecified)
-        return session.devices
+        DeviceManager.shared.devices
     }
 
     /// Checks whether both front and back capturing devices exist, and can be switched.
