@@ -173,12 +173,12 @@ class AsyncCompleter<T>: Loggable {
 
                 _lock.sync {
                     // Schedule time-out block
-                    let t = (timeOut?.toDispatchTimeInterval ?? _defaultTimeOut)
-                    _timerQueue.asyncAfter(deadline: .now() + t, execute: timeOutBlock)
+                    let computedTimeout = (timeOut?.toDispatchTimeInterval ?? _defaultTimeOut)
+                    _timerQueue.asyncAfter(deadline: .now() + computedTimeout, execute: timeOutBlock)
                     // Store entry
                     _entries[entryId] = WaitEntry(continuation: continuation, timeOutBlock: timeOutBlock)
 
-                    log("\(label) waiting \(t) with id: \(entryId)")
+                    log("\(label) waiting \(computedTimeout) with id: \(entryId)")
                 }
             }
         } onCancel: {
