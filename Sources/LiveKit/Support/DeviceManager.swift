@@ -22,6 +22,11 @@ class DeviceManager: Loggable {
 
     public static let shared = DeviceManager()
 
+    public static func prepare() {
+        // Instantiate shared instance
+        _ = shared
+    }
+
     public var devices: [AVCaptureDevice] { _state.devices }
 
     struct State {
