@@ -37,6 +37,16 @@ public class MulticastDelegate<T>: NSObject, Loggable {
         _queue = DispatchQueue(label: "LiveKitSDK.Multicast.\(label)", qos: qos, attributes: [])
     }
 
+    public var isDelegatesEmpty: Bool { countDelegates == 0 }
+    public var isDelegatesNotEmpty: Bool { countDelegates != 0 }
+
+    public var countDelegates: Int {
+        _queue.sync { [weak self] in
+            guard let self else { return 0 }
+            return self._set.allObjects.count
+        }
+    }
+
     public var allDelegates: [T] {
         _queue.sync { [weak self] in
             guard let self else { return [] }
