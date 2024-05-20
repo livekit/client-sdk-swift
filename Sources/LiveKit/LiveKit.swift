@@ -44,4 +44,8 @@ public class LiveKitSDK: NSObject {
             return logHandler
         }
     }
+
+    @objc static func prepare() {
+        DeviceManager.prepare()
+    }
 }
