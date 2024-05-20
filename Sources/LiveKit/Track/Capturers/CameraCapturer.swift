@@ -24,14 +24,14 @@ import ReplayKit
 
 public class CameraCapturer: VideoCapturer {
     @objc
-    public static func captureDevices() -> [AVCaptureDevice] {
-        DeviceManager.shared.devices
+    public static func captureDevices() async throws -> [AVCaptureDevice] {
+        try await DeviceManager.shared.devicesCompleter.wait()
     }
 
     /// Checks whether both front and back capturing devices exist, and can be switched.
     @objc
-    public static func canSwitchPosition() -> Bool {
-        let devices = captureDevices()
+    public static func canSwitchPosition() async throws -> Bool {
+        let devices = try await captureDevices()
         return devices.contains(where: { $0.position == .front }) &&
             devices.contains(where: { $0.position == .back })
     }
@@ -138,7 +138,7 @@ public class CameraCapturer: VideoCapturer {
         var device: AVCaptureDevice? = options.device
 
         if device == nil {
-            let devices = CameraCapturer.captureDevices()
+            let devices = try await CameraCapturer.captureDevices()
             device = devices.first(where: { $0.position == self.options.position }) ?? devices.first
         }
 

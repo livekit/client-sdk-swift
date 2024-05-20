@@ -27,14 +27,7 @@ class DeviceManager: Loggable {
         _ = shared
     }
 
-    public var devices: [AVCaptureDevice] { _state.devices }
-
-    struct State {
-        var devices: [AVCaptureDevice] = []
-        var didEnumerateDevices = false
-    }
-
-    private var _state = StateSync(State())
+    public let devicesCompleter = AsyncCompleter<[AVCaptureDevice]>(label: "devices", defaultTimeout: 10)
 
     public lazy var session: AVCaptureDevice.DiscoverySession = {
         let deviceTypes: [AVCaptureDevice.DeviceType]
@@ -67,11 +60,9 @@ class DeviceManager: Loggable {
             guard let self else { return }
             _observation = session.observe(\.devices, options: [.initial, .new]) { [weak self] _, value in
                 guard let self else { return }
-                self.log("Devices: \(String(describing: value.newValue))")
-                self._state.mutate {
-                    $0.devices = value.newValue ?? []
-                    $0.didEnumerateDevices = true
-                }
+                let devices = value.newValue ?? []
+                self.log("Devices: \(String(describing: devices))")
+                self.devicesCompleter.resume(returning: devices)
             }
         }
     }
