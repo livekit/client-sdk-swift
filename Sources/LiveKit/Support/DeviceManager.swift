@@ -31,6 +31,7 @@ class DeviceManager: Loggable {
 
     struct State {
         var devices: [AVCaptureDevice] = []
+        var didEnumerateDevices = false
     }
 
     private var _state = StateSync(State())
@@ -62,11 +63,15 @@ class DeviceManager: Loggable {
     init() {
         log()
 
-        _observation = session.observe(\.devices, options: [.initial, .new]) { [weak self] _, value in
+        DispatchQueue.global(qos: .background).async { [weak self] in
             guard let self else { return }
-            self.log("Devices: \(String(describing: value.newValue))")
-            self._state.mutate {
-                $0.devices = value.newValue ?? []
+            _observation = session.observe(\.devices, options: [.initial, .new]) { [weak self] _, value in
+                guard let self else { return }
+                self.log("Devices: \(String(describing: value.newValue))")
+                self._state.mutate {
+                    $0.devices = value.newValue ?? []
+                    $0.didEnumerateDevices = true
+                }
             }
         }
     }
