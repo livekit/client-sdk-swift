@@ -45,7 +45,9 @@ public class LiveKitSDK: NSObject {
         }
     }
 
+    /// Notify the SDK to start initializing for faster connection/publishing later on. This is non-blocking.
     @objc static func prepare() {
+        // TODO: Add RTC related initializations
         DeviceManager.prepare()
     }
 }
