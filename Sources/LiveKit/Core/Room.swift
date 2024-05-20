@@ -138,7 +138,7 @@ public class Room: NSObject, ObservableObject, Loggable {
 
     var _state: StateSync<State>
 
-    private let _sidCompleter = AsyncCompleter<Sid>(label: "sid", defaultTimeOut: .resolveSid)
+    private let _sidCompleter = AsyncCompleter<Sid>(label: "sid", defaultTimeout: .resolveSid)
 
     // MARK: Objective-C Support
 

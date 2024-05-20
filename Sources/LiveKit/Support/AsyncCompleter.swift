@@ -24,12 +24,12 @@ actor CompleterMapActor<T> {
 
     // MARK: - Private
 
-    private let _defaultTimeOut: TimeInterval
+    private let _defaultTimeout: TimeInterval
     private var _completerMap = [String: AsyncCompleter<T>]()
 
-    public init(label: String, defaultTimeOut: TimeInterval) {
+    public init(label: String, defaultTimeout: TimeInterval) {
         self.label = label
-        _defaultTimeOut = defaultTimeOut
+        _defaultTimeout = defaultTimeout
     }
 
     public func completer(for key: String) -> AsyncCompleter<T> {
@@ -38,7 +38,7 @@ actor CompleterMapActor<T> {
             return element
         }
 
-        let newCompleter = AsyncCompleter<T>(label: label, defaultTimeOut: _defaultTimeOut)
+        let newCompleter = AsyncCompleter<T>(label: label, defaultTimeout: _defaultTimeout)
         _completerMap[key] = newCompleter
         return newCompleter
     }
@@ -92,9 +92,9 @@ class AsyncCompleter<T>: Loggable {
 
     private let _lock = UnfairLock()
 
-    public init(label: String, defaultTimeOut: TimeInterval) {
+    public init(label: String, defaultTimeout: TimeInterval) {
         self.label = label
-        _defaultTimeout = defaultTimeOut.toDispatchTimeInterval
+        _defaultTimeout = defaultTimeout.toDispatchTimeInterval
     }
 
     deinit {
