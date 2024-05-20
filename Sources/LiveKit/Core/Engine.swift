@@ -216,7 +216,7 @@ class Engine: Loggable {
                 try await publisherShouldNegotiate()
             }
 
-            try await publisherTransportConnectedCompleter.wait(timeOut: _state.connectOptions.publisherTransportConnectTimeOut)
+            try await publisherTransportConnectedCompleter.wait(timeout: _state.connectOptions.publisherTransportConnectTimeOut)
             try await publisherDataChannel.openCompleter.wait()
         }
 
@@ -387,7 +387,7 @@ extension Engine {
         await signalClient.resumeQueues()
 
         // Wait for transport...
-        try await primaryTransportConnectedCompleter.wait(timeOut: _state.connectOptions.primaryTransportConnectTimeOut)
+        try await primaryTransportConnectedCompleter.wait(timeout: _state.connectOptions.primaryTransportConnectTimeOut)
         try Task.checkCancellation()
 
         _state.mutate { $0.connectStopwatch.split(label: "engine") }
@@ -446,7 +446,7 @@ extension Engine {
 
             log("[Connect] Waiting for subscriber to connect...")
             // Wait for primary transport to connect (if not already)
-            try await primaryTransportConnectedCompleter.wait(timeOut: _state.connectOptions.primaryTransportConnectTimeOut)
+            try await primaryTransportConnectedCompleter.wait(timeout: _state.connectOptions.primaryTransportConnectTimeOut)
             try Task.checkCancellation()
 
             // send SyncState before offer
@@ -458,7 +458,7 @@ extension Engine {
                 // Only if published, wait for publisher to connect...
                 log("[Connect] Waiting for publisher to connect...")
                 try await publisher.createAndSendOffer(iceRestart: true)
-                try await publisherTransportConnectedCompleter.wait(timeOut: _state.connectOptions.publisherTransportConnectTimeOut)
+                try await publisherTransportConnectedCompleter.wait(timeout: _state.connectOptions.publisherTransportConnectTimeOut)
             }
         }
 

@@ -63,21 +63,21 @@ class AsyncCompleter<T>: Loggable {
     //
     struct WaitEntry {
         let continuation: UnsafeContinuation<T, Error>
-        let timeOutBlock: DispatchWorkItem
+        let timeoutBlock: DispatchWorkItem
 
         func cancel() {
             continuation.resume(throwing: LiveKitError(.cancelled))
-            timeOutBlock.cancel()
+            timeoutBlock.cancel()
         }
 
-        func timeOut() {
+        func timeout() {
             continuation.resume(throwing: LiveKitError(.timedOut))
-            timeOutBlock.cancel()
+            timeoutBlock.cancel()
         }
 
         func resume(with result: Result<T, Error>) {
             continuation.resume(with: result)
-            timeOutBlock.cancel()
+            timeoutBlock.cancel()
         }
     }
 
@@ -86,7 +86,7 @@ class AsyncCompleter<T>: Loggable {
     private let _timerQueue = DispatchQueue(label: "LiveKitSDK.AsyncCompleter", qos: .background)
 
     // Internal states
-    private var _defaultTimeOut: DispatchTimeInterval
+    private var _defaultTimeout: DispatchTimeInterval
     private var _entries: [UUID: WaitEntry] = [:]
     private var _result: Result<T, Error>?
 
@@ -94,16 +94,16 @@ class AsyncCompleter<T>: Loggable {
 
     public init(label: String, defaultTimeOut: TimeInterval) {
         self.label = label
-        _defaultTimeOut = defaultTimeOut.toDispatchTimeInterval
+        _defaultTimeout = defaultTimeOut.toDispatchTimeInterval
     }
 
     deinit {
         reset()
     }
 
-    public func set(defaultTimeOut: TimeInterval) {
+    public func set(defaultTimeout: TimeInterval) {
         _lock.sync {
-            _defaultTimeOut = defaultTimeOut.toDispatchTimeInterval
+            _defaultTimeout = defaultTimeout.toDispatchTimeInterval
         }
     }
 
@@ -137,7 +137,7 @@ class AsyncCompleter<T>: Loggable {
         resume(with: .failure(error))
     }
 
-    public func wait(timeOut: TimeInterval? = nil) async throws -> T {
+    public func wait(timeout: TimeInterval? = nil) async throws -> T {
         // Read value
         if let result = _lock.sync({ _result }) {
             // Already resolved...
@@ -152,7 +152,7 @@ class AsyncCompleter<T>: Loggable {
             }
         }
 
-        // Create ids for continuation & timeOutBlock
+        // Create ids for continuation & timeoutBlock
         let entryId = UUID()
 
         // Create a cancel-aware timed continuation
@@ -160,12 +160,12 @@ class AsyncCompleter<T>: Loggable {
             try await withUnsafeThrowingContinuation { continuation in
 
                 // Create time-out block
-                let timeOutBlock = DispatchWorkItem { [weak self] in
+                let timeoutBlock = DispatchWorkItem { [weak self] in
                     guard let self else { return }
                     self.log("Wait \(entryId) timedOut")
                     self._lock.sync {
                         if let entry = self._entries[entryId] {
-                            entry.timeOut()
+                            entry.timeout()
                         }
                         self._entries.removeValue(forKey: entryId)
                     }
@@ -173,10 +173,10 @@ class AsyncCompleter<T>: Loggable {
 
                 _lock.sync {
                     // Schedule time-out block
-                    let computedTimeout = (timeOut?.toDispatchTimeInterval ?? _defaultTimeOut)
-                    _timerQueue.asyncAfter(deadline: .now() + computedTimeout, execute: timeOutBlock)
+                    let computedTimeout = (timeout?.toDispatchTimeInterval ?? _defaultTimeout)
+                    _timerQueue.asyncAfter(deadline: .now() + computedTimeout, execute: timeoutBlock)
                     // Store entry
-                    _entries[entryId] = WaitEntry(continuation: continuation, timeOutBlock: timeOutBlock)
+                    _entries[entryId] = WaitEntry(continuation: continuation, timeoutBlock: timeoutBlock)
 
                     log("\(label) waiting \(computedTimeout) with id: \(entryId)")
                 }
