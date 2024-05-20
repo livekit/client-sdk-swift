@@ -23,7 +23,7 @@ class CompleterTests: XCTestCase {
     override func tearDown() async throws {}
 
     func testCompleterReuse() async throws {
-        let completer = AsyncCompleter<Void>(label: "Test01", defaultTimeOut: .seconds(1))
+        let completer = AsyncCompleter<Void>(label: "Test01", defaultTimeout: 1)
         do {
             try await completer.wait()
         } catch let error as LiveKitError where error.type == .timedOut {
@@ -38,7 +38,7 @@ class CompleterTests: XCTestCase {
     }
 
     func testCompleterCancel() async throws {
-        let completer = AsyncCompleter<Void>(label: "cancel-test", defaultTimeOut: .never)
+        let completer = AsyncCompleter<Void>(label: "cancel-test", defaultTimeout: 30)
         do {
             // Run Tasks in parallel
             try await withThrowingTaskGroup(of: Void.self) { group in
@@ -68,7 +68,7 @@ class CompleterTests: XCTestCase {
     }
 
     func testCompleterConcurrentWait() async throws {
-        let completer = AsyncCompleter<Void>(label: "cancel-test", defaultTimeOut: .never)
+        let completer = AsyncCompleter<Void>(label: "cancel-test", defaultTimeout: 30)
         do {
             // Run Tasks in parallel
             try await withThrowingTaskGroup(of: Void.self) { group in
