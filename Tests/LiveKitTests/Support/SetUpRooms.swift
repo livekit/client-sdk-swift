@@ -49,8 +49,11 @@ extension XCTestCase {
                     delegate2: RoomDelegate? = nil,
                     _ block: @escaping (Room, Room) async throws -> Void) async throws
     {
+        let e2eeKey = UUID().uuidString
+        let e2eeOptions = E2EEOptions(keyProvider: BaseKeyProvider(isSharedKey: true, sharedKey: e2eeKey))
+
         // Turn on stats
-        let roomOptions = RoomOptions(reportRemoteTrackStatistics: true)
+        let roomOptions = RoomOptions(e2eeOptions: e2eeOptions, reportRemoteTrackStatistics: true)
 
         let room1 = Room(delegate: delegate1, roomOptions: roomOptions)
         let room2 = Room(delegate: delegate2, roomOptions: roomOptions)
@@ -61,10 +64,18 @@ extension XCTestCase {
         let roomName = UUID().uuidString
 
         let token1 = try liveKitServerToken(for: roomName, identity: "identity01")
-        try await room1.connect(url: url, token: token1)
-
         let token2 = try liveKitServerToken(for: roomName, identity: "identity02")
-        try await room2.connect(url: url, token: token2)
+
+        try await withThrowingTaskGroup(of: Void.self) { group in
+            group.addTask {
+                try await room1.connect(url: url, token: token1)
+            }
+            group.addTask {
+                try await room2.connect(url: url, token: token2)
+            }
+
+            try await group.waitForAll()
+        }
 
         let observerToken = try liveKitServerToken(for: roomName, identity: "observer")
         print("Observer token: \(observerToken) for room: \(roomName)")

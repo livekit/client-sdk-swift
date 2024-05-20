@@ -83,11 +83,6 @@ extension Engine {
 
         RTCInitializeSSL()
 
-        logger.log("Initializing Field trials...", type: Engine.self)
-
-        let fieldTrials = [kRTCFieldTrialUseNWPathMonitor: kRTCFieldTrialEnabledValue]
-        RTCInitFieldTrialDictionary(fieldTrials)
-
         logger.log("Initializing PeerConnectionFactory...", type: Engine.self)
 
         return LKRTCPeerConnectionFactory(bypassVoiceProcessing: bypassVoiceProcessing,
