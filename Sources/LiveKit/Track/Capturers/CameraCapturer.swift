@@ -264,7 +264,7 @@ class VideoCapturerDelegateAdapter: NSObject, LKRTCVideoCapturerDelegate {
         // Resolve real dimensions (apply frame rotation)
         cameraCapturer.dimensions = Dimensions(width: frame.width, height: frame.height).apply(rotation: frame.rotation)
         // Pass frame to video source
-        cameraCapturer.delegate?.capturer(capturer, didCapture: frame)
+        cameraCapturer.capture(capturer: capturer, didCapture: frame, withOptions: cameraCapturer.options)
     }
 }
 

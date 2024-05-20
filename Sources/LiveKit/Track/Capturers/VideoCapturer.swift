@@ -23,9 +23,7 @@ protocol VideoCapturerProtocol {
 }
 
 extension VideoCapturerProtocol {
-    public var capturer: LKRTCVideoCapturer {
-        fatalError("Must be implemented")
-    }
+    public var capturer: LKRTCVideoCapturer { fatalError("Must be implemented") }
 }
 
 @objc
@@ -42,6 +40,7 @@ public class VideoCapturer: NSObject, Loggable, VideoCapturerProtocol {
     // MARK: - MulticastDelegate
 
     public let delegates = MulticastDelegate<VideoCapturerDelegate>(label: "VideoCapturerDelegate")
+    public let rendererDelegates = MulticastDelegate<VideoRenderer>(label: "VideoCapturerRendererDelegate")
 
     /// Array of supported pixel formats that can be used to capture a frame.
     ///
@@ -101,6 +100,16 @@ public class VideoCapturer: NSObject, Loggable, VideoCapturerProtocol {
             guard let self else { return }
             if oldState.startStopCounter != newState.startStopCounter {
                 self.log("startStopCounter \(oldState.startStopCounter) -> \(newState.startStopCounter)")
+            }
+        }
+    }
+
+    func capture(capturer: LKRTCVideoCapturer, didCapture frame: LKRTCVideoFrame, withOptions options: VideoCaptureOptions) {
+        delegate?.capturer(capturer, didCapture: frame)
+        // TODO: Optimize
+        if let lkVideoFrame = frame.toLKType() {
+            rendererDelegates.notify { renderer in
+                renderer.render?(frame: lkVideoFrame, videoCaptureOptions: options)
             }
         }
     }
