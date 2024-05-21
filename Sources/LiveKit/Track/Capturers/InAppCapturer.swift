@@ -43,20 +43,7 @@ public class InAppScreenCapturer: VideoCapturer {
 
             // Only process .video
             if type == .video {
-                self.delegate?.capturer(self.capturer, didCapture: sampleBuffer) { sourceDimensions in
-
-                    let targetDimensions = sourceDimensions
-                        .aspectFit(size: self.options.dimensions.max)
-                        .toEncodeSafeDimensions()
-
-                    defer { self.dimensions = targetDimensions }
-
-                    guard let videoSource = self.delegate as? LKRTCVideoSource else { return }
-                    // self.log("adaptOutputFormat to: \(targetDimensions) fps: \(self.options.fps)")
-                    videoSource.adaptOutputFormat(toWidth: targetDimensions.width,
-                                                  height: targetDimensions.height,
-                                                  fps: Int32(self.options.fps))
-                }
+                self.capture(sampleBuffer: sampleBuffer, withOptions: self.options)
             }
         }
 

@@ -125,9 +125,6 @@ public class MacOSScreenCapturer: VideoCapturer {
 
     // Common capture func
     private func capture(_ sampleBuffer: CMSampleBuffer, contentRect: CGRect, scaleFactor: CGFloat = 1.0) {
-        // Exit if delegate is nil
-        guard let delegate else { return }
-
         // Get the pixel buffer that contains the image data.
         guard let pixelBuffer = sampleBuffer.imageBuffer else { return }
 
@@ -144,20 +141,22 @@ public class MacOSScreenCapturer: VideoCapturer {
         // notify capturer for dimensions
         defer { self.dimensions = targetDimensions }
 
-        let rtcBuffer = LKRTCCVPixelBuffer(pixelBuffer: pixelBuffer,
-                                           adaptedWidth: targetDimensions.width,
-                                           adaptedHeight: targetDimensions.height,
-                                           cropWidth: sourceDimensions.width,
-                                           cropHeight: sourceDimensions.height,
-                                           cropX: Int32(contentRect.origin.x * scaleFactor),
-                                           cropY: Int32(contentRect.origin.y * scaleFactor))
+        let rtcPixelBuffer = LKRTCCVPixelBuffer(pixelBuffer: pixelBuffer,
+                                                adaptedWidth: targetDimensions.width,
+                                                adaptedHeight: targetDimensions.height,
+                                                cropWidth: sourceDimensions.width,
+                                                cropHeight: sourceDimensions.height,
+                                                cropX: Int32(contentRect.origin.x * scaleFactor),
+                                                cropY: Int32(contentRect.origin.y * scaleFactor))
 
-        let rtcFrame = LKRTCVideoFrame(buffer: rtcBuffer,
+        // Convert now to apply crop & scale operations
+        let rtcI420Buffer = rtcPixelBuffer.toI420()
+
+        let rtcFrame = LKRTCVideoFrame(buffer: rtcI420Buffer,
                                        rotation: ._0,
                                        timeStampNs: timeStampNs)
 
-        // feed frame to WebRTC
-        delegate.capturer(capturer, didCapture: rtcFrame)
+        capture(frame: rtcFrame, withOptions: options)
 
         // cache last frame
         _lastFrame = rtcFrame
@@ -177,15 +176,15 @@ extension MacOSScreenCapturer {
 
         log("No movement detected, resending frame...")
 
-        guard let delegate, let frame = _lastFrame else { return }
+        guard let frame = _lastFrame else { return }
 
         // create a new frame with new time stamp
         let newFrame = LKRTCVideoFrame(buffer: frame.buffer,
                                        rotation: frame.rotation,
                                        timeStampNs: Self.createTimeStampNs())
 
-        // feed frame to WebRTC
-        delegate.capturer(capturer, didCapture: newFrame)
+        // Feed frame to WebRTC
+        capture(frame: newFrame, withOptions: options)
     }
 }
 

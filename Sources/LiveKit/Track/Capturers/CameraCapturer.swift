@@ -218,16 +218,6 @@ public class CameraCapturer: VideoCapturer {
 
         log("starting camera capturer device: \(device), format: \(selectedFormat), fps: \(selectedFps)(\(fpsRange))", .info)
 
-        // adapt if requested dimensions and camera's dimensions don't match
-        if let videoSource = delegate as? LKRTCVideoSource,
-           selectedFormat.dimensions != self.options.dimensions
-        {
-            // self.log("adaptOutputFormat to: \(options.dimensions) fps: \(self.options.fps)")
-            videoSource.adaptOutputFormat(toWidth: options.dimensions.width,
-                                          height: options.dimensions.height,
-                                          fps: Int32(options.fps))
-        }
-
         try await capturer.startCapture(with: device, format: selectedFormat.format, fps: selectedFps)
 
         // Update internal vars
@@ -259,12 +249,12 @@ class VideoCapturerDelegateAdapter: NSObject, LKRTCVideoCapturerDelegate {
         self.cameraCapturer = cameraCapturer
     }
 
-    func capturer(_ capturer: LKRTCVideoCapturer, didCapture frame: LKRTCVideoFrame) {
+    func capturer(_: LKRTCVideoCapturer, didCapture frame: LKRTCVideoFrame) {
         guard let cameraCapturer else { return }
         // Resolve real dimensions (apply frame rotation)
         cameraCapturer.dimensions = Dimensions(width: frame.width, height: frame.height).apply(rotation: frame.rotation)
         // Pass frame to video source
-        cameraCapturer.capture(capturer: capturer, didCapture: frame, withOptions: cameraCapturer.options)
+        cameraCapturer.capture(frame: frame, withOptions: cameraCapturer.options)
     }
 }
 

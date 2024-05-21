@@ -41,43 +41,12 @@ public class BufferCapturer: VideoCapturer {
 
     /// Capture a ``CMSampleBuffer``.
     public func capture(_ sampleBuffer: CMSampleBuffer) {
-        delegate?.capturer(capturer, didCapture: sampleBuffer) { sourceDimensions in
-
-            let targetDimensions = sourceDimensions
-                .aspectFit(size: self.options.dimensions.max)
-                .toEncodeSafeDimensions()
-
-            defer { self.dimensions = targetDimensions }
-
-            guard let videoSource = self.delegate as? LKRTCVideoSource else { return }
-            videoSource.adaptOutputFormat(toWidth: targetDimensions.width,
-                                          height: targetDimensions.height,
-                                          fps: Int32(self.options.fps))
-        }
+        capture(sampleBuffer: sampleBuffer, withOptions: options)
     }
 
     /// Capture a ``CVPixelBuffer``.
-    public func capture(_ pixelBuffer: CVPixelBuffer,
-                        timeStampNs: Int64 = VideoCapturer.createTimeStampNs(),
-                        rotation: VideoRotation = ._0)
-    {
-        delegate?.capturer(capturer,
-                           didCapture: pixelBuffer,
-                           timeStampNs: timeStampNs,
-                           rotation: rotation.toRTCType())
-        { sourceDimensions in
-
-            let targetDimensions = sourceDimensions
-                .aspectFit(size: self.options.dimensions.max)
-                .toEncodeSafeDimensions()
-
-            defer { self.dimensions = targetDimensions }
-
-            guard let videoSource = self.delegate as? LKRTCVideoSource else { return }
-            videoSource.adaptOutputFormat(toWidth: targetDimensions.width,
-                                          height: targetDimensions.height,
-                                          fps: Int32(self.options.fps))
-        }
+    public func capture(_ pixelBuffer: CVPixelBuffer, timeStampNs: Int64 = VideoCapturer.createTimeStampNs(), rotation: VideoRotation = ._0) {
+        capture(pixelBuffer: pixelBuffer, timeStampNs: timeStampNs, rotation: rotation, withOptions: options)
     }
 }
 
