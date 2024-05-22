@@ -32,7 +32,7 @@ public class BufferCapturer: VideoCapturer {
     private let capturer = Engine.createVideoCapturer()
 
     /// The ``BufferCaptureOptions`` used for this capturer.
-    public var options: BufferCaptureOptions
+    public let options: BufferCaptureOptions
 
     init(delegate: LKRTCVideoCapturerDelegate, options: BufferCaptureOptions) {
         self.options = options

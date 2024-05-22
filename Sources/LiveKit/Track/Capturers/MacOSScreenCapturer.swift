@@ -40,8 +40,7 @@ public class MacOSScreenCapturer: VideoCapturer {
     private var _resendTimer: Task<Void, Error>?
 
     /// The ``ScreenShareCaptureOptions`` used for this capturer.
-    /// It is possible to modify the options but `restartCapture` must be called.
-    public var options: ScreenShareCaptureOptions
+    public let options: ScreenShareCaptureOptions
 
     init(delegate: LKRTCVideoCapturerDelegate, captureSource: MacOSScreenCaptureSource, options: ScreenShareCaptureOptions) {
         self.captureSource = captureSource

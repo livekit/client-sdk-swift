@@ -25,7 +25,7 @@ import ReplayKit
 @available(macOS 11.0, iOS 11.0, *)
 public class InAppScreenCapturer: VideoCapturer {
     private let capturer = Engine.createVideoCapturer()
-    private var options: ScreenShareCaptureOptions
+    private let options: ScreenShareCaptureOptions
 
     init(delegate: LKRTCVideoCapturerDelegate, options: ScreenShareCaptureOptions) {
         self.options = options
