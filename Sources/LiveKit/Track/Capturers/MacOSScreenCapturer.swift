@@ -156,7 +156,7 @@ public class MacOSScreenCapturer: VideoCapturer {
                                        rotation: ._0,
                                        timeStampNs: timeStampNs)
 
-        capture(frame: rtcFrame, withOptions: options)
+        capture(frame: rtcFrame, capturer: capturer, withOptions: options)
 
         // cache last frame
         _lastFrame = rtcFrame
@@ -184,7 +184,7 @@ extension MacOSScreenCapturer {
                                        timeStampNs: Self.createTimeStampNs())
 
         // Feed frame to WebRTC
-        capture(frame: newFrame, withOptions: options)
+        capture(frame: newFrame, capturer: capturer, withOptions: options)
     }
 }
 

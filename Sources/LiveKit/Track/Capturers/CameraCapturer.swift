@@ -249,12 +249,12 @@ class VideoCapturerDelegateAdapter: NSObject, LKRTCVideoCapturerDelegate {
         self.cameraCapturer = cameraCapturer
     }
 
-    func capturer(_: LKRTCVideoCapturer, didCapture frame: LKRTCVideoFrame) {
+    func capturer(_ capturer: LKRTCVideoCapturer, didCapture frame: LKRTCVideoFrame) {
         guard let cameraCapturer else { return }
         // Resolve real dimensions (apply frame rotation)
         cameraCapturer.dimensions = Dimensions(width: frame.width, height: frame.height).apply(rotation: frame.rotation)
         // Pass frame to video source
-        cameraCapturer.capture(frame: frame, withOptions: cameraCapturer.options)
+        cameraCapturer.capture(frame: frame, capturer: capturer, withOptions: cameraCapturer.options)
     }
 }
 

@@ -41,12 +41,12 @@ public class BufferCapturer: VideoCapturer {
 
     /// Capture a ``CMSampleBuffer``.
     public func capture(_ sampleBuffer: CMSampleBuffer) {
-        capture(sampleBuffer: sampleBuffer, withOptions: options)
+        capture(sampleBuffer: sampleBuffer, capturer: capturer, withOptions: options)
     }
 
     /// Capture a ``CVPixelBuffer``.
     public func capture(_ pixelBuffer: CVPixelBuffer, timeStampNs: Int64 = VideoCapturer.createTimeStampNs(), rotation: VideoRotation = ._0) {
-        capture(pixelBuffer: pixelBuffer, timeStampNs: timeStampNs, rotation: rotation, withOptions: options)
+        capture(pixelBuffer: pixelBuffer, capturer: capturer, timeStampNs: timeStampNs, rotation: rotation, withOptions: options)
     }
 }
 

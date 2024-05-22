@@ -176,7 +176,10 @@ public class VideoCapturer: NSObject, Loggable, VideoCapturerProtocol {
 
 extension VideoCapturer {
     // Capture a RTCVideoFrame
-    func capture(frame: LKRTCVideoFrame, withOptions options: VideoCaptureOptions) {
+    func capture(frame: LKRTCVideoFrame,
+                 capturer: LKRTCVideoCapturer,
+                 withOptions options: VideoCaptureOptions)
+    {
         if let videoSource = delegate as? LKRTCVideoSource {
             videoSource.adaptOutputFormat(toWidth: options.dimensions.width,
                                           height: options.dimensions.height,
@@ -195,7 +198,10 @@ extension VideoCapturer {
     }
 
     // Capture a CMSampleBuffer
-    func capture(sampleBuffer: CMSampleBuffer, withOptions options: VideoCaptureOptions) {
+    func capture(sampleBuffer: CMSampleBuffer,
+                 capturer: LKRTCVideoCapturer,
+                 withOptions options: VideoCaptureOptions)
+    {
         delegate?.capturer(capturer, didCapture: sampleBuffer, onResolveSourceDimensions: { sourceDimensions in
 
             let targetDimensions = sourceDimensions
@@ -222,6 +228,7 @@ extension VideoCapturer {
 
     // Capture a CVPixelBuffer
     func capture(pixelBuffer: CVPixelBuffer,
+                 capturer: LKRTCVideoCapturer,
                  timeStampNs: Int64 = VideoCapturer.createTimeStampNs(),
                  rotation: VideoRotation = ._0,
                  withOptions options: VideoCaptureOptions)

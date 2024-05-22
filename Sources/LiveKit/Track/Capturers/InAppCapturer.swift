@@ -39,11 +39,11 @@ public class InAppScreenCapturer: VideoCapturer {
         guard didStart else { return false }
 
         // TODO: force pixel format kCVPixelFormatType_420YpCbCr8BiPlanarFullRange
-        try await RPScreenRecorder.shared().startCapture { sampleBuffer, type, _ in
-
+        try await RPScreenRecorder.shared().startCapture { [weak self] sampleBuffer, type, _ in
+            guard let self else { return }
             // Only process .video
             if type == .video {
-                self.capture(sampleBuffer: sampleBuffer, withOptions: self.options)
+                self.capture(sampleBuffer: sampleBuffer, capturer: self.capturer, withOptions: self.options)
             }
         }
 
