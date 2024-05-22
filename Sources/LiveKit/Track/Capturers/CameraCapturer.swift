@@ -23,6 +23,16 @@ import ReplayKit
 @_implementationOnly import LiveKitWebRTC
 
 public class CameraCapturer: VideoCapturer {
+    /// Current device used for capturing
+    @objc
+    public var device: AVCaptureDevice? { _cameraCapturerState.device }
+
+    /// Current position of the device
+    public var position: AVCaptureDevice.Position? { _cameraCapturerState.device?.position }
+
+    @objc
+    public var options: CameraCaptureOptions { _cameraCapturerState.options }
+
     @objc
     public static func captureDevices() -> [AVCaptureDevice] {
         let deviceTypes: [AVCaptureDevice.DeviceType]
@@ -55,18 +65,6 @@ public class CameraCapturer: VideoCapturer {
             devices.contains(where: { $0.position == .back })
     }
 
-    /// Current device used for capturing
-    @objc
-    public private(set) var device: AVCaptureDevice?
-
-    /// Current position of the device
-    public var position: AVCaptureDevice.Position? {
-        device?.position
-    }
-
-    @objc
-    public var options: CameraCaptureOptions
-
     public var isMultitaskingAccessSupported: Bool {
         #if (os(iOS) || os(tvOS)) && !targetEnvironment(macCatalyst)
         if #available(iOS 16, *, tvOS 17, *) {
@@ -96,6 +94,13 @@ public class CameraCapturer: VideoCapturer {
         }
     }
 
+    struct State {
+        var options: CameraCaptureOptions
+        var device: AVCaptureDevice?
+    }
+
+    private var _cameraCapturerState: StateSync<State>
+
     // Used to hide LKRTCVideoCapturerDelegate symbol
     private lazy var adapter: VideoCapturerDelegateAdapter = .init(cameraCapturer: self)
 
@@ -103,7 +108,7 @@ public class CameraCapturer: VideoCapturer {
     private lazy var capturer: LKRTCCameraVideoCapturer = DispatchQueue.liveKitWebRTC.sync { LKRTCCameraVideoCapturer(delegate: adapter) }
 
     init(delegate: LKRTCVideoCapturerDelegate, options: CameraCaptureOptions) {
-        self.options = options
+        _cameraCapturerState = StateSync(State(options: options))
         super.init(delegate: delegate)
 
         log("isMultitaskingAccessSupported: \(isMultitaskingAccessSupported)", .info)
@@ -138,7 +143,7 @@ public class CameraCapturer: VideoCapturer {
         log("set(options:) \(options)")
 
         // Update to new options
-        options = newOptions
+        _cameraCapturerState.mutate { $0.options = newOptions }
 
         // Restart capturer
         return try await restartCapture()
@@ -221,7 +226,7 @@ public class CameraCapturer: VideoCapturer {
         try await capturer.startCapture(with: device, format: selectedFormat.format, fps: selectedFps)
 
         // Update internal vars
-        self.device = device
+        _cameraCapturerState.mutate { $0.device = device }
 
         return true
     }
@@ -235,8 +240,10 @@ public class CameraCapturer: VideoCapturer {
         await capturer.stopCapture()
 
         // Update internal vars
-        device = nil
         dimensions = nil
+
+        // Reset state
+        _cameraCapturerState.mutate { $0 = State(options: $0.options) }
 
         return true
     }
