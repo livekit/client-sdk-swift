@@ -28,30 +28,34 @@ public protocol MulticastDelegateProtocol {
 ///
 /// Uses `NSHashTable` internally to maintain a set of weak delegates.
 ///
-/// > Note: `NSHashTable` may not immediately deinit the un-referenced object, due to Apple's implementation, therefore `.count` is unreliable.
 public class MulticastDelegate<T>: NSObject, Loggable {
-    private let _queue: DispatchQueue
-    private let _set = NSHashTable<AnyObject>.weakObjects()
-
-    init(label: String, qos: DispatchQoS = .default) {
-        _queue = DispatchQueue(label: "LiveKitSDK.Multicast.\(label)", qos: qos, attributes: [])
-    }
+    // MARK: - Public properties
 
     public var isDelegatesEmpty: Bool { countDelegates == 0 }
+
     public var isDelegatesNotEmpty: Bool { countDelegates != 0 }
 
+    /// `NSHashTable` may not immediately deinit the un-referenced object, due to Apple's implementation, therefore ``countDelegates`` may be unreliable.
     public var countDelegates: Int {
-        _queue.sync { [weak self] in
-            guard let self else { return 0 }
-            return self._set.allObjects.count
-        }
+        _state.read { $0.delegates.allObjects.count }
     }
 
     public var allDelegates: [T] {
-        _queue.sync { [weak self] in
-            guard let self else { return [] }
-            return self._set.allObjects.compactMap { $0 as? T }
-        }
+        _state.read { $0.delegates.allObjects.compactMap { $0 as? T } }
+    }
+
+    // MARK: - Private properties
+
+    private struct State {
+        let delegates = NSHashTable<AnyObject>.weakObjects()
+    }
+
+    private let _queue: DispatchQueue
+
+    private let _state = StateSync(State())
+
+    init(label: String, qos: DispatchQoS = .default) {
+        _queue = DispatchQueue(label: "LiveKitSDK.Multicast.\(label)", qos: qos, attributes: [])
     }
 
     /// Add a single delegate.
@@ -61,10 +65,7 @@ public class MulticastDelegate<T>: NSObject, Loggable {
             return
         }
 
-        _queue.sync { [weak self] in
-            guard let self else { return }
-            self._set.add(delegate)
-        }
+        _state.mutate { $0.delegates.add(delegate) }
     }
 
     /// Remove a single delegate.
@@ -76,30 +77,19 @@ public class MulticastDelegate<T>: NSObject, Loggable {
             return
         }
 
-        _queue.sync { [weak self] in
-            guard let self else { return }
-            self._set.remove(delegate)
-        }
+        _state.mutate { $0.delegates.remove(delegate) }
     }
 
     /// Remove all delegates.
     public func removeAllDelegates() {
-        _queue.sync { [weak self] in
-            guard let self else { return }
-            self._set.removeAllObjects()
-        }
+        _state.mutate { $0.delegates.removeAllObjects() }
     }
 
     /// Notify delegates inside the queue.
-    /// Label is captured inside the queue for thread safety reasons.
-    func notify(label: (() -> String)? = nil, _ fnc: @escaping (T) -> Void) {
+    func notify(label _: (() -> String)? = nil, _ fnc: @escaping (T) -> Void) {
+        let delegates = _state.read { $0.delegates.allObjects.compactMap { $0 as? T } }
+
         _queue.async {
-            if let label {
-                self.log("[notify] \(label())", .trace)
-            }
-
-            let delegates = self._set.allObjects.compactMap { $0 as? T }
-
             for delegate in delegates {
                 fnc(delegate)
             }
