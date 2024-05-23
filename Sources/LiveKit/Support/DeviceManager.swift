@@ -48,12 +48,15 @@ class DeviceManager: Loggable {
             .builtInDualCamera,
             .builtInDualWideCamera,
         ]
+        // Xcode 15.0 Swift 5.9 (iOS 17)
+        #if compiler(>=5.9)
         if #available(iOS 17.0, *) {
             deviceTypes.append(contentsOf: [
                 .continuityCamera,
                 .external,
             ])
         }
+        #endif
         #else
         deviceTypes = [
             .builtInWideAngleCamera,
@@ -80,7 +83,7 @@ class DeviceManager: Loggable {
 
         DispatchQueue.global(qos: .background).async { [weak self] in
             guard let self else { return }
-            _observation = discoverySession.observe(\.devices, options: [.initial, .new]) { [weak self] _, value in
+            self._observation = self.discoverySession.observe(\.devices, options: [.initial, .new]) { [weak self] _, value in
                 guard let self else { return }
                 // Sort priority: .front = 2, .back = 1, .unspecified = 3
                 let devices = (value.newValue ?? []).sorted(by: { $0.position.rawValue > $1.position.rawValue })
