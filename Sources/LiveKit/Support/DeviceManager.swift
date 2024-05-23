@@ -27,9 +27,10 @@ class DeviceManager: Loggable {
         _ = shared
     }
 
+    public var devices: [AVCaptureDevice] { _state.devices }
     public let devicesCompleter = AsyncCompleter<[AVCaptureDevice]>(label: "devices", defaultTimeout: 10)
 
-    public lazy var session: AVCaptureDevice.DiscoverySession = {
+    private lazy var discoverySession: AVCaptureDevice.DiscoverySession = {
         let deviceTypes: [AVCaptureDevice.DeviceType]
         #if os(iOS)
         deviceTypes = [
@@ -51,17 +52,24 @@ class DeviceManager: Loggable {
                                                 position: .unspecified)
     }()
 
-    var _observation: NSKeyValueObservation?
+    private struct State {
+        var devices: [AVCaptureDevice] = []
+    }
+
+    private let _state = StateSync(State())
+
+    private var _observation: NSKeyValueObservation?
 
     init() {
         log()
 
         DispatchQueue.global(qos: .background).async { [weak self] in
             guard let self else { return }
-            _observation = session.observe(\.devices, options: [.initial, .new]) { [weak self] _, value in
+            _observation = discoverySession.observe(\.devices, options: [.initial, .new]) { [weak self] _, value in
                 guard let self else { return }
                 let devices = value.newValue ?? []
                 self.log("Devices: \(String(describing: devices))")
+                self._state.mutate { $0.devices = devices }
                 self.devicesCompleter.resume(returning: devices)
             }
         }
