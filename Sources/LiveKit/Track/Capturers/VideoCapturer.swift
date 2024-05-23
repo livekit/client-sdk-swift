@@ -186,6 +186,9 @@ extension VideoCapturer {
                                           fps: Int32(options.fps))
         }
 
+        // Resolve real dimensions (apply frame rotation)
+        dimensions = Dimensions(width: frame.width, height: frame.height).apply(rotation: frame.rotation)
+
         delegate?.capturer(capturer, didCapture: frame)
 
         if rendererDelegates.isDelegatesNotEmpty {

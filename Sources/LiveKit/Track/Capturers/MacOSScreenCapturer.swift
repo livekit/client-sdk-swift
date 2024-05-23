@@ -137,9 +137,6 @@ public class MacOSScreenCapturer: VideoCapturer {
             .aspectFit(size: options.dimensions.max)
             .toEncodeSafeDimensions()
 
-        // notify capturer for dimensions
-        defer { self.dimensions = targetDimensions }
-
         let rtcPixelBuffer = LKRTCCVPixelBuffer(pixelBuffer: pixelBuffer,
                                                 adaptedWidth: targetDimensions.width,
                                                 adaptedHeight: targetDimensions.height,
