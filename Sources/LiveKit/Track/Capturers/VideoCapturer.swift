@@ -69,19 +69,26 @@ public class VideoCapturer: NSObject, Loggable, VideoCapturerProtocol {
     struct State: Equatable {
         // Counts calls to start/stopCapturer so multiple Tracks can use the same VideoCapturer.
         var startStopCounter: Int = 0
+        var dimensions: Dimensions? = nil
     }
 
     var _state = StateSync(State())
 
-    public internal(set) var dimensions: Dimensions? {
-        didSet {
-            guard oldValue != dimensions else { return }
-            log("[publish] \(String(describing: oldValue)) -> \(String(describing: dimensions))")
-            delegates.notify { $0.capturer?(self, didUpdate: self.dimensions) }
+    public var dimensions: Dimensions? { _state.dimensions }
 
-            if let dimensions {
-                log("[publish] dimensions: \(String(describing: dimensions))")
-                dimensionsCompleter.resume(returning: dimensions)
+    func set(dimensions newValue: Dimensions?) {
+        let didUpdate = _state.mutate {
+            let oldDimensions = $0.dimensions
+            $0.dimensions = newValue
+            return newValue != oldDimensions
+        }
+
+        if didUpdate {
+            delegates.notify { $0.capturer?(self, didUpdate: newValue) }
+
+            if let newValue {
+                log("[publish] dimensions: \(String(describing: newValue))")
+                dimensionsCompleter.resume(returning: newValue)
             } else {
                 dimensionsCompleter.reset()
             }
@@ -213,7 +220,7 @@ extension VideoCapturer {
                                options: VideoCaptureOptions)
     {
         // Resolve real dimensions (apply frame rotation)
-        dimensions = Dimensions(width: frame.width, height: frame.height).apply(rotation: frame.rotation)
+        set(dimensions: Dimensions(width: frame.width, height: frame.height).apply(rotation: frame.rotation))
 
         delegate?.capturer(capturer, didCapture: frame)
 

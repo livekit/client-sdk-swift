@@ -224,8 +224,7 @@ public class CameraCapturer: VideoCapturer {
         await capturer.stopCapture()
 
         // Update internal vars
-        dimensions = nil
-
+        set(dimensions: nil)
         // Reset state
         _cameraCapturerState.mutate { $0 = State(options: $0.options) }
 
