@@ -23,9 +23,7 @@ protocol VideoCapturerProtocol {
 }
 
 extension VideoCapturerProtocol {
-    public var capturer: LKRTCVideoCapturer {
-        fatalError("Must be implemented")
-    }
+    public var capturer: LKRTCVideoCapturer { fatalError("Must be implemented") }
 }
 
 @objc
@@ -42,6 +40,7 @@ public class VideoCapturer: NSObject, Loggable, VideoCapturerProtocol {
     // MARK: - MulticastDelegate
 
     public let delegates = MulticastDelegate<VideoCapturerDelegate>(label: "VideoCapturerDelegate")
+    public let rendererDelegates = MulticastDelegate<VideoRenderer>(label: "VideoCapturerRendererDelegate")
 
     /// Array of supported pixel formats that can be used to capture a frame.
     ///
@@ -63,7 +62,7 @@ public class VideoCapturer: NSObject, Loggable, VideoCapturerProtocol {
         case started
     }
 
-    weak var delegate: LKRTCVideoCapturerDelegate?
+    private weak var delegate: LKRTCVideoCapturerDelegate?
 
     let dimensionsCompleter = AsyncCompleter<Dimensions>(label: "Dimensions", defaultTimeout: .defaultCaptureStart)
 
@@ -172,5 +171,95 @@ public class VideoCapturer: NSObject, Loggable, VideoCapturerProtocol {
     public func restartCapture() async throws -> Bool {
         try await stopCapture()
         return try await startCapture()
+    }
+}
+
+extension VideoCapturer {
+    // Capture a RTCVideoFrame
+    func capture(frame: LKRTCVideoFrame,
+                 capturer: LKRTCVideoCapturer,
+                 withOptions options: VideoCaptureOptions)
+    {
+        if let videoSource = delegate as? LKRTCVideoSource {
+            videoSource.adaptOutputFormat(toWidth: options.dimensions.width,
+                                          height: options.dimensions.height,
+                                          fps: Int32(options.fps))
+        }
+
+        // Resolve real dimensions (apply frame rotation)
+        dimensions = Dimensions(width: frame.width, height: frame.height).apply(rotation: frame.rotation)
+
+        delegate?.capturer(capturer, didCapture: frame)
+
+        if rendererDelegates.isDelegatesNotEmpty {
+            if let lkVideoFrame = frame.toLKType() {
+                rendererDelegates.notify { renderer in
+                    renderer.render?(frame: lkVideoFrame, videoCaptureOptions: options)
+                }
+            }
+        }
+    }
+
+    // Capture a CMSampleBuffer
+    func capture(sampleBuffer: CMSampleBuffer,
+                 capturer: LKRTCVideoCapturer,
+                 withOptions options: VideoCaptureOptions)
+    {
+        delegate?.capturer(capturer, didCapture: sampleBuffer, onResolveSourceDimensions: { sourceDimensions in
+
+            let targetDimensions = sourceDimensions
+                .aspectFit(size: options.dimensions.max)
+                .toEncodeSafeDimensions()
+
+            defer { self.dimensions = targetDimensions }
+
+            guard let videoSource = self.delegate as? LKRTCVideoSource else { return }
+            videoSource.adaptOutputFormat(toWidth: targetDimensions.width,
+                                          height: targetDimensions.height,
+                                          fps: Int32(options.fps))
+        }) { [weak self] rtcFrame in
+            guard let self else { return }
+            if rendererDelegates.isDelegatesNotEmpty {
+                if let lkVideoFrame = rtcFrame.toLKType() {
+                    rendererDelegates.notify { renderer in
+                        renderer.render?(frame: lkVideoFrame, videoCaptureOptions: options)
+                    }
+                }
+            }
+        }
+    }
+
+    // Capture a CVPixelBuffer
+    func capture(pixelBuffer: CVPixelBuffer,
+                 capturer: LKRTCVideoCapturer,
+                 timeStampNs: Int64 = VideoCapturer.createTimeStampNs(),
+                 rotation: VideoRotation = ._0,
+                 withOptions options: VideoCaptureOptions)
+    {
+        delegate?.capturer(capturer, didCapture: pixelBuffer,
+                           timeStampNs: timeStampNs,
+                           rotation: rotation.toRTCType(),
+                           onResolveSourceDimensions: { sourceDimensions in
+
+                               let targetDimensions = sourceDimensions
+                                   .aspectFit(size: options.dimensions.max)
+                                   .toEncodeSafeDimensions()
+
+                               defer { self.dimensions = targetDimensions }
+
+                               guard let videoSource = self.delegate as? LKRTCVideoSource else { return }
+                               videoSource.adaptOutputFormat(toWidth: targetDimensions.width,
+                                                             height: targetDimensions.height,
+                                                             fps: Int32(options.fps))
+                           }) { [weak self] rtcFrame in
+            guard let self else { return }
+            if rendererDelegates.isDelegatesNotEmpty {
+                if let lkVideoFrame = rtcFrame.toLKType() {
+                    rendererDelegates.notify { renderer in
+                        renderer.render?(frame: lkVideoFrame, videoCaptureOptions: options)
+                    }
+                }
+            }
+        }
     }
 }

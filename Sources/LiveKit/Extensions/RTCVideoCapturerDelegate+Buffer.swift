@@ -66,13 +66,15 @@ extension CGImagePropertyOrientation {
 
 extension LKRTCVideoCapturerDelegate {
     typealias OnResolveSourceDimensions = (Dimensions) -> Void
+    typealias OnDidCreateFrame = (LKRTCVideoFrame) -> Void
 
     /// capture a `CVPixelBuffer`, all other capture methods call this method internally.
     func capturer(_ capturer: LKRTCVideoCapturer,
                   didCapture pixelBuffer: CVPixelBuffer,
                   timeStampNs: Int64 = VideoCapturer.createTimeStampNs(),
                   rotation: RTCVideoRotation = ._0,
-                  onResolveSourceDimensions: OnResolveSourceDimensions? = nil)
+                  onResolveSourceDimensions: OnResolveSourceDimensions? = nil,
+                  onDidCreateFrame: OnDidCreateFrame? = nil)
     {
         // check if pixel format is supported by WebRTC
         let pixelFormat = CVPixelBufferGetPixelFormatType(pixelBuffer)
@@ -104,13 +106,15 @@ extension LKRTCVideoCapturerDelegate {
                                            timeStampNs: timeStampNs)
 
             self.capturer(capturer, didCapture: rtcFrame)
+            onDidCreateFrame?(rtcFrame)
         }
     }
 
     /// capture a `CMSampleBuffer`
     func capturer(_ capturer: LKRTCVideoCapturer,
                   didCapture sampleBuffer: CMSampleBuffer,
-                  onResolveSourceDimensions: OnResolveSourceDimensions? = nil)
+                  onResolveSourceDimensions: OnResolveSourceDimensions? = nil,
+                  onDidCreateFrame: OnDidCreateFrame? = nil)
     {
         // check if buffer is ready
         guard CMSampleBufferGetNumSamples(sampleBuffer) == 1,
@@ -145,7 +149,8 @@ extension LKRTCVideoCapturerDelegate {
                       didCapture: pixelBuffer,
                       timeStampNs: timeStampNs,
                       rotation: rotation ?? ._0,
-                      onResolveSourceDimensions: onResolveSourceDimensions)
+                      onResolveSourceDimensions: onResolveSourceDimensions,
+                      onDidCreateFrame: onDidCreateFrame)
     }
 }
 

@@ -51,6 +51,7 @@ class BroadcastScreenCapturer: BufferCapturer {
             .toEncodeSafeDimensions()
 
         defer { self.dimensions = targetDimensions }
+
         let frameReader = SocketConnectionFrameReader()
         guard let socketConnection = BroadcastServerSocketConnection(filePath: filePath, streamDelegate: frameReader)
         else { return false }

@@ -25,7 +25,7 @@ import ReplayKit
 @available(macOS 11.0, iOS 11.0, *)
 public class InAppScreenCapturer: VideoCapturer {
     private let capturer = Engine.createVideoCapturer()
-    private var options: ScreenShareCaptureOptions
+    private let options: ScreenShareCaptureOptions
 
     init(delegate: LKRTCVideoCapturerDelegate, options: ScreenShareCaptureOptions) {
         self.options = options
@@ -39,24 +39,11 @@ public class InAppScreenCapturer: VideoCapturer {
         guard didStart else { return false }
 
         // TODO: force pixel format kCVPixelFormatType_420YpCbCr8BiPlanarFullRange
-        try await RPScreenRecorder.shared().startCapture { sampleBuffer, type, _ in
-
+        try await RPScreenRecorder.shared().startCapture { [weak self] sampleBuffer, type, _ in
+            guard let self else { return }
             // Only process .video
             if type == .video {
-                self.delegate?.capturer(self.capturer, didCapture: sampleBuffer) { sourceDimensions in
-
-                    let targetDimensions = sourceDimensions
-                        .aspectFit(size: self.options.dimensions.max)
-                        .toEncodeSafeDimensions()
-
-                    defer { self.dimensions = targetDimensions }
-
-                    guard let videoSource = self.delegate as? LKRTCVideoSource else { return }
-                    // self.log("adaptOutputFormat to: \(targetDimensions) fps: \(self.options.fps)")
-                    videoSource.adaptOutputFormat(toWidth: targetDimensions.width,
-                                                  height: targetDimensions.height,
-                                                  fps: Int32(self.options.fps))
-                }
+                self.capture(sampleBuffer: sampleBuffer, capturer: self.capturer, withOptions: self.options)
             }
         }
 
