@@ -39,7 +39,7 @@ public class CameraCaptureOptions: NSObject, VideoCaptureOptions {
     @objc
     override public init() {
         device = nil
-        position = .front
+        position = .unspecified
         preferredFormat = nil
         dimensions = .h720_169
         fps = 30
@@ -47,7 +47,7 @@ public class CameraCaptureOptions: NSObject, VideoCaptureOptions {
 
     @objc
     public init(device: AVCaptureDevice? = nil,
-                position: AVCaptureDevice.Position = .front,
+                position: AVCaptureDevice.Position = .unspecified,
                 preferredFormat: AVCaptureDevice.Format? = nil,
                 dimensions: Dimensions = .h720_169,
                 fps: Int = 30)

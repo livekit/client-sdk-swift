@@ -43,7 +43,7 @@ public class InAppScreenCapturer: VideoCapturer {
             guard let self else { return }
             // Only process .video
             if type == .video {
-                self.capture(sampleBuffer: sampleBuffer, capturer: self.capturer, withOptions: self.options)
+                self.capture(sampleBuffer: sampleBuffer, capturer: self.capturer, options: self.options)
             }
         }
 

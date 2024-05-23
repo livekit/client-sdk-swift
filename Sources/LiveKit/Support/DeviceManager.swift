@@ -82,7 +82,8 @@ class DeviceManager: Loggable {
             guard let self else { return }
             _observation = discoverySession.observe(\.devices, options: [.initial, .new]) { [weak self] _, value in
                 guard let self else { return }
-                let devices = value.newValue ?? []
+                // Sort priority: .front = 2, .back = 1, .unspecified = 3
+                let devices = (value.newValue ?? []).sorted(by: { $0.position.rawValue > $1.position.rawValue })
                 self.log("Devices: \(String(describing: devices))")
                 self._state.mutate { $0.devices = devices }
                 self.devicesCompleter.resume(returning: devices)

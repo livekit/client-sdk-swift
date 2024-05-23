@@ -178,7 +178,8 @@ extension VideoCapturer {
     // Capture a RTCVideoFrame
     func capture(frame: LKRTCVideoFrame,
                  capturer: LKRTCVideoCapturer,
-                 withOptions options: VideoCaptureOptions)
+                 device: AVCaptureDevice? = nil,
+                 options: VideoCaptureOptions)
     {
         if let videoSource = delegate as? LKRTCVideoSource {
             videoSource.adaptOutputFormat(toWidth: options.dimensions.width,
@@ -194,7 +195,7 @@ extension VideoCapturer {
         if rendererDelegates.isDelegatesNotEmpty {
             if let lkVideoFrame = frame.toLKType() {
                 rendererDelegates.notify { renderer in
-                    renderer.render?(frame: lkVideoFrame, videoCaptureOptions: options)
+                    renderer.render?(frame: lkVideoFrame, captureDevice: device, captureOptions: options)
                 }
             }
         }
@@ -203,7 +204,7 @@ extension VideoCapturer {
     // Capture a CMSampleBuffer
     func capture(sampleBuffer: CMSampleBuffer,
                  capturer: LKRTCVideoCapturer,
-                 withOptions options: VideoCaptureOptions)
+                 options: VideoCaptureOptions)
     {
         delegate?.capturer(capturer, didCapture: sampleBuffer, onResolveSourceDimensions: { sourceDimensions in
 
@@ -222,7 +223,7 @@ extension VideoCapturer {
             if rendererDelegates.isDelegatesNotEmpty {
                 if let lkVideoFrame = rtcFrame.toLKType() {
                     rendererDelegates.notify { renderer in
-                        renderer.render?(frame: lkVideoFrame, videoCaptureOptions: options)
+                        renderer.render?(frame: lkVideoFrame, captureDevice: nil, captureOptions: options)
                     }
                 }
             }
@@ -234,7 +235,7 @@ extension VideoCapturer {
                  capturer: LKRTCVideoCapturer,
                  timeStampNs: Int64 = VideoCapturer.createTimeStampNs(),
                  rotation: VideoRotation = ._0,
-                 withOptions options: VideoCaptureOptions)
+                 options: VideoCaptureOptions)
     {
         delegate?.capturer(capturer, didCapture: pixelBuffer,
                            timeStampNs: timeStampNs,
@@ -256,7 +257,7 @@ extension VideoCapturer {
             if rendererDelegates.isDelegatesNotEmpty {
                 if let lkVideoFrame = rtcFrame.toLKType() {
                     rendererDelegates.notify { renderer in
-                        renderer.render?(frame: lkVideoFrame, videoCaptureOptions: options)
+                        renderer.render?(frame: lkVideoFrame, captureDevice: nil, captureOptions: options)
                     }
                 }
             }

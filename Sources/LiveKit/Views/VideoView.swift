@@ -164,7 +164,8 @@ public class VideoView: NativeView, Loggable {
         var isRendering: Bool = false
 
         // Only used for rendering local tracks
-        var videoCaptureOptions: VideoCaptureOptions? = nil
+        var captureOptions: VideoCaptureOptions? = nil
+        var captureDevice: AVCaptureDevice? = nil
 
         // whether if current state should be rendering
         var shouldRender: Bool {
@@ -272,13 +273,6 @@ public class VideoView: NativeView, Loggable {
             // https://developer.apple.com/forums/thread/105252
             // nativeRenderer.asMetalView?.isPaused = !shouldAttach
 
-            var capturePositionDidUpdate = false
-            if let oldCameraCaptureOptions = oldState.videoCaptureOptions as? CameraCaptureOptions,
-               let newCameraCaptureOptions = newState.videoCaptureOptions as? CameraCaptureOptions
-            {
-                capturePositionDidUpdate = oldCameraCaptureOptions.position != newCameraCaptureOptions.position
-            }
-
             // layout is required if any of the following vars mutate
             if newState.isDebugMode != oldState.isDebugMode ||
                 newState.layoutMode != oldState.layoutMode ||
@@ -286,7 +280,8 @@ public class VideoView: NativeView, Loggable {
                 newState.renderMode != oldState.renderMode ||
                 newState.rotationOverride != oldState.rotationOverride ||
                 newState.didRenderFirstFrame != oldState.didRenderFirstFrame ||
-                shouldRenderDidUpdate || trackDidUpdate || capturePositionDidUpdate
+                newState.captureDevice?.position != oldState.captureDevice?.position ||
+                shouldRenderDidUpdate || trackDidUpdate
             {
                 // must be on main
                 Task.detached { @MainActor in
@@ -475,10 +470,7 @@ private extension VideoView {
 
     func _shouldMirror() -> Bool {
         switch _state.mirrorMode {
-        case .auto:
-            guard let cameraCaptureOptions = _state.videoCaptureOptions as? CameraCaptureOptions,
-                  case .front = cameraCaptureOptions.position else { return false }
-            return true
+        case .auto: return _state.captureDevice?.realPosition == .front
         case .off: return false
         case .mirror: return true
         }
@@ -503,7 +495,7 @@ extension VideoView: VideoRenderer {
         }
     }
 
-    public func render(frame: VideoFrame, videoCaptureOptions: VideoCaptureOptions?) {
+    public func render(frame: VideoFrame, captureDevice: AVCaptureDevice?, captureOptions: VideoCaptureOptions?) {
         let state = _state.copy()
 
         // prevent any extra rendering if already !isEnabled etc.
@@ -540,7 +532,8 @@ extension VideoView: VideoRenderer {
         track?.set(videoFrame: frame)
 
         _state.mutate {
-            $0.videoCaptureOptions = videoCaptureOptions
+            $0.captureDevice = captureDevice
+            $0.captureOptions = captureOptions
             $0.didRenderFirstFrame = true
             $0.isRendering = true
             $0.renderDate = Date()
@@ -679,5 +672,15 @@ private extension VideoView {
                 operation()
             }
         }
+    }
+}
+
+extension AVCaptureDevice {
+    var realPosition: AVCaptureDevice.Position {
+        if deviceType == .builtInWideAngleCamera, position == .unspecified {
+            return .front
+        }
+
+        return position
     }
 }

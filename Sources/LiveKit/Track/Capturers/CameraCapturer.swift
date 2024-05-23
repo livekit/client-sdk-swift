@@ -28,7 +28,7 @@ public class CameraCapturer: VideoCapturer {
     public var device: AVCaptureDevice? { _cameraCapturerState.device }
 
     /// Current position of the device
-    public var position: AVCaptureDevice.Position? { _cameraCapturerState.device?.position }
+    public var position: AVCaptureDevice.Position { _cameraCapturerState.device?.position ?? .unspecified }
 
     @objc
     public var options: CameraCaptureOptions { _cameraCapturerState.options }
@@ -108,13 +108,16 @@ public class CameraCapturer: VideoCapturer {
         return try await set(cameraPosition: position == .front ? .back : .front)
     }
 
-    /// Sets the camera's position to `.front` or `.back` when supported
+    /// Sets the camera's position to `.front` or `.back` when supported.
     @objc
     @discardableResult
     public func set(cameraPosition position: AVCaptureDevice.Position) async throws -> Bool {
         log("set(cameraPosition:) \(position)")
-
-        return try await set(options: options.copyWith(position: .value(position)))
+        let newOptions = options.copyWith(
+            device: .value(nil),
+            position: .value(position)
+        )
+        return try await set(options: newOptions)
     }
 
     /// Sets new options at runtime and resstarts capturing.
@@ -240,7 +243,7 @@ class VideoCapturerDelegateAdapter: NSObject, LKRTCVideoCapturerDelegate {
     func capturer(_ capturer: LKRTCVideoCapturer, didCapture frame: LKRTCVideoFrame) {
         guard let cameraCapturer else { return }
         // Pass frame to video source
-        cameraCapturer.capture(frame: frame, capturer: capturer, withOptions: cameraCapturer.options)
+        cameraCapturer.capture(frame: frame, capturer: capturer, device: cameraCapturer.device, options: cameraCapturer.options)
     }
 }
 

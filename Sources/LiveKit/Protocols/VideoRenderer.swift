@@ -39,7 +39,7 @@ public protocol VideoRenderer {
 
     // Only invoked for local tracks, provides additional capture time options
     @objc optional
-    func render(frame: VideoFrame, videoCaptureOptions: VideoCaptureOptions?)
+    func render(frame: VideoFrame, captureDevice: AVCaptureDevice?, captureOptions: VideoCaptureOptions?)
 }
 
 class VideoRendererAdapter: NSObject, LKRTCVideoRenderer {
@@ -60,7 +60,7 @@ class VideoRendererAdapter: NSObject, LKRTCVideoRenderer {
         target?.render?(frame: frame)
 
         let cameraCapturer = localVideoTrack?.capturer as? CameraCapturer
-        target?.render?(frame: frame, videoCaptureOptions: cameraCapturer?.options)
+        target?.render?(frame: frame, captureDevice: cameraCapturer?.device, captureOptions: cameraCapturer?.options)
     }
 
     // Proxy the equality operators
