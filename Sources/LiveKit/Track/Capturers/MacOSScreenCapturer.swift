@@ -145,10 +145,7 @@ public class MacOSScreenCapturer: VideoCapturer {
                                                 cropX: Int32(contentRect.origin.x * scaleFactor),
                                                 cropY: Int32(contentRect.origin.y * scaleFactor))
 
-        // Convert now to apply crop & scale operations
-        let rtcI420Buffer = rtcPixelBuffer.toI420()
-
-        let rtcFrame = LKRTCVideoFrame(buffer: rtcI420Buffer,
+        let rtcFrame = LKRTCVideoFrame(buffer: rtcPixelBuffer,
                                        rotation: ._0,
                                        timeStampNs: timeStampNs)
 
