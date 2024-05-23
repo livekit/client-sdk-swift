@@ -149,3 +149,16 @@ extension VideoView.RenderMode: CustomStringConvertible {
         }
     }
 }
+
+extension LKRTCRtpEncodingParameters {
+    func toDebugString() -> String {
+        "RTCRtpEncodingParameters(" +
+            "rid: \(String(describing: rid)), " +
+            "isActive: \(String(describing: isActive)), " +
+            "minBitrateBps: \(String(describing: minBitrateBps))" +
+            "maxBitrateBps: \(String(describing: maxBitrateBps))" +
+            "maxFramerate: \(String(describing: maxFramerate))" +
+            "scaleResolutionDownBy: \(String(describing: scaleResolutionDownBy))" +
+            ")"
+    }
+}

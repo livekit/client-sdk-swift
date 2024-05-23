@@ -378,7 +378,8 @@ extension LocalParticipant {
         let encodings = Utils.computeVideoEncodings(dimensions: dimensions,
                                                     publishOptions: publishOptions,
                                                     overrideVideoCodec: videoCodec)
-        log("[Publish/Backup] Using encodings \(encodings)...")
+
+        log("[Publish/Backup] Using encodings: \(encodings.map { $0.toDebugString() }.joined(separator: ", "))")
 
         // Add transceiver first...
 
@@ -488,7 +489,7 @@ private extension LocalParticipant {
                                                                 publishOptions: publishOptions,
                                                                 isScreenShare: track.source == .screenShareVideo)
 
-                    self.log("[publish] using encodings: \(encodings)")
+                    self.log("[publish] Using encodings: \(encodings.map { $0.toDebugString() }.joined(separator: ", "))")
                     transInit.sendEncodings = encodings
 
                     let videoLayers = dimensions.videoLayers(for: encodings)
