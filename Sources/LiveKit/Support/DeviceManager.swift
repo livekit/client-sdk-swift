@@ -27,20 +27,33 @@ class DeviceManager: Loggable {
         _ = shared
     }
 
-    public var devices: [AVCaptureDevice] { _state.devices }
-    public let devicesCompleter = AsyncCompleter<[AVCaptureDevice]>(label: "devices", defaultTimeout: 10)
+    // Async version, waits until inital device fetch is complete
+    public func devices(types: [AVCaptureDevice.DeviceType] = [.builtInWideAngleCamera]) async throws -> [AVCaptureDevice] {
+        try await devicesCompleter.wait().filter { types.contains($0.deviceType) }
+    }
+
+    // Sync version
+    public func devices(types: [AVCaptureDevice.DeviceType] = [.builtInWideAngleCamera]) -> [AVCaptureDevice] {
+        _state.devices.filter { types.contains($0.deviceType) }
+    }
 
     private lazy var discoverySession: AVCaptureDevice.DiscoverySession = {
-        let deviceTypes: [AVCaptureDevice.DeviceType]
+        var deviceTypes: [AVCaptureDevice.DeviceType]
         #if os(iOS)
         deviceTypes = [
-            .builtInDualCamera,
-            .builtInDualWideCamera,
-            .builtInTripleCamera,
-            .builtInWideAngleCamera,
+            .builtInWideAngleCamera, // General purpose use
             .builtInTelephotoCamera,
             .builtInUltraWideCamera,
+            .builtInTripleCamera,
+            .builtInDualCamera,
+            .builtInDualWideCamera,
         ]
+        if #available(iOS 17.0, *) {
+            deviceTypes.append(contentsOf: [
+                .continuityCamera,
+                .external,
+            ])
+        }
         #else
         deviceTypes = [
             .builtInWideAngleCamera,
@@ -57,6 +70,8 @@ class DeviceManager: Loggable {
     }
 
     private let _state = StateSync(State())
+
+    private let devicesCompleter = AsyncCompleter<[AVCaptureDevice]>(label: "devices", defaultTimeout: 10)
 
     private var _observation: NSKeyValueObservation?
 
