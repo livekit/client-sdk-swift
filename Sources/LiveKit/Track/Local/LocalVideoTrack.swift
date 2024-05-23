@@ -65,11 +65,11 @@ public class LocalVideoTrack: Track, LocalTrack, VideoTrack {
 
 public extension LocalVideoTrack {
     func add(videoRenderer: VideoRenderer) {
-        super._add(videoRenderer: videoRenderer)
+        capturer.rendererDelegates.add(delegate: videoRenderer)
     }
 
     func remove(videoRenderer: VideoRenderer) {
-        super._remove(videoRenderer: videoRenderer)
+        capturer.rendererDelegates.remove(delegate: videoRenderer)
     }
 }
 

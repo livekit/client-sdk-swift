@@ -35,7 +35,7 @@ public class ScreenShareCaptureOptions: NSObject, VideoCaptureOptions {
     public let includeCurrentApplication: Bool
 
     public init(dimensions: Dimensions = .h1080_169,
-                fps: Int = 15,
+                fps: Int = 30,
                 showCursor: Bool = true,
                 useBroadcastExtension: Bool = false,
                 includeCurrentApplication: Bool = false)
