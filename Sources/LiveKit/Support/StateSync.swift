@@ -16,16 +16,25 @@
 
 import Combine
 import Foundation
+import os.lock
+
+public typealias OnStateDidMutate<State> = (_ newState: State, _ oldState: State) -> Void
+
+protocol Lockable {
+    associatedtype State
+    var onDidMutate: OnStateDidMutate<State>? { get set }
+    init(_ state: State, onDidMutate: OnStateDidMutate<State>?)
+    func copy() -> State
+    func mutate<Result>(_ block: (inout State) throws -> Result) rethrows -> Result
+    func read<Result>(_ block: (State) throws -> Result) rethrows -> Result
+    subscript<Property>(dynamicMember _: KeyPath<State, Property>) -> Property { get }
+}
 
 @dynamicMemberLookup
-public final class StateSync<State> {
-    // MARK: - Types
-
-    public typealias OnDidMutate = (_ newState: State, _ oldState: State) -> Void
-
+public final class StateSync<State>: Lockable {
     // MARK: - Public
 
-    public var onDidMutate: OnDidMutate? {
+    public var onDidMutate: OnStateDidMutate<State>? {
         get { _lock.sync { _onDidMutate } }
         set { _lock.sync { _onDidMutate = newValue } }
     }
@@ -34,9 +43,9 @@ public final class StateSync<State> {
 
     private var _state: State
     private let _lock = UnfairLock()
-    private var _onDidMutate: OnDidMutate?
+    private var _onDidMutate: OnStateDidMutate<State>?
 
-    public init(_ state: State, onDidMutate: OnDidMutate? = nil) {
+    public init(_ state: State, onDidMutate: OnStateDidMutate<State>? = nil) {
         _state = state
         _onDidMutate = onDidMutate
     }
@@ -77,5 +86,87 @@ public final class StateSync<State> {
 extension StateSync: CustomStringConvertible {
     public var description: String {
         "StateSync(\(String(describing: copy()))"
+    }
+}
+
+@available(macOS 13.0, iOS 16.0, *)
+@dynamicMemberLookup
+private class InternalOSLock<State>: Lockable {
+    // ...
+    struct WrappedState {
+        var state: State
+        var onDidMutate: OnStateDidMutate<State>?
+    }
+
+    public var onDidMutate: OnStateDidMutate<State>? {
+        get { _lock.withLockUnchecked { $0.onDidMutate } }
+        set { _lock.withLockUnchecked { $0.onDidMutate = newValue } }
+    }
+
+    private let _lock: OSAllocatedUnfairLock<WrappedState>
+    private var _onDidMutate: OnStateDidMutate<State>?
+
+    required init(_ state: State, onDidMutate: OnStateDidMutate<State>?) {
+        _lock = OSAllocatedUnfairLock(uncheckedState: WrappedState(state: state, onDidMutate: onDidMutate))
+    }
+
+    func copy() -> State {
+        _lock.withLockUnchecked { $0.state }
+    }
+
+    func mutate<Result>(_ block: (inout State) throws -> Result) rethrows -> Result {
+        try _lock.withLockUnchecked { try block(&$0.state) }
+    }
+
+    func read<Result>(_ block: (State) throws -> Result) rethrows -> Result {
+        try _lock.withLockUnchecked { try block($0.state) }
+    }
+
+    subscript<Property>(dynamicMember keyPath: KeyPath<State, Property>) -> Property {
+        _lock.withLockUnchecked { $0.state[keyPath: keyPath] }
+    }
+}
+
+@dynamicMemberLookup
+public final class StateSync2<State> {
+    // MARK: - Public
+
+    public var onDidMutate: OnStateDidMutate<State>? {
+        get { fatalError() }
+        set { fatalError() }
+    }
+
+    // MARK: - Private
+
+    private let _lock: any Lockable
+
+    public init(_ state: State, onDidMutate: OnStateDidMutate<State>?) {
+        if #available(macOS 13.0, iOS 16.0, *) {
+            _lock = InternalOSLock<State>(state, onDidMutate: onDidMutate)
+        } else {
+            // Fallback on earlier versions
+            fatalError()
+        }
+    }
+
+    // mutate sync
+    @discardableResult
+    public func mutate<Result>(_ block: (inout State) throws -> Result) rethrows -> Result {
+        _lock.mutate(block)
+    }
+
+    // read sync and return copy
+    public func copy() -> State {
+        _lock.copy()
+    }
+
+    // read with block
+    public func read<Result>(_ block: (State) throws -> Result) rethrows -> Result {
+        try _lock.read(block)
+    }
+
+    // property read sync
+    public subscript<Property>(dynamicMember keyPath: KeyPath<State, Property>) -> Property {
+        _lock[keyPath: keyPath]
     }
 }

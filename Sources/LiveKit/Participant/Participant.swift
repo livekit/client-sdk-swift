@@ -97,7 +97,7 @@ public class Participant: NSObject, ObservableObject, Loggable {
         super.init()
 
         // trigger events when state mutates
-        _state.onDidMutate = { [weak self] newState, oldState in
+        _state.onDidMutate = { [weak self] (newState: State, oldState: State) in
 
             guard let self, let room = self._room else { return }
 
