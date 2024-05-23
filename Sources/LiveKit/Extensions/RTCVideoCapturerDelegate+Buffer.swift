@@ -73,7 +73,7 @@ extension LKRTCVideoCapturerDelegate {
                   didCapture pixelBuffer: CVPixelBuffer,
                   timeStampNs: Int64 = VideoCapturer.createTimeStampNs(),
                   rotation: RTCVideoRotation = ._0,
-                  onResolveSourceDimensions: OnResolveSourceDimensions? = nil,
+
                   onDidCreateFrame: OnDidCreateFrame? = nil)
     {
         // check if pixel format is supported by WebRTC
@@ -97,23 +97,19 @@ extension LKRTCVideoCapturerDelegate {
             return
         }
 
-        onResolveSourceDimensions?(sourceDimensions)
+        let rtcBuffer = LKRTCCVPixelBuffer(pixelBuffer: pixelBuffer)
+        let rtcFrame = LKRTCVideoFrame(buffer: rtcBuffer,
+                                       rotation: rotation,
+                                       timeStampNs: timeStampNs)
 
-        DispatchQueue.liveKitWebRTC.sync {
-            let rtcBuffer = LKRTCCVPixelBuffer(pixelBuffer: pixelBuffer)
-            let rtcFrame = LKRTCVideoFrame(buffer: rtcBuffer,
-                                           rotation: rotation,
-                                           timeStampNs: timeStampNs)
-
-            self.capturer(capturer, didCapture: rtcFrame)
-            onDidCreateFrame?(rtcFrame)
-        }
+        self.capturer(capturer, didCapture: rtcFrame)
+        onDidCreateFrame?(rtcFrame)
     }
 
     /// capture a `CMSampleBuffer`
     func capturer(_ capturer: LKRTCVideoCapturer,
                   didCapture sampleBuffer: CMSampleBuffer,
-                  onResolveSourceDimensions: OnResolveSourceDimensions? = nil,
+
                   onDidCreateFrame: OnDidCreateFrame? = nil)
     {
         // check if buffer is ready
@@ -149,7 +145,6 @@ extension LKRTCVideoCapturerDelegate {
                       didCapture: pixelBuffer,
                       timeStampNs: timeStampNs,
                       rotation: rotation ?? ._0,
-                      onResolveSourceDimensions: onResolveSourceDimensions,
                       onDidCreateFrame: onDidCreateFrame)
     }
 }
