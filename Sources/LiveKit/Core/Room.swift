@@ -154,6 +154,8 @@ public class Room: NSObject, ObservableObject, Loggable {
                 connectOptions: ConnectOptions? = nil,
                 roomOptions: RoomOptions? = nil)
     {
+        DeviceManager.prepare()
+
         _state = StateSync(State(options: roomOptions ?? RoomOptions()))
         engine = Engine(connectOptions: connectOptions ?? ConnectOptions())
         super.init()
