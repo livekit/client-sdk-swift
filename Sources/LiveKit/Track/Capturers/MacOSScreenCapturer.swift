@@ -32,15 +32,18 @@ public class MacOSScreenCapturer: VideoCapturer {
     // TODO: Make it possible to change dynamically
     public let captureSource: MacOSScreenCaptureSource?
 
-    // SCStream
-    private var _scStream: SCStream?
-
-    // cached frame for resending to maintain minimum of 1 fps
-    private var _lastFrame: LKRTCVideoFrame?
-    private var _resendTimer: Task<Void, Error>?
-
     /// The ``ScreenShareCaptureOptions`` used for this capturer.
     public let options: ScreenShareCaptureOptions
+
+    struct State {
+        // SCStream
+        var scStream: SCStream?
+        // Cached frame for resending to maintain minimum of 1 fps
+        var lastFrame: LKRTCVideoFrame?
+        var resendTimer: Task<Void, Error>?
+    }
+
+    private var _screenCapturerState = StateSync(State())
 
     init(delegate: LKRTCVideoCapturerDelegate, captureSource: MacOSScreenCaptureSource, options: ScreenShareCaptureOptions) {
         self.captureSource = captureSource
@@ -96,7 +99,7 @@ public class MacOSScreenCapturer: VideoCapturer {
         try stream.addStreamOutput(self, type: .screen, sampleHandlerQueue: nil)
         try await stream.startCapture()
 
-        _scStream = stream
+        _screenCapturerState.mutate { $0.scStream = stream }
 
         return true
     }
@@ -107,17 +110,22 @@ public class MacOSScreenCapturer: VideoCapturer {
         // Already stopped
         guard didStop else { return false }
 
-        guard let stream = _scStream else {
+        guard let stream = _screenCapturerState.read({ $0.scStream }) else {
             throw LiveKitError(.invalidState, message: "SCStream is nil")
         }
 
         // Stop resending paused frames
-        _resendTimer?.cancel()
-        _resendTimer = nil
+        _screenCapturerState.mutate {
+            $0.resendTimer?.cancel()
+            $0.resendTimer = nil
+        }
 
         try await stream.stopCapture()
         try stream.removeStreamOutput(self, type: .screen)
-        _scStream = nil
+
+        _screenCapturerState.mutate {
+            $0.scStream = nil
+        }
 
         return true
     }
@@ -149,10 +157,12 @@ public class MacOSScreenCapturer: VideoCapturer {
                                        rotation: ._0,
                                        timeStampNs: timeStampNs)
 
-        capture(frame: rtcFrame, capturer: capturer, options: options)
+        // Cache last frame
+        _screenCapturerState.mutate {
+            $0.lastFrame = rtcFrame
+        }
 
-        // cache last frame
-        _lastFrame = rtcFrame
+        capture(frame: rtcFrame, capturer: capturer, options: options)
     }
 }
 
@@ -167,9 +177,9 @@ extension MacOSScreenCapturer {
             return
         }
 
-        log("No movement detected, resending frame...")
+        log("No movement detected, resending frame...", .trace)
 
-        guard let frame = _lastFrame else { return }
+        guard let frame = _screenCapturerState.read({ $0.lastFrame }) else { return }
 
         // create a new frame with new time stamp
         let newFrame = LKRTCVideoFrame(buffer: frame.buffer,
@@ -215,10 +225,8 @@ extension MacOSScreenCapturer: SCStreamOutput {
               // let contentScale = attachments[.contentScale] as? CGFloat,
               let scaleFactor = attachments[.scaleFactor] as? CGFloat else { return }
 
-        capture(sampleBuffer, contentRect: contentRect, scaleFactor: scaleFactor)
-
-        _resendTimer?.cancel()
-        _resendTimer = Task.detached(priority: .utility) { [weak self] in
+        // Schedule resend timer
+        let newTimer = Task.detached(priority: .utility) { [weak self] in
             while true {
                 try? await Task.sleep(nanoseconds: UInt64(1 * 1_000_000_000))
                 if Task.isCancelled { break }
@@ -226,6 +234,13 @@ extension MacOSScreenCapturer: SCStreamOutput {
                 try await self._capturePreviousFrame()
             }
         }
+
+        _screenCapturerState.mutate {
+            $0.resendTimer?.cancel()
+            $0.resendTimer = newTimer
+        }
+
+        capture(sampleBuffer, contentRect: contentRect, scaleFactor: scaleFactor)
     }
 }
 
