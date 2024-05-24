@@ -569,9 +569,7 @@ extension VideoView: VideoRenderer {
             $0.renderDate = Date()
 
             // Update renderTarget if capture position changes
-            if let oldCaptureDevicePosition,
-               oldCaptureDevicePosition != captureDevice?.position
-            {
+            if let oldCaptureDevicePosition, oldCaptureDevicePosition != captureDevice?.position {
                 $0.renderTarget = .secondary
             }
 
