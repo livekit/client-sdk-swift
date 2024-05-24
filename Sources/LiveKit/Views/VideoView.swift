@@ -194,8 +194,6 @@ public class VideoView: NativeView, Loggable {
     private var _currentFPS: Int = 0
     private var _frameCount: Int = 0
 
-    private var _swapTimer: Timer?
-
     override public init(frame: CGRect = .zero) {
         // initial state
         _state = StateSync(State(viewSize: frame.size))
