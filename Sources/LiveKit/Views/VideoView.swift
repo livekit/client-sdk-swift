@@ -633,9 +633,7 @@ extension VideoView: VideoRenderer {
             return
         }
 
-        _secondaryRenderer = nil
-
-        UIView.transition(with: self, duration: 0.3, options: .transitionCrossDissolve, animations: {
+        let block = {
             // Remove the secondary view from its superview
             secondaryView.removeFromSuperview()
             // Swap the references
@@ -644,8 +642,14 @@ extension VideoView: VideoRenderer {
             if let newPrimaryView = self._primaryRenderer {
                 self.addSubview(newPrimaryView)
             }
+            self._secondaryRenderer = nil
+        }
 
-        }, completion: nil)
+        #if os(iOS)
+        UIView.transition(with: self, duration: 0.3, options: .transitionCrossDissolve, animations: block, completion: nil)
+        #else
+        block()
+        #endif
     }
 }
 
