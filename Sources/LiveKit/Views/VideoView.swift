@@ -483,24 +483,19 @@ private extension VideoView {
     @discardableResult
     func ensureSecondaryRenderer() -> NativeRendererView? {
         if !Thread.current.isMainThread { log("Must be called on main thread", .error) }
-
+        // Return if already exists
         if let _secondaryRenderer { return _secondaryRenderer }
-
+        // Primary is required
         guard let _primaryRenderer else { return nil }
 
-        // Create a new rendererView
+        // Create renderer blow primary
         let newView = VideoView.createNativeRendererView(for: _state.renderMode)
         insertSubview(newView, belowSubview: _primaryRenderer)
 
-        if let _secondaryRenderer {
-            // Remove old if existed
-            _secondaryRenderer.removeFromSuperview()
-        }
-
-        _secondaryRenderer = newView
-
         // Copy frame from primary renderer
         newView.frame = _primaryRenderer.frame
+        // Store reference
+        _secondaryRenderer = newView
 
         return newView
     }
@@ -591,11 +586,16 @@ extension VideoView: VideoRenderer {
 
         case .secondary:
             if let sr = _secondaryRenderer {
+                // Unfortunately there is not way to know if rendering has completed before initiating the swap.
                 sr.renderFrame(frame.toRTCType())
 
-                if !_state.isSwapping {
-                    _state.mutate { $0.isSwapping = true }
+                let shouldSwap = _state.mutate {
+                    let oldIsSwapping = $0.isSwapping
+                    $0.isSwapping = true
+                    return !oldIsSwapping
+                }
 
+                if shouldSwap {
                     Task.detached { @MainActor in
                         // Swap views
                         self._swapRendererViews()
@@ -627,18 +627,16 @@ extension VideoView: VideoRenderer {
         if !Thread.current.isMainThread { log("Must be called on main thread", .error) }
 
         // Ensure secondary renderer exists
-        guard let secondaryView = _secondaryRenderer else {
-            return
-        }
+        guard let sr = _secondaryRenderer else { return }
 
         let block = {
             // Remove the secondary view from its superview
-            secondaryView.removeFromSuperview()
+            sr.removeFromSuperview()
             // Swap the references
-            self._primaryRenderer = secondaryView
+            self._primaryRenderer = sr
             // Add the new primary view to the superview
-            if let newPrimaryView = self._primaryRenderer {
-                self.addSubview(newPrimaryView)
+            if let pr = self._primaryRenderer {
+                self.addSubview(pr)
             }
             self._secondaryRenderer = nil
         }
