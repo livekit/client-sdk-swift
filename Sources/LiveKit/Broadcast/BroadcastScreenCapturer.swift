@@ -50,7 +50,7 @@ class BroadcastScreenCapturer: BufferCapturer {
             .aspectFit(size: options.dimensions.max)
             .toEncodeSafeDimensions()
 
-        defer { self.dimensions = targetDimensions }
+        set(dimensions: targetDimensions)
 
         let frameReader = SocketConnectionFrameReader()
         guard let socketConnection = BroadcastServerSocketConnection(filePath: filePath, streamDelegate: frameReader)
