@@ -191,6 +191,7 @@ public class VideoView: NativeView, Loggable {
         // Transition related
         var renderTarget: RenderTarget = .primary
         var isSwapping: Bool = false
+        var remainingRenderCountBeforeSwap: Int = 0 // Number of frames to be rendered on secondary until swap is initiated
         var transitionMode: TransitionMode = .crossDissolve
         var transitionDuration: TimeInterval = 0.3
 
@@ -595,6 +596,7 @@ extension VideoView: VideoRenderer {
             // Update renderTarget if capture position changes
             if let oldCaptureDevicePosition, oldCaptureDevicePosition != captureDevice?.position {
                 $0.renderTarget = .secondary
+                $0.remainingRenderCountBeforeSwap = 3
             }
 
             return $0
@@ -613,8 +615,12 @@ extension VideoView: VideoRenderer {
 
                 let shouldSwap = _state.mutate {
                     let oldIsSwapping = $0.isSwapping
-                    $0.isSwapping = true
-                    return !oldIsSwapping
+                    if $0.remainingRenderCountBeforeSwap <= 0 {
+                        $0.isSwapping = true
+                    } else {
+                        $0.remainingRenderCountBeforeSwap -= 1
+                    }
+                    return !oldIsSwapping && $0.isSwapping
                 }
 
                 if shouldSwap {
