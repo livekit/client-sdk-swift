@@ -58,6 +58,13 @@ public class VideoView: NativeView, Loggable {
         case sampleBuffer
     }
 
+    @objc
+    public enum TransitionMode: Int, Codable {
+        case none
+        case crossDissolve
+        case flip
+    }
+
     /// ``LayoutMode-swift.enum`` of the ``VideoView``.
     @objc
     public var layoutMode: LayoutMode {
@@ -120,6 +127,19 @@ public class VideoView: NativeView, Loggable {
         }
     }
 
+    /// Currently, only for iOS
+    @objc
+    public var transitionMode: TransitionMode {
+        get { _state.transitionMode }
+        set { _state.mutate { $0.transitionMode = newValue } }
+    }
+
+    @objc
+    public var transitionDuration: TimeInterval {
+        get { _state.transitionDuration }
+        set { _state.mutate { $0.transitionDuration = newValue } }
+    }
+
     @objc
     public var isDebugMode: Bool {
         get { _state.isDebugMode }
@@ -167,8 +187,12 @@ public class VideoView: NativeView, Loggable {
         var renderDate: Date?
         var didRenderFirstFrame: Bool = false
         var isRendering: Bool = false
+
+        // Transition related
         var renderTarget: RenderTarget = .primary
         var isSwapping: Bool = false
+        var transitionMode: TransitionMode = .crossDissolve
+        var transitionDuration: TimeInterval = 0.3
 
         // Only used for rendering local tracks
         var captureOptions: VideoCaptureOptions? = nil
@@ -639,8 +663,14 @@ extension VideoView: VideoRenderer {
             self._secondaryRenderer = nil
         }
 
+        // Currently only for iOS
         #if os(iOS)
-        UIView.transition(with: self, duration: 0.3, options: .transitionCrossDissolve, animations: block, completion: nil)
+        let (mode, duration) = _state.read { ($0.transitionMode, $0.transitionDuration) }
+        if let transitionOption = mode.toAnimationOption() {
+            UIView.transition(with: self, duration: duration, options: transitionOption, animations: block, completion: nil)
+        } else {
+            block()
+        }
         #else
         block()
         #endif
@@ -784,3 +814,15 @@ extension AVCaptureDevice {
         return position
     }
 }
+
+#if os(iOS)
+extension VideoView.TransitionMode {
+    func toAnimationOption() -> UIView.AnimationOptions? {
+        switch self {
+        case .flip: return .transitionFlipFromRight
+        case .crossDissolve: return .transitionCrossDissolve
+        default: return nil
+        }
+    }
+}
+#endif
