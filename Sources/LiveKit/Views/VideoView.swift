@@ -665,8 +665,8 @@ extension VideoView: VideoRenderer {
 
         // Currently only for iOS
         #if os(iOS)
-        let (mode, duration) = _state.read { ($0.transitionMode, $0.transitionDuration) }
-        if let transitionOption = mode.toAnimationOption() {
+        let (mode, duration, position) = _state.read { ($0.transitionMode, $0.transitionDuration, $0.captureDevice?.realPosition) }
+        if let transitionOption = mode.toAnimationOption(fromPosition: position) {
             UIView.transition(with: self, duration: duration, options: transitionOption, animations: block, completion: nil)
         } else {
             block()
@@ -817,9 +817,13 @@ extension AVCaptureDevice {
 
 #if os(iOS)
 extension VideoView.TransitionMode {
-    func toAnimationOption() -> UIView.AnimationOptions? {
+    func toAnimationOption(fromPosition position: AVCaptureDevice.Position? = nil) -> UIView.AnimationOptions? {
         switch self {
-        case .flip: return .transitionFlipFromRight
+        case .flip:
+            if position == .back {
+                return .transitionFlipFromLeft
+            }
+            return .transitionFlipFromRight
         case .crossDissolve: return .transitionCrossDissolve
         default: return nil
         }
