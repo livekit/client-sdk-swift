@@ -596,7 +596,7 @@ extension VideoView: VideoRenderer {
             // Update renderTarget if capture position changes
             if let oldCaptureDevicePosition, oldCaptureDevicePosition != captureDevice?.position {
                 $0.renderTarget = .secondary
-                $0.remainingRenderCountBeforeSwap = 3
+                $0.remainingRenderCountBeforeSwap = $0.transitionMode == .none ? 3 : 0
             }
 
             return $0
