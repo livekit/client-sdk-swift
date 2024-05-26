@@ -33,23 +33,6 @@ public class CameraCapturer: VideoCapturer {
     @objc
     public var options: CameraCaptureOptions { _cameraCapturerState.options }
 
-    public var zoomFactor: CGFloat? {
-        get { _cameraCapturerState.device?.videoZoomFactor }
-        set {
-            if let newValue,
-               let device = _cameraCapturerState.device,
-               let _ = try? device.lockForConfiguration()
-            {
-                defer { device.unlockForConfiguration() }
-                device.videoZoomFactor = newValue
-            }
-        }
-    }
-
-    public var minZoomFactor: CGFloat? { _cameraCapturerState.device?.minAvailableVideoZoomFactor }
-
-    public var maxZoomFactor: CGFloat? { _cameraCapturerState.device?.maxAvailableVideoZoomFactor }
-
     @objc
     public static func captureDevices(types: [AVCaptureDevice.DeviceType] = [.builtInWideAngleCamera]) async throws -> [AVCaptureDevice] {
         try await DeviceManager.shared.devices(types: types)
@@ -97,7 +80,7 @@ public class CameraCapturer: VideoCapturer {
         var device: AVCaptureDevice?
     }
 
-    private var _cameraCapturerState: StateSync<State>
+    var _cameraCapturerState: StateSync<State>
 
     // Used to hide LKRTCVideoCapturerDelegate symbol
     private lazy var adapter: VideoCapturerDelegateAdapter = .init(cameraCapturer: self)
