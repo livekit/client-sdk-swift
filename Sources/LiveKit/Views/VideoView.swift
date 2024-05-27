@@ -192,7 +192,7 @@ public class VideoView: NativeView, Loggable {
         var renderTarget: RenderTarget = .primary
         var isSwapping: Bool = false
         var remainingRenderCountBeforeSwap: Int = 0 // Number of frames to be rendered on secondary until swap is initiated
-        var transitionMode: TransitionMode = .crossDissolve
+        var transitionMode: TransitionMode = .flip
         var transitionDuration: TimeInterval = 0.3
 
         // Only used for rendering local tracks
@@ -317,7 +317,7 @@ public class VideoView: NativeView, Loggable {
                 newState.renderMode != oldState.renderMode ||
                 newState.rotationOverride != oldState.rotationOverride ||
                 newState.didRenderFirstFrame != oldState.didRenderFirstFrame ||
-                newState.captureDevice?.position != oldState.captureDevice?.position ||
+                newState.renderTarget != oldState.renderTarget ||
                 shouldRenderDidUpdate || trackDidUpdate
             {
                 // must be on main
@@ -561,15 +561,6 @@ extension VideoView: VideoRenderer {
             return
         }
 
-        var _needsLayout = false
-        defer {
-            if _needsLayout {
-                Task.detached { @MainActor in
-                    self.setNeedsLayout()
-                }
-            }
-        }
-
         let rotation = state.rotationOverride ?? frame.rotation
         let dimensions = frame.dimensions.apply(rotation: rotation.toRTCType())
 
@@ -579,9 +570,8 @@ extension VideoView: VideoRenderer {
             return
         }
 
-        if track?.set(dimensions: dimensions) == true {
-            _needsLayout = true
-        }
+        // Update track dimensions
+        track?.set(dimensions: dimensions)
 
         let newState = _state.mutate {
             // Keep previous capture position
