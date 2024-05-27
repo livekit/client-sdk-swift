@@ -202,6 +202,7 @@ public class VideoView: NativeView, Loggable {
         var transitionDuration: TimeInterval = 0.3
 
         var pinchToZoom: Bool = true
+        var pinchToZoomAutoZoomOut: Bool = true
 
         // Only used for rendering local tracks
         var captureOptions: VideoCaptureOptions? = nil
@@ -386,6 +387,15 @@ public class VideoView: NativeView, Loggable {
         {
             if sender.state == .began {
                 _pinchStartZoomFactor = device.videoZoomFactor
+            } else if sender.state == .ended {
+                do {
+                    try device.lockForConfiguration()
+                    defer { device.unlockForConfiguration() }
+                    let firstSwitchOverZoomFactor = device.virtualDeviceSwitchOverVideoZoomFactors.first?.doubleValue ?? 1.0
+                    device.ramp(toVideoZoomFactor: firstSwitchOverZoomFactor, withRate: 10)
+                } catch {
+                    log("Failed to reset videoZoomFactor", .warning)
+                }
             } else {
                 do {
                     try device.lockForConfiguration()
@@ -393,6 +403,7 @@ public class VideoView: NativeView, Loggable {
 
                     let minZoom = device.minAvailableVideoZoomFactor
                     let maxZoom = device.maxAvailableVideoZoomFactor
+                    log("device: \(device.localizedName), zoom: \(minZoom)...\(maxZoom)")
                     device.videoZoomFactor = (_pinchStartZoomFactor * sender.scale).clamped(to: minZoom ... maxZoom)
 
                 } catch {

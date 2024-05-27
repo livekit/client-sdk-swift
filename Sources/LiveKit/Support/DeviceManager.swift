@@ -28,12 +28,12 @@ class DeviceManager: Loggable {
     }
 
     // Async version, waits until inital device fetch is complete
-    public func devices(types: [AVCaptureDevice.DeviceType] = [.builtInWideAngleCamera]) async throws -> [AVCaptureDevice] {
+    public func devices(types: [AVCaptureDevice.DeviceType] = [.builtInTripleCamera]) async throws -> [AVCaptureDevice] {
         try await devicesCompleter.wait().filter { types.contains($0.deviceType) }
     }
 
     // Sync version
-    public func devices(types: [AVCaptureDevice.DeviceType] = [.builtInWideAngleCamera]) -> [AVCaptureDevice] {
+    public func devices(types: [AVCaptureDevice.DeviceType] = [.builtInTripleCamera]) -> [AVCaptureDevice] {
         _state.devices.filter { types.contains($0.deviceType) }
     }
 

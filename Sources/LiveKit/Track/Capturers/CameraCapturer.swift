@@ -34,7 +34,7 @@ public class CameraCapturer: VideoCapturer {
     public var options: CameraCaptureOptions { _cameraCapturerState.options }
 
     @objc
-    public static func captureDevices(types: [AVCaptureDevice.DeviceType] = [.builtInWideAngleCamera]) async throws -> [AVCaptureDevice] {
+    public static func captureDevices(types: [AVCaptureDevice.DeviceType] = [.builtInTripleCamera]) async throws -> [AVCaptureDevice] {
         try await DeviceManager.shared.devices(types: types)
     }
 
