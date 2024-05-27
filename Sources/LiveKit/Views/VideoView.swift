@@ -141,6 +141,12 @@ public class VideoView: NativeView, Loggable {
     }
 
     @objc
+    public var pinchToZoom: Bool {
+        get { _state.pinchToZoom }
+        set { _state.mutate { $0.pinchToZoom = newValue } }
+    }
+
+    @objc
     public var isDebugMode: Bool {
         get { _state.isDebugMode }
         set { _state.mutate { $0.isDebugMode = newValue } }
@@ -194,6 +200,8 @@ public class VideoView: NativeView, Loggable {
         var remainingRenderCountBeforeSwap: Int = 0 // Number of frames to be rendered on secondary until swap is initiated
         var transitionMode: TransitionMode = .flip
         var transitionDuration: TimeInterval = 0.3
+
+        var pinchToZoom: Bool = true
 
         // Only used for rendering local tracks
         var captureOptions: VideoCaptureOptions? = nil
@@ -359,7 +367,36 @@ public class VideoView: NativeView, Loggable {
 
             await self._renderTimer.restart()
         }
+
+        #if os(iOS)
+        // Add pinch gesture recognizer
+        let pinchGesture = UIPinchGestureRecognizer(target: self, action: #selector(_handlePinchGesture(_:)))
+        addGestureRecognizer(pinchGesture)
+        #endif
     }
+
+    #if os(iOS)
+    @objc func _handlePinchGesture(_ sender: UIPinchGestureRecognizer) {
+        if let track = _state.track as? LocalVideoTrack,
+           let capturer = track.capturer as? CameraCapturer,
+           let device = capturer.device
+        {
+            print("Scale: \(sender.scale)")
+
+            do {
+                try device.lockForConfiguration()
+                defer { device.unlockForConfiguration() }
+
+                let minZoom = device.minAvailableVideoZoomFactor
+                let maxZoom = device.maxAvailableVideoZoomFactor
+                device.videoZoomFactor = (device.videoZoomFactor * sender.scale).clamped(to: minZoom ... maxZoom)
+
+            } catch {
+                log("Failed to adjust videoZoomFactor", .warning)
+            }
+        }
+    }
+    #endif
 
     @available(*, unavailable)
     required init?(coder _: NSCoder) {
