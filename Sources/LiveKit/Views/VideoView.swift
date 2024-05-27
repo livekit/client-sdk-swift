@@ -58,6 +58,13 @@ public class VideoView: NativeView, Loggable {
         case sampleBuffer
     }
 
+    @objc
+    public enum TransitionMode: Int, Codable {
+        case none
+        case crossDissolve
+        case flip
+    }
+
     /// ``LayoutMode-swift.enum`` of the ``VideoView``.
     @objc
     public var layoutMode: LayoutMode {
@@ -120,6 +127,19 @@ public class VideoView: NativeView, Loggable {
         }
     }
 
+    /// Currently, only for iOS
+    @objc
+    public var transitionMode: TransitionMode {
+        get { _state.transitionMode }
+        set { _state.mutate { $0.transitionMode = newValue } }
+    }
+
+    @objc
+    public var transitionDuration: TimeInterval {
+        get { _state.transitionDuration }
+        set { _state.mutate { $0.transitionDuration = newValue } }
+    }
+
     @objc
     public var isDebugMode: Bool {
         get { _state.isDebugMode }
@@ -136,11 +156,16 @@ public class VideoView: NativeView, Loggable {
     /// This is only available when the renderer is using AVSampleBufferDisplayLayer.
     /// Recommended to be accessed from main thread.
     public var avSampleBufferDisplayLayer: AVSampleBufferDisplayLayer? {
-        guard let nr = _nativeRenderer as? SampleBufferVideoRenderer else { return nil }
+        guard let nr = _primaryRenderer as? SampleBufferVideoRenderer else { return nil }
         return nr.sampleBufferDisplayLayer
     }
 
     // MARK: - Internal
+
+    enum RenderTarget {
+        case primary
+        case secondary
+    }
 
     struct State {
         weak var track: Track?
@@ -158,10 +183,17 @@ public class VideoView: NativeView, Loggable {
 
         var isDebugMode: Bool = false
 
-        // render states
+        // Render states
         var renderDate: Date?
         var didRenderFirstFrame: Bool = false
         var isRendering: Bool = false
+
+        // Transition related
+        var renderTarget: RenderTarget = .primary
+        var isSwapping: Bool = false
+        var remainingRenderCountBeforeSwap: Int = 0 // Number of frames to be rendered on secondary until swap is initiated
+        var transitionMode: TransitionMode = .flip
+        var transitionDuration: TimeInterval = 0.3
 
         // Only used for rendering local tracks
         var captureOptions: VideoCaptureOptions? = nil
@@ -177,7 +209,8 @@ public class VideoView: NativeView, Loggable {
 
     // MARK: - Private
 
-    private var _nativeRenderer: NativeRendererView?
+    private var _primaryRenderer: NativeRendererView?
+    private var _secondaryRenderer: NativeRendererView?
     private var _debugTextView: TextView?
 
     // used for stats timer
@@ -224,17 +257,21 @@ public class VideoView: NativeView, Loggable {
                         if let track = oldState.track as? VideoTrack {
                             track.remove(videoRenderer: self)
 
-                            if let nr = self._nativeRenderer {
-                                self.log("removing nativeRenderer")
-                                nr.removeFromSuperview()
-                                self._nativeRenderer = nil
+                            if let r = self._primaryRenderer {
+                                r.removeFromSuperview()
+                                self._primaryRenderer = nil
+                            }
+
+                            if let r = self._secondaryRenderer {
+                                r.removeFromSuperview()
+                                self._secondaryRenderer = nil
                             }
                         }
 
                         // set new track
                         if let track = newState.track as? VideoTrack, newState.shouldRender {
                             // re-create renderer on main thread
-                            let nr = self.reCreateNativeRenderer(for: newState.renderMode)
+                            let nr = self.recreatePrimaryRenderer(for: newState.renderMode)
                             didReCreateNativeRenderer = true
 
                             track.add(videoRenderer: self)
@@ -248,7 +285,7 @@ public class VideoView: NativeView, Loggable {
                     }
 
                     if renderModeDidUpdate, !didReCreateNativeRenderer {
-                        self.reCreateNativeRenderer(for: newState.renderMode)
+                        self.recreatePrimaryRenderer(for: newState.renderMode)
                     }
                 }
             }
@@ -280,7 +317,7 @@ public class VideoView: NativeView, Loggable {
                 newState.renderMode != oldState.renderMode ||
                 newState.rotationOverride != oldState.rotationOverride ||
                 newState.didRenderFirstFrame != oldState.didRenderFirstFrame ||
-                newState.captureDevice?.position != oldState.captureDevice?.position ||
+                newState.renderTarget != oldState.renderTarget ||
                 shouldRenderDidUpdate || trackDidUpdate
             {
                 // must be on main
@@ -368,6 +405,7 @@ public class VideoView: NativeView, Loggable {
             debugView.layer!.borderColor = (state.shouldRender ? NSColor.green : NSColor.red).withAlphaComponent(0.5).cgColor
             debugView.layer!.borderWidth = 3
             #endif
+            bringSubviewToFront(debugView)
         } else {
             if let debugView = _debugTextView {
                 debugView.removeFromSuperview()
@@ -408,23 +446,24 @@ public class VideoView: NativeView, Loggable {
             _state.mutate { $0.rendererSize = rendererFrame.size }
         }
 
-        // nativeRenderer.wantsLayer = true
-        // nativeRenderer.layer!.borderColor = NSColor.red.cgColor
-        // nativeRenderer.layer!.borderWidth = 3
+        if let _primaryRenderer {
+            _primaryRenderer.frame = rendererFrame
 
-        guard let _nativeRenderer else { return }
+            if let mtlVideoView = _primaryRenderer as? LKRTCMTLVideoView {
+                if let rotationOverride = state.rotationOverride {
+                    mtlVideoView.rotationOverride = NSNumber(value: rotationOverride.rawValue)
+                } else {
+                    mtlVideoView.rotationOverride = nil
+                }
+            }
 
-        _nativeRenderer.frame = rendererFrame
-
-        if let mtlVideoView = _nativeRenderer as? LKRTCMTLVideoView {
-            if let rotationOverride = state.rotationOverride {
-                mtlVideoView.rotationOverride = NSNumber(value: rotationOverride.rawValue)
+            if let _secondaryRenderer {
+                _secondaryRenderer.frame = rendererFrame
+                _secondaryRenderer.set(mirrored: _shouldMirror())
             } else {
-                mtlVideoView.rotationOverride = nil
+                _primaryRenderer.set(mirrored: _shouldMirror())
             }
         }
-
-        _nativeRenderer.set(mirrored: _shouldMirror())
     }
 }
 
@@ -440,18 +479,16 @@ private extension VideoView {
     }
 
     @discardableResult
-    func reCreateNativeRenderer(for renderMode: VideoView.RenderMode) -> NativeRendererView {
-        if !Thread.current.isMainThread {
-            log("Must be called on main thread", .error)
-        }
+    func recreatePrimaryRenderer(for renderMode: VideoView.RenderMode) -> NativeRendererView {
+        if !Thread.current.isMainThread { log("Must be called on main thread", .error) }
 
         // create a new rendererView
         let newView = VideoView.createNativeRendererView(for: renderMode)
         addSubview(newView)
 
         // keep the old rendererView
-        let oldView = _nativeRenderer
-        _nativeRenderer = newView
+        let oldView = _primaryRenderer
+        _primaryRenderer = newView
 
         if let oldView {
             // copy frame from old renderer
@@ -460,10 +497,30 @@ private extension VideoView {
             oldView.removeFromSuperview()
         }
 
-        // ensure debug info is most front
-        if let view = _debugTextView {
-            bringSubviewToFront(view)
+        if let r = _secondaryRenderer {
+            r.removeFromSuperview()
+            _secondaryRenderer = nil
         }
+
+        return newView
+    }
+
+    @discardableResult
+    func ensureSecondaryRenderer() -> NativeRendererView? {
+        if !Thread.current.isMainThread { log("Must be called on main thread", .error) }
+        // Return if already exists
+        if let _secondaryRenderer { return _secondaryRenderer }
+        // Primary is required
+        guard let _primaryRenderer else { return nil }
+
+        // Create renderer blow primary
+        let newView = VideoView.createNativeRendererView(for: _state.renderMode)
+        insertSubview(newView, belowSubview: _primaryRenderer)
+
+        // Copy frame from primary renderer
+        newView.frame = _primaryRenderer.frame
+        // Store reference
+        _secondaryRenderer = newView
 
         return newView
     }
@@ -490,7 +547,7 @@ extension VideoView: VideoRenderer {
 
     public func set(size: CGSize) {
         DispatchQueue.main.async { [weak self] in
-            guard let self, let nr = self._nativeRenderer else { return }
+            guard let self, let nr = self._primaryRenderer else { return }
             nr.setSize(size)
         }
     }
@@ -499,18 +556,9 @@ extension VideoView: VideoRenderer {
         let state = _state.copy()
 
         // prevent any extra rendering if already !isEnabled etc.
-        guard state.shouldRender, let nr = _nativeRenderer else {
+        guard state.shouldRender, let pr = _primaryRenderer else {
             log("canRender is false, skipping render...")
             return
-        }
-
-        var _needsLayout = false
-        defer {
-            if _needsLayout {
-                Task.detached { @MainActor in
-                    self.setNeedsLayout()
-                }
-            }
         }
 
         let rotation = state.rotationOverride ?? frame.rotation
@@ -522,21 +570,68 @@ extension VideoView: VideoRenderer {
             return
         }
 
-        if track?.set(dimensions: dimensions) == true {
-            _needsLayout = true
-        }
+        // Update track dimensions
+        track?.set(dimensions: dimensions)
 
-        nr.renderFrame(frame.toRTCType())
+        let newState = _state.mutate {
+            // Keep previous capture position
+            let oldCaptureDevicePosition = $0.captureDevice?.position
 
-        // cache last rendered frame
-        track?.set(videoFrame: frame)
-
-        _state.mutate {
             $0.captureDevice = captureDevice
             $0.captureOptions = captureOptions
             $0.didRenderFirstFrame = true
             $0.isRendering = true
             $0.renderDate = Date()
+
+            // Update renderTarget if capture position changes
+            if let oldCaptureDevicePosition, oldCaptureDevicePosition != captureDevice?.position {
+                $0.renderTarget = .secondary
+                $0.remainingRenderCountBeforeSwap = $0.transitionMode == .none ? 3 : 0
+            }
+
+            return $0
+        }
+
+        switch newState.renderTarget {
+        case .primary:
+            pr.renderFrame(frame.toRTCType())
+            // Cache last rendered frame
+            track?.set(videoFrame: frame)
+
+        case .secondary:
+            if let sr = _secondaryRenderer {
+                // Unfortunately there is not way to know if rendering has completed before initiating the swap.
+                sr.renderFrame(frame.toRTCType())
+
+                let shouldSwap = _state.mutate {
+                    let oldIsSwapping = $0.isSwapping
+                    if $0.remainingRenderCountBeforeSwap <= 0 {
+                        $0.isSwapping = true
+                    } else {
+                        $0.remainingRenderCountBeforeSwap -= 1
+                    }
+                    return !oldIsSwapping && $0.isSwapping
+                }
+
+                if shouldSwap {
+                    Task.detached { @MainActor in
+                        // Swap views
+                        self._swapRendererViews()
+                        // Swap completed, back to primary rendering
+                        self._state.mutate {
+                            $0.renderTarget = .primary
+                            $0.isSwapping = false
+                        }
+                    }
+                }
+            } else {
+                Task.detached { @MainActor in
+                    // Create secondary renderer and render first frame
+                    if let sr = self.ensureSecondaryRenderer() {
+                        sr.renderFrame(frame.toRTCType())
+                    }
+                }
+            }
         }
 
         if _state.isDebugMode {
@@ -544,6 +639,37 @@ extension VideoView: VideoRenderer {
                 self._frameCount += 1
             }
         }
+    }
+
+    private func _swapRendererViews() {
+        if !Thread.current.isMainThread { log("Must be called on main thread", .error) }
+
+        // Ensure secondary renderer exists
+        guard let sr = _secondaryRenderer else { return }
+
+        let block = {
+            // Remove the secondary view from its superview
+            sr.removeFromSuperview()
+            // Swap the references
+            self._primaryRenderer = sr
+            // Add the new primary view to the superview
+            if let pr = self._primaryRenderer {
+                self.addSubview(pr)
+            }
+            self._secondaryRenderer = nil
+        }
+
+        // Currently only for iOS
+        #if os(iOS)
+        let (mode, duration, position) = _state.read { ($0.transitionMode, $0.transitionDuration, $0.captureDevice?.realPosition) }
+        if let transitionOption = mode.toAnimationOption(fromPosition: position) {
+            UIView.transition(with: self, duration: duration, options: transitionOption, animations: block, completion: nil)
+        } else {
+            block()
+        }
+        #else
+        block()
+        #endif
     }
 }
 
@@ -684,3 +810,19 @@ extension AVCaptureDevice {
         return position
     }
 }
+
+#if os(iOS)
+extension VideoView.TransitionMode {
+    func toAnimationOption(fromPosition position: AVCaptureDevice.Position? = nil) -> UIView.AnimationOptions? {
+        switch self {
+        case .flip:
+            if position == .back {
+                return .transitionFlipFromLeft
+            }
+            return .transitionFlipFromRight
+        case .crossDissolve: return .transitionCrossDissolve
+        default: return nil
+        }
+    }
+}
+#endif
