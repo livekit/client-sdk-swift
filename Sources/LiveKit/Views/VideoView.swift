@@ -375,27 +375,33 @@ public class VideoView: NativeView, Loggable {
         #endif
     }
 
+    // This should be thread safe so it's not required to be guarded by the lock
+    var _pinchStartZoomFactor: CGFloat = 0.0
+
     #if os(iOS)
     @objc func _handlePinchGesture(_ sender: UIPinchGestureRecognizer) {
         if let track = _state.track as? LocalVideoTrack,
            let capturer = track.capturer as? CameraCapturer,
            let device = capturer.device
         {
-            print("Scale: \(sender.scale)")
+            if sender.state == .began {
+                _pinchStartZoomFactor = device.videoZoomFactor
+            } else {
+                do {
+                    try device.lockForConfiguration()
+                    defer { device.unlockForConfiguration() }
 
-            do {
-                try device.lockForConfiguration()
-                defer { device.unlockForConfiguration() }
+                    let minZoom = device.minAvailableVideoZoomFactor
+                    let maxZoom = device.maxAvailableVideoZoomFactor
+                    device.videoZoomFactor = (_pinchStartZoomFactor * sender.scale).clamped(to: minZoom ... maxZoom)
 
-                let minZoom = device.minAvailableVideoZoomFactor
-                let maxZoom = device.maxAvailableVideoZoomFactor
-                device.videoZoomFactor = (device.videoZoomFactor * sender.scale).clamped(to: minZoom ... maxZoom)
-
-            } catch {
-                log("Failed to adjust videoZoomFactor", .warning)
+                } catch {
+                    log("Failed to adjust videoZoomFactor", .warning)
+                }
             }
         }
     }
+
     #endif
 
     @available(*, unavailable)
