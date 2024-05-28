@@ -387,25 +387,19 @@ public class VideoView: NativeView, Loggable {
         {
             if sender.state == .began {
                 _pinchStartZoomFactor = device.videoZoomFactor
-            } else if sender.state == .ended {
-                do {
-                    try device.lockForConfiguration()
-                    defer { device.unlockForConfiguration() }
-                    let firstSwitchOverZoomFactor = device.virtualDeviceSwitchOverVideoZoomFactors.first?.doubleValue ?? 1.0
-                    device.ramp(toVideoZoomFactor: firstSwitchOverZoomFactor, withRate: 10)
-                } catch {
-                    log("Failed to reset videoZoomFactor", .warning)
-                }
             } else {
                 do {
                     try device.lockForConfiguration()
                     defer { device.unlockForConfiguration() }
 
-                    let minZoom = device.minAvailableVideoZoomFactor
-                    let maxZoom = device.maxAvailableVideoZoomFactor
-                    log("device: \(device.localizedName), zoom: \(minZoom)...\(maxZoom)")
-                    device.videoZoomFactor = (_pinchStartZoomFactor * sender.scale).clamped(to: minZoom ... maxZoom)
-
+                    if sender.state == .changed {
+                        let minZoom = device.minAvailableVideoZoomFactor
+                        let maxZoom = device.maxAvailableVideoZoomFactor
+                        device.videoZoomFactor = (_pinchStartZoomFactor * sender.scale).clamped(to: minZoom ... maxZoom)
+                    } else if sender.state == .ended || sender.state == .cancelled {
+                        let firstSwitchOverZoomFactor = device.virtualDeviceSwitchOverVideoZoomFactors.first?.doubleValue ?? 1.0
+                        device.ramp(toVideoZoomFactor: firstSwitchOverZoomFactor, withRate: 10)
+                    }
                 } catch {
                     log("Failed to adjust videoZoomFactor", .warning)
                 }
