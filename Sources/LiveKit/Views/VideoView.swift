@@ -396,7 +396,7 @@ public class VideoView: NativeView, Loggable {
                         let minZoom = device.minAvailableVideoZoomFactor
                         let maxZoom = device.maxAvailableVideoZoomFactor
                         device.videoZoomFactor = (_pinchStartZoomFactor * sender.scale).clamped(to: minZoom ... maxZoom)
-                    } else if sender.state == .ended || sender.state == .cancelled {
+                    } else if (sender.state == .ended || sender.state == .cancelled) && _state.pinchToZoomAutoZoomOut {
                         let firstSwitchOverZoomFactor = device.virtualDeviceSwitchOverVideoZoomFactors.first?.doubleValue ?? 1.0
                         device.ramp(toVideoZoomFactor: firstSwitchOverZoomFactor, withRate: 10)
                     }
