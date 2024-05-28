@@ -147,6 +147,12 @@ public class VideoView: NativeView, Loggable {
     }
 
     @objc
+    public var pinchToZoomAutoZoomOut: Bool {
+        get { _state.pinchToZoomAutoZoomOut }
+        set { _state.mutate { $0.pinchToZoomAutoZoomOut = newValue } }
+    }
+
+    @objc
     public var isDebugMode: Bool {
         get { _state.isDebugMode }
         set { _state.mutate { $0.isDebugMode = newValue } }
@@ -396,7 +402,7 @@ public class VideoView: NativeView, Loggable {
                         let minZoom = device.minAvailableVideoZoomFactor
                         let maxZoom = device.maxAvailableVideoZoomFactor
                         device.videoZoomFactor = (_pinchStartZoomFactor * sender.scale).clamped(to: minZoom ... maxZoom)
-                    } else if (sender.state == .ended || sender.state == .cancelled) && _state.pinchToZoomAutoZoomOut {
+                    } else if sender.state == .ended || sender.state == .cancelled, _state.pinchToZoomAutoZoomOut {
                         let firstSwitchOverZoomFactor = device.virtualDeviceSwitchOverVideoZoomFactors.first?.doubleValue ?? 1.0
                         device.ramp(toVideoZoomFactor: firstSwitchOverZoomFactor, withRate: 10)
                     }
