@@ -141,6 +141,18 @@ public class VideoView: NativeView, Loggable {
     }
 
     @objc
+    public var isPinchToZoomEnabled: Bool {
+        get { _state.isPinchToZoomEnabled }
+        set { _state.mutate { $0.isPinchToZoomEnabled = newValue } }
+    }
+
+    @objc
+    public var isAutoZoomResetEnabled: Bool {
+        get { _state.isAutoZoomResetEnabled }
+        set { _state.mutate { $0.isAutoZoomResetEnabled = newValue } }
+    }
+
+    @objc
     public var isDebugMode: Bool {
         get { _state.isDebugMode }
         set { _state.mutate { $0.isDebugMode = newValue } }
@@ -192,8 +204,11 @@ public class VideoView: NativeView, Loggable {
         var renderTarget: RenderTarget = .primary
         var isSwapping: Bool = false
         var remainingRenderCountBeforeSwap: Int = 0 // Number of frames to be rendered on secondary until swap is initiated
-        var transitionMode: TransitionMode = .flip
+        var transitionMode: TransitionMode = .crossDissolve
         var transitionDuration: TimeInterval = 0.3
+
+        var isPinchToZoomEnabled: Bool = false
+        var isAutoZoomResetEnabled: Bool = true
 
         // Only used for rendering local tracks
         var captureOptions: VideoCaptureOptions? = nil
@@ -218,6 +233,12 @@ public class VideoView: NativeView, Loggable {
     private let _fpsTimer = AsyncTimer(interval: 1)
     private var _currentFPS: Int = 0
     private var _frameCount: Int = 0
+
+    #if os(iOS) || os(visionOS)
+    private lazy var _pinchGestureRecognizer = UIPinchGestureRecognizer(target: self, action: #selector(_handlePinchGesture(_:)))
+    // This should be thread safe so it's not required to be guarded by the lock
+    private var _pinchStartZoomFactor: CGFloat = 0.0
+    #endif
 
     override public init(frame: CGRect = .zero) {
         // initial state
@@ -326,6 +347,15 @@ public class VideoView: NativeView, Loggable {
                 }
             }
 
+            #if os(iOS) || os(visionOS)
+            let newIsPinchToZoomEnabled = newState.isPinchToZoomEnabled
+            if newIsPinchToZoomEnabled != oldState.isPinchToZoomEnabled {
+                Task.detached { @MainActor in
+                    self._pinchGestureRecognizer.isEnabled = newIsPinchToZoomEnabled
+                }
+            }
+            #endif
+
             if newState.isDebugMode != oldState.isDebugMode {
                 // fps timer
                 if newState.isDebugMode {
@@ -359,7 +389,43 @@ public class VideoView: NativeView, Loggable {
 
             await self._renderTimer.restart()
         }
+
+        #if os(iOS) || os(visionOS)
+        // Add pinch gesture recognizer
+        addGestureRecognizer(_pinchGestureRecognizer)
+        _pinchGestureRecognizer.isEnabled = _state.isPinchToZoomEnabled
+        #endif
     }
+
+    #if os(iOS) || os(visionOS)
+    @objc func _handlePinchGesture(_ sender: UIPinchGestureRecognizer) {
+        if let track = _state.track as? LocalVideoTrack,
+           let capturer = track.capturer as? CameraCapturer,
+           let device = capturer.device
+        {
+            if sender.state == .began {
+                _pinchStartZoomFactor = device.videoZoomFactor
+            } else {
+                do {
+                    try device.lockForConfiguration()
+                    defer { device.unlockForConfiguration() }
+
+                    if sender.state == .changed {
+                        let minZoom = device.minAvailableVideoZoomFactor
+                        let maxZoom = device.maxAvailableVideoZoomFactor
+                        device.videoZoomFactor = (_pinchStartZoomFactor * sender.scale).clamped(to: minZoom ... maxZoom)
+                    } else if sender.state == .ended || sender.state == .cancelled, _state.isAutoZoomResetEnabled {
+                        // Zoom to default zoom factor
+                        let defaultZoomFactor = LKRTCCameraVideoCapturer.defaultZoomFactor(forDeviceType: device.deviceType)
+                        device.ramp(toVideoZoomFactor: defaultZoomFactor, withRate: 32.0)
+                    }
+                } catch {
+                    log("Failed to adjust videoZoomFactor", .warning)
+                }
+            }
+        }
+    }
+    #endif
 
     @available(*, unavailable)
     required init?(coder _: NSCoder) {
@@ -527,7 +593,7 @@ private extension VideoView {
 
     func _shouldMirror() -> Bool {
         switch _state.mirrorMode {
-        case .auto: return _state.captureDevice?.realPosition == .front
+        case .auto: return _state.captureDevice?.facingPosition == .front
         case .off: return false
         case .mirror: return true
         }
@@ -661,7 +727,7 @@ extension VideoView: VideoRenderer {
 
         // Currently only for iOS
         #if os(iOS)
-        let (mode, duration, position) = _state.read { ($0.transitionMode, $0.transitionDuration, $0.captureDevice?.realPosition) }
+        let (mode, duration, position) = _state.read { ($0.transitionMode, $0.transitionDuration, $0.captureDevice?.facingPosition) }
         if let transitionOption = mode.toAnimationOption(fromPosition: position) {
             UIView.transition(with: self, duration: duration, options: transitionOption, animations: block, completion: nil)
         } else {
@@ -798,16 +864,6 @@ private extension VideoView {
                 operation()
             }
         }
-    }
-}
-
-extension AVCaptureDevice {
-    var realPosition: AVCaptureDevice.Position {
-        if deviceType == .builtInWideAngleCamera, position == .unspecified {
-            return .front
-        }
-
-        return position
     }
 }
 
