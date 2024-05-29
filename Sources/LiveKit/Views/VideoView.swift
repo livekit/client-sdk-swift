@@ -581,7 +581,7 @@ private extension VideoView {
 
     func _shouldMirror() -> Bool {
         switch _state.mirrorMode {
-        case .auto: return _state.captureDevice?.realPosition == .front
+        case .auto: return _state.captureDevice?.facingPosition == .front
         case .off: return false
         case .mirror: return true
         }
@@ -715,7 +715,7 @@ extension VideoView: VideoRenderer {
 
         // Currently only for iOS
         #if os(iOS)
-        let (mode, duration, position) = _state.read { ($0.transitionMode, $0.transitionDuration, $0.captureDevice?.realPosition) }
+        let (mode, duration, position) = _state.read { ($0.transitionMode, $0.transitionDuration, $0.captureDevice?.facingPosition) }
         if let transitionOption = mode.toAnimationOption(fromPosition: position) {
             UIView.transition(with: self, duration: duration, options: transitionOption, animations: block, completion: nil)
         } else {
@@ -852,16 +852,6 @@ private extension VideoView {
                 operation()
             }
         }
-    }
-}
-
-extension AVCaptureDevice {
-    var realPosition: AVCaptureDevice.Position {
-        if deviceType == .builtInWideAngleCamera, position == .unspecified {
-            return .front
-        }
-
-        return position
     }
 }
 
