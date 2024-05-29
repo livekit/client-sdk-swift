@@ -28,25 +28,26 @@ class DeviceManager: Loggable {
     }
 
     // Async version, waits until inital device fetch is complete
-    public func devices(types: [AVCaptureDevice.DeviceType] = [.builtInTripleCamera]) async throws -> [AVCaptureDevice] {
-        try await devicesCompleter.wait().filter { types.contains($0.deviceType) }
+    public func devices() async throws -> [AVCaptureDevice] {
+        try await devicesCompleter.wait()
     }
 
     // Sync version
-    public func devices(types: [AVCaptureDevice.DeviceType] = [.builtInTripleCamera]) -> [AVCaptureDevice] {
-        _state.devices.filter { types.contains($0.deviceType) }
+    public func devices() -> [AVCaptureDevice] {
+        _state.devices
     }
 
     private lazy var discoverySession: AVCaptureDevice.DiscoverySession = {
         var deviceTypes: [AVCaptureDevice.DeviceType]
         #if os(iOS)
+        // In order of priority
         deviceTypes = [
-            .builtInWideAngleCamera, // General purpose use
-            .builtInTelephotoCamera,
-            .builtInUltraWideCamera,
-            .builtInTripleCamera,
-            .builtInDualCamera,
-            .builtInDualWideCamera,
+            .builtInTripleCamera, // Virtual, switchOver: [2, 6], default: 2
+            .builtInDualCamera, // Virtual, switchOver: [3], default: 1
+            .builtInDualWideCamera, // Virtual, switchOver: [2], default: 2
+            .builtInWideAngleCamera, // Physical, General purpose use
+            .builtInTelephotoCamera, // Physical
+            .builtInUltraWideCamera, // Physical
         ]
         // Xcode 15.0 Swift 5.9 (iOS 17)
         #if compiler(>=5.9)

@@ -375,7 +375,7 @@ public class VideoView: NativeView, Loggable {
             await self._renderTimer.restart()
         }
 
-        #if os(iOS)
+        #if os(iOS) || os(visionOS)
         // Add pinch gesture recognizer
         let pinchGesture = UIPinchGestureRecognizer(target: self, action: #selector(_handlePinchGesture(_:)))
         addGestureRecognizer(pinchGesture)
@@ -385,7 +385,7 @@ public class VideoView: NativeView, Loggable {
     // This should be thread safe so it's not required to be guarded by the lock
     var _pinchStartZoomFactor: CGFloat = 0.0
 
-    #if os(iOS)
+    #if os(iOS) || os(visionOS)
     @objc func _handlePinchGesture(_ sender: UIPinchGestureRecognizer) {
         if let track = _state.track as? LocalVideoTrack,
            let capturer = track.capturer as? CameraCapturer,
@@ -403,8 +403,9 @@ public class VideoView: NativeView, Loggable {
                         let maxZoom = device.maxAvailableVideoZoomFactor
                         device.videoZoomFactor = (_pinchStartZoomFactor * sender.scale).clamped(to: minZoom ... maxZoom)
                     } else if sender.state == .ended || sender.state == .cancelled, _state.pinchToZoomAutoZoomOut {
-                        let firstSwitchOverZoomFactor = device.virtualDeviceSwitchOverVideoZoomFactors.first?.doubleValue ?? 1.0
-                        device.ramp(toVideoZoomFactor: firstSwitchOverZoomFactor, withRate: 10)
+                        // Zoom to default zoom factor
+                        let defaultZoomFactor = LKRTCCameraVideoCapturer.defaultZoomFactor(forDeviceType: device.deviceType)
+                        device.ramp(toVideoZoomFactor: defaultZoomFactor, withRate: 32.0)
                     }
                 } catch {
                     log("Failed to adjust videoZoomFactor", .warning)
@@ -412,7 +413,6 @@ public class VideoView: NativeView, Loggable {
             }
         }
     }
-
     #endif
 
     @available(*, unavailable)
