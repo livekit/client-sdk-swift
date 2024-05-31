@@ -142,14 +142,19 @@ public class VideoView: NativeView, Loggable {
 
     @objc
     public var isPinchToZoomEnabled: Bool {
-        get { _state.isPinchToZoomEnabled }
-        set { _state.mutate { $0.isPinchToZoomEnabled = newValue } }
+        get { _state.pinchToZoomOptions.isEnabled }
+        set { _state.mutate { $0.pinchToZoomOptions.insert(.zoomIn) } }
     }
 
     @objc
     public var isAutoZoomResetEnabled: Bool {
-        get { _state.isAutoZoomResetEnabled }
-        set { _state.mutate { $0.isAutoZoomResetEnabled = newValue } }
+        get { _state.pinchToZoomOptions.contains(.resetOnRelease) }
+        set { _state.mutate { $0.pinchToZoomOptions.insert(.resetOnRelease) } }
+    }
+
+    public var pinchToZoomOptions: PinchToZoomOptions {
+        get { _state.pinchToZoomOptions }
+        set { _state.mutate { $0.pinchToZoomOptions = newValue } }
     }
 
     @objc
@@ -207,8 +212,7 @@ public class VideoView: NativeView, Loggable {
         var transitionMode: TransitionMode = .crossDissolve
         var transitionDuration: TimeInterval = 0.3
 
-        var isPinchToZoomEnabled: Bool = false
-        var isAutoZoomResetEnabled: Bool = true
+        var pinchToZoomOptions: PinchToZoomOptions = []
 
         // Only used for rendering local tracks
         var captureOptions: VideoCaptureOptions? = nil
@@ -237,7 +241,7 @@ public class VideoView: NativeView, Loggable {
     #if os(iOS) || os(visionOS)
     private lazy var _pinchGestureRecognizer = UIPinchGestureRecognizer(target: self, action: #selector(_handlePinchGesture(_:)))
     // This should be thread safe so it's not required to be guarded by the lock
-    private var _pinchStartZoomFactor: CGFloat = 0.0
+    var _pinchStartZoomFactor: CGFloat = 0.0
     #endif
 
     override public init(frame: CGRect = .zero) {
@@ -348,10 +352,10 @@ public class VideoView: NativeView, Loggable {
             }
 
             #if os(iOS) || os(visionOS)
-            let newIsPinchToZoomEnabled = newState.isPinchToZoomEnabled
-            if newIsPinchToZoomEnabled != oldState.isPinchToZoomEnabled {
+            if newState.pinchToZoomOptions != oldState.pinchToZoomOptions {
                 Task.detached { @MainActor in
-                    self._pinchGestureRecognizer.isEnabled = newIsPinchToZoomEnabled
+                    self._pinchGestureRecognizer.isEnabled = newState.pinchToZoomOptions.isEnabled
+                    self._rampZoomFactorToAllowedBounds(options: newState.pinchToZoomOptions)
                 }
             }
             #endif
@@ -393,39 +397,9 @@ public class VideoView: NativeView, Loggable {
         #if os(iOS) || os(visionOS)
         // Add pinch gesture recognizer
         addGestureRecognizer(_pinchGestureRecognizer)
-        _pinchGestureRecognizer.isEnabled = _state.isPinchToZoomEnabled
+        _pinchGestureRecognizer.isEnabled = _state.pinchToZoomOptions.isEnabled
         #endif
     }
-
-    #if os(iOS) || os(visionOS)
-    @objc func _handlePinchGesture(_ sender: UIPinchGestureRecognizer) {
-        if let track = _state.track as? LocalVideoTrack,
-           let capturer = track.capturer as? CameraCapturer,
-           let device = capturer.device
-        {
-            if sender.state == .began {
-                _pinchStartZoomFactor = device.videoZoomFactor
-            } else {
-                do {
-                    try device.lockForConfiguration()
-                    defer { device.unlockForConfiguration() }
-
-                    if sender.state == .changed {
-                        let minZoom = device.minAvailableVideoZoomFactor
-                        let maxZoom = device.maxAvailableVideoZoomFactor
-                        device.videoZoomFactor = (_pinchStartZoomFactor * sender.scale).clamped(to: minZoom ... maxZoom)
-                    } else if sender.state == .ended || sender.state == .cancelled, _state.isAutoZoomResetEnabled {
-                        // Zoom to default zoom factor
-                        let defaultZoomFactor = LKRTCCameraVideoCapturer.defaultZoomFactor(forDeviceType: device.deviceType)
-                        device.ramp(toVideoZoomFactor: defaultZoomFactor, withRate: 32.0)
-                    }
-                } catch {
-                    log("Failed to adjust videoZoomFactor", .warning)
-                }
-            }
-        }
-    }
-    #endif
 
     @available(*, unavailable)
     required init?(coder _: NSCoder) {
