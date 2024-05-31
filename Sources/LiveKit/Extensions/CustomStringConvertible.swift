@@ -162,3 +162,9 @@ extension LKRTCRtpEncodingParameters {
             ")"
     }
 }
+
+public extension RoomOptions {
+    override var description: String {
+        "RoomOptions(e2eeOptions: \(String(describing: e2eeOptions)))"
+    }
+}
