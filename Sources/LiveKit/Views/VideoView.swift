@@ -212,7 +212,7 @@ public class VideoView: NativeView, Loggable {
         var transitionMode: TransitionMode = .crossDissolve
         var transitionDuration: TimeInterval = 0.3
 
-        var pinchToZoomOptions: PinchToZoomOptions = [.zoomOut]
+        var pinchToZoomOptions: PinchToZoomOptions = []
 
         // Only used for rendering local tracks
         var captureOptions: VideoCaptureOptions? = nil
@@ -905,9 +905,9 @@ public extension VideoView {
             contains(.zoomIn) || contains(.zoomOut)
         }
 
-        /// Allow zooming in.
+        /// Allow zooming in beyond the default zoom factor if supported by device.
         public static let zoomIn = PinchToZoomOptions(rawValue: 1 << 0)
-        /// Allow zooming out.
+        /// Allow zooming out beyond the default zoom factor if supported by device.
         public static let zoomOut = PinchToZoomOptions(rawValue: 1 << 1)
         /// Auto reset to default zoom level when pinch is released.
         public static let autoReset = PinchToZoomOptions(rawValue: 1 << 2)
