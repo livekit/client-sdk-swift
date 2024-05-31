@@ -422,7 +422,9 @@ public class VideoView: NativeView, Loggable {
                     if sender.state == .changed {
                         let minZoom = _state.isZoomOutEnabled ? device.minAvailableVideoZoomFactor : max(defaultZoomFactor, device.minAvailableVideoZoomFactor)
                         let maxZoom = device.maxAvailableVideoZoomFactor
-                        device.videoZoomFactor = (_pinchStartZoomFactor * sender.scale).clamped(to: minZoom ... maxZoom)
+                        let newVideoZoomFactor = (_pinchStartZoomFactor * sender.scale).clamped(to: minZoom ... maxZoom)
+                        log("Setting videoZoomFactor to \(newVideoZoomFactor)")
+                        device.videoZoomFactor = newVideoZoomFactor
                     } else if sender.state == .ended || sender.state == .cancelled, _state.isAutoZoomResetEnabled {
                         // Zoom to default zoom factor
                         device.ramp(toVideoZoomFactor: defaultZoomFactor, withRate: 32.0)
