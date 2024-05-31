@@ -142,20 +142,19 @@ public class VideoView: NativeView, Loggable {
 
     @objc
     public var isPinchToZoomEnabled: Bool {
-        get { _state.isPinchToZoomEnabled }
-        set { _state.mutate { $0.isPinchToZoomEnabled = newValue } }
+        get { _state.pinchToZoomOptions.isEnabled }
+        set { _state.mutate { $0.pinchToZoomOptions.insert(.zoomIn) } }
     }
 
     @objc
     public var isAutoZoomResetEnabled: Bool {
-        get { _state.isAutoZoomResetEnabled }
-        set { _state.mutate { $0.isAutoZoomResetEnabled = newValue } }
+        get { _state.pinchToZoomOptions.contains(.autoReset) }
+        set { _state.mutate { $0.pinchToZoomOptions.insert(.autoReset) } }
     }
 
-    @objc
-    public var isZoomOutEnabled: Bool {
-        get { _state.isZoomOutEnabled }
-        set { _state.mutate { $0.isZoomOutEnabled = newValue } }
+    public var pinchToZoomOptions: PinchToZoomOptions {
+        get { _state.pinchToZoomOptions }
+        set { _state.mutate { $0.pinchToZoomOptions = newValue } }
     }
 
     @objc
@@ -213,9 +212,7 @@ public class VideoView: NativeView, Loggable {
         var transitionMode: TransitionMode = .crossDissolve
         var transitionDuration: TimeInterval = 0.3
 
-        var isPinchToZoomEnabled: Bool = true
-        var isAutoZoomResetEnabled: Bool = false
-        var isZoomOutEnabled: Bool = false
+        var pinchToZoomOptions: PinchToZoomOptions = [.zoomOut]
 
         // Only used for rendering local tracks
         var captureOptions: VideoCaptureOptions? = nil
@@ -355,8 +352,8 @@ public class VideoView: NativeView, Loggable {
             }
 
             #if os(iOS) || os(visionOS)
-            let newIsPinchToZoomEnabled = newState.isPinchToZoomEnabled
-            if newIsPinchToZoomEnabled != oldState.isPinchToZoomEnabled {
+            let newIsPinchToZoomEnabled = newState.pinchToZoomOptions.isEnabled
+            if newIsPinchToZoomEnabled != oldState.pinchToZoomOptions.isEnabled {
                 Task.detached { @MainActor in
                     self._pinchGestureRecognizer.isEnabled = newIsPinchToZoomEnabled
                 }
@@ -400,7 +397,7 @@ public class VideoView: NativeView, Loggable {
         #if os(iOS) || os(visionOS)
         // Add pinch gesture recognizer
         addGestureRecognizer(_pinchGestureRecognizer)
-        _pinchGestureRecognizer.isEnabled = _state.isPinchToZoomEnabled
+        _pinchGestureRecognizer.isEnabled = _state.pinchToZoomOptions.isEnabled
         #endif
     }
 
@@ -416,16 +413,18 @@ public class VideoView: NativeView, Loggable {
                 do {
                     try device.lockForConfiguration()
                     defer { device.unlockForConfiguration() }
-
+                    let options = _state.pinchToZoomOptions
                     let defaultZoomFactor = LKRTCCameraVideoCapturer.defaultZoomFactor(forDeviceType: device.deviceType)
 
                     if sender.state == .changed {
-                        let minZoom = _state.isZoomOutEnabled ? device.minAvailableVideoZoomFactor : max(defaultZoomFactor, device.minAvailableVideoZoomFactor)
+                        let minZoom = device.minAvailableVideoZoomFactor
                         let maxZoom = device.maxAvailableVideoZoomFactor
-                        let newVideoZoomFactor = (_pinchStartZoomFactor * sender.scale).clamped(to: minZoom ... maxZoom)
+                        let clampedMinZoom = options.contains(.zoomOut) ? minZoom : max(defaultZoomFactor, minZoom)
+                        let clampedMaxZoom = options.contains(.zoomIn) ? maxZoom : min(defaultZoomFactor, maxZoom)
+                        let newVideoZoomFactor = (_pinchStartZoomFactor * sender.scale).clamped(to: clampedMinZoom ... clampedMaxZoom)
                         log("Setting videoZoomFactor to \(newVideoZoomFactor)")
                         device.videoZoomFactor = newVideoZoomFactor
-                    } else if sender.state == .ended || sender.state == .cancelled, _state.isAutoZoomResetEnabled {
+                    } else if sender.state == .ended || sender.state == .cancelled, options.contains(.autoReset) {
                         // Zoom to default zoom factor
                         device.ramp(toVideoZoomFactor: defaultZoomFactor, withRate: 32.0)
                     }
@@ -892,3 +891,25 @@ extension VideoView.TransitionMode {
     }
 }
 #endif
+
+public extension VideoView {
+    /// Options for pinch to zoom in / out feature.
+    struct PinchToZoomOptions: OptionSet {
+        public let rawValue: UInt
+
+        public init(rawValue: UInt) {
+            self.rawValue = rawValue
+        }
+
+        public var isEnabled: Bool {
+            contains(.zoomIn) || contains(.zoomOut)
+        }
+
+        /// Allow zooming in.
+        public static let zoomIn = PinchToZoomOptions(rawValue: 1 << 0)
+        /// Allow zooming out.
+        public static let zoomOut = PinchToZoomOptions(rawValue: 1 << 1)
+        /// Auto reset to default zoom level when pinch is released.
+        public static let autoReset = PinchToZoomOptions(rawValue: 1 << 2)
+    }
+}
