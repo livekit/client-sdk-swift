@@ -229,11 +229,16 @@ public class Room: NSObject, ObservableObject, Loggable {
 
         // update options if specified
         if let roomOptions, roomOptions != state.options {
-            log("Updating RoomOptions to \(roomOptions)")
             state = _state.mutate {
                 $0.options = roomOptions
                 return $0
             }
+        }
+
+        // enable E2EE
+        if let e2eeOptions = state.options.e2eeOptions {
+            e2eeManager = E2EEManager(e2eeOptions: e2eeOptions)
+            e2eeManager!.setup(room: self)
         }
 
         try await engine.connect(url, token, connectOptions: connectOptions)
@@ -290,16 +295,9 @@ extension Room {
         await engine.cleanUpRTC()
         await cleanUpParticipants(isFullReconnect: isFullReconnect)
 
-        // Cleanup E2EE manager
+        // Cleanup for E2EE
         if let e2eeManager {
             e2eeManager.cleanUp()
-            self.e2eeManager = nil
-        }
-
-        // Initialize E2EE manager
-        if let e2eeOptions = _state.options.e2eeOptions {
-            e2eeManager = E2EEManager(e2eeOptions: e2eeOptions)
-            e2eeManager!.setup(room: self)
         }
 
         // Reset state
