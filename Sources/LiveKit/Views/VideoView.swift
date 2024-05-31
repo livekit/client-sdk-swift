@@ -153,6 +153,12 @@ public class VideoView: NativeView, Loggable {
     }
 
     @objc
+    public var isZoomOutEnabled: Bool {
+        get { _state.isZoomOutEnabled }
+        set { _state.mutate { $0.isZoomOutEnabled = newValue } }
+    }
+
+    @objc
     public var isDebugMode: Bool {
         get { _state.isDebugMode }
         set { _state.mutate { $0.isDebugMode = newValue } }
@@ -207,8 +213,9 @@ public class VideoView: NativeView, Loggable {
         var transitionMode: TransitionMode = .crossDissolve
         var transitionDuration: TimeInterval = 0.3
 
-        var isPinchToZoomEnabled: Bool = false
-        var isAutoZoomResetEnabled: Bool = true
+        var isPinchToZoomEnabled: Bool = true
+        var isAutoZoomResetEnabled: Bool = false
+        var isZoomOutEnabled: Bool = false
 
         // Only used for rendering local tracks
         var captureOptions: VideoCaptureOptions? = nil
@@ -410,13 +417,14 @@ public class VideoView: NativeView, Loggable {
                     try device.lockForConfiguration()
                     defer { device.unlockForConfiguration() }
 
+                    let defaultZoomFactor = LKRTCCameraVideoCapturer.defaultZoomFactor(forDeviceType: device.deviceType)
+
                     if sender.state == .changed {
-                        let minZoom = device.minAvailableVideoZoomFactor
+                        let minZoom = _state.isZoomOutEnabled ? device.minAvailableVideoZoomFactor : max(defaultZoomFactor, device.minAvailableVideoZoomFactor)
                         let maxZoom = device.maxAvailableVideoZoomFactor
                         device.videoZoomFactor = (_pinchStartZoomFactor * sender.scale).clamped(to: minZoom ... maxZoom)
                     } else if sender.state == .ended || sender.state == .cancelled, _state.isAutoZoomResetEnabled {
                         // Zoom to default zoom factor
-                        let defaultZoomFactor = LKRTCCameraVideoCapturer.defaultZoomFactor(forDeviceType: device.deviceType)
                         device.ramp(toVideoZoomFactor: defaultZoomFactor, withRate: 32.0)
                     }
                 } catch {
