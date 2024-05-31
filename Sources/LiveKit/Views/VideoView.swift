@@ -355,7 +355,7 @@ public class VideoView: NativeView, Loggable {
             if newState.pinchToZoomOptions != oldState.pinchToZoomOptions {
                 Task.detached { @MainActor in
                     self._pinchGestureRecognizer.isEnabled = newState.pinchToZoomOptions.isEnabled
-                    self._adjustAllowedZoomFactor()
+                    self._rampZoomFactorToAllowedBounds(options: newState.pinchToZoomOptions)
                 }
             }
             #endif

@@ -40,19 +40,17 @@ extension VideoView {
     }
 
     #if os(iOS) || os(visionOS)
-    func _adjustAllowedZoomFactor() {
-        guard let device = _currentDevice else { return }
-        let options = _state.pinchToZoomOptions
+    func _rampZoomFactorToAllowedBounds(options: PinchToZoomOptions) {
+        guard let device = _currentCaptureDevice else { return }
         let currentZoomFactor = device.videoZoomFactor
-        let zoomBounds = _computeZoomBounds(for: device, options: options)
-        // Only update if out of bounds
-        if !zoomBounds.contains(currentZoomFactor) {
+        let zoomBounds = _computeAllowedZoomBounds(for: device, options: options)
+        let defaultZoomFactor = LKRTCCameraVideoCapturer.defaultZoomFactor(forDeviceType: device.deviceType)
+        let newVideoZoomFactor = options.contains(.autoReset) ? defaultZoomFactor : currentZoomFactor.clamped(to: zoomBounds)
+
+        if currentZoomFactor != newVideoZoomFactor {
             do {
                 try device.lockForConfiguration()
                 defer { device.unlockForConfiguration() }
-
-                let newVideoZoomFactor = currentZoomFactor.clamped(to: zoomBounds)
-
                 log("Setting videoZoomFactor to \(newVideoZoomFactor)")
                 device.ramp(toVideoZoomFactor: newVideoZoomFactor, withRate: 32.0)
             } catch {
@@ -62,7 +60,7 @@ extension VideoView {
     }
 
     @objc func _handlePinchGesture(_ sender: UIPinchGestureRecognizer) {
-        guard let device = _currentDevice else { return }
+        guard let device = _currentCaptureDevice else { return }
 
         if sender.state == .began {
             _pinchStartZoomFactor = device.videoZoomFactor
@@ -74,7 +72,7 @@ extension VideoView {
                 let options = _state.pinchToZoomOptions
 
                 if sender.state == .changed {
-                    let zoomBounds = _computeZoomBounds(for: device, options: options)
+                    let zoomBounds = _computeAllowedZoomBounds(for: device, options: options)
                     let newVideoZoomFactor = (_pinchStartZoomFactor * sender.scale).clamped(to: zoomBounds)
 
                     log("Setting videoZoomFactor to \(newVideoZoomFactor)")
@@ -89,22 +87,25 @@ extension VideoView {
         }
     }
 
-    private var _currentDevice: AVCaptureDevice? {
+    // MARK: - Private
+
+    private var _currentCaptureDevice: AVCaptureDevice? {
         guard let track = _state.track as? LocalVideoTrack,
               let capturer = track.capturer as? CameraCapturer else { return nil }
+
         return capturer.device
     }
 
-    private func _computeZoomBounds(for device: AVCaptureDevice, options: PinchToZoomOptions) -> ClosedRange<CGFloat> {
+    private func _computeAllowedZoomBounds(for device: AVCaptureDevice, options: PinchToZoomOptions) -> ClosedRange<CGFloat> {
         let defaultZoomFactor = LKRTCCameraVideoCapturer.defaultZoomFactor(forDeviceType: device.deviceType)
 
         let minZoom = device.minAvailableVideoZoomFactor
         let maxZoom = device.maxAvailableVideoZoomFactor
 
-        let clampedMinZoom = options.contains(.zoomOut) ? minZoom : max(defaultZoomFactor, minZoom)
-        let clampedMaxZoom = options.contains(.zoomIn) ? maxZoom : min(defaultZoomFactor, maxZoom)
+        let lowerBound = options.contains(.zoomOut) ? minZoom : max(defaultZoomFactor, minZoom)
+        let upperBound = options.contains(.zoomIn) ? maxZoom : min(defaultZoomFactor, maxZoom)
 
-        return clampedMinZoom ... clampedMaxZoom
+        return lowerBound ... upperBound
     }
 
     #endif
