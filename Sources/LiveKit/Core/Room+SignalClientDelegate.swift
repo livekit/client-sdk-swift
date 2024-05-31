@@ -242,6 +242,8 @@ extension Room: SignalClientDelegate {
                     }
                 }
             }
+
+            await group.waitForAll()
         }
 
         if case .connected = engine._state.connectionState {
