@@ -19,6 +19,7 @@ import Foundation
 @_implementationOnly import LiveKitWebRTC
 
 extension VideoView {
+    static let rampRate: Float = 32.0
     /// Options for pinch to zoom in / out feature.
     public struct PinchToZoomOptions: OptionSet {
         public let rawValue: UInt
@@ -42,20 +43,22 @@ extension VideoView {
     #if os(iOS) || os(visionOS)
     func _rampZoomFactorToAllowedBounds(options: PinchToZoomOptions) {
         guard let device = _currentCaptureDevice else { return }
+
         let currentZoomFactor = device.videoZoomFactor
         let zoomBounds = _computeAllowedZoomBounds(for: device, options: options)
         let defaultZoomFactor = LKRTCCameraVideoCapturer.defaultZoomFactor(forDeviceType: device.deviceType)
         let newVideoZoomFactor = options.contains(.autoReset) ? defaultZoomFactor : currentZoomFactor.clamped(to: zoomBounds)
 
-        if currentZoomFactor != newVideoZoomFactor {
-            do {
-                try device.lockForConfiguration()
-                defer { device.unlockForConfiguration() }
-                log("Setting videoZoomFactor to \(newVideoZoomFactor)")
-                device.ramp(toVideoZoomFactor: newVideoZoomFactor, withRate: 32.0)
-            } catch {
-                log("Failed to adjust videoZoomFactor", .warning)
-            }
+        guard currentZoomFactor != newVideoZoomFactor else { return }
+
+        do {
+            try device.lockForConfiguration()
+            defer { device.unlockForConfiguration() }
+
+            log("Setting videoZoomFactor to \(newVideoZoomFactor)")
+            device.ramp(toVideoZoomFactor: newVideoZoomFactor, withRate: Self.rampRate)
+        } catch {
+            log("Failed to adjust videoZoomFactor", .warning)
         }
     }
 
@@ -70,16 +73,20 @@ extension VideoView {
                 defer { device.unlockForConfiguration() }
 
                 let options = _state.pinchToZoomOptions
+                let zoomBounds = _computeAllowedZoomBounds(for: device, options: options)
 
-                if sender.state == .changed {
-                    let zoomBounds = _computeAllowedZoomBounds(for: device, options: options)
+                switch sender.state {
+                case .changed:
                     let newVideoZoomFactor = (_pinchStartZoomFactor * sender.scale).clamped(to: zoomBounds)
-
                     log("Setting videoZoomFactor to \(newVideoZoomFactor)")
                     device.videoZoomFactor = newVideoZoomFactor
-                } else if sender.state == .ended || sender.state == .cancelled, options.contains(.autoReset) {
-                    let defaultZoomFactor = LKRTCCameraVideoCapturer.defaultZoomFactor(forDeviceType: device.deviceType)
-                    device.ramp(toVideoZoomFactor: defaultZoomFactor, withRate: 32.0)
+                case .ended, .cancelled:
+                    if options.contains(.autoReset) {
+                        let defaultZoomFactor = LKRTCCameraVideoCapturer.defaultZoomFactor(forDeviceType: device.deviceType)
+                        device.ramp(toVideoZoomFactor: defaultZoomFactor, withRate: Self.rampRate)
+                    }
+                default:
+                    break
                 }
             } catch {
                 log("Failed to adjust videoZoomFactor", .warning)
