@@ -37,7 +37,7 @@ extension VideoView {
         /// Allow zooming out beyond the default zoom factor if supported by device.
         public static let zoomOut = PinchToZoomOptions(rawValue: 1 << 1)
         /// Auto reset to default zoom level when pinch is released.
-        public static let autoReset = PinchToZoomOptions(rawValue: 1 << 2)
+        public static let resetOnRelease = PinchToZoomOptions(rawValue: 1 << 2)
     }
 
     #if os(iOS) || os(visionOS)
@@ -47,7 +47,7 @@ extension VideoView {
         let currentZoomFactor = device.videoZoomFactor
         let zoomBounds = _computeAllowedZoomBounds(for: device, options: options)
         let defaultZoomFactor = LKRTCCameraVideoCapturer.defaultZoomFactor(forDeviceType: device.deviceType)
-        let newVideoZoomFactor = options.contains(.autoReset) ? defaultZoomFactor : currentZoomFactor.clamped(to: zoomBounds)
+        let newVideoZoomFactor = options.contains(.resetOnRelease) ? defaultZoomFactor : currentZoomFactor.clamped(to: zoomBounds)
 
         guard currentZoomFactor != newVideoZoomFactor else { return }
 
@@ -81,7 +81,7 @@ extension VideoView {
                     log("Setting videoZoomFactor to \(newVideoZoomFactor)")
                     device.videoZoomFactor = newVideoZoomFactor
                 case .ended, .cancelled:
-                    if options.contains(.autoReset) {
+                    if options.contains(.resetOnRelease) {
                         let defaultZoomFactor = LKRTCCameraVideoCapturer.defaultZoomFactor(forDeviceType: device.deviceType)
                         device.ramp(toVideoZoomFactor: defaultZoomFactor, withRate: Self.rampRate)
                     }
