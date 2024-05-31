@@ -241,7 +241,7 @@ public class VideoView: NativeView, Loggable {
     #if os(iOS) || os(visionOS)
     private lazy var _pinchGestureRecognizer = UIPinchGestureRecognizer(target: self, action: #selector(_handlePinchGesture(_:)))
     // This should be thread safe so it's not required to be guarded by the lock
-    private var _pinchStartZoomFactor: CGFloat = 0.0
+    var _pinchStartZoomFactor: CGFloat = 0.0
     #endif
 
     override public init(frame: CGRect = .zero) {
@@ -352,10 +352,10 @@ public class VideoView: NativeView, Loggable {
             }
 
             #if os(iOS) || os(visionOS)
-            let newIsPinchToZoomEnabled = newState.pinchToZoomOptions.isEnabled
-            if newIsPinchToZoomEnabled != oldState.pinchToZoomOptions.isEnabled {
+            if newState.pinchToZoomOptions != oldState.pinchToZoomOptions {
                 Task.detached { @MainActor in
-                    self._pinchGestureRecognizer.isEnabled = newIsPinchToZoomEnabled
+                    self._pinchGestureRecognizer.isEnabled = newState.pinchToZoomOptions.isEnabled
+                    self._adjustAllowedZoomFactor()
                 }
             }
             #endif
@@ -400,41 +400,6 @@ public class VideoView: NativeView, Loggable {
         _pinchGestureRecognizer.isEnabled = _state.pinchToZoomOptions.isEnabled
         #endif
     }
-
-    #if os(iOS) || os(visionOS)
-    @objc func _handlePinchGesture(_ sender: UIPinchGestureRecognizer) {
-        if let track = _state.track as? LocalVideoTrack,
-           let capturer = track.capturer as? CameraCapturer,
-           let device = capturer.device
-        {
-            if sender.state == .began {
-                _pinchStartZoomFactor = device.videoZoomFactor
-            } else {
-                do {
-                    try device.lockForConfiguration()
-                    defer { device.unlockForConfiguration() }
-                    let options = _state.pinchToZoomOptions
-                    let defaultZoomFactor = LKRTCCameraVideoCapturer.defaultZoomFactor(forDeviceType: device.deviceType)
-
-                    if sender.state == .changed {
-                        let minZoom = device.minAvailableVideoZoomFactor
-                        let maxZoom = device.maxAvailableVideoZoomFactor
-                        let clampedMinZoom = options.contains(.zoomOut) ? minZoom : max(defaultZoomFactor, minZoom)
-                        let clampedMaxZoom = options.contains(.zoomIn) ? maxZoom : min(defaultZoomFactor, maxZoom)
-                        let newVideoZoomFactor = (_pinchStartZoomFactor * sender.scale).clamped(to: clampedMinZoom ... clampedMaxZoom)
-                        log("Setting videoZoomFactor to \(newVideoZoomFactor)")
-                        device.videoZoomFactor = newVideoZoomFactor
-                    } else if sender.state == .ended || sender.state == .cancelled, options.contains(.autoReset) {
-                        // Zoom to default zoom factor
-                        device.ramp(toVideoZoomFactor: defaultZoomFactor, withRate: 32.0)
-                    }
-                } catch {
-                    log("Failed to adjust videoZoomFactor", .warning)
-                }
-            }
-        }
-    }
-    #endif
 
     @available(*, unavailable)
     required init?(coder _: NSCoder) {
@@ -891,25 +856,3 @@ extension VideoView.TransitionMode {
     }
 }
 #endif
-
-public extension VideoView {
-    /// Options for pinch to zoom in / out feature.
-    struct PinchToZoomOptions: OptionSet {
-        public let rawValue: UInt
-
-        public init(rawValue: UInt) {
-            self.rawValue = rawValue
-        }
-
-        public var isEnabled: Bool {
-            contains(.zoomIn) || contains(.zoomOut)
-        }
-
-        /// Allow zooming in beyond the default zoom factor if supported by device.
-        public static let zoomIn = PinchToZoomOptions(rawValue: 1 << 0)
-        /// Allow zooming out beyond the default zoom factor if supported by device.
-        public static let zoomOut = PinchToZoomOptions(rawValue: 1 << 1)
-        /// Auto reset to default zoom level when pinch is released.
-        public static let autoReset = PinchToZoomOptions(rawValue: 1 << 2)
-    }
-}
