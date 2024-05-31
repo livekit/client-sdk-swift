@@ -114,6 +114,5 @@ extension VideoView {
 
         return lowerBound ... upperBound
     }
-
     #endif
 }
