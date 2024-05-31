@@ -34,7 +34,7 @@ let logger = Logger(label: "LiveKitSDK")
 @objc
 public class LiveKitSDK: NSObject {
     @objc(sdkVersion)
-    public static let version = "2.0.8"
+    public static let version = "2.0.9"
 
     @objc
     public static func setLoggerStandardOutput() {
