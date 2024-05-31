@@ -23,12 +23,22 @@ public let defaultMagicBytes: String = "LK-ROCKS"
 public let defaultRatchetWindowSize: Int32 = 0
 public let defaultFailureTolerance: Int32 = -1
 
+@objc
 public class KeyProviderOptions: NSObject {
-    let sharedKey: Bool
-    let ratchetSalt: Data
-    let ratchetWindowSize: Int32
-    let uncryptedMagicBytes: Data
-    let failureTolerance: Int32
+    @objc
+    public let sharedKey: Bool
+
+    @objc
+    public let ratchetSalt: Data
+
+    @objc
+    public let ratchetWindowSize: Int32
+
+    @objc
+    public let uncryptedMagicBytes: Data
+
+    @objc
+    public let failureTolerance: Int32
 
     public init(sharedKey: Bool = true,
                 ratchetSalt: Data = defaultRatchetSalt.data(using: .utf8)!,
@@ -65,9 +75,15 @@ public class KeyProviderOptions: NSObject {
     }
 }
 
+@objc
 public class BaseKeyProvider: NSObject, Loggable {
-    var options: KeyProviderOptions
-    var rtcKeyProvider: LKRTCFrameCryptorKeyProvider
+    @objc
+    public let options: KeyProviderOptions
+
+    // MARK: - Internal
+
+    let rtcKeyProvider: LKRTCFrameCryptorKeyProvider
+
     public init(isSharedKey: Bool, sharedKey: String? = nil) {
         options = KeyProviderOptions(sharedKey: isSharedKey)
         rtcKeyProvider = LKRTCFrameCryptorKeyProvider(ratchetSalt: options.ratchetSalt,
