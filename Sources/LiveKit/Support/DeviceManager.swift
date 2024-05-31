@@ -49,19 +49,20 @@ class DeviceManager: Loggable {
             .builtInTelephotoCamera, // Physical
             .builtInUltraWideCamera, // Physical
         ]
+        #elseif os(macOS)
+        deviceTypes = [
+            .builtInWideAngleCamera,
+        ]
+        #endif
+
         // Xcode 15.0 Swift 5.9 (iOS 17)
         #if compiler(>=5.9)
-        if #available(iOS 17.0, *) {
+        if #available(macOS 14.0, iOS 17.0, *) {
             deviceTypes.append(contentsOf: [
                 .continuityCamera,
                 .external,
             ])
         }
-        #endif
-        #else
-        deviceTypes = [
-            .builtInWideAngleCamera,
-        ]
         #endif
 
         return AVCaptureDevice.DiscoverySession(deviceTypes: deviceTypes,
