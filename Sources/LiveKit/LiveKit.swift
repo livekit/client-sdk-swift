@@ -34,7 +34,7 @@ let logger = Logger(label: "LiveKitSDK")
 @objc
 public class LiveKitSDK: NSObject {
     @objc(sdkVersion)
-    public static let version = "2.0.8"
+    public static let version = "2.0.9"
 
     @objc
     public static func setLoggerStandardOutput() {
@@ -46,7 +46,8 @@ public class LiveKitSDK: NSObject {
     }
 
     /// Notify the SDK to start initializing for faster connection/publishing later on. This is non-blocking.
-    @objc static func prepare() {
+    @objc
+    public static func prepare() {
         // TODO: Add RTC related initializations
         DeviceManager.prepare()
     }

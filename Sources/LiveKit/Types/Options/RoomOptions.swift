@@ -126,6 +126,7 @@ public class RoomOptions: NSObject {
             dynacast == other.dynacast &&
             stopLocalTrackOnUnpublish == other.stopLocalTrackOnUnpublish &&
             suspendLocalVideoTracksInBackground == other.suspendLocalVideoTracksInBackground &&
+            e2eeOptions == other.e2eeOptions &&
             reportRemoteTrackStatistics == other.reportRemoteTrackStatistics
     }
 
@@ -141,6 +142,7 @@ public class RoomOptions: NSObject {
         hasher.combine(dynacast)
         hasher.combine(stopLocalTrackOnUnpublish)
         hasher.combine(suspendLocalVideoTracksInBackground)
+        hasher.combine(e2eeOptions)
         hasher.combine(reportRemoteTrackStatistics)
         return hasher.finalize()
     }

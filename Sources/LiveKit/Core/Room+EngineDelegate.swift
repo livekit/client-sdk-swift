@@ -53,6 +53,8 @@ extension Room: EngineDelegate {
                 // Re-connecting
                 delegates.notify { $0.roomIsReconnecting?(self) }
             } else if case .disconnected = state.connectionState {
+                // Clear out e2eeManager instance
+                e2eeManager = nil
                 // Disconnected
                 if case .connecting = oldState.connectionState {
                     delegates.notify { $0.room?(self, didFailToConnectWithError: oldState.disconnectError) }

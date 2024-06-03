@@ -34,8 +34,8 @@ public class CameraCapturer: VideoCapturer {
     public var options: CameraCaptureOptions { _cameraCapturerState.options }
 
     @objc
-    public static func captureDevices(types: [AVCaptureDevice.DeviceType] = [.builtInWideAngleCamera]) async throws -> [AVCaptureDevice] {
-        try await DeviceManager.shared.devices(types: types)
+    public static func captureDevices() async throws -> [AVCaptureDevice] {
+        try await DeviceManager.shared.devices()
     }
 
     /// Checks whether both front and back capturing devices exist, and can be switched.
@@ -80,7 +80,7 @@ public class CameraCapturer: VideoCapturer {
         var device: AVCaptureDevice?
     }
 
-    private var _cameraCapturerState: StateSync<State>
+    var _cameraCapturerState: StateSync<State>
 
     // Used to hide LKRTCVideoCapturerDelegate symbol
     private lazy var adapter: VideoCapturerDelegateAdapter = .init(cameraCapturer: self)

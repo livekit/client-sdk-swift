@@ -327,6 +327,8 @@ extension Room {
                     await participant.cleanUp(notify: _notify)
                 }
             }
+
+            await group.waitForAll()
         }
 
         _state.mutate {

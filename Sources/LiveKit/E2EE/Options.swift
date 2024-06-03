@@ -47,12 +47,31 @@ extension Livekit_Encryption.TypeEnum {
 
 @objc
 public class E2EEOptions: NSObject {
-    let keyProvider: BaseKeyProvider
+    @objc
+    public let keyProvider: BaseKeyProvider
 
     @objc
-    let encryptionType: EncryptionType = .gcm
+    public let encryptionType: EncryptionType
 
-    public init(keyProvider: BaseKeyProvider) {
+    public init(keyProvider: BaseKeyProvider,
+                encryptionType: EncryptionType = .gcm)
+    {
         self.keyProvider = keyProvider
+        self.encryptionType = encryptionType
+    }
+
+    // MARK: - Equal
+
+    override public func isEqual(_ object: Any?) -> Bool {
+        guard let other = object as? Self else { return false }
+        return keyProvider == other.keyProvider &&
+            encryptionType == other.encryptionType
+    }
+
+    override public var hash: Int {
+        var hasher = Hasher()
+        hasher.combine(keyProvider)
+        hasher.combine(encryptionType)
+        return hasher.finalize()
     }
 }

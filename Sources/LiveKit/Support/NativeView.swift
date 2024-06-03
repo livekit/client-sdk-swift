@@ -64,6 +64,10 @@ open class NativeView: NativeViewType {
     public func bringSubviewToFront(_ view: NSView) {
         addSubview(view)
     }
+
+    public func insertSubview(_ view: NSView, belowSubview: NSView) {
+        addSubview(view, positioned: .below, relativeTo: belowSubview)
+    }
     #endif
 
     open func performLayout() {

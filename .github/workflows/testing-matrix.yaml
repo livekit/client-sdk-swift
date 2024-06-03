@@ -60,4 +60,4 @@ jobs:
         run: xcodebuild -scheme LiveKit -showdestinations
 
       - name: Run All Tests
-        run: xcodebuild test -scheme LiveKit -destination '${{ matrix.destination }}' ENABLE_HARDENED_RUNTIME=NO
+        run: xcodebuild test -scheme LiveKit -destination '${{ matrix.destination }}' -parallel-testing-enabled YES ENABLE_HARDENED_RUNTIME=NO

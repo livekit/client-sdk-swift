@@ -28,6 +28,7 @@ public struct SwiftUIVideoView: NativeViewRepresentable {
     let mirrorMode: VideoView.MirrorMode
     let renderMode: VideoView.RenderMode
     let rotationOverride: VideoRotation?
+    let pinchToZoomOptions: VideoView.PinchToZoomOptions
     let isDebugMode: Bool
 
     let videoViewDelegateReceiver: VideoViewDelegateReceiver
@@ -37,6 +38,7 @@ public struct SwiftUIVideoView: NativeViewRepresentable {
                 mirrorMode: VideoView.MirrorMode = .auto,
                 renderMode: VideoView.RenderMode = .auto,
                 rotationOverride: VideoRotation? = nil,
+                pinchToZoomOptions: VideoView.PinchToZoomOptions = [],
                 isDebugMode: Bool = false,
                 isRendering: Binding<Bool>? = nil)
     {
@@ -46,6 +48,7 @@ public struct SwiftUIVideoView: NativeViewRepresentable {
         self.renderMode = renderMode
         self.rotationOverride = rotationOverride
         self.isDebugMode = isDebugMode
+        self.pinchToZoomOptions = pinchToZoomOptions
 
         videoViewDelegateReceiver = VideoViewDelegateReceiver(isRendering: isRendering)
     }
@@ -62,6 +65,7 @@ public struct SwiftUIVideoView: NativeViewRepresentable {
         videoView.mirrorMode = mirrorMode
         videoView.renderMode = renderMode
         videoView.rotationOverride = rotationOverride
+        videoView.pinchToZoomOptions = pinchToZoomOptions
         videoView.isDebugMode = isDebugMode
 
         Task.detached { @MainActor in
