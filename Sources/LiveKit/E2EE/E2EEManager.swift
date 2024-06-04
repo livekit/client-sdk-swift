@@ -113,7 +113,7 @@ public class E2EEManager: NSObject, ObservableObject, Loggable {
             let result = LKRTCFrameCryptor(factory: Engine.peerConnectionFactory,
                                            rtpSender: sender,
                                            participantId: participantIdentity.stringValue,
-                                           algorithm: RTCCyrptorAlgorithm.aesGcm,
+                                           algorithm: .aesGcm,
                                            keyProvider: e2eeOptions.keyProvider.rtcKeyProvider)
 
             result?.delegate = delegateAdapter
@@ -145,7 +145,7 @@ public class E2EEManager: NSObject, ObservableObject, Loggable {
             let result = LKRTCFrameCryptor(factory: Engine.peerConnectionFactory,
                                            rtpReceiver: receiver,
                                            participantId: participantIdentity.stringValue,
-                                           algorithm: RTCCyrptorAlgorithm.aesGcm,
+                                           algorithm: .aesGcm,
                                            keyProvider: e2eeOptions.keyProvider.rtcKeyProvider)
 
             result?.delegate = delegateAdapter
