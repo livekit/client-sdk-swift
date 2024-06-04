@@ -1569,6 +1569,15 @@ struct Livekit_SimulateScenario {
     set {scenario = .disconnectSignalOnResumeNoMessages(newValue)}
   }
 
+  /// full reconnect leave request
+  var leaveRequestFullReconnect: Bool {
+    get {
+      if case .leaveRequestFullReconnect(let v)? = scenario {return v}
+      return false
+    }
+    set {scenario = .leaveRequestFullReconnect(newValue)}
+  }
+
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   enum OneOf_Scenario: Equatable {
@@ -1589,6 +1598,8 @@ struct Livekit_SimulateScenario {
     case disconnectSignalOnResume(Bool)
     /// disconnect signal on resume before sending any messages from server
     case disconnectSignalOnResumeNoMessages(Bool)
+    /// full reconnect leave request
+    case leaveRequestFullReconnect(Bool)
 
   #if !swift(>=4.1)
     static func ==(lhs: Livekit_SimulateScenario.OneOf_Scenario, rhs: Livekit_SimulateScenario.OneOf_Scenario) -> Bool {
@@ -1626,6 +1637,10 @@ struct Livekit_SimulateScenario {
       }()
       case (.disconnectSignalOnResumeNoMessages, .disconnectSignalOnResumeNoMessages): return {
         guard case .disconnectSignalOnResumeNoMessages(let l) = lhs, case .disconnectSignalOnResumeNoMessages(let r) = rhs else { preconditionFailure() }
+        return l == r
+      }()
+      case (.leaveRequestFullReconnect, .leaveRequestFullReconnect): return {
+        guard case .leaveRequestFullReconnect(let l) = lhs, case .leaveRequestFullReconnect(let r) = rhs else { preconditionFailure() }
         return l == r
       }()
       default: return false
@@ -4061,6 +4076,7 @@ extension Livekit_SimulateScenario: SwiftProtobuf.Message, SwiftProtobuf._Messag
     6: .standard(proto: "subscriber_bandwidth"),
     7: .standard(proto: "disconnect_signal_on_resume"),
     8: .standard(proto: "disconnect_signal_on_resume_no_messages"),
+    9: .standard(proto: "leave_request_full_reconnect"),
   ]
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -4133,6 +4149,14 @@ extension Livekit_SimulateScenario: SwiftProtobuf.Message, SwiftProtobuf._Messag
           self.scenario = .disconnectSignalOnResumeNoMessages(v)
         }
       }()
+      case 9: try {
+        var v: Bool?
+        try decoder.decodeSingularBoolField(value: &v)
+        if let v = v {
+          if self.scenario != nil {try decoder.handleConflictingOneOf()}
+          self.scenario = .leaveRequestFullReconnect(v)
+        }
+      }()
       default: break
       }
     }
@@ -4175,6 +4199,10 @@ extension Livekit_SimulateScenario: SwiftProtobuf.Message, SwiftProtobuf._Messag
     case .disconnectSignalOnResumeNoMessages?: try {
       guard case .disconnectSignalOnResumeNoMessages(let v)? = self.scenario else { preconditionFailure() }
       try visitor.visitSingularBoolField(value: v, fieldNumber: 8)
+    }()
+    case .leaveRequestFullReconnect?: try {
+      guard case .leaveRequestFullReconnect(let v)? = self.scenario else { preconditionFailure() }
+      try visitor.visitSingularBoolField(value: v, fieldNumber: 9)
     }()
     case nil: break
     }

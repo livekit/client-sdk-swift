@@ -1111,6 +1111,11 @@ struct Livekit_TrackInfo {
   /// Clears the value of `version`. Subsequent reads from it will return its default value.
   mutating func clearVersion() {_uniqueStorage()._version = nil}
 
+  var audioFeatures: [Livekit_AudioTrackFeature] {
+    get {return _storage._audioFeatures}
+    set {_uniqueStorage()._audioFeatures = newValue}
+  }
+
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   init() {}
@@ -1181,12 +1186,21 @@ struct Livekit_DataPacket {
     set {value = .sipDtmf(newValue)}
   }
 
+  var transcription: Livekit_Transcription {
+    get {
+      if case .transcription(let v)? = value {return v}
+      return Livekit_Transcription()
+    }
+    set {value = .transcription(newValue)}
+  }
+
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   enum OneOf_Value: Equatable {
     case user(Livekit_UserPacket)
     case speaker(Livekit_ActiveSpeakerUpdate)
     case sipDtmf(Livekit_SipDTMF)
+    case transcription(Livekit_Transcription)
 
   #if !swift(>=4.1)
     static func ==(lhs: Livekit_DataPacket.OneOf_Value, rhs: Livekit_DataPacket.OneOf_Value) -> Bool {
@@ -1204,6 +1218,10 @@ struct Livekit_DataPacket {
       }()
       case (.sipDtmf, .sipDtmf): return {
         guard case .sipDtmf(let l) = lhs, case .sipDtmf(let r) = rhs else { preconditionFailure() }
+        return l == r
+      }()
+      case (.transcription, .transcription): return {
+        guard case .transcription(let l) = lhs, case .transcription(let r) = rhs else { preconditionFailure() }
         return l == r
       }()
       default: return false
@@ -1314,11 +1332,43 @@ struct Livekit_UserPacket {
   /// Clears the value of `topic`. Subsequent reads from it will return its default value.
   mutating func clearTopic() {self._topic = nil}
 
+  /// Unique ID to indentify the message
+  var id: String {
+    get {return _id ?? String()}
+    set {_id = newValue}
+  }
+  /// Returns true if `id` has been explicitly set.
+  var hasID: Bool {return self._id != nil}
+  /// Clears the value of `id`. Subsequent reads from it will return its default value.
+  mutating func clearID() {self._id = nil}
+
+  /// start and end time allow relating the message to specific media time
+  var startTime: UInt64 {
+    get {return _startTime ?? 0}
+    set {_startTime = newValue}
+  }
+  /// Returns true if `startTime` has been explicitly set.
+  var hasStartTime: Bool {return self._startTime != nil}
+  /// Clears the value of `startTime`. Subsequent reads from it will return its default value.
+  mutating func clearStartTime() {self._startTime = nil}
+
+  var endTime: UInt64 {
+    get {return _endTime ?? 0}
+    set {_endTime = newValue}
+  }
+  /// Returns true if `endTime` has been explicitly set.
+  var hasEndTime: Bool {return self._endTime != nil}
+  /// Clears the value of `endTime`. Subsequent reads from it will return its default value.
+  mutating func clearEndTime() {self._endTime = nil}
+
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   init() {}
 
   fileprivate var _topic: String? = nil
+  fileprivate var _id: String? = nil
+  fileprivate var _startTime: UInt64? = nil
+  fileprivate var _endTime: UInt64? = nil
 }
 
 struct Livekit_SipDTMF {
@@ -1329,6 +1379,45 @@ struct Livekit_SipDTMF {
   var code: UInt32 = 0
 
   var digit: String = String()
+
+  var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  init() {}
+}
+
+struct Livekit_Transcription {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  /// Participant that got its speech transcribed
+  var transcribedParticipantIdentity: String = String()
+
+  var trackID: String = String()
+
+  var segments: [Livekit_TranscriptionSegment] = []
+
+  var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  init() {}
+}
+
+struct Livekit_TranscriptionSegment {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  var id: String = String()
+
+  var text: String = String()
+
+  var startTime: UInt64 = 0
+
+  var endTime: UInt64 = 0
+
+  var final: Bool = false
+
+  var language: String = String()
 
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
@@ -1958,6 +2047,8 @@ extension Livekit_ActiveSpeakerUpdate: @unchecked Sendable {}
 extension Livekit_SpeakerInfo: @unchecked Sendable {}
 extension Livekit_UserPacket: @unchecked Sendable {}
 extension Livekit_SipDTMF: @unchecked Sendable {}
+extension Livekit_Transcription: @unchecked Sendable {}
+extension Livekit_TranscriptionSegment: @unchecked Sendable {}
 extension Livekit_ParticipantTracks: @unchecked Sendable {}
 extension Livekit_ServerInfo: @unchecked Sendable {}
 extension Livekit_ServerInfo.Edition: @unchecked Sendable {}
@@ -2633,6 +2724,7 @@ extension Livekit_TrackInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImplem
     16: .same(proto: "encryption"),
     17: .same(proto: "stream"),
     18: .same(proto: "version"),
+    19: .standard(proto: "audio_features"),
   ]
 
   fileprivate class _StorageClass {
@@ -2654,6 +2746,7 @@ extension Livekit_TrackInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImplem
     var _encryption: Livekit_Encryption.TypeEnum = .none
     var _stream: String = String()
     var _version: Livekit_TimedVersion? = nil
+    var _audioFeatures: [Livekit_AudioTrackFeature] = []
 
     #if swift(>=5.10)
       // This property is used as the initial default value for new instances of the type.
@@ -2686,6 +2779,7 @@ extension Livekit_TrackInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImplem
       _encryption = source._encryption
       _stream = source._stream
       _version = source._version
+      _audioFeatures = source._audioFeatures
     }
   }
 
@@ -2722,6 +2816,7 @@ extension Livekit_TrackInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImplem
         case 16: try { try decoder.decodeSingularEnumField(value: &_storage._encryption) }()
         case 17: try { try decoder.decodeSingularStringField(value: &_storage._stream) }()
         case 18: try { try decoder.decodeSingularMessageField(value: &_storage._version) }()
+        case 19: try { try decoder.decodeRepeatedEnumField(value: &_storage._audioFeatures) }()
         default: break
         }
       }
@@ -2788,6 +2883,9 @@ extension Livekit_TrackInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImplem
       try { if let v = _storage._version {
         try visitor.visitSingularMessageField(value: v, fieldNumber: 18)
       } }()
+      if !_storage._audioFeatures.isEmpty {
+        try visitor.visitPackedEnumField(value: _storage._audioFeatures, fieldNumber: 19)
+      }
     }
     try unknownFields.traverse(visitor: &visitor)
   }
@@ -2815,6 +2913,7 @@ extension Livekit_TrackInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImplem
         if _storage._encryption != rhs_storage._encryption {return false}
         if _storage._stream != rhs_storage._stream {return false}
         if _storage._version != rhs_storage._version {return false}
+        if _storage._audioFeatures != rhs_storage._audioFeatures {return false}
         return true
       }
       if !storagesAreEqual {return false}
@@ -2889,6 +2988,7 @@ extension Livekit_DataPacket: SwiftProtobuf.Message, SwiftProtobuf._MessageImple
     2: .same(proto: "user"),
     3: .same(proto: "speaker"),
     6: .standard(proto: "sip_dtmf"),
+    7: .same(proto: "transcription"),
   ]
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -2939,6 +3039,19 @@ extension Livekit_DataPacket: SwiftProtobuf.Message, SwiftProtobuf._MessageImple
           self.value = .sipDtmf(v)
         }
       }()
+      case 7: try {
+        var v: Livekit_Transcription?
+        var hadOneofValue = false
+        if let current = self.value {
+          hadOneofValue = true
+          if case .transcription(let m) = current {v = m}
+        }
+        try decoder.decodeSingularMessageField(value: &v)
+        if let v = v {
+          if hadOneofValue {try decoder.handleConflictingOneOf()}
+          self.value = .transcription(v)
+        }
+      }()
       default: break
       }
     }
@@ -2969,9 +3082,17 @@ extension Livekit_DataPacket: SwiftProtobuf.Message, SwiftProtobuf._MessageImple
     if !self.destinationIdentities.isEmpty {
       try visitor.visitRepeatedStringField(value: self.destinationIdentities, fieldNumber: 5)
     }
-    try { if case .sipDtmf(let v)? = self.value {
+    switch self.value {
+    case .sipDtmf?: try {
+      guard case .sipDtmf(let v)? = self.value else { preconditionFailure() }
       try visitor.visitSingularMessageField(value: v, fieldNumber: 6)
-    } }()
+    }()
+    case .transcription?: try {
+      guard case .transcription(let v)? = self.value else { preconditionFailure() }
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 7)
+    }()
+    default: break
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -3077,6 +3198,9 @@ extension Livekit_UserPacket: SwiftProtobuf.Message, SwiftProtobuf._MessageImple
     3: .standard(proto: "destination_sids"),
     6: .standard(proto: "destination_identities"),
     4: .same(proto: "topic"),
+    8: .same(proto: "id"),
+    9: .standard(proto: "start_time"),
+    10: .standard(proto: "end_time"),
   ]
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -3091,6 +3215,9 @@ extension Livekit_UserPacket: SwiftProtobuf.Message, SwiftProtobuf._MessageImple
       case 4: try { try decoder.decodeSingularStringField(value: &self._topic) }()
       case 5: try { try decoder.decodeSingularStringField(value: &self.participantIdentity) }()
       case 6: try { try decoder.decodeRepeatedStringField(value: &self.destinationIdentities) }()
+      case 8: try { try decoder.decodeSingularStringField(value: &self._id) }()
+      case 9: try { try decoder.decodeSingularUInt64Field(value: &self._startTime) }()
+      case 10: try { try decoder.decodeSingularUInt64Field(value: &self._endTime) }()
       default: break
       }
     }
@@ -3119,6 +3246,15 @@ extension Livekit_UserPacket: SwiftProtobuf.Message, SwiftProtobuf._MessageImple
     if !self.destinationIdentities.isEmpty {
       try visitor.visitRepeatedStringField(value: self.destinationIdentities, fieldNumber: 6)
     }
+    try { if let v = self._id {
+      try visitor.visitSingularStringField(value: v, fieldNumber: 8)
+    } }()
+    try { if let v = self._startTime {
+      try visitor.visitSingularUInt64Field(value: v, fieldNumber: 9)
+    } }()
+    try { if let v = self._endTime {
+      try visitor.visitSingularUInt64Field(value: v, fieldNumber: 10)
+    } }()
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -3129,6 +3265,9 @@ extension Livekit_UserPacket: SwiftProtobuf.Message, SwiftProtobuf._MessageImple
     if lhs.destinationSids != rhs.destinationSids {return false}
     if lhs.destinationIdentities != rhs.destinationIdentities {return false}
     if lhs._topic != rhs._topic {return false}
+    if lhs._id != rhs._id {return false}
+    if lhs._startTime != rhs._startTime {return false}
+    if lhs._endTime != rhs._endTime {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
@@ -3167,6 +3306,112 @@ extension Livekit_SipDTMF: SwiftProtobuf.Message, SwiftProtobuf._MessageImplemen
   static func ==(lhs: Livekit_SipDTMF, rhs: Livekit_SipDTMF) -> Bool {
     if lhs.code != rhs.code {return false}
     if lhs.digit != rhs.digit {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+extension Livekit_Transcription: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  static let protoMessageName: String = _protobuf_package + ".Transcription"
+  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
+    2: .standard(proto: "transcribed_participant_identity"),
+    3: .standard(proto: "track_id"),
+    4: .same(proto: "segments"),
+  ]
+
+  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 2: try { try decoder.decodeSingularStringField(value: &self.transcribedParticipantIdentity) }()
+      case 3: try { try decoder.decodeSingularStringField(value: &self.trackID) }()
+      case 4: try { try decoder.decodeRepeatedMessageField(value: &self.segments) }()
+      default: break
+      }
+    }
+  }
+
+  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    if !self.transcribedParticipantIdentity.isEmpty {
+      try visitor.visitSingularStringField(value: self.transcribedParticipantIdentity, fieldNumber: 2)
+    }
+    if !self.trackID.isEmpty {
+      try visitor.visitSingularStringField(value: self.trackID, fieldNumber: 3)
+    }
+    if !self.segments.isEmpty {
+      try visitor.visitRepeatedMessageField(value: self.segments, fieldNumber: 4)
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  static func ==(lhs: Livekit_Transcription, rhs: Livekit_Transcription) -> Bool {
+    if lhs.transcribedParticipantIdentity != rhs.transcribedParticipantIdentity {return false}
+    if lhs.trackID != rhs.trackID {return false}
+    if lhs.segments != rhs.segments {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+extension Livekit_TranscriptionSegment: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  static let protoMessageName: String = _protobuf_package + ".TranscriptionSegment"
+  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
+    1: .same(proto: "id"),
+    2: .same(proto: "text"),
+    3: .standard(proto: "start_time"),
+    4: .standard(proto: "end_time"),
+    5: .same(proto: "final"),
+    6: .same(proto: "language"),
+  ]
+
+  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularStringField(value: &self.id) }()
+      case 2: try { try decoder.decodeSingularStringField(value: &self.text) }()
+      case 3: try { try decoder.decodeSingularUInt64Field(value: &self.startTime) }()
+      case 4: try { try decoder.decodeSingularUInt64Field(value: &self.endTime) }()
+      case 5: try { try decoder.decodeSingularBoolField(value: &self.final) }()
+      case 6: try { try decoder.decodeSingularStringField(value: &self.language) }()
+      default: break
+      }
+    }
+  }
+
+  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    if !self.id.isEmpty {
+      try visitor.visitSingularStringField(value: self.id, fieldNumber: 1)
+    }
+    if !self.text.isEmpty {
+      try visitor.visitSingularStringField(value: self.text, fieldNumber: 2)
+    }
+    if self.startTime != 0 {
+      try visitor.visitSingularUInt64Field(value: self.startTime, fieldNumber: 3)
+    }
+    if self.endTime != 0 {
+      try visitor.visitSingularUInt64Field(value: self.endTime, fieldNumber: 4)
+    }
+    if self.final != false {
+      try visitor.visitSingularBoolField(value: self.final, fieldNumber: 5)
+    }
+    if !self.language.isEmpty {
+      try visitor.visitSingularStringField(value: self.language, fieldNumber: 6)
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  static func ==(lhs: Livekit_TranscriptionSegment, rhs: Livekit_TranscriptionSegment) -> Bool {
+    if lhs.id != rhs.id {return false}
+    if lhs.text != rhs.text {return false}
+    if lhs.startTime != rhs.startTime {return false}
+    if lhs.endTime != rhs.endTime {return false}
+    if lhs.final != rhs.final {return false}
+    if lhs.language != rhs.language {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
