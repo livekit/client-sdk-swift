@@ -109,15 +109,18 @@ public class E2EEManager: NSObject, ObservableObject, Loggable {
             return
         }
 
-        let frameCryptor = DispatchQueue.liveKitWebRTC.sync {
+        guard let frameCryptor = DispatchQueue.liveKitWebRTC.sync(execute: {
             let result = LKRTCFrameCryptor(factory: Engine.peerConnectionFactory,
                                            rtpSender: sender,
                                            participantId: participantIdentity.stringValue,
                                            algorithm: RTCCyrptorAlgorithm.aesGcm,
                                            keyProvider: e2eeOptions.keyProvider.rtcKeyProvider)
 
-            result.delegate = delegateAdapter
+            result?.delegate = delegateAdapter
             return result
+        }) else {
+            log("frameCryptor is nil, skipping creating frame cryptor...", .warning)
+            return
         }
 
         return _state.mutate {
@@ -138,15 +141,18 @@ public class E2EEManager: NSObject, ObservableObject, Loggable {
             return
         }
 
-        let frameCryptor = DispatchQueue.liveKitWebRTC.sync {
+        guard let frameCryptor = DispatchQueue.liveKitWebRTC.sync(execute: {
             let result = LKRTCFrameCryptor(factory: Engine.peerConnectionFactory,
                                            rtpReceiver: receiver,
                                            participantId: participantIdentity.stringValue,
                                            algorithm: RTCCyrptorAlgorithm.aesGcm,
                                            keyProvider: e2eeOptions.keyProvider.rtcKeyProvider)
 
-            result.delegate = delegateAdapter
+            result?.delegate = delegateAdapter
             return result
+        }) else {
+            log("frameCryptor is nil, skipping creating frame cryptor...", .warning)
+            return
         }
 
         return _state.mutate {
