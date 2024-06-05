@@ -21,39 +21,42 @@ import XCTest
 class E2EEThreadTests: XCTestCase {
     // Attempt to crash LKRTCFrameCryptor initialization
     func testCreateFrameCryptor() async throws {
+        // Create peerConnection
+        let peerConnection = Engine.peerConnectionFactory.peerConnection(with: .liveKitDefault(),
+                                                                         constraints: .defaultPCConstraints,
+                                                                         delegate: nil)
+
+        let keyprovider = LKRTCFrameCryptorKeyProvider()
+
         // Run Tasks concurrently
-        let result = try await withThrowingTaskGroup(of: LKRTCFrameCryptor.self, returning: [LKRTCFrameCryptor].self) { group in
-            for _ in 1 ... 10000 {
+        try await withThrowingTaskGroup(of: LKRTCFrameCryptor?.self) { group in
+            for _ in 1 ... 100 {
                 group.addTask {
                     let ns = UInt64(Double.random(in: 1 ..< 3) * 1_000_000)
                     try await Task.sleep(nanoseconds: ns)
 
-                    let pc = Engine.peerConnectionFactory.peerConnection(with: .liveKitDefault(),
-                                                                         constraints: .defaultPCConstraints,
-                                                                         delegate: nil)
-
-                    guard let transceiver = pc?.addTransceiver(of: .audio) else {
+                    // Create a sender
+                    guard let sender = peerConnection?.addTransceiver(of: .video)?.sender else {
                         XCTFail("Failed to create transceiver")
-                        throw fatalError()
+                        fatalError()
                     }
 
-                    let keyprovider = LKRTCFrameCryptorKeyProvider()
+                    // Remove sender from pc
+                    peerConnection?.removeTrack(sender)
 
+                    // sender.track will be nil at this point.
+                    // Causing crashes in previous WebRTC versions. (patched in 114.5735.19)
                     return LKRTCFrameCryptor(factory: Engine.peerConnectionFactory,
-                                             rtpReceiver: transceiver.receiver,
+                                             rtpSender: sender,
                                              participantId: "dummy",
-                                             algorithm: RTCCyrptorAlgorithm.aesGcm,
+                                             algorithm: .aesGcm,
                                              keyProvider: keyprovider)
                 }
             }
 
-            var result: [LKRTCFrameCryptor] = []
-            for try await e in group {
-                result.append(e)
-            }
-            return result
+            try await group.waitForAll()
         }
 
-        print("frameCryptors: \(result)")
+        peerConnection?.close()
     }
 }
