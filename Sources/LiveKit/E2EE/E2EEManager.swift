@@ -110,18 +110,17 @@ public class E2EEManager: NSObject, ObservableObject, Loggable {
         }
 
         guard let frameCryptor = DispatchQueue.liveKitWebRTC.sync(execute: {
-            let result = LKRTCFrameCryptor(factory: Engine.peerConnectionFactory,
-                                           rtpSender: sender,
-                                           participantId: participantIdentity.stringValue,
-                                           algorithm: .aesGcm,
-                                           keyProvider: e2eeOptions.keyProvider.rtcKeyProvider)
-
-            result?.delegate = delegateAdapter
-            return result
+            LKRTCFrameCryptor(factory: Engine.peerConnectionFactory,
+                              rtpSender: sender,
+                              participantId: participantIdentity.stringValue,
+                              algorithm: .aesGcm,
+                              keyProvider: e2eeOptions.keyProvider.rtcKeyProvider)
         }) else {
             log("frameCryptor is nil, skipping creating frame cryptor...", .warning)
             return
         }
+
+        frameCryptor.delegate = delegateAdapter
 
         return _state.mutate {
             $0.frameCryptors[[participantIdentity: publication.sid]] = frameCryptor
@@ -142,18 +141,17 @@ public class E2EEManager: NSObject, ObservableObject, Loggable {
         }
 
         guard let frameCryptor = DispatchQueue.liveKitWebRTC.sync(execute: {
-            let result = LKRTCFrameCryptor(factory: Engine.peerConnectionFactory,
-                                           rtpReceiver: receiver,
-                                           participantId: participantIdentity.stringValue,
-                                           algorithm: .aesGcm,
-                                           keyProvider: e2eeOptions.keyProvider.rtcKeyProvider)
-
-            result?.delegate = delegateAdapter
-            return result
+            LKRTCFrameCryptor(factory: Engine.peerConnectionFactory,
+                              rtpReceiver: receiver,
+                              participantId: participantIdentity.stringValue,
+                              algorithm: .aesGcm,
+                              keyProvider: e2eeOptions.keyProvider.rtcKeyProvider)
         }) else {
             log("frameCryptor is nil, skipping creating frame cryptor...", .warning)
             return
         }
+
+        frameCryptor.delegate = delegateAdapter
 
         return _state.mutate {
             $0.frameCryptors[[participantIdentity: publication.sid]] = frameCryptor
