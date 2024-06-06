@@ -21,7 +21,10 @@ import XCTest
 
 class PublishTests: XCTestCase {
     func testResolveSid() async throws {
-        try await with2Rooms { room1, _ in
+        try await withRooms([RoomTestingOptions()]) { rooms in
+            // Alias to Room
+            let room1 = rooms[0]
+
             let sid = try await room1.sid()
             print("Room.sid(): \(String(describing: sid))")
             XCTAssert(sid.stringValue.starts(with: "RM_"))
@@ -29,7 +32,10 @@ class PublishTests: XCTestCase {
     }
 
     func testConcurrentMicPublish() async throws {
-        try await with2Rooms { room1, _ in
+        try await withRooms([RoomTestingOptions(canPublish: true)]) { rooms in
+            // Alias to Room
+            let room1 = rooms[0]
+
             // Lock
             struct State {
                 var firstMicPublication: LocalTrackPublication?
@@ -63,7 +69,11 @@ class PublishTests: XCTestCase {
 
     // Test if possible to receive audio buffer by adding audio renderer to RemoteAudioTrack.
     func testAddAudioRenderer() async throws {
-        try await with2Rooms { room1, room2 in
+        try await withRooms([RoomTestingOptions(canPublish: true), RoomTestingOptions(canSubscribe: true)]) { rooms in
+            // Alias to Rooms
+            let room1 = rooms[0]
+            let room2 = rooms[1]
+
             // LocalParticipant's identity should not be nil after a sucessful connection
             guard let publisherIdentity = room1.localParticipant.identity else {
                 XCTFail("Publisher's identity is nil")

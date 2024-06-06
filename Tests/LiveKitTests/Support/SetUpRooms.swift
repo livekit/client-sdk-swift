@@ -17,6 +17,21 @@
 @testable import LiveKit
 import XCTest
 
+struct RoomTestingOptions {
+    let delegate: RoomDelegate?
+    let canPublish: Bool
+    let canSubscribe: Bool
+
+    init(delegate: RoomDelegate? = nil,
+         canPublish: Bool = false,
+         canSubscribe: Bool = false)
+    {
+        self.delegate = delegate
+        self.canPublish = canPublish
+        self.canSubscribe = canSubscribe
+    }
+}
+
 extension XCTestCase {
     private func readEnvironmentString(for key: String, defaultValue: String) -> String {
         if let string = ProcessInfo.processInfo.environment[key]?.trimmingCharacters(in: .whitespacesAndNewlines), !string.isEmpty {
@@ -30,7 +45,11 @@ extension XCTestCase {
         readEnvironmentString(for: "LIVEKIT_TESTING_URL", defaultValue: "ws://localhost:7880")
     }
 
-    func liveKitServerToken(for room: String, identity: String) throws -> String {
+    func liveKitServerToken(for room: String,
+                            identity: String,
+                            canPublish: Bool,
+                            canSubscribe: Bool) throws -> String
+    {
         let apiKey = readEnvironmentString(for: "LIVEKIT_TESTING_API_KEY", defaultValue: "devkey")
         let apiSecret = readEnvironmentString(for: "LIVEKIT_TESTING_API_SECRET", defaultValue: "secret")
 
@@ -40,71 +59,108 @@ extension XCTestCase {
 
         tokenGenerator.videoGrant = VideoGrant(room: room,
                                                roomJoin: true,
-                                               canPublish: true)
+                                               canPublish: canPublish,
+                                               canSubscribe: canSubscribe)
         return try tokenGenerator.sign()
     }
 
-    // Set up 2 Rooms
-    func with2Rooms(delegate1: RoomDelegate? = nil,
-                    delegate2: RoomDelegate? = nil,
-                    _ block: @escaping (Room, Room) async throws -> Void) async throws
+    // Set up variable number of Rooms
+    func withRooms(_ options: [RoomTestingOptions] = [],
+                   sharedKey: String = UUID().uuidString,
+                   _ block: @escaping ([Room]) async throws -> Void) async throws
     {
-        let e2eeKey = UUID().uuidString
-        let e2eeOptions = E2EEOptions(keyProvider: BaseKeyProvider(isSharedKey: true, sharedKey: e2eeKey))
+        let e2eeOptions = E2EEOptions(keyProvider: BaseKeyProvider(isSharedKey: true, sharedKey: sharedKey))
 
         // Turn on stats
         let roomOptions = RoomOptions(e2eeOptions: e2eeOptions, reportRemoteTrackStatistics: true)
-
-        let room1 = Room(delegate: delegate1, roomOptions: roomOptions)
-        let room2 = Room(delegate: delegate2, roomOptions: roomOptions)
 
         let url = liveKitServerUrl()
         print("url: \(url)")
 
         let roomName = UUID().uuidString
 
-        let token1 = try liveKitServerToken(for: roomName, identity: "identity01")
-        let token2 = try liveKitServerToken(for: roomName, identity: "identity02")
+        let rooms = try options.enumerated().map {
+            // Use shared RoomOptions
+            let room = Room(delegate: $0.element.delegate, roomOptions: roomOptions)
+            let identity = "identity-\($0.offset)"
+            let token = try liveKitServerToken(for: roomName,
+                                               identity: identity,
+                                               canPublish: $0.element.canPublish,
+                                               canSubscribe: $0.element.canSubscribe)
+            print("Token: \(token) for room: \(roomName)")
 
+            return (room: room, identity: identity, token: token)
+        }
+
+        // Connect all Rooms concurrently
         try await withThrowingTaskGroup(of: Void.self) { group in
-            group.addTask {
-                try await room1.connect(url: url, token: token1)
+            for element in rooms {
+                group.addTask {
+                    try await element.room.connect(url: url, token: element.token)
+                }
             }
-            group.addTask {
-                try await room2.connect(url: url, token: token2)
-            }
-
             try await group.waitForAll()
         }
 
-        let observerToken = try liveKitServerToken(for: roomName, identity: "observer")
+        let observerToken = try liveKitServerToken(for: roomName,
+                                                   identity: "observer",
+                                                   canPublish: true,
+                                                   canSubscribe: true)
+
         print("Observer token: \(observerToken) for room: \(roomName)")
 
-        let room1ParticipantCountIs2 = expectation(description: "Room1 Participant count is 2")
-        room1ParticipantCountIs2.assertForOverFulfill = false
+        // Logic to wait other participants to join
+        if rooms.count >= 2 {
+            // Keep a list of all participant identities
+            let allIdentities = rooms.map(\.identity)
 
-        let room2ParticipantCountIs2 = expectation(description: "Room2 Participant count is 2")
-        room2ParticipantCountIs2.assertForOverFulfill = false
+            let expectationAndWatches = rooms.map { room, identity, _ in
+                // Create an Expectation
+                let expectation = self.expectation(description: "Wait for other participants to join")
+                expectation.assertForOverFulfill = false
 
-        let watchRoom1 = room1.objectWillChange.sink { _ in
-            if room1.allParticipants.count == 2 {
-                room1ParticipantCountIs2.fulfill()
+                let exceptSelfIdentity = allIdentities.filter { $0 != identity }
+                print("Will wait for remote participants: \(exceptSelfIdentity)")
+
+                // Watch Room
+                let watch = room.objectWillChange.sink { _ in
+                    let remoteIdentities = room.remoteParticipants.map(\.key.stringValue)
+                    if remoteIdentities.hasSameElements(as: exceptSelfIdentity) {
+                        expectation.fulfill()
+                    }
+                }
+
+                return (expectation: expectation, watch: watch)
+            }
+
+            // Wait for all expectations
+            let allExpectations = expectationAndWatches.map(\.expectation)
+            await fulfillment(of: allExpectations, timeout: 30)
+
+            // Cancel all watch
+            for element in expectationAndWatches {
+                element.watch.cancel()
             }
         }
 
-        let watchRoom2 = room2.objectWillChange.sink { _ in
-            if room2.allParticipants.count == 2 {
-                room2ParticipantCountIs2.fulfill()
+        let allRooms = rooms.map(\.room)
+        // Execute block
+        try await block(allRooms)
+
+        // Disconnect all Rooms concurrently
+        try await withThrowingTaskGroup(of: Void.self) { group in
+            for element in rooms {
+                group.addTask {
+                    await element.room.disconnect()
+                }
             }
+            try await group.waitForAll()
         }
+    }
+}
 
-        // Wait until both room's participant count is 2
-        await fulfillment(of: [room1ParticipantCountIs2, room2ParticipantCountIs2], timeout: 30)
-
-        try await block(room1, room2)
-        await room1.disconnect()
-        await room2.disconnect()
-        watchRoom1.cancel()
-        watchRoom2.cancel()
+extension Array where Element: Comparable {
+    func hasSameElements(as other: [Element]) -> Bool {
+        count == other.count && sorted() == other.sorted()
     }
 }

@@ -20,7 +20,10 @@ import XCTest
 
 class BufferCapturerTest: XCTestCase {
     func testPublishBufferTrack() async throws {
-        try await with2Rooms { room1, room2 in
+        try await withRooms([RoomTestingOptions(canPublish: true), RoomTestingOptions(canSubscribe: true)]) { rooms in
+            // Alias to Rooms
+            let room1 = rooms[0]
+            let room2 = rooms[1]
 
             let targetDimensions: Dimensions = .h1080_169
 

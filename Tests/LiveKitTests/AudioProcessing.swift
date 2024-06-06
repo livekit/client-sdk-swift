@@ -49,13 +49,13 @@ class AudioProcessingTests: XCTestCase, AudioCustomProcessingDelegate {
     }
 
     func testConvertAudioBufferToPCM() async throws {
-        try await with2Rooms { room1, _ in
-            // ...
+        try await withRooms([RoomTestingOptions(canPublish: true)]) { rooms in
+            // Alias to Room1
+            let room1 = rooms[0]
+            // Set processing delegate
             AudioManager.shared.capturePostProcessingDelegate = self
-
             // Publish mic
             try await room1.localParticipant.setMicrophone(enabled: true)
-
             // 3 secs...
             let ns = UInt64(5 * 1_000_000_000)
             try await Task.sleep(nanoseconds: ns)
