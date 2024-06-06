@@ -306,13 +306,13 @@ extension Engine {
             log("dataChannel.\(String(describing: reliableDataChannel?.label)) : \(String(describing: reliableDataChannel?.channelId))")
             log("dataChannel.\(String(describing: lossyDataChannel?.label)) : \(String(describing: lossyDataChannel?.channelId))")
 
+            self.subscriber = subscriber
+            self.publisher = publisher
+
             if !subscriberPrimary {
                 // lazy negotiation for protocol v3+
                 try await publisherShouldNegotiate()
             }
-
-            self.subscriber = subscriber
-            self.publisher = publisher
 
         } else if case .reconnect = connectResponse {
             log("[Connect] Configuring transports with RECONNECT response...")
