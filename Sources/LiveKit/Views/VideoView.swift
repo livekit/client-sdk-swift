@@ -433,7 +433,7 @@ public class VideoView: NativeView, Loggable {
             let _didRenderFirstFrame = state.didRenderFirstFrame ? "true" : "false"
             let _isRendering = state.isRendering ? "true" : "false"
             let _renderMode = String(describing: state.renderMode)
-            let _viewCount = state.track?.videoRenderers.allObjects.count ?? 0
+            let _viewCount = state.track?._state.videoRenderers.allObjects.count ?? 0
             let debugView = ensureDebugTextView()
             debugView.text = "#\(hashValue)\n" + "\(String(describing: _trackSid))\n" + "\(_dimensions.width)x\(_dimensions.height)\n" + "isEnabled: \(isEnabled)\n" + "firstFrame: \(_didRenderFirstFrame)\n" + "isRendering: \(_isRendering)\n" + "renderMode: \(_renderMode)\n" + "viewCount: \(_viewCount)\n" + "FPS: \(_currentFPS)\n"
             debugView.frame = bounds
