@@ -103,9 +103,6 @@ public class Track: NSObject, Loggable {
 
     let mediaTrack: LKRTCMediaStreamTrack
 
-    // Weak reference to all VideoViews attached to this track. Must be accessed from main thread.
-    var videoRenderers = NSHashTable<VideoRenderer>.weakObjects()
-
     struct State {
         let name: String
         let kind: Kind
@@ -129,6 +126,9 @@ public class Track: NSObject, Loggable {
         var rtpSender: LKRTCRtpSender?
         var rtpSenderForCodec: [VideoCodec: LKRTCRtpSender] = [:] // simulcastSender
         var rtpReceiver: LKRTCRtpReceiver?
+
+        // Weak reference to all VideoRenderers attached to this track.
+        var videoRenderers = NSHashTable<VideoRenderer>.weakObjects()
     }
 
     let _state: StateSync<State>
@@ -365,11 +365,10 @@ extension Track {
             return
         }
 
-        if !Thread.current.isMainThread {
-            log("Must be called on main thread", .error)
+        _state.mutate {
+            $0.videoRenderers.add(videoRenderer)
         }
 
-        videoRenderers.add(videoRenderer)
         rtcVideoTrack.add(VideoRendererAdapter(target: videoRenderer, localVideoTrack: self as? LocalVideoTrack))
     }
 
@@ -379,11 +378,10 @@ extension Track {
             return
         }
 
-        if !Thread.current.isMainThread {
-            log("Must be called on main thread", .error)
+        _state.mutate {
+            $0.videoRenderers.remove(videoRenderer)
         }
 
-        videoRenderers.remove(videoRenderer)
         rtcVideoTrack.remove(VideoRendererAdapter(target: videoRenderer, localVideoTrack: self as? LocalVideoTrack))
     }
 }
