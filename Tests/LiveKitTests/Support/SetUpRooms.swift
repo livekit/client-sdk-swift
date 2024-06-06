@@ -79,7 +79,7 @@ extension XCTestCase {
 
         let roomName = UUID().uuidString
 
-        let roomAndTokens = try options.enumerated().map {
+        let rooms = try options.enumerated().map {
             // Use shared RoomOptions
             let room = Room(delegate: $0.element.delegate, roomOptions: roomOptions)
             let identity = "identity-\($0.offset)"
@@ -94,13 +94,11 @@ extension XCTestCase {
 
         // Connect all Rooms concurrently
         try await withThrowingTaskGroup(of: Void.self) { group in
-
-            for element in roomAndTokens {
+            for element in rooms {
                 group.addTask {
                     try await element.room.connect(url: url, token: element.token)
                 }
             }
-
             try await group.waitForAll()
         }
 
@@ -112,11 +110,11 @@ extension XCTestCase {
         print("Observer token: \(observerToken) for room: \(roomName)")
 
         // Logic to wait other participants to join
-        if roomAndTokens.count >= 2 {
+        if rooms.count >= 2 {
             // Keep a list of all participant identities
-            let allIdentities = roomAndTokens.map(\.identity)
+            let allIdentities = rooms.map(\.identity)
 
-            let expectationAndWatches = roomAndTokens.map { room, identity, _ in
+            let expectationAndWatches = rooms.map { room, identity, _ in
                 // Create an Expectation
                 let expectation = self.expectation(description: "Wait for other participants to join")
                 expectation.assertForOverFulfill = false
@@ -127,7 +125,7 @@ extension XCTestCase {
                 // Watch Room
                 let watch = room.objectWillChange.sink { _ in
                     let remoteIdentities = room.remoteParticipants.map(\.key.stringValue)
-                    if remoteIdentities.containsSameElements(as: exceptSelfIdentity) {
+                    if remoteIdentities.hasSameElements(as: exceptSelfIdentity) {
                         expectation.fulfill()
                     }
                 }
@@ -145,26 +143,24 @@ extension XCTestCase {
             }
         }
 
-        let allRooms = roomAndTokens.map(\.room)
+        let allRooms = rooms.map(\.room)
         // Execute block
         try await block(allRooms)
 
         // Disconnect all Rooms concurrently
         try await withThrowingTaskGroup(of: Void.self) { group in
-
-            for element in roomAndTokens {
+            for element in rooms {
                 group.addTask {
                     await element.room.disconnect()
                 }
             }
-
             try await group.waitForAll()
         }
     }
 }
 
 extension Array where Element: Comparable {
-    func containsSameElements(as other: [Element]) -> Bool {
+    func hasSameElements(as other: [Element]) -> Bool {
         count == other.count && sorted() == other.sorted()
     }
 }
