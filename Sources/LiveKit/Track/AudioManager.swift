@@ -156,13 +156,13 @@ public class AudioManager: Loggable {
 
     private lazy var capturePostProcessingDelegateAdapter: AudioCustomProcessingDelegateAdapter = {
         let adapter = AudioCustomProcessingDelegateAdapter(target: nil)
-        Engine.audioProcessingModule.capturePostProcessingDelegate = adapter
+        RTC.audioProcessingModule.capturePostProcessingDelegate = adapter
         return adapter
     }()
 
     private lazy var renderPreProcessingDelegateAdapter: AudioCustomProcessingDelegateAdapter = {
         let adapter = AudioCustomProcessingDelegateAdapter(target: nil)
-        Engine.audioProcessingModule.renderPreProcessingDelegate = adapter
+        RTC.audioProcessingModule.renderPreProcessingDelegate = adapter
         return adapter
     }()
 
@@ -183,26 +183,26 @@ public class AudioManager: Loggable {
     public let defaultInputDevice = AudioDevice(ioDevice: LKRTCIODevice.defaultDevice(with: .input))
 
     public var outputDevices: [AudioDevice] {
-        Engine.audioDeviceModule.outputDevices.map { AudioDevice(ioDevice: $0) }
+        RTC.audioDeviceModule.outputDevices.map { AudioDevice(ioDevice: $0) }
     }
 
     public var inputDevices: [AudioDevice] {
-        Engine.audioDeviceModule.inputDevices.map { AudioDevice(ioDevice: $0) }
+        RTC.audioDeviceModule.inputDevices.map { AudioDevice(ioDevice: $0) }
     }
 
     public var outputDevice: AudioDevice {
-        get { AudioDevice(ioDevice: Engine.audioDeviceModule.outputDevice) }
-        set { Engine.audioDeviceModule.outputDevice = newValue._ioDevice }
+        get { AudioDevice(ioDevice: RTC.audioDeviceModule.outputDevice) }
+        set { RTC.audioDeviceModule.outputDevice = newValue._ioDevice }
     }
 
     public var inputDevice: AudioDevice {
-        get { AudioDevice(ioDevice: Engine.audioDeviceModule.inputDevice) }
-        set { Engine.audioDeviceModule.inputDevice = newValue._ioDevice }
+        get { AudioDevice(ioDevice: RTC.audioDeviceModule.inputDevice) }
+        set { RTC.audioDeviceModule.inputDevice = newValue._ioDevice }
     }
 
     public var onDeviceUpdate: DeviceUpdateFunc? {
         didSet {
-            Engine.audioDeviceModule.setDevicesUpdatedHandler { [weak self] in
+            RTC.audioDeviceModule.setDevicesUpdatedHandler { [weak self] in
                 guard let self else { return }
                 self.onDeviceUpdate?(self)
             }

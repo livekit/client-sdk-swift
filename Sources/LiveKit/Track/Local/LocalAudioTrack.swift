@@ -51,8 +51,8 @@ public class LocalAudioTrack: Track, LocalTrack, AudioTrack {
         let audioConstraints = DispatchQueue.liveKitWebRTC.sync { LKRTCMediaConstraints(mandatoryConstraints: nil,
                                                                                         optionalConstraints: constraints) }
 
-        let audioSource = Engine.createAudioSource(audioConstraints)
-        let rtcTrack = Engine.createAudioTrack(source: audioSource)
+        let audioSource = RTC.createAudioSource(audioConstraints)
+        let rtcTrack = RTC.createAudioTrack(source: audioSource)
         rtcTrack.isEnabled = true
 
         return LocalAudioTrack(name: name,

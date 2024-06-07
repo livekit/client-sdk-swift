@@ -98,7 +98,7 @@ public class LocalParticipant: Participant {
             try await track.stop()
         }
 
-        if let publisher = room.engine.publisher, let sender = track._state.rtpSender {
+        if let publisher = room.publisher, let sender = track._state.rtpSender {
             // Remove all simulcast senders...
             let simulcastSenders = track._state.read { Array($0.rtpSenderForCodec.values) }
             for simulcastSender in simulcastSenders {
@@ -107,7 +107,7 @@ public class LocalParticipant: Participant {
             // Remove main sender...
             try await publisher.remove(track: sender)
             // Mark re-negotiation required...
-            try await room.engine.publisherShouldNegotiate()
+            try await room.publisherShouldNegotiate()
         }
 
         try await track.onUnpublish()
@@ -137,7 +137,7 @@ public class LocalParticipant: Participant {
             $0.topic = options.topic ?? ""
         }
 
-        try await room.engine.send(userPacket: userPacket, kind: options.reliable ? .reliable : .lossy)
+        try await room.send(userPacket: userPacket, kind: options.reliable ? .reliable : .lossy)
     }
 
     /**
@@ -172,7 +172,7 @@ public class LocalParticipant: Participant {
     /// Note: this requires `CanUpdateOwnMetadata` permission encoded in the token.
     public func set(metadata: String) async throws {
         let room = try requireRoom()
-        try await room.engine.signalClient.sendUpdateParticipant(metadata: metadata)
+        try await room.signalClient.sendUpdateParticipant(metadata: metadata)
         _state.mutate { $0.metadata = metadata }
     }
 
@@ -181,16 +181,16 @@ public class LocalParticipant: Participant {
     /// Note: this requires `CanUpdateOwnMetadata` permission encoded in the token.
     public func set(name: String) async throws {
         let room = try requireRoom()
-        try await room.engine.signalClient.sendUpdateParticipant(name: name)
+        try await room.signalClient.sendUpdateParticipant(name: name)
         _state.mutate { $0.name = name }
     }
 
     func sendTrackSubscriptionPermissions() async throws {
         let room = try requireRoom()
-        guard room.engine._state.connectionState == .connected else { return }
+        guard room._state.connectionState == .connected else { return }
 
-        try await room.engine.signalClient.sendUpdateSubscriptionPermission(allParticipants: allParticipantsAllowed,
-                                                                            trackPermissions: trackPermissions)
+        try await room.signalClient.sendUpdateSubscriptionPermission(allParticipants: allParticipantsAllowed,
+                                                                     trackPermissions: trackPermissions)
     }
 
     func _set(subscribedQualities qualities: [Livekit_SubscribedQuality], forTrackSid trackSid: Track.Sid) {
@@ -368,7 +368,7 @@ extension LocalParticipant {
             throw LiveKitError(.invalidState, message: "Attempted to publish a non-backup video codec as backup")
         }
 
-        let publisher = try room.engine.requirePublisher()
+        let publisher = try room.requirePublisher()
 
         let publishOptions = (track.publishOptions as? VideoPublishOptions) ?? room._state.options.defaultVideoPublishOptions
 
@@ -397,10 +397,10 @@ extension LocalParticipant {
         let sender = transceiver.sender
 
         // Request a new track to the server
-        let addTrackResult = try await room.engine.signalClient.sendAddTrack(cid: sender.senderId,
-                                                                             name: track.name,
-                                                                             type: track.kind.toPBType(),
-                                                                             source: track.source.toPBType())
+        let addTrackResult = try await room.signalClient.sendAddTrack(cid: sender.senderId,
+                                                                      name: track.name,
+                                                                      type: track.kind.toPBType(),
+                                                                      source: track.source.toPBType())
         {
             $0.sid = localTrackPublication.sid.stringValue
             $0.simulcastCodecs = [
@@ -420,7 +420,7 @@ extension LocalParticipant {
         // Attach multi-codec sender...
         track._state.mutate { $0.rtpSenderForCodec[videoCodec] = sender }
 
-        try await room.engine.publisherShouldNegotiate()
+        try await room.publisherShouldNegotiate()
     }
 }
 
@@ -443,7 +443,7 @@ private extension LocalParticipant {
         log("[publish] \(track) options: \(String(describing: options ?? nil))...", .info)
 
         let room = try requireRoom()
-        let publisher = try room.engine.requirePublisher()
+        let publisher = try room.requirePublisher()
 
         guard _state.trackPublications.values.first(where: { $0.track === track }) == nil else {
             throw LiveKitError(.invalidState, message: "This track has already been published.")
@@ -534,7 +534,7 @@ private extension LocalParticipant {
                     self.log("[publish] maxBitrate: \(encoding.maxBitrate)")
 
                     transInit.sendEncodings = [
-                        Engine.createRtpEncodingParameters(encoding: encoding),
+                        RTC.createRtpEncodingParameters(encoding: encoding),
                     ]
                 }
 
@@ -547,12 +547,12 @@ private extension LocalParticipant {
             }
 
             // Request a new track to the server
-            let addTrackResult = try await room.engine.signalClient.sendAddTrack(cid: track.mediaTrack.trackId,
-                                                                                 name: publishName ?? track.name,
-                                                                                 type: track.kind.toPBType(),
-                                                                                 source: track.source.toPBType(),
-                                                                                 encryption: room.e2eeManager?.e2eeOptions.encryptionType.toPBType() ?? .none,
-                                                                                 populatorFunc)
+            let addTrackResult = try await room.signalClient.sendAddTrack(cid: track.mediaTrack.trackId,
+                                                                          name: publishName ?? track.name,
+                                                                          type: track.kind.toPBType(),
+                                                                          source: track.source.toPBType(),
+                                                                          encryption: room.e2eeManager?.e2eeOptions.encryptionType.toPBType() ?? .none,
+                                                                          populatorFunc)
 
             log("[Publish] server responded trackInfo: \(addTrackResult.trackInfo)")
 
@@ -601,7 +601,7 @@ private extension LocalParticipant {
                     }
                 }
 
-                try await room.engine.publisherShouldNegotiate()
+                try await room.publisherShouldNegotiate()
                 try Task.checkCancellation()
 
             } catch {

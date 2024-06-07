@@ -49,16 +49,16 @@ public class RemoteParticipant: Participant {
             return
         }
 
-        if case .connected = room.engine._state.connectionState {
-            for publication in newTrackPublications.values {
-                delegates.notify(label: { "participant.didPublish \(publication)" }) {
-                    $0.participant?(self, didPublishTrack: publication)
-                }
-                room.delegates.notify(label: { "room.didPublish \(publication)" }) {
-                    $0.room?(room, participant: self, didPublishTrack: publication)
-                }
+        // if case .connected = connectionState {
+        for publication in newTrackPublications.values {
+            delegates.notify(label: { "participant.didPublish \(publication)" }) {
+                $0.participant?(self, didPublishTrack: publication)
+            }
+            room.delegates.notify(label: { "room.didPublish \(publication)" }) {
+                $0.room?(room, participant: self, didPublishTrack: publication)
             }
         }
+        // }
 
         let unpublishRemoteTrackPublications = _state.trackPublications.values
             .filter { validTrackPublications[$0.sid] == nil }
@@ -116,11 +116,11 @@ public class RemoteParticipant: Participant {
         await publication.set(track: track)
         publication.set(subscriptionAllowed: true)
 
-        if room.engine.subscriber == nil {
+        if room.subscriber == nil {
             log("Subscriber is nil", .error)
         }
 
-        if let transport = room.engine.subscriber {
+        if let transport = room.subscriber {
             await track.set(transport: transport, rtpReceiver: rtpReceiver)
         }
 

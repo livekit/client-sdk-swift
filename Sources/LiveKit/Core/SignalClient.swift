@@ -285,7 +285,7 @@ private extension SignalClient {
             _delegate.notifyDetached { await $0.signalClient(self, didReceiveOffer: sd.toRTCType()) }
 
         case let .trickle(trickle):
-            guard let rtcCandidate = try? Engine.createIceCandidate(fromJsonString: trickle.candidateInit) else {
+            guard let rtcCandidate = try? RTC.createIceCandidate(fromJsonString: trickle.candidateInit) else {
                 return
             }
 

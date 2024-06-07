@@ -205,7 +205,7 @@ extension TrackPublication: TrackDelegateInternal {
             let room = try participant.requireRoom()
 
             if shouldSendSignal {
-                try await room.engine.signalClient.sendMuteTrack(trackSid: self.sid, muted: isMuted)
+                try await room.signalClient.sendMuteTrack(trackSid: self.sid, muted: isMuted)
             }
 
             participant.delegates.notify {
