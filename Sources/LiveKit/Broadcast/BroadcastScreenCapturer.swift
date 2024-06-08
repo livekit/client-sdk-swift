@@ -95,7 +95,7 @@ public extension LocalVideoTrack {
                                                    options: ScreenShareCaptureOptions = ScreenShareCaptureOptions(),
                                                    reportStatistics: Bool = false) -> LocalVideoTrack
     {
-        let videoSource = Engine.createVideoSource(forScreenShare: true)
+        let videoSource = RTC.createVideoSource(forScreenShare: true)
         let capturer = BroadcastScreenCapturer(delegate: videoSource, options: BufferCaptureOptions(from: options))
         return LocalVideoTrack(
             name: name,
