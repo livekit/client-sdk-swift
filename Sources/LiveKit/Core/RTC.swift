@@ -46,9 +46,6 @@ private class VideoEncoderFactorySimulcast: LKRTCVideoEncoderFactorySimulcast {
 }
 
 class RTC {
-    /// Set this to true to bypass initialization of voice processing.
-    /// Must be set before RTCPeerConnectionFactory gets initialized.
-    @objc
     static var bypassVoiceProcessing: Bool = false
 
     static let h264BaselineLevel5CodecInfo: LKRTCVideoCodecInfo = {

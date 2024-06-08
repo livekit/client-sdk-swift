@@ -504,3 +504,15 @@ extension Room: AppStateDelegate {
         }
     }
 }
+
+// MARK: - Devices
+
+public extension Room {
+    /// Set this to true to bypass initialization of voice processing.
+    /// Must be set before RTCPeerConnectionFactory gets initialized.
+    @objc
+    static var bypassVoiceProcessing: Bool {
+        get { RTC.bypassVoiceProcessing }
+        set { RTC.bypassVoiceProcessing = newValue }
+    }
+}
