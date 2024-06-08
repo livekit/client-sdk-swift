@@ -111,8 +111,8 @@ public class Room: NSObject, ObservableObject, Loggable {
     lazy var subscriberDataChannel: DataChannelPairActor = .init(onDataPacket: { [weak self] dataPacket in
         guard let self else { return }
         switch dataPacket.value {
-        case let .speaker(update): engine(self, didUpdateSpeakers: update.speakers)
-        case let .user(userPacket): engine(self, didReceiveUserPacket: userPacket)
+        case let .speaker(update): self.engine(self, didUpdateSpeakers: update.speakers)
+        case let .user(userPacket): self.engine(self, didReceiveUserPacket: userPacket)
         default: return
         }
     })
@@ -248,7 +248,7 @@ public class Room: NSObject, ObservableObject, Loggable {
                 self.log("connectionState: \(oldState.connectionState) -> \(newState.connectionState), reconnectMode: \(String(describing: newState.isReconnectingWithMode))")
             }
 
-            engine(self, didMutateState: newState, oldState: oldState)
+            self.engine(self, didMutateState: newState, oldState: oldState)
 
             // execution control
             self._blockProcessQueue.async { [weak self] in
