@@ -22,9 +22,9 @@ class E2EEThreadTests: XCTestCase {
     // Attempt to crash LKRTCFrameCryptor initialization
     func testCreateFrameCryptor() async throws {
         // Create peerConnection
-        let peerConnection = Engine.peerConnectionFactory.peerConnection(with: .liveKitDefault(),
-                                                                         constraints: .defaultPCConstraints,
-                                                                         delegate: nil)
+        let peerConnection = RTC.peerConnectionFactory.peerConnection(with: .liveKitDefault(),
+                                                                      constraints: .defaultPCConstraints,
+                                                                      delegate: nil)
 
         let keyprovider = LKRTCFrameCryptorKeyProvider()
 
@@ -46,7 +46,7 @@ class E2EEThreadTests: XCTestCase {
 
                     // sender.track will be nil at this point.
                     // Causing crashes in previous WebRTC versions. (patched in 114.5735.19)
-                    return LKRTCFrameCryptor(factory: Engine.peerConnectionFactory,
+                    return LKRTCFrameCryptor(factory: RTC.peerConnectionFactory,
                                              rtpSender: sender,
                                              participantId: "dummy",
                                              algorithm: .aesGcm,
