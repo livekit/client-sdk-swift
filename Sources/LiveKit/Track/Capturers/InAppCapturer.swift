@@ -24,7 +24,7 @@ import ReplayKit
 
 @available(macOS 11.0, iOS 11.0, *)
 public class InAppScreenCapturer: VideoCapturer {
-    private let capturer = Engine.createVideoCapturer()
+    private let capturer = RTC.createVideoCapturer()
     private let options: ScreenShareCaptureOptions
 
     init(delegate: LKRTCVideoCapturerDelegate, options: ScreenShareCaptureOptions) {
@@ -69,7 +69,7 @@ public extension LocalVideoTrack {
                                             options: ScreenShareCaptureOptions = ScreenShareCaptureOptions(),
                                             reportStatistics: Bool = false) -> LocalVideoTrack
     {
-        let videoSource = Engine.createVideoSource(forScreenShare: true)
+        let videoSource = RTC.createVideoSource(forScreenShare: true)
         let capturer = InAppScreenCapturer(delegate: videoSource, options: options)
         return LocalVideoTrack(name: name,
                                source: .screenShareVideo,

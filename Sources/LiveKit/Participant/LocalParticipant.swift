@@ -534,7 +534,7 @@ private extension LocalParticipant {
                     self.log("[publish] maxBitrate: \(encoding.maxBitrate)")
 
                     transInit.sendEncodings = [
-                        Engine.createRtpEncodingParameters(encoding: encoding),
+                        RTC.createRtpEncodingParameters(encoding: encoding),
                     ]
                 }
 

@@ -110,7 +110,7 @@ public class E2EEManager: NSObject, ObservableObject, Loggable {
         }
 
         guard let frameCryptor = DispatchQueue.liveKitWebRTC.sync(execute: {
-            LKRTCFrameCryptor(factory: Engine.peerConnectionFactory,
+            LKRTCFrameCryptor(factory: RTC.peerConnectionFactory,
                               rtpSender: sender,
                               participantId: participantIdentity.stringValue,
                               algorithm: .aesGcm,
@@ -141,7 +141,7 @@ public class E2EEManager: NSObject, ObservableObject, Loggable {
         }
 
         guard let frameCryptor = DispatchQueue.liveKitWebRTC.sync(execute: {
-            LKRTCFrameCryptor(factory: Engine.peerConnectionFactory,
+            LKRTCFrameCryptor(factory: RTC.peerConnectionFactory,
                               rtpReceiver: receiver,
                               participantId: participantIdentity.stringValue,
                               algorithm: .aesGcm,

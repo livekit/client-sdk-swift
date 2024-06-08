@@ -295,10 +295,10 @@ extension Engine {
             // data over pub channel for backwards compatibility
 
             let reliableDataChannel = await publisher.dataChannel(for: LKRTCDataChannel.labels.reliable,
-                                                                  configuration: Engine.createDataChannelConfiguration())
+                                                                  configuration: RTC.createDataChannelConfiguration())
 
             let lossyDataChannel = await publisher.dataChannel(for: LKRTCDataChannel.labels.lossy,
-                                                               configuration: Engine.createDataChannelConfiguration(maxRetransmits: 0))
+                                                               configuration: RTC.createDataChannelConfiguration(maxRetransmits: 0))
 
             await publisherDataChannel.set(reliable: reliableDataChannel)
             await publisherDataChannel.set(lossy: lossyDataChannel)

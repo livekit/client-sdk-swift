@@ -21,7 +21,7 @@ import Foundation
 private extension Array where Element: LKRTCVideoCodecInfo {
     func rewriteCodecsIfNeeded() -> [LKRTCVideoCodecInfo] {
         // rewrite H264's profileLevelId to 42e032
-        let codecs = map { $0.name == kRTCVideoCodecH264Name ? Engine.h264BaselineLevel5CodecInfo : $0 }
+        let codecs = map { $0.name == kRTCVideoCodecH264Name ? RTC.h264BaselineLevel5CodecInfo : $0 }
         // logger.log("supportedCodecs: \(codecs.map({ "\($0.name) - \($0.parameters)" }).joined(separator: ", "))", type: Engine.self)
         return codecs
     }
@@ -45,7 +45,7 @@ private class VideoEncoderFactorySimulcast: LKRTCVideoEncoderFactorySimulcast {
     }
 }
 
-extension Engine {
+class RTC {
     static var bypassVoiceProcessing: Bool = false
 
     static let h264BaselineLevel5CodecInfo: LKRTCVideoCodecInfo = {

@@ -416,7 +416,7 @@ public extension Room {
     /// Must be set before RTCPeerConnectionFactory gets initialized.
     @objc
     static var bypassVoiceProcessing: Bool {
-        get { Engine.bypassVoiceProcessing }
-        set { Engine.bypassVoiceProcessing = newValue }
+        get { RTC.bypassVoiceProcessing }
+        set { RTC.bypassVoiceProcessing = newValue }
     }
 }
