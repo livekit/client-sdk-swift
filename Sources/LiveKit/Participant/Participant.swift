@@ -51,6 +51,7 @@ public class Participant: NSObject, ObservableObject, Loggable {
     @objc
     public var joinedAt: Date? { _state.joinedAt }
 
+    /// The kind of participant (i.e. a standard client participant, AI agent, etc.)
     @objc
     public var kind: Kind { _state.kind }
 
