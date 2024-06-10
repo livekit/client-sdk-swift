@@ -16,7 +16,11 @@
 
 import Foundation
 
+#if swift(>=5.9)
+internal import LiveKitWebRTC
+#else
 @_implementationOnly import LiveKitWebRTC
+#endif
 
 private extension Array where Element: LKRTCVideoCodecInfo {
     func rewriteCodecsIfNeeded() -> [LKRTCVideoCodecInfo] {

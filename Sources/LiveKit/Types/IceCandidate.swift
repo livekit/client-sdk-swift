@@ -14,9 +14,11 @@
  * limitations under the License.
  */
 
-import Foundation
-
+#if swift(>=5.9)
+internal import LiveKitWebRTC
+#else
 @_implementationOnly import LiveKitWebRTC
+#endif
 
 struct IceCandidate: Codable {
     let sdp: String

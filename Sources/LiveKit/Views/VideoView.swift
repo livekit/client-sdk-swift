@@ -15,10 +15,13 @@
  */
 
 import AVFoundation
-import Foundation
 import MetalKit
 
+#if swift(>=5.9)
+internal import LiveKitWebRTC
+#else
 @_implementationOnly import LiveKitWebRTC
+#endif
 
 /// A ``NativeViewType`` that conforms to ``RTCVideoRenderer``.
 typealias NativeRendererView = LKRTCVideoRenderer & Mirrorable & NativeViewType

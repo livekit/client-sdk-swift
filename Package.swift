@@ -1,5 +1,5 @@
-// swift-tools-version:5.7
-// (Xcode14.0+)
+// swift-tools-version:5.8
+// (Xcode14.3+)
 
 import PackageDescription
 
@@ -36,6 +36,9 @@ let package = Package(
             ],
             resources: [
                 .process("PrivacyInfo.xcprivacy"),
+            ],
+            swiftSettings: [
+                .enableExperimentalFeature("AccessLevelOnImport"),
             ]
         ),
         .testTarget(
