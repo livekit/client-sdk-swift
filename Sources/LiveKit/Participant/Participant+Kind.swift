@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+// MARK: - Public
+
 public extension Participant {
     @objc
     enum Kind: Int {
@@ -28,6 +30,19 @@ public extension Participant {
         case sip
         /// LiveKit agents.
         case agent
+    }
+}
+
+extension Participant.Kind: CustomStringConvertible {
+    public var description: String {
+        switch self {
+        case .unknown: return "unknown"
+        case .standard: return "standard"
+        case .ingress: return "ingress"
+        case .egress: return "egress"
+        case .sip: return "sip"
+        case .agent: return "agent"
+        }
     }
 }
 
