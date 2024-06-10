@@ -67,4 +67,4 @@ jobs:
         run: xcodebuild -scheme LiveKit -showdestinations
 
       - name: Run Tests on ${{ matrix.platform }}
-        run: xcodebuild test -scheme LiveKit -destination 'platform=${{ matrix.platform }}' -parallel-testing-enabled YES
+        run: xcodebuild test -scheme LiveKit -destination 'platform=${{ matrix.platform }}'
