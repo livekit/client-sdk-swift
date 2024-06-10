@@ -52,6 +52,9 @@ public class Participant: NSObject, ObservableObject, Loggable {
     public var joinedAt: Date? { _state.joinedAt }
 
     @objc
+    public var kind: Kind { _state.kind }
+
+    @objc
     public var trackPublications: [Track.Sid: TrackPublication] { _state.trackPublications }
 
     @objc
@@ -79,6 +82,7 @@ public class Participant: NSObject, ObservableObject, Loggable {
         var isSpeaking: Bool = false
         var metadata: String?
         var joinedAt: Date?
+        var kind: Kind = .unknown
         var connectionQuality: ConnectionQuality = .unknown
         var permissions = ParticipantPermissions()
         var trackPublications = [Track.Sid: TrackPublication]()
@@ -181,6 +185,7 @@ public class Participant: NSObject, ObservableObject, Loggable {
             $0.name = info.name
             $0.metadata = info.metadata
             $0.joinedAt = Date(timeIntervalSince1970: TimeInterval(info.joinedAt))
+            $0.kind = info.kind.toLKType()
         }
 
         self.info = info
