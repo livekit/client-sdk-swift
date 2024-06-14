@@ -329,7 +329,7 @@ extension Room {
                 $0.connectionState = .reconnecting
             }
 
-            try await cleanUp(isFullReconnect: true)
+            await cleanUp(isFullReconnect: true)
 
             guard let url = _state.url,
                   let token = _state.token
@@ -394,7 +394,7 @@ extension Room {
 
             if !Task.isCancelled {
                 // Finally disconnect if all attempts fail
-                try await cleanUp(withError: error)
+                await cleanUp(withError: error)
             }
         }
     }

@@ -309,7 +309,7 @@ public class Room: NSObject, ObservableObject, Loggable {
             e2eeManager!.setup(room: self)
         }
 
-        try await cleanUp()
+        await cleanUp()
 
         try Task.checkCancellation()
 
