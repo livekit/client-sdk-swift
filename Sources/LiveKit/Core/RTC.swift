@@ -16,7 +16,11 @@
 
 import Foundation
 
+#if swift(>=5.9)
+internal import LiveKitWebRTC
+#else
 @_implementationOnly import LiveKitWebRTC
+#endif
 
 private extension Array where Element: LKRTCVideoCodecInfo {
     func rewriteCodecsIfNeeded() -> [LKRTCVideoCodecInfo] {
@@ -75,8 +79,8 @@ class RTC {
 
     static let audioProcessingModule: LKRTCDefaultAudioProcessingModule = .init()
 
-    static let videoSenderCapabilities = peerConnectionFactory.rtpSenderCapabilities(for: .video)
-    static let audioSenderCapabilities = peerConnectionFactory.rtpSenderCapabilities(for: .audio)
+    static let videoSenderCapabilities = peerConnectionFactory.rtpSenderCapabilities(forKind: kRTCMediaStreamTrackKindVideo)
+    static let audioSenderCapabilities = peerConnectionFactory.rtpSenderCapabilities(forKind: kRTCMediaStreamTrackKindAudio)
 
     static let peerConnectionFactory: LKRTCPeerConnectionFactory = {
         logger.log("Initializing SSL...", type: Room.self)

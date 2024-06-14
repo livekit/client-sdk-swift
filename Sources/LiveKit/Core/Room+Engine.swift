@@ -20,7 +20,11 @@ import Foundation
 import Network
 #endif
 
+#if swift(>=5.9)
+internal import LiveKitWebRTC
+#else
 @_implementationOnly import LiveKitWebRTC
+#endif
 
 // Room+Engine
 extension Room {
