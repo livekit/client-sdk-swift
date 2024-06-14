@@ -75,8 +75,8 @@ class RTC {
 
     static let audioProcessingModule: LKRTCDefaultAudioProcessingModule = .init()
 
-    static let videoSenderCapabilities = peerConnectionFactory.rtpSenderCapabilities(for: .video)
-    static let audioSenderCapabilities = peerConnectionFactory.rtpSenderCapabilities(for: .audio)
+    static let videoSenderCapabilities = peerConnectionFactory.rtpSenderCapabilities(forKind: kRTCMediaStreamTrackKindVideo)
+    static let audioSenderCapabilities = peerConnectionFactory.rtpSenderCapabilities(forKind: kRTCMediaStreamTrackKindAudio)
 
     static let peerConnectionFactory: LKRTCPeerConnectionFactory = {
         logger.log("Initializing SSL...", type: Engine.self)
