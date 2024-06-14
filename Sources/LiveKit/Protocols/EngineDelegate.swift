@@ -14,9 +14,11 @@
  * limitations under the License.
  */
 
-import Foundation
-
+#if swift(>=5.9)
+internal import LiveKitWebRTC
+#else
 @_implementationOnly import LiveKitWebRTC
+#endif
 
 protocol EngineDelegate: AnyObject {
     func engine(_ engine: Engine, didMutateState state: Engine.State, oldState: Engine.State) async

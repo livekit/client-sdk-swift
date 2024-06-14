@@ -20,7 +20,11 @@ import Foundation
 import ReplayKit
 #endif
 
+#if swift(>=5.9)
+internal import LiveKitWebRTC
+#else
 @_implementationOnly import LiveKitWebRTC
+#endif
 
 extension FixedWidthInteger {
     func roundUp(toMultipleOf powerOfTwo: Self) -> Self {

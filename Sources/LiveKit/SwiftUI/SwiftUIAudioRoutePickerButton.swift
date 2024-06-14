@@ -15,10 +15,13 @@
  */
 
 import AVKit
-import Foundation
 import SwiftUI
 
+#if swift(>=5.9)
+internal import LiveKitWebRTC
+#else
 @_implementationOnly import LiveKitWebRTC
+#endif
 
 public struct SwiftUIAudioRoutePickerButton: NativeViewRepresentable {
     public init() {}
