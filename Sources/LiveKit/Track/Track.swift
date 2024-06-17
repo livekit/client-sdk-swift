@@ -439,8 +439,25 @@ public extension InboundRtpStreamStatistics {
         guard let previous,
               let currentBytesReceived = bytesReceived,
               let previousBytesReceived = previous.bytesReceived else { return 0 }
+
         let secondsDiff = (timestamp - previous.timestamp) / (1000 * 1000)
-        return UInt64(Double((currentBytesReceived - previousBytesReceived) * 8) / abs(secondsDiff))
+
+        // Ensure secondsDiff is not zero or negative
+        guard secondsDiff > 0 else { return 0 }
+
+        // Calculate the difference in bytes received
+        let bytesDiff = currentBytesReceived.subtractingReportingOverflow(previousBytesReceived)
+
+        // Check for overflow in bytes difference
+        guard !bytesDiff.overflow else { return 0 }
+
+        // Calculate bits per second as a Double
+        let bpsDouble = Double(bytesDiff.partialValue * 8) / Double(secondsDiff)
+
+        // Ensure the result is non-negative and fits into UInt64
+        guard bpsDouble >= 0, bpsDouble <= Double(UInt64.max) else { return 0 }
+
+        return UInt64(bpsDouble)
     }
 }
 
