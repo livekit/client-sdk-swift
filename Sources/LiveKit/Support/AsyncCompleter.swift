@@ -44,9 +44,13 @@ actor CompleterMapActor<T> {
     }
 
     public func resume(returning value: T, for key: String) {
-        if let element = _completerMap[key] {
-            element.resume(returning: value)
-        }
+        let completer = completer(for: key)
+        completer.resume(returning: value)
+    }
+
+    public func resume(throwing error: any Error, for key: String) {
+        let completer = completer(for: key)
+        completer.resume(throwing: error)
     }
 
     public func reset() {
