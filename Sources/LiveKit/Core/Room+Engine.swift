@@ -34,8 +34,6 @@ extension Room {
 
     // MARK: - Private
 
-    // let _delegate = AsyncSerialDelegate<EngineDelegate>()
-
     struct ConditionalExecutionEntry {
         let executeCondition: ConditionEvalFunc
         let removeCondition: ConditionEvalFunc
