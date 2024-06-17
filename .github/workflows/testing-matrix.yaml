@@ -18,24 +18,34 @@ jobs:
       matrix:
         include:
           # https://github.com/actions/runner-images/blob/main/images/macos/macos-13-Readme.md
-          - os: macos-13
+          - os: macos-13-xlarge
             xcode: 14.2
             platform: "iOS Simulator,OS=17.2,name=iPhone 14 Pro"
-          - os: macos-13
+          - os: macos-13-xlarge
             xcode: 14.2
             platform: "macOS"
-          - os: macos-13
+          - os: macos-13-xlarge
             xcode: 14.2
             platform: "macOS,variant=Mac Catalyst"
           # https://github.com/actions/runner-images/blob/main/images/macos/macos-14-Readme.md
-          - os: macos-14
+          - os: macos-14-xlarge
             xcode: 15.4
             platform: "iOS Simulator,OS=17.5,name=iPhone 15 Pro"
-          - os: macos-14
+          - os: macos-14-xlarge
             xcode: 15.4
             platform: "macOS"
-          - os: macos-14
+          - os: macos-14-xlarge
             xcode: 15.4
+            platform: "macOS,variant=Mac Catalyst"
+          # https://github.com/actions/runner-images/blob/main/images/macos/macos-14-Readme.md
+          - os: macos-14-xlarge
+            xcode: 16.0
+            platform: "iOS Simulator,OS=18.0,name=iPhone 15 Pro"
+          - os: macos-14-xlarge
+            xcode: 16.0
+            platform: "macOS"
+          - os: macos-14-xlarge
+            xcode: 16.0
             platform: "macOS,variant=Mac Catalyst"
 
     runs-on: ${{ matrix.os }}
