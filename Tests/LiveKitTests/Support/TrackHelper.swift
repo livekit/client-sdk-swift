@@ -66,10 +66,11 @@ extension XCTestCase {
     }
 }
 
+typealias OnDidRenderFirstFrame = (_ id: String) -> Void
+
 class VideoTrackWatcher: TrackDelegate, VideoRenderer {
     // MARK: - Public
 
-    typealias OnDidRenderFirstFrame = (_ sid: String) -> Void
     public var didRenderFirstFrame: Bool { _state.didRenderFirstFrame }
 
     private struct State {
@@ -144,5 +145,42 @@ class VideoTrackWatcher: TrackDelegate, VideoRenderer {
         }
 
         print("\(type(of: self)) didUpdateStatistics (\(segments.joined(separator: ", ")))")
+    }
+}
+
+class AudioTrackWatcher: AudioRenderer {
+    public let id: String
+    public var didRenderFirstFrame: Bool { _state.didRenderFirstFrame }
+
+    // MARK: - Private
+
+    private let onDidRenderFirstFrame: OnDidRenderFirstFrame?
+
+    private struct State {
+        var didRenderFirstFrame: Bool = false
+    }
+
+    private let _state = StateSync(State())
+
+    init(id: String, onDidRenderFirstFrame: OnDidRenderFirstFrame? = nil) {
+        self.id = id
+        self.onDidRenderFirstFrame = onDidRenderFirstFrame
+    }
+
+    public func reset() {
+        _state.mutate {
+            $0.didRenderFirstFrame = false
+        }
+    }
+
+    func render(sampleBuffer: CMSampleBuffer) {
+        print("did receive first audio frame: \(String(describing: sampleBuffer))")
+
+        _state.mutate {
+            if !$0.didRenderFirstFrame {
+                $0.didRenderFirstFrame = true
+                onDidRenderFirstFrame?(id)
+            }
+        }
     }
 }
