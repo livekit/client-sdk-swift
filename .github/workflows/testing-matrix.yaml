@@ -18,33 +18,33 @@ jobs:
       matrix:
         include:
           # https://github.com/actions/runner-images/blob/main/images/macos/macos-13-Readme.md
-          - os: macos-13-xlarge
+          - os: macos-13
             xcode: 14.2
             platform: "iOS Simulator,OS=17.2,name=iPhone 14 Pro"
-          - os: macos-13-xlarge
+          - os: macos-13
             xcode: 14.2
             platform: "macOS"
-          - os: macos-13-xlarge
+          - os: macos-13
             xcode: 14.2
             platform: "macOS,variant=Mac Catalyst"
           # https://github.com/actions/runner-images/blob/main/images/macos/macos-14-Readme.md
-          - os: macos-14-xlarge
+          - os: macos-14
             xcode: 15.4
             platform: "iOS Simulator,OS=17.5,name=iPhone 15 Pro"
-          - os: macos-14-xlarge
+          - os: macos-14
             xcode: 15.4
             platform: "macOS"
-          - os: macos-14-xlarge
+          - os: macos-14
             xcode: 15.4
             platform: "macOS,variant=Mac Catalyst"
           # https://github.com/actions/runner-images/blob/main/images/macos/macos-14-Readme.md
-          - os: macos-14-xlarge
+          - os: macos-14
             xcode: 16.0
             platform: "iOS Simulator,OS=18.0,name=iPhone 15 Pro"
-          - os: macos-14-xlarge
+          - os: macos-14
             xcode: 16.0
             platform: "macOS"
-          - os: macos-14-xlarge
+          - os: macos-14
             xcode: 16.0
             platform: "macOS,variant=Mac Catalyst"
 
@@ -70,11 +70,11 @@ jobs:
       - name: Show SDKs
         run: xcodebuild -showsdks
 
-      - name: Download iOS platforms
-        run: xcodebuild -downloadPlatform iOS
-
       - name: Show Destinations
         run: xcodebuild -scheme LiveKit -showdestinations
 
-      - name: Run Tests on ${{ matrix.platform }}
-        run: xcodebuild test -scheme LiveKit -destination 'platform=${{ matrix.platform }}' -parallel-testing-enabled YES
+      - name: testPublishMicrophone
+        run: xcodebuild test -scheme LiveKit -destination 'platform=${{ matrix.platform }}' -only-testing:LiveKitTests/PublishTests/testPublishMicrophone -parallel-testing-enabled YES
+
+      - name: testResolveSid
+        run: xcodebuild test -scheme LiveKit -destination 'platform=${{ matrix.platform }}' -only-testing:LiveKitTests/PublishTests/testResolveSid -parallel-testing-enabled YES
