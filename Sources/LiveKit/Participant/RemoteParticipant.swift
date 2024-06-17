@@ -98,12 +98,12 @@ public class RemoteParticipant: Participant {
             track = RemoteAudioTrack(name: publication.name,
                                      source: publication.source,
                                      track: rtcTrack,
-                                     reportStatistics: room._state.options.reportRemoteTrackStatistics)
+                                     reportStatistics: room._state.roomOptions.reportRemoteTrackStatistics)
         case "video":
             track = RemoteVideoTrack(name: publication.name,
                                      source: publication.source,
                                      track: rtcTrack,
-                                     reportStatistics: room._state.options.reportRemoteTrackStatistics)
+                                     reportStatistics: room._state.roomOptions.reportRemoteTrackStatistics)
         default:
             let error = LiveKitError(.invalidState, message: "Unsupported type: \(rtcTrack.kind.description)")
             delegates.notify(label: { "participant.didFailToSubscribe trackSid: \(trackSid)" }) {

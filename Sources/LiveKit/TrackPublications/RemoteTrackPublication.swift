@@ -199,7 +199,7 @@ public class RemoteTrackPublication: TrackPublication {
 // MARK: - Private
 
 private extension RemoteTrackPublication {
-    var isAdaptiveStreamEnabled: Bool { (participant?._room?._state.options ?? RoomOptions()).adaptiveStream && kind == .video }
+    var isAdaptiveStreamEnabled: Bool { (participant?._room?._state.roomOptions ?? RoomOptions()).adaptiveStream && kind == .video }
 
     var engineConnectionState: ConnectionState {
         guard let participant, let room = participant._room else {

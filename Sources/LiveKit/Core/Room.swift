@@ -125,7 +125,9 @@ public class Room: NSObject, ObservableObject, Loggable {
     var _queuedBlocks = [ConditionalExecutionEntry]()
 
     struct State: Equatable {
-        var options: RoomOptions
+        // Options
+        var connectOptions: ConnectOptions
+        var roomOptions: RoomOptions
 
         var sid: Sid?
         var name: String?
@@ -143,7 +145,6 @@ public class Room: NSObject, ObservableObject, Loggable {
         var serverInfo: Livekit_ServerInfo?
 
         // Engine
-        var connectOptions: ConnectOptions
         var url: String?
         var token: String?
         // preferred reconnect mode which will be used only for next attempt
@@ -191,8 +192,8 @@ public class Room: NSObject, ObservableObject, Loggable {
     {
         DeviceManager.prepare()
 
-        _state = StateSync(State(options: roomOptions ?? RoomOptions(),
-                                 connectOptions: connectOptions ?? ConnectOptions()))
+        _state = StateSync(State(connectOptions: connectOptions ?? ConnectOptions(),
+                                 roomOptions: roomOptions ?? RoomOptions()))
 
         super.init()
         // log sdk & os versions
@@ -291,9 +292,9 @@ public class Room: NSObject, ObservableObject, Loggable {
         var state = _state.copy()
 
         // update options if specified
-        if let roomOptions, roomOptions != state.options {
+        if let roomOptions, roomOptions != state.roomOptions {
             state = _state.mutate {
-                $0.options = roomOptions
+                $0.roomOptions = roomOptions
                 return $0
             }
         }
@@ -304,7 +305,7 @@ public class Room: NSObject, ObservableObject, Loggable {
         }
 
         // enable E2EE
-        if let e2eeOptions = state.options.e2eeOptions {
+        if let e2eeOptions = state.roomOptions.e2eeOptions {
             e2eeManager = E2EEManager(e2eeOptions: e2eeOptions)
             e2eeManager!.setup(room: self)
         }
@@ -382,16 +383,16 @@ extension Room {
         _state.mutate {
             // if isFullReconnect, keep connection related states
             $0 = isFullReconnect ? State(
-                options: $0.options,
                 connectOptions: $0.connectOptions,
+                roomOptions: $0.roomOptions,
                 url: $0.url,
                 token: $0.token,
                 nextReconnectMode: $0.nextReconnectMode,
                 isReconnectingWithMode: $0.isReconnectingWithMode,
                 connectionState: $0.connectionState
             ) : State(
-                options: $0.options,
                 connectOptions: $0.connectOptions,
+                roomOptions: $0.roomOptions,
                 connectionState: .disconnected,
                 disconnectError: LiveKitError.from(error: disconnectError)
             )
@@ -458,7 +459,7 @@ extension Room {
 
 extension Room: AppStateDelegate {
     func appDidEnterBackground() {
-        guard _state.options.suspendLocalVideoTracksInBackground else { return }
+        guard _state.roomOptions.suspendLocalVideoTracksInBackground else { return }
 
         let cameraVideoTracks = localParticipant.localVideoTracks.filter { $0.source == .camera }
 

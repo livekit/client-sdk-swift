@@ -107,7 +107,7 @@ extension LocalTrackPublication {
         let parameters = sender.parameters
 
         guard let participant, let room = participant._room else { return }
-        let publishOptions = (track.publishOptions as? VideoPublishOptions) ?? room._state.options.defaultVideoPublishOptions
+        let publishOptions = (track.publishOptions as? VideoPublishOptions) ?? room._state.roomOptions.defaultVideoPublishOptions
 
         // re-compute encodings
         let encodings = Utils.computeVideoEncodings(dimensions: dimensions,

@@ -232,7 +232,7 @@ extension Room {
                                                              token,
                                                              connectOptions: _state.connectOptions,
                                                              reconnectMode: _state.isReconnectingWithMode,
-                                                             adaptiveStream: _state.options.adaptiveStream)
+                                                             adaptiveStream: _state.roomOptions.adaptiveStream)
         // Check cancellation after WebSocket connected
         try Task.checkCancellation()
 
@@ -289,7 +289,7 @@ extension Room {
                                                                  token,
                                                                  connectOptions: _state.connectOptions,
                                                                  reconnectMode: _state.isReconnectingWithMode,
-                                                                 adaptiveStream: _state.options.adaptiveStream)
+                                                                 adaptiveStream: _state.roomOptions.adaptiveStream)
             try Task.checkCancellation()
 
             // Update configuration

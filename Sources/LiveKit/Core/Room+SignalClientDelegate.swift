@@ -61,7 +61,7 @@ extension Room: SignalClientDelegate {
                       forTrackSid trackSid: String) async
     {
         // Check if dynacast is enabled
-        guard _state.options.dynacast else { return }
+        guard _state.roomOptions.dynacast else { return }
 
         log("[Publish/Backup] Qualities: \(qualities.map { String(describing: $0) }.joined(separator: ", ")), Codecs: \(codecs.map { String(describing: $0) }.joined(separator: ", "))")
 
