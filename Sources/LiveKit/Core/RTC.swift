@@ -55,7 +55,7 @@ class RTC {
     static let h264BaselineLevel5CodecInfo: LKRTCVideoCodecInfo = {
         // this should never happen
         guard let profileLevelId = LKRTCH264ProfileLevelId(profile: .constrainedBaseline, level: .level5) else {
-            logger.log("failed to generate profileLevelId", .error, type: Engine.self)
+            logger.log("failed to generate profileLevelId", .error, type: Room.self)
             fatalError("failed to generate profileLevelId")
         }
 
@@ -83,11 +83,11 @@ class RTC {
     static let audioSenderCapabilities = peerConnectionFactory.rtpSenderCapabilities(forKind: kRTCMediaStreamTrackKindAudio)
 
     static let peerConnectionFactory: LKRTCPeerConnectionFactory = {
-        logger.log("Initializing SSL...", type: Engine.self)
+        logger.log("Initializing SSL...", type: Room.self)
 
         RTCInitializeSSL()
 
-        logger.log("Initializing PeerConnectionFactory...", type: Engine.self)
+        logger.log("Initializing PeerConnectionFactory...", type: Room.self)
 
         return LKRTCPeerConnectionFactory(bypassVoiceProcessing: bypassVoiceProcessing,
                                           encoderFactory: encoderFactory,

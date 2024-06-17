@@ -32,7 +32,7 @@ extension RTCPeerConnectionState {
     }
 }
 
-extension Engine: TransportDelegate {
+extension Room: TransportDelegate {
     func transport(_ transport: Transport, didUpdateState pcState: RTCPeerConnectionState) async {
         log("target: \(transport.target), connectionState: \(pcState.description)")
 
@@ -88,14 +88,16 @@ extension Engine: TransportDelegate {
                     removeWhen: { state, _ in state.connectionState == .disconnected })
             { [weak self] in
                 guard let self else { return }
-                self._delegate.notifyDetached { await $0.engine(self, didAddTrack: track, rtpReceiver: rtpReceiver, stream: streams.first!) }
+                Task {
+                    await self.engine(self, didAddTrack: track, rtpReceiver: rtpReceiver, stream: streams.first!)
+                }
             }
         }
     }
 
     func transport(_ transport: Transport, didRemoveTrack track: LKRTCMediaStreamTrack) async {
         if transport.target == .subscriber {
-            _delegate.notifyDetached { await $0.engine(self, didRemoveTrack: track) }
+            await engine(self, didRemoveTrack: track)
         }
     }
 

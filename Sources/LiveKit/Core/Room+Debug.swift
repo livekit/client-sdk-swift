@@ -33,11 +33,11 @@ public extension Room {
     /// Simulate a scenario for debuggin
     func debug_simulate(scenario: SimulateScenario) async throws {
         if case .quickReconnect = scenario {
-            try await engine.startReconnect(reason: .debug)
+            try await startReconnect(reason: .debug)
         } else if case .fullReconnect = scenario {
-            try await engine.startReconnect(reason: .debug, nextReconnectMode: .full)
+            try await startReconnect(reason: .debug, nextReconnectMode: .full)
         } else {
-            try await engine.signalClient.sendSimulate(scenario: scenario)
+            try await signalClient.sendSimulate(scenario: scenario)
         }
     }
 }

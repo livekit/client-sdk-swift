@@ -112,7 +112,6 @@ extension BroadcastUploadSocketConnection: StreamDelegate {
             logger.log(level: .debug, "client stream error occured: \(String(describing: aStream.streamError))")
             close()
             notifyDidClose(error: aStream.streamError)
-
         default:
             break
         }
