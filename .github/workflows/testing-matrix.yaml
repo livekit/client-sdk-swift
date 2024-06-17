@@ -76,13 +76,12 @@ jobs:
       - name: Show Destinations
         run: xcodebuild -scheme LiveKit -showdestinations
 
-      - name: Run Tests
+      - name: Run
         run: |
           IFS=' ' read -r -a tests <<< "${{ env.TESTS }}"
-          echo "::group::Running Tests"
           for test in "${tests[@]}"; do
-            echo "Running test: $test"
+            echo "::group::Running test $test"
             xcodebuild test -scheme LiveKit -destination 'platform=${{ matrix.platform }}' -only-testing:LiveKitTests/$test -parallel-testing-enabled YES
+            echo "::endgroup::"
           done
-          echo "::endgroup::"
         shell: bash
