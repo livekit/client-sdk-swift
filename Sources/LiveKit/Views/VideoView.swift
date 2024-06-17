@@ -368,32 +368,32 @@ public class VideoView: NativeView, Loggable {
                 if newState.isDebugMode {
                     Task.detached { await self._fpsTimer.restart() }
                 } else {
-                    Task.detached { await self._fpsTimer.cancel() }
+                    self._fpsTimer.cancel()
+                }
+            }
+        }
+
+        _fpsTimer.setTimerBlock { @MainActor [weak self] in
+            guard let self else { return }
+
+            self._currentFPS = self._frameCount
+            self._frameCount = 0
+
+            self.setNeedsLayout()
+        }
+
+        _renderTimer.setTimerBlock { [weak self] in
+            guard let self else { return }
+
+            if self._state.isRendering, let renderDate = self._state.renderDate {
+                let diff = Date().timeIntervalSince(renderDate)
+                if diff >= Self._freezeDetectThreshold {
+                    self._state.mutate { $0.isRendering = false }
                 }
             }
         }
 
         Task.detached {
-            await self._fpsTimer.setTimerBlock { @MainActor [weak self] in
-                guard let self else { return }
-
-                self._currentFPS = self._frameCount
-                self._frameCount = 0
-
-                self.setNeedsLayout()
-            }
-
-            await self._renderTimer.setTimerBlock { [weak self] in
-                guard let self else { return }
-
-                if await self._state.isRendering, let renderDate = await self._state.renderDate {
-                    let diff = Date().timeIntervalSince(renderDate)
-                    if diff >= Self._freezeDetectThreshold {
-                        await self._state.mutate { $0.isRendering = false }
-                    }
-                }
-            }
-
             await self._renderTimer.restart()
         }
 

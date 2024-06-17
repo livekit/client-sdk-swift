@@ -199,8 +199,8 @@ actor SignalClient: Loggable {
     func cleanUp(withError disconnectError: Error? = nil) async {
         log("withError: \(String(describing: disconnectError))")
 
-        await _pingIntervalTimer.cancel()
-        await _pingTimeoutTimer.cancel()
+        _pingIntervalTimer.cancel()
+        _pingTimeoutTimer.cancel()
 
         _messageLoopTask?.cancel()
         _messageLoopTask = nil
@@ -583,8 +583,8 @@ private extension SignalClient {
         log("ping/pong sending ping...", .trace)
         try await _sendPing()
 
-        await _pingTimeoutTimer.setTimerInterval(TimeInterval(jr.pingTimeout))
-        await _pingTimeoutTimer.setTimerBlock { [weak self] in
+        _pingTimeoutTimer.setTimerInterval(TimeInterval(jr.pingTimeout))
+        _pingTimeoutTimer.setTimerBlock { [weak self] in
             guard let self else { return }
             self.log("ping/pong timed out", .error)
             await self.cleanUp(withError: LiveKitError(.serverPingTimedOut))
@@ -596,13 +596,13 @@ private extension SignalClient {
     func _onReceivedPong(_: Int64) async {
         log("ping/pong received pong from server", .trace)
         // Clear timeout timer
-        await _pingTimeoutTimer.cancel()
+        _pingTimeoutTimer.cancel()
     }
 
     func _restartPingTimer() async {
         // Always cancel first...
-        await _pingIntervalTimer.cancel()
-        await _pingTimeoutTimer.cancel()
+        _pingIntervalTimer.cancel()
+        _pingTimeoutTimer.cancel()
 
         // Check previously received joinResponse
         guard let jr = _lastJoinResponse,
@@ -613,8 +613,8 @@ private extension SignalClient {
         log("ping/pong starting with interval: \(jr.pingInterval), timeout: \(jr.pingTimeout)")
 
         // Update interval...
-        await _pingIntervalTimer.setTimerInterval(TimeInterval(jr.pingInterval))
-        await _pingIntervalTimer.setTimerBlock { [weak self] in
+        _pingIntervalTimer.setTimerInterval(TimeInterval(jr.pingInterval))
+        _pingIntervalTimer.setTimerBlock { [weak self] in
             guard let self else { return }
             try await self._onPingIntervalTimer()
         }
