@@ -71,11 +71,11 @@ class AsyncTimer: Loggable {
         let task = Task.detached(priority: .utility) { [weak self] in
             guard let self else { return }
             try? await Task.sleep(nanoseconds: UInt64(state.interval * 1_000_000_000))
-            if !(state.isStarted) || Task.isCancelled { return }
+            if !state.isStarted || Task.isCancelled { return }
             do {
                 try await state.block?()
             } catch {
-                log("Error in timer block: \(error)", .error)
+                self.log("Error in timer block: \(error)", .error)
             }
             await self.scheduleNextInvocation()
         }
@@ -88,9 +88,7 @@ class AsyncTimer: Loggable {
             $0.isStarted = true
         }
 
-        Task {
-            await scheduleNextInvocation()
-        }
+        Task { await scheduleNextInvocation() }
     }
 
     func startIfStopped() {
