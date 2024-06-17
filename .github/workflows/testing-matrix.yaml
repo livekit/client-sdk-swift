@@ -70,18 +70,15 @@ jobs:
       - name: Xcode Version
         run: xcodebuild -version
 
-      - name: Show SDKs
-        run: xcodebuild -showsdks
-
-      - name: Show Destinations
-        run: xcodebuild -scheme LiveKit -showdestinations
+      - name: Build
+        run: xcodebuild build-for-testing -scheme LiveKit -destination 'platform=${{ matrix.platform }}' -quiet -parallel-testing-enabled YES
 
       - name: Run
         run: |
           IFS=' ' read -r -a tests <<< "${{ env.TESTS }}"
           for test in "${tests[@]}"; do
             echo "::group::Running test $test"
-            xcodebuild test -scheme LiveKit -destination 'platform=${{ matrix.platform }}' -only-testing:LiveKitTests/$test -quiet -parallel-testing-enabled YES
+            xcodebuild test-without-building -scheme LiveKit -destination 'platform=${{ matrix.platform }}' -only-testing:LiveKitTests/$test -quiet -parallel-testing-enabled YES
             echo "::endgroup::"
           done
         shell: bash
