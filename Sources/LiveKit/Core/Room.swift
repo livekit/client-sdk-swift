@@ -160,7 +160,7 @@ public class Room: NSObject, ObservableObject, Loggable {
             // Check if RemoteParticipant with same identity exists...
             if let participant = remoteParticipants[identity] { return participant }
             // Create new RemoteParticipant...
-            let participant = RemoteParticipant(info: info, room: room)
+            let participant = RemoteParticipant(info: info, room: room, connectionState: connectionState)
             remoteParticipants[identity] = participant
             return participant
         }

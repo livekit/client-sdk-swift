@@ -107,7 +107,7 @@ extension Room: SignalClientDelegate {
                 $0.isRecording = joinResponse.room.activeRecording
                 $0.serverInfo = joinResponse.serverInfo
 
-                localParticipant.updateFromInfo(info: joinResponse.participant)
+                localParticipant.set(info: joinResponse.participant, connectionState: $0.connectionState)
 
                 if !joinResponse.otherParticipants.isEmpty {
                     for otherParticipant in joinResponse.otherParticipants {
@@ -240,7 +240,7 @@ extension Room: SignalClientDelegate {
                 let infoIdentity = Participant.Identity(from: info.identity)
 
                 if infoIdentity == localParticipant.identity {
-                    localParticipant.updateFromInfo(info: info)
+                    localParticipant.set(info: info, connectionState: $0.connectionState)
                     continue
                 }
 
@@ -254,7 +254,7 @@ extension Room: SignalClientDelegate {
                     if isNewParticipant {
                         newParticipants.append(participant)
                     } else {
-                        participant.updateFromInfo(info: info)
+                        participant.set(info: info, connectionState: $0.connectionState)
                     }
                 }
             }

@@ -22,13 +22,13 @@ internal import LiveKitWebRTC
 
 @objc
 public class RemoteParticipant: Participant {
-    init(info: Livekit_ParticipantInfo, room: Room) {
+    init(info: Livekit_ParticipantInfo, room: Room, connectionState: ConnectionState) {
         super.init(room: room, sid: Participant.Sid(from: info.sid), identity: Participant.Identity(from: info.identity))
-        updateFromInfo(info: info)
+        set(info: info, connectionState: connectionState)
     }
 
-    override func updateFromInfo(info: Livekit_ParticipantInfo) {
-        super.updateFromInfo(info: info)
+    override func set(info: Livekit_ParticipantInfo, connectionState: ConnectionState) {
+        super.set(info: info, connectionState: connectionState)
 
         var validTrackPublications = [Track.Sid: RemoteTrackPublication]()
         var newTrackPublications = [Track.Sid: RemoteTrackPublication]()
@@ -51,16 +51,16 @@ public class RemoteParticipant: Participant {
             return
         }
 
-        // if case .connected = connectionState {
-        for publication in newTrackPublications.values {
-            delegates.notify(label: { "participant.didPublish \(publication)" }) {
-                $0.participant?(self, didPublishTrack: publication)
-            }
-            room.delegates.notify(label: { "room.didPublish \(publication)" }) {
-                $0.room?(room, participant: self, didPublishTrack: publication)
+        if case .connected = connectionState {
+            for publication in newTrackPublications.values {
+                delegates.notify(label: { "participant.didPublish \(publication)" }) {
+                    $0.participant?(self, didPublishTrack: publication)
+                }
+                room.delegates.notify(label: { "room.didPublish \(publication)" }) {
+                    $0.room?(room, participant: self, didPublishTrack: publication)
+                }
             }
         }
-        // }
 
         let unpublishRemoteTrackPublications = _state.trackPublications.values
             .filter { validTrackPublications[$0.sid] == nil }

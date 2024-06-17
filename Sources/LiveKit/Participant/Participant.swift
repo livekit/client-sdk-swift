@@ -183,7 +183,7 @@ public class Participant: NSObject, ObservableObject, Loggable {
         publication.track?._state.mutate { $0.sid = publication.sid }
     }
 
-    func updateFromInfo(info: Livekit_ParticipantInfo) {
+    func set(info: Livekit_ParticipantInfo, connectionState _: ConnectionState) {
         _state.mutate {
             $0.sid = Sid(from: info.sid)
             $0.identity = Identity(from: info.identity)
