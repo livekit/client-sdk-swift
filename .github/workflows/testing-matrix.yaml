@@ -12,7 +12,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  TESTS: "PublishTests/testResolveSid PublishTests/testPublishMicrophone"
+  TESTS: "PublishTests/testResolveSid PublishTests/testPublishMicrophone PublishTests/testPublishData"
 
 jobs:
   run:

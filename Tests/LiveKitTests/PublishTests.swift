@@ -137,4 +137,55 @@ class PublishTests: XCTestCase {
             watchParticipant.cancel()
         }
     }
+
+    struct TestDataPayload: Codable {
+        let content: String
+    }
+
+    func testPublishData() async throws {
+        try await withRooms([RoomTestingOptions(canPublish: true), RoomTestingOptions(canSubscribe: true)]) { rooms in
+            // Alias to Rooms
+            let room1 = rooms[0]
+            let room2 = rooms[1]
+
+            let topics = (1 ... 100).map { "topic \($0)" }
+
+            // Create an instance of the struct
+            let testData = TestDataPayload(content: UUID().uuidString)
+
+            // Encode the struct into JSON data
+            let jsonData = try JSONEncoder().encode(testData)
+
+            // Create Room delegate watcher
+            let room2Watcher: RoomWatcher<TestDataPayload> = room2.createWatcher()
+
+            // Publish concurrently
+            try await withThrowingTaskGroup(of: Void.self) { group in
+                for topic in topics {
+                    group.addTask {
+                        try await room1.localParticipant.publish(data: jsonData, options: DataPublishOptions(topic: topic))
+                    }
+                }
+
+                try await group.waitForAll()
+            }
+
+            // Wait concurrently
+            let result = try await withThrowingTaskGroup(of: TestDataPayload.self, returning: [TestDataPayload].self) { group in
+                for topic in topics {
+                    group.addTask {
+                        try await room2Watcher.didReceiveDataCompleters.completer(for: topic).wait()
+                    }
+                }
+
+                var result = [TestDataPayload]()
+                for try await payload in group {
+                    result.append(payload)
+                }
+                return result
+            }
+
+            print("Result: \(result)")
+        }
+    }
 }
