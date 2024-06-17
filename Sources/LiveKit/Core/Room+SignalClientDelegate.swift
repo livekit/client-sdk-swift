@@ -23,10 +23,6 @@ internal import LiveKitWebRTC
 #endif
 
 extension Room: SignalClientDelegate {
-    func signalClient(_: SignalClient, didPublishLocalTrack _: Livekit_TrackPublishedResponse) async {
-        //
-    }
-
     func signalClient(_: SignalClient, didUpdateConnectionState connectionState: ConnectionState,
                       oldState: ConnectionState,
                       disconnectError: LiveKitError?) async
