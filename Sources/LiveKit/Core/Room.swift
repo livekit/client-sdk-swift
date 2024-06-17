@@ -362,10 +362,23 @@ extension Room {
     func cleanUp(withError disconnectError: Error? = nil,
                  isFullReconnect: Bool = false) async
     {
-        log("withError: \(String(describing: disconnectError))")
+        log("withError: \(String(describing: disconnectError)), isFullReconnect: \(isFullReconnect)")
 
-        // Start Engine cleanUp sequence
+        // Reset completers
+        _sidCompleter.reset()
+        primaryTransportConnectedCompleter.reset()
+        publisherTransportConnectedCompleter.reset()
 
+        await signalClient.cleanUp(withError: disconnectError)
+        await cleanUpRTC()
+        await cleanUpParticipants(isFullReconnect: isFullReconnect)
+
+        // Cleanup for E2EE
+        if let e2eeManager {
+            e2eeManager.cleanUp()
+        }
+
+        // Reset state
         _state.mutate {
             // if isFullReconnect, keep connection related states
             $0 = isFullReconnect ? State(
@@ -383,24 +396,6 @@ extension Room {
                 disconnectError: LiveKitError.from(error: disconnectError)
             )
         }
-
-        primaryTransportConnectedCompleter.reset()
-        publisherTransportConnectedCompleter.reset()
-
-        await signalClient.cleanUp(withError: disconnectError)
-        await cleanUpRTC()
-        await cleanUpParticipants(isFullReconnect: isFullReconnect)
-
-        // Cleanup for E2EE
-        if let e2eeManager {
-            e2eeManager.cleanUp()
-        }
-
-        // Reset state
-        _state.mutate { $0 = State(options: $0.options, connectOptions: $0.connectOptions) }
-
-        // Reset completers
-        _sidCompleter.reset()
     }
 }
 
