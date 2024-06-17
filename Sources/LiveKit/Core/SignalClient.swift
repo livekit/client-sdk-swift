@@ -302,9 +302,6 @@ private extension SignalClient {
             _delegate.notifyDetached { await $0.signalClient(self, didUpdateRoom: update.room) }
 
         case let .trackPublished(trackPublished):
-            // not required to be handled because we use completer pattern for this case
-            _delegate.notifyDetached { await $0.signalClient(self, didPublishLocalTrack: trackPublished) }
-
             log("[publish] resolving completer for cid: \(trackPublished.cid)")
             // Complete
             await _addTrackCompleters.resume(returning: trackPublished.track, for: trackPublished.cid)
