@@ -11,6 +11,9 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
+env:
+  TESTS: "PublishTests/testResolveSid PublishTests/testPublishMicrophone"
+
 jobs:
   run_all_tests:
     strategy:
@@ -39,13 +42,13 @@ jobs:
             platform: "macOS,variant=Mac Catalyst"
           # https://github.com/actions/runner-images/blob/main/images/macos/macos-14-Readme.md
           - os: macos-14
-            xcode: 16.0
+            xcode: 16.0-beta
             platform: "iOS Simulator,OS=18.0,name=iPhone 15 Pro"
           - os: macos-14
-            xcode: 16.0
+            xcode: 16.0-beta
             platform: "macOS"
           - os: macos-14
-            xcode: 16.0
+            xcode: 16.0-beta
             platform: "macOS,variant=Mac Catalyst"
 
     runs-on: ${{ matrix.os }}
@@ -73,8 +76,13 @@ jobs:
       - name: Show Destinations
         run: xcodebuild -scheme LiveKit -showdestinations
 
-      - name: testPublishMicrophone
-        run: xcodebuild test -scheme LiveKit -destination 'platform=${{ matrix.platform }}' -only-testing:LiveKitTests/PublishTests/testPublishMicrophone -parallel-testing-enabled YES
-
-      - name: testResolveSid
-        run: xcodebuild test -scheme LiveKit -destination 'platform=${{ matrix.platform }}' -only-testing:LiveKitTests/PublishTests/testResolveSid -parallel-testing-enabled YES
+      - name: Run Tests
+        run: |
+          IFS=' ' read -r -a tests <<< "${{ env.TESTS }}"
+          echo "::group::Running Tests"
+          for test in "${tests[@]}"; do
+            echo "Running test: $test"
+            xcodebuild test -scheme LiveKit -destination 'platform=${{ matrix.platform }}' -only-testing:LiveKitTests/$test -parallel-testing-enabled YES
+          done
+          echo "::endgroup::"
+        shell: bash
