@@ -170,7 +170,7 @@ public class RemoteTrackPublication: TrackPublication {
                     _asTimer.setTimerBlock {
                         [weak self] in await self?.onAdaptiveStreamTimer()
                     }
-                    await _asTimer.restart()
+                    _asTimer.restart()
                 }
 
                 // if new Track has been set to this RemoteTrackPublication,

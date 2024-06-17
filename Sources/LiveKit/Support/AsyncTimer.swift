@@ -65,29 +65,36 @@ class AsyncTimer: Loggable {
         }
     }
 
-    private func _invoke() async {
+    private func scheduleNextInvocation() async {
         let state = _state.copy()
-        if !state.isStarted { return }
+        guard state.isStarted else { return }
         let task = Task.detached(priority: .utility) { [weak self] in
             guard let self else { return }
             try? await Task.sleep(nanoseconds: UInt64(state.interval * 1_000_000_000))
             if !(state.isStarted) || Task.isCancelled { return }
-            try? await state.block?()
-            await self._invoke()
+            do {
+                try await state.block?()
+            } catch {
+                log("Error in timer block: \(error)", .error)
+            }
+            await self.scheduleNextInvocation()
         }
         _state.mutate { $0.task = task }
     }
 
-    func restart() async {
+    func restart() {
         _state.mutate {
             $0.task?.cancel()
             $0.isStarted = true
         }
-        await _invoke()
+
+        Task {
+            await scheduleNextInvocation()
+        }
     }
 
-    func startIfStopped() async {
+    func startIfStopped() {
         if _state.isStarted { return }
-        await restart()
+        restart()
     }
 }

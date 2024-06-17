@@ -590,7 +590,7 @@ private extension SignalClient {
             await self.cleanUp(withError: LiveKitError(.serverPingTimedOut))
         }
 
-        await _pingTimeoutTimer.startIfStopped()
+        _pingTimeoutTimer.startIfStopped()
     }
 
     func _onReceivedPong(_: Int64) async {
@@ -618,7 +618,7 @@ private extension SignalClient {
             guard let self else { return }
             try await self._onPingIntervalTimer()
         }
-        await _pingIntervalTimer.restart()
+        _pingIntervalTimer.restart()
     }
 }
 

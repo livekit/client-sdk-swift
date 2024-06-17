@@ -366,7 +366,7 @@ public class VideoView: NativeView, Loggable {
             if newState.isDebugMode != oldState.isDebugMode {
                 // fps timer
                 if newState.isDebugMode {
-                    Task.detached { await self._fpsTimer.restart() }
+                    self._fpsTimer.restart()
                 } else {
                     self._fpsTimer.cancel()
                 }
@@ -393,9 +393,7 @@ public class VideoView: NativeView, Loggable {
             }
         }
 
-        Task.detached {
-            await self._renderTimer.restart()
-        }
+        _renderTimer.restart()
 
         #if os(iOS) || os(visionOS)
         // Add pinch gesture recognizer
