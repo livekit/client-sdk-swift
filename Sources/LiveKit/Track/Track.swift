@@ -203,12 +203,12 @@ public class Track: NSObject, Loggable {
         }
 
         if shouldStart {
-            await _statisticsTimer.setTimerBlock { [weak self] in
+            _statisticsTimer.setTimerBlock { [weak self] in
                 await self?._onStatsTimer()
             }
-            await _statisticsTimer.restart()
+            _statisticsTimer.restart()
         } else {
-            await _statisticsTimer.cancel()
+            _statisticsTimer.cancel()
         }
     }
 
