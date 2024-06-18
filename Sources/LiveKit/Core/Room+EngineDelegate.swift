@@ -194,4 +194,28 @@ extension Room {
             }
         }
     }
+
+    func room(didReceiveTranscriptionPacket packet: Livekit_Transcription) {
+        guard let participant = _state.read({
+            $0.remoteParticipants.values.first { $0.identity == Participant.Identity(from: packet.transcribedParticipantIdentity) }
+        }) else {
+            return
+        }
+
+        guard let publication = participant._state.read({ $0.trackPublications[Track.Sid(from: packet.trackID)] }),
+              let publication = publication as? RemoteTrackPublication
+        else {
+            return
+        }
+
+        let segments = packet.segments.map { $0.toLKType() }
+
+        guard !segments.isEmpty else {
+            return
+        }
+
+        delegates.notify {
+            $0.room?(self, participant: participant, trackPublication: publication, didReceiveTranscriptionSegments: segments)
+        }
+    }
 }

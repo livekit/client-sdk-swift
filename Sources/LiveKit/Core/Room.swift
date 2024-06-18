@@ -113,6 +113,7 @@ public class Room: NSObject, ObservableObject, Loggable {
         switch dataPacket.value {
         case let .speaker(update): self.engine(self, didUpdateSpeakers: update.speakers)
         case let .user(userPacket): self.engine(self, didReceiveUserPacket: userPacket)
+        case let .transcription(packet): self.room(didReceiveTranscriptionPacket: packet)
         default: return
         }
     })
