@@ -20,7 +20,11 @@ import Foundation
 import ReplayKit
 #endif
 
+#if swift(>=5.9)
+internal import LiveKitWebRTC
+#else
 @_implementationOnly import LiveKitWebRTC
+#endif
 
 public class CameraCapturer: VideoCapturer {
     /// Current device used for capturing
@@ -257,7 +261,7 @@ public extension LocalVideoTrack {
                                   options: CameraCaptureOptions? = nil,
                                   reportStatistics: Bool = false) -> LocalVideoTrack
     {
-        let videoSource = Engine.createVideoSource(forScreenShare: false)
+        let videoSource = RTC.createVideoSource(forScreenShare: false)
         let capturer = CameraCapturer(delegate: videoSource, options: options ?? CameraCaptureOptions())
         return LocalVideoTrack(name: name ?? Track.cameraName,
                                source: .camera,

@@ -16,7 +16,5 @@
 
 import Foundation
 
-@_implementationOnly import LiveKitWebRTC
-
 @objc
 public protocol AudioTrack where Self: Track {}

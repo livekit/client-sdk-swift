@@ -21,13 +21,17 @@ import Foundation
 import ScreenCaptureKit
 #endif
 
+#if swift(>=5.9)
+internal import LiveKitWebRTC
+#else
 @_implementationOnly import LiveKitWebRTC
+#endif
 
 #if os(macOS)
 
 @available(macOS 12.3, *)
 public class MacOSScreenCapturer: VideoCapturer {
-    private let capturer = Engine.createVideoCapturer()
+    private let capturer = RTC.createVideoCapturer()
 
     // TODO: Make it possible to change dynamically
     public let captureSource: MacOSScreenCaptureSource?
@@ -254,7 +258,7 @@ public extension LocalVideoTrack {
                                             options: ScreenShareCaptureOptions = ScreenShareCaptureOptions(),
                                             reportStatistics: Bool = false) -> LocalVideoTrack
     {
-        let videoSource = Engine.createVideoSource(forScreenShare: true)
+        let videoSource = RTC.createVideoSource(forScreenShare: true)
         let capturer = MacOSScreenCapturer(delegate: videoSource, captureSource: source, options: options)
         return LocalVideoTrack(name: name,
                                source: .screenShareVideo,

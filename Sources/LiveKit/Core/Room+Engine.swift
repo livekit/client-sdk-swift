@@ -20,164 +20,24 @@ import Foundation
 import Network
 #endif
 
+#if swift(>=5.9)
+internal import LiveKitWebRTC
+#else
 @_implementationOnly import LiveKitWebRTC
+#endif
 
-class Engine: Loggable {
+// Room+Engine
+extension Room {
     // MARK: - Public
 
-    public typealias ConditionEvalFunc = (_ newState: State, _ oldState: State?) -> Bool
-
-    struct State {
-        var connectOptions: ConnectOptions
-        var url: String?
-        var token: String?
-        // preferred reconnect mode which will be used only for next attempt
-        var nextReconnectMode: ReconnectMode?
-        var isReconnectingWithMode: ReconnectMode?
-        var connectionState: ConnectionState = .disconnected
-        var disconnectError: LiveKitError?
-        var connectStopwatch = Stopwatch(label: "connect")
-        var hasPublished: Bool = false
-    }
-
-    let primaryTransportConnectedCompleter = AsyncCompleter<Void>(label: "Primary transport connect", defaultTimeout: .defaultTransportState)
-    let publisherTransportConnectedCompleter = AsyncCompleter<Void>(label: "Publisher transport connect", defaultTimeout: .defaultTransportState)
-
-    public var _state: StateSync<State>
-
-    public let signalClient = SignalClient()
-
-    public internal(set) var publisher: Transport?
-    public internal(set) var subscriber: Transport?
-
-    // weak ref to Room
-    public weak var _room: Room?
+    typealias ConditionEvalFunc = (_ newState: State, _ oldState: State?) -> Bool
 
     // MARK: - Private
 
-    let _delegate = AsyncSerialDelegate<EngineDelegate>()
-
-    private struct ConditionalExecutionEntry {
+    struct ConditionalExecutionEntry {
         let executeCondition: ConditionEvalFunc
         let removeCondition: ConditionEvalFunc
         let block: () -> Void
-    }
-
-    public internal(set) var subscriberPrimary: Bool = false
-
-    // MARK: - DataChannels
-
-    lazy var subscriberDataChannel: DataChannelPairActor = .init(onDataPacket: { [weak self] dataPacket in
-        guard let self else { return }
-        switch dataPacket.value {
-        case let .speaker(update): self._delegate.notifyDetached { await $0.engine(self, didUpdateSpeakers: update.speakers) }
-        case let .user(userPacket): self._delegate.notifyDetached { await $0.engine(self, didReceiveUserPacket: userPacket) }
-        default: return
-        }
-    })
-
-    let publisherDataChannel = DataChannelPairActor()
-
-    private var _blockProcessQueue = DispatchQueue(label: "LiveKitSDK.engine.pendingBlocks",
-                                                   qos: .default)
-
-    private var _queuedBlocks = [ConditionalExecutionEntry]()
-
-    init(connectOptions: ConnectOptions) {
-        _state = StateSync(State(connectOptions: connectOptions))
-
-        // log sdk & os versions
-        log("sdk: \(LiveKitSDK.version), os: \(String(describing: Utils.os()))(\(Utils.osVersionString())), modelId: \(String(describing: Utils.modelIdentifier() ?? "unknown"))")
-
-        signalClient._delegate.set(delegate: self)
-
-        // trigger events when state mutates
-        _state.onDidMutate = { [weak self] newState, oldState in
-
-            guard let self else { return }
-
-            if newState.connectionState == .reconnecting, newState.isReconnectingWithMode == nil {
-                self.log("reconnectMode should not be .none", .error)
-            }
-
-            if (newState.connectionState != oldState.connectionState) || (newState.isReconnectingWithMode != oldState.isReconnectingWithMode) {
-                self.log("connectionState: \(oldState.connectionState) -> \(newState.connectionState), reconnectMode: \(String(describing: newState.isReconnectingWithMode))")
-            }
-
-            self._delegate.notifyDetached { await $0.engine(self, didMutateState: newState, oldState: oldState) }
-
-            // execution control
-            self._blockProcessQueue.async { [weak self] in
-                guard let self, !self._queuedBlocks.isEmpty else { return }
-
-                self.log("[execution control] processing pending entries (\(self._queuedBlocks.count))...")
-
-                self._queuedBlocks.removeAll { entry in
-                    // return and remove this entry if matches remove condition
-                    guard !entry.removeCondition(newState, oldState) else { return true }
-                    // return but don't remove this entry if doesn't match execute condition
-                    guard entry.executeCondition(newState, oldState) else { return false }
-
-                    self.log("[execution control] condition matching block...")
-                    entry.block()
-                    // remove this entry
-                    return true
-                }
-            }
-        }
-    }
-
-    deinit {
-        log(nil, .trace)
-    }
-
-    // Connect sequence, resets existing state
-    func connect(_ url: String,
-                 _ token: String,
-                 connectOptions: ConnectOptions? = nil) async throws
-    {
-        // update options if specified
-        if let connectOptions, connectOptions != _state.connectOptions {
-            _state.mutate { $0.connectOptions = connectOptions }
-        }
-
-        try await cleanUp()
-        try Task.checkCancellation()
-
-        _state.mutate { $0.connectionState = .connecting }
-
-        do {
-            try await fullConnectSequence(url, token)
-
-            // Connect sequence successful
-            log("Connect sequence completed")
-
-            // Final check if cancelled, don't fire connected events
-            try Task.checkCancellation()
-
-            // update internal vars (only if connect succeeded)
-            _state.mutate {
-                $0.url = url
-                $0.token = token
-                $0.connectionState = .connected
-            }
-
-        } catch {
-            try await cleanUp(withError: error)
-            // Re-throw error
-            throw error
-        }
-    }
-
-    // cleanUp (reset) both Room & Engine's state
-    func cleanUp(withError disconnectError: Error? = nil,
-                 isFullReconnect: Bool = false) async throws
-    {
-        // This should never happen since Engine is owned by Room
-        let room = try requireRoom()
-        // Call Room's cleanUp
-        await room.cleanUp(withError: disconnectError,
-                           isFullReconnect: isFullReconnect)
     }
 
     // Resets state of transports
@@ -239,7 +99,7 @@ class Engine: Loggable {
 
 // MARK: - Internal
 
-extension Engine {
+extension Room {
     func configureTransports(connectResponse: SignalClient.ConnectResponse) async throws {
         func makeConfiguration() -> LKRTCConfiguration {
             let connectOptions = _state.connectOptions
@@ -295,10 +155,10 @@ extension Engine {
             // data over pub channel for backwards compatibility
 
             let reliableDataChannel = await publisher.dataChannel(for: LKRTCDataChannel.labels.reliable,
-                                                                  configuration: Engine.createDataChannelConfiguration())
+                                                                  configuration: RTC.createDataChannelConfiguration())
 
             let lossyDataChannel = await publisher.dataChannel(for: LKRTCDataChannel.labels.lossy,
-                                                               configuration: Engine.createDataChannelConfiguration(maxRetransmits: 0))
+                                                               configuration: RTC.createDataChannelConfiguration(maxRetransmits: 0))
 
             await publisherDataChannel.set(reliable: reliableDataChannel)
             await publisherDataChannel.set(lossy: lossyDataChannel)
@@ -329,7 +189,7 @@ extension Engine {
 
 // MARK: - Execution control (Internal)
 
-extension Engine {
+extension Room {
     func execute(when condition: @escaping ConditionEvalFunc,
                  removeWhen removeCondition: @escaping ConditionEvalFunc,
                  _ block: @escaping () -> Void)
@@ -364,17 +224,15 @@ public enum StartReconnectReason {
     case debug
 }
 
-extension Engine {
+// Room+ConnectSequences
+extension Room {
     // full connect sequence, doesn't update connection state
     func fullConnectSequence(_ url: String, _ token: String) async throws {
-        // This should never happen since Engine is owned by Room
-        let room = try requireRoom()
-
         let connectResponse = try await signalClient.connect(url,
                                                              token,
                                                              connectOptions: _state.connectOptions,
                                                              reconnectMode: _state.isReconnectingWithMode,
-                                                             adaptiveStream: room._state.options.adaptiveStream)
+                                                             adaptiveStream: _state.roomOptions.adaptiveStream)
         // Check cancellation after WebSocket connected
         try Task.checkCancellation()
 
@@ -427,14 +285,11 @@ extension Engine {
         @Sendable func quickReconnectSequence() async throws {
             log("[Connect] Starting .quick reconnect sequence...")
 
-            // This should never happen since Engine is owned by Room
-            let room = try requireRoom()
-
             let connectResponse = try await signalClient.connect(url,
                                                                  token,
                                                                  connectOptions: _state.connectOptions,
                                                                  reconnectMode: _state.isReconnectingWithMode,
-                                                                 adaptiveStream: room._state.options.adaptiveStream)
+                                                                 adaptiveStream: _state.roomOptions.adaptiveStream)
             try Task.checkCancellation()
 
             // Update configuration
@@ -472,7 +327,7 @@ extension Engine {
                 $0.connectionState = .reconnecting
             }
 
-            try await cleanUp(isFullReconnect: true)
+            await cleanUp(isFullReconnect: true)
 
             guard let url = _state.url,
                   let token = _state.token
@@ -537,7 +392,7 @@ extension Engine {
 
             if !Task.isCancelled {
                 // Finally disconnect if all attempts fail
-                try await cleanUp(withError: error)
+                await cleanUp(withError: error)
             }
         }
     }
@@ -545,9 +400,9 @@ extension Engine {
 
 // MARK: - Session Migration
 
-extension Engine {
+extension Room {
     func sendSyncState() async throws {
-        guard let room = _room, let subscriber else {
+        guard let subscriber else {
             log("Subscriber is nil", .warning)
             return
         }
@@ -561,7 +416,7 @@ extension Engine {
         // 2. autosubscribe off, we send subscribed tracks.
 
         let autoSubscribe = _state.connectOptions.autoSubscribe
-        let trackSids = room._state.remoteParticipants.values.flatMap { participant in
+        let trackSids = _state.remoteParticipants.values.flatMap { participant in
             participant._state.trackPublications.values
                 .filter { $0.isSubscribed != autoSubscribe }
                 .map(\.sid)
@@ -578,23 +433,14 @@ extension Engine {
         try await signalClient.sendSyncState(answer: previousAnswer?.toPBType(),
                                              offer: previousOffer?.toPBType(),
                                              subscription: subscription,
-                                             publishTracks: room.localParticipant.publishedTracksInfo(),
+                                             publishTracks: localParticipant.publishedTracksInfo(),
                                              dataChannels: publisherDataChannel.infos())
     }
 }
 
 // MARK: - Private helpers
 
-extension Engine {
-    func requireRoom() throws -> Room {
-        guard let room = _room else {
-            log("Room is nil", .error)
-            throw LiveKitError(.invalidState, message: "Room is nil")
-        }
-
-        return room
-    }
-
+extension Room {
     func requirePublisher() throws -> Transport {
         guard let publisher else {
             log("Publisher is nil", .error)

@@ -14,19 +14,21 @@
  * limitations under the License.
  */
 
-import Foundation
-
+#if swift(>=5.9)
+internal import LiveKitWebRTC
+#else
 @_implementationOnly import LiveKitWebRTC
+#endif
 
 @objc
 public class RemoteParticipant: Participant {
-    init(info: Livekit_ParticipantInfo, room: Room) {
+    init(info: Livekit_ParticipantInfo, room: Room, connectionState: ConnectionState) {
         super.init(room: room, sid: Participant.Sid(from: info.sid), identity: Participant.Identity(from: info.identity))
-        updateFromInfo(info: info)
+        set(info: info, connectionState: connectionState)
     }
 
-    override func updateFromInfo(info: Livekit_ParticipantInfo) {
-        super.updateFromInfo(info: info)
+    override func set(info: Livekit_ParticipantInfo, connectionState: ConnectionState) {
+        super.set(info: info, connectionState: connectionState)
 
         var validTrackPublications = [Track.Sid: RemoteTrackPublication]()
         var newTrackPublications = [Track.Sid: RemoteTrackPublication]()
@@ -49,7 +51,7 @@ public class RemoteParticipant: Participant {
             return
         }
 
-        if case .connected = room.engine._state.connectionState {
+        if case .connected = connectionState {
             for publication in newTrackPublications.values {
                 delegates.notify(label: { "participant.didPublish \(publication)" }) {
                     $0.participant?(self, didPublishTrack: publication)
@@ -96,12 +98,12 @@ public class RemoteParticipant: Participant {
             track = RemoteAudioTrack(name: publication.name,
                                      source: publication.source,
                                      track: rtcTrack,
-                                     reportStatistics: room._state.options.reportRemoteTrackStatistics)
+                                     reportStatistics: room._state.roomOptions.reportRemoteTrackStatistics)
         case "video":
             track = RemoteVideoTrack(name: publication.name,
                                      source: publication.source,
                                      track: rtcTrack,
-                                     reportStatistics: room._state.options.reportRemoteTrackStatistics)
+                                     reportStatistics: room._state.roomOptions.reportRemoteTrackStatistics)
         default:
             let error = LiveKitError(.invalidState, message: "Unsupported type: \(rtcTrack.kind.description)")
             delegates.notify(label: { "participant.didFailToSubscribe trackSid: \(trackSid)" }) {
@@ -116,11 +118,11 @@ public class RemoteParticipant: Participant {
         await publication.set(track: track)
         publication.set(subscriptionAllowed: true)
 
-        if room.engine.subscriber == nil {
+        if room.subscriber == nil {
             log("Subscriber is nil", .error)
         }
 
-        if let transport = room.engine.subscriber {
+        if let transport = room.subscriber {
             await track.set(transport: transport, rtpReceiver: rtpReceiver)
         }
 

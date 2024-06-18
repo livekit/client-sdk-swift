@@ -16,7 +16,11 @@
 
 import Foundation
 
+#if swift(>=5.9)
+internal import LiveKitWebRTC
+#else
 @_implementationOnly import LiveKitWebRTC
+#endif
 
 actor SignalClient: Loggable {
     // MARK: - Types
@@ -195,8 +199,8 @@ actor SignalClient: Loggable {
     func cleanUp(withError disconnectError: Error? = nil) async {
         log("withError: \(String(describing: disconnectError))")
 
-        await _pingIntervalTimer.cancel()
-        await _pingTimeoutTimer.cancel()
+        _pingIntervalTimer.cancel()
+        _pingTimeoutTimer.cancel()
 
         _messageLoopTask?.cancel()
         _messageLoopTask = nil
@@ -285,7 +289,7 @@ private extension SignalClient {
             _delegate.notifyDetached { await $0.signalClient(self, didReceiveOffer: sd.toRTCType()) }
 
         case let .trickle(trickle):
-            guard let rtcCandidate = try? Engine.createIceCandidate(fromJsonString: trickle.candidateInit) else {
+            guard let rtcCandidate = try? RTC.createIceCandidate(fromJsonString: trickle.candidateInit) else {
                 return
             }
 
@@ -298,9 +302,6 @@ private extension SignalClient {
             _delegate.notifyDetached { await $0.signalClient(self, didUpdateRoom: update.room) }
 
         case let .trackPublished(trackPublished):
-            // not required to be handled because we use completer pattern for this case
-            _delegate.notifyDetached { await $0.signalClient(self, didPublishLocalTrack: trackPublished) }
-
             log("[publish] resolving completer for cid: \(trackPublished.cid)")
             // Complete
             await _addTrackCompleters.resume(returning: trackPublished.track, for: trackPublished.cid)
@@ -582,26 +583,26 @@ private extension SignalClient {
         log("ping/pong sending ping...", .trace)
         try await _sendPing()
 
-        await _pingTimeoutTimer.setTimerInterval(TimeInterval(jr.pingTimeout))
-        await _pingTimeoutTimer.setTimerBlock { [weak self] in
+        _pingTimeoutTimer.setTimerInterval(TimeInterval(jr.pingTimeout))
+        _pingTimeoutTimer.setTimerBlock { [weak self] in
             guard let self else { return }
             self.log("ping/pong timed out", .error)
             await self.cleanUp(withError: LiveKitError(.serverPingTimedOut))
         }
 
-        await _pingTimeoutTimer.startIfStopped()
+        _pingTimeoutTimer.startIfStopped()
     }
 
     func _onReceivedPong(_: Int64) async {
         log("ping/pong received pong from server", .trace)
         // Clear timeout timer
-        await _pingTimeoutTimer.cancel()
+        _pingTimeoutTimer.cancel()
     }
 
     func _restartPingTimer() async {
         // Always cancel first...
-        await _pingIntervalTimer.cancel()
-        await _pingTimeoutTimer.cancel()
+        _pingIntervalTimer.cancel()
+        _pingTimeoutTimer.cancel()
 
         // Check previously received joinResponse
         guard let jr = _lastJoinResponse,
@@ -612,12 +613,12 @@ private extension SignalClient {
         log("ping/pong starting with interval: \(jr.pingInterval), timeout: \(jr.pingTimeout)")
 
         // Update interval...
-        await _pingIntervalTimer.setTimerInterval(TimeInterval(jr.pingInterval))
-        await _pingIntervalTimer.setTimerBlock { [weak self] in
+        _pingIntervalTimer.setTimerInterval(TimeInterval(jr.pingInterval))
+        _pingIntervalTimer.setTimerBlock { [weak self] in
             guard let self else { return }
             try await self._onPingIntervalTimer()
         }
-        await _pingIntervalTimer.restart()
+        _pingIntervalTimer.restart()
     }
 }
 

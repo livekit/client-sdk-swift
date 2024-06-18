@@ -15,10 +15,13 @@
  */
 
 import AVFoundation
-import Foundation
 import MetalKit
 
+#if swift(>=5.9)
+internal import LiveKitWebRTC
+#else
 @_implementationOnly import LiveKitWebRTC
+#endif
 
 /// A ``NativeViewType`` that conforms to ``RTCVideoRenderer``.
 typealias NativeRendererView = LKRTCVideoRenderer & Mirrorable & NativeViewType
@@ -363,36 +366,34 @@ public class VideoView: NativeView, Loggable {
             if newState.isDebugMode != oldState.isDebugMode {
                 // fps timer
                 if newState.isDebugMode {
-                    Task.detached { await self._fpsTimer.restart() }
+                    self._fpsTimer.restart()
                 } else {
-                    Task.detached { await self._fpsTimer.cancel() }
+                    self._fpsTimer.cancel()
                 }
             }
         }
 
-        Task.detached {
-            await self._fpsTimer.setTimerBlock { @MainActor [weak self] in
-                guard let self else { return }
+        _fpsTimer.setTimerBlock { @MainActor [weak self] in
+            guard let self else { return }
 
-                self._currentFPS = self._frameCount
-                self._frameCount = 0
+            self._currentFPS = self._frameCount
+            self._frameCount = 0
 
-                self.setNeedsLayout()
-            }
+            self.setNeedsLayout()
+        }
 
-            await self._renderTimer.setTimerBlock { [weak self] in
-                guard let self else { return }
+        _renderTimer.setTimerBlock { [weak self] in
+            guard let self else { return }
 
-                if await self._state.isRendering, let renderDate = await self._state.renderDate {
-                    let diff = Date().timeIntervalSince(renderDate)
-                    if diff >= Self._freezeDetectThreshold {
-                        await self._state.mutate { $0.isRendering = false }
-                    }
+            if self._state.isRendering, let renderDate = self._state.renderDate {
+                let diff = Date().timeIntervalSince(renderDate)
+                if diff >= Self._freezeDetectThreshold {
+                    self._state.mutate { $0.isRendering = false }
                 }
             }
-
-            await self._renderTimer.restart()
         }
+
+        _renderTimer.restart()
 
         #if os(iOS) || os(visionOS)
         // Add pinch gesture recognizer
@@ -433,7 +434,7 @@ public class VideoView: NativeView, Loggable {
             let _didRenderFirstFrame = state.didRenderFirstFrame ? "true" : "false"
             let _isRendering = state.isRendering ? "true" : "false"
             let _renderMode = String(describing: state.renderMode)
-            let _viewCount = state.track?.videoRenderers.allObjects.count ?? 0
+            let _viewCount = state.track?._state.videoRenderers.allObjects.count ?? 0
             let debugView = ensureDebugTextView()
             debugView.text = "#\(hashValue)\n" + "\(String(describing: _trackSid))\n" + "\(_dimensions.width)x\(_dimensions.height)\n" + "isEnabled: \(isEnabled)\n" + "firstFrame: \(_didRenderFirstFrame)\n" + "isRendering: \(_isRendering)\n" + "renderMode: \(_renderMode)\n" + "viewCount: \(_viewCount)\n" + "FPS: \(_currentFPS)\n"
             debugView.frame = bounds

@@ -16,12 +16,16 @@
 
 import Foundation
 
+#if swift(>=5.9)
+internal import LiveKitWebRTC
+#else
 @_implementationOnly import LiveKitWebRTC
+#endif
 
 private extension Array where Element: LKRTCVideoCodecInfo {
     func rewriteCodecsIfNeeded() -> [LKRTCVideoCodecInfo] {
         // rewrite H264's profileLevelId to 42e032
-        let codecs = map { $0.name == kRTCVideoCodecH264Name ? Engine.h264BaselineLevel5CodecInfo : $0 }
+        let codecs = map { $0.name == kRTCVideoCodecH264Name ? RTC.h264BaselineLevel5CodecInfo : $0 }
         // logger.log("supportedCodecs: \(codecs.map({ "\($0.name) - \($0.parameters)" }).joined(separator: ", "))", type: Engine.self)
         return codecs
     }
@@ -45,13 +49,13 @@ private class VideoEncoderFactorySimulcast: LKRTCVideoEncoderFactorySimulcast {
     }
 }
 
-extension Engine {
+class RTC {
     static var bypassVoiceProcessing: Bool = false
 
     static let h264BaselineLevel5CodecInfo: LKRTCVideoCodecInfo = {
         // this should never happen
         guard let profileLevelId = LKRTCH264ProfileLevelId(profile: .constrainedBaseline, level: .level5) else {
-            logger.log("failed to generate profileLevelId", .error, type: Engine.self)
+            logger.log("failed to generate profileLevelId", .error, type: Room.self)
             fatalError("failed to generate profileLevelId")
         }
 
@@ -75,15 +79,15 @@ extension Engine {
 
     static let audioProcessingModule: LKRTCDefaultAudioProcessingModule = .init()
 
-    static let videoSenderCapabilities = peerConnectionFactory.rtpSenderCapabilities(for: .video)
-    static let audioSenderCapabilities = peerConnectionFactory.rtpSenderCapabilities(for: .audio)
+    static let videoSenderCapabilities = peerConnectionFactory.rtpSenderCapabilities(forKind: kRTCMediaStreamTrackKindVideo)
+    static let audioSenderCapabilities = peerConnectionFactory.rtpSenderCapabilities(forKind: kRTCMediaStreamTrackKindAudio)
 
     static let peerConnectionFactory: LKRTCPeerConnectionFactory = {
-        logger.log("Initializing SSL...", type: Engine.self)
+        logger.log("Initializing SSL...", type: Room.self)
 
         RTCInitializeSSL()
 
-        logger.log("Initializing PeerConnectionFactory...", type: Engine.self)
+        logger.log("Initializing PeerConnectionFactory...", type: Room.self)
 
         return LKRTCPeerConnectionFactory(bypassVoiceProcessing: bypassVoiceProcessing,
                                           encoderFactory: encoderFactory,

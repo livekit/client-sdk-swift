@@ -16,7 +16,11 @@
 
 import Foundation
 
+#if swift(>=5.9)
+internal import LiveKitWebRTC
+#else
 @_implementationOnly import LiveKitWebRTC
+#endif
 
 @objc
 public class E2EEManager: NSObject, ObservableObject, Loggable {
@@ -110,7 +114,7 @@ public class E2EEManager: NSObject, ObservableObject, Loggable {
         }
 
         guard let frameCryptor = DispatchQueue.liveKitWebRTC.sync(execute: {
-            LKRTCFrameCryptor(factory: Engine.peerConnectionFactory,
+            LKRTCFrameCryptor(factory: RTC.peerConnectionFactory,
                               rtpSender: sender,
                               participantId: participantIdentity.stringValue,
                               algorithm: .aesGcm,
@@ -141,7 +145,7 @@ public class E2EEManager: NSObject, ObservableObject, Loggable {
         }
 
         guard let frameCryptor = DispatchQueue.liveKitWebRTC.sync(execute: {
-            LKRTCFrameCryptor(factory: Engine.peerConnectionFactory,
+            LKRTCFrameCryptor(factory: RTC.peerConnectionFactory,
                               rtpReceiver: receiver,
                               participantId: participantIdentity.stringValue,
                               algorithm: .aesGcm,

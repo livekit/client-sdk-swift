@@ -14,9 +14,11 @@
  * limitations under the License.
  */
 
-import Foundation
-
+#if swift(>=5.9)
+internal import LiveKitWebRTC
+#else
 @_implementationOnly import LiveKitWebRTC
+#endif
 
 typealias DebouncFunc = () -> Void
 
@@ -212,11 +214,11 @@ class Utils {
         if let videoCodec, videoCodec.isSVC {
             // SVC mode
             logger.log("Using SVC mode", type: Utils.self)
-            return [Engine.createRtpEncodingParameters(encoding: encoding, scalabilityMode: .L3T3_KEY)]
+            return [RTC.createRtpEncodingParameters(encoding: encoding, scalabilityMode: .L3T3_KEY)]
         } else if !publishOptions.simulcast {
             // Not-simulcast mode
             logger.log("Simulcast not enabled", type: Utils.self)
-            return [Engine.createRtpEncodingParameters(encoding: encoding)]
+            return [RTC.createRtpEncodingParameters(encoding: encoding)]
         }
 
         // Continue to simulcast encoding computation...

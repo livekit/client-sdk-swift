@@ -17,7 +17,11 @@
 import CoreMedia
 import Foundation
 
+#if swift(>=5.9)
+internal import LiveKitWebRTC
+#else
 @_implementationOnly import LiveKitWebRTC
+#endif
 
 /// A ``VideoCapturer`` that can capture ``CMSampleBuffer``s.
 ///
@@ -29,7 +33,7 @@ import Foundation
 /// since dimensions must be resolved at the time of publishing (to compute video parameters).
 ///
 public class BufferCapturer: VideoCapturer {
-    private let capturer = Engine.createVideoCapturer()
+    private let capturer = RTC.createVideoCapturer()
 
     /// The ``BufferCaptureOptions`` used for this capturer.
     public let options: BufferCaptureOptions
@@ -57,7 +61,7 @@ public extension LocalVideoTrack {
                                   options: BufferCaptureOptions = BufferCaptureOptions(),
                                   reportStatistics: Bool = false) -> LocalVideoTrack
     {
-        let videoSource = Engine.createVideoSource(forScreenShare: source == .screenShareVideo)
+        let videoSource = RTC.createVideoSource(forScreenShare: source == .screenShareVideo)
         let capturer = BufferCapturer(delegate: videoSource, options: options)
         return LocalVideoTrack(name: name,
                                source: source,

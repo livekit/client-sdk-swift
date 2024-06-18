@@ -16,7 +16,11 @@
 
 import Foundation
 
+#if swift(>=5.9)
+internal import LiveKitWebRTC
+#else
 @_implementationOnly import LiveKitWebRTC
+#endif
 
 actor DataChannelPairActor: NSObject, Loggable {
     // MARK: - Types
@@ -85,7 +89,7 @@ actor DataChannelPairActor: NSObject, Loggable {
         }
 
         let serializedData = try packet.serializedData()
-        let rtcData = Engine.createDataBuffer(data: serializedData)
+        let rtcData = RTC.createDataBuffer(data: serializedData)
 
         let channel = (kind == .reliable) ? _reliableChannel : _lossyChannel
         guard let sendDataResult = channel?.sendData(rtcData), sendDataResult else {

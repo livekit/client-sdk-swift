@@ -16,7 +16,11 @@
 
 import Foundation
 
+#if swift(>=5.9)
+internal import LiveKitWebRTC
+#else
 @_implementationOnly import LiveKitWebRTC
+#endif
 
 @objc
 public class Participant: NSObject, ObservableObject, Loggable {
@@ -51,6 +55,10 @@ public class Participant: NSObject, ObservableObject, Loggable {
     @objc
     public var joinedAt: Date? { _state.joinedAt }
 
+    /// The kind of participant (i.e. a standard client participant, AI agent, etc.)
+    @objc
+    public var kind: Kind { _state.kind }
+
     @objc
     public var trackPublications: [Track.Sid: TrackPublication] { _state.trackPublications }
 
@@ -79,6 +87,7 @@ public class Participant: NSObject, ObservableObject, Loggable {
         var isSpeaking: Bool = false
         var metadata: String?
         var joinedAt: Date?
+        var kind: Kind = .unknown
         var connectionQuality: ConnectionQuality = .unknown
         var permissions = ParticipantPermissions()
         var trackPublications = [Track.Sid: TrackPublication]()
@@ -174,13 +183,14 @@ public class Participant: NSObject, ObservableObject, Loggable {
         publication.track?._state.mutate { $0.sid = publication.sid }
     }
 
-    func updateFromInfo(info: Livekit_ParticipantInfo) {
+    func set(info: Livekit_ParticipantInfo, connectionState _: ConnectionState) {
         _state.mutate {
             $0.sid = Sid(from: info.sid)
             $0.identity = Identity(from: info.identity)
             $0.name = info.name
             $0.metadata = info.metadata
             $0.joinedAt = Date(timeIntervalSince1970: TimeInterval(info.joinedAt))
+            $0.kind = info.kind.toLKType()
         }
 
         self.info = info

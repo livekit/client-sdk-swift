@@ -16,7 +16,11 @@
 
 import Foundation
 
+#if swift(>=5.9)
+internal import LiveKitWebRTC
+#else
 @_implementationOnly import LiveKitWebRTC
+#endif
 
 actor Transport: NSObject, Loggable {
     // MARK: - Types
@@ -76,9 +80,7 @@ actor Transport: NSObject, Loggable {
          delegate: TransportDelegate) throws
     {
         // try create peerConnection
-        guard let pc = Engine.createPeerConnection(config,
-                                                   constraints: .defaultPCConstraints)
-        else {
+        guard let pc = RTC.createPeerConnection(config, constraints: .defaultPCConstraints) else {
             // log("[WebRTC] Failed to create PeerConnection", .error)
             throw LiveKitError(.webRTC, message: "Failed to create PeerConnection")
         }

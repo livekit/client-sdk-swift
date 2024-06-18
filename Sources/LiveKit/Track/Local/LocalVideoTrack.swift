@@ -16,7 +16,11 @@
 
 import Foundation
 
+#if swift(>=5.9)
+internal import LiveKitWebRTC
+#else
 @_implementationOnly import LiveKitWebRTC
+#endif
 
 @objc
 public class LocalVideoTrack: Track, LocalTrack, VideoTrack {
@@ -31,7 +35,7 @@ public class LocalVideoTrack: Track, LocalTrack, VideoTrack {
          videoSource: LKRTCVideoSource,
          reportStatistics: Bool)
     {
-        let rtcTrack = Engine.createVideoTrack(source: videoSource)
+        let rtcTrack = RTC.createVideoTrack(source: videoSource)
         rtcTrack.isEnabled = true
 
         self.capturer = capturer
