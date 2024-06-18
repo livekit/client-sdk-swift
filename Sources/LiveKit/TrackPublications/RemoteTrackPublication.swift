@@ -151,7 +151,7 @@ public class RemoteTrackPublication: TrackPublication {
         let oldValue = await super.set(track: newValue)
         if newValue != oldValue {
             // always suspend adaptiveStream timer first
-            await _asTimer.cancel()
+            _asTimer.cancel()
 
             if let newValue {
                 // Copy meta-data to track
@@ -167,10 +167,10 @@ public class RemoteTrackPublication: TrackPublication {
 
                 // start adaptiveStream timer only if it's a video track
                 if isAdaptiveStreamEnabled {
-                    await _asTimer.setTimerBlock {
+                    _asTimer.setTimerBlock {
                         [weak self] in await self?.onAdaptiveStreamTimer()
                     }
-                    await _asTimer.restart()
+                    _asTimer.restart()
                 }
 
                 // if new Track has been set to this RemoteTrackPublication,

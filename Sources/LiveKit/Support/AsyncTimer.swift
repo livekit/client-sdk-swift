@@ -16,62 +16,83 @@
 
 import Foundation
 
-actor AsyncTimer: Loggable {
+class AsyncTimer: Loggable {
     // MARK: - Public types
 
     typealias TimerBlock = () async throws -> Void
 
     // MARK: - Private
 
-    private var _interval: TimeInterval
-    private var _task: Task<Void, Never>?
-    private var _block: TimerBlock?
-    public var isStarted: Bool = false
+    struct State {
+        var isStarted: Bool = false
+        var interval: TimeInterval
+        var task: Task<Void, Never>?
+        var block: TimerBlock?
+    }
+
+    let _state: StateSync<State>
 
     init(interval: TimeInterval) {
-        _interval = interval
+        _state = StateSync(State(interval: interval))
     }
 
     deinit {
-        isStarted = false
-        _task?.cancel()
-        log(nil, .trace)
+        _state.mutate {
+            $0.isStarted = false
+            $0.task?.cancel()
+        }
+        log(nil, .debug)
     }
 
     func cancel() {
-        isStarted = false
-        _task?.cancel()
+        _state.mutate {
+            $0.isStarted = false
+            $0.task?.cancel()
+        }
     }
 
     /// Block must not retain self
     func setTimerBlock(block: @escaping TimerBlock) {
-        _block = block
+        _state.mutate {
+            $0.block = block
+        }
     }
 
     /// Update timer interval
     func setTimerInterval(_ timerInterval: TimeInterval) {
-        _interval = timerInterval
-    }
-
-    private func _invoke() async {
-        if !isStarted { return }
-        _task = Task.detached(priority: .utility) { [weak self] in
-            guard let self else { return }
-            try? await Task.sleep(nanoseconds: UInt64(self._interval * 1_000_000_000))
-            if await !(self.isStarted) || Task.isCancelled { return }
-            try? await self._block?()
-            await self._invoke()
+        _state.mutate {
+            $0.interval = timerInterval
         }
     }
 
-    func restart() async {
-        _task?.cancel()
-        isStarted = true
-        await _invoke()
+    private func scheduleNextInvocation() async {
+        let state = _state.copy()
+        guard state.isStarted else { return }
+        let task = Task.detached(priority: .utility) { [weak self] in
+            guard let self else { return }
+            try? await Task.sleep(nanoseconds: UInt64(state.interval * 1_000_000_000))
+            if !state.isStarted || Task.isCancelled { return }
+            do {
+                try await state.block?()
+            } catch {
+                self.log("Error in timer block: \(error)", .error)
+            }
+            await self.scheduleNextInvocation()
+        }
+        _state.mutate { $0.task = task }
     }
 
-    func startIfStopped() async {
-        if isStarted { return }
-        await restart()
+    func restart() {
+        _state.mutate {
+            $0.task?.cancel()
+            $0.isStarted = true
+        }
+
+        Task { await scheduleNextInvocation() }
+    }
+
+    func startIfStopped() {
+        if _state.isStarted { return }
+        restart()
     }
 }
