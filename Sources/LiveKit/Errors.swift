@@ -76,7 +76,7 @@ extension LiveKitErrorType: CustomStringConvertible {
         case .participantRemoved:
             return "Participant removed"
         case .roomDeleted:
-            return "Reoom deleted"
+            return "Room deleted"
         case .stateMismatch:
             return "Server state mismatch"
         case .joinFailure:
@@ -88,7 +88,7 @@ extension LiveKitErrorType: CustomStringConvertible {
         case .captureFormatNotFound:
             return "Capture format not found"
         case .unableToResolveFPSRange:
-            return "Unable to resolved FPS range"
+            return "Unable to resolve FPS range"
         case .capturerDimensionsNotResolved:
             return "Capturer dimensions not resolved"
         default: return "Unknown"
