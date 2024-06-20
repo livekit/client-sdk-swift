@@ -95,4 +95,20 @@ public class MulticastDelegate<T>: NSObject, Loggable {
             }
         }
     }
+
+    /// Awaitable version of notify
+    func notifyAsync(_ fnc: @escaping (T) -> Void) async {
+        // Read a copy of delegates
+        let delegates = _state.read { $0.delegates.allObjects.compactMap { $0 as? T } }
+
+        // Convert to async
+        await withCheckedContinuation { continuation in
+            _queue.async {
+                for delegate in delegates {
+                    fnc(delegate)
+                }
+                continuation.resume()
+            }
+        }
+    }
 }
