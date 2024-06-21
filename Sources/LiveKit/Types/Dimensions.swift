@@ -23,7 +23,7 @@ internal import LiveKitWebRTC
 #endif
 
 @objc
-public class Dimensions: NSObject, Loggable {
+public final class Dimensions: NSObject, Loggable, Sendable {
     @objc
     public let width: Int32
 
