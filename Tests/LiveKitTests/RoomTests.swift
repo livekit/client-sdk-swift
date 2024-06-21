@@ -28,4 +28,20 @@ class RoomTests: XCTestCase {
             XCTAssert(sid.stringValue.starts(with: "RM_"))
         }
     }
+
+    func testParticipantCleanUp() async throws {
+        // Create 2 Rooms
+        try await withRooms([RoomTestingOptions(delegate: self), RoomTestingOptions(delegate: self)]) { _ in
+            // Nothing to do here
+        }
+    }
+}
+
+extension RoomTests: RoomDelegate {
+    func room(_: Room, participantDidDisconnect participant: RemoteParticipant) {
+        print("participantDidDisconnect: \(participant)")
+        // Check issue: https://github.com/livekit/client-sdk-swift/issues/300
+        // participant.identity is null in participantDidDisconnect delegate
+        XCTAssert(participant.identity != nil, "participant.identity is nil in participantDidDisconnect delegate")
+    }
 }
