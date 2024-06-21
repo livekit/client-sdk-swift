@@ -17,13 +17,15 @@
 @testable import LiveKit
 import XCTest
 
-class FunctionTests: XCTestCase {
-    func testRangeMerge() async throws {
-        let range1 = 10 ... 20
-        let range2 = 5 ... 15
+class RoomTests: XCTestCase {
+    func testResolveSid() async throws {
+        try await withRooms([RoomTestingOptions()]) { rooms in
+            // Alias to Room
+            let room1 = rooms[0]
 
-        let merged = merge(range: range1, with: range2)
-        print("merged: \(merged)")
-        XCTAssert(merged == 5 ... 20)
+            let sid = try await room1.sid()
+            print("Room.sid(): \(String(describing: sid))")
+            XCTAssert(sid.stringValue.starts(with: "RM_"))
+        }
     }
 }

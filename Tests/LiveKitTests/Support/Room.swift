@@ -164,3 +164,40 @@ extension Array where Element: Comparable {
         count == other.count && sorted() == other.sorted()
     }
 }
+
+extension Room {
+    func createWatcher<T>() -> RoomWatcher<T> {
+        let result = RoomWatcher<T>(id: "Room watcher for \(String(describing: sid))")
+        add(delegate: result)
+        return result
+    }
+}
+
+class RoomWatcher<T: Decodable>: RoomDelegate {
+    public let id: String
+    public let didReceiveDataCompleters = CompleterMapActor<T>(label: "Data receive completer", defaultTimeout: 10)
+
+    // MARK: - Private
+
+    private struct State {}
+
+    private let _state = StateSync(State())
+
+    init(id: String) {
+        self.id = id
+    }
+
+    // MARK: - Delegates
+
+    func room(_: Room, participant _: RemoteParticipant?, didReceiveData data: Data, forTopic topic: String) {
+        // print("didReceiveData: \(data) for topic: \(topic)")
+        Task {
+            do {
+                let payload = try JSONDecoder().decode(T.self, from: data)
+                await didReceiveDataCompleters.resume(returning: payload, for: topic)
+            } catch {
+                await didReceiveDataCompleters.resume(throwing: LiveKitError(.invalidState), for: topic)
+            }
+        }
+    }
+}

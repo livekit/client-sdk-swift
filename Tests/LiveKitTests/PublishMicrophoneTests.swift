@@ -19,18 +19,7 @@ import CoreMedia
 @testable import LiveKit
 import XCTest
 
-class PublishTests: XCTestCase {
-    func testResolveSid() async throws {
-        try await withRooms([RoomTestingOptions()]) { rooms in
-            // Alias to Room
-            let room1 = rooms[0]
-
-            let sid = try await room1.sid()
-            print("Room.sid(): \(String(describing: sid))")
-            XCTAssert(sid.stringValue.starts(with: "RM_"))
-        }
-    }
-
+class PublishMicrophoneTests: XCTestCase {
     func testConcurrentMicPublish() async throws {
         try await withRooms([RoomTestingOptions(canPublish: true)]) { rooms in
             // Alias to Room
@@ -68,7 +57,7 @@ class PublishTests: XCTestCase {
     }
 
     // Test if possible to receive audio buffer by adding audio renderer to RemoteAudioTrack.
-    func testAddAudioRenderer() async throws {
+    func testPublishMicrophone() async throws {
         try await withRooms([RoomTestingOptions(canPublish: true), RoomTestingOptions(canSubscribe: true)]) { rooms in
             // Alias to Rooms
             let room1 = rooms[0]
@@ -120,7 +109,7 @@ class PublishTests: XCTestCase {
             didReceiveAudioFrame.assertForOverFulfill = false
 
             // Start watching for audio frame...
-            let audioFrameWatcher = AudioFrameWatcher(id: "notifier01") { _ in
+            let audioFrameWatcher = AudioTrackWatcher(id: "notifier01") { _ in
                 didReceiveAudioFrame.fulfill()
             }
 
@@ -137,34 +126,55 @@ class PublishTests: XCTestCase {
             watchParticipant.cancel()
         }
     }
-}
 
-actor AudioFrameWatcher: AudioRenderer {
-    public let id: String
-    private let onReceivedFirstFrame: (_ sid: String) -> Void
-    public private(set) var didReceiveFirstFrame: Bool = false
-
-    init(id: String, onReceivedFrame: @escaping (String) -> Void) {
-        self.id = id
-        onReceivedFirstFrame = onReceivedFrame
+    struct TestDataPayload: Codable {
+        let content: String
     }
 
-    public func reset() {
-        didReceiveFirstFrame = false
-    }
+    func testPublishData() async throws {
+        try await withRooms([RoomTestingOptions(canPublish: true), RoomTestingOptions(canSubscribe: true)]) { rooms in
+            // Alias to Rooms
+            let room1 = rooms[0]
+            let room2 = rooms[1]
 
-    private func onDidReceiveFirstFrame() {
-        if !didReceiveFirstFrame {
-            didReceiveFirstFrame = true
-            onReceivedFirstFrame(id)
-        }
-    }
+            let topics = (1 ... 100).map { "topic \($0)" }
 
-    nonisolated
-    func render(sampleBuffer: CMSampleBuffer) {
-        print("did receive first audio frame: \(String(describing: sampleBuffer))")
-        Task {
-            await onDidReceiveFirstFrame()
+            // Create an instance of the struct
+            let testData = TestDataPayload(content: UUID().uuidString)
+
+            // Encode the struct into JSON data
+            let jsonData = try JSONEncoder().encode(testData)
+
+            // Create Room delegate watcher
+            let room2Watcher: RoomWatcher<TestDataPayload> = room2.createWatcher()
+
+            // Publish concurrently
+            try await withThrowingTaskGroup(of: Void.self) { group in
+                for topic in topics {
+                    group.addTask {
+                        try await room1.localParticipant.publish(data: jsonData, options: DataPublishOptions(topic: topic))
+                    }
+                }
+
+                try await group.waitForAll()
+            }
+
+            // Wait concurrently
+            let result = try await withThrowingTaskGroup(of: TestDataPayload.self, returning: [TestDataPayload].self) { group in
+                for topic in topics {
+                    group.addTask {
+                        try await room2Watcher.didReceiveDataCompleters.completer(for: topic).wait()
+                    }
+                }
+
+                var result = [TestDataPayload]()
+                for try await payload in group {
+                    result.append(payload)
+                }
+                return result
+            }
+
+            print("Result: \(result)")
         }
     }
 }
