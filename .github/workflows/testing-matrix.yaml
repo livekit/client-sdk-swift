@@ -12,7 +12,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  TESTS: "PublishTests/testResolveSid PublishTests/testPublishMicrophone PublishTests/testPublishData"
+  TESTS: "FunctionTests SDKTests RoomTests PublishDataTests PublishBufferCapturerTests VideoViewTests"
 
 jobs:
   run:
@@ -72,10 +72,6 @@ jobs:
 
       - name: Build
         run: xcodebuild build-for-testing -scheme LiveKit -destination 'platform=${{ matrix.platform }}' -parallel-testing-enabled YES
-
-      # https://github.com/actions/runner-images/issues/9330
-      - name: Allow microphone access to all apps
-        run: sqlite3 $HOME/Library/Application\ Support/com.apple.TCC/TCC.db "INSERT OR IGNORE INTO access VALUES ('kTCCServiceMicrophone','/usr/local/opt/runner/provisioner/provisioner',1,2,4,1,NULL,NULL,0,'UNUSED',NULL,0,1687786159,NULL,NULL,'UNUSED',1687786159);"
 
       - name: Run
         run: |
