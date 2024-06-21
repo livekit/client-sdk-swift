@@ -102,7 +102,7 @@ public class LocalParticipant: Participant {
             try await track.stop()
         }
 
-        if let publisher = room.publisher, let sender = track._state.rtpSender {
+        if let publisher = room._state.publisher, let sender = track._state.rtpSender {
             // Remove all simulcast senders...
             let simulcastSenders = track._state.read { Array($0.rtpSenderForCodec.values) }
             for simulcastSender in simulcastSenders {

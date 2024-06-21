@@ -102,9 +102,6 @@ public class Room: NSObject, ObservableObject, Loggable {
     let publisherTransportConnectedCompleter = AsyncCompleter<Void>(label: "Publisher transport connect", defaultTimeout: .defaultTransportState)
 
     let signalClient = SignalClient()
-    var publisher: Transport?
-    var subscriber: Transport?
-    var subscriberPrimary: Bool = false
 
     // MARK: - DataChannels
 
@@ -155,6 +152,10 @@ public class Room: NSObject, ObservableObject, Loggable {
         var connectStopwatch = Stopwatch(label: "connect")
         var hasPublished: Bool = false
 
+        var publisher: Transport?
+        var subscriber: Transport?
+        var isSubscriberPrimary: Bool = false
+
         @discardableResult
         mutating func updateRemoteParticipant(info: Livekit_ParticipantInfo, room: Room) -> RemoteParticipant {
             let identity = Participant.Identity(from: info.identity)
@@ -172,7 +173,7 @@ public class Room: NSObject, ObservableObject, Loggable {
         }
     }
 
-    var _state: StateSync<State>
+    let _state: StateSync<State>
 
     private let _sidCompleter = AsyncCompleter<Sid>(label: "sid", defaultTimeout: .resolveSid)
 
