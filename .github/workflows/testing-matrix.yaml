@@ -12,7 +12,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  TESTS: "PublishTests/testResolveSid PublishTests/testPublishMicrophone PublishTests/testPublishData"
+  TESTS: "FunctionTests SDKTests RoomTests PublishDataTests PublishBufferCapturerTests VideoViewTests"
 
 jobs:
   run:
@@ -78,7 +78,7 @@ jobs:
           IFS=' ' read -r -a tests <<< "${{ env.TESTS }}"
           for test in "${tests[@]}"; do
             echo "::group::Running test $test"
-            xcodebuild test-without-building -scheme LiveKit -destination 'platform=${{ matrix.platform }}' -only-testing:LiveKitTests/$test -parallel-testing-enabled YES
+            xcodebuild test-without-building -scheme LiveKit -destination 'platform=${{ matrix.platform }}' -only-testing:LiveKitTests/$test
             echo "::endgroup::"
           done
         shell: bash

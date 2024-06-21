@@ -18,7 +18,7 @@ import AVFoundation
 @testable import LiveKit
 import XCTest
 
-class BufferCapturerTest: XCTestCase {
+class PublishBufferCapturerTests: XCTestCase {
     func testPublishBufferTrack() async throws {
         try await withRooms([RoomTestingOptions(canPublish: true), RoomTestingOptions(canSubscribe: true)]) { rooms in
             // Alias to Rooms

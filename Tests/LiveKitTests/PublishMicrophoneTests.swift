@@ -19,18 +19,7 @@ import CoreMedia
 @testable import LiveKit
 import XCTest
 
-class PublishTests: XCTestCase {
-    func testResolveSid() async throws {
-        try await withRooms([RoomTestingOptions()]) { rooms in
-            // Alias to Room
-            let room1 = rooms[0]
-
-            let sid = try await room1.sid()
-            print("Room.sid(): \(String(describing: sid))")
-            XCTAssert(sid.stringValue.starts(with: "RM_"))
-        }
-    }
-
+class PublishMicrophoneTests: XCTestCase {
     func testConcurrentMicPublish() async throws {
         try await withRooms([RoomTestingOptions(canPublish: true)]) { rooms in
             // Alias to Room
