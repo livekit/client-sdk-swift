@@ -22,7 +22,11 @@ enum DarwinNotification: String {
 }
 
 class DarwinNotificationCenter {
-    static let shared = DarwinNotificationCenter()
+    #if compiler(>=6.0)
+    public nonisolated(unsafe) static let shared = DarwinNotificationCenter()
+    #else
+    public static let shared = DarwinNotificationCenter()
+    #endif
 
     private let notificationCenter: CFNotificationCenter
 

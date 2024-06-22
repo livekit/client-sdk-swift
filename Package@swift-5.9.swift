@@ -55,5 +55,8 @@ let package = Package(
                 .product(name: "JWTKit", package: "jwt-kit"),
             ]
         ),
+    ],
+    swiftLanguageVersions: [
+        .v5
     ]
 )
