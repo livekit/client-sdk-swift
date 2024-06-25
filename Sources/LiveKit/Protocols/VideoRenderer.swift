@@ -37,10 +37,11 @@ public protocol VideoRenderer {
     @objc optional
     func set(size: CGSize)
 
+    /// A ``VideoFrame`` is ready and should be processed.
     @objc optional
     func render(frame: VideoFrame)
 
-    // Only invoked for local tracks, provides additional capture time options
+    /// In addition to ``VideoFrame``, provide capture-time information if available.
     @objc optional
     func render(frame: VideoFrame, captureDevice: AVCaptureDevice?, captureOptions: VideoCaptureOptions?)
 }
