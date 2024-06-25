@@ -113,13 +113,12 @@ public class E2EEManager: NSObject, ObservableObject, Loggable {
             return
         }
 
-        guard let frameCryptor = DispatchQueue.liveKitWebRTC.sync(execute: {
-            LKRTCFrameCryptor(factory: RTC.peerConnectionFactory,
-                              rtpSender: sender,
-                              participantId: participantIdentity.stringValue,
-                              algorithm: .aesGcm,
-                              keyProvider: e2eeOptions.keyProvider.rtcKeyProvider)
-        }) else {
+        guard let frameCryptor = LKRTCFrameCryptor(factory: RTC.peerConnectionFactory,
+                                                   rtpSender: sender,
+                                                   participantId: participantIdentity.stringValue,
+                                                   algorithm: .aesGcm,
+                                                   keyProvider: e2eeOptions.keyProvider.rtcKeyProvider)
+        else {
             log("frameCryptor is nil, skipping creating frame cryptor...", .warning)
             return
         }
@@ -144,13 +143,12 @@ public class E2EEManager: NSObject, ObservableObject, Loggable {
             return
         }
 
-        guard let frameCryptor = DispatchQueue.liveKitWebRTC.sync(execute: {
-            LKRTCFrameCryptor(factory: RTC.peerConnectionFactory,
-                              rtpReceiver: receiver,
-                              participantId: participantIdentity.stringValue,
-                              algorithm: .aesGcm,
-                              keyProvider: e2eeOptions.keyProvider.rtcKeyProvider)
-        }) else {
+        guard let frameCryptor = LKRTCFrameCryptor(factory: RTC.peerConnectionFactory,
+                                                   rtpReceiver: receiver,
+                                                   participantId: participantIdentity.stringValue,
+                                                   algorithm: .aesGcm,
+                                                   keyProvider: e2eeOptions.keyProvider.rtcKeyProvider)
+        else {
             log("frameCryptor is nil, skipping creating frame cryptor...", .warning)
             return
         }
