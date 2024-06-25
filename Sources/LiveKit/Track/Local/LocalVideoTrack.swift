@@ -23,7 +23,7 @@ internal import LiveKitWebRTC
 #endif
 
 @objc
-public class LocalVideoTrack: Track, LocalTrack, VideoTrack {
+public class LocalVideoTrack: Track, LocalTrack {
     @objc
     public internal(set) var capturer: VideoCapturer
 
@@ -67,12 +67,14 @@ public class LocalVideoTrack: Track, LocalTrack, VideoTrack {
     }
 }
 
-public extension LocalVideoTrack {
-    func add(videoRenderer: VideoRenderer) {
+// MARK: - VideoTrack Protocol
+
+extension LocalVideoTrack: VideoTrack {
+    public func add(videoRenderer: VideoRenderer) {
         capturer.rendererDelegates.add(delegate: videoRenderer)
     }
 
-    func remove(videoRenderer: VideoRenderer) {
+    public func remove(videoRenderer: VideoRenderer) {
         capturer.rendererDelegates.remove(delegate: videoRenderer)
     }
 }

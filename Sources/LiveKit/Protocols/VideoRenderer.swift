@@ -47,11 +47,9 @@ public protocol VideoRenderer {
 
 class VideoRendererAdapter: NSObject, LKRTCVideoRenderer {
     private weak var target: VideoRenderer?
-    private weak var localVideoTrack: LocalVideoTrack?
 
-    init(target: VideoRenderer, localVideoTrack: LocalVideoTrack?) {
+    init(target: VideoRenderer) {
         self.target = target
-        self.localVideoTrack = localVideoTrack
     }
 
     func setSize(_ size: CGSize) {
@@ -61,9 +59,7 @@ class VideoRendererAdapter: NSObject, LKRTCVideoRenderer {
     func renderFrame(_ frame: LKRTCVideoFrame?) {
         guard let frame = frame?.toLKType() else { return }
         target?.render?(frame: frame)
-
-        let cameraCapturer = localVideoTrack?.capturer as? CameraCapturer
-        target?.render?(frame: frame, captureDevice: cameraCapturer?.device, captureOptions: cameraCapturer?.options)
+        target?.render?(frame: frame, captureDevice: nil, captureOptions: nil)
     }
 
     // Proxy the equality operators
