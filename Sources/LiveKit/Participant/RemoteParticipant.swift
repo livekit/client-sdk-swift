@@ -35,15 +35,16 @@ public class RemoteParticipant: Participant {
 
         for trackInfo in info.tracks {
             let trackSid = Track.Sid(from: trackInfo.sid)
-            var publication = _state.trackPublications[trackSid] as? RemoteTrackPublication
-            if publication == nil {
-                publication = RemoteTrackPublication(info: trackInfo, participant: self)
-                newTrackPublications[trackSid] = publication
-                add(publication: publication!)
+
+            if let existingPublication = _state.trackPublications[trackSid] as? RemoteTrackPublication {
+                existingPublication.updateFromInfo(info: trackInfo)
+                validTrackPublications[trackSid] = existingPublication
             } else {
-                publication!.updateFromInfo(info: trackInfo)
+                let newPublication = RemoteTrackPublication(info: trackInfo, participant: self)
+                newTrackPublications[trackSid] = newPublication
+                add(publication: newPublication)
+                validTrackPublications[trackSid] = newPublication
             }
-            validTrackPublications[trackSid] = publication!
         }
 
         guard let room = _room else {
