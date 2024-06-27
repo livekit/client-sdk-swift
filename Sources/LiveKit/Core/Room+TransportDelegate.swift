@@ -104,7 +104,7 @@ extension Room: TransportDelegate {
     func transport(_ transport: Transport, didOpenDataChannel dataChannel: LKRTCDataChannel) async {
         log("Server opened data channel \(dataChannel.label)(\(dataChannel.readyState))")
 
-        if subscriberPrimary, transport.target == .subscriber {
+        if _state.isSubscriberPrimary, transport.target == .subscriber {
             switch dataChannel.label {
             case LKRTCDataChannel.labels.reliable: await subscriberDataChannel.set(reliable: dataChannel)
             case LKRTCDataChannel.labels.lossy: await subscriberDataChannel.set(lossy: dataChannel)

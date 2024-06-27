@@ -302,7 +302,7 @@ extension Room: SignalClientDelegate {
     }
 
     func signalClient(_: SignalClient, didReceiveIceCandidate iceCandidate: LKRTCIceCandidate, target: Livekit_SignalTarget) async {
-        guard let transport = target == .subscriber ? subscriber : publisher else {
+        guard let transport = target == .subscriber ? _state.subscriber : _state.publisher else {
             log("Failed to add ice candidate, transport is nil for target: \(target)", .error)
             return
         }
@@ -326,7 +326,7 @@ extension Room: SignalClientDelegate {
     func signalClient(_ signalClient: SignalClient, didReceiveOffer offer: LKRTCSessionDescription) async {
         log("Received offer, creating & sending answer...")
 
-        guard let subscriber else {
+        guard let subscriber = _state.subscriber else {
             log("Failed to send answer, subscriber is nil", .error)
             return
         }

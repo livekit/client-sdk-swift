@@ -19,18 +19,7 @@ import CoreMedia
 @testable import LiveKit
 import XCTest
 
-class PublishTests: XCTestCase {
-    func testResolveSid() async throws {
-        try await withRooms([RoomTestingOptions()]) { rooms in
-            // Alias to Room
-            let room1 = rooms[0]
-
-            let sid = try await room1.sid()
-            print("Room.sid(): \(String(describing: sid))")
-            XCTAssert(sid.stringValue.starts(with: "RM_"))
-        }
-    }
-
+class PublishMicrophoneTests: XCTestCase {
     func testConcurrentMicPublish() async throws {
         try await withRooms([RoomTestingOptions(canPublish: true)]) { rooms in
             // Alias to Room
@@ -68,7 +57,7 @@ class PublishTests: XCTestCase {
     }
 
     // Test if possible to receive audio buffer by adding audio renderer to RemoteAudioTrack.
-    func testAddAudioRenderer() async throws {
+    func testPublishMicrophone() async throws {
         try await withRooms([RoomTestingOptions(canPublish: true), RoomTestingOptions(canSubscribe: true)]) { rooms in
             // Alias to Rooms
             let room1 = rooms[0]
@@ -120,7 +109,7 @@ class PublishTests: XCTestCase {
             didReceiveAudioFrame.assertForOverFulfill = false
 
             // Start watching for audio frame...
-            let audioFrameWatcher = AudioFrameWatcher(id: "notifier01") { _ in
+            let audioFrameWatcher = AudioTrackWatcher(id: "notifier01") { _ in
                 didReceiveAudioFrame.fulfill()
             }
 
@@ -135,36 +124,6 @@ class PublishTests: XCTestCase {
             remoteAudioTrack.remove(audioRenderer: audioFrameWatcher)
             // Clean up
             watchParticipant.cancel()
-        }
-    }
-}
-
-actor AudioFrameWatcher: AudioRenderer {
-    public let id: String
-    private let onReceivedFirstFrame: (_ sid: String) -> Void
-    public private(set) var didReceiveFirstFrame: Bool = false
-
-    init(id: String, onReceivedFrame: @escaping (String) -> Void) {
-        self.id = id
-        onReceivedFirstFrame = onReceivedFrame
-    }
-
-    public func reset() {
-        didReceiveFirstFrame = false
-    }
-
-    private func onDidReceiveFirstFrame() {
-        if !didReceiveFirstFrame {
-            didReceiveFirstFrame = true
-            onReceivedFirstFrame(id)
-        }
-    }
-
-    nonisolated
-    func render(sampleBuffer: CMSampleBuffer) {
-        print("did receive first audio frame: \(String(describing: sampleBuffer))")
-        Task {
-            await onDidReceiveFirstFrame()
         }
     }
 }

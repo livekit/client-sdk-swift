@@ -16,6 +16,10 @@ Please provide the SDK version.
 **iOS/macOS Version**
 The OS version which the issue occurs.
 
+**Xcode Version**
+The Xcode version which the issue occurs.
+(Please provide the Swift version if you know it)
+
 **Steps to Reproduce**
 Steps to reproduce the behavior.
 

@@ -18,7 +18,7 @@ let package = Package(
     ],
     dependencies: [
         // LK-Prefixed Dynamic WebRTC XCFramework
-        .package(url: "https://github.com/livekit/webrtc-xcframework.git", exact: "125.6422.01"),
+        .package(url: "https://github.com/livekit/webrtc-xcframework.git", exact: "125.6422.02"),
         .package(url: "https://github.com/apple/swift-protobuf.git", from: "1.26.0"),
         .package(url: "https://github.com/apple/swift-log.git", from: "1.5.4"),
         // Only used for DocC generation
@@ -52,5 +52,8 @@ let package = Package(
                 .product(name: "JWTKit", package: "jwt-kit"),
             ]
         ),
+    ],
+    swiftLanguageVersions: [
+        .v5,
     ]
 )

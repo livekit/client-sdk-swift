@@ -20,7 +20,11 @@ import AVFoundation
 class DeviceManager: Loggable {
     // MARK: - Public
 
+    #if compiler(>=6.0)
+    public nonisolated(unsafe) static let shared = DeviceManager()
+    #else
     public static let shared = DeviceManager()
+    #endif
 
     public static func prepare() {
         // Instantiate shared instance

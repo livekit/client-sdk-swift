@@ -46,15 +46,18 @@ extension Room {
         await publisherDataChannel.reset()
         await subscriberDataChannel.reset()
 
+        let (subscriber, publisher) = _state.read { ($0.subscriber, $0.publisher) }
+
         // Close transports
         await publisher?.close()
-        publisher = nil
-
         await subscriber?.close()
-        subscriber = nil
 
         // Reset publish state
-        _state.mutate { $0.hasPublished = false }
+        _state.mutate {
+            $0.subscriber = nil
+            $0.publisher = nil
+            $0.hasPublished = false
+        }
     }
 
     func publisherShouldNegotiate() async throws {
@@ -67,7 +70,7 @@ extension Room {
 
     func send(userPacket: Livekit_UserPacket, kind: Livekit_DataPacket.Kind) async throws {
         func ensurePublisherConnected() async throws {
-            guard subscriberPrimary else { return }
+            guard _state.isSubscriberPrimary else { return }
 
             let publisher = try requirePublisher()
 
@@ -83,7 +86,7 @@ extension Room {
         try await ensurePublisherConnected()
 
         // At this point publisher should be .connected and dc should be .open
-        if await !(publisher?.isConnected ?? false) {
+        if await !(_state.publisher?.isConnected ?? false) {
             log("publisher is not .connected", .error)
         }
 
@@ -127,23 +130,23 @@ extension Room {
         if case let .join(joinResponse) = connectResponse {
             log("Configuring transports with JOIN response...")
 
-            guard subscriber == nil, publisher == nil else {
+            guard _state.subscriber == nil, _state.publisher == nil else {
                 log("Transports are already configured")
                 return
             }
 
             // protocol v3
-            subscriberPrimary = joinResponse.subscriberPrimary
+            let isSubscriberPrimary = joinResponse.subscriberPrimary
             log("subscriberPrimary: \(joinResponse.subscriberPrimary)")
 
             let subscriber = try Transport(config: rtcConfiguration,
                                            target: .subscriber,
-                                           primary: subscriberPrimary,
+                                           primary: isSubscriberPrimary,
                                            delegate: self)
 
             let publisher = try Transport(config: rtcConfiguration,
                                           target: .publisher,
-                                          primary: !subscriberPrimary,
+                                          primary: !isSubscriberPrimary,
                                           delegate: self)
 
             await publisher.set { [weak self] offer in
@@ -166,17 +169,20 @@ extension Room {
             log("dataChannel.\(String(describing: reliableDataChannel?.label)) : \(String(describing: reliableDataChannel?.channelId))")
             log("dataChannel.\(String(describing: lossyDataChannel?.label)) : \(String(describing: lossyDataChannel?.channelId))")
 
-            self.subscriber = subscriber
-            self.publisher = publisher
+            _state.mutate {
+                $0.subscriber = subscriber
+                $0.publisher = publisher
+                $0.isSubscriberPrimary = isSubscriberPrimary
+            }
 
-            if !subscriberPrimary {
+            if !isSubscriberPrimary {
                 // lazy negotiation for protocol v3+
                 try await publisherShouldNegotiate()
             }
 
         } else if case .reconnect = connectResponse {
             log("[Connect] Configuring transports with RECONNECT response...")
-            guard let subscriber, let publisher else {
+            guard let subscriber = _state.subscriber, let publisher = _state.publisher else {
                 log("[Connect] Subscriber or Publisher is nil", .error)
                 return
             }
@@ -265,7 +271,7 @@ extension Room {
             throw LiveKitError(.invalidState)
         }
 
-        guard subscriber != nil, publisher != nil else {
+        guard _state.subscriber != nil, _state.publisher != nil else {
             log("[Connect] Publisher or subscriber is nil", .error)
             throw LiveKitError(.invalidState)
         }
@@ -307,9 +313,9 @@ extension Room {
             // send SyncState before offer
             try await sendSyncState()
 
-            await subscriber?.setIsRestartingIce()
+            await _state.subscriber?.setIsRestartingIce()
 
-            if let publisher, _state.hasPublished {
+            if let publisher = _state.publisher, _state.hasPublished {
                 // Only if published, wait for publisher to connect...
                 log("[Connect] Waiting for publisher to connect...")
                 try await publisher.createAndSendOffer(iceRestart: true)
@@ -402,8 +408,8 @@ extension Room {
 
 extension Room {
     func sendSyncState() async throws {
-        guard let subscriber else {
-            log("Subscriber is nil", .warning)
+        guard let subscriber = _state.subscriber else {
+            log("Subscriber is nil", .error)
             return
         }
 
@@ -442,7 +448,7 @@ extension Room {
 
 extension Room {
     func requirePublisher() throws -> Transport {
-        guard let publisher else {
+        guard let publisher = _state.publisher else {
             log("Publisher is nil", .error)
             throw LiveKitError(.invalidState, message: "Publisher is nil")
         }

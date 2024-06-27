@@ -118,12 +118,10 @@ public class RemoteParticipant: Participant {
         await publication.set(track: track)
         publication.set(subscriptionAllowed: true)
 
-        if room.subscriber == nil {
-            log("Subscriber is nil", .error)
-        }
-
-        if let transport = room.subscriber {
+        if let transport = room._state.subscriber {
             await track.set(transport: transport, rtpReceiver: rtpReceiver)
+        } else {
+            log("Subscriber is nil", .error)
         }
 
         add(publication: publication)

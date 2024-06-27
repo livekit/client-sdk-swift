@@ -357,39 +357,6 @@ extension Track {
     }
 }
 
-// MARK: - VideoTrack
-
-// workaround for error:
-// @objc can only be used with members of classes, @objc protocols, and concrete extensions of classes
-//
-extension Track {
-    func _add(videoRenderer: VideoRenderer) {
-        guard self is VideoTrack, let rtcVideoTrack = mediaTrack as? LKRTCVideoTrack else {
-            log("mediaTrack is not a RTCVideoTrack", .error)
-            return
-        }
-
-        _state.mutate {
-            $0.videoRenderers.add(videoRenderer)
-        }
-
-        rtcVideoTrack.add(VideoRendererAdapter(target: videoRenderer, localVideoTrack: self as? LocalVideoTrack))
-    }
-
-    func _remove(videoRenderer: VideoRenderer) {
-        guard self is VideoTrack, let rtcVideoTrack = mediaTrack as? LKRTCVideoTrack else {
-            log("mediaTrack is not a RTCVideoTrack", .error)
-            return
-        }
-
-        _state.mutate {
-            $0.videoRenderers.remove(videoRenderer)
-        }
-
-        rtcVideoTrack.remove(VideoRendererAdapter(target: videoRenderer, localVideoTrack: self as? LocalVideoTrack))
-    }
-}
-
 // MARK: - Identifiable (SwiftUI)
 
 extension Track: Identifiable {

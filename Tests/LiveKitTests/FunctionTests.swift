@@ -17,9 +17,6 @@
 @testable import LiveKit
 import XCTest
 
-//
-// For testing state-less functions
-//
 class FunctionTests: XCTestCase {
     func testRangeMerge() async throws {
         let range1 = 10 ... 20
