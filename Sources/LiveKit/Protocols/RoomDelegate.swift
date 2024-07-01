@@ -147,6 +147,7 @@ public protocol RoomDelegate: AnyObject {
     @objc optional
     func room(_ room: Room, participant: RemoteParticipant, trackPublication: RemoteTrackPublication, didUpdateIsSubscriptionAllowed isSubscriptionAllowed: Bool)
 
+    /// Received transcription segments.
     @objc optional
     func room(_ room: Room, participant: RemoteParticipant, trackPublication: RemoteTrackPublication, didReceiveTranscriptionSegments segments: [TranscriptionSegment])
 

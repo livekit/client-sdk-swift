@@ -220,5 +220,9 @@ extension Room {
         delegates.notify {
             $0.room?(self, participant: participant, trackPublication: publication, didReceiveTranscriptionSegments: segments)
         }
+
+        participant.delegates.notify {
+            $0.participant?(participant, trackPublication: publication, didReceiveTranscriptionSegments: segments)
+        }
     }
 }

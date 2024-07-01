@@ -110,6 +110,10 @@ public protocol ParticipantDelegate: AnyObject {
     @objc optional
     func participant(_ participant: RemoteParticipant, trackPublication: RemoteTrackPublication, didUpdateIsSubscriptionAllowed isSubscriptionAllowed: Bool)
 
+    /// Received transcription segments.
+    @objc optional
+    func participant(_ participant: RemoteParticipant, trackPublication: RemoteTrackPublication, didReceiveTranscriptionSegments segments: [TranscriptionSegment])
+
     // MARK: - Data
 
     /// Data was received from a ``RemoteParticipant``.
