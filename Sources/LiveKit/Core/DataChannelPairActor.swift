@@ -22,12 +22,14 @@ internal import LiveKitWebRTC
 @_implementationOnly import LiveKitWebRTC
 #endif
 
+protocol DataChannelDelegate {
+    func dataChannel(_ dataChannelPair: DataChannelPairActor, didReceiveDataPacket dataPacket: Livekit_DataPacket)
+}
+
 actor DataChannelPairActor: NSObject, Loggable {
-    // MARK: - Types
-
-    public typealias OnDataPacket = (_ dataPacket: Livekit_DataPacket) -> Void
-
     // MARK: - Public
+
+    public let delegates = MulticastDelegate<DataChannelDelegate>(label: "DataChannelDelegate")
 
     public let openCompleter = AsyncCompleter<Void>(label: "Data channel open", defaultTimeout: .defaultPublisherDataChannelOpen)
 
@@ -38,17 +40,19 @@ actor DataChannelPairActor: NSObject, Loggable {
 
     // MARK: - Private
 
-    private let _onDataPacket: OnDataPacket?
     private var _reliableChannel: LKRTCDataChannel?
     private var _lossyChannel: LKRTCDataChannel?
 
-    public init(reliableChannel: LKRTCDataChannel? = nil,
-                lossyChannel: LKRTCDataChannel? = nil,
-                onDataPacket: OnDataPacket? = nil)
+    public init(delegate: DataChannelDelegate? = nil,
+                reliableChannel: LKRTCDataChannel? = nil,
+                lossyChannel: LKRTCDataChannel? = nil)
     {
         _reliableChannel = reliableChannel
         _lossyChannel = lossyChannel
-        _onDataPacket = onDataPacket
+
+        if let delegate {
+            delegates.add(delegate: delegate)
+        }
     }
 
     public func set(reliable channel: LKRTCDataChannel?) {
@@ -122,6 +126,8 @@ extension DataChannelPairActor: LKRTCDataChannelDelegate {
             return
         }
 
-        _onDataPacket?(dataPacket)
+        delegates.notify {
+            $0.dataChannel(self, didReceiveDataPacket: dataPacket)
+        }
     }
 }
