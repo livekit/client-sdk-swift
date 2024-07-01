@@ -23,7 +23,7 @@ class PublishDataTests: XCTestCase {
     }
 
     func testPublishData() async throws {
-        try await withRooms([RoomTestingOptions(canPublish: true), RoomTestingOptions(canSubscribe: true)]) { rooms in
+        try await withRooms([RoomTestingOptions(canPublishData: true), RoomTestingOptions()]) { rooms in
             // Alias to Rooms
             let room1 = rooms[0]
             let room2 = rooms[1]
