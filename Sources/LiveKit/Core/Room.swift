@@ -105,16 +105,8 @@ public class Room: NSObject, ObservableObject, Loggable {
 
     // MARK: - DataChannels
 
-    lazy var subscriberDataChannel: DataChannelPairActor = .init(onDataPacket: { [weak self] dataPacket in
-        guard let self else { return }
-        switch dataPacket.value {
-        case let .speaker(update): self.engine(self, didUpdateSpeakers: update.speakers)
-        case let .user(userPacket): self.engine(self, didReceiveUserPacket: userPacket)
-        default: return
-        }
-    })
-
-    let publisherDataChannel = DataChannelPairActor()
+    lazy var subscriberDataChannel = DataChannelPairActor(delegate: self)
+    lazy var publisherDataChannel = DataChannelPairActor(delegate: self)
 
     var _blockProcessQueue = DispatchQueue(label: "LiveKitSDK.engine.pendingBlocks",
                                            qos: .default)
@@ -511,5 +503,17 @@ public extension Room {
     static var bypassVoiceProcessing: Bool {
         get { RTC.bypassVoiceProcessing }
         set { RTC.bypassVoiceProcessing = newValue }
+    }
+}
+
+// MARK: - DataChannelDelegate
+
+extension Room: DataChannelDelegate {
+    func dataChannel(_: DataChannelPairActor, didReceiveDataPacket dataPacket: Livekit_DataPacket) {
+        switch dataPacket.value {
+        case let .speaker(update): engine(self, didUpdateSpeakers: update.speakers)
+        case let .user(userPacket): engine(self, didReceiveUserPacket: userPacket)
+        default: return
+        }
     }
 }
