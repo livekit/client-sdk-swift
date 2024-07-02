@@ -23,32 +23,38 @@ internal import LiveKitWebRTC
 #endif
 
 protocol DataChannelDelegate {
-    func dataChannel(_ dataChannelPair: DataChannelPairActor, didReceiveDataPacket dataPacket: Livekit_DataPacket)
+    func dataChannel(_ dataChannelPair: DataChannelPair, didReceiveDataPacket dataPacket: Livekit_DataPacket)
 }
 
-actor DataChannelPairActor: NSObject, Loggable {
+class DataChannelPair: NSObject, Loggable {
     // MARK: - Public
 
     public let delegates = MulticastDelegate<DataChannelDelegate>(label: "DataChannelDelegate")
 
     public let openCompleter = AsyncCompleter<Void>(label: "Data channel open", defaultTimeout: .defaultPublisherDataChannelOpen)
 
-    public var isOpen: Bool {
-        guard let reliable = _reliableChannel, let lossy = _lossyChannel else { return false }
-        return reliable.readyState == .open && lossy.readyState == .open
-    }
+    public var isOpen: Bool { _state.isOpen }
 
     // MARK: - Private
 
-    private var _reliableChannel: LKRTCDataChannel?
-    private var _lossyChannel: LKRTCDataChannel?
+    private struct State {
+        var reliableChannel: LKRTCDataChannel?
+        var lossyChannel: LKRTCDataChannel?
+
+        var isOpen: Bool {
+            guard let reliableChannel, let lossyChannel else { return false }
+            return reliableChannel.readyState == .open && lossyChannel.readyState == .open
+        }
+    }
+
+    private let _state: StateSync<State>
 
     public init(delegate: DataChannelDelegate? = nil,
                 reliableChannel: LKRTCDataChannel? = nil,
                 lossyChannel: LKRTCDataChannel? = nil)
     {
-        _reliableChannel = reliableChannel
-        _lossyChannel = lossyChannel
+        _state = StateSync(State(reliableChannel: reliableChannel,
+                                 lossyChannel: lossyChannel))
 
         if let delegate {
             delegates.add(delegate: delegate)
@@ -56,7 +62,11 @@ actor DataChannelPairActor: NSObject, Loggable {
     }
 
     public func set(reliable channel: LKRTCDataChannel?) {
-        _reliableChannel = channel
+        let isOpen = _state.mutate {
+            $0.reliableChannel = channel
+            return $0.isOpen
+        }
+
         channel?.delegate = self
 
         if isOpen {
@@ -65,7 +75,11 @@ actor DataChannelPairActor: NSObject, Loggable {
     }
 
     public func set(lossy channel: LKRTCDataChannel?) {
-        _lossyChannel = channel
+        let isOpen = _state.mutate {
+            $0.lossyChannel = channel
+            return $0.isOpen
+        }
+
         channel?.delegate = self
 
         if isOpen {
@@ -74,10 +88,15 @@ actor DataChannelPairActor: NSObject, Loggable {
     }
 
     public func reset() {
-        _reliableChannel?.close()
-        _lossyChannel?.close()
-        _reliableChannel = nil
-        _lossyChannel = nil
+        let (lossy, reliable) = _state.mutate {
+            let result = ($0.lossyChannel, $0.reliableChannel)
+            $0.reliableChannel = nil
+            $0.lossyChannel = nil
+            return result
+        }
+
+        lossy?.close()
+        reliable?.close()
 
         openCompleter.reset()
     }
@@ -95,14 +114,14 @@ actor DataChannelPairActor: NSObject, Loggable {
         let serializedData = try packet.serializedData()
         let rtcData = RTC.createDataBuffer(data: serializedData)
 
-        let channel = (kind == .reliable) ? _reliableChannel : _lossyChannel
+        let channel = _state.read { kind == .reliable ? $0.reliableChannel : $0.lossyChannel }
         guard let sendDataResult = channel?.sendData(rtcData), sendDataResult else {
             throw LiveKitError(.invalidState, message: "sendData failed")
         }
     }
 
     public func infos() -> [Livekit_DataChannelInfo] {
-        [_lossyChannel, _reliableChannel]
+        _state.read { [$0.lossyChannel, $0.reliableChannel] }
             .compactMap { $0 }
             .map { $0.toLKInfoType() }
     }
@@ -110,19 +129,16 @@ actor DataChannelPairActor: NSObject, Loggable {
 
 // MARK: - RTCDataChannelDelegate
 
-extension DataChannelPairActor: LKRTCDataChannelDelegate {
-    nonisolated func dataChannelDidChangeState(_: LKRTCDataChannel) {
-        Task.detached {
-            if await self.isOpen {
-                self.openCompleter.resume(returning: ())
-            }
+extension DataChannelPair: LKRTCDataChannelDelegate {
+    func dataChannelDidChangeState(_: LKRTCDataChannel) {
+        if isOpen {
+            openCompleter.resume(returning: ())
         }
     }
 
-    nonisolated func dataChannel(_: LKRTCDataChannel, didReceiveMessageWith buffer: LKRTCDataBuffer) {
-        log("dataChannel(didReceiveMessageWith:)")
+    func dataChannel(_: LKRTCDataChannel, didReceiveMessageWith buffer: LKRTCDataBuffer) {
         guard let dataPacket = try? Livekit_DataPacket(contiguousBytes: buffer.data) else {
-            log("could not decode data message", .error)
+            log("Could not decode data message", .error)
             return
         }
 

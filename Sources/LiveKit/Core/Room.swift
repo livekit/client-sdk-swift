@@ -105,8 +105,8 @@ public class Room: NSObject, ObservableObject, Loggable {
 
     // MARK: - DataChannels
 
-    lazy var subscriberDataChannel = DataChannelPairActor(delegate: self)
-    lazy var publisherDataChannel = DataChannelPairActor(delegate: self)
+    lazy var subscriberDataChannel = DataChannelPair(delegate: self)
+    lazy var publisherDataChannel = DataChannelPair(delegate: self)
 
     var _blockProcessQueue = DispatchQueue(label: "LiveKitSDK.engine.pendingBlocks",
                                            qos: .default)
@@ -509,7 +509,7 @@ public extension Room {
 // MARK: - DataChannelDelegate
 
 extension Room: DataChannelDelegate {
-    func dataChannel(_: DataChannelPairActor, didReceiveDataPacket dataPacket: Livekit_DataPacket) {
+    func dataChannel(_: DataChannelPair, didReceiveDataPacket dataPacket: Livekit_DataPacket) {
         switch dataPacket.value {
         case let .speaker(update): engine(self, didUpdateSpeakers: update.speakers)
         case let .user(userPacket): engine(self, didReceiveUserPacket: userPacket)
