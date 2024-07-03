@@ -492,6 +492,12 @@ extension Room: AppStateDelegate {
             await self.disconnect()
         }
     }
+
+    func appWillSleep() {
+        Task.detached {
+            await self.disconnect()
+        }
+    }
 }
 
 // MARK: - Devices

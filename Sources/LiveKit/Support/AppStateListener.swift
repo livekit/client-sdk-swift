@@ -20,10 +20,23 @@ import Foundation
 import UIKit
 #endif
 
+#if canImport(AppKit)
+import AppKit
+#endif
+
+@objc
 protocol AppStateDelegate: AnyObject {
     func appDidEnterBackground()
     func appWillEnterForeground()
     func appWillTerminate()
+
+    /// Only for macOS.
+    @objc optional
+    func appWillSleep()
+
+    /// Only for macOS.
+    @objc optional
+    func appDidWake()
 }
 
 class AppStateListener: MulticastDelegate<AppStateDelegate> {
@@ -39,7 +52,6 @@ class AppStateListener: MulticastDelegate<AppStateDelegate> {
                            object: nil,
                            queue: OperationQueue.main)
         { _ in
-
             self.log("UIApplication.didEnterBackground")
             self.notify { $0.appDidEnterBackground() }
         }
@@ -48,7 +60,6 @@ class AppStateListener: MulticastDelegate<AppStateDelegate> {
                            object: nil,
                            queue: OperationQueue.main)
         { _ in
-
             self.log("UIApplication.willEnterForeground")
             self.notify { $0.appWillEnterForeground() }
         }
@@ -57,9 +68,26 @@ class AppStateListener: MulticastDelegate<AppStateDelegate> {
                            object: nil,
                            queue: OperationQueue.main)
         { _ in
-
             self.log("UIApplication.willTerminate")
             self.notify { $0.appWillTerminate() }
+        }
+        #elseif os(macOS)
+        let workspaceCenter = NSWorkspace.shared.notificationCenter
+
+        workspaceCenter.addObserver(forName: NSWorkspace.willSleepNotification,
+                                    object: nil,
+                                    queue: OperationQueue.main)
+        { _ in
+            self.log("NSWorkspace.willSleepNotification")
+            self.notify { $0.appWillSleep?() }
+        }
+
+        workspaceCenter.addObserver(forName: NSWorkspace.didWakeNotification,
+                                    object: nil,
+                                    queue: OperationQueue.main)
+        { _ in
+            self.log("NSWorkspace.didWakeNotification")
+            self.notify { $0.appDidWake?() }
         }
         #endif
     }
