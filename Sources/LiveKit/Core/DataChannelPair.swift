@@ -22,6 +22,8 @@ internal import LiveKitWebRTC
 @_implementationOnly import LiveKitWebRTC
 #endif
 
+// MARK: - Internal delegate
+
 protocol DataChannelDelegate {
     func dataChannel(_ dataChannelPair: DataChannelPair, didReceiveDataPacket dataPacket: Livekit_DataPacket)
 }
@@ -38,23 +40,23 @@ class DataChannelPair: NSObject, Loggable {
     // MARK: - Private
 
     private struct State {
-        var reliableChannel: LKRTCDataChannel?
-        var lossyChannel: LKRTCDataChannel?
+        var lossy: LKRTCDataChannel?
+        var reliable: LKRTCDataChannel?
 
         var isOpen: Bool {
-            guard let reliableChannel, let lossyChannel else { return false }
-            return reliableChannel.readyState == .open && lossyChannel.readyState == .open
+            guard let lossy, let reliable else { return false }
+            return reliable.readyState == .open && lossy.readyState == .open
         }
     }
 
     private let _state: StateSync<State>
 
     public init(delegate: DataChannelDelegate? = nil,
-                reliableChannel: LKRTCDataChannel? = nil,
-                lossyChannel: LKRTCDataChannel? = nil)
+                lossyChannel: LKRTCDataChannel? = nil,
+                reliableChannel: LKRTCDataChannel? = nil)
     {
-        _state = StateSync(State(reliableChannel: reliableChannel,
-                                 lossyChannel: lossyChannel))
+        _state = StateSync(State(lossy: lossyChannel,
+                                 reliable: reliableChannel))
 
         if let delegate {
             delegates.add(delegate: delegate)
@@ -63,7 +65,7 @@ class DataChannelPair: NSObject, Loggable {
 
     public func set(reliable channel: LKRTCDataChannel?) {
         let isOpen = _state.mutate {
-            $0.reliableChannel = channel
+            $0.reliable = channel
             return $0.isOpen
         }
 
@@ -76,7 +78,7 @@ class DataChannelPair: NSObject, Loggable {
 
     public func set(lossy channel: LKRTCDataChannel?) {
         let isOpen = _state.mutate {
-            $0.lossyChannel = channel
+            $0.lossy = channel
             return $0.isOpen
         }
 
@@ -89,9 +91,9 @@ class DataChannelPair: NSObject, Loggable {
 
     public func reset() {
         let (lossy, reliable) = _state.mutate {
-            let result = ($0.lossyChannel, $0.reliableChannel)
-            $0.reliableChannel = nil
-            $0.lossyChannel = nil
+            let result = ($0.lossy, $0.reliable)
+            $0.reliable = nil
+            $0.lossy = nil
             return result
         }
 
@@ -114,14 +116,14 @@ class DataChannelPair: NSObject, Loggable {
         let serializedData = try packet.serializedData()
         let rtcData = RTC.createDataBuffer(data: serializedData)
 
-        let channel = _state.read { kind == .reliable ? $0.reliableChannel : $0.lossyChannel }
+        let channel = _state.read { kind == .reliable ? $0.reliable : $0.lossy }
         guard let sendDataResult = channel?.sendData(rtcData), sendDataResult else {
             throw LiveKitError(.invalidState, message: "sendData failed")
         }
     }
 
     public func infos() -> [Livekit_DataChannelInfo] {
-        _state.read { [$0.lossyChannel, $0.reliableChannel] }
+        _state.read { [$0.lossy, $0.reliable] }
             .compactMap { $0 }
             .map { $0.toLKInfoType() }
     }
