@@ -43,8 +43,8 @@ extension Room {
     // Resets state of transports
     func cleanUpRTC() async {
         // Close data channels
-        await publisherDataChannel.reset()
-        await subscriberDataChannel.reset()
+        publisherDataChannel.reset()
+        subscriberDataChannel.reset()
 
         let (subscriber, publisher) = _state.read { ($0.subscriber, $0.publisher) }
 
@@ -90,13 +90,13 @@ extension Room {
             log("publisher is not .connected", .error)
         }
 
-        let dataChannelIsOpen = await publisherDataChannel.isOpen
+        let dataChannelIsOpen = publisherDataChannel.isOpen
         if !dataChannelIsOpen {
             log("publisher data channel is not .open", .error)
         }
 
         // Should return true if successful
-        try await publisherDataChannel.send(userPacket: userPacket, kind: kind)
+        try publisherDataChannel.send(userPacket: userPacket, kind: kind)
     }
 }
 
@@ -163,8 +163,8 @@ extension Room {
             let lossyDataChannel = await publisher.dataChannel(for: LKRTCDataChannel.labels.lossy,
                                                                configuration: RTC.createDataChannelConfiguration(maxRetransmits: 0))
 
-            await publisherDataChannel.set(reliable: reliableDataChannel)
-            await publisherDataChannel.set(lossy: lossyDataChannel)
+            publisherDataChannel.set(reliable: reliableDataChannel)
+            publisherDataChannel.set(lossy: lossyDataChannel)
 
             log("dataChannel.\(String(describing: reliableDataChannel?.label)) : \(String(describing: reliableDataChannel?.channelId))")
             log("dataChannel.\(String(describing: lossyDataChannel?.label)) : \(String(describing: lossyDataChannel?.channelId))")
