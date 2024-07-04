@@ -521,6 +521,7 @@ extension Room: DataChannelDelegate {
         switch dataPacket.value {
         case let .speaker(update): engine(self, didUpdateSpeakers: update.speakers)
         case let .user(userPacket): engine(self, didReceiveUserPacket: userPacket)
+        case let .transcription(packet): room(didReceiveTranscriptionPacket: packet)
         default: return
         }
     }
