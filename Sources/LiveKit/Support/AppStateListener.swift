@@ -29,44 +29,42 @@ protocol AppStateDelegate: AnyObject {
     func appDidEnterBackground()
     func appWillEnterForeground()
     func appWillTerminate()
-
     /// Only for macOS.
-    @objc optional
     func appWillSleep()
-
     /// Only for macOS.
-    @objc optional
     func appDidWake()
 }
 
 class AppStateListener: MulticastDelegate<AppStateDelegate> {
     static let shared = AppStateListener()
 
+    private let queue = OperationQueue()
+
     private init() {
         super.init(label: "AppStateDelegate")
 
-        let center = NotificationCenter.default
+        let defaultCenter = NotificationCenter.default
 
         #if os(iOS)
-        center.addObserver(forName: UIApplication.didEnterBackgroundNotification,
-                           object: nil,
-                           queue: OperationQueue.main)
+        defaultCenter.addObserver(forName: UIApplication.didEnterBackgroundNotification,
+                                  object: nil,
+                                  queue: queue)
         { _ in
             self.log("UIApplication.didEnterBackground")
             self.notify { $0.appDidEnterBackground() }
         }
 
-        center.addObserver(forName: UIApplication.willEnterForegroundNotification,
-                           object: nil,
-                           queue: OperationQueue.main)
+        defaultCenter.addObserver(forName: UIApplication.willEnterForegroundNotification,
+                                  object: nil,
+                                  queue: queue)
         { _ in
             self.log("UIApplication.willEnterForeground")
             self.notify { $0.appWillEnterForeground() }
         }
 
-        center.addObserver(forName: UIApplication.willTerminateNotification,
-                           object: nil,
-                           queue: OperationQueue.main)
+        defaultCenter.addObserver(forName: UIApplication.willTerminateNotification,
+                                  object: nil,
+                                  queue: queue)
         { _ in
             self.log("UIApplication.willTerminate")
             self.notify { $0.appWillTerminate() }
@@ -76,18 +74,18 @@ class AppStateListener: MulticastDelegate<AppStateDelegate> {
 
         workspaceCenter.addObserver(forName: NSWorkspace.willSleepNotification,
                                     object: nil,
-                                    queue: OperationQueue.main)
+                                    queue: queue)
         { _ in
             self.log("NSWorkspace.willSleepNotification")
-            self.notify { $0.appWillSleep?() }
+            self.notify { $0.appWillSleep() }
         }
 
         workspaceCenter.addObserver(forName: NSWorkspace.didWakeNotification,
                                     object: nil,
-                                    queue: OperationQueue.main)
+                                    queue: queue)
         { _ in
             self.log("NSWorkspace.didWakeNotification")
-            self.notify { $0.appDidWake?() }
+            self.notify { $0.appDidWake() }
         }
         #endif
     }

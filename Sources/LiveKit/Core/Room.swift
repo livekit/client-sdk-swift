@@ -498,6 +498,8 @@ extension Room: AppStateDelegate {
             await self.disconnect()
         }
     }
+
+    func appDidWake() {}
 }
 
 // MARK: - Devices
