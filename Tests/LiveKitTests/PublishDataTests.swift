@@ -18,12 +18,22 @@
 import XCTest
 
 class PublishDataTests: XCTestCase {
-    struct TestDataPayload: Codable {
-        let content: String
+    // Test with canSubscribe: true
+    func testPublishDataReceiverCanSubscribe() async throws {
+        try await _publishDataTest(receiverRoomOptions: RoomTestingOptions(canSubscribe: true))
     }
 
-    func testPublishData() async throws {
-        try await withRooms([RoomTestingOptions(canPublish: true), RoomTestingOptions(canSubscribe: true)]) { rooms in
+    // Test with canSubscribe: false
+    func testPublishDataReceiverCanNotSubscribe() async throws {
+        try await _publishDataTest(receiverRoomOptions: RoomTestingOptions(canSubscribe: false))
+    }
+
+    private func _publishDataTest(receiverRoomOptions: RoomTestingOptions) async throws {
+        struct TestDataPayload: Codable {
+            let content: String
+        }
+
+        try await withRooms([RoomTestingOptions(canPublishData: true), receiverRoomOptions]) { rooms in
             // Alias to Rooms
             let room1 = rooms[0]
             let room2 = rooms[1]

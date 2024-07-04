@@ -105,17 +105,8 @@ public class Room: NSObject, ObservableObject, Loggable {
 
     // MARK: - DataChannels
 
-    lazy var subscriberDataChannel: DataChannelPairActor = .init(onDataPacket: { [weak self] dataPacket in
-        guard let self else { return }
-        switch dataPacket.value {
-        case let .speaker(update): self.engine(self, didUpdateSpeakers: update.speakers)
-        case let .user(userPacket): self.engine(self, didReceiveUserPacket: userPacket)
-        case let .transcription(packet): self.room(didReceiveTranscriptionPacket: packet)
-        default: return
-        }
-    })
-
-    let publisherDataChannel = DataChannelPairActor()
+    lazy var subscriberDataChannel = DataChannelPair(delegate: self)
+    lazy var publisherDataChannel = DataChannelPair(delegate: self)
 
     var _blockProcessQueue = DispatchQueue(label: "LiveKitSDK.engine.pendingBlocks",
                                            qos: .default)
@@ -501,6 +492,14 @@ extension Room: AppStateDelegate {
             await self.disconnect()
         }
     }
+
+    func appWillSleep() {
+        Task.detached {
+            await self.disconnect()
+        }
+    }
+
+    func appDidWake() {}
 }
 
 // MARK: - Devices
@@ -512,5 +511,17 @@ public extension Room {
     static var bypassVoiceProcessing: Bool {
         get { RTC.bypassVoiceProcessing }
         set { RTC.bypassVoiceProcessing = newValue }
+    }
+}
+
+// MARK: - DataChannelDelegate
+
+extension Room: DataChannelDelegate {
+    func dataChannel(_: DataChannelPair, didReceiveDataPacket dataPacket: Livekit_DataPacket) {
+        switch dataPacket.value {
+        case let .speaker(update): engine(self, didUpdateSpeakers: update.speakers)
+        case let .user(userPacket): engine(self, didReceiveUserPacket: userPacket)
+        default: return
+        }
     }
 }

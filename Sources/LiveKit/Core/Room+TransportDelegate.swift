@@ -106,8 +106,8 @@ extension Room: TransportDelegate {
 
         if _state.isSubscriberPrimary, transport.target == .subscriber {
             switch dataChannel.label {
-            case LKRTCDataChannel.labels.reliable: await subscriberDataChannel.set(reliable: dataChannel)
-            case LKRTCDataChannel.labels.lossy: await subscriberDataChannel.set(lossy: dataChannel)
+            case LKRTCDataChannel.labels.reliable: subscriberDataChannel.set(reliable: dataChannel)
+            case LKRTCDataChannel.labels.lossy: subscriberDataChannel.set(lossy: dataChannel)
             default: log("Unknown data channel label \(dataChannel.label)", .warning)
             }
         }
