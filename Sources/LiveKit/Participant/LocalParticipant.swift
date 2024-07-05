@@ -306,20 +306,14 @@ public extension LocalParticipant {
             // Try to get existing publication
             if let publication = self.getTrackPublication(source: source) as? LocalTrackPublication {
                 if enabled {
-                    #if os(iOS)
-                    if source == .screenShareVideo {
-                        let options = (captureOptions as? ScreenShareCaptureOptions) ?? room._state.roomOptions.defaultScreenShareCaptureOptions
-                        if options.useBroadcastExtension {
-                            let screenShareExtensionId = Bundle.main.infoDictionary?[BroadcastScreenCapturer.kRTCScreenSharingExtension] as? String
-                            await RPSystemBroadcastPickerView.show(for: screenShareExtensionId, showsMicrophoneButton: false)
-                        }
-                    }
-                    #endif
-
                     try await publication.unmute()
                     return publication
                 } else {
-                    try await publication.mute()
+                    if source == .camera || source == .microphone {
+                        try await publication.mute()
+                    } else {
+                        try await self.unpublish(publication: publication)
+                    }
                     return publication
                 }
             } else if enabled {
