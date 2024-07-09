@@ -17,8 +17,11 @@ Pod::Spec.new do |spec|
   spec.dependency("LiveKitWebRTC", "= 125.6422.03")
   spec.dependency("SwiftProtobuf")
   spec.dependency("Logging")
-  # spec.user_target_xcconfig = { 'EXCLUDED_ARCHS[sdk=iphonesimulator*]' => 'arm64' }
-  # spec.pod_target_xcconfig = { 'EXCLUDED_ARCHS[sdk=iphonesimulator*]' => 'arm64' }
 
   spec.resource_bundles = {"Privacy" => ["Sources/LiveKit/PrivacyInfo.xcprivacy"]}
+
+  # Add the following lines to enable the experimental feature
+  spec.pod_target_xcconfig = {
+    'SWIFT_FLAGS' => '-enable-experimental-feature AccessLevelOnImport'
+  }
 end
