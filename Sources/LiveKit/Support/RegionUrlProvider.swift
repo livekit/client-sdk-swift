@@ -92,7 +92,7 @@ class RegionUrlProvider: Loggable {
             $0.attemptedRegions.append(selectedRegion)
         }
 
-        return URL(string: selectedRegion.url)
+        return URL(string: selectedRegion.url)?.toSocketUrl()
     }
 
     func requestRegionSettings() async throws {

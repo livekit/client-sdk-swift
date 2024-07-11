@@ -52,15 +52,15 @@ class RegionUrlProviderTests: XCTestCase {
 
         let attempt1 = try await provider.nextBestRegionUrl()
         print("Next url: \(String(describing: attempt1))")
-        XCTAssert(attempt1?.absoluteString == testRegionSettings.regions[0].url)
+        XCTAssert(attempt1 == URL(string: testRegionSettings.regions[0].url)?.toSocketUrl())
 
         let attempt2 = try await provider.nextBestRegionUrl()
         print("Next url: \(String(describing: attempt2))")
-        XCTAssert(attempt2?.absoluteString == testRegionSettings.regions[1].url)
+        XCTAssert(attempt2 == URL(string: testRegionSettings.regions[1].url)?.toSocketUrl())
 
         let attempt3 = try await provider.nextBestRegionUrl()
         print("Next url: \(String(describing: attempt3))")
-        XCTAssert(attempt3?.absoluteString == testRegionSettings.regions[2].url)
+        XCTAssert(attempt3 == URL(string: testRegionSettings.regions[2].url)?.toSocketUrl())
 
         let attempt4 = try await provider.nextBestRegionUrl()
         print("Next url: \(String(describing: attempt4))")

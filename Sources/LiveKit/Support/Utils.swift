@@ -281,6 +281,18 @@ extension URL {
     func regionSettingsUrl() -> URL {
         cloudConfigUrl().appendingPathComponent("/regions")
     }
+
+    func toSocketUrl() -> URL {
+        var components = URLComponents(url: self, resolvingAgainstBaseURL: false)!
+        components.scheme = scheme?.replacingOccurrences(of: "http", with: "ws")
+        return components.url!
+    }
+
+    func toHTTPUrl() -> URL {
+        var components = URLComponents(url: self, resolvingAgainstBaseURL: false)!
+        components.scheme = scheme?.replacingOccurrences(of: "ws", with: "http")
+        return components.url!
+    }
 }
 
 extension HTTPURLResponse {
