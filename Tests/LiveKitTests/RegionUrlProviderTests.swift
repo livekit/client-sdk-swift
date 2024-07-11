@@ -19,6 +19,7 @@ import XCTest
 
 class RegionUrlProviderTests: XCTestCase {
     func testResolveUrl() async throws {
+        let testCacheInterval: TimeInterval = 3
         // Test data.
         let testRegionSettings = Livekit_RegionSettings.with {
             $0.regions.append(Livekit_RegionInfo.with {
@@ -38,7 +39,7 @@ class RegionUrlProviderTests: XCTestCase {
             })
         }
 
-        let provider = RegionUrlProvider(url: "wss://test.livekit.cloud", token: "")
+        let provider = RegionUrlProvider(url: "wss://test.livekit.cloud", token: "", cacheInterval: testCacheInterval)
 
         // See if request should be initiated.
         XCTAssert(provider.shouldRequestRegionSettings(), "Should require to request region settings")
@@ -64,5 +65,11 @@ class RegionUrlProviderTests: XCTestCase {
         let attempt4 = try await provider.nextBestRegionUrl()
         print("Next url: \(String(describing: attempt4))")
         XCTAssert(attempt4 == nil)
+
+        // Simulate cache time elapse.
+        await asyncSleep(for: testCacheInterval)
+
+        // After cache time elapsed, should require to request region settings again.
+        XCTAssert(provider.shouldRequestRegionSettings(), "Should require to request region settings")
     }
 }

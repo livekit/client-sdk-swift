@@ -17,7 +17,8 @@
 import Foundation
 
 class RegionUrlProvider: Loggable {
-    static let settingsCacheTime: TimeInterval = 3000
+    // Default
+    static let defaultCacheInterval: TimeInterval = 3000
 
     private struct State {
         var serverUrl: URL
@@ -28,13 +29,15 @@ class RegionUrlProvider: Loggable {
     }
 
     private let _state: StateSync<State>
+    public let cacheInterval: TimeInterval
 
     public var serverUrl: URL {
         _state.mutate { $0.serverUrl }
     }
 
-    init(url: String, token: String) {
+    init(url: String, token: String, cacheInterval: TimeInterval = defaultCacheInterval) {
         let serverUrl = URL(string: url)!
+        self.cacheInterval = cacheInterval
         _state = StateSync(State(serverUrl: serverUrl, token: token))
     }
 
@@ -62,7 +65,7 @@ class RegionUrlProvider: Loggable {
             }
 
             let interval = Date().timeIntervalSince(regionSettingsUpdated)
-            return interval > Self.settingsCacheTime
+            return interval > cacheInterval
         }
     }
 
