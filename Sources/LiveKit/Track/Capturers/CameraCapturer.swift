@@ -89,8 +89,19 @@ public class CameraCapturer: VideoCapturer {
     // Used to hide LKRTCVideoCapturerDelegate symbol
     private lazy var adapter: VideoCapturerDelegateAdapter = .init(cameraCapturer: self)
 
+    #if os(iOS)
+    private lazy var multiCamSession = AVCaptureMultiCamSession()
+    #endif
+
     // RTCCameraVideoCapturer used internally for now
-    private lazy var capturer: LKRTCCameraVideoCapturer = DispatchQueue.liveKitWebRTC.sync { LKRTCCameraVideoCapturer(delegate: adapter) }
+    private lazy var capturer: LKRTCCameraVideoCapturer = {
+        #if os(iOS)
+        let result = LKRTCCameraVideoCapturer(delegate: adapter, captureSession: multiCamSession)
+        #else
+        let result = LKRTCCameraVideoCapturer(delegate: adapter)
+        #endif
+        return result
+    }()
 
     init(delegate: LKRTCVideoCapturerDelegate, options: CameraCaptureOptions) {
         _cameraCapturerState = StateSync(State(options: options))
