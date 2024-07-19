@@ -22,6 +22,13 @@ internal import LiveKitWebRTC
 
 class SampleBufferVideoRenderer: NativeView, Loggable {
     public let sampleBufferDisplayLayer: AVSampleBufferDisplayLayer
+    
+    private var firstFrameReceived = false
+    private var bufferTransform = CATransform3DIdentity
+    private var mirroredTransform = CATransform3DIdentity
+    private var displayLayerTransform: CATransform3D {
+        return CATransform3DConcat(bufferTransform, mirroredTransform)
+    }
 
     override init(frame: CGRect) {
         sampleBufferDisplayLayer = AVSampleBufferDisplayLayer()
@@ -75,6 +82,12 @@ extension SampleBufferVideoRenderer: LKRTCVideoRenderer {
             log("Failed to convert CVPixelBuffer to CMSampleBuffer", .error)
             return
         }
+        
+        if !firstFrameReceived {
+            bufferTransform = .fromFrameRotation(frame)
+            updateSampleBufferTransform()
+            firstFrameReceived = true
+        }
 
         Task.detached { @MainActor in
             self.sampleBufferDisplayLayer.enqueue(sampleBuffer)
@@ -84,6 +97,28 @@ extension SampleBufferVideoRenderer: LKRTCVideoRenderer {
 
 extension SampleBufferVideoRenderer: Mirrorable {
     func set(mirrored: Bool) {
-        sampleBufferDisplayLayer.transform = mirrored ? VideoView.mirrorTransform : CATransform3DIdentity
+        mirroredTransform = mirrored ? VideoView.mirrorTransform : CATransform3DIdentity
+        updateSampleBufferTransform()
+    }
+}
+
+private extension SampleBufferVideoRenderer {
+    private func updateSampleBufferTransform() {
+        sampleBufferDisplayLayer.transform = displayLayerTransform
+    }
+}
+
+private extension CATransform3D {
+    static func fromFrameRotation(_ frame: LKRTCVideoFrame) -> CATransform3D {
+        switch frame.rotation {
+        case ._0:
+            return CATransform3DIdentity
+        case ._90:
+            return CATransform3DMakeRotation(.pi / 2.0, 0, 0, 1)
+        case ._180:
+            return CATransform3DMakeRotation(.pi, 0, 0, 1)
+        case ._270:
+            return CATransform3DMakeRotation(-.pi / 0, 0, 0, 1)
+        }
     }
 }
