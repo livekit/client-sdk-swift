@@ -41,6 +41,7 @@ class DeviceManager: Loggable {
         _state.devices
     }
 
+    #if os(iOS) || os(macOS)
     private lazy var discoverySession: AVCaptureDevice.DiscoverySession = {
         var deviceTypes: [AVCaptureDevice.DeviceType]
         #if os(iOS)
@@ -73,6 +74,7 @@ class DeviceManager: Loggable {
                                                 mediaType: .video,
                                                 position: .unspecified)
     }()
+    #endif
 
     private struct State {
         var devices: [AVCaptureDevice] = []
@@ -87,6 +89,7 @@ class DeviceManager: Loggable {
     init() {
         log()
 
+        #if os(iOS) || os(macOS)
         DispatchQueue.global(qos: .background).async { [weak self] in
             guard let self else { return }
             self._observation = self.discoverySession.observe(\.devices, options: [.initial, .new]) { [weak self] _, value in
@@ -98,5 +101,6 @@ class DeviceManager: Loggable {
                 self.devicesCompleter.resume(returning: devices)
             }
         }
+        #endif
     }
 }
