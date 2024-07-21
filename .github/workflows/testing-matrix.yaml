@@ -76,12 +76,6 @@ jobs:
       - name: Swift Version
         run: xcrun swift --version
 
-      - name: Download Simulator Runtimes
-        run: |
-          xcodebuild -downloadPlatform iOS
-          xcodebuild -downloadPlatform macOS
-          xcodebuild -downloadPlatform visionOS
-
       - name: Build
         run: xcodebuild build-for-testing -scheme LiveKit -destination 'platform=${{ matrix.platform }}' -parallel-testing-enabled YES
 
