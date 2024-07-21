@@ -40,6 +40,9 @@ jobs:
           - os: macos-14
             xcode: 15.4
             platform: "macOS,variant=Mac Catalyst"
+          - os: macos-14
+            xcode: 15.4
+            platform: "visionOS" # visionOS 1.2
           # https://github.com/actions/runner-images/blob/main/images/macos/macos-14-Readme.md
           - os: macos-14
             xcode: 16.0-beta
@@ -72,6 +75,12 @@ jobs:
 
       - name: Swift Version
         run: xcrun swift --version
+
+      - name: Download Simulator Runtimes
+        run: |
+          xcodebuild -downloadPlatform iOS
+          xcodebuild -downloadPlatform macOS
+          xcodebuild -downloadPlatform visionOS
 
       - name: Build
         run: xcodebuild build-for-testing -scheme LiveKit -destination 'platform=${{ matrix.platform }}' -parallel-testing-enabled YES
