@@ -53,6 +53,9 @@ jobs:
           - os: macos-14
             xcode: 16.0-beta
             platform: "macOS,variant=Mac Catalyst"
+          - os: macos-14
+            xcode: 16.0-beta
+            platform: "visionOS"
 
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
