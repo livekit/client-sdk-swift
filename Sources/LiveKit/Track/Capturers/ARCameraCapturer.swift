@@ -26,9 +26,6 @@ internal import LiveKitWebRTC
 
 @available(visionOS 2.0, *)
 public class ARCameraCapturer: VideoCapturer {
-    /// Required authorization types for this capturerer to work.
-    static let requiredAuthorizationTypes: [ARKitSession.AuthorizationType] = [.cameraAccess]
-
     private let capturer = RTC.createVideoCapturer()
     private let arKitSession = ARKitSession()
     private let cameraFrameProvider = CameraFrameProvider()
