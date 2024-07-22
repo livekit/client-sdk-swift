@@ -33,7 +33,7 @@ public class ARCameraCapturer: VideoCapturer {
     /// The ``ARCaptureOptions`` used for this capturer.
     public let options: ARCameraCaptureOptions
 
-    private var _captureTask: Task<Void, Never>?
+    private var captureTask: Task<Void, Never>?
 
     init(delegate: LKRTCVideoCapturerDelegate, options: ARCameraCaptureOptions) {
         self.options = options
@@ -45,52 +45,40 @@ public class ARCameraCapturer: VideoCapturer {
         // Already started
         guard didStart else { return false }
 
-        let cameraAccessStatus = await arKitSession.queryAuthorization(for: [.cameraAccess])
-
-        switch cameraAccessStatus[.cameraAccess] {
-        case .denied:
-            // If camera access is denied, we can't continue.
-            throw LiveKitError(.deviceAccessDenied)
-
-        case .notDetermined:
-            // Request authorization.
-            let requestResult = await arKitSession.requestAuthorization(for: [.cameraAccess])
-            if requestResult[.cameraAccess] != .allowed {
-                throw LiveKitError(.deviceAccessDenied)
-            }
-
-        case .allowed:
-            // Camera access is already allowed, continue.
-            break
-
-        default:
-            // Handle any other potential cases, if necessary.
-            throw LiveKitError(.deviceAccessDenied)
-        }
+        try await ensureCameraAccessAuthorized()
 
         try await arKitSession.run([cameraFrameProvider])
 
-        let formats = CameraVideoFormat.supportedVideoFormats(for: .main, cameraPositions: [.left])
-        guard let firstFormat = formats.first else {
+        guard let format = CameraVideoFormat.supportedVideoFormats(for: .main, cameraPositions: [.left]).first,
+              let frameUpdates = cameraFrameProvider.cameraFrameUpdates(for: format)
+        else {
             throw LiveKitError(.invalidState)
         }
 
-        guard let frameUpdates = cameraFrameProvider.cameraFrameUpdates(for: firstFormat) else {
-            throw LiveKitError(.invalidState)
-        }
-
-        _captureTask = Task.detached { [weak self] in
+        captureTask = Task.detached { [weak self] in
             guard let self else { return }
             for await frame in frameUpdates {
                 if let sample = frame.sample(for: .left) {
-                    self.capture(pixelBuffer: sample.pixelBuffer,
-                                 capturer: self.capturer,
-                                 options: self.options)
+                    self.capture(pixelBuffer: sample.pixelBuffer, capturer: self.capturer, options: self.options)
                 }
             }
         }
 
         return true
+    }
+
+    private func ensureCameraAccessAuthorized() async throws {
+        let queryResult = await arKitSession.queryAuthorization(for: [.cameraAccess])
+        switch queryResult[.cameraAccess] {
+        case .denied: throw LiveKitError(.deviceAccessDenied)
+        case .notDetermined:
+            let requestResult = await arKitSession.requestAuthorization(for: [.cameraAccess])
+            if requestResult[.cameraAccess] != .allowed {
+                throw LiveKitError(.deviceAccessDenied)
+            }
+        case .allowed: return
+        default: throw LiveKitError(.deviceAccessDenied)
+        }
     }
 
     override public func stopCapture() async throws -> Bool {
@@ -99,8 +87,8 @@ public class ARCameraCapturer: VideoCapturer {
         guard didStop else { return false }
 
         arKitSession.stop()
-        _captureTask?.cancel()
-        _captureTask = nil
+        captureTask?.cancel()
+        captureTask = nil
 
         return true
     }
@@ -108,7 +96,7 @@ public class ARCameraCapturer: VideoCapturer {
 
 @available(visionOS 2.0, *)
 public extension LocalVideoTrack {
-    /// Creates a track that can directly capture `CVPixelBuffer` or `CMSampleBuffer` for convienience
+    /// Creates a track that can directly capture `CVPixelBuffer` or `CMSampleBuffer` for convenience
     static func createARCameraTrack(name: String = Track.cameraName,
                                     source: VideoTrack.Source = .camera,
                                     options: ARCameraCaptureOptions = ARCameraCaptureOptions(),
