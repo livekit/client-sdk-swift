@@ -500,9 +500,9 @@ public class VideoView: NativeView, Loggable {
 
             if let _secondaryRenderer {
                 _secondaryRenderer.frame = rendererFrame
-                _secondaryRenderer.set(mirrored: _shouldMirror())
+                _secondaryRenderer.set(isMirrored: _shouldMirror())
             } else {
-                _primaryRenderer.set(mirrored: _shouldMirror())
+                _primaryRenderer.set(isMirrored: _shouldMirror())
             }
         }
     }
@@ -810,8 +810,8 @@ extension NSView {
 #endif
 
 extension LKRTCMTLVideoView: Mirrorable {
-    func set(mirrored: Bool) {
-        if mirrored {
+    func set(isMirrored: Bool) {
+        if isMirrored {
             #if os(macOS)
             // This is required for macOS
             wantsLayer = true

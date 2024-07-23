@@ -102,10 +102,10 @@ extension SampleBufferVideoRenderer: LKRTCVideoRenderer {
 }
 
 extension SampleBufferVideoRenderer: Mirrorable {
-    func set(mirrored: Bool) {
+    func set(isMirrored: Bool) {
         let didUpdateIsMirrored = _state.mutate {
-            let result = $0.isMirrored != mirrored
-            $0.isMirrored = mirrored
+            let result = $0.isMirrored != isMirrored
+            $0.isMirrored = isMirrored
             return result
         }
 
@@ -128,13 +128,10 @@ private extension CATransform3D {
             transform = CATransform3DMakeRotation(.pi, 0, 0, 1)
         case ._270:
             transform = CATransform3DMakeRotation(-.pi / 2.0, 0, 0, 1)
-        @unknown default:
-            transform = CATransform3DIdentity
         }
 
         if isMirrored {
-            let mirrorTransform = CATransform3DMakeScale(-1, 1, 1)
-            transform = CATransform3DConcat(transform, mirrorTransform)
+            transform = CATransform3DConcat(transform, VideoView.mirrorTransform)
         }
 
         return transform
