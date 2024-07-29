@@ -18,5 +18,5 @@ import Foundation
 
 // Internal only
 protocol Mirrorable {
-    func set(mirrored: Bool)
+    func set(isMirrored: Bool)
 }
