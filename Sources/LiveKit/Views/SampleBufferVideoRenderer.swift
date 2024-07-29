@@ -23,6 +23,13 @@ internal import LiveKitWebRTC
 class SampleBufferVideoRenderer: NativeView, Loggable {
     public let sampleBufferDisplayLayer: AVSampleBufferDisplayLayer
 
+    private struct State {
+        var isMirrored: Bool = false
+        var videoRotation: VideoRotation = ._0
+    }
+
+    private let _state = StateSync(State())
+
     override init(frame: CGRect) {
         sampleBufferDisplayLayer = AVSampleBufferDisplayLayer()
         super.init(frame: frame)
@@ -46,14 +53,16 @@ class SampleBufferVideoRenderer: NativeView, Loggable {
     override func performLayout() {
         super.performLayout()
         sampleBufferDisplayLayer.frame = bounds
+
+        let (rotation, isMirrored) = _state.read { ($0.videoRotation, $0.isMirrored) }
+        sampleBufferDisplayLayer.transform = CATransform3D.from(rotation: rotation, isMirrored: isMirrored)
+
         sampleBufferDisplayLayer.removeAllAnimations()
     }
 }
 
 extension SampleBufferVideoRenderer: LKRTCVideoRenderer {
-    func setSize(_: CGSize) {
-        //
-    }
+    func setSize(_: CGSize) {}
 
     func renderFrame(_ frame: LKRTCVideoFrame?) {
         guard let frame else { return }
@@ -76,14 +85,55 @@ extension SampleBufferVideoRenderer: LKRTCVideoRenderer {
             return
         }
 
+        let rotation = frame.rotation.toLKType()
+        let didUpdateRotation = _state.mutate {
+            let result = $0.videoRotation != rotation
+            $0.videoRotation = rotation
+            return result
+        }
+
         Task.detached { @MainActor in
             self.sampleBufferDisplayLayer.enqueue(sampleBuffer)
+            if didUpdateRotation {
+                self.setNeedsLayout()
+            }
         }
     }
 }
 
 extension SampleBufferVideoRenderer: Mirrorable {
-    func set(mirrored: Bool) {
-        sampleBufferDisplayLayer.transform = mirrored ? VideoView.mirrorTransform : CATransform3DIdentity
+    func set(isMirrored: Bool) {
+        let didUpdateIsMirrored = _state.mutate {
+            let result = $0.isMirrored != isMirrored
+            $0.isMirrored = isMirrored
+            return result
+        }
+
+        if didUpdateIsMirrored {
+            setNeedsLayout()
+        }
+    }
+}
+
+private extension CATransform3D {
+    static func from(rotation: VideoRotation, isMirrored: Bool) -> CATransform3D {
+        var transform: CATransform3D
+
+        switch rotation {
+        case ._0:
+            transform = CATransform3DIdentity
+        case ._90:
+            transform = CATransform3DMakeRotation(.pi / 2.0, 0, 0, 1)
+        case ._180:
+            transform = CATransform3DMakeRotation(.pi, 0, 0, 1)
+        case ._270:
+            transform = CATransform3DMakeRotation(-.pi / 2.0, 0, 0, 1)
+        }
+
+        if isMirrored {
+            transform = CATransform3DConcat(transform, VideoView.mirrorTransform)
+        }
+
+        return transform
     }
 }
