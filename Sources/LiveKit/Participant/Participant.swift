@@ -47,6 +47,9 @@ public class Participant: NSObject, ObservableObject, Loggable {
     public var metadata: String? { _state.metadata }
 
     @objc
+    public var attributes: [String: String] { _state.attributes }
+
+    @objc
     public var connectionQuality: ConnectionQuality { _state.connectionQuality }
 
     @objc
@@ -91,6 +94,7 @@ public class Participant: NSObject, ObservableObject, Loggable {
         var connectionQuality: ConnectionQuality = .unknown
         var permissions = ParticipantPermissions()
         var trackPublications = [Track.Sid: TrackPublication]()
+        var attributes = [String: String]()
     }
 
     let _state: StateSync<State>
@@ -138,6 +142,18 @@ public class Participant: NSObject, ObservableObject, Loggable {
                 // notify room delegates
                 room.delegates.notify(label: { "room.didUpdateName: \(String(describing: newName))" }) {
                     $0.room?(room, participant: self, didUpdateName: newName)
+                }
+            }
+
+            // attributes updated
+            if newState.attributes != oldState.attributes {
+                // Notfy ParticipantDelegate
+                self.delegates.notify(label: { "participant.didUpdateAttributes: \(String(describing: newState.attributes))" }) {
+                    $0.participant?(self, didUpdateAttributes: newState.attributes)
+                }
+                // Notify RoomDelegate
+                room.delegates.notify(label: { "room.didUpdateAttributes: \(String(describing: newState.attributes))" }) {
+                    $0.room?(room, participant: self, didUpdateAttributes: newState.attributes)
                 }
             }
 
@@ -193,6 +209,7 @@ public class Participant: NSObject, ObservableObject, Loggable {
             $0.metadata = info.metadata
             $0.joinedAt = Date(timeIntervalSince1970: TimeInterval(info.joinedAt))
             $0.kind = info.kind.toLKType()
+            $0.attributes = info.attributes
         }
 
         self.info = info
