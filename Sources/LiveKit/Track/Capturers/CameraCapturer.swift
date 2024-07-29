@@ -90,13 +90,13 @@ public class CameraCapturer: VideoCapturer {
     private lazy var adapter: VideoCapturerDelegateAdapter = .init(cameraCapturer: self)
 
     #if os(iOS)
-    private lazy var multiCamSession = AVCaptureMultiCamSession()
+    public static let multiCamSession = AVCaptureMultiCamSession()
     #endif
 
     // RTCCameraVideoCapturer used internally for now
     private lazy var capturer: LKRTCCameraVideoCapturer = {
         #if os(iOS)
-        let result = LKRTCCameraVideoCapturer(delegate: adapter, captureSession: multiCamSession)
+        let result = LKRTCCameraVideoCapturer(delegate: adapter, captureSession: Self.multiCamSession)
         #else
         let result = LKRTCCameraVideoCapturer(delegate: adapter)
         #endif
