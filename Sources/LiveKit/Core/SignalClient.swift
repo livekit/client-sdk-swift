@@ -339,10 +339,16 @@ private extension SignalClient {
             await _onReceivedPong(r)
 
         case .pongResp:
-            log("received pongResp message")
+            log("Received pongResp message")
 
         case .subscriptionResponse:
-            log("received subscriptionResponse message")
+            log("Received subscriptionResponse message")
+
+        case .errorResponse:
+            log("Received errorResponse message")
+
+        case .trackSubscribed:
+            log("Received trackSubscribed message")
         }
     }
 }
