@@ -42,7 +42,7 @@ extension VideoView {
         public static let resetOnRelease = PinchToZoomOptions(rawValue: 1 << 2)
     }
 
-    #if os(iOS) || os(visionOS)
+    #if os(iOS)
     func _rampZoomFactorToAllowedBounds(options: PinchToZoomOptions) {
         guard let device = _currentCaptureDevice else { return }
 

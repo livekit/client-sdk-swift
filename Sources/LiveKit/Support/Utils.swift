@@ -56,10 +56,10 @@ class Utils {
 
     /// Returns current OS.
     static func os() -> OS {
-        #if os(macOS)
-        .macOS
-        #elseif os(iOS)
+        #if os(iOS) || os(visionOS)
         .iOS
+        #elseif os(macOS)
+        .macOS
         #endif
     }
 
@@ -80,7 +80,20 @@ class Utils {
     /// Returns a model identifier.
     /// format: `MacBookPro18,3`, `iPhone13,3` or `iOSSimulator,arm64`
     static func modelIdentifier() -> String? {
-        #if os(macOS)
+        #if os(iOS) || os(visionOS)
+        var systemInfo = utsname()
+        uname(&systemInfo)
+        let machineMirror = Mirror(reflecting: systemInfo.machine)
+        let identifier = machineMirror.children.reduce("") { identifier, element in
+            guard let value = element.value as? Int8, value != 0 else { return identifier }
+            return identifier + String(UnicodeScalar(UInt8(value)))
+        }
+        // for simulator, the following codes are returned
+        guard !["i386", "x86_64", "arm64"].contains(where: { $0 == identifier }) else {
+            return "iOSSimulator,\(identifier)"
+        }
+        return identifier
+        #elseif os(macOS)
         let service = IOServiceGetMatchingService(kIOMasterPortDefault,
                                                   IOServiceMatching("IOPlatformExpertDevice"))
         defer { IOObjectRelease(service) }
@@ -97,19 +110,6 @@ class Utils {
             guard let cString = pointer.baseAddress?.assumingMemoryBound(to: UInt8.self) else { return nil }
             return String(cString: cString)
         }
-        #elseif os(iOS)
-        var systemInfo = utsname()
-        uname(&systemInfo)
-        let machineMirror = Mirror(reflecting: systemInfo.machine)
-        let identifier = machineMirror.children.reduce("") { identifier, element in
-            guard let value = element.value as? Int8, value != 0 else { return identifier }
-            return identifier + String(UnicodeScalar(UInt8(value)))
-        }
-        // for simulator, the following codes are returned
-        guard !["i386", "x86_64", "arm64"].contains(where: { $0 == identifier }) else {
-            return "iOSSimulator,\(identifier)"
-        }
-        return identifier
         #endif
     }
 

@@ -241,7 +241,7 @@ public class VideoView: NativeView, Loggable {
     private var _currentFPS: Int = 0
     private var _frameCount: Int = 0
 
-    #if os(iOS) || os(visionOS)
+    #if os(iOS)
     private lazy var _pinchGestureRecognizer = UIPinchGestureRecognizer(target: self, action: #selector(_handlePinchGesture(_:)))
     // This should be thread safe so it's not required to be guarded by the lock
     var _pinchStartZoomFactor: CGFloat = 0.0
@@ -354,7 +354,7 @@ public class VideoView: NativeView, Loggable {
                 }
             }
 
-            #if os(iOS) || os(visionOS)
+            #if os(iOS)
             if newState.pinchToZoomOptions != oldState.pinchToZoomOptions {
                 Task.detached { @MainActor in
                     self._pinchGestureRecognizer.isEnabled = newState.pinchToZoomOptions.isEnabled
@@ -395,7 +395,7 @@ public class VideoView: NativeView, Loggable {
 
         _renderTimer.restart()
 
-        #if os(iOS) || os(visionOS)
+        #if os(iOS)
         // Add pinch gesture recognizer
         addGestureRecognizer(_pinchGestureRecognizer)
         _pinchGestureRecognizer.isEnabled = _state.pinchToZoomOptions.isEnabled
@@ -490,6 +490,7 @@ public class VideoView: NativeView, Loggable {
         if let _primaryRenderer {
             _primaryRenderer.frame = rendererFrame
 
+            #if os(iOS) || os(macOS)
             if let mtlVideoView = _primaryRenderer as? LKRTCMTLVideoView {
                 if let rotationOverride = state.rotationOverride {
                     mtlVideoView.rotationOverride = NSNumber(value: rotationOverride.rawValue)
@@ -497,6 +498,7 @@ public class VideoView: NativeView, Loggable {
                     mtlVideoView.rotationOverride = nil
                 }
             }
+            #endif
 
             if let _secondaryRenderer {
                 _secondaryRenderer.frame = rendererFrame
@@ -736,10 +738,13 @@ extension VideoView {
         #elseif os(macOS)
         // same method used with WebRTC
         !MTLCopyAllDevices().isEmpty
+        #else
+        false
         #endif
     }
 
     static func createNativeRendererView(for renderMode: VideoView.RenderMode) -> NativeRendererView {
+        #if os(iOS) || os(macOS)
         if case .sampleBuffer = renderMode {
             logger.log("Using AVSampleBufferDisplayLayer for VideoView's Renderer", type: VideoView.self)
             return SampleBufferVideoRenderer()
@@ -767,6 +772,9 @@ extension VideoView {
 
             return result
         }
+        #else
+        return SampleBufferVideoRenderer()
+        #endif
     }
 }
 
@@ -809,6 +817,7 @@ extension NSView {
 }
 #endif
 
+#if os(iOS) || os(macOS)
 extension LKRTCMTLVideoView: Mirrorable {
     func set(isMirrored: Bool) {
         if isMirrored {
@@ -829,6 +838,7 @@ extension LKRTCMTLVideoView: Mirrorable {
         }
     }
 }
+#endif
 
 private extension VideoView {
     func mainSyncOrAsync(operation: @escaping () -> Void) {
