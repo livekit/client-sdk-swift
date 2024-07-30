@@ -34,7 +34,7 @@ fileprivate struct _GeneratedWithProtocGenSwiftVersion: SwiftProtobuf.ProtobufAP
   typealias Version = _2
 }
 
-enum Livekit_SignalTarget: SwiftProtobuf.Enum {
+enum Livekit_SignalTarget: SwiftProtobuf.Enum, Swift.CaseIterable {
   typealias RawValue = Int
   case publisher // = 0
   case subscriber // = 1
@@ -60,21 +60,15 @@ enum Livekit_SignalTarget: SwiftProtobuf.Enum {
     }
   }
 
-}
-
-#if swift(>=4.2)
-
-extension Livekit_SignalTarget: CaseIterable {
   // The compiler won't synthesize support with the UNRECOGNIZED case.
   static let allCases: [Livekit_SignalTarget] = [
     .publisher,
     .subscriber,
   ]
+
 }
 
-#endif  // swift(>=4.2)
-
-enum Livekit_StreamState: SwiftProtobuf.Enum {
+enum Livekit_StreamState: SwiftProtobuf.Enum, Swift.CaseIterable {
   typealias RawValue = Int
   case active // = 0
   case paused // = 1
@@ -100,21 +94,15 @@ enum Livekit_StreamState: SwiftProtobuf.Enum {
     }
   }
 
-}
-
-#if swift(>=4.2)
-
-extension Livekit_StreamState: CaseIterable {
   // The compiler won't synthesize support with the UNRECOGNIZED case.
   static let allCases: [Livekit_StreamState] = [
     .active,
     .paused,
   ]
+
 }
 
-#endif  // swift(>=4.2)
-
-enum Livekit_CandidateProtocol: SwiftProtobuf.Enum {
+enum Livekit_CandidateProtocol: SwiftProtobuf.Enum, Swift.CaseIterable {
   typealias RawValue = Int
   case udp // = 0
   case tcp // = 1
@@ -143,22 +131,16 @@ enum Livekit_CandidateProtocol: SwiftProtobuf.Enum {
     }
   }
 
-}
-
-#if swift(>=4.2)
-
-extension Livekit_CandidateProtocol: CaseIterable {
   // The compiler won't synthesize support with the UNRECOGNIZED case.
   static let allCases: [Livekit_CandidateProtocol] = [
     .udp,
     .tcp,
     .tls,
   ]
+
 }
 
-#endif  // swift(>=4.2)
-
-struct Livekit_SignalRequest {
+struct Livekit_SignalRequest: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -236,6 +218,8 @@ struct Livekit_SignalRequest {
   }
 
   /// Update published video layers
+  ///
+  /// NOTE: This field was marked as deprecated in the .proto file.
   var updateLayers: Livekit_UpdateVideoLayers {
     get {
       if case .updateLayers(let v)? = message {return v}
@@ -280,7 +264,8 @@ struct Livekit_SignalRequest {
     set {message = .ping(newValue)}
   }
 
-  /// update a participant's own metadata and/or name
+  /// update a participant's own metadata, name, or attributes
+  /// requires canUpdateOwnParticipantMetadata permission
   var updateMetadata: Livekit_UpdateParticipantMetadata {
     get {
       if case .updateMetadata(let v)? = message {return v}
@@ -317,7 +302,7 @@ struct Livekit_SignalRequest {
 
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
-  enum OneOf_Message: Equatable {
+  enum OneOf_Message: Equatable, Sendable {
     /// initial join exchange, for publisher
     case offer(Livekit_SessionDescription)
     /// participant answering publisher offer
@@ -333,6 +318,8 @@ struct Livekit_SignalRequest {
     /// Immediately terminate session
     case leave(Livekit_LeaveRequest)
     /// Update published video layers
+    ///
+    /// NOTE: This field was marked as deprecated in the .proto file.
     case updateLayers(Livekit_UpdateVideoLayers)
     /// Update subscriber permissions
     case subscriptionPermission(Livekit_SubscriptionPermission)
@@ -342,7 +329,8 @@ struct Livekit_SignalRequest {
     case simulate(Livekit_SimulateScenario)
     /// client triggered ping to server
     case ping(Int64)
-    /// update a participant's own metadata and/or name
+    /// update a participant's own metadata, name, or attributes
+    /// requires canUpdateOwnParticipantMetadata permission
     case updateMetadata(Livekit_UpdateParticipantMetadata)
     case pingReq(Livekit_Ping)
     /// Update local audio track settings
@@ -350,90 +338,12 @@ struct Livekit_SignalRequest {
     /// Update local video track settings
     case updateVideoTrack(Livekit_UpdateLocalVideoTrack)
 
-  #if !swift(>=4.1)
-    static func ==(lhs: Livekit_SignalRequest.OneOf_Message, rhs: Livekit_SignalRequest.OneOf_Message) -> Bool {
-      // The use of inline closures is to circumvent an issue where the compiler
-      // allocates stack space for every case branch when no optimizations are
-      // enabled. https://github.com/apple/swift-protobuf/issues/1034
-      switch (lhs, rhs) {
-      case (.offer, .offer): return {
-        guard case .offer(let l) = lhs, case .offer(let r) = rhs else { preconditionFailure() }
-        return l == r
-      }()
-      case (.answer, .answer): return {
-        guard case .answer(let l) = lhs, case .answer(let r) = rhs else { preconditionFailure() }
-        return l == r
-      }()
-      case (.trickle, .trickle): return {
-        guard case .trickle(let l) = lhs, case .trickle(let r) = rhs else { preconditionFailure() }
-        return l == r
-      }()
-      case (.addTrack, .addTrack): return {
-        guard case .addTrack(let l) = lhs, case .addTrack(let r) = rhs else { preconditionFailure() }
-        return l == r
-      }()
-      case (.mute, .mute): return {
-        guard case .mute(let l) = lhs, case .mute(let r) = rhs else { preconditionFailure() }
-        return l == r
-      }()
-      case (.subscription, .subscription): return {
-        guard case .subscription(let l) = lhs, case .subscription(let r) = rhs else { preconditionFailure() }
-        return l == r
-      }()
-      case (.trackSetting, .trackSetting): return {
-        guard case .trackSetting(let l) = lhs, case .trackSetting(let r) = rhs else { preconditionFailure() }
-        return l == r
-      }()
-      case (.leave, .leave): return {
-        guard case .leave(let l) = lhs, case .leave(let r) = rhs else { preconditionFailure() }
-        return l == r
-      }()
-      case (.updateLayers, .updateLayers): return {
-        guard case .updateLayers(let l) = lhs, case .updateLayers(let r) = rhs else { preconditionFailure() }
-        return l == r
-      }()
-      case (.subscriptionPermission, .subscriptionPermission): return {
-        guard case .subscriptionPermission(let l) = lhs, case .subscriptionPermission(let r) = rhs else { preconditionFailure() }
-        return l == r
-      }()
-      case (.syncState, .syncState): return {
-        guard case .syncState(let l) = lhs, case .syncState(let r) = rhs else { preconditionFailure() }
-        return l == r
-      }()
-      case (.simulate, .simulate): return {
-        guard case .simulate(let l) = lhs, case .simulate(let r) = rhs else { preconditionFailure() }
-        return l == r
-      }()
-      case (.ping, .ping): return {
-        guard case .ping(let l) = lhs, case .ping(let r) = rhs else { preconditionFailure() }
-        return l == r
-      }()
-      case (.updateMetadata, .updateMetadata): return {
-        guard case .updateMetadata(let l) = lhs, case .updateMetadata(let r) = rhs else { preconditionFailure() }
-        return l == r
-      }()
-      case (.pingReq, .pingReq): return {
-        guard case .pingReq(let l) = lhs, case .pingReq(let r) = rhs else { preconditionFailure() }
-        return l == r
-      }()
-      case (.updateAudioTrack, .updateAudioTrack): return {
-        guard case .updateAudioTrack(let l) = lhs, case .updateAudioTrack(let r) = rhs else { preconditionFailure() }
-        return l == r
-      }()
-      case (.updateVideoTrack, .updateVideoTrack): return {
-        guard case .updateVideoTrack(let l) = lhs, case .updateVideoTrack(let r) = rhs else { preconditionFailure() }
-        return l == r
-      }()
-      default: return false
-      }
-    }
-  #endif
   }
 
   init() {}
 }
 
-struct Livekit_SignalResponse {
+struct Livekit_SignalResponse: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -621,9 +531,27 @@ struct Livekit_SignalResponse {
     set {message = .subscriptionResponse(newValue)}
   }
 
+  /// Errors relating to user inititated requests that carry a `request_id`
+  var errorResponse: Livekit_ErrorResponse {
+    get {
+      if case .errorResponse(let v)? = message {return v}
+      return Livekit_ErrorResponse()
+    }
+    set {message = .errorResponse(newValue)}
+  }
+
+  /// notify to the publisher when a published track has been subscribed for the first time
+  var trackSubscribed: Livekit_TrackSubscribed {
+    get {
+      if case .trackSubscribed(let v)? = message {return v}
+      return Livekit_TrackSubscribed()
+    }
+    set {message = .trackSubscribed(newValue)}
+  }
+
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
-  enum OneOf_Message: Equatable {
+  enum OneOf_Message: Equatable, Sendable {
     /// sent when join is accepted
     case join(Livekit_JoinResponse)
     /// sent when server answers publisher
@@ -665,103 +593,17 @@ struct Livekit_SignalResponse {
     case pongResp(Livekit_Pong)
     /// Subscription response, client should not expect any media from this subscription if it fails
     case subscriptionResponse(Livekit_SubscriptionResponse)
+    /// Errors relating to user inititated requests that carry a `request_id`
+    case errorResponse(Livekit_ErrorResponse)
+    /// notify to the publisher when a published track has been subscribed for the first time
+    case trackSubscribed(Livekit_TrackSubscribed)
 
-  #if !swift(>=4.1)
-    static func ==(lhs: Livekit_SignalResponse.OneOf_Message, rhs: Livekit_SignalResponse.OneOf_Message) -> Bool {
-      // The use of inline closures is to circumvent an issue where the compiler
-      // allocates stack space for every case branch when no optimizations are
-      // enabled. https://github.com/apple/swift-protobuf/issues/1034
-      switch (lhs, rhs) {
-      case (.join, .join): return {
-        guard case .join(let l) = lhs, case .join(let r) = rhs else { preconditionFailure() }
-        return l == r
-      }()
-      case (.answer, .answer): return {
-        guard case .answer(let l) = lhs, case .answer(let r) = rhs else { preconditionFailure() }
-        return l == r
-      }()
-      case (.offer, .offer): return {
-        guard case .offer(let l) = lhs, case .offer(let r) = rhs else { preconditionFailure() }
-        return l == r
-      }()
-      case (.trickle, .trickle): return {
-        guard case .trickle(let l) = lhs, case .trickle(let r) = rhs else { preconditionFailure() }
-        return l == r
-      }()
-      case (.update, .update): return {
-        guard case .update(let l) = lhs, case .update(let r) = rhs else { preconditionFailure() }
-        return l == r
-      }()
-      case (.trackPublished, .trackPublished): return {
-        guard case .trackPublished(let l) = lhs, case .trackPublished(let r) = rhs else { preconditionFailure() }
-        return l == r
-      }()
-      case (.leave, .leave): return {
-        guard case .leave(let l) = lhs, case .leave(let r) = rhs else { preconditionFailure() }
-        return l == r
-      }()
-      case (.mute, .mute): return {
-        guard case .mute(let l) = lhs, case .mute(let r) = rhs else { preconditionFailure() }
-        return l == r
-      }()
-      case (.speakersChanged, .speakersChanged): return {
-        guard case .speakersChanged(let l) = lhs, case .speakersChanged(let r) = rhs else { preconditionFailure() }
-        return l == r
-      }()
-      case (.roomUpdate, .roomUpdate): return {
-        guard case .roomUpdate(let l) = lhs, case .roomUpdate(let r) = rhs else { preconditionFailure() }
-        return l == r
-      }()
-      case (.connectionQuality, .connectionQuality): return {
-        guard case .connectionQuality(let l) = lhs, case .connectionQuality(let r) = rhs else { preconditionFailure() }
-        return l == r
-      }()
-      case (.streamStateUpdate, .streamStateUpdate): return {
-        guard case .streamStateUpdate(let l) = lhs, case .streamStateUpdate(let r) = rhs else { preconditionFailure() }
-        return l == r
-      }()
-      case (.subscribedQualityUpdate, .subscribedQualityUpdate): return {
-        guard case .subscribedQualityUpdate(let l) = lhs, case .subscribedQualityUpdate(let r) = rhs else { preconditionFailure() }
-        return l == r
-      }()
-      case (.subscriptionPermissionUpdate, .subscriptionPermissionUpdate): return {
-        guard case .subscriptionPermissionUpdate(let l) = lhs, case .subscriptionPermissionUpdate(let r) = rhs else { preconditionFailure() }
-        return l == r
-      }()
-      case (.refreshToken, .refreshToken): return {
-        guard case .refreshToken(let l) = lhs, case .refreshToken(let r) = rhs else { preconditionFailure() }
-        return l == r
-      }()
-      case (.trackUnpublished, .trackUnpublished): return {
-        guard case .trackUnpublished(let l) = lhs, case .trackUnpublished(let r) = rhs else { preconditionFailure() }
-        return l == r
-      }()
-      case (.pong, .pong): return {
-        guard case .pong(let l) = lhs, case .pong(let r) = rhs else { preconditionFailure() }
-        return l == r
-      }()
-      case (.reconnect, .reconnect): return {
-        guard case .reconnect(let l) = lhs, case .reconnect(let r) = rhs else { preconditionFailure() }
-        return l == r
-      }()
-      case (.pongResp, .pongResp): return {
-        guard case .pongResp(let l) = lhs, case .pongResp(let r) = rhs else { preconditionFailure() }
-        return l == r
-      }()
-      case (.subscriptionResponse, .subscriptionResponse): return {
-        guard case .subscriptionResponse(let l) = lhs, case .subscriptionResponse(let r) = rhs else { preconditionFailure() }
-        return l == r
-      }()
-      default: return false
-      }
-    }
-  #endif
   }
 
   init() {}
 }
 
-struct Livekit_SimulcastCodec {
+struct Livekit_SimulcastCodec: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -775,7 +617,7 @@ struct Livekit_SimulcastCodec {
   init() {}
 }
 
-struct Livekit_AddTrackRequest {
+struct Livekit_AddTrackRequest: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -823,7 +665,7 @@ struct Livekit_AddTrackRequest {
   init() {}
 }
 
-struct Livekit_TrickleRequest {
+struct Livekit_TrickleRequest: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -832,12 +674,14 @@ struct Livekit_TrickleRequest {
 
   var target: Livekit_SignalTarget = .publisher
 
+  var final: Bool = false
+
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   init() {}
 }
 
-struct Livekit_MuteTrackRequest {
+struct Livekit_MuteTrackRequest: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -851,7 +695,7 @@ struct Livekit_MuteTrackRequest {
   init() {}
 }
 
-struct Livekit_JoinResponse {
+struct Livekit_JoinResponse: @unchecked Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -950,7 +794,7 @@ struct Livekit_JoinResponse {
   fileprivate var _storage = _StorageClass.defaultInstance
 }
 
-struct Livekit_ReconnectResponse {
+struct Livekit_ReconnectResponse: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -973,7 +817,7 @@ struct Livekit_ReconnectResponse {
   fileprivate var _clientConfiguration: Livekit_ClientConfiguration? = nil
 }
 
-struct Livekit_TrackPublishedResponse {
+struct Livekit_TrackPublishedResponse: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -996,7 +840,7 @@ struct Livekit_TrackPublishedResponse {
   fileprivate var _track: Livekit_TrackInfo? = nil
 }
 
-struct Livekit_TrackUnpublishedResponse {
+struct Livekit_TrackUnpublishedResponse: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -1008,7 +852,7 @@ struct Livekit_TrackUnpublishedResponse {
   init() {}
 }
 
-struct Livekit_SessionDescription {
+struct Livekit_SessionDescription: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -1023,7 +867,7 @@ struct Livekit_SessionDescription {
   init() {}
 }
 
-struct Livekit_ParticipantUpdate {
+struct Livekit_ParticipantUpdate: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -1035,7 +879,7 @@ struct Livekit_ParticipantUpdate {
   init() {}
 }
 
-struct Livekit_UpdateSubscription {
+struct Livekit_UpdateSubscription: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -1051,7 +895,7 @@ struct Livekit_UpdateSubscription {
   init() {}
 }
 
-struct Livekit_UpdateTrackSettings {
+struct Livekit_UpdateTrackSettings: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -1086,7 +930,7 @@ struct Livekit_UpdateTrackSettings {
   init() {}
 }
 
-struct Livekit_UpdateLocalAudioTrack {
+struct Livekit_UpdateLocalAudioTrack: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -1100,7 +944,7 @@ struct Livekit_UpdateLocalAudioTrack {
   init() {}
 }
 
-struct Livekit_UpdateLocalVideoTrack {
+struct Livekit_UpdateLocalVideoTrack: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -1116,7 +960,7 @@ struct Livekit_UpdateLocalVideoTrack {
   init() {}
 }
 
-struct Livekit_LeaveRequest {
+struct Livekit_LeaveRequest: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -1142,7 +986,7 @@ struct Livekit_LeaveRequest {
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   /// indicates action clients should take on receiving this message
-  enum Action: SwiftProtobuf.Enum {
+  enum Action: SwiftProtobuf.Enum, Swift.CaseIterable {
     typealias RawValue = Int
 
     /// should disconnect
@@ -1177,6 +1021,13 @@ struct Livekit_LeaveRequest {
       }
     }
 
+    // The compiler won't synthesize support with the UNRECOGNIZED case.
+    static let allCases: [Livekit_LeaveRequest.Action] = [
+      .disconnect,
+      .resume,
+      .reconnect,
+    ]
+
   }
 
   init() {}
@@ -1184,21 +1035,10 @@ struct Livekit_LeaveRequest {
   fileprivate var _regions: Livekit_RegionSettings? = nil
 }
 
-#if swift(>=4.2)
-
-extension Livekit_LeaveRequest.Action: CaseIterable {
-  // The compiler won't synthesize support with the UNRECOGNIZED case.
-  static let allCases: [Livekit_LeaveRequest.Action] = [
-    .disconnect,
-    .resume,
-    .reconnect,
-  ]
-}
-
-#endif  // swift(>=4.2)
-
 /// message to indicate published video track dimensions are changing
-struct Livekit_UpdateVideoLayers {
+///
+/// NOTE: This message was marked as deprecated in the .proto file.
+struct Livekit_UpdateVideoLayers: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -1212,7 +1052,7 @@ struct Livekit_UpdateVideoLayers {
   init() {}
 }
 
-struct Livekit_UpdateParticipantMetadata {
+struct Livekit_UpdateParticipantMetadata: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -1221,12 +1061,18 @@ struct Livekit_UpdateParticipantMetadata {
 
   var name: String = String()
 
+  /// attributes to update. it only updates attributes that have been set
+  /// to delete attributes, set the value to an empty string
+  var attributes: Dictionary<String,String> = [:]
+
+  var requestID: UInt32 = 0
+
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   init() {}
 }
 
-struct Livekit_ICEServer {
+struct Livekit_ICEServer: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -1242,7 +1088,7 @@ struct Livekit_ICEServer {
   init() {}
 }
 
-struct Livekit_SpeakersChanged {
+struct Livekit_SpeakersChanged: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -1254,7 +1100,7 @@ struct Livekit_SpeakersChanged {
   init() {}
 }
 
-struct Livekit_RoomUpdate {
+struct Livekit_RoomUpdate: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -1275,7 +1121,7 @@ struct Livekit_RoomUpdate {
   fileprivate var _room: Livekit_Room? = nil
 }
 
-struct Livekit_ConnectionQualityInfo {
+struct Livekit_ConnectionQualityInfo: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -1291,7 +1137,7 @@ struct Livekit_ConnectionQualityInfo {
   init() {}
 }
 
-struct Livekit_ConnectionQualityUpdate {
+struct Livekit_ConnectionQualityUpdate: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -1303,7 +1149,7 @@ struct Livekit_ConnectionQualityUpdate {
   init() {}
 }
 
-struct Livekit_StreamStateInfo {
+struct Livekit_StreamStateInfo: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -1319,7 +1165,7 @@ struct Livekit_StreamStateInfo {
   init() {}
 }
 
-struct Livekit_StreamStateUpdate {
+struct Livekit_StreamStateUpdate: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -1331,7 +1177,7 @@ struct Livekit_StreamStateUpdate {
   init() {}
 }
 
-struct Livekit_SubscribedQuality {
+struct Livekit_SubscribedQuality: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -1345,7 +1191,7 @@ struct Livekit_SubscribedQuality {
   init() {}
 }
 
-struct Livekit_SubscribedCodec {
+struct Livekit_SubscribedCodec: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -1359,7 +1205,7 @@ struct Livekit_SubscribedCodec {
   init() {}
 }
 
-struct Livekit_SubscribedQualityUpdate {
+struct Livekit_SubscribedQualityUpdate: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -1375,7 +1221,7 @@ struct Livekit_SubscribedQualityUpdate {
   init() {}
 }
 
-struct Livekit_TrackPermission {
+struct Livekit_TrackPermission: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -1394,7 +1240,7 @@ struct Livekit_TrackPermission {
   init() {}
 }
 
-struct Livekit_SubscriptionPermission {
+struct Livekit_SubscriptionPermission: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -1408,7 +1254,7 @@ struct Livekit_SubscriptionPermission {
   init() {}
 }
 
-struct Livekit_SubscriptionPermissionUpdate {
+struct Livekit_SubscriptionPermissionUpdate: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -1424,7 +1270,7 @@ struct Livekit_SubscriptionPermissionUpdate {
   init() {}
 }
 
-struct Livekit_SyncState {
+struct Livekit_SyncState: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -1473,7 +1319,7 @@ struct Livekit_SyncState {
   fileprivate var _offer: Livekit_SessionDescription? = nil
 }
 
-struct Livekit_DataChannelInfo {
+struct Livekit_DataChannelInfo: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -1489,7 +1335,7 @@ struct Livekit_DataChannelInfo {
   init() {}
 }
 
-struct Livekit_SimulateScenario {
+struct Livekit_SimulateScenario: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -1580,7 +1426,7 @@ struct Livekit_SimulateScenario {
 
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
-  enum OneOf_Scenario: Equatable {
+  enum OneOf_Scenario: Equatable, Sendable {
     /// simulate N seconds of speaker activity
     case speakerUpdate(Int32)
     /// simulate local node failure
@@ -1601,58 +1447,12 @@ struct Livekit_SimulateScenario {
     /// full reconnect leave request
     case leaveRequestFullReconnect(Bool)
 
-  #if !swift(>=4.1)
-    static func ==(lhs: Livekit_SimulateScenario.OneOf_Scenario, rhs: Livekit_SimulateScenario.OneOf_Scenario) -> Bool {
-      // The use of inline closures is to circumvent an issue where the compiler
-      // allocates stack space for every case branch when no optimizations are
-      // enabled. https://github.com/apple/swift-protobuf/issues/1034
-      switch (lhs, rhs) {
-      case (.speakerUpdate, .speakerUpdate): return {
-        guard case .speakerUpdate(let l) = lhs, case .speakerUpdate(let r) = rhs else { preconditionFailure() }
-        return l == r
-      }()
-      case (.nodeFailure, .nodeFailure): return {
-        guard case .nodeFailure(let l) = lhs, case .nodeFailure(let r) = rhs else { preconditionFailure() }
-        return l == r
-      }()
-      case (.migration, .migration): return {
-        guard case .migration(let l) = lhs, case .migration(let r) = rhs else { preconditionFailure() }
-        return l == r
-      }()
-      case (.serverLeave, .serverLeave): return {
-        guard case .serverLeave(let l) = lhs, case .serverLeave(let r) = rhs else { preconditionFailure() }
-        return l == r
-      }()
-      case (.switchCandidateProtocol, .switchCandidateProtocol): return {
-        guard case .switchCandidateProtocol(let l) = lhs, case .switchCandidateProtocol(let r) = rhs else { preconditionFailure() }
-        return l == r
-      }()
-      case (.subscriberBandwidth, .subscriberBandwidth): return {
-        guard case .subscriberBandwidth(let l) = lhs, case .subscriberBandwidth(let r) = rhs else { preconditionFailure() }
-        return l == r
-      }()
-      case (.disconnectSignalOnResume, .disconnectSignalOnResume): return {
-        guard case .disconnectSignalOnResume(let l) = lhs, case .disconnectSignalOnResume(let r) = rhs else { preconditionFailure() }
-        return l == r
-      }()
-      case (.disconnectSignalOnResumeNoMessages, .disconnectSignalOnResumeNoMessages): return {
-        guard case .disconnectSignalOnResumeNoMessages(let l) = lhs, case .disconnectSignalOnResumeNoMessages(let r) = rhs else { preconditionFailure() }
-        return l == r
-      }()
-      case (.leaveRequestFullReconnect, .leaveRequestFullReconnect): return {
-        guard case .leaveRequestFullReconnect(let l) = lhs, case .leaveRequestFullReconnect(let r) = rhs else { preconditionFailure() }
-        return l == r
-      }()
-      default: return false
-      }
-    }
-  #endif
   }
 
   init() {}
 }
 
-struct Livekit_Ping {
+struct Livekit_Ping: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -1667,7 +1467,7 @@ struct Livekit_Ping {
   init() {}
 }
 
-struct Livekit_Pong {
+struct Livekit_Pong: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -1682,7 +1482,7 @@ struct Livekit_Pong {
   init() {}
 }
 
-struct Livekit_RegionSettings {
+struct Livekit_RegionSettings: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -1694,7 +1494,7 @@ struct Livekit_RegionSettings {
   init() {}
 }
 
-struct Livekit_RegionInfo {
+struct Livekit_RegionInfo: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -1710,7 +1510,7 @@ struct Livekit_RegionInfo {
   init() {}
 }
 
-struct Livekit_SubscriptionResponse {
+struct Livekit_SubscriptionResponse: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -1724,55 +1524,75 @@ struct Livekit_SubscriptionResponse {
   init() {}
 }
 
-#if swift(>=5.5) && canImport(_Concurrency)
-extension Livekit_SignalTarget: @unchecked Sendable {}
-extension Livekit_StreamState: @unchecked Sendable {}
-extension Livekit_CandidateProtocol: @unchecked Sendable {}
-extension Livekit_SignalRequest: @unchecked Sendable {}
-extension Livekit_SignalRequest.OneOf_Message: @unchecked Sendable {}
-extension Livekit_SignalResponse: @unchecked Sendable {}
-extension Livekit_SignalResponse.OneOf_Message: @unchecked Sendable {}
-extension Livekit_SimulcastCodec: @unchecked Sendable {}
-extension Livekit_AddTrackRequest: @unchecked Sendable {}
-extension Livekit_TrickleRequest: @unchecked Sendable {}
-extension Livekit_MuteTrackRequest: @unchecked Sendable {}
-extension Livekit_JoinResponse: @unchecked Sendable {}
-extension Livekit_ReconnectResponse: @unchecked Sendable {}
-extension Livekit_TrackPublishedResponse: @unchecked Sendable {}
-extension Livekit_TrackUnpublishedResponse: @unchecked Sendable {}
-extension Livekit_SessionDescription: @unchecked Sendable {}
-extension Livekit_ParticipantUpdate: @unchecked Sendable {}
-extension Livekit_UpdateSubscription: @unchecked Sendable {}
-extension Livekit_UpdateTrackSettings: @unchecked Sendable {}
-extension Livekit_UpdateLocalAudioTrack: @unchecked Sendable {}
-extension Livekit_UpdateLocalVideoTrack: @unchecked Sendable {}
-extension Livekit_LeaveRequest: @unchecked Sendable {}
-extension Livekit_LeaveRequest.Action: @unchecked Sendable {}
-extension Livekit_UpdateVideoLayers: @unchecked Sendable {}
-extension Livekit_UpdateParticipantMetadata: @unchecked Sendable {}
-extension Livekit_ICEServer: @unchecked Sendable {}
-extension Livekit_SpeakersChanged: @unchecked Sendable {}
-extension Livekit_RoomUpdate: @unchecked Sendable {}
-extension Livekit_ConnectionQualityInfo: @unchecked Sendable {}
-extension Livekit_ConnectionQualityUpdate: @unchecked Sendable {}
-extension Livekit_StreamStateInfo: @unchecked Sendable {}
-extension Livekit_StreamStateUpdate: @unchecked Sendable {}
-extension Livekit_SubscribedQuality: @unchecked Sendable {}
-extension Livekit_SubscribedCodec: @unchecked Sendable {}
-extension Livekit_SubscribedQualityUpdate: @unchecked Sendable {}
-extension Livekit_TrackPermission: @unchecked Sendable {}
-extension Livekit_SubscriptionPermission: @unchecked Sendable {}
-extension Livekit_SubscriptionPermissionUpdate: @unchecked Sendable {}
-extension Livekit_SyncState: @unchecked Sendable {}
-extension Livekit_DataChannelInfo: @unchecked Sendable {}
-extension Livekit_SimulateScenario: @unchecked Sendable {}
-extension Livekit_SimulateScenario.OneOf_Scenario: @unchecked Sendable {}
-extension Livekit_Ping: @unchecked Sendable {}
-extension Livekit_Pong: @unchecked Sendable {}
-extension Livekit_RegionSettings: @unchecked Sendable {}
-extension Livekit_RegionInfo: @unchecked Sendable {}
-extension Livekit_SubscriptionResponse: @unchecked Sendable {}
-#endif  // swift(>=5.5) && canImport(_Concurrency)
+struct Livekit_ErrorResponse: Sendable {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  var requestID: UInt32 = 0
+
+  var reason: Livekit_ErrorResponse.Reason = .unknown
+
+  var message: String = String()
+
+  var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  enum Reason: SwiftProtobuf.Enum, Swift.CaseIterable {
+    typealias RawValue = Int
+    case unknown // = 0
+    case notFound // = 1
+    case notAllowed // = 2
+    case limitExceeded // = 3
+    case UNRECOGNIZED(Int)
+
+    init() {
+      self = .unknown
+    }
+
+    init?(rawValue: Int) {
+      switch rawValue {
+      case 0: self = .unknown
+      case 1: self = .notFound
+      case 2: self = .notAllowed
+      case 3: self = .limitExceeded
+      default: self = .UNRECOGNIZED(rawValue)
+      }
+    }
+
+    var rawValue: Int {
+      switch self {
+      case .unknown: return 0
+      case .notFound: return 1
+      case .notAllowed: return 2
+      case .limitExceeded: return 3
+      case .UNRECOGNIZED(let i): return i
+      }
+    }
+
+    // The compiler won't synthesize support with the UNRECOGNIZED case.
+    static let allCases: [Livekit_ErrorResponse.Reason] = [
+      .unknown,
+      .notFound,
+      .notAllowed,
+      .limitExceeded,
+    ]
+
+  }
+
+  init() {}
+}
+
+struct Livekit_TrackSubscribed: Sendable {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  var trackSid: String = String()
+
+  var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  init() {}
+}
 
 // MARK: - Code below here is support for the SwiftProtobuf runtime.
 
@@ -2158,6 +1978,8 @@ extension Livekit_SignalResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageI
     19: .same(proto: "reconnect"),
     20: .standard(proto: "pong_resp"),
     21: .standard(proto: "subscription_response"),
+    22: .standard(proto: "error_response"),
+    23: .standard(proto: "track_subscribed"),
   ]
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -2416,6 +2238,32 @@ extension Livekit_SignalResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageI
           self.message = .subscriptionResponse(v)
         }
       }()
+      case 22: try {
+        var v: Livekit_ErrorResponse?
+        var hadOneofValue = false
+        if let current = self.message {
+          hadOneofValue = true
+          if case .errorResponse(let m) = current {v = m}
+        }
+        try decoder.decodeSingularMessageField(value: &v)
+        if let v = v {
+          if hadOneofValue {try decoder.handleConflictingOneOf()}
+          self.message = .errorResponse(v)
+        }
+      }()
+      case 23: try {
+        var v: Livekit_TrackSubscribed?
+        var hadOneofValue = false
+        if let current = self.message {
+          hadOneofValue = true
+          if case .trackSubscribed(let m) = current {v = m}
+        }
+        try decoder.decodeSingularMessageField(value: &v)
+        if let v = v {
+          if hadOneofValue {try decoder.handleConflictingOneOf()}
+          self.message = .trackSubscribed(v)
+        }
+      }()
       default: break
       }
     }
@@ -2506,6 +2354,14 @@ extension Livekit_SignalResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageI
     case .subscriptionResponse?: try {
       guard case .subscriptionResponse(let v)? = self.message else { preconditionFailure() }
       try visitor.visitSingularMessageField(value: v, fieldNumber: 21)
+    }()
+    case .errorResponse?: try {
+      guard case .errorResponse(let v)? = self.message else { preconditionFailure() }
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 22)
+    }()
+    case .trackSubscribed?: try {
+      guard case .trackSubscribed(let v)? = self.message else { preconditionFailure() }
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 23)
     }()
     case nil: break
     }
@@ -2678,6 +2534,7 @@ extension Livekit_TrickleRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageI
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     1: .same(proto: "candidateInit"),
     2: .same(proto: "target"),
+    3: .same(proto: "final"),
   ]
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -2688,6 +2545,7 @@ extension Livekit_TrickleRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageI
       switch fieldNumber {
       case 1: try { try decoder.decodeSingularStringField(value: &self.candidateInit) }()
       case 2: try { try decoder.decodeSingularEnumField(value: &self.target) }()
+      case 3: try { try decoder.decodeSingularBoolField(value: &self.final) }()
       default: break
       }
     }
@@ -2700,12 +2558,16 @@ extension Livekit_TrickleRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageI
     if self.target != .publisher {
       try visitor.visitSingularEnumField(value: self.target, fieldNumber: 2)
     }
+    if self.final != false {
+      try visitor.visitSingularBoolField(value: self.final, fieldNumber: 3)
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
   static func ==(lhs: Livekit_TrickleRequest, rhs: Livekit_TrickleRequest) -> Bool {
     if lhs.candidateInit != rhs.candidateInit {return false}
     if lhs.target != rhs.target {return false}
+    if lhs.final != rhs.final {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
@@ -3406,6 +3268,8 @@ extension Livekit_UpdateParticipantMetadata: SwiftProtobuf.Message, SwiftProtobu
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     1: .same(proto: "metadata"),
     2: .same(proto: "name"),
+    3: .same(proto: "attributes"),
+    4: .standard(proto: "request_id"),
   ]
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -3416,6 +3280,8 @@ extension Livekit_UpdateParticipantMetadata: SwiftProtobuf.Message, SwiftProtobu
       switch fieldNumber {
       case 1: try { try decoder.decodeSingularStringField(value: &self.metadata) }()
       case 2: try { try decoder.decodeSingularStringField(value: &self.name) }()
+      case 3: try { try decoder.decodeMapField(fieldType: SwiftProtobuf._ProtobufMap<SwiftProtobuf.ProtobufString,SwiftProtobuf.ProtobufString>.self, value: &self.attributes) }()
+      case 4: try { try decoder.decodeSingularUInt32Field(value: &self.requestID) }()
       default: break
       }
     }
@@ -3428,12 +3294,20 @@ extension Livekit_UpdateParticipantMetadata: SwiftProtobuf.Message, SwiftProtobu
     if !self.name.isEmpty {
       try visitor.visitSingularStringField(value: self.name, fieldNumber: 2)
     }
+    if !self.attributes.isEmpty {
+      try visitor.visitMapField(fieldType: SwiftProtobuf._ProtobufMap<SwiftProtobuf.ProtobufString,SwiftProtobuf.ProtobufString>.self, value: self.attributes, fieldNumber: 3)
+    }
+    if self.requestID != 0 {
+      try visitor.visitSingularUInt32Field(value: self.requestID, fieldNumber: 4)
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
   static func ==(lhs: Livekit_UpdateParticipantMetadata, rhs: Livekit_UpdateParticipantMetadata) -> Bool {
     if lhs.metadata != rhs.metadata {return false}
     if lhs.name != rhs.name {return false}
+    if lhs.attributes != rhs.attributes {return false}
+    if lhs.requestID != rhs.requestID {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
@@ -3580,7 +3454,7 @@ extension Livekit_ConnectionQualityInfo: SwiftProtobuf.Message, SwiftProtobuf._M
     if self.quality != .poor {
       try visitor.visitSingularEnumField(value: self.quality, fieldNumber: 2)
     }
-    if self.score != 0 {
+    if self.score.bitPattern != 0 {
       try visitor.visitSingularFloatField(value: self.score, fieldNumber: 3)
     }
     try unknownFields.traverse(visitor: &visitor)
@@ -4401,6 +4275,91 @@ extension Livekit_SubscriptionResponse: SwiftProtobuf.Message, SwiftProtobuf._Me
   static func ==(lhs: Livekit_SubscriptionResponse, rhs: Livekit_SubscriptionResponse) -> Bool {
     if lhs.trackSid != rhs.trackSid {return false}
     if lhs.err != rhs.err {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+extension Livekit_ErrorResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  static let protoMessageName: String = _protobuf_package + ".ErrorResponse"
+  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
+    1: .standard(proto: "request_id"),
+    2: .same(proto: "reason"),
+    3: .same(proto: "message"),
+  ]
+
+  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularUInt32Field(value: &self.requestID) }()
+      case 2: try { try decoder.decodeSingularEnumField(value: &self.reason) }()
+      case 3: try { try decoder.decodeSingularStringField(value: &self.message) }()
+      default: break
+      }
+    }
+  }
+
+  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    if self.requestID != 0 {
+      try visitor.visitSingularUInt32Field(value: self.requestID, fieldNumber: 1)
+    }
+    if self.reason != .unknown {
+      try visitor.visitSingularEnumField(value: self.reason, fieldNumber: 2)
+    }
+    if !self.message.isEmpty {
+      try visitor.visitSingularStringField(value: self.message, fieldNumber: 3)
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  static func ==(lhs: Livekit_ErrorResponse, rhs: Livekit_ErrorResponse) -> Bool {
+    if lhs.requestID != rhs.requestID {return false}
+    if lhs.reason != rhs.reason {return false}
+    if lhs.message != rhs.message {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+extension Livekit_ErrorResponse.Reason: SwiftProtobuf._ProtoNameProviding {
+  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
+    0: .same(proto: "UNKNOWN"),
+    1: .same(proto: "NOT_FOUND"),
+    2: .same(proto: "NOT_ALLOWED"),
+    3: .same(proto: "LIMIT_EXCEEDED"),
+  ]
+}
+
+extension Livekit_TrackSubscribed: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  static let protoMessageName: String = _protobuf_package + ".TrackSubscribed"
+  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
+    1: .standard(proto: "track_sid"),
+  ]
+
+  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularStringField(value: &self.trackSid) }()
+      default: break
+      }
+    }
+  }
+
+  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    if !self.trackSid.isEmpty {
+      try visitor.visitSingularStringField(value: self.trackSid, fieldNumber: 1)
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  static func ==(lhs: Livekit_TrackSubscribed, rhs: Livekit_TrackSubscribed) -> Bool {
+    if lhs.trackSid != rhs.trackSid {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
