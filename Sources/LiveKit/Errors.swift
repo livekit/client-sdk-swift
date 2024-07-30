@@ -50,6 +50,10 @@ public enum LiveKitErrorType: Int {
     case captureFormatNotFound = 702
     case unableToResolveFPSRange = 703
     case capturerDimensionsNotResolved = 704
+
+    // LiveKit Cloud
+    case onlyForCloud = 901
+    case regionUrlProvider = 902
 }
 
 extension LiveKitErrorType: CustomStringConvertible {
