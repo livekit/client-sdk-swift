@@ -88,15 +88,17 @@ class RoomViewController: UIViewController {
         let url = "ws://your_host"
         let token = "your_jwt_token"
 
-        do {
-            try await room.connect(url: url, token: token)
-            // Connection successful...
+        Task {
+            do {
+                try await room.connect(url: url, token: token)
+                // Connection successful...
 
-            // Publishing camera & mic...
-            try await room.localParticipant.setCamera(enabled: true)
-            try await room.localParticipant.setMicrophone(enabled: true)
-        } catch let error in {
-            // Failed to connect
+                // Publishing camera & mic...
+                try await room.localParticipant.setCamera(enabled: true)
+                try await room.localParticipant.setMicrophone(enabled: true)
+            } catch {
+                // Failed to connect
+            }
         }
     }
 }
@@ -104,16 +106,16 @@ class RoomViewController: UIViewController {
 extension RoomViewController: RoomDelegate {
 
     func room(_: Room, participant _: LocalParticipant, didPublishTrack publication: LocalTrackPublication) {
-        guard let track = publication?.track as? VideoTrack else { return }
+        guard let track = publication.track as? VideoTrack else { return }
         DispatchQueue.main.async {
-            localVideoView.track = track
+            self.localVideoView.track = track
         }
     }
 
     func room(_: Room, participant _: RemoteParticipant, didSubscribeTrack publication: RemoteTrackPublication) {
-        guard let track = publication?.track as? VideoTrack else { return }
+        guard let track = publication.track as? VideoTrack else { return }
         DispatchQueue.main.async {
-            remoteVideoView.track = track
+            self.remoteVideoView.track = track
         }
     }
 }
