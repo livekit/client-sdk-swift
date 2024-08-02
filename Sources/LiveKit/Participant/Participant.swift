@@ -147,13 +147,17 @@ public class Participant: NSObject, ObservableObject, Loggable {
 
             // attributes updated
             if newState.attributes != oldState.attributes {
-                // Notfy ParticipantDelegate
-                self.delegates.notify(label: { "participant.didUpdateAttributes: \(String(describing: newState.attributes))" }) {
-                    $0.participant?(self, didUpdateAttributes: newState.attributes)
-                }
-                // Notify RoomDelegate
-                room.delegates.notify(label: { "room.didUpdateAttributes: \(String(describing: newState.attributes))" }) {
-                    $0.room?(room, participant: self, didUpdateAttributes: newState.attributes)
+                // Compute diff of attributes
+                let attributesDiff = computeAttributesDiff(oldValues: oldState.attributes, newValues: newState.attributes)
+                if !attributesDiff.isEmpty {
+                    // Notfy ParticipantDelegate
+                    self.delegates.notify(label: { "participant.didUpdateAttributes: \(String(describing: attributesDiff))" }) {
+                        $0.participant?(self, didUpdateAttributes: attributesDiff)
+                    }
+                    // Notify RoomDelegate
+                    room.delegates.notify(label: { "room.didUpdateAttributes: \(String(describing: attributesDiff))" }) {
+                        $0.room?(room, participant: self, didUpdateAttributes: attributesDiff)
+                    }
                 }
             }
 

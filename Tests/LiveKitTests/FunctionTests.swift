@@ -26,4 +26,31 @@ class FunctionTests: XCTestCase {
         print("merged: \(merged)")
         XCTAssert(merged == 5 ... 20)
     }
+
+    func testAttributesUpdated() {
+        let oldValues: [String: String] = ["a": "value", "b": "initial", "c": "value"]
+        let newValues: [String: String] = ["a": "value", "b": "updated", "c": "value"]
+
+        let diff = computeAttributesDiff(oldValues: oldValues, newValues: newValues)
+        XCTAssertEqual(diff.count, 1)
+        XCTAssertEqual(diff["b"], "updated")
+    }
+
+    func testAttributesNew() {
+        let newValues: [String: String] = ["a": "value", "b": "value", "c": "value"]
+        let oldValues: [String: String] = ["a": "value", "b": "value"]
+
+        let diff = computeAttributesDiff(oldValues: oldValues, newValues: newValues)
+        XCTAssertEqual(diff.count, 1)
+        XCTAssertEqual(diff["c"], "value")
+    }
+
+    func testAttributesRemoved() {
+        let newValues: [String: String] = ["a": "value", "b": "value"]
+        let oldValues: [String: String] = ["a": "value", "b": "value", "c": "value"]
+
+        let diff = computeAttributesDiff(oldValues: oldValues, newValues: newValues)
+        XCTAssertEqual(diff.count, 1)
+        XCTAssertEqual(diff["c"], "")
+    }
 }
