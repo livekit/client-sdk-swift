@@ -51,6 +51,9 @@ public protocol ParticipantDelegate: AnyObject {
     @objc optional
     func participant(_ participant: Participant, didUpdatePermissions permissions: ParticipantPermissions)
 
+    @objc optional
+    func participant(_ participant: Participant, didUpdateAttributes attributes: [String: String])
+
     // MARK: - TrackPublication
 
     /// `muted` state has updated for the ``Participant``'s ``TrackPublication``.

@@ -99,6 +99,9 @@ public protocol RoomDelegate: AnyObject {
     @objc optional
     func room(_ room: Room, participant: Participant, didUpdatePermissions permissions: ParticipantPermissions)
 
+    @objc optional
+    func room(_ room: Room, participant: Participant, didUpdateAttributes attributes: [String: String])
+
     // MARK: - Track Publications
 
     /// The ``LocalParticipant`` has published a ``LocalTrack``.

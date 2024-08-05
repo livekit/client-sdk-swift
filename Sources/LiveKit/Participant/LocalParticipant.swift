@@ -189,6 +189,12 @@ public class LocalParticipant: Participant {
         _state.mutate { $0.name = name }
     }
 
+    public func set(attributes: [String: String]) async throws {
+        let room = try requireRoom()
+        try await room.signalClient.sendUpdateParticipant(attributes: attributes)
+        _state.mutate { $0.attributes = attributes }
+    }
+
     func sendTrackSubscriptionPermissions() async throws {
         let room = try requireRoom()
         guard room._state.connectionState == .connected else { return }

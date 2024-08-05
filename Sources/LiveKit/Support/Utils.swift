@@ -263,3 +263,16 @@ extension MutableCollection {
         }
     }
 }
+
+func computeAttributesDiff(oldValues: [String: String], newValues: [String: String]) -> [String: String] {
+    var allKeys = Set(oldValues.keys).union(newValues.keys)
+    var diff = [String: String]()
+
+    for key in allKeys {
+        if oldValues[key] != newValues[key] {
+            diff[key] = newValues[key] ?? ""
+        }
+    }
+
+    return diff
+}
