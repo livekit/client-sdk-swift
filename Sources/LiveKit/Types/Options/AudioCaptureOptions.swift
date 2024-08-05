@@ -40,7 +40,7 @@ public class AudioCaptureOptions: NSObject, CaptureOptions {
     public let highpassFilter: Bool
 
     @objc
-    public let experimentalNoiseSuppression: Bool = false
+    public let experimentalNoiseSuppression: Bool
 
     @objc
     public let experimentalAutoGainControl: Bool = false
@@ -49,13 +49,15 @@ public class AudioCaptureOptions: NSObject, CaptureOptions {
                 noiseSuppression: Bool = true,
                 autoGainControl: Bool = true,
                 typingNoiseDetection: Bool = true,
-                highpassFilter: Bool = true)
+                highpassFilter: Bool = true,
+                experimentalNoiseSuppression: Bool = false)
     {
         self.echoCancellation = echoCancellation
         self.noiseSuppression = noiseSuppression
         self.autoGainControl = autoGainControl
         self.typingNoiseDetection = typingNoiseDetection
         self.highpassFilter = highpassFilter
+        self.experimentalNoiseSuppression = experimentalNoiseSuppression
     }
 
     // MARK: - Equatable
