@@ -510,6 +510,17 @@ extension SignalClient {
         try await _sendRequest(r)
     }
 
+    func sendUpdateLocalAudioTrack(sid _: String, features: [Livekit_AudioTrackFeature]) async throws {
+        let r = Livekit_SignalRequest.with {
+            $0.updateAudioTrack = Livekit_UpdateLocalAudioTrack.with {
+                $0.trackSid = ""
+                $0.features = features
+            }
+        }
+
+        try await _sendRequest(r)
+    }
+
     func sendSyncState(answer: Livekit_SessionDescription?,
                        offer: Livekit_SessionDescription?,
                        subscription: Livekit_UpdateSubscription,
