@@ -116,7 +116,7 @@ extension LocalTrackPublication {
 
         // Check if Krisp is enabled.
         if let processingDelegate = AudioManager.shared.capturePostProcessingDelegate,
-           processingDelegate.audioProcessingName == "krisp_noise_cancellation"
+           processingDelegate.audioProcessingName == kLiveKitKrispAudioProcessorName
         {
             newFeatures.insert(.tfEnhancedNoiseCancellation)
         }

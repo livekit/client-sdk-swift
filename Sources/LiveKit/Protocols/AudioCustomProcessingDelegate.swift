@@ -22,6 +22,8 @@ internal import LiveKitWebRTC
 @_implementationOnly import LiveKitWebRTC
 #endif
 
+public let kLiveKitKrispAudioProcessorName = "livekit_krisp_noise_cancellation"
+
 @objc
 public protocol AudioCustomProcessingDelegate {
     @objc optional
