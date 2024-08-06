@@ -114,6 +114,11 @@ extension LocalTrackPublication {
 
         var newFeatures = audioTrack.captureOptions.toFeatures()
 
+        if let audioPublishOptions = audioTrack.publishOptions as? AudioPublishOptions {
+            // Combine features from publish options.
+            newFeatures.formUnion(audioPublishOptions.toFeatures())
+        }
+
         // Check if Krisp is enabled.
         if let processingDelegate = AudioManager.shared.capturePostProcessingDelegate,
            processingDelegate.audioProcessingName == kLiveKitKrispAudioProcessorName
