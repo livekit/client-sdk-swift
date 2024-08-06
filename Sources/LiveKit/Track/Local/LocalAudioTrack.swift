@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+import Combine
 import Foundation
 
 #if swift(>=5.9)
@@ -24,11 +25,17 @@ internal import LiveKitWebRTC
 
 @objc
 public class LocalAudioTrack: Track, LocalTrack, AudioTrack {
+    /// ``AudioCaptureOptions`` used to create this track.
+    let captureOptions: AudioCaptureOptions
+
     init(name: String,
          source: Track.Source,
          track: LKRTCMediaStreamTrack,
-         reportStatistics: Bool)
+         reportStatistics: Bool,
+         captureOptions: AudioCaptureOptions)
     {
+        self.captureOptions = captureOptions
+
         super.init(name: name,
                    kind: .audio,
                    source: source,
@@ -62,7 +69,8 @@ public class LocalAudioTrack: Track, LocalTrack, AudioTrack {
         return LocalAudioTrack(name: name,
                                source: .microphone,
                                track: rtcTrack,
-                               reportStatistics: reportStatistics)
+                               reportStatistics: reportStatistics,
+                               captureOptions: options)
     }
 
     @discardableResult

@@ -16,6 +16,7 @@
 
 import Accelerate
 import AVFoundation
+import Combine
 
 #if swift(>=5.9)
 internal import LiveKitWebRTC
@@ -58,16 +59,35 @@ public class LKAudioBuffer: NSObject {
 
 @objc
 public protocol AudioCustomProcessingDelegate {
+    @objc optional
+    var audioProcessingName: String { get }
+
+    @objc
     func audioProcessingInitialize(sampleRate sampleRateHz: Int, channels: Int)
+
+    @objc
     func audioProcessingProcess(audioBuffer: LKAudioBuffer)
+
+    @objc
     func audioProcessingRelease()
 }
 
 class AudioCustomProcessingDelegateAdapter: NSObject, LKRTCAudioCustomProcessingDelegate {
-    weak var target: AudioCustomProcessingDelegate?
+    //
+    public var target: AudioCustomProcessingDelegate? { _state.target }
+
+    private struct State {
+        weak var target: AudioCustomProcessingDelegate?
+    }
+
+    private var _state: StateSync<State>
 
     init(target: AudioCustomProcessingDelegate? = nil) {
-        self.target = target
+        _state = StateSync(State(target: target))
+    }
+
+    public func set(target: AudioCustomProcessingDelegate?) {
+        _state.mutate { $0.target = target }
     }
 
     func audioProcessingInitialize(sampleRate sampleRateHz: Int, channels: Int) {
@@ -173,14 +193,19 @@ public class AudioManager: Loggable {
         return adapter
     }()
 
+    let capturePostProcessingDelegateSubject = CurrentValueSubject<AudioCustomProcessingDelegate?, Never>(nil)
+
     public var capturePostProcessingDelegate: AudioCustomProcessingDelegate? {
         get { capturePostProcessingDelegateAdapter.target }
-        set { capturePostProcessingDelegateAdapter.target = newValue }
+        set {
+            capturePostProcessingDelegateAdapter.set(target: newValue)
+            capturePostProcessingDelegateSubject.send(newValue)
+        }
     }
 
     public var renderPreProcessingDelegate: AudioCustomProcessingDelegate? {
         get { renderPreProcessingDelegateAdapter.target }
-        set { renderPreProcessingDelegateAdapter.target = newValue }
+        set { renderPreProcessingDelegateAdapter.set(target: newValue) }
     }
 
     // MARK: - AudioDeviceModule
