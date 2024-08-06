@@ -102,6 +102,10 @@ public protocol RoomDelegate: AnyObject {
     @objc optional
     func room(_ room: Room, participant: Participant, didUpdateAttributes attributes: [String: String])
 
+    /// Received transcription segments.
+    @objc optional
+    func room(_ room: Room, participant: Participant, trackPublication: TrackPublication, didReceiveTranscriptionSegments segments: [TranscriptionSegment])
+
     // MARK: - Track Publications
 
     /// The ``LocalParticipant`` has published a ``LocalTrack``.
@@ -149,10 +153,6 @@ public protocol RoomDelegate: AnyObject {
     /// ``RemoteTrackPublication/isSubscriptionAllowed`` has updated.
     @objc optional
     func room(_ room: Room, participant: RemoteParticipant, trackPublication: RemoteTrackPublication, didUpdateIsSubscriptionAllowed isSubscriptionAllowed: Bool)
-
-    /// Received transcription segments.
-    @objc optional
-    func room(_ room: Room, participant: RemoteParticipant, trackPublication: RemoteTrackPublication, didReceiveTranscriptionSegments segments: [TranscriptionSegment])
 
     // MARK: - Deprecated
 

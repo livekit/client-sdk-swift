@@ -196,16 +196,13 @@ extension Room {
     }
 
     func room(didReceiveTranscriptionPacket packet: Livekit_Transcription) {
-        guard let participant = _state.read({
-            $0.remoteParticipants.values.first { $0.identity == Participant.Identity(from: packet.transcribedParticipantIdentity) }
-        }) else {
+        // Try to find matching Participant.
+        guard let participant = allParticipants[Participant.Identity(from: packet.transcribedParticipantIdentity)] else {
             log("[Transcription] Could not find participant: \(packet.transcribedParticipantIdentity)", .warning)
             return
         }
 
-        guard let publication = participant._state.read({ $0.trackPublications[Track.Sid(from: packet.trackID)] }),
-              let publication = publication as? RemoteTrackPublication
-        else {
+        guard let publication = participant._state.read({ $0.trackPublications[Track.Sid(from: packet.trackID)] }) else {
             log("[Transcription] Could not find publication: \(packet.trackID)", .warning)
             return
         }
