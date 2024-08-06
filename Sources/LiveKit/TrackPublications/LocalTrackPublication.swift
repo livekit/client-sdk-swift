@@ -34,7 +34,7 @@ public class LocalTrackPublication: TrackPublication {
 
         // Watch audio manager processor changes.
         _cancellable = AudioManager.shared.capturePostProcessingDelegateSubject.sink { [weak self] _ in
-            self?.recomputeAudioTrackFeatures()
+            self?.sendAudioTrackFeatures()
         }
     }
 
@@ -71,7 +71,7 @@ public class LocalTrackPublication: TrackPublication {
             newLocalVideoTrack.capturer.add(delegate: self)
         }
 
-        recomputeAudioTrackFeatures()
+        sendAudioTrackFeatures()
 
         return oldValue
     }
@@ -108,28 +108,34 @@ extension LocalTrackPublication: VideoCapturerDelegate {
 }
 
 extension LocalTrackPublication {
-    func recomputeAudioTrackFeatures() {
-        // ...
+    func sendAudioTrackFeatures() {
+        // Only proceed if audio track.
         guard let audioTrack = track as? LocalAudioTrack else { return }
 
-        print("recomputeAudioTrackFeatures: \(String(describing: track))")
-
-        var features = audioTrack.captureOptions.toFeatures()
+        var newFeatures = audioTrack.captureOptions.toFeatures()
 
         // Check if Krisp is enabled.
         if let processingDelegate = AudioManager.shared.capturePostProcessingDelegate,
            processingDelegate.audioProcessingName == "krisp_noise_cancellation"
         {
-            features.insert(.tfEnhancedNoiseCancellation)
+            newFeatures.insert(.tfEnhancedNoiseCancellation)
         }
 
-        log("Sending audio track features: \(features)")
+        let didUpdateFeatures = _state.mutate {
+            let oldFeatures = $0.audioTrackFeatures
+            $0.audioTrackFeatures = newFeatures
+            return oldFeatures != newFeatures
+        }
 
-        Task.detached { [features] in
-            let participant = try await self.requireParticipant()
-            let room = try participant.requireRoom()
-            try await room.signalClient.sendUpdateLocalAudioTrack(trackSid: self.sid,
-                                                                  features: features)
+        if didUpdateFeatures {
+            log("Sending audio track features: \(newFeatures)")
+            // Send if features updated.
+            Task.detached { [newFeatures] in
+                let participant = try await self.requireParticipant()
+                let room = try participant.requireRoom()
+                try await room.signalClient.sendUpdateLocalAudioTrack(trackSid: self.sid,
+                                                                      features: newFeatures)
+            }
         }
     }
 
