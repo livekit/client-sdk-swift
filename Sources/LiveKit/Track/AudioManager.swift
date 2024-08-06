@@ -57,64 +57,6 @@ public class LKAudioBuffer: NSObject {
     }
 }
 
-@objc
-public protocol AudioCustomProcessingDelegate {
-    @objc optional
-    var audioProcessingName: String { get }
-
-    @objc
-    func audioProcessingInitialize(sampleRate sampleRateHz: Int, channels: Int)
-
-    @objc
-    func audioProcessingProcess(audioBuffer: LKAudioBuffer)
-
-    @objc
-    func audioProcessingRelease()
-}
-
-class AudioCustomProcessingDelegateAdapter: NSObject, LKRTCAudioCustomProcessingDelegate {
-    //
-    public var target: AudioCustomProcessingDelegate? { _state.target }
-
-    private struct State {
-        weak var target: AudioCustomProcessingDelegate?
-    }
-
-    private var _state: StateSync<State>
-
-    init(target: AudioCustomProcessingDelegate? = nil) {
-        _state = StateSync(State(target: target))
-    }
-
-    public func set(target: AudioCustomProcessingDelegate?) {
-        _state.mutate { $0.target = target }
-    }
-
-    func audioProcessingInitialize(sampleRate sampleRateHz: Int, channels: Int) {
-        target?.audioProcessingInitialize(sampleRate: sampleRateHz, channels: channels)
-    }
-
-    func audioProcessingProcess(audioBuffer: LKRTCAudioBuffer) {
-        target?.audioProcessingProcess(audioBuffer: LKAudioBuffer(audioBuffer: audioBuffer))
-    }
-
-    func audioProcessingRelease() {
-        target?.audioProcessingRelease()
-    }
-
-    // Proxy the equality operators
-
-    override func isEqual(_ object: Any?) -> Bool {
-        guard let other = object as? AudioCustomProcessingDelegateAdapter else { return false }
-        return target === other.target
-    }
-
-    override var hash: Int {
-        guard let target else { return 0 }
-        return ObjectIdentifier(target).hashValue
-    }
-}
-
 // Audio Session Configuration related
 public class AudioManager: Loggable {
     // MARK: - Public
