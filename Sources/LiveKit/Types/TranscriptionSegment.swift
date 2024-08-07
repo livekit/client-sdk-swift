@@ -18,19 +18,19 @@ import Foundation
 
 @objc
 public class TranscriptionSegment: NSObject {
-    let id: String
-    let text: String
-    let language: String
-    let startTime: UInt64
-    let endTime: UInt64
-    let isFinal: Bool
+    public let id: String
+    public let text: String
+    public let language: String
+    public let startTime: UInt64
+    public let endTime: UInt64
+    public let isFinal: Bool
 
-    public init(id: String,
-                text: String,
-                language: String,
-                startTime: UInt64,
-                endTime: UInt64,
-                isFinal: Bool)
+    init(id: String,
+         text: String,
+         language: String,
+         startTime: UInt64,
+         endTime: UInt64,
+         isFinal: Bool)
     {
         self.id = id
         self.text = text
