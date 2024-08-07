@@ -467,9 +467,6 @@ private extension LocalParticipant {
             throw LiveKitError(.invalidState, message: "Unknown LocalTrack type")
         }
 
-        // Configure audio session early.
-        try await track.onPublish()
-
         // Try to start the Track
         try await track.start()
         // Starting the Track could be time consuming especially for camera etc.
@@ -578,6 +575,8 @@ private extension LocalParticipant {
             log("[Publish] Added transceiver: \(addTrackResult.trackInfo)...")
 
             do {
+                try await track.onPublish()
+
                 // Store publishOptions used for this track...
                 track._state.mutate { $0.lastPublishOptions = options }
 
