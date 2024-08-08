@@ -16,6 +16,7 @@
 
 import Accelerate
 import AVFoundation
+import Combine
 
 #if swift(>=5.9)
 internal import LiveKitWebRTC
@@ -53,45 +54,6 @@ public class LKAudioBuffer: NSObject {
 
     init(audioBuffer: LKRTCAudioBuffer) {
         _audioBuffer = audioBuffer
-    }
-}
-
-@objc
-public protocol AudioCustomProcessingDelegate {
-    func audioProcessingInitialize(sampleRate sampleRateHz: Int, channels: Int)
-    func audioProcessingProcess(audioBuffer: LKAudioBuffer)
-    func audioProcessingRelease()
-}
-
-class AudioCustomProcessingDelegateAdapter: NSObject, LKRTCAudioCustomProcessingDelegate {
-    weak var target: AudioCustomProcessingDelegate?
-
-    init(target: AudioCustomProcessingDelegate? = nil) {
-        self.target = target
-    }
-
-    func audioProcessingInitialize(sampleRate sampleRateHz: Int, channels: Int) {
-        target?.audioProcessingInitialize(sampleRate: sampleRateHz, channels: channels)
-    }
-
-    func audioProcessingProcess(audioBuffer: LKRTCAudioBuffer) {
-        target?.audioProcessingProcess(audioBuffer: LKAudioBuffer(audioBuffer: audioBuffer))
-    }
-
-    func audioProcessingRelease() {
-        target?.audioProcessingRelease()
-    }
-
-    // Proxy the equality operators
-
-    override func isEqual(_ object: Any?) -> Bool {
-        guard let other = object as? AudioCustomProcessingDelegateAdapter else { return false }
-        return target === other.target
-    }
-
-    override var hash: Int {
-        guard let target else { return 0 }
-        return ObjectIdentifier(target).hashValue
     }
 }
 
@@ -173,14 +135,19 @@ public class AudioManager: Loggable {
         return adapter
     }()
 
+    let capturePostProcessingDelegateSubject = CurrentValueSubject<AudioCustomProcessingDelegate?, Never>(nil)
+
     public var capturePostProcessingDelegate: AudioCustomProcessingDelegate? {
         get { capturePostProcessingDelegateAdapter.target }
-        set { capturePostProcessingDelegateAdapter.target = newValue }
+        set {
+            capturePostProcessingDelegateAdapter.set(target: newValue)
+            capturePostProcessingDelegateSubject.send(newValue)
+        }
     }
 
     public var renderPreProcessingDelegate: AudioCustomProcessingDelegate? {
         get { renderPreProcessingDelegateAdapter.target }
-        set { renderPreProcessingDelegateAdapter.target = newValue }
+        set { renderPreProcessingDelegateAdapter.set(target: newValue) }
     }
 
     // MARK: - AudioDeviceModule

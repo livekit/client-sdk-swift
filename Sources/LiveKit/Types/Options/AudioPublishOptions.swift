@@ -61,3 +61,12 @@ public class AudioPublishOptions: NSObject, TrackPublishOptions {
         return hasher.finalize()
     }
 }
+
+// Internal
+extension AudioPublishOptions {
+    func toFeatures() -> Set<Livekit_AudioTrackFeature> {
+        Set([
+            !dtx ? .tfNoDtx : nil,
+        ].compactMap { $0 })
+    }
+}
