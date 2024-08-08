@@ -65,6 +65,10 @@ public protocol ParticipantDelegate: AnyObject {
     @objc optional
     func participant(_ participant: Participant, trackPublication: TrackPublication, didUpdateIsMuted isMuted: Bool)
 
+    /// Received transcription segments.
+    @objc optional
+    func participant(_ participant: Participant, trackPublication: TrackPublication, didReceiveTranscriptionSegments segments: [TranscriptionSegment])
+
     // MARK: - LocalTrackPublication
 
     /// The ``LocalParticipant`` has published a ``LocalTrackPublication``.
