@@ -194,4 +194,32 @@ extension Room {
             }
         }
     }
+
+    func room(didReceiveTranscriptionPacket packet: Livekit_Transcription) {
+        // Try to find matching Participant.
+        guard let participant = allParticipants[Participant.Identity(from: packet.transcribedParticipantIdentity)] else {
+            log("[Transcription] Could not find participant: \(packet.transcribedParticipantIdentity)", .warning)
+            return
+        }
+
+        guard let publication = participant._state.read({ $0.trackPublications[Track.Sid(from: packet.trackID)] }) else {
+            log("[Transcription] Could not find publication: \(packet.trackID)", .warning)
+            return
+        }
+
+        let segments = packet.segments.map { $0.toLKType() }
+
+        guard !segments.isEmpty else {
+            log("[Transcription] Received segments are empty", .warning)
+            return
+        }
+
+        delegates.notify {
+            $0.room?(self, participant: participant, trackPublication: publication, didReceiveTranscriptionSegments: segments)
+        }
+
+        participant.delegates.notify {
+            $0.participant?(participant, trackPublication: publication, didReceiveTranscriptionSegments: segments)
+        }
+    }
 }
