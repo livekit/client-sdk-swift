@@ -207,11 +207,24 @@ extension Room {
             return
         }
 
-        let segments = packet.segments.map { $0.toLKType() }
+        let segments = packet.segments.map { segment in
+            TranscriptionSegment(id: segment.id,
+                                 text: segment.text,
+                                 language: segment.language,
+                                 firstReceivedTime: _state.receivedTranscriptionSegments[segment.id]?.firstReceivedTime ?? Date(),
+                                 lastReceivedTime: Date(),
+                                 isFinal: segment.final)
+        }
 
         guard !segments.isEmpty else {
             log("[Transcription] Received segments are empty", .warning)
             return
+        }
+
+        _state.mutate { state in
+            for segment in segments {
+                state.receivedTranscriptionSegments[segment.id] = segment
+            }
         }
 
         delegates.notify {
