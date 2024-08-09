@@ -33,13 +33,32 @@ class DeviceManager: Loggable {
 
     // Async version, waits until inital device fetch is complete
     public func devices() async throws -> [AVCaptureDevice] {
-        try await devicesCompleter.wait()
+        #if os(visionOS)
+        return getVisionOSDevices()
+        #endif
+        
+        return try await devicesCompleter.wait()
     }
 
     // Sync version
     public func devices() -> [AVCaptureDevice] {
-        _state.devices
+        #if os(visionOS)
+        return getVisionOSDevices()
+        #endif
+        
+        return _state.devices
     }
+    
+    #if os(visionOS)
+    private func getVisionOSDevices() -> [AVCaptureDevice] {
+        // VisionOS does not support DiscoverySession and other methods to fetch the front / persona camera.
+        // The only way currently is to call the following which defaults to the front / persona camera.
+        if let device = AVCaptureDevice.systemPreferredCamera {
+            return [device]
+        }
+        return []
+    }
+    #endif
 
     #if os(iOS) || os(macOS)
     private lazy var discoverySession: AVCaptureDevice.DiscoverySession = {
