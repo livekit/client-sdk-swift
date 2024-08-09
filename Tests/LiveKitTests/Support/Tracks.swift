@@ -35,7 +35,7 @@ extension XCTestCase {
         let asset = AVAsset(url: tempLocalUrl)
         let assetReader = try AVAssetReader(asset: asset)
 
-        guard let track = asset.tracks(withMediaType: .video).first else {
+        guard let track = try await asset.loadTracks(withMediaType: .video).first else {
             XCTFail("No video track found in sample video file")
             fatalError()
         }
