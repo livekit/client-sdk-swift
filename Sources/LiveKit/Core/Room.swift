@@ -149,7 +149,7 @@ public class Room: NSObject, ObservableObject, Loggable {
         var isSubscriberPrimary: Bool = false
         
         // Agents
-        var receivedTranscriptionSegments: [String: TranscriptionSegment] = [:]
+        var transcriptionReceivedTimes: [String: Date] = [:]
 
         @discardableResult
         mutating func updateRemoteParticipant(info: Livekit_ParticipantInfo, room: Room) -> RemoteParticipant {

@@ -211,7 +211,7 @@ extension Room {
             TranscriptionSegment(id: segment.id,
                                  text: segment.text,
                                  language: segment.language,
-                                 firstReceivedTime: _state.receivedTranscriptionSegments[segment.id]?.firstReceivedTime ?? Date(),
+                                 firstReceivedTime: _state.transcriptionReceivedTimes[segment.id] ?? Date(),
                                  lastReceivedTime: Date(),
                                  isFinal: segment.final)
         }
@@ -223,7 +223,7 @@ extension Room {
 
         _state.mutate { state in
             for segment in segments {
-                state.receivedTranscriptionSegments[segment.id] = segment
+                state.transcriptionReceivedTimes[segment.id] = segment.firstReceivedTime
             }
         }
 
