@@ -55,10 +55,4 @@ extension XCTestCase {
         }
     }
 }
-
-extension AVAsset {
-    func loadTracks(withMediaType mediaType: AVMediaType) async throws -> [AVAssetTrack] {
-        tracks(withMediaType: mediaType)
-    }
-}
 #endif
