@@ -163,17 +163,21 @@ public class CameraCapturer: VideoCapturer {
 
         if device == nil {
             #if os(iOS)
-            // Get the list of devices already on the shared multi-cam session.
-            let existingDevices = captureSession.inputs.compactMap { $0 as? AVCaptureDeviceInput }.map(\.device)
-            log("Existing devices: \(existingDevices)")
-            // Compute other multi-cam compatible devices.
-            let devices = try await DeviceManager.shared.multiCamCompatibleDevices(for: Set(existingDevices))
-            log("Compatible devices: \(devices)")
+            let devices: [AVCaptureDevice]
+            if AVCaptureMultiCamSession.isMultiCamSupported {
+                // Get the list of devices already on the shared multi-cam session.
+                let existingDevices = captureSession.inputs.compactMap { $0 as? AVCaptureDeviceInput }.map(\.device)
+                log("Existing devices: \(existingDevices)")
+                // Compute other multi-cam compatible devices.
+                devices = try await DeviceManager.shared.multiCamCompatibleDevices(for: Set(existingDevices))
+            } else {
+                devices = try await CameraCapturer.captureDevices()
+            }
             #else
             let devices = try await CameraCapturer.captureDevices()
             #endif
 
-            device = devices.first(where: { $0.position == self.options.position }) ?? devices.first
+            device = devices.first { $0.position == self.options.position } ?? devices.first
         }
 
         guard let device else {
@@ -328,7 +332,7 @@ extension AVCaptureDevice.Format {
 
     var isMultiCamSupportediOS: Bool {
         #if os(iOS)
-        return isMultiCamSupported
+        return AVCaptureMultiCamSession.isMultiCamSupported ? isMultiCamSupported : true
         #else
         return true
         #endif
