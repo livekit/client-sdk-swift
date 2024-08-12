@@ -101,6 +101,10 @@ class DeviceManager: Loggable {
                 self.devicesCompleter.resume(returning: devices)
             }
         }
+        #elseif os(visionOS)
+        // For visionOS, there is no DiscoverySession so return the Persona camera if available.
+        let devices: [AVCaptureDevice] = [.systemPreferredCamera].compactMap { $0 }
+        devicesCompleter.resume(returning: devices)
         #endif
     }
 }
