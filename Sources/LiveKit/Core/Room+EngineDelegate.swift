@@ -207,6 +207,11 @@ extension Room {
             return
         }
 
+        guard !packet.segments.isEmpty else {
+            log("[Transcription] Received segments are empty", .warning)
+            return
+        }
+
         let segments = packet.segments.map { segment in
             TranscriptionSegment(id: segment.id,
                                  text: segment.text,
@@ -216,14 +221,13 @@ extension Room {
                                  isFinal: segment.final)
         }
 
-        guard !segments.isEmpty else {
-            log("[Transcription] Received segments are empty", .warning)
-            return
-        }
-
         _state.mutate { state in
             for segment in segments {
-                state.transcriptionReceivedTimes[segment.id] = segment.firstReceivedTime
+                if segment.isFinal {
+                    state.transcriptionReceivedTimes.removeValue(forKey: segment.id)
+                } else {
+                    state.transcriptionReceivedTimes[segment.id] = segment.firstReceivedTime
+                }
             }
         }
 
