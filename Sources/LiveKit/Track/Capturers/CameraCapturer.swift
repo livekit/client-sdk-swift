@@ -222,10 +222,6 @@ public class CameraCapturer: VideoCapturer {
 
         log("starting camera capturer device: \(device), format: \(selectedFormat), fps: \(selectedFps)(\(fpsRange))", .info)
 
-        #if os(visionOS)
-        await AVCaptureDevice.requestAccess(for: .video)
-        #endif
-
         try await capturer.startCapture(with: device, format: selectedFormat.format, fps: selectedFps)
 
         // Update internal vars
