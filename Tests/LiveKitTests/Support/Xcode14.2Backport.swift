@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-import AVFoundation
 import Foundation
 import XCTest
 
