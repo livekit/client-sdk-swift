@@ -90,18 +90,19 @@ public class CameraCapturer: VideoCapturer {
     private lazy var adapter: VideoCapturerDelegateAdapter = .init(cameraCapturer: self)
 
     #if os(iOS)
-    public static let multiCamSession = AVCaptureMultiCamSession()
+    private static let _multiCamSession = AVCaptureMultiCamSession()
     #endif
 
-    // RTCCameraVideoCapturer used internally for now
-    private lazy var capturer: LKRTCCameraVideoCapturer = {
+    public var captureSession: AVCaptureSession {
         #if os(iOS)
-        let result = LKRTCCameraVideoCapturer(delegate: adapter, captureSession: Self.multiCamSession)
+        Self._multiCamSession
         #else
-        let result = LKRTCCameraVideoCapturer(delegate: adapter)
+        AVCaptureSession()
         #endif
-        return result
-    }()
+    }
+
+    // RTCCameraVideoCapturer used internally for now
+    private lazy var capturer: LKRTCCameraVideoCapturer = .init(delegate: adapter, captureSession: captureSession)
 
     init(delegate: LKRTCVideoCapturerDelegate, options: CameraCaptureOptions) {
         _cameraCapturerState = StateSync(State(options: options))
@@ -161,7 +162,17 @@ public class CameraCapturer: VideoCapturer {
         var device: AVCaptureDevice? = options.device
 
         if device == nil {
+            #if os(iOS)
+            // Get the list of devices already on the shared multi-cam session.
+            let existingDevices = captureSession.inputs.compactMap { $0 as? AVCaptureDeviceInput }.map(\.device)
+            log("Existing devices: \(existingDevices)")
+            // Compute other multi-cam compatible devices.
+            let devices = try await DeviceManager.shared.multiCamCompatibleDevices(for: Set(existingDevices))
+            log("Compatible devices: \(devices)")
+            #else
             let devices = try await CameraCapturer.captureDevices()
+            #endif
+
             device = devices.first(where: { $0.position == self.options.position }) ?? devices.first
         }
 
