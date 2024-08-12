@@ -198,7 +198,7 @@ public class CameraCapturer: VideoCapturer {
             // Use the preferred capture format if specified in options
             selectedFormat = foundFormat
         } else {
-            if let foundFormat = sortedFormats.first(where: { $0.dimensions.area >= self.options.dimensions.area && $0.format.fpsRange().contains(self.options.fps) && $0.format.filterMulticamIfiOS }) {
+            if let foundFormat = sortedFormats.first(where: { $0.dimensions.area >= self.options.dimensions.area && $0.format.fpsRange().contains(self.options.fps) && $0.format.isMultiCamSupportediOS }) {
                 // Use the first format that satisfies preferred dimensions & fps
                 selectedFormat = foundFormat
             } else if let foundFormat = sortedFormats.first(where: { $0.dimensions.area >= self.options.dimensions.area }) {
@@ -326,7 +326,7 @@ extension AVCaptureDevice.Format {
         }
     }
 
-    var filterMulticamIfiOS: Bool {
+    var isMultiCamSupportediOS: Bool {
         #if os(iOS)
         return isMultiCamSupported
         #else
