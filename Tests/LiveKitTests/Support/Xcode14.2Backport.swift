@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+import AVFoundation
 import Foundation
 import XCTest
 
@@ -52,6 +53,12 @@ extension XCTestCase {
                 continuation.resume()
             }
         }
+    }
+}
+
+extension AVAsset {
+    func loadTracks(withMediaType mediaType: AVMediaType) async throws -> [AVAssetTrack] {
+        tracks(withMediaType: mediaType)
     }
 }
 #endif
