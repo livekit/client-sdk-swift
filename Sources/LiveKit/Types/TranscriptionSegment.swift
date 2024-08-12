@@ -21,22 +21,22 @@ public class TranscriptionSegment: NSObject {
     public let id: String
     public let text: String
     public let language: String
-    public let startTime: UInt64
-    public let endTime: UInt64
+    public let firstReceivedTime: Date
+    public let lastReceivedTime: Date
     public let isFinal: Bool
 
     init(id: String,
          text: String,
          language: String,
-         startTime: UInt64,
-         endTime: UInt64,
+         firstReceivedTime: Date,
+         lastReceivedTime: Date,
          isFinal: Bool)
     {
         self.id = id
         self.text = text
         self.language = language
-        self.startTime = startTime
-        self.endTime = endTime
+        self.firstReceivedTime = firstReceivedTime
+        self.lastReceivedTime = lastReceivedTime
         self.isFinal = isFinal
     }
 
@@ -51,18 +51,5 @@ public class TranscriptionSegment: NSObject {
         var hasher = Hasher()
         hasher.combine(id)
         return hasher.finalize()
-    }
-}
-
-// MARK: - Internal
-
-extension Livekit_TranscriptionSegment {
-    func toLKType() -> TranscriptionSegment {
-        TranscriptionSegment(id: id,
-                             text: text,
-                             language: language,
-                             startTime: startTime,
-                             endTime: endTime,
-                             isFinal: final)
     }
 }
