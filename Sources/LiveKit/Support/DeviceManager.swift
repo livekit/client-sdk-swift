@@ -33,7 +33,7 @@ class DeviceManager: Loggable {
 
     // Async version, waits until inital device fetch is complete
     public func devices() async throws -> [AVCaptureDevice] {
-        try await devicesCompleter.wait()
+        try await _devicesCompleter.wait()
     }
 
     // Sync version
@@ -78,13 +78,24 @@ class DeviceManager: Loggable {
 
     private struct State {
         var devices: [AVCaptureDevice] = []
+        var multiCamDeviceSets: [Set<AVCaptureDevice>] = []
     }
 
     private let _state = StateSync(State())
 
-    private let devicesCompleter = AsyncCompleter<[AVCaptureDevice]>(label: "devices", defaultTimeout: 10)
+    private let _devicesCompleter = AsyncCompleter<[AVCaptureDevice]>(label: "devices", defaultTimeout: 10)
+    private let _multiCamDeviceSetsCompleter = AsyncCompleter<[Set<AVCaptureDevice>]>(label: "multiCamDeviceSets", defaultTimeout: 10)
 
-    private var _observation: NSKeyValueObservation?
+    private var _devicesObservation: NSKeyValueObservation?
+    private var _multiCamDeviceSetsObservation: NSKeyValueObservation?
+
+    /// Find multi-cam compatible devices.
+    func multiCamCompatibleDevices(for devices: Set<AVCaptureDevice>) async throws -> Set<AVCaptureDevice> {
+        let deviceSets = try await _multiCamDeviceSetsCompleter.wait()
+        return deviceSets.filter { $0.isSuperset(of: devices) }
+            .reduce(into: Set<AVCaptureDevice>()) { $0.formUnion($1) }
+            .subtracting(devices)
+    }
 
     init() {
         log()
@@ -92,19 +103,32 @@ class DeviceManager: Loggable {
         #if os(iOS) || os(macOS)
         DispatchQueue.global(qos: .background).async { [weak self] in
             guard let self else { return }
-            self._observation = self.discoverySession.observe(\.devices, options: [.initial, .new]) { [weak self] _, value in
+            self._devicesObservation = self.discoverySession.observe(\.devices, options: [.initial, .new]) { [weak self] _, value in
                 guard let self else { return }
                 // Sort priority: .front = 2, .back = 1, .unspecified = 3
                 let devices = (value.newValue ?? []).sorted(by: { $0.position.rawValue > $1.position.rawValue })
                 self.log("Devices: \(String(describing: devices))")
                 self._state.mutate { $0.devices = devices }
-                self.devicesCompleter.resume(returning: devices)
+                self._devicesCompleter.resume(returning: devices)
             }
         }
         #elseif os(visionOS)
         // For visionOS, there is no DiscoverySession so return the Persona camera if available.
         let devices: [AVCaptureDevice] = [.systemPreferredCamera].compactMap { $0 }
-        devicesCompleter.resume(returning: devices)
+        _devicesCompleter.resume(returning: devices)
+        #endif
+
+        #if os(iOS)
+        DispatchQueue.global(qos: .background).async { [weak self] in
+            guard let self else { return }
+            self._multiCamDeviceSetsObservation = self.discoverySession.observe(\.supportedMultiCamDeviceSets, options: [.initial, .new]) { [weak self] _, value in
+                guard let self else { return }
+                let deviceSets = (value.newValue ?? [])
+                print("MultiCamDeviceSets: \(String(describing: deviceSets))")
+                self._state.mutate { $0.multiCamDeviceSets = deviceSets }
+                self._multiCamDeviceSetsCompleter.resume(returning: deviceSets)
+            }
+        }
         #endif
     }
 }
