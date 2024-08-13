@@ -259,25 +259,25 @@ extension Room {
     }
 
     func startReconnect(reason: StartReconnectReason, nextReconnectMode: ReconnectMode? = nil) async throws {
-        log("[Connect] Starting, reason: \(reason)")
+        log("[Reconnect] Starting, reason: \(reason)", .warning)
 
         guard case .connected = _state.connectionState else {
-            log("[Connect] Must be called with connected state", .error)
+            log("[Reconnect] Must be called with connected state", .error)
             throw LiveKitError(.invalidState)
         }
 
         guard let url = _state.url, let token = _state.token else {
-            log("[Connect] Url or token is nil", .error)
+            log("[Reconnect] Url or token is nil", .error)
             throw LiveKitError(.invalidState)
         }
 
         guard _state.subscriber != nil, _state.publisher != nil else {
-            log("[Connect] Publisher or subscriber is nil", .error)
+            log("[Reconnect] Publisher or subscriber is nil", .error)
             throw LiveKitError(.invalidState)
         }
 
         guard _state.isReconnectingWithMode == nil else {
-            log("[Connect] Reconnect already in progress...", .warning)
+            log("[Reconnect] Reconnect already in progress...", .warning)
             throw LiveKitError(.invalidState)
         }
 
@@ -290,6 +290,12 @@ extension Room {
         // quick connect sequence, does not update connection state
         @Sendable func quickReconnectSequence() async throws {
             log("[Reconnect .quick] Starting .quick reconnect sequence...",.warning)
+            
+            // add by lewis2211 更新重连状态
+            _state.mutate {
+                // Mark as Re-connecting
+                $0.connectionState = .reconnecting
+            }
 
             let connectResponse = try await signalClient.connect(url,
                                                                  token,
@@ -333,7 +339,7 @@ extension Room {
         // "full" re-connection sequence
         // as a last resort, try to do a clean re-connection and re-publish existing tracks
         @Sendable func fullReconnectSequence() async throws {
-            log("[Connect] starting .full reconnect sequence...", .warning)
+            log("[Reconnect] starting .full reconnect sequence...", .warning)
 
             _state.mutate {
                 // Mark as Re-connecting
@@ -345,7 +351,7 @@ extension Room {
             guard let url = _state.url,
                   let token = _state.token
             else {
-                log("[Connect] Url or token is nil")
+                log("[Reconnect] Url or token is nil", .warning)
                 throw LiveKitError(.invalidState)
             }
 
@@ -359,14 +365,14 @@ extension Room {
 
                 // Not reconnecting state anymore
                 guard let currentMode = self._state.isReconnectingWithMode else {
-                    self.log("[Connect] Not in reconnect state anymore, exiting retry cycle.")
+                    self.log("[Reconnect] Not in reconnect state anymore, exiting retry cycle.", .warning)
                     return
                 }
 
                 // Full reconnect failed, give up
                 guard currentMode != .full else { return }
 
-                self.log("[Connect] Retry in \(self._state.connectOptions.reconnectAttemptDelay) seconds, \(currentAttempt)/\(totalAttempts) tries left.",.warning)
+                self.log("[Reconnect] Retry in \(self._state.connectOptions.reconnectAttemptDelay) seconds, \(currentAttempt)/\(totalAttempts) tries left.",.warning)
 
                 // Try full reconnect for the final attempt
                 if totalAttempts == currentAttempt, self._state.nextReconnectMode == nil {
@@ -389,21 +395,21 @@ extension Room {
                         try await fullReconnectSequence()
                     }
                 } catch {
-                    self.log("[Connect] Reconnect mode: \(mode) failed with error: \(error)", .error)
+                    self.log("[Reconnect] Reconnect mode: \(mode) failed with error: \(error)", .error)
                     // Re-throw
                     throw error
                 }
             }.value
 
             // Re-connect sequence successful
-            log("[Connect] Sequence completed")
+            log("[Reconnect] Sequence completed", .warning)
             _state.mutate {
                 $0.connectionState = .connected
                 $0.isReconnectingWithMode = nil
                 $0.nextReconnectMode = nil
             }
         } catch {
-            log("[Connect] Sequence failed with error: \(error)")
+            log("[Reconnect] Sequence failed with error: \(error)" , .error)
 
             if !Task.isCancelled {
                 // Finally disconnect if all attempts fail
