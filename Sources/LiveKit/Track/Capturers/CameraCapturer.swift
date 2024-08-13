@@ -97,12 +97,12 @@ public class CameraCapturer: VideoCapturer {
     public var captureSession: AVCaptureSession {
         #if os(iOS)
         if AVCaptureMultiCamSession.isMultiCamSupported {
-            Self._multiCamSession
+            return Self._multiCamSession
         } else {
-            AVCaptureSession()
+            return AVCaptureSession()
         }
         #else
-        AVCaptureSession()
+        return AVCaptureSession()
         #endif
     }
 
