@@ -289,7 +289,7 @@ extension Room {
 
         // quick connect sequence, does not update connection state
         @Sendable func quickReconnectSequence() async throws {
-            log("[Connect] Starting .quick reconnect sequence...")
+            log("[Reconnect .quick] Starting .quick reconnect sequence...",.warning)
 
             let connectResponse = try await signalClient.connect(url,
                                                                  token,
@@ -305,7 +305,14 @@ extension Room {
             // Resume after configuring transports...
             await signalClient.resumeQueues()
 
-            log("[Connect] Waiting for subscriber to connect...")
+            if let subscriber = _state.subscriber {
+                log("[Reconnect .quick] subscriber: \(subscriber) subscriber.isConnected: \(await subscriber.isConnected) subscriber.connectionState: \(await subscriber.connectionState)",.warning)
+            }
+            if let publisher = _state.publisher {
+                log("[Reconnect .quick] publisher: \(publisher) publisher.isConnected: \(await publisher.isConnected) publisher.connectionState: \(await publisher.connectionState)",.warning)
+            }
+            
+            log("[Reconnect .quick] Waiting for subscriber to connect...",.warning)
             // Wait for primary transport to connect (if not already)
             try await primaryTransportConnectedCompleter.wait(timeout: _state.connectOptions.primaryTransportConnectTimeout)
             try Task.checkCancellation()
@@ -317,7 +324,7 @@ extension Room {
 
             if let publisher = _state.publisher, _state.hasPublished {
                 // Only if published, wait for publisher to connect...
-                log("[Connect] Waiting for publisher to connect...")
+                log("[Reconnect .quick] Waiting for publisher to connect...",.warning)
                 try await publisher.createAndSendOffer(iceRestart: true)
                 try await publisherTransportConnectedCompleter.wait(timeout: _state.connectOptions.publisherTransportConnectTimeout)
             }
@@ -326,7 +333,7 @@ extension Room {
         // "full" re-connection sequence
         // as a last resort, try to do a clean re-connection and re-publish existing tracks
         @Sendable func fullReconnectSequence() async throws {
-            log("[Connect] starting .full reconnect sequence...")
+            log("[Connect] starting .full reconnect sequence...", .warning)
 
             _state.mutate {
                 // Mark as Re-connecting
@@ -359,11 +366,13 @@ extension Room {
                 // Full reconnect failed, give up
                 guard currentMode != .full else { return }
 
-                self.log("[Connect] Retry in \(self._state.connectOptions.reconnectAttemptDelay) seconds, \(currentAttempt)/\(totalAttempts) tries left.")
+                self.log("[Connect] Retry in \(self._state.connectOptions.reconnectAttemptDelay) seconds, \(currentAttempt)/\(totalAttempts) tries left.",.warning)
 
                 // Try full reconnect for the final attempt
                 if totalAttempts == currentAttempt, self._state.nextReconnectMode == nil {
-                    self._state.mutate { $0.nextReconnectMode = .full }
+                    // changed by lewis2211, 全部采用快速连接方式
+//                    self._state.mutate { $0.nextReconnectMode = .full }
+                    self._state.mutate { $0.nextReconnectMode = .quick }
                 }
 
                 let mode: ReconnectMode = self._state.mutate {
