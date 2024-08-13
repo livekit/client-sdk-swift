@@ -147,7 +147,7 @@ public class Room: NSObject, ObservableObject, Loggable {
         var publisher: Transport?
         var subscriber: Transport?
         var isSubscriberPrimary: Bool = false
-        
+
         // Agents
         var transcriptionReceivedTimes: [String: Date] = [:]
 
