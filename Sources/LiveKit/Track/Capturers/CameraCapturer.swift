@@ -95,19 +95,11 @@ public class CameraCapturer: VideoCapturer {
     #endif
 
     public var captureSession: AVCaptureSession {
-        #if os(iOS)
-        if AVCaptureMultiCamSession.isMultiCamSupported {
-            return Self._multiCamSession
-        } else {
-            return AVCaptureSession()
-        }
-        #else
-        return AVCaptureSession()
-        #endif
+        capturer.captureSession
     }
 
     // RTCCameraVideoCapturer used internally for now
-    private lazy var capturer: LKRTCCameraVideoCapturer = .init(delegate: adapter, captureSession: captureSession)
+    private lazy var capturer: LKRTCCameraVideoCapturer = .init(delegate: adapter)
 
     init(delegate: LKRTCVideoCapturerDelegate, options: CameraCaptureOptions) {
         _cameraCapturerState = StateSync(State(options: options))
