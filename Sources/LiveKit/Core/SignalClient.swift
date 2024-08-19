@@ -495,11 +495,26 @@ extension SignalClient {
         try await _sendRequest(r)
     }
 
-    func sendUpdateParticipant(metadata: String? = nil, name: String? = nil) async throws {
+    func sendUpdateParticipant(name: String? = nil,
+                               metadata: String? = nil,
+                               attributes: [String: String]? = nil) async throws
+    {
         let r = Livekit_SignalRequest.with {
             $0.updateMetadata = Livekit_UpdateParticipantMetadata.with {
-                $0.metadata = metadata ?? ""
                 $0.name = name ?? ""
+                $0.metadata = metadata ?? ""
+                $0.attributes = attributes ?? [:]
+            }
+        }
+
+        try await _sendRequest(r)
+    }
+
+    func sendUpdateLocalAudioTrack(trackSid: Track.Sid, features: Set<Livekit_AudioTrackFeature>) async throws {
+        let r = Livekit_SignalRequest.with {
+            $0.updateAudioTrack = Livekit_UpdateLocalAudioTrack.with {
+                $0.trackSid = trackSid.stringValue
+                $0.features = Array(features)
             }
         }
 

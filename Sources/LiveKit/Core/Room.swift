@@ -148,6 +148,9 @@ public class Room: NSObject, ObservableObject, Loggable {
         var subscriber: Transport?
         var isSubscriberPrimary: Bool = false
 
+        // Agents
+        var transcriptionReceivedTimes: [String: Date] = [:]
+
         @discardableResult
         mutating func updateRemoteParticipant(info: Livekit_ParticipantInfo, room: Room) -> RemoteParticipant {
             let identity = Participant.Identity(from: info.identity)
@@ -521,6 +524,7 @@ extension Room: DataChannelDelegate {
         switch dataPacket.value {
         case let .speaker(update): engine(self, didUpdateSpeakers: update.speakers)
         case let .user(userPacket): engine(self, didReceiveUserPacket: userPacket)
+        case let .transcription(packet): room(didReceiveTranscriptionPacket: packet)
         default: return
         }
     }

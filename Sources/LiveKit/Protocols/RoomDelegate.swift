@@ -99,6 +99,13 @@ public protocol RoomDelegate: AnyObject {
     @objc optional
     func room(_ room: Room, participant: Participant, didUpdatePermissions permissions: ParticipantPermissions)
 
+    @objc optional
+    func room(_ room: Room, participant: Participant, didUpdateAttributes attributes: [String: String])
+
+    /// Received transcription segments.
+    @objc optional
+    func room(_ room: Room, participant: Participant, trackPublication: TrackPublication, didReceiveTranscriptionSegments segments: [TranscriptionSegment])
+
     // MARK: - Track Publications
 
     /// The ``LocalParticipant`` has published a ``LocalTrack``.

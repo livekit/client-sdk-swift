@@ -83,3 +83,14 @@ public class AudioCaptureOptions: NSObject, CaptureOptions {
         return hasher.finalize()
     }
 }
+
+// Internal
+extension AudioCaptureOptions {
+    func toFeatures() -> Set<Livekit_AudioTrackFeature> {
+        Set([
+            echoCancellation ? .tfEchoCancellation : nil,
+            noiseSuppression ? .tfNoiseSuppression : nil,
+            autoGainControl ? .tfAutoGainControl : nil,
+        ].compactMap { $0 })
+    }
+}

@@ -23,7 +23,7 @@ import AppKit
 #endif
 
 class TextView: NativeView {
-    #if os(iOS)
+    #if os(iOS) || os(visionOS)
     private class DebugUILabel: UILabel {
         override func drawText(in _: CGRect) {
             let textRect = super.textRect(forBounds: bounds, limitedToNumberOfLines: numberOfLines)
@@ -38,14 +38,14 @@ class TextView: NativeView {
 
     var text: String? {
         get {
-            #if os(iOS)
+            #if os(iOS) || os(visionOS)
             _textView.text
             #elseif os(macOS)
             _textView.stringValue
             #endif
         }
         set {
-            #if os(iOS)
+            #if os(iOS) || os(visionOS)
             _textView.text = newValue
             #elseif os(macOS)
             _textView.stringValue = newValue ?? ""
@@ -54,7 +54,7 @@ class TextView: NativeView {
     }
 
     override init(frame: CGRect) {
-        #if os(iOS)
+        #if os(iOS) || os(visionOS)
         _textView = DebugUILabel(frame: .zero)
         _textView.numberOfLines = 0
         _textView.adjustsFontSizeToFitWidth = false

@@ -29,7 +29,7 @@ public extension TimeInterval {
     static let defaultPublisherDataChannelOpen: Self = 7
     static let resolveSid: Self = 7 + 5 // Join response + 5
     static let defaultPublish: Self = 10
-    static let defaultCaptureStart: Self = 5
+    static let defaultCaptureStart: Self = 10
 }
 
 extension TimeInterval {

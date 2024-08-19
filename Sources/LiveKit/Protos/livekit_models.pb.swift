@@ -361,15 +361,36 @@ enum Livekit_ClientConfigSetting: SwiftProtobuf.Enum, Swift.CaseIterable {
 enum Livekit_DisconnectReason: SwiftProtobuf.Enum, Swift.CaseIterable {
   typealias RawValue = Int
   case unknownReason // = 0
+
+  /// the client initiated the disconnect
   case clientInitiated // = 1
+
+  /// another participant with the same identity has joined the room
   case duplicateIdentity // = 2
+
+  /// the server instance is shutting down
   case serverShutdown // = 3
+
+  /// RoomService.RemoveParticipant was called
   case participantRemoved // = 4
+
+  /// RoomService.DeleteRoom was called
   case roomDeleted // = 5
+
+  /// the client is attempting to resume a session, but server is not aware of it
   case stateMismatch // = 6
+
+  /// client was unable to connect fully
   case joinFailure // = 7
+
+  /// Cloud-only, the server requested Participant to migrate the connection elsewhere
   case migration // = 8
+
+  /// the signal websocket was closed unexpectedly
   case signalClose // = 9
+
+  /// the room was closed, due to all Standard and Ingress participants having left
+  case roomClosed // = 10
   case UNRECOGNIZED(Int)
 
   init() {
@@ -388,6 +409,7 @@ enum Livekit_DisconnectReason: SwiftProtobuf.Enum, Swift.CaseIterable {
     case 7: self = .joinFailure
     case 8: self = .migration
     case 9: self = .signalClose
+    case 10: self = .roomClosed
     default: self = .UNRECOGNIZED(rawValue)
     }
   }
@@ -404,6 +426,7 @@ enum Livekit_DisconnectReason: SwiftProtobuf.Enum, Swift.CaseIterable {
     case .joinFailure: return 7
     case .migration: return 8
     case .signalClose: return 9
+    case .roomClosed: return 10
     case .UNRECOGNIZED(let i): return i
     }
   }
@@ -420,6 +443,7 @@ enum Livekit_DisconnectReason: SwiftProtobuf.Enum, Swift.CaseIterable {
     .joinFailure,
     .migration,
     .signalClose,
+    .roomClosed,
   ]
 
 }
@@ -1991,6 +2015,7 @@ extension Livekit_DisconnectReason: SwiftProtobuf._ProtoNameProviding {
     7: .same(proto: "JOIN_FAILURE"),
     8: .same(proto: "MIGRATION"),
     9: .same(proto: "SIGNAL_CLOSE"),
+    10: .same(proto: "ROOM_CLOSED"),
   ]
 }
 

@@ -51,6 +51,9 @@ public protocol ParticipantDelegate: AnyObject {
     @objc optional
     func participant(_ participant: Participant, didUpdatePermissions permissions: ParticipantPermissions)
 
+    @objc optional
+    func participant(_ participant: Participant, didUpdateAttributes attributes: [String: String])
+
     // MARK: - TrackPublication
 
     /// `muted` state has updated for the ``Participant``'s ``TrackPublication``.
@@ -61,6 +64,10 @@ public protocol ParticipantDelegate: AnyObject {
     /// `participant` Can be a ``LocalParticipant`` or a ``RemoteParticipant``.
     @objc optional
     func participant(_ participant: Participant, trackPublication: TrackPublication, didUpdateIsMuted isMuted: Bool)
+
+    /// Received transcription segments.
+    @objc optional
+    func participant(_ participant: Participant, trackPublication: TrackPublication, didReceiveTranscriptionSegments segments: [TranscriptionSegment])
 
     // MARK: - LocalTrackPublication
 

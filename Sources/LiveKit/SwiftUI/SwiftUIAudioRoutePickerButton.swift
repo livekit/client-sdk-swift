@@ -23,6 +23,7 @@ internal import LiveKitWebRTC
 @_implementationOnly import LiveKitWebRTC
 #endif
 
+#if os(iOS) || os(macOS)
 public struct SwiftUIAudioRoutePickerButton: NativeViewRepresentable {
     public init() {}
 
@@ -41,3 +42,4 @@ public struct SwiftUIAudioRoutePickerButton: NativeViewRepresentable {
     public func updateView(_: AVRoutePickerView, context _: Context) {}
     public static func dismantleView(_: AVRoutePickerView, coordinator _: ()) {}
 }
+#endif

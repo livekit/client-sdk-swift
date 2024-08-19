@@ -40,6 +40,9 @@ jobs:
           - os: macos-14
             xcode: 15.4
             platform: "macOS,variant=Mac Catalyst"
+          - os: macos-14
+            xcode: 15.4
+            platform: "visionOS Simulator" # visionOS 1.2
           # https://github.com/actions/runner-images/blob/main/images/macos/macos-14-Readme.md
           - os: macos-14
             xcode: 16.0-beta

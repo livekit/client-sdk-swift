@@ -90,18 +90,24 @@ public class CameraCapturer: VideoCapturer {
     private lazy var adapter: VideoCapturerDelegateAdapter = .init(cameraCapturer: self)
 
     #if os(iOS)
-    public static let multiCamSession = AVCaptureMultiCamSession()
+    // static let is lazy by default and AVCaptureMultiCamSession will only be initialized if used.
+    private static let _multiCamSession = AVCaptureMultiCamSession()
     #endif
 
-    // RTCCameraVideoCapturer used internally for now
-    private lazy var capturer: LKRTCCameraVideoCapturer = {
+    public var captureSession: AVCaptureSession {
         #if os(iOS)
-        let result = LKRTCCameraVideoCapturer(delegate: adapter, captureSession: Self.multiCamSession)
+        if AVCaptureMultiCamSession.isMultiCamSupported {
+            return Self._multiCamSession
+        } else {
+            return AVCaptureSession()
+        }
         #else
-        let result = LKRTCCameraVideoCapturer(delegate: adapter)
+        return AVCaptureSession()
         #endif
-        return result
-    }()
+    }
+
+    // RTCCameraVideoCapturer used internally for now
+    private lazy var capturer: LKRTCCameraVideoCapturer = .init(delegate: adapter, captureSession: captureSession)
 
     init(delegate: LKRTCVideoCapturerDelegate, options: CameraCaptureOptions) {
         _cameraCapturerState = StateSync(State(options: options))
@@ -161,8 +167,22 @@ public class CameraCapturer: VideoCapturer {
         var device: AVCaptureDevice? = options.device
 
         if device == nil {
+            #if os(iOS)
+            let devices: [AVCaptureDevice]
+            if AVCaptureMultiCamSession.isMultiCamSupported {
+                // Get the list of devices already on the shared multi-cam session.
+                let existingDevices = captureSession.inputs.compactMap { $0 as? AVCaptureDeviceInput }.map(\.device)
+                log("Existing devices: \(existingDevices)")
+                // Compute other multi-cam compatible devices.
+                devices = try await DeviceManager.shared.multiCamCompatibleDevices(for: Set(existingDevices))
+            } else {
+                devices = try await CameraCapturer.captureDevices()
+            }
+            #else
             let devices = try await CameraCapturer.captureDevices()
-            device = devices.first(where: { $0.position == self.options.position }) ?? devices.first
+            #endif
+
+            device = devices.first { $0.position == self.options.position } ?? devices.first
         }
 
         guard let device else {
@@ -187,7 +207,7 @@ public class CameraCapturer: VideoCapturer {
             // Use the preferred capture format if specified in options
             selectedFormat = foundFormat
         } else {
-            if let foundFormat = sortedFormats.first(where: { $0.dimensions.area >= self.options.dimensions.area && $0.format.fpsRange().contains(self.options.fps) }) {
+            if let foundFormat = sortedFormats.first(where: { $0.dimensions.area >= self.options.dimensions.area && $0.format.fpsRange().contains(self.options.fps) && $0.format.isMultiCamSupportediOS }) {
                 // Use the first format that satisfies preferred dimensions & fps
                 selectedFormat = foundFormat
             } else if let foundFormat = sortedFormats.first(where: { $0.dimensions.area >= self.options.dimensions.area }) {
@@ -313,5 +333,13 @@ extension AVCaptureDevice.Format {
         videoSupportedFrameRateRanges.map { $0.toRange() }.reduce(into: 0 ... 0) { result, current in
             result = merge(range: result, with: current)
         }
+    }
+
+    var isMultiCamSupportediOS: Bool {
+        #if os(iOS)
+        return AVCaptureMultiCamSession.isMultiCamSupported ? isMultiCamSupported : true
+        #else
+        return true
+        #endif
     }
 }

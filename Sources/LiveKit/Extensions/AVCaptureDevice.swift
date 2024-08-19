@@ -18,11 +18,18 @@ import AVFoundation
 
 public extension AVCaptureDevice {
     /// Helper extension to return the acual direction the camera is facing.
-    /// In macOS, the Facetime camera's position is .unspecified but this property will return .front for such cases.
     var facingPosition: AVCaptureDevice.Position {
+        #if os(macOS)
+        /// In macOS, the Facetime camera's position is .unspecified but this property will return .front for such cases.
         if deviceType == .builtInWideAngleCamera, position == .unspecified {
             return .front
         }
+        #elseif os(visionOS)
+        /// In visionOS, the Persona camera's position is .unspecified but this property will return .front for such cases.
+        if position == .unspecified {
+            return .front
+        }
+        #endif
 
         return position
     }

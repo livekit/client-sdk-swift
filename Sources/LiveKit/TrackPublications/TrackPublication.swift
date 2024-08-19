@@ -90,6 +90,8 @@ public class TrackPublication: NSObject, ObservableObject, Loggable {
         var encryptionType: EncryptionType = .none
 
         var latestInfo: Livekit_TrackInfo?
+
+        var audioTrackFeatures: Set<Livekit_AudioTrackFeature>?
     }
 
     let _state: StateSync<State>
