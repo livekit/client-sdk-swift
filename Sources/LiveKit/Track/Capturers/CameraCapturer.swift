@@ -89,11 +89,6 @@ public class CameraCapturer: VideoCapturer {
     // Used to hide LKRTCVideoCapturerDelegate symbol
     private lazy var adapter: VideoCapturerDelegateAdapter = .init(cameraCapturer: self)
 
-    #if os(iOS)
-    // static let is lazy by default and AVCaptureMultiCamSession will only be initialized if used.
-    private static let _multiCamSession = AVCaptureMultiCamSession()
-    #endif
-
     public var captureSession: AVCaptureSession {
         capturer.captureSession
     }
