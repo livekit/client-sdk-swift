@@ -299,6 +299,8 @@ extension HTTPURLResponse {
     var isStatusCodeOK: Bool {
         (200 ... 299).contains(statusCode)
     }
+}
+
 func computeAttributesDiff(oldValues: [String: String], newValues: [String: String]) -> [String: String] {
     let allKeys = Set(oldValues.keys).union(newValues.keys)
     var diff = [String: String]()
