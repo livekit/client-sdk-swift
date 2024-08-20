@@ -95,7 +95,7 @@ public class RemoteAudioTrack: Track, RemoteTrack, AudioTrack {
 extension RemoteAudioTrack: AudioRenderer {
     public func render(sampleBuffer: CMSampleBuffer) {
         _rendererState.audioRenderers.notify { audioRenderer in
-            audioRenderer.render(sampleBuffer: sampleBuffer)
+            audioRenderer.render?(sampleBuffer: sampleBuffer)
         }
     }
 }

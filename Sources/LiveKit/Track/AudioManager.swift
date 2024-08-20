@@ -313,3 +313,30 @@ public class AudioManager: Loggable {
     }
     #endif
 }
+
+public extension AudioManager {
+    /// Add an ``AudioRenderer`` to receive pcm buffers from local input (mic).
+    /// Only ``AudioRenderer/render(pcmBuffer:)`` will be called.
+    /// Usage: `AudioManager.shared.add(localAudioRenderer: localRenderer)`
+    func add(localAudioRenderer delegate: AudioRenderer) {
+        capturePostProcessingDelegateAdapter.audioRenderers.add(delegate: delegate)
+    }
+
+    func remove(localAudioRenderer delegate: AudioRenderer) {
+        capturePostProcessingDelegateAdapter.audioRenderers.remove(delegate: delegate)
+    }
+}
+
+public extension AudioManager {
+    /// Add an ``AudioRenderer`` to receive pcm buffers from combined remote audio.
+    /// Only ``AudioRenderer/render(pcmBuffer:)`` will be called.
+    /// To receive buffer for individual tracks, use ``RemoteAudioTrack/add(audioRenderer:)`` instead.
+    /// Usage: `AudioManager.shared.add(remoteAudioRenderer: localRenderer)`
+    func add(remoteAudioRenderer delegate: AudioRenderer) {
+        renderPreProcessingDelegateAdapter.audioRenderers.add(delegate: delegate)
+    }
+
+    func remove(remoteAudioRenderer delegate: AudioRenderer) {
+        renderPreProcessingDelegateAdapter.audioRenderers.remove(delegate: delegate)
+    }
+}
