@@ -89,25 +89,12 @@ public class CameraCapturer: VideoCapturer {
     // Used to hide LKRTCVideoCapturerDelegate symbol
     private lazy var adapter: VideoCapturerDelegateAdapter = .init(cameraCapturer: self)
 
-    #if os(iOS)
-    // static let is lazy by default and AVCaptureMultiCamSession will only be initialized if used.
-    private static let _multiCamSession = AVCaptureMultiCamSession()
-    #endif
-
     public var captureSession: AVCaptureSession {
-        #if os(iOS)
-        if AVCaptureMultiCamSession.isMultiCamSupported {
-            return Self._multiCamSession
-        } else {
-            return AVCaptureSession()
-        }
-        #else
-        return AVCaptureSession()
-        #endif
+        capturer.captureSession
     }
 
     // RTCCameraVideoCapturer used internally for now
-    private lazy var capturer: LKRTCCameraVideoCapturer = .init(delegate: adapter, captureSession: captureSession)
+    private lazy var capturer: LKRTCCameraVideoCapturer = .init(delegate: adapter)
 
     init(delegate: LKRTCVideoCapturerDelegate, options: CameraCaptureOptions) {
         _cameraCapturerState = StateSync(State(options: options))
