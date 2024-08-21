@@ -22,7 +22,7 @@ import UIKit
 import AppKit
 #endif
 
-#if os(iOS) || os(visionOS)
+#if os(iOS) || os(visionOS) || os(tvOS)
 public typealias NativeViewType = UIView
 #elseif os(macOS)
 public typealias NativeViewType = NSView
@@ -41,7 +41,7 @@ open class NativeView: NativeViewType {
         fatalError("init(coder:) has not been implemented")
     }
 
-    #if os(iOS) || os(visionOS)
+    #if os(iOS) || os(visionOS) || os(tvOS)
     override public func layoutSubviews() {
         super.layoutSubviews()
         performLayout()

@@ -23,7 +23,7 @@ import UIKit
 import AppKit
 #endif
 
-#if os(iOS) || os(visionOS)
+#if os(iOS) || os(visionOS) || os(tvOS)
 public typealias NativeViewRepresentableType = UIViewRepresentable
 #elseif os(macOS)
 public typealias NativeViewRepresentableType = NSViewRepresentable
@@ -40,7 +40,7 @@ public protocol NativeViewRepresentable: NativeViewRepresentableType {
 }
 
 public extension NativeViewRepresentable {
-    #if os(iOS) || os(visionOS)
+    #if os(iOS) || os(visionOS) || os(tvOS)
     func makeUIView(context: Context) -> Self.ViewType {
         makeView(context: context)
     }
