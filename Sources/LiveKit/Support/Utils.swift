@@ -128,34 +128,34 @@ class Utils {
     }
 
     static func buildUrl(
-        _ url: URL,
+        _ url: String,
         _ token: String,
         connectOptions: ConnectOptions? = nil,
         reconnectMode: ReconnectMode? = nil,
         adaptiveStream: Bool,
         validate: Bool = false,
         forceSecure: Bool = false
-    ) throws -> URL {
+    ) -> URL? {
         // use default options if nil
         let connectOptions = connectOptions ?? ConnectOptions()
 
-        let components = URLComponents(url: url, resolvingAgainstBaseURL: false)
+        guard let parsedUrl = URL(string: url) else { return nil }
 
-        guard var builder = components else {
-            throw LiveKitError(.failedToParseUrl)
-        }
+        let components = URLComponents(url: parsedUrl, resolvingAgainstBaseURL: false)
 
-        let useSecure = url.isSecure || forceSecure
+        guard var builder = components else { return nil }
+
+        let useSecure = parsedUrl.isSecure || forceSecure
         let httpScheme = useSecure ? "https" : "http"
         let wsScheme = useSecure ? "wss" : "ws"
 
-        var pathSegments = url.pathComponents
+        var pathSegments = parsedUrl.pathComponents
         // strip empty & slashes
         pathSegments.removeAll(where: { $0.isEmpty || $0 == "/" })
 
         // if already ending with `rtc` or `validate`
         // and is not a dir, remove it
-        if !url.hasDirectoryPath,
+        if !parsedUrl.hasDirectoryPath,
            !pathSegments.isEmpty,
            ["rtc", "validate"].contains(pathSegments.last!)
         {
@@ -196,11 +196,7 @@ class Utils {
 
         builder.queryItems = queryItems
 
-        guard let result = builder.url else {
-            throw LiveKitError(.failedToParseUrl)
-        }
-
-        return result
+        return builder.url
     }
 
     static func computeVideoEncodings(
