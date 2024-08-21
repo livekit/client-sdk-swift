@@ -56,7 +56,7 @@ class Utils {
 
     /// Returns current OS.
     static func os() -> OS {
-        #if os(iOS) || os(visionOS)
+        #if os(iOS) || os(visionOS) || os(tvOS)
         .iOS
         #elseif os(macOS)
         .macOS
@@ -80,7 +80,7 @@ class Utils {
     /// Returns a model identifier.
     /// format: `MacBookPro18,3`, `iPhone13,3` or `iOSSimulator,arm64`
     static func modelIdentifier() -> String? {
-        #if os(iOS) || os(visionOS)
+        #if os(iOS) || os(visionOS) || os(tvOS)
         var systemInfo = utsname()
         uname(&systemInfo)
         let machineMirror = Mirror(reflecting: systemInfo.machine)
