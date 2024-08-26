@@ -787,11 +787,6 @@ struct Livekit_JoinResponse: @unchecked Sendable {
     set {_uniqueStorage()._sifTrailer = newValue}
   }
 
-  var enabledPublishCodecs: [Livekit_Codec] {
-    get {return _storage._enabledPublishCodecs}
-    set {_uniqueStorage()._enabledPublishCodecs = newValue}
-  }
-
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   init() {}
@@ -2632,7 +2627,6 @@ extension Livekit_JoinResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageImp
     11: .standard(proto: "ping_interval"),
     12: .standard(proto: "server_info"),
     13: .standard(proto: "sif_trailer"),
-    14: .standard(proto: "enabled_publish_codecs"),
   ]
 
   fileprivate class _StorageClass {
@@ -2649,7 +2643,6 @@ extension Livekit_JoinResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageImp
     var _pingInterval: Int32 = 0
     var _serverInfo: Livekit_ServerInfo? = nil
     var _sifTrailer: Data = Data()
-    var _enabledPublishCodecs: [Livekit_Codec] = []
 
     #if swift(>=5.10)
       // This property is used as the initial default value for new instances of the type.
@@ -2677,7 +2670,6 @@ extension Livekit_JoinResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageImp
       _pingInterval = source._pingInterval
       _serverInfo = source._serverInfo
       _sifTrailer = source._sifTrailer
-      _enabledPublishCodecs = source._enabledPublishCodecs
     }
   }
 
@@ -2709,7 +2701,6 @@ extension Livekit_JoinResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageImp
         case 11: try { try decoder.decodeSingularInt32Field(value: &_storage._pingInterval) }()
         case 12: try { try decoder.decodeSingularMessageField(value: &_storage._serverInfo) }()
         case 13: try { try decoder.decodeSingularBytesField(value: &_storage._sifTrailer) }()
-        case 14: try { try decoder.decodeRepeatedMessageField(value: &_storage._enabledPublishCodecs) }()
         default: break
         }
       }
@@ -2761,9 +2752,6 @@ extension Livekit_JoinResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageImp
       if !_storage._sifTrailer.isEmpty {
         try visitor.visitSingularBytesField(value: _storage._sifTrailer, fieldNumber: 13)
       }
-      if !_storage._enabledPublishCodecs.isEmpty {
-        try visitor.visitRepeatedMessageField(value: _storage._enabledPublishCodecs, fieldNumber: 14)
-      }
     }
     try unknownFields.traverse(visitor: &visitor)
   }
@@ -2786,7 +2774,6 @@ extension Livekit_JoinResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageImp
         if _storage._pingInterval != rhs_storage._pingInterval {return false}
         if _storage._serverInfo != rhs_storage._serverInfo {return false}
         if _storage._sifTrailer != rhs_storage._sifTrailer {return false}
-        if _storage._enabledPublishCodecs != rhs_storage._enabledPublishCodecs {return false}
         return true
       }
       if !storagesAreEqual {return false}

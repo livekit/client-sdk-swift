@@ -692,9 +692,6 @@ struct Livekit_ParticipantPermission: Sendable {
   /// NOTE: This field was marked as deprecated in the .proto file.
   var agent: Bool = false
 
-  /// if a participant can subscribe to metrics
-  var canSubscribeMetrics: Bool = false
-
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   init() {}
@@ -1153,14 +1150,6 @@ struct Livekit_DataPacket: Sendable {
     set {value = .transcription(newValue)}
   }
 
-  var metrics: Livekit_MetricsBatch {
-    get {
-      if case .metrics(let v)? = value {return v}
-      return Livekit_MetricsBatch()
-    }
-    set {value = .metrics(newValue)}
-  }
-
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   enum OneOf_Value: Equatable, Sendable {
@@ -1169,7 +1158,6 @@ struct Livekit_DataPacket: Sendable {
     case speaker(Livekit_ActiveSpeakerUpdate)
     case sipDtmf(Livekit_SipDTMF)
     case transcription(Livekit_Transcription)
-    case metrics(Livekit_MetricsBatch)
 
   }
 
@@ -2376,7 +2364,6 @@ extension Livekit_ParticipantPermission: SwiftProtobuf.Message, SwiftProtobuf._M
     8: .same(proto: "recorder"),
     10: .standard(proto: "can_update_metadata"),
     11: .same(proto: "agent"),
-    12: .standard(proto: "can_subscribe_metrics"),
   ]
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -2393,7 +2380,6 @@ extension Livekit_ParticipantPermission: SwiftProtobuf.Message, SwiftProtobuf._M
       case 9: try { try decoder.decodeRepeatedEnumField(value: &self.canPublishSources) }()
       case 10: try { try decoder.decodeSingularBoolField(value: &self.canUpdateMetadata) }()
       case 11: try { try decoder.decodeSingularBoolField(value: &self.agent) }()
-      case 12: try { try decoder.decodeSingularBoolField(value: &self.canSubscribeMetrics) }()
       default: break
       }
     }
@@ -2424,9 +2410,6 @@ extension Livekit_ParticipantPermission: SwiftProtobuf.Message, SwiftProtobuf._M
     if self.agent != false {
       try visitor.visitSingularBoolField(value: self.agent, fieldNumber: 11)
     }
-    if self.canSubscribeMetrics != false {
-      try visitor.visitSingularBoolField(value: self.canSubscribeMetrics, fieldNumber: 12)
-    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -2439,7 +2422,6 @@ extension Livekit_ParticipantPermission: SwiftProtobuf.Message, SwiftProtobuf._M
     if lhs.recorder != rhs.recorder {return false}
     if lhs.canUpdateMetadata != rhs.canUpdateMetadata {return false}
     if lhs.agent != rhs.agent {return false}
-    if lhs.canSubscribeMetrics != rhs.canSubscribeMetrics {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
@@ -3007,7 +2989,6 @@ extension Livekit_DataPacket: SwiftProtobuf.Message, SwiftProtobuf._MessageImple
     3: .same(proto: "speaker"),
     6: .standard(proto: "sip_dtmf"),
     7: .same(proto: "transcription"),
-    8: .same(proto: "metrics"),
   ]
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -3071,19 +3052,6 @@ extension Livekit_DataPacket: SwiftProtobuf.Message, SwiftProtobuf._MessageImple
           self.value = .transcription(v)
         }
       }()
-      case 8: try {
-        var v: Livekit_MetricsBatch?
-        var hadOneofValue = false
-        if let current = self.value {
-          hadOneofValue = true
-          if case .metrics(let m) = current {v = m}
-        }
-        try decoder.decodeSingularMessageField(value: &v)
-        if let v = v {
-          if hadOneofValue {try decoder.handleConflictingOneOf()}
-          self.value = .metrics(v)
-        }
-      }()
       default: break
       }
     }
@@ -3122,10 +3090,6 @@ extension Livekit_DataPacket: SwiftProtobuf.Message, SwiftProtobuf._MessageImple
     case .transcription?: try {
       guard case .transcription(let v)? = self.value else { preconditionFailure() }
       try visitor.visitSingularMessageField(value: v, fieldNumber: 7)
-    }()
-    case .metrics?: try {
-      guard case .metrics(let v)? = self.value else { preconditionFailure() }
-      try visitor.visitSingularMessageField(value: v, fieldNumber: 8)
     }()
     default: break
     }
