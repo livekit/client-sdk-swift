@@ -110,7 +110,7 @@ actor SignalClient: Loggable {
     }
 
     @discardableResult
-    func connect(_ urlString: String,
+    func connect(_ url: URL,
                  _ token: String,
                  connectOptions: ConnectOptions? = nil,
                  reconnectMode: ReconnectMode? = nil,
@@ -122,14 +122,11 @@ actor SignalClient: Loggable {
             log("[Connect] mode: \(String(describing: reconnectMode))")
         }
 
-        guard let url = Utils.buildUrl(urlString,
-                                       token,
-                                       connectOptions: connectOptions,
-                                       reconnectMode: reconnectMode,
-                                       adaptiveStream: adaptiveStream)
-        else {
-            throw LiveKitError(.failedToParseUrl)
-        }
+        let url = try Utils.buildUrl(url,
+                                     token,
+                                     connectOptions: connectOptions,
+                                     reconnectMode: reconnectMode,
+                                     adaptiveStream: adaptiveStream)
 
         if reconnectMode != nil {
             log("[Connect] with url: \(url)")
@@ -179,14 +176,11 @@ actor SignalClient: Loggable {
             await cleanUp(withError: error)
 
             // Validate...
-            guard let validateUrl = Utils.buildUrl(urlString,
-                                                   token,
-                                                   connectOptions: connectOptions,
-                                                   adaptiveStream: adaptiveStream,
-                                                   validate: true)
-            else {
-                throw LiveKitError(.failedToParseUrl, message: "Failed to parse validation url")
-            }
+            let validateUrl = try Utils.buildUrl(url,
+                                                 token,
+                                                 connectOptions: connectOptions,
+                                                 adaptiveStream: adaptiveStream,
+                                                 validate: true)
 
             log("Validating with url: \(validateUrl)...")
             let validationResponse = try await HTTP.requestString(from: validateUrl)

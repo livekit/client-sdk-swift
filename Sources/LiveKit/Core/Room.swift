@@ -77,7 +77,7 @@ public class Room: NSObject, ObservableObject, Loggable {
 
     // expose engine's vars
     @objc
-    public var url: String? { _state.url }
+    public var url: String? { _state.url?.absoluteString }
 
     @objc
     public var token: String? { _state.token }
@@ -134,7 +134,7 @@ public class Room: NSObject, ObservableObject, Loggable {
         var serverInfo: Livekit_ServerInfo?
 
         // Engine
-        var url: String?
+        var url: URL?
         var token: String?
         // preferred reconnect mode which will be used only for next attempt
         var nextReconnectMode: ReconnectMode?
@@ -283,7 +283,12 @@ public class Room: NSObject, ObservableObject, Loggable {
                         connectOptions: ConnectOptions? = nil,
                         roomOptions: RoomOptions? = nil) async throws
     {
-        log("connecting to room...", .info)
+        guard let url = URL(string: url), url.isValidForConnect else {
+            log("URL parse failed", .error)
+            throw LiveKitError(.failedToParseUrl)
+        }
+
+        log("Connecting to room...", .info)
 
         var state = _state.copy()
 
