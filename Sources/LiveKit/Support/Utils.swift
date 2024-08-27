@@ -268,37 +268,6 @@ extension MutableCollection {
     }
 }
 
-extension URL {
-    /// Checks whether the URL is a LiveKit Cloud URL.
-    func isCloud() -> Bool {
-        guard let host else { return false }
-        return host.hasSuffix(".livekit.cloud") || host.hasSuffix(".livekit.run")
-    }
-
-    func cloudConfigUrl() -> URL {
-        var components = URLComponents(url: self, resolvingAgainstBaseURL: false)!
-        components.scheme = scheme?.replacingOccurrences(of: "ws", with: "http")
-        components.path = "/settings"
-        return components.url!
-    }
-
-    func regionSettingsUrl() -> URL {
-        cloudConfigUrl().appendingPathComponent("/regions")
-    }
-
-    func toSocketUrl() -> URL {
-        var components = URLComponents(url: self, resolvingAgainstBaseURL: false)!
-        components.scheme = scheme?.replacingOccurrences(of: "http", with: "ws")
-        return components.url!
-    }
-
-    func toHTTPUrl() -> URL {
-        var components = URLComponents(url: self, resolvingAgainstBaseURL: false)!
-        components.scheme = scheme?.replacingOccurrences(of: "ws", with: "http")
-        return components.url!
-    }
-}
-
 extension HTTPURLResponse {
     var isStatusCodeOK: Bool {
         (200 ... 299).contains(statusCode)

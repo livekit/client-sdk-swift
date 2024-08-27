@@ -151,6 +151,11 @@ public class Room: NSObject, ObservableObject, Loggable {
         // Agents
         var transcriptionReceivedTimes: [String: Date] = [:]
 
+        // Region
+        var regionDataUpdated: Date?
+        var allRegions: [RegionInfo] = []
+        var failedRegions: [RegionInfo] = []
+
         @discardableResult
         mutating func updateRemoteParticipant(info: Livekit_ParticipantInfo, room: Room) -> RemoteParticipant {
             let identity = Participant.Identity(from: info.identity)
@@ -315,10 +320,16 @@ public class Room: NSObject, ObservableObject, Loggable {
 
         try Task.checkCancellation()
 
-        _state.mutate { $0.connectionState = .connecting }
+        _state.mutate {
+            $0.url = url
+            $0.token = token
+            $0.connectionState = .connecting
+        }
 
         do {
-            try await fullConnectSequence(url, token)
+            let regionUrl = try await resolveNextBestRegionUrl()
+
+            try await fullConnectSequence(regionUrl, token)
 
             // Connect sequence successful
             log("Connect sequence completed")
@@ -326,12 +337,7 @@ public class Room: NSObject, ObservableObject, Loggable {
             // Final check if cancelled, don't fire connected events
             try Task.checkCancellation()
 
-            // update internal vars (only if connect succeeded)
-            _state.mutate {
-                $0.url = url
-                $0.token = token
-                $0.connectionState = .connected
-            }
+            _state.mutate { $0.connectionState = .connected }
 
         } catch {
             await cleanUp(withError: error)
