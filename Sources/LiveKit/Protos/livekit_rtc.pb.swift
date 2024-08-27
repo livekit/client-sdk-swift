@@ -531,13 +531,13 @@ struct Livekit_SignalResponse: Sendable {
     set {message = .subscriptionResponse(newValue)}
   }
 
-  /// Errors relating to user inititated requests that carry a `request_id`
-  var errorResponse: Livekit_ErrorResponse {
+  /// Response relating to user inititated requests that carry a `request_id`
+  var requestResponse: Livekit_RequestResponse {
     get {
-      if case .errorResponse(let v)? = message {return v}
-      return Livekit_ErrorResponse()
+      if case .requestResponse(let v)? = message {return v}
+      return Livekit_RequestResponse()
     }
-    set {message = .errorResponse(newValue)}
+    set {message = .requestResponse(newValue)}
   }
 
   /// notify to the publisher when a published track has been subscribed for the first time
@@ -593,8 +593,8 @@ struct Livekit_SignalResponse: Sendable {
     case pongResp(Livekit_Pong)
     /// Subscription response, client should not expect any media from this subscription if it fails
     case subscriptionResponse(Livekit_SubscriptionResponse)
-    /// Errors relating to user inititated requests that carry a `request_id`
-    case errorResponse(Livekit_ErrorResponse)
+    /// Response relating to user inititated requests that carry a `request_id`
+    case requestResponse(Livekit_RequestResponse)
     /// notify to the publisher when a published track has been subscribed for the first time
     case trackSubscribed(Livekit_TrackSubscribed)
 
@@ -785,6 +785,11 @@ struct Livekit_JoinResponse: @unchecked Sendable {
   var sifTrailer: Data {
     get {return _storage._sifTrailer}
     set {_uniqueStorage()._sifTrailer = newValue}
+  }
+
+  var enabledPublishCodecs: [Livekit_Codec] {
+    get {return _storage._enabledPublishCodecs}
+    set {_uniqueStorage()._enabledPublishCodecs = newValue}
   }
 
   var unknownFields = SwiftProtobuf.UnknownStorage()
@@ -1524,14 +1529,14 @@ struct Livekit_SubscriptionResponse: Sendable {
   init() {}
 }
 
-struct Livekit_ErrorResponse: Sendable {
+struct Livekit_RequestResponse: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
 
   var requestID: UInt32 = 0
 
-  var reason: Livekit_ErrorResponse.Reason = .unknown
+  var reason: Livekit_RequestResponse.Reason = .ok
 
   var message: String = String()
 
@@ -1539,19 +1544,19 @@ struct Livekit_ErrorResponse: Sendable {
 
   enum Reason: SwiftProtobuf.Enum, Swift.CaseIterable {
     typealias RawValue = Int
-    case unknown // = 0
+    case ok // = 0
     case notFound // = 1
     case notAllowed // = 2
     case limitExceeded // = 3
     case UNRECOGNIZED(Int)
 
     init() {
-      self = .unknown
+      self = .ok
     }
 
     init?(rawValue: Int) {
       switch rawValue {
-      case 0: self = .unknown
+      case 0: self = .ok
       case 1: self = .notFound
       case 2: self = .notAllowed
       case 3: self = .limitExceeded
@@ -1561,7 +1566,7 @@ struct Livekit_ErrorResponse: Sendable {
 
     var rawValue: Int {
       switch self {
-      case .unknown: return 0
+      case .ok: return 0
       case .notFound: return 1
       case .notAllowed: return 2
       case .limitExceeded: return 3
@@ -1570,8 +1575,8 @@ struct Livekit_ErrorResponse: Sendable {
     }
 
     // The compiler won't synthesize support with the UNRECOGNIZED case.
-    static let allCases: [Livekit_ErrorResponse.Reason] = [
-      .unknown,
+    static let allCases: [Livekit_RequestResponse.Reason] = [
+      .ok,
       .notFound,
       .notAllowed,
       .limitExceeded,
@@ -1978,7 +1983,7 @@ extension Livekit_SignalResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageI
     19: .same(proto: "reconnect"),
     20: .standard(proto: "pong_resp"),
     21: .standard(proto: "subscription_response"),
-    22: .standard(proto: "error_response"),
+    22: .standard(proto: "request_response"),
     23: .standard(proto: "track_subscribed"),
   ]
 
@@ -2239,16 +2244,16 @@ extension Livekit_SignalResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageI
         }
       }()
       case 22: try {
-        var v: Livekit_ErrorResponse?
+        var v: Livekit_RequestResponse?
         var hadOneofValue = false
         if let current = self.message {
           hadOneofValue = true
-          if case .errorResponse(let m) = current {v = m}
+          if case .requestResponse(let m) = current {v = m}
         }
         try decoder.decodeSingularMessageField(value: &v)
         if let v = v {
           if hadOneofValue {try decoder.handleConflictingOneOf()}
-          self.message = .errorResponse(v)
+          self.message = .requestResponse(v)
         }
       }()
       case 23: try {
@@ -2355,8 +2360,8 @@ extension Livekit_SignalResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageI
       guard case .subscriptionResponse(let v)? = self.message else { preconditionFailure() }
       try visitor.visitSingularMessageField(value: v, fieldNumber: 21)
     }()
-    case .errorResponse?: try {
-      guard case .errorResponse(let v)? = self.message else { preconditionFailure() }
+    case .requestResponse?: try {
+      guard case .requestResponse(let v)? = self.message else { preconditionFailure() }
       try visitor.visitSingularMessageField(value: v, fieldNumber: 22)
     }()
     case .trackSubscribed?: try {
@@ -2627,6 +2632,7 @@ extension Livekit_JoinResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageImp
     11: .standard(proto: "ping_interval"),
     12: .standard(proto: "server_info"),
     13: .standard(proto: "sif_trailer"),
+    14: .standard(proto: "enabled_publish_codecs"),
   ]
 
   fileprivate class _StorageClass {
@@ -2643,6 +2649,7 @@ extension Livekit_JoinResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageImp
     var _pingInterval: Int32 = 0
     var _serverInfo: Livekit_ServerInfo? = nil
     var _sifTrailer: Data = Data()
+    var _enabledPublishCodecs: [Livekit_Codec] = []
 
     #if swift(>=5.10)
       // This property is used as the initial default value for new instances of the type.
@@ -2670,6 +2677,7 @@ extension Livekit_JoinResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageImp
       _pingInterval = source._pingInterval
       _serverInfo = source._serverInfo
       _sifTrailer = source._sifTrailer
+      _enabledPublishCodecs = source._enabledPublishCodecs
     }
   }
 
@@ -2701,6 +2709,7 @@ extension Livekit_JoinResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageImp
         case 11: try { try decoder.decodeSingularInt32Field(value: &_storage._pingInterval) }()
         case 12: try { try decoder.decodeSingularMessageField(value: &_storage._serverInfo) }()
         case 13: try { try decoder.decodeSingularBytesField(value: &_storage._sifTrailer) }()
+        case 14: try { try decoder.decodeRepeatedMessageField(value: &_storage._enabledPublishCodecs) }()
         default: break
         }
       }
@@ -2752,6 +2761,9 @@ extension Livekit_JoinResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageImp
       if !_storage._sifTrailer.isEmpty {
         try visitor.visitSingularBytesField(value: _storage._sifTrailer, fieldNumber: 13)
       }
+      if !_storage._enabledPublishCodecs.isEmpty {
+        try visitor.visitRepeatedMessageField(value: _storage._enabledPublishCodecs, fieldNumber: 14)
+      }
     }
     try unknownFields.traverse(visitor: &visitor)
   }
@@ -2774,6 +2786,7 @@ extension Livekit_JoinResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageImp
         if _storage._pingInterval != rhs_storage._pingInterval {return false}
         if _storage._serverInfo != rhs_storage._serverInfo {return false}
         if _storage._sifTrailer != rhs_storage._sifTrailer {return false}
+        if _storage._enabledPublishCodecs != rhs_storage._enabledPublishCodecs {return false}
         return true
       }
       if !storagesAreEqual {return false}
@@ -4280,8 +4293,8 @@ extension Livekit_SubscriptionResponse: SwiftProtobuf.Message, SwiftProtobuf._Me
   }
 }
 
-extension Livekit_ErrorResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
-  static let protoMessageName: String = _protobuf_package + ".ErrorResponse"
+extension Livekit_RequestResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  static let protoMessageName: String = _protobuf_package + ".RequestResponse"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     1: .standard(proto: "request_id"),
     2: .same(proto: "reason"),
@@ -4306,7 +4319,7 @@ extension Livekit_ErrorResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageIm
     if self.requestID != 0 {
       try visitor.visitSingularUInt32Field(value: self.requestID, fieldNumber: 1)
     }
-    if self.reason != .unknown {
+    if self.reason != .ok {
       try visitor.visitSingularEnumField(value: self.reason, fieldNumber: 2)
     }
     if !self.message.isEmpty {
@@ -4315,7 +4328,7 @@ extension Livekit_ErrorResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageIm
     try unknownFields.traverse(visitor: &visitor)
   }
 
-  static func ==(lhs: Livekit_ErrorResponse, rhs: Livekit_ErrorResponse) -> Bool {
+  static func ==(lhs: Livekit_RequestResponse, rhs: Livekit_RequestResponse) -> Bool {
     if lhs.requestID != rhs.requestID {return false}
     if lhs.reason != rhs.reason {return false}
     if lhs.message != rhs.message {return false}
@@ -4324,9 +4337,9 @@ extension Livekit_ErrorResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageIm
   }
 }
 
-extension Livekit_ErrorResponse.Reason: SwiftProtobuf._ProtoNameProviding {
+extension Livekit_RequestResponse.Reason: SwiftProtobuf._ProtoNameProviding {
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
-    0: .same(proto: "UNKNOWN"),
+    0: .same(proto: "OK"),
     1: .same(proto: "NOT_FOUND"),
     2: .same(proto: "NOT_ALLOWED"),
     3: .same(proto: "LIMIT_EXCEEDED"),

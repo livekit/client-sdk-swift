@@ -283,7 +283,7 @@ public class Room: NSObject, ObservableObject, Loggable {
                         connectOptions: ConnectOptions? = nil,
                         roomOptions: RoomOptions? = nil) async throws
     {
-        guard let url = URL(string: url), url.isValidForSocket else {
+        guard let url = URL(string: url), url.isValidForConnect else {
             log("URL parse failed", .error)
             throw LiveKitError(.failedToParseUrl)
         }

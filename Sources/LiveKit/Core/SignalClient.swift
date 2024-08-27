@@ -338,8 +338,8 @@ private extension SignalClient {
         case .subscriptionResponse:
             log("Received subscriptionResponse message")
 
-        case .errorResponse:
-            log("Received errorResponse message")
+        case .requestResponse:
+            log("Received requestResponse message")
 
         case .trackSubscribed:
             log("Received trackSubscribed message")

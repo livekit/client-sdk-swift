@@ -40,8 +40,15 @@ public protocol AudioCustomProcessingDelegate {
 }
 
 class AudioCustomProcessingDelegateAdapter: NSObject, LKRTCAudioCustomProcessingDelegate {
-    //
+    // MARK: - Public
+
     public var target: AudioCustomProcessingDelegate? { _state.target }
+
+    // MARK: - Internal
+
+    let audioRenderers = MulticastDelegate<AudioRenderer>(label: "AudioRenderer")
+
+    // MARK: - Private
 
     private struct State {
         weak var target: AudioCustomProcessingDelegate?
@@ -62,7 +69,13 @@ class AudioCustomProcessingDelegateAdapter: NSObject, LKRTCAudioCustomProcessing
     }
 
     func audioProcessingProcess(audioBuffer: LKRTCAudioBuffer) {
-        target?.audioProcessingProcess(audioBuffer: LKAudioBuffer(audioBuffer: audioBuffer))
+        let lkAudioBuffer = LKAudioBuffer(audioBuffer: audioBuffer)
+        target?.audioProcessingProcess(audioBuffer: lkAudioBuffer)
+
+        // Convert to pcmBuffer and notify only if an audioRenderer is added.
+        if audioRenderers.isDelegatesNotEmpty, let pcmBuffer = lkAudioBuffer.toAVAudioPCMBuffer() {
+            audioRenderers.notify { $0.render?(pcmBuffer: pcmBuffer) }
+        }
     }
 
     func audioProcessingRelease() {

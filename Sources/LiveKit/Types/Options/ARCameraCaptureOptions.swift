@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#if os(visionOS)
 import Foundation
 
 #if swift(>=5.9)
@@ -55,3 +56,4 @@ public class ARCameraCaptureOptions: NSObject, VideoCaptureOptions {
         return hasher.finalize()
     }
 }
+#endif

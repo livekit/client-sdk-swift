@@ -43,15 +43,18 @@ jobs:
           - os: macos-14
             xcode: 15.4
             platform: "visionOS Simulator" # visionOS 1.2
+          - os: macos-14
+            xcode: 15.4
+            platform: "tvOS"
           # https://github.com/actions/runner-images/blob/main/images/macos/macos-14-Readme.md
           - os: macos-14
-            xcode: 16.0-beta
+            xcode: 16.1-beta
             platform: "iOS Simulator,OS=18.0,name=iPhone 15 Pro"
           - os: macos-14
-            xcode: 16.0-beta
+            xcode: 16.1-beta
             platform: "macOS"
           - os: macos-14
-            xcode: 16.0-beta
+            xcode: 16.1-beta
             platform: "macOS,variant=Mac Catalyst"
 
     runs-on: ${{ matrix.os }}
