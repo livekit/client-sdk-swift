@@ -21,40 +21,28 @@ import Foundation
 extension Room {
     static let defaultCacheInterval: TimeInterval = 3000
 
-    func resolveNextBestRegionUrl() async throws -> URL {
-        if shouldRequestRegionSettings() {
-            try await requestRegionSettings()
-        }
+    func resolveBestRegion() async throws -> RegionInfo {
+        try await requestRegionSettings()
 
-        let (allRegions, failedRegions) = _state.read { ($0.allRegions, $0.failedRegions) }
+        let sortedByDistance = _regionState.remaining.sorted { $0.distance < $1.distance }
+        log("[Region] Remaining regions: \(String(describing: sortedByDistance))")
 
-        let remainingRegions = allRegions.filter { region in
-            !failedRegions.contains { $0 == region }
-        }
-
-        guard let selectedRegion = remainingRegions.first else {
+        guard let selectedRegion = sortedByDistance.first else {
             throw LiveKitError(.regionUrlProvider, message: "No more remaining regions.")
         }
 
-//        _state.mutate {
-//            $0.allRegions.append(selectedRegion)
-//        }
+        log("[Region] Resolved region: \(String(describing: selectedRegion))")
 
-        let result = selectedRegion.url.toSocketUrl()
-        log("[Region] Resolved region url: \(String(describing: result))")
+        return selectedRegion
+    }
 
-        return result
+    func add(failedRegion region: RegionInfo) {
+        _regionState.mutate {
+            $0.remaining.remove(region)
+        }
     }
 
     // MARK: - Private
-
-    private func shouldRequestRegionSettings() -> Bool {
-        _state.read {
-            guard !$0.allRegions.isEmpty, let regionSettingsUpdated = $0.regionDataUpdated else { return true }
-            let interval = Date().timeIntervalSince(regionSettingsUpdated)
-            return interval > Self.defaultCacheInterval
-        }
-    }
 
     private func requestRegionSettings() async throws {
         let (serverUrl, token) = _state.read { ($0.url, $0.token) }
@@ -62,6 +50,15 @@ extension Room {
         guard let serverUrl, let token else {
             throw LiveKitError(.invalidState)
         }
+
+        let shouldRequestRegionSettings = _regionState.read {
+            guard serverUrl == $0.url, let regionSettingsUpdated = $0.lastRequested else { return true }
+            let interval = Date().timeIntervalSince(regionSettingsUpdated)
+            log("[Region] Interval: \(String(describing: interval))")
+            return interval > Self.defaultCacheInterval
+        }
+
+        guard shouldRequestRegionSettings else { return }
 
         // Ensure url is for cloud.
         guard serverUrl.isCloud() else {
@@ -99,9 +96,11 @@ extension Room {
 
             log("[Region] all regions: \(String(describing: allRegions))")
 
-            _state.mutate {
-                $0.allRegions = allRegions
-                $0.regionDataUpdated = Date()
+            _regionState.mutate {
+                $0.url = serverUrl
+                $0.all = Set(allRegions)
+                $0.remaining = Set(allRegions)
+                $0.lastRequested = Date()
             }
         } catch {
             throw LiveKitError(.regionUrlProvider, message: "Failed to parse region settings with error: \(error)")

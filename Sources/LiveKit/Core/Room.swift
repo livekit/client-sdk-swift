@@ -151,11 +151,6 @@ public class Room: NSObject, ObservableObject, Loggable {
         // Agents
         var transcriptionReceivedTimes: [String: Date] = [:]
 
-        // Region
-        var regionDataUpdated: Date?
-        var allRegions: [RegionInfo] = []
-        var failedRegions: [RegionInfo] = []
-
         @discardableResult
         mutating func updateRemoteParticipant(info: Livekit_ParticipantInfo, room: Room) -> RemoteParticipant {
             let identity = Participant.Identity(from: info.identity)
@@ -173,7 +168,16 @@ public class Room: NSObject, ObservableObject, Loggable {
         }
     }
 
+    struct RegionState {
+        // Region
+        var url: URL?
+        var lastRequested: Date?
+        var all: Set<RegionInfo> = []
+        var remaining: Set<RegionInfo> = []
+    }
+
     let _state: StateSync<State>
+    let _regionState = StateSync(RegionState())
 
     private let _sidCompleter = AsyncCompleter<Sid>(label: "sid", defaultTimeout: .resolveSid)
 
@@ -327,22 +331,28 @@ public class Room: NSObject, ObservableObject, Loggable {
         }
 
         do {
-            let regionUrl = try await resolveNextBestRegionUrl()
+            while true {
+                let region = try await resolveBestRegion()
 
-            try await fullConnectSequence(regionUrl, token)
-
-            // Connect sequence successful
-            log("Connect sequence completed")
-
-            // Final check if cancelled, don't fire connected events
-            try Task.checkCancellation()
-
-            _state.mutate { $0.connectionState = .connected }
-
+                do {
+                    try await fullConnectSequence(region.url, token)
+                    // Connect sequence successful
+                    log("Connect sequence completed")
+                    // Final check if cancelled, don't fire connected events
+                    try Task.checkCancellation()
+                    _state.mutate { $0.connectionState = .connected }
+                    break // Exit loop on successful connection
+                } catch {
+                    log("Connect failed with region: \(region)")
+                    add(failedRegion: region)
+                    // Prepare for next connect attempt.
+                    await cleanUp(isFullReconnect: true)
+                }
+            }
         } catch {
+            log("Failed to resolve a region or connect: \(error)")
             await cleanUp(withError: error)
-            // Re-throw error
-            throw error
+            throw error // Re-throw the original error
         }
 
         log("Connected to \(String(describing: self))", .info)
