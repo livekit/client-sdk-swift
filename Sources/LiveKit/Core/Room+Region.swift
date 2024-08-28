@@ -24,10 +24,7 @@ extension Room {
     func resolveBestRegion() async throws -> RegionInfo {
         try await requestRegionSettings()
 
-        let sortedByDistance = _regionState.remaining.sorted { $0.distance < $1.distance }
-        log("[Region] Remaining regions: \(String(describing: sortedByDistance))")
-
-        guard let selectedRegion = sortedByDistance.first else {
+        guard let selectedRegion = _regionState.remaining.first else {
             throw LiveKitError(.regionUrlProvider, message: "No more remaining regions.")
         }
 
@@ -38,7 +35,7 @@ extension Room {
 
     func add(failedRegion region: RegionInfo) {
         _regionState.mutate {
-            $0.remaining.remove(region)
+            $0.remaining.removeAll { $0 == region }
         }
     }
 
@@ -98,8 +95,8 @@ extension Room {
 
             _regionState.mutate {
                 $0.url = serverUrl
-                $0.all = Set(allRegions)
-                $0.remaining = Set(allRegions)
+                $0.all = allRegions
+                $0.remaining = allRegions
                 $0.lastRequested = Date()
             }
         } catch {

@@ -172,8 +172,8 @@ public class Room: NSObject, ObservableObject, Loggable {
         // Region
         var url: URL?
         var lastRequested: Date?
-        var all: Set<RegionInfo> = []
-        var remaining: Set<RegionInfo> = []
+        var all: [RegionInfo] = []
+        var remaining: [RegionInfo] = []
     }
 
     let _state: StateSync<State>
