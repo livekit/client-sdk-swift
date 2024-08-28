@@ -14,15 +14,11 @@
  * limitations under the License.
  */
 
-#if os(visionOS)
+#if os(visionOS) && compiler(>=6.0)
 import ARKit
 import Foundation
 
-#if swift(>=5.9)
 internal import LiveKitWebRTC
-#else
-@_implementationOnly import LiveKitWebRTC
-#endif
 
 @available(visionOS 2.0, *)
 public class ARCameraCapturer: VideoCapturer {
