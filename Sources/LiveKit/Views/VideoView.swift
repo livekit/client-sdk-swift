@@ -780,11 +780,13 @@ extension VideoView {
 
 // MARK: - Access MTKView
 
+#if !os(visionOS) || compiler(>=6.0)
 extension NativeViewType {
     func findMTKView() -> MTKView? {
         subviews.compactMap { $0 as? MTKView }.first
     }
 }
+#endif
 
 #if os(macOS)
 extension NSView {
