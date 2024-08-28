@@ -296,7 +296,7 @@ public class VideoView: NativeView, Loggable {
                         if let track = oldState.track as? VideoTrack {
                             track.remove(videoRenderer: self)
                             
-                            // avoid destroying and re-creating the
+                            // avoid destroying and re-creating the renderers when the video is paused
                             if !newState.isPaused {
                                 if let r = self._primaryRenderer {
                                     r.removeFromSuperview()
