@@ -62,14 +62,11 @@ class DeviceManager: Loggable {
 
         // Xcode 15.0 Swift 5.9
         #if compiler(>=5.9)
-        // https://developer.apple.com/documentation/avfoundation/avcapturedevice/4024614-continuitycamera
-        if #available(iOS 16.0, macOS 13.0, tvOS 17.0, *) {
-            deviceTypes.append(.continuityCamera)
-        }
-
-        // https://developer.apple.com/documentation/avfoundation/avcapturedevice/devicetype/4172590-external
         if #available(iOS 17.0, macOS 14.0, tvOS 17.0, *) {
-            deviceTypes.append(.external)
+            deviceTypes.append(contentsOf: [
+                .continuityCamera,
+                .external,
+            ])
         }
         #endif
 
