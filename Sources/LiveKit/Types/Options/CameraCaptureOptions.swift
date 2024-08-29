@@ -19,9 +19,15 @@ import Foundation
 
 @objc
 public class CameraCaptureOptions: NSObject, VideoCaptureOptions {
+    /// Preferred deviceType to use. If ``device`` is specified, it will be used instead.
+    @objc
+    public let deviceType: AVCaptureDevice.DeviceType?
+
+    /// Exact devce to use.
     @objc
     public let device: AVCaptureDevice?
 
+    /// Preferred position such as `.front` or `.back`.
     @objc
     public let position: AVCaptureDevice.Position
 
@@ -38,20 +44,23 @@ public class CameraCaptureOptions: NSObject, VideoCaptureOptions {
 
     @objc
     override public init() {
-        device = nil
+        deviceType = nil
         position = .unspecified
+        device = nil
         preferredFormat = nil
         dimensions = .h720_169
         fps = 30
     }
 
     @objc
-    public init(device: AVCaptureDevice? = nil,
+    public init(deviceType: AVCaptureDevice.DeviceType? = nil,
+                device: AVCaptureDevice? = nil,
                 position: AVCaptureDevice.Position = .unspecified,
                 preferredFormat: AVCaptureDevice.Format? = nil,
                 dimensions: Dimensions = .h720_169,
                 fps: Int = 30)
     {
+        self.deviceType = deviceType
         self.device = device
         self.position = position
         self.preferredFormat = preferredFormat
@@ -63,7 +72,8 @@ public class CameraCaptureOptions: NSObject, VideoCaptureOptions {
 
     override public func isEqual(_ object: Any?) -> Bool {
         guard let other = object as? Self else { return false }
-        return device == other.device &&
+        return deviceType == other.deviceType &&
+            device == other.device &&
             position == other.position &&
             preferredFormat == other.preferredFormat &&
             dimensions == other.dimensions &&
@@ -72,6 +82,7 @@ public class CameraCaptureOptions: NSObject, VideoCaptureOptions {
 
     override public var hash: Int {
         var hasher = Hasher()
+        hasher.combine(deviceType)
         hasher.combine(device)
         hasher.combine(position)
         hasher.combine(preferredFormat)
@@ -83,6 +94,10 @@ public class CameraCaptureOptions: NSObject, VideoCaptureOptions {
     // MARK: - CustomStringConvertible
 
     override public var description: String {
-        "CameraCaptureOptions(position: \(String(describing: position))"
+        "CameraCaptureOptions(" +
+            "deviceType: \(String(describing: deviceType)), " +
+            "device: \(String(describing: device)), " +
+            "position: \(String(describing: position))" +
+            ")"
     }
 }
