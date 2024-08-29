@@ -41,10 +41,10 @@ class DeviceManager: Loggable {
         _state.devices
     }
 
-    #if os(iOS) || os(macOS)
+    #if os(iOS) || os(macOS) || os(tvOS)
     private lazy var discoverySession: AVCaptureDevice.DiscoverySession = {
         var deviceTypes: [AVCaptureDevice.DeviceType]
-        #if os(iOS)
+        #if os(iOS) || os(tvOS)
         // In order of priority
         deviceTypes = [
             .builtInTripleCamera, // Virtual, switchOver: [2, 6], default: 2
@@ -54,19 +54,22 @@ class DeviceManager: Loggable {
             .builtInTelephotoCamera, // Physical
             .builtInUltraWideCamera, // Physical
         ]
-        #elseif os(macOS)
+        #else
         deviceTypes = [
             .builtInWideAngleCamera,
         ]
         #endif
 
-        // Xcode 15.0 Swift 5.9 (iOS 17)
+        // Xcode 15.0 Swift 5.9
         #if compiler(>=5.9)
-        if #available(macOS 14.0, iOS 17.0, *) {
-            deviceTypes.append(contentsOf: [
-                .continuityCamera,
-                .external,
-            ])
+        // https://developer.apple.com/documentation/avfoundation/avcapturedevice/4024614-continuitycamera
+        if #available(iOS 16.0, macOS 13.0, tvOS 17.0, *) {
+            deviceTypes.append(.continuityCamera)
+        }
+
+        // https://developer.apple.com/documentation/avfoundation/avcapturedevice/devicetype/4172590-external
+        if #available(iOS 17.0, macOS 14.0, tvOS 17.0, *) {
+            deviceTypes.append(.external)
         }
         #endif
 
@@ -106,7 +109,7 @@ class DeviceManager: Loggable {
     init() {
         log()
 
-        #if os(iOS) || os(macOS)
+        #if os(iOS) || os(macOS) || os(tvOS)
         DispatchQueue.global(qos: .background).async { [weak self] in
             guard let self else { return }
             self._devicesObservation = self.discoverySession.observe(\.devices, options: [.initial, .new]) { [weak self] _, value in
@@ -128,7 +131,7 @@ class DeviceManager: Loggable {
         _multiCamDeviceSetsCompleter.resume(returning: [])
         #endif
 
-        #if os(iOS)
+        #if os(iOS) || os(tvOS)
         DispatchQueue.global(qos: .background).async { [weak self] in
             guard let self else { return }
             self._multiCamDeviceSetsObservation = self.discoverySession.observe(\.supportedMultiCamDeviceSets, options: [.initial, .new]) { [weak self] _, value in
