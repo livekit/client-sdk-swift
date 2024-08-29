@@ -155,7 +155,7 @@ public class CameraCapturer: VideoCapturer {
 
         if device == nil {
             #if os(iOS)
-            let devices: [AVCaptureDevice]
+            var devices: [AVCaptureDevice]
             if AVCaptureMultiCamSession.isMultiCamSupported {
                 // Get the list of devices already on the shared multi-cam session.
                 let existingDevices = captureSession.inputs.compactMap { $0 as? AVCaptureDeviceInput }.map(\.device)
@@ -166,8 +166,13 @@ public class CameraCapturer: VideoCapturer {
                 devices = try await CameraCapturer.captureDevices()
             }
             #else
-            let devices = try await CameraCapturer.captureDevices()
+            var devices = try await CameraCapturer.captureDevices()
             #endif
+
+            // Filter by deviceType if specified in options.
+            if let deviceType = options.deviceType {
+                devices = devices.filter { $0.deviceType == deviceType }
+            }
 
             device = devices.first { $0.position == self.options.position } ?? devices.first
         }
