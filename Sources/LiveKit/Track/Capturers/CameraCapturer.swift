@@ -154,7 +154,7 @@ public class CameraCapturer: VideoCapturer {
         var device: AVCaptureDevice? = options.device
 
         if device == nil {
-            #if os(iOS)
+            #if os(iOS) || os(tvOS)
             var devices: [AVCaptureDevice]
             if AVCaptureMultiCamSession.isMultiCamSupported {
                 // Get the list of devices already on the shared multi-cam session.
@@ -199,7 +199,7 @@ public class CameraCapturer: VideoCapturer {
             // Use the preferred capture format if specified in options
             selectedFormat = foundFormat
         } else {
-            if let foundFormat = sortedFormats.first(where: { $0.dimensions.area >= self.options.dimensions.area && $0.format.fpsRange().contains(self.options.fps) && $0.format.isMultiCamSupportediOS }) {
+            if let foundFormat = sortedFormats.first(where: { $0.dimensions.area >= self.options.dimensions.area && $0.format.fpsRange().contains(self.options.fps) && $0.format.filterForMulticamSupport }) {
                 // Use the first format that satisfies preferred dimensions & fps
                 selectedFormat = foundFormat
             } else if let foundFormat = sortedFormats.first(where: { $0.dimensions.area >= self.options.dimensions.area }) {
@@ -327,8 +327,10 @@ extension AVCaptureDevice.Format {
         }
     }
 
-    var isMultiCamSupportediOS: Bool {
-        #if os(iOS)
+    // Used for filtering.
+    // Only include multi-cam supported devices if in multi-cam mode. Otherwise, always include the devices.
+    var filterForMulticamSupport: Bool {
+        #if os(iOS) || os(tvOS)
         return AVCaptureMultiCamSession.isMultiCamSupported ? isMultiCamSupported : true
         #else
         return true
