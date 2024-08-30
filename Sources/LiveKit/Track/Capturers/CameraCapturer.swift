@@ -166,8 +166,13 @@ public class CameraCapturer: VideoCapturer {
                 devices = try await CameraCapturer.captureDevices()
             }
             #else
-            let devices = try await CameraCapturer.captureDevices()
+            var devices = try await CameraCapturer.captureDevices()
             #endif
+
+            // Filter by deviceType if specified in options.
+            if let deviceType = options.deviceType {
+                devices = devices.filter { $0.deviceType == deviceType }
+            }
 
             device = devices.first { $0.position == self.options.position } ?? devices.first
         }
