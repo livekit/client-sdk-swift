@@ -169,10 +169,12 @@ public class CameraCapturer: VideoCapturer {
             var devices = try await CameraCapturer.captureDevices()
             #endif
 
+            #if !os(visionOS)
             // Filter by deviceType if specified in options.
             if let deviceType = options.deviceType {
                 devices = devices.filter { $0.deviceType == deviceType }
             }
+            #endif
 
             device = devices.first { $0.position == self.options.position } ?? devices.first
         }

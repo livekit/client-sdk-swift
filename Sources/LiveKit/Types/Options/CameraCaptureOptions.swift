@@ -19,9 +19,11 @@ import Foundation
 
 @objc
 public class CameraCaptureOptions: NSObject, VideoCaptureOptions {
+    #if !os(visionOS)
     /// Preferred deviceType to use. If ``device`` is specified, it will be used instead.
     @objc
     public let deviceType: AVCaptureDevice.DeviceType?
+    #endif
 
     /// Exact devce to use.
     @objc
@@ -44,23 +46,27 @@ public class CameraCaptureOptions: NSObject, VideoCaptureOptions {
 
     @objc
     override public init() {
+        #if !os(visionOS)
         deviceType = nil
-        position = .unspecified
+        #endif
         device = nil
+        position = .unspecified
         preferredFormat = nil
         dimensions = .h720_169
         fps = 30
     }
 
     @objc
-    public init(deviceType: AVCaptureDevice.DeviceType? = nil,
+    public init(deviceType: String? = nil,
                 device: AVCaptureDevice? = nil,
                 position: AVCaptureDevice.Position = .unspecified,
                 preferredFormat: AVCaptureDevice.Format? = nil,
                 dimensions: Dimensions = .h720_169,
                 fps: Int = 30)
     {
+        #if !os(visionOS)
         self.deviceType = deviceType
+        #endif
         self.device = device
         self.position = position
         self.preferredFormat = preferredFormat
@@ -72,17 +78,24 @@ public class CameraCaptureOptions: NSObject, VideoCaptureOptions {
 
     override public func isEqual(_ object: Any?) -> Bool {
         guard let other = object as? Self else { return false }
-        return deviceType == other.deviceType &&
-            device == other.device &&
+        let isCommonEqual = device == other.device &&
             position == other.position &&
             preferredFormat == other.preferredFormat &&
             dimensions == other.dimensions &&
             fps == other.fps
+
+        #if !os(visionOS)
+        return isCommonEqual && deviceType == other.deviceType
+        #else
+        return isCommonEqual
+        #endif
     }
 
     override public var hash: Int {
         var hasher = Hasher()
+        #if !os(visionOS)
         hasher.combine(deviceType)
+        #endif
         hasher.combine(device)
         hasher.combine(position)
         hasher.combine(preferredFormat)
@@ -95,7 +108,6 @@ public class CameraCaptureOptions: NSObject, VideoCaptureOptions {
 
     override public var description: String {
         "CameraCaptureOptions(" +
-            "deviceType: \(String(describing: deviceType)), " +
             "device: \(String(describing: device)), " +
             "position: \(String(describing: position))" +
             ")"
