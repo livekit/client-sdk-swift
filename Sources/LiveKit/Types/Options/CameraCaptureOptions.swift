@@ -57,7 +57,7 @@ public class CameraCaptureOptions: NSObject, VideoCaptureOptions {
     }
 
     @objc
-    public init(deviceType: String? = nil,
+    public init(deviceType: AVCaptureDevice.DeviceType? = nil,
                 device: AVCaptureDevice? = nil,
                 position: AVCaptureDevice.Position = .unspecified,
                 preferredFormat: AVCaptureDevice.Format? = nil,
