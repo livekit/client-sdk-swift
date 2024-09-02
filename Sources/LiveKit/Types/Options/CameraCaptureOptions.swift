@@ -17,17 +17,13 @@
 import AVFoundation
 import Foundation
 
-#if !os(visionOS)
-public typealias DeviceType = AVCaptureDevice.DeviceType
-#else
-public typealias DeviceType = String
-#endif
-
 @objc
 public class CameraCaptureOptions: NSObject, VideoCaptureOptions {
+    #if !os(visionOS)
     /// Preferred deviceType to use. If ``device`` is specified, it will be used instead. This is currently ignored for visionOS.
     @objc
     public let deviceType: DeviceType?
+    #endif
 
     /// Exact devce to use.
     @objc
@@ -50,7 +46,9 @@ public class CameraCaptureOptions: NSObject, VideoCaptureOptions {
 
     @objc
     override public init() {
+        #if !os(visionOS)
         deviceType = nil
+        #endif
         device = nil
         position = .unspecified
         preferredFormat = nil
@@ -58,6 +56,7 @@ public class CameraCaptureOptions: NSObject, VideoCaptureOptions {
         fps = 30
     }
 
+    #if !os(visionOS)
     @objc
     public init(deviceType: DeviceType? = nil,
                 device: AVCaptureDevice? = nil,
@@ -73,22 +72,45 @@ public class CameraCaptureOptions: NSObject, VideoCaptureOptions {
         self.dimensions = dimensions
         self.fps = fps
     }
+    #else
+    @objc
+    public init(device: AVCaptureDevice? = nil,
+                position: AVCaptureDevice.Position = .unspecified,
+                preferredFormat: AVCaptureDevice.Format? = nil,
+                dimensions: Dimensions = .h720_169,
+                fps: Int = 30)
+    {
+        self.device = device
+        self.position = position
+        self.preferredFormat = preferredFormat
+        self.dimensions = dimensions
+        self.fps = fps
+    }
+    #endif
 
     // MARK: - Equal
 
     override public func isEqual(_ object: Any?) -> Bool {
         guard let other = object as? Self else { return false }
-        return deviceType == other.deviceType &&
+        let isCommonEqual =
             device == other.device &&
             position == other.position &&
             preferredFormat == other.preferredFormat &&
             dimensions == other.dimensions &&
             fps == other.fps
+
+        #if !os(visionOS)
+        return deviceType == other.deviceType && isCommonEqual
+        #else
+        return isCommonEqual
+        #endif
     }
 
     override public var hash: Int {
         var hasher = Hasher()
+        #if !os(visionOS)
         hasher.combine(deviceType)
+        #endif
         hasher.combine(device)
         hasher.combine(position)
         hasher.combine(preferredFormat)
@@ -101,7 +123,6 @@ public class CameraCaptureOptions: NSObject, VideoCaptureOptions {
 
     override public var description: String {
         "CameraCaptureOptions(" +
-            "deviceType: \(String(describing: deviceType)), " +
             "device: \(String(describing: device)), " +
             "position: \(String(describing: position))" +
             ")"
