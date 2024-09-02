@@ -22,7 +22,7 @@ public class CameraCaptureOptions: NSObject, VideoCaptureOptions {
     #if !os(visionOS)
     /// Preferred deviceType to use. If ``device`` is specified, it will be used instead. This is currently ignored for visionOS.
     @objc
-    public let deviceType: DeviceType?
+    public let deviceType: AVCaptureDevice.DeviceType?
     #endif
 
     /// Exact devce to use.
@@ -58,7 +58,7 @@ public class CameraCaptureOptions: NSObject, VideoCaptureOptions {
 
     #if !os(visionOS)
     @objc
-    public init(deviceType: DeviceType? = nil,
+    public init(deviceType: AVCaptureDevice.DeviceType? = nil,
                 device: AVCaptureDevice? = nil,
                 position: AVCaptureDevice.Position = .unspecified,
                 preferredFormat: AVCaptureDevice.Format? = nil,
