@@ -79,6 +79,10 @@ public protocol ParticipantDelegate: AnyObject {
     @objc(localParticipant:didUnpublishTrack:) optional
     func participant(_ participant: LocalParticipant, didUnpublishTrack publication: LocalTrackPublication)
 
+    /// Fired when the first remote participant has subscribed to the localParticipant's track.
+    @objc(localParticipant:remoteDidSubscribeTrack:) optional
+    func participant(_ participant: LocalParticipant, remoteDidSubscribeTrack publication: LocalTrackPublication)
+
     // MARK: - RemoteTrackPublication
 
     /// When a new ``RemoteTrackPublication`` is published to ``Room`` after the ``LocalParticipant`` has joined.

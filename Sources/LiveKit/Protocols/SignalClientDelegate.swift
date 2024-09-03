@@ -39,4 +39,5 @@ protocol SignalClientDelegate: AnyObject {
     func signalClient(_ signalClient: SignalClient, didUpdateSubscriptionPermission permission: Livekit_SubscriptionPermissionUpdate) async
     func signalClient(_ signalClient: SignalClient, didUpdateToken token: String) async
     func signalClient(_ signalClient: SignalClient, didReceiveLeave canReconnect: Bool, reason: Livekit_DisconnectReason) async
+    func signalClient(_ signalClient: SignalClient, didSubscribeTrack trackSid: Track.Sid) async
 }
