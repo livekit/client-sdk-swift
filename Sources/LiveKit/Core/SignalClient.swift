@@ -341,8 +341,8 @@ private extension SignalClient {
         case .requestResponse:
             log("Received requestResponse message")
 
-        case .trackSubscribed:
-            log("Received trackSubscribed message")
+        case let .trackSubscribed(trackSubscribed):
+            _delegate.notifyDetached { await $0.signalClient(self, didSubscribeTrack: Track.Sid(from: trackSubscribed.trackSid)) }
         }
     }
 }

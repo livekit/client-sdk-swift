@@ -345,4 +345,22 @@ extension Room: SignalClientDelegate {
         // update token
         _state.mutate { $0.token = token }
     }
+
+    func signalClient(_: SignalClient, didSubscribeTrack trackSid: Track.Sid) async {
+        // Find the local track publication.
+        guard let track = localParticipant.trackPublications[trackSid] as? LocalTrackPublication else {
+            log("Could not find local track publication for subscribed event")
+            return
+        }
+
+        // Notify Room.
+        delegates.notify {
+            $0.room?(self, participant: self.localParticipant, remoteDidSubscribeTrack: track)
+        }
+
+        // Notify LocalParticipant.
+        localParticipant.delegates.notify {
+            $0.participant?(self.localParticipant, remoteDidSubscribeTrack: track)
+        }
+    }
 }
