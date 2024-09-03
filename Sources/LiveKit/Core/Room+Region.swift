@@ -39,13 +39,24 @@ extension Room {
         }
     }
 
+    public func prepareRegionSettings() {
+        Task.detached {
+            try await self.requestRegionSettings()
+        }
+    }
+
     // MARK: - Private
 
     private func requestRegionSettings() async throws {
-        let (serverUrl, token) = _state.read { ($0.url, $0.token) }
+        let (serverUrl, token) = _state.read { ($0.providedUrl, $0.token) }
 
         guard let serverUrl, let token else {
             throw LiveKitError(.invalidState)
+        }
+
+        // Ensure url is for cloud.
+        guard serverUrl.isCloud else {
+            throw LiveKitError(.onlyForCloud)
         }
 
         let shouldRequestRegionSettings = _regionState.read {
@@ -56,11 +67,6 @@ extension Room {
         }
 
         guard shouldRequestRegionSettings else { return }
-
-        // Ensure url is for cloud.
-        guard serverUrl.isCloud() else {
-            throw LiveKitError(.onlyForCloud)
-        }
 
         // Make a request which ignores cache.
         var request = URLRequest(url: serverUrl.regionSettingsUrl(),

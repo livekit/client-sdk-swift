@@ -30,7 +30,7 @@ extension URL {
     }
 
     /// Checks whether the URL is a LiveKit Cloud URL.
-    func isCloud() -> Bool {
+    var isCloud: Bool {
         guard let host else { return false }
         return host.hasSuffix(".livekit.cloud") || host.hasSuffix(".livekit.run")
     }
