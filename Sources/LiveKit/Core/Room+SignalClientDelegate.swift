@@ -355,12 +355,12 @@ extension Room: SignalClientDelegate {
 
         // Notify Room.
         delegates.notify {
-            $0.room?(self, participant: self.localParticipant, didSubscribeTrack: track)
+            $0.room?(self, participant: self.localParticipant, remoteDidSubscribeTrack: track)
         }
 
         // Notify LocalParticipant.
         localParticipant.delegates.notify {
-            $0.participant?(self.localParticipant, didSubscribeTrack: track)
+            $0.participant?(self.localParticipant, remoteDidSubscribeTrack: track)
         }
     }
 }

@@ -121,8 +121,8 @@ public protocol RoomDelegate: AnyObject {
     func room(_ room: Room, participant: LocalParticipant, didUnpublishTrack publication: LocalTrackPublication)
 
     /// Fired when the first remote participant has subscribed to the localParticipant's track.
-    @objc(room:localParticipant:didSubscribeTrack:) optional
-    func room(_ room: Room, participant: LocalParticipant, didSubscribeTrack publication: LocalTrackPublication)
+    @objc(room:localParticipant:remoteDidSubscribeTrack:) optional
+    func room(_ room: Room, participant: LocalParticipant, remoteDidSubscribeTrack publication: LocalTrackPublication)
 
     /// A ``RemoteParticipant`` has un-published a ``RemoteTrack``.
     @objc(room:remoteParticipant:didUnpublishTrack:) optional
