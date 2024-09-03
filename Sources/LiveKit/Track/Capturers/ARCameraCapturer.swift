@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#if os(visionOS)
+#if os(visionOS) && compiler(>=6.0)
 import ARKit
 import Foundation
 

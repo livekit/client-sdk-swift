@@ -154,8 +154,8 @@ public class CameraCapturer: VideoCapturer {
         var device: AVCaptureDevice? = options.device
 
         if device == nil {
-            #if os(iOS)
-            let devices: [AVCaptureDevice]
+            #if os(iOS) || os(tvOS)
+            var devices: [AVCaptureDevice]
             if AVCaptureMultiCamSession.isMultiCamSupported {
                 // Get the list of devices already on the shared multi-cam session.
                 let existingDevices = captureSession.inputs.compactMap { $0 as? AVCaptureDeviceInput }.map(\.device)
@@ -166,7 +166,14 @@ public class CameraCapturer: VideoCapturer {
                 devices = try await CameraCapturer.captureDevices()
             }
             #else
-            let devices = try await CameraCapturer.captureDevices()
+            var devices = try await CameraCapturer.captureDevices()
+            #endif
+
+            #if !os(visionOS)
+            // Filter by deviceType if specified in options.
+            if let deviceType = options.deviceType {
+                devices = devices.filter { $0.deviceType == deviceType }
+            }
             #endif
 
             device = devices.first { $0.position == self.options.position } ?? devices.first
@@ -194,7 +201,7 @@ public class CameraCapturer: VideoCapturer {
             // Use the preferred capture format if specified in options
             selectedFormat = foundFormat
         } else {
-            if let foundFormat = sortedFormats.first(where: { $0.dimensions.area >= self.options.dimensions.area && $0.format.fpsRange().contains(self.options.fps) && $0.format.isMultiCamSupportediOS }) {
+            if let foundFormat = sortedFormats.first(where: { $0.dimensions.area >= self.options.dimensions.area && $0.format.fpsRange().contains(self.options.fps) && $0.format.filterForMulticamSupport }) {
                 // Use the first format that satisfies preferred dimensions & fps
                 selectedFormat = foundFormat
             } else if let foundFormat = sortedFormats.first(where: { $0.dimensions.area >= self.options.dimensions.area }) {
@@ -322,8 +329,10 @@ extension AVCaptureDevice.Format {
         }
     }
 
-    var isMultiCamSupportediOS: Bool {
-        #if os(iOS)
+    // Used for filtering.
+    // Only include multi-cam supported devices if in multi-cam mode. Otherwise, always include the devices.
+    var filterForMulticamSupport: Bool {
+        #if os(iOS) || os(tvOS)
         return AVCaptureMultiCamSession.isMultiCamSupported ? isMultiCamSupported : true
         #else
         return true
