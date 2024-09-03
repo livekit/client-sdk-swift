@@ -233,7 +233,7 @@ public enum StartReconnectReason {
 // Room+ConnectSequences
 extension Room {
     // full connect sequence, doesn't update connection state
-    func fullConnectSequence(_ url: String, _ token: String) async throws {
+    func fullConnectSequence(_ url: URL, _ token: String) async throws {
         let connectResponse = try await signalClient.connect(url,
                                                              token,
                                                              connectOptions: _state.connectOptions,
