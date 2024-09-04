@@ -294,7 +294,7 @@ public class Room: NSObject, ObservableObject, Loggable {
                         connectOptions: ConnectOptions? = nil,
                         roomOptions: RoomOptions? = nil) async throws
     {
-        guard let baseUrl = URL(string: urlString), baseUrl.isValidForConnect else {
+        guard let providedUrl = URL(string: urlString), providedUrl.isValidForConnect else {
             log("URL parse failed", .error)
             throw LiveKitError(.failedToParseUrl)
         }
@@ -327,17 +327,24 @@ public class Room: NSObject, ObservableObject, Loggable {
         try Task.checkCancellation()
 
         _state.mutate {
-            $0.providedUrl = baseUrl
+            $0.providedUrl = providedUrl
             $0.token = token
             $0.connectionState = .connecting
         }
 
-        if baseUrl.isCloud {
-            prepareRegionSettings()
-        }
-
-        var nextUrl = baseUrl
+        var nextUrl = providedUrl
         var nextRegion: RegionInfo?
+
+        if providedUrl.isCloud {
+            if regionManager(shouldRequestSettingsForUrl: providedUrl) {
+                regionManagerPrepareRegionSettings()
+            } else {
+                // If region info already available, use it instead of provided url.
+                let region = try await regionManagerResolveBest()
+                nextUrl = region.url
+                nextRegion = region
+            }
+        }
 
         do {
             while true {
@@ -363,15 +370,15 @@ public class Room: NSObject, ObservableObject, Loggable {
                     if let region = nextRegion {
                         nextRegion = nil
                         log("Connect failed with region: \(region)")
-                        add(failedRegion: region)
+                        regionManager(addFailedRegion: region)
                     }
 
                     try Task.checkCancellation()
                     // Prepare for next connect attempt.
                     await cleanUp(isFullReconnect: true)
 
-                    if baseUrl.isCloud {
-                        let region = try await resolveBestRegion()
+                    if providedUrl.isCloud {
+                        let region = try await regionManagerResolveBest()
                         nextUrl = region.url
                         nextRegion = region
                     }

@@ -21,8 +21,42 @@ import Foundation
 extension Room {
     static let defaultCacheInterval: TimeInterval = 3000
 
-    func resolveBestRegion() async throws -> RegionInfo {
-        try await requestRegionSettings()
+    // MARK: - Public
+
+    // prepareConnection should be called as soon as the page is loaded, in order
+    // to speed up the connection attempt.
+    //
+    // With LiveKit Cloud, it will also determine the best edge data center for
+    // the current client to connect to if a token is provided.
+    public func prepareConnection(url providedUrlString: String, token: String) {
+        // Must be in disconnected state.
+        guard _state.connectionState == .disconnected else {
+            log("Room is not in disconnected state", .info)
+            return
+        }
+
+        guard let providedUrl = URL(string: providedUrlString), providedUrl.isValidForConnect else {
+            log("URL parse failed", .error)
+            return
+        }
+
+        guard providedUrl.isCloud else {
+            log("Provided url is not a livekit cloud url", .warning)
+            return
+        }
+
+        _state.mutate {
+            $0.providedUrl = providedUrl
+            $0.token = token
+        }
+
+        regionManagerPrepareRegionSettings()
+    }
+
+    // MARK: - Internal
+
+    func regionManagerResolveBest() async throws -> RegionInfo {
+        try await regionManagerRequestSettings()
 
         guard let selectedRegion = _regionState.remaining.first else {
             throw LiveKitError(.regionUrlProvider, message: "No more remaining regions.")
@@ -33,43 +67,47 @@ extension Room {
         return selectedRegion
     }
 
-    func add(failedRegion region: RegionInfo) {
+    func regionManager(addFailedRegion region: RegionInfo) {
         _regionState.mutate {
             $0.remaining.removeAll { $0 == region }
         }
     }
 
-    public func prepareRegionSettings() {
+    func regionManagerPrepareRegionSettings() {
         Task.detached {
-            try await self.requestRegionSettings()
+            try await self.regionManagerRequestSettings()
+        }
+    }
+
+    func regionManager(shouldRequestSettingsForUrl providedUrl: URL) -> Bool {
+        guard providedUrl.isCloud else { return false }
+        return _regionState.read {
+            guard providedUrl == $0.url, let regionSettingsUpdated = $0.lastRequested else { return true }
+            let interval = Date().timeIntervalSince(regionSettingsUpdated)
+            return interval > Self.defaultCacheInterval
         }
     }
 
     // MARK: - Private
 
-    private func requestRegionSettings() async throws {
-        let (serverUrl, token) = _state.read { ($0.providedUrl, $0.token) }
+    private func regionManagerRequestSettings() async throws {
+        let (providedUrl, token) = _state.read { ($0.providedUrl, $0.token) }
 
-        guard let serverUrl, let token else {
+        guard let providedUrl, let token else {
             throw LiveKitError(.invalidState)
         }
 
         // Ensure url is for cloud.
-        guard serverUrl.isCloud else {
+        guard providedUrl.isCloud else {
             throw LiveKitError(.onlyForCloud)
         }
 
-        let shouldRequestRegionSettings = _regionState.read {
-            guard serverUrl == $0.url, let regionSettingsUpdated = $0.lastRequested else { return true }
-            let interval = Date().timeIntervalSince(regionSettingsUpdated)
-            log("[Region] Interval: \(String(describing: interval))")
-            return interval > Self.defaultCacheInterval
+        guard regionManager(shouldRequestSettingsForUrl: providedUrl) else {
+            return
         }
 
-        guard shouldRequestRegionSettings else { return }
-
         // Make a request which ignores cache.
-        var request = URLRequest(url: serverUrl.regionSettingsUrl(),
+        var request = URLRequest(url: providedUrl.regionSettingsUrl(),
                                  cachePolicy: .reloadIgnoringLocalAndRemoteCacheData)
 
         request.addValue("Bearer \(token)", forHTTPHeaderField: "authorization")
@@ -100,7 +138,7 @@ extension Room {
             log("[Region] all regions: \(String(describing: allRegions))")
 
             _regionState.mutate {
-                $0.url = serverUrl
+                $0.url = providedUrl
                 $0.all = allRegions
                 $0.remaining = allRegions
                 $0.lastRequested = Date()

@@ -361,13 +361,13 @@ extension Room {
                     if let region = nextRegion {
                         nextRegion = nil
                         log("Connect failed with region: \(region)")
-                        add(failedRegion: region)
+                        regionManager(addFailedRegion: region)
                     }
 
                     try Task.checkCancellation()
 
                     if providedUrl.isCloud {
-                        let region = try await resolveBestRegion()
+                        let region = try await regionManagerResolveBest()
                         nextUrl = region.url
                         nextRegion = region
                     }
