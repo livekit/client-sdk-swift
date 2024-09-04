@@ -19,7 +19,7 @@ import Foundation
 // MARK: - Room+Region
 
 extension Room {
-    static let defaultCacheInterval: TimeInterval = 3000
+    static let regionManagerCacheInterval: TimeInterval = 3000
 
     // MARK: - Public
 
@@ -84,7 +84,7 @@ extension Room {
         return _regionState.read {
             guard providedUrl == $0.url, let regionSettingsUpdated = $0.lastRequested else { return true }
             let interval = Date().timeIntervalSince(regionSettingsUpdated)
-            return interval > Self.defaultCacheInterval
+            return interval > Self.regionManagerCacheInterval
         }
     }
 

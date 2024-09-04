@@ -19,57 +19,73 @@ import XCTest
 
 class RegionUrlProviderTests: XCTestCase {
     func testResolveUrl() async throws {
+        let room = Room()
+
         let testCacheInterval: TimeInterval = 3
         // Test data.
-        let testRegionSettings = Livekit_RegionSettings.with {
-            $0.regions.append(Livekit_RegionInfo.with {
-                $0.region = "otokyo1a"
-                $0.url = "https://example.otokyo1a.production.livekit.cloud"
-                $0.distance = 32838
-            })
-            $0.regions.append(Livekit_RegionInfo.with {
-                $0.region = "dblr1a"
-                $0.url = "https://example.dblr1a.production.livekit.cloud"
-                $0.distance = 6_660_301
-            })
-            $0.regions.append(Livekit_RegionInfo.with {
-                $0.region = "dsyd1a"
-                $0.url = "https://example.dsyd1a.production.livekit.cloud"
-                $0.distance = 7_823_582
-            })
-        }
+        let testRegionSettings = [Livekit_RegionInfo.with {
+            $0.region = "otokyo1a"
+            $0.url = "https://example.otokyo1a.production.livekit.cloud"
+            $0.distance = 32838
+        },
+        Livekit_RegionInfo.with {
+            $0.region = "dblr1a"
+            $0.url = "https://example.dblr1a.production.livekit.cloud"
+            $0.distance = 6_660_301
+        },
+        Livekit_RegionInfo.with {
+            $0.region = "dsyd1a"
+            $0.url = "https://example.dsyd1a.production.livekit.cloud"
+            $0.distance = 7_823_582
+        }].map { $0.toLKType() }.compactMap { $0 }
 
-        let provider = RegionUrlProvider(url: "wss://test.livekit.cloud", token: "", cacheInterval: testCacheInterval)
+        let providedUrl = URL(string: "https://example.livekit.cloud")!
 
         // See if request should be initiated.
-        XCTAssert(provider.shouldRequestRegionSettings(), "Should require to request region settings")
+        XCTAssert(room.regionManager(shouldRequestSettingsForUrl: providedUrl), "Should require to request region settings")
 
         // Set test data.
-        provider.set(regionSettings: testRegionSettings)
+        room._state.mutate {
+            $0.providedUrl = providedUrl
+            $0.token = ""
+        }
+
+        room._regionState.mutate {
+            $0.url = providedUrl
+            $0.all = testRegionSettings
+            $0.remaining = testRegionSettings
+            $0.lastRequested = Date()
+        }
 
         // See if request is not required to be initiated.
-        XCTAssert(!provider.shouldRequestRegionSettings(), "Should require to request region settings")
+        XCTAssert(!room.regionManager(shouldRequestSettingsForUrl: providedUrl), "Should require to request region settings")
 
-        let attempt1 = try await provider.nextBestRegionUrl()
+        let attempt1 = try await room.regionManagerResolveBest()
         print("Next url: \(String(describing: attempt1))")
-        XCTAssert(attempt1 == URL(string: testRegionSettings.regions[0].url)?.toSocketUrl())
+        XCTAssert(attempt1.url == testRegionSettings[0].url)
+        room.regionManager(addFailedRegion: attempt1)
 
-        let attempt2 = try await provider.nextBestRegionUrl()
+        let attempt2 = try await room.regionManagerResolveBest()
         print("Next url: \(String(describing: attempt2))")
-        XCTAssert(attempt2 == URL(string: testRegionSettings.regions[1].url)?.toSocketUrl())
+        XCTAssert(attempt2.url == testRegionSettings[1].url)
+        room.regionManager(addFailedRegion: attempt2)
 
-        let attempt3 = try await provider.nextBestRegionUrl()
+        let attempt3 = try await room.regionManagerResolveBest()
         print("Next url: \(String(describing: attempt3))")
-        XCTAssert(attempt3 == URL(string: testRegionSettings.regions[2].url)?.toSocketUrl())
+        XCTAssert(attempt3.url == testRegionSettings[2].url)
+        room.regionManager(addFailedRegion: attempt3)
 
-        let attempt4 = try await provider.nextBestRegionUrl()
-        print("Next url: \(String(describing: attempt4))")
+        // No more regions
+        let attempt4 = try? await room.regionManagerResolveBest()
         XCTAssert(attempt4 == nil)
 
         // Simulate cache time elapse.
-        await asyncSleep(for: testCacheInterval)
+        room._regionState.mutate {
+            // Roll back time.
+            $0.lastRequested = Date().addingTimeInterval(-Room.regionManagerCacheInterval)
+        }
 
         // After cache time elapsed, should require to request region settings again.
-        XCTAssert(provider.shouldRequestRegionSettings(), "Should require to request region settings")
+        XCTAssert(room.regionManager(shouldRequestSettingsForUrl: providedUrl), "Should require to request region settings")
     }
 }
