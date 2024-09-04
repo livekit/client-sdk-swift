@@ -43,7 +43,8 @@ public extension LKAudioBuffer {
         guard let targetBufferPointer = pcmBuffer.floatChannelData else { return nil }
 
         // Optimized version
-        var normalizationFactor: Float = 1.0 / 32768.0
+        let factor = Float(Int16.max)
+        var normalizationFactor: Float = 1.0 / factor // Or use 32768.0
 
         for i in 0 ..< channels {
             vDSP_vsmul(rawBuffer(forChannel: i),
@@ -96,5 +97,68 @@ public extension Sequence where Iterator.Element == AudioLevel {
 
         return AudioLevel(average: totalSums.averageSum / Float(count),
                           peak: totalSums.peakSum / Float(count))
+    }
+}
+
+public class AudioVisualizeProcessor {
+    static let _bufferSize = 1024
+
+    // MARK: - Public
+
+    public let minFrequency: Float
+    public let maxFrequency: Float
+    public let bandsCount: Int
+
+    public var bands: [Float]?
+
+    // MARK: - Private
+
+    public init(minFrequency: Float = 10, maxFrequency: Float = 8000, bandsCount: Int = 100) {
+        self.minFrequency = minFrequency
+        self.maxFrequency = maxFrequency
+        self.bandsCount = bandsCount
+        _processor = FFTProcessor(bufferSize: Self._bufferSize)
+    }
+
+    // MARK: - Private
+
+    private let _ringBuffer = FloatRingBuffer(size: _bufferSize)
+    private let _processor: FFTProcessor
+
+    public func add(pcmBuffer: AVAudioPCMBuffer) {
+        guard let floatChannelData = pcmBuffer.floatChannelData else { return }
+        // Get the float array.
+        let floats = Array(UnsafeBufferPointer(start: floatChannelData[0], count: Int(pcmBuffer.frameLength)))
+        // Write to ring buffer.
+        _ringBuffer.write(floats)
+        // Get full size buffer if ready, otherwise return for this cycle.
+        guard let buffer = _ringBuffer.read() else { return }
+
+        let fftRes = _processor.process(buffer: buffer)
+        let bands = fftRes.computeBands(minFrequency: minFrequency,
+                                        maxFrequency: maxFrequency,
+                                        bandsCount: bandsCount,
+                                        sampleRate: Float(pcmBuffer.format.sampleRate))
+
+        let maxDB: Float = 64.0
+        let minDB: Float = -32.0
+        let headroom = maxDB - minDB
+
+        var result: [Float] = Array(repeating: 0.0, count: bands.magnitudes.count)
+
+        var i = 0
+        for magnitude in bands.magnitudes {
+            // Incoming magnitudes are linear, making it impossible to see very low or very high values. Decibels to the rescue!
+            var magnitudeDB = magnitude.toDecibels
+
+            // Normalize the incoming magnitude so that -Inf = 0
+            magnitudeDB = max(0, magnitudeDB + abs(minDB))
+
+            let dbRatio = min(1.0, magnitudeDB / headroom)
+            result[i] = dbRatio
+            i += 1
+        }
+
+        self.bands = result
     }
 }
