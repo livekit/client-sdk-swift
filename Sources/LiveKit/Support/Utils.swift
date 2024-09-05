@@ -25,6 +25,8 @@ typealias DebouncFunc = () -> Void
 enum OS {
     case macOS
     case iOS
+    case visionOS
+    case tvOS
 }
 
 extension OS: CustomStringConvertible {
@@ -32,6 +34,8 @@ extension OS: CustomStringConvertible {
         switch self {
         case .macOS: return "macOS"
         case .iOS: return "iOS"
+        case .visionOS: return "visionOS"
+        case .tvOS: return "tvOS"
         }
     }
 }
@@ -56,10 +60,14 @@ class Utils {
 
     /// Returns current OS.
     static func os() -> OS {
-        #if os(iOS) || os(visionOS) || os(tvOS)
+        #if os(iOS)
         .iOS
         #elseif os(macOS)
         .macOS
+        #elseif os(visionOS)
+        .visionOS
+        #elseif os(tvOS)
+        .tvOS
         #endif
     }
 
