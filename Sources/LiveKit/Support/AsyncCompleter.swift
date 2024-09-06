@@ -166,7 +166,7 @@ class AsyncCompleter<T>: Loggable {
                 // Create time-out block
                 let timeoutBlock = DispatchWorkItem { [weak self] in
                     guard let self else { return }
-                    self.log("\(label) id: \(entryId) timed out")
+                    self.log("\(self.label) id: \(entryId) timed out")
                     self._lock.sync {
                         if let entry = self._entries[entryId] {
                             entry.timeout()
