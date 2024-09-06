@@ -295,6 +295,7 @@ extension Room {
                                                                  token,
                                                                  connectOptions: _state.connectOptions,
                                                                  reconnectMode: _state.isReconnectingWithMode,
+                                                                 participantSid: localParticipant.sid,
                                                                  adaptiveStream: _state.roomOptions.adaptiveStream)
             try Task.checkCancellation()
 
