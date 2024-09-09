@@ -120,6 +120,8 @@ extension Room {
 
             if connectResponse.clientConfiguration.forceRelay == .enabled {
                 rtcConfiguration.iceTransportPolicy = .relay
+            } else {
+                rtcConfiguration.iceTransportPolicy = connectOptions.iceTransportPolicy.toRTCType()
             }
 
             return rtcConfiguration
