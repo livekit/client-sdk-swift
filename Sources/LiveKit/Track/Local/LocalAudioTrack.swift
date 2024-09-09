@@ -73,30 +73,22 @@ public class LocalAudioTrack: Track, LocalTrack, AudioTrack {
                                captureOptions: options)
     }
 
-    @discardableResult
-    override func onPublish() async throws -> Bool {
-        let didPublish = try await super.onPublish()
-        if didPublish {
-            AudioManager.shared.trackDidStart(.local)
-        }
-        return didPublish
-    }
-
-    @discardableResult
-    override func onUnpublish() async throws -> Bool {
-        let didUnpublish = try await super.onUnpublish()
-        if didUnpublish {
-            AudioManager.shared.trackDidStop(.local)
-        }
-        return didUnpublish
-    }
-
     public func mute() async throws {
         try await super._mute()
     }
 
     public func unmute() async throws {
         try await super._unmute()
+    }
+
+    // MARK: - Internal
+
+    override func startCapture() async throws {
+        AudioManager.shared.trackDidStart(.local)
+    }
+
+    override func stopCapture() async throws {
+        AudioManager.shared.trackDidStop(.local)
     }
 }
 
