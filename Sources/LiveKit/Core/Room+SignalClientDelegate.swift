@@ -25,7 +25,7 @@ internal import LiveKitWebRTC
 extension Room: SignalClientDelegate {
     func signalClient(_: SignalClient, didUpdateConnectionState connectionState: ConnectionState,
                       oldState: ConnectionState,
-                      disconnectError: LiveKitError?) async
+                      disconnectError: LiveKitError?)
     {
         // connectionState did update
         if connectionState != oldState,
@@ -36,30 +36,31 @@ extension Room: SignalClientDelegate {
            // engine is currently connected state
            case .connected = _state.connectionState
         {
-            do {
-                try await startReconnect(reason: .websocket)
-            } catch {
-                log("Failed calling startReconnect, error: \(error)", .error)
+            Task {
+                do {
+                    try await startReconnect(reason: .websocket)
+                } catch {
+                    log("Failed calling startReconnect, error: \(error)", .error)
+                }
             }
         }
     }
 
-    func signalClient(_: SignalClient, didReceiveLeave canReconnect: Bool, reason: Livekit_DisconnectReason) async {
+    func signalClient(_: SignalClient, didReceiveLeave canReconnect: Bool, reason: Livekit_DisconnectReason) {
         log("canReconnect: \(canReconnect), reason: \(reason)")
 
         if canReconnect {
             // force .full for next reconnect
             _state.mutate { $0.nextReconnectMode = .full }
         } else {
-            // Server indicates it's not recoverable
-            await cleanUp(withError: LiveKitError.from(reason: reason))
+            Task {
+                // Server indicates it's not recoverable
+                await cleanUp(withError: LiveKitError.from(reason: reason))
+            }
         }
     }
 
-    func signalClient(_: SignalClient, didUpdateSubscribedCodecs codecs: [Livekit_SubscribedCodec],
-                      qualities: [Livekit_SubscribedQuality],
-                      forTrackSid trackSid: String) async
-    {
+    func signalClient(_: SignalClient, didUpdateSubscribedCodecs codecs: [Livekit_SubscribedCodec], qualities: [Livekit_SubscribedQuality], forTrackSid trackSid: String) {
         // Check if dynacast is enabled
         guard _state.roomOptions.dynacast else { return }
 
@@ -78,11 +79,13 @@ extension Room: SignalClientDelegate {
             if !missingSubscribedCodecs.isEmpty {
                 log("Missing codecs: \(missingSubscribedCodecs)")
                 for missingSubscribedCodec in missingSubscribedCodecs {
-                    do {
-                        log("Publishing additional codec: \(missingSubscribedCodec)")
-                        try await localParticipant.publish(additionalVideoCodec: missingSubscribedCodec, for: publication)
-                    } catch {
-                        log("Failed publishing additional codec: \(missingSubscribedCodec), error: \(error)", .error)
+                    Task {
+                        do {
+                            log("Publishing additional codec: \(missingSubscribedCodec)")
+                            try await localParticipant.publish(additionalVideoCodec: missingSubscribedCodec, for: publication)
+                        } catch {
+                            log("Failed publishing additional codec: \(missingSubscribedCodec), error: \(error)", .error)
+                        }
                     }
                 }
             }
@@ -92,7 +95,7 @@ extension Room: SignalClientDelegate {
         }
     }
 
-    func signalClient(_: SignalClient, didReceiveConnectResponse connectResponse: SignalClient.ConnectResponse) async {
+    func signalClient(_: SignalClient, didReceiveConnectResponse connectResponse: SignalClient.ConnectResponse) {
         if case let .join(joinResponse) = connectResponse {
             log("\(joinResponse.serverInfo)", .info)
 
@@ -118,7 +121,7 @@ extension Room: SignalClientDelegate {
         }
     }
 
-    func signalClient(_: SignalClient, didUpdateRoom room: Livekit_Room) async {
+    func signalClient(_: SignalClient, didUpdateRoom room: Livekit_Room) {
         _state.mutate {
             $0.metadata = room.metadata
             $0.isRecording = room.activeRecording
@@ -128,7 +131,7 @@ extension Room: SignalClientDelegate {
         }
     }
 
-    func signalClient(_: SignalClient, didUpdateSpeakers speakers: [Livekit_SpeakerInfo]) async {
+    func signalClient(_: SignalClient, didUpdateSpeakers speakers: [Livekit_SpeakerInfo]) {
         log("speakers: \(speakers)", .trace)
 
         let activeSpeakers = _state.mutate { state -> [Participant] in
@@ -164,7 +167,7 @@ extension Room: SignalClientDelegate {
         }
     }
 
-    func signalClient(_: SignalClient, didUpdateConnectionQuality connectionQuality: [Livekit_ConnectionQualityInfo]) async {
+    func signalClient(_: SignalClient, didUpdateConnectionQuality connectionQuality: [Livekit_ConnectionQualityInfo]) {
         log("connectionQuality: \(connectionQuality)", .trace)
 
         for entry in connectionQuality {
@@ -179,7 +182,7 @@ extension Room: SignalClientDelegate {
         }
     }
 
-    func signalClient(_: SignalClient, didUpdateRemoteMute trackSid: Track.Sid, muted: Bool) async {
+    func signalClient(_: SignalClient, didUpdateRemoteMute trackSid: Track.Sid, muted: Bool) {
         log("trackSid: \(trackSid) isMuted: \(muted)")
 
         guard let publication = localParticipant._state.trackPublications[trackSid] as? LocalTrackPublication else {
@@ -187,18 +190,20 @@ extension Room: SignalClientDelegate {
             return
         }
 
-        do {
-            if muted {
-                try await publication.mute()
-            } else {
-                try await publication.unmute()
+        Task {
+            do {
+                if muted {
+                    try await publication.mute()
+                } else {
+                    try await publication.unmute()
+                }
+            } catch {
+                log("Failed to update mute for publication, error: \(error)", .error)
             }
-        } catch {
-            log("Failed to update mute for publication, error: \(error)", .error)
         }
     }
 
-    func signalClient(_: SignalClient, didUpdateSubscriptionPermission subscriptionPermission: Livekit_SubscriptionPermissionUpdate) async {
+    func signalClient(_: SignalClient, didUpdateSubscriptionPermission subscriptionPermission: Livekit_SubscriptionPermissionUpdate) {
         log("did update subscriptionPermission: \(subscriptionPermission)")
 
         let participantSid = Participant.Sid(from: subscriptionPermission.participantSid)
@@ -213,7 +218,7 @@ extension Room: SignalClientDelegate {
         publication.set(subscriptionAllowed: subscriptionPermission.allowed)
     }
 
-    func signalClient(_: SignalClient, didUpdateTrackStreamStates trackStates: [Livekit_StreamStateInfo]) async {
+    func signalClient(_: SignalClient, didUpdateTrackStreamStates trackStates: [Livekit_StreamStateInfo]) {
         log("did update trackStates: \(trackStates.map { "(\($0.trackSid): \(String(describing: $0.state)))" }.joined(separator: ", "))")
 
         for update in trackStates {
@@ -229,61 +234,63 @@ extension Room: SignalClientDelegate {
         }
     }
 
-    func signalClient(_: SignalClient, didUpdateParticipants participants: [Livekit_ParticipantInfo]) async {
+    func signalClient(_: SignalClient, didUpdateParticipants participants: [Livekit_ParticipantInfo]) {
         log("participants: \(participants)")
 
-        var disconnectedParticipantIdentities = [Participant.Identity]()
-        var newParticipants = [RemoteParticipant]()
+        Task {
+            var disconnectedParticipantIdentities = [Participant.Identity]()
+            var newParticipants = [RemoteParticipant]()
 
-        _state.mutate {
-            for info in participants {
-                let infoIdentity = Participant.Identity(from: info.identity)
+            _state.mutate {
+                for info in participants {
+                    let infoIdentity = Participant.Identity(from: info.identity)
 
-                if infoIdentity == localParticipant.identity {
-                    localParticipant.set(info: info, connectionState: $0.connectionState)
-                    continue
-                }
+                    if infoIdentity == localParticipant.identity {
+                        localParticipant.set(info: info, connectionState: $0.connectionState)
+                        continue
+                    }
 
-                if info.state == .disconnected {
-                    // when it's disconnected, send updates
-                    disconnectedParticipantIdentities.append(infoIdentity)
-                } else {
-                    let isNewParticipant = $0.remoteParticipants[infoIdentity] == nil
-                    let participant = $0.updateRemoteParticipant(info: info, room: self)
-
-                    if isNewParticipant {
-                        newParticipants.append(participant)
+                    if info.state == .disconnected {
+                        // when it's disconnected, send updates
+                        disconnectedParticipantIdentities.append(infoIdentity)
                     } else {
-                        participant.set(info: info, connectionState: $0.connectionState)
-                    }
-                }
-            }
-        }
+                        let isNewParticipant = $0.remoteParticipants[infoIdentity] == nil
+                        let participant = $0.updateRemoteParticipant(info: info, room: self)
 
-        await withTaskGroup(of: Void.self) { group in
-            for identity in disconnectedParticipantIdentities {
-                group.addTask {
-                    do {
-                        try await self._onParticipantDidDisconnect(identity: identity)
-                    } catch {
-                        self.log("Failed to process participant disconnection, error: \(error)", .error)
+                        if isNewParticipant {
+                            newParticipants.append(participant)
+                        } else {
+                            participant.set(info: info, connectionState: $0.connectionState)
+                        }
                     }
                 }
             }
 
-            await group.waitForAll()
-        }
+            await withTaskGroup(of: Void.self) { group in
+                for identity in disconnectedParticipantIdentities {
+                    group.addTask {
+                        do {
+                            try await self._onParticipantDidDisconnect(identity: identity)
+                        } catch {
+                            self.log("Failed to process participant disconnection, error: \(error)", .error)
+                        }
+                    }
+                }
 
-        if case .connected = _state.connectionState {
-            for participant in newParticipants {
-                delegates.notify(label: { "room.remoteParticipantDidConnect: \(participant)" }) {
-                    $0.room?(self, participantDidConnect: participant)
+                await group.waitForAll()
+            }
+
+            if case .connected = _state.connectionState {
+                for participant in newParticipants {
+                    delegates.notify(label: { "room.remoteParticipantDidConnect: \(participant)" }) {
+                        $0.room?(self, participantDidConnect: participant)
+                    }
                 }
             }
         }
     }
 
-    func signalClient(_: SignalClient, didUnpublishLocalTrack localTrack: Livekit_TrackUnpublishedResponse) async {
+    func signalClient(_: SignalClient, didUnpublishLocalTrack localTrack: Livekit_TrackUnpublishedResponse) {
         log()
 
         let trackSid = Track.Sid(from: localTrack.trackSid)
@@ -293,37 +300,43 @@ extension Room: SignalClientDelegate {
             return
         }
 
-        do {
-            try await localParticipant.unpublish(publication: publication)
-            log("Unpublished track(\(localTrack.trackSid)")
-        } catch {
-            log("Failed to unpublish track(\(localTrack.trackSid), error: \(error)", .warning)
+        Task {
+            do {
+                try await localParticipant.unpublish(publication: publication)
+                log("Unpublished track(\(localTrack.trackSid)")
+            } catch {
+                log("Failed to unpublish track(\(localTrack.trackSid), error: \(error)", .warning)
+            }
         }
     }
 
-    func signalClient(_: SignalClient, didReceiveIceCandidate iceCandidate: LKRTCIceCandidate, target: Livekit_SignalTarget) async {
+    func signalClient(_: SignalClient, didReceiveIceCandidate iceCandidate: LKRTCIceCandidate, target: Livekit_SignalTarget) {
         guard let transport = target == .subscriber ? _state.subscriber : _state.publisher else {
             log("Failed to add ice candidate, transport is nil for target: \(target)", .error)
             return
         }
 
-        do {
-            try await transport.add(iceCandidate: iceCandidate)
-        } catch {
-            log("Failed to add ice candidate for transport: \(transport), error: \(error)", .error)
+        Task {
+            do {
+                try await transport.add(iceCandidate: iceCandidate)
+            } catch {
+                log("Failed to add ice candidate for transport: \(transport), error: \(error)", .error)
+            }
         }
     }
 
-    func signalClient(_: SignalClient, didReceiveAnswer answer: LKRTCSessionDescription) async {
-        do {
-            let publisher = try requirePublisher()
-            try await publisher.set(remoteDescription: answer)
-        } catch {
-            log("Failed to set remote description, error: \(error)", .error)
+    func signalClient(_: SignalClient, didReceiveAnswer answer: LKRTCSessionDescription) {
+        Task {
+            do {
+                let publisher = try requirePublisher()
+                try await publisher.set(remoteDescription: answer)
+            } catch {
+                log("Failed to set remote description, error: \(error)", .error)
+            }
         }
     }
 
-    func signalClient(_ signalClient: SignalClient, didReceiveOffer offer: LKRTCSessionDescription) async {
+    func signalClient(_ signalClient: SignalClient, didReceiveOffer offer: LKRTCSessionDescription) {
         log("Received offer, creating & sending answer...")
 
         guard let subscriber = _state.subscriber else {
@@ -331,22 +344,24 @@ extension Room: SignalClientDelegate {
             return
         }
 
-        do {
-            try await subscriber.set(remoteDescription: offer)
-            let answer = try await subscriber.createAnswer()
-            try await subscriber.set(localDescription: answer)
-            try await signalClient.send(answer: answer)
-        } catch {
-            log("Failed to send answer with error: \(error)", .error)
+        Task {
+            do {
+                try await subscriber.set(remoteDescription: offer)
+                let answer = try await subscriber.createAnswer()
+                try await subscriber.set(localDescription: answer)
+                try await signalClient.send(answer: answer)
+            } catch {
+                log("Failed to send answer with error: \(error)", .error)
+            }
         }
     }
 
-    func signalClient(_: SignalClient, didUpdateToken token: String) async {
+    func signalClient(_: SignalClient, didUpdateToken token: String) {
         // update token
         _state.mutate { $0.token = token }
     }
 
-    func signalClient(_: SignalClient, didSubscribeTrack trackSid: Track.Sid) async {
+    func signalClient(_: SignalClient, didSubscribeTrack trackSid: Track.Sid) {
         // Find the local track publication.
         guard let track = localParticipant.trackPublications[trackSid] as? LocalTrackPublication else {
             log("Could not find local track publication for subscribed event")
