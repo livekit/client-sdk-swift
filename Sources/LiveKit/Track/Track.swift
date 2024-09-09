@@ -232,7 +232,8 @@ public class Track: NSObject, Loggable {
 
     @objc
     public final func start() async throws {
-        try await _startStopSerialRunner.run {
+        try await _startStopSerialRunner.run { [weak self] in
+            guard let self else { return }
             guard self._state.trackState != .started else {
                 self.log("Already started", .warning)
                 return
@@ -245,7 +246,8 @@ public class Track: NSObject, Loggable {
 
     @objc
     public final func stop() async throws {
-        try await _startStopSerialRunner.run {
+        try await _startStopSerialRunner.run { [weak self] in
+            guard let self else { return }
             guard self._state.trackState != .stopped else {
                 self.log("Already stopped", .warning)
                 return
