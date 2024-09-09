@@ -91,6 +91,7 @@ public class ConnectOptions: NSObject {
             primaryTransportConnectTimeout == other.primaryTransportConnectTimeout &&
             publisherTransportConnectTimeout == other.publisherTransportConnectTimeout &&
             iceServers == other.iceServers &&
+            iceTransportPolicy == other.iceTransportPolicy &&
             protocolVersion == other.protocolVersion
     }
 
@@ -102,6 +103,7 @@ public class ConnectOptions: NSObject {
         hasher.combine(primaryTransportConnectTimeout)
         hasher.combine(publisherTransportConnectTimeout)
         hasher.combine(iceServers)
+        hasher.combine(iceTransportPolicy)
         hasher.combine(protocolVersion)
         return hasher.finalize()
     }
