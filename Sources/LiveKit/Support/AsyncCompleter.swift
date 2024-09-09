@@ -147,11 +147,11 @@ class AsyncCompleter<T>: Loggable {
             // Already resolved...
             if case let .success(value) = result {
                 // resume(returning:) already called
-                log("\(label) returning value...")
+                log("\(label) returning existing value")
                 return value
             } else if case let .failure(error) = result {
                 // resume(throwing:) already called
-                log("\(label) throwing error...")
+                log("\(label) throwing existing error")
                 throw error
             }
         }
@@ -166,7 +166,7 @@ class AsyncCompleter<T>: Loggable {
                 // Create time-out block
                 let timeoutBlock = DispatchWorkItem { [weak self] in
                     guard let self else { return }
-                    self.log("Wait \(entryId) timedOut")
+                    self.log("\(self.label) id: \(entryId) timed out")
                     self._lock.sync {
                         if let entry = self._entries[entryId] {
                             entry.timeout()
@@ -182,7 +182,7 @@ class AsyncCompleter<T>: Loggable {
                     // Store entry
                     _entries[entryId] = WaitEntry(continuation: continuation, timeoutBlock: timeoutBlock)
 
-                    log("\(label) waiting \(computedTimeout) with id: \(entryId)")
+                    log("\(label) id: \(entryId) waiting for \(computedTimeout)")
                 }
             }
         } onCancel: {

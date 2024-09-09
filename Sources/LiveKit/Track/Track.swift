@@ -141,6 +141,8 @@ public class Track: NSObject, Loggable {
 
     private let _statisticsTimer = AsyncTimer(interval: 1.0)
 
+    private let _startStopSerialRunner = SerialRunnerActor<Void>()
+
     init(name: String,
          kind: Kind,
          source: Source,
@@ -230,24 +232,30 @@ public class Track: NSObject, Loggable {
 
     @objc
     public final func start() async throws {
-        guard _state.trackState != .started else {
-            log("Already started", .warning)
-            return
+        try await _startStopSerialRunner.run { [weak self] in
+            guard let self else { return }
+            guard self._state.trackState != .started else {
+                self.log("Already started", .warning)
+                return
+            }
+            try await self.startCapture()
+            if self is RemoteTrack { try await self.enable() }
+            self._state.mutate { $0.trackState = .started }
         }
-        try await startCapture()
-        if self is RemoteTrack { try await enable() }
-        _state.mutate { $0.trackState = .started }
     }
 
     @objc
     public final func stop() async throws {
-        guard _state.trackState != .stopped else {
-            log("Already stopped", .warning)
-            return
+        try await _startStopSerialRunner.run { [weak self] in
+            guard let self else { return }
+            guard self._state.trackState != .stopped else {
+                self.log("Already stopped", .warning)
+                return
+            }
+            try await self.stopCapture()
+            if self is RemoteTrack { try await self.disable() }
+            self._state.mutate { $0.trackState = .stopped }
         }
-        try await stopCapture()
-        if self is RemoteTrack { try await disable() }
-        _state.mutate { $0.trackState = .stopped }
     }
 
     // Returns true if didEnable

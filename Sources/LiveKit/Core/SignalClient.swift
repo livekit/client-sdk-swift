@@ -114,6 +114,7 @@ actor SignalClient: Loggable {
                  _ token: String,
                  connectOptions: ConnectOptions? = nil,
                  reconnectMode: ReconnectMode? = nil,
+                 participantSid: Participant.Sid? = nil,
                  adaptiveStream: Bool) async throws -> ConnectResponse
     {
         await cleanUp()
@@ -126,6 +127,7 @@ actor SignalClient: Loggable {
                                      token,
                                      connectOptions: connectOptions,
                                      reconnectMode: reconnectMode,
+                                     participantSid: participantSid,
                                      adaptiveStream: adaptiveStream)
 
         if reconnectMode != nil {
@@ -148,7 +150,6 @@ actor SignalClient: Loggable {
                 } catch {
                     await self.cleanUp(withError: error)
                 }
-                self.log("Did exit WebSocket message loop...")
             }
 
             let connectResponse = try await _connectResponseCompleter.wait()
@@ -179,6 +180,7 @@ actor SignalClient: Loggable {
             let validateUrl = try Utils.buildUrl(url,
                                                  token,
                                                  connectOptions: connectOptions,
+                                                 participantSid: participantSid,
                                                  adaptiveStream: adaptiveStream,
                                                  validate: true)
 
