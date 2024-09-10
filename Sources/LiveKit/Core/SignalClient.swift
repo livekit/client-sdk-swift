@@ -289,7 +289,7 @@ private extension SignalClient {
                 return
             }
 
-            _delegate.notifyDetached { await $0.signalClient(self, didReceiveIceCandidate: rtcCandidate, target: trickle.target) }
+            _delegate.notifyDetached { await $0.signalClient(self, didReceiveIceCandidate: rtcCandidate.toLKType(), target: trickle.target) }
 
         case let .update(update):
             _delegate.notifyDetached { await $0.signalClient(self, didUpdateParticipants: update.participants) }
