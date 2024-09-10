@@ -38,9 +38,14 @@ class FloatRingBuffer {
         }
     }
 
-    // Returns nil if buffer is not full.
     func read() -> [Float]? {
         guard _isFull else { return nil }
-        return Array(_buffer[_head ..< _buffer.count] + _buffer[0 ..< _head])
+
+        if _head == 0 {
+            return _buffer // Return the entire buffer if _head is at the start
+        } else {
+            // Return the buffer in the correct order
+            return Array(_buffer[_head ..< _buffer.count] + _buffer[0 ..< _head])
+        }
     }
 }

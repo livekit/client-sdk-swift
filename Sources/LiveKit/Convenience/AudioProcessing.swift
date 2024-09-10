@@ -101,7 +101,7 @@ public extension Sequence where Iterator.Element == AudioLevel {
 }
 
 public class AudioVisualizeProcessor {
-    static let _bufferSize = 1024
+    static let bufferSize = 1024
 
     // MARK: - Public
 
@@ -109,56 +109,48 @@ public class AudioVisualizeProcessor {
     public let maxFrequency: Float
     public let bandsCount: Int
 
-    public var bands: [Float]?
+    public private(set) var bands: [Float]?
 
     // MARK: - Private
+
+    private let ringBuffer = FloatRingBuffer(size: AudioVisualizeProcessor.bufferSize)
+    private let processor: FFTProcessor
 
     public init(minFrequency: Float = 10, maxFrequency: Float = 8000, bandsCount: Int = 100) {
         self.minFrequency = minFrequency
         self.maxFrequency = maxFrequency
         self.bandsCount = bandsCount
-        _processor = FFTProcessor(bufferSize: Self._bufferSize)
+        processor = FFTProcessor(bufferSize: Self.bufferSize)
     }
-
-    // MARK: - Private
-
-    private let _ringBuffer = FloatRingBuffer(size: _bufferSize)
-    private let _processor: FFTProcessor
 
     public func add(pcmBuffer: AVAudioPCMBuffer) {
         guard let floatChannelData = pcmBuffer.floatChannelData else { return }
+
         // Get the float array.
         let floats = Array(UnsafeBufferPointer(start: floatChannelData[0], count: Int(pcmBuffer.frameLength)))
-        // Write to ring buffer.
-        _ringBuffer.write(floats)
-        // Get full size buffer if ready, otherwise return for this cycle.
-        guard let buffer = _ringBuffer.read() else { return }
+        ringBuffer.write(floats)
 
-        let fftRes = _processor.process(buffer: buffer)
-        let bands = fftRes.computeBands(minFrequency: minFrequency,
-                                        maxFrequency: maxFrequency,
-                                        bandsCount: bandsCount,
-                                        sampleRate: Float(pcmBuffer.format.sampleRate))
+        // Get full-size buffer if available, otherwise return
+        guard let buffer = ringBuffer.read() else { return }
 
+        // Process FFT and compute frequency bands
+        let fftRes = processor.process(buffer: buffer)
+        let bands = fftRes.computeBands(
+            minFrequency: minFrequency,
+            maxFrequency: maxFrequency,
+            bandsCount: bandsCount,
+            sampleRate: Float(pcmBuffer.format.sampleRate)
+        )
+
+        // Constants for decibel conversion
         let maxDB: Float = 64.0
         let minDB: Float = -32.0
         let headroom = maxDB - minDB
 
-        var result: [Float] = Array(repeating: 0.0, count: bands.magnitudes.count)
-
-        var i = 0
-        for magnitude in bands.magnitudes {
-            // Incoming magnitudes are linear, making it impossible to see very low or very high values. Decibels to the rescue!
-            var magnitudeDB = magnitude.toDecibels
-
-            // Normalize the incoming magnitude so that -Inf = 0
-            magnitudeDB = max(0, magnitudeDB + abs(minDB))
-
-            let dbRatio = min(1.0, magnitudeDB / headroom)
-            result[i] = dbRatio
-            i += 1
+        // Normalize magnitudes to decibel ratio using a functional approach
+        self.bands = bands.magnitudes.map { magnitude in
+            let magnitudeDB = max(0, magnitude.toDecibels + abs(minDB))
+            return min(1.0, magnitudeDB / headroom)
         }
-
-        self.bands = result
     }
 }
