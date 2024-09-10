@@ -41,7 +41,6 @@ class AsyncTimer: Loggable {
             $0.isStarted = false
             $0.task?.cancel()
         }
-        log(nil, .debug)
     }
 
     func cancel() {

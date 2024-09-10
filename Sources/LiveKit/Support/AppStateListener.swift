@@ -45,7 +45,7 @@ class AppStateListener: MulticastDelegate<AppStateDelegate> {
 
         let defaultCenter = NotificationCenter.default
 
-        #if os(iOS)
+        #if os(iOS) || os(visionOS) || os(tvOS)
         defaultCenter.addObserver(forName: UIApplication.didEnterBackgroundNotification,
                                   object: nil,
                                   queue: queue)

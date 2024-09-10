@@ -21,10 +21,10 @@ internal import LiveKitWebRTC
 #endif
 
 protocol TransportDelegate: AnyObject {
-    func transport(_ transport: Transport, didUpdateState state: RTCPeerConnectionState) async
-    func transport(_ transport: Transport, didGenerateIceCandidate iceCandidate: LKRTCIceCandidate) async
-    func transport(_ transport: Transport, didOpenDataChannel dataChannel: LKRTCDataChannel) async
-    func transport(_ transport: Transport, didAddTrack track: LKRTCMediaStreamTrack, rtpReceiver: LKRTCRtpReceiver, streams: [LKRTCMediaStream]) async
-    func transport(_ transport: Transport, didRemoveTrack track: LKRTCMediaStreamTrack) async
-    func transportShouldNegotiate(_ transport: Transport) async
+    func transport(_ transport: Transport, didUpdateState state: RTCPeerConnectionState)
+    func transport(_ transport: Transport, didGenerateIceCandidate iceCandidate: LKRTCIceCandidate)
+    func transport(_ transport: Transport, didOpenDataChannel dataChannel: LKRTCDataChannel)
+    func transport(_ transport: Transport, didAddTrack track: LKRTCMediaStreamTrack, rtpReceiver: LKRTCRtpReceiver, streams: [LKRTCMediaStream])
+    func transport(_ transport: Transport, didRemoveTrack track: LKRTCMediaStreamTrack)
+    func transportShouldNegotiate(_ transport: Transport)
 }

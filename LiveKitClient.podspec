@@ -22,6 +22,6 @@ Pod::Spec.new do |spec|
 
   # Add the following lines to enable the experimental feature
   spec.pod_target_xcconfig = {
-    'SWIFT_FLAGS' => '-enable-experimental-feature AccessLevelOnImport'
+    'OTHER_SWIFT_FLAGS' => '-enable-experimental-feature AccessLevelOnImport'
   }
 end

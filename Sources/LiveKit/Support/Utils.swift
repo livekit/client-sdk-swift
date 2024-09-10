@@ -25,6 +25,8 @@ typealias DebouncFunc = () -> Void
 enum OS {
     case macOS
     case iOS
+    case visionOS
+    case tvOS
 }
 
 extension OS: CustomStringConvertible {
@@ -32,6 +34,8 @@ extension OS: CustomStringConvertible {
         switch self {
         case .macOS: return "macOS"
         case .iOS: return "iOS"
+        case .visionOS: return "visionOS"
+        case .tvOS: return "tvOS"
         }
     }
 }
@@ -56,10 +60,14 @@ class Utils {
 
     /// Returns current OS.
     static func os() -> OS {
-        #if os(iOS) || os(visionOS) || os(tvOS)
+        #if os(iOS)
         .iOS
         #elseif os(macOS)
         .macOS
+        #elseif os(visionOS)
+        .visionOS
+        #elseif os(tvOS)
+        .tvOS
         #endif
     }
 
@@ -132,6 +140,7 @@ class Utils {
         _ token: String,
         connectOptions: ConnectOptions? = nil,
         reconnectMode: ReconnectMode? = nil,
+        participantSid: Participant.Sid? = nil,
         adaptiveStream: Bool,
         validate: Bool = false,
         forceSecure: Bool = false
@@ -190,7 +199,13 @@ class Utils {
         }
 
         // only for quick-reconnect
-        queryItems.append(URLQueryItem(name: "reconnect", value: reconnectMode == .quick ? "1" : "0"))
+        if reconnectMode == .quick {
+            queryItems.append(URLQueryItem(name: "reconnect", value: "1"))
+            if let sid = participantSid {
+                queryItems.append(URLQueryItem(name: "sid", value: sid.stringValue))
+            }
+        }
+
         queryItems.append(URLQueryItem(name: "auto_subscribe", value: connectOptions.autoSubscribe ? "1" : "0"))
         queryItems.append(URLQueryItem(name: "adaptive_stream", value: adaptiveStream ? "1" : "0"))
 
