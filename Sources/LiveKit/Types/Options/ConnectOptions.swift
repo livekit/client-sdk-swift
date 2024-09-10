@@ -18,7 +18,7 @@ import Foundation
 
 /// Options used when establishing a connection.
 @objc
-public class ConnectOptions: NSObject {
+public final class ConnectOptions: NSObject, Sendable {
     /// Automatically subscribe to ``RemoteParticipant``'s tracks.
     /// Defaults to true.
     @objc

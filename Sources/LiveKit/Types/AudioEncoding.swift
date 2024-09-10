@@ -23,9 +23,9 @@ internal import LiveKitWebRTC
 #endif
 
 @objc
-public class AudioEncoding: NSObject, MediaEncoding {
+public final class AudioEncoding: NSObject, MediaEncoding, Sendable {
     @objc
-    public var maxBitrate: Int
+    public let maxBitrate: Int
 
     @objc
     public init(maxBitrate: Int) {

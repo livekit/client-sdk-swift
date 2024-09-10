@@ -23,7 +23,7 @@ internal import LiveKitWebRTC
 #endif
 
 @objc
-public class AudioCaptureOptions: NSObject, CaptureOptions {
+public final class AudioCaptureOptions: NSObject, CaptureOptions, Sendable {
     @objc
     public let echoCancellation: Bool
 

@@ -17,7 +17,7 @@
 import Foundation
 
 @objc
-public class DataPublishOptions: NSObject, PublishOptions {
+public final class DataPublishOptions: NSObject, PublishOptions, Sendable {
     @objc
     public let name: String?
 

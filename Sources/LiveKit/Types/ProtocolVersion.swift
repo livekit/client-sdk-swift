@@ -17,7 +17,7 @@
 import Foundation
 
 @objc
-public enum ProtocolVersion: Int {
+public enum ProtocolVersion: Int, Sendable {
     case v8 = 8
     case v9 = 9
     case v10 = 10 /// Sync stream id
