@@ -377,11 +377,11 @@ extension SignalClient {
         try await _sendRequest(r)
     }
 
-    func sendCandidate(candidate: LKRTCIceCandidate, target: Livekit_SignalTarget) async throws {
+    func sendCandidate(candidate: IceCandidate, target: Livekit_SignalTarget) async throws {
         let r = try Livekit_SignalRequest.with {
             $0.trickle = try Livekit_TrickleRequest.with {
                 $0.target = target
-                $0.candidateInit = try candidate.toLKType().toJsonString()
+                $0.candidateInit = try candidate.toJsonString()
             }
         }
 
