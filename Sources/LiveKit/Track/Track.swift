@@ -41,20 +41,20 @@ public class Track: NSObject, Loggable {
     // MARK: - Public types
 
     @objc(TrackKind)
-    public enum Kind: Int, Codable {
+    public enum Kind: Int, Codable, Sendable {
         case audio
         case video
         case none
     }
 
     @objc(TrackState)
-    public enum TrackState: Int, Codable {
+    public enum TrackState: Int, Codable, Sendable {
         case stopped
         case started
     }
 
     @objc(TrackSource)
-    public enum Source: Int, Codable {
+    public enum Source: Int, Codable, Sendable {
         case unknown
         case camera
         case microphone
@@ -63,7 +63,7 @@ public class Track: NSObject, Loggable {
     }
 
     @objc(PublishState)
-    public enum PublishState: Int {
+    public enum PublishState: Int, Sendable {
         case unpublished
         case published
     }

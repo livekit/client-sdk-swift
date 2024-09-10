@@ -79,7 +79,7 @@ public class AudioManager: Loggable {
         set { _state.mutate { $0.customConfigureFunc = newValue } }
     }
 
-    public enum TrackState {
+    public enum TrackState: Sendable {
         case none
         case localOnly
         case remoteOnly

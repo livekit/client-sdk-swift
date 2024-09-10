@@ -18,7 +18,7 @@ import Foundation
 
 /// Stats spec defined at https://www.w3.org/TR/webrtc-stats/
 
-public enum StatisticsType: String {
+public enum StatisticsType: String, Sendable {
     case codec
     case inboundRtp = "inbound-rtp"
     case outboundRtp = "outbound-rtp"
@@ -35,20 +35,20 @@ public enum StatisticsType: String {
     case certificate
 }
 
-public enum QualityLimitationReason: String {
+public enum QualityLimitationReason: String, Sendable {
     case none
     case cpu
     case bandwidth
     case other
 }
 
-public enum DtlsRole: String {
+public enum DtlsRole: String, Sendable {
     case client
     case server
     case unknown
 }
 
-public enum IceCandidatePairState: String {
+public enum IceCandidatePairState: String, Sendable {
     case frozen
     case waiting
     case inProgress = "in-progress"
@@ -56,20 +56,20 @@ public enum IceCandidatePairState: String {
     case succeeded
 }
 
-public enum DataChannelState: String {
+public enum DataChannelState: String, Sendable {
     case connecting
     case open
     case closing
     case closed
 }
 
-public enum IceRole: String {
+public enum IceRole: String, Sendable {
     case unknown
     case controlling
     case controlled
 }
 
-public enum DtlsTransportState: String {
+public enum DtlsTransportState: String, Sendable {
     case new
     case connecting
     case connected
@@ -77,7 +77,7 @@ public enum DtlsTransportState: String {
     case failed
 }
 
-public enum IceTransportState: String {
+public enum IceTransportState: String, Sendable {
     case new
     case checking
     case connected
@@ -87,20 +87,20 @@ public enum IceTransportState: String {
     case closed
 }
 
-public enum IceCandidateType: String {
+public enum IceCandidateType: String, Sendable {
     case host
     case srflx
     case prflx
     case relay
 }
 
-public enum IceServerTransportProtocol: String {
+public enum IceServerTransportProtocol: String, Sendable {
     case udp
     case tcp
     case tls
 }
 
-public enum IceTcpCandidateType: String {
+public enum IceTcpCandidateType: String, Sendable {
     case active
     case passive
     case so

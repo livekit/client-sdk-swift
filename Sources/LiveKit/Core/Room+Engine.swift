@@ -219,7 +219,7 @@ extension Room {
 
 // MARK: - Connection / Reconnection logic
 
-public enum StartReconnectReason {
+public enum StartReconnectReason: Sendable {
     case websocket
     case transport
     case networkSwitch
