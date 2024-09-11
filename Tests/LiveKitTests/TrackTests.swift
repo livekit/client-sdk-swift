@@ -28,14 +28,12 @@ class TestTrack: LocalAudioTrack {
     }
 
     override func startCapture() async throws {
-        try? await Task.sleep(nanoseconds: UInt64(Double.random(in: 0.0 ... 1.0) * 1_000_000_000))
-        // try await super.startCapture()
+        try? await Task.sleep(nanoseconds: UInt64(Double.random(in: 0.0 ... 1.0) * 1_000_000))
         AudioManager.shared.trackDidStart(.local)
     }
 
     override func stopCapture() async throws {
-        try? await Task.sleep(nanoseconds: UInt64(Double.random(in: 0.0 ... 1.0) * 1_000_000_000))
-        // try await super.stopCapture()
+        try? await Task.sleep(nanoseconds: UInt64(Double.random(in: 0.0 ... 1.0) * 1_000_000))
         AudioManager.shared.trackDidStop(.local)
     }
 }
