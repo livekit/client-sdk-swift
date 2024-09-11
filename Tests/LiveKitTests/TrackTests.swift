@@ -20,6 +20,26 @@ import Foundation
 @testable import LiveKit
 import XCTest
 
+class TestTrack: LocalAudioTrack {
+    init() {
+        let source = RTC.createAudioSource(nil)
+        let _track = RTC.createAudioTrack(source: source)
+        super.init(name: "test_audio_track", source: .microphone, track: _track, reportStatistics: false, captureOptions: AudioCaptureOptions())
+    }
+
+    override func startCapture() async throws {
+        try? await Task.sleep(nanoseconds: UInt64(Double.random(in: 0.0 ... 1.0) * 1_000_000_000))
+        // try await super.startCapture()
+        AudioManager.shared.trackDidStart(.local)
+    }
+
+    override func stopCapture() async throws {
+        try? await Task.sleep(nanoseconds: UInt64(Double.random(in: 0.0 ... 1.0) * 1_000_000_000))
+        // try await super.stopCapture()
+        AudioManager.shared.trackDidStop(.local)
+    }
+}
+
 class TrackTests: XCTestCase {
     func testConcurrentStartStop() async throws {
         // Set config func to watch state changes.
@@ -29,8 +49,8 @@ class TrackTests: XCTestCase {
             if newState.localTracksCount > 2 { XCTFail("localTracksCount should never higher than 2 in this test") }
         }
 
-        let track1 = LocalAudioTrack.createTrack()
-        let track2 = LocalAudioTrack.createTrack()
+        let track1 = TestTrack()
+        let track2 = TestTrack()
 
         try await withThrowingTaskGroup(of: Void.self) { group in
             for _ in 0 ..< 1000 {
