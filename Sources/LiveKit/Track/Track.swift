@@ -351,16 +351,16 @@ extension Track {
     func _mute() async throws {
         // LocalTrack only, already muted
         guard self is LocalTrack, !isMuted else { return }
-        try await disable()
-        try await stop()
+        try await disable() // Disable track first
+        try await stop() // Stop track
         set(muted: true, shouldSendSignal: true)
     }
 
     func _unmute() async throws {
         // LocalTrack only, already un-muted
         guard self is LocalTrack, isMuted else { return }
-        try await enable()
-        try await start()
+        try await start() // Start track first (Configure session first if local audio)
+        try await enable() // Enable track
         set(muted: false, shouldSendSignal: true)
     }
 }

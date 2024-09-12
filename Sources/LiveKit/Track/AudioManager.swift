@@ -203,9 +203,10 @@ public class AudioManager: Loggable {
         // trigger events when state mutates
         _state.onDidMutate = { [weak self] newState, oldState in
             guard let self else { return }
+            // Return if state is equal.
+            guard newState != oldState else { return }
 
             self.log("\(oldState) -> \(newState)")
-
             #if os(iOS)
             let configureFunc = newState.customConfigureFunc ?? self.defaultConfigureAudioSessionFunc
             configureFunc(newState, oldState)
