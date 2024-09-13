@@ -22,14 +22,21 @@ internal import LiveKitWebRTC
 @_implementationOnly import LiveKitWebRTC
 #endif
 
-extension LKRTCConfiguration {
-    static func liveKitDefault() -> LKRTCConfiguration {
-        let result = DispatchQueue.liveKitWebRTC.sync { LKRTCConfiguration() }
-        result.sdpSemantics = .unifiedPlan
-        result.continualGatheringPolicy = .gatherContinually
-        result.candidateNetworkPolicy = .all
-        result.tcpCandidatePolicy = .enabled
+@objc
+public enum IceTransportPolicy: Int {
+    case none
+    case relay
+    case noHost
+    case all
+}
 
-        return result
+extension IceTransportPolicy {
+    func toRTCType() -> RTCIceTransportPolicy {
+        switch self {
+        case .none: return .none
+        case .relay: return .relay
+        case .noHost: return .noHost
+        case .all: return .all
+        }
     }
 }

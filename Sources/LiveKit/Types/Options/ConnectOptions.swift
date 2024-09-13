@@ -42,6 +42,9 @@ public final class ConnectOptions: NSObject, Sendable {
     @objc
     public let iceServers: [IceServer]
 
+    @objc
+    public let iceTransportPolicy: IceTransportPolicy
+
     /// LiveKit server protocol version to use. Generally, it's not recommended to change this.
     @objc
     public let protocolVersion: ProtocolVersion
@@ -54,6 +57,7 @@ public final class ConnectOptions: NSObject, Sendable {
         primaryTransportConnectTimeout = .defaultTransportState
         publisherTransportConnectTimeout = .defaultTransportState
         iceServers = []
+        iceTransportPolicy = .all
         protocolVersion = .v12
     }
 
@@ -64,6 +68,7 @@ public final class ConnectOptions: NSObject, Sendable {
                 primaryTransportConnectTimeout: TimeInterval = .defaultTransportState,
                 publisherTransportConnectTimeout: TimeInterval = .defaultTransportState,
                 iceServers: [IceServer] = [],
+                iceTransportPolicy: IceTransportPolicy = .all,
                 protocolVersion: ProtocolVersion = .v12)
     {
         self.autoSubscribe = autoSubscribe
@@ -72,6 +77,7 @@ public final class ConnectOptions: NSObject, Sendable {
         self.primaryTransportConnectTimeout = primaryTransportConnectTimeout
         self.publisherTransportConnectTimeout = publisherTransportConnectTimeout
         self.iceServers = iceServers
+        self.iceTransportPolicy = iceTransportPolicy
         self.protocolVersion = protocolVersion
     }
 
@@ -85,6 +91,7 @@ public final class ConnectOptions: NSObject, Sendable {
             primaryTransportConnectTimeout == other.primaryTransportConnectTimeout &&
             publisherTransportConnectTimeout == other.publisherTransportConnectTimeout &&
             iceServers == other.iceServers &&
+            iceTransportPolicy == other.iceTransportPolicy &&
             protocolVersion == other.protocolVersion
     }
 
@@ -96,6 +103,7 @@ public final class ConnectOptions: NSObject, Sendable {
         hasher.combine(primaryTransportConnectTimeout)
         hasher.combine(publisherTransportConnectTimeout)
         hasher.combine(iceServers)
+        hasher.combine(iceTransportPolicy)
         hasher.combine(protocolVersion)
         return hasher.finalize()
     }
