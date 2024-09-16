@@ -22,9 +22,5 @@ internal import LiveKitWebRTC
 @_implementationOnly import LiveKitWebRTC
 #endif
 
-extension LKRTCMediaConstraints {
-    static let defaultPCConstraints = LKRTCMediaConstraints(
-        mandatoryConstraints: nil,
-        optionalConstraints: ["DtlsSrtpKeyAgreement": kRTCMediaConstraintsValueTrue]
-    )
-}
+// LKRTCMediaConstraints is immutable.
+extension LKRTCMediaConstraints: @unchecked Sendable {}
