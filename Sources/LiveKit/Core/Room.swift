@@ -205,7 +205,7 @@ public class Room: NSObject, ObservableObject, Loggable {
         }
 
         // listen to app states
-        AppStateListener.shared.add(delegate: self)
+        AppStateListener.shared.delegates.add(delegate: self)
 
         // trigger events when state mutates
         _state.onDidMutate = { [weak self] newState, oldState in

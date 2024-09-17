@@ -22,5 +22,6 @@ internal import LiveKitWebRTC
 @_implementationOnly import LiveKitWebRTC
 #endif
 
-// LKRTCMediaConstraints is immutable.
+// Immutable classes.
 extension LKRTCMediaConstraints: @unchecked Sendable {}
+extension LKRTCSessionDescription: @unchecked Sendable {}
