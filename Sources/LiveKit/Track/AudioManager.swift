@@ -61,11 +61,11 @@ public class LKAudioBuffer: NSObject {
 public class AudioManager: Loggable {
     // MARK: - Public
 
-    #if compiler(>=6.0)
+#if compiler(>=6.0)
     public nonisolated(unsafe) static let shared = AudioManager()
-    #else
+#else
     public static let shared = AudioManager()
-    #endif
+#endif
 
     public typealias ConfigureAudioSessionFunc = (_ newState: State,
                                                   _ oldState: State) -> Void
@@ -90,8 +90,8 @@ public class AudioManager: Loggable {
         // Only consider State mutated when public vars change
         public static func == (lhs: AudioManager.State, rhs: AudioManager.State) -> Bool {
             lhs.localTracksCount == rhs.localTracksCount &&
-                lhs.remoteTracksCount == rhs.remoteTracksCount &&
-                lhs.isSpeakerOutputPreferred == rhs.isSpeakerOutputPreferred
+            lhs.remoteTracksCount == rhs.remoteTracksCount &&
+            lhs.isSpeakerOutputPreferred == rhs.isSpeakerOutputPreferred
         }
 
         // Keep this var within State so it's protected by UnfairLock
@@ -207,10 +207,10 @@ public class AudioManager: Loggable {
             guard newState != oldState else { return }
 
             self.log("\(oldState) -> \(newState)")
-            #if os(iOS)
+#if os(iOS)
             let configureFunc = newState.customConfigureFunc ?? self.defaultConfigureAudioSessionFunc
             configureFunc(newState, oldState)
-            #endif
+#endif
         }
     }
 
@@ -228,7 +228,7 @@ public class AudioManager: Loggable {
         }
     }
 
-    #if os(iOS)
+#if os(iOS)
     /// The default implementation when audio session configuration is requested by the SDK.
     /// Configure the `RTCAudioSession` of `WebRTC` framework.
     ///
@@ -245,25 +245,18 @@ public class AudioManager: Loggable {
             // prepare config
             let configuration = LKRTCAudioSessionConfiguration.webRTC()
 
-            if newState.trackState == .remoteOnly && newState.isSpeakerOutputPreferred {
-                /* .playback */
-                configuration.category = AVAudioSession.Category.playback.rawValue
-                configuration.mode = AVAudioSession.Mode.spokenAudio.rawValue
-                configuration.categoryOptions = [
-                    .mixWithOthers,
-                ]
-
-            } else if [.localOnly, .localAndRemote].contains(newState.trackState) ||
-                (newState.trackState == .remoteOnly && !newState.isSpeakerOutputPreferred)
-            {
+            if newState.trackState == .none {
+                /* .soloAmbient */
+                configuration.category = AVAudioSession.Category.soloAmbient.rawValue
+                configuration.mode = AVAudioSession.Mode.default.rawValue
+                configuration.categoryOptions = []
+            } else {
                 /* .playAndRecord */
                 configuration.category = AVAudioSession.Category.playAndRecord.rawValue
 
                 if newState.isSpeakerOutputPreferred {
-                    // use .videoChat if speakerOutput is preferred
                     configuration.mode = AVAudioSession.Mode.videoChat.rawValue
                 } else {
-                    // use .voiceChat if speakerOutput is not preferred
                     configuration.mode = AVAudioSession.Mode.voiceChat.rawValue
                 }
 
@@ -272,12 +265,6 @@ public class AudioManager: Loggable {
                     .allowBluetoothA2DP,
                     .allowAirPlay,
                 ]
-
-            } else {
-                /* .soloAmbient */
-                configuration.category = AVAudioSession.Category.soloAmbient.rawValue
-                configuration.mode = AVAudioSession.Mode.default.rawValue
-                configuration.categoryOptions = []
             }
 
             var setActive: Bool?
@@ -297,7 +284,7 @@ public class AudioManager: Loggable {
             defer { session.unlockForConfiguration() }
 
             do {
-                self.log("configuring audio session category: \(configuration.category), mode: \(configuration.mode), setActive: \(String(describing: setActive))")
+                self.log("configuring audio session category: \(configuration.category), mode: \(configuration.mode), setActive: \(String(describing: setActive))", .error)
 
                 if let setActive {
                     try session.setConfiguration(configuration, active: setActive)
@@ -310,7 +297,7 @@ public class AudioManager: Loggable {
             }
         }
     }
-    #endif
+#endif
 }
 
 public extension AudioManager {
