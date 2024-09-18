@@ -250,20 +250,20 @@ public class AudioManager: Loggable {
         let computeConfiguration: (() -> AudioSessionConfiguration) = {
             switch newState.trackState {
             case .none:
-                // .soloAmbient
-                AudioSessionConfiguration(category: .soloAmbient,
-                                          categoryOptions: [],
-                                          mode: .default)
+                // Use .soloAmbient configuration
+                return AudioSessionConfiguration(category: .soloAmbient,
+                                                 categoryOptions: [],
+                                                 mode: .default)
             case .remoteOnly where newState.isSpeakerOutputPreferred:
-                // .playback
-                AudioSessionConfiguration(category: .playback,
-                                          categoryOptions: [.mixWithOthers],
-                                          mode: .spokenAudio)
+                // Use .playback configuration with spoken audio
+                return AudioSessionConfiguration(category: .playback,
+                                                 categoryOptions: [.mixWithOthers],
+                                                 mode: .spokenAudio)
             default:
-                // .playAndRecord
-                AudioSessionConfiguration(category: .playAndRecord,
-                                          categoryOptions: [.defaultToSpeaker, .allowBluetooth, .allowBluetoothA2DP, .allowAirPlay],
-                                          mode: newState.isSpeakerOutputPreferred ? .videoChat : .voiceChat)
+                // Use .playAndRecord configuration
+                return AudioSessionConfiguration(category: .playAndRecord,
+                                                 categoryOptions: [.defaultToSpeaker, .allowBluetooth, .allowBluetoothA2DP, .allowAirPlay],
+                                                 mode: newState.isSpeakerOutputPreferred ? .videoChat : .voiceChat)
             }
         }
 
