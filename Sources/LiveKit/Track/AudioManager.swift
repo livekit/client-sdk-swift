@@ -251,19 +251,13 @@ public class AudioManager: Loggable {
             switch newState.trackState {
             case .none:
                 // Use .soloAmbient configuration
-                return AudioSessionConfiguration(category: .soloAmbient,
-                                                 categoryOptions: [],
-                                                 mode: .default)
+                return .soloAmbient
             case .remoteOnly where newState.isSpeakerOutputPreferred:
                 // Use .playback configuration with spoken audio
-                return AudioSessionConfiguration(category: .playback,
-                                                 categoryOptions: [.mixWithOthers],
-                                                 mode: .spokenAudio)
+                return .playback
             default:
                 // Use .playAndRecord configuration
-                return AudioSessionConfiguration(category: .playAndRecord,
-                                                 categoryOptions: [.defaultToSpeaker, .allowBluetooth, .allowBluetoothA2DP, .allowAirPlay],
-                                                 mode: newState.isSpeakerOutputPreferred ? .videoChat : .voiceChat)
+                return newState.isSpeakerOutputPreferred ? .playAndRecordSpeaker : .playAndRecordReceiver
             }
         }
 

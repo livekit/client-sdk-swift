@@ -23,6 +23,26 @@ internal import LiveKitWebRTC
 @_implementationOnly import LiveKitWebRTC
 #endif
 
+// Defaults
+public extension AudioSessionConfiguration {
+    // Default for iOS apps.
+    static let soloAmbient = AudioSessionConfiguration(category: .soloAmbient,
+                                                       categoryOptions: [],
+                                                       mode: .default)
+
+    static let playback = AudioSessionConfiguration(category: .playback,
+                                                    categoryOptions: [.mixWithOthers],
+                                                    mode: .spokenAudio)
+
+    static let playAndRecordSpeaker = AudioSessionConfiguration(category: .playAndRecord,
+                                                                categoryOptions: [.allowBluetooth, .allowBluetoothA2DP, .allowAirPlay],
+                                                                mode: .videoChat)
+
+    static let playAndRecordReceiver = AudioSessionConfiguration(category: .playAndRecord,
+                                                                 categoryOptions: [.allowBluetooth, .allowBluetoothA2DP, .allowAirPlay],
+                                                                 mode: .voiceChat)
+}
+
 @objc
 public final class AudioSessionConfiguration: NSObject, Sendable {
     @objc
