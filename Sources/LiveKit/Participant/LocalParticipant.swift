@@ -97,11 +97,6 @@ public class LocalParticipant: Participant {
             return await _notifyDidUnpublish()
         }
 
-        // Wait for track to stop (if required)
-        if room._state.roomOptions.stopLocalTrackOnUnpublish {
-            try await track.stop()
-        }
-
         if let publisher = room._state.publisher, let sender = track._state.rtpSender {
             // Remove all simulcast senders...
             let simulcastSenders = track._state.read { Array($0.rtpSenderForCodec.values) }
@@ -112,6 +107,11 @@ public class LocalParticipant: Participant {
             try await publisher.remove(track: sender)
             // Mark re-negotiation required...
             try await room.publisherShouldNegotiate()
+        }
+
+        // Wait for track to stop (if required)
+        if room._state.roomOptions.stopLocalTrackOnUnpublish {
+            try await track.stop()
         }
 
         try await track.onUnpublish()

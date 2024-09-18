@@ -39,6 +39,7 @@ class TestTrack: LocalAudioTrack {
 }
 
 class TrackTests: XCTestCase {
+    #if os(iOS) || os(visionOS) || os(tvOS)
     func testConcurrentStartStop() async throws {
         // Set config func to watch state changes.
         AudioManager.shared.customConfigureAudioSessionFunc = { newState, _ in
@@ -70,6 +71,7 @@ class TrackTests: XCTestCase {
 
         AudioManager.shared.customConfigureAudioSessionFunc = nil
 
-        XCTAssertEqual(AudioManager.shared.localTracksCount, 0, "localTracksCount should be 0")
+        XCTAssertEqual(AudioManager.shared.state.localTracksCount, 0, "localTracksCount should be 0")
     }
+    #endif
 }
