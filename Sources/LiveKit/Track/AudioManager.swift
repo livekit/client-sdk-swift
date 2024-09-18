@@ -100,6 +100,7 @@ public class AudioManager: Loggable {
         public var localTracksCount: Int = 0
         public var remoteTracksCount: Int = 0
         public var isSpeakerOutputPreferred: Bool = true
+        public var isPlayAndRecordPreferred: Bool = false
 
         public var trackState: TrackState {
             if localTracksCount > 0, remoteTracksCount == 0 {
@@ -119,6 +120,12 @@ public class AudioManager: Loggable {
     public var isSpeakerOutputPreferred: Bool {
         get { _state.isSpeakerOutputPreferred }
         set { _state.mutate { $0.isSpeakerOutputPreferred = newValue } }
+    }
+
+    /// Prefer to use `.playAndRecord` over `.playback` even when there are only remote audio tracks.
+    public var isPlayAndRecordPreferred: Bool {
+        get { _state.isPlayAndRecordPreferred }
+        set { _state.mutate { $0.isPlayAndRecordPreferred = newValue } }
     }
 
     // MARK: - AudioProcessingModule
@@ -245,7 +252,16 @@ public class AudioManager: Loggable {
             // prepare config
             let configuration = LKRTCAudioSessionConfiguration.webRTC()
 
-            if newState.trackState == .remoteOnly && newState.isSpeakerOutputPreferred {
+            if newState.trackState == .none {
+                /* .soloAmbient */
+                configuration.category = AVAudioSession.Category.soloAmbient.rawValue
+                configuration.mode = AVAudioSession.Mode.default.rawValue
+                configuration.categoryOptions = []
+
+            } else if newState.trackState == .remoteOnly,
+                      newState.isSpeakerOutputPreferred,
+                      !newState.isPlayAndRecordPreferred
+            {
                 /* .playback */
                 configuration.category = AVAudioSession.Category.playback.rawValue
                 configuration.mode = AVAudioSession.Mode.spokenAudio.rawValue
@@ -253,9 +269,7 @@ public class AudioManager: Loggable {
                     .mixWithOthers,
                 ]
 
-            } else if [.localOnly, .localAndRemote].contains(newState.trackState) ||
-                (newState.trackState == .remoteOnly && !newState.isSpeakerOutputPreferred)
-            {
+            } else {
                 /* .playAndRecord */
                 configuration.category = AVAudioSession.Category.playAndRecord.rawValue
 
@@ -272,12 +286,6 @@ public class AudioManager: Loggable {
                     .allowBluetoothA2DP,
                     .allowAirPlay,
                 ]
-
-            } else {
-                /* .soloAmbient */
-                configuration.category = AVAudioSession.Category.soloAmbient.rawValue
-                configuration.mode = AVAudioSession.Mode.default.rawValue
-                configuration.categoryOptions = []
             }
 
             var setActive: Bool?
