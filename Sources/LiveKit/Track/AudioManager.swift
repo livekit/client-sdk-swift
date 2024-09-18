@@ -91,7 +91,8 @@ public class AudioManager: Loggable {
         public static func == (lhs: AudioManager.State, rhs: AudioManager.State) -> Bool {
             lhs.localTracksCount == rhs.localTracksCount &&
                 lhs.remoteTracksCount == rhs.remoteTracksCount &&
-                lhs.isSpeakerOutputPreferred == rhs.isSpeakerOutputPreferred
+                lhs.isSpeakerOutputPreferred == rhs.isSpeakerOutputPreferred &&
+                lhs.sessionConfiguration == rhs.sessionConfiguration
         }
 
         // Keep this var within State so it's protected by UnfairLock
@@ -100,7 +101,7 @@ public class AudioManager: Loggable {
         public var localTracksCount: Int = 0
         public var remoteTracksCount: Int = 0
         public var isSpeakerOutputPreferred: Bool = true
-        public var isPlayAndRecordPreferred: Bool = false
+        public var sessionConfiguration: AudioSessionConfiguration?
 
         public var trackState: TrackState {
             if localTracksCount > 0, remoteTracksCount == 0 {
@@ -122,10 +123,10 @@ public class AudioManager: Loggable {
         set { _state.mutate { $0.isSpeakerOutputPreferred = newValue } }
     }
 
-    /// Prefer to use `.playAndRecord` over `.playback` even when there are only remote audio tracks.
-    public var isPlayAndRecordPreferred: Bool {
-        get { _state.isPlayAndRecordPreferred }
-        set { _state.mutate { $0.isPlayAndRecordPreferred = newValue } }
+    /// If this is set, this will be used instead of dynamic configuration.
+    public var sessionConfiguration: AudioSessionConfiguration? {
+        get { _state.sessionConfiguration }
+        set { _state.mutate { $0.sessionConfiguration = newValue } }
     }
 
     // MARK: - AudioProcessingModule
@@ -245,77 +246,58 @@ public class AudioManager: Loggable {
     ///   - configuration: A configured RTCAudioSessionConfiguration
     ///   - setActive: passing true/false will call `AVAudioSession.setActive` internally
     public func defaultConfigureAudioSessionFunc(newState: State, oldState: State) {
-        DispatchQueue.liveKitWebRTC.async { [weak self] in
+        // Lazily computed config
+        let computeConfiguration: (() -> AudioSessionConfiguration) = {
+            switch newState.trackState {
+            case .none:
+                // .soloAmbient
+                AudioSessionConfiguration(category: .soloAmbient,
+                                          categoryOptions: [],
+                                          mode: .default)
+            case .remoteOnly where newState.isSpeakerOutputPreferred:
+                // .playback
+                AudioSessionConfiguration(category: .playback,
+                                          categoryOptions: [.mixWithOthers],
+                                          mode: .spokenAudio)
+            default:
+                // .playAndRecord
+                AudioSessionConfiguration(category: .playAndRecord,
+                                          categoryOptions: [.defaultToSpeaker, .allowBluetooth, .allowBluetoothA2DP, .allowAirPlay],
+                                          mode: newState.isSpeakerOutputPreferred ? .videoChat : .voiceChat)
+            }
+        }
 
-            guard let self else { return }
+        let configuration = newState.sessionConfiguration ?? computeConfiguration()
 
-            // prepare config
-            let configuration = LKRTCAudioSessionConfiguration.webRTC()
+        var setActive: Bool?
+        if newState.trackState != .none, oldState.trackState == .none {
+            // activate audio session when there is any local/remote audio track
+            setActive = true
+        } else if newState.trackState == .none, oldState.trackState != .none {
+            // deactivate audio session when there are no more local/remote audio tracks
+            setActive = false
+        }
 
-            if newState.trackState == .none {
-                /* .soloAmbient */
-                configuration.category = AVAudioSession.Category.soloAmbient.rawValue
-                configuration.mode = AVAudioSession.Mode.default.rawValue
-                configuration.categoryOptions = []
+        // configure session
+        let session = LKRTCAudioSession.sharedInstance()
+        // Check if needs setConfiguration
+        guard configuration != session.toAudioSessionConfiguration() else {
+            log("Skipping configure audio session, no changes")
+            return
+        }
 
-            } else if newState.trackState == .remoteOnly,
-                      newState.isSpeakerOutputPreferred,
-                      !newState.isPlayAndRecordPreferred
-            {
-                /* .playback */
-                configuration.category = AVAudioSession.Category.playback.rawValue
-                configuration.mode = AVAudioSession.Mode.spokenAudio.rawValue
-                configuration.categoryOptions = [
-                    .mixWithOthers,
-                ]
+        session.lockForConfiguration()
+        defer { session.unlockForConfiguration() }
 
+        do {
+            log("Configuring audio session: \(String(describing: configuration))")
+            if let setActive {
+                try session.setConfiguration(configuration.toRTCType(), active: setActive)
             } else {
-                /* .playAndRecord */
-                configuration.category = AVAudioSession.Category.playAndRecord.rawValue
-
-                if newState.isSpeakerOutputPreferred {
-                    // use .videoChat if speakerOutput is preferred
-                    configuration.mode = AVAudioSession.Mode.videoChat.rawValue
-                } else {
-                    // use .voiceChat if speakerOutput is not preferred
-                    configuration.mode = AVAudioSession.Mode.voiceChat.rawValue
-                }
-
-                configuration.categoryOptions = [
-                    .allowBluetooth,
-                    .allowBluetoothA2DP,
-                    .allowAirPlay,
-                ]
+                try session.setConfiguration(configuration.toRTCType())
             }
-
-            var setActive: Bool?
-
-            if newState.trackState != .none, oldState.trackState == .none {
-                // activate audio session when there is any local/remote audio track
-                setActive = true
-            } else if newState.trackState == .none, oldState.trackState != .none {
-                // deactivate audio session when there are no more local/remote audio tracks
-                setActive = false
-            }
-
-            // configure session
-            let session = LKRTCAudioSession.sharedInstance()
-            session.lockForConfiguration()
-            // always unlock
-            defer { session.unlockForConfiguration() }
-
-            do {
-                self.log("configuring audio session category: \(configuration.category), mode: \(configuration.mode), setActive: \(String(describing: setActive))")
-
-                if let setActive {
-                    try session.setConfiguration(configuration, active: setActive)
-                } else {
-                    try session.setConfiguration(configuration)
-                }
-
-            } catch {
-                self.log("Failed to configure audio session with error: \(error)", .error)
-            }
+        } catch {
+            log("Failed to configure audio session with error: \(error)", .error)
         }
     }
     #endif
