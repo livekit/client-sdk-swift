@@ -67,10 +67,13 @@ public class AudioManager: Loggable {
     public static let shared = AudioManager()
     #endif
 
+    public typealias DeviceUpdateFunc = (_ audioManager: AudioManager) -> Void
+
+    #if os(iOS) || os(visionOS) || os(tvOS)
+
     public typealias ConfigureAudioSessionFunc = (_ newState: State,
                                                   _ oldState: State) -> Void
 
-    public typealias DeviceUpdateFunc = (_ audioManager: AudioManager) -> Void
     /// Use this to provide a custom function to configure the audio session, overriding the default behavior
     /// provided by ``defaultConfigureAudioSessionFunc(newState:oldState:)``.
     ///
@@ -103,7 +106,6 @@ public class AudioManager: Loggable {
     /// the value of ``isSpeakerOutputPreferred``.
     ///
     /// This property is ignored if ``customConfigureAudioSessionFunc`` is set.
-    #if os(iOS) || os(visionOS) || os(tvOS)
     public var sessionConfiguration: AudioSessionConfiguration? {
         get { _state.sessionConfiguration }
         set { _state.mutate { $0.sessionConfiguration = newValue } }
@@ -132,13 +134,12 @@ public class AudioManager: Loggable {
             return isEqual
         }
 
-        // Keep this var within State so it's protected by UnfairLock
-        var customConfigureFunc: ConfigureAudioSessionFunc?
-
         public var localTracksCount: Int = 0
         public var remoteTracksCount: Int = 0
         public var isSpeakerOutputPreferred: Bool = true
         #if os(iOS) || os(visionOS) || os(tvOS)
+        // Keep this var within State so it's protected by UnfairLock
+        public var customConfigureFunc: ConfigureAudioSessionFunc?
         public var sessionConfiguration: AudioSessionConfiguration?
         #endif
 
