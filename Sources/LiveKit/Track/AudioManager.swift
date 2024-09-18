@@ -84,8 +84,8 @@ public class AudioManager: Loggable {
     ///
     /// If you want to revert to default behavior, set this to `nil`.
     public var customConfigureAudioSessionFunc: ConfigureAudioSessionFunc? {
-        get { _state.customConfigureFunc }
-        set { _state.mutate { $0.customConfigureFunc = newValue } }
+        get { state.customConfigureFunc }
+        set { state.mutate { $0.customConfigureFunc = newValue } }
     }
 
     /// Determines whether the device's built-in speaker or receiver is preferred for audio output.
@@ -96,8 +96,8 @@ public class AudioManager: Loggable {
     ///
     /// This property is ignored if ``customConfigureAudioSessionFunc`` is set.
     public var isSpeakerOutputPreferred: Bool {
-        get { _state.isSpeakerOutputPreferred }
-        set { _state.mutate { $0.isSpeakerOutputPreferred = newValue } }
+        get { state.isSpeakerOutputPreferred }
+        set { state.mutate { $0.isSpeakerOutputPreferred = newValue } }
     }
 
     /// Specifies a fixed configuration for the audio session, overriding dynamic adjustments.
@@ -107,8 +107,8 @@ public class AudioManager: Loggable {
     ///
     /// This property is ignored if ``customConfigureAudioSessionFunc`` is set.
     public var sessionConfiguration: AudioSessionConfiguration? {
-        get { _state.sessionConfiguration }
-        set { _state.mutate { $0.sessionConfiguration = newValue } }
+        get { state.sessionConfiguration }
+        set { state.mutate { $0.sessionConfiguration = newValue } }
     }
     #endif
 
@@ -222,14 +222,14 @@ public class AudioManager: Loggable {
         case remote
     }
 
-    // MARK: - Private
+    let state = StateSync(State())
 
-    private var _state = StateSync(State())
+    // MARK: - Private
 
     // Singleton
     private init() {
         // trigger events when state mutates
-        _state.onDidMutate = { [weak self] newState, oldState in
+        state.onDidMutate = { [weak self] newState, oldState in
             guard let self else { return }
             // Return if state is equal.
             guard newState != oldState else { return }
@@ -243,14 +243,14 @@ public class AudioManager: Loggable {
     }
 
     func trackDidStart(_ type: Type) {
-        _state.mutate { state in
+        state.mutate { state in
             if type == .local { state.localTracksCount += 1 }
             if type == .remote { state.remoteTracksCount += 1 }
         }
     }
 
     func trackDidStop(_ type: Type) {
-        _state.mutate { state in
+        state.mutate { state in
             if type == .local { state.localTracksCount = max(state.localTracksCount - 1, 0) }
             if type == .remote { state.remoteTracksCount = max(state.remoteTracksCount - 1, 0) }
         }

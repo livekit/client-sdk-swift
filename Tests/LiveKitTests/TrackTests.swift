@@ -71,7 +71,7 @@ class TrackTests: XCTestCase {
 
         AudioManager.shared.customConfigureAudioSessionFunc = nil
 
-        XCTAssertEqual(AudioManager.shared.localTracksCount, 0, "localTracksCount should be 0")
+        XCTAssertEqual(AudioManager.shared.state.localTracksCount, 0, "localTracksCount should be 0")
     }
     #endif
 }
