@@ -71,13 +71,44 @@ public class AudioManager: Loggable {
                                                   _ oldState: State) -> Void
 
     public typealias DeviceUpdateFunc = (_ audioManager: AudioManager) -> Void
-
-    /// Use this to provide a custom func to configure the audio session instead of ``defaultConfigureAudioSessionFunc(newState:oldState:)``.
-    /// This method should not block and is expected to return immediately.
+    /// Use this to provide a custom function to configure the audio session, overriding the default behavior
+    /// provided by ``defaultConfigureAudioSessionFunc(newState:oldState:)``.
+    ///
+    /// - Important: This method should return immediately and must not block.
+    /// - Note: Once set, the following properties will no longer be effective:
+    ///   - ``sessionConfiguration``
+    ///   - ``isSpeakerOutputPreferred``
+    ///
+    /// If you want to revert to default behavior, set this to `nil`.
     public var customConfigureAudioSessionFunc: ConfigureAudioSessionFunc? {
         get { _state.customConfigureFunc }
         set { _state.mutate { $0.customConfigureFunc = newValue } }
     }
+
+    /// Determines whether the device's built-in speaker or receiver is preferred for audio output.
+    ///
+    /// - Defaults to `true`, indicating that the speaker is preferred.
+    /// - Set to `false` if the receiver is preferred instead of the speaker.
+    /// - Note: This property only applies when the audio output is routed to the built-in speaker or receiver.
+    ///
+    /// This property is ignored if ``customConfigureAudioSessionFunc`` is set.
+    public var isSpeakerOutputPreferred: Bool {
+        get { _state.isSpeakerOutputPreferred }
+        set { _state.mutate { $0.isSpeakerOutputPreferred = newValue } }
+    }
+
+    /// Specifies a fixed configuration for the audio session, overriding dynamic adjustments.
+    ///
+    /// If this property is set, it will take precedence over any dynamic configuration logic, including
+    /// the value of ``isSpeakerOutputPreferred``.
+    ///
+    /// This property is ignored if ``customConfigureAudioSessionFunc`` is set.
+    #if os(iOS) || os(visionOS) || os(tvOS)
+    public var sessionConfiguration: AudioSessionConfiguration? {
+        get { _state.sessionConfiguration }
+        set { _state.mutate { $0.sessionConfiguration = newValue } }
+    }
+    #endif
 
     public enum TrackState {
         case none
@@ -89,10 +120,16 @@ public class AudioManager: Loggable {
     public struct State: Equatable {
         // Only consider State mutated when public vars change
         public static func == (lhs: AudioManager.State, rhs: AudioManager.State) -> Bool {
-            lhs.localTracksCount == rhs.localTracksCount &&
-                lhs.remoteTracksCount == rhs.remoteTracksCount &&
+            var isEqual = lhs.localTracksCount == rhs.localTracksCount &&
+                lhs.remoteTracksCount == rhs.remoteTracksCount
+
+            #if os(iOS) || os(visionOS) || os(tvOS)
+            isEqual = isEqual &&
                 lhs.isSpeakerOutputPreferred == rhs.isSpeakerOutputPreferred &&
                 lhs.sessionConfiguration == rhs.sessionConfiguration
+            #endif
+
+            return isEqual
         }
 
         // Keep this var within State so it's protected by UnfairLock
@@ -101,32 +138,18 @@ public class AudioManager: Loggable {
         public var localTracksCount: Int = 0
         public var remoteTracksCount: Int = 0
         public var isSpeakerOutputPreferred: Bool = true
+        #if os(iOS) || os(visionOS) || os(tvOS)
         public var sessionConfiguration: AudioSessionConfiguration?
+        #endif
 
         public var trackState: TrackState {
-            if localTracksCount > 0, remoteTracksCount == 0 {
-                return .localOnly
-            } else if localTracksCount == 0, remoteTracksCount > 0 {
-                return .remoteOnly
-            } else if localTracksCount > 0, remoteTracksCount > 0 {
-                return .localAndRemote
+            switch (localTracksCount > 0, remoteTracksCount > 0) {
+            case (true, false): return .localOnly
+            case (false, true): return .remoteOnly
+            case (true, true): return .localAndRemote
+            default: return .none
             }
-
-            return .none
         }
-    }
-
-    /// Set this to false if you prefer using the device's receiver instead of speaker. Defaults to true.
-    /// This only works when the audio output is set to the built-in speaker / receiver.
-    public var isSpeakerOutputPreferred: Bool {
-        get { _state.isSpeakerOutputPreferred }
-        set { _state.mutate { $0.isSpeakerOutputPreferred = newValue } }
-    }
-
-    /// If this is set, this will be used instead of dynamic configuration.
-    public var sessionConfiguration: AudioSessionConfiguration? {
-        get { _state.sessionConfiguration }
-        set { _state.mutate { $0.sessionConfiguration = newValue } }
     }
 
     // MARK: - AudioProcessingModule
@@ -193,10 +216,6 @@ public class AudioManager: Loggable {
 
     // MARK: - Internal
 
-    var localTracksCount: Int { _state.localTracksCount }
-
-    var remoteTracksCount: Int { _state.remoteTracksCount }
-
     enum `Type` {
         case local
         case remote
@@ -215,7 +234,7 @@ public class AudioManager: Loggable {
             guard newState != oldState else { return }
 
             self.log("\(oldState) -> \(newState)")
-            #if os(iOS)
+            #if os(iOS) || os(visionOS) || os(tvOS)
             let configureFunc = newState.customConfigureFunc ?? self.defaultConfigureAudioSessionFunc
             configureFunc(newState, oldState)
             #endif
@@ -236,7 +255,7 @@ public class AudioManager: Loggable {
         }
     }
 
-    #if os(iOS)
+    #if os(iOS) || os(visionOS) || os(tvOS)
     /// The default implementation when audio session configuration is requested by the SDK.
     /// Configure the `RTCAudioSession` of `WebRTC` framework.
     ///
@@ -272,7 +291,6 @@ public class AudioManager: Loggable {
             setActive = false
         }
 
-        // configure session
         let session = LKRTCAudioSession.sharedInstance()
         // Check if needs setConfiguration
         guard configuration != session.toAudioSessionConfiguration() else {

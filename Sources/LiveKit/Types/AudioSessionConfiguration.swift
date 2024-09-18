@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#if os(iOS) || os(visionOS) || os(tvOS)
+
 import AVFoundation
 import Foundation
 
@@ -124,3 +126,5 @@ public extension AudioSessionConfiguration {
         "AudioSessionConfiguration(category: \(category), categoryOptions: \(categoryOptions), mode: \(mode))"
     }
 }
+
+#endif
