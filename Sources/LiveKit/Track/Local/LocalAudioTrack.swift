@@ -94,3 +94,13 @@ public extension LocalAudioTrack {
     var publishOptions: TrackPublishOptions? { super._state.lastPublishOptions }
     var publishState: Track.PublishState { super._state.publishState }
 }
+
+public extension LocalAudioTrack {
+    func add(audioRenderer: AudioRenderer) {
+        AudioManager.shared.add(localAudioRenderer: audioRenderer)
+    }
+
+    func remove(audioRenderer: AudioRenderer) {
+        AudioManager.shared.remove(localAudioRenderer: audioRenderer)
+    }
+}
