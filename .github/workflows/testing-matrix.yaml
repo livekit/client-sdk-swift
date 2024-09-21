@@ -48,13 +48,13 @@ jobs:
             platform: "tvOS Simulator,name=Apple TV"
           # https://github.com/actions/runner-images/blob/main/images/macos/macos-14-Readme.md
           - os: macos-14
-            xcode: 16.1-beta
+            xcode: 16.0
             platform: "iOS Simulator,OS=18.0,name=iPhone 15 Pro"
           - os: macos-14
-            xcode: 16.1-beta
+            xcode: 16.0
             platform: "macOS"
           - os: macos-14
-            xcode: 16.1-beta
+            xcode: 16.0
             platform: "macOS,variant=Mac Catalyst"
 
     runs-on: ${{ matrix.os }}
