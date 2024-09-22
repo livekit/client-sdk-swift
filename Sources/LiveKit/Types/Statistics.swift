@@ -575,8 +575,7 @@ public class InboundRtpStreamStatistics: ReceivedRtpStreamStatistics {
     public let retransmittedPacketsReceived: UInt64?
     public let retransmittedBytesReceived: UInt64?
 
-    // Weak reference to previous stat so we can compare later.
-    public weak var previous: InboundRtpStreamStatistics?
+    public let previous: InboundRtpStreamStatistics?
 
     init?(id: String,
           timestamp: Double,
@@ -721,8 +720,7 @@ public class OutboundRtpStreamStatistics: SentRtpStreamStatistics {
     public let active: Bool?
     public let scalabilityMode: String?
 
-    // Weak reference to previous stat so we can compare later.
-    public weak var previous: OutboundRtpStreamStatistics?
+    public let previous: OutboundRtpStreamStatistics?
 
     init?(id: String,
           timestamp: Double,
