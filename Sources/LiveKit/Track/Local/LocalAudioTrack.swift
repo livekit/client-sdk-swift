@@ -82,11 +82,11 @@ public class LocalAudioTrack: Track, LocalTrack, AudioTrack {
     // MARK: - Internal
 
     override func startCapture() async throws {
-        AudioManager.shared.trackDidStart(.local)
+        try await AudioManager.shared.trackDidStart(.local)
     }
 
     override func stopCapture() async throws {
-        AudioManager.shared.trackDidStop(.local)
+        try await AudioManager.shared.trackDidStop(.local)
     }
 }
 
