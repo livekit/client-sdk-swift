@@ -352,14 +352,20 @@ extension Track {
         // LocalTrack only, already muted
         guard self is LocalTrack, !isMuted else { return }
         try await disable() // Disable track first
-        try await stop() // Stop track
+        // Only stop if VideoTrack
+        if self is LocalVideoTrack {
+            try await stop()
+        }
         set(muted: true, shouldSendSignal: true)
     }
 
     func _unmute() async throws {
         // LocalTrack only, already un-muted
         guard self is LocalTrack, isMuted else { return }
-        try await start() // Start track first (Configure session first if local audio)
+        // Only start if VideoTrack
+        if self is LocalVideoTrack {
+            try await start()
+        }
         try await enable() // Enable track
         set(muted: false, shouldSendSignal: true)
     }

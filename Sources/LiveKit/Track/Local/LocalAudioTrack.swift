@@ -55,8 +55,6 @@ public class LocalAudioTrack: Track, LocalTrack, AudioTrack {
             "googNoiseSuppression": options.noiseSuppression.toString(),
             "googTypingNoiseDetection": options.typingNoiseDetection.toString(),
             "googHighpassFilter": options.highpassFilter.toString(),
-            "googNoiseSuppression2": options.experimentalNoiseSuppression.toString(),
-            "googAutoGainControl2": options.experimentalAutoGainControl.toString(),
         ]
 
         let audioConstraints = DispatchQueue.liveKitWebRTC.sync { LKRTCMediaConstraints(mandatoryConstraints: nil,
@@ -84,15 +82,25 @@ public class LocalAudioTrack: Track, LocalTrack, AudioTrack {
     // MARK: - Internal
 
     override func startCapture() async throws {
-        AudioManager.shared.trackDidStart(.local)
+        try await AudioManager.shared.trackDidStart(.local)
     }
 
     override func stopCapture() async throws {
-        AudioManager.shared.trackDidStop(.local)
+        try await AudioManager.shared.trackDidStop(.local)
     }
 }
 
 public extension LocalAudioTrack {
     var publishOptions: TrackPublishOptions? { super._state.lastPublishOptions }
     var publishState: Track.PublishState { super._state.publishState }
+}
+
+public extension LocalAudioTrack {
+    func add(audioRenderer: AudioRenderer) {
+        AudioManager.shared.add(localAudioRenderer: audioRenderer)
+    }
+
+    func remove(audioRenderer: AudioRenderer) {
+        AudioManager.shared.remove(localAudioRenderer: audioRenderer)
+    }
 }

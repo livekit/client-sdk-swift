@@ -84,11 +84,11 @@ public class RemoteAudioTrack: Track, RemoteTrack, AudioTrack {
     // MARK: - Internal
 
     override func startCapture() async throws {
-        AudioManager.shared.trackDidStart(.remote)
+        try await AudioManager.shared.trackDidStart(.remote)
     }
 
     override func stopCapture() async throws {
-        AudioManager.shared.trackDidStop(.remote)
+        try await AudioManager.shared.trackDidStop(.remote)
     }
 }
 

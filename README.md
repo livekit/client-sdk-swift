@@ -11,7 +11,9 @@
 # iOS/macOS Swift SDK for LiveKit
 
 <!--BEGIN_DESCRIPTION-->
+
 Use this SDK to add realtime video, audio and data features to your Swift app. By connecting to <a href="https://livekit.io/">LiveKit</a> Cloud or a self-hosted server, you can quickly build applications such as multi-modal AI, live streaming, or video calls with just a few lines of code.
+
 <!--END_DESCRIPTION-->
 
 ## Docs & Example app
@@ -38,7 +40,7 @@ Add the dependency and also to your target
 let package = Package(
   ...
   dependencies: [
-    .package(name: "LiveKit", url: "https://github.com/livekit/client-sdk-swift.git", .upToNextMajor("2.0.15")),
+    .package(name: "LiveKit", url: "https://github.com/livekit/client-sdk-swift.git", .upToNextMajor("2.0.16")),
   ],
   targets: [
     .target(
@@ -149,6 +151,24 @@ LiveKit will automatically manage the underlying `AVAudioSession` while connecte
 
 However, if you'd like to customize this behavior, you would override `AudioManager.customConfigureAudioSessionFunc` to manage the underlying session on your own. See [example here](https://github.com/livekit/client-sdk-swift/blob/1f5959f787805a4b364f228ccfb413c1c4944748/Sources/LiveKit/Track/AudioManager.swift#L153) for the default behavior.
 
+### Integration with CallKit
+
+To integrate with CallKit for background-triggered incoming calls, LiveKit's audio session must be synchronized with CallKit's audio session:
+
+1. Add `import LiveKitWebRTC` to your CallProvider file.
+2. In your `CXProviderDelegate` implementation, add the following:
+
+```swift
+func provider(_ provider: CXProvider, didActivate audioSession: AVAudioSession){
+    LKRTCAudioSession.sharedInstance().audioSessionDidActivate(audioSession)
+    // ...
+}
+func provider(_ provider: CXProvider, didDeactivate audioSession: AVAudioSession) {
+    LKRTCAudioSession.sharedInstance().audioSessionDidDeactivate(audioSession)
+    // ...
+}
+```
+
 ### iOS Simulator limitations
 
 - Publishing the camera track is not supported by iOS Simulator.
@@ -240,7 +260,9 @@ If your app is targeting macOS Catalina, make sure to do the following to avoid 
 Please join us on [Slack](https://livekit.io/join-slack) to get help from our devs / community members. We welcome your contributions(PRs) and details can be discussed there.
 
 <!--BEGIN_REPO_NAV-->
+
 <br/><table>
+
 <thead><tr><th colspan="2">LiveKit Ecosystem</th></tr></thead>
 <tbody>
 <tr><td>Realtime SDKs</td><td><a href="https://github.com/livekit/components-js">React Components</a> · <a href="https://github.com/livekit/client-sdk-js">Browser</a> · <a href="https://github.com/livekit/components-swift">Swift Components</a> · <b>iOS/macOS/visionOS</b> · <a href="https://github.com/livekit/client-sdk-android">Android</a> · <a href="https://github.com/livekit/client-sdk-flutter">Flutter</a> · <a href="https://github.com/livekit/client-sdk-react-native">React Native</a> · <a href="https://github.com/livekit/rust-sdks">Rust</a> · <a href="https://github.com/livekit/node-sdks">Node.js</a> · <a href="https://github.com/livekit/python-sdks">Python</a> · <a href="https://github.com/livekit/client-sdk-unity-web">Unity (web)</a> · <a href="https://github.com/livekit/client-sdk-unity">Unity (beta)</a></td></tr><tr></tr>

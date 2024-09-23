@@ -29,16 +29,17 @@ class TestTrack: LocalAudioTrack {
 
     override func startCapture() async throws {
         try? await Task.sleep(nanoseconds: UInt64(Double.random(in: 0.0 ... 1.0) * 1_000_000))
-        AudioManager.shared.trackDidStart(.local)
+        try await AudioManager.shared.trackDidStart(.local)
     }
 
     override func stopCapture() async throws {
         try? await Task.sleep(nanoseconds: UInt64(Double.random(in: 0.0 ... 1.0) * 1_000_000))
-        AudioManager.shared.trackDidStop(.local)
+        try await AudioManager.shared.trackDidStop(.local)
     }
 }
 
 class TrackTests: XCTestCase {
+    #if os(iOS) || os(visionOS) || os(tvOS)
     func testConcurrentStartStop() async throws {
         // Set config func to watch state changes.
         AudioManager.shared.customConfigureAudioSessionFunc = { newState, _ in
@@ -70,6 +71,7 @@ class TrackTests: XCTestCase {
 
         AudioManager.shared.customConfigureAudioSessionFunc = nil
 
-        XCTAssertEqual(AudioManager.shared.localTracksCount, 0, "localTracksCount should be 0")
+        XCTAssertEqual(AudioManager.shared.state.localTracksCount, 0, "localTracksCount should be 0")
     }
+    #endif
 }
