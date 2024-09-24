@@ -93,8 +93,14 @@ class FFTProcessor {
         case hamming
     }
 
+    public enum ScaleType {
+        case linear
+        case logarithmic
+    }
+
     public let bufferSize: Int
     public let windowType: WindowType
+    public let scaleType: ScaleType
 
     private let bufferHalfSize: Int
     private let bufferLog2Size: Int
@@ -104,9 +110,11 @@ class FFTProcessor {
     private var realPointer: UnsafeMutablePointer<Float>
     private var imaginaryPointer: UnsafeMutablePointer<Float>
 
-    init(bufferSize: Int, windowType: WindowType = .hamming) {
+    init(bufferSize: Int, scaleType: ScaleType = .linear, windowType: WindowType = .hanning) {
         self.bufferSize = bufferSize
+        self.scaleType = scaleType
         self.windowType = windowType
+
         bufferHalfSize = bufferSize / 2
         bufferLog2Size = Int(log2f(Float(bufferSize)))
 
@@ -119,6 +127,7 @@ class FFTProcessor {
         imaginaryPointer.initialize(repeating: 0.0, count: bufferHalfSize)
 
         complexBuffer = DSPSplitComplex(realp: realPointer, imagp: imaginaryPointer)
+        setupWindow()
     }
 
     deinit {
@@ -127,18 +136,39 @@ class FFTProcessor {
         imaginaryPointer.deallocate()
     }
 
+    private func setupWindow() {
+        window = [Float](repeating: 1.0, count: bufferSize)
+        switch windowType {
+        case .none:
+            break
+        case .hanning:
+            vDSP_hann_window(&window, UInt(bufferSize), Int32(vDSP_HANN_NORM))
+        case .hamming:
+            vDSP_hamm_window(&window, UInt(bufferSize), 0)
+        }
+    }
+
     func process(buffer: [Float]) -> FFTResult {
         guard buffer.count == bufferSize else {
             fatalError("Input buffer size mismatch.")
         }
 
-        buffer.withUnsafeBufferPointer { bufferPtr in
+        // Create a new array to hold the windowed buffer
+        var windowedBuffer = [Float](repeating: 0.0, count: bufferSize)
+
+        // Multiply the input buffer by the window coefficients
+        vDSP_vmul(buffer, 1, window, 1, &windowedBuffer, 1, UInt(bufferSize))
+
+        // Convert the real input to split complex form
+        windowedBuffer.withUnsafeBufferPointer { bufferPtr in
             let complexPtr = UnsafeRawPointer(bufferPtr.baseAddress!).bindMemory(to: DSPComplex.self, capacity: bufferHalfSize)
             vDSP_ctoz(complexPtr, 2, &complexBuffer, 1, UInt(bufferHalfSize))
         }
 
+        // Perform the FFT
         vDSP_fft_zrip(fftSetup, &complexBuffer, 1, UInt(bufferLog2Size), Int32(FFT_FORWARD))
 
+        // Calculate magnitudes
         var magnitudes = [Float](repeating: 0.0, count: bufferHalfSize)
         vDSP_zvmags(&complexBuffer, 1, &magnitudes, 1, UInt(bufferHalfSize))
 
