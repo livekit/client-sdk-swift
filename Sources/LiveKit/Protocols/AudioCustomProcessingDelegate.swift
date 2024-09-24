@@ -74,7 +74,7 @@ class AudioCustomProcessingDelegateAdapter: NSObject, LKRTCAudioCustomProcessing
 
         // Convert to pcmBuffer and notify only if an audioRenderer is added.
         if audioRenderers.isDelegatesNotEmpty, let pcmBuffer = lkAudioBuffer.toAVAudioPCMBuffer() {
-            audioRenderers.notify { $0.render?(pcmBuffer: pcmBuffer) }
+            audioRenderers.notify { $0.render(pcmBuffer: pcmBuffer) }
         }
     }
 
