@@ -64,11 +64,11 @@ actor Transport: NSObject, Loggable {
     // forbid direct access to PeerConnection
     private let _pc: LKRTCPeerConnection
 
-    private lazy var _iceCandidatesQueue = QueueActor<LKRTCIceCandidate>(onProcess: { [weak self] iceCandidate in
+    private lazy var _iceCandidatesQueue = QueueActor<IceCandidate>(onProcess: { [weak self] iceCandidate in
         guard let self else { return }
 
         do {
-            try await self._pc.add(iceCandidate)
+            try await self._pc.add(iceCandidate.toRTCType())
         } catch {
             self.log("Failed to add(iceCandidate:) with error: \(error)", .error)
         }
@@ -114,7 +114,7 @@ actor Transport: NSObject, Loggable {
         _isRestartingIce = true
     }
 
-    func add(iceCandidate candidate: LKRTCIceCandidate) async throws {
+    func add(iceCandidate candidate: IceCandidate) async throws {
         await _iceCandidatesQueue.process(candidate, if: remoteDescription != nil && !_isRestartingIce)
     }
 
@@ -222,7 +222,7 @@ extension Transport: LKRTCPeerConnectionDelegate {
     }
 
     nonisolated func peerConnection(_: LKRTCPeerConnection, didGenerate candidate: LKRTCIceCandidate) {
-        _delegate.notify { $0.transport(self, didGenerateIceCandidate: candidate) }
+        _delegate.notify { $0.transport(self, didGenerateIceCandidate: candidate.toLKType()) }
     }
 
     nonisolated func peerConnectionShouldNegotiate(_: LKRTCPeerConnection) {

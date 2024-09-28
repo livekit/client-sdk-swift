@@ -61,7 +61,7 @@ public class VideoCapturer: NSObject, Loggable, VideoCapturerProtocol {
     }
 
     @objc
-    public enum CapturerState: Int {
+    public enum CapturerState: Int, Sendable {
         case stopped
         case started
     }

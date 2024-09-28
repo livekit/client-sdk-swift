@@ -15,7 +15,7 @@
  */
 
 /// Allows distinguishing between setting nil and no-op in copyWith operations.
-public enum ValueOrAbsent<T> {
+public enum ValueOrAbsent<T: Sendable>: Sendable {
     case value(T)
     case absent
 

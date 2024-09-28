@@ -17,7 +17,7 @@
 import Foundation
 
 @objc
-public class RoomOptions: NSObject {
+public final class RoomOptions: NSObject, Sendable {
     // default options for capturing
     @objc
     public let defaultCameraCaptureOptions: CameraCaptureOptions
