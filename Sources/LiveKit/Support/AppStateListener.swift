@@ -73,7 +73,7 @@ class AppStateListener: Loggable {
 
         workspaceCenter.addObserver(forName: NSWorkspace.willSleepNotification,
                                     object: nil,
-                                    _queue: _queue)
+                                    queue: _queue)
         { _ in
             self.log("NSWorkspace.willSleepNotification")
             self.delegates.notify { $0.appWillSleep() }
@@ -81,7 +81,7 @@ class AppStateListener: Loggable {
 
         workspaceCenter.addObserver(forName: NSWorkspace.didWakeNotification,
                                     object: nil,
-                                    _queue: _queue)
+                                    queue: _queue)
         { _ in
             self.log("NSWorkspace.didWakeNotification")
             self.delegates.notify { $0.appDidWake() }
