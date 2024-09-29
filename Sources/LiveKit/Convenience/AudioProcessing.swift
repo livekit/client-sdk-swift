@@ -111,6 +111,7 @@ public class AudioVisualizeProcessor {
     public let maxDB: Float
     public let bandsCount: Int
     public let isCentered: Bool
+    public let smoothingFactor: Float
 
     public private(set) var bands: [Float]?
 
@@ -124,7 +125,8 @@ public class AudioVisualizeProcessor {
                 minDB: Float = -32.0,
                 maxDB: Float = 32.0,
                 bandsCount: Int = 100,
-                isCentered: Bool = false)
+                isCentered: Bool = false,
+                smoothingFactor: Float = 0.1) // Smoothing factor for smoother transitions
     {
         self.minFrequency = minFrequency
         self.maxFrequency = maxFrequency
@@ -132,8 +134,10 @@ public class AudioVisualizeProcessor {
         self.maxDB = maxDB
         self.bandsCount = bandsCount
         self.isCentered = isCentered
+        self.smoothingFactor = smoothingFactor
 
         processor = FFTProcessor(bufferSize: Self.bufferSize)
+        bands = [Float](repeating: 0.0, count: bandsCount)
     }
 
     public func add(pcmBuffer: AVAudioPCMBuffer) {
@@ -165,13 +169,13 @@ public class AudioVisualizeProcessor {
 
         // If centering is enabled, rearrange the normalized bands
         if isCentered {
-            // Sort the normalized bands from highest to lowest
             normalizedBands.sort(by: >)
+            normalizedBands = centerBands(normalizedBands)
+        }
 
-            // Center the sorted bands
-            self.bands = centerBands(normalizedBands)
-        } else {
-            self.bands = normalizedBands
+        // Smooth transition between old and new bands
+        self.bands = zip(self.bands ?? [], normalizedBands).map { old, new in
+            old * (1.0 - smoothingFactor) + new * smoothingFactor
         }
     }
 
