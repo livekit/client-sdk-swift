@@ -126,7 +126,7 @@ public class AudioVisualizeProcessor {
                 maxDB: Float = 32.0,
                 bandsCount: Int = 100,
                 isCentered: Bool = false,
-                smoothingFactor: Float = 0.2) // Smoothing factor for smoother transitions
+                smoothingFactor: Float = 0.3) // Smoothing factor for smoother transitions
     {
         self.minFrequency = minFrequency
         self.maxFrequency = maxFrequency

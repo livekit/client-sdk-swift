@@ -29,47 +29,17 @@ public protocol AudioRenderer {
     func render(pcmBuffer: AVAudioPCMBuffer)
 }
 
-class AudioRendererAdapter: NSObject, LKRTCAudioRenderer {
-    private weak var target: AudioRenderer?
-    private let targetHashValue: Int
+class AudioRendererAdapter: MulticastDelegate<AudioRenderer>, LKRTCAudioRenderer {
+    //
+    typealias Delegate = AudioRenderer
 
-    struct GlobalState {
-        var instanceCount: Int = 0
+    init() {
+        super.init(label: "AudioRendererAdapter")
     }
 
-    private static var _state = StateSync(GlobalState())
-
-    init(target: AudioRenderer) {
-        self.target = target
-        targetHashValue = ObjectIdentifier(target).hashValue
-
-        let count = Self._state.mutate {
-            $0.instanceCount += 1
-            return $0.instanceCount
-        }
-
-        print("AudioRendererAdapter instance count: \(count)")
-    }
-
-    deinit {
-        let count = Self._state.mutate {
-            $0.instanceCount -= 1
-            return $0.instanceCount
-        }
-        print("AudioRendererAdapter instance count: \(count)")
-    }
+    // MARK: - LKRTCAudioRenderer
 
     func render(pcmBuffer: AVAudioPCMBuffer) {
-        target?.render(pcmBuffer: pcmBuffer)
-    }
-
-    // Proxy the equality operators
-    override func isEqual(_ object: Any?) -> Bool {
-        guard let other = object as? AudioRendererAdapter else { return false }
-        return targetHashValue == other.targetHashValue
-    }
-
-    override var hash: Int {
-        targetHashValue
+        notify { $0.render(pcmBuffer: pcmBuffer) }
     }
 }
