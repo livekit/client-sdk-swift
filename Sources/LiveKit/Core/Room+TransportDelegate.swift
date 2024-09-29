@@ -68,7 +68,7 @@ extension Room: TransportDelegate {
         }
     }
 
-    func transport(_ transport: Transport, didGenerateIceCandidate iceCandidate: LKRTCIceCandidate) {
+    func transport(_ transport: Transport, didGenerateIceCandidate iceCandidate: IceCandidate) {
         Task {
             do {
                 log("sending iceCandidate")

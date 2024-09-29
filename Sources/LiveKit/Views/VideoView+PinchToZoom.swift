@@ -23,7 +23,7 @@ internal import LiveKitWebRTC
 extension VideoView {
     static let rampRate: Float = 32.0
     /// Options for pinch to zoom in / out feature.
-    public struct PinchToZoomOptions: OptionSet {
+    public struct PinchToZoomOptions: OptionSet, Sendable {
         public let rawValue: UInt
 
         public init(rawValue: UInt) {

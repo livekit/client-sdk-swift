@@ -17,13 +17,13 @@
 import Foundation
 
 @objc
-public enum ReconnectMode: Int {
+public enum ReconnectMode: Int, Sendable {
     case quick
     case full
 }
 
 @objc
-public enum ConnectionState: Int {
+public enum ConnectionState: Int, Sendable {
     case disconnected
     case connecting
     case reconnecting

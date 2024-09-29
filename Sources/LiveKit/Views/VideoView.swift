@@ -39,7 +39,7 @@ public class VideoView: NativeView, Loggable {
 
     /// Specifies how to render the video withing the ``VideoView``'s bounds.
     @objc
-    public enum LayoutMode: Int, Codable {
+    public enum LayoutMode: Int, Codable, Sendable {
         /// Video will be fully visible within the ``VideoView``.
         case fit
         /// Video will fully cover up the ``VideoView``.
@@ -47,7 +47,7 @@ public class VideoView: NativeView, Loggable {
     }
 
     @objc
-    public enum MirrorMode: Int, Codable {
+    public enum MirrorMode: Int, Codable, Sendable {
         /// Will mirror if the track is a front facing camera track.
         case auto
         case off
@@ -55,14 +55,14 @@ public class VideoView: NativeView, Loggable {
     }
 
     @objc
-    public enum RenderMode: Int, Codable {
+    public enum RenderMode: Int, Codable, Sendable {
         case auto
         case metal
         case sampleBuffer
     }
 
     @objc
-    public enum TransitionMode: Int, Codable {
+    public enum TransitionMode: Int, Codable, Sendable {
         case none
         case crossDissolve
         case flip
