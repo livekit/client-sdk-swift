@@ -29,7 +29,6 @@ extension LKRTCConfiguration {
         result.continualGatheringPolicy = .gatherContinually
         result.candidateNetworkPolicy = .all
         result.tcpCandidatePolicy = .enabled
-        result.iceTransportPolicy = .all
 
         return result
     }

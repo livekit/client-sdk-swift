@@ -41,20 +41,20 @@ public class Track: NSObject, Loggable {
     // MARK: - Public types
 
     @objc(TrackKind)
-    public enum Kind: Int, Codable {
+    public enum Kind: Int, Codable, Sendable {
         case audio
         case video
         case none
     }
 
     @objc(TrackState)
-    public enum TrackState: Int, Codable {
+    public enum TrackState: Int, Codable, Sendable {
         case stopped
         case started
     }
 
     @objc(TrackSource)
-    public enum Source: Int, Codable {
+    public enum Source: Int, Codable, Sendable {
         case unknown
         case camera
         case microphone
@@ -63,7 +63,7 @@ public class Track: NSObject, Loggable {
     }
 
     @objc(PublishState)
-    public enum PublishState: Int {
+    public enum PublishState: Int, Sendable {
         case unpublished
         case published
     }
@@ -351,16 +351,22 @@ extension Track {
     func _mute() async throws {
         // LocalTrack only, already muted
         guard self is LocalTrack, !isMuted else { return }
-        try await disable()
-        try await stop()
+        try await disable() // Disable track first
+        // Only stop if VideoTrack
+        if self is LocalVideoTrack {
+            try await stop()
+        }
         set(muted: true, shouldSendSignal: true)
     }
 
     func _unmute() async throws {
         // LocalTrack only, already un-muted
         guard self is LocalTrack, isMuted else { return }
-        try await enable()
-        try await start()
+        // Only start if VideoTrack
+        if self is LocalVideoTrack {
+            try await start()
+        }
+        try await enable() // Enable track
         set(muted: false, shouldSendSignal: true)
     }
 }

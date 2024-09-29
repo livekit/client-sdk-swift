@@ -39,7 +39,7 @@ public class VideoView: NativeView, Loggable {
 
     /// Specifies how to render the video withing the ``VideoView``'s bounds.
     @objc
-    public enum LayoutMode: Int, Codable {
+    public enum LayoutMode: Int, Codable, Sendable {
         /// Video will be fully visible within the ``VideoView``.
         case fit
         /// Video will fully cover up the ``VideoView``.
@@ -47,7 +47,7 @@ public class VideoView: NativeView, Loggable {
     }
 
     @objc
-    public enum MirrorMode: Int, Codable {
+    public enum MirrorMode: Int, Codable, Sendable {
         /// Will mirror if the track is a front facing camera track.
         case auto
         case off
@@ -55,14 +55,14 @@ public class VideoView: NativeView, Loggable {
     }
 
     @objc
-    public enum RenderMode: Int, Codable {
+    public enum RenderMode: Int, Codable, Sendable {
         case auto
         case metal
         case sampleBuffer
     }
 
     @objc
-    public enum TransitionMode: Int, Codable {
+    public enum TransitionMode: Int, Codable, Sendable {
         case none
         case crossDissolve
         case flip
@@ -270,42 +270,39 @@ public class VideoView: NativeView, Loggable {
 
             let shouldRenderDidUpdate = newState.shouldRender != oldState.shouldRender
             let renderModeDidUpdate = newState.renderMode != oldState.renderMode
-
-            // track was swapped
             let trackDidUpdate = !Self.track(oldState.track as? VideoTrack, isEqualWith: newState.track as? VideoTrack)
 
-            // Enter .main only if the following conditions are met...
+            if trackDidUpdate || shouldRenderDidUpdate {
+                // Handle track removal outside of main queue
+                if let track = oldState.track as? VideoTrack {
+                    track.remove(videoRenderer: self)
+                }
+            }
+
+            // Enter .main only if UI updates are required
             if trackDidUpdate || shouldRenderDidUpdate || renderModeDidUpdate {
-                // Execute on main thread
                 self.mainSyncOrAsync {
                     var didReCreateNativeRenderer = false
 
                     if trackDidUpdate || shouldRenderDidUpdate {
-                        // clean up old track
-                        if let track = oldState.track as? VideoTrack {
-                            track.remove(videoRenderer: self)
-
-                            if let r = self._primaryRenderer {
-                                r.removeFromSuperview()
-                                self._primaryRenderer = nil
-                            }
-
-                            if let r = self._secondaryRenderer {
-                                r.removeFromSuperview()
-                                self._secondaryRenderer = nil
-                            }
+                        // Clean up old renderers
+                        if let r = self._primaryRenderer {
+                            r.removeFromSuperview()
+                            self._primaryRenderer = nil
                         }
 
-                        // set new track
+                        if let r = self._secondaryRenderer {
+                            r.removeFromSuperview()
+                            self._secondaryRenderer = nil
+                        }
+
+                        // Set up new renderer if needed
                         if let track = newState.track as? VideoTrack, newState.shouldRender {
-                            // re-create renderer on main thread
                             let nr = self.recreatePrimaryRenderer(for: newState.renderMode)
                             didReCreateNativeRenderer = true
 
-                            track.add(videoRenderer: self)
-
                             if let frame = track._state.videoFrame {
-                                self.log("rendering cached frame tack: \(String(describing: track._state.sid))")
+                                self.log("rendering cached frame track: \(String(describing: track._state.sid))")
                                 nr.renderFrame(frame.toRTCType())
                                 self.setNeedsLayout()
                             }
@@ -315,6 +312,13 @@ public class VideoView: NativeView, Loggable {
                     if renderModeDidUpdate, !didReCreateNativeRenderer {
                         self.recreatePrimaryRenderer(for: newState.renderMode)
                     }
+                }
+            }
+
+            // Handle track addition outside of main queue
+            if trackDidUpdate || shouldRenderDidUpdate {
+                if let track = newState.track as? VideoTrack, newState.shouldRender {
+                    track.add(videoRenderer: self)
                 }
             }
 

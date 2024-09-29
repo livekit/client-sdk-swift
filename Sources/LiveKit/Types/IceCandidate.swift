@@ -20,7 +20,7 @@ internal import LiveKitWebRTC
 @_implementationOnly import LiveKitWebRTC
 #endif
 
-struct IceCandidate: Codable {
+struct IceCandidate: Codable, Sendable {
     let sdp: String
     let sdpMLineIndex: Int32
     let sdpMid: String?
@@ -41,9 +41,7 @@ struct IceCandidate: Codable {
 
 extension LKRTCIceCandidate {
     func toLKType() -> IceCandidate {
-        IceCandidate(sdp: sdp,
-                     sdpMLineIndex: sdpMLineIndex,
-                     sdpMid: sdpMid)
+        IceCandidate(sdp: sdp, sdpMLineIndex: sdpMLineIndex, sdpMid: sdpMid)
     }
 
     convenience init(fromJsonString string: String) throws {
@@ -57,5 +55,11 @@ extension LKRTCIceCandidate {
         self.init(sdp: iceCandidate.sdp,
                   sdpMLineIndex: iceCandidate.sdpMLineIndex,
                   sdpMid: iceCandidate.sdpMid)
+    }
+}
+
+extension IceCandidate {
+    func toRTCType() -> LKRTCIceCandidate {
+        LKRTCIceCandidate(sdp: sdp, sdpMLineIndex: sdpMLineIndex, sdpMid: sdpMid)
     }
 }

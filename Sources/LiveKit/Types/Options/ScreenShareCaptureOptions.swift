@@ -17,7 +17,7 @@
 import Foundation
 
 @objc
-public class ScreenShareCaptureOptions: NSObject, VideoCaptureOptions {
+public final class ScreenShareCaptureOptions: NSObject, VideoCaptureOptions, Sendable {
     @objc
     public let dimensions: Dimensions
 

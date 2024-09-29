@@ -120,6 +120,8 @@ extension Room {
 
             if connectResponse.clientConfiguration.forceRelay == .enabled {
                 rtcConfiguration.iceTransportPolicy = .relay
+            } else {
+                rtcConfiguration.iceTransportPolicy = connectOptions.iceTransportPolicy.toRTCType()
             }
 
             return rtcConfiguration
@@ -219,7 +221,7 @@ extension Room {
 
 // MARK: - Connection / Reconnection logic
 
-public enum StartReconnectReason {
+public enum StartReconnectReason: Sendable {
     case websocket
     case transport
     case networkSwitch

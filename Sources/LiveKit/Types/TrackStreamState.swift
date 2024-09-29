@@ -23,7 +23,7 @@ internal import LiveKitWebRTC
 #endif
 
 @objc
-public enum StreamState: Int {
+public enum StreamState: Int, Sendable {
     case paused
     case active
 }

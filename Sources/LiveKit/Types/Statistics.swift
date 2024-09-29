@@ -18,7 +18,7 @@ import Foundation
 
 /// Stats spec defined at https://www.w3.org/TR/webrtc-stats/
 
-public enum StatisticsType: String {
+public enum StatisticsType: String, Sendable {
     case codec
     case inboundRtp = "inbound-rtp"
     case outboundRtp = "outbound-rtp"
@@ -35,20 +35,20 @@ public enum StatisticsType: String {
     case certificate
 }
 
-public enum QualityLimitationReason: String {
+public enum QualityLimitationReason: String, Sendable {
     case none
     case cpu
     case bandwidth
     case other
 }
 
-public enum DtlsRole: String {
+public enum DtlsRole: String, Sendable {
     case client
     case server
     case unknown
 }
 
-public enum IceCandidatePairState: String {
+public enum IceCandidatePairState: String, Sendable {
     case frozen
     case waiting
     case inProgress = "in-progress"
@@ -56,20 +56,20 @@ public enum IceCandidatePairState: String {
     case succeeded
 }
 
-public enum DataChannelState: String {
+public enum DataChannelState: String, Sendable {
     case connecting
     case open
     case closing
     case closed
 }
 
-public enum IceRole: String {
+public enum IceRole: String, Sendable {
     case unknown
     case controlling
     case controlled
 }
 
-public enum DtlsTransportState: String {
+public enum DtlsTransportState: String, Sendable {
     case new
     case connecting
     case connected
@@ -77,7 +77,7 @@ public enum DtlsTransportState: String {
     case failed
 }
 
-public enum IceTransportState: String {
+public enum IceTransportState: String, Sendable {
     case new
     case checking
     case connected
@@ -87,20 +87,20 @@ public enum IceTransportState: String {
     case closed
 }
 
-public enum IceCandidateType: String {
+public enum IceCandidateType: String, Sendable {
     case host
     case srflx
     case prflx
     case relay
 }
 
-public enum IceServerTransportProtocol: String {
+public enum IceServerTransportProtocol: String, Sendable {
     case udp
     case tcp
     case tls
 }
 
-public enum IceTcpCandidateType: String {
+public enum IceTcpCandidateType: String, Sendable {
     case active
     case passive
     case so
@@ -112,17 +112,14 @@ public class Statistics: NSObject, Identifiable {
     public let id: String
     public let type: StatisticsType
     public let timestamp: Double
-    public let rawValues: [String: NSObject]
 
     init?(id: String,
           type: StatisticsType,
-          timestamp: Double,
-          rawValues: [String: NSObject])
+          timestamp: Double)
     {
         self.id = id
         self.type = type
         self.timestamp = timestamp
-        self.rawValues = rawValues
     }
 }
 
@@ -149,8 +146,7 @@ public class CodecStatistics: Statistics {
 
         super.init(id: id,
                    type: .codec,
-                   timestamp: timestamp,
-                   rawValues: rawValues)
+                   timestamp: timestamp)
     }
 }
 
@@ -168,8 +164,7 @@ public class MediaSourceStatistics: Statistics {
 
         super.init(id: id,
                    type: .mediaSource,
-                   timestamp: timestamp,
-                   rawValues: rawValues)
+                   timestamp: timestamp)
     }
 }
 
@@ -180,10 +175,10 @@ public class RtpStreamStatistics: Statistics {
     public let transportId: String?
     public let codecId: String?
 
-    override init?(id: String,
-                   type: StatisticsType,
-                   timestamp: Double,
-                   rawValues: [String: NSObject])
+    init?(id: String,
+          type: StatisticsType,
+          timestamp: Double,
+          rawValues: [String: NSObject])
     {
         ssrc = rawValues.readOptional("ssrc")
         kind = rawValues.readOptional("kind")
@@ -192,8 +187,7 @@ public class RtpStreamStatistics: Statistics {
 
         super.init(id: id,
                    type: type,
-                   timestamp: timestamp,
-                   rawValues: rawValues)
+                   timestamp: timestamp)
     }
 }
 
@@ -220,8 +214,7 @@ public class AudioPlayoutStatistics: Statistics {
 
         super.init(id: id,
                    type: .mediaPlayout,
-                   timestamp: timestamp,
-                   rawValues: rawValues)
+                   timestamp: timestamp)
     }
 }
 
@@ -240,8 +233,7 @@ public class PeerConnectionStatistics: Statistics {
 
         super.init(id: id,
                    type: .peerConnection,
-                   timestamp: timestamp,
-                   rawValues: rawValues)
+                   timestamp: timestamp)
     }
 }
 
@@ -262,7 +254,7 @@ public class DataChannelStatistics: Statistics {
           rawValues: [String: NSObject])
     {
         label = rawValues.readOptional("label")
-        self.protocol = rawValues.readOptional("protocol")
+        `protocol` = rawValues.readOptional("protocol")
         dataChannelIdentifier = rawValues.readOptional("dataChannelIdentifier")
         state = DataChannelState(rawValue: rawValues.readNonOptional("state"))
         messagesSent = rawValues.readOptional("messagesSent")
@@ -272,8 +264,7 @@ public class DataChannelStatistics: Statistics {
 
         super.init(id: id,
                    type: .dataChannel,
-                   timestamp: timestamp,
-                   rawValues: rawValues)
+                   timestamp: timestamp)
     }
 }
 
@@ -320,8 +311,7 @@ public class TransportStatistics: Statistics {
 
         super.init(id: id,
                    type: .transport,
-                   timestamp: timestamp,
-                   rawValues: rawValues)
+                   timestamp: timestamp)
     }
 }
 
@@ -342,15 +332,15 @@ public class IceCandidateStatistics: Statistics {
     public let usernameFragment: String?
     public let tcpType: IceTcpCandidateType?
 
-    override init?(id: String,
-                   type: StatisticsType,
-                   timestamp: Double,
-                   rawValues: [String: NSObject])
+    init?(id: String,
+          type: StatisticsType,
+          timestamp: Double,
+          rawValues: [String: NSObject])
     {
         transportId = rawValues.readOptional("transportId")
         address = rawValues.readOptional("address")
         port = rawValues.readOptional("port")
-        self.protocol = rawValues.readOptional("protocol")
+        `protocol` = rawValues.readOptional("protocol")
         candidateType = IceCandidateType(rawValue: rawValues.readNonOptional("candidateType"))
         priority = rawValues.readOptional("priority")
         url = rawValues.readOptional("url")
@@ -363,8 +353,7 @@ public class IceCandidateStatistics: Statistics {
 
         super.init(id: id,
                    type: type,
-                   timestamp: timestamp,
-                   rawValues: rawValues)
+                   timestamp: timestamp)
     }
 }
 
@@ -449,8 +438,7 @@ public class IceCandidatePairStatistics: Statistics {
 
         super.init(id: id,
                    type: .candidatePair,
-                   timestamp: timestamp,
-                   rawValues: rawValues)
+                   timestamp: timestamp)
     }
 }
 
@@ -473,8 +461,7 @@ public class CertificateStatistics: Statistics {
 
         super.init(id: id,
                    type: .certificate,
-                   timestamp: timestamp,
-                   rawValues: rawValues)
+                   timestamp: timestamp)
     }
 }
 
@@ -575,7 +562,8 @@ public class InboundRtpStreamStatistics: ReceivedRtpStreamStatistics {
     public let retransmittedPacketsReceived: UInt64?
     public let retransmittedBytesReceived: UInt64?
 
-    public let previous: InboundRtpStreamStatistics?
+    // Weak reference to previous stat so we can compare later.
+    public weak var previous: InboundRtpStreamStatistics?
 
     init?(id: String,
           timestamp: Double,
@@ -720,7 +708,8 @@ public class OutboundRtpStreamStatistics: SentRtpStreamStatistics {
     public let active: Bool?
     public let scalabilityMode: String?
 
-    public let previous: OutboundRtpStreamStatistics?
+    // Weak reference to previous stat so we can compare later.
+    public weak var previous: OutboundRtpStreamStatistics?
 
     init?(id: String,
           timestamp: Double,

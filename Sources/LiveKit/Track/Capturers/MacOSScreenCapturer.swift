@@ -269,7 +269,7 @@ public extension LocalVideoTrack {
 }
 
 @objc
-public enum MacOSScreenShareSourceType: Int {
+public enum MacOSScreenShareSourceType: Int, Sendable {
     case any
     case display
     case window

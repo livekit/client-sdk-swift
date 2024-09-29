@@ -23,16 +23,8 @@ internal import LiveKitWebRTC
 #endif
 
 extension LKRTCMediaConstraints {
-    //    static let defaultOfferConstraints = RTCMediaConstraints(
-    //        mandatoryConstraints: [
-    //            kRTCMediaConstraintsOfferToReceiveAudio: kRTCMediaConstraintsValueFalse,
-    //            kRTCMediaConstraintsOfferToReceiveVideo: kRTCMediaConstraintsValueFalse,
-    //        ],
-    //        optionalConstraints: nil
-    //    )
-
-    static let defaultPCConstraints = DispatchQueue.liveKitWebRTC.sync { LKRTCMediaConstraints(
+    static let defaultPCConstraints = LKRTCMediaConstraints(
         mandatoryConstraints: nil,
         optionalConstraints: ["DtlsSrtpKeyAgreement": kRTCMediaConstraintsValueTrue]
-    ) }
+    )
 }
