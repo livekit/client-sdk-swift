@@ -17,12 +17,12 @@
 import Foundation
 
 @objc
-public class VideoEncoding: NSObject, MediaEncoding {
+public final class VideoEncoding: NSObject, MediaEncoding, Sendable {
     @objc
-    public var maxBitrate: Int
+    public let maxBitrate: Int
 
     @objc
-    public var maxFps: Int
+    public let maxFps: Int
 
     @objc
     public init(maxBitrate: Int, maxFps: Int) {

@@ -17,7 +17,7 @@
 import Foundation
 
 @objc
-public class AudioPublishOptions: NSObject, TrackPublishOptions {
+public final class AudioPublishOptions: NSObject, TrackPublishOptions, Sendable {
     @objc
     public let name: String?
 

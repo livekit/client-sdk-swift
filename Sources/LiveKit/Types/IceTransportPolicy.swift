@@ -23,7 +23,7 @@ internal import LiveKitWebRTC
 #endif
 
 @objc
-public enum IceTransportPolicy: Int {
+public enum IceTransportPolicy: Int, Sendable {
     case none
     case relay
     case noHost

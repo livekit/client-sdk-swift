@@ -18,7 +18,7 @@ import Foundation
 
 public extension Participant {
     @objc(ParticipantSid)
-    class Sid: NSObject, Codable {
+    final class Sid: NSObject, Codable, Sendable {
         @objc
         public let stringValue: String
 
@@ -43,7 +43,7 @@ public extension Participant {
     }
 
     @objc(ParticipantIdentity)
-    class Identity: NSObject, Codable {
+    final class Identity: NSObject, Codable, Sendable {
         @objc
         public let stringValue: String
 

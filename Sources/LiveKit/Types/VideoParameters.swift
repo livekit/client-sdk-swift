@@ -47,7 +47,7 @@ extension Collection<VideoParameters> {
 }
 
 @objc
-public class VideoParameters: NSObject {
+public final class VideoParameters: NSObject, Sendable {
     @objc
     public let dimensions: Dimensions
 

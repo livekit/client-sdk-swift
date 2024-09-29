@@ -23,7 +23,7 @@ internal import LiveKitWebRTC
 #endif
 
 @objc
-public class BufferCaptureOptions: NSObject, VideoCaptureOptions {
+public final class BufferCaptureOptions: NSObject, VideoCaptureOptions, Sendable {
     @objc
     public let dimensions: Dimensions
 
