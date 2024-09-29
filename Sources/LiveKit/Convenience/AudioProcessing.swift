@@ -107,7 +107,10 @@ public class AudioVisualizeProcessor {
 
     public let minFrequency: Float
     public let maxFrequency: Float
+    public let minDB: Float
+    public let maxDB: Float
     public let bandsCount: Int
+    public let isCentered: Bool
 
     public private(set) var bands: [Float]?
 
@@ -116,10 +119,20 @@ public class AudioVisualizeProcessor {
     private let ringBuffer = FloatRingBuffer(size: AudioVisualizeProcessor.bufferSize)
     private let processor: FFTProcessor
 
-    public init(minFrequency: Float = 10, maxFrequency: Float = 8000, bandsCount: Int = 100) {
+    public init(minFrequency: Float = 10,
+                maxFrequency: Float = 8000,
+                minDB: Float = -32.0,
+                maxDB: Float = 32.0,
+                bandsCount: Int = 100,
+                isCentered: Bool = false)
+    {
         self.minFrequency = minFrequency
         self.maxFrequency = maxFrequency
+        self.minDB = minDB
+        self.maxDB = maxDB
         self.bandsCount = bandsCount
+        self.isCentered = isCentered
+
         processor = FFTProcessor(bufferSize: Self.bufferSize)
     }
 
@@ -136,21 +149,50 @@ public class AudioVisualizeProcessor {
         // Process FFT and compute frequency bands
         let fftRes = processor.process(buffer: buffer)
         let bands = fftRes.computeBands(
-            minFrequency: minFrequency,
+            minFrequency: 0,
             maxFrequency: maxFrequency,
             bandsCount: bandsCount,
             sampleRate: Float(pcmBuffer.format.sampleRate)
         )
 
-        // Constants for decibel conversion
-        let maxDB: Float = 64.0
-        let minDB: Float = -32.0
         let headroom = maxDB - minDB
 
         // Normalize magnitudes to decibel ratio using a functional approach
-        self.bands = bands.magnitudes.map { magnitude in
+        var normalizedBands = bands.magnitudes.map { magnitude in
             let magnitudeDB = max(0, magnitude.toDecibels + abs(minDB))
             return min(1.0, magnitudeDB / headroom)
         }
+
+        // If centering is enabled, rearrange the normalized bands
+        if isCentered {
+            // Sort the normalized bands from highest to lowest
+            normalizedBands.sort(by: >)
+
+            // Center the sorted bands
+            self.bands = centerBands(normalizedBands)
+        } else {
+            self.bands = normalizedBands
+        }
+    }
+
+    /// Centers the sorted bands by placing higher values in the middle.
+    private func centerBands(_ sortedBands: [Float]) -> [Float] {
+        var centeredBands = [Float](repeating: 0, count: sortedBands.count)
+        var leftIndex = sortedBands.count / 2
+        var rightIndex = leftIndex
+
+        for (index, value) in sortedBands.enumerated() {
+            if index % 2 == 0 {
+                // Place value to the right
+                centeredBands[rightIndex] = value
+                rightIndex += 1
+            } else {
+                // Place value to the left
+                leftIndex -= 1
+                centeredBands[leftIndex] = value
+            }
+        }
+
+        return centeredBands
     }
 }

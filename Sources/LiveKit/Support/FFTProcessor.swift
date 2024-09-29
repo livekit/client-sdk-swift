@@ -34,9 +34,11 @@ public struct FFTComputeBandsResult {
 
 public class FFTResult {
     public let magnitudes: [Float]
+    private let scaleType: FFTProcessor.ScaleType
 
-    init(magnitudes: [Float]) {
+    init(magnitudes: [Float], scaleType: FFTProcessor.ScaleType) {
         self.magnitudes = magnitudes
+        self.scaleType = scaleType
     }
 
     func computeBands(minFrequency: Float, maxFrequency: Float, bandsCount: Int, sampleRate: Float) -> FFTComputeBandsResult {
@@ -52,10 +54,18 @@ public class FFTResult {
             let magsStartIdx = Int(floorf(Float(i) * ratio)) + magLowerRange
             let magsEndIdx = Int(floorf(Float(i + 1) * ratio)) + magLowerRange
 
-            bandMagnitudes[i] = magsEndIdx == magsStartIdx
-                ? magnitudes[magsStartIdx]
-                : _computeAverage(magnitudes, magsStartIdx, magsEndIdx)
+            let count = magsEndIdx - magsStartIdx
+            if count > 0 {
+                if scaleType == .linear {
+                    // Linear scale averaging
+                    bandMagnitudes[i] = _computeAverage(magnitudes, magsStartIdx, magsEndIdx)
+                }
+            } else {
+                // Single value case
+                bandMagnitudes[i] = magnitudes[magsStartIdx]
+            }
 
+            // Compute average frequency
             bandFrequencies[i] = _averageFrequencyInRange(magsStartIdx, magsEndIdx, sampleRate: sampleRate)
         }
 
@@ -109,6 +119,7 @@ class FFTProcessor {
     private var complexBuffer: DSPSplitComplex
     private var realPointer: UnsafeMutablePointer<Float>
     private var imaginaryPointer: UnsafeMutablePointer<Float>
+    private var zeroDBReference: Float = 1.0
 
     init(bufferSize: Int, scaleType: ScaleType = .linear, windowType: WindowType = .hanning) {
         self.bufferSize = bufferSize
@@ -170,8 +181,8 @@ class FFTProcessor {
 
         // Calculate magnitudes
         var magnitudes = [Float](repeating: 0.0, count: bufferHalfSize)
-        vDSP_zvmags(&complexBuffer, 1, &magnitudes, 1, UInt(bufferHalfSize))
+        vDSP_zvabs(&complexBuffer, 1, &magnitudes, 1, UInt(bufferHalfSize))
 
-        return FFTResult(magnitudes: magnitudes)
+        return FFTResult(magnitudes: magnitudes, scaleType: scaleType)
     }
 }

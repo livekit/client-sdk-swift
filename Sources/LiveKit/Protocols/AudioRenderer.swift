@@ -33,9 +33,30 @@ class AudioRendererAdapter: NSObject, LKRTCAudioRenderer {
     private weak var target: AudioRenderer?
     private let targetHashValue: Int
 
+    struct GlobalState {
+        var instanceCount: Int = 0
+    }
+
+    private static var _state = StateSync(GlobalState())
+
     init(target: AudioRenderer) {
         self.target = target
         targetHashValue = ObjectIdentifier(target).hashValue
+
+        let count = Self._state.mutate {
+            $0.instanceCount += 1
+            return $0.instanceCount
+        }
+
+        print("AudioRendererAdapter instance count: \(count)")
+    }
+
+    deinit {
+        let count = Self._state.mutate {
+            $0.instanceCount -= 1
+            return $0.instanceCount
+        }
+        print("AudioRendererAdapter instance count: \(count)")
     }
 
     func render(pcmBuffer: AVAudioPCMBuffer) {
