@@ -126,7 +126,7 @@ public class AudioVisualizeProcessor {
                 maxDB: Float = 32.0,
                 bandsCount: Int = 100,
                 isCentered: Bool = false,
-                smoothingFactor: Float = 0.1) // Smoothing factor for smoother transitions
+                smoothingFactor: Float = 0.2) // Smoothing factor for smoother transitions
     {
         self.minFrequency = minFrequency
         self.maxFrequency = maxFrequency
@@ -173,9 +173,9 @@ public class AudioVisualizeProcessor {
             normalizedBands = centerBands(normalizedBands)
         }
 
-        // Smooth transition between old and new bands
+        // Smooth transition using an easing function
         self.bands = zip(self.bands ?? [], normalizedBands).map { old, new in
-            old * (1.0 - smoothingFactor) + new * smoothingFactor
+            _smoothTransition(from: old, to: new, factor: smoothingFactor)
         }
     }
 
@@ -198,5 +198,20 @@ public class AudioVisualizeProcessor {
         }
 
         return centeredBands
+    }
+
+    /// Applies an easing function to smooth the transition.
+    private func _smoothTransition(from oldValue: Float, to newValue: Float, factor: Float) -> Float {
+        // Calculate the delta change between the old and new value
+        let delta = newValue - oldValue
+        // Apply an ease-in-out cubic easing curve
+        let easedFactor = _easeInOutCubic(t: factor)
+        // Calculate and return the smoothed value
+        return oldValue + delta * easedFactor
+    }
+
+    /// Easing function: ease-in-out cubic
+    private func _easeInOutCubic(t: Float) -> Float {
+        t < 0.5 ? 4 * t * t * t : 1 - pow(-2 * t + 2, 3) / 2
     }
 }
