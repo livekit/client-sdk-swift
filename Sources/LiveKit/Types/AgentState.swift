@@ -38,3 +38,17 @@ extension AgentState {
         }
     }
 }
+
+extension AgentState: CustomStringConvertible {
+    public var description: String {
+        switch self {
+        case .unknown: return "Unknown"
+        case .disconnected: return "Disconnected"
+        case .connecting: return "Connecting"
+        case .initializing: return "Initializing"
+        case .listening: return "Listening"
+        case .thinking: return "Thinking"
+        case .speaking: return "Speaking"
+        }
+    }
+}
