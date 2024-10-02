@@ -16,7 +16,7 @@
 
 import AVFoundation
 
-extension AVAudioPCMBuffer {
+public extension AVAudioPCMBuffer {
     func resample(toSampleRate targetSampleRate: Double) -> AVAudioPCMBuffer? {
         let sourceFormat = format
 
