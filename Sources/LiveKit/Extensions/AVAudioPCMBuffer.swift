@@ -35,25 +35,26 @@ public extension AVAudioPCMBuffer {
             return nil
         }
 
-        // Create the AVAudioConverter for resampling.
         guard let converter = AVAudioConverter(from: sourceFormat, to: targetFormat) else {
             print("Failed to create audio converter.")
             return nil
         }
 
-        // Calculate the frame capacity for the converted buffer.
-        let ratio = targetFormat.sampleRate / sourceFormat.sampleRate
-        let convertedFrameCapacity = AVAudioFrameCount(Double(frameCapacity) * ratio)
+        let capacity = targetFormat.sampleRate * Double(frameLength) / sourceFormat.sampleRate
 
-        // Create a buffer to hold the converted data.
-        guard let convertedBuffer = AVAudioPCMBuffer(pcmFormat: targetFormat, frameCapacity: convertedFrameCapacity) else {
+        guard let convertedBuffer = AVAudioPCMBuffer(pcmFormat: targetFormat, frameCapacity: AVAudioFrameCount(capacity)) else {
             print("Failed to create converted buffer.")
             return nil
         }
 
-        // Perform the conversion.
+        var isDone = false
         let inputBlock: AVAudioConverterInputBlock = { _, outStatus in
+            if isDone {
+                outStatus.pointee = .noDataNow
+                return nil
+            }
             outStatus.pointee = .haveData
+            isDone = true
             return self
         }
 
@@ -64,6 +65,9 @@ public extension AVAudioPCMBuffer {
             print("Conversion failed: \(error?.localizedDescription ?? "Unknown error")")
             return nil
         }
+
+        // Adjust frame length to the actual amount of data written
+        convertedBuffer.frameLength = convertedBuffer.frameCapacity
 
         return convertedBuffer
     }
