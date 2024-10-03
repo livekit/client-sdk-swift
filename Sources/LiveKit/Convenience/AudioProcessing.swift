@@ -113,7 +113,7 @@ public class AudioVisualizeProcessor {
     public let isCentered: Bool
     public let smoothingFactor: Float
 
-    public private(set) var bands: [Float]?
+    private var bands: [Float]?
 
     // MARK: - Private
 
@@ -140,20 +140,20 @@ public class AudioVisualizeProcessor {
         bands = [Float](repeating: 0.0, count: bandsCount)
     }
 
-    public func add(pcmBuffer: AVAudioPCMBuffer) {
-        guard let floatChannelData = pcmBuffer.floatChannelData else { return }
+    public func process(pcmBuffer: AVAudioPCMBuffer) -> [Float]? {
+        guard let floatChannelData = pcmBuffer.floatChannelData else { return nil }
 
         // Get the float array.
         let floats = Array(UnsafeBufferPointer(start: floatChannelData[0], count: Int(pcmBuffer.frameLength)))
         ringBuffer.write(floats)
 
         // Get full-size buffer if available, otherwise return
-        guard let buffer = ringBuffer.read() else { return }
+        guard let buffer = ringBuffer.read() else { return nil }
 
         // Process FFT and compute frequency bands
         let fftRes = processor.process(buffer: buffer)
         let bands = fftRes.computeBands(
-            minFrequency: 0,
+            minFrequency: minFrequency,
             maxFrequency: maxFrequency,
             bandsCount: bandsCount,
             sampleRate: Float(pcmBuffer.format.sampleRate)
@@ -161,10 +161,10 @@ public class AudioVisualizeProcessor {
 
         let headroom = maxDB - minDB
 
-        // Normalize magnitudes to decibel ratio using a functional approach
+        // Normalize magnitudes (already in decibels)
         var normalizedBands = bands.magnitudes.map { magnitude in
-            let magnitudeDB = max(0, magnitude.toDecibels + abs(minDB))
-            return min(1.0, magnitudeDB / headroom)
+            let adjustedMagnitude = max(0, magnitude + abs(minDB))
+            return min(1.0, adjustedMagnitude / headroom)
         }
 
         // If centering is enabled, rearrange the normalized bands
@@ -177,6 +177,8 @@ public class AudioVisualizeProcessor {
         self.bands = zip(self.bands ?? [], normalizedBands).map { old, new in
             _smoothTransition(from: old, to: new, factor: smoothingFactor)
         }
+
+        return self.bands
     }
 
     /// Centers the sorted bands by placing higher values in the middle.

@@ -15,15 +15,10 @@
  */
 
 import Accelerate
-import Foundation
+import AVFoundation
 
 extension Float {
     var nyquistFrequency: Float { self / 2.0 }
-
-    var toDecibels: Float {
-        let minMagnitude: Float = 1e-7
-        return 20 * log10(max(magnitude, minMagnitude))
-    }
 }
 
 public struct FFTComputeBandsResult {
@@ -34,11 +29,9 @@ public struct FFTComputeBandsResult {
 
 public class FFTResult {
     public let magnitudes: [Float]
-    private let scaleType: FFTProcessor.ScaleType
 
-    init(magnitudes: [Float], scaleType: FFTProcessor.ScaleType) {
+    init(magnitudes: [Float]) {
         self.magnitudes = magnitudes
-        self.scaleType = scaleType
     }
 
     func computeBands(minFrequency: Float, maxFrequency: Float, bandsCount: Int, sampleRate: Float) -> FFTComputeBandsResult {
@@ -57,11 +50,9 @@ public class FFTResult {
 
                 let count = magsEndIdx - magsStartIdx
                 if count > 0 {
-                    if scaleType == .linear {
-                        var sum: Float = 0
-                        vDSP_sve(magnitudesPtr.baseAddress! + Int(magsStartIdx), 1, &sum, count)
-                        bandMagnitudes[i] = sum / Float(count)
-                    }
+                    var sum: Float = 0
+                    vDSP_sve(magnitudesPtr.baseAddress! + Int(magsStartIdx), 1, &sum, count)
+                    bandMagnitudes[i] = sum / Float(count)
                 } else {
                     bandMagnitudes[i] = magnitudes[Int(magsStartIdx)]
                 }
@@ -87,14 +78,8 @@ class FFTProcessor {
         case hamming
     }
 
-    public enum ScaleType {
-        case linear
-        case logarithmic
-    }
-
     public let bufferSize: vDSP_Length
     public let windowType: WindowType
-    public let scaleType: ScaleType
 
     private let bufferHalfSize: vDSP_Length
     private let bufferLog2Size: vDSP_Length
@@ -104,9 +89,8 @@ class FFTProcessor {
     private var imaginaryBuffer: [Float]
     private var zeroDBReference: Float = 1.0
 
-    init(bufferSize: Int, scaleType: ScaleType = .linear, windowType: WindowType = .hanning) {
+    init(bufferSize: Int, windowType: WindowType = .hanning) {
         self.bufferSize = vDSP_Length(bufferSize)
-        self.scaleType = scaleType
         self.windowType = windowType
 
         bufferHalfSize = vDSP_Length(bufferSize / 2)
@@ -153,7 +137,10 @@ class FFTProcessor {
                 var magnitudes = [Float](repeating: 0.0, count: Int(bufferHalfSize))
                 vDSP_zvabs(&complexBuffer, 1, &magnitudes, 1, bufferHalfSize)
 
-                return FFTResult(magnitudes: magnitudes, scaleType: scaleType)
+                // Convert magnitudes to decibels
+                vDSP_vdbcon(magnitudes, 1, &zeroDBReference, &magnitudes, 1, vDSP_Length(magnitudes.count), 1)
+
+                return FFTResult(magnitudes: magnitudes)
             }
         }
     }
