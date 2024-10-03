@@ -117,7 +117,7 @@ public class AudioVisualizeProcessor {
 
     // MARK: - Private
 
-    private let ringBuffer = FloatRingBuffer(size: AudioVisualizeProcessor.bufferSize)
+    private let ringBuffer = RingBuffer<Float>(size: AudioVisualizeProcessor.bufferSize)
     private let processor: FFTProcessor
 
     public init(minFrequency: Float = 10,
