@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+import Accelerate
 import AVFoundation
 
 public extension AVAudioPCMBuffer {
@@ -70,5 +71,60 @@ public extension AVAudioPCMBuffer {
         convertedBuffer.frameLength = convertedBuffer.frameCapacity
 
         return convertedBuffer
+    }
+
+    /// Convert Int16 PCM buffer to Float32 PCM buffer
+    func convert(toCommonFormat commonFormat: AVAudioCommonFormat) -> AVAudioPCMBuffer? {
+        guard self.format.commonFormat != commonFormat else {
+            // Already target format
+            return self
+        }
+
+        guard case .pcmFormatFloat32 = commonFormat else {
+            // Only float32 supported now.
+            return nil
+        }
+
+        guard let format = AVAudioFormat(commonFormat: .pcmFormatFloat32,
+                                         sampleRate: format.sampleRate,
+                                         channels: format.channelCount,
+                                         interleaved: false)
+        else {
+            print("Failed to create Float32 audio format")
+            return nil
+        }
+
+        guard let outputBuffer = AVAudioPCMBuffer(pcmFormat: format,
+                                                  frameCapacity: frameCapacity)
+        else {
+            print("Failed to create Float32 PCM buffer")
+            return nil
+        }
+
+        outputBuffer.frameLength = frameLength
+
+        let channelCount = Int(format.channelCount)
+        let frameCount = Int(frameLength)
+
+        // Assuming the current buffer is Int16
+        guard let int16Data = int16ChannelData else {
+            print("Source buffer is not Int16")
+            return nil
+        }
+
+        guard let floatData = outputBuffer.floatChannelData else {
+            print("Failed to get float channel data")
+            return nil
+        }
+
+        // Convert Int16 to Float
+        let scale = Float(Int16.max)
+        for channel in 0 ..< channelCount {
+            vDSP_vflt16(int16Data[channel], 1, floatData[channel], 1, vDSP_Length(frameCount))
+            var scalar = Float(1.0) / scale
+            vDSP_vsmul(floatData[channel], 1, &scalar, floatData[channel], 1, vDSP_Length(frameCount))
+        }
+
+        return outputBuffer
     }
 }

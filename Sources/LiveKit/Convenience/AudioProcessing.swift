@@ -25,15 +25,9 @@ public struct AudioLevel {
 }
 
 public extension LKAudioBuffer {
-    /// Convert to AVAudioPCMBuffer float buffer will be normalized to 32 bit.
+    /// Convert to AVAudioPCMBuffer Int16 format.
     @objc
     func toAVAudioPCMBuffer(format: AVAudioCommonFormat = .pcmFormatInt16) -> AVAudioPCMBuffer? {
-        // Check if supported format.
-        guard [.pcmFormatInt16, .pcmFormatFloat32].contains(format) else {
-            // Unsupported format.
-            return nil
-        }
-
         guard let audioFormat = AVAudioFormat(commonFormat: format,
                                               sampleRate: Double(frames * 100),
                                               channels: AVAudioChannelCount(channels),
@@ -46,29 +40,10 @@ public extension LKAudioBuffer {
 
         pcmBuffer.frameLength = AVAudioFrameCount(frames)
 
-        if case .pcmFormatInt16 = format {
-            // Int16
-            guard let targetBufferPointer = pcmBuffer.int16ChannelData else { return nil }
+        guard let targetBufferPointer = pcmBuffer.int16ChannelData else { return nil }
 
-            for i in 0 ..< channels {
-                memcpy(targetBufferPointer[i], rawBuffer(forChannel: i), Int(frames) * MemoryLayout<Int16>.size)
-            }
-        } else if case .pcmFormatFloat32 = format {
-            // Float 32
-            guard let targetBufferPointer = pcmBuffer.floatChannelData else { return nil }
-
-            // Optimized version
-            let factor = Float(Int16.max)
-            var normalizationFactor: Float = 1.0 / factor // Or use 32768.0
-
-            for i in 0 ..< channels {
-                vDSP_vsmul(rawBuffer(forChannel: i),
-                           1,
-                           &normalizationFactor,
-                           targetBufferPointer[i],
-                           1,
-                           vDSP_Length(frames))
-            }
+        for i in 0 ..< channels {
+            memcpy(targetBufferPointer[i], rawBuffer(forChannel: i), Int(frames) * MemoryLayout<Int16>.size)
         }
 
         return pcmBuffer
