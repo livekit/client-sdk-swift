@@ -73,31 +73,35 @@ public extension AVAudioPCMBuffer {
         return convertedBuffer
     }
 
-    /// Convert Int16 PCM buffer to Float32 PCM buffer
+    /// Convert PCM buffer to specified common format.
+    /// Currently supports conversion from Int16 to Float32.
     func convert(toCommonFormat commonFormat: AVAudioCommonFormat) -> AVAudioPCMBuffer? {
-        guard self.format.commonFormat != commonFormat else {
-            // Already target format
+        // Check if conversion is needed
+        guard format.commonFormat != commonFormat else {
             return self
         }
 
-        guard case .pcmFormatFloat32 = commonFormat else {
-            // Only float32 supported now.
+        // Check if the conversion is supported
+        guard format.commonFormat == .pcmFormatInt16, commonFormat == .pcmFormatFloat32 else {
+            print("Unsupported conversion: only Int16 to Float32 is supported")
             return nil
         }
 
-        guard let format = AVAudioFormat(commonFormat: .pcmFormatFloat32,
-                                         sampleRate: format.sampleRate,
-                                         channels: format.channelCount,
-                                         interleaved: false)
+        // Create output format
+        guard let outputFormat = AVAudioFormat(commonFormat: commonFormat,
+                                               sampleRate: format.sampleRate,
+                                               channels: format.channelCount,
+                                               interleaved: false)
         else {
-            print("Failed to create Float32 audio format")
+            print("Failed to create output audio format")
             return nil
         }
 
-        guard let outputBuffer = AVAudioPCMBuffer(pcmFormat: format,
+        // Create output buffer
+        guard let outputBuffer = AVAudioPCMBuffer(pcmFormat: outputFormat,
                                                   frameCapacity: frameCapacity)
         else {
-            print("Failed to create Float32 PCM buffer")
+            print("Failed to create output PCM buffer")
             return nil
         }
 
@@ -106,22 +110,24 @@ public extension AVAudioPCMBuffer {
         let channelCount = Int(format.channelCount)
         let frameCount = Int(frameLength)
 
-        // Assuming the current buffer is Int16
+        // Ensure the source buffer has Int16 data
         guard let int16Data = int16ChannelData else {
-            print("Source buffer is not Int16")
+            print("Source buffer doesn't contain Int16 data")
             return nil
         }
 
+        // Ensure the output buffer has Float32 data
         guard let floatData = outputBuffer.floatChannelData else {
-            print("Failed to get float channel data")
+            print("Failed to get float channel data from output buffer")
             return nil
         }
 
-        // Convert Int16 to Float
+        // Convert Int16 to Float32 and normalize to [-1.0, 1.0]
         let scale = Float(Int16.max)
+        var scalar = 1.0 / scale
+
         for channel in 0 ..< channelCount {
             vDSP_vflt16(int16Data[channel], 1, floatData[channel], 1, vDSP_Length(frameCount))
-            var scalar = Float(1.0) / scale
             vDSP_vsmul(floatData[channel], 1, &scalar, floatData[channel], 1, vDSP_Length(frameCount))
         }
 

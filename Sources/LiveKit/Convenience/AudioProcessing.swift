@@ -27,23 +27,28 @@ public struct AudioLevel {
 public extension LKAudioBuffer {
     /// Convert to AVAudioPCMBuffer Int16 format.
     @objc
-    func toAVAudioPCMBuffer(format: AVAudioCommonFormat = .pcmFormatInt16) -> AVAudioPCMBuffer? {
-        guard let audioFormat = AVAudioFormat(commonFormat: format,
+    func toAVAudioPCMBuffer() -> AVAudioPCMBuffer? {
+        guard let audioFormat = AVAudioFormat(commonFormat: .pcmFormatInt16,
                                               sampleRate: Double(frames * 100),
                                               channels: AVAudioChannelCount(channels),
                                               interleaved: false),
             let pcmBuffer = AVAudioPCMBuffer(pcmFormat: audioFormat,
                                              frameCapacity: AVAudioFrameCount(frames))
-        else {
-            return nil
-        }
+        else { return nil }
 
         pcmBuffer.frameLength = AVAudioFrameCount(frames)
 
         guard let targetBufferPointer = pcmBuffer.int16ChannelData else { return nil }
 
         for i in 0 ..< channels {
-            memcpy(targetBufferPointer[i], rawBuffer(forChannel: i), Int(frames) * MemoryLayout<Int16>.size)
+            let sourceBuffer = rawBuffer(forChannel: i)
+            let targetBuffer = targetBufferPointer[i]
+            // sourceBuffer is in the format of [Int16] but is stored in 32-bit alignment, we need to pack the Int16 data correctly.
+
+            for frame in 0 ..< frames {
+                // Cast and pack the source 32-bit Int16 data into the target 16-bit buffer
+                targetBuffer[frame] = Int16(sourceBuffer[frame])
+            }
         }
 
         return pcmBuffer
