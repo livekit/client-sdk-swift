@@ -47,7 +47,8 @@ public extension LKAudioBuffer {
 
             for frame in 0 ..< frames {
                 // Cast and pack the source 32-bit Int16 data into the target 16-bit buffer
-                targetBuffer[frame] = Int16(sourceBuffer[frame])
+                let clampedValue = max(Float(Int16.min), min(Float(Int16.max), sourceBuffer[frame]))
+                targetBuffer[frame] = Int16(clampedValue)
             }
         }
 
