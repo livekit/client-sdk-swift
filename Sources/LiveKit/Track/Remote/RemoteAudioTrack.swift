@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+import AVFoundation
 import CoreMedia
 
 #if swift(>=5.9)
@@ -36,6 +37,8 @@ public class RemoteAudioTrack: Track, RemoteTrack, AudioTrack {
         }
     }
 
+    private lazy var _adapter = AudioRendererAdapter()
+
     init(name: String,
          source: Track.Source,
          track: LKRTCMediaStreamTrack,
@@ -48,14 +51,29 @@ public class RemoteAudioTrack: Track, RemoteTrack, AudioTrack {
                    reportStatistics: reportStatistics)
     }
 
-    public func add(audioRenderer: AudioRenderer) {
+    deinit {
+        // Directly remove the adapter without unnecessary checks
         guard let audioTrack = mediaTrack as? LKRTCAudioTrack else { return }
-        audioTrack.add(AudioRendererAdapter(target: audioRenderer))
+        audioTrack.remove(_adapter)
+    }
+
+    public func add(audioRenderer: AudioRenderer) {
+        let wasEmpty = _adapter.countDelegates == 0
+        _adapter.add(delegate: audioRenderer)
+        // Attach adapter only if it wasn't attached before
+        if wasEmpty {
+            guard let audioTrack = mediaTrack as? LKRTCAudioTrack else { return }
+            audioTrack.add(_adapter)
+        }
     }
 
     public func remove(audioRenderer: AudioRenderer) {
-        guard let audioTrack = mediaTrack as? LKRTCAudioTrack else { return }
-        audioTrack.remove(AudioRendererAdapter(target: audioRenderer))
+        _adapter.remove(delegate: audioRenderer)
+        // Remove adapter only if there are no more delegates
+        if _adapter.countDelegates == 0 {
+            guard let audioTrack = mediaTrack as? LKRTCAudioTrack else { return }
+            audioTrack.remove(_adapter)
+        }
     }
 
     // MARK: - Internal
