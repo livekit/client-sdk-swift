@@ -25,33 +25,31 @@ public struct AudioLevel {
 }
 
 public extension LKAudioBuffer {
-    /// Convert to AVAudioPCMBuffer float buffer will be normalized to 32 bit.
+    /// Convert to AVAudioPCMBuffer Int16 format.
     @objc
     func toAVAudioPCMBuffer() -> AVAudioPCMBuffer? {
-        guard let audioFormat = AVAudioFormat(commonFormat: .pcmFormatFloat32,
+        guard let audioFormat = AVAudioFormat(commonFormat: .pcmFormatInt16,
                                               sampleRate: Double(frames * 100),
                                               channels: AVAudioChannelCount(channels),
                                               interleaved: false),
             let pcmBuffer = AVAudioPCMBuffer(pcmFormat: audioFormat,
                                              frameCapacity: AVAudioFrameCount(frames))
-        else {
-            return nil
-        }
+        else { return nil }
 
         pcmBuffer.frameLength = AVAudioFrameCount(frames)
 
-        guard let targetBufferPointer = pcmBuffer.floatChannelData else { return nil }
-
-        // Optimized version
-        var normalizationFactor: Float = 1.0 / 32768.0
+        guard let targetBufferPointer = pcmBuffer.int16ChannelData else { return nil }
 
         for i in 0 ..< channels {
-            vDSP_vsmul(rawBuffer(forChannel: i),
-                       1,
-                       &normalizationFactor,
-                       targetBufferPointer[i],
-                       1,
-                       vDSP_Length(frames))
+            let sourceBuffer = rawBuffer(forChannel: i)
+            let targetBuffer = targetBufferPointer[i]
+            // sourceBuffer is in the format of [Int16] but is stored in 32-bit alignment, we need to pack the Int16 data correctly.
+
+            for frame in 0 ..< frames {
+                // Cast and pack the source 32-bit Int16 data into the target 16-bit buffer
+                let clampedValue = max(Float(Int16.min), min(Float(Int16.max), sourceBuffer[frame]))
+                targetBuffer[frame] = Int16(clampedValue)
+            }
         }
 
         return pcmBuffer
