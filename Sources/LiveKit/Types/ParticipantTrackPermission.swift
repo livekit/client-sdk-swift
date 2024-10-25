@@ -17,7 +17,7 @@
 import Foundation
 
 @objc
-public class ParticipantTrackPermission: NSObject {
+public final class ParticipantTrackPermission: NSObject, Sendable {
     /**
      * The participant id this permission applies to.
      */

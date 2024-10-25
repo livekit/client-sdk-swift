@@ -16,7 +16,7 @@
 
 import Foundation
 
-public enum SimulateScenario {
+public enum SimulateScenario: Sendable {
     // Client
     case quickReconnect
     case fullReconnect

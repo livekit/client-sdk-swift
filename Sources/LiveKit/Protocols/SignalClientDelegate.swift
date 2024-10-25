@@ -27,7 +27,7 @@ protocol SignalClientDelegate: AnyObject {
     func signalClient(_ signalClient: SignalClient, didReceiveConnectResponse connectResponse: SignalClient.ConnectResponse) async
     func signalClient(_ signalClient: SignalClient, didReceiveAnswer answer: LKRTCSessionDescription) async
     func signalClient(_ signalClient: SignalClient, didReceiveOffer offer: LKRTCSessionDescription) async
-    func signalClient(_ signalClient: SignalClient, didReceiveIceCandidate iceCandidate: LKRTCIceCandidate, target: Livekit_SignalTarget) async
+    func signalClient(_ signalClient: SignalClient, didReceiveIceCandidate iceCandidate: IceCandidate, target: Livekit_SignalTarget) async
     func signalClient(_ signalClient: SignalClient, didUnpublishLocalTrack localTrack: Livekit_TrackUnpublishedResponse) async
     func signalClient(_ signalClient: SignalClient, didUpdateParticipants participants: [Livekit_ParticipantInfo]) async
     func signalClient(_ signalClient: SignalClient, didUpdateRoom room: Livekit_Room) async

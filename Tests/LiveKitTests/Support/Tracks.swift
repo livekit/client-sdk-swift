@@ -185,8 +185,8 @@ class AudioTrackWatcher: AudioRenderer {
         }
     }
 
-    func render(sampleBuffer: CMSampleBuffer) {
-        print("did receive first audio frame: \(String(describing: sampleBuffer))")
+    func render(pcmBuffer: AVAudioPCMBuffer) {
+        print("did receive first audio frame: \(String(describing: pcmBuffer))")
 
         _state.mutate {
             if !$0.didRenderFirstFrame {

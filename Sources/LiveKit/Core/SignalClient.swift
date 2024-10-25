@@ -28,7 +28,7 @@ actor SignalClient: Loggable {
     typealias AddTrackRequestPopulator<R> = (inout Livekit_AddTrackRequest) throws -> R
     typealias AddTrackResult<R> = (result: R, trackInfo: Livekit_TrackInfo)
 
-    public enum ConnectResponse {
+    public enum ConnectResponse: Sendable {
         case join(Livekit_JoinResponse)
         case reconnect(Livekit_ReconnectResponse)
 
@@ -289,7 +289,7 @@ private extension SignalClient {
                 return
             }
 
-            _delegate.notifyDetached { await $0.signalClient(self, didReceiveIceCandidate: rtcCandidate, target: trickle.target) }
+            _delegate.notifyDetached { await $0.signalClient(self, didReceiveIceCandidate: rtcCandidate.toLKType(), target: trickle.target) }
 
         case let .update(update):
             _delegate.notifyDetached { await $0.signalClient(self, didUpdateParticipants: update.participants) }
@@ -377,11 +377,11 @@ extension SignalClient {
         try await _sendRequest(r)
     }
 
-    func sendCandidate(candidate: LKRTCIceCandidate, target: Livekit_SignalTarget) async throws {
+    func sendCandidate(candidate: IceCandidate, target: Livekit_SignalTarget) async throws {
         let r = try Livekit_SignalRequest.with {
             $0.trickle = try Livekit_TrickleRequest.with {
                 $0.target = target
-                $0.candidateInit = try candidate.toLKType().toJsonString()
+                $0.candidateInit = try candidate.toJsonString()
             }
         }
 

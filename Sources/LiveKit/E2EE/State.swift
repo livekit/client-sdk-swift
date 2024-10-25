@@ -23,7 +23,7 @@ internal import LiveKitWebRTC
 #endif
 
 @objc
-public enum E2EEState: Int {
+public enum E2EEState: Int, Sendable {
     case new
     case ok
     case key_ratcheted
