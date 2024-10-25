@@ -71,8 +71,8 @@ public class AudioManager: Loggable {
 
     #if os(iOS) || os(visionOS) || os(tvOS)
 
-    public typealias ConfigureAudioSessionFunc = (_ newState: State,
-                                                  _ oldState: State) -> Void
+    public typealias ConfigureAudioSessionFunc = @Sendable (_ newState: State,
+                                                            _ oldState: State) -> Void
 
     /// Use this to provide a custom function to configure the audio session, overriding the default behavior
     /// provided by ``defaultConfigureAudioSessionFunc(newState:oldState:)``.
@@ -119,7 +119,7 @@ public class AudioManager: Loggable {
         case localAndRemote
     }
 
-    public struct State: Equatable {
+    public struct State: Equatable, Sendable {
         // Only consider State mutated when public vars change
         public static func == (lhs: AudioManager.State, rhs: AudioManager.State) -> Bool {
             var isEqual = lhs.localTracksCount == rhs.localTracksCount &&
@@ -226,34 +226,40 @@ public class AudioManager: Loggable {
 
     // MARK: - Private
 
-    // Singleton
-    private init() {
-        // trigger events when state mutates
-        state.onDidMutate = { [weak self] newState, oldState in
-            guard let self else { return }
-            // Return if state is equal.
-            guard newState != oldState else { return }
+    private let _configureRunner = SerialRunnerActor<Void>()
 
+    #if os(iOS) || os(visionOS) || os(tvOS)
+    private func _asyncConfigure(newState: State, oldState: State) async throws {
+        try await _configureRunner.run {
             self.log("\(oldState) -> \(newState)")
-            #if os(iOS) || os(visionOS) || os(tvOS)
             let configureFunc = newState.customConfigureFunc ?? self.defaultConfigureAudioSessionFunc
             configureFunc(newState, oldState)
-            #endif
         }
     }
+    #endif
 
-    func trackDidStart(_ type: Type) {
-        state.mutate { state in
+    func trackDidStart(_ type: Type) async throws {
+        let (newState, oldState) = state.mutate { state in
+            let oldState = state
             if type == .local { state.localTracksCount += 1 }
             if type == .remote { state.remoteTracksCount += 1 }
+            return (state, oldState)
         }
+        #if os(iOS) || os(visionOS) || os(tvOS)
+        try await _asyncConfigure(newState: newState, oldState: oldState)
+        #endif
     }
 
-    func trackDidStop(_ type: Type) {
-        state.mutate { state in
+    func trackDidStop(_ type: Type) async throws {
+        let (newState, oldState) = state.mutate { state in
+            let oldState = state
             if type == .local { state.localTracksCount = max(state.localTracksCount - 1, 0) }
             if type == .remote { state.remoteTracksCount = max(state.remoteTracksCount - 1, 0) }
+            return (state, oldState)
         }
+        #if os(iOS) || os(visionOS) || os(tvOS)
+        try await _asyncConfigure(newState: newState, oldState: oldState)
+        #endif
     }
 
     #if os(iOS) || os(visionOS) || os(tvOS)

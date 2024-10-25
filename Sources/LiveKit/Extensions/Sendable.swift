@@ -16,11 +16,12 @@
 
 import Foundation
 
-@objc
-public protocol AudioTrack where Self: Track {
-    @objc(addAudioRenderer:)
-    func add(audioRenderer: AudioRenderer)
+#if swift(>=5.9)
+internal import LiveKitWebRTC
+#else
+@_implementationOnly import LiveKitWebRTC
+#endif
 
-    @objc(removeAudioRenderer:)
-    func remove(audioRenderer: AudioRenderer)
-}
+// Immutable classes.
+extension LKRTCMediaConstraints: @unchecked Sendable {}
+extension LKRTCSessionDescription: @unchecked Sendable {}

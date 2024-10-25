@@ -24,15 +24,6 @@ internal import LiveKitWebRTC
 
 @objc
 public class RemoteAudioTrack: Track, RemoteTrack, AudioTrack {
-    // State used to manage AudioRenderers
-    private struct RendererState {
-        var didAttacheAudioRendererAdapter: Bool = false
-        let audioRenderers = MulticastDelegate<AudioRenderer>(label: "AudioRenderer")
-    }
-
-    private lazy var _audioRendererAdapter = AudioRendererAdapter(target: self)
-    private let _rendererState = StateSync(RendererState())
-
     /// Volume with range 0.0 - 1.0
     public var volume: Double {
         get {
@@ -59,43 +50,21 @@ public class RemoteAudioTrack: Track, RemoteTrack, AudioTrack {
 
     public func add(audioRenderer: AudioRenderer) {
         guard let audioTrack = mediaTrack as? LKRTCAudioTrack else { return }
-
-        _rendererState.mutate {
-            $0.audioRenderers.add(delegate: audioRenderer)
-            if !$0.didAttacheAudioRendererAdapter {
-                audioTrack.add(_audioRendererAdapter)
-                $0.didAttacheAudioRendererAdapter = true
-            }
-        }
+        audioTrack.add(AudioRendererAdapter(target: audioRenderer))
     }
 
     public func remove(audioRenderer: AudioRenderer) {
         guard let audioTrack = mediaTrack as? LKRTCAudioTrack else { return }
-
-        _rendererState.mutate {
-            $0.audioRenderers.remove(delegate: audioRenderer)
-            if $0.audioRenderers.allDelegates.isEmpty {
-                audioTrack.remove(_audioRendererAdapter)
-                $0.didAttacheAudioRendererAdapter = false
-            }
-        }
+        audioTrack.remove(AudioRendererAdapter(target: audioRenderer))
     }
 
     // MARK: - Internal
 
     override func startCapture() async throws {
-        AudioManager.shared.trackDidStart(.remote)
+        try await AudioManager.shared.trackDidStart(.remote)
     }
 
     override func stopCapture() async throws {
-        AudioManager.shared.trackDidStop(.remote)
-    }
-}
-
-extension RemoteAudioTrack: AudioRenderer {
-    public func render(sampleBuffer: CMSampleBuffer) {
-        _rendererState.audioRenderers.notify { audioRenderer in
-            audioRenderer.render?(sampleBuffer: sampleBuffer)
-        }
+        try await AudioManager.shared.trackDidStop(.remote)
     }
 }

@@ -21,7 +21,7 @@ internal import LiveKitWebRTC
 #endif
 
 @objc
-public enum DegradationPreference: Int {
+public enum DegradationPreference: Int, Sendable {
     /// The SDK will decide which preference is suitable or will use WebRTC's default implementation.
     case auto
     case disabled
