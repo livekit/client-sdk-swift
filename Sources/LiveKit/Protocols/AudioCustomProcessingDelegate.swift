@@ -39,14 +39,10 @@ public protocol AudioCustomProcessingDelegate {
     func audioProcessingRelease()
 }
 
-class AudioCustomProcessingDelegateAdapter: NSObject, LKRTCAudioCustomProcessingDelegate {
+class AudioCustomProcessingDelegateAdapter: MulticastDelegate<AudioRenderer>, LKRTCAudioCustomProcessingDelegate {
     // MARK: - Public
 
     public var target: AudioCustomProcessingDelegate? { _state.target }
-
-    // MARK: - Internal
-
-    let audioRenderers = MulticastDelegate<AudioRenderer>(label: "AudioRenderer")
 
     // MARK: - Private
 
@@ -54,15 +50,17 @@ class AudioCustomProcessingDelegateAdapter: NSObject, LKRTCAudioCustomProcessing
         weak var target: AudioCustomProcessingDelegate?
     }
 
-    private var _state: StateSync<State>
-
-    init(target: AudioCustomProcessingDelegate? = nil) {
-        _state = StateSync(State(target: target))
-    }
+    private var _state = StateSync(State())
 
     public func set(target: AudioCustomProcessingDelegate?) {
         _state.mutate { $0.target = target }
     }
+
+    init() {
+        super.init(label: "AudioCustomProcessingDelegateAdapter")
+    }
+
+    // MARK: - AudioCustomProcessingDelegate
 
     func audioProcessingInitialize(sampleRate sampleRateHz: Int, channels: Int) {
         target?.audioProcessingInitialize(sampleRate: sampleRateHz, channels: channels)
@@ -73,24 +71,12 @@ class AudioCustomProcessingDelegateAdapter: NSObject, LKRTCAudioCustomProcessing
         target?.audioProcessingProcess(audioBuffer: lkAudioBuffer)
 
         // Convert to pcmBuffer and notify only if an audioRenderer is added.
-        if audioRenderers.isDelegatesNotEmpty, let pcmBuffer = lkAudioBuffer.toAVAudioPCMBuffer() {
-            audioRenderers.notify { $0.render(pcmBuffer: pcmBuffer) }
+        if isDelegatesNotEmpty, let pcmBuffer = lkAudioBuffer.toAVAudioPCMBuffer() {
+            notify { $0.render(pcmBuffer: pcmBuffer) }
         }
     }
 
     func audioProcessingRelease() {
         target?.audioProcessingRelease()
-    }
-
-    // Proxy the equality operators
-
-    override func isEqual(_ object: Any?) -> Bool {
-        guard let other = object as? AudioCustomProcessingDelegateAdapter else { return false }
-        return target === other.target
-    }
-
-    override var hash: Int {
-        guard let target else { return 0 }
-        return ObjectIdentifier(target).hashValue
     }
 }

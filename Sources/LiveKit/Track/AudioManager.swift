@@ -156,13 +156,13 @@ public class AudioManager: Loggable {
     // MARK: - AudioProcessingModule
 
     private lazy var capturePostProcessingDelegateAdapter: AudioCustomProcessingDelegateAdapter = {
-        let adapter = AudioCustomProcessingDelegateAdapter(target: nil)
+        let adapter = AudioCustomProcessingDelegateAdapter()
         RTC.audioProcessingModule.capturePostProcessingDelegate = adapter
         return adapter
     }()
 
     private lazy var renderPreProcessingDelegateAdapter: AudioCustomProcessingDelegateAdapter = {
-        let adapter = AudioCustomProcessingDelegateAdapter(target: nil)
+        let adapter = AudioCustomProcessingDelegateAdapter()
         RTC.audioProcessingModule.renderPreProcessingDelegate = adapter
         return adapter
     }()
@@ -327,11 +327,11 @@ public extension AudioManager {
     /// Only ``AudioRenderer/render(pcmBuffer:)`` will be called.
     /// Usage: `AudioManager.shared.add(localAudioRenderer: localRenderer)`
     func add(localAudioRenderer delegate: AudioRenderer) {
-        capturePostProcessingDelegateAdapter.audioRenderers.add(delegate: delegate)
+        capturePostProcessingDelegateAdapter.add(delegate: delegate)
     }
 
     func remove(localAudioRenderer delegate: AudioRenderer) {
-        capturePostProcessingDelegateAdapter.audioRenderers.remove(delegate: delegate)
+        capturePostProcessingDelegateAdapter.remove(delegate: delegate)
     }
 }
 
@@ -341,10 +341,10 @@ public extension AudioManager {
     /// To receive buffer for individual tracks, use ``RemoteAudioTrack/add(audioRenderer:)`` instead.
     /// Usage: `AudioManager.shared.add(remoteAudioRenderer: localRenderer)`
     func add(remoteAudioRenderer delegate: AudioRenderer) {
-        renderPreProcessingDelegateAdapter.audioRenderers.add(delegate: delegate)
+        renderPreProcessingDelegateAdapter.add(delegate: delegate)
     }
 
     func remove(remoteAudioRenderer delegate: AudioRenderer) {
-        renderPreProcessingDelegateAdapter.audioRenderers.remove(delegate: delegate)
+        renderPreProcessingDelegateAdapter.remove(delegate: delegate)
     }
 }
