@@ -705,8 +705,8 @@ extension VideoView: VideoRenderer {
             }
             self._secondaryRenderer = nil
         }
-        
-        let previousPrimaryRendered = self._primaryRenderer
+
+        let previousPrimaryRendered = _primaryRenderer
         let completion: (Bool) -> Void = { _ in
             previousPrimaryRendered?.removeFromSuperview()
         }
