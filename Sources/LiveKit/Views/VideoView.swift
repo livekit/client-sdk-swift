@@ -706,16 +706,23 @@ extension VideoView: VideoRenderer {
             self._secondaryRenderer = nil
         }
 
+        let previousPrimaryRendered = _primaryRenderer
+        let completion: (Bool) -> Void = { _ in
+            previousPrimaryRendered?.removeFromSuperview()
+        }
+
         // Currently only for iOS
         #if os(iOS)
         let (mode, duration, position) = _state.read { ($0.transitionMode, $0.transitionDuration, $0.captureDevice?.facingPosition) }
         if let transitionOption = mode.toAnimationOption(fromPosition: position) {
-            UIView.transition(with: self, duration: duration, options: transitionOption, animations: block, completion: nil)
+            UIView.transition(with: self, duration: duration, options: transitionOption, animations: block, completion: completion)
         } else {
             block()
+            completion(true)
         }
         #else
         block()
+        completion(true)
         #endif
     }
 }

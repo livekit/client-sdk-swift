@@ -96,3 +96,67 @@ public extension Sequence where Iterator.Element == AudioLevel {
                           peak: totalSums.peakSum / Float(count))
     }
 }
+
+public class AudioVisualizeProcessor {
+    static let bufferSize = 1024
+
+    // MARK: - Public
+
+    public let minFrequency: Float
+    public let maxFrequency: Float
+    public let minDB: Float
+    public let maxDB: Float
+    public let bandsCount: Int
+
+    private var bands: [Float]?
+
+    // MARK: - Private
+
+    private let ringBuffer = RingBuffer<Float>(size: AudioVisualizeProcessor.bufferSize)
+    private let processor: FFTProcessor
+
+    public init(minFrequency: Float = 10,
+                maxFrequency: Float = 8000,
+                minDB: Float = -32.0,
+                maxDB: Float = 32.0,
+                bandsCount: Int = 100)
+    {
+        self.minFrequency = minFrequency
+        self.maxFrequency = maxFrequency
+        self.minDB = minDB
+        self.maxDB = maxDB
+        self.bandsCount = bandsCount
+
+        processor = FFTProcessor(bufferSize: Self.bufferSize)
+        bands = [Float](repeating: 0.0, count: bandsCount)
+    }
+
+    public func process(pcmBuffer: AVAudioPCMBuffer) -> [Float]? {
+        guard let pcmBuffer = pcmBuffer.convert(toCommonFormat: .pcmFormatFloat32) else { return nil }
+        guard let floatChannelData = pcmBuffer.floatChannelData else { return nil }
+
+        // Get the float array.
+        let floats = Array(UnsafeBufferPointer(start: floatChannelData[0], count: Int(pcmBuffer.frameLength)))
+        ringBuffer.write(floats)
+
+        // Get full-size buffer if available, otherwise return
+        guard let buffer = ringBuffer.read() else { return nil }
+
+        // Process FFT and compute frequency bands
+        let fftRes = processor.process(buffer: buffer)
+        let bands = fftRes.computeBands(
+            minFrequency: minFrequency,
+            maxFrequency: maxFrequency,
+            bandsCount: bandsCount,
+            sampleRate: Float(pcmBuffer.format.sampleRate)
+        )
+
+        let headroom = maxDB - minDB
+
+        // Normalize magnitudes (already in decibels)
+        return bands.magnitudes.map { magnitude in
+            let adjustedMagnitude = max(0, magnitude + abs(minDB))
+            return min(1.0, adjustedMagnitude / headroom)
+        }
+    }
+}

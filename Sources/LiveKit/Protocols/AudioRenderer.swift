@@ -29,26 +29,17 @@ public protocol AudioRenderer {
     func render(pcmBuffer: AVAudioPCMBuffer)
 }
 
-class AudioRendererAdapter: NSObject, LKRTCAudioRenderer {
-    private weak var target: AudioRenderer?
-    private let targetHashValue: Int
+class AudioRendererAdapter: MulticastDelegate<AudioRenderer>, LKRTCAudioRenderer {
+    //
+    typealias Delegate = AudioRenderer
 
-    init(target: AudioRenderer) {
-        self.target = target
-        targetHashValue = ObjectIdentifier(target).hashValue
+    init() {
+        super.init(label: "AudioRendererAdapter")
     }
+
+    // MARK: - LKRTCAudioRenderer
 
     func render(pcmBuffer: AVAudioPCMBuffer) {
-        target?.render(pcmBuffer: pcmBuffer)
-    }
-
-    // Proxy the equality operators
-    override func isEqual(_ object: Any?) -> Bool {
-        guard let other = object as? AudioRendererAdapter else { return false }
-        return targetHashValue == other.targetHashValue
-    }
-
-    override var hash: Int {
-        targetHashValue
+        notify { $0.render(pcmBuffer: pcmBuffer) }
     }
 }
