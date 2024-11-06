@@ -66,7 +66,11 @@ public class AudioManager: Loggable {
 
         func audioSession(_: LKRTCAudioSession, audioUnitWillInitialize isRecord: Bool) {
             log("isRecord: \(isRecord)")
-            LKRTCAudioSessionConfiguration.webRTC().category = AVAudioSession.Category.playAndRecord.rawValue
+            let config = LKRTCAudioSessionConfiguration.webRTC()
+            config.category = AVAudioSession.Category.playAndRecord.rawValue
+            config.categoryOptions = [.allowBluetooth, .allowBluetoothA2DP, .allowAirPlay]
+            config.mode = AVAudioSession.Mode.videoChat.rawValue
+            LKRTCAudioSessionConfiguration.setWebRTC(config)
         }
 
         func audioSessionDidStopPlayOrRecord(_: LKRTCAudioSession) {
