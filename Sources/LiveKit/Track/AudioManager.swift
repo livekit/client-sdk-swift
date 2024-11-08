@@ -59,6 +59,7 @@ public class LKAudioBuffer: NSObject {
 
 // Audio Session Configuration related
 public class AudioManager: Loggable {
+    #if os(iOS)
     class AudioSessionDelegateObserver: NSObject, Loggable, LKRTCAudioSessionDelegate {
         func audioSessionDidStartPlayOrRecord(_: LKRTCAudioSession) {
             log()
@@ -77,6 +78,7 @@ public class AudioManager: Loggable {
             log()
         }
     }
+    #endif
 
     // MARK: - Public
 
@@ -269,6 +271,7 @@ public class AudioManager: Loggable {
         }
     }
 
+    #if os(iOS)
     let _audioSessionDelegateObserver = AudioSessionDelegateObserver()
 
     init() {
@@ -278,6 +281,7 @@ public class AudioManager: Loggable {
     deinit {
         LKRTCAudioSession.sharedInstance().remove(_audioSessionDelegateObserver)
     }
+    #endif
 }
 
 public extension AudioManager {
