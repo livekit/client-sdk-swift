@@ -28,8 +28,8 @@ public class Room: NSObject, ObservableObject, Loggable {
 
     // MARK: - Public
 
-    @objc
     /// Server assigned id of the Room.
+    @objc
     public var sid: Sid? { _state.sid }
 
     /// Server assigned id of the Room. *async* version of ``Room/sid``.
