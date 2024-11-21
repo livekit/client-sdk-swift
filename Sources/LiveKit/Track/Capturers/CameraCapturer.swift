@@ -375,7 +375,7 @@ extension LKRTCVideoFrame {
         let offsetX = (width - cropWidth) / 2
         let offsetY = (height - cropHeight) / 2
 
-        guard let b = buffer.cropAndScale?(
+        guard let newBuffer = buffer.cropAndScale?(
             with: offsetX,
             offsetY: offsetY,
             cropWidth: cropWidth,
@@ -384,6 +384,6 @@ extension LKRTCVideoFrame {
             scaleHeight: targetHeight
         ) else { return nil }
 
-        return LKRTCVideoFrame(buffer: b, rotation: rotation, timeStampNs: timeStampNs)
+        return LKRTCVideoFrame(buffer: newBuffer, rotation: rotation, timeStampNs: timeStampNs)
     }
 }
