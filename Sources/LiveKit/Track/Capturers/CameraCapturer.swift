@@ -278,7 +278,6 @@ class VideoCapturerDelegateAdapter: NSObject, LKRTCVideoCapturerDelegate, Loggab
         {
             frame = newFrame
         }
-        log("adaptOutputFormatEnabled: \(adaptOutputFormatEnabled))")
 
         // Pass frame to video source
         cameraCapturer.capture(frame: frame, capturer: capturer, device: cameraCapturer.device, options: cameraCapturer.options)
