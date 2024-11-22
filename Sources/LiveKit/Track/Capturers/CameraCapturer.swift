@@ -190,7 +190,7 @@ public class CameraCapturer: VideoCapturer {
         let sortedFormats = formats.map { (format: $0, dimensions: Dimensions(from: CMVideoFormatDescriptionGetDimensions($0.formatDescription))) }
             .sorted { $0.dimensions.area < $1.dimensions.area }
 
-        log("sortedFormats: \(sortedFormats.map { "(dimensions: \(String(describing: $0.dimensions)), fps: \(String(describing: $0.format.fpsRange())))" }), target dimensions: \(options.dimensions)")
+        log("sortedFormats: \(sortedFormats.map { "(dimensions: \(String(describing: $0.dimensions)), \(String(describing: $0.format.toDebugString()))" }), target dimensions: \(options.dimensions)")
 
         // default to the largest supported dimensions (backup)
         var selectedFormat = sortedFormats.last
@@ -201,10 +201,10 @@ public class CameraCapturer: VideoCapturer {
             // Use the preferred capture format if specified in options
             selectedFormat = foundFormat
         } else {
-            if let foundFormat = sortedFormats.first(where: { $0.dimensions.area >= self.options.dimensions.area && $0.format.fpsRange().contains(self.options.fps) && $0.format.filterForMulticamSupport }) {
+            if let foundFormat = sortedFormats.first(where: { ($0.dimensions.width >= self.options.dimensions.width && $0.dimensions.height >= self.options.dimensions.height) && $0.format.fpsRange().contains(self.options.fps) && $0.format.filterForMulticamSupport }) {
                 // Use the first format that satisfies preferred dimensions & fps
                 selectedFormat = foundFormat
-            } else if let foundFormat = sortedFormats.first(where: { $0.dimensions.area >= self.options.dimensions.area }) {
+            } else if let foundFormat = sortedFormats.first(where: { $0.dimensions.width >= self.options.dimensions.width && $0.dimensions.height >= self.options.dimensions.height }) {
                 // Use the first format that satisfies preferred dimensions (without fps)
                 selectedFormat = foundFormat
             }
@@ -261,7 +261,7 @@ public class CameraCapturer: VideoCapturer {
     }
 }
 
-class VideoCapturerDelegateAdapter: NSObject, LKRTCVideoCapturerDelegate {
+class VideoCapturerDelegateAdapter: NSObject, LKRTCVideoCapturerDelegate, Loggable {
     weak var cameraCapturer: CameraCapturer?
 
     init(cameraCapturer: CameraCapturer? = nil) {
@@ -270,6 +270,15 @@ class VideoCapturerDelegateAdapter: NSObject, LKRTCVideoCapturerDelegate {
 
     func capturer(_ capturer: LKRTCVideoCapturer, didCapture frame: LKRTCVideoFrame) {
         guard let cameraCapturer else { return }
+
+        var frame = frame
+        let adaptOutputFormatEnabled = (frame.width != cameraCapturer.options.dimensions.width || frame.height != cameraCapturer.options.dimensions.height)
+        if adaptOutputFormatEnabled, let newFrame = frame.cropAndScaleFromCenter(targetWidth: cameraCapturer.options.dimensions.width,
+                                                                                 targetHeight: cameraCapturer.options.dimensions.height)
+        {
+            frame = newFrame
+        }
+
         // Pass frame to video source
         cameraCapturer.capture(frame: frame, capturer: capturer, device: cameraCapturer.device, options: cameraCapturer.options)
     }
@@ -337,5 +346,43 @@ extension AVCaptureDevice.Format {
         #else
         return true
         #endif
+    }
+}
+
+extension LKRTCVideoFrame {
+    func cropAndScaleFromCenter(
+        targetWidth: Int32,
+        targetHeight: Int32
+    ) -> LKRTCVideoFrame? {
+        // Calculate aspect ratios
+        let sourceRatio = Double(width) / Double(height)
+        let targetRatio = Double(targetWidth) / Double(targetHeight)
+
+        // Calculate crop dimensions
+        let (cropWidth, cropHeight): (Int32, Int32)
+        if sourceRatio > targetRatio {
+            // Source is wider - crop width
+            cropHeight = height
+            cropWidth = Int32(Double(height) * targetRatio)
+        } else {
+            // Source is taller - crop height
+            cropWidth = width
+            cropHeight = Int32(Double(width) / targetRatio)
+        }
+
+        // Calculate center offsets
+        let offsetX = (width - cropWidth) / 2
+        let offsetY = (height - cropHeight) / 2
+
+        guard let newBuffer = buffer.cropAndScale?(
+            with: offsetX,
+            offsetY: offsetY,
+            cropWidth: cropWidth,
+            cropHeight: cropHeight,
+            scaleWidth: targetWidth,
+            scaleHeight: targetHeight
+        ) else { return nil }
+
+        return LKRTCVideoFrame(buffer: newBuffer, rotation: rotation, timeStampNs: timeStampNs)
     }
 }

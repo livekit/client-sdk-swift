@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+import AVFoundation
 import Foundation
 
 #if swift(>=5.9)
@@ -164,5 +165,16 @@ extension LKRTCRtpEncodingParameters {
             "maxFramerate: \(String(describing: maxFramerate))" +
             "scaleResolutionDownBy: \(String(describing: scaleResolutionDownBy))" +
             ")"
+    }
+}
+
+extension AVCaptureDevice.Format {
+    func toDebugString() -> String {
+        var values: [String] = []
+        values.append("fps: \(fpsRange())")
+        #if os(iOS)
+        values.append("isMulticamSupported: \(isMultiCamSupported)")
+        #endif
+        return "Format(\(values.joined(separator: ", ")))"
     }
 }
