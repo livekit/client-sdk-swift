@@ -354,9 +354,27 @@ extension LKRTCVideoFrame {
         targetWidth: Int32,
         targetHeight: Int32
     ) -> LKRTCVideoFrame? {
+        // Ensure target dimensions don't exceed source dimensions
+        let scaleWidth: Int32
+        let scaleHeight: Int32
+
+        if targetWidth > width || targetHeight > height {
+            // Calculate scale factor to fit within source dimensions
+            let widthScale = Double(targetWidth) / Double(width) // Scale down factor
+            let heightScale = Double(targetHeight) / Double(height)
+            let scale = max(widthScale, heightScale)
+
+            // Apply scale to target dimensions
+            scaleWidth = Int32(Double(targetWidth) / scale)
+            scaleHeight = Int32(Double(targetHeight) / scale)
+        } else {
+            scaleWidth = targetWidth
+            scaleHeight = targetHeight
+        }
+
         // Calculate aspect ratios
         let sourceRatio = Double(width) / Double(height)
-        let targetRatio = Double(targetWidth) / Double(targetHeight)
+        let targetRatio = Double(scaleWidth) / Double(scaleHeight)
 
         // Calculate crop dimensions
         let (cropWidth, cropHeight): (Int32, Int32)
@@ -379,8 +397,8 @@ extension LKRTCVideoFrame {
             offsetY: offsetY,
             cropWidth: cropWidth,
             cropHeight: cropHeight,
-            scaleWidth: targetWidth,
-            scaleHeight: targetHeight
+            scaleWidth: scaleWidth,
+            scaleHeight: scaleHeight
         ) else { return nil }
 
         return LKRTCVideoFrame(buffer: newBuffer, rotation: rotation, timeStampNs: timeStampNs)
