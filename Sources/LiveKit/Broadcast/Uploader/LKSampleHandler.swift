@@ -88,7 +88,7 @@ open class LKSampleHandler: RPBroadcastSampleHandler {
     ///   ```
     open func connectionDidClose(error: Error?) {
         if let error {
-            self.finishBroadcastWithError(error)
+            finishBroadcastWithError(error)
         } else {
             LKObjCHelpers.finishBroadcastWithoutError(self)
         }
