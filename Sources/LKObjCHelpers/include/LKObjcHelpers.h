@@ -3,6 +3,6 @@
 
 @interface LKObjCHelpers : NSObject
 
-+ (void)finishBroadcastWithoutError:(RPBroadcastSampleHandler *)handler API_AVAILABLE(macos(11.0));
++ (void)finishBroadcastWithoutError:(RPBroadcastSampleHandler *)handler API_AVAILABLE(ios(10.0), macCatalyst(13.1), macos(11.0), tvos(10.0), visionos(1.0));
 
 @end
