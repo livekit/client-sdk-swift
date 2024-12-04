@@ -57,6 +57,14 @@ open class LKSampleHandler: RPBroadcastSampleHandler {
         openConnection()
     }
 
+    override public func broadcastPaused() {
+        // User has requested to pause the broadcast. Samples will stop being delivered.
+    }
+
+    override public func broadcastResumed() {
+        // User has requested to resume the broadcast. Samples delivery will resume.
+    }
+
     override public func broadcastFinished() {
         // User has requested to finish the broadcast.
         DarwinNotificationCenter.shared.postNotification(.broadcastStopped)
