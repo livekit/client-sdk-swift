@@ -20,7 +20,7 @@
 import ReplayKit
 #endif
 
-import ObjectiveC.runtime
+import LKObjCHelpers
 
 open class LKSampleHandler: RPBroadcastSampleHandler {
     private var clientConnection: BroadcastUploadSocketConnection?
@@ -90,14 +90,7 @@ open class LKSampleHandler: RPBroadcastSampleHandler {
         if let error {
             self.finishBroadcastWithError(error)
         } else {
-            // Call finishBroadcastWithError with nil error, which ends the broadcast without an error popup
-            // This is unsupported/undocumented but appears to work and is preferable to a cryptic default LiveKit error message
-            // See https://stackoverflow.com/a/63402492 for more discussion
-            let selector = #selector(RPBroadcastSampleHandler.finishBroadcastWithError)
-            if let methodIMP = self.method(for: selector) {
-                typealias MethodType = @convention(c) (AnyObject, Selector, Error?) -> Void
-                unsafeBitCast(methodIMP, to: MethodType.self)(self, selector, nil)
-            }
+            LKObjCHelpers.finishBroadcastWithoutError(self)
         }
     }
 

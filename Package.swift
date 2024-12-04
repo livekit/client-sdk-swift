@@ -28,11 +28,16 @@ let package = Package(
     ],
     targets: [
         .target(
+            name: "LKObjCHelpers",
+            publicHeadersPath: "include"
+        ),
+        .target(
             name: "LiveKit",
             dependencies: [
                 .product(name: "LiveKitWebRTC", package: "webrtc-xcframework"),
                 .product(name: "SwiftProtobuf", package: "swift-protobuf"),
                 .product(name: "Logging", package: "swift-log"),
+                "LKObjCHelpers",
             ],
             resources: [
                 .process("PrivacyInfo.xcprivacy"),
