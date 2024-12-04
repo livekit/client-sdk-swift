@@ -20,6 +20,8 @@
 import ReplayKit
 #endif
 
+import ObjectiveC.runtime
+
 open class LKSampleHandler: RPBroadcastSampleHandler {
     private var clientConnection: BroadcastUploadSocketConnection?
     private var uploader: SampleUploader?
@@ -55,14 +57,6 @@ open class LKSampleHandler: RPBroadcastSampleHandler {
         openConnection()
     }
 
-    override public func broadcastPaused() {
-        // User has requested to pause the broadcast. Samples will stop being delivered.
-    }
-
-    override public func broadcastResumed() {
-        // User has requested to resume the broadcast. Samples delivery will resume.
-    }
-
     override public func broadcastFinished() {
         // User has requested to finish the broadcast.
         DarwinNotificationCenter.shared.postNotification(.broadcastStopped)
@@ -81,14 +75,21 @@ open class LKSampleHandler: RPBroadcastSampleHandler {
     private func setupConnection() {
         clientConnection?.didClose = { [weak self] error in
             logger.log(level: .debug, "client connection did close \(String(describing: error))")
+            guard let self else {
+                return
+            }
 
             if let error {
-                self?.finishBroadcastWithError(error)
+                self.finishBroadcastWithError(error)
             } else {
-                // the displayed failure message is more user friendly when using NSError instead of Error
-                let LKScreenSharingStopped = 10001
-                let customError = NSError(domain: RPRecordingErrorDomain, code: LKScreenSharingStopped, userInfo: [NSLocalizedDescriptionKey: "Screen sharing stopped"])
-                self?.finishBroadcastWithError(customError)
+                // Call finishBroadcastWithError with nil error, which ends the broadcast without an error popup
+                // This is unsupported/undocumented but appears to work and is preferable to a cryptic error message
+                // See https://stackoverflow.com/a/63402492 for more discussion
+                let selector = #selector(RPBroadcastSampleHandler.finishBroadcastWithError)
+                if let methodIMP = self.method(for: selector) {
+                    typealias MethodType = @convention(c) (AnyObject, Selector, NSError?) -> Void
+                    unsafeBitCast(methodIMP, to: MethodType.self)(self, selector, nil)
+                }
             }
         }
     }
