@@ -20,6 +20,8 @@
 import ReplayKit
 #endif
 
+import LKObjCHelpers
+
 open class LKSampleHandler: RPBroadcastSampleHandler {
     private var clientConnection: BroadcastUploadSocketConnection?
     private var uploader: SampleUploader?
@@ -78,18 +80,36 @@ open class LKSampleHandler: RPBroadcastSampleHandler {
         }
     }
 
+    /// Override point to change the behavior when the socket connection has closed.
+    /// The default behavior is to pass errors through, and otherwise show nothing to the user.
+    ///
+    /// You should call `finishBroadcastWithError` in your implementation, but you can
+    /// add custom logging or present a custom error to the user instead.
+    ///
+    /// To present a custom error message:
+    ///   ```
+    ///   self.finishBroadcastWithError(NSError(
+    ///     domain: RPRecordingErrorDomain,
+    ///     code: 10001,
+    ///     userInfo: [NSLocalizedDescriptionKey: "My Custom Error Message"]
+    ///   ))
+    ///   ```
+    open func connectionDidClose(error: Error?) {
+        if let error {
+            finishBroadcastWithError(error)
+        } else {
+            LKObjCHelpers.finishBroadcastWithoutError(self)
+        }
+    }
+
     private func setupConnection() {
         clientConnection?.didClose = { [weak self] error in
             logger.log(level: .debug, "client connection did close \(String(describing: error))")
-
-            if let error {
-                self?.finishBroadcastWithError(error)
-            } else {
-                // the displayed failure message is more user friendly when using NSError instead of Error
-                let LKScreenSharingStopped = 10001
-                let customError = NSError(domain: RPRecordingErrorDomain, code: LKScreenSharingStopped, userInfo: [NSLocalizedDescriptionKey: "Screen sharing stopped"])
-                self?.finishBroadcastWithError(customError)
+            guard let self else {
+                return
             }
+
+            self.connectionDidClose(error: error)
         }
     }
 
