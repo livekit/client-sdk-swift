@@ -95,7 +95,7 @@ open class LKSampleHandler: RPBroadcastSampleHandler {
             // See https://stackoverflow.com/a/63402492 for more discussion
             let selector = #selector(RPBroadcastSampleHandler.finishBroadcastWithError)
             if let methodIMP = self.method(for: selector) {
-                typealias MethodType = @convention(c) (AnyObject, Selector, NSError?) -> Void
+                typealias MethodType = @convention(c) (AnyObject, Selector, Error?) -> Void
                 unsafeBitCast(methodIMP, to: MethodType.self)(self, selector, nil)
             }
         }
