@@ -72,6 +72,35 @@ open class LKSampleHandler: RPBroadcastSampleHandler {
         }
     }
 
+    /// Override point to change the behavior when the socket connection has closed.
+    /// The default behavior is to pass errors through, and otherwise show nothing to the user.
+    ///
+    /// You should call `finishBroadcastWithError` in your implementation, but you can
+    /// add custom logging or present a custom error to the user instead.
+    ///
+    /// To present a custom error message:
+    ///   ```
+    ///   self.finishBroadcastWithError(NSError(
+    ///     domain: RPRecordingErrorDomain,
+    ///     code: 10001,
+    ///     userInfo: [NSLocalizedDescriptionKey: "My Custom Error Message"]
+    ///   ))
+    ///   ```
+    open func connectionDidClose(error: Error?) {
+        if let error {
+            self.finishBroadcastWithError(error)
+        } else {
+            // Call finishBroadcastWithError with nil error, which ends the broadcast without an error popup
+            // This is unsupported/undocumented but appears to work and is preferable to a cryptic default LiveKit error message
+            // See https://stackoverflow.com/a/63402492 for more discussion
+            let selector = #selector(RPBroadcastSampleHandler.finishBroadcastWithError)
+            if let methodIMP = self.method(for: selector) {
+                typealias MethodType = @convention(c) (AnyObject, Selector, NSError?) -> Void
+                unsafeBitCast(methodIMP, to: MethodType.self)(self, selector, nil)
+            }
+        }
+    }
+
     private func setupConnection() {
         clientConnection?.didClose = { [weak self] error in
             logger.log(level: .debug, "client connection did close \(String(describing: error))")
@@ -79,18 +108,7 @@ open class LKSampleHandler: RPBroadcastSampleHandler {
                 return
             }
 
-            if let error {
-                self.finishBroadcastWithError(error)
-            } else {
-                // Call finishBroadcastWithError with nil error, which ends the broadcast without an error popup
-                // This is unsupported/undocumented but appears to work and is preferable to a cryptic error message
-                // See https://stackoverflow.com/a/63402492 for more discussion
-                let selector = #selector(RPBroadcastSampleHandler.finishBroadcastWithError)
-                if let methodIMP = self.method(for: selector) {
-                    typealias MethodType = @convention(c) (AnyObject, Selector, NSError?) -> Void
-                    unsafeBitCast(methodIMP, to: MethodType.self)(self, selector, nil)
-                }
-            }
+            self.connectionDidClose(error: error)
         }
     }
 
