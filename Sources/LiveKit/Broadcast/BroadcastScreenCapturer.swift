@@ -62,6 +62,12 @@ class BroadcastScreenCapturer: BufferCapturer {
         frameReader.didCapture = { pixelBuffer, rotation in
             self.capture(pixelBuffer, rotation: rotation.toLKType())
         }
+        frameReader.didEnd = { [weak self] in
+            guard let self else { return }
+            Task {
+                try await self.stopCapture()
+            }
+        }
         frameReader.startCapture(with: socketConnection)
         self.frameReader = frameReader
 

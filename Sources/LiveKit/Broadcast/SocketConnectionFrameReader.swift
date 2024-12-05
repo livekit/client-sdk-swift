@@ -137,6 +137,7 @@ class SocketConnectionFrameReader: NSObject {
 
     private var message: Message?
     var didCapture: ((CVPixelBuffer, RTCVideoRotation) -> Void)?
+    var didEnd: (() -> Void)?
 
     override init() {}
 
@@ -227,6 +228,7 @@ extension SocketConnectionFrameReader: StreamDelegate {
         case .endEncountered:
             logger.log(level: .debug, "server stream end encountered")
             stopCapture()
+            didEnd?()
         case .errorOccurred:
             logger.log(level: .debug, "server stream error encountered: \(aStream.streamError?.localizedDescription ?? "")")
         default:
