@@ -110,7 +110,7 @@ extension LocalTrackPublication: VideoCapturerDelegate {
         // Broadcasts can always be stopped from system UI that bypasses our normal disable & unpublish methods.
         // This check ensures that when this happens the track gets unpublished as well.
         #if os(iOS)
-        if state == .stopped && capturer is BroadcastScreenCapturer {
+        if state == .stopped, capturer is BroadcastScreenCapturer {
             Task {
                 guard let participant = try await self.requireParticipant() as? LocalParticipant else {
                     return
