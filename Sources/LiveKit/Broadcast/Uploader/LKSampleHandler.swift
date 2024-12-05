@@ -22,6 +22,7 @@ import ReplayKit
 
 import LKObjCHelpers
 
+@available(macCatalyst 13.1, *)
 open class LKSampleHandler: RPBroadcastSampleHandler {
     private var clientConnection: BroadcastUploadSocketConnection?
     private var uploader: SampleUploader?
