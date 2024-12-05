@@ -189,11 +189,13 @@ public class AudioManager: Loggable {
     public let defaultInputDevice = AudioDevice(ioDevice: LKRTCIODevice.defaultDevice(with: .input))
 
     public var outputDevices: [AudioDevice] {
-        RTC.audioDeviceModule.outputDevices.map { AudioDevice(ioDevice: $0) }
+        []
+        // RTC.audioDeviceModule.outputDevices.map { AudioDevice(ioDevice: $0) }
     }
 
     public var inputDevices: [AudioDevice] {
-        RTC.audioDeviceModule.inputDevices.map { AudioDevice(ioDevice: $0) }
+        []
+        // RTC.audioDeviceModule.inputDevices.map { AudioDevice(ioDevice: $0) }
     }
 
     public var outputDevice: AudioDevice {
