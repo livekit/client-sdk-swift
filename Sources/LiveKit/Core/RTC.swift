@@ -83,6 +83,8 @@ class RTC {
     static let audioSenderCapabilities = peerConnectionFactory.rtpSenderCapabilities(forKind: kRTCMediaStreamTrackKindAudio)
 
     static let peerConnectionFactory: LKRTCPeerConnectionFactory = {
+        RTCSetMinDebugLogLevel(.verbose)
+
         logger.log("Initializing SSL...", type: Room.self)
 
         RTCInitializeSSL()
