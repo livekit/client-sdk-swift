@@ -59,6 +59,29 @@ public class LKAudioBuffer: NSObject {
 
 // Audio Session Configuration related
 public class AudioManager: Loggable {
+    #if os(iOS)
+    class AudioSessionDelegateObserver: NSObject, Loggable, LKRTCAudioSessionDelegate {
+        func audioSessionDidStartPlayOrRecord(_: LKRTCAudioSession) {
+            log()
+        }
+
+        func audioSession(_: LKRTCAudioSession, audioEngineWillUpdateStateWithOutputEnabled isOutputEnabled: Bool, inputEnabled isInputEnabled: Bool) {
+            log("isOutputEnabled: \(isOutputEnabled), isInputEnabled: \(isInputEnabled)")
+
+            // Configure audio session
+            let config = LKRTCAudioSessionConfiguration.webRTC()
+            config.category = AVAudioSession.Category.playAndRecord.rawValue
+            config.categoryOptions = [.allowBluetooth, .allowBluetoothA2DP, .allowAirPlay]
+            config.mode = AVAudioSession.Mode.videoChat.rawValue
+            LKRTCAudioSessionConfiguration.setWebRTC(config)
+        }
+
+        func audioSessionDidStopPlayOrRecord(_: LKRTCAudioSession) {
+            log()
+        }
+    }
+    #endif
+
     // MARK: - Public
 
     #if compiler(>=6.0)
@@ -226,102 +249,38 @@ public class AudioManager: Loggable {
 
     let state = StateSync(State())
 
+    #if os(iOS)
+    let _audioSessionDelegateObserver = AudioSessionDelegateObserver()
+    init() {
+        LKRTCAudioSession.sharedInstance().add(_audioSessionDelegateObserver)
+    }
+
+    deinit {
+        LKRTCAudioSession.sharedInstance().remove(_audioSessionDelegateObserver)
+    }
+    #endif
+
     // MARK: - Private
 
     private let _configureRunner = SerialRunnerActor<Void>()
 
-    #if os(iOS) || os(visionOS) || os(tvOS)
-    private func _asyncConfigure(newState: State, oldState: State) async throws {
-        try await _configureRunner.run {
-            self.log("\(oldState) -> \(newState)")
-            let configureFunc = newState.customConfigureFunc ?? self.defaultConfigureAudioSessionFunc
-            configureFunc(newState, oldState)
-        }
-    }
-    #endif
-
     func trackDidStart(_ type: Type) async throws {
-        let (newState, oldState) = state.mutate { state in
+        state.mutate { state in
             let oldState = state
             if type == .local { state.localTracksCount += 1 }
             if type == .remote { state.remoteTracksCount += 1 }
             return (state, oldState)
         }
-        #if os(iOS) || os(visionOS) || os(tvOS)
-        try await _asyncConfigure(newState: newState, oldState: oldState)
-        #endif
     }
 
     func trackDidStop(_ type: Type) async throws {
-        let (newState, oldState) = state.mutate { state in
+        state.mutate { state in
             let oldState = state
             if type == .local { state.localTracksCount = max(state.localTracksCount - 1, 0) }
             if type == .remote { state.remoteTracksCount = max(state.remoteTracksCount - 1, 0) }
             return (state, oldState)
         }
-        #if os(iOS) || os(visionOS) || os(tvOS)
-        try await _asyncConfigure(newState: newState, oldState: oldState)
-        #endif
     }
-
-    #if os(iOS) || os(visionOS) || os(tvOS)
-    /// The default implementation when audio session configuration is requested by the SDK.
-    /// Configure the `RTCAudioSession` of `WebRTC` framework.
-    ///
-    /// > Note: It is recommended to use `RTCAudioSessionConfiguration.webRTC()` to obtain an instance of `RTCAudioSessionConfiguration` instead of instantiating directly.
-    ///
-    /// - Parameters:
-    ///   - configuration: A configured RTCAudioSessionConfiguration
-    ///   - setActive: passing true/false will call `AVAudioSession.setActive` internally
-    public func defaultConfigureAudioSessionFunc(newState: State, oldState: State) {
-        // Lazily computed config
-        let computeConfiguration: (() -> AudioSessionConfiguration) = {
-            switch newState.trackState {
-            case .none:
-                // Use .soloAmbient configuration
-                return .soloAmbient
-            case .remoteOnly where newState.isSpeakerOutputPreferred:
-                // Use .playback configuration with spoken audio
-                return .playback
-            default:
-                // Use .playAndRecord configuration
-                return newState.isSpeakerOutputPreferred ? .playAndRecordSpeaker : .playAndRecordReceiver
-            }
-        }
-
-        let configuration = newState.sessionConfiguration ?? computeConfiguration()
-
-        var setActive: Bool?
-        if newState.trackState != .none, oldState.trackState == .none {
-            // activate audio session when there is any local/remote audio track
-            setActive = true
-        } else if newState.trackState == .none, oldState.trackState != .none {
-            // deactivate audio session when there are no more local/remote audio tracks
-            setActive = false
-        }
-
-        let session = LKRTCAudioSession.sharedInstance()
-        // Check if needs setConfiguration
-        guard configuration != session.toAudioSessionConfiguration() else {
-            log("Skipping configure audio session, no changes")
-            return
-        }
-
-        session.lockForConfiguration()
-        defer { session.unlockForConfiguration() }
-
-        do {
-            log("Configuring audio session: \(String(describing: configuration))")
-            if let setActive {
-                try session.setConfiguration(configuration.toRTCType(), active: setActive)
-            } else {
-                try session.setConfiguration(configuration.toRTCType())
-            }
-        } catch {
-            log("Failed to configure audio session with error: \(error)", .error)
-        }
-    }
-    #endif
 }
 
 public extension AudioManager {
