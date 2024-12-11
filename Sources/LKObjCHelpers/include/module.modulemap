@@ -1,0 +1,4 @@
+module LKObjCHelpers {
+    header "LKObjCHelpers.h"
+    export *
+}
