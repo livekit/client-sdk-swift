@@ -15,7 +15,7 @@ let package = Package(
     products: [
         .library(
             name: "LiveKit",
-            targets: ["LiveKit"]
+            targets: ["LiveKit", "LKObjCHelpers"]
         ),
     ],
     dependencies: [
