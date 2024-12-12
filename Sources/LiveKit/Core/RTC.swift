@@ -57,7 +57,7 @@ class RTC {
         get { _bypassVoiceProcessing }
         set {
             if _peerConnectionFactoryInitialized {
-                logger.log("Warning: Setting bypassVoiceProcessing after PeerConnectionFactory initialization has no effect", .warning, type: Room.self)
+                logger.log("Warning: Setting bypassVoiceProcessing after PeerConnectionFactory initialization has no effect. Set it at application launch.", .warning, type: Room.self)
             }
             _bypassVoiceProcessing = newValue
         }
