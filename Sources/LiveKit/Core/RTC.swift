@@ -50,7 +50,18 @@ private class VideoEncoderFactorySimulcast: LKRTCVideoEncoderFactorySimulcast {
 }
 
 class RTC {
-    static var bypassVoiceProcessing: Bool = false
+    private static var _bypassVoiceProcessing: Bool = false
+    private static var _peerConnectionFactoryInitialized = false
+
+    static var bypassVoiceProcessing: Bool {
+        get { _bypassVoiceProcessing }
+        set {
+            if _peerConnectionFactoryInitialized {
+                logger.log("Warning: Setting bypassVoiceProcessing after PeerConnectionFactory initialization has no effect", .warning, type: Room.self)
+            }
+            _bypassVoiceProcessing = newValue
+        }
+    }
 
     static let h264BaselineLevel5CodecInfo: LKRTCVideoCodecInfo = {
         // this should never happen
@@ -89,6 +100,7 @@ class RTC {
 
         logger.log("Initializing PeerConnectionFactory...", type: Room.self)
 
+        _peerConnectionFactoryInitialized = true
         return LKRTCPeerConnectionFactory(bypassVoiceProcessing: bypassVoiceProcessing,
                                           encoderFactory: encoderFactory,
                                           decoderFactory: decoderFactory,
