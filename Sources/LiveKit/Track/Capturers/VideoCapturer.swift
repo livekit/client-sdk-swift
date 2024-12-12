@@ -231,7 +231,7 @@ extension VideoCapturer {
     {
         var rtcFrame: LKRTCVideoFrame = frame
         guard var lkFrame: VideoFrame = frame.toLKType() else {
-            // Failed to convert RTCFrame to VideoFrame
+            log("Failed to convert a RTCVideoFrame to VideoFrame.", .error)
             return
         }
 
