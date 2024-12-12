@@ -70,15 +70,21 @@ public class VideoCapturer: NSObject, Loggable, VideoCapturerProtocol {
 
     let dimensionsCompleter = AsyncCompleter<Dimensions>(label: "Dimensions", defaultTimeout: .defaultCaptureStart)
 
-    struct State: Equatable {
+    struct State {
         // Counts calls to start/stopCapturer so multiple Tracks can use the same VideoCapturer.
         var startStopCounter: Int = 0
         var dimensions: Dimensions? = nil
+        weak var processor: VideoProcessor? = nil
     }
 
     var _state = StateSync(State())
 
     public var dimensions: Dimensions? { _state.dimensions }
+
+    public weak var processor: VideoProcessor? {
+        get { _state.processor }
+        set { _state.mutate { $0.processor = newValue } }
+    }
 
     func set(dimensions newValue: Dimensions?) {
         let didUpdate = _state.mutate {
@@ -223,17 +229,31 @@ extension VideoCapturer {
                                device: AVCaptureDevice?,
                                options: VideoCaptureOptions)
     {
-        // Resolve real dimensions (apply frame rotation)
-        set(dimensions: Dimensions(width: frame.width, height: frame.height).apply(rotation: frame.rotation))
+        var rtcFrame: LKRTCVideoFrame = frame
+        guard var lkFrame: VideoFrame = frame.toLKType() else {
+            // Failed to convert RTCFrame to VideoFrame
+            return
+        }
 
-        delegate?.capturer(capturer, didCapture: frame)
+        // Apply processing if we have a processor attached.
+        if let processor = _state.processor {
+            guard let processedFrame = processor.process(frame: lkFrame) else {
+                log("VideoProcessor didn't return a frame, skipping frame.", .warning)
+                return
+            }
+            lkFrame = processedFrame
+            rtcFrame = processedFrame.toRTCType()
+        }
+
+        // Resolve real dimensions (apply frame rotation)
+        set(dimensions: Dimensions(width: rtcFrame.width, height: rtcFrame.height).apply(rotation: rtcFrame.rotation))
+
+        delegate?.capturer(capturer, didCapture: rtcFrame)
 
         if rendererDelegates.isDelegatesNotEmpty {
-            if let lkVideoFrame = frame.toLKType() {
-                rendererDelegates.notify { renderer in
-                    renderer.render?(frame: lkVideoFrame)
-                    renderer.render?(frame: lkVideoFrame, captureDevice: device, captureOptions: options)
-                }
+            rendererDelegates.notify { renderer in
+                renderer.render?(frame: lkFrame)
+                renderer.render?(frame: lkFrame, captureDevice: device, captureOptions: options)
             }
         }
     }
