@@ -37,6 +37,11 @@ public class CVPixelVideoBuffer: VideoBuffer, RTCCompatibleVideoBuffer {
         _rtcType.pixelBuffer
     }
 
+    public init(pixelBuffer: CVPixelBuffer) {
+        _rtcType = LKRTCCVPixelBuffer(pixelBuffer: pixelBuffer)
+    }
+
+    // Internal only.
     init(rtcCVPixelBuffer: LKRTCCVPixelBuffer) {
         _rtcType = rtcCVPixelBuffer
     }
