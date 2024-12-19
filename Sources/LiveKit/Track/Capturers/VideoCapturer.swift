@@ -77,7 +77,7 @@ public class VideoCapturer: NSObject, Loggable, VideoCapturerProtocol {
         weak var processor: VideoProcessor? = nil
     }
 
-    var _state = StateSync(State())
+    let _state: StateSync<State>
 
     public var dimensions: Dimensions? { _state.dimensions }
 
@@ -109,8 +109,9 @@ public class VideoCapturer: NSObject, Loggable, VideoCapturerProtocol {
         _state.startStopCounter == 0 ? .stopped : .started
     }
 
-    init(delegate: LKRTCVideoCapturerDelegate) {
+    init(delegate: LKRTCVideoCapturerDelegate, processor: VideoProcessor? = nil) {
         self.delegate = delegate
+        _state = StateSync(State(processor: processor))
         super.init()
 
         _state.onDidMutate = { [weak self] newState, oldState in
