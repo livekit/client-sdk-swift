@@ -32,6 +32,10 @@ public final class ConnectOptions: NSObject, Sendable {
     @objc
     public let reconnectAttemptDelay: TimeInterval
 
+    /// The timeout interval for the room connection.
+    @objc
+    public let connectTimeoutInterval: TimeInterval
+
     @objc
     public let primaryTransportConnectTimeout: TimeInterval
 
@@ -54,6 +58,7 @@ public final class ConnectOptions: NSObject, Sendable {
         autoSubscribe = true
         reconnectAttempts = 3
         reconnectAttemptDelay = .defaultReconnectAttemptDelay
+        connectTimeoutInterval = .defaultSocketConnect
         primaryTransportConnectTimeout = .defaultTransportState
         publisherTransportConnectTimeout = .defaultTransportState
         iceServers = []
@@ -65,6 +70,7 @@ public final class ConnectOptions: NSObject, Sendable {
     public init(autoSubscribe: Bool = true,
                 reconnectAttempts: Int = 3,
                 reconnectAttemptDelay: TimeInterval = .defaultReconnectAttemptDelay,
+                connectTimeoutInterval: TimeInterval = .defaultSocketConnect,
                 primaryTransportConnectTimeout: TimeInterval = .defaultTransportState,
                 publisherTransportConnectTimeout: TimeInterval = .defaultTransportState,
                 iceServers: [IceServer] = [],
@@ -74,6 +80,7 @@ public final class ConnectOptions: NSObject, Sendable {
         self.autoSubscribe = autoSubscribe
         self.reconnectAttempts = reconnectAttempts
         self.reconnectAttemptDelay = reconnectAttemptDelay
+        self.connectTimeoutInterval = connectTimeoutInterval
         self.primaryTransportConnectTimeout = primaryTransportConnectTimeout
         self.publisherTransportConnectTimeout = publisherTransportConnectTimeout
         self.iceServers = iceServers
@@ -88,6 +95,7 @@ public final class ConnectOptions: NSObject, Sendable {
         return autoSubscribe == other.autoSubscribe &&
             reconnectAttempts == other.reconnectAttempts &&
             reconnectAttemptDelay == other.reconnectAttemptDelay &&
+            connectTimeoutInterval == other.connectTimeoutInterval &&
             primaryTransportConnectTimeout == other.primaryTransportConnectTimeout &&
             publisherTransportConnectTimeout == other.publisherTransportConnectTimeout &&
             iceServers == other.iceServers &&
@@ -100,6 +108,7 @@ public final class ConnectOptions: NSObject, Sendable {
         hasher.combine(autoSubscribe)
         hasher.combine(reconnectAttempts)
         hasher.combine(reconnectAttemptDelay)
+        hasher.combine(connectTimeoutInterval)
         hasher.combine(primaryTransportConnectTimeout)
         hasher.combine(publisherTransportConnectTimeout)
         hasher.combine(iceServers)

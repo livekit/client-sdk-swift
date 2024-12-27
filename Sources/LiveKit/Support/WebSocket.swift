@@ -48,10 +48,10 @@ class WebSocket: NSObject, Loggable, AsyncSequence, URLSessionWebSocketDelegate 
         waitForNextValue()
     }
 
-    init(url: URL) async throws {
+    init(url: URL, connectOptions: ConnectOptions?) async throws {
         request = URLRequest(url: url,
                              cachePolicy: .useProtocolCachePolicy,
-                             timeoutInterval: .defaultSocketConnect)
+                             timeoutInterval: connectOptions?.connectTimeoutInterval ?? .defaultSocketConnect)
         super.init()
         try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { continuation in
