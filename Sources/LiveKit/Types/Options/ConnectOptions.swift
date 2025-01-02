@@ -34,7 +34,7 @@ public final class ConnectOptions: NSObject, Sendable {
 
     /// The timeout interval for the room connection.
     @objc
-    public let connectTimeoutInterval: TimeInterval
+    public let socketConnectTimeout: TimeInterval
 
     @objc
     public let primaryTransportConnectTimeout: TimeInterval
@@ -58,7 +58,7 @@ public final class ConnectOptions: NSObject, Sendable {
         autoSubscribe = true
         reconnectAttempts = 3
         reconnectAttemptDelay = .defaultReconnectAttemptDelay
-        connectTimeoutInterval = .defaultSocketConnect
+        socketConnectTimeout = .defaultSocketConnect
         primaryTransportConnectTimeout = .defaultTransportState
         publisherTransportConnectTimeout = .defaultTransportState
         iceServers = []
@@ -80,7 +80,7 @@ public final class ConnectOptions: NSObject, Sendable {
         self.autoSubscribe = autoSubscribe
         self.reconnectAttempts = reconnectAttempts
         self.reconnectAttemptDelay = reconnectAttemptDelay
-        self.connectTimeoutInterval = connectTimeoutInterval
+        self.socketConnectTimeout = connectTimeoutInterval
         self.primaryTransportConnectTimeout = primaryTransportConnectTimeout
         self.publisherTransportConnectTimeout = publisherTransportConnectTimeout
         self.iceServers = iceServers
@@ -95,7 +95,7 @@ public final class ConnectOptions: NSObject, Sendable {
         return autoSubscribe == other.autoSubscribe &&
             reconnectAttempts == other.reconnectAttempts &&
             reconnectAttemptDelay == other.reconnectAttemptDelay &&
-            connectTimeoutInterval == other.connectTimeoutInterval &&
+            socketConnectTimeout == other.socketConnectTimeout &&
             primaryTransportConnectTimeout == other.primaryTransportConnectTimeout &&
             publisherTransportConnectTimeout == other.publisherTransportConnectTimeout &&
             iceServers == other.iceServers &&
@@ -108,7 +108,7 @@ public final class ConnectOptions: NSObject, Sendable {
         hasher.combine(autoSubscribe)
         hasher.combine(reconnectAttempts)
         hasher.combine(reconnectAttemptDelay)
-        hasher.combine(connectTimeoutInterval)
+        hasher.combine(socketConnectTimeout)
         hasher.combine(primaryTransportConnectTimeout)
         hasher.combine(publisherTransportConnectTimeout)
         hasher.combine(iceServers)
