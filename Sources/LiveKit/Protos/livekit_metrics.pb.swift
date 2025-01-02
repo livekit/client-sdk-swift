@@ -74,6 +74,15 @@ enum Livekit_MetricLabel: SwiftProtobuf.Enum, Swift.CaseIterable {
 
   /// total duration spent in other quality limitation
   case clientVideoPublisherQualityLimitationDurationOther // = 16
+
+  /// Publisher RTT (participant -> server)
+  case publisherRtt // = 17
+
+  /// RTT between publisher node and subscriber node (could involve intermedia node(s))
+  case serverMeshRtt // = 18
+
+  /// Subscribe RTT (server -> participant)
+  case subscriberRtt // = 19
   case predefinedMaxValue // = 4096
   case UNRECOGNIZED(Int)
 
@@ -100,6 +109,9 @@ enum Livekit_MetricLabel: SwiftProtobuf.Enum, Swift.CaseIterable {
     case 14: self = .clientVideoPublisherQualityLimitationDurationBandwidth
     case 15: self = .clientVideoPublisherQualityLimitationDurationCpu
     case 16: self = .clientVideoPublisherQualityLimitationDurationOther
+    case 17: self = .publisherRtt
+    case 18: self = .serverMeshRtt
+    case 19: self = .subscriberRtt
     case 4096: self = .predefinedMaxValue
     default: self = .UNRECOGNIZED(rawValue)
     }
@@ -124,6 +136,9 @@ enum Livekit_MetricLabel: SwiftProtobuf.Enum, Swift.CaseIterable {
     case .clientVideoPublisherQualityLimitationDurationBandwidth: return 14
     case .clientVideoPublisherQualityLimitationDurationCpu: return 15
     case .clientVideoPublisherQualityLimitationDurationOther: return 16
+    case .publisherRtt: return 17
+    case .serverMeshRtt: return 18
+    case .subscriberRtt: return 19
     case .predefinedMaxValue: return 4096
     case .UNRECOGNIZED(let i): return i
     }
@@ -148,6 +163,9 @@ enum Livekit_MetricLabel: SwiftProtobuf.Enum, Swift.CaseIterable {
     .clientVideoPublisherQualityLimitationDurationBandwidth,
     .clientVideoPublisherQualityLimitationDurationCpu,
     .clientVideoPublisherQualityLimitationDurationOther,
+    .publisherRtt,
+    .serverMeshRtt,
+    .subscriberRtt,
     .predefinedMaxValue,
   ]
 
@@ -321,6 +339,9 @@ extension Livekit_MetricLabel: SwiftProtobuf._ProtoNameProviding {
     14: .same(proto: "CLIENT_VIDEO_PUBLISHER_QUALITY_LIMITATION_DURATION_BANDWIDTH"),
     15: .same(proto: "CLIENT_VIDEO_PUBLISHER_QUALITY_LIMITATION_DURATION_CPU"),
     16: .same(proto: "CLIENT_VIDEO_PUBLISHER_QUALITY_LIMITATION_DURATION_OTHER"),
+    17: .same(proto: "PUBLISHER_RTT"),
+    18: .same(proto: "SERVER_MESH_RTT"),
+    19: .same(proto: "SUBSCRIBER_RTT"),
     4096: .same(proto: "METRIC_LABEL_PREDEFINED_MAX_VALUE"),
   ]
 }
