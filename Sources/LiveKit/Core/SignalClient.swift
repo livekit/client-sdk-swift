@@ -271,7 +271,6 @@ private extension SignalClient {
             _lastJoinResponse = joinResponse
             _delegate.notifyDetached { await $0.signalClient(self, didReceiveConnectResponse: .join(joinResponse)) }
             _connectResponseCompleter.resume(returning: .join(joinResponse))
-            print("creationTime: \(joinResponse.room.creationTime)")
             await _restartPingTimer()
 
         case let .reconnect(response):
