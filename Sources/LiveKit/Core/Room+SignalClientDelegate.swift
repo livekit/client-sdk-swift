@@ -103,9 +103,14 @@ extension Room: SignalClientDelegate {
             _state.mutate {
                 $0.sid = Room.Sid(from: joinResponse.room.sid)
                 $0.name = joinResponse.room.name
+                $0.serverInfo = joinResponse.serverInfo
+                $0.creationTime = Date(timeIntervalSince1970: TimeInterval(joinResponse.room.creationTime))
+                $0.maxParticipants = Int(joinResponse.room.maxParticipants)
+
                 $0.metadata = joinResponse.room.metadata
                 $0.isRecording = joinResponse.room.activeRecording
-                $0.serverInfo = joinResponse.serverInfo
+                $0.numParticipants = Int(joinResponse.room.numParticipants)
+                $0.numPublishers = Int(joinResponse.room.numPublishers)
 
                 localParticipant.set(info: joinResponse.participant, connectionState: $0.connectionState)
 
@@ -122,8 +127,6 @@ extension Room: SignalClientDelegate {
         _state.mutate {
             $0.metadata = room.metadata
             $0.isRecording = room.activeRecording
-            $0.maxParticipants = Int(room.maxParticipants)
-            $0.creationTime = Int64(room.creationTime)
             $0.numParticipants = Int(room.numParticipants)
             $0.numPublishers = Int(room.numPublishers)
         }

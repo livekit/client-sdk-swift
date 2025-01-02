@@ -70,7 +70,7 @@ public class Room: NSObject, ObservableObject, Loggable {
     public var maxParticipants: Int { _state.maxParticipants }
 
     @objc
-    public var creationTime: Int64 { _state.creationTime }
+    public var creationTime: Date? { _state.creationTime }
 
     @objc
     public var participantCount: Int { _state.numParticipants }
@@ -131,7 +131,7 @@ public class Room: NSObject, ObservableObject, Loggable {
         var isRecording: Bool = false
 
         var maxParticipants: Int = 0
-        var creationTime: Int64 = 0
+        var creationTime: Date?
         var numParticipants: Int = 0
         var numPublishers: Int = 0
 
