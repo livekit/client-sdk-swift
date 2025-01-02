@@ -139,7 +139,7 @@ actor SignalClient: Loggable {
         connectionState = (reconnectMode != nil ? .reconnecting : .connecting)
 
         do {
-            let socket = try await WebSocket(url: url)
+            let socket = try await WebSocket(url: url, connectOptions: connectOptions)
 
             _messageLoopTask = Task.detached {
                 self.log("Did enter WebSocket message loop...")
