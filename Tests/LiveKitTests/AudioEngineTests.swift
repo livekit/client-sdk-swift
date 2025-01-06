@@ -87,10 +87,26 @@ class AudioEngineTests: XCTestCase {
         print("manualRenderingMode: \(isManualRenderingMode)")
         XCTAssert(isManualRenderingMode)
 
-        // Start rendering...
+        let recorder = try AudioRecorder()
+
+        let track = LocalAudioTrack.createTrack()
+        track.add(audioRenderer: recorder)
+
+        // Start engine...
         AudioManager.shared.startRecording()
 
-        // Render for 10 seconds...
-        try? await Task.sleep(for: .seconds(10))
+        // Render for 5 seconds...
+        try? await Task.sleep(for: .seconds(5))
+
+        recorder.close()
+        print("Written to: \(recorder.filePath)")
+        
+        // Stop engine
+        AudioManager.shared.stopRecording()
+
+        // Play the recorded file...
+        let player = try AVAudioPlayer(contentsOf: recorder.filePath)
+        player.play()
+        try? await Task.sleep(for: .seconds(5))
     }
 }

@@ -20,7 +20,7 @@ class SineWaveSourceNode: AVAudioSourceNode {
     private let sampleRate: Double
     private let frequency: Double
 
-    init(frequency: Double = 440.0, sampleRate: Double = 48000.0) {
+    init(frequency: Double = 400.0, sampleRate: Double = 48000.0) {
         self.frequency = frequency
         self.sampleRate = sampleRate
 
@@ -30,8 +30,6 @@ class SineWaveSourceNode: AVAudioSourceNode {
         let phaseIncrement = 2.0 * Double.pi * frequency / sampleRate
 
         let renderBlock: AVAudioSourceNodeRenderBlock = { _, _, frameCount, audioBufferList in
-            print("SineWaveSourceNode render block, frameCount: \(frameCount)")
-
             let ablPointer = UnsafeMutableAudioBufferListPointer(audioBufferList)
             guard let ptr = ablPointer[0].mData?.assumingMemoryBound(to: Float.self) else {
                 return kAudioUnitErr_InvalidParameter
@@ -44,10 +42,8 @@ class SineWaveSourceNode: AVAudioSourceNode {
                 // Update the phase
                 currentPhase += phaseIncrement
 
-                // Keep phase in [0, 2π] to prevent floating point errors
-                if currentPhase >= 2.0 * Double.pi {
-                    currentPhase -= 2.0 * Double.pi
-                }
+                // Keep phase within [0, 2π] range using fmod for stability
+                currentPhase = fmod(currentPhase, 2.0 * Double.pi)
             }
 
             return noErr
