@@ -73,12 +73,7 @@ open class LKSampleHandler: RPBroadcastSampleHandler {
     }
 
     override public func processSampleBuffer(_ sampleBuffer: CMSampleBuffer, with sampleBufferType: RPSampleBufferType) {
-        switch sampleBufferType {
-        case RPSampleBufferType.video:
-            uploader?.send(sample: sampleBuffer)
-        default:
-            break
-        }
+        uploader?.send(sampleBuffer: sampleBuffer, sampleBufferType: sampleBufferType)
     }
 
     /// Override point to change the behavior when the socket connection has closed.
