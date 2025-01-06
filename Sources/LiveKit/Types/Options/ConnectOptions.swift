@@ -70,7 +70,7 @@ public final class ConnectOptions: NSObject, Sendable {
     public init(autoSubscribe: Bool = true,
                 reconnectAttempts: Int = 3,
                 reconnectAttemptDelay: TimeInterval = .defaultReconnectAttemptDelay,
-                connectTimeoutInterval: TimeInterval = .defaultSocketConnect,
+                socketConnectTimeoutInterval: TimeInterval = .defaultSocketConnect,
                 primaryTransportConnectTimeout: TimeInterval = .defaultTransportState,
                 publisherTransportConnectTimeout: TimeInterval = .defaultTransportState,
                 iceServers: [IceServer] = [],
@@ -80,7 +80,7 @@ public final class ConnectOptions: NSObject, Sendable {
         self.autoSubscribe = autoSubscribe
         self.reconnectAttempts = reconnectAttempts
         self.reconnectAttemptDelay = reconnectAttemptDelay
-        self.socketConnectTimeoutInterval = connectTimeoutInterval
+        self.socketConnectTimeoutInterval = socketConnectTimeoutInterval
         self.primaryTransportConnectTimeout = primaryTransportConnectTimeout
         self.publisherTransportConnectTimeout = publisherTransportConnectTimeout
         self.iceServers = iceServers
