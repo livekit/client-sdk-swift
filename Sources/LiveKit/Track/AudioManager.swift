@@ -68,6 +68,8 @@ public class AudioManager: Loggable {
     #endif
 
     public typealias DeviceUpdateFunc = (_ audioManager: AudioManager) -> Void
+    public typealias OnEngineWillStart = (_ audioManager: AudioManager, _ engine: AVAudioEngine, _ playoutEnabled: Bool, _ recordingEnabled: Bool) -> Void
+    public typealias OnEngineWillConnectInput = (_ audioManager: AudioManager, _ engine: AVAudioEngine, _ inputMixerNode: AVAudioMixerNode) -> Void
 
     #if os(iOS) || os(visionOS) || os(tvOS)
 
@@ -208,11 +210,54 @@ public class AudioManager: Loggable {
 
     public var onDeviceUpdate: DeviceUpdateFunc? {
         didSet {
-            RTC.audioDeviceModule.setDevicesUpdatedHandler { [weak self] in
+            RTC.audioDeviceModule.setDevicesDidUpdateCallback { [weak self] in
                 guard let self else { return }
                 self.onDeviceUpdate?(self)
             }
         }
+    }
+
+    public var onEngineWillConnectInput: OnEngineWillConnectInput? {
+        didSet {
+            RTC.audioDeviceModule.setOnEngineWillConnectInputCallback { [weak self] engine, inputMixerNode in
+                guard let self else { return }
+                self.onEngineWillConnectInput?(self, engine, inputMixerNode)
+            }
+        }
+    }
+
+    public var isManualRenderingMode: Bool {
+        get { RTC.audioDeviceModule.isManualRenderingMode }
+        set {
+            let result = RTC.audioDeviceModule.setManualRenderingMode(newValue)
+            if !result {
+                log("Failed to set manual rendering mode", .error)
+            }
+        }
+    }
+
+    // MARK: Testing
+
+    public func startPlayout() {
+        RTC.audioDeviceModule.initPlayout()
+        RTC.audioDeviceModule.startPlayout()
+    }
+
+    public func stopPlayout() {
+        RTC.audioDeviceModule.stopPlayout()
+    }
+
+    public func initRecording() {
+        RTC.audioDeviceModule.initRecording()
+    }
+
+    public func startRecording() {
+        RTC.audioDeviceModule.initRecording()
+        RTC.audioDeviceModule.startRecording()
+    }
+
+    public func stopRecording() {
+        RTC.audioDeviceModule.stopRecording()
     }
 
     // MARK: - Internal
@@ -224,19 +269,34 @@ public class AudioManager: Loggable {
 
     let state = StateSync(State())
 
-    // MARK: - Private
+    init() {
+        RTC.audioDeviceModule.setOnEngineWillStartCallback { [weak self] _, isPlayoutEnabled, isRecordingEnabled in
+            guard let self else { return }
+            self.log("OnEngineWillStart isPlayoutEnabled: \(isPlayoutEnabled), isRecordingEnabled: \(isRecordingEnabled)")
 
-    private let _configureRunner = SerialRunnerActor<Void>()
+            #if os(iOS) || os(visionOS) || os(tvOS)
+            self.log("Configuring audio session...")
+            let session = LKRTCAudioSession.sharedInstance()
+            let config = LKRTCAudioSessionConfiguration.webRTC()
 
-    #if os(iOS) || os(visionOS) || os(tvOS)
-    private func _asyncConfigure(newState: State, oldState: State) async throws {
-        try await _configureRunner.run {
-            self.log("\(oldState) -> \(newState)")
-            let configureFunc = newState.customConfigureFunc ?? self.defaultConfigureAudioSessionFunc
-            configureFunc(newState, oldState)
+            if isRecordingEnabled {
+                config.category = AVAudioSession.Category.playAndRecord.rawValue
+                config.mode = AVAudioSession.Mode.videoChat.rawValue
+                config.categoryOptions = [.defaultToSpeaker, .allowBluetooth]
+            } else {
+                config.category = AVAudioSession.Category.playback.rawValue
+                config.mode = AVAudioSession.Mode.spokenAudio.rawValue
+                config.categoryOptions = [.mixWithOthers]
+            }
+
+            session.lockForConfiguration()
+            try? session.setConfiguration(config)
+            session.unlockForConfiguration()
+            #endif
         }
     }
-    #endif
+
+    // MARK: - Private
 
     func trackDidStart(_ type: Type) async throws {
         let (newState, oldState) = state.mutate { state in
@@ -245,9 +305,6 @@ public class AudioManager: Loggable {
             if type == .remote { state.remoteTracksCount += 1 }
             return (state, oldState)
         }
-        #if os(iOS) || os(visionOS) || os(tvOS)
-        try await _asyncConfigure(newState: newState, oldState: oldState)
-        #endif
     }
 
     func trackDidStop(_ type: Type) async throws {
@@ -257,9 +314,6 @@ public class AudioManager: Loggable {
             if type == .remote { state.remoteTracksCount = max(state.remoteTracksCount - 1, 0) }
             return (state, oldState)
         }
-        #if os(iOS) || os(visionOS) || os(tvOS)
-        try await _asyncConfigure(newState: newState, oldState: oldState)
-        #endif
     }
 
     #if os(iOS) || os(visionOS) || os(tvOS)
