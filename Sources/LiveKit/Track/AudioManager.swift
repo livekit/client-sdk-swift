@@ -71,6 +71,8 @@ public class AudioManager: Loggable {
     public typealias OnEngineWillStart = (_ audioManager: AudioManager, _ engine: AVAudioEngine, _ playoutEnabled: Bool, _ recordingEnabled: Bool) -> Void
     public typealias OnEngineWillConnectInput = (_ audioManager: AudioManager, _ engine: AVAudioEngine, _ inputMixerNode: AVAudioMixerNode) -> Void
 
+    public typealias OnSpeechActivityEvent = (_ audioManager: AudioManager, _ event: SpeechActivityEvent) -> Void
+
     #if os(iOS) || os(visionOS) || os(tvOS)
 
     public typealias ConfigureAudioSessionFunc = @Sendable (_ newState: State,
@@ -222,6 +224,16 @@ public class AudioManager: Loggable {
             RTC.audioDeviceModule.setOnEngineWillConnectInputCallback { [weak self] engine, inputMixerNode in
                 guard let self else { return }
                 self.onEngineWillConnectInput?(self, engine, inputMixerNode)
+            }
+        }
+    }
+
+    // Invoked on internal thread, do not block.
+    public var onMutedSpeechActivityEvent: OnSpeechActivityEvent? {
+        didSet {
+            RTC.audioDeviceModule.setSpeechActivityCallback { [weak self] event in
+                guard let self else { return }
+                self.onMutedSpeechActivityEvent?(self, event.toLKType())
             }
         }
     }
