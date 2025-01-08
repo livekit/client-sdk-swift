@@ -236,27 +236,43 @@ public class AudioManager: Loggable {
         }
     }
 
-    // MARK: Testing
+    // MARK: - Recording
 
-    public func startPlayout() {
+    /// Initialize recording (mic input) and pre-warm voice processing etc.
+    /// Mic permission is required and dialog will appear if not already granted.
+    public func prepareRecording() {
+        RTC.audioDeviceModule.initRecording()
+    }
+
+    /// Starts mic input to the SDK even without any ``Room`` or a connection.
+    /// Audio buffers will flow into ``LocalAudioTrack/add(audioRenderer:)`` and ``capturePostProcessingDelegate``.
+    public func startLocalRecording() {
+        RTC.audioDeviceModule.initAndStartRecording()
+    }
+
+    // MARK: Internal for testing
+
+    func initPlayout() {
         RTC.audioDeviceModule.initPlayout()
+    }
+
+    func startPlayout() {
         RTC.audioDeviceModule.startPlayout()
     }
 
-    public func stopPlayout() {
+    func stopPlayout() {
         RTC.audioDeviceModule.stopPlayout()
     }
 
-    public func initRecording() {
+    func initRecording() {
         RTC.audioDeviceModule.initRecording()
     }
 
-    public func startRecording() {
-        RTC.audioDeviceModule.initRecording()
+    func startRecording() {
         RTC.audioDeviceModule.startRecording()
     }
 
-    public func stopRecording() {
+    func stopRecording() {
         RTC.audioDeviceModule.stopRecording()
     }
 
@@ -276,22 +292,10 @@ public class AudioManager: Loggable {
 
             #if os(iOS) || os(visionOS) || os(tvOS)
             self.log("Configuring audio session...")
-            let session = LKRTCAudioSession.sharedInstance()
-            let config = LKRTCAudioSessionConfiguration.webRTC()
-
-            if isRecordingEnabled {
-                config.category = AVAudioSession.Category.playAndRecord.rawValue
-                config.mode = AVAudioSession.Mode.videoChat.rawValue
-                config.categoryOptions = [.defaultToSpeaker, .allowBluetooth]
-            } else {
-                config.category = AVAudioSession.Category.playback.rawValue
-                config.mode = AVAudioSession.Mode.spokenAudio.rawValue
-                config.categoryOptions = [.mixWithOthers]
-            }
-
-            session.lockForConfiguration()
-            try? session.setConfiguration(config)
-            session.unlockForConfiguration()
+            // Backward compatibility
+            let configureFunc = state.customConfigureFunc ?? self.defaultConfigureAudioSessionFunc
+            let simulatedState = AudioManager.State(localTracksCount: isRecordingEnabled ? 1 : 0, remoteTracksCount: isPlayoutEnabled ? 1 : 0)
+            configureFunc(simulatedState, AudioManager.State())
             #endif
         }
     }
@@ -299,7 +303,7 @@ public class AudioManager: Loggable {
     // MARK: - Private
 
     func trackDidStart(_ type: Type) async throws {
-        let (newState, oldState) = state.mutate { state in
+        state.mutate { state in
             let oldState = state
             if type == .local { state.localTracksCount += 1 }
             if type == .remote { state.remoteTracksCount += 1 }
@@ -308,7 +312,7 @@ public class AudioManager: Loggable {
     }
 
     func trackDidStop(_ type: Type) async throws {
-        let (newState, oldState) = state.mutate { state in
+        state.mutate { state in
             let oldState = state
             if type == .local { state.localTracksCount = max(state.localTracksCount - 1, 0) }
             if type == .remote { state.remoteTracksCount = max(state.remoteTracksCount - 1, 0) }

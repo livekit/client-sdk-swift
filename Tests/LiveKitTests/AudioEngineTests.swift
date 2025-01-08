@@ -38,6 +38,14 @@ class AudioEngineTests: XCTestCase {
         XCTAssert(status == .authorized)
     }
 
+    // Test if state transitions pass internal checks.
+    func testStates() async {
+        let adm = AudioManager.shared
+        adm.initPlayout()
+        adm.startPlayout()
+        adm.stopPlayout()
+    }
+
     // Test start generating local audio buffer without joining to room.
     func testPrejoinLocalAudioBuffer() async throws {
         // Set up expectation...
@@ -55,8 +63,8 @@ class AudioEngineTests: XCTestCase {
 
         Task.detached {
             print("Starting audio track in 3 seconds...")
-            try? await Task.sleep(for: .seconds(3))
-            AudioManager.shared.startRecording()
+            try? await Task.sleep(nanoseconds: 3 * 1_000_000_000)
+            AudioManager.shared.startLocalRecording()
         }
 
         // Wait for audio frame...
@@ -93,20 +101,20 @@ class AudioEngineTests: XCTestCase {
         track.add(audioRenderer: recorder)
 
         // Start engine...
-        AudioManager.shared.startRecording()
+        AudioManager.shared.startLocalRecording()
 
         // Render for 5 seconds...
-        try? await Task.sleep(for: .seconds(5))
+        try? await Task.sleep(nanoseconds: 5 * 1_000_000_000)
 
         recorder.close()
         print("Written to: \(recorder.filePath)")
-        
+
         // Stop engine
         AudioManager.shared.stopRecording()
 
         // Play the recorded file...
         let player = try AVAudioPlayer(contentsOf: recorder.filePath)
         player.play()
-        try? await Task.sleep(for: .seconds(5))
+        try? await Task.sleep(nanoseconds: 5 * 1_000_000_000)
     }
 }

@@ -47,7 +47,7 @@ class AudioRecorder {
     }
 
     func write(pcmBuffer: AVAudioPCMBuffer) throws {
-        if #available(macOS 15.0, *) {
+        if #available(iOS 18, macOS 15.0, tvOS 18, visionOS 2.0, *) {
             guard audioFile.isOpen else { return }
         }
 
@@ -55,7 +55,7 @@ class AudioRecorder {
     }
 
     func close() {
-        if #available(macOS 15.0, *) {
+        if #available(iOS 18, macOS 15.0, tvOS 18, visionOS 2.0, *) {
             audioFile.close()
         }
     }

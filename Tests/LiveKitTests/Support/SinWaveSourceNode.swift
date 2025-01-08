@@ -30,6 +30,7 @@ class SineWaveSourceNode: AVAudioSourceNode {
         let phaseIncrement = 2.0 * Double.pi * frequency / sampleRate
 
         let renderBlock: AVAudioSourceNodeRenderBlock = { _, _, frameCount, audioBufferList in
+            print("AVAudioSourceNodeRenderBlock frameCount: \(frameCount)")
             let ablPointer = UnsafeMutableAudioBufferListPointer(audioBufferList)
             guard let ptr = ablPointer[0].mData?.assumingMemoryBound(to: Float.self) else {
                 return kAudioUnitErr_InvalidParameter
