@@ -46,6 +46,28 @@ class AudioEngineTests: XCTestCase {
         adm.stopPlayout()
     }
 
+    func testConfigureDucking() async {
+        AudioManager.shared.isAdvancedDuckingEnabled = false
+        XCTAssert(!AudioManager.shared.isAdvancedDuckingEnabled)
+
+        AudioManager.shared.isAdvancedDuckingEnabled = true
+        XCTAssert(AudioManager.shared.isAdvancedDuckingEnabled)
+
+        if #available(iOS 17, macOS 14.0, visionOS 1.0, *) {
+            AudioManager.shared.duckingLevel = .default
+            XCTAssert(AudioManager.shared.duckingLevel == .default)
+
+            AudioManager.shared.duckingLevel = .min
+            XCTAssert(AudioManager.shared.duckingLevel == .min)
+
+            AudioManager.shared.duckingLevel = .max
+            XCTAssert(AudioManager.shared.duckingLevel == .max)
+
+            AudioManager.shared.duckingLevel = .mid
+            XCTAssert(AudioManager.shared.duckingLevel == .mid)
+        }
+    }
+
     // Test start generating local audio buffer without joining to room.
     func testPrejoinLocalAudioBuffer() async throws {
         // Set up expectation...

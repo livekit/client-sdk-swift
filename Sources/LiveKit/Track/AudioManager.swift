@@ -236,6 +236,17 @@ public class AudioManager: Loggable {
         }
     }
 
+    public var isAdvancedDuckingEnabled: Bool {
+        get { RTC.audioDeviceModule.isAdvancedDuckingEnabled }
+        set { RTC.audioDeviceModule.isAdvancedDuckingEnabled = newValue }
+    }
+
+    @available(iOS 17, macOS 14.0, visionOS 1.0, *)
+    public var duckingLevel: AVAudioVoiceProcessingOtherAudioDuckingConfiguration.Level {
+        get { RTC.audioDeviceModule.duckingLevel }
+        set { RTC.audioDeviceModule.duckingLevel = newValue }
+    }
+
     // MARK: - Recording
 
     /// Initialize recording (mic input) and pre-warm voice processing etc.
