@@ -38,10 +38,7 @@ public class LocalParticipant: Participant {
 
     private var trackPermissions: [ParticipantTrackPermission] = []
 
-    private let rpcLock = NSLock()
-    private var rpcHandlers: [String: RpcHandler] = [:] // methodName to handler
-    private var pendingAcks: Set<String> = Set()
-    private var pendingResponses: [String: PendingRpcResponse] = [:] // requestId to pending response
+    private let rpcState = RpcStateManager()
 
     /// publish a new audio track to the Room
     @objc
@@ -472,19 +469,15 @@ extension LocalParticipant {
     ///   - method: The name of the indicated RPC method
     ///   - handler: Will be invoked when an RPC request for this method is received
     public func registerRpcMethod(_ method: String, 
-                                handler: @escaping RpcHandler) {
-        rpcLock.lock()
-        defer { rpcLock.unlock() }
-        rpcHandlers[method] = handler
+                                handler: @escaping RpcHandler) async {
+        await rpcState.registerHandler(method, handler: handler)
     }
 
     /// Unregisters a previously registered RPC method.
     ///
     /// - Parameter method: The name of the RPC method to unregister
-    public func unregisterRpcMethod(_ method: String) {
-        rpcLock.lock()
-        defer { rpcLock.unlock() }
-        rpcHandlers.removeValue(forKey: method)
+    public func unregisterRpcMethod(_ method: String) async {
+        await rpcState.unregisterHandler(method)
     }
 
     /// Initiate an RPC call to a remote participant
@@ -518,41 +511,32 @@ extension LocalParticipant {
 
         return try await withThrowingTimeout(seconds: responseTimeout) {
             try await withCheckedThrowingContinuation { continuation in
-                self.rpcLock.lock()
+                Task {
+                    await self.rpcState.addPendingAck(requestId)
 
-                self.pendingAcks.insert(requestId)
-
-                self.pendingResponses[requestId] = PendingRpcResponse(
-                    participantIdentity: destinationIdentity,
-                    onResolve: { payload, error in
-                        self.rpcLock.lock()
-                        // Cleanup
-                        self.pendingAcks.remove(requestId)
-                        self.pendingResponses.removeValue(forKey: requestId)
-                        self.rpcLock.unlock()
-
-                        if let error {
-                            continuation.resume(throwing: error)
-                        } else {
-                            continuation.resume(returning: payload ?? "")
+                    await self.rpcState.setPendingResponse(requestId, response: PendingRpcResponse(
+                        participantIdentity: destinationIdentity,
+                        onResolve: { payload, error in
+                            Task {
+                                await self.rpcState.removePendingAck(requestId)
+                                await self.rpcState.removePendingResponse(requestId)
+                                
+                                if let error {
+                                    continuation.resume(throwing: error)
+                                } else {
+                                    continuation.resume(returning: payload ?? "")
+                                }
+                            }
                         }
-                    }
-                )
-                
-                self.rpcLock.unlock()
+                    ))
+                }
 
                 Task {
                     try await Task.sleep(nanoseconds: UInt64(maxRoundTripLatency * 1_000_000_000))
                     
-                    self.rpcLock.lock()
-                    if self.pendingAcks.contains(requestId) {
-                        // Clean up and throw if no ack received
-                        self.pendingAcks.remove(requestId)
-                        self.pendingResponses.removeValue(forKey: requestId)
-                        self.rpcLock.unlock()
+                    if await self.rpcState.hasPendingAck(requestId) {
+                        await self.rpcState.removeAllPending(requestId)
                         continuation.resume(throwing: RpcError.builtIn(.connectionTimeout))
-                    } else {
-                        self.rpcLock.unlock()
                     }
                 }
             }
@@ -627,37 +611,12 @@ extension LocalParticipant {
         try await room.send(dataPacket: dataPacket)
     }
 
-    func handleIncomingRpcAck(requestId: String) {
-        rpcLock.lock()
-        defer { rpcLock.unlock() }
-        
-        guard let ack = pendingAcks.remove(requestId) else {
-            log("Ack received for unexpected RPC request, id = \(requestId)", .error)
-            return
-        }
-    }
-
-    func handleIncomingRpcResponse(requestId: String,
-                                         payload: String?,
-                                         error: RpcError?) 
-    {
-        rpcLock.lock()
-        defer { rpcLock.unlock() }
-        
-        guard let handler = pendingResponses.removeValue(forKey: requestId) else {
-            log("Response received for unexpected RPC request, id = \(requestId)", .error)
-            return
-        }
-
-        handler.onResolve(payload, error)
-    }
-
     func handleIncomingRpcRequest(callerIdentity: Identity,
-                                        requestId: String,
-                                        method: String,
-                                        payload: String,
-                                        responseTimeout: TimeInterval,
-                                        version: Int) async 
+                                requestId: String,
+                                method: String,
+                                payload: String,
+                                responseTimeout: TimeInterval,
+                                version: Int) async 
     {
         // TODO fix try?
         try? await publishRpcAck(destinationIdentity: callerIdentity,
@@ -672,9 +631,7 @@ extension LocalParticipant {
             return
         }
 
-        rpcLock.lock()
-        let handler = rpcHandlers[method]
-        rpcLock.unlock()
+        let handler = await rpcState.getHandler(for: method)
 
         guard let handler else {
             // TODO fix try?
@@ -714,6 +671,26 @@ extension LocalParticipant {
                                requestId: requestId,
                                payload: responsePayload,
                                error: responseError)
+    }
+
+    func handleIncomingRpcAck(requestId: String) {
+        Task {
+            await rpcState.removePendingAck(requestId)
+        }
+    }
+
+    func handleIncomingRpcResponse(requestId: String,
+                                 payload: String?,
+                                 error: RpcError?) 
+    {
+        Task {
+            guard let handler = await rpcState.removePendingResponse(requestId) else {
+                log("Response received for unexpected RPC request, id = \(requestId)", .error)
+                return
+            }
+
+            handler.onResolve(payload, error)
+        }
     }
 }
 

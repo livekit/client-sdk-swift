@@ -100,12 +100,11 @@ struct RpcError: Error {
     }
     
     func toProto() -> Livekit_RpcError {
-        var builder = Livekit_RpcError.with {
+        return Livekit_RpcError.with {
             $0.code = UInt32(code)
             $0.message = message
             $0.data = data
         }
-        return builder
     }
 }
 
@@ -140,4 +139,49 @@ public struct RpcInvocationData {
 struct PendingRpcResponse {
     let participantIdentity: Participant.Identity
     let onResolve: (_ payload: String?, _ error: RpcError?) -> Void
+}
+
+actor RpcStateManager {
+    private var handlers: [String: RpcHandler] = [:] // methodName to handler
+    private var pendingAcks: Set<String> = Set()
+    private var pendingResponses: [String: PendingRpcResponse] = [:] // requestId to pending response
+    
+    func registerHandler(_ method: String, handler: @escaping RpcHandler) {
+        handlers[method] = handler
+    }
+    
+    func unregisterHandler(_ method: String) {
+        handlers.removeValue(forKey: method)
+    }
+    
+    func getHandler(for method: String) -> RpcHandler? {
+        handlers[method]
+    }
+    
+    func addPendingAck(_ requestId: String) {
+        pendingAcks.insert(requestId)
+    }
+
+    @discardableResult
+    func removePendingAck(_ requestId: String) -> Bool {
+        pendingAcks.remove(requestId) != nil
+    }
+    
+    func hasPendingAck(_ requestId: String) -> Bool {
+        pendingAcks.contains(requestId)
+    }
+    
+    func setPendingResponse(_ requestId: String, response: PendingRpcResponse) {
+        pendingResponses[requestId] = response
+    }
+
+    @discardableResult
+    func removePendingResponse(_ requestId: String) -> PendingRpcResponse? {
+        pendingResponses.removeValue(forKey: requestId)
+    }
+
+    func removeAllPending(_ requestId: String) async {
+        pendingAcks.remove(requestId)
+        pendingResponses.removeValue(forKey: requestId)
+    }
 }
