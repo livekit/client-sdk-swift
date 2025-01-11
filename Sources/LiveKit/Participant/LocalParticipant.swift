@@ -38,6 +38,11 @@ public class LocalParticipant: Participant {
 
     private var trackPermissions: [ParticipantTrackPermission] = []
 
+    private let rpcLock = NSLock()
+    private var rpcHandlers: [String: RpcHandler] = [:] // methodName to handler
+    private var pendingAcks: Set<String> = Set()
+    private var pendingResponses: [String: PendingRpcResponse] = [:] // requestId to pending response
+
     /// publish a new audio track to the Room
     @objc
     @discardableResult
@@ -436,6 +441,280 @@ extension LocalParticipant {
 
         try await room.publisherShouldNegotiate()
     }
+
+    // MARK: - RPC
+
+    /// Establishes the participant as a receiver for calls of the specified RPC method.
+    /// Will overwrite any existing callback for the same method.
+    ///
+    /// Example:
+    /// ```swift
+    /// try await room.localParticipant.registerRpcMethod("greet") { requestId, callerIdentity, payload, responseTimeout in
+    ///     print("Received greeting from \(callerIdentity): \(payload)")
+    ///     return "Hello, \(callerIdentity)!"
+    /// }
+    /// ```
+    ///
+    /// The handler receives the following parameters:
+    /// - `requestId`: A unique identifier for this RPC request
+    /// - `callerIdentity`: The identity of the RemoteParticipant who initiated the RPC call
+    /// - `payload`: The data sent by the caller (as a string)
+    /// - `responseTimeout`: The maximum time available to return a response
+    ///
+    /// The handler should return a string.
+    /// If unable to respond within responseTimeout, the request will result in an error on the caller's side.
+    ///
+    /// You may throw errors of type RpcError with a string message in the handler,
+    /// and they will be received on the caller's side with the message intact.
+    /// Other errors thrown in your handler will not be transmitted as-is, and will instead arrive to the caller as 1500 ("Application Error").
+    ///
+    /// - Parameters:
+    ///   - method: The name of the indicated RPC method
+    ///   - handler: Will be invoked when an RPC request for this method is received
+    public func registerRpcMethod(_ method: String, 
+                                handler: @escaping RpcHandler) {
+        rpcLock.lock()
+        defer { rpcLock.unlock() }
+        rpcHandlers[method] = handler
+    }
+
+    /// Unregisters a previously registered RPC method.
+    ///
+    /// - Parameter method: The name of the RPC method to unregister
+    public func unregisterRpcMethod(_ method: String) {
+        rpcLock.lock()
+        defer { rpcLock.unlock() }
+        rpcHandlers.removeValue(forKey: method)
+    }
+
+    /// Initiate an RPC call to a remote participant
+    /// - Parameters:
+    ///   - destinationIdentity: The identity of the destination participant
+    ///   - method: The method name to call
+    ///   - payload: The payload to pass to the method
+    ///   - responseTimeout: Timeout for receiving a response after initial connection.
+    ///     Defaults to 10 seconds. Max value of UInt.max milliseconds.
+    /// - Returns: The response payload
+    /// - Throws: RpcError on failure. Details in RpcError.message
+    public func performRpc(destinationIdentity: Identity,
+                         method: String,
+                         payload: String,
+                         responseTimeout: TimeInterval = 10) async throws -> String {
+        
+        guard payload.byteLength <= MAX_RPC_PAYLOAD_BYTES else {
+            throw RpcError.builtIn(.requestPayloadTooLarge)
+        }
+
+        let requestId = UUID().uuidString
+        let maxRoundTripLatency: TimeInterval = 2
+        let effectiveTimeout = responseTimeout - maxRoundTripLatency
+
+        // Publish the request first
+        try await publishRpcRequest(destinationIdentity: destinationIdentity,
+                                  requestId: requestId,
+                                  method: method,
+                                  payload: payload,
+                                  responseTimeout: effectiveTimeout)
+
+        return try await withThrowingTimeout(seconds: responseTimeout) {
+            try await withCheckedThrowingContinuation { continuation in
+                self.rpcLock.lock()
+
+                self.pendingAcks.insert(requestId)
+
+                self.pendingResponses[requestId] = PendingRpcResponse(
+                    participantIdentity: destinationIdentity,
+                    onResolve: { payload, error in
+                        self.rpcLock.lock()
+                        // Cleanup
+                        self.pendingAcks.remove(requestId)
+                        self.pendingResponses.removeValue(forKey: requestId)
+                        self.rpcLock.unlock()
+
+                        if let error {
+                            continuation.resume(throwing: error)
+                        } else {
+                            continuation.resume(returning: payload ?? "")
+                        }
+                    }
+                )
+                
+                self.rpcLock.unlock()
+
+                Task {
+                    try await Task.sleep(nanoseconds: UInt64(maxRoundTripLatency * 1_000_000_000))
+                    
+                    self.rpcLock.lock()
+                    if self.pendingAcks.contains(requestId) {
+                        // Clean up and throw if no ack received
+                        self.pendingAcks.remove(requestId)
+                        self.pendingResponses.removeValue(forKey: requestId)
+                        self.rpcLock.unlock()
+                        continuation.resume(throwing: RpcError.builtIn(.connectionTimeout))
+                    } else {
+                        self.rpcLock.unlock()
+                    }
+                }
+            }
+        }
+    }
+
+    private func publishRpcRequest(destinationIdentity: Identity,
+                                 requestId: String,
+                                 method: String,
+                                 payload: String,
+                                 responseTimeout: TimeInterval = 10) async throws 
+    {
+//        guard payload.byteLength <= MAX_RPC_PAYLOAD_BYTES else {
+//            throw LiveKitError(.invalidParameter, 
+//                             message: "cannot publish data larger than \(RTCEngine.maxDataPacketSize)")
+//        }
+
+        let room = try requireRoom()
+
+        let dataPacket = Livekit_DataPacket.with {
+            $0.destinationIdentities = [destinationIdentity.stringValue]
+            $0.kind = .reliable
+            $0.rpcRequest = Livekit_RpcRequest.with {
+                $0.id = requestId
+                $0.method = method
+                $0.payload = payload
+                $0.responseTimeoutMs = UInt32(responseTimeout * 1000)
+            }
+        }
+
+        try await room.send(dataPacket: dataPacket)
+    }
+
+    private func publishRpcResponse(
+        destinationIdentity: Identity,
+        requestId: String,
+        payload: String?,
+        error: RpcError?
+    ) async throws {
+        let room = try requireRoom()
+        
+        let dataPacket = Livekit_DataPacket.with {
+            $0.destinationIdentities = [destinationIdentity.stringValue]
+            $0.kind = .reliable
+            $0.rpcResponse = Livekit_RpcResponse.with {
+                $0.requestID = requestId
+                if let error = error {
+                    $0.error = error.toProto()
+                } else {
+                    $0.payload = payload ?? ""
+                }
+            }
+        }
+
+        try await room.send(dataPacket: dataPacket)
+    }
+
+    private func publishRpcAck(
+        destinationIdentity: Identity,
+        requestId: String
+    ) async throws {
+        let room = try requireRoom()
+        
+        let dataPacket = Livekit_DataPacket.with {
+            $0.destinationIdentities = [destinationIdentity.stringValue]
+            $0.kind = .reliable
+            $0.rpcAck = Livekit_RpcAck.with {
+                $0.requestID = requestId
+            }
+        }
+
+        try await room.send(dataPacket: dataPacket)
+    }
+
+    func handleIncomingRpcAck(requestId: String) {
+        rpcLock.lock()
+        defer { rpcLock.unlock() }
+        
+        guard let ack = pendingAcks.remove(requestId) else {
+            log("Ack received for unexpected RPC request, id = \(requestId)", .error)
+            return
+        }
+    }
+
+    func handleIncomingRpcResponse(requestId: String,
+                                         payload: String?,
+                                         error: RpcError?) 
+    {
+        rpcLock.lock()
+        defer { rpcLock.unlock() }
+        
+        guard let handler = pendingResponses.removeValue(forKey: requestId) else {
+            log("Response received for unexpected RPC request, id = \(requestId)", .error)
+            return
+        }
+
+        handler.onResolve(payload, error)
+    }
+
+    func handleIncomingRpcRequest(callerIdentity: Identity,
+                                        requestId: String,
+                                        method: String,
+                                        payload: String,
+                                        responseTimeout: TimeInterval,
+                                        version: Int) async 
+    {
+        // TODO fix try?
+        try? await publishRpcAck(destinationIdentity: callerIdentity,
+                           requestId: requestId)
+
+        if version != 1 {
+            // TODO fix try?
+            try? await publishRpcResponse(destinationIdentity: callerIdentity,
+                                   requestId: requestId,
+                                   payload: nil,
+                                   error: RpcError.builtIn(.unsupportedVersion))
+            return
+        }
+
+        rpcLock.lock()
+        let handler = rpcHandlers[method]
+        rpcLock.unlock()
+
+        guard let handler else {
+            // TODO fix try?
+            try? await publishRpcResponse(destinationIdentity: callerIdentity,
+                                   requestId: requestId,
+                                   payload: nil,
+                                   error: RpcError.builtIn(.unsupportedMethod))
+            return
+        }
+
+        var responseError: RpcError?
+        var responsePayload: String?
+
+        do {
+            let response = try await handler(RpcInvocationData(requestId: requestId,
+                                                               callerIdentity: callerIdentity,
+                                                               payload: payload,
+                                                               responseTimeout: responseTimeout))
+
+            if response.byteLength > MAX_RPC_PAYLOAD_BYTES {
+                responseError = RpcError.builtIn(.responsePayloadTooLarge)
+                log("RPC Response payload too large for \(method)", .warning)
+            } else {
+                responsePayload = response
+            }
+        } catch {
+            if let rpcError = error as? RpcError {
+                responseError = rpcError
+            } else {
+                log("Uncaught error returned by RPC handler for \(method). Returning APPLICATION_ERROR instead.", .warning)
+                responseError = RpcError.builtIn(.applicationError)
+            }
+        }
+
+        // TODO fix try?
+        try? await publishRpcResponse(destinationIdentity: callerIdentity,
+                               requestId: requestId,
+                               payload: responsePayload,
+                               error: responseError)
+    }
 }
 
 // MARK: - Helper
@@ -649,5 +928,35 @@ private extension LocalParticipant {
             // Rethrow
             throw error
         }
+    }
+}
+
+// Helper function for timeout
+private func withThrowingTimeout<T>(seconds: TimeInterval,
+                                  operation: @escaping () async throws -> T) async throws -> T {
+    try await withThrowingTaskGroup(of: T.self) { group in
+        // Add the main operation
+        group.addTask {
+            try await operation()
+        }
+        
+        // Add timeout task
+        group.addTask {
+            try await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
+            throw RpcError.builtIn(.responseTimeout)
+        }
+        
+        // Return first result or throw first error
+        let result = try await group.next()
+        
+        // Cancel any remaining tasks
+        group.cancelAll()
+
+        guard let result else {
+            // This should never happen since we know we added tasks
+            throw LiveKitError(.invalidState)
+        }
+
+        return result
     }
 }

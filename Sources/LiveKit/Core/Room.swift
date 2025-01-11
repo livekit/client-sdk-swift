@@ -535,6 +535,9 @@ extension Room: DataChannelDelegate {
         case let .speaker(update): engine(self, didUpdateSpeakers: update.speakers)
         case let .user(userPacket): engine(self, didReceiveUserPacket: userPacket)
         case let .transcription(packet): room(didReceiveTranscriptionPacket: packet)
+        case let .rpcResponse(response): room(didReceiveRpcResponse: response)
+        case let .rpcAck(ack): room(didReceiveRpcAck: ack)
+        case let .rpcRequest(request): room(didReceiveRpcRequest: request, from: dataPacket.participantIdentity)
         default: return
         }
     }
