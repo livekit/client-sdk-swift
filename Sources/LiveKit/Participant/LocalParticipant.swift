@@ -565,10 +565,10 @@ extension LocalParticipant {
                                  payload: String,
                                  responseTimeout: TimeInterval = 10) async throws 
     {
-//        guard payload.byteLength <= MAX_RPC_PAYLOAD_BYTES else {
-//            throw LiveKitError(.invalidParameter, 
-//                             message: "cannot publish data larger than \(RTCEngine.maxDataPacketSize)")
-//        }
+        guard payload.byteLength <= MAX_RPC_PAYLOAD_BYTES else {
+            throw LiveKitError(.invalidParameter, 
+                             message: "cannot publish data larger than \(MAX_RPC_PAYLOAD_BYTES)")
+        }
 
         let room = try requireRoom()
 
