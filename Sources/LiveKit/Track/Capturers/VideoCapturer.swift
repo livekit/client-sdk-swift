@@ -46,6 +46,8 @@ public class VideoCapturer: NSObject, Loggable, VideoCapturerProtocol {
     public let delegates = MulticastDelegate<VideoCapturerDelegate>(label: "VideoCapturerDelegate")
     public let rendererDelegates = MulticastDelegate<VideoRenderer>(label: "VideoCapturerRendererDelegate")
 
+    private let processingQueue = DispatchQueue(label: "io.livekit.videocapturer.processing")
+
     /// Array of supported pixel formats that can be used to capture a frame.
     ///
     /// Usually the following formats are supported but it is recommended to confirm at run-time:
@@ -75,6 +77,7 @@ public class VideoCapturer: NSObject, Loggable, VideoCapturerProtocol {
         var startStopCounter: Int = 0
         var dimensions: Dimensions? = nil
         weak var processor: VideoProcessor? = nil
+        var isFrameProcessingBusy: Bool = false
     }
 
     let _state: StateSync<State>
@@ -230,31 +233,46 @@ extension VideoCapturer {
                                device: AVCaptureDevice?,
                                options: VideoCaptureOptions)
     {
-        var rtcFrame: LKRTCVideoFrame = frame
-        guard var lkFrame: VideoFrame = frame.toLKType() else {
-            log("Failed to convert a RTCVideoFrame to VideoFrame.", .error)
+        if _state.isFrameProcessingBusy {
+            log("Frame processing hasn't completed yet, skipping frame...", .warning)
             return
         }
 
-        // Apply processing if we have a processor attached.
-        if let processor = _state.processor {
-            guard let processedFrame = processor.process(frame: lkFrame) else {
-                log("VideoProcessor didn't return a frame, skipping frame.", .warning)
+        processingQueue.async { [weak self] in
+            guard let self else { return }
+
+            // Mark as frame processing busy.
+            _state.mutate { $0.isFrameProcessingBusy = true }
+            defer {
+                _state.mutate { $0.isFrameProcessingBusy = false }
+            }
+
+            var rtcFrame: LKRTCVideoFrame = frame
+            guard var lkFrame: VideoFrame = frame.toLKType() else {
+                log("Failed to convert a RTCVideoFrame to VideoFrame.", .error)
                 return
             }
-            lkFrame = processedFrame
-            rtcFrame = processedFrame.toRTCType()
-        }
 
-        // Resolve real dimensions (apply frame rotation)
-        set(dimensions: Dimensions(width: rtcFrame.width, height: rtcFrame.height).apply(rotation: rtcFrame.rotation))
+            // Apply processing if we have a processor attached.
+            if let processor = _state.processor {
+                guard let processedFrame = processor.process(frame: lkFrame) else {
+                    log("VideoProcessor didn't return a frame, skipping frame.", .warning)
+                    return
+                }
+                lkFrame = processedFrame
+                rtcFrame = processedFrame.toRTCType()
+            }
 
-        delegate?.capturer(capturer, didCapture: rtcFrame)
+            // Resolve real dimensions (apply frame rotation)
+            set(dimensions: Dimensions(width: rtcFrame.width, height: rtcFrame.height).apply(rotation: rtcFrame.rotation))
 
-        if rendererDelegates.isDelegatesNotEmpty {
-            rendererDelegates.notify { renderer in
-                renderer.render?(frame: lkFrame)
-                renderer.render?(frame: lkFrame, captureDevice: device, captureOptions: options)
+            delegate?.capturer(capturer, didCapture: rtcFrame)
+
+            if rendererDelegates.isDelegatesNotEmpty {
+                rendererDelegates.notify { renderer in
+                    renderer.render?(frame: lkFrame)
+                    renderer.render?(frame: lkFrame, captureDevice: device, captureOptions: options)
+                }
             }
         }
     }
