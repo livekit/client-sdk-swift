@@ -242,9 +242,9 @@ extension VideoCapturer {
             guard let self else { return }
 
             // Mark as frame processing busy.
-            _state.mutate { $0.isFrameProcessingBusy = true }
+            self._state.mutate { $0.isFrameProcessingBusy = true }
             defer {
-                _state.mutate { $0.isFrameProcessingBusy = false }
+                self._state.mutate { $0.isFrameProcessingBusy = false }
             }
 
             var rtcFrame: LKRTCVideoFrame = frame
@@ -254,7 +254,7 @@ extension VideoCapturer {
             }
 
             // Apply processing if we have a processor attached.
-            if let processor = _state.processor {
+            if let processor = self._state.processor {
                 guard let processedFrame = processor.process(frame: lkFrame) else {
                     log("VideoProcessor didn't return a frame, skipping frame.", .warning)
                     return
@@ -264,12 +264,12 @@ extension VideoCapturer {
             }
 
             // Resolve real dimensions (apply frame rotation)
-            set(dimensions: Dimensions(width: rtcFrame.width, height: rtcFrame.height).apply(rotation: rtcFrame.rotation))
+            self.set(dimensions: Dimensions(width: rtcFrame.width, height: rtcFrame.height).apply(rotation: rtcFrame.rotation))
 
-            delegate?.capturer(capturer, didCapture: rtcFrame)
+            self.delegate?.capturer(capturer, didCapture: rtcFrame)
 
-            if rendererDelegates.isDelegatesNotEmpty {
-                rendererDelegates.notify { renderer in
+            if self.rendererDelegates.isDelegatesNotEmpty {
+                self.rendererDelegates.notify { renderer in
                     renderer.render?(frame: lkFrame)
                     renderer.render?(frame: lkFrame, captureDevice: device, captureOptions: options)
                 }
