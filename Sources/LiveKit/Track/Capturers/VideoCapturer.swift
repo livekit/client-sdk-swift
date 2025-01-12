@@ -249,14 +249,14 @@ extension VideoCapturer {
 
             var rtcFrame: LKRTCVideoFrame = frame
             guard var lkFrame: VideoFrame = frame.toLKType() else {
-                log("Failed to convert a RTCVideoFrame to VideoFrame.", .error)
+                self.log("Failed to convert a RTCVideoFrame to VideoFrame.", .error)
                 return
             }
 
             // Apply processing if we have a processor attached.
             if let processor = self._state.processor {
                 guard let processedFrame = processor.process(frame: lkFrame) else {
-                    log("VideoProcessor didn't return a frame, skipping frame.", .warning)
+                    self.log("VideoProcessor didn't return a frame, skipping frame.", .warning)
                     return
                 }
                 lkFrame = processedFrame
