@@ -47,7 +47,7 @@ public extension Participant {
         @objc
         public let stringValue: String
 
-        init(from stringValue: String) {
+        public init(from stringValue: String) {
             self.stringValue = stringValue
         }
 
