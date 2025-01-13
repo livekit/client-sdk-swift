@@ -195,6 +195,9 @@ public class AudioManager: Loggable {
         }
     }
 
+    /// Provide custom implementation for internal AVAudioEngine's input configuration.
+    /// Buffers flow from `src` to `dst`. Preferred format to connect node is provided as `format`.
+    /// Return true if custom implementation is provided, otherwise default implementation will be used.
     public var onEngineWillConnectInput: OnEngineWillConnectInput? {
         didSet {
             RTC.audioDeviceModule.setOnEngineWillConnectInputCallback { [weak self] engine, src, dst, format in
@@ -204,6 +207,9 @@ public class AudioManager: Loggable {
         }
     }
 
+    /// Provide custom implementation for internal AVAudioEngine's output configuration.
+    /// Buffers flow from `src` to `dst`. Preferred format to connect node is provided as `format`.
+    /// Return true if custom implementation is provided, otherwise default implementation will be used.
     public var onEngineWillConnectOutput: OnEngineWillConnectOutput? {
         didSet {
             RTC.audioDeviceModule.setOnEngineWillConnectOutputCallback { [weak self] engine, src, dst, format in
@@ -213,7 +219,9 @@ public class AudioManager: Loggable {
         }
     }
 
-    // Invoked on internal thread, do not block.
+    /// Detect voice activity even if the mic is muted.
+    /// Internal audio engine must be initialized by calling ``prepareRecording()`` or
+    /// connecting to a room and subscribing to a remote audio track or publishing a local audio track.
     public var onMutedSpeechActivityEvent: OnSpeechActivityEvent? {
         didSet {
             RTC.audioDeviceModule.setSpeechActivityCallback { [weak self] event in
@@ -233,11 +241,14 @@ public class AudioManager: Loggable {
         }
     }
 
+    /// Enables advanced ducking which ducks other audio based on the presence of voice activity from local and remote chat participants.
+    /// Default: true.
     public var isAdvancedDuckingEnabled: Bool {
         get { RTC.audioDeviceModule.isAdvancedDuckingEnabled }
         set { RTC.audioDeviceModule.isAdvancedDuckingEnabled = newValue }
     }
 
+    /// The ducking(audio reducing) level of other audio.
     @available(iOS 17, macOS 14.0, visionOS 1.0, *)
     public var duckingLevel: AVAudioVoiceProcessingOtherAudioDuckingConfiguration.Level {
         get { RTC.audioDeviceModule.duckingLevel }
