@@ -17,6 +17,7 @@
 #if os(iOS)
 
 import Foundation
+import UniformTypeIdentifiers
 
 #if canImport(ReplayKit)
 import ReplayKit
@@ -28,6 +29,7 @@ private enum Constants {
 
 class SampleUploader {
     private static var imageContext = CIContext(options: nil)
+    private static var colorSpace = CGColorSpace(name: CGColorSpace.sRGB)
 
     @Atomic private var isReady = false
     private var connection: BroadcastUploadSocketConnection
@@ -115,14 +117,12 @@ private extension SampleUploader {
 
         CVPixelBufferLockBaseAddress(imageBuffer, .readOnly)
 
-        let scaleFactor = 1.0
-        let width = CVPixelBufferGetWidth(imageBuffer) / Int(scaleFactor)
-        let height = CVPixelBufferGetHeight(imageBuffer) / Int(scaleFactor)
+        let width = CVPixelBufferGetWidth(imageBuffer)
+        let height = CVPixelBufferGetHeight(imageBuffer)
 
         let orientation = CMGetAttachment(buffer, key: RPVideoSampleOrientationKey as CFString, attachmentModeOut: nil)?.uintValue ?? 0
 
-        let scaleTransform = CGAffineTransform(scaleX: CGFloat(1.0 / scaleFactor), y: CGFloat(1.0 / scaleFactor))
-        let bufferData = jpegData(from: imageBuffer, scale: scaleTransform)
+        let bufferData = jpegData(from: imageBuffer)
 
         CVPixelBufferUnlockBaseAddress(imageBuffer, .readOnly)
 
@@ -144,16 +144,29 @@ private extension SampleUploader {
         return serializedMessage
     }
 
-    func jpegData(from buffer: CVPixelBuffer, scale scaleTransform: CGAffineTransform) -> Data? {
-        let image = CIImage(cvPixelBuffer: buffer).transformed(by: scaleTransform)
+    func jpegData(from buffer: CVPixelBuffer) -> Data? {
 
-        guard let colorSpace = image.colorSpace else {
-            return nil
+        let image = CIImage(cvPixelBuffer: buffer)
+
+        if #available(iOS 17.0, *) {
+            return SampleUploader.imageContext.jpegRepresentation(of: image,
+                                                                  colorSpace: SampleUploader.colorSpace ?? CGColorSpaceCreateDeviceRGB(),
+                                                                  options: [kCGImageDestinationLossyCompressionQuality as CIImageRepresentationOption: 1.0])
+        } else {
+            guard let cgImage = SampleUploader.imageContext.createCGImage(image, from: image.extent) else {
+                return nil
+            }
+
+            let data = NSMutableData()
+            if let imageDestination = CGImageDestinationCreateWithData(data, AVFileType.jpg as CFString, 1, nil) {
+                CGImageDestinationAddImage(imageDestination, cgImage, [:] as CFDictionary) // Empty dictionary, it is possible to set lossy compression quality here
+                if CGImageDestinationFinalize(imageDestination) {
+                    return data as Data
+                }
+            }
         }
 
-        let options: [CIImageRepresentationOption: Float] = [kCGImageDestinationLossyCompressionQuality as CIImageRepresentationOption: 1.0]
-
-        return SampleUploader.imageContext.jpegRepresentation(of: image, colorSpace: colorSpace, options: options)
+        return nil
     }
 }
 
