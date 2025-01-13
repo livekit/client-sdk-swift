@@ -68,6 +68,10 @@ public class AudioManager: Loggable {
     #endif
 
     public typealias DeviceUpdateFunc = (_ audioManager: AudioManager) -> Void
+    public typealias OnEngineWillStart = (_ audioManager: AudioManager, _ engine: AVAudioEngine, _ playoutEnabled: Bool, _ recordingEnabled: Bool) -> Void
+    public typealias OnEngineWillConnectInput = (_ audioManager: AudioManager, _ engine: AVAudioEngine, _ inputMixerNode: AVAudioMixerNode) -> Void
+
+    public typealias OnSpeechActivityEvent = (_ audioManager: AudioManager, _ event: SpeechActivityEvent) -> Void
 
     #if os(iOS) || os(visionOS) || os(tvOS)
 
@@ -208,11 +212,91 @@ public class AudioManager: Loggable {
 
     public var onDeviceUpdate: DeviceUpdateFunc? {
         didSet {
-            RTC.audioDeviceModule.setDevicesUpdatedHandler { [weak self] in
+            RTC.audioDeviceModule.setDevicesDidUpdateCallback { [weak self] in
                 guard let self else { return }
                 self.onDeviceUpdate?(self)
             }
         }
+    }
+
+    public var onEngineWillConnectInput: OnEngineWillConnectInput? {
+        didSet {
+            RTC.audioDeviceModule.setOnEngineWillConnectInputCallback { [weak self] engine, inputMixerNode in
+                guard let self else { return }
+                self.onEngineWillConnectInput?(self, engine, inputMixerNode)
+            }
+        }
+    }
+
+    // Invoked on internal thread, do not block.
+    public var onMutedSpeechActivityEvent: OnSpeechActivityEvent? {
+        didSet {
+            RTC.audioDeviceModule.setSpeechActivityCallback { [weak self] event in
+                guard let self else { return }
+                self.onMutedSpeechActivityEvent?(self, event.toLKType())
+            }
+        }
+    }
+
+    public var isManualRenderingMode: Bool {
+        get { RTC.audioDeviceModule.isManualRenderingMode }
+        set {
+            let result = RTC.audioDeviceModule.setManualRenderingMode(newValue)
+            if !result {
+                log("Failed to set manual rendering mode", .error)
+            }
+        }
+    }
+
+    public var isAdvancedDuckingEnabled: Bool {
+        get { RTC.audioDeviceModule.isAdvancedDuckingEnabled }
+        set { RTC.audioDeviceModule.isAdvancedDuckingEnabled = newValue }
+    }
+
+    @available(iOS 17, macOS 14.0, visionOS 1.0, *)
+    public var duckingLevel: AVAudioVoiceProcessingOtherAudioDuckingConfiguration.Level {
+        get { RTC.audioDeviceModule.duckingLevel }
+        set { RTC.audioDeviceModule.duckingLevel = newValue }
+    }
+
+    // MARK: - Recording
+
+    /// Initialize recording (mic input) and pre-warm voice processing etc.
+    /// Mic permission is required and dialog will appear if not already granted.
+    public func prepareRecording() {
+        RTC.audioDeviceModule.initRecording()
+    }
+
+    /// Starts mic input to the SDK even without any ``Room`` or a connection.
+    /// Audio buffers will flow into ``LocalAudioTrack/add(audioRenderer:)`` and ``capturePostProcessingDelegate``.
+    public func startLocalRecording() {
+        RTC.audioDeviceModule.initAndStartRecording()
+    }
+
+    // MARK: Internal for testing
+
+    func initPlayout() {
+        RTC.audioDeviceModule.initPlayout()
+    }
+
+    func startPlayout() {
+        RTC.audioDeviceModule.startPlayout()
+    }
+
+    func stopPlayout() {
+        RTC.audioDeviceModule.stopPlayout()
+    }
+
+    func initRecording() {
+        RTC.audioDeviceModule.initRecording()
+    }
+
+    func startRecording() {
+        RTC.audioDeviceModule.startRecording()
+    }
+
+    func stopRecording() {
+        RTC.audioDeviceModule.stopRecording()
     }
 
     // MARK: - Internal
@@ -224,42 +308,39 @@ public class AudioManager: Loggable {
 
     let state = StateSync(State())
 
-    // MARK: - Private
+    init() {
+        RTC.audioDeviceModule.setOnEngineWillStartCallback { [weak self] _, isPlayoutEnabled, isRecordingEnabled in
+            guard let self else { return }
+            self.log("OnEngineWillStart isPlayoutEnabled: \(isPlayoutEnabled), isRecordingEnabled: \(isRecordingEnabled)")
 
-    private let _configureRunner = SerialRunnerActor<Void>()
-
-    #if os(iOS) || os(visionOS) || os(tvOS)
-    private func _asyncConfigure(newState: State, oldState: State) async throws {
-        try await _configureRunner.run {
-            self.log("\(oldState) -> \(newState)")
-            let configureFunc = newState.customConfigureFunc ?? self.defaultConfigureAudioSessionFunc
-            configureFunc(newState, oldState)
+            #if os(iOS) || os(visionOS) || os(tvOS)
+            self.log("Configuring audio session...")
+            // Backward compatibility
+            let configureFunc = state.customConfigureFunc ?? self.defaultConfigureAudioSessionFunc
+            let simulatedState = AudioManager.State(localTracksCount: isRecordingEnabled ? 1 : 0, remoteTracksCount: isPlayoutEnabled ? 1 : 0)
+            configureFunc(simulatedState, AudioManager.State())
+            #endif
         }
     }
-    #endif
+
+    // MARK: - Private
 
     func trackDidStart(_ type: Type) async throws {
-        let (newState, oldState) = state.mutate { state in
+        state.mutate { state in
             let oldState = state
             if type == .local { state.localTracksCount += 1 }
             if type == .remote { state.remoteTracksCount += 1 }
             return (state, oldState)
         }
-        #if os(iOS) || os(visionOS) || os(tvOS)
-        try await _asyncConfigure(newState: newState, oldState: oldState)
-        #endif
     }
 
     func trackDidStop(_ type: Type) async throws {
-        let (newState, oldState) = state.mutate { state in
+        state.mutate { state in
             let oldState = state
             if type == .local { state.localTracksCount = max(state.localTracksCount - 1, 0) }
             if type == .remote { state.remoteTracksCount = max(state.remoteTracksCount - 1, 0) }
             return (state, oldState)
         }
-        #if os(iOS) || os(visionOS) || os(tvOS)
-        try await _asyncConfigure(newState: newState, oldState: oldState)
-        #endif
     }
 
     #if os(iOS) || os(visionOS) || os(tvOS)
