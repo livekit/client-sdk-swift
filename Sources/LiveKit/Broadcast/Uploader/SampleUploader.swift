@@ -17,7 +17,6 @@
 #if os(iOS)
 
 import Foundation
-import UniformTypeIdentifiers
 
 #if canImport(ReplayKit)
 import ReplayKit
@@ -29,7 +28,7 @@ private enum Constants {
 
 class SampleUploader {
     private static var imageContext = CIContext(options: nil)
-    private static var colorSpace = CGColorSpace(name: CGColorSpace.sRGB)
+    private static var colorSpace = CGColorSpaceCreateDeviceRGB()
 
     @Atomic private var isReady = false
     private var connection: BroadcastUploadSocketConnection
@@ -38,6 +37,9 @@ class SampleUploader {
     private var byteIndex = 0
 
     private let serialQueue: DispatchQueue
+
+    // Configure desired compression quality (0.0 = max compression, 1.0 = least compression)
+    public let compressionQuality: CGFloat = 1.0
 
     init(connection: BroadcastUploadSocketConnection) {
         self.connection = connection
@@ -145,28 +147,34 @@ private extension SampleUploader {
     }
 
     func jpegData(from buffer: CVPixelBuffer) -> Data? {
-
         let image = CIImage(cvPixelBuffer: buffer)
 
         if #available(iOS 17.0, *) {
-            return SampleUploader.imageContext.jpegRepresentation(of: image,
-                                                                  colorSpace: SampleUploader.colorSpace ?? CGColorSpaceCreateDeviceRGB(),
-                                                                  options: [kCGImageDestinationLossyCompressionQuality as CIImageRepresentationOption: 1.0])
+            return Self.imageContext.jpegRepresentation(
+                of: image,
+                colorSpace: Self.colorSpace,
+                options: [kCGImageDestinationLossyCompressionQuality as CIImageRepresentationOption: compressionQuality]
+            )
         } else {
-            guard let cgImage = SampleUploader.imageContext.createCGImage(image, from: image.extent) else {
+            // Workaround for "unsupported file format 'public.heic'"
+            guard let cgImage = Self.imageContext.createCGImage(image, from: image.extent) else {
                 return nil
             }
 
             let data = NSMutableData()
-            if let imageDestination = CGImageDestinationCreateWithData(data, AVFileType.jpg as CFString, 1, nil) {
-                CGImageDestinationAddImage(imageDestination, cgImage, [:] as CFDictionary) // Empty dictionary, it is possible to set lossy compression quality here
-                if CGImageDestinationFinalize(imageDestination) {
-                    return data as Data
-                }
+            guard let imageDestination = CGImageDestinationCreateWithData(data, AVFileType.jpg as CFString, 1, nil) else {
+                return nil
             }
-        }
 
-        return nil
+            let options: [CFString: Any] = [kCGImageDestinationLossyCompressionQuality: compressionQuality]
+            CGImageDestinationAddImage(imageDestination, cgImage, options as CFDictionary)
+
+            guard CGImageDestinationFinalize(imageDestination) else {
+                return nil
+            }
+
+            return data as Data
+        }
     }
 }
 
