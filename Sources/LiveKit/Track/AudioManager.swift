@@ -69,7 +69,16 @@ public class AudioManager: Loggable {
 
     public typealias DeviceUpdateFunc = (_ audioManager: AudioManager) -> Void
     public typealias OnEngineWillStart = (_ audioManager: AudioManager, _ engine: AVAudioEngine, _ playoutEnabled: Bool, _ recordingEnabled: Bool) -> Void
-    public typealias OnEngineWillConnectInput = (_ audioManager: AudioManager, _ engine: AVAudioEngine, _ inputMixerNode: AVAudioMixerNode) -> Void
+    public typealias OnEngineWillConnectInput = (_ audioManager: AudioManager,
+                                                 _ engine: AVAudioEngine,
+                                                 _ src: AVAudioNode,
+                                                 _ dst: AVAudioNode,
+                                                 _ format: AVAudioFormat) -> Bool
+    public typealias OnEngineWillConnectOutput = (_ audioManager: AudioManager,
+                                                  _ engine: AVAudioEngine,
+                                                  _ src: AVAudioNode,
+                                                  _ dst: AVAudioNode,
+                                                  _ format: AVAudioFormat) -> Bool
 
     public typealias OnSpeechActivityEvent = (_ audioManager: AudioManager, _ event: SpeechActivityEvent) -> Void
 
@@ -221,9 +230,18 @@ public class AudioManager: Loggable {
 
     public var onEngineWillConnectInput: OnEngineWillConnectInput? {
         didSet {
-            RTC.audioDeviceModule.setOnEngineWillConnectInputCallback { [weak self] engine, inputMixerNode in
-                guard let self else { return }
-                self.onEngineWillConnectInput?(self, engine, inputMixerNode)
+            RTC.audioDeviceModule.setOnEngineWillConnectInputCallback { [weak self] engine, src, dst, format in
+                guard let self else { return false }
+                return self.onEngineWillConnectInput?(self, engine, src, dst, format) ?? false
+            }
+        }
+    }
+
+    public var onEngineWillConnectOutput: OnEngineWillConnectOutput? {
+        didSet {
+            RTC.audioDeviceModule.setOnEngineWillConnectOutputCallback { [weak self] engine, src, dst, format in
+                guard let self else { return false }
+                return self.onEngineWillConnectOutput?(self, engine, src, dst, format) ?? false
             }
         }
     }
