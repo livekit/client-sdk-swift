@@ -20,8 +20,8 @@ import AVFAudio
 // Used to save audio data for inspecting the correct format, etc.
 class AudioRecorder {
     public let sampleRate: Double
-    public let audioFile: AVAudioFile
     public let filePath: URL
+    private var audioFile: AVAudioFile?
 
     init(sampleRate: Double = 16000, channels: Int = 1) throws {
         self.sampleRate = sampleRate
@@ -47,17 +47,12 @@ class AudioRecorder {
     }
 
     func write(pcmBuffer: AVAudioPCMBuffer) throws {
-        if #available(iOS 18, macOS 15.0, tvOS 18, visionOS 2.0, *) {
-            guard audioFile.isOpen else { return }
-        }
-
+        guard let audioFile else { return }
         try audioFile.write(from: pcmBuffer)
     }
 
     func close() {
-        if #available(iOS 18, macOS 15.0, tvOS 18, visionOS 2.0, *) {
-            audioFile.close()
-        }
+        audioFile = nil
     }
 }
 
