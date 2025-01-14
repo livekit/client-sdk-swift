@@ -103,10 +103,11 @@ class AudioEngineTests: XCTestCase {
         // Attach sin wave generator when engine requests input node...
         // inputMixerNode will automatically convert to RTC's internal format (int16).
         // AVAudioEngine.attach() retains the node.
-        AudioManager.shared.onEngineWillConnectInput = { _, engine, inputMixerNode in
+        AudioManager.shared.onEngineWillConnectInput = { _, engine, _, dst, format in
             let sin = SineWaveSourceNode()
             engine.attach(sin)
-            engine.connect(sin, to: inputMixerNode, format: nil)
+            engine.connect(sin, to: dst, format: format)
+            return true
         }
 
         // Set manual rendering mode...
