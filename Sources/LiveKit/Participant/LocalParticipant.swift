@@ -654,7 +654,7 @@ extension LocalParticipant {
 
             if response.byteLength > MAX_RPC_PAYLOAD_BYTES {
                 responseError = RpcError.builtIn(.responsePayloadTooLarge)
-                log("RPC Response payload too large for \(method)", .warning)
+                log("[Rpc] Response payload too large for \(method)", .warning)
             } else {
                 responsePayload = response
             }
@@ -662,7 +662,7 @@ extension LocalParticipant {
             if let rpcError = error as? RpcError {
                 responseError = rpcError
             } else {
-                log("Uncaught error returned by RPC handler for \(method). Returning APPLICATION_ERROR instead.", .warning)
+                log("[Rpc] Uncaught error returned by RPC handler for \(method). Returning APPLICATION_ERROR instead.", .warning)
                 responseError = RpcError.builtIn(.applicationError)
             }
         }
@@ -686,7 +686,7 @@ extension LocalParticipant {
     {
         Task {
             guard let handler = await rpcState.removePendingResponse(requestId) else {
-                log("Response received for unexpected RPC request, id = \(requestId)", .error)
+                log("[Rpc] Response received for unexpected RPC request, id = \(requestId)", .error)
                 return
             }
 
