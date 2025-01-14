@@ -242,8 +242,8 @@ extension Room {
 
     func room(didReceiveRpcResponse response: Livekit_RpcResponse) {
         let (payload, error): (String?, RpcError?) = switch response.value {
-        case .payload(let v): (v, nil)
-        case .error(let e): (nil, RpcError.fromProto(e))
+        case let .payload(v): (v, nil)
+        case let .error(e): (nil, RpcError.fromProto(e))
         default: (nil, nil)
         }
 
@@ -251,7 +251,7 @@ extension Room {
                                                    payload: payload,
                                                    error: error)
     }
-    
+
     func room(didReceiveRpcAck ack: Livekit_RpcAck) {
         let requestId = ack.requestID
         localParticipant.handleIncomingRpcAck(requestId: requestId)

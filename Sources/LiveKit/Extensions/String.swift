@@ -21,11 +21,11 @@ extension String {
     var nilIfEmpty: String? {
         isEmpty ? nil : self
     }
-    
+
     var byteLength: Int {
         data(using: .utf8)?.count ?? 0
     }
-    
+
     func truncate(maxBytes: Int) -> String {
         if byteLength <= maxBytes {
             return self

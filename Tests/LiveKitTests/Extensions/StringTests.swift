@@ -14,35 +14,34 @@
  * limitations under the License.
  */
 
-import XCTest
 @testable import LiveKit
+import XCTest
 
 final class StringTests: XCTestCase {
-    
     func testByteLength() {
         // ASCII characters (1 byte each)
         XCTAssertEqual("hello".byteLength, 5)
         XCTAssertEqual("".byteLength, 0)
-        
+
         // Unicode characters (variable bytes)
         XCTAssertEqual("👋".byteLength, 4) // Emoji (4 bytes)
-        XCTAssertEqual("ñ".byteLength, 2)  // Spanish n with tilde (2 bytes)
+        XCTAssertEqual("ñ".byteLength, 2) // Spanish n with tilde (2 bytes)
         XCTAssertEqual("你好".byteLength, 6) // Chinese characters (3 bytes each)
     }
-    
+
     func testTruncate() {
         // Test ASCII strings
         XCTAssertEqual("hello".truncate(maxBytes: 5), "hello")
         XCTAssertEqual("hello".truncate(maxBytes: 3), "hel")
         XCTAssertEqual("".truncate(maxBytes: 5), "")
-        
+
         // Test Unicode strings
         XCTAssertEqual("👋hello".truncate(maxBytes: 4), "👋") // Emoji is 4 bytes
         XCTAssertEqual("hi👋".truncate(maxBytes: 5), "hi") // Won't cut in middle of emoji
         XCTAssertEqual("你好world".truncate(maxBytes: 6), "你好") // Chinese characters are 3 bytes each
-        
+
         // Test edge cases
         XCTAssertEqual("hello".truncate(maxBytes: 0), "")
         XCTAssertEqual("hello".truncate(maxBytes: 100), "hello")
     }
-} 
+}

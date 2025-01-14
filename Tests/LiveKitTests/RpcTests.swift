@@ -18,10 +18,9 @@
 import XCTest
 
 class RpcTests: XCTestCase {
-
     // Mock DataChannelPair to intercept outgoing packets
     class MockDataChannelPair: DataChannelPair {
-        var packetHandler: ((Livekit_DataPacket) -> Void)
+        var packetHandler: (Livekit_DataPacket) -> Void
 
         init(packetHandler: @escaping (Livekit_DataPacket) -> Void) {
             self.packetHandler = packetHandler
@@ -39,13 +38,13 @@ class RpcTests: XCTestCase {
 
             let expectRequest = self.expectation(description: "Should send RPC request packet")
 
-            let mockDataChannel = MockDataChannelPair() { packet in
-                guard case .rpcRequest(let request) = packet.value else {
+            let mockDataChannel = MockDataChannelPair { packet in
+                guard case let .rpcRequest(request) = packet.value else {
                     print("Not an RPC request packet")
                     return
                 }
 
-                guard request.method == "test-method" && request.payload == "test-payload" && request.responseTimeoutMs == 8_000 else {
+                guard request.method == "test-method", request.payload == "test-payload", request.responseTimeoutMs == 8000 else {
                     return
                 }
 
@@ -86,17 +85,18 @@ class RpcTests: XCTestCase {
 
             let expectResponse = self.expectation(description: "Should send RPC response packet")
 
-            let mockDataChannel = MockDataChannelPair() { packet in
-                guard case .rpcResponse(let response) = packet.value else {
+            let mockDataChannel = MockDataChannelPair { packet in
+                guard case let .rpcResponse(response) = packet.value else {
                     return
                 }
 
-                guard case .payload(let payload) = response.value else {
+                guard case let .payload(payload) = response.value else {
                     return
                 }
 
-                guard response.requestID == "test-request-1" &&
-                        payload == "Hello, test-caller!" else {
+                guard response.requestID == "test-request-1",
+                      payload == "Hello, test-caller!"
+                else {
                     return
                 }
 
@@ -106,7 +106,7 @@ class RpcTests: XCTestCase {
             room.publisherDataChannel = mockDataChannel
 
             await room.localParticipant.registerRpcMethod("greet") { data in
-                return "Hello, \(data.callerIdentity)!"
+                "Hello, \(data.callerIdentity)!"
             }
 
             await room.localParticipant.handleIncomingRpcRequest(
@@ -129,15 +129,17 @@ class RpcTests: XCTestCase {
 
             let expectError = self.expectation(description: "Should send error response packet")
 
-            let mockDataChannel = MockDataChannelPair() { packet in
-                guard case .rpcResponse(let response) = packet.value,
-                      case .error(let error) = response.value else {
+            let mockDataChannel = MockDataChannelPair { packet in
+                guard case let .rpcResponse(response) = packet.value,
+                      case let .error(error) = response.value
+                else {
                     return
                 }
 
-                guard error.code == 2000 &&
-                        error.message == "Custom error" &&
-                        error.data == "Additional data" else {
+                guard error.code == 2000,
+                      error.message == "Custom error",
+                      error.data == "Additional data"
+                else {
                     return
                 }
 
@@ -170,9 +172,10 @@ class RpcTests: XCTestCase {
 
             let expectUnsupportedMethod = self.expectation(description: "Should send unsupported method error packet")
 
-            let mockDataChannel = MockDataChannelPair() { packet in
-                guard case .rpcResponse(let response) = packet.value,
-                      case .error(let error) = response.value else {
+            let mockDataChannel = MockDataChannelPair { packet in
+                guard case let .rpcResponse(response) = packet.value,
+                      case let .error(error) = response.value
+                else {
                     return
                 }
 
@@ -186,7 +189,7 @@ class RpcTests: XCTestCase {
             room.publisherDataChannel = mockDataChannel
 
             await room.localParticipant.registerRpcMethod("test") { _ in
-                return "test response"
+                "test response"
             }
 
             await room.localParticipant.unregisterRpcMethod("test")

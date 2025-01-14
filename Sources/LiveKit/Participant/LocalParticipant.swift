@@ -469,7 +469,8 @@ extension LocalParticipant {
     ///   - method: The name of the indicated RPC method
     ///   - handler: Will be invoked when an RPC request for this method is received
     public func registerRpcMethod(_ method: String,
-                                  handler: @escaping RpcHandler) async {
+                                  handler: @escaping RpcHandler) async
+    {
         await rpcState.registerHandler(method, handler: handler)
     }
 
@@ -491,7 +492,8 @@ extension LocalParticipant {
     public func performRpc(destinationIdentity: Identity,
                            method: String,
                            payload: String,
-                           responseTimeout: TimeInterval = 10) async throws -> String {
+                           responseTimeout: TimeInterval = 10) async throws -> String
+    {
         guard payload.byteLength <= MAX_RPC_PAYLOAD_BYTES else {
             throw RpcError.builtIn(.requestPayloadTooLarge)
         }
@@ -505,20 +507,20 @@ extension LocalParticipant {
                                     method: method,
                                     payload: payload,
                                     responseTimeout: effectiveTimeout)
-        
+
         do {
             return try await withThrowingTimeout(timeout: responseTimeout) {
                 try await withCheckedThrowingContinuation { continuation in
                     Task {
                         await self.rpcState.addPendingAck(requestId)
-                        
+
                         await self.rpcState.setPendingResponse(requestId, response: PendingRpcResponse(
                             participantIdentity: destinationIdentity,
                             onResolve: { payload, error in
                                 Task {
                                     await self.rpcState.removePendingAck(requestId)
                                     await self.rpcState.removePendingResponse(requestId)
-                                    
+
                                     if let error {
                                         continuation.resume(throwing: error)
                                     } else {
@@ -528,10 +530,10 @@ extension LocalParticipant {
                             }
                         ))
                     }
-                    
+
                     Task {
                         try await Task.sleep(nanoseconds: UInt64(maxRoundTripLatency * 1_000_000_000))
-                        
+
                         if await self.rpcState.hasPendingAck(requestId) {
                             await self.rpcState.removeAllPending(requestId)
                             continuation.resume(throwing: RpcError.builtIn(.connectionTimeout))
@@ -580,7 +582,8 @@ extension LocalParticipant {
     private func publishRpcResponse(destinationIdentity: Identity,
                                     requestId: String,
                                     payload: String?,
-                                    error: RpcError?) async throws {
+                                    error: RpcError?) async throws
+    {
         let room = try requireRoom()
 
         let dataPacket = Livekit_DataPacket.with {
@@ -588,7 +591,7 @@ extension LocalParticipant {
             $0.kind = .reliable
             $0.rpcResponse = Livekit_RpcResponse.with {
                 $0.requestID = requestId
-                if let error = error {
+                if let error {
                     $0.error = error.toProto()
                 } else {
                     $0.payload = payload ?? ""
@@ -600,7 +603,8 @@ extension LocalParticipant {
     }
 
     private func publishRpcAck(destinationIdentity: Identity,
-                               requestId: String) async throws {
+                               requestId: String) async throws
+    {
         let room = try requireRoom()
 
         let dataPacket = Livekit_DataPacket.with {
@@ -640,7 +644,7 @@ extension LocalParticipant {
             return
         }
 
-        guard let handler  = await rpcState.getHandler(for: method) else {
+        guard let handler = await rpcState.getHandler(for: method) else {
             do {
                 try await publishRpcResponse(destinationIdentity: callerIdentity,
                                              requestId: requestId,

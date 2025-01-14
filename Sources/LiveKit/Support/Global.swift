@@ -23,7 +23,8 @@ func merge<T>(range range1: ClosedRange<T>, with range2: ClosedRange<T>) -> Clos
 
 // throws a timeout if the operation takes longer than the given timeout
 func withThrowingTimeout<T>(timeout: TimeInterval,
-                                    operation: @escaping () async throws -> T) async throws -> T {
+                            operation: @escaping () async throws -> T) async throws -> T
+{
     try await withThrowingTaskGroup(of: T.self) { group in
         group.addTask {
             try await operation()
@@ -42,7 +43,7 @@ func withThrowingTimeout<T>(timeout: TimeInterval,
             // This should never happen since we know we added tasks
             throw LiveKitError(.invalidState)
         }
-        
+
         return result
     }
 }

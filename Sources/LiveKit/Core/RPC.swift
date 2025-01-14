@@ -27,13 +27,13 @@ struct RpcError: Error {
     ///
     /// See `RpcError.BuiltInError` for built-in error information.
     let code: Int
-    
+
     /// A message to include. Strings over 256 bytes will be truncated.
     let message: String
-    
+
     /// An optional data payload. Must be smaller than 15KB in size, or else will be truncated.
     let data: String
-    
+
     enum BuiltInError {
         case applicationError
         case connectionTimeout
@@ -46,7 +46,7 @@ struct RpcError: Error {
         case requestPayloadTooLarge
         case unsupportedServer
         case unsupportedVersion
-        
+
         var code: Int {
             switch self {
             case .applicationError: return 1500
@@ -62,7 +62,7 @@ struct RpcError: Error {
             case .unsupportedVersion: return 1404
             }
         }
-        
+
         var message: String {
             switch self {
             case .applicationError: return "Application error in method handler"
@@ -78,7 +78,7 @@ struct RpcError: Error {
             case .unsupportedVersion: return "Unsupported RPC version"
             }
         }
-        
+
         func create(data: String = "") -> RpcError {
             RpcError(code: code, message: message, data: data)
         }
@@ -92,15 +92,15 @@ struct RpcError: Error {
     static let MAX_DATA_BYTES = 15360 // 15 KB
 
     static func fromProto(_ proto: Livekit_RpcError) -> RpcError {
-        return RpcError(
+        RpcError(
             code: Int(proto.code),
             message: (proto.message).truncate(maxBytes: MAX_MESSAGE_BYTES),
             data: proto.data.truncate(maxBytes: MAX_DATA_BYTES)
         )
     }
-    
+
     func toProto() -> Livekit_RpcError {
-        return Livekit_RpcError.with {
+        Livekit_RpcError.with {
             $0.code = UInt32(code)
             $0.message = message
             $0.data = data
@@ -125,13 +125,13 @@ public typealias RpcHandler = (RpcInvocationData) async throws -> String
 public struct RpcInvocationData {
     /// A unique identifier for this RPC request
     let requestId: String
-    
+
     /// The identity of the RemoteParticipant who initiated the RPC call
     let callerIdentity: Participant.Identity
-    
+
     /// The data sent by the caller (as a string)
     let payload: String
-    
+
     /// The maximum time available to return a response
     let responseTimeout: TimeInterval
 }
@@ -145,19 +145,19 @@ actor RpcStateManager {
     private var handlers: [String: RpcHandler] = [:] // methodName to handler
     private var pendingAcks: Set<String> = Set()
     private var pendingResponses: [String: PendingRpcResponse] = [:] // requestId to pending response
-    
+
     func registerHandler(_ method: String, handler: @escaping RpcHandler) {
         handlers[method] = handler
     }
-    
+
     func unregisterHandler(_ method: String) {
         handlers.removeValue(forKey: method)
     }
-    
+
     func getHandler(for method: String) -> RpcHandler? {
         handlers[method]
     }
-    
+
     func addPendingAck(_ requestId: String) {
         pendingAcks.insert(requestId)
     }
@@ -166,11 +166,11 @@ actor RpcStateManager {
     func removePendingAck(_ requestId: String) -> Bool {
         pendingAcks.remove(requestId) != nil
     }
-    
+
     func hasPendingAck(_ requestId: String) -> Bool {
         pendingAcks.contains(requestId)
     }
-    
+
     func setPendingResponse(_ requestId: String, response: PendingRpcResponse) {
         pendingResponses[requestId] = response
     }
