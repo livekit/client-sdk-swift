@@ -150,7 +150,6 @@ class RpcTests: XCTestCase {
                 throw RpcError(code: 2000, message: "Custom error", data: "Additional data")
             }
 
-            // Simulate the RPC request
             await room.localParticipant.handleIncomingRpcRequest(
                 callerIdentity: Participant.Identity(from: "test-caller"),
                 requestId: "test-request-1",
@@ -172,7 +171,6 @@ class RpcTests: XCTestCase {
             let expectUnsupportedMethod = self.expectation(description: "Should send unsupported method error packet")
 
             let mockDataChannel = MockDataChannelPair() { packet in
-                // Verify it's an RPC response packet with unsupported method error
                 guard case .rpcResponse(let response) = packet.value,
                       case .error(let error) = response.value else {
                     return
@@ -193,7 +191,6 @@ class RpcTests: XCTestCase {
 
             await room.localParticipant.unregisterRpcMethod("test")
 
-            // Simulate the RPC request
             await room.localParticipant.handleIncomingRpcRequest(
                 callerIdentity: Participant.Identity(from: "test-caller"),
                 requestId: "test-request-1",
