@@ -241,33 +241,22 @@ extension Room {
     }
 
     func room(didReceiveRpcResponse response: Livekit_RpcResponse) {
-        let requestId = response.requestID
-        let payload: String?
-        let error: RpcError?
-        switch response.value {
-        case .payload(let v):
-            payload = v
-            error = nil
-        case .error(let e):
-            error = .fromProto(e)
-            payload = nil
-        default:
-            log("[Rpc] Response without payload nor error \(response)")
-            payload = nil
-            error = nil
-            break
+        let (payload, error): (String?, RpcError?) = switch response.value {
+        case .payload(let v): (v, nil)
+        case .error(let e): (nil, RpcError.fromProto(e))
+        default: (nil, nil)
         }
-
-        localParticipant.handleIncomingRpcResponse(requestId: requestId,
-                                                 payload: payload,
+        
+        localParticipant.handleIncomingRpcResponse(requestId: response.requestID,
+                                                   payload: payload,
                                                    error: error)
     }
-
+    
     func room(didReceiveRpcAck ack: Livekit_RpcAck) {
         let requestId = ack.requestID
         localParticipant.handleIncomingRpcAck(requestId: requestId)
     }
-
+    
     func room(didReceiveRpcRequest request: Livekit_RpcRequest, from participantIdentity: String) {
         let callerIdentity = Participant.Identity(from: participantIdentity)
         let requestId = request.id
@@ -278,11 +267,11 @@ extension Room {
 
         Task {
             await localParticipant.handleIncomingRpcRequest(callerIdentity: callerIdentity,
-                                                         requestId: requestId,
-                                                         method: method,
-                                                         payload: payload,
-                                                         responseTimeout: responseTimeout,
-                                                         version: version)
+                                                            requestId: requestId,
+                                                            method: method,
+                                                            payload: payload,
+                                                            responseTimeout: responseTimeout,
+                                                            version: version)
         }
     }
 }
