@@ -506,37 +506,46 @@ extension LocalParticipant {
                                     payload: payload,
                                     responseTimeout: effectiveTimeout)
 
-        return try await withThrowingTimeout(seconds: responseTimeout) {
-            try await withCheckedThrowingContinuation { continuation in
-                Task {
-                    await self.rpcState.addPendingAck(requestId)
+        do {
+            return try await withThrowingTimeout(timeout: responseTimeout) {
+                    try await withCheckedThrowingContinuation { continuation in
+                        Task {
+                        await self.rpcState.addPendingAck(requestId)
 
-                    await self.rpcState.setPendingResponse(requestId, response: PendingRpcResponse(
-                        participantIdentity: destinationIdentity,
-                        onResolve: { payload, error in
-                            Task {
-                                await self.rpcState.removePendingAck(requestId)
-                                await self.rpcState.removePendingResponse(requestId)
+                        await self.rpcState.setPendingResponse(requestId, response: PendingRpcResponse(
+                            participantIdentity: destinationIdentity,
+                            onResolve: { payload, error in
+                                Task {
+                                    await self.rpcState.removePendingAck(requestId)
+                                    await self.rpcState.removePendingResponse(requestId)
 
-                                if let error {
-                                    continuation.resume(throwing: error)
-                                } else {
-                                    continuation.resume(returning: payload ?? "")
+                                    if let error {
+                                        continuation.resume(throwing: error)
+                                    } else {
+                                        continuation.resume(returning: payload ?? "")
+                                    }
                                 }
                             }
+                        ))
+                    }
+
+                    Task {
+                        try await Task.sleep(nanoseconds: UInt64(maxRoundTripLatency * 1_000_000_000))
+
+                        if await self.rpcState.hasPendingAck(requestId) {
+                            await self.rpcState.removeAllPending(requestId)
+                            continuation.resume(throwing: RpcError.builtIn(.connectionTimeout))
                         }
-                    ))
-                }
-
-                Task {
-                    try await Task.sleep(nanoseconds: UInt64(maxRoundTripLatency * 1_000_000_000))
-
-                    if await self.rpcState.hasPendingAck(requestId) {
-                        await self.rpcState.removeAllPending(requestId)
-                        continuation.resume(throwing: RpcError.builtIn(.connectionTimeout))
                     }
                 }
             }
+        } catch {
+            if let error = error as? LiveKitError {
+                if error.type == .timedOut {
+                    throw RpcError.builtIn(.connectionTimeout)
+                }
+            }
+            throw error
         }
     }
 
@@ -907,35 +916,5 @@ private extension LocalParticipant {
             // Rethrow
             throw error
         }
-    }
-}
-
-// Helper function for timeout
-private func withThrowingTimeout<T>(seconds: TimeInterval,
-                                  operation: @escaping () async throws -> T) async throws -> T {
-    try await withThrowingTaskGroup(of: T.self) { group in
-        // Add the main operation
-        group.addTask {
-            try await operation()
-        }
-        
-        // Add timeout task
-        group.addTask {
-            try await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
-            throw RpcError.builtIn(.responseTimeout)
-        }
-        
-        // Return first result or throw first error
-        let result = try await group.next()
-        
-        // Cancel any remaining tasks
-        group.cancelAll()
-
-        guard let result else {
-            // This should never happen since we know we added tasks
-            throw LiveKitError(.invalidState)
-        }
-
-        return result
     }
 }

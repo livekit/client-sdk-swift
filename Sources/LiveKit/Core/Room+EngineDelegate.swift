@@ -246,7 +246,7 @@ extension Room {
         case .error(let e): (nil, RpcError.fromProto(e))
         default: (nil, nil)
         }
-        
+
         localParticipant.handleIncomingRpcResponse(requestId: response.requestID,
                                                    payload: payload,
                                                    error: error)
@@ -256,7 +256,7 @@ extension Room {
         let requestId = ack.requestID
         localParticipant.handleIncomingRpcAck(requestId: requestId)
     }
-    
+
     func room(didReceiveRpcRequest request: Livekit_RpcRequest, from participantIdentity: String) {
         let callerIdentity = Participant.Identity(from: participantIdentity)
         let requestId = request.id
