@@ -312,7 +312,7 @@ public class AudioManager: Loggable {
             #if os(iOS) || os(visionOS) || os(tvOS)
             self.log("Configuring audio session...")
             // Backward compatibility
-            let configureFunc = state.customConfigureFunc ?? self.defaultConfigureAudioSessionFunc
+            let configureFunc = self.state.customConfigureFunc ?? self.defaultConfigureAudioSessionFunc
             let simulatedState = AudioManager.State(localTracksCount: isRecordingEnabled ? 1 : 0, remoteTracksCount: isPlayoutEnabled ? 1 : 0)
             configureFunc(simulatedState, AudioManager.State())
             #endif
