@@ -810,7 +810,7 @@ private extension LocalParticipant {
 
                     populator.disableDtx = !publishOptions.dtx
 
-                    let encoding = publishOptions.encoding ?? AudioEncoding.presetSpeech
+                    let encoding = publishOptions.encoding ?? AudioEncoding.presetMusic
 
                     self.log("[publish] maxBitrate: \(encoding.maxBitrate)")
 
