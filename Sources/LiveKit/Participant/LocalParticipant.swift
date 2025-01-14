@@ -505,20 +505,20 @@ extension LocalParticipant {
                                     method: method,
                                     payload: payload,
                                     responseTimeout: effectiveTimeout)
-
+        
         do {
             return try await withThrowingTimeout(timeout: responseTimeout) {
-                    try await withCheckedThrowingContinuation { continuation in
-                        Task {
+                try await withCheckedThrowingContinuation { continuation in
+                    Task {
                         await self.rpcState.addPendingAck(requestId)
-
+                        
                         await self.rpcState.setPendingResponse(requestId, response: PendingRpcResponse(
                             participantIdentity: destinationIdentity,
                             onResolve: { payload, error in
                                 Task {
                                     await self.rpcState.removePendingAck(requestId)
                                     await self.rpcState.removePendingResponse(requestId)
-
+                                    
                                     if let error {
                                         continuation.resume(throwing: error)
                                     } else {
@@ -528,10 +528,10 @@ extension LocalParticipant {
                             }
                         ))
                     }
-
+                    
                     Task {
                         try await Task.sleep(nanoseconds: UInt64(maxRoundTripLatency * 1_000_000_000))
-
+                        
                         if await self.rpcState.hasPendingAck(requestId) {
                             await self.rpcState.removeAllPending(requestId)
                             continuation.resume(throwing: RpcError.builtIn(.connectionTimeout))
