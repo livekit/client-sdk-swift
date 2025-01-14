@@ -250,9 +250,9 @@ public class AudioManager: Loggable {
 
     /// The ducking(audio reducing) level of other audio.
     @available(iOS 17, macOS 14.0, visionOS 1.0, *)
-    public var duckingLevel: AVAudioVoiceProcessingOtherAudioDuckingConfiguration.Level {
-        get { RTC.audioDeviceModule.duckingLevel }
-        set { RTC.audioDeviceModule.duckingLevel = newValue }
+    public var duckingLevel: AudioDuckingLevel {
+        get { AudioDuckingLevel(rawValue: RTC.audioDeviceModule.duckingLevel) ?? .default }
+        set { RTC.audioDeviceModule.duckingLevel = newValue.rawValue }
     }
 
     // MARK: - Recording
