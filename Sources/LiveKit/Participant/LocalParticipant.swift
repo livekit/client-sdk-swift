@@ -619,27 +619,34 @@ extension LocalParticipant {
                                 responseTimeout: TimeInterval,
                                 version: Int) async 
     {
-        // TODO fix try?
-        try? await publishRpcAck(destinationIdentity: callerIdentity,
+        do {
+            try await publishRpcAck(destinationIdentity: callerIdentity,
                            requestId: requestId)
+        } catch {
+            log("[Rpc] Failed to publish RPC ack for \(requestId)", .error)
+        }
 
-        if version != 1 {
-            // TODO fix try?
-            try? await publishRpcResponse(destinationIdentity: callerIdentity,
+        guard version == 1 else {
+            do {
+                try await publishRpcResponse(destinationIdentity: callerIdentity,
                                    requestId: requestId,
                                    payload: nil,
                                    error: RpcError.builtIn(.unsupportedVersion))
+            } catch {
+                log("[Rpc] Failed to publish RPC error response for \(requestId)", .error)
+            }
             return
         }
 
-        let handler = await rpcState.getHandler(for: method)
-
-        guard let handler else {
-            // TODO fix try?
-            try? await publishRpcResponse(destinationIdentity: callerIdentity,
+        guard let handler  = await rpcState.getHandler(for: method) else {
+            do {
+                try await publishRpcResponse(destinationIdentity: callerIdentity,
                                    requestId: requestId,
                                    payload: nil,
                                    error: RpcError.builtIn(.unsupportedMethod))
+            } catch {
+                log("[Rpc] Failed to publish RPC error response for \(requestId)", .error)
+            }
             return
         }
 
@@ -658,20 +665,21 @@ extension LocalParticipant {
             } else {
                 responsePayload = response
             }
+        } catch let error as RpcError {
+            responseError = error
         } catch {
-            if let rpcError = error as? RpcError {
-                responseError = rpcError
-            } else {
-                log("[Rpc] Uncaught error returned by RPC handler for \(method). Returning APPLICATION_ERROR instead.", .warning)
-                responseError = RpcError.builtIn(.applicationError)
-            }
+            log("[Rpc] Uncaught error returned by RPC handler for \(method). Returning APPLICATION_ERROR instead.", .warning)
+            responseError = RpcError.builtIn(.applicationError)
         }
 
-        // TODO fix try?
-        try? await publishRpcResponse(destinationIdentity: callerIdentity,
+        do {
+            try await publishRpcResponse(destinationIdentity: callerIdentity,
                                requestId: requestId,
                                payload: responsePayload,
                                error: responseError)
+        } catch {
+            log("[Rpc] Failed to publish RPC response for \(requestId)", .error)
+        }
     }
 
     func handleIncomingRpcAck(requestId: String) {
