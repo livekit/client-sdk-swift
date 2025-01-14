@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
- 
+
 import Foundation
 
 /// Specialized error handling for RPC methods.
@@ -25,7 +25,7 @@ import Foundation
 struct RpcError: Error {
     /// The error code of the RPC call. Error codes 1001-1999 are reserved for built-in errors.
     ///
-    /// See `RpcError.BuiltinError` for built-in error information.
+    /// See `RpcError.BuiltInError` for built-in error information.
     let code: Int
     
     /// A message to include. Strings over 256 bytes will be truncated.
@@ -34,7 +34,7 @@ struct RpcError: Error {
     /// An optional data payload. Must be smaller than 15KB in size, or else will be truncated.
     let data: String
     
-    enum BuiltinError {
+    enum BuiltInError {
         case applicationError
         case connectionTimeout
         case responseTimeout
@@ -84,7 +84,7 @@ struct RpcError: Error {
         }
     }
 
-    static func builtIn(_ key: BuiltinError, data: String = "") -> RpcError {
+    static func builtIn(_ key: BuiltInError, data: String = "") -> RpcError {
         RpcError(code: key.code, message: key.message, data: data)
     }
 
