@@ -564,6 +564,7 @@ extension LocalParticipant {
                 $0.method = method
                 $0.payload = payload
                 $0.responseTimeoutMs = UInt32(responseTimeout * 1000)
+                $0.version = 1
             }
         }
 
