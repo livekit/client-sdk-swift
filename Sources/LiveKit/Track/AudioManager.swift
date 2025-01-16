@@ -305,7 +305,7 @@ public class AudioManager: Loggable {
     let state = StateSync(State())
 
     init() {
-        RTC.audioDeviceModule.setOnEngineWillStartCallback { [weak self] _, isPlayoutEnabled, isRecordingEnabled in
+        RTC.audioDeviceModule.setOnEngineWillEnableCallback { [weak self] _, isPlayoutEnabled, isRecordingEnabled in
             guard let self else { return }
             self.log("OnEngineWillStart isPlayoutEnabled: \(isPlayoutEnabled), isRecordingEnabled: \(isRecordingEnabled)")
 
