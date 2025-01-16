@@ -27,9 +27,13 @@ public let kLiveKitKrispAudioProcessorName = "livekit_krisp_noise_cancellation"
 /// Used to modify audio buffers before they are sent to the network or played to the user
 @objc
 public protocol AudioCustomProcessingDelegate {
+    /// An optional identifier for the audio processor implementation.
+    /// This can be used to identify different types of audio processing (e.g. noise cancellation).
+    /// Generally you can leave this as the default value.
     @objc optional
     var audioProcessingName: String { get }
 
+    /// Provides the sample rate and number of channels to configure your delegate for processing
     @objc
     func audioProcessingInitialize(sampleRate sampleRateHz: Int, channels: Int)
 
@@ -37,6 +41,7 @@ public protocol AudioCustomProcessingDelegate {
     @objc
     func audioProcessingProcess(audioBuffer: LKAudioBuffer)
 
+    /// Called when the audio processing is no longer needed so it may clean up any resources
     @objc
     func audioProcessingRelease()
 }
