@@ -119,7 +119,7 @@ let MAX_RPC_PAYLOAD_BYTES = 15360 // 15 KB
 ///
 /// Throwing an `RpcError` will send the error back to the requester.
 ///
-/// - SeeAlso: `LocalParticipant.registerRpc`
+/// - SeeAlso: `LocalParticipant.registerRpcMethod`
 public typealias RpcHandler = (RpcInvocationData) async throws -> String
 
 public struct RpcInvocationData {

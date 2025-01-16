@@ -24,7 +24,7 @@ public extension LocalParticipant {
     ///
     /// Example:
     /// ```swift
-    /// try await room.localParticipant.registerRpc(method: "greet") { data in
+    /// try await room.localParticipant.registerRpcMethod("greet") { data in
     ///     print("Received greeting from \(data.callerIdentity): \(data.payload)")
     ///     return "Hello, \(data.callerIdentity)!"
     /// }
@@ -46,8 +46,8 @@ public extension LocalParticipant {
     /// - Parameters:
     ///   - method: The name of the indicated RPC method
     ///   - handler: Will be invoked when an RPC request for this method is received
-    func registerRpc(method: String,
-                     handler: @escaping RpcHandler) async
+    func registerRpcMethod(_ method: String,
+                           handler: @escaping RpcHandler) async
     {
         await rpcState.registerHandler(method, handler: handler)
     }
@@ -55,20 +55,20 @@ public extension LocalParticipant {
     /// Unregisters a previously registered RPC method.
     ///
     /// - Parameter method: The name of the RPC method to unregister
-    func unregisterRpc(method: String) async {
+    func unregisterRpcMethod(_ method: String) async {
         await rpcState.unregisterHandler(method)
     }
 
     /// Initiate an RPC call to a remote participant
     /// - Parameters:
-    ///   - method: The method name to call
     ///   - destinationIdentity: The identity of the destination participant
+    ///   - method: The method name to call
     ///   - payload: The payload to pass to the method
     ///   - responseTimeout: Timeout for receiving a response after initial connection. (default 10s)
     /// - Returns: The response payload
     /// - Throws: RpcError on failure. Details in RpcError.message
-    func performRpc(method: String,
-                    on destinationIdentity: Identity,
+    func performRpc(destinationIdentity: Identity,
+                    method: String,
                     payload: String,
                     responseTimeout: TimeInterval = 10) async throws -> String
     {
