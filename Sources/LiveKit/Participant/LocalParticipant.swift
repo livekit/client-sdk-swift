@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 LiveKit
+ * Copyright 2025 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -545,7 +545,7 @@ private extension LocalParticipant {
 
                     populator.disableDtx = !publishOptions.dtx
 
-                    let encoding = publishOptions.encoding ?? AudioEncoding.presetSpeech
+                    let encoding = publishOptions.encoding ?? AudioEncoding.presetMusic
 
                     self.log("[publish] maxBitrate: \(encoding.maxBitrate)")
 

@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 LiveKit
+ * Copyright 2025 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -60,9 +60,9 @@ public extension AudioEncoding {
     ]
 
     static let presetTelephone = AudioEncoding(maxBitrate: 12000)
-    static let presetSpeech = AudioEncoding(maxBitrate: 20000)
-    static let presetMusic = AudioEncoding(maxBitrate: 32000)
-    static let presetMusicStereo = AudioEncoding(maxBitrate: 48000)
-    static let presetMusicHighQuality = AudioEncoding(maxBitrate: 64000)
-    static let presetMusicHighQualityStereo = AudioEncoding(maxBitrate: 96000)
+    static let presetSpeech = AudioEncoding(maxBitrate: 24000)
+    static let presetMusic = AudioEncoding(maxBitrate: 48000)
+    static let presetMusicStereo = AudioEncoding(maxBitrate: 64000)
+    static let presetMusicHighQuality = AudioEncoding(maxBitrate: 96000)
+    static let presetMusicHighQualityStereo = AudioEncoding(maxBitrate: 128_000)
 }

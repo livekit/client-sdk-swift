@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 LiveKit
+ * Copyright 2025 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -48,10 +48,10 @@ class WebSocket: NSObject, Loggable, AsyncSequence, URLSessionWebSocketDelegate 
         waitForNextValue()
     }
 
-    init(url: URL) async throws {
+    init(url: URL, connectOptions: ConnectOptions?) async throws {
         request = URLRequest(url: url,
                              cachePolicy: .useProtocolCachePolicy,
-                             timeoutInterval: .defaultSocketConnect)
+                             timeoutInterval: connectOptions?.socketConnectTimeoutInterval ?? .defaultSocketConnect)
         super.init()
         try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { continuation in

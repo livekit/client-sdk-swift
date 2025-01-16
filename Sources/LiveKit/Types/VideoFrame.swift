@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 LiveKit
+ * Copyright 2025 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,6 +37,11 @@ public class CVPixelVideoBuffer: VideoBuffer, RTCCompatibleVideoBuffer {
         _rtcType.pixelBuffer
     }
 
+    public init(pixelBuffer: CVPixelBuffer) {
+        _rtcType = LKRTCCVPixelBuffer(pixelBuffer: pixelBuffer)
+    }
+
+    // Internal only.
     init(rtcCVPixelBuffer: LKRTCCVPixelBuffer) {
         _rtcType = rtcCVPixelBuffer
     }

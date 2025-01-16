@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 LiveKit
+ * Copyright 2025 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -46,6 +46,8 @@ public class VideoCapturer: NSObject, Loggable, VideoCapturerProtocol {
     public let delegates = MulticastDelegate<VideoCapturerDelegate>(label: "VideoCapturerDelegate")
     public let rendererDelegates = MulticastDelegate<VideoRenderer>(label: "VideoCapturerRendererDelegate")
 
+    private let processingQueue = DispatchQueue(label: "io.livekit.videocapturer.processing")
+
     /// Array of supported pixel formats that can be used to capture a frame.
     ///
     /// Usually the following formats are supported but it is recommended to confirm at run-time:
@@ -70,15 +72,22 @@ public class VideoCapturer: NSObject, Loggable, VideoCapturerProtocol {
 
     let dimensionsCompleter = AsyncCompleter<Dimensions>(label: "Dimensions", defaultTimeout: .defaultCaptureStart)
 
-    struct State: Equatable {
+    struct State {
         // Counts calls to start/stopCapturer so multiple Tracks can use the same VideoCapturer.
         var startStopCounter: Int = 0
         var dimensions: Dimensions? = nil
+        weak var processor: VideoProcessor? = nil
+        var isFrameProcessingBusy: Bool = false
     }
 
-    var _state = StateSync(State())
+    let _state: StateSync<State>
 
     public var dimensions: Dimensions? { _state.dimensions }
+
+    public weak var processor: VideoProcessor? {
+        get { _state.processor }
+        set { _state.mutate { $0.processor = newValue } }
+    }
 
     func set(dimensions newValue: Dimensions?) {
         let didUpdate = _state.mutate {
@@ -103,8 +112,9 @@ public class VideoCapturer: NSObject, Loggable, VideoCapturerProtocol {
         _state.startStopCounter == 0 ? .stopped : .started
     }
 
-    init(delegate: LKRTCVideoCapturerDelegate) {
+    init(delegate: LKRTCVideoCapturerDelegate, processor: VideoProcessor? = nil) {
         self.delegate = delegate
+        _state = StateSync(State(processor: processor))
         super.init()
 
         _state.onDidMutate = { [weak self] newState, oldState in
@@ -223,16 +233,45 @@ extension VideoCapturer {
                                device: AVCaptureDevice?,
                                options: VideoCaptureOptions)
     {
-        // Resolve real dimensions (apply frame rotation)
-        set(dimensions: Dimensions(width: frame.width, height: frame.height).apply(rotation: frame.rotation))
+        if _state.isFrameProcessingBusy {
+            log("Frame processing hasn't completed yet, skipping frame...", .warning)
+            return
+        }
 
-        delegate?.capturer(capturer, didCapture: frame)
+        processingQueue.async { [weak self] in
+            guard let self else { return }
 
-        if rendererDelegates.isDelegatesNotEmpty {
-            if let lkVideoFrame = frame.toLKType() {
-                rendererDelegates.notify { renderer in
-                    renderer.render?(frame: lkVideoFrame)
-                    renderer.render?(frame: lkVideoFrame, captureDevice: device, captureOptions: options)
+            // Mark as frame processing busy.
+            self._state.mutate { $0.isFrameProcessingBusy = true }
+            defer {
+                self._state.mutate { $0.isFrameProcessingBusy = false }
+            }
+
+            var rtcFrame: LKRTCVideoFrame = frame
+            guard var lkFrame: VideoFrame = frame.toLKType() else {
+                self.log("Failed to convert a RTCVideoFrame to VideoFrame.", .error)
+                return
+            }
+
+            // Apply processing if we have a processor attached.
+            if let processor = self._state.processor {
+                guard let processedFrame = processor.process(frame: lkFrame) else {
+                    self.log("VideoProcessor didn't return a frame, skipping frame.", .warning)
+                    return
+                }
+                lkFrame = processedFrame
+                rtcFrame = processedFrame.toRTCType()
+            }
+
+            // Resolve real dimensions (apply frame rotation)
+            self.set(dimensions: Dimensions(width: rtcFrame.width, height: rtcFrame.height).apply(rotation: rtcFrame.rotation))
+
+            self.delegate?.capturer(capturer, didCapture: rtcFrame)
+
+            if self.rendererDelegates.isDelegatesNotEmpty {
+                self.rendererDelegates.notify { renderer in
+                    renderer.render?(frame: lkFrame)
+                    renderer.render?(frame: lkFrame, captureDevice: device, captureOptions: options)
                 }
             }
         }

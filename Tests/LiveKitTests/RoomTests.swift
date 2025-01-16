@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 LiveKit
+ * Copyright 2025 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,14 +18,19 @@
 import XCTest
 
 class RoomTests: XCTestCase {
-    func testResolveSid() async throws {
+    func testRoomProperties() async throws {
         try await withRooms([RoomTestingOptions()]) { rooms in
             // Alias to Room
             let room1 = rooms[0]
 
+            // SID
             let sid = try await room1.sid()
             print("Room.sid(): \(String(describing: sid))")
             XCTAssert(sid.stringValue.starts(with: "RM_"))
+
+            // creationTime
+            XCTAssert(room1.creationTime != nil)
+            print("Room.creationTime: \(String(describing: room1.creationTime))")
         }
     }
 

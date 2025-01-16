@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 LiveKit
+ * Copyright 2025 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -139,7 +139,7 @@ actor SignalClient: Loggable {
         connectionState = (reconnectMode != nil ? .reconnecting : .connecting)
 
         do {
-            let socket = try await WebSocket(url: url)
+            let socket = try await WebSocket(url: url, connectOptions: connectOptions)
 
             _messageLoopTask = Task.detached {
                 self.log("Did enter WebSocket message loop...")
@@ -271,7 +271,6 @@ private extension SignalClient {
             _lastJoinResponse = joinResponse
             _delegate.notifyDetached { await $0.signalClient(self, didReceiveConnectResponse: .join(joinResponse)) }
             _connectResponseCompleter.resume(returning: .join(joinResponse))
-            print("creationTime: \(joinResponse.room.creationTime)")
             await _restartPingTimer()
 
         case let .reconnect(response):

@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 LiveKit
+ * Copyright 2025 LiveKit
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -61,6 +61,9 @@ public class Room: NSObject, ObservableObject, Loggable {
 
     @objc
     public var activeSpeakers: [Participant] { _state.activeSpeakers }
+
+    @objc
+    public var creationTime: Date? { _state.creationTime }
 
     /// If the current room has a participant with `recorder:true` in its JWT grant.
     @objc
@@ -125,6 +128,7 @@ public class Room: NSObject, ObservableObject, Loggable {
         var remoteParticipants = [Participant.Identity: RemoteParticipant]()
         var activeSpeakers = [Participant]()
 
+        var creationTime: Date?
         var isRecording: Bool = false
 
         var maxParticipants: Int = 0
