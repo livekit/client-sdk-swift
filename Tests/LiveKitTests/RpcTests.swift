@@ -68,8 +68,8 @@ class RpcTests: XCTestCase {
             room.publisherDataChannel = mockDataChannel
 
             let response = try await room.localParticipant.performRpc(
-                destinationIdentity: Participant.Identity(from: "test-destination"),
                 method: "test-method",
+                on: Participant.Identity(from: "test-destination"),
                 payload: "test-payload"
             )
 
@@ -105,7 +105,7 @@ class RpcTests: XCTestCase {
 
             room.publisherDataChannel = mockDataChannel
 
-            await room.localParticipant.registerRpcMethod("greet") { data in
+            await room.localParticipant.registerRpc(method: "greet") { data in
                 "Hello, \(data.callerIdentity)!"
             }
 
@@ -148,7 +148,7 @@ class RpcTests: XCTestCase {
 
             room.publisherDataChannel = mockDataChannel
 
-            await room.localParticipant.registerRpcMethod("failingMethod") { _ in
+            await room.localParticipant.registerRpc(method: "failingMethod") { _ in
                 throw RpcError(code: 2000, message: "Custom error", data: "Additional data")
             }
 
@@ -188,11 +188,11 @@ class RpcTests: XCTestCase {
 
             room.publisherDataChannel = mockDataChannel
 
-            await room.localParticipant.registerRpcMethod("test") { _ in
+            await room.localParticipant.registerRpc(method: "test") { _ in
                 "test response"
             }
 
-            await room.localParticipant.unregisterRpcMethod("test")
+            await room.localParticipant.unregisterRpc(method: "test")
 
             await room.localParticipant.handleIncomingRpcRequest(
                 callerIdentity: Participant.Identity(from: "test-caller"),
