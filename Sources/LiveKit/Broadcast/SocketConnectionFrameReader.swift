@@ -134,19 +134,29 @@ class SocketConnectionFrameReader: NSObject {
             }
         }
     }
-
+    
+    /// A task to automatically stop the capture if an initial frame isn't received within a timeout window.
+    private var watchdogTask: Task<(), any Error>?
+    
     private var message: Message?
     var didCapture: ((CVPixelBuffer, RTCVideoRotation) -> Void)?
     var didEnd: (() -> Void)?
 
-    override init() {}
-
     func startCapture(with connection: BroadcastServerSocketConnection) {
+        
         self.connection = connection
         message = nil
 
-        if !connection.open() {
+        guard connection.open() else {
             stopCapture()
+            return
+        }
+        watchdogTask = Task { [weak self] in
+            let timeoutWindow: TimeInterval = .defaultCaptureStart
+            try await Task.sleep(nanoseconds: UInt64(timeoutWindow * 1_000_000_000))
+            try Task.checkCancellation()
+            logger.warning("Initial frame not received before timeout")
+            self?.stopCaptureAndNotify()
         }
     }
 
@@ -157,7 +167,12 @@ class SocketConnectionFrameReader: NSObject {
 
     // MARK: Private Methods
 
-    func readBytes(from stream: InputStream) {
+    private func stopCaptureAndNotify() {
+        stopCapture()
+        didEnd?()
+    }
+    
+    private func readBytes(from stream: InputStream) {
         if !(stream.hasBytesAvailable) {
             return
         }
@@ -194,12 +209,17 @@ class SocketConnectionFrameReader: NSObject {
         }
     }
 
-    func didCaptureVideoFrame(
+    private func didCaptureVideoFrame(
         _ pixelBuffer: CVPixelBuffer?,
         with orientation: CGImagePropertyOrientation
     ) {
         guard let pixelBuffer else {
             return
+        }
+        if let watchdogTask {
+            logger.debug("Initial frame received")
+            watchdogTask.cancel()
+            self.watchdogTask = nil
         }
 
         var rotation: RTCVideoRotation
@@ -227,8 +247,7 @@ extension SocketConnectionFrameReader: StreamDelegate {
             readBytes(from: aStream as! InputStream)
         case .endEncountered:
             logger.log(level: .debug, "server stream end encountered")
-            stopCapture()
-            didEnd?()
+            stopCaptureAndNotify()
         case .errorOccurred:
             logger.log(level: .debug, "server stream error encountered: \(aStream.streamError?.localizedDescription ?? "")")
         default:
