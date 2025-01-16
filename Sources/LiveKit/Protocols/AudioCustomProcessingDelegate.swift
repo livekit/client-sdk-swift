@@ -24,6 +24,7 @@ internal import LiveKitWebRTC
 
 public let kLiveKitKrispAudioProcessorName = "livekit_krisp_noise_cancellation"
 
+/// Used to modify audio buffers before they are sent to the network or played to the user
 @objc
 public protocol AudioCustomProcessingDelegate {
     @objc optional
@@ -32,6 +33,7 @@ public protocol AudioCustomProcessingDelegate {
     @objc
     func audioProcessingInitialize(sampleRate sampleRateHz: Int, channels: Int)
 
+    /// Provides a chunk of audio data that can be modified in place
     @objc
     func audioProcessingProcess(audioBuffer: LKAudioBuffer)
 
