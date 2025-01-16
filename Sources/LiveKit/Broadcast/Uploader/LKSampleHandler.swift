@@ -27,24 +27,14 @@ open class LKSampleHandler: RPBroadcastSampleHandler {
     private var clientConnection: BroadcastUploadSocketConnection?
     private var uploader: SampleUploader?
 
-    public var appGroupIdentifier: String? {
-        Bundle.main.infoDictionary?[BroadcastScreenCapturer.kAppGroupIdentifierKey] as? String
-    }
-
-    public var socketFilePath: String {
-        guard let appGroupIdentifier,
-              let sharedContainer = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupIdentifier)
-        else {
-            return ""
-        }
-
-        return sharedContainer.appendingPathComponent(BroadcastScreenCapturer.kRTCScreensharingSocketFD).path
-    }
-
     override public init() {
         super.init()
 
-        if let connection = BroadcastUploadSocketConnection(filePath: socketFilePath) {
+        let socketPath = BroadcastScreenCapturer.socketPath
+        if socketPath == nil {
+            logger.error("Bundle settings improperly configured for screen capture")
+        }
+        if let connection = BroadcastUploadSocketConnection(filePath: socketPath ?? "") {
             clientConnection = connection
             setupConnection()
 
