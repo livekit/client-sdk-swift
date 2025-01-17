@@ -107,20 +107,25 @@ public class AudioMixingRenderer {
     }
 
     public func render() throws -> AVAudioEngineManualRenderingStatus {
-        let renderSources = sources.filter { source -> Bool in
-            return source.scheduledFrames >= self.engine.manualRenderingMaximumFrameCount
-        }
-
-        guard !renderSources.isEmpty else {
+        // Get minimum number of scheduled frames across all sources
+        guard !sources.isEmpty else {
             return .insufficientDataFromInputNode
         }
-
-        let status = try engine.renderOffline(engine.manualRenderingMaximumFrameCount, to: renderBuffer)
+        
+        let minScheduledFrames = sources.map { $0.scheduledFrames }.min() ?? 0
+        guard minScheduledFrames > 0 else {
+            return .insufficientDataFromInputNode
+        }
+        
+        // Use the minimum available frames, but don't exceed maximum
+        let framesToRender = min(AVAudioFrameCount(minScheduledFrames), engine.manualRenderingMaximumFrameCount)
+        let status = try engine.renderOffline(framesToRender, to: renderBuffer)
 
         switch status {
         case .success:
-            for (_, source) in renderSources.enumerated() {
-                source.scheduledFrames -= engine.manualRenderingMaximumFrameCount
+            // Update all sources' scheduled frames count
+            for source in sources {
+                source.scheduledFrames -= UInt32(framesToRender)
             }
             return .success
         case .insufficientDataFromInputNode: return .insufficientDataFromInputNode
