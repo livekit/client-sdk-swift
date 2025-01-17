@@ -104,19 +104,21 @@ class DataChannelPair: NSObject, Loggable {
     }
 
     public func send(userPacket: Livekit_UserPacket, kind: Livekit_DataPacket.Kind) throws {
-        guard isOpen else {
-            throw LiveKitError(.invalidState, message: "Data channel is not open")
-        }
-
-        let packet = Livekit_DataPacket.with {
+        try send(dataPacket: .with {
             $0.kind = kind
             $0.user = userPacket
+        })
+    }
+
+    public func send(dataPacket packet: Livekit_DataPacket) throws {
+        guard isOpen else {
+            throw LiveKitError(.invalidState, message: "Data channel is not open")
         }
 
         let serializedData = try packet.serializedData()
         let rtcData = RTC.createDataBuffer(data: serializedData)
 
-        let channel = _state.read { kind == .reliable ? $0.reliable : $0.lossy }
+        let channel = _state.read { packet.kind == .reliable ? $0.reliable : $0.lossy }
         guard let sendDataResult = channel?.sendData(rtcData), sendDataResult else {
             throw LiveKitError(.invalidState, message: "sendData failed")
         }
