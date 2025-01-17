@@ -29,6 +29,7 @@ public enum LiveKitErrorType: Int, Sendable {
     case failedToParseUrl = 102
     case failedToConvertData = 103
     case invalidState = 104
+    case invalidParameter = 105
 
     case webRTC = 201
 
@@ -66,6 +67,8 @@ extension LiveKitErrorType: CustomStringConvertible {
             return "Failed to convert data"
         case .invalidState:
             return "Invalid state"
+        case .invalidParameter:
+            return "Invalid parameter"
         case .webRTC:
             return "WebRTC error"
         case .network:
