@@ -31,24 +31,8 @@ public class AudioMixingRenderer {
     public let maximumFrameCount: AVAudioFrameCount
 
     private let engine = AVAudioEngine()
-    public var sources = [AudioMixerSource]()
+    public var sources = [String: AudioMixerSource]()
     private let renderBuffer: AVAudioPCMBuffer
-
-    // MARK: - Internal
-
-    func indexOfSource(identifier: String) -> Int? {
-        let index = sources.firstIndex { (source: AudioMixerSource) -> Bool in
-            return source.identifier == identifier
-        }
-
-        return index
-    }
-
-    func containsOfSource(identifier: String) -> Bool {
-        let isExist = (indexOfSource(identifier: identifier) != nil) ? true : false
-
-        return isExist
-    }
 
     // MARK: - Public
 
@@ -59,48 +43,45 @@ public class AudioMixingRenderer {
     }
 
     public func attach(identifier: String) -> Bool {
-        guard containsOfSource(identifier: identifier) == false else { return false }
+        guard sources[identifier] == nil else { return false }
 
         let source = AudioMixerSource(identifier: identifier)
         engine.attach(source.playerNode)
-        sources.append(source)
+        sources[identifier] = source
 
         return true
     }
 
     public func detach(identifier: String) -> Bool {
-        guard let index = indexOfSource(identifier: identifier) else { return false }
-        let source = sources[index]
+        guard let source = sources[identifier] else { return false }
         engine.detach(source.playerNode)
-        sources.remove(at: index)
+        sources.removeValue(forKey: identifier)
 
         return true
     }
 
     public func start() throws {
-        for source in sources {
+        for source in sources.values {
             engine.connect(source.playerNode, to: engine.mainMixerNode, format: processingFormat)
         }
 
         try engine.enableManualRenderingMode(.offline, format: processingFormat, maximumFrameCount: maximumFrameCount)
         try engine.start()
 
-        for source in sources {
+        for source in sources.values {
             source.playerNode.play()
         }
     }
 
     public func stop() {
-        for source in sources {
+        for source in sources.values {
             source.playerNode.stop()
         }
         engine.stop()
     }
 
     public func appendBuffer(identifier: String, pcmBuffer: AVAudioPCMBuffer) {
-        if let index = indexOfSource(identifier: identifier) {
-            let source = sources[index]
-
+        if let source = sources[identifier] {
             source.playerNode.scheduleBuffer(pcmBuffer, completionHandler: nil)
             source.scheduledFrames += pcmBuffer.frameLength
         }
@@ -112,7 +93,7 @@ public class AudioMixingRenderer {
             return .insufficientDataFromInputNode
         }
         
-        let minScheduledFrames = sources.map { $0.scheduledFrames }.min() ?? 0
+        let minScheduledFrames = sources.values.map { $0.scheduledFrames }.min() ?? 0
         guard minScheduledFrames > 0 else {
             return .insufficientDataFromInputNode
         }
@@ -124,7 +105,7 @@ public class AudioMixingRenderer {
         switch status {
         case .success:
             // Update all sources' scheduled frames count
-            for source in sources {
+            for source in sources.values {
                 source.scheduledFrames -= UInt32(framesToRender)
             }
             return .success
