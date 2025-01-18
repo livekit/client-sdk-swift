@@ -16,10 +16,6 @@
 
 import Foundation
 
-#if canImport(ReplayKit)
-import ReplayKit
-#endif
-
 #if swift(>=5.9)
 internal import LiveKitWebRTC
 #else
@@ -229,6 +225,43 @@ public class LocalParticipant: Participant {
 
         return didUpdate
     }
+
+    // MARK: - Broadcast Activation
+
+    #if os(iOS)
+
+    /// An optional hook called just after a broadcast starts.
+    ///
+    /// Returns a Boolean value indicating weather or not the broadcast should be
+    /// published as a screen share track. This could be useful to present a confirmation dialog,
+    /// returning `true` or `false` based on the user's response .
+    ///
+    public var broadcastStarted: (() async -> Bool)?
+
+    private var extensionState: BroadcastExtensionState!
+
+    override init(room: Room, sid: Participant.Sid? = nil, identity: Participant.Identity? = nil) {
+        super.init(room: room, sid: sid, identity: identity)
+        Task {
+            extensionState = await BroadcastExtensionState { [weak self] isBroadcasting in
+                guard isBroadcasting else { return }
+
+                logger.debug("Broadcast extension initiated screen share")
+                let shouldPublish = await self?.broadcastStarted?() ?? true
+
+                guard shouldPublish else {
+                    logger.debug("Will not publish screen share track")
+                    return
+                }
+                do {
+                    try await self?.setScreenShare(enabled: true)
+                } catch {
+                    logger.error("Failed to enable screen share: \(error)")
+                }
+            }
+        }
+    }
+    #endif
 }
 
 // MARK: - Session Migration
@@ -339,10 +372,11 @@ public extension LocalParticipant {
                     let localTrack: LocalVideoTrack
                     let options = (captureOptions as? ScreenShareCaptureOptions) ?? room._state.roomOptions.defaultScreenShareCaptureOptions
                     if options.useBroadcastExtension {
-                        await RPSystemBroadcastPickerView.show(
-                            for: BroadcastScreenCapturer.screenSharingExtension,
-                            showsMicrophoneButton: false
-                        )
+                        guard await self.extensionState.isBroadcasting else {
+                            await self.extensionState.requestActivation()
+                            return nil
+                        }
+                        // Wait until broadcasting to publish track
                         localTrack = LocalVideoTrack.createBroadcastScreenCapturerTrack(options: options)
                     } else {
                         localTrack = LocalVideoTrack.createInAppScreenShareTrack(options: options)
