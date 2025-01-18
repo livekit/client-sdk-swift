@@ -33,4 +33,50 @@ final class DarwinNotificationCenter: @unchecked Sendable {
                                              nil,
                                              true)
     }
+    
+    /// Returns an asynchronous sequence that emits a signal whenever a notification with the given name is received.
+    func notifications(named name: DarwinNotification) -> AsyncStream<Void> {
+        AsyncStream { continuation in
+            continuation.onTermination = { @Sendable _ in
+                self.stopObserving(name)
+            }
+            self.startObserving(name) {
+                continuation.yield()
+            }
+        }
+    }
+
+    private var handlers = [DarwinNotification: () -> Void]()
+
+    private func startObserving(_ name: DarwinNotification, _ handler: @escaping () -> Void) {
+        handlers[name] = handler
+        CFNotificationCenterAddObserver(notificationCenter,
+                                        Unmanaged.passUnretained(self).toOpaque(),
+                                        Self.observationHandler,
+                                        name.rawValue as CFString,
+                                        nil,
+                                        .deliverImmediately)
+    }
+
+    private func stopObserving(_ name: DarwinNotification) {
+        CFNotificationCenterRemoveObserver(notificationCenter,
+                                           Unmanaged.passUnretained(self).toOpaque(),
+                                           CFNotificationName(name.rawValue as CFString),
+                                           nil)
+        handlers.removeValue(forKey: name)
+    }
+
+    private static let observationHandler: CFNotificationCallback = { _, observer, name, _, _ in
+        guard let observer else { return }
+        let center = Unmanaged<DarwinNotificationCenter>
+            .fromOpaque(observer)
+            .takeUnretainedValue()
+
+        guard let rawName = name?.rawValue as String?,
+              let name = DarwinNotification(rawValue: rawName),
+              let matchingHandler = center.handlers[name]
+        else { return }
+        
+        matchingHandler()
+    }
 }
