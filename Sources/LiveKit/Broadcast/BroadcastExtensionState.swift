@@ -16,44 +16,30 @@
 
 #if os(iOS)
 
-import AsyncAlgorithms
+import Combine
 import Foundation
 
 #if canImport(ReplayKit)
 import ReplayKit
 #endif
 
-actor BroadcastExtensionState {
-    /// Whether or not the broadcast extension is currently broadcasting.
-    private(set) var isBroadcasting = false
+class BroadcastExtensionState {
+    /// A publisher that emits a Boolean value indicating whether or not the extension is currently broadcasting.
+    static var isBroadcasting: some Publisher<Bool, Never> {
+        Publishers.Merge(
+            DarwinNotificationCenter.shared.publisher(for: .broadcastStarted).map { _ in true },
+            DarwinNotificationCenter.shared.publisher(for: .broadcastStopped).map { _ in false }
+        )
+        .eraseToAnyPublisher()
+    }
 
     /// Displays the system broadcast picker, allowing the user to start the broadcast.
     /// - Note: This is merely a request and does not guarantee the user will choose to start the broadcast.
-    nonisolated func requestActivation() async {
+    static func requestActivation() async {
         await RPSystemBroadcastPickerView.show(
             for: BroadcastScreenCapturer.screenSharingExtension,
             showsMicrophoneButton: false
         )
-    }
-
-    private var listenTask: Task<Void, Never>?
-
-    /// Creates a new instance and begins listening.
-    init(_ changeHandler: ((Bool) async -> Void)? = nil) async {
-        listenTask = Task {
-            let stateStream = merge(
-                DarwinNotificationCenter.shared.notifications(named: .broadcastStarted).map { true },
-                DarwinNotificationCenter.shared.notifications(named: .broadcastStopped).map { false }
-            )
-            for await isBroadcasting in stateStream {
-                self.isBroadcasting = isBroadcasting
-                await changeHandler?(isBroadcasting)
-            }
-        }
-    }
-
-    deinit {
-        listenTask?.cancel()
     }
 }
 

@@ -15,6 +15,7 @@
  */
 
 import Foundation
+import Combine
 
 #if swift(>=5.9)
 internal import LiveKitWebRTC
@@ -237,27 +238,42 @@ public class LocalParticipant: Participant {
     /// returning `true` or `false` based on the user's response .
     ///
     public var broadcastStarted: (() async -> Bool)?
-
-    private var extensionState: BroadcastExtensionState!
+    
+    private var isBroadcasting = false {
+        didSet { broadcastStateChanged() }
+    }
+    private var cancellable = Set<AnyCancellable>()
 
     override init(room: Room, sid: Participant.Sid? = nil, identity: Participant.Identity? = nil) {
         super.init(room: room, sid: sid, identity: identity)
-        Task {
-            extensionState = await BroadcastExtensionState { [weak self] isBroadcasting in
-                guard isBroadcasting else { return }
-
-                logger.debug("Broadcast extension initiated screen share")
-                let shouldPublish = await self?.broadcastStarted?() ?? true
-
-                guard shouldPublish else {
-                    logger.debug("Will not publish screen share track")
-                    return
-                }
-                do {
-                    try await self?.setScreenShare(enabled: true)
-                } catch {
-                    logger.error("Failed to enable screen share: \(error)")
-                }
+        
+        BroadcastExtensionState
+            .isBroadcasting
+            .sink { [weak self] in
+                guard let self else { return }
+                self.isBroadcasting = $0
+            }
+            .store(in: &cancellable)
+    }
+    
+    private func broadcastStateChanged() {
+        guard isBroadcasting else {
+            logger.debug("Broadcast stopped")
+            return
+        }
+        logger.debug("Broadcast started")
+        
+        Task { [weak self] in
+            guard let self else { return }
+            let shouldPublish = await self.broadcastStarted?() ?? true
+            guard shouldPublish else {
+                logger.debug("Will not publish screen share track")
+                return
+            }
+            do {
+                try await self.setScreenShare(enabled: true)
+            } catch {
+                logger.error("Failed to enable screen share: \(error)")
             }
         }
     }
@@ -372,8 +388,8 @@ public extension LocalParticipant {
                     let localTrack: LocalVideoTrack
                     let options = (captureOptions as? ScreenShareCaptureOptions) ?? room._state.roomOptions.defaultScreenShareCaptureOptions
                     if options.useBroadcastExtension {
-                        guard await self.extensionState.isBroadcasting else {
-                            await self.extensionState.requestActivation()
+                        guard self.isBroadcasting else {
+                            await BroadcastExtensionState.requestActivation()
                             return nil
                         }
                         // Wait until broadcasting to publish track

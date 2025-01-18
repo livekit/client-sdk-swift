@@ -19,7 +19,6 @@ let package = Package(
         ),
     ],
     dependencies: [
-        .package(url: "https://github.com/apple/swift-async-algorithms", from: "1.0.0"),
         // LK-Prefixed Dynamic WebRTC XCFramework
         .package(url: "https://github.com/livekit/webrtc-xcframework.git", exact: "125.6422.11"),
         .package(url: "https://github.com/apple/swift-protobuf.git", from: "1.26.0"),
@@ -39,7 +38,6 @@ let package = Package(
             dependencies: [
                 .product(name: "LiveKitWebRTC", package: "webrtc-xcframework"),
                 .product(name: "SwiftProtobuf", package: "swift-protobuf"),
-                .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"),
                 .product(name: "Logging", package: "swift-log"),
                 "LKObjCHelpers",
             ],
