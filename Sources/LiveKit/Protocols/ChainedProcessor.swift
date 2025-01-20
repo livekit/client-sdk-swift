@@ -17,7 +17,7 @@
 import Foundation
 
 @objc
-public protocol ChainableProcessor: AnyObject {
+public protocol ChainedProcessor: AnyObject {
     // Next object in the chain.
     weak var nextProcessor: Self? { get set }
 }

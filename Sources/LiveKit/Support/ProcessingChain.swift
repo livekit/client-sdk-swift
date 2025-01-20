@@ -16,7 +16,7 @@
 
 import Foundation
 
-public class ProcessorChain<T: ChainableProcessor>: NSObject, Loggable {
+public class ProcessingChain<T: ChainedProcessor>: NSObject, Loggable {
     // MARK: - Public properties
 
     public var isProcessorsEmpty: Bool { countProcessors == 0 }

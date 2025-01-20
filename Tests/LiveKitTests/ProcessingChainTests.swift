@@ -17,9 +17,9 @@
 @testable import LiveKit
 import XCTest
 
-class ProcessorChainTests: XCTestCase {
+class ProcessingChainTests: XCTestCase {
     // Mock processor for testing
-    class MockProcessor: NSObject, ChainableProcessor {
+    class MockProcessor: NSObject, ChainedProcessor {
         weak var nextProcessor: MockProcessor?
 
         func process(value: Int) -> Int {
@@ -28,11 +28,11 @@ class ProcessorChainTests: XCTestCase {
         }
     }
 
-    var chain: ProcessorChain<MockProcessor>!
+    var chain: ProcessingChain<MockProcessor>!
 
     override func setUp() {
         super.setUp()
-        chain = ProcessorChain<MockProcessor>()
+        chain = ProcessingChain<MockProcessor>()
     }
 
     override func tearDown() {
