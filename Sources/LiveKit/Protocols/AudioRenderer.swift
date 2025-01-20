@@ -40,6 +40,7 @@ class AudioRendererAdapter: MulticastDelegate<AudioRenderer>, LKRTCAudioRenderer
     }
 
     // MARK: - LKRTCAudioRenderer
+
     func render(pcmBuffer: AVAudioPCMBuffer) {
         notify { $0.render(pcmBuffer: pcmBuffer) }
     }
