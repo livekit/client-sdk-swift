@@ -69,6 +69,13 @@ extension Room {
     }
 
     func send(userPacket: Livekit_UserPacket, kind: Livekit_DataPacket.Kind) async throws {
+        try await send(dataPacket: .with {
+            $0.user = userPacket
+            $0.kind = kind
+        })
+    }
+
+    func send(dataPacket packet: Livekit_DataPacket) async throws {
         func ensurePublisherConnected() async throws {
             guard _state.isSubscriberPrimary else { return }
 
@@ -96,7 +103,7 @@ extension Room {
         }
 
         // Should return true if successful
-        try publisherDataChannel.send(userPacket: userPacket, kind: kind)
+        try publisherDataChannel.send(dataPacket: packet)
     }
 }
 

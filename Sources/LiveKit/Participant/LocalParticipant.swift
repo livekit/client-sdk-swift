@@ -38,6 +38,8 @@ public class LocalParticipant: Participant {
 
     private var trackPermissions: [ParticipantTrackPermission] = []
 
+    let rpcState = RpcStateManager()
+
     /// publish a new audio track to the Room
     @objc
     @discardableResult
@@ -337,8 +339,10 @@ public extension LocalParticipant {
                     let localTrack: LocalVideoTrack
                     let options = (captureOptions as? ScreenShareCaptureOptions) ?? room._state.roomOptions.defaultScreenShareCaptureOptions
                     if options.useBroadcastExtension {
-                        let screenShareExtensionId = Bundle.main.infoDictionary?[BroadcastScreenCapturer.kRTCScreenSharingExtension] as? String
-                        await RPSystemBroadcastPickerView.show(for: screenShareExtensionId, showsMicrophoneButton: false)
+                        await RPSystemBroadcastPickerView.show(
+                            for: BroadcastScreenCapturer.screenSharingExtension,
+                            showsMicrophoneButton: false
+                        )
                         localTrack = LocalVideoTrack.createBroadcastScreenCapturerTrack(options: options)
                     } else {
                         localTrack = LocalVideoTrack.createInAppScreenShareTrack(options: options)
@@ -543,7 +547,7 @@ private extension LocalParticipant {
 
                     populator.disableDtx = !publishOptions.dtx
 
-                    let encoding = publishOptions.encoding ?? AudioEncoding.presetSpeech
+                    let encoding = publishOptions.encoding ?? AudioEncoding.presetMusic
 
                     self.log("[publish] maxBitrate: \(encoding.maxBitrate)")
 
