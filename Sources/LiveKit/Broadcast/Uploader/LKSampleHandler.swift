@@ -21,6 +21,8 @@ import ReplayKit
 #endif
 
 import LKObjCHelpers
+internal import Logging
+import OSLog
 
 @available(macCatalyst 13.1, *)
 open class LKSampleHandler: RPBroadcastSampleHandler {
@@ -29,6 +31,8 @@ open class LKSampleHandler: RPBroadcastSampleHandler {
 
     override public init() {
         super.init()
+        bootstrapLogging()
+        logger.info("LKSampleHandler created")
 
         let socketPath = BroadcastScreenCapturer.socketPath
         if socketPath == nil {
@@ -43,21 +47,25 @@ open class LKSampleHandler: RPBroadcastSampleHandler {
     }
 
     override public func broadcastStarted(withSetupInfo _: [String: NSObject]?) {
-        // User has requested to start the broadcast. Setup info from the UI extension can be supplied but optional.d
+        // User has requested to start the broadcast. Setup info from the UI extension can be supplied but optional.
+        logger.info("Broadcast started")
         DarwinNotificationCenter.shared.postNotification(.broadcastStarted)
         openConnection()
     }
 
     override public func broadcastPaused() {
         // User has requested to pause the broadcast. Samples will stop being delivered.
+        logger.info("Broadcast paused")
     }
 
     override public func broadcastResumed() {
         // User has requested to resume the broadcast. Samples delivery will resume.
+        logger.info("Broadcast resumed")
     }
 
     override public func broadcastFinished() {
         // User has requested to finish the broadcast.
+        logger.info("Broadcast finished")
         DarwinNotificationCenter.shared.postNotification(.broadcastStopped)
         clientConnection?.close()
     }
@@ -117,6 +125,35 @@ open class LKSampleHandler: RPBroadcastSampleHandler {
         }
 
         timer.resume()
+    }
+
+    // MARK: - Logging
+
+    /// Whether or not to bootstrap the logging system when initialized.
+    ///
+    /// Disabled by default. Enable by overriding this property to return true.
+    ///
+    open var enableLogging: Bool { false }
+
+    /// Whether or not to include debug and trace messages in log output.
+    ///
+    /// Disabled by default. Enable by overriding this property to return true.
+    /// - SeeAlso: ``enableLogging``
+    ///
+    open var verboseLogging: Bool { false }
+
+    private func bootstrapLogging() {
+        guard enableLogging else { return }
+        
+        let bundleIdentifier = Bundle.main.bundleIdentifier ?? ""
+        let logger = OSLog(subsystem: bundleIdentifier, category: "LKSampleHandler")
+        let logLevel = verboseLogging ? Logger.Level.trace : .info
+
+        LoggingSystem.bootstrap { _ in
+            var logHandler = OSLogHandler(logger)
+            logHandler.logLevel = logLevel
+            return logHandler
+        }
     }
 }
 
