@@ -264,7 +264,7 @@ extension Room {
         let requestId = request.id
         let method = request.method
         let payload = request.payload
-        let responseTimeout = TimeInterval(UInt64(request.responseTimeoutMs) / 1000)
+        let responseTimeout = TimeInterval(UInt64(request.responseTimeoutMs) / UInt64(msecPerSec))
         let version = Int(request.version)
 
         Task {
