@@ -87,9 +87,6 @@ jobs:
       - name: Install LiveKit Server
         run: brew install livekit
 
-      - name: Install xcbeautify
-        run: brew install xcbeautify
-
       - name: Run LiveKit Server
         run: livekit-server --dev &
 
