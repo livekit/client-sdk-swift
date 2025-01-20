@@ -269,7 +269,23 @@ public class AudioManager: Loggable {
         RTC.audioDeviceModule.initAndStartRecording()
     }
 
-    // MARK: Internal for testing
+    // MARK: - For testing
+
+    var isPlayoutInitialized: Bool {
+        RTC.audioDeviceModule.isPlayoutInitialized
+    }
+
+    var isPlaying: Bool {
+        RTC.audioDeviceModule.isPlaying
+    }
+
+    var isRecordingInitialized: Bool {
+        RTC.audioDeviceModule.isRecordingInitialized
+    }
+
+    var isRecording: Bool {
+        RTC.audioDeviceModule.isRecording
+    }
 
     func initPlayout() {
         RTC.audioDeviceModule.initPlayout()

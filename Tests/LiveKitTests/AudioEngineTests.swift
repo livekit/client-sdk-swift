@@ -39,11 +39,28 @@ class AudioEngineTests: XCTestCase {
     }
 
     // Test if state transitions pass internal checks.
-    func testStates() async {
+    func testStateTransitions() async {
         let adm = AudioManager.shared
+        // Start Playout
         adm.initPlayout()
+        XCTAssert(adm.isPlayoutInitialized)
         adm.startPlayout()
+        XCTAssert(adm.isPlaying)
+
+        // Start Recording
+        adm.initRecording()
+        XCTAssert(adm.isRecordingInitialized)
+        adm.startRecording()
+        XCTAssert(adm.isRecording)
+
+        // Stop engine
+        adm.stopRecording()
+        XCTAssert(!adm.isRecording)
+        XCTAssert(!adm.isRecordingInitialized)
+
         adm.stopPlayout()
+        XCTAssert(!adm.isPlaying)
+        XCTAssert(!adm.isPlayoutInitialized)
     }
 
     func testConfigureDucking() async {
