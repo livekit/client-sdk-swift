@@ -19,7 +19,7 @@ import XCTest
 
 class ProcessingChainTests: XCTestCase {
     // Mock processor for testing
-    class MockProcessor: NSObject, ChainedProcessor {
+    final class MockProcessor: NSObject, ChainedProcessor {
         weak var nextProcessor: MockProcessor?
 
         func process(value: Int) -> Int {
