@@ -20,7 +20,18 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # Test latest Xcode on all platforms
+          # https://github.com/actions/runner-images/blob/main/images/macos/macos-13-Readme.md
+          - os: macos-13
+            xcode: 14.2
+            platform: "iOS Simulator,OS=17.2,name=iPhone 14 Pro"
+          - os: macos-13
+            xcode: 14.2
+            platform: "macOS"
+          - os: macos-13
+            xcode: 14.2
+            platform: "macOS,variant=Mac Catalyst"
+
+          # https://github.com/actions/runner-images/blob/main/images/macos/macos-14-Readme.md
           - os: macos-14
             xcode: 15.4
             platform: "iOS Simulator,OS=17.5,name=iPhone 15 Pro"
@@ -37,14 +48,7 @@ jobs:
             xcode: 15.4
             platform: "tvOS Simulator,name=Apple TV"
 
-          # Test minimum supported Xcode only on iOS and macOS
-          - os: macos-13
-            xcode: 14.2
-            platform: "iOS Simulator,OS=17.2,name=iPhone 14 Pro"
-          - os: macos-13
-            xcode: 14.2
-            platform: "macOS"
-
+          # https://github.com/actions/runner-images/blob/main/images/macos/macos-15-Readme.md
           - os: macos-15
             xcode: 16.2
             platform: "iOS Simulator,OS=18.1,name=iPhone 16 Pro"
