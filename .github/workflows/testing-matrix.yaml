@@ -15,22 +15,12 @@ env:
   TESTS: "FunctionTests SDKTests RoomTests PublishDataTests PublishBufferCapturerTests VideoViewTests TrackTests"
 
 jobs:
-  run:
+  test:
     strategy:
       fail-fast: false
       matrix:
         include:
-          # https://github.com/actions/runner-images/blob/main/images/macos/macos-13-Readme.md
-          - os: macos-13
-            xcode: 14.2
-            platform: "iOS Simulator,OS=17.2,name=iPhone 14 Pro"
-          - os: macos-13
-            xcode: 14.2
-            platform: "macOS"
-          - os: macos-13
-            xcode: 14.2
-            platform: "macOS,variant=Mac Catalyst"
-          # https://github.com/actions/runner-images/blob/main/images/macos/macos-14-Readme.md
+          # Test latest Xcode on all platforms
           - os: macos-14
             xcode: 15.4
             platform: "iOS Simulator,OS=17.5,name=iPhone 15 Pro"
@@ -42,11 +32,19 @@ jobs:
             platform: "macOS,variant=Mac Catalyst"
           - os: macos-14
             xcode: 15.4
-            platform: "visionOS Simulator,name=Apple Vision Pro" # visionOS 1.2
+            platform: "visionOS Simulator,name=Apple Vision Pro"
           - os: macos-14
             xcode: 15.4
             platform: "tvOS Simulator,name=Apple TV"
-          # https://github.com/actions/runner-images/blob/main/images/macos/macos-14-Readme.md
+
+          # Test minimum supported Xcode only on iOS and macOS
+          - os: macos-13
+            xcode: 14.2
+            platform: "iOS Simulator,OS=17.2,name=iPhone 14 Pro"
+          - os: macos-13
+            xcode: 14.2
+            platform: "macOS"
+
           - os: macos-15
             xcode: 16.2
             platform: "iOS Simulator,OS=18.1,name=iPhone 16 Pro"
@@ -62,6 +60,25 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+
+      # Cache Homebrew and SPM dependencies
+      - name: Cache Homebrew
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/Library/Caches/Homebrew
+            ~/Library/Caches/Homebrew/downloads
+          key: ${{ runner.os }}-${{ matrix.os }}-brew-${{ hashFiles('.github/workflows/testing-matrix.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ matrix.os }}-brew-
+
+      - name: Cache SPM
+        uses: actions/cache@v3
+        with:
+          path: .build
+          key: ${{ runner.os }}-${{ matrix.os }}-${{ matrix.xcode }}-spm-${{ hashFiles('Package.resolved') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ matrix.os }}-${{ matrix.xcode }}-spm-
 
       - name: Install LiveKit Server
         run: brew install livekit
@@ -85,12 +102,14 @@ jobs:
       - name: Build
         run: xcodebuild build-for-testing -scheme LiveKit -destination 'platform=${{ matrix.platform }}' -parallel-testing-enabled YES | xcbeautify
 
-      - name: Run
+      # Run all tests in parallel instead of sequentially
+      - name: Run Tests
         run: |
-          IFS=' ' read -r -a tests <<< "${{ env.TESTS }}"
-          for test in "${tests[@]}"; do
-            echo "::group::Running test $test"
-            xcodebuild test-without-building -scheme LiveKit -destination 'platform=${{ matrix.platform }}' -only-testing:LiveKitTests/$test | xcbeautify
-            echo "::endgroup::"
-          done
+          xcodebuild test-without-building \
+            -scheme LiveKit \
+            -destination 'platform=${{ matrix.platform }}' \
+            -parallel-testing-enabled YES \
+            -parallel-testing-worker-count 4 \
+            $(echo "$TESTS" | xargs -n1 echo "-only-testing:LiveKitTests/") \
+            | xcbeautify
         shell: bash
