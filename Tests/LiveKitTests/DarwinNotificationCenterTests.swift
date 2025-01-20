@@ -22,9 +22,9 @@ class DarwinNotificationCenterTests: XCTestCase {
     func testPublisher() throws {
         let receiveFirst = XCTestExpectation(description: "Receive from 1st subscriber")
         let receiveSecond = XCTestExpectation(description: "Receive from 2nd subscriber")
-        
+
         let name = DarwinNotification.broadcastStarted
-        
+
         var cancellable = Set<AnyCancellable>()
         DarwinNotificationCenter.shared
             .publisher(for: name)
@@ -40,7 +40,7 @@ class DarwinNotificationCenterTests: XCTestCase {
                 receiveSecond.fulfill()
             }
             .store(in: &cancellable)
-        
+
         DarwinNotificationCenter.shared.postNotification(name)
         wait(for: [receiveFirst, receiveSecond], timeout: 10.0)
     }

@@ -40,36 +40,36 @@ extension DarwinNotificationCenter {
     func publisher(for name: DarwinNotification) -> Publisher {
         Publisher(notificationCenter, name)
     }
-    
+
     /// A publisher that emits notifications.
     struct Publisher: Combine.Publisher {
         typealias Output = DarwinNotification
         typealias Failure = Never
-        
+
         private let name: DarwinNotification
         private let center: CFNotificationCenter?
-        
+
         fileprivate init(_ center: CFNotificationCenter?, _ name: DarwinNotification) {
             self.name = name
             self.center = center
         }
-        
+
         func receive<S>(
             subscriber: S
         ) where S: Subscriber, Never == S.Failure, DarwinNotification == S.Input {
             subscriber.receive(subscription: Subscription(subscriber, center, name))
         }
     }
-    
+
     private class SubscriptionBase {
         let name: DarwinNotification
         let center: CFNotificationCenter?
-        
+
         init(_ center: CFNotificationCenter?, _ name: DarwinNotification) {
             self.name = name
             self.center = center
         }
-        
+
         static var callback: CFNotificationCallback = { _, observer, _, _, _ in
             guard let observer else { return }
             Unmanaged<SubscriptionBase>
@@ -77,28 +77,28 @@ extension DarwinNotificationCenter {
                 .takeUnretainedValue()
                 .notifySubscriber()
         }
-        
+
         func notifySubscriber() {
             // Overridden by generic subclass to call specific subscriber's
             // receive method. This allows forming a C function pointer to the callback.
         }
     }
-    
+
     private class Subscription<S: Subscriber>: SubscriptionBase, Combine.Subscription where S.Input == DarwinNotification, S.Failure == Never {
         private var subscriber: S?
-        
+
         init(_ subscriber: S, _ center: CFNotificationCenter?, _ name: DarwinNotification) {
             self.subscriber = subscriber
             super.init(center, name)
             addObserver()
         }
-        
-        func request(_ demand: Subscribers.Demand) {}
-        
+
+        func request(_: Subscribers.Demand) {}
+
         private var opaqueSelf: UnsafeRawPointer {
             UnsafeRawPointer(Unmanaged.passUnretained(self).toOpaque())
         }
-        
+
         private func addObserver() {
             CFNotificationCenterAddObserver(center,
                                             opaqueSelf,
@@ -107,7 +107,7 @@ extension DarwinNotificationCenter {
                                             nil,
                                             .deliverImmediately)
         }
-        
+
         private func removeObserver() {
             guard subscriber != nil else { return }
             CFNotificationCenterRemoveObserver(center,
@@ -116,15 +116,15 @@ extension DarwinNotificationCenter {
                                                nil)
             subscriber = nil
         }
-        
+
         override func notifySubscriber() {
             _ = subscriber?.receive(name)
         }
-        
+
         func cancel() {
             removeObserver()
         }
-        
+
         deinit {
             removeObserver()
         }

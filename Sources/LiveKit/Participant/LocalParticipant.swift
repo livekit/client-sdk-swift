@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-import Foundation
 import Combine
+import Foundation
 
 #if swift(>=5.9)
 internal import LiveKitWebRTC
@@ -238,15 +238,16 @@ public class LocalParticipant: Participant {
     /// returning `true` or `false` based on the user's response .
     ///
     public var broadcastStarted: (() async -> Bool)?
-    
+
     private var isBroadcasting = false {
         didSet { broadcastStateChanged() }
     }
+
     private var cancellable = Set<AnyCancellable>()
 
     override init(room: Room, sid: Participant.Sid? = nil, identity: Participant.Identity? = nil) {
         super.init(room: room, sid: sid, identity: identity)
-        
+
         BroadcastExtensionState
             .isBroadcasting
             .sink { [weak self] in
@@ -255,14 +256,14 @@ public class LocalParticipant: Participant {
             }
             .store(in: &cancellable)
     }
-    
+
     private func broadcastStateChanged() {
         guard isBroadcasting else {
             logger.debug("Broadcast stopped")
             return
         }
         logger.debug("Broadcast started")
-        
+
         Task { [weak self] in
             guard let self else { return }
             let shouldPublish = await self.broadcastStarted?() ?? true
