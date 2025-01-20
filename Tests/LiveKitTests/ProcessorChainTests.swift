@@ -21,11 +21,10 @@ class ProcessorChainTests: XCTestCase {
     // Mock processor for testing
     class MockProcessor: NSObject, ChainableProcessor {
         weak var nextProcessor: MockProcessor?
-        var processedValue: Int = 0
 
-        func process(value: Int) {
-            processedValue = value
-            nextProcessor?.process(value: value + 1)
+        func process(value: Int) -> Int {
+            let result = value + 1
+            return nextProcessor?.process(value: result) ?? result
         }
     }
 
@@ -112,11 +111,10 @@ class ProcessorChainTests: XCTestCase {
         chain.add(processor: processor2)
         chain.add(processor: processor3)
 
-        chain.invokeProcessor { $0.process(value: 1) }
+        let result = chain.invokeProcessor { $0.process(value: 0) }
 
-        XCTAssertEqual(processor1.processedValue, 1)
-        XCTAssertEqual(processor2.processedValue, 2)
-        XCTAssertEqual(processor3.processedValue, 3)
+        // Each processor adds 1, so with 3 processors the final result should be 3
+        XCTAssertEqual(result, 3)
     }
 
     func test_weakReference() {

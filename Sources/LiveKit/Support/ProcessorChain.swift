@@ -69,8 +69,8 @@ public class ProcessorChain<T: ChainableProcessor>: NSObject, Loggable {
         return processors.first
     }
 
-    public func invokeProcessor(_ fnc: @escaping (T) -> Void) {
-        guard let chain = buildProcessorChain() else { return }
-        fnc(chain)
+    public func invokeProcessor<R>(_ fnc: @escaping (T) -> R) -> R? {
+        guard let chain = buildProcessorChain() else { return nil }
+        return fnc(chain)
     }
 }
