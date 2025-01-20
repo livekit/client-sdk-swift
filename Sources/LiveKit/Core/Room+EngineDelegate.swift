@@ -241,11 +241,13 @@ extension Room {
     }
 
     func room(didReceiveRpcResponse response: Livekit_RpcResponse) {
-        let (payload, error): (String?, RpcError?) = switch response.value {
-        case let .payload(v): (v, nil)
-        case let .error(e): (nil, RpcError.fromProto(e))
-        default: (nil, nil)
-        }
+        let (payload, error): (String?, RpcError?) = {
+            switch response.value {
+            case let .payload(v): return (v, nil)
+            case let .error(e): return (nil, RpcError.fromProto(e))
+            default: return (nil, nil)
+            }
+        }()
 
         localParticipant.handleIncomingRpcResponse(requestId: response.requestID,
                                                    payload: payload,
@@ -262,7 +264,7 @@ extension Room {
         let requestId = request.id
         let method = request.method
         let payload = request.payload
-        let responseTimeout = TimeInterval(UInt64(request.responseTimeoutMs) / MSEC_PER_SEC)
+        let responseTimeout = TimeInterval(UInt64(request.responseTimeoutMs) / 1000)
         let version = Int(request.version)
 
         Task {
