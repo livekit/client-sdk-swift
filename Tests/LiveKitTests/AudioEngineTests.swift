@@ -63,6 +63,24 @@ class AudioEngineTests: XCTestCase {
         XCTAssert(!adm.isPlayoutInitialized)
     }
 
+    func testRecordingAlwaysPreparedMode() async {
+        let adm = AudioManager.shared
+
+        // Ensure initially not initialized.
+        XCTAssert(!adm.isRecordingInitialized)
+
+        // Ensure recording is initialized after set to true.
+        adm.isRecordingAlwaysPrepared = true
+        XCTAssert(adm.isRecordingInitialized)
+
+        adm.startRecording()
+        XCTAssert(adm.isRecordingInitialized)
+
+        // Should be still initialized after stopRecording() is called.
+        adm.stopRecording()
+        XCTAssert(adm.isRecordingInitialized)
+    }
+
     func testConfigureDucking() async {
         AudioManager.shared.isAdvancedDuckingEnabled = false
         XCTAssert(!AudioManager.shared.isAdvancedDuckingEnabled)

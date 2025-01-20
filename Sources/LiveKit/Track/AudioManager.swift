@@ -35,6 +35,8 @@ public class AudioManager: Loggable {
     #endif
 
     public typealias DeviceUpdateFunc = (_ audioManager: AudioManager) -> Void
+
+    // Engine events
     public typealias OnEngineWillStart = (_ audioManager: AudioManager, _ engine: AVAudioEngine, _ playoutEnabled: Bool, _ recordingEnabled: Bool) -> Void
     public typealias OnEngineWillConnectInput = (_ audioManager: AudioManager,
                                                  _ engine: AVAudioEngine,
@@ -257,10 +259,12 @@ public class AudioManager: Loggable {
 
     // MARK: - Recording
 
-    /// Initialize recording (mic input) and pre-warm voice processing etc.
+    /// Keep recording initialized (mic input) and pre-warm voice processing etc.
     /// Mic permission is required and dialog will appear if not already granted.
-    public func prepareRecording() {
-        RTC.audioDeviceModule.initRecording()
+    /// This will per persisted accross Rooms and connections.
+    public var isRecordingAlwaysPrepared: Bool {
+        get { RTC.audioDeviceModule.isInitRecordingPersistentMode }
+        set { RTC.audioDeviceModule.isInitRecordingPersistentMode = newValue }
     }
 
     /// Starts mic input to the SDK even without any ``Room`` or a connection.
@@ -320,18 +324,69 @@ public class AudioManager: Loggable {
 
     let state = StateSync(State())
 
+    var isSessionActive: Bool = false
+
     init() {
         RTC.audioDeviceModule.setOnEngineWillEnableCallback { [weak self] _, isPlayoutEnabled, isRecordingEnabled in
             guard let self else { return }
-            self.log("OnEngineWillStart isPlayoutEnabled: \(isPlayoutEnabled), isRecordingEnabled: \(isRecordingEnabled)")
+            self.log("OnEngineWillEnable isPlayoutEnabled: \(isPlayoutEnabled), isRecordingEnabled: \(isRecordingEnabled)")
 
             #if os(iOS) || os(visionOS) || os(tvOS)
             self.log("Configuring audio session...")
-            // Backward compatibility
-            let configureFunc = self.state.customConfigureFunc ?? self.defaultConfigureAudioSessionFunc
-            let simulatedState = AudioManager.State(localTracksCount: isRecordingEnabled ? 1 : 0, remoteTracksCount: isPlayoutEnabled ? 1 : 0)
-            configureFunc(simulatedState, AudioManager.State())
+            let session = LKRTCAudioSession.sharedInstance()
+            session.lockForConfiguration()
+            defer { session.unlockForConfiguration() }
+
+            let config: AudioSessionConfiguration = isRecordingEnabled ? .playAndRecordSpeaker : .playback
+            do {
+                if isSessionActive {
+                    log("AudioSession switching category to: \(config.category)")
+                    try session.setConfiguration(config.toRTCType())
+                } else {
+                    log("AudioSession activating category to: \(config.category)")
+                    try session.setConfiguration(config.toRTCType(), active: true)
+                    isSessionActive = true
+                }
+            } catch {
+                log("AudioSession failed to configure with error: \(error)", .error)
+            }
+
+            log("AudioSession activationCount: \(session.activationCount), webRTCSessionCount: \(session.webRTCSessionCount)")
             #endif
+        }
+
+        RTC.audioDeviceModule.setOnEngineDidStopCallback { [weak self] _, isPlayoutEnabled, isRecordingEnabled in
+            guard let self else { return }
+            self.log("OnEngineDidDisable isPlayoutEnabled: \(isPlayoutEnabled), isRecordingEnabled: \(isRecordingEnabled)")
+
+            #if os(iOS) || os(visionOS) || os(tvOS)
+            self.log("Configuring audio session...")
+            let session = LKRTCAudioSession.sharedInstance()
+            session.lockForConfiguration()
+            defer { session.unlockForConfiguration() }
+
+            do {
+                if isPlayoutEnabled, !isRecordingEnabled {
+                    let config: AudioSessionConfiguration = .playback
+                    log("AudioSession switching category to: \(config.category)")
+                    try session.setConfiguration(config.toRTCType())
+                }
+                if !isPlayoutEnabled, !isRecordingEnabled {
+                    log("AudioSession deactivating")
+                    try session.setActive(false)
+                    isSessionActive = false
+                }
+            } catch {
+                log("AudioSession failed to configure with error: \(error)", .error)
+            }
+
+            log("AudioSession activationCount: \(session.activationCount), webRTCSessionCount: \(session.webRTCSessionCount)")
+            #endif
+        }
+
+        RTC.audioDeviceModule.setOnEngineWillStartCallback { [weak self] _, isPlayoutEnabled, isRecordingEnabled in
+            guard let self else { return }
+            self.log("OnEngineWillStart isPlayoutEnabled: \(isPlayoutEnabled), isRecordingEnabled: \(isRecordingEnabled)")
         }
     }
 
