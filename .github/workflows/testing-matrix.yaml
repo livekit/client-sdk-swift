@@ -48,13 +48,13 @@ jobs:
             platform: "tvOS Simulator,name=Apple TV"
           # https://github.com/actions/runner-images/blob/main/images/macos/macos-14-Readme.md
           - os: macos-15
-            xcode: 16.1
+            xcode: 16.2
             platform: "iOS Simulator,OS=18.1,name=iPhone 16 Pro"
           - os: macos-15
-            xcode: 16.1
+            xcode: 16.2
             platform: "macOS"
           - os: macos-15
-            xcode: 16.1
+            xcode: 16.2
             platform: "macOS,variant=Mac Catalyst"
 
     runs-on: ${{ matrix.os }}
@@ -65,6 +65,9 @@ jobs:
 
       - name: Install LiveKit Server
         run: brew install livekit
+
+      - name: Install xcbeautify
+        run: brew install xcbeautify
 
       - name: Run LiveKit Server
         run: livekit-server --dev &
@@ -80,14 +83,14 @@ jobs:
         run: xcrun swift --version
 
       - name: Build
-        run: xcodebuild build-for-testing -scheme LiveKit -destination 'platform=${{ matrix.platform }}' -parallel-testing-enabled YES
+        run: xcodebuild build-for-testing -scheme LiveKit -destination 'platform=${{ matrix.platform }}' -parallel-testing-enabled YES | xcbeautify
 
       - name: Run
         run: |
           IFS=' ' read -r -a tests <<< "${{ env.TESTS }}"
           for test in "${tests[@]}"; do
             echo "::group::Running test $test"
-            xcodebuild test-without-building -scheme LiveKit -destination 'platform=${{ matrix.platform }}' -only-testing:LiveKitTests/$test
+            xcodebuild test-without-building -scheme LiveKit -destination 'platform=${{ matrix.platform }}' -only-testing:LiveKitTests/$test | xcbeautify
             echo "::endgroup::"
           done
         shell: bash
