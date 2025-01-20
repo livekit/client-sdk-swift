@@ -20,6 +20,7 @@ import Foundation
 enum DarwinNotification: String {
     case broadcastStarted = "iOS_BroadcastStarted"
     case broadcastStopped = "iOS_BroadcastStopped"
+    case broadcastRequestStop = "iOS_BroadcastRequestStop"
 }
 
 final class DarwinNotificationCenter: @unchecked Sendable {

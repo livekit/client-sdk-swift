@@ -41,6 +41,12 @@ class BroadcastExtensionState {
             showsMicrophoneButton: false
         )
     }
+
+    /// Asks the extension to stop broadcasting.
+    /// - Note: If the extension is not currently broadcasting, this method has no effect.
+    static func requestStop() async {
+        DarwinNotificationCenter.shared.postNotification(.broadcastRequestStop)
+    }
 }
 
 #endif
