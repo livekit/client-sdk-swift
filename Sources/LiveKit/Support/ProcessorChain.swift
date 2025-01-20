@@ -43,8 +43,13 @@ public class ProcessorChain<T: ChainableProcessor>: NSObject, Loggable {
         _state.mutate { $0.processors.append(WeakRef(processor)) }
     }
 
-    public func remove(processor _: T) {
-        // TODO: Implement
+    public func remove(processor: T) {
+        _state.mutate {
+            $0.processors.removeAll { weakRef in
+                guard let value = weakRef.value else { return false }
+                return value === processor
+            }
+        }
     }
 
     public func removeAllProcessors() {
