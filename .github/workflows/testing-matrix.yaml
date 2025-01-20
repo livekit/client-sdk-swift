@@ -101,16 +101,15 @@ jobs:
         run: xcrun swift --version
 
       - name: Build
-        run: xcodebuild build-for-testing -scheme LiveKit -destination 'platform=${{ matrix.platform }}' -parallel-testing-enabled YES | xcbeautify
+        run: xcodebuild build-for-testing -scheme LiveKit -destination 'platform=${{ matrix.platform }}' | xcbeautify
 
       # Run all tests in parallel instead of sequentially
       - name: Run Tests
         run: |
-          xcodebuild test-without-building \
-            -scheme LiveKit \
-            -destination 'platform=${{ matrix.platform }}' \
-            -parallel-testing-enabled YES \
-            -parallel-testing-worker-count 4 \
-            $(echo "$TESTS" | xargs -n1 echo "-only-testing:LiveKitTests/") \
-            | xcbeautify
+          IFS=' ' read -r -a tests <<< "${{ env.TESTS }}"
+          for test in "${tests[@]}"; do
+            echo "::group::Running test $test"
+            xcodebuild test-without-building -scheme LiveKit -destination 'platform=${{ matrix.platform }}' -only-testing:LiveKitTests/$test | xcbeautify
+            echo "::endgroup::"
+          done
         shell: bash
