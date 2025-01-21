@@ -76,11 +76,14 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-${{ matrix.os }}-brew-
 
+      - name: Resolve dependencies
+        run: swift package resolve
+
       - name: Cache SPM
         uses: actions/cache@v4
         with:
           path: .build
-          key: ${{ runner.os }}-${{ matrix.os }}-${{ matrix.xcode }}-spm-${{ hashFiles('**/Package.resolved') }}
+          key: ${{ runner.os }}-${{ matrix.os }}-${{ matrix.xcode }}-spm-${{ hashFiles('Package.resolved') }}
           restore-keys: |
             ${{ runner.os }}-${{ matrix.os }}-${{ matrix.xcode }}-spm-
 
