@@ -82,9 +82,8 @@ jobs:
           path: |
             ~/Library/Developer/Xcode/DerivedData
             ~/Library/Caches/org.swift.swiftpm
-          key: ${{ runner.os }}-${{ matrix.os }}-${{ matrix.xcode }}-${{ matrix.platform }}-spm-${{ hashFiles('Package.resolved', 'Package.swift', 'Package@swift-5.9.swift') }}
+          key: ${{ runner.os }}-${{ matrix.os }}-${{ matrix.xcode }}-spm-${{ hashFiles('Package.resolved', 'Package.swift', 'Package@swift-5.9.swift') }}
           restore-keys: |
-            ${{ runner.os }}-${{ matrix.os }}-${{ matrix.xcode }}-${{ matrix.platform }}-spm-
             ${{ runner.os }}-${{ matrix.os }}-${{ matrix.xcode }}-spm-
 
       - name: Install LiveKit Server
