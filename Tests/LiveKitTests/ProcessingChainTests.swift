@@ -17,13 +17,13 @@
 @testable import LiveKit
 import XCTest
 
-class ProcessingChainTests: XCTestCase {
-    protocol MockInterface: AnyObject, ChainedProcessor {
-        func process(value: Int) -> Int
-    }
+protocol MockProcessingInterface: ChainedProcessor {
+    func process(value: Int) -> Int
+}
 
+class ProcessingChainTests: XCTestCase {
     // Mock processor for testing
-    class MockProcessor: MockInterface {
+    class MockProcessor: MockProcessingInterface {
         weak var nextProcessor: MockProcessor?
 
         func process(value: Int) -> Int {
