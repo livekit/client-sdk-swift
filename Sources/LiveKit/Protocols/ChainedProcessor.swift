@@ -17,6 +17,7 @@
 import Foundation
 
 public protocol ChainedProcessor: AnyObject {
+    associatedtype NextProcessorType: ChainedProcessor
     // Next object in the chain.
-    var nextProcessor: Self? { get set }
+    var nextProcessor: NextProcessorType? { get set }
 }

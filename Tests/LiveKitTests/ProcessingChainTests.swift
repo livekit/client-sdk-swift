@@ -18,8 +18,12 @@
 import XCTest
 
 class ProcessingChainTests: XCTestCase {
+    protocol MockInterface: AnyObject, ChainedProcessor {
+        func process(value: Int) -> Int
+    }
+
     // Mock processor for testing
-    final class MockProcessor: NSObject, ChainedProcessor {
+    class MockProcessor: MockInterface {
         weak var nextProcessor: MockProcessor?
 
         func process(value: Int) -> Int {
@@ -111,7 +115,7 @@ class ProcessingChainTests: XCTestCase {
         chain.add(processor: processor2)
         chain.add(processor: processor3)
 
-        let result = chain.invokeProcessor { $0.process(value: 0) }
+        let result = chain.invokeChain { $0.process(value: 0) }
 
         // Each processor adds 1, so with 3 processors the final result should be 3
         XCTAssertEqual(result, 3)
