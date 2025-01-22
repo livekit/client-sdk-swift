@@ -33,6 +33,7 @@ import OSLog
 open class LKSampleHandler: RPBroadcastSampleHandler {
     private var clientConnection: BroadcastUploadSocketConnection?
     private var uploader: SampleUploader?
+    private let encoder = BroadcastSampleEncoder()
 
     override public init() {
         super.init()
@@ -75,12 +76,15 @@ open class LKSampleHandler: RPBroadcastSampleHandler {
         clientConnection?.close()
     }
 
-    override public func processSampleBuffer(_ sampleBuffer: CMSampleBuffer, with sampleBufferType: RPSampleBufferType) {
-        switch sampleBufferType {
-        case RPSampleBufferType.video:
-            uploader?.send(sample: sampleBuffer)
-        default:
-            break
+    override public func processSampleBuffer(_ sampleBuffer: CMSampleBuffer, with type: RPSampleBufferType) {
+        do {
+            let encodedSample = try encoder.encode(sampleBuffer, with: type)
+            uploader?.send(encodedSample)
+        } catch {
+            switch error {
+            case .unsupportedSample: break
+            default: logger.error("Failed to encode sample: \(error)")
+            }
         }
     }
 
