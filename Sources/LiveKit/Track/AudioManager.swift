@@ -36,19 +36,6 @@ public class AudioManager: Loggable {
 
     public typealias DeviceUpdateFunc = (_ audioManager: AudioManager) -> Void
 
-    // Engine events
-    public typealias OnEngineWillStart = (_ audioManager: AudioManager, _ engine: AVAudioEngine, _ playoutEnabled: Bool, _ recordingEnabled: Bool) -> Void
-    public typealias OnEngineWillConnectInput = (_ audioManager: AudioManager,
-                                                 _ engine: AVAudioEngine,
-                                                 _ src: AVAudioNode,
-                                                 _ dst: AVAudioNode,
-                                                 _ format: AVAudioFormat) -> Bool
-    public typealias OnEngineWillConnectOutput = (_ audioManager: AudioManager,
-                                                  _ engine: AVAudioEngine,
-                                                  _ src: AVAudioNode,
-                                                  _ dst: AVAudioNode,
-                                                  _ format: AVAudioFormat) -> Bool
-
     public typealias OnSpeechActivityEvent = (_ audioManager: AudioManager, _ event: SpeechActivityEvent) -> Void
 
     #if os(iOS) || os(visionOS) || os(tvOS)
@@ -125,6 +112,8 @@ public class AudioManager: Loggable {
         public var sessionConfiguration: AudioSessionConfiguration?
         #endif
 
+        public var engineObservers = [any AudioEngineObserver]()
+
         public var trackState: TrackState {
             switch (localTracksCount > 0, remoteTracksCount > 0) {
             case (true, false): return .localOnly
@@ -195,50 +184,12 @@ public class AudioManager: Loggable {
         set { RTC.audioDeviceModule.inputDevice = newValue._ioDevice }
     }
 
-    public var onDeviceUpdate: DeviceUpdateFunc? {
-        didSet {
-            RTC.audioDeviceModule.setDevicesDidUpdateCallback { [weak self] in
-                guard let self else { return }
-                self.onDeviceUpdate?(self)
-            }
-        }
-    }
-
-    /// Provide custom implementation for internal AVAudioEngine's input configuration.
-    /// Buffers flow from `src` to `dst`. Preferred format to connect node is provided as `format`.
-    /// Return true if custom implementation is provided, otherwise default implementation will be used.
-    public var onEngineWillConnectInput: OnEngineWillConnectInput? {
-        didSet {
-            RTC.audioDeviceModule.setOnEngineWillConnectInputCallback { [weak self] engine, src, dst, format in
-                guard let self else { return false }
-                return self.onEngineWillConnectInput?(self, engine, src, dst, format) ?? false
-            }
-        }
-    }
-
-    /// Provide custom implementation for internal AVAudioEngine's output configuration.
-    /// Buffers flow from `src` to `dst`. Preferred format to connect node is provided as `format`.
-    /// Return true if custom implementation is provided, otherwise default implementation will be used.
-    public var onEngineWillConnectOutput: OnEngineWillConnectOutput? {
-        didSet {
-            RTC.audioDeviceModule.setOnEngineWillConnectOutputCallback { [weak self] engine, src, dst, format in
-                guard let self else { return false }
-                return self.onEngineWillConnectOutput?(self, engine, src, dst, format) ?? false
-            }
-        }
-    }
+    public var onDeviceUpdate: DeviceUpdateFunc?
 
     /// Detect voice activity even if the mic is muted.
     /// Internal audio engine must be initialized by calling ``prepareRecording()`` or
     /// connecting to a room and subscribing to a remote audio track or publishing a local audio track.
-    public var onMutedSpeechActivityEvent: OnSpeechActivityEvent? {
-        didSet {
-            RTC.audioDeviceModule.setSpeechActivityCallback { [weak self] event in
-                guard let self else { return }
-                self.onMutedSpeechActivityEvent?(self, event.toLKType())
-            }
-        }
-    }
+    public var onMutedSpeechActivityEvent: OnSpeechActivityEvent?
 
     public var isManualRenderingMode: Bool {
         get { RTC.audioDeviceModule.isManualRenderingMode }
@@ -278,6 +229,17 @@ public class AudioManager: Loggable {
     /// Audio buffers will flow into ``LocalAudioTrack/add(audioRenderer:)`` and ``capturePostProcessingDelegate``.
     public func startLocalRecording() {
         RTC.audioDeviceModule.initAndStartRecording()
+    }
+
+    /// Set a chain of ``AudioEngineObserver``s.
+    /// Defaults to having a single ``DefaultAudioSessionObserver`` initially.
+    ///
+    /// The first object will be invoked and is responsible for calling the next object.
+    /// See ``NextInvokable`` protocol for details.
+    ///
+    /// Objects set here will be retained.
+    public func set(engineObservers: [any AudioEngineObserver]) {
+        state.mutate { $0.engineObservers = engineObservers }
     }
 
     // MARK: - For testing
@@ -329,72 +291,15 @@ public class AudioManager: Loggable {
         case remote
     }
 
-    let state = StateSync(State())
+    let state: StateSync<State>
 
-    var isSessionActive: Bool = false
+    let admDelegateAdapter: AudioDeviceModuleDelegateAdapter
 
     init() {
-        RTC.audioDeviceModule.setOnEngineWillEnableCallback { [weak self] _, isPlayoutEnabled, isRecordingEnabled in
-            guard let self else { return }
-            self.log("OnEngineWillEnable isPlayoutEnabled: \(isPlayoutEnabled), isRecordingEnabled: \(isRecordingEnabled)")
-
-            #if os(iOS) || os(visionOS) || os(tvOS)
-            self.log("Configuring audio session...")
-            let session = LKRTCAudioSession.sharedInstance()
-            session.lockForConfiguration()
-            defer { session.unlockForConfiguration() }
-
-            let config: AudioSessionConfiguration = isRecordingEnabled ? .playAndRecordSpeaker : .playback
-            do {
-                if isSessionActive {
-                    log("AudioSession switching category to: \(config.category)")
-                    try session.setConfiguration(config.toRTCType())
-                } else {
-                    log("AudioSession activating category to: \(config.category)")
-                    try session.setConfiguration(config.toRTCType(), active: true)
-                    isSessionActive = true
-                }
-            } catch {
-                log("AudioSession failed to configure with error: \(error)", .error)
-            }
-
-            log("AudioSession activationCount: \(session.activationCount), webRTCSessionCount: \(session.webRTCSessionCount)")
-            #endif
-        }
-
-        RTC.audioDeviceModule.setOnEngineDidStopCallback { [weak self] _, isPlayoutEnabled, isRecordingEnabled in
-            guard let self else { return }
-            self.log("OnEngineDidDisable isPlayoutEnabled: \(isPlayoutEnabled), isRecordingEnabled: \(isRecordingEnabled)")
-
-            #if os(iOS) || os(visionOS) || os(tvOS)
-            self.log("Configuring audio session...")
-            let session = LKRTCAudioSession.sharedInstance()
-            session.lockForConfiguration()
-            defer { session.unlockForConfiguration() }
-
-            do {
-                if isPlayoutEnabled, !isRecordingEnabled {
-                    let config: AudioSessionConfiguration = .playback
-                    log("AudioSession switching category to: \(config.category)")
-                    try session.setConfiguration(config.toRTCType())
-                }
-                if !isPlayoutEnabled, !isRecordingEnabled {
-                    log("AudioSession deactivating")
-                    try session.setActive(false)
-                    isSessionActive = false
-                }
-            } catch {
-                log("AudioSession failed to configure with error: \(error)", .error)
-            }
-
-            log("AudioSession activationCount: \(session.activationCount), webRTCSessionCount: \(session.webRTCSessionCount)")
-            #endif
-        }
-
-        RTC.audioDeviceModule.setOnEngineWillStartCallback { [weak self] _, isPlayoutEnabled, isRecordingEnabled in
-            guard let self else { return }
-            self.log("OnEngineWillStart isPlayoutEnabled: \(isPlayoutEnabled), isRecordingEnabled: \(isRecordingEnabled)")
-        }
+        state = StateSync(State(engineObservers: [DefaultAudioSessionObserver()]))
+        admDelegateAdapter = AudioDeviceModuleDelegateAdapter()
+        admDelegateAdapter.audioManager = self
+        RTC.audioDeviceModule.observer = admDelegateAdapter
     }
 
     // MARK: - Private
