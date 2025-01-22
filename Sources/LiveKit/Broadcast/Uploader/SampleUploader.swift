@@ -18,11 +18,9 @@
 
 import Foundation
 
-private enum Constants {
-    static let bufferMaxLength = 10240
-}
-
 class SampleUploader {
+    private static let bufferMaxLength = 10240
+
     @Atomic private var isReady = false
     private var connection: BroadcastUploadSocketConnection
 
@@ -76,7 +74,7 @@ private extension SampleUploader {
         }
 
         var bytesLeft = dataToSend.count - byteIndex
-        var length = bytesLeft > Constants.bufferMaxLength ? Constants.bufferMaxLength : bytesLeft
+        var length = bytesLeft > Self.bufferMaxLength ? Self.bufferMaxLength : bytesLeft
 
         length = dataToSend[byteIndex ..< (byteIndex + length)].withUnsafeBytes {
             guard let ptr = $0.bindMemory(to: UInt8.self).baseAddress else {
