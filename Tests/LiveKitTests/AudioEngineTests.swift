@@ -27,6 +27,7 @@ class AudioEngineTests: XCTestCase {
 
     override func tearDown() async throws {}
 
+    #if !targetEnvironment(simulator)
     // Test if mic is authorized. Only works on device.
     func testMicAuthorized() async {
         let status = AVCaptureDevice.authorizationStatus(for: .audio)
@@ -37,6 +38,7 @@ class AudioEngineTests: XCTestCase {
 
         XCTAssert(status == .authorized)
     }
+    #endif
 
     // Test if state transitions pass internal checks.
     func testStateTransitions() async {
