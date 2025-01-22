@@ -55,5 +55,25 @@ struct BroadcastImageCodec {
             options: [kCGImageDestinationLossyCompressionQuality as CIImageRepresentationOption: quality]
         )
     }
+    
+    /// Decodes the given JPEG data as an image buffer.
+    static func imageBuffer(from jpegData: Data, width: Int, height: Int) -> CVImageBuffer? {
+        var imageBuffer: CVImageBuffer?
+        let status = CVPixelBufferCreate(kCFAllocatorDefault, width, height, kCVPixelFormatType_32BGRA, nil, &imageBuffer)
+        guard status == kCVReturnSuccess, let imageBuffer else {
+            logger.warning("CVPixelBufferCreate failed")
+            return nil
+        }
+        
+        CVPixelBufferLockBaseAddress(imageBuffer, [])
+        defer { CVPixelBufferUnlockBaseAddress(imageBuffer, []) }
+        
+        guard let image = CIImage(data: jpegData) else {
+            logger.debug("Failed to create CIImage")
+            return nil
+        }
+        Self.imageContext.render(image, to: imageBuffer)
+        return imageBuffer
+    }
 }
 #endif
