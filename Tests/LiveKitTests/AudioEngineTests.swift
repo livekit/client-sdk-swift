@@ -135,18 +135,12 @@ class AudioEngineTests: XCTestCase {
     // Test the manual rendering mode (no-device mode) of AVAudioEngine based AudioDeviceModule.
     // In manual rendering, no device access will be initialized such as mic and speaker.
     func testManualRenderingMode() async throws {
-        // Attach sin wave generator when engine requests input node...
-        // inputMixerNode will automatically convert to RTC's internal format (int16).
-        // AVAudioEngine.attach() retains the node.
-        AudioManager.shared.onEngineWillConnectInput = { _, engine, _, dst, format in
-            let sin = SineWaveSourceNode()
-            engine.attach(sin)
-            engine.connect(sin, to: dst, format: format)
-            return true
-        }
-
         // Set manual rendering mode...
         AudioManager.shared.isManualRenderingMode = true
+
+        // Attach sine wave generator when engine requests input node.
+        // inputMixerNode will automatically convert to RTC's internal format (int16).
+        AudioManager.shared.set(engineObservers: [RewriteInputToSineWaveGenerator()])
 
         // Check if manual rendering mode is set...
         let isManualRenderingMode = AudioManager.shared.isManualRenderingMode
@@ -174,5 +168,17 @@ class AudioEngineTests: XCTestCase {
         let player = try AVAudioPlayer(contentsOf: recorder.filePath)
         player.play()
         try? await Task.sleep(nanoseconds: 5 * 1_000_000_000)
+    }
+}
+
+final class RewriteInputToSineWaveGenerator: AudioEngineObserver {
+    func setNext(_: any LiveKit.AudioEngineObserver) {}
+    func engineWillConnectInput(_ engine: AVAudioEngine, src _: AVAudioNode, dst: AVAudioNode, format: AVAudioFormat) -> Bool {
+        print("engineWillConnectInput")
+        let sin = SineWaveSourceNode()
+        // AVAudioEngine.attach() retains the node.
+        engine.attach(sin)
+        engine.connect(sin, to: dst, format: format)
+        return true
     }
 }

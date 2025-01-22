@@ -74,13 +74,13 @@ class AudioDeviceModuleDelegateAdapter: NSObject, LKRTCAudioDeviceModuleDelegate
         entryPoint?.engineWillRelease(engine)
     }
 
-    func audioDeviceModule(_: LKRTCAudioDeviceModule, engine : AVAudioEngine, configureInputFromSource src: AVAudioNode, toDestination dst: AVAudioNode, format : AVAudioFormat) -> Bool {
+    func audioDeviceModule(_: LKRTCAudioDeviceModule, engine: AVAudioEngine, configureInputFromSource src: AVAudioNode, toDestination dst: AVAudioNode, format: AVAudioFormat) -> Bool {
         guard let audioManager else { return false }
         let entryPoint = audioManager.state.engineObservers.buildChain()
         return entryPoint?.engineWillConnectInput(engine, src: src, dst: dst, format: format) ?? false
     }
 
-    func audioDeviceModule(_: LKRTCAudioDeviceModule, engine : AVAudioEngine, configureOutputFromSource src: AVAudioNode, toDestination dst: AVAudioNode, format : AVAudioFormat) -> Bool {
+    func audioDeviceModule(_: LKRTCAudioDeviceModule, engine: AVAudioEngine, configureOutputFromSource src: AVAudioNode, toDestination dst: AVAudioNode, format: AVAudioFormat) -> Bool {
         guard let audioManager else { return false }
         let entryPoint = audioManager.state.engineObservers.buildChain()
         return entryPoint?.engineWillConnectOutput(engine, src: src, dst: dst, format: format) ?? false
