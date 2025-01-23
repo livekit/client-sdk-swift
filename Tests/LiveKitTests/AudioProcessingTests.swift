@@ -93,7 +93,7 @@ class AudioProcessingTests: XCTestCase, AudioCustomProcessingDelegate {
 
             // Directly read config from the apm
             let allOnConfigResult = RTC.audioProcessingModule.config
-            print("Config result for all on: \(String(describing: allOnConfigResult))")
+            print("Config result for all on: \(allOnConfigResult.toDebugString()))")
             XCTAssert(allOnConfigResult.isEchoCancellationEnabled)
             XCTAssert(allOnConfigResult.isNoiseSuppressionEnabled)
             XCTAssert(allOnConfigResult.isAutoGainControl1Enabled)
@@ -111,7 +111,7 @@ class AudioProcessingTests: XCTestCase, AudioCustomProcessingDelegate {
 
             // Directly read config from the apm
             let allOffConfigResult = RTC.audioProcessingModule.config
-            print("Config result for all off: \(String(describing: allOffConfigResult))")
+            print("Config result for all off: \(allOffConfigResult.toDebugString())")
             XCTAssert(!allOffConfigResult.isEchoCancellationEnabled)
             XCTAssert(!allOffConfigResult.isNoiseSuppressionEnabled)
             XCTAssert(!allOffConfigResult.isAutoGainControl1Enabled)
@@ -119,16 +119,5 @@ class AudioProcessingTests: XCTestCase, AudioCustomProcessingDelegate {
 
             try await room1.localParticipant.unpublish(publication: pub2)
         }
-    }
-}
-
-extension LKRTCAudioProcessingConfig {
-    override open var description: String {
-        "RTCAudioProcessingConfig(" +
-            "isEchoCancellationEnabled: \(isEchoCancellationEnabled), " +
-            "isNoiseSuppressionEnabled: \(isNoiseSuppressionEnabled), " +
-            "isAutoGainControl1Enabled: \(isAutoGainControl1Enabled), " +
-            "isHighpassFilterEnabled: \(isHighpassFilterEnabled)" +
-            ")"
     }
 }
