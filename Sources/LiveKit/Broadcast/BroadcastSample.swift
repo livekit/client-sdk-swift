@@ -20,6 +20,60 @@
 import ReplayKit
 #endif
 
+#if swift(>=5.9)
+internal import LiveKitWebRTC
+#else
+@_implementationOnly import LiveKitWebRTC
+#endif
+
+/// A sample produced by the broadcast extension.
+enum BroadcastSample {
+    case image(CVImageBuffer, rotation: RTCVideoRotation)
+    // TODO: add audio support
+}
+
+/// Decodes broadcast samples for consumption.
+struct BroadcastSampleDecoder {
+    
+    enum Error: Swift.Error {
+        case unsupportedSample
+        case headerCorrupted
+        case invalidBody
+        case imageDecodingFailed
+    }
+    
+    func decode(_ message: HTTPMessage) throws(Error) -> BroadcastSample {
+        guard let typeRaw = message[.contentType]?.intValue,
+              let type = ContentType(rawValue: typeRaw) else {
+            throw .headerCorrupted
+        }
+        return switch type {
+        case .image: try decode(image: message)
+        case .audio:
+            // TODO: add audio support
+            throw .unsupportedSample
+        }
+    }
+    
+    private func decode(image message: HTTPMessage) throws(Error) -> BroadcastSample {
+        guard let width = message[.bufferWidth]?.intValue,
+              let height = message[.bufferHeight]?.intValue,
+              let orientationRaw = message[.bufferOrientation]?.uint32Value,
+              let orientation = CGImagePropertyOrientation(rawValue: orientationRaw) else {
+            throw .headerCorrupted
+        }
+        guard let body = message.body else {
+            throw .invalidBody
+        }
+        guard let imageBuffer = BroadcastImageCodec.imageBuffer(from: body, width: width, height: height) else {
+            throw .imageDecodingFailed
+        }
+        return .image(imageBuffer, rotation: RTCVideoRotation(orientation))
+    }
+    
+    // TODO: add audio support
+}
+
 /// Encodes broadcast samples for transport.
 struct BroadcastSampleEncoder {
     enum Error: Swift.Error {
@@ -82,6 +136,8 @@ struct BroadcastSampleEncoder {
     // TODO: add audio support
 }
 
+// MARK: Message Constants
+
 fileprivate enum ContentType: Int {
     case image, audio
 }
@@ -90,6 +146,24 @@ fileprivate extension HTTPMessage.HeaderKey {
     static let bufferWidth = Self(rawValue: "Buffer-Width")
     static let bufferHeight = Self(rawValue: "Buffer-Height")
     static let bufferOrientation = Self(rawValue: "Buffer-Orientation")
+}
+
+// MARK: - Supporting Extensions
+
+fileprivate extension RTCVideoRotation {
+    init(_ orientation: CGImagePropertyOrientation) {
+        self = switch orientation {
+        case .left: ._90
+        case .down: ._180
+        case .right: ._270
+        default: ._0
+        }
+    }
+}
+
+fileprivate extension String {
+    var intValue: Int? { Int(self) }
+    var uint32Value: UInt32? { UInt32(self) }
 }
 
 #endif
