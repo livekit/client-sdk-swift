@@ -26,25 +26,32 @@ class SineWaveSourceNode: AVAudioSourceNode {
 
         let format = AVAudioFormat(standardFormatWithSampleRate: sampleRate, channels: 1)!
 
-        var currentPhase = 0.0
-        let phaseIncrement = 2.0 * Double.pi * frequency / sampleRate
+        let twoPi = 2 * Float.pi
+        let amplitude: Float = 0.5
+        var currentPhase: Float = 0.0
+        let phaseIncrement: Float = (twoPi / Float(sampleRate)) * Float(frequency)
 
         let renderBlock: AVAudioSourceNodeRenderBlock = { _, _, frameCount, audioBufferList in
             print("AVAudioSourceNodeRenderBlock frameCount: \(frameCount)")
             let ablPointer = UnsafeMutableAudioBufferListPointer(audioBufferList)
-            guard let ptr = ablPointer[0].mData?.assumingMemoryBound(to: Float.self) else {
-                return kAudioUnitErr_InvalidParameter
-            }
 
             // Generate sine wave samples
             for frame in 0 ..< Int(frameCount) {
-                ptr[frame] = Float(sin(currentPhase))
-
-                // Update the phase
+                // Get the signal value for this frame at time.
+                let value = sin(currentPhase) * amplitude
+                // Advance the phase for the next frame.
                 currentPhase += phaseIncrement
-
-                // Keep phase within [0, 2π] range using fmod for stability
-                currentPhase = fmod(currentPhase, 2.0 * Double.pi)
+                if currentPhase >= twoPi {
+                    currentPhase -= twoPi
+                }
+                if currentPhase < 0.0 {
+                    currentPhase += twoPi
+                }
+                // Set the same value on all channels (due to the inputFormat, there's only one channel though).
+                for buffer in ablPointer {
+                    let buf: UnsafeMutableBufferPointer<Float> = UnsafeMutableBufferPointer(buffer)
+                    buf[frame] = value
+                }
             }
 
             return noErr

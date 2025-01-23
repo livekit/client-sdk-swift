@@ -293,11 +293,10 @@ public class AudioManager: Loggable {
 
     let state: StateSync<State>
 
-    let admDelegateAdapter: AudioDeviceModuleDelegateAdapter
+    let admDelegateAdapter = AudioDeviceModuleDelegateAdapter()
 
     init() {
         state = StateSync(State(engineObservers: [DefaultAudioSessionObserver()]))
-        admDelegateAdapter = AudioDeviceModuleDelegateAdapter()
         admDelegateAdapter.audioManager = self
         RTC.audioDeviceModule.observer = admDelegateAdapter
     }

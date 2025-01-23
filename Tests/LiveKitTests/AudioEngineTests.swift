@@ -139,7 +139,6 @@ class AudioEngineTests: XCTestCase {
     func testManualRenderingMode() async throws {
         // Set manual rendering mode...
         AudioManager.shared.isManualRenderingMode = true
-
         // Attach sine wave generator when engine requests input node.
         // inputMixerNode will automatically convert to RTC's internal format (int16).
         AudioManager.shared.set(engineObservers: [RewriteInputToSineWaveGenerator()])
@@ -151,7 +150,10 @@ class AudioEngineTests: XCTestCase {
 
         let recorder = try AudioRecorder()
 
-        let track = LocalAudioTrack.createTrack()
+        // Note: AudioCaptureOptions will not be applied since track is not published.
+        let noProcessingOptions = AudioCaptureOptions(echoCancellation: false, noiseSuppression: false, autoGainControl: false, highpassFilter: false)
+
+        let track = LocalAudioTrack.createTrack(options: noProcessingOptions)
         track.add(audioRenderer: recorder)
 
         // Start engine...
@@ -178,7 +180,6 @@ final class RewriteInputToSineWaveGenerator: AudioEngineObserver {
     func engineWillConnectInput(_ engine: AVAudioEngine, src _: AVAudioNode, dst: AVAudioNode, format: AVAudioFormat) -> Bool {
         print("engineWillConnectInput")
         let sin = SineWaveSourceNode()
-        // AVAudioEngine.attach() retains the node.
         engine.attach(sin)
         engine.connect(sin, to: dst, format: format)
         return true
