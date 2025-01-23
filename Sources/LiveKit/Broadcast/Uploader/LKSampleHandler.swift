@@ -149,7 +149,7 @@ open class LKSampleHandler: RPBroadcastSampleHandler {
 
     private func bootstrapLogging() {
         guard enableLogging else { return }
-        
+
         let bundleIdentifier = Bundle.main.bundleIdentifier ?? ""
         let logger = OSLog(subsystem: bundleIdentifier, category: "LKSampleHandler")
         let logLevel = verboseLogging ? Logger.Level.trace : .info
