@@ -16,7 +16,12 @@
 
 import Foundation
 import OSLog
+
+#if swift(>=5.9)
 internal import Logging
+#else
+@_implementationOnly import Logging
+#endif
 
 struct OSLogHandler: LogHandler {
     public var logLevel: Logging.Logger.Level = .debug

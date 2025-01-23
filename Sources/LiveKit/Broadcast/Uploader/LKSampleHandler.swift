@@ -20,8 +20,13 @@
 import ReplayKit
 #endif
 
-import LKObjCHelpers
+#if swift(>=5.9)
 internal import Logging
+#else
+@_implementationOnly import Logging
+#endif
+
+import LKObjCHelpers
 import OSLog
 
 @available(macCatalyst 13.1, *)
