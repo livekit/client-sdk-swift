@@ -33,6 +33,10 @@ struct HTTPMessage {
             .takeRetainedValue()
     }
     
+    init(_ rawMessage: consuming CFHTTPMessage) {
+        self.rawMessage = rawMessage
+    }
+    
     /// Accesses the value associated with the given typed header key for reading and writing.
     subscript(header: HeaderKey) -> String? {
         get { self[header.rawValue] }
