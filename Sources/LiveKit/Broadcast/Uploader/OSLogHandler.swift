@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#if os(iOS)
+
 import Foundation
 import OSLog
 
@@ -108,3 +110,5 @@ private extension OSLogType {
         }
     }
 }
+
+#endif
