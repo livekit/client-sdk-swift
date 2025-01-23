@@ -29,7 +29,7 @@ internal import LiveKitWebRTC
 #endif
 
 class BroadcastScreenCapturer: BufferCapturer {
-    var frameReader: SocketConnectionFrameReader?
+    var sampleReader: SocketConnectionSampleReader?
 
     override func startCapture() async throws -> Bool {
         let didStart = try await super.startCapture()
@@ -56,20 +56,23 @@ class BroadcastScreenCapturer: BufferCapturer {
 
         set(dimensions: targetDimensions)
 
-        let frameReader = SocketConnectionFrameReader()
-        guard let socketConnection = BroadcastServerSocketConnection(filePath: socketPath, streamDelegate: frameReader)
+        let sampleReader = SocketConnectionSampleReader()
+        guard let socketConnection = BroadcastServerSocketConnection(filePath: socketPath, streamDelegate: sampleReader)
         else { return false }
-        frameReader.didCapture = { pixelBuffer, rotation in
-            self.capture(pixelBuffer, rotation: rotation.toLKType())
+        sampleReader.didCapture = { sample in
+            switch sample {
+            case .image(let imageBuffer, rotation: let rotation):
+                self.capture(imageBuffer, rotation: rotation.toLKType())
+            }
         }
-        frameReader.didEnd = { [weak self] in
+        sampleReader.didEnd = { [weak self] in
             guard let self else { return }
             Task {
                 try await self.stopCapture()
             }
         }
-        frameReader.startCapture(with: socketConnection)
-        self.frameReader = frameReader
+        sampleReader.startCapture(with: socketConnection)
+        self.sampleReader = sampleReader
 
         return true
     }
@@ -80,8 +83,8 @@ class BroadcastScreenCapturer: BufferCapturer {
         // Already stopped
         guard didStop else { return false }
 
-        frameReader?.stopCapture()
-        frameReader = nil
+        sampleReader?.stopCapture()
+        sampleReader = nil
         return true
     }
 
