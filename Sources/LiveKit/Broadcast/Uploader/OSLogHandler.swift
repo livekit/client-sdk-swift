@@ -89,24 +89,24 @@ struct OSLogHandler: LogHandler {
 
 private extension OSLogType {
     static func from(loggerLevel: Logging.Logger.Level) -> Self {
-        return switch loggerLevel {
-        case .debug: .debug
+        switch loggerLevel {
+        case .debug: return .debug
 
-        case .info: .info
+        case .info: return .info
 
-        case .error: .error
+        case .error: return .error
 
-        case .critical: .fault
+        case .critical: return .fault
 
         // `OSLog` doesn't have `trace`, so use `debug`
-        case .trace: .debug
+        case .trace: return .debug
 
         // https://developer.apple.com/documentation/os/logging/generating_log_messages_from_your_code
         // According to the documentation, `default` is `notice`.
-        case .notice: .default
+        case .notice: return .default
 
         // `OSLog` doesn't have `warning`, so use `info`
-        case .warning: .info
+        case .warning: return .info
         }
     }
 }
