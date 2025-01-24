@@ -31,9 +31,9 @@ import OSLog
 
 @available(macCatalyst 13.1, *)
 open class LKSampleHandler: RPBroadcastSampleHandler {
-    private var clientConnection: BroadcastUploadSocketConnection?
-    private var uploader: SampleUploader?
-    private let encoder = BroadcastSampleEncoder()
+    
+    private var clientConnection: SocketConnection?
+    private var uploader: SocketDataSender?
 
     override public init() {
         super.init()
@@ -44,11 +44,11 @@ open class LKSampleHandler: RPBroadcastSampleHandler {
         if socketPath == nil {
             logger.error("Bundle settings improperly configured for screen capture")
         }
-        if let connection = BroadcastUploadSocketConnection(filePath: socketPath ?? "") {
+        if let connection = SocketConnection(filePath: socketPath ?? "") {
             clientConnection = connection
             setupConnection()
 
-            uploader = SampleUploader(connection: connection)
+            uploader = SocketDataSender(connection: connection)
         }
     }
 
@@ -78,13 +78,14 @@ open class LKSampleHandler: RPBroadcastSampleHandler {
 
     override public func processSampleBuffer(_ sampleBuffer: CMSampleBuffer, with type: RPSampleBufferType) {
         do {
-            let encodedSample = try encoder.encode(sampleBuffer, with: type)
-            uploader?.send(encodedSample)
-        } catch {
-            switch error {
-            case .unsupportedSample: break
-            default: logger.error("Failed to encode sample: \(error)")
+            switch type {
+            case .video:
+                let sample = try BroadcastImageSample(sampleBuffer)
+                uploader?.send(try BroadcastMessage.imageSample(sample).transportEncoded())
+            default: break
             }
+        } catch {
+            logger.error("Failed to encode sample: \(error)")
         }
     }
 

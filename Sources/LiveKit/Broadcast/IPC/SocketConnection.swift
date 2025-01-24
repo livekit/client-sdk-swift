@@ -14,15 +14,12 @@
  * limitations under the License.
  */
 
-import Darwin
 import Foundation
 
-#if canImport(CHeaders)
-import CHeaders
-#endif
-
-class BroadcastServerSocketConnection: NSObject {
-    private let streamDelegate: StreamDelegate
+class SocketConnection: NSObject {
+    var didOpen: (() -> Void)?
+    var didClose: ((Error?) -> Void)?
+    var streamHasSpaceAvailable: (() -> Void)?
 
     private let filePath: String
     private var socketHandle: Int32 = -1
@@ -31,16 +28,14 @@ class BroadcastServerSocketConnection: NSObject {
     private var inputStream: InputStream?
     private var outputStream: OutputStream?
 
-    private var listeningSource: DispatchSourceRead?
     private var networkQueue: DispatchQueue?
     private var shouldKeepRunning = false
 
-    init?(filePath path: String, streamDelegate: StreamDelegate) {
-        self.streamDelegate = streamDelegate
+    init?(filePath path: String) {
         filePath = path
-        socketHandle = socket(AF_UNIX, SOCK_STREAM, 0)
+        socketHandle = Darwin.socket(AF_UNIX, SOCK_STREAM, 0)
 
-        guard socketHandle >= 0 else {
+        guard socketHandle != -1 else {
             logger.log(level: .debug, "failure: create socket")
             return nil
         }
@@ -49,44 +44,24 @@ class BroadcastServerSocketConnection: NSObject {
     func open() -> Bool {
         logger.log(level: .debug, "open socket connection")
 
-        guard setupAddress() == true else {
-            logger.log(level: .debug, "failed setting up address")
-
-            return false
-        }
-
-        guard bindSocket() == true else {
-            return false
-        }
-
         guard FileManager.default.fileExists(atPath: filePath) else {
             logger.log(level: .debug, "failure: socket file missing")
             return false
         }
-        guard Darwin.listen(socketHandle, 10) >= 0 else {
-            logger.log(level: .debug, "failure: socket failed listening connection")
+
+        guard setupAddress() == true else {
             return false
         }
 
-        let listeningSource = DispatchSource.makeReadSource(fileDescriptor: socketHandle)
-        listeningSource.setEventHandler {
-            let clientSocket = Darwin.accept(self.socketHandle, nil, nil)
-
-            guard clientSocket >= 0 else {
-                logger.log(level: .debug, "failure: socket failed accepting connection")
-                return
-            }
-
-            self.setupStreams(clientSocket: clientSocket)
-
-            self.inputStream?.open()
-            self.outputStream?.open()
-
-            logger.log(level: .debug, "streams open")
+        guard connectSocket() == true else {
+            return false
         }
 
-        self.listeningSource = listeningSource
-        listeningSource.resume()
+        setupStreams()
+
+        inputStream?.open()
+        outputStream?.open()
+
         return true
     }
 
@@ -101,26 +76,55 @@ class BroadcastServerSocketConnection: NSObject {
 
         inputStream = nil
         outputStream = nil
-
-        logger.log(level: .debug, "closing server socket")
-        listeningSource?.cancel()
-        Darwin.close(socketHandle)
     }
 
     func writeToStream(buffer: UnsafePointer<UInt8>, maxLength length: Int) -> Int {
-        outputStream?.write(buffer, maxLength: length) ?? 0
+        logger.log(level: .debug, "client stream writeToStream \(length)")
+        return outputStream?.write(buffer, maxLength: length) ?? 0
     }
+}
 
-    private func setupAddress() -> Bool {
+extension SocketConnection: StreamDelegate {
+    func stream(_ aStream: Stream, handle eventCode: Stream.Event) {
+        switch eventCode {
+        case .openCompleted:
+            logger.log(level: .debug, "client stream open completed")
+            if aStream == outputStream {
+                didOpen?()
+            }
+        case .hasBytesAvailable:
+            if aStream == inputStream {
+                var buffer: UInt8 = 0
+                logger.log(level: .debug, "client stream hasBytesAvailable")
+                let numberOfBytesRead = inputStream?.read(&buffer, maxLength: 1)
+                if numberOfBytesRead == 0, aStream.streamStatus == .atEnd {
+                    logger.log(level: .debug, "server socket closed")
+                    close()
+                    notifyDidClose(error: nil)
+                }
+            }
+        case .hasSpaceAvailable:
+            if aStream == outputStream {
+                logger.log(level: .debug, "client stream hasSpaceAvailable")
+                streamHasSpaceAvailable?()
+            }
+        case .errorOccurred:
+            logger.log(level: .debug, "client stream error occured: \(String(describing: aStream.streamError))")
+            close()
+            notifyDidClose(error: aStream.streamError)
+        default:
+            break
+        }
+    }
+}
+
+private extension SocketConnection {
+    func setupAddress() -> Bool {
         var addr = sockaddr_un()
         addr.sun_family = sa_family_t(AF_UNIX)
         guard filePath.count < MemoryLayout.size(ofValue: addr.sun_path) else {
             logger.log(level: .debug, "failure: fd path is too long")
             return false
-        }
-
-        _ = filePath.withCString {
-            unlink($0)
         }
 
         _ = withUnsafeMutablePointer(to: &addr.sun_path.0) { ptr in
@@ -133,15 +137,14 @@ class BroadcastServerSocketConnection: NSObject {
         return true
     }
 
-    private func bindSocket() -> Bool {
+    func connectSocket() -> Bool {
         guard var addr = address else {
-            logger.log(level: .debug, "failure: no address?")
             return false
         }
 
         let status = withUnsafePointer(to: &addr) { ptr in
             ptr.withMemoryRebound(to: sockaddr.self, capacity: 1) {
-                Darwin.bind(socketHandle, $0, socklen_t(MemoryLayout<sockaddr_un>.size))
+                Darwin.connect(socketHandle, $0, socklen_t(MemoryLayout<sockaddr_un>.size))
             }
         }
 
@@ -153,48 +156,52 @@ class BroadcastServerSocketConnection: NSObject {
         return true
     }
 
-    private func setupStreams(clientSocket: Int32) {
+    func setupStreams() {
         var readStream: Unmanaged<CFReadStream>?
         var writeStream: Unmanaged<CFWriteStream>?
 
-        CFStreamCreatePairWithSocket(kCFAllocatorDefault, clientSocket, &readStream, &writeStream)
+        CFStreamCreatePairWithSocket(kCFAllocatorDefault, socketHandle, &readStream, &writeStream)
 
         inputStream = readStream?.takeRetainedValue()
-        inputStream?.delegate = streamDelegate
+        inputStream?.delegate = self
         inputStream?.setProperty(kCFBooleanTrue, forKey: Stream.PropertyKey(kCFStreamPropertyShouldCloseNativeSocket as String))
 
         outputStream = writeStream?.takeRetainedValue()
+        outputStream?.delegate = self
         outputStream?.setProperty(kCFBooleanTrue, forKey: Stream.PropertyKey(kCFStreamPropertyShouldCloseNativeSocket as String))
 
         scheduleStreams()
     }
 
-    private func scheduleStreams() {
+    func scheduleStreams() {
         shouldKeepRunning = true
 
         networkQueue = DispatchQueue.global(qos: .userInitiated)
         networkQueue?.async { [weak self] in
-            self?.inputStream?.schedule(in: .current, forMode: .default)
-            self?.outputStream?.schedule(in: .current, forMode: .default)
+            self?.inputStream?.schedule(in: .current, forMode: .common)
+            self?.outputStream?.schedule(in: .current, forMode: .common)
+            RunLoop.current.run()
 
-            logger.log(level: .debug, "streams scheduled")
             var isRunning = false
 
             repeat {
                 isRunning = self?.shouldKeepRunning ?? false && RunLoop.current.run(mode: .default, before: .distantFuture)
             } while isRunning
-
-            logger.log(level: .debug, "streams stopped")
         }
     }
 
-    private func unscheduleStreams() {
-        logger.log(level: .debug, "unscheduleStreams")
+    func unscheduleStreams() {
         networkQueue?.sync { [weak self] in
             self?.inputStream?.remove(from: .current, forMode: .common)
             self?.outputStream?.remove(from: .current, forMode: .common)
         }
 
         shouldKeepRunning = false
+    }
+
+    func notifyDidClose(error: Error?) {
+        if didClose != nil {
+            didClose?(error)
+        }
     }
 }

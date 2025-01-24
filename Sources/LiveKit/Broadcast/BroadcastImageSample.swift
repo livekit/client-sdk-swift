@@ -14,16 +14,64 @@
  * limitations under the License.
  */
 
-#if os(iOS)
+import Foundation
+import ReplayKit
 
-import AVFoundation
-import CoreImage
+struct BroadcastImageSample: Codable {
+    let width: Int
+    let height: Int
+    let orientation: CGImagePropertyOrientation
+    let jpegData: Data
+}
+
+extension BroadcastImageSample {
+    
+    enum ConversionError: Swift.Error {
+        case notImageBuffer
+        case imageCodecFailure
+    }
+    
+    init(_ sampleBuffer: CMSampleBuffer, quality: CGFloat = 1.0) throws(ConversionError) {
+        guard let imageBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else {
+            throw .notImageBuffer
+        }
+        CVPixelBufferLockBaseAddress(imageBuffer, .readOnly)
+        defer { CVPixelBufferUnlockBaseAddress(imageBuffer, .readOnly) }
+        
+        guard let jpegData = BroadcastImageCodec.jpegData(from: imageBuffer, quality: quality) else {
+            throw .imageCodecFailure
+        }
+        self.init(
+            width: CVPixelBufferGetWidth(imageBuffer),
+            height: CVPixelBufferGetHeight(imageBuffer),
+            orientation: sampleBuffer.replayKitOrientation ?? .up,
+            jpegData: jpegData
+        )
+    }
+    
+    func toImageBuffer() throws(ConversionError) -> CVImageBuffer {
+        guard let imageBuffer = BroadcastImageCodec.imageBuffer(from: jpegData, width: width, height: height) else {
+            throw .imageCodecFailure
+        }
+        return imageBuffer
+    }
+}
+
+extension CGImagePropertyOrientation: Codable {}
+
+extension CMSampleBuffer {
+    /// Gets the image orientation attached by ReplayKit.
+    var replayKitOrientation: CGImagePropertyOrientation? {
+        guard let rawOrientation = CMGetAttachment(
+            self,
+            key: RPVideoSampleOrientationKey as CFString,
+            attachmentModeOut: nil
+        )?.uint32Value else { return nil }
+        return CGImagePropertyOrientation(rawValue: rawOrientation)
+    }
+}
 
 struct BroadcastImageCodec {
-    // Initializing a CIContext object is costly, so we use a singleton instead
-    private static let imageContext = CIContext(options: nil)
-    private static let colorSpace = CGColorSpaceCreateDeviceRGB()
-
     /// Encode the given image buffer to JPEG data.
     ///
     /// - Warning: The given image buffer must already have its base address locked.
@@ -75,5 +123,8 @@ struct BroadcastImageCodec {
         Self.imageContext.render(image, to: imageBuffer)
         return imageBuffer
     }
+    
+    // Initializing a CIContext object is costly, so we use a singleton instead
+    private static let imageContext = CIContext(options: nil)
+    private static let colorSpace = CGColorSpaceCreateDeviceRGB()
 }
-#endif

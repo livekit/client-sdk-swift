@@ -29,7 +29,7 @@ internal import LiveKitWebRTC
 #endif
 
 class BroadcastScreenCapturer: BufferCapturer {
-    var sampleReader: SocketConnectionSampleReader?
+    var sampleReader: SocketDataReceiver?
 
     override func startCapture() async throws -> Bool {
         let didStart = try await super.startCapture()
@@ -56,13 +56,22 @@ class BroadcastScreenCapturer: BufferCapturer {
 
         set(dimensions: targetDimensions)
 
-        let sampleReader = SocketConnectionSampleReader()
-        guard let socketConnection = BroadcastServerSocketConnection(filePath: socketPath, streamDelegate: sampleReader)
+        let sampleReader = SocketDataReceiver()
+        guard let socketConnection = SocketListener(filePath: socketPath, streamDelegate: sampleReader)
         else { return false }
-        sampleReader.didCapture = { sample in
-            switch sample {
-            case .image(let imageBuffer, rotation: let rotation):
-                self.capture(imageBuffer, rotation: rotation.toLKType())
+        
+        sampleReader.didReceive = { [weak self] data in
+            do {
+                // TODO: Abstract into own type
+                let message = try BroadcastMessage(transportEncoded: data)
+                switch message {
+                case .imageSample(let sample):
+                    let imageBuffer = try sample.toImageBuffer()
+                    self?.capture(imageBuffer, rotation: ._0)
+                }
+                logger.debug("\(message)")
+            } catch {
+                logger.debug("Failed to decode message")
             }
         }
         sampleReader.didEnd = { [weak self] in

@@ -18,18 +18,18 @@
 
 import Foundation
 
-class SampleUploader {
+class SocketDataSender {
     private static let bufferMaxLength = 10240
 
     @Atomic private var isReady = false
-    private var connection: BroadcastUploadSocketConnection
+    private var connection: SocketConnection
 
     private var dataToSend: Data?
     private var byteIndex = 0
 
     private let serialQueue: DispatchQueue
 
-    init(connection: BroadcastUploadSocketConnection) {
+    init(connection: SocketConnection) {
         self.connection = connection
         serialQueue = DispatchQueue(label: "io.livekit.broadcast.sampleUploader")
 
@@ -43,7 +43,10 @@ class SampleUploader {
 
         isReady = false
 
-        dataToSend = data
+        var frame = HTTPMessage()
+        frame.body = data
+        
+        dataToSend = Data(frame)
         byteIndex = 0
 
         serialQueue.async { [weak self] in
@@ -54,7 +57,7 @@ class SampleUploader {
     }
 }
 
-private extension SampleUploader {
+private extension SocketDataSender {
     func setupConnection() {
         connection.didOpen = { [weak self] in
             self?.isReady = true

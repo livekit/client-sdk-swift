@@ -24,7 +24,7 @@ internal import LiveKitWebRTC
 @_implementationOnly import LiveKitWebRTC
 #endif
 
-class SocketConnectionSampleReader: NSObject {
+class SocketDataReceiver: NSObject {
     
     private static let kMaxReadLength = 10 * 1024
     
@@ -38,8 +38,8 @@ class SocketConnectionSampleReader: NSObject {
         }
     }
 
-    private var _connection: BroadcastServerSocketConnection?
-    private var connection: BroadcastServerSocketConnection? {
+    private var _connection: SocketListener?
+    private var connection: SocketListener? {
         get { _connection }
         set {
             if _connection != newValue {
@@ -50,14 +50,13 @@ class SocketConnectionSampleReader: NSObject {
     }
 
     private var reader = HTTPMessageReader()
-    private var sampleDecoder = BroadcastSampleDecoder()
     
-    var didCapture: ((BroadcastSample) -> Void)?
+    var didReceive: ((Data) -> Void)?
     var didEnd: (() -> Void)?
 
     override init() {}
 
-    func startCapture(with connection: BroadcastServerSocketConnection) {
+    func startCapture(with connection: SocketListener) {
         self.connection = connection
         guard connection.open() else {
             stopCapture()
@@ -93,12 +92,11 @@ class SocketConnectionSampleReader: NSObject {
     }
 
     private func handle(message: HTTPMessage) {
-        do {
-            let decodedSample = try sampleDecoder.decode(message)
-            didCapture?(decodedSample)
-        } catch {
-            logger.debug("Failed to decode broadcast sample: \(error)")
+        guard let data = message.body else {
+            logger.debug("Failed to get message data")
+            return
         }
+        didReceive?(data)
     }
 }
 
@@ -114,7 +112,7 @@ fileprivate extension InputStream {
     }
 }
 
-extension SocketConnectionSampleReader: StreamDelegate {
+extension SocketDataReceiver: StreamDelegate {
     func stream(_ aStream: Stream, handle eventCode: Stream.Event) {
         switch eventCode {
         case .openCompleted:
