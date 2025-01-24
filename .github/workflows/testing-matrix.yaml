@@ -65,27 +65,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Cache Homebrew and SPM dependencies
-      - name: Cache Homebrew
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/Library/Caches/Homebrew
-            ~/Library/Caches/Homebrew/downloads
-          key: ${{ runner.os }}-${{ matrix.os }}-brew-${{ hashFiles('.github/workflows/testing-matrix.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-${{ matrix.os }}-brew-
-
-      - name: Cache SPM and Xcode
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/Library/Developer/Xcode/DerivedData
-            ~/Library/Caches/org.swift.swiftpm
-          key: ${{ runner.os }}-${{ matrix.os }}-${{ matrix.xcode }}-spm-${{ hashFiles('Package.resolved', 'Package.swift', 'Package@swift-5.9.swift') }}
-          restore-keys: |
-            ${{ runner.os }}-${{ matrix.os }}-${{ matrix.xcode }}-spm-
-
       - name: Install LiveKit Server
         run: brew install livekit
 
