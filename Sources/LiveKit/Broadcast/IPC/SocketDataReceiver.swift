@@ -56,15 +56,15 @@ class SocketDataReceiver: NSObject {
 
     override init() {}
 
-    func startCapture(with connection: SocketListener) {
+    func start(with connection: SocketListener) {
         self.connection = connection
         guard connection.open() else {
-            stopCapture()
+            stop()
             return
         }
     }
 
-    func stopCapture() {
+    func stop() {
         connection?.close()
         connection = nil
     }
@@ -121,7 +121,7 @@ extension SocketDataReceiver: StreamDelegate {
             readBytes(from: aStream as! InputStream)
         case .endEncountered:
             logger.log(level: .debug, "server stream end encountered")
-            stopCapture()
+            stop()
             didEnd?()
         case .errorOccurred:
             logger.log(level: .debug, "server stream error encountered: \(aStream.streamError?.localizedDescription ?? "")")
