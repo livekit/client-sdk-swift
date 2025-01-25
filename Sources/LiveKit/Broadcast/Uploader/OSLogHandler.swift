@@ -34,13 +34,13 @@ struct OSLogHandler: LogHandler {
     }
 
     public func log(
-        level: Logging.Logger.Level,
+        level _: Logging.Logger.Level,
         message: Logging.Logger.Message,
         metadata: Logging.Logger.Metadata?,
-        source: String,
-        file: String,
-        function: String,
-        line: UInt
+        source _: String,
+        file _: String,
+        function _: String,
+        line _: UInt
     ) {
         var combinedPrettyMetadata = prettyMetadata
         if let metadataOverride = metadata, !metadataOverride.isEmpty {
