@@ -1,0 +1,51 @@
+name: Detect Public API changes
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Define Diff Versions
+        run: |
+          NEW="${{ env.source }}~${{ env.headGithubRepo }}"
+          OLD="${{ env.target }}~${{ env.baseGithubRepo }}"
+
+          if [[ '${{ env.targetBranchName || env.noTargetBranch }}' == release/* ]]
+          then
+              LATEST_TAG=$(git describe --tags --abbrev=0)
+              OLD="$LATEST_TAG~${{ env.baseGithubRepo }}" 
+          fi
+
+          # Providing the output to the environment
+          echo "OLD_VERSION=$OLD" >> $GITHUB_ENV
+          echo "NEW_VERSION=$NEW" >> $GITHUB_ENV
+        env:
+          source: "${{ github.event.inputs.new || github.head_ref }}"
+          target: "${{ github.event.inputs.old || github.event.pull_request.base.ref }}"
+          headGithubRepo: "${{github.server_url}}/${{ github.event.pull_request.head.repo.full_name || github.repository}}.git"
+          baseGithubRepo: "${{github.server_url}}/${{github.repository}}.git"
+          noTargetBranch: "no target branch"
+          targetBranchName: "${{ github.head_ref }}"
+
+      # The github action automatically posts on a PR (if it's not a fork-PR)
+      # and/or outputs the diff to the $GITHUB_STEP_SUMMARY
+      - name: Detect Changes
+        uses: Adyen/adyen-swift-public-api-diff@0.8.1
+        with:
+          platform: "iOS"
+          new: ${{ env.NEW_VERSION }}
+          old: ${{ env.OLD_VERSION }}
