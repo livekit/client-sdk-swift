@@ -53,8 +53,8 @@ public class Room: NSObject, ObservableObject, Loggable {
     public var serverRegion: String? { _state.serverInfo?.region.nilIfEmpty }
 
     /// Region code the client is currently connected to.
-    @objc
-    public var serverNodeId: String? { _state.serverInfo?.nodeID.nilIfEmpty }
+    // @objc
+    // public var serverNodeId: String? { _state.serverInfo?.nodeID.nilIfEmpty }
 
     @objc
     public var remoteParticipants: [Participant.Identity: RemoteParticipant] { _state.remoteParticipants }
