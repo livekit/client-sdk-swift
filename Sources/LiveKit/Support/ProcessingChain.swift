@@ -16,7 +16,7 @@
 
 import Foundation
 
-public class ProcessingChain<T: ChainedProcessor> {
+public class ProcessingChain<T: ChainedProcessor>: NSObject, Loggable {
     // MARK: - Public properties
 
     public var isProcessorsEmpty: Bool { countProcessors == 0 }
@@ -61,7 +61,7 @@ public class ProcessingChain<T: ChainedProcessor> {
         guard !processors.isEmpty else { return nil }
 
         for i in 0 ..< (processors.count - 1) {
-            processors[i].nextProcessor = processors[i + 1] as? T.NextProcessorType
+            processors[i].nextProcessor = processors[i + 1]
         }
         // The last one doesn't have a successor
         processors.last?.nextProcessor = nil
@@ -69,7 +69,7 @@ public class ProcessingChain<T: ChainedProcessor> {
         return processors.first
     }
 
-    public func invokeChain<R>(_ fnc: @escaping (T) -> R) -> R? {
+    public func invokeProcessor<R>(_ fnc: @escaping (T) -> R) -> R? {
         guard let chain = buildProcessorChain() else { return nil }
         return fnc(chain)
     }

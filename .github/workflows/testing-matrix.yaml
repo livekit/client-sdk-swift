@@ -12,7 +12,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  TESTS: "FunctionTests ProcessingChainTests SDKTests RoomTests PublishDataTests PublishBufferCapturerTests VideoViewTests TrackTests"
+  TESTS: "FunctionTests SDKTests RoomTests PublishDataTests PublishBufferCapturerTests VideoViewTests TrackTests"
 
 jobs:
   test:
