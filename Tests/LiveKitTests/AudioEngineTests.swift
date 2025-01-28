@@ -151,9 +151,7 @@ class AudioEngineTests: XCTestCase {
         let recorder = try AudioRecorder()
 
         // Note: AudioCaptureOptions will not be applied since track is not published.
-        let noProcessingOptions = AudioCaptureOptions(echoCancellation: false, noiseSuppression: false, autoGainControl: false, highpassFilter: false)
-
-        let track = LocalAudioTrack.createTrack(options: noProcessingOptions)
+        let track = LocalAudioTrack.createTrack(options: .noProcessing)
         track.add(audioRenderer: recorder)
 
         // Start engine...
@@ -177,7 +175,7 @@ class AudioEngineTests: XCTestCase {
 
 final class RewriteInputToSineWaveGenerator: AudioEngineObserver {
     func setNext(_: any LiveKit.AudioEngineObserver) {}
-    func engineWillConnectInput(_ engine: AVAudioEngine, src _: AVAudioNode, dst: AVAudioNode, format: AVAudioFormat) -> Bool {
+    func engineWillConnectInput(_ engine: AVAudioEngine, src _: AVAudioNode?, dst: AVAudioNode, format: AVAudioFormat) -> Bool {
         print("engineWillConnectInput")
         let sin = SineWaveSourceNode()
         engine.attach(sin)
