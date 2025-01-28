@@ -191,16 +191,6 @@ public class AudioManager: Loggable {
     /// connecting to a room and subscribing to a remote audio track or publishing a local audio track.
     public var onMutedSpeechActivityEvent: OnSpeechActivityEvent?
 
-    public var isManualRenderingMode: Bool {
-        get { RTC.audioDeviceModule.isManualRenderingMode }
-        set {
-            let result = RTC.audioDeviceModule.setManualRenderingMode(newValue)
-            if !result {
-                log("Failed to set manual rendering mode", .error)
-            }
-        }
-    }
-
     /// Enables advanced ducking which ducks other audio based on the presence of voice activity from local and remote chat participants.
     /// Default: true.
     public var isAdvancedDuckingEnabled: Bool {
@@ -213,6 +203,32 @@ public class AudioManager: Loggable {
     public var duckingLevel: AudioDuckingLevel {
         get { AudioDuckingLevel(rawValue: RTC.audioDeviceModule.duckingLevel) ?? .default }
         set { RTC.audioDeviceModule.duckingLevel = newValue.rawValue }
+    }
+
+    /// Bypass Voice-Processing I/O of internal AVAudioEngine.
+    /// It is valid to toggle this at runtime.
+    public var isVoiceProcessingBypassed: Bool {
+        get { RTC.audioDeviceModule.isVoiceProcessingBypassed }
+        set { RTC.audioDeviceModule.isVoiceProcessingBypassed = newValue }
+    }
+
+    /// Bypass the Auto Gain Control of internal AVAudioEngine.
+    /// It is valid to toggle this at runtime.
+    public var isVoiceProcessingAGCEnabled: Bool {
+        get { RTC.audioDeviceModule.isVoiceProcessingAGCEnabled }
+        set { RTC.audioDeviceModule.isVoiceProcessingAGCEnabled = newValue }
+    }
+
+    /// Enables manual-rendering (no-device) mode of AVAudioEngine.
+    /// Currently experimental.
+    public var isManualRenderingMode: Bool {
+        get { RTC.audioDeviceModule.isManualRenderingMode }
+        set {
+            let result = RTC.audioDeviceModule.setManualRenderingMode(newValue)
+            if !result {
+                log("Failed to set manual rendering mode", .error)
+            }
+        }
     }
 
     // MARK: - Recording
