@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import AVFoundation
+@preconcurrency import AVFoundation
 @testable import LiveKit
 import LiveKitWebRTC
 import XCTest
