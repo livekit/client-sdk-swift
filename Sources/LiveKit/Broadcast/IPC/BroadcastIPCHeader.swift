@@ -16,25 +16,10 @@
 
 #if os(iOS)
 
-import Foundation
-
-/// A message sent between the broadcast extension and main app.
-enum BroadcastMessage: Codable {
-    case imageSample(BroadcastImageSample)
-}
-
-extension BroadcastMessage {
-    
-    func transportEncoded() throws -> Data {
-        return try Self.encoder.encode(self)
-    }
-    
-    init(transportEncoded data: Data) throws {
-        self = try Self.decoder.decode(Self.self, from: data)
-    }
-    
-    private static let encoder = PropertyListEncoder()
-    private static let decoder = PropertyListDecoder()
+/// Message header for communication between uploader and receiver.
+enum BroadcastIPCHeader: Codable {
+    /// Image sample sent by uploader.
+    case image(BroadcastImageCodec.Metadata, VideoRotation)
 }
 
 #endif

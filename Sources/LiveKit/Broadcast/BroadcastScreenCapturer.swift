@@ -29,19 +29,13 @@ internal import LiveKitWebRTC
 #endif
 
 class BroadcastScreenCapturer: BufferCapturer {
-    var sampleReceiver: BroadcastSampleReceiver?
+    
+    private var receiveTask: Task<(), any Error>?
 
     override func startCapture() async throws -> Bool {
         let didStart = try await super.startCapture()
 
         guard didStart else { return false }
-
-        guard let groupIdentifier = Self.groupIdentifier,
-              let socketPath = Self.socketPath(for: groupIdentifier)
-        else {
-            logger.error("Bundle settings improperly configured for screen capture")
-            return false
-        }
 
         let bounds = await UIScreen.main.bounds
         let width = bounds.size.width
@@ -55,19 +49,29 @@ class BroadcastScreenCapturer: BufferCapturer {
             .toEncodeSafeDimensions()
 
         set(dimensions: targetDimensions)
-
-        guard let sampleReceiver = BroadcastSampleReceiver(socketPath: socketPath) else {
+        
+        guard let socketPath = Self.socketPath else {
+            logger.error("Bundle settings improperly configured for screen capture")
             return false
         }
-        sampleReceiver.didCaptureImage = { [weak self] imageBuffer, rotation in
-            self?.capture(imageBuffer, rotation: rotation)
+        receiveTask = Task(priority: .userInitiated) { [weak self] in
+            do {
+                let receiver = try await BroadcastReceiver(socketPath: socketPath)
+                logger.debug("Connected to uploader")
+                
+                for try await sample in receiver.incomingSamples {
+                    switch sample {
+                    case .image(let imageBuffer, let rotation):
+                        self?.capture(imageBuffer, rotation: rotation)
+                    }
+                }
+                logger.debug("Uploader closed connection")
+                _ = try await self?.stopCapture()
+            } catch {
+                logger.debug("Receiver error: \(error)")
+                _ = try await self?.stopCapture()
+            }
         }
-        sampleReceiver.didEnd = { [weak self] in
-            guard let self else { return }
-            Task { try await self.stopCapture() }
-        }
-        self.sampleReceiver = sampleReceiver
-
         return true
     }
 
@@ -76,9 +80,7 @@ class BroadcastScreenCapturer: BufferCapturer {
 
         // Already stopped
         guard didStop else { return false }
-
-        sampleReceiver?.stop()
-        sampleReceiver = nil
+        receiveTask?.cancel()
         return true
     }
 
@@ -91,18 +93,19 @@ class BroadcastScreenCapturer: BufferCapturer {
     static var screenSharingExtension: String?
 
     /// Path to the socket file used for interprocess communication.
-    static var socketPath: String? {
+    static var socketPath: SocketPath? {
         guard let groupIdentifier = Self.groupIdentifier else { return nil }
         return Self.socketPath(for: groupIdentifier)
     }
 
     private static let kRTCScreensharingSocketFD = "rtc_SSFD"
 
-    private static func socketPath(for groupIdentifier: String) -> String? {
+    private static func socketPath(for groupIdentifier: String) -> SocketPath? {
         guard let sharedContainer = FileManager.default
             .containerURL(forSecurityApplicationGroupIdentifier: groupIdentifier)
         else { return nil }
-        return sharedContainer.appendingPathComponent(Self.kRTCScreensharingSocketFD).path
+        let path = sharedContainer.appendingPathComponent(Self.kRTCScreensharingSocketFD).path
+        return SocketPath(path)
     }
 }
 

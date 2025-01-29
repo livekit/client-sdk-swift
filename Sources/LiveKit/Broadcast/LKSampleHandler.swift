@@ -32,31 +32,19 @@ import OSLog
 @available(macCatalyst 13.1, *)
 open class LKSampleHandler: RPBroadcastSampleHandler {
     
-    private var clientConnection: SocketConnection?
-    private var uploader: SocketDataSender?
+    private var uploader: BroadcastUploader?
 
     override public init() {
         super.init()
         bootstrapLogging()
         logger.info("LKSampleHandler created")
-
-        let socketPath = BroadcastScreenCapturer.socketPath
-        if socketPath == nil {
-            logger.error("Bundle settings improperly configured for screen capture")
-        }
-        if let connection = SocketConnection(filePath: socketPath ?? "") {
-            clientConnection = connection
-            setupConnection()
-
-            uploader = SocketDataSender(connection: connection)
-        }
+        createUploader()
     }
 
     override public func broadcastStarted(withSetupInfo _: [String: NSObject]?) {
         // User has requested to start the broadcast. Setup info from the UI extension can be supplied but optional.
         logger.info("Broadcast started")
         DarwinNotificationCenter.shared.postNotification(.broadcastStarted)
-        openConnection()
     }
 
     override public func broadcastPaused() {
@@ -73,19 +61,15 @@ open class LKSampleHandler: RPBroadcastSampleHandler {
         // User has requested to finish the broadcast.
         logger.info("Broadcast finished")
         DarwinNotificationCenter.shared.postNotification(.broadcastStopped)
-        clientConnection?.close()
     }
 
     override public func processSampleBuffer(_ sampleBuffer: CMSampleBuffer, with type: RPSampleBufferType) {
-        do {
-            switch type {
-            case .video:
-                let sample = try BroadcastImageSample(sampleBuffer)
-                uploader?.send(try BroadcastMessage.imageSample(sample).transportEncoded())
-            default: break
+        Task {
+            do {
+                try await uploader?.upload(sampleBuffer, with: type)
+            } catch {
+                logger.error("Failed to send sample: \(error)")
             }
-        } catch {
-            logger.error("Failed to encode sample: \(error)")
         }
     }
 
@@ -111,30 +95,22 @@ open class LKSampleHandler: RPBroadcastSampleHandler {
         }
     }
 
-    private func setupConnection() {
-        clientConnection?.didClose = { [weak self] error in
-            logger.log(level: .debug, "client connection did close \(String(describing: error))")
-            guard let self else {
-                return
-            }
-
-            self.connectionDidClose(error: error)
+    private func createUploader() {
+        logger.debug("Connecting to main app…")
+        guard let socketPath = BroadcastScreenCapturer.socketPath else {
+            logger.error("Bundle settings improperly configured for screen capture")
+            return
         }
-    }
-
-    private func openConnection() {
-        let queue = DispatchQueue(label: "broadcast.connectTimer")
-        let timer = DispatchSource.makeTimerSource(queue: queue)
-        timer.schedule(deadline: .now(), repeating: .milliseconds(100), leeway: .milliseconds(500))
-        timer.setEventHandler { [weak self] in
-            guard self?.clientConnection?.open() == true else {
-                return
+        Task {
+            do {
+                uploader = try await BroadcastUploader(socketPath: socketPath)
+                logger.debug("Connected")
+            } catch {
+                logger.error("Connection failed: \(error)")
+                connectionDidClose(error: error)
+                uploader = nil
             }
-
-            timer.cancel()
         }
-
-        timer.resume()
     }
 
     // MARK: - Logging
