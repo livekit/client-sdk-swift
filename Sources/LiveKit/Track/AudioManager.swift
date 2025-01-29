@@ -34,12 +34,13 @@ public class AudioManager: Loggable {
     public static let shared = AudioManager()
     #endif
 
-    public typealias DeviceUpdateFunc = (_ audioManager: AudioManager) -> Void
+    public typealias OnDevicesDidUpdate = (_ audioManager: AudioManager) -> Void
 
-    public typealias OnSpeechActivityEvent = (_ audioManager: AudioManager, _ event: SpeechActivityEvent) -> Void
+    public typealias OnSpeechActivity = (_ audioManager: AudioManager, _ event: SpeechActivityEvent) -> Void
 
     #if os(iOS) || os(visionOS) || os(tvOS)
 
+    @available(*, deprecated)
     public typealias ConfigureAudioSessionFunc = @Sendable (_ newState: State,
                                                             _ oldState: State) -> Void
 
@@ -80,40 +81,26 @@ public class AudioManager: Loggable {
         get { state.sessionConfiguration }
         set { state.mutate { $0.sessionConfiguration = newValue } }
     }
-    #endif
 
+    @available(*, deprecated)
     public enum TrackState {
         case none
         case localOnly
         case remoteOnly
         case localAndRemote
     }
+    #endif
 
-    public struct State: Equatable, Sendable {
-        // Only consider State mutated when public vars change
-        public static func == (lhs: AudioManager.State, rhs: AudioManager.State) -> Bool {
-            var isEqual = lhs.localTracksCount == rhs.localTracksCount &&
-                lhs.remoteTracksCount == rhs.remoteTracksCount
+    public struct State: Sendable {
+        public var engineObservers = [any AudioEngineObserver]()
 
-            #if os(iOS) || os(visionOS) || os(tvOS)
-            isEqual = isEqual &&
-                lhs.isSpeakerOutputPreferred == rhs.isSpeakerOutputPreferred &&
-                lhs.sessionConfiguration == rhs.sessionConfiguration
-            #endif
-
-            return isEqual
-        }
-
+        #if os(iOS) || os(visionOS) || os(tvOS)
+        // Keep this var within State so it's protected by UnfairLock
         public var localTracksCount: Int = 0
         public var remoteTracksCount: Int = 0
         public var isSpeakerOutputPreferred: Bool = true
-        #if os(iOS) || os(visionOS) || os(tvOS)
-        // Keep this var within State so it's protected by UnfairLock
         public var customConfigureFunc: ConfigureAudioSessionFunc?
         public var sessionConfiguration: AudioSessionConfiguration?
-        #endif
-
-        public var engineObservers = [any AudioEngineObserver]()
 
         public var trackState: TrackState {
             switch (localTracksCount > 0, remoteTracksCount > 0) {
@@ -123,6 +110,7 @@ public class AudioManager: Loggable {
             default: return .none
             }
         }
+        #endif
     }
 
     // MARK: - AudioProcessingModule
@@ -185,12 +173,12 @@ public class AudioManager: Loggable {
         set { RTC.audioDeviceModule.inputDevice = newValue._ioDevice }
     }
 
-    public var onDeviceUpdate: DeviceUpdateFunc?
+    public var onDeviceUpdate: OnDevicesDidUpdate?
 
     /// Detect voice activity even if the mic is muted.
     /// Internal audio engine must be initialized by calling ``prepareRecording()`` or
     /// connecting to a room and subscribing to a remote audio track or publishing a local audio track.
-    public var onMutedSpeechActivityEvent: OnSpeechActivityEvent?
+    public var onMutedSpeechActivityEvent: OnSpeechActivity?
 
     /// Enables advanced ducking which ducks other audio based on the presence of voice activity from local and remote chat participants.
     /// Default: true.
@@ -303,11 +291,6 @@ public class AudioManager: Loggable {
 
     // MARK: - Internal
 
-    enum `Type` {
-        case local
-        case remote
-    }
-
     let state: StateSync<State>
 
     let admDelegateAdapter = AudioDeviceModuleDelegateAdapter()
@@ -322,85 +305,6 @@ public class AudioManager: Loggable {
         admDelegateAdapter.audioManager = self
         RTC.audioDeviceModule.observer = admDelegateAdapter
     }
-
-    // MARK: - Private
-
-    func trackDidStart(_ type: Type) async throws {
-        state.mutate { state in
-            let oldState = state
-            if type == .local { state.localTracksCount += 1 }
-            if type == .remote { state.remoteTracksCount += 1 }
-            return (state, oldState)
-        }
-    }
-
-    func trackDidStop(_ type: Type) async throws {
-        state.mutate { state in
-            let oldState = state
-            if type == .local { state.localTracksCount = max(state.localTracksCount - 1, 0) }
-            if type == .remote { state.remoteTracksCount = max(state.remoteTracksCount - 1, 0) }
-            return (state, oldState)
-        }
-    }
-
-    #if os(iOS) || os(visionOS) || os(tvOS)
-    /// The default implementation when audio session configuration is requested by the SDK.
-    /// Configure the `RTCAudioSession` of `WebRTC` framework.
-    ///
-    /// > Note: It is recommended to use `RTCAudioSessionConfiguration.webRTC()` to obtain an instance of `RTCAudioSessionConfiguration` instead of instantiating directly.
-    ///
-    /// - Parameters:
-    ///   - configuration: A configured RTCAudioSessionConfiguration
-    ///   - setActive: passing true/false will call `AVAudioSession.setActive` internally
-    public func defaultConfigureAudioSessionFunc(newState: State, oldState: State) {
-        // Lazily computed config
-        let computeConfiguration: (() -> AudioSessionConfiguration) = {
-            switch newState.trackState {
-            case .none:
-                // Use .soloAmbient configuration
-                return .soloAmbient
-            case .remoteOnly where newState.isSpeakerOutputPreferred:
-                // Use .playback configuration with spoken audio
-                return .playback
-            default:
-                // Use .playAndRecord configuration
-                return newState.isSpeakerOutputPreferred ? .playAndRecordSpeaker : .playAndRecordReceiver
-            }
-        }
-
-        let configuration = newState.sessionConfiguration ?? computeConfiguration()
-
-        var setActive: Bool?
-        if newState.trackState != .none, oldState.trackState == .none {
-            // activate audio session when there is any local/remote audio track
-            setActive = true
-        } else if newState.trackState == .none, oldState.trackState != .none {
-            // deactivate audio session when there are no more local/remote audio tracks
-            setActive = false
-        }
-
-        let session = LKRTCAudioSession.sharedInstance()
-        // Check if needs setConfiguration
-        guard configuration != session.toAudioSessionConfiguration() else {
-            log("Skipping configure audio session, no changes")
-            return
-        }
-
-        session.lockForConfiguration()
-        defer { session.unlockForConfiguration() }
-
-        do {
-            log("Configuring audio session: \(String(describing: configuration))")
-            if let setActive {
-                try session.setConfiguration(configuration.toRTCType(), active: setActive)
-            } else {
-                try session.setConfiguration(configuration.toRTCType())
-            }
-        } catch {
-            log("Failed to configure audio session with error: \(error)", .error)
-        }
-    }
-    #endif
 }
 
 public extension AudioManager {
