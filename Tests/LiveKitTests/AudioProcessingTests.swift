@@ -64,21 +64,24 @@ class AudioProcessingTests: XCTestCase, AudioCustomProcessingDelegate {
     }
 
     func testOptionsAppliedToAudioProcessingModule() async throws {
+        // Disable Apple VPIO.
+        AudioManager.shared.isVoiceProcessingBypassed = true
+
         try await withRooms([RoomTestingOptions(canPublish: true)]) { rooms in
             // Alias to Room1
             let room1 = rooms[0]
 
             let allOnOptions = AudioCaptureOptions(
                 echoCancellation: true,
-                noiseSuppression: true,
                 autoGainControl: true,
+                noiseSuppression: true,
                 highpassFilter: true
             )
 
             let allOffOptions = AudioCaptureOptions(
                 echoCancellation: false,
-                noiseSuppression: false,
                 autoGainControl: false,
+                noiseSuppression: false,
                 highpassFilter: false
             )
 
