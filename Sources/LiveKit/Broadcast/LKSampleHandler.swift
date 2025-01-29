@@ -61,14 +61,23 @@ open class LKSampleHandler: RPBroadcastSampleHandler {
         // User has requested to finish the broadcast.
         logger.info("Broadcast finished")
         DarwinNotificationCenter.shared.postNotification(.broadcastStopped)
+        uploader?.close()
     }
 
     override public func processSampleBuffer(_ sampleBuffer: CMSampleBuffer, with type: RPSampleBufferType) {
+        guard let uploader else { return }
         Task {
             do {
-                try await uploader?.upload(sampleBuffer, with: type)
+                try await uploader.upload(sampleBuffer, with: type)
             } catch {
-                logger.error("Failed to send sample: \(error)")
+                guard !uploader.isClosed else {
+                    connectionDidClose(error: nil)
+                    return
+                }
+                guard case .unsupportedSample = error as? BroadcastUploader.Error else {
+                    logger.error("Failed to send sample: \(error)")
+                    return
+                }
             }
         }
     }
@@ -96,7 +105,6 @@ open class LKSampleHandler: RPBroadcastSampleHandler {
     }
 
     private func createUploader() {
-        logger.debug("Connecting to main app…")
         guard let socketPath = BroadcastScreenCapturer.socketPath else {
             logger.error("Bundle settings improperly configured for screen capture")
             return
@@ -104,11 +112,10 @@ open class LKSampleHandler: RPBroadcastSampleHandler {
         Task {
             do {
                 uploader = try await BroadcastUploader(socketPath: socketPath)
-                logger.debug("Connected")
+                logger.info("Uploader connected")
             } catch {
-                logger.error("Connection failed: \(error)")
+                logger.error("Uploader connection failed: \(error)")
                 connectionDidClose(error: error)
-                uploader = nil
             }
         }
     }

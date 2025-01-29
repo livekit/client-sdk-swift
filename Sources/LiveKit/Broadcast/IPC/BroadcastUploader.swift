@@ -34,6 +34,16 @@ final class BroadcastUploader: Sendable {
         channel = try await IPCChannel(connectingTo: socketPath)
     }
     
+    /// Whether or not the connection to the receiver has been closed.
+    var isClosed: Bool {
+        channel.isClosed
+    }
+    
+    /// Close the connection to the receiver.
+    func close() {
+        channel.close()
+    }
+    
     /// Upload a sample from ReplayKit.
     func upload(_ sampleBuffer: CMSampleBuffer, with type: RPSampleBufferType) async throws {
         switch type {

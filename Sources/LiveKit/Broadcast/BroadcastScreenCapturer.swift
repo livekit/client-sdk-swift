@@ -30,7 +30,7 @@ internal import LiveKitWebRTC
 
 class BroadcastScreenCapturer: BufferCapturer {
     
-    private var receiveTask: Task<(), any Error>?
+    private var receiver: BroadcastReceiver?
 
     override func startCapture() async throws -> Bool {
         let didStart = try await super.startCapture()
@@ -49,28 +49,31 @@ class BroadcastScreenCapturer: BufferCapturer {
             .toEncodeSafeDimensions()
 
         set(dimensions: targetDimensions)
-        
+        return createReceiver()
+    }
+    
+    private func createReceiver() -> Bool {
         guard let socketPath = Self.socketPath else {
             logger.error("Bundle settings improperly configured for screen capture")
             return false
         }
-        receiveTask = Task(priority: .userInitiated) { [weak self] in
+        Task { [weak self] in
             do {
                 let receiver = try await BroadcastReceiver(socketPath: socketPath)
-                logger.debug("Connected to uploader")
-                
+                logger.debug("Broadcast receiver connected")
+                self?.receiver = receiver
+
                 for try await sample in receiver.incomingSamples {
                     switch sample {
                     case .image(let imageBuffer, let rotation):
                         self?.capture(imageBuffer, rotation: rotation)
                     }
                 }
-                logger.debug("Uploader closed connection")
-                _ = try await self?.stopCapture()
+                logger.debug("Broadcast receiver closed")
             } catch {
-                logger.debug("Receiver error: \(error)")
-                _ = try await self?.stopCapture()
+                logger.error("Broadcast receiver error: \(error)")
             }
+            _ = try? await self?.stopCapture()
         }
         return true
     }
@@ -80,7 +83,7 @@ class BroadcastScreenCapturer: BufferCapturer {
 
         // Already stopped
         guard didStop else { return false }
-        receiveTask?.cancel()
+        receiver?.close()
         return true
     }
 

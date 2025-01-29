@@ -38,6 +38,16 @@ final class BroadcastReceiver: Sendable {
         channel = try await IPCChannel(acceptingOn: socketPath)
     }
     
+    /// Whether or not the connection to the uploader has been closed.
+    var isClosed: Bool {
+        channel.isClosed
+    }
+    
+    /// Close the connection to the uploader.
+    func close() {
+        channel.close()
+    }
+    
     struct AsyncSampleSequence: AsyncSequence, AsyncIteratorProtocol {
         
         fileprivate let upstream: IPCChannel.AsyncMessageSequence<BroadcastIPCHeader>
