@@ -55,8 +55,8 @@ public class AudioManager: Loggable {
     /// If you want to revert to default behavior, set this to `nil`.
     @available(*, deprecated, message: "Use `set(engineObservers:)` instead. See `DefaultAudioSessionObserver` for example.")
     public var customConfigureAudioSessionFunc: ConfigureAudioSessionFunc? {
-        get { state.customConfigureFunc }
-        set { state.mutate { $0.customConfigureFunc = newValue } }
+        get { _state.customConfigureFunc }
+        set { _state.mutate { $0.customConfigureFunc = newValue } }
     }
 
     /// Determines whether the device's built-in speaker or receiver is preferred for audio output.
@@ -67,8 +67,8 @@ public class AudioManager: Loggable {
     ///
     /// This property is ignored if ``customConfigureAudioSessionFunc`` is set.
     public var isSpeakerOutputPreferred: Bool {
-        get { state.isSpeakerOutputPreferred }
-        set { state.mutate { $0.isSpeakerOutputPreferred = newValue } }
+        get { _state.isSpeakerOutputPreferred }
+        set { _state.mutate { $0.isSpeakerOutputPreferred = newValue } }
     }
 
     /// Specifies a fixed configuration for the audio session, overriding dynamic adjustments.
@@ -78,8 +78,8 @@ public class AudioManager: Loggable {
     ///
     /// This property is ignored if ``customConfigureAudioSessionFunc`` is set.
     public var sessionConfiguration: AudioSessionConfiguration? {
-        get { state.sessionConfiguration }
-        set { state.mutate { $0.sessionConfiguration = newValue } }
+        get { _state.sessionConfiguration }
+        set { _state.mutate { $0.sessionConfiguration = newValue } }
     }
 
     @available(*, deprecated)
@@ -244,7 +244,7 @@ public class AudioManager: Loggable {
     ///
     /// Objects set here will be retained.
     public func set(engineObservers: [any AudioEngineObserver]) {
-        state.mutate { $0.engineObservers = engineObservers }
+        _state.mutate { $0.engineObservers = engineObservers }
     }
 
     // MARK: - For testing
@@ -291,9 +291,9 @@ public class AudioManager: Loggable {
 
     // MARK: - Internal
 
-    let state: StateSync<State>
+    let _state: StateSync<State>
 
-    let admDelegateAdapter = AudioDeviceModuleDelegateAdapter()
+    let _admDelegateAdapter = AudioDeviceModuleDelegateAdapter()
 
     init() {
         #if os(iOS) || os(visionOS) || os(tvOS)
@@ -301,9 +301,9 @@ public class AudioManager: Loggable {
         #else
         let engineObservers: [any AudioEngineObserver] = []
         #endif
-        state = StateSync(State(engineObservers: engineObservers))
-        admDelegateAdapter.audioManager = self
-        RTC.audioDeviceModule.observer = admDelegateAdapter
+        _state = StateSync(State(engineObservers: engineObservers))
+        _admDelegateAdapter.audioManager = self
+        RTC.audioDeviceModule.observer = _admDelegateAdapter
     }
 }
 

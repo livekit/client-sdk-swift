@@ -40,49 +40,49 @@ class AudioDeviceModuleDelegateAdapter: NSObject, LKRTCAudioDeviceModuleDelegate
 
     func audioDeviceModule(_: LKRTCAudioDeviceModule, didCreateEngine engine: AVAudioEngine) {
         guard let audioManager else { return }
-        let entryPoint = audioManager.state.engineObservers.buildChain()
+        let entryPoint = audioManager._state.engineObservers.buildChain()
         entryPoint?.engineDidCreate(engine)
     }
 
     func audioDeviceModule(_: LKRTCAudioDeviceModule, willEnableEngine engine: AVAudioEngine, isPlayoutEnabled: Bool, isRecordingEnabled: Bool) {
         guard let audioManager else { return }
-        let entryPoint = audioManager.state.engineObservers.buildChain()
+        let entryPoint = audioManager._state.engineObservers.buildChain()
         entryPoint?.engineWillEnable(engine, isPlayoutEnabled: isPlayoutEnabled, isRecordingEnabled: isRecordingEnabled)
     }
 
     func audioDeviceModule(_: LKRTCAudioDeviceModule, willStartEngine engine: AVAudioEngine, isPlayoutEnabled: Bool, isRecordingEnabled: Bool) {
         guard let audioManager else { return }
-        let entryPoint = audioManager.state.engineObservers.buildChain()
+        let entryPoint = audioManager._state.engineObservers.buildChain()
         entryPoint?.engineWillStart(engine, isPlayoutEnabled: isPlayoutEnabled, isRecordingEnabled: isRecordingEnabled)
     }
 
     func audioDeviceModule(_: LKRTCAudioDeviceModule, didStopEngine engine: AVAudioEngine, isPlayoutEnabled: Bool, isRecordingEnabled: Bool) {
         guard let audioManager else { return }
-        let entryPoint = audioManager.state.engineObservers.buildChain()
+        let entryPoint = audioManager._state.engineObservers.buildChain()
         entryPoint?.engineDidStop(engine, isPlayoutEnabled: isPlayoutEnabled, isRecordingEnabled: isRecordingEnabled)
     }
 
     func audioDeviceModule(_: LKRTCAudioDeviceModule, didDisableEngine engine: AVAudioEngine, isPlayoutEnabled: Bool, isRecordingEnabled: Bool) {
         guard let audioManager else { return }
-        let entryPoint = audioManager.state.engineObservers.buildChain()
+        let entryPoint = audioManager._state.engineObservers.buildChain()
         entryPoint?.engineDidDisable(engine, isPlayoutEnabled: isPlayoutEnabled, isRecordingEnabled: isRecordingEnabled)
     }
 
     func audioDeviceModule(_: LKRTCAudioDeviceModule, willReleaseEngine engine: AVAudioEngine) {
         guard let audioManager else { return }
-        let entryPoint = audioManager.state.engineObservers.buildChain()
+        let entryPoint = audioManager._state.engineObservers.buildChain()
         entryPoint?.engineWillRelease(engine)
     }
 
     func audioDeviceModule(_: LKRTCAudioDeviceModule, engine: AVAudioEngine, configureInputFromSource src: AVAudioNode?, toDestination dst: AVAudioNode, format: AVAudioFormat) -> Bool {
         guard let audioManager else { return false }
-        let entryPoint = audioManager.state.engineObservers.buildChain()
+        let entryPoint = audioManager._state.engineObservers.buildChain()
         return entryPoint?.engineWillConnectInput(engine, src: src, dst: dst, format: format) ?? false
     }
 
     func audioDeviceModule(_: LKRTCAudioDeviceModule, engine: AVAudioEngine, configureOutputFromSource src: AVAudioNode, toDestination dst: AVAudioNode?, format: AVAudioFormat) -> Bool {
         guard let audioManager else { return false }
-        let entryPoint = audioManager.state.engineObservers.buildChain()
+        let entryPoint = audioManager._state.engineObservers.buildChain()
         return entryPoint?.engineWillConnectOutput(engine, src: src, dst: dst, format: format) ?? false
     }
 }

@@ -39,7 +39,7 @@ public final class DefaultAudioSessionObserver: AudioEngineObserver, Loggable {
     init() {
         // Backward compatibility with `customConfigureAudioSessionFunc`.
         _state.onDidMutate = { new_, old_ in
-            if let config_func = AudioManager.shared.state.customConfigureFunc,
+            if let config_func = AudioManager.shared._state.customConfigureFunc,
                new_.isPlayoutEnabled != old_.isPlayoutEnabled ||
                new_.isRecordingEnabled != old_.isRecordingEnabled
             {
@@ -56,7 +56,7 @@ public final class DefaultAudioSessionObserver: AudioEngineObserver, Loggable {
     }
 
     public func engineWillEnable(_ engine: AVAudioEngine, isPlayoutEnabled: Bool, isRecordingEnabled: Bool) {
-        if AudioManager.shared.state.customConfigureFunc == nil {
+        if AudioManager.shared._state.customConfigureFunc == nil {
             log("Configuring audio session...")
             let session = LKRTCAudioSession.sharedInstance()
             session.lockForConfiguration()
@@ -97,7 +97,7 @@ public final class DefaultAudioSessionObserver: AudioEngineObserver, Loggable {
             $0.isRecordingEnabled = isRecordingEnabled
         }
 
-        if AudioManager.shared.state.customConfigureFunc == nil {
+        if AudioManager.shared._state.customConfigureFunc == nil {
             log("Configuring audio session...")
             let session = LKRTCAudioSession.sharedInstance()
             session.lockForConfiguration()
