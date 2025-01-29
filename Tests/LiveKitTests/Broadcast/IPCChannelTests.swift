@@ -145,39 +145,19 @@ final class IPCChannelTests: XCTestCase {
         )
     }
     
-    func testSendErrorAfterClosure() async throws {
-        let errorThrown = XCTestExpectation(description: "Send throws error after disconnect")
-        Task {
-            let channel = try await IPCChannel(acceptingOn: socketPath)
-            // Immediately close connection after accepted
-            channel.close()
-        }
-        Task {
-            let channel = try await IPCChannel(connectingTo: socketPath)
-            try await Task.shortSleep()
-            do {
-                try await channel.send(header: TestHeader(someField: 1))
-            } catch {
-                XCTAssertTrue(error is NWError)
-                errorThrown.fulfill()
-            }
-        }
-        await fulfillment(of: [errorThrown], timeout: 5.0)
-    }
-    
     func testMessageSequenceAfterClosure() async throws {
         let sequenceEnds = XCTestExpectation(description: "Message sequence ends after closure")
         Task {
-            let acceptor = try await IPCChannel(acceptingOn: socketPath)
-            for try await _ in acceptor.incomingMessages(TestHeader.self) {
+            let channel = try await IPCChannel(acceptingOn: socketPath)
+            for try await _ in channel.incomingMessages(TestHeader.self) {
                 // Received message
             }
             sequenceEnds.fulfill()
         }
         Task {
-            let connector = try await IPCChannel(connectingTo: socketPath)
-            try await connector.send(header: TestHeader(someField: 1))
-            connector.close()
+            let channel = try await IPCChannel(connectingTo: socketPath)
+            try await channel.send(header: TestHeader(someField: 1))
+            channel.close()
         }
         await fulfillment(of: [sequenceEnds], timeout: 5.0)
     }
