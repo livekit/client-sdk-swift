@@ -178,7 +178,7 @@ public class AudioManager: Loggable {
     /// Detect voice activity even if the mic is muted.
     /// Internal audio engine must be initialized by calling ``prepareRecording()`` or
     /// connecting to a room and subscribing to a remote audio track or publishing a local audio track.
-    public var onMutedSpeechActivityEvent: OnSpeechActivity?
+    public var onMutedSpeechActivity: OnSpeechActivity?
 
     /// Enables advanced ducking which ducks other audio based on the presence of voice activity from local and remote chat participants.
     /// Default: true.
