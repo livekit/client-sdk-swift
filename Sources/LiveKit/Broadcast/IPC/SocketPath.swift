@@ -37,8 +37,7 @@ struct SocketPath {
     /// socket with an invalid path results in a crash.
     ///
     private static func isValid(_ path: String) -> Bool {
-        print(Self.addressMaxLength)
-        return path.utf8.count <= Self.addressMaxLength
+        path.utf8.count <= Self.addressMaxLength
     }
     
     /// The maximum supported length (in bytes) for socket paths on this system.
