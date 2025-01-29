@@ -52,6 +52,7 @@ public class AudioManager: Loggable {
     ///   - ``isSpeakerOutputPreferred``
     ///
     /// If you want to revert to default behavior, set this to `nil`.
+    @available(*, deprecated, message: "Use `set(engineObservers:)` instead. See `DefaultAudioSessionObserver` for example.")
     public var customConfigureAudioSessionFunc: ConfigureAudioSessionFunc? {
         get { state.customConfigureFunc }
         set { state.mutate { $0.customConfigureFunc = newValue } }
@@ -312,7 +313,12 @@ public class AudioManager: Loggable {
     let admDelegateAdapter = AudioDeviceModuleDelegateAdapter()
 
     init() {
-        state = StateSync(State(engineObservers: [DefaultAudioSessionObserver()]))
+        #if os(iOS) || os(visionOS) || os(tvOS)
+        let engineObservers: [any AudioEngineObserver] = [DefaultAudioSessionObserver()]
+        #else
+        let engineObservers: [any AudioEngineObserver] = []
+        #endif
+        state = StateSync(State(engineObservers: engineObservers))
         admDelegateAdapter.audioManager = self
         RTC.audioDeviceModule.observer = admDelegateAdapter
     }
