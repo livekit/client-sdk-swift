@@ -24,26 +24,40 @@ internal import LiveKitWebRTC
 
 @objc
 public final class AudioCaptureOptions: NSObject, CaptureOptions, Sendable {
+    public static let noProcessing = AudioCaptureOptions(
+        echoCancellation: false,
+        autoGainControl: false,
+        noiseSuppression: false,
+        highpassFilter: false,
+        typingNoiseDetection: false
+    )
+
+    /// Whether to enable software (WebRTC's) echo cancellation.
+    /// By default, Apple's voice processing is already enabled.
+    /// See ``AudioManager/isVoiceProcessingBypassed`` for details.
     @objc
     public let echoCancellation: Bool
+
+    /// Whether to enable software (WebRTC's) gain control.
+    /// By default, Apple's gain control is already enabled.
+    /// See ``AudioManager/isVoiceProcessingAGCEnabled`` for details.
+    @objc
+    public let autoGainControl: Bool
 
     @objc
     public let noiseSuppression: Bool
 
     @objc
-    public let autoGainControl: Bool
+    public let highpassFilter: Bool
 
     @objc
     public let typingNoiseDetection: Bool
 
-    @objc
-    public let highpassFilter: Bool
-
-    public init(echoCancellation: Bool = true,
-                noiseSuppression: Bool = true,
-                autoGainControl: Bool = true,
-                typingNoiseDetection: Bool = true,
-                highpassFilter: Bool = true)
+    public init(echoCancellation: Bool = false,
+                autoGainControl: Bool = false,
+                noiseSuppression: Bool = false,
+                highpassFilter: Bool = false,
+                typingNoiseDetection: Bool = false)
     {
         self.echoCancellation = echoCancellation
         self.noiseSuppression = noiseSuppression

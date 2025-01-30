@@ -18,7 +18,7 @@ import Combine
 import Foundation
 
 @dynamicMemberLookup
-public final class StateSync<State> {
+public final class StateSync<State>: @unchecked Sendable {
     // MARK: - Types
 
     public typealias OnDidMutate = (_ newState: State, _ oldState: State) -> Void
