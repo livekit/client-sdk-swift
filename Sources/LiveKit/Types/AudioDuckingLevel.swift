@@ -14,10 +14,9 @@
  * limitations under the License.
  */
 
-final class WeakRef<T: AnyObject> {
-    weak var value: T?
-
-    init(_ value: T) {
-        self.value = value
-    }
+public enum AudioDuckingLevel: Int {
+    case `default` = 0
+    case min = 10
+    case mid = 20
+    case max = 30
 }

@@ -16,7 +16,7 @@
 
 import Foundation
 
-public protocol ChainedProcessor: AnyObject {
-    // Next object in the chain.
-    var nextProcessor: Self? { get set }
+public protocol NextInvokable {
+    associatedtype Next
+    func setNext(_ handler: Next)
 }
