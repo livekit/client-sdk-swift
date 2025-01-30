@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import AVFoundation
+@preconcurrency import AVFoundation
 @testable import LiveKit
 import LiveKitWebRTC
 import XCTest
@@ -136,12 +136,12 @@ class AudioEngineTests: XCTestCase {
 
     // Test the manual rendering mode (no-device mode) of AVAudioEngine based AudioDeviceModule.
     // In manual rendering, no device access will be initialized such as mic and speaker.
-    func testManualRenderingMode() async throws {
+    func testManualRenderingModeSineGenerator() async throws {
         // Set manual rendering mode...
         AudioManager.shared.isManualRenderingMode = true
         // Attach sine wave generator when engine requests input node.
         // inputMixerNode will automatically convert to RTC's internal format (int16).
-        AudioManager.shared.set(engineObservers: [RewriteInputToSineWaveGenerator()])
+        AudioManager.shared.set(engineObservers: [SineWaveNodeHook()])
 
         // Check if manual rendering mode is set...
         let isManualRenderingMode = AudioManager.shared.isManualRenderingMode
@@ -151,9 +151,7 @@ class AudioEngineTests: XCTestCase {
         let recorder = try AudioRecorder()
 
         // Note: AudioCaptureOptions will not be applied since track is not published.
-        let noProcessingOptions = AudioCaptureOptions(echoCancellation: false, noiseSuppression: false, autoGainControl: false, highpassFilter: false)
-
-        let track = LocalAudioTrack.createTrack(options: noProcessingOptions)
+        let track = LocalAudioTrack.createTrack(options: .noProcessing)
         track.add(audioRenderer: recorder)
 
         // Start engine...
@@ -171,17 +169,161 @@ class AudioEngineTests: XCTestCase {
         // Play the recorded file...
         let player = try AVAudioPlayer(contentsOf: recorder.filePath)
         player.play()
-        try? await Task.sleep(nanoseconds: 5 * 1_000_000_000)
+        while player.isPlaying {
+            try? await Task.sleep(nanoseconds: 1 * 100_000_000) // 10ms
+        }
+    }
+
+    func testManualRenderingModeAudioFile() async throws {
+        // Sample audio
+        let url = URL(string: "https://github.com/rafaelreis-hotmart/Audio-Sample-files/raw/refs/heads/master/sample.wav")!
+
+        print("Downloading sample audio from \(url)...")
+        let (downloadedLocalUrl, _) = try await URLSession.shared.downloadBackport(from: url)
+
+        // Move the file to a new temporary location with a more descriptive name, if desired
+        let tempLocalUrl = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString).appendingPathExtension("wav")
+        try FileManager.default.moveItem(at: downloadedLocalUrl, to: tempLocalUrl)
+        print("Original file: \(tempLocalUrl)")
+
+        let audioFile = try AVAudioFile(forReading: tempLocalUrl)
+        let audioFileFormat = audioFile.processingFormat // AVAudioFormat object
+
+        print("Sample Rate: \(audioFileFormat.sampleRate)")
+        print("Channel Count: \(audioFileFormat.channelCount)")
+        print("Common Format: \(audioFileFormat.commonFormat)")
+        print("Interleaved: \(audioFileFormat.isInterleaved)")
+
+        // Set manual rendering mode...
+        AudioManager.shared.isManualRenderingMode = true
+
+        let playerNodeHook = PlayerNodeHook(playerNodeFormat: audioFileFormat)
+        AudioManager.shared.set(engineObservers: [playerNodeHook])
+
+        // Check if manual rendering mode is set...
+        let isManualRenderingMode = AudioManager.shared.isManualRenderingMode
+        print("manualRenderingMode: \(isManualRenderingMode)")
+        XCTAssert(isManualRenderingMode)
+
+        let recorder = try AudioRecorder()
+
+        // Note: AudioCaptureOptions will not be applied since track is not published.
+        let track = LocalAudioTrack.createTrack(options: .noProcessing)
+        track.add(audioRenderer: recorder)
+
+        // Start engine...
+        AudioManager.shared.startLocalRecording()
+
+        let scheduleAndPlayTask = Task {
+            print("Will scheduleFile")
+            await playerNodeHook.playerNode.scheduleFile(audioFile, at: nil)
+            print("Did scheduleFile")
+        }
+
+        // Wait for audio file to be consumed...
+        playerNodeHook.playerNode.play()
+        await scheduleAndPlayTask.value
+
+        recorder.close()
+        print("Processed file: \(recorder.filePath)")
+
+        // Stop engine
+        AudioManager.shared.stopRecording()
+
+        // Play the recorded file...
+        let player = try AVAudioPlayer(contentsOf: recorder.filePath)
+        player.play()
+        while player.isPlaying {
+            try? await Task.sleep(nanoseconds: 1 * 100_000_000) // 10ms
+        }
+    }
+
+    #if os(iOS) || os(visionOS) || os(tvOS)
+    func testBackwardCompatibility() async throws {
+        struct TestState {
+            var trackState: AudioManager.TrackState = .none
+        }
+        let _testState = StateSync(TestState())
+
+        AudioManager.shared.customConfigureAudioSessionFunc = { newState, oldState in
+            print("New trackState: \(newState.trackState), Old trackState: \(oldState.trackState)")
+            _testState.mutate { $0.trackState = newState.trackState }
+        }
+
+        // Configure session since we are setting a empty config func.
+        let config = AudioSessionConfiguration.playAndRecordSpeaker
+        let session = LKRTCAudioSession.sharedInstance()
+        session.lockForConfiguration()
+        try session.setConfiguration(config.toRTCType(), active: true)
+        session.unlockForConfiguration()
+
+        XCTAssert(_testState.trackState == .none)
+
+        AudioManager.shared.initPlayout()
+        XCTAssert(_testState.trackState == .remoteOnly)
+
+        AudioManager.shared.initRecording()
+        XCTAssert(_testState.trackState == .localAndRemote)
+
+        AudioManager.shared.stopRecording()
+        XCTAssert(_testState.trackState == .remoteOnly)
+
+        AudioManager.shared.stopPlayout()
+        XCTAssert(_testState.trackState == .none)
+    }
+
+    func testDefaultAudioSessionConfiguration() async throws {
+        AudioManager.shared.initPlayout()
+        AudioManager.shared.initRecording()
+        AudioManager.shared.stopRecording()
+        AudioManager.shared.stopPlayout()
+    }
+    #endif
+}
+
+final class SineWaveNodeHook: AudioEngineObserver {
+    let sineWaveNode = SineWaveSourceNode()
+
+    func setNext(_: any LiveKit.AudioEngineObserver) {}
+    func engineDidCreate(_ engine: AVAudioEngine) {
+        engine.attach(sineWaveNode)
+    }
+
+    func engineWillRelease(_ engine: AVAudioEngine) {
+        engine.detach(sineWaveNode)
+    }
+
+    func engineWillConnectInput(_ engine: AVAudioEngine, src _: AVAudioNode?, dst: AVAudioNode, format: AVAudioFormat) -> Bool {
+        print("engineWillConnectInput")
+        engine.connect(sineWaveNode, to: dst, format: format)
+        return true
     }
 }
 
-final class RewriteInputToSineWaveGenerator: AudioEngineObserver {
+final class PlayerNodeHook: AudioEngineObserver {
+    public let playerNode = AVAudioPlayerNode()
+    public let playerMixerNode = AVAudioMixerNode()
+    public let playerNodeFormat: AVAudioFormat
+
+    init(playerNodeFormat: AVAudioFormat) {
+        self.playerNodeFormat = playerNodeFormat
+    }
+
     func setNext(_: any LiveKit.AudioEngineObserver) {}
-    func engineWillConnectInput(_ engine: AVAudioEngine, src _: AVAudioNode, dst: AVAudioNode, format: AVAudioFormat) -> Bool {
+    public func engineDidCreate(_ engine: AVAudioEngine) {
+        engine.attach(playerNode)
+        engine.attach(playerMixerNode)
+    }
+
+    public func engineWillRelease(_ engine: AVAudioEngine) {
+        engine.detach(playerNode)
+        engine.detach(playerMixerNode)
+    }
+
+    func engineWillConnectInput(_ engine: AVAudioEngine, src _: AVAudioNode?, dst: AVAudioNode, format: AVAudioFormat) -> Bool {
         print("engineWillConnectInput")
-        let sin = SineWaveSourceNode()
-        engine.attach(sin)
-        engine.connect(sin, to: dst, format: format)
+        engine.connect(playerNode, to: playerMixerNode, format: playerNodeFormat)
+        engine.connect(playerMixerNode, to: dst, format: format)
         return true
     }
 }

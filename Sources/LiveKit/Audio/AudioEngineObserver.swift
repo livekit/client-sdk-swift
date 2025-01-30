@@ -30,11 +30,11 @@ public protocol AudioEngineObserver: NextInvokable, Sendable {
     /// Provide custom implementation for internal AVAudioEngine's output configuration.
     /// Buffers flow from `src` to `dst`. Preferred format to connect node is provided as `format`.
     /// Return true if custom implementation is provided, otherwise default implementation will be used.
-    func engineWillConnectOutput(_ engine: AVAudioEngine, src: AVAudioNode, dst: AVAudioNode, format: AVAudioFormat) -> Bool
+    func engineWillConnectOutput(_ engine: AVAudioEngine, src: AVAudioNode, dst: AVAudioNode?, format: AVAudioFormat) -> Bool
     /// Provide custom implementation for internal AVAudioEngine's input configuration.
     /// Buffers flow from `src` to `dst`. Preferred format to connect node is provided as `format`.
     /// Return true if custom implementation is provided, otherwise default implementation will be used.
-    func engineWillConnectInput(_ engine: AVAudioEngine, src: AVAudioNode, dst: AVAudioNode, format: AVAudioFormat) -> Bool
+    func engineWillConnectInput(_ engine: AVAudioEngine, src: AVAudioNode?, dst: AVAudioNode, format: AVAudioFormat) -> Bool
 }
 
 /// Default implementation to make it optional.
@@ -46,8 +46,8 @@ public extension AudioEngineObserver {
     func engineDidDisable(_: AVAudioEngine, isPlayoutEnabled _: Bool, isRecordingEnabled _: Bool) {}
     func engineWillRelease(_: AVAudioEngine) {}
 
-    func engineWillConnectOutput(_: AVAudioEngine, src _: AVAudioNode, dst _: AVAudioNode, format _: AVAudioFormat) -> Bool { false }
-    func engineWillConnectInput(_: AVAudioEngine, src _: AVAudioNode, dst _: AVAudioNode, format _: AVAudioFormat) -> Bool { false }
+    func engineWillConnectOutput(_: AVAudioEngine, src _: AVAudioNode, dst _: AVAudioNode?, format _: AVAudioFormat) -> Bool { false }
+    func engineWillConnectInput(_: AVAudioEngine, src _: AVAudioNode?, dst _: AVAudioNode, format _: AVAudioFormat) -> Bool { false }
 }
 
 extension [any AudioEngineObserver] {

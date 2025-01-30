@@ -78,16 +78,6 @@ public class LocalAudioTrack: Track, LocalTrack, AudioTrack {
     public func unmute() async throws {
         try await super._unmute()
     }
-
-    // MARK: - Internal
-
-    override func startCapture() async throws {
-        try await AudioManager.shared.trackDidStart(.local)
-    }
-
-    override func stopCapture() async throws {
-        try await AudioManager.shared.trackDidStop(.local)
-    }
 }
 
 public extension LocalAudioTrack {
