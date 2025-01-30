@@ -28,12 +28,12 @@ class AudioDeviceModuleDelegateAdapter: NSObject, LKRTCAudioDeviceModuleDelegate
 
     func audioDeviceModule(_: LKRTCAudioDeviceModule, didReceiveSpeechActivityEvent speechActivityEvent: RTCSpeechActivityEvent) {
         guard let audioManager else { return }
-        audioManager.onMutedSpeechActivity?(audioManager, speechActivityEvent.toLKType())
+        audioManager._state.onMutedSpeechActivity?(audioManager, speechActivityEvent.toLKType())
     }
 
     func audioDeviceModuleDidUpdateDevices(_: LKRTCAudioDeviceModule) {
         guard let audioManager else { return }
-        audioManager.onDeviceUpdate?(audioManager)
+        audioManager._state.onDevicesDidUpdate?(audioManager)
     }
 
     // Engine events

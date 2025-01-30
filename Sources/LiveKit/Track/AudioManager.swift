@@ -91,8 +91,10 @@ public class AudioManager: Loggable {
     }
     #endif
 
-    public struct State: Sendable {
-        public var engineObservers = [any AudioEngineObserver]()
+    public struct State: @unchecked Sendable {
+        var engineObservers = [any AudioEngineObserver]()
+        var onDevicesDidUpdate: OnDevicesDidUpdate?
+        var onMutedSpeechActivity: OnSpeechActivity?
 
         #if os(iOS) || os(visionOS) || os(tvOS)
         // Keep this var within State so it's protected by UnfairLock
@@ -173,12 +175,18 @@ public class AudioManager: Loggable {
         set { RTC.audioDeviceModule.inputDevice = newValue._ioDevice }
     }
 
-    public var onDeviceUpdate: OnDevicesDidUpdate?
+    public var onDeviceUpdate: OnDevicesDidUpdate? {
+        get { _state.onDevicesDidUpdate }
+        set { _state.mutate { $0.onDevicesDidUpdate = newValue } }
+    }
 
     /// Detect voice activity even if the mic is muted.
     /// Internal audio engine must be initialized by calling ``prepareRecording()`` or
     /// connecting to a room and subscribing to a remote audio track or publishing a local audio track.
-    public var onMutedSpeechActivity: OnSpeechActivity?
+    public var onMutedSpeechActivity: OnSpeechActivity? {
+        get { _state.onMutedSpeechActivity }
+        set { _state.mutate { $0.onMutedSpeechActivity = newValue } }
+    }
 
     /// Enables advanced ducking which ducks other audio based on the presence of voice activity from local and remote chat participants.
     /// Default: true.
