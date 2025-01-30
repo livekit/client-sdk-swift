@@ -237,6 +237,29 @@ class AudioEngineTests: XCTestCase {
             try? await Task.sleep(nanoseconds: 1 * 100_000_000) // 10ms
         }
     }
+
+    func testBackwardCompatibility() async throws {
+        // Don't use device for this test
+        AudioManager.shared.isManualRenderingMode = true
+        
+        var trackState: AudioManager.TrackState = .none
+        AudioManager.shared.customConfigureAudioSessionFunc = { newState, oldState in
+            print("New trackState: \(newState.trackState), Old trackState: \(oldState.trackState)")
+            trackState = newState.trackState
+        }
+        
+        XCTAssert(trackState == .none)
+        
+        AudioManager.shared.initPlayout()
+        XCTAssert(trackState == .remoteOnly)
+
+        AudioManager.shared.initRecording()
+        XCTAssert(trackState == .localAndRemote)
+
+        AudioManager.shared.stopPlayout()
+        AudioManager.shared.stopRecording()
+        XCTAssert(trackState == .none)
+    }
 }
 
 final class SineWaveNodeHook: AudioEngineObserver {

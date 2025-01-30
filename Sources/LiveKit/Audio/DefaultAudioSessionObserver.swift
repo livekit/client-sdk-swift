@@ -121,6 +121,16 @@ public final class DefaultAudioSessionObserver: AudioEngineObserver, Loggable {
             log("AudioSession activationCount: \(session.activationCount), webRTCSessionCount: \(session.webRTCSessionCount)")
         }
     }
+    
+    public func engineDidDisable(_ engine: AVAudioEngine, isPlayoutEnabled: Bool, isRecordingEnabled: Bool) {
+        _state.mutate {
+            $0.isPlayoutEnabled = isPlayoutEnabled
+            $0.isRecordingEnabled = isRecordingEnabled
+        }
+
+        // Call next last
+        _state.next?.engineDidDisable(engine, isPlayoutEnabled: isPlayoutEnabled, isRecordingEnabled: isRecordingEnabled)
+    }
 }
 
 #endif

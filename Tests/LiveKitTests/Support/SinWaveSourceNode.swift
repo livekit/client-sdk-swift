@@ -16,7 +16,7 @@
 
 import AVFAudio
 
-class SineWaveSourceNode: AVAudioSourceNode {
+class SineWaveSourceNode: AVAudioSourceNode, @unchecked Sendable {
     private let sampleRate: Double
     private let frequency: Double
 
