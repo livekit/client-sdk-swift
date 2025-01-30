@@ -238,28 +238,43 @@ class AudioEngineTests: XCTestCase {
         }
     }
 
+    #if os(iOS) || os(visionOS) || os(tvOS)
     func testBackwardCompatibility() async throws {
-        // Don't use device for this test
-        AudioManager.shared.isManualRenderingMode = true
-        
         var trackState: AudioManager.TrackState = .none
         AudioManager.shared.customConfigureAudioSessionFunc = { newState, oldState in
             print("New trackState: \(newState.trackState), Old trackState: \(oldState.trackState)")
             trackState = newState.trackState
         }
-        
+
+        // Configure session since we are setting a empty config func.
+        let config = AudioSessionConfiguration.playAndRecordSpeaker
+        let session = LKRTCAudioSession.sharedInstance()
+        session.lockForConfiguration()
+        try session.setConfiguration(config.toRTCType(), active: true)
+        session.unlockForConfiguration()
+
         XCTAssert(trackState == .none)
-        
+
         AudioManager.shared.initPlayout()
         XCTAssert(trackState == .remoteOnly)
 
         AudioManager.shared.initRecording()
         XCTAssert(trackState == .localAndRemote)
 
-        AudioManager.shared.stopPlayout()
         AudioManager.shared.stopRecording()
+        XCTAssert(trackState == .remoteOnly)
+
+        AudioManager.shared.stopPlayout()
         XCTAssert(trackState == .none)
     }
+
+    func testDefaultAudioSessionConfiguration() async throws {
+        AudioManager.shared.initPlayout()
+        AudioManager.shared.initRecording()
+        AudioManager.shared.stopRecording()
+        AudioManager.shared.stopPlayout()
+    }
+    #endif
 }
 
 final class SineWaveNodeHook: AudioEngineObserver {

@@ -65,13 +65,14 @@ public final class DefaultAudioSessionObserver: AudioEngineObserver, Loggable {
             let config: AudioSessionConfiguration = isRecordingEnabled ? .playAndRecordSpeaker : .playback
             do {
                 if _state.isSessionActive {
-                    log("AudioSession switching category to: \(config.category)")
-                    try session.setConfiguration(config.toRTCType())
-                } else {
-                    log("AudioSession activating category to: \(config.category)")
-                    try session.setConfiguration(config.toRTCType(), active: true)
-                    _state.mutate { $0.isSessionActive = true }
+                    log("AudioSession deactivating due to category switch")
+                    try session.setActive(false) // Deactivate first
+                    _state.mutate { $0.isSessionActive = false }
                 }
+
+                log("AudioSession activating category to: \(config.category)")
+                try session.setConfiguration(config.toRTCType(), active: true)
+                _state.mutate { $0.isSessionActive = true }
             } catch {
                 log("AudioSession failed to configure with error: \(error)", .error)
             }
@@ -88,9 +89,9 @@ public final class DefaultAudioSessionObserver: AudioEngineObserver, Loggable {
         _state.next?.engineWillEnable(engine, isPlayoutEnabled: isPlayoutEnabled, isRecordingEnabled: isRecordingEnabled)
     }
 
-    public func engineDidStop(_ engine: AVAudioEngine, isPlayoutEnabled: Bool, isRecordingEnabled: Bool) {
+    public func engineDidDisable(_ engine: AVAudioEngine, isPlayoutEnabled: Bool, isRecordingEnabled: Bool) {
         // Call next first
-        _state.next?.engineDidStop(engine, isPlayoutEnabled: isPlayoutEnabled, isRecordingEnabled: isRecordingEnabled)
+        _state.next?.engineDidDisable(engine, isPlayoutEnabled: isPlayoutEnabled, isRecordingEnabled: isRecordingEnabled)
 
         _state.mutate {
             $0.isPlayoutEnabled = isPlayoutEnabled
@@ -120,16 +121,6 @@ public final class DefaultAudioSessionObserver: AudioEngineObserver, Loggable {
 
             log("AudioSession activationCount: \(session.activationCount), webRTCSessionCount: \(session.webRTCSessionCount)")
         }
-    }
-    
-    public func engineDidDisable(_ engine: AVAudioEngine, isPlayoutEnabled: Bool, isRecordingEnabled: Bool) {
-        _state.mutate {
-            $0.isPlayoutEnabled = isPlayoutEnabled
-            $0.isRecordingEnabled = isRecordingEnabled
-        }
-
-        // Call next last
-        _state.next?.engineDidDisable(engine, isPlayoutEnabled: isPlayoutEnabled, isRecordingEnabled: isRecordingEnabled)
     }
 }
 
