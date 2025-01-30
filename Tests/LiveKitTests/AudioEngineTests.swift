@@ -240,10 +240,14 @@ class AudioEngineTests: XCTestCase {
 
     #if os(iOS) || os(visionOS) || os(tvOS)
     func testBackwardCompatibility() async throws {
-        var trackState: AudioManager.TrackState = .none
+        struct TestState {
+            var trackState: AudioManager.TrackState = .none
+        }
+        let _testState = StateSync(TestState())
+
         AudioManager.shared.customConfigureAudioSessionFunc = { newState, oldState in
             print("New trackState: \(newState.trackState), Old trackState: \(oldState.trackState)")
-            trackState = newState.trackState
+            _testState.mutate { $0.trackState = newState.trackState }
         }
 
         // Configure session since we are setting a empty config func.
@@ -253,19 +257,19 @@ class AudioEngineTests: XCTestCase {
         try session.setConfiguration(config.toRTCType(), active: true)
         session.unlockForConfiguration()
 
-        XCTAssert(trackState == .none)
+        XCTAssert(_testState.trackState == .none)
 
         AudioManager.shared.initPlayout()
-        XCTAssert(trackState == .remoteOnly)
+        XCTAssert(_testState.trackState == .remoteOnly)
 
         AudioManager.shared.initRecording()
-        XCTAssert(trackState == .localAndRemote)
+        XCTAssert(_testState.trackState == .localAndRemote)
 
         AudioManager.shared.stopRecording()
-        XCTAssert(trackState == .remoteOnly)
+        XCTAssert(_testState.trackState == .remoteOnly)
 
         AudioManager.shared.stopPlayout()
-        XCTAssert(trackState == .none)
+        XCTAssert(_testState.trackState == .none)
     }
 
     func testDefaultAudioSessionConfiguration() async throws {
