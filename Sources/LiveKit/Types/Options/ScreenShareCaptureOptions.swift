@@ -68,3 +68,15 @@ public final class ScreenShareCaptureOptions: NSObject, VideoCaptureOptions, Sen
         return hasher.finalize()
     }
 }
+
+extension ScreenShareCaptureOptions {
+    func settingUseBroadcastExtension(_ enabled: Bool) -> Self {
+        Self(
+            dimensions: dimensions,
+            fps: fps,
+            showCursor: showCursor,
+            useBroadcastExtension: enabled,
+            includeCurrentApplication: includeCurrentApplication
+        )
+    }
+}
