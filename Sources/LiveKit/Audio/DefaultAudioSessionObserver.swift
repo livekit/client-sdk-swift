@@ -36,6 +36,11 @@ public class DefaultAudioSessionObserver: AudioEngineObserver, Loggable, @unchec
 
     let _state = StateSync(State())
 
+    public var next: (any AudioEngineObserver)? {
+        get { _state.next }
+        set { _state.mutate { $0.next = newValue } }
+    }
+
     public init() {
         // Backward compatibility with `customConfigureAudioSessionFunc`.
         _state.onDidMutate = { new_, old_ in
@@ -49,10 +54,6 @@ public class DefaultAudioSessionObserver: AudioEngineObserver, Loggable, @unchec
                 config_func(new_state, old_state)
             }
         }
-    }
-
-    public func setNext(_ nextHandler: any AudioEngineObserver) {
-        _state.mutate { $0.next = nextHandler }
     }
 
     public func engineWillEnable(_ engine: AVAudioEngine, isPlayoutEnabled: Bool, isRecordingEnabled: Bool) {

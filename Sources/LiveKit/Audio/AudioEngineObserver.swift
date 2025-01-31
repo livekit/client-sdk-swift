@@ -17,8 +17,9 @@
 import AVFAudio
 
 /// Do not retain the engine object.
-public protocol AudioEngineObserver: NextInvokable {
-    func setNext(_ handler: any AudioEngineObserver)
+public protocol AudioEngineObserver: NextInvokable, Sendable {
+    associatedtype Next = any AudioEngineObserver
+    var next: (any AudioEngineObserver)? { get set }
 
     func engineDidCreate(_ engine: AVAudioEngine)
     func engineWillEnable(_ engine: AVAudioEngine, isPlayoutEnabled: Bool, isRecordingEnabled: Bool)
@@ -39,25 +40,35 @@ public protocol AudioEngineObserver: NextInvokable {
 
 /// Default implementation to make it optional.
 public extension AudioEngineObserver {
-    func engineDidCreate(_: AVAudioEngine) {}
-    func engineWillEnable(_: AVAudioEngine, isPlayoutEnabled _: Bool, isRecordingEnabled _: Bool) {}
-    func engineWillStart(_: AVAudioEngine, isPlayoutEnabled _: Bool, isRecordingEnabled _: Bool) {}
-    func engineDidStop(_: AVAudioEngine, isPlayoutEnabled _: Bool, isRecordingEnabled _: Bool) {}
-    func engineDidDisable(_: AVAudioEngine, isPlayoutEnabled _: Bool, isRecordingEnabled _: Bool) {}
-    func engineWillRelease(_: AVAudioEngine) {}
+    func engineDidCreate(_ engine: AVAudioEngine) {
+        next?.engineDidCreate(engine)
+    }
 
-    func engineWillConnectOutput(_: AVAudioEngine, src _: AVAudioNode, dst _: AVAudioNode?, format _: AVAudioFormat) -> Bool { false }
-    func engineWillConnectInput(_: AVAudioEngine, src _: AVAudioNode?, dst _: AVAudioNode, format _: AVAudioFormat) -> Bool { false }
-}
+    func engineWillEnable(_ engine: AVAudioEngine, isPlayoutEnabled: Bool, isRecordingEnabled: Bool) {
+        next?.engineWillEnable(engine, isPlayoutEnabled: isPlayoutEnabled, isRecordingEnabled: isRecordingEnabled)
+    }
 
-extension [any AudioEngineObserver] {
-    func buildChain() -> Element? {
-        guard let first else { return nil }
+    func engineWillStart(_ engine: AVAudioEngine, isPlayoutEnabled: Bool, isRecordingEnabled: Bool) {
+        next?.engineWillStart(engine, isPlayoutEnabled: isPlayoutEnabled, isRecordingEnabled: isRecordingEnabled)
+    }
 
-        for i in 0 ..< count - 1 {
-            self[i].setNext(self[i + 1])
-        }
+    func engineDidStop(_ engine: AVAudioEngine, isPlayoutEnabled: Bool, isRecordingEnabled: Bool) {
+        next?.engineDidStop(engine, isPlayoutEnabled: isPlayoutEnabled, isRecordingEnabled: isRecordingEnabled)
+    }
 
-        return first
+    func engineDidDisable(_ engine: AVAudioEngine, isPlayoutEnabled: Bool, isRecordingEnabled: Bool) {
+        next?.engineDidDisable(engine, isPlayoutEnabled: isPlayoutEnabled, isRecordingEnabled: isRecordingEnabled)
+    }
+
+    func engineWillRelease(_ engine: AVAudioEngine) {
+        next?.engineWillRelease(engine)
+    }
+
+    func engineWillConnectOutput(_ engine: AVAudioEngine, src: AVAudioNode, dst: AVAudioNode?, format: AVAudioFormat) -> Bool {
+        next?.engineWillConnectOutput(engine, src: src, dst: dst, format: format) ?? false
+    }
+
+    func engineWillConnectInput(_ engine: AVAudioEngine, src: AVAudioNode?, dst: AVAudioNode, format: AVAudioFormat) -> Bool {
+        next?.engineWillConnectInput(engine, src: src, dst: dst, format: format) ?? false
     }
 }

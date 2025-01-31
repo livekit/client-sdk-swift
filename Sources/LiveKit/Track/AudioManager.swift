@@ -341,3 +341,16 @@ public extension AudioManager {
         renderPreProcessingDelegateAdapter.remove(delegate: delegate)
     }
 }
+
+extension AudioManager {
+    func buildEngineObserverChain() -> (any AudioEngineObserver)? {
+        var objects = _state.engineObservers
+        guard objects.count > 1 else { return nil }
+
+        for i in 0 ..< objects.count - 1 {
+            objects[i].next = objects[i + 1]
+        }
+
+        return objects.first
+    }
+}
