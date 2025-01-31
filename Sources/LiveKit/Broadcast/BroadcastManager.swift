@@ -71,7 +71,7 @@ public final class BroadcastManager: Sendable {
     public func requestActivation() {
         Task {
             await RPSystemBroadcastPickerView.show(
-                for: BroadcastScreenCapturer.screenSharingExtension,
+                for: BroadcastBundleInfo.screenSharingExtension,
                 showsMicrophoneButton: false
             )
         }

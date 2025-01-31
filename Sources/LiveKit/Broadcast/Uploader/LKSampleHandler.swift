@@ -41,7 +41,7 @@ open class LKSampleHandler: RPBroadcastSampleHandler {
         bootstrapLogging()
         logger.info("LKSampleHandler created")
 
-        let socketPath = BroadcastScreenCapturer.socketPath
+        let socketPath = BroadcastBundleInfo.socketPath
         if socketPath == nil {
             logger.error("Bundle settings improperly configured for screen capture")
         }
