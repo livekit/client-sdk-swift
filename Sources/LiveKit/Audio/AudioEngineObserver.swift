@@ -17,7 +17,7 @@
 import AVFAudio
 
 /// Do not retain the engine object.
-public protocol AudioEngineObserver: NextInvokable, Sendable {
+public protocol AudioEngineObserver: NextInvokable {
     func setNext(_ handler: any AudioEngineObserver)
 
     func engineDidCreate(_ engine: AVAudioEngine)

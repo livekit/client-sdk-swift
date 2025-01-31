@@ -24,7 +24,7 @@ internal import LiveKitWebRTC
 @_implementationOnly import LiveKitWebRTC
 #endif
 
-public final class DefaultAudioSessionObserver: AudioEngineObserver, Loggable {
+public class DefaultAudioSessionObserver: AudioEngineObserver, Loggable, @unchecked Sendable {
     struct State {
         var isSessionActive = false
         var next: (any AudioEngineObserver)?
@@ -36,7 +36,7 @@ public final class DefaultAudioSessionObserver: AudioEngineObserver, Loggable {
 
     let _state = StateSync(State())
 
-    init() {
+    public init() {
         // Backward compatibility with `customConfigureAudioSessionFunc`.
         _state.onDidMutate = { new_, old_ in
             if let config_func = AudioManager.shared._state.customConfigureFunc,
