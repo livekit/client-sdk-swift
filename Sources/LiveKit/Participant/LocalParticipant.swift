@@ -231,33 +231,18 @@ public class LocalParticipant: Participant {
 
     #if os(iOS)
 
-    /// An optional hook called just after a broadcast starts.
-    ///
-    /// Returns a Boolean value indicating weather or not the broadcast should be
-    /// published as a screen share track. This could be useful to present a confirmation dialog,
-    /// returning `true` or `false` based on the user's response .
-    ///
-    public var broadcastStarted: (() async -> Bool)?
-
-    private var isBroadcasting = false {
-        didSet { broadcastStateChanged() }
-    }
-
     private var cancellable = Set<AnyCancellable>()
 
     override init(room: Room, sid: Participant.Sid? = nil, identity: Participant.Identity? = nil) {
         super.init(room: room, sid: sid, identity: identity)
 
-        BroadcastExtensionState
-            .isBroadcasting
-            .sink { [weak self] in
-                guard let self else { return }
-                self.isBroadcasting = $0
-            }
-            .store(in: &cancellable)
+        BroadcastManager.shared.isBroadcastingPublisher.sink { [weak self] in
+            self?.broadcastStateChanged($0)
+        }
+        .store(in: &cancellable)
     }
 
-    private func broadcastStateChanged() {
+    private func broadcastStateChanged(_ isBroadcasting: Bool) {
         guard isBroadcasting else {
             logger.debug("Broadcast stopped")
             return
@@ -266,8 +251,7 @@ public class LocalParticipant: Participant {
 
         Task { [weak self] in
             guard let self else { return }
-            let shouldPublish = await self.broadcastStarted?() ?? true
-            guard shouldPublish else {
+            guard BroadcastManager.shared.shouldPublishTrack else {
                 logger.debug("Will not publish screen share track")
                 return
             }
@@ -389,8 +373,8 @@ public extension LocalParticipant {
                     let localTrack: LocalVideoTrack
                     let options = (captureOptions as? ScreenShareCaptureOptions) ?? room._state.roomOptions.defaultScreenShareCaptureOptions
                     if options.useBroadcastExtension {
-                        guard self.isBroadcasting else {
-                            await BroadcastExtensionState.requestActivation()
+                        guard BroadcastManager.shared.isBroadcasting else {
+                            BroadcastManager.shared.requestActivation()
                             return nil
                         }
                         // Wait until broadcasting to publish track
