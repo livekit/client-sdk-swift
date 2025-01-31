@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#if os(iOS)
+
 import Foundation
 import Network
 
@@ -255,3 +257,5 @@ private extension NWConnection {
         }
     }
 }
+
+#endif

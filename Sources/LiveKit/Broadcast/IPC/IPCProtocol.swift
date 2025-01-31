@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#if os(iOS)
+
 import Foundation
 import Network
 
@@ -136,3 +138,5 @@ extension IPCProtocol.Header {
 
     static let encodedSize = MemoryLayout<UInt32>.size * 2
 }
+
+#endif

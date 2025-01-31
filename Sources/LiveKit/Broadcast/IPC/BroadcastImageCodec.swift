@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#if os(iOS)
+
 import CoreImage
 import AVFoundation
 
@@ -107,3 +109,5 @@ struct BroadcastImageCodec {
         return imageBuffer
     }
 }
+
+#endif

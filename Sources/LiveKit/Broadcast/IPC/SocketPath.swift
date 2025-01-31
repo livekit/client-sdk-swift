@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#if os(iOS)
+
 import Network
 
 /// A UNIX domain path valid on this system.
@@ -51,3 +53,5 @@ extension NWEndpoint {
         self = .unix(path: socketPath.path)
     }
 }
+
+#endif

@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#if os(iOS)
+
 @testable import LiveKit
 import XCTest
 
@@ -68,3 +70,5 @@ final class BroadcastImageCodecTests: XCTestCase {
         return pixelBuffer
     }
 }
+
+#endif

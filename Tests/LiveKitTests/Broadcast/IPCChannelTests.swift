@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#if os(iOS)
+
 @testable import LiveKit
 import XCTest
 import Network
@@ -28,7 +30,12 @@ final class IPCChannelTests: XCTestCase {
     
     override func setUpWithError() throws {
         try super.setUpWithError()
-        guard let socketPath = SocketPath.temporary() else {
+        
+        // Use relative paths to ensure socket path is not too long
+        let temporaryDirectory = FileManager.default.temporaryDirectory
+        FileManager.default.changeCurrentDirectoryPath(temporaryDirectory.path)
+        
+        guard let socketPath = SocketPath(UUID().uuidString + ".sock") else {
             throw TestSetupError.failedToGeneratePath
         }
         self.socketPath = socketPath
@@ -163,17 +170,10 @@ final class IPCChannelTests: XCTestCase {
     }
 }
 
-private extension SocketPath {
-    static func temporary() -> SocketPath? {
-        let path = FileManager.default.temporaryDirectory
-            .appendingPathComponent(UUID().uuidString + ".sock")
-            .path
-        return SocketPath(path)
-    }
-}
-
 private extension Task where  Success == Never, Failure == Never {
     static func shortSleep() async throws {
         try await Self.sleep(nanoseconds: 1_000_000_000)
     }
 }
+
+#endif
