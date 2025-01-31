@@ -66,6 +66,11 @@ final class BroadcastReceiver: Sendable {
         }
         
         func makeAsyncIterator() -> Self { self }
+        
+        #if swift(<5.11)
+        typealias AsyncIterator = Self
+        typealias Element = IncomingSample
+        #endif
     }
     
     var incomingSamples: AsyncSampleSequence {

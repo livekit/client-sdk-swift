@@ -131,6 +131,11 @@ final class IPCChannel: Sendable {
         }
     
         func makeAsyncIterator() -> Self { self }
+        
+        #if swift(<5.11)
+        typealias AsyncIterator = Self
+        typealias Element = (Header, Data?)
+        #endif
     }
     
     /// Receives incoming messages from the connected process.
@@ -227,6 +232,11 @@ private extension NWConnection {
             try await connection.receiveSingleMessage()
         }
         func makeAsyncIterator() -> Self { self }
+        
+        #if swift(<5.11)
+        typealias AsyncIterator = Self
+        typealias Element = IncomingMessage
+        #endif
     }
     
     private func receiveSingleMessage() async throws -> IncomingMessage {
