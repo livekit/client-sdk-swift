@@ -25,6 +25,7 @@ import ReplayKit
 
 /// Manages the broadcast state and track publication for screen sharing on iOS.
 public final class BroadcastManager: Sendable {
+    /// Shared broadcast manager instance.
     public static let shared = BroadcastManager()
 
     private struct State {
@@ -110,6 +111,8 @@ public final class BroadcastManager: Sendable {
 /// A delegate protocol for receiving updates about the broadcast state.
 @objc
 public protocol BroadcastManagerDelegate {
+    /// Invoked when the broadcast state changes.
+    /// - Parameter isBroadcasting: A Boolean value indicating whether a broadcast is currently in progress.
     func broadcastManager(didChangeState isBroadcasting: Bool)
 }
 
