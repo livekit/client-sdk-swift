@@ -72,6 +72,10 @@ public final class RoomOptions: NSObject, Sendable {
     override public init() {
         defaultCameraCaptureOptions = CameraCaptureOptions()
         defaultScreenShareCaptureOptions = ScreenShareCaptureOptions()
+        #if os(iOS)
+            .settingUseBroadcastExtension(BroadcastBundleInfo.hasExtension)
+        #endif
+
         defaultAudioCaptureOptions = AudioCaptureOptions()
         defaultVideoPublishOptions = VideoPublishOptions()
         defaultAudioPublishOptions = AudioPublishOptions()

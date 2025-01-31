@@ -33,6 +33,11 @@ final class BroadcastBundleInfo {
         guard let groupIdentifier else { return nil }
         return Self.socketPath(for: groupIdentifier)
     }
+    
+    /// Whether or not a broadcast extension has been configured.
+    static var hasExtension: Bool {
+        socketPath != nil && screenSharingExtension != nil
+    }
 
     private static let socketFileDescriptor = "rtc_SSFD"
 
