@@ -378,7 +378,8 @@ public extension LocalParticipant {
                     
                     if defaultOptions.useBroadcastExtension {
                         if captureOptions != nil {
-                            logger.warning("Capture options for broadcast screen share must be set as room defaults.")
+                            logger.warning("Ignoring screen capture options passed to local participant's `\(#function)`; using room defaults instead.")
+                            logger.warning("When using a broadcast extension, screen capture options must be set as room defaults.")
                         }
                         guard BroadcastManager.shared.isBroadcasting else {
                             BroadcastManager.shared.requestActivation()
