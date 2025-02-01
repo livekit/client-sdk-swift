@@ -18,5 +18,5 @@ import Foundation
 
 public protocol NextInvokable {
     associatedtype Next
-    func setNext(_ handler: Next)
+    var next: Next? { get set }
 }
