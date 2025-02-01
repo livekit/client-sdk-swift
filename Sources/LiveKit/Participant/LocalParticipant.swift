@@ -251,20 +251,13 @@ public class LocalParticipant: Participant {
 
         Task { [weak self] in
             guard let self else { return }
-            let room = try self.requireRoom()
 
             guard BroadcastManager.shared.shouldPublishTrack else {
                 logger.debug("Will not publish screen share track")
                 return
             }
-            let captureOptions = room._state.roomOptions.defaultScreenShareCaptureOptions
-                .settingUseBroadcastExtension(true)
             do {
-                try await self.set(
-                    source: .screenShareVideo,
-                    enabled: true,
-                    captureOptions: captureOptions
-                )
+                try await self.setScreenShare(enabled: true)
             } catch {
                 logger.error("Failed to enable screen share: \(error)")
             }

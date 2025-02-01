@@ -28,16 +28,28 @@ public final class ScreenShareCaptureOptions: NSObject, VideoCaptureOptions, Sen
     @objc
     public let showCursor: Bool
 
+    /// Use broadcast extension for screen capture (iOS only).
+    ///
+    /// If a broadcast extension has been properly configured, this defaults to `true`.
+    ///
     @objc
     public let useBroadcastExtension: Bool
 
     @objc
     public let includeCurrentApplication: Bool
+    
+    public static let defaultToBroadcastExtension: Bool = {
+        #if os(iOS)
+        return BroadcastBundleInfo.hasExtension
+        #else
+        return false
+        #endif
+    }()
 
     public init(dimensions: Dimensions = .h1080_169,
                 fps: Int = 30,
                 showCursor: Bool = true,
-                useBroadcastExtension: Bool = false,
+                useBroadcastExtension: Bool = defaultToBroadcastExtension,
                 includeCurrentApplication: Bool = false)
     {
         self.dimensions = dimensions
@@ -66,17 +78,5 @@ public final class ScreenShareCaptureOptions: NSObject, VideoCaptureOptions, Sen
         hasher.combine(useBroadcastExtension)
         hasher.combine(includeCurrentApplication)
         return hasher.finalize()
-    }
-}
-
-extension ScreenShareCaptureOptions {
-    func settingUseBroadcastExtension(_ enabled: Bool) -> Self {
-        Self(
-            dimensions: dimensions,
-            fps: fps,
-            showCursor: showCursor,
-            useBroadcastExtension: enabled,
-            includeCurrentApplication: includeCurrentApplication
-        )
     }
 }
