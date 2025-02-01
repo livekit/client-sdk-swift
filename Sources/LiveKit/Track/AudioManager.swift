@@ -345,7 +345,7 @@ public extension AudioManager {
 extension AudioManager {
     func buildEngineObserverChain() -> (any AudioEngineObserver)? {
         var objects = _state.engineObservers
-        guard objects.count > 1 else { return nil }
+        guard !objects.isEmpty else { return nil }
 
         for i in 0 ..< objects.count - 1 {
             objects[i].next = objects[i + 1]
