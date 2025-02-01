@@ -378,16 +378,22 @@ public extension LocalParticipant {
                     return try await self._publish(track: localTrack, options: publishOptions)
                 } else if source == .screenShareVideo {
                     #if os(iOS)
+                    
                     let localTrack: LocalVideoTrack
-                    let options = (captureOptions as? ScreenShareCaptureOptions) ?? room._state.roomOptions.defaultScreenShareCaptureOptions
-                    if options.useBroadcastExtension {
+                    let defaultOptions = room._state.roomOptions.defaultScreenShareCaptureOptions
+                    
+                    if defaultOptions.useBroadcastExtension {
+                        if captureOptions != nil {
+                            logger.warning("Capture options for broadcast screen share must be set as room defaults.")
+                        }
                         guard BroadcastManager.shared.isBroadcasting else {
                             BroadcastManager.shared.requestActivation()
                             return nil
                         }
                         // Wait until broadcasting to publish track
-                        localTrack = LocalVideoTrack.createBroadcastScreenCapturerTrack(options: options)
+                        localTrack = LocalVideoTrack.createBroadcastScreenCapturerTrack(options: defaultOptions)
                     } else {
+                        let options = (captureOptions as? ScreenShareCaptureOptions) ?? defaultOptions
                         localTrack = LocalVideoTrack.createInAppScreenShareTrack(options: options)
                     }
                     return try await self._publish(track: localTrack, options: publishOptions)
