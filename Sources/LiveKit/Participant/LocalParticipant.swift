@@ -236,6 +236,7 @@ public class LocalParticipant: Participant {
     override init(room: Room, sid: Participant.Sid? = nil, identity: Participant.Identity? = nil) {
         super.init(room: room, sid: sid, identity: identity)
 
+        guard BroadcastBundleInfo.hasExtension else { return }
         BroadcastManager.shared.isBroadcastingPublisher.sink { [weak self] in
             self?.broadcastStateChanged($0)
         }
