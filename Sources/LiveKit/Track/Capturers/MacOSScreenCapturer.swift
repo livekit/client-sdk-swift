@@ -218,13 +218,13 @@ extension MacOSScreenCapturer: SCStreamOutput {
         guard sampleBuffer.isValid else { return }
 
         if case .audio = outputType {
-            if let pcm = sampleBuffer.toAVAudioPCMBuffer(),
-               let node = AudioManager.shared.screenShareAppAudioPlayerNode,
-               let engine = node.engine, engine.isRunning
-            {
-                node.scheduleBuffer(pcm)
-                if !node.isPlaying {
-                    node.play()
+            if let pcm = sampleBuffer.toAVAudioPCMBuffer() {
+                let node = AudioManager.shared.ports.node(for: "default")
+                if let engine = node.engine, engine.isRunning {
+                    node.scheduleBuffer(pcm)
+                    if !node.isPlaying {
+                        node.play()
+                    }
                 }
             }
         } else if case .screen = outputType {

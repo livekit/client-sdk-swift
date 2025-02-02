@@ -255,6 +255,8 @@ public class AudioManager: Loggable {
         _state.mutate { $0.engineObservers = engineObservers }
     }
 
+    public let ports = AudioPortManager()
+
     // MARK: - For testing
 
     var isPlayoutInitialized: Bool {
@@ -305,9 +307,11 @@ public class AudioManager: Loggable {
 
     init() {
         #if os(iOS) || os(visionOS) || os(tvOS)
-        let engineObservers: [any AudioEngineObserver] = [DefaultAudioSessionObserver()]
+        let playerNode = ports.node(for: "default")
+        let engineObservers: [any AudioEngineObserver] = [DefaultAudioSessionObserver(), DefaultAudioInputObserver(playerNode: playerNode)]
         #else
-        let engineObservers: [any AudioEngineObserver] = []
+        let playerNode = ports.node(for: "default")
+        let engineObservers: [any AudioEngineObserver] = [DefaultAudioInputObserver(playerNode: playerNode)]
         #endif
         _state = StateSync(State(engineObservers: engineObservers))
         _admDelegateAdapter.audioManager = self

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import AVFoundation
+@preconcurrency import AVFoundation
 
 #if swift(>=5.9)
 internal import LiveKitWebRTC
@@ -22,47 +22,82 @@ internal import LiveKitWebRTC
 @_implementationOnly import LiveKitWebRTC
 #endif
 
-public final class AudioEngineAudioInputObserver: AudioEngineObserver, Loggable {
-    public let playerNode = AVAudioPlayerNode()
-    public let playerMixerNode = AVAudioMixerNode()
-    public let micMixerNode = AVAudioMixerNode()
+enum AudioPort: Sendable {
+    case defaultInput
+    case custom(AVAudioPlayerNode)
+}
 
+public final class DefaultAudioInputObserver: AudioEngineObserver, Loggable {
     // <AVAudioFormat 0x600003055180:  2 ch,  48000 Hz, Float32, deinterleaved>
     let playerNodeFormat = AVAudioFormat(commonFormat: .pcmFormatFloat32,
                                          sampleRate: 48000,
                                          channels: 2,
                                          interleaved: false)
 
-    var next: (any AudioEngineObserver)?
+    struct State {
+        var next: (any AudioEngineObserver)?
+        public let playerNode: AVAudioPlayerNode
+        public let playerMixerNode = AVAudioMixerNode()
+        public let micMixerNode = AVAudioMixerNode()
+    }
 
-    public init() {}
+    let _state: StateSync<State>
+
+    public var next: (any AudioEngineObserver)? {
+        get { _state.next }
+        set { _state.mutate { $0.next = newValue } }
+    }
+
+    public init(playerNode: AVAudioPlayerNode) {
+        _state = StateSync(State(playerNode: playerNode))
+    }
 
     public func setNext(_ handler: any AudioEngineObserver) {
         next = handler
     }
 
     public func engineDidCreate(_ engine: AVAudioEngine) {
+        let (playerNode, playerMixerNode, micMixerNode) = _state.read {
+            ($0.playerNode, $0.playerMixerNode, $0.micMixerNode)
+        }
+
         engine.attach(playerNode)
         engine.attach(playerMixerNode)
         engine.attach(micMixerNode)
 
         micMixerNode.outputVolume = 0.0
+
+        // Invoke next
+        next?.engineDidCreate(engine)
     }
 
     public func engineWillRelease(_ engine: AVAudioEngine) {
+        // Invoke next
+        next?.engineWillRelease(engine)
+
+        let (playerNode, playerMixerNode, micMixerNode) = _state.read {
+            ($0.playerNode, $0.playerMixerNode, $0.micMixerNode)
+        }
+
         engine.detach(playerNode)
         engine.detach(playerMixerNode)
         engine.detach(micMixerNode)
     }
 
-    public func engineWillConnectInput(_ engine: AVAudioEngine, src: AVAudioNode, dst: AVAudioNode, format: AVAudioFormat) -> Bool {
+    public func engineWillConnectInput(_ engine: AVAudioEngine, src: AVAudioNode?, dst: AVAudioNode, format: AVAudioFormat) -> Bool {
+        let (playerNode, playerMixerNode, micMixerNode) = _state.read {
+            ($0.playerNode, $0.playerMixerNode, $0.micMixerNode)
+        }
+
         // inputPlayer -> playerMixer -> mainMixer
         engine.connect(playerNode, to: playerMixerNode, format: playerNodeFormat)
         engine.connect(playerMixerNode, to: dst, format: format)
 
-        // mic -> micMixer -> mainMixer
-        engine.connect(src, to: micMixerNode, format: format)
-        engine.connect(micMixerNode, to: dst, format: format)
+        if let src {
+            // mic -> micMixer -> mainMixer
+            engine.connect(src, to: micMixerNode, format: format)
+            engine.connect(micMixerNode, to: dst, format: format)
+        }
 
         return true
     }
