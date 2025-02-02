@@ -282,9 +282,10 @@ class AudioEngineTests: XCTestCase {
 }
 
 final class SineWaveNodeHook: AudioEngineObserver {
+    var next: (any LiveKit.AudioEngineObserver)?
+
     let sineWaveNode = SineWaveSourceNode()
 
-    func setNext(_: any LiveKit.AudioEngineObserver) {}
     func engineDidCreate(_ engine: AVAudioEngine) {
         engine.attach(sineWaveNode)
     }
@@ -301,6 +302,8 @@ final class SineWaveNodeHook: AudioEngineObserver {
 }
 
 final class PlayerNodeHook: AudioEngineObserver {
+    var next: (any LiveKit.AudioEngineObserver)?
+
     public let playerNode = AVAudioPlayerNode()
     public let playerMixerNode = AVAudioMixerNode()
     public let playerNodeFormat: AVAudioFormat
@@ -309,7 +312,6 @@ final class PlayerNodeHook: AudioEngineObserver {
         self.playerNodeFormat = playerNodeFormat
     }
 
-    func setNext(_: any LiveKit.AudioEngineObserver) {}
     public func engineDidCreate(_ engine: AVAudioEngine) {
         engine.attach(playerNode)
         engine.attach(playerMixerNode)
