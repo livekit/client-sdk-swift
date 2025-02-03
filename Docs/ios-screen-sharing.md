@@ -82,37 +82,14 @@ In order for the broadcast extension to communicate with your app, they must be 
 1. Set `RTCAppGroupIdentifier` in the Info.plist of **both targets** to the group identifier from the previous step.
 2. Set `RTCScreenSharingExtension` in the Info.plist of your **primary app target** to the broadcast extension's bundle identifier.
 
-#### 4. Use Broadcast Extension
+#### 4. Begin Screen Share
 
-To use the broadcast extension for screen sharing, create an instance of `ScreenShareCaptureOptions`, setting the `useBroadcastExtension` property to `true`. The following example demonstrates making this the default for a room when connecting:
-
+With setup of the broadcast extension complete, broadcast capture will be used by default when enabling screen share:
 ```swift
-let options = RoomOptions(
-    defaultScreenShareCaptureOptions: ScreenShareCaptureOptions(
-        useBroadcastExtension: true
-    ),
-    // other options...
-)
-room.connect(url: wsURL, token: token, roomOptions: options)
+try await room.localParticipant.setScreenShare(enabled: true)
 ```
 
-When connecting to a room declaratively using the `RoomScope` view from the SwiftUI components package, use the initializer's optional `roomOptions` parameter to pass the room options object:
-
-```swift
-RoomScope(url: wsURL, token: token, roomOptions: options) {
-    // your components here
-}
-```
-
-It is also possible to use the broadcast extension when enabling screen share without making it the default for the room:
-
-```swift
-try await room.localParticipant.set(
-    source: .screenShareVideo,
-    enabled: true,
-    captureOptions: ScreenShareCaptureOptions(useBroadcastExtension: true)
-)
-```
+<small>Note: When using broadcast capture, custom capture options must be set as room defaults rather than passed when enabling screen share with `set(source:enabled:captureOptions:publishOptions:)`.</small>
 
 ### Troubleshooting
 
@@ -122,3 +99,33 @@ While running your app in a debug session in Xcode, check the debug console for 
 2. Select your iOS device from the left sidebar and press "Start Streaming."
 3. In the search bar, add a filter for messages with a category of "LKSampleHandler."
 4. Initiate a screen share in your app and inspect Console for errors.
+
+### Advanced Usage
+
+When using broadcast capture, a broadcast can be initiated externally (for example, via control center). By default, when a broadcast begins, the local participant automatically publishes a screen share track. In some cases, however, you may want to handle track publication manually. You can achieve this by using `BroadcastManager`:
+
+First, disable automatic track publication:
+```swift
+BroadcastManager.shared.shouldPublishTrack = false
+```
+
+Then, use one of the two methods for detecting changes in the broadcast state:
+
+#### Combine Publisher
+```swift
+let subscription = BroadcastManager.shared
+    .isBroadcastingPublisher
+    .sink { isBroadcasting in
+        // Manually handle track publication
+    }
+```
+
+#### Delegate
+```swift
+class MyDelegate: BroadcastManagerDelegate {
+    func broadcastManager(didChangeState isBroadcasting: Bool) {
+        // Manually handle track publication
+    }
+}
+BroadcastManager.shared.delegate = MyDelegate()
+```

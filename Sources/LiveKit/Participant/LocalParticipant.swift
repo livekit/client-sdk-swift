@@ -14,11 +14,8 @@
  * limitations under the License.
  */
 
+import Combine
 import Foundation
-
-#if canImport(ReplayKit)
-import ReplayKit
-#endif
 
 #if swift(>=5.9)
 internal import LiveKitWebRTC
@@ -229,6 +226,45 @@ public class LocalParticipant: Participant {
 
         return didUpdate
     }
+
+    // MARK: - Broadcast Activation
+
+    #if os(iOS)
+
+    private var cancellable = Set<AnyCancellable>()
+
+    override init(room: Room, sid: Participant.Sid? = nil, identity: Participant.Identity? = nil) {
+        super.init(room: room, sid: sid, identity: identity)
+
+        guard BroadcastBundleInfo.hasExtension else { return }
+        BroadcastManager.shared.isBroadcastingPublisher.sink { [weak self] in
+            self?.broadcastStateChanged($0)
+        }
+        .store(in: &cancellable)
+    }
+
+    private func broadcastStateChanged(_ isBroadcasting: Bool) {
+        guard isBroadcasting else {
+            logger.debug("Broadcast stopped")
+            return
+        }
+        logger.debug("Broadcast started")
+
+        Task { [weak self] in
+            guard let self else { return }
+
+            guard BroadcastManager.shared.shouldPublishTrack else {
+                logger.debug("Will not publish screen share track")
+                return
+            }
+            do {
+                try await self.setScreenShare(enabled: true)
+            } catch {
+                logger.error("Failed to enable screen share: \(error)")
+            }
+        }
+    }
+    #endif
 }
 
 // MARK: - Session Migration
@@ -336,15 +372,23 @@ public extension LocalParticipant {
                     return try await self._publish(track: localTrack, options: publishOptions)
                 } else if source == .screenShareVideo {
                     #if os(iOS)
+                    
                     let localTrack: LocalVideoTrack
-                    let options = (captureOptions as? ScreenShareCaptureOptions) ?? room._state.roomOptions.defaultScreenShareCaptureOptions
-                    if options.useBroadcastExtension {
-                        await RPSystemBroadcastPickerView.show(
-                            for: BroadcastScreenCapturer.screenSharingExtension,
-                            showsMicrophoneButton: false
-                        )
-                        localTrack = LocalVideoTrack.createBroadcastScreenCapturerTrack(options: options)
+                    let defaultOptions = room._state.roomOptions.defaultScreenShareCaptureOptions
+                    
+                    if defaultOptions.useBroadcastExtension {
+                        if captureOptions != nil {
+                            logger.warning("Ignoring screen capture options passed to local participant's `\(#function)`; using room defaults instead.")
+                            logger.warning("When using a broadcast extension, screen capture options must be set as room defaults.")
+                        }
+                        guard BroadcastManager.shared.isBroadcasting else {
+                            BroadcastManager.shared.requestActivation()
+                            return nil
+                        }
+                        // Wait until broadcasting to publish track
+                        localTrack = LocalVideoTrack.createBroadcastScreenCapturerTrack(options: defaultOptions)
                     } else {
+                        let options = (captureOptions as? ScreenShareCaptureOptions) ?? defaultOptions
                         localTrack = LocalVideoTrack.createInAppScreenShareTrack(options: options)
                     }
                     return try await self._publish(track: localTrack, options: publishOptions)
