@@ -16,6 +16,14 @@
 
 import AVFAudio
 
+#if swift(>=5.9)
+internal import LiveKitWebRTC
+#else
+@_implementationOnly import LiveKitWebRTC
+#endif
+
+public let AudioEngineInputMixerNodeKey = kRTCAudioEngineInputMixerNodeKey
+
 /// Do not retain the engine object.
 public protocol AudioEngineObserver: NextInvokable, Sendable {
     associatedtype Next = any AudioEngineObserver
@@ -31,11 +39,11 @@ public protocol AudioEngineObserver: NextInvokable, Sendable {
     /// Provide custom implementation for internal AVAudioEngine's output configuration.
     /// Buffers flow from `src` to `dst`. Preferred format to connect node is provided as `format`.
     /// Return true if custom implementation is provided, otherwise default implementation will be used.
-    func engineWillConnectOutput(_ engine: AVAudioEngine, src: AVAudioNode, dst: AVAudioNode?, format: AVAudioFormat) -> Bool
+    func engineWillConnectOutput(_ engine: AVAudioEngine, src: AVAudioNode, dst: AVAudioNode?, format: AVAudioFormat, context: [AnyHashable: Any])
     /// Provide custom implementation for internal AVAudioEngine's input configuration.
     /// Buffers flow from `src` to `dst`. Preferred format to connect node is provided as `format`.
     /// Return true if custom implementation is provided, otherwise default implementation will be used.
-    func engineWillConnectInput(_ engine: AVAudioEngine, src: AVAudioNode?, dst: AVAudioNode, format: AVAudioFormat) -> Bool
+    func engineWillConnectInput(_ engine: AVAudioEngine, src: AVAudioNode?, dst: AVAudioNode, format: AVAudioFormat, context: [AnyHashable: Any])
 }
 
 /// Default implementation to make it optional.
@@ -64,11 +72,11 @@ public extension AudioEngineObserver {
         next?.engineWillRelease(engine)
     }
 
-    func engineWillConnectOutput(_ engine: AVAudioEngine, src: AVAudioNode, dst: AVAudioNode?, format: AVAudioFormat) -> Bool {
-        next?.engineWillConnectOutput(engine, src: src, dst: dst, format: format) ?? false
+    func engineWillConnectOutput(_ engine: AVAudioEngine, src: AVAudioNode, dst: AVAudioNode?, format: AVAudioFormat, context: [AnyHashable: Any]) {
+        next?.engineWillConnectOutput(engine, src: src, dst: dst, format: format, context: context)
     }
 
-    func engineWillConnectInput(_ engine: AVAudioEngine, src: AVAudioNode?, dst: AVAudioNode, format: AVAudioFormat) -> Bool {
-        next?.engineWillConnectInput(engine, src: src, dst: dst, format: format) ?? false
+    func engineWillConnectInput(_ engine: AVAudioEngine, src: AVAudioNode?, dst: AVAudioNode, format: AVAudioFormat, context: [AnyHashable: Any]) {
+        next?.engineWillConnectInput(engine, src: src, dst: dst, format: format, context: context)
     }
 }
