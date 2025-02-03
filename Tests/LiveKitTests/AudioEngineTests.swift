@@ -294,10 +294,9 @@ final class SineWaveNodeHook: AudioEngineObserver {
         engine.detach(sineWaveNode)
     }
 
-    func engineWillConnectInput(_ engine: AVAudioEngine, src _: AVAudioNode?, dst: AVAudioNode, format: AVAudioFormat) -> Bool {
+    func engineWillConnectInput(_ engine: AVAudioEngine, src _: AVAudioNode?, dst: AVAudioNode, format: AVAudioFormat, context _: [AnyHashable: Any]) {
         print("engineWillConnectInput")
         engine.connect(sineWaveNode, to: dst, format: format)
-        return true
     }
 }
 
@@ -322,10 +321,9 @@ final class PlayerNodeHook: AudioEngineObserver {
         engine.detach(playerMixerNode)
     }
 
-    func engineWillConnectInput(_ engine: AVAudioEngine, src _: AVAudioNode?, dst: AVAudioNode, format: AVAudioFormat) -> Bool {
+    func engineWillConnectInput(_ engine: AVAudioEngine, src _: AVAudioNode?, dst: AVAudioNode, format: AVAudioFormat, context _: [AnyHashable: Any]) {
         print("engineWillConnectInput")
         engine.connect(playerNode, to: playerMixerNode, format: playerNodeFormat)
         engine.connect(playerMixerNode, to: dst, format: format)
-        return true
     }
 }
