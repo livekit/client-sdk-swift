@@ -20,9 +20,8 @@ import Network
 
 /// A UNIX domain path valid on this system.
 struct SocketPath {
-    
     let path: String
-    
+
     /// Creates a socket path or returns nil if the given path string is not valid.
     init?(_ path: String) {
         guard Self.isValid(path) else {
@@ -39,13 +38,11 @@ struct SocketPath {
     /// socket with an invalid path results in a crash.
     ///
     private static func isValid(_ path: String) -> Bool {
-        path.utf8.count <= Self.addressMaxLength
+        path.utf8.count <= addressMaxLength
     }
-    
+
     /// The maximum supported length (in bytes) for socket paths on this system.
-    private static let addressMaxLength: Int = {
-        MemoryLayout.size(ofValue: sockaddr_un().sun_path) - 1
-    }()
+    private static let addressMaxLength: Int = MemoryLayout.size(ofValue: sockaddr_un().sun_path) - 1
 }
 
 extension NWEndpoint {

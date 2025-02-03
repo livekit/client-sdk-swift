@@ -32,7 +32,7 @@ final class IPCProtocol: NWProtocolFramerImplementation {
         let payloadSize: UInt32
     }
 
-    func handleOutput(framer: NWProtocolFramer.Instance, message: NWProtocolFramer.Message, messageLength: Int, isComplete: Bool) {
+    func handleOutput(framer: NWProtocolFramer.Instance, message: NWProtocolFramer.Message, messageLength: Int, isComplete _: Bool) {
         let header = Header(
             totalSize: UInt32(messageLength),
             payloadSize: UInt32(message.ipcMessagePayloadSize ?? 0)
@@ -67,11 +67,11 @@ final class IPCProtocol: NWProtocolFramerImplementation {
         }
     }
 
-    required init(framer: NWProtocolFramer.Instance) {}
-    func start(framer: NWProtocolFramer.Instance) -> NWProtocolFramer.StartResult { return .ready }
-    func wakeup(framer: NWProtocolFramer.Instance) {}
-    func stop(framer: NWProtocolFramer.Instance) -> Bool { return true }
-    func cleanup(framer: NWProtocolFramer.Instance) {}
+    required init(framer _: NWProtocolFramer.Instance) {}
+    func start(framer _: NWProtocolFramer.Instance) -> NWProtocolFramer.StartResult { .ready }
+    func wakeup(framer _: NWProtocolFramer.Instance) {}
+    func stop(framer _: NWProtocolFramer.Instance) -> Bool { true }
+    func cleanup(framer _: NWProtocolFramer.Instance) {}
 }
 
 extension NWConnection.ContentContext {
@@ -83,7 +83,7 @@ extension NWConnection.ContentContext {
     }
 
     static func ipcMessage(payloadSize: Int) -> NWConnection.ContentContext {
-        return NWConnection.ContentContext(
+        NWConnection.ContentContext(
             identifier: IPCProtocol.label,
             metadata: [NWProtocolFramer.Message(ipcMessagePayloadSize: payloadSize)]
         )

@@ -21,31 +21,30 @@ import ReplayKit
 
 /// Uploads broadcast samples to another process.
 final class BroadcastUploader: Sendable {
-    
     private let channel: IPCChannel
     private let imageCodec = BroadcastImageCodec()
-    
+
     @Atomic private var isUploading = false
-    
+
     enum Error: Swift.Error {
         case unsupportedSample
     }
-    
+
     /// Creates an uploader with an open connection to another process.
     init(socketPath: SocketPath) async throws {
         channel = try await IPCChannel(connectingTo: socketPath)
     }
-    
+
     /// Whether or not the connection to the receiver has been closed.
     var isClosed: Bool {
         channel.isClosed
     }
-    
+
     /// Close the connection to the receiver.
     func close() {
         channel.close()
     }
-    
+
     /// Upload a sample from ReplayKit.
     func upload(_ sampleBuffer: CMSampleBuffer, with type: RPSampleBufferType) async throws {
         guard type == .video else { throw Error.unsupportedSample }
@@ -57,16 +56,16 @@ final class BroadcastUploader: Sendable {
             isUploading = false
         }
     }
-    
+
     private func sendImage(_ sampleBuffer: CMSampleBuffer) async throws {
         guard let imageBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else {
             throw Error.unsupportedSample
         }
         let rotation = VideoRotation(sampleBuffer.replayKitOrientation ?? .up)
-        
+
         let (metadata, imageData) = try imageCodec.encode(imageBuffer)
         let header = BroadcastIPCHeader.image(metadata, rotation)
-        
+
         try await channel.send(header: header, payload: imageData)
     }
 }
@@ -81,7 +80,7 @@ private extension CMSampleBuffer {
         )?.uint32Value else { return nil }
         return CGImagePropertyOrientation(rawValue: rawOrientation)
     }
- }
+}
 
 private extension VideoRotation {
     init(_ orientation: CGImagePropertyOrientation) {

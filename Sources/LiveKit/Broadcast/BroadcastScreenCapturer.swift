@@ -29,7 +29,6 @@ internal import LiveKitWebRTC
 #endif
 
 class BroadcastScreenCapturer: BufferCapturer {
-    
     private var receiver: BroadcastReceiver?
 
     override func startCapture() async throws -> Bool {
@@ -51,7 +50,7 @@ class BroadcastScreenCapturer: BufferCapturer {
         set(dimensions: targetDimensions)
         return createReceiver()
     }
-    
+
     private func createReceiver() -> Bool {
         guard let socketPath = Self.socketPath else {
             logger.error("Bundle settings improperly configured for screen capture")
@@ -65,7 +64,7 @@ class BroadcastScreenCapturer: BufferCapturer {
 
                 for try await sample in receiver.incomingSamples {
                     switch sample {
-                    case .image(let imageBuffer, let rotation):
+                    case let .image(imageBuffer, rotation):
                         self?.capture(imageBuffer, rotation: rotation)
                     }
                 }

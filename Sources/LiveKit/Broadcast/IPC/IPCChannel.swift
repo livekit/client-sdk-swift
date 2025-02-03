@@ -21,10 +21,9 @@ import Network
 
 /// A communication channel between two processes on the same machine.
 final class IPCChannel: Sendable {
-    
     fileprivate static let restartDelay: TimeInterval = 0.1
     fileprivate static let queue = DispatchQueue(label: "io.livekit.ipc.queue", qos: .userInitiated)
-    
+
     private static let defaultParameters = {
         let parameters = NWParameters.tcp
         let ipcProtocol = NWProtocolFramer.Options(definition: IPCProtocol.definition)
@@ -32,33 +31,32 @@ final class IPCChannel: Sendable {
         parameters.allowLocalEndpointReuse = true
         return parameters
     }()
-    
+
     private let connection: NWConnection
-    
+
     enum Error: Swift.Error {
         case cancelled
         case corruptMessage
     }
-    
+
     // MARK: - Connection
-    
+
     /// Creates a channel by accepting a connection from the other process.
     init(acceptingOn socketPath: SocketPath) async throws {
-
         try? FileManager.default.removeItem(atPath: socketPath.path)
-   
+
         let parameters = Self.defaultParameters
         parameters.requiredLocalEndpoint = NWEndpoint(socketPath)
-        
+
         let listener = try NWListener(using: parameters)
         guard let connection = try await listener.firstConnection else {
             throw Error.cancelled
         }
-        
+
         try await connection.waitUntilReady()
         self.connection = connection
     }
-    
+
     /// Creates a channel by establishing a connection to the other process.
     init(connectingTo socketPath: SocketPath) async throws {
         connection = NWConnection(
@@ -67,43 +65,43 @@ final class IPCChannel: Sendable {
         )
         try await connection.waitUntilReady()
     }
-    
+
     /// Whether or not the connection has been closed.
     var isClosed: Bool {
         connection.state != .ready
     }
-    
+
     /// Closes the connection associated with this channel.
     func close() {
         connection.cancel()
     }
-    
+
     // MARK: - Sending
-    
+
     /// Sends a message to the connected process.
-    func send<T: Encodable>(header: T, payload: Data? = nil) async throws {
+    func send(header: some Encodable, payload: Data? = nil) async throws {
         try await send(
             encodedHeader: encoder.encode(header),
             payload: payload
         )
     }
-    
+
     private let encoder = PropertyListEncoder()
-    
+
     private func send(encodedHeader: Data, payload: Data?) async throws {
         let payloadSize = payload?.count ?? 0
-        
+
         var messageData = encodedHeader
         if let payload { messageData.append(payload) }
-        
+
         try await connection.send(
             content: messageData,
             contentContext: NWConnection.ContentContext.ipcMessage(payloadSize: payloadSize)
         )
     }
-    
+
     // MARK: - Receiving
-    
+
     /// An asynchronous sequence of incoming messages.
     ///
     /// The sequence ends when the connection is closed by either side.
@@ -111,17 +109,17 @@ final class IPCChannel: Sendable {
     struct AsyncMessageSequence<Header: Decodable>: AsyncSequence, AsyncIteratorProtocol {
         fileprivate let upstream: NWConnection.AsyncMessageSequence
         private let decoder = PropertyListDecoder()
-        
+
         func next() async throws -> (Header, Data?)? {
             guard let rawMessage = try await upstream.next() else {
                 return nil
             }
             let (data, context, isComplete) = rawMessage
             guard let data, isComplete else { return nil }
-            
+
             guard let payloadSize = context?.ipcMessagePayloadSize,
                   payloadSize <= data.count else { throw IPCChannel.Error.corruptMessage }
-            
+
             guard payloadSize > 0 else {
                 return try (decoder.decode(Header.self, from: data), nil)
             }
@@ -129,19 +127,19 @@ final class IPCChannel: Sendable {
             let (headerData, payloadData) = data.partition(bytesInFirst: headerSize)
             return try (decoder.decode(Header.self, from: headerData), payloadData)
         }
-    
+
         func makeAsyncIterator() -> Self { self }
-        
+
         #if swift(<5.11)
         typealias AsyncIterator = Self
         typealias Element = (Header, Data?)
         #endif
     }
-    
+
     /// Receives incoming messages from the connected process.
     /// - Parameter headerType: The type to decode from the message header.
     /// - Returns: An asynchronous sequence for receiving messages as they arrive.
-    func incomingMessages<T: Decodable>(_ headerType: T.Type) -> AsyncMessageSequence<T> {
+    func incomingMessages<T: Decodable>(_: T.Type) -> AsyncMessageSequence<T> {
         AsyncMessageSequence(upstream: connection.incomingMessages)
     }
 }
@@ -152,8 +150,8 @@ private extension Data {
     func partition(bytesInFirst: Int) -> (Data, Data) {
         guard bytesInFirst > 0 else { return (Data(), self) }
         return (
-            subdata(in: 0..<Swift.min(bytesInFirst, count)),
-            subdata(in: Swift.min(bytesInFirst, count)..<count)
+            subdata(in: 0 ..< Swift.min(bytesInFirst, count)),
+            subdata(in: Swift.min(bytesInFirst, count) ..< count)
         )
     }
 }
@@ -170,34 +168,33 @@ private extension NWListener {
             stateUpdateHandler = { state in
                 switch state {
                 case .cancelled: continuation.finish()
-                case .waiting(let error): continuation.finish(throwing: error)
-                case .failed(let error): continuation.finish(throwing: error)
+                case let .waiting(error): continuation.finish(throwing: error)
+                case let .failed(error): continuation.finish(throwing: error)
                 default: break
                 }
             }
             start(queue: IPCChannel.queue)
         }
     }
-    
+
     var firstConnection: NWConnection? {
         get async throws { try await newConnections.first { _ in true } }
     }
 }
 
 private extension NWConnection {
-    
     func waitUntilReady() async throws {
         for await state in stateUpdates {
             switch state {
             case .ready: return
             case .setup, .preparing: continue
-            case .waiting(_):
+            case .waiting:
                 // Will enter this state when socket path does not exist yet
                 let restartDelay = UInt64(IPCChannel.restartDelay * 1_000_000_000)
                 try await Task.sleep(nanoseconds: restartDelay)
-                self.restart()
+                restart()
                 continue
-            case .failed(let error): throw error
+            case let .failed(error): throw error
             case .cancelled:
                 throw IPCChannel.Error.cancelled
             @unknown default: continue
@@ -219,26 +216,27 @@ private extension NWConnection {
             self?.start(queue: IPCChannel.queue)
         }
     }
-    
+
     var incomingMessages: AsyncMessageSequence {
         AsyncMessageSequence(connection: self)
     }
 
     typealias IncomingMessage = (Data?, NWConnection.ContentContext?, Bool)
-    
+
     struct AsyncMessageSequence: AsyncSequence, AsyncIteratorProtocol {
         let connection: NWConnection
         func next() async throws -> IncomingMessage? {
             try await connection.receiveSingleMessage()
         }
+
         func makeAsyncIterator() -> Self { self }
-        
+
         #if swift(<5.11)
         typealias AsyncIterator = Self
         typealias Element = IncomingMessage
         #endif
     }
-    
+
     private func receiveSingleMessage() async throws -> IncomingMessage {
         try await withCheckedThrowingContinuation { [weak self] continuation in
             self?.receiveMessage { data, context, isComplete, error in
@@ -250,7 +248,7 @@ private extension NWConnection {
             }
         }
     }
-        
+
     func send(content: Data, contentContext: NWConnection.ContentContext) async throws {
         try await withCheckedThrowingContinuation { continuation in
             send(

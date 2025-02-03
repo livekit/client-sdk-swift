@@ -31,7 +31,6 @@ import OSLog
 
 @available(macCatalyst 13.1, *)
 open class LKSampleHandler: RPBroadcastSampleHandler {
-    
     private var uploader: BroadcastUploader?
 
     override public init() {
