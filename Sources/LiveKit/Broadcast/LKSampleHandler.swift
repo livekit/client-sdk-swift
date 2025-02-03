@@ -26,18 +26,30 @@ internal import Logging
 @_implementationOnly import Logging
 #endif
 
+import Combine
 import LKObjCHelpers
 import OSLog
 
 @available(macCatalyst 13.1, *)
 open class LKSampleHandler: RPBroadcastSampleHandler {
+
     private var uploader: BroadcastUploader?
+    private var cancellable = Set<AnyCancellable>()
 
     override public init() {
         super.init()
         bootstrapLogging()
         logger.info("LKSampleHandler created")
+
         createUploader()
+
+        DarwinNotificationCenter.shared
+            .publisher(for: .broadcastRequestStop)
+            .sink { [weak self] _ in
+                logger.info("Received stop request")
+                self?.finishBroadcastWithoutError()
+            }
+            .store(in: &cancellable)
     }
 
     override public func broadcastStarted(withSetupInfo _: [String: NSObject]?) {
@@ -70,7 +82,7 @@ open class LKSampleHandler: RPBroadcastSampleHandler {
                 try await uploader.upload(sampleBuffer, with: type)
             } catch {
                 guard !uploader.isClosed else {
-                    connectionDidClose(error: nil)
+                    finishBroadcastWithoutError()
                     return
                 }
                 guard case .unsupportedSample = error as? BroadcastUploader.Error else {
@@ -99,12 +111,16 @@ open class LKSampleHandler: RPBroadcastSampleHandler {
         if let error {
             finishBroadcastWithError(error)
         } else {
-            LKObjCHelpers.finishBroadcastWithoutError(self)
+            finishBroadcastWithoutError()
         }
+    }
+    
+    private func finishBroadcastWithoutError() {
+        LKObjCHelpers.finishBroadcastWithoutError(self)
     }
 
     private func createUploader() {
-        guard let socketPath = BroadcastScreenCapturer.socketPath else {
+        guard let socketPath = BroadcastBundleInfo.socketPath else {
             logger.error("Bundle settings improperly configured for screen capture")
             return
         }

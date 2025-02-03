@@ -52,7 +52,7 @@ class BroadcastScreenCapturer: BufferCapturer {
     }
 
     private func createReceiver() -> Bool {
-        guard let socketPath = Self.socketPath else {
+        guard let socketPath = BroadcastBundleInfo.socketPath else {
             logger.error("Bundle settings improperly configured for screen capture")
             return false
         }
@@ -84,30 +84,6 @@ class BroadcastScreenCapturer: BufferCapturer {
         guard didStop else { return false }
         receiver?.close()
         return true
-    }
-
-    /// Identifier of the app group shared by the primary app and broadcast extension.
-    @BundleInfo("RTCAppGroupIdentifier")
-    static var groupIdentifier: String?
-
-    /// Bundle identifier of the broadcast extension.
-    @BundleInfo("RTCScreenSharingExtension")
-    static var screenSharingExtension: String?
-
-    /// Path to the socket file used for interprocess communication.
-    static var socketPath: SocketPath? {
-        guard let groupIdentifier = Self.groupIdentifier else { return nil }
-        return Self.socketPath(for: groupIdentifier)
-    }
-
-    private static let kRTCScreensharingSocketFD = "rtc_SSFD"
-
-    private static func socketPath(for groupIdentifier: String) -> SocketPath? {
-        guard let sharedContainer = FileManager.default
-            .containerURL(forSecurityApplicationGroupIdentifier: groupIdentifier)
-        else { return nil }
-        let path = sharedContainer.appendingPathComponent(Self.kRTCScreensharingSocketFD).path
-        return SocketPath(path)
     }
 }
 
