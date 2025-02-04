@@ -18,8 +18,7 @@
 
 import Foundation
 
-final class BroadcastBundleInfo {
-    
+enum BroadcastBundleInfo {
     /// Identifier of the app group shared by the primary app and broadcast extension.
     @BundleInfo("RTCAppGroupIdentifier")
     static var groupIdentifier: String?
@@ -33,7 +32,7 @@ final class BroadcastBundleInfo {
         guard let groupIdentifier else { return nil }
         return Self.socketPath(for: groupIdentifier)
     }
-    
+
     /// Whether or not a broadcast extension has been configured.
     static var hasExtension: Bool {
         socketPath != nil && screenSharingExtension != nil

@@ -37,7 +37,7 @@ public final class ScreenShareCaptureOptions: NSObject, VideoCaptureOptions, Sen
 
     @objc
     public let includeCurrentApplication: Bool
-    
+
     public static let defaultToBroadcastExtension: Bool = {
         #if os(iOS)
         return BroadcastBundleInfo.hasExtension

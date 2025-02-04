@@ -114,7 +114,7 @@ open class LKSampleHandler: RPBroadcastSampleHandler {
             finishBroadcastWithoutError()
         }
     }
-    
+
     private func finishBroadcastWithoutError() {
         LKObjCHelpers.finishBroadcastWithoutError(self)
     }
