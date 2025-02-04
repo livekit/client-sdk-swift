@@ -20,6 +20,9 @@
 enum BroadcastIPCHeader: Codable {
     /// Image sample sent by uploader.
     case image(BroadcastImageCodec.Metadata, VideoRotation)
+    
+    /// Audio sample sent by uploader.
+    case audio(BroadcastAudioCodec.Metadata)
 }
 
 #endif

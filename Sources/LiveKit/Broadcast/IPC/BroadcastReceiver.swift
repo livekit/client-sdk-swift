@@ -16,6 +16,7 @@
 
 #if os(iOS)
 
+import AVFoundation
 import CoreImage
 import Foundation
 
@@ -24,6 +25,7 @@ final class BroadcastReceiver: Sendable {
     /// Sample received from the other process with associated metadata.
     enum IncomingSample {
         case image(CVImageBuffer, VideoRotation)
+        case audio(AVAudioPCMBuffer)
     }
 
     enum Error: Swift.Error {
@@ -49,17 +51,22 @@ final class BroadcastReceiver: Sendable {
 
     struct AsyncSampleSequence: AsyncSequence, AsyncIteratorProtocol {
         fileprivate let upstream: IPCChannel.AsyncMessageSequence<BroadcastIPCHeader>
+        
         private let imageCodec = BroadcastImageCodec()
+        private let audioCodec = BroadcastAudioCodec()
 
         func next() async throws -> IncomingSample? {
-            guard let (header, payload) = try await upstream.next() else {
+            guard let (header, payload) = try await upstream.next(), let payload else {
                 return nil
             }
             switch header {
             case let .image(metadata, rotation):
-                guard let payload else { throw Error.missingSampleData }
                 let imageBuffer = try imageCodec.decode(payload, with: metadata)
                 return IncomingSample.image(imageBuffer, rotation)
+                
+            case let .audio(metadata):
+                let audioBuffer = try audioCodec.decode(payload, with: metadata)
+                return IncomingSample.audio(audioBuffer)
             }
         }
 

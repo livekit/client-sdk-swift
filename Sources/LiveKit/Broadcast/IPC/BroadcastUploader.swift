@@ -22,8 +22,11 @@ import ReplayKit
 /// Uploads broadcast samples to another process.
 final class BroadcastUploader: Sendable {
     private let channel: IPCChannel
+    
     private let imageCodec = BroadcastImageCodec()
+    private let audioCodec = BroadcastAudioCodec()
 
+    
     @Atomic private var isUploading = false
 
     enum Error: Swift.Error {
@@ -67,6 +70,10 @@ final class BroadcastUploader: Sendable {
         let header = BroadcastIPCHeader.image(metadata, rotation)
 
         try await channel.send(header: header, payload: imageData)
+    }
+    
+    private func sendAudio(_ sampleBuffer: CMSampleBuffer) async throws {
+        try audioCodec.encode(sampleBuffer)
     }
 }
 

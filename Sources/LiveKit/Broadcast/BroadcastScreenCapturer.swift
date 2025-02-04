@@ -66,7 +66,12 @@ class BroadcastScreenCapturer: BufferCapturer {
                     switch sample {
                     case let .image(imageBuffer, rotation):
                         self?.capture(imageBuffer, rotation: rotation)
+                        
+                    case let .audio(audioBuffer):
+                        logger.info("AA: Received audio sample: \(audioBuffer)")
+                        break
                     }
+                
                 }
                 logger.debug("Broadcast receiver closed")
             } catch {
