@@ -74,15 +74,15 @@ class AudioDeviceModuleDelegateAdapter: NSObject, LKRTCAudioDeviceModuleDelegate
         entryPoint?.engineWillRelease(engine)
     }
 
-    func audioDeviceModule(_: LKRTCAudioDeviceModule, engine: AVAudioEngine, configureInputFromSource src: AVAudioNode?, toDestination dst: AVAudioNode, format: AVAudioFormat) -> Bool {
-        guard let audioManager else { return false }
+    func audioDeviceModule(_: LKRTCAudioDeviceModule, engine: AVAudioEngine, configureInputFromSource src: AVAudioNode?, toDestination dst: AVAudioNode, format: AVAudioFormat, context: [AnyHashable: Any]) {
+        guard let audioManager else { return }
         let entryPoint = audioManager.buildEngineObserverChain()
-        return entryPoint?.engineWillConnectInput(engine, src: src, dst: dst, format: format) ?? false
+        entryPoint?.engineWillConnectInput(engine, src: src, dst: dst, format: format, context: context)
     }
 
-    func audioDeviceModule(_: LKRTCAudioDeviceModule, engine: AVAudioEngine, configureOutputFromSource src: AVAudioNode, toDestination dst: AVAudioNode?, format: AVAudioFormat) -> Bool {
-        guard let audioManager else { return false }
+    func audioDeviceModule(_: LKRTCAudioDeviceModule, engine: AVAudioEngine, configureOutputFromSource src: AVAudioNode, toDestination dst: AVAudioNode?, format: AVAudioFormat, context: [AnyHashable: Any]) {
+        guard let audioManager else { return }
         let entryPoint = audioManager.buildEngineObserverChain()
-        return entryPoint?.engineWillConnectOutput(engine, src: src, dst: dst, format: format) ?? false
+        entryPoint?.engineWillConnectOutput(engine, src: src, dst: dst, format: format, context: context)
     }
 }

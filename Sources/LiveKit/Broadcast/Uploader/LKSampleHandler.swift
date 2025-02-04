@@ -26,6 +26,7 @@ internal import Logging
 @_implementationOnly import Logging
 #endif
 
+import Combine
 import LKObjCHelpers
 import OSLog
 
@@ -33,13 +34,14 @@ import OSLog
 open class LKSampleHandler: RPBroadcastSampleHandler {
     private var clientConnection: BroadcastUploadSocketConnection?
     private var uploader: SampleUploader?
+    private var cancellable = Set<AnyCancellable>()
 
     override public init() {
         super.init()
         bootstrapLogging()
         logger.info("LKSampleHandler created")
 
-        let socketPath = BroadcastScreenCapturer.socketPath
+        let socketPath = BroadcastBundleInfo.socketPath
         if socketPath == nil {
             logger.error("Bundle settings improperly configured for screen capture")
         }
@@ -49,6 +51,14 @@ open class LKSampleHandler: RPBroadcastSampleHandler {
 
             uploader = SampleUploader(connection: connection)
         }
+
+        DarwinNotificationCenter.shared
+            .publisher(for: .broadcastRequestStop)
+            .sink { [weak self] _ in
+                logger.info("Received stop request")
+                self?.finishBroadcastWithoutError()
+            }
+            .store(in: &cancellable)
     }
 
     override public func broadcastStarted(withSetupInfo _: [String: NSObject]?) {
@@ -102,8 +112,12 @@ open class LKSampleHandler: RPBroadcastSampleHandler {
         if let error {
             finishBroadcastWithError(error)
         } else {
-            LKObjCHelpers.finishBroadcastWithoutError(self)
+            finishBroadcastWithoutError()
         }
+    }
+
+    private func finishBroadcastWithoutError() {
+        LKObjCHelpers.finishBroadcastWithoutError(self)
     }
 
     private func setupConnection() {
