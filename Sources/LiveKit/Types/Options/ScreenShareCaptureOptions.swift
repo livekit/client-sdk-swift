@@ -52,7 +52,7 @@ public final class ScreenShareCaptureOptions: NSObject, VideoCaptureOptions, Sen
     public init(dimensions: Dimensions = .h1080_169,
                 fps: Int = 30,
                 showCursor: Bool = true,
-                appAudio: Bool = true)
+                appAudio: Bool = true,
                 useBroadcastExtension: Bool = defaultToBroadcastExtension,
                 includeCurrentApplication: Bool = false)
     {
