@@ -61,6 +61,9 @@ class BroadcastScreenCapturer: BufferCapturer {
                 let receiver = try await BroadcastReceiver(socketPath: socketPath)
                 logger.debug("Broadcast receiver connected")
                 self?.receiver = receiver
+                
+                // TODO: Set based on capture options
+                try await receiver.enableAudio()
 
                 for try await sample in receiver.incomingSamples {
                     switch sample {
@@ -68,10 +71,10 @@ class BroadcastScreenCapturer: BufferCapturer {
                         self?.capture(imageBuffer, rotation: rotation)
                         
                     case let .audio(audioBuffer):
-                        logger.info("AA: Received audio sample: \(audioBuffer)")
+                        logger.info("Received audio sample: \(audioBuffer)")
+                        // TODO: Capture audio sample
                         break
                     }
-                
                 }
                 logger.debug("Broadcast receiver closed")
             } catch {

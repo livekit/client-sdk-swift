@@ -23,6 +23,9 @@ enum BroadcastIPCHeader: Codable {
     
     /// Audio sample sent by uploader.
     case audio(BroadcastAudioCodec.Metadata)
+    
+    /// Request sent by receiver to set audio demand.
+    case wantsAudio(Bool)
 }
 
 #endif

@@ -51,23 +51,27 @@ final class BroadcastReceiver: Sendable {
 
     struct AsyncSampleSequence: AsyncSequence, AsyncIteratorProtocol {
         fileprivate let upstream: IPCChannel.AsyncMessageSequence<BroadcastIPCHeader>
-        
+
         private let imageCodec = BroadcastImageCodec()
         private let audioCodec = BroadcastAudioCodec()
 
         func next() async throws -> IncomingSample? {
-            guard let (header, payload) = try await upstream.next(), let payload else {
-                return nil
+            while let (header, payload) = try await upstream.next(), let payload {
+                switch header {
+                case let .image(metadata, rotation):
+                    let imageBuffer = try imageCodec.decode(payload, with: metadata)
+                    return IncomingSample.image(imageBuffer, rotation)
+
+                case let .audio(metadata):
+                    let audioBuffer = try audioCodec.decode(payload, with: metadata)
+                    return IncomingSample.audio(audioBuffer)
+
+                default:
+                    logger.debug("Unhandled incoming message: \(header)")
+                    continue
+                }
             }
-            switch header {
-            case let .image(metadata, rotation):
-                let imageBuffer = try imageCodec.decode(payload, with: metadata)
-                return IncomingSample.image(imageBuffer, rotation)
-                
-            case let .audio(metadata):
-                let audioBuffer = try audioCodec.decode(payload, with: metadata)
-                return IncomingSample.audio(audioBuffer)
-            }
+            return nil
         }
 
         func makeAsyncIterator() -> Self { self }
@@ -80,6 +84,16 @@ final class BroadcastReceiver: Sendable {
 
     var incomingSamples: AsyncSampleSequence {
         AsyncSampleSequence(upstream: channel.incomingMessages(BroadcastIPCHeader.self))
+    }
+
+    /// Tells the uploader to begin sending audio samples.
+    func enableAudio() async throws {
+        try await channel.send(header: BroadcastIPCHeader.wantsAudio(true))
+    }
+
+    /// Tells the uploader to stop sending audio samples.
+    func disableAudio() async throws {
+        try await channel.send(header: BroadcastIPCHeader.wantsAudio(false))
     }
 }
 
