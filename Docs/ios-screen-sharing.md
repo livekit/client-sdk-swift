@@ -53,7 +53,7 @@ To use the Broadcast Capture mode, follow these steps to add a Broadcast Upload 
 2. From the template chooser, select "Broadcast Upload Extension"
 3. Name the extension (e.g. "BroadcastExtension").
 4. Press "Finish"
-5. From the "Signing & Capabilities" tab of the new target, change the bundle identifier to `<BUNDLE_ID>.broadcast`, replacing `<BUNDLE_ID>` with the bundle identifier of your primary app target.
+5. From the "Signing & Capabilities" tab of the new target, change the bundle identifier to be the same as your main app with `.broadcast` added to the end. To use a custom identifier, see *[Custom Identifiers](#custom-identifiers)* below.
 6. Replace the default content of `SampleHandler.swift` in the new target with the following:
 
 ```swift
@@ -77,7 +77,7 @@ In order for the broadcast extension to communicate with your app, they must be 
 2. Select the "Signing & Capabilities" tab and press the "+ Capability" button.
 3. Add the "App Groups" capability.
 4. Press "+" to add a new app group.
-5. Add the target to the group `group.<BUNDLE_ID>`, replacing `<BUNDLE_ID>` with the bundle identifier of your primary app target.
+5. Add the target to the group `group.<main-app-bundle-id>`. To use a custom identifier, see *[Custom Identifiers](#custom-identifiers)* below.
 
 #### 3. Begin Screen Share
 
@@ -131,12 +131,5 @@ BroadcastManager.shared.delegate = MyDelegate()
 
 #### Custom Identifiers
 
-By default, the app group identifier and broadcast extension bundle identifier must follow the format prescribed in the setup guide. If this is not suitable for your app, you can override the defaults:
-
-#### Custom app group identifier
-
-After adding your primary app target and broadcast extension target to a common app group with a custom identifier, set `RTCAppGroupIdentifier` in the Info.plist of **both targets** to your custom identifier.
-
-#### Custom extension bundle identifier
-
-Set `RTCScreenSharingExtension` in the Info.plist of your primary app target to the broadcast extension's bundle identifier.
+By default, the app group identifier is expected to be `group.<main-app-bundle-id>`, and the broadcast extension's bundle identifier is expected to be `<main-app-bundle-id>.broadcast`.
+To override these values, set `RTCAppGroupIdentifier` in Info.plist for both targets (both broadcast extension and main app), and set `RTCScreenSharingExtension` in Info.plist for your main app.
