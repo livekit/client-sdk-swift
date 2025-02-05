@@ -76,20 +76,14 @@ open class LKSampleHandler: RPBroadcastSampleHandler {
     }
 
     override public func processSampleBuffer(_ sampleBuffer: CMSampleBuffer, with type: RPSampleBufferType) {
-        guard let uploader else { return }
-        Task {
-            do {
-                try await uploader.upload(sampleBuffer, with: type)
-            } catch {
-                guard !uploader.isClosed else {
-                    finishBroadcastWithoutError()
-                    return
-                }
-                guard case .unsupportedSample = error as? BroadcastUploader.Error else {
-                    logger.error("Failed to send sample: \(error)")
-                    return
-                }
+        do {
+            try uploader?.upload(sampleBuffer, with: type)
+        } catch {
+            guard case .connectionClosed = error as? BroadcastUploader.Error else {
+                logger.error("Failed to send sample: \(error)")
+                return
             }
+            finishBroadcastWithoutError()
         }
     }
 

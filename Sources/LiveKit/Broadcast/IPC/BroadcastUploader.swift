@@ -25,12 +25,16 @@ final class BroadcastUploader: Sendable {
     
     private let imageCodec = BroadcastImageCodec()
     private let audioCodec = BroadcastAudioCodec()
-
     
-    @Atomic private var isUploading = false
+    private struct State {
+        var isUploadingImage = false
+    }
+    
+    private let state = StateSync(State())
 
     enum Error: Swift.Error {
         case unsupportedSample
+        case connectionClosed
     }
 
     /// Creates an uploader with an open connection to another process.
@@ -49,27 +53,34 @@ final class BroadcastUploader: Sendable {
     }
 
     /// Upload a sample from ReplayKit.
-    func upload(_ sampleBuffer: CMSampleBuffer, with type: RPSampleBufferType) async throws {
-        guard type == .video else { throw Error.unsupportedSample }
-        guard !isUploading else { return }
-        try await asyncDefer {
-            isUploading = true
-            try await sendImage(sampleBuffer)
-        } defer: {
-            isUploading = false
+    func upload(_ sampleBuffer: CMSampleBuffer, with type: RPSampleBufferType) throws {
+        guard !isClosed else {
+            throw Error.connectionClosed
         }
-    }
-
-    private func sendImage(_ sampleBuffer: CMSampleBuffer) async throws {
-        guard let imageBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else {
+        switch type {
+        case .video:
+            let canUpload = state.mutate {
+                guard !$0.isUploadingImage else { return false }
+                $0.isUploadingImage = true
+                return true
+            }
+            guard canUpload else { return }
+            
+            let rotation = VideoRotation(sampleBuffer.replayKitOrientation ?? .up)
+            do {
+                let (metadata, imageData) = try imageCodec.encode(sampleBuffer)
+                Task {
+                    let header = BroadcastIPCHeader.image(metadata, rotation)
+                    try await channel.send(header: header, payload: imageData)
+                    state.mutate { $0.isUploadingImage = false }
+                }
+            } catch {
+                state.mutate { $0.isUploadingImage = false }
+                throw error
+            }
+        default:
             throw Error.unsupportedSample
         }
-        let rotation = VideoRotation(sampleBuffer.replayKitOrientation ?? .up)
-
-        let (metadata, imageData) = try imageCodec.encode(imageBuffer)
-        let header = BroadcastIPCHeader.image(metadata, rotation)
-
-        try await channel.send(header: header, payload: imageData)
     }
     
     private func sendAudio(_ sampleBuffer: CMSampleBuffer) async throws {
@@ -97,20 +108,6 @@ private extension VideoRotation {
         case .right: self = ._270
         default: self = ._0
         }
-    }
-}
-
-private func asyncDefer<T>(
-    _ task: () async throws -> T,
-    defer cleanUp: () -> Void
-) async rethrows -> T {
-    do {
-        let result = try await task()
-        cleanUp()
-        return result
-    } catch {
-        cleanUp()
-        throw error
     }
 }
 

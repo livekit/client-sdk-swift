@@ -33,6 +33,13 @@ struct BroadcastImageCodec {
 
     let quality: CGFloat = 1.0
 
+    func encode(_ sampleBuffer: CMSampleBuffer) throws -> (Metadata, Data) {
+        guard let imageBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else {
+            throw Error.encodingFailed
+        }
+        return try encode(imageBuffer)
+    }
+    
     func encode(_ imageBuffer: CVPixelBuffer) throws -> (Metadata, Data) {
         CVPixelBufferLockBaseAddress(imageBuffer, .readOnly)
         defer { CVPixelBufferUnlockBaseAddress(imageBuffer, .readOnly) }
