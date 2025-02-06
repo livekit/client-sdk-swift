@@ -52,6 +52,9 @@ class BroadcastScreenCapturer: BufferCapturer {
     }
 
     private func createReceiver() -> Bool {
+        guard receiver == nil else {
+            return false
+        }
         guard let socketPath = BroadcastBundleInfo.socketPath else {
             logger.error("Bundle settings improperly configured for screen capture")
             return false
