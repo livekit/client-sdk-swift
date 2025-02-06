@@ -29,6 +29,7 @@ internal import LiveKitWebRTC
 #endif
 
 class BroadcastScreenCapturer: BufferCapturer {
+    private let includeAudio: Bool
     private var receiver: BroadcastReceiver?
 
     override func startCapture() async throws -> Bool {
@@ -50,25 +51,27 @@ class BroadcastScreenCapturer: BufferCapturer {
         set(dimensions: targetDimensions)
         return createReceiver()
     }
-
+    
     private func createReceiver() -> Bool {
         guard let socketPath = BroadcastBundleInfo.socketPath else {
             logger.error("Bundle settings improperly configured for screen capture")
             return false
         }
         Task { [weak self] in
+            guard let self else { return }
             do {
                 let receiver = try await BroadcastReceiver(socketPath: socketPath)
                 logger.debug("Broadcast receiver connected")
-                self?.receiver = receiver
+                self.receiver = receiver
                 
-                // TODO: Set based on capture options
-                try await receiver.enableAudio()
-
+                if self.includeAudio {
+                    try await receiver.enableAudio()
+                }
+                    
                 for try await sample in receiver.incomingSamples {
                     switch sample {
                     case let .image(imageBuffer, rotation):
-                        self?.capture(imageBuffer, rotation: rotation)
+                        self.capture(imageBuffer, rotation: rotation)
                         
                     case let .audio(audioBuffer):
                         let node = AudioManager.shared.mixer.appAudioNode
@@ -83,7 +86,7 @@ class BroadcastScreenCapturer: BufferCapturer {
             } catch {
                 logger.error("Broadcast receiver error: \(error)")
             }
-            _ = try? await self?.stopCapture()
+            _ = try? await self.stopCapture()
         }
         return true
     }
@@ -96,6 +99,11 @@ class BroadcastScreenCapturer: BufferCapturer {
         receiver?.close()
         return true
     }
+    
+    init(delegate: LKRTCVideoCapturerDelegate, options: ScreenShareCaptureOptions) {
+        includeAudio = options.includeAudio
+        super.init(delegate: delegate, options: BufferCaptureOptions(from: options))
+    }
 }
 
 public extension LocalVideoTrack {
@@ -106,7 +114,7 @@ public extension LocalVideoTrack {
                                                    reportStatistics: Bool = false) -> LocalVideoTrack
     {
         let videoSource = RTC.createVideoSource(forScreenShare: true)
-        let capturer = BroadcastScreenCapturer(delegate: videoSource, options: BufferCaptureOptions(from: options))
+        let capturer = BroadcastScreenCapturer(delegate: videoSource, options: options)
         return LocalVideoTrack(
             name: name,
             source: source,
