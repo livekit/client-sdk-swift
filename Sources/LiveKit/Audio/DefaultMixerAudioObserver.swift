@@ -28,21 +28,6 @@ enum AudioPort: Sendable {
 }
 
 public final class DefaultMixerAudioObserver: AudioEngineObserver, Loggable {
-    // <AVAudioFormat 0x600003055180:  2 ch,  48000 Hz, Float32, deinterleaved>
-    let appAudioNodeFormat = AVAudioFormat(commonFormat: .pcmFormatFloat32,
-                                         sampleRate: 48000,
-                                         channels: 2,
-                                         interleaved: false)
-
-    struct State {
-        var next: (any AudioEngineObserver)?
-        public let appAudioNode = AVAudioPlayerNode()
-        public let appAudioMixerNode = AVAudioMixerNode()
-        public let micMixerNode = AVAudioMixerNode()
-    }
-
-    let _state = StateSync(State())
-
     public var next: (any AudioEngineObserver)? {
         get { _state.next }
         set { _state.mutate { $0.next = newValue } }
@@ -56,9 +41,24 @@ public final class DefaultMixerAudioObserver: AudioEngineObserver, Loggable {
 
     // MARK: - Internal
 
+    // <AVAudioFormat 0x600003055180:  2 ch,  48000 Hz, Float32, deinterleaved>
+    let appAudioNodeFormat = AVAudioFormat(commonFormat: .pcmFormatFloat32,
+                                           sampleRate: 48000,
+                                           channels: 2,
+                                           interleaved: false)
+
     var appAudioNode: AVAudioPlayerNode {
         _state.read { $0.appAudioNode }
     }
+
+    struct State {
+        var next: (any AudioEngineObserver)?
+        public let appAudioNode = AVAudioPlayerNode()
+        public let appAudioMixerNode = AVAudioMixerNode()
+        public let micMixerNode = AVAudioMixerNode()
+    }
+
+    let _state = StateSync(State())
 
     public init() {}
 
