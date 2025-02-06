@@ -124,7 +124,9 @@ final class IPCChannel: Sendable {
                 return try (decoder.decode(Header.self, from: data), nil)
             }
             let headerSize = data.count - payloadSize
-            let (headerData, payloadData) = data.partition(bytesInFirst: headerSize)
+            guard let (headerData, payloadData) = data.partition(bytesInFirst: headerSize) else {
+                throw Error.corruptMessage
+            }
             return try (decoder.decode(Header.self, from: headerData), payloadData)
         }
 
@@ -146,12 +148,12 @@ final class IPCChannel: Sendable {
 
 // MARK: - Extensions
 
-private extension Data {
-    func partition(bytesInFirst: Int) -> (Data, Data) {
-        guard bytesInFirst > 0 else { return (Data(), self) }
+extension Data {
+    func partition(bytesInFirst: Int) -> (Data, Data)? {
+        guard (0...count).contains(bytesInFirst) else { return nil }
         return (
-            subdata(in: 0 ..< Swift.min(bytesInFirst, count)),
-            subdata(in: Swift.min(bytesInFirst, count) ..< count)
+            subdata(in: 0 ..< bytesInFirst),
+            subdata(in: bytesInFirst ..< count)
         )
     }
 }
