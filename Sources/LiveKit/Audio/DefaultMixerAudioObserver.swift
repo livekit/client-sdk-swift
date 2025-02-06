@@ -22,11 +22,6 @@ internal import LiveKitWebRTC
 @_implementationOnly import LiveKitWebRTC
 #endif
 
-enum AudioPort: Sendable {
-    case defaultInput
-    case custom(AVAudioPlayerNode)
-}
-
 public final class DefaultMixerAudioObserver: AudioEngineObserver, Loggable {
     public var next: (any AudioEngineObserver)? {
         get { _state.next }
@@ -34,27 +29,36 @@ public final class DefaultMixerAudioObserver: AudioEngineObserver, Loggable {
     }
 
     /// Adjust the volume of captured app audio. Range is 0.0 ~ 1.0.
-    public var appAudioVolume: Float {
-        get { _state.read { $0.appAudioMixerNode.outputVolume } }
-        set { _state.mutate { $0.appAudioMixerNode.outputVolume = newValue } }
+    public var appVolume: Float {
+        get { _state.read { $0.appMixerNode.outputVolume } }
+        set { _state.mutate { $0.appMixerNode.outputVolume = newValue } }
+    }
+
+    /// Adjust the volume of microphone audio. Range is 0.0 ~ 1.0.
+    public var micVolume: Float {
+        get { _state.read { $0.micMixerNode.outputVolume } }
+        set { _state.mutate { $0.micMixerNode.outputVolume = newValue } }
     }
 
     // MARK: - Internal
 
-    // <AVAudioFormat 0x600003055180:  2 ch,  48000 Hz, Float32, deinterleaved>
-    let appAudioNodeFormat = AVAudioFormat(commonFormat: .pcmFormatFloat32,
-                                           sampleRate: 48000,
-                                           channels: 2,
-                                           interleaved: false)
-
     var appAudioNode: AVAudioPlayerNode {
-        _state.read { $0.appAudioNode }
+        _state.read { $0.appNode }
+    }
+
+    var micAudioNode: AVAudioPlayerNode {
+        _state.read { $0.micNode }
     }
 
     struct State {
         var next: (any AudioEngineObserver)?
-        public let appAudioNode = AVAudioPlayerNode()
-        public let appAudioMixerNode = AVAudioMixerNode()
+
+        // AppAudio
+        public let appNode = AVAudioPlayerNode()
+        public let appMixerNode = AVAudioMixerNode()
+
+        // Not connected for device rendering mode.
+        public let micNode = AVAudioPlayerNode()
         public let micMixerNode = AVAudioMixerNode()
     }
 
@@ -67,12 +71,13 @@ public final class DefaultMixerAudioObserver: AudioEngineObserver, Loggable {
     }
 
     public func engineDidCreate(_ engine: AVAudioEngine) {
-        let (playerNode, playerMixerNode, micMixerNode) = _state.read {
-            ($0.appAudioNode, $0.appAudioMixerNode, $0.micMixerNode)
+        let (appNode, appMixerNode, micNode, micMixerNode) = _state.read {
+            ($0.appNode, $0.appMixerNode, $0.micNode, $0.micMixerNode)
         }
 
-        engine.attach(playerNode)
-        engine.attach(playerMixerNode)
+        engine.attach(appNode)
+        engine.attach(appMixerNode)
+        engine.attach(micNode)
         engine.attach(micMixerNode)
 
         // Invoke next
@@ -83,12 +88,13 @@ public final class DefaultMixerAudioObserver: AudioEngineObserver, Loggable {
         // Invoke next
         next?.engineWillRelease(engine)
 
-        let (playerNode, playerMixerNode, micMixerNode) = _state.read {
-            ($0.appAudioNode, $0.appAudioMixerNode, $0.micMixerNode)
+        let (appNode, appMixerNode, micNode, micMixerNode) = _state.read {
+            ($0.appNode, $0.appMixerNode, $0.micNode, $0.micMixerNode)
         }
 
-        engine.detach(playerNode)
-        engine.detach(playerMixerNode)
+        engine.detach(appNode)
+        engine.detach(appMixerNode)
+        engine.detach(micNode)
         engine.detach(micMixerNode)
     }
 
@@ -101,20 +107,40 @@ public final class DefaultMixerAudioObserver: AudioEngineObserver, Loggable {
         }
 
         // Read nodes from state lock.
-        let (appAudioNode, appAudioMixerNode, micMixerNode) = _state.read {
-            ($0.appAudioNode, $0.appAudioMixerNode, $0.micMixerNode)
+        let (appNode, appMixerNode, micNode, micMixerNode) = _state.read {
+            ($0.appNode, $0.appMixerNode, $0.micNode, $0.micMixerNode)
         }
 
+        // TODO: Investigate if possible to get this format prior to starting screen capture.
+        // <AVAudioFormat 0x600003055180:  2 ch,  48000 Hz, Float32, deinterleaved>
+        let appAudioNodeFormat = AVAudioFormat(commonFormat: .pcmFormatFloat32,
+                                               sampleRate: format.sampleRate, // Assume same sample rate
+                                               channels: 2,
+                                               interleaved: false)
+
+        log("Connecting app -> appMixer -> mainMixer")
         // appAudio -> appAudioMixer -> mainMixer
-        engine.connect(appAudioNode, to: appAudioMixerNode, format: appAudioNodeFormat)
-        engine.connect(appAudioMixerNode, to: mainMixerNode, format: format)
+        engine.connect(appNode, to: appMixerNode, format: appAudioNodeFormat)
+        engine.connect(appMixerNode, to: mainMixerNode, format: format)
 
+        // src is not null if device rendering mode.
         if let src {
-            log("Connecting src to micMixer -> mainMixer")
-            // mic -> micMixer -> mainMixer
+            log("Connecting src (device) to micMixer -> mainMixer")
+            // mic (device) -> micMixer -> mainMixer
             engine.connect(src, to: micMixerNode, format: format)
-            engine.connect(micMixerNode, to: mainMixerNode, format: format)
         }
+
+        // TODO: Investigate if possible to get this format prior to starting screen capture.
+        let micNodeFormat = AVAudioFormat(commonFormat: .pcmFormatFloat32,
+                                          sampleRate: format.sampleRate, // Assume same sample rate
+                                          channels: 1, // Mono
+                                          interleaved: false)
+
+        log("Connecting micAudio (player) to micMixer -> mainMixer")
+        // mic (player) -> micMixer -> mainMixer
+        engine.connect(micNode, to: micMixerNode, format: micNodeFormat)
+        // Always connect micMixer to mainMixer
+        engine.connect(micMixerNode, to: mainMixerNode, format: format)
 
         // Invoke next
         next?.engineWillConnectInput(engine, src: src, dst: dst, format: format, context: context)
