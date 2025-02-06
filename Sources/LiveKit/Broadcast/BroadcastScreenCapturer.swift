@@ -71,9 +71,12 @@ class BroadcastScreenCapturer: BufferCapturer {
                         self?.capture(imageBuffer, rotation: rotation)
                         
                     case let .audio(audioBuffer):
-                        logger.info("Received audio sample: \(audioBuffer)")
-                        // TODO: Capture audio sample
-                        break
+                        let node = AudioManager.shared.mixer.appAudioNode
+                        guard let engine = node.engine, engine.isRunning else { continue }
+                        Task {
+                            await node.scheduleBuffer(audioBuffer)
+                            if !node.isPlaying { node.play() }
+                        }
                     }
                 }
                 logger.debug("Broadcast receiver closed")
