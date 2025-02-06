@@ -190,7 +190,7 @@ private extension NWConnection {
             case .setup, .preparing: continue
             case .waiting:
                 // Will enter this state when socket path does not exist yet
-                let restartDelay = UInt64(IPCChannel.restartDelay * 1_000_000_000)
+                let restartDelay = UInt64(IPCChannel.restartDelay) * NSEC_PER_SEC
                 try await Task.sleep(nanoseconds: restartDelay)
                 restart()
                 continue
