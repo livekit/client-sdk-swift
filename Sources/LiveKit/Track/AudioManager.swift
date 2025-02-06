@@ -255,7 +255,7 @@ public class AudioManager: Loggable {
         _state.mutate { $0.engineObservers = engineObservers }
     }
 
-    public let ports = AudioPortManager()
+    public let screenShare = DefaultScreenShareAudioObserver()
 
     // MARK: - For testing
 
@@ -308,10 +308,9 @@ public class AudioManager: Loggable {
     init() {
         #if os(iOS) || os(visionOS) || os(tvOS)
         let playerNode = ports.node(for: "default")
-        let engineObservers: [any AudioEngineObserver] = [DefaultAudioSessionObserver(), DefaultAudioInputObserver(playerNode: playerNode)]
+        let engineObservers: [any AudioEngineObserver] = [DefaultAudioSessionObserver(), obs]
         #else
-        let playerNode = ports.node(for: "default")
-        let engineObservers: [any AudioEngineObserver] = [DefaultAudioInputObserver(playerNode: playerNode)]
+        let engineObservers: [any AudioEngineObserver] = [screenShare]
         #endif
         _state = StateSync(State(engineObservers: engineObservers))
         _admDelegateAdapter.audioManager = self
