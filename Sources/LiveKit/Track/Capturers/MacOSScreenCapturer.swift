@@ -219,7 +219,7 @@ extension MacOSScreenCapturer: SCStreamOutput {
 
         if case .audio = outputType {
             if let pcm = sampleBuffer.toAVAudioPCMBuffer() {
-                let node = AudioManager.shared.screenShare.appAudioNode
+                let node = AudioManager.shared.mixer.appAudioNode
                 if let engine = node.engine, engine.isRunning {
                     node.scheduleBuffer(pcm)
                     if !node.isPlaying {

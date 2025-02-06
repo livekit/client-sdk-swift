@@ -27,9 +27,9 @@ enum AudioPort: Sendable {
     case custom(AVAudioPlayerNode)
 }
 
-public final class DefaultScreenShareAudioObserver: AudioEngineObserver, Loggable {
+public final class DefaultMixerAudioObserver: AudioEngineObserver, Loggable {
     // <AVAudioFormat 0x600003055180:  2 ch,  48000 Hz, Float32, deinterleaved>
-    let playerNodeFormat = AVAudioFormat(commonFormat: .pcmFormatFloat32,
+    let appAudioNodeFormat = AVAudioFormat(commonFormat: .pcmFormatFloat32,
                                          sampleRate: 48000,
                                          channels: 2,
                                          interleaved: false)
@@ -48,14 +48,16 @@ public final class DefaultScreenShareAudioObserver: AudioEngineObserver, Loggabl
         set { _state.mutate { $0.next = newValue } }
     }
 
-    public var appAudioNode: AVAudioPlayerNode {
-        _state.read { $0.appAudioNode }
-    }
-
     /// Adjust the volume of captured app audio. Range is 0.0 ~ 1.0.
     public var appAudioVolume: Float {
         get { _state.read { $0.appAudioMixerNode.outputVolume } }
         set { _state.mutate { $0.appAudioMixerNode.outputVolume = newValue } }
+    }
+
+    // MARK: - Internal
+
+    var appAudioNode: AVAudioPlayerNode {
+        _state.read { $0.appAudioNode }
     }
 
     public init() {}
@@ -72,8 +74,6 @@ public final class DefaultScreenShareAudioObserver: AudioEngineObserver, Loggabl
         engine.attach(playerNode)
         engine.attach(playerMixerNode)
         engine.attach(micMixerNode)
-
-        micMixerNode.outputVolume = 0.0
 
         // Invoke next
         next?.engineDidCreate(engine)
@@ -92,19 +92,31 @@ public final class DefaultScreenShareAudioObserver: AudioEngineObserver, Loggabl
         engine.detach(micMixerNode)
     }
 
-    public func engineWillConnectInput(_ engine: AVAudioEngine, src: AVAudioNode?, dst: AVAudioNode, format: AVAudioFormat, context _: [AnyHashable: Any]) {
-        let (playerNode, playerMixerNode, micMixerNode) = _state.read {
+    public func engineWillConnectInput(_ engine: AVAudioEngine, src: AVAudioNode?, dst: AVAudioNode, format: AVAudioFormat, context: [AnyHashable: Any]) {
+        // Get the main mixer
+        guard let mainMixerNode = context[kRTCAudioEngineInputMixerNodeKey] as? AVAudioMixerNode else {
+            // If failed to get main mixer, call next and return.
+            next?.engineWillConnectInput(engine, src: src, dst: dst, format: format, context: context)
+            return
+        }
+
+        // Read nodes from state lock.
+        let (appAudioNode, appAudioMixerNode, micMixerNode) = _state.read {
             ($0.appAudioNode, $0.appAudioMixerNode, $0.micMixerNode)
         }
 
-        // inputPlayer -> playerMixer -> mainMixer
-        engine.connect(playerNode, to: playerMixerNode, format: playerNodeFormat)
-        engine.connect(playerMixerNode, to: dst, format: format)
+        // appAudio -> appAudioMixer -> mainMixer
+        engine.connect(appAudioNode, to: appAudioMixerNode, format: appAudioNodeFormat)
+        engine.connect(appAudioMixerNode, to: mainMixerNode, format: format)
 
         if let src {
+            log("Connecting src to micMixer -> mainMixer")
             // mic -> micMixer -> mainMixer
             engine.connect(src, to: micMixerNode, format: format)
-            engine.connect(micMixerNode, to: dst, format: format)
+            engine.connect(micMixerNode, to: mainMixerNode, format: format)
         }
+
+        // Invoke next
+        next?.engineWillConnectInput(engine, src: src, dst: dst, format: format, context: context)
     }
 }
