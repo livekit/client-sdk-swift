@@ -307,8 +307,7 @@ public class AudioManager: Loggable {
 
     init() {
         #if os(iOS) || os(visionOS) || os(tvOS)
-        let playerNode = ports.node(for: "default")
-        let engineObservers: [any AudioEngineObserver] = [DefaultAudioSessionObserver(), obs]
+        let engineObservers: [any AudioEngineObserver] = [DefaultAudioSessionObserver(), screenShare]
         #else
         let engineObservers: [any AudioEngineObserver] = [screenShare]
         #endif
