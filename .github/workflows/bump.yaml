@@ -2,7 +2,7 @@ name: Bump version
 on:
   workflow_dispatch:
 env:
-    PACKAGE_NAME: LiveKit
+    PACKAGE_NAME: client-sdk-swift
 jobs:
   bump:
     runs-on: ubuntu-latest
