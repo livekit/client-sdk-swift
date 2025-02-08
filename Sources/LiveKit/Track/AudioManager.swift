@@ -241,6 +241,9 @@ public class AudioManager: Loggable {
     /// Starts mic input to the SDK even without any ``Room`` or a connection.
     /// Audio buffers will flow into ``LocalAudioTrack/add(audioRenderer:)`` and ``capturePostProcessingDelegate``.
     public func startLocalRecording() {
+        // Always unmute APM if muted by last session.
+        RTC.audioProcessingModule.isMuted = false
+        // Start recording on the ADM.
         RTC.audioDeviceModule.initAndStartRecording()
     }
 
