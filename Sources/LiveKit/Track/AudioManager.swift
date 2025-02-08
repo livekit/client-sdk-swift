@@ -258,6 +258,11 @@ public class AudioManager: Loggable {
         _state.mutate { $0.engineObservers = engineObservers }
     }
 
+    public var isLegacyMuteMode: Bool {
+        get { RTC.audioDeviceModule.muteMode == .restartEngine }
+        set { RTC.audioDeviceModule.muteMode = newValue ? .restartEngine : .voiceProcessing }
+    }
+
     // MARK: - For testing
 
     var isPlayoutInitialized: Bool {
