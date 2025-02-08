@@ -258,6 +258,12 @@ public class AudioManager: Loggable {
         _state.mutate { $0.engineObservers = engineObservers }
     }
 
+    /// Set to `true` to enable legacy mic mute mode.
+    ///
+    /// - Default: Uses `AVAudioEngine`'s `isVoiceProcessingInputMuted` internally.
+    ///   This is fast, and muted speaker detection works. However, iOS will play a sound effect.
+    /// - Legacy: Restarts the internal `AVAudioEngine` without mic input when muted.
+    ///   This is slower, and muted speaker detection does not work. No sound effect is played.
     public var isLegacyMuteMode: Bool {
         get { RTC.audioDeviceModule.muteMode == .restartEngine }
         set { RTC.audioDeviceModule.muteMode = newValue ? .restartEngine : .voiceProcessing }
