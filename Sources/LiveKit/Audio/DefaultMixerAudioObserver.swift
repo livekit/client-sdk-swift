@@ -50,6 +50,10 @@ public final class DefaultMixerAudioObserver: AudioEngineObserver, Loggable {
         _state.read { $0.micNode }
     }
 
+    var isConnected: Bool {
+        _state.read { $0.isConnected }
+    }
+
     struct State {
         var next: (any AudioEngineObserver)?
 
@@ -60,6 +64,8 @@ public final class DefaultMixerAudioObserver: AudioEngineObserver, Loggable {
         // Not connected for device rendering mode.
         public let micNode = AVAudioPlayerNode()
         public let micMixerNode = AVAudioMixerNode()
+
+        public var isConnected: Bool = false
     }
 
     let _state = StateSync(State())
@@ -141,6 +147,8 @@ public final class DefaultMixerAudioObserver: AudioEngineObserver, Loggable {
         engine.connect(micNode, to: micMixerNode, format: micNodeFormat)
         // Always connect micMixer to mainMixer
         engine.connect(micMixerNode, to: mainMixerNode, format: format)
+
+        _state.mutate { $0.isConnected = true }
 
         // Invoke next
         next?.engineWillConnectInput(engine, src: src, dst: dst, format: format, context: context)
