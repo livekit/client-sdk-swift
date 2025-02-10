@@ -23,7 +23,7 @@ class AudioRecorder {
     public let filePath: URL
     private var audioFile: AVAudioFile?
 
-    init(sampleRate: Double = 16000, channels: Int = 1) throws {
+    init(sampleRate: Double = 48000, channels: Int = 1) throws {
         self.sampleRate = sampleRate
 
         let settings: [String: Any] = [

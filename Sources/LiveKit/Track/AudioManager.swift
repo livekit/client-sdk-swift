@@ -271,6 +271,20 @@ public class AudioManager: Loggable {
 
     // MARK: - For testing
 
+    var isEngineRunning: Bool {
+        RTC.audioDeviceModule.isEngineRunning
+    }
+
+    var isMicrophoneMuted: Bool {
+        get { RTC.audioDeviceModule.isMicrophoneMuted }
+        set { RTC.audioDeviceModule.isMicrophoneMuted = newValue }
+    }
+
+    var engineState: RTCAudioEngineState {
+        get { RTC.audioDeviceModule.engineState }
+        set { RTC.audioDeviceModule.engineState = newValue }
+    }
+
     var isPlayoutInitialized: Bool {
         RTC.audioDeviceModule.isPlayoutInitialized
     }
