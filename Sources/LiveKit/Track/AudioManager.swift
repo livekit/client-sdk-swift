@@ -241,6 +241,9 @@ public class AudioManager: Loggable {
     /// Starts mic input to the SDK even without any ``Room`` or a connection.
     /// Audio buffers will flow into ``LocalAudioTrack/add(audioRenderer:)`` and ``capturePostProcessingDelegate``.
     public func startLocalRecording() {
+        // Always unmute APM if muted by last session.
+        RTC.audioProcessingModule.isMuted = false
+        // Start recording on the ADM.
         RTC.audioDeviceModule.initAndStartRecording()
     }
 
@@ -257,7 +260,32 @@ public class AudioManager: Loggable {
 
     public let mixer = DefaultMixerAudioObserver()
 
+    /// Set to `true` to enable legacy mic mute mode.
+    ///
+    /// - Default: Uses `AVAudioEngine`'s `isVoiceProcessingInputMuted` internally.
+    ///   This is fast, and muted speaker detection works. However, iOS will play a sound effect.
+    /// - Legacy: Restarts the internal `AVAudioEngine` without mic input when muted.
+    ///   This is slower, and muted speaker detection does not work. No sound effect is played.
+    public var isLegacyMuteMode: Bool {
+        get { RTC.audioDeviceModule.muteMode == .restartEngine }
+        set { RTC.audioDeviceModule.muteMode = newValue ? .restartEngine : .voiceProcessing }
+    }
+
     // MARK: - For testing
+
+    var isEngineRunning: Bool {
+        RTC.audioDeviceModule.isEngineRunning
+    }
+
+    var isMicrophoneMuted: Bool {
+        get { RTC.audioDeviceModule.isMicrophoneMuted }
+        set { RTC.audioDeviceModule.isMicrophoneMuted = newValue }
+    }
+
+    var engineState: RTCAudioEngineState {
+        get { RTC.audioDeviceModule.engineState }
+        set { RTC.audioDeviceModule.engineState = newValue }
+    }
 
     var isPlayoutInitialized: Bool {
         RTC.audioDeviceModule.isPlayoutInitialized
