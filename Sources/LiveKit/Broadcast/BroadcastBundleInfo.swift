@@ -18,8 +18,7 @@
 
 import Foundation
 
-final class BroadcastBundleInfo {
-    
+enum BroadcastBundleInfo {
     /// Identifier of the app group shared by the primary app and broadcast extension.
     static var groupIdentifier: String? {
         if let override = groupIdentifierOverride { return override }
@@ -40,7 +39,7 @@ final class BroadcastBundleInfo {
         guard let groupIdentifier else { return nil }
         return Self.socketPath(for: groupIdentifier)
     }
-    
+
     /// Whether or not a broadcast extension has been configured.
     static var hasExtension: Bool {
         socketPath != nil && screenSharingExtension != nil
