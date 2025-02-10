@@ -1,8 +1,8 @@
 name: Push to Cocoapods
 on:
   workflow_dispatch:
-  push:
-    tags: ['*']
+  release:
+    types: [published]
 env:
     PODSPEC_FILE: LiveKitClient.podspec
 jobs:
