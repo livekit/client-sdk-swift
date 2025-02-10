@@ -51,7 +51,7 @@ struct TestEngineStep {
     let assert: TestEngineAssert
 }
 
-extension RTCAudioEngineState: @retroactive CustomStringConvertible {
+extension RTCAudioEngineState: CustomStringConvertible {
     public var description: String {
         "EngineState(" +
             "outputEnabled: \(outputEnabled), " +
