@@ -18,7 +18,6 @@
 
 import AVFoundation
 import CoreImage
-import Foundation
 
 /// Receives broadcast samples from another process.
 final class BroadcastReceiver: Sendable {
