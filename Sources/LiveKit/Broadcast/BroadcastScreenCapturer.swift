@@ -29,7 +29,7 @@ internal import LiveKitWebRTC
 #endif
 
 class BroadcastScreenCapturer: BufferCapturer {
-    private let includeAudio: Bool
+    private let appAudio: Bool
     private var receiver: BroadcastReceiver?
 
     override func startCapture() async throws -> Bool {
@@ -64,7 +64,7 @@ class BroadcastScreenCapturer: BufferCapturer {
                 logger.debug("Broadcast receiver connected")
                 self.receiver = receiver
                 
-                if self.includeAudio {
+                if self.appAudio {
                     try await receiver.enableAudio()
                 }
                     
@@ -101,7 +101,7 @@ class BroadcastScreenCapturer: BufferCapturer {
     }
     
     init(delegate: LKRTCVideoCapturerDelegate, options: ScreenShareCaptureOptions) {
-        includeAudio = options.includeAudio
+        appAudio = options.appAudio
         super.init(delegate: delegate, options: BufferCaptureOptions(from: options))
     }
 }
