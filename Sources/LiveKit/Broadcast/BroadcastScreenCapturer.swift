@@ -70,16 +70,8 @@ class BroadcastScreenCapturer: BufferCapturer {
                     
                 for try await sample in receiver.incomingSamples {
                     switch sample {
-                    case let .image(imageBuffer, rotation):
-                        self.capture(imageBuffer, rotation: rotation)
-                        
-                    case let .audio(audioBuffer):
-                        let node = AudioManager.shared.mixer.appAudioNode
-                        guard let engine = node.engine, engine.isRunning else { continue }
-                        Task {
-                            await node.scheduleBuffer(audioBuffer)
-                            if !node.isPlaying { node.play() }
-                        }
+                    case let .image(buffer, rotation): self.capture(buffer, rotation: rotation)
+                    case let .audio(buffer): self.capture(buffer)
                     }
                 }
                 logger.debug("Broadcast receiver closed")
@@ -89,6 +81,15 @@ class BroadcastScreenCapturer: BufferCapturer {
             _ = try? await self.stopCapture()
         }
         return true
+    }
+    
+    /// Helper function to schedule audio buffers on the app audio node.
+    private func capture(_ audioBuffer: AVAudioPCMBuffer) {
+        let mixer = AudioManager.shared.mixer
+        let node = mixer.appAudioNode
+        guard mixer.isConnected, let engine = node.engine, engine.isRunning else { return }
+        node.scheduleBuffer(audioBuffer)
+        if !node.isPlaying { node.play() }
     }
 
     override func stopCapture() async throws -> Bool {
