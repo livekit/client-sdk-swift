@@ -154,3 +154,29 @@ public final class DefaultMixerAudioObserver: AudioEngineObserver, Loggable {
         next?.engineWillConnectInput(engine, src: src, dst: dst, format: format, context: context)
     }
 }
+
+private extension AVAudioFormat {
+    
+    /// Audio format of ReplayKit samples for app audio.
+    ///
+    /// - This format is big-endian, and hence is not a standard format.
+    /// - For app audio only; microphone uses a different format.
+    ///
+    static var replayKitAppAudio: AVAudioFormat {
+        var description = AudioStreamBasicDescription(
+            mSampleRate: 44100.0,
+            mFormatID: kAudioFormatLinearPCM,
+            mFormatFlags:
+                kAudioFormatFlagIsBigEndian |
+                kAudioFormatFlagIsSignedInteger |
+                kAudioFormatFlagIsPacked,
+            mBytesPerPacket: 4,
+            mFramesPerPacket: 1,
+            mBytesPerFrame: 4,
+            mChannelsPerFrame: 2,
+            mBitsPerChannel: 16,
+            mReserved: 0 // as per documentation
+        )
+        return AVAudioFormat(streamDescription: &description)!
+    }
+}
