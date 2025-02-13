@@ -20,19 +20,12 @@ import Foundation
 
 enum BroadcastBundleInfo {
     /// Identifier of the app group shared by the primary app and broadcast extension.
-    static var groupIdentifier: String? {
-        if let override = groupIdentifierOverride { return override }
-        guard let bundleIdentifier = Bundle.main.bundleIdentifier else { return nil }
-        let appBundleIdentifier = bundleIdentifier.dropSuffix(".\(extensionSuffix)") ?? bundleIdentifier
-        return "group.\(appBundleIdentifier)"
-    }
-    
+    @BundleInfo("RTCAppGroupIdentifier")
+    static var groupIdentifier: String?
+
     /// Bundle identifier of the broadcast extension.
-    static var screenSharingExtension: String? {
-        if let override = screenSharingExtensionOverride { return override }
-        guard let bundleIdentifier = Bundle.main.bundleIdentifier else { return nil }
-        return "\(bundleIdentifier).\(extensionSuffix)"
-    }
+    @BundleInfo("RTCScreenSharingExtension")
+    static var screenSharingExtension: String?
 
     /// Path to the socket file used for interprocess communication.
     static var socketPath: SocketPath? {
@@ -44,14 +37,7 @@ enum BroadcastBundleInfo {
     static var hasExtension: Bool {
         socketPath != nil && screenSharingExtension != nil
     }
-    
-    @BundleInfo("RTCAppGroupIdentifier")
-    private static var groupIdentifierOverride: String?
 
-    @BundleInfo("RTCScreenSharingExtension")
-    private static var screenSharingExtensionOverride: String?
-
-    private static let extensionSuffix = "broadcast"
     private static let socketFileDescriptor = "rtc_SSFD"
 
     private static func socketPath(for groupIdentifier: String) -> SocketPath? {
@@ -60,14 +46,6 @@ enum BroadcastBundleInfo {
         else { return nil }
         let path = sharedContainer.appendingPathComponent(Self.socketFileDescriptor).path
         return SocketPath(path)
-    }
-}
-
-private extension String {
-    func dropSuffix(_ suffix: String) -> Self? {
-        guard hasSuffix(suffix) else { return nil }
-        let trailingIndex = index(endIndex, offsetBy: -suffix.count)
-        return String(self[..<trailingIndex])
     }
 }
 

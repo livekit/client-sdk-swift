@@ -258,8 +258,6 @@ public class AudioManager: Loggable {
         _state.mutate { $0.engineObservers = engineObservers }
     }
 
-    public let mixer = DefaultMixerAudioObserver()
-
     /// Set to `true` to enable legacy mic mute mode.
     ///
     /// - Default: Uses `AVAudioEngine`'s `isVoiceProcessingInputMuted` internally.
@@ -335,9 +333,9 @@ public class AudioManager: Loggable {
 
     init() {
         #if os(iOS) || os(visionOS) || os(tvOS)
-        let engineObservers: [any AudioEngineObserver] = [DefaultAudioSessionObserver(), mixer]
+        let engineObservers: [any AudioEngineObserver] = [DefaultAudioSessionObserver()]
         #else
-        let engineObservers: [any AudioEngineObserver] = [mixer]
+        let engineObservers: [any AudioEngineObserver] = []
         #endif
         _state = StateSync(State(engineObservers: engineObservers))
         _admDelegateAdapter.audioManager = self

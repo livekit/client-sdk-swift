@@ -70,8 +70,9 @@ public final class BroadcastManager: Sendable {
     ///
     public func requestActivation() {
         Task {
-            await RPSystemBroadcastPickerView.showPicker(
-                for: BroadcastBundleInfo.screenSharingExtension
+            await RPSystemBroadcastPickerView.show(
+                for: BroadcastBundleInfo.screenSharingExtension,
+                showsMicrophoneButton: false
             )
         }
     }
@@ -113,19 +114,6 @@ public protocol BroadcastManagerDelegate {
     /// Invoked when the broadcast state changes.
     /// - Parameter isBroadcasting: A Boolean value indicating whether a broadcast is currently in progress.
     func broadcastManager(didChangeState isBroadcasting: Bool)
-}
-
-private extension RPSystemBroadcastPickerView {
-    /// Convenience function to show broadcast picker.
-    static func showPicker(for preferredExtension: String?) {
-        let view = RPSystemBroadcastPickerView()
-        view.preferredExtension = preferredExtension
-        view.showsMicrophoneButton = false
-
-        let selector = NSSelectorFromString("buttonPressed:")
-        guard view.responds(to: selector) else { return }
-        view.perform(selector, with: nil)
-    }
 }
 
 #endif

@@ -28,7 +28,10 @@ struct BundleInfo<Value>: Sendable {
     }
 
     var wrappedValue: Value? {
-        guard let value = bundle.infoDictionary?[key] as? Value else { return nil }
+        guard let value = bundle.infoDictionary?[key] as? Value else {
+            logger.warning("Missing bundle property with key `\(key)`")
+            return nil
+        }
         return value
     }
 }
