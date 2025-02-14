@@ -22,16 +22,16 @@ import ReplayKit
 /// Uploads broadcast samples to another process.
 final class BroadcastUploader: Sendable {
     private let channel: IPCChannel
-    
+
     private let imageCodec = BroadcastImageCodec()
     private let audioCodec = BroadcastAudioCodec()
-    
+
     private struct State {
         var isUploadingImage = false
         var isUploadingAudio = false
         var shouldUploadAudio = false
     }
-    
+
     private let state = StateSync(State())
 
     enum Error: Swift.Error {
@@ -68,7 +68,7 @@ final class BroadcastUploader: Sendable {
                 return true
             }
             guard canUpload else { return }
-            
+
             let rotation = VideoRotation(sampleBuffer.replayKitOrientation ?? .up)
             do {
                 let (metadata, imageData) = try imageCodec.encode(sampleBuffer)
@@ -88,7 +88,7 @@ final class BroadcastUploader: Sendable {
                 return true
             }
             guard canUpload else { return }
-            
+
             do {
                 let (metadata, audioData) = try audioCodec.encode(sampleBuffer)
                 Task {
@@ -104,7 +104,7 @@ final class BroadcastUploader: Sendable {
             throw Error.unsupportedSample
         }
     }
-    
+
     private func handleIncomingMessages() async throws {
         for try await (header, _) in channel.incomingMessages(BroadcastIPCHeader.self) {
             switch header {

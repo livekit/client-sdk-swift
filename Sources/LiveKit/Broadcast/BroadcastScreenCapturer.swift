@@ -51,7 +51,7 @@ class BroadcastScreenCapturer: BufferCapturer {
         set(dimensions: targetDimensions)
         return createReceiver()
     }
-    
+
     private func createReceiver() -> Bool {
         guard let socketPath = BroadcastBundleInfo.socketPath else {
             logger.error("Bundle settings improperly configured for screen capture")
@@ -63,11 +63,11 @@ class BroadcastScreenCapturer: BufferCapturer {
                 let receiver = try await BroadcastReceiver(socketPath: socketPath)
                 logger.debug("Broadcast receiver connected")
                 self.receiver = receiver
-                
+
                 if self.appAudio {
                     try await receiver.enableAudio()
                 }
-                    
+
                 for try await sample in receiver.incomingSamples {
                     switch sample {
                     case let .image(buffer, rotation): self.capture(buffer, rotation: rotation)
@@ -82,7 +82,7 @@ class BroadcastScreenCapturer: BufferCapturer {
         }
         return true
     }
-    
+
     /// Helper function to schedule audio buffers on the app audio node.
     private func capture(_ audioBuffer: AVAudioPCMBuffer) {
         let mixer = AudioManager.shared.mixer
@@ -100,7 +100,7 @@ class BroadcastScreenCapturer: BufferCapturer {
         receiver?.close()
         return true
     }
-    
+
     init(delegate: LKRTCVideoCapturerDelegate, options: ScreenShareCaptureOptions) {
         appAudio = options.appAudio
         super.init(delegate: delegate, options: BufferCaptureOptions(from: options))
