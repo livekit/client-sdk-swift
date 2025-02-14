@@ -35,7 +35,7 @@ enum BroadcastBundleInfo {
     }
 
     /// Path to the socket file used for interprocess communication.
-    static var socketPath: String? {
+    static var socketPath: SocketPath? {
         guard let groupIdentifier else { return nil }
         return Self.socketPath(for: groupIdentifier)
     }
@@ -54,11 +54,12 @@ enum BroadcastBundleInfo {
     private static let extensionSuffix = "broadcast"
     private static let socketFileDescriptor = "rtc_SSFD"
 
-    private static func socketPath(for groupIdentifier: String) -> String? {
+    private static func socketPath(for groupIdentifier: String) -> SocketPath? {
         guard let sharedContainer = FileManager.default
             .containerURL(forSecurityApplicationGroupIdentifier: groupIdentifier)
         else { return nil }
-        return sharedContainer.appendingPathComponent(Self.socketFileDescriptor).path
+        let path = sharedContainer.appendingPathComponent(Self.socketFileDescriptor).path
+        return SocketPath(path)
     }
 }
 
