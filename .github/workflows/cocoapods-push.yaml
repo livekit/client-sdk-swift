@@ -1,4 +1,4 @@
-name: Push to Cocoapods
+name: CocoaPods Push
 on:
   workflow_dispatch:
   release:
@@ -6,15 +6,32 @@ on:
 env:
     PODSPEC_FILE: LiveKitClient.podspec
 jobs:
-  build:
+  push:
     runs-on: macos-latest
     steps:
-    - uses: actions/checkout@v3
-    - name: Install Cocoapods
-      run: gem install cocoapods
-    - name: Validate Podspec
-      run: pod lib lint --allow-warnings
-    - name: Publish to CocoaPods
+    - name: Checkout
+      uses: actions/checkout@v3
+    - name: Setup CocoaPods
+      uses: maxim-lobanov/setup-cocoapods@v1
+      with:
+        version: latest
+    - name: Setup Xcode
+      uses: maxim-lobanov/setup-xcode@v1
+      with:
+        xcode-version: latest-stable
+    - name: Spec Lint
+      id: spec-lint
+      run: |
+        validation_dir=$(mktemp -d)
+        echo "validation_dir=${validation_dir}" >> $GITHUB_OUTPUT
+        pod spec lint --validation-dir="${validation_dir}" --no-clean --allow-warnings --verbose
+    - name: Upload Validation Directory (Failure Only)
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        path: ${{ steps.spec-lint.outputs.validation_dir }}
+        name: validation
+    - name: Push to CocoaPods
       run: pod trunk push ${{ env.PODSPEC_FILE }} --allow-warnings --verbose
       env:
         COCOAPODS_TRUNK_TOKEN: ${{ secrets.COCOAPODS_TRUNK_TOKEN }}
