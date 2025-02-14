@@ -14,27 +14,21 @@
  * limitations under the License.
  */
 
-#if swift(>=5.9)
-internal import LiveKitWebRTC
-#else
-@_implementationOnly import LiveKitWebRTC
-#endif
+import Foundation
 
-public enum VideoRotation: Int, Sendable, Codable {
-    case _0 = 0
-    case _90 = 90
-    case _180 = 180
-    case _270 = 270
-}
+/// A property wrapper type that reflects a value from a bundle's info dictionary.
+@propertyWrapper
+struct BundleInfo<Value>: Sendable {
+    private let key: String
+    private let bundle: Bundle
 
-extension RTCVideoRotation {
-    func toLKType() -> VideoRotation {
-        VideoRotation(rawValue: rawValue)!
+    init(_ key: String, bundle: Bundle = .main) {
+        self.key = key
+        self.bundle = bundle
     }
-}
 
-extension VideoRotation {
-    func toRTCType() -> RTCVideoRotation {
-        RTCVideoRotation(rawValue: rawValue)!
+    var wrappedValue: Value? {
+        guard let value = bundle.infoDictionary?[key] as? Value else { return nil }
+        return value
     }
 }

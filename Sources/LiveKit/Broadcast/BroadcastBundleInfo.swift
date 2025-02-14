@@ -20,15 +20,22 @@ import Foundation
 
 enum BroadcastBundleInfo {
     /// Identifier of the app group shared by the primary app and broadcast extension.
-    @BundleInfo("RTCAppGroupIdentifier")
-    static var groupIdentifier: String?
-
+    static var groupIdentifier: String? {
+        if let override = groupIdentifierOverride { return override }
+        guard let bundleIdentifier = Bundle.main.bundleIdentifier else { return nil }
+        let appBundleIdentifier = bundleIdentifier.dropSuffix(".\(extensionSuffix)") ?? bundleIdentifier
+        return "group.\(appBundleIdentifier)"
+    }
+    
     /// Bundle identifier of the broadcast extension.
-    @BundleInfo("RTCScreenSharingExtension")
-    static var screenSharingExtension: String?
+    static var screenSharingExtension: String? {
+        if let override = screenSharingExtensionOverride { return override }
+        guard let bundleIdentifier = Bundle.main.bundleIdentifier else { return nil }
+        return "\(bundleIdentifier).\(extensionSuffix)"
+    }
 
     /// Path to the socket file used for interprocess communication.
-    static var socketPath: String? {
+    static var socketPath: SocketPath? {
         guard let groupIdentifier else { return nil }
         return Self.socketPath(for: groupIdentifier)
     }
@@ -37,14 +44,30 @@ enum BroadcastBundleInfo {
     static var hasExtension: Bool {
         socketPath != nil && screenSharingExtension != nil
     }
+    
+    @BundleInfo("RTCAppGroupIdentifier")
+    private static var groupIdentifierOverride: String?
 
+    @BundleInfo("RTCScreenSharingExtension")
+    private static var screenSharingExtensionOverride: String?
+
+    private static let extensionSuffix = "broadcast"
     private static let socketFileDescriptor = "rtc_SSFD"
 
-    private static func socketPath(for groupIdentifier: String) -> String? {
+    private static func socketPath(for groupIdentifier: String) -> SocketPath? {
         guard let sharedContainer = FileManager.default
             .containerURL(forSecurityApplicationGroupIdentifier: groupIdentifier)
         else { return nil }
-        return sharedContainer.appendingPathComponent(Self.socketFileDescriptor).path
+        let path = sharedContainer.appendingPathComponent(Self.socketFileDescriptor).path
+        return SocketPath(path)
+    }
+}
+
+private extension String {
+    func dropSuffix(_ suffix: String) -> Self? {
+        guard hasSuffix(suffix) else { return nil }
+        let trailingIndex = index(endIndex, offsetBy: -suffix.count)
+        return String(self[..<trailingIndex])
     }
 }
 

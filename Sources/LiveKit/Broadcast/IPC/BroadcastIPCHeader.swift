@@ -14,24 +14,12 @@
  * limitations under the License.
  */
 
-import Foundation
+#if os(iOS)
 
-/// A property wrapper type that reflects a value from a bundle's info dictionary.
-@propertyWrapper
-struct BundleInfo<Value>: Sendable {
-    private let key: String
-    private let bundle: Bundle
-
-    init(_ key: String, bundle: Bundle = .main) {
-        self.key = key
-        self.bundle = bundle
-    }
-
-    var wrappedValue: Value? {
-        guard let value = bundle.infoDictionary?[key] as? Value else {
-            logger.warning("Missing bundle property with key `\(key)`")
-            return nil
-        }
-        return value
-    }
+/// Message header for communication between uploader and receiver.
+enum BroadcastIPCHeader: Codable {
+    /// Image sample sent by uploader.
+    case image(BroadcastImageCodec.Metadata, VideoRotation)
 }
+
+#endif

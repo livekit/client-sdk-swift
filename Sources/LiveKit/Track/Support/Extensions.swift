@@ -100,6 +100,7 @@ public extension CGImage {
 @available(iOS 12, *)
 public extension RPSystemBroadcastPickerView {
     /// Convenience function to show broadcast extension picker
+    @available(*, deprecated, message: "Use BroadcastManager.shared.requestActivation() instead")
     static func show(for preferredExtension: String? = nil,
                      showsMicrophoneButton: Bool = true)
     {
