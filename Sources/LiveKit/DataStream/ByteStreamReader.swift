@@ -32,16 +32,6 @@ public final class ByteStreamReader: NSObject, StreamReader, Sendable {
         self.source = source
         self.info = info
     }
-    
-    @objc
-    public func readChunks(_ chuckHandler: (@escaping (Data) -> Void)) {
-        fatalError("Not implemented")
-    }
-    
-    @objc
-    public func readAll() async throws -> Data {
-        fatalError("Not implemented")
-    }
 }
 
 extension ByteStreamReader {

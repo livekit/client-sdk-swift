@@ -32,16 +32,6 @@ public final class TextStreamReader: NSObject, StreamReader, Sendable {
         self.source = source
         self.info = info
     }
-
-    @objc
-    public func readAll() async throws -> String {
-        fatalError("Not implemented")
-    }
-
-    @objc
-    public func readChunks(_ chuckHandler: (@escaping (String) -> Void)) {
-        fatalError("Not implemented")
-    }
 }
 
 extension TextStreamReader: AsyncSequence {
