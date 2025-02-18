@@ -131,7 +131,11 @@ actor StreamManager: Loggable {
     /// Creates an asynchronous stream whose continuation will be used to send new chunks to the reader.
     private func createSource(with info: StreamInfo) -> AsyncThrowingStream<Data, any Error> {
         AsyncThrowingStream { [weak self] continuation in
-            Task { await self?.openStream(with: info, continuation: continuation) }
+            guard let self else {
+                continuation.finish(throwing: StreamError.terminated)
+                return
+            }
+            Task { await self.openStream(with: info, continuation: continuation) }
         }
     }
     
