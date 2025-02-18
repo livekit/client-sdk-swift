@@ -20,28 +20,27 @@
 import XCTest
 
 final class BroadcastImageCodecTests: XCTestCase {
-    
     private var codec: BroadcastImageCodec!
-    
+
     override func setUpWithError() throws {
         try super.setUpWithError()
         codec = BroadcastImageCodec()
     }
-    
+
     func testEncodeDecode() throws {
         let (width, height) = (64, 32)
         let testBuffer = try XCTUnwrap(createTestPixelBuffer(width: width, height: height))
-        
-        let (metadata, imageData) = try XCTUnwrap(try codec.encode(testBuffer))
+
+        let (metadata, imageData) = try XCTUnwrap(codec.encode(testBuffer))
         XCTAssertEqual(metadata.width, width)
         XCTAssertEqual(metadata.height, height)
         XCTAssertGreaterThan(imageData.count, 0)
-        
-        let decodedBuffer = try XCTUnwrap(try codec.decode(imageData, with: metadata))
+
+        let decodedBuffer = try XCTUnwrap(codec.decode(imageData, with: metadata))
         XCTAssertEqual(CVPixelBufferGetWidth(decodedBuffer), width)
         XCTAssertEqual(CVPixelBufferGetHeight(decodedBuffer), height)
     }
-    
+
     func testDecodeNonImageData() throws {
         let nonImageData = Data(repeating: 0xFA, count: 1024)
         let metadata = BroadcastImageCodec.Metadata(width: 100, height: 100)
@@ -49,14 +48,14 @@ final class BroadcastImageCodecTests: XCTestCase {
             XCTAssertEqual(error as? BroadcastImageCodec.Error, .decodingFailed)
         }
     }
-    
+
     func testDecodeEmpty() throws {
         let metadata = BroadcastImageCodec.Metadata(width: 100, height: 100)
         XCTAssertThrowsError(try codec.decode(Data(), with: metadata)) { error in
             XCTAssertEqual(error as? BroadcastImageCodec.Error, .decodingFailed)
         }
     }
-    
+
     private func createTestPixelBuffer(width: Int, height: Int) -> CVPixelBuffer? {
         var pixelBuffer: CVPixelBuffer?
         CVPixelBufferCreate(

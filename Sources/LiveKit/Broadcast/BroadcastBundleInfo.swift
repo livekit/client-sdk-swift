@@ -26,7 +26,7 @@ enum BroadcastBundleInfo {
         let appBundleIdentifier = bundleIdentifier.dropSuffix(".\(extensionSuffix)") ?? bundleIdentifier
         return "group.\(appBundleIdentifier)"
     }
-    
+
     /// Bundle identifier of the broadcast extension.
     static var screenSharingExtension: String? {
         if let override = screenSharingExtensionOverride { return override }
@@ -44,7 +44,7 @@ enum BroadcastBundleInfo {
     static var hasExtension: Bool {
         socketPath != nil && screenSharingExtension != nil
     }
-    
+
     @BundleInfo("RTCAppGroupIdentifier")
     private static var groupIdentifierOverride: String?
 

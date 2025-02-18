@@ -247,6 +247,11 @@ public class AudioManager: Loggable {
         RTC.audioDeviceModule.initAndStartRecording()
     }
 
+    /// Stops mic input after it was started with ``startLocalRecording()``
+    public func stopLocalRecording() {
+        RTC.audioDeviceModule.stopRecording()
+    }
+
     /// Set a chain of ``AudioEngineObserver``s.
     /// Defaults to having a single ``DefaultAudioSessionObserver`` initially.
     ///
