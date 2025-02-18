@@ -35,7 +35,6 @@ import LKObjCHelpers
 
 @available(macCatalyst 13.1, *)
 open class LKSampleHandler: RPBroadcastSampleHandler {
-
     private var uploader: BroadcastUploader?
     private var cancellable = Set<AnyCancellable>()
 

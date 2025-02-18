@@ -39,7 +39,7 @@ struct BroadcastImageCodec {
         }
         return try encode(imageBuffer)
     }
-    
+
     func encode(_ imageBuffer: CVPixelBuffer) throws -> (Metadata, Data) {
         CVPixelBufferLockBaseAddress(imageBuffer, .readOnly)
         defer { CVPixelBufferUnlockBaseAddress(imageBuffer, .readOnly) }
