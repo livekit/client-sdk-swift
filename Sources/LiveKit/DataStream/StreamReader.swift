@@ -20,7 +20,7 @@ protocol StreamReader: AsyncSequence {
     associatedtype Info: StreamInfo
     
     func readAll() async throws -> Element
-    func readChunks(_ chuckHandler: (@escaping (Element) -> Void))
+    func readChunks(onChunk: (@escaping (Element) -> Void), onCompletion: ((Error?) -> Void)?)
     
     init(info: Info, source: AsyncThrowingStream<Data, any Error>)
 }
