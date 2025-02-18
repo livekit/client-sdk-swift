@@ -18,7 +18,6 @@
 import XCTest
 
 class ByteStreamReaderTests: XCTestCase {
- 
     private var continuation: AsyncThrowingStream<Data, any Error>.Continuation!
     private var reader: ByteStreamReader!
     
@@ -53,7 +52,7 @@ class ByteStreamReaderTests: XCTestCase {
             timestamp: Date.now,
             totalLength: nil,
             attributes: [:],
-            name: "filename.bin"
+            fileName: "filename.bin"
         )
         reader = ByteStreamReader(info: info, source: source)
     }
@@ -145,12 +144,12 @@ class ByteStreamReaderTests: XCTestCase {
         )
     }
     
-    func testReadToFile() async throws  {
+    func testReadToFile() async throws {
         let writtenExpectation = expectation(description: "File properly written")
         Task {
             do {
                 let fileURL = try await reader.readToFile()
-                XCTAssertEqual(fileURL.lastPathComponent, reader.info.name)
+                XCTAssertEqual(fileURL.lastPathComponent, reader.info.fileName)
                 
                 let fileContents = try Data(contentsOf: fileURL)
                 XCTAssertEqual(fileContents, testPayload)

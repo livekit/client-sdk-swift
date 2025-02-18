@@ -87,7 +87,7 @@ public final class ByteStreamInfo: NSObject, StreamInfo, Sendable {
     public let totalLength: Int?
     public let attributes: [String: String]
 
-    public let name: String?
+    public let fileName: String?
 
     init(
         id: String,
@@ -96,7 +96,7 @@ public final class ByteStreamInfo: NSObject, StreamInfo, Sendable {
         timestamp: Date,
         totalLength: Int?,
         attributes: [String: String],
-        name: String?
+        fileName: String?
     ) {
         self.id = id
         self.mimeType = mimeType
@@ -104,7 +104,7 @@ public final class ByteStreamInfo: NSObject, StreamInfo, Sendable {
         self.timestamp = timestamp
         self.totalLength = totalLength
         self.attributes = attributes
-        self.name = name
+        self.fileName = fileName
     }
 }
 
@@ -121,7 +121,7 @@ extension ByteStreamInfo {
             totalLength: header.hasTotalLength ? Int(header.totalLength) : nil,
             attributes: header.attributes,
             // ---
-            name: byteHeader.name
+            fileName: byteHeader.name
         )
     }
 }
