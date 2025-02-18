@@ -175,4 +175,11 @@ actor StreamManager: Loggable {
         }
         descriptor.continuation.finish()
     }
+    
+    deinit {
+        log("Terminating \(openStreams.count) open stream(s)", .debug)
+        for descriptor in openStreams.values {
+            descriptor.continuation.finish(throwing: StreamError.terminated)
+        }
+    }
 }

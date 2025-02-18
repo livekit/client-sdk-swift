@@ -30,6 +30,9 @@ public enum StreamError: Error, Equatable {
     /// Read length less than total length specified in stream header.
     case incomplete
     
+    /// Stream terminated before completion.
+    case terminated
+    
     /// Unable to register a stream handler more than once.
     case handlerAlreadyRegistered
 
