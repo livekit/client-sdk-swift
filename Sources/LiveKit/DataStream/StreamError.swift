@@ -15,8 +15,18 @@
  */
 
 public enum StreamError: Error, Equatable {
+    /// Unable to open a stream more than once.
     case alreadyOpened
+    
+    /// Stream closed abnormally.
     case abnormalEnd(reason: String)
+    
+    /// Unable to decode valid UTF-8 from text stream.
     case invalidString
+    
+    /// Unable to register a stream handler more than once.
     case handlerAlreadyRegistered
+
+    /// Given destination URL is not a directory.
+    case notDirectory
 }
