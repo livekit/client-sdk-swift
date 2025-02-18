@@ -24,6 +24,7 @@ actor StreamManager: Loggable {
     
     private struct OpenStream {
         let info: StreamInfo
+        var readLength: Int = 0
         let openTime: TimeInterval
         let continuation: AsyncThrowingStream<Data, any Error>.Continuation
     }
@@ -137,6 +138,16 @@ actor StreamManager: Loggable {
     /// Handles a data stream chunk.
     func handle(chunk: Livekit_DataStream.Chunk) {
         guard !chunk.content.isEmpty, let descriptor = openStreams[chunk.streamID] else { return }
+        
+        let readLength = descriptor.readLength + chunk.content.count
+        
+        if let totalLength = descriptor.info.totalLength {
+            guard readLength <= totalLength else {
+                descriptor.continuation.finish(throwing: StreamError.lengthExceeded)
+                return
+            }
+        }
+        openStreams[chunk.streamID]!.readLength = readLength
         descriptor.continuation.yield(chunk.content)
     }
     
@@ -146,7 +157,13 @@ actor StreamManager: Loggable {
             log("Received trailer for unknown stream '\(trailer.streamID)'", .warning)
             return
         }
-        defer { openStreams[trailer.streamID] = nil }
+        
+        if let totalLength = descriptor.info.totalLength {
+            guard descriptor.readLength == totalLength else {
+                descriptor.continuation.finish(throwing: StreamError.incomplete)
+                return
+            }
+        }
         
         // TODO: do something with trailer attributes
         

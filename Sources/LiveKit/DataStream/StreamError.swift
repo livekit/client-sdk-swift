@@ -18,11 +18,17 @@ public enum StreamError: Error, Equatable {
     /// Unable to open a stream more than once.
     case alreadyOpened
     
-    /// Stream closed abnormally.
+    /// Stream closed abnormally by remote participant.
     case abnormalEnd(reason: String)
     
     /// Unable to decode valid UTF-8 from text stream.
     case invalidString
+    
+    /// Read length exceeded total length specified in stream header.
+    case lengthExceeded
+    
+    /// Read length less than total length specified in stream header.
+    case incomplete
     
     /// Unable to register a stream handler more than once.
     case handlerAlreadyRegistered
