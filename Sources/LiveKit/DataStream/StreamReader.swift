@@ -24,3 +24,24 @@ protocol StreamReader: AsyncSequence {
     
     init(info: Info, source: AsyncThrowingStream<Data, any Error>)
 }
+
+// MARK: - Default implementations
+
+extension StreamReader where Element: RangeReplaceableCollection {
+    func readAll() async throws -> Element {
+        try await reduce(Element()) { $0 + $1 }
+    }
+}
+
+extension StreamReader {
+    func readChunks(onChunk: (@escaping (Element) -> Void), onCompletion: ((Error?) -> Void)? = nil) {
+        Task {
+            do {
+                for try await chunk in self { onChunk(chunk) }
+                onCompletion?(nil)
+            } catch {
+                onCompletion?(error)
+            }
+        }
+    }
+}
