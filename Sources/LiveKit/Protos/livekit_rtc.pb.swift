@@ -661,6 +661,8 @@ struct Livekit_AddTrackRequest: Sendable {
   /// if not specified, server will infer it from track source to bundle camera/microphone, screenshare/audio together
   var stream: String = String()
 
+  var backupCodecPolicy: Livekit_BackupCodecPolicy = .regression
+
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   init() {}
@@ -2443,6 +2445,7 @@ extension Livekit_AddTrackRequest: SwiftProtobuf.Message, SwiftProtobuf._Message
     13: .standard(proto: "disable_red"),
     14: .same(proto: "encryption"),
     15: .same(proto: "stream"),
+    16: .standard(proto: "backup_codec_policy"),
   ]
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -2466,6 +2469,7 @@ extension Livekit_AddTrackRequest: SwiftProtobuf.Message, SwiftProtobuf._Message
       case 13: try { try decoder.decodeSingularBoolField(value: &self.disableRed) }()
       case 14: try { try decoder.decodeSingularEnumField(value: &self.encryption) }()
       case 15: try { try decoder.decodeSingularStringField(value: &self.stream) }()
+      case 16: try { try decoder.decodeSingularEnumField(value: &self.backupCodecPolicy) }()
       default: break
       }
     }
@@ -2517,6 +2521,9 @@ extension Livekit_AddTrackRequest: SwiftProtobuf.Message, SwiftProtobuf._Message
     if !self.stream.isEmpty {
       try visitor.visitSingularStringField(value: self.stream, fieldNumber: 15)
     }
+    if self.backupCodecPolicy != .regression {
+      try visitor.visitSingularEnumField(value: self.backupCodecPolicy, fieldNumber: 16)
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -2536,6 +2543,7 @@ extension Livekit_AddTrackRequest: SwiftProtobuf.Message, SwiftProtobuf._Message
     if lhs.disableRed != rhs.disableRed {return false}
     if lhs.encryption != rhs.encryption {return false}
     if lhs.stream != rhs.stream {return false}
+    if lhs.backupCodecPolicy != rhs.backupCodecPolicy {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
