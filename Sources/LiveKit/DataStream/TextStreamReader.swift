@@ -20,15 +20,15 @@ import Foundation
 public final class TextStreamReader: NSObject, StreamReader, Sendable {
 
     public struct AsyncChunks {
-        fileprivate var upstream: AsyncThrowingStream<Data, any Error>.Iterator
+        fileprivate var upstream: Source.Iterator
     }
 
-    private let source: AsyncThrowingStream<Data, any Error>
+    private let source: Source
 
     @objc
     public let info: TextStreamInfo
 
-    init(info: TextStreamInfo, source: AsyncThrowingStream<Data, any Error>) {
+    init(info: TextStreamInfo, source: Source) {
         self.source = source
         self.info = info
     }

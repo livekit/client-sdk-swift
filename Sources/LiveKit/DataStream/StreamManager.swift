@@ -26,7 +26,7 @@ actor StreamManager: Loggable {
         let info: StreamInfo
         var readLength: Int = 0
         let openTime: TimeInterval
-        let continuation: AsyncThrowingStream<Data, any Error>.Continuation
+        let continuation: StreamReader.Source.Continuation
     }
     
     private var openStreams: [String: OpenStream] = [:]
@@ -62,7 +62,7 @@ actor StreamManager: Loggable {
     
     private func openStream(
         with info: StreamInfo,
-        continuation: AsyncThrowingStream<Data, any Error>.Continuation
+        continuation: StreamReader.Source.Continuation
     ) {
         guard openStreams[info.id] == nil else {
             continuation.finish(throwing: StreamError.alreadyOpened)
@@ -129,8 +129,8 @@ actor StreamManager: Loggable {
     }
     
     /// Creates an asynchronous stream whose continuation will be used to send new chunks to the reader.
-    private func createSource(with info: StreamInfo) -> AsyncThrowingStream<Data, any Error> {
-        AsyncThrowingStream { [weak self] continuation in
+    private func createSource(with info: StreamInfo) -> StreamReader.Source {
+        StreamReader.Source { [weak self] continuation in
             guard let self else {
                 continuation.finish(throwing: StreamError.terminated)
                 return

@@ -17,12 +17,14 @@
 import Foundation
 
 protocol StreamReader: AsyncSequence {
+
+    typealias Source = AsyncThrowingStream<Data, any Error>
     associatedtype Info: StreamInfo
     
     func readAll() async throws -> Element
     func readChunks(onChunk: (@escaping (Element) -> Void), onCompletion: ((Error?) -> Void)?)
     
-    init(info: Info, source: AsyncThrowingStream<Data, any Error>)
+    init(info: Info, source: Source)
 }
 
 // MARK: - Default implementations

@@ -18,7 +18,7 @@
 import XCTest
 
 class ByteStreamReaderTests: XCTestCase {
-    private var continuation: AsyncThrowingStream<Data, any Error>.Continuation!
+    private var continuation: StreamReader.Source.Continuation!
     private var reader: ByteStreamReader!
     
     private let testChunks = [
