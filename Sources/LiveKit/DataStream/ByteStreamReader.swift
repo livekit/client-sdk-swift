@@ -35,9 +35,37 @@ public final class ByteStreamReader: NSObject, StreamReader, Sendable {
 }
 
 extension ByteStreamReader {
+    
     @objc
-    public func readToFile(in directory: URL? = nil) async throws -> URL {
-        fatalError("Not implemented")
+    public func readToFile(
+        in directory: URL = FileManager.default.temporaryDirectory,
+        name: String? = nil
+    ) async throws -> URL {
+        
+        guard directory.hasDirectoryPath else {
+            throw StreamError.notDirectory
+        }
+        // Name precedence: passed string, file name from stream info, stream ID
+        let fileName = name ?? info.name ?? info.id
+        let fileURL = directory.appendingPathComponent(fileName)
+        
+        FileManager.default.createFile(atPath: fileURL.path, contents: nil)
+        let handle = try FileHandle(forWritingTo: fileURL)
+        
+        try await Task {
+            for try await chunk in self {
+                guard #available(macOS 10.15.4, *) else {
+                    handle.write(chunk)
+                    return
+                }
+                try handle.write(contentsOf: chunk)
+            }
+        }.value
+        
+        // TODO: set UTI based on MIME type
+        
+        try handle.close()
+        return fileURL
     }
 }
 
