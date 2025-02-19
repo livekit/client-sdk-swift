@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-import XCTest
 import LKObjCHelpers
+import XCTest
 
 class ObjCHelperTests: XCTestCase {
     func testHelper() {
