@@ -23,7 +23,7 @@ extension Room {
     ///   - handler: Handler closure passed the stream reader (``ByteStreamReader``) and the identity of the remote participant who opened the stream.
     ///
     public func registerByteStreamHandler(for topic: String, _ handler: @escaping ByteStreamHandler) async throws {
-        try await streamManager.registerByteStreamHandler(for: topic, handler)
+        try await incomingStreamManager.registerByteStreamHandler(for: topic, handler)
     }
 
     /// Registers a handler for new text streams matching the given topic.
@@ -33,16 +33,16 @@ extension Room {
     ///   - handler: Handler closure passed the stream reader (``TextStreamReader``) and the identity of the remote participant who opened the stream.
     ///
     public func registerTextStreamHandler(for topic: String, _ handler: @escaping TextStreamHandler) async throws {
-        try await streamManager.registerTextStreamHandler(for: topic, handler)
+        try await incomingStreamManager.registerTextStreamHandler(for: topic, handler)
     }
 
     /// Unregisters a byte stream handler that was previously registered for the given topic.
     public func unregisterByteStreamHandler(for topic: String) async {
-        await streamManager.unregisterByteStreamHandler(for: topic)
+        await incomingStreamManager.unregisterByteStreamHandler(for: topic)
     }
 
     /// Unregisters a text stream handler that was previously registered for the given topic.
     func unregisterTextStreamHandler(for topic: String) async {
-        await streamManager.unregisterTextStreamHandler(for: topic)
+        await incomingStreamManager.unregisterTextStreamHandler(for: topic)
     }
 }

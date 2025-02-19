@@ -20,7 +20,7 @@ public typealias ByteStreamHandler = (ByteStreamReader, Participant.Identity) as
 public typealias TextStreamHandler = (TextStreamReader, Participant.Identity) async throws -> Void
 
 /// Manages state of incoming data streams.
-actor StreamManager: Loggable {
+actor IncomingStreamManager: Loggable {
     
     private struct OpenStream {
         let info: StreamInfo
