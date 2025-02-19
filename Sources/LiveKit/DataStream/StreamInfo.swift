@@ -119,7 +119,7 @@ extension ByteStreamInfo {
             id: header.streamID,
             mimeType: header.mimeType,
             topic: header.topic,
-            timestamp: Date(timeIntervalSince1970: TimeInterval(header.timestamp)),
+            timestamp: header.timestampDate,
             totalLength: header.hasTotalLength ? Int(header.totalLength) : nil,
             attributes: header.attributes,
             // ---
@@ -137,15 +137,74 @@ extension TextStreamInfo {
             id: header.streamID,
             mimeType: header.mimeType,
             topic: header.topic,
-            timestamp: Date(timeIntervalSince1970: TimeInterval(header.timestamp)),
+            timestamp: header.timestampDate,
             totalLength: header.hasTotalLength ? Int(header.totalLength) : nil,
             attributes: header.attributes,
             // ---
-            operationType: TextStreamInfo.OperationType(rawValue: textHeader.operationType.rawValue) ?? .create,
+            operationType: TextStreamInfo.OperationType(textHeader.operationType),
             version: Int(textHeader.version),
             replyToStreamID: !textHeader.replyToStreamID.isEmpty ? textHeader.replyToStreamID : nil,
             attachedStreamIDs: textHeader.attachedStreamIds,
             generated: textHeader.generated
         )
+    }
+}
+
+// MARK: - To protocol types
+
+extension Livekit_DataStream.Header {
+    
+    init(_ textStreamInfo: TextStreamInfo) {
+        let textHeader = Livekit_DataStream.TextHeader.with {
+            $0.operationType = Livekit_DataStream.OperationType(textStreamInfo.operationType)
+            $0.version = Int32(textStreamInfo.version)
+            $0.replyToStreamID = textStreamInfo.replyToStreamID ?? ""
+            $0.attachedStreamIds = textStreamInfo.attachedStreamIDs
+            $0.generated = textStreamInfo.generated
+        }
+        var baseHeader = Self(textStreamInfo as StreamInfo)
+        baseHeader.contentHeader = .textHeader(textHeader)
+        self = baseHeader
+    }
+    
+    init(_ byteStreamInfo: ByteStreamInfo) {
+        let byteHeader = Livekit_DataStream.ByteHeader.with {
+            if let fileName = byteStreamInfo.fileName {
+                $0.name = fileName
+            }
+        }
+        var baseHeader = Self(byteStreamInfo as StreamInfo)
+        baseHeader.contentHeader = .byteHeader(byteHeader)
+        self = baseHeader
+    }
+    
+    var timestampDate: Date {
+        get { Date(timeIntervalSince1970: TimeInterval(timestamp)) }
+        set { timestamp = Int64(newValue.timeIntervalSince1970) }
+    }
+    
+    private init(_ streamInfo: StreamInfo) {
+        self = Livekit_DataStream.Header.with {
+            $0.streamID = streamInfo.id
+            $0.mimeType = streamInfo.mimeType
+            $0.topic = streamInfo.topic
+            $0.timestampDate = streamInfo.timestamp
+            if let totalLength = streamInfo.totalLength {
+                $0.totalLength = UInt64(totalLength)
+            }
+            $0.attributes = streamInfo.attributes
+        }
+    }
+}
+
+extension TextStreamInfo.OperationType {
+    init(_ operationType: Livekit_DataStream.OperationType) {
+        self = Self(rawValue: operationType.rawValue) ?? .create
+    }
+}
+
+extension Livekit_DataStream.OperationType {
+    init(_ operationType: TextStreamInfo.OperationType) {
+        self = Livekit_DataStream.OperationType(rawValue: operationType.rawValue) ?? .create
     }
 }
