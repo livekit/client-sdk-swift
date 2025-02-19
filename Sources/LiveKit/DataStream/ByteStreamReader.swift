@@ -45,8 +45,7 @@ extension ByteStreamReader {
         guard directory.hasDirectoryPath else {
             throw StreamError.notDirectory
         }
-        // Name precedence: passed string, file name from stream info, stream ID
-        let fileName = name ?? info.fileName ?? info.id
+        let fileName = name ?? info.defaultFileName
         let fileURL = directory.appendingPathComponent(fileName)
         
         FileManager.default.createFile(atPath: fileURL.path, contents: nil)
