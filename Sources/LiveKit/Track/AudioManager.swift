@@ -202,8 +202,18 @@ public class AudioManager: Loggable {
         set { RTC.audioDeviceModule.duckingLevel = newValue.rawValue }
     }
 
+    /// The main flag that determines whether to enable Voice-Processing I/O of the internal AVAudioEngine. Toggling this requires restarting the AudioEngine.
+    /// Setting this to `false` prevents any voice-processing-related initialization, and muted talker detection will not work.
+    /// Typically, it is recommended to keep this set to `true` and toggle ``isVoiceProcessingBypassed`` when possible.
+    /// Defaults to `true`.
+    public var isVoiceProcessingEnabled: Bool {
+        get { RTC.audioDeviceModule.isVoiceProcessingEnabled }
+        set { RTC.audioDeviceModule.isVoiceProcessingEnabled = newValue }
+    }
+
     /// Bypass Voice-Processing I/O of internal AVAudioEngine.
-    /// It is valid to toggle this at runtime.
+    /// It is valid to toggle this at runtime and AudioEngine doesn't require restart.
+    /// Defaults to `false`.
     public var isVoiceProcessingBypassed: Bool {
         get { RTC.audioDeviceModule.isVoiceProcessingBypassed }
         set { RTC.audioDeviceModule.isVoiceProcessingBypassed = newValue }
