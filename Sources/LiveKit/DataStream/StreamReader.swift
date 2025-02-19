@@ -47,3 +47,36 @@ extension StreamReader {
         }
     }
 }
+
+// MARK: - Extensions
+
+extension StreamReader {
+    
+    /// Resolves the filename used when writing the stream to disk.
+    ///
+    /// - Parameters:
+    ///   - setName: The name set by the user or in stream metadata.
+    ///   - fallbackName: Name to fallback on when `setName` is `nil`.
+    ///   - mimeType: MIME type used for determining file extension.
+    ///   - fallbackExtension: File extension to fallback on when MIME type cannot be resolved.
+    /// - Returns: The resolved file name.
+    ///
+    static func resolveFileName(
+        setName: String?,
+        fallbackName: String,
+        mimeType: String,
+        fallbackExtension: String
+    ) -> String {
+        
+        var resolvedExtension: String {
+            preferredExtension(for: mimeType) ?? fallbackExtension
+        }
+        guard let setName else {
+            return "\(fallbackName).\(resolvedExtension)"
+        }
+        guard setName.pathExtension != nil else {
+            return "\(setName).\(resolvedExtension)"
+        }
+        return setName
+    }
+}

@@ -39,13 +39,13 @@ extension ByteStreamReader {
     @objc
     public func readToFile(
         in directory: URL = FileManager.default.temporaryDirectory,
-        name: String? = nil
+        name nameOverride: String? = nil
     ) async throws -> URL {
         
         guard directory.hasDirectoryPath else {
             throw StreamError.notDirectory
         }
-        let fileName = name ?? info.defaultFileName
+        let fileName = resolveFileName(override: nameOverride)
         let fileURL = directory.appendingPathComponent(fileName)
         
         FileManager.default.createFile(atPath: fileURL.path, contents: nil)
@@ -61,10 +61,17 @@ extension ByteStreamReader {
             }
         }.value
         
-        // TODO: set UTI based on MIME type
-        
         try handle.close()
         return fileURL
+    }
+    
+    func resolveFileName(override: String?) -> String {
+        Self.resolveFileName(
+            setName: override ?? info.fileName,
+            fallbackName: info.id,
+            mimeType: info.mimeType,
+            fallbackExtension: "bin"
+        )
     }
 }
 

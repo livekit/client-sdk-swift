@@ -108,30 +108,6 @@ public final class ByteStreamInfo: NSObject, StreamInfo, Sendable {
     }
 }
 
-// MARK: - Computed properties
-
-extension ByteStreamInfo {
-    
-    /// Extension to use if MIME type is not set or is invalid.
-    private static let fallbackExtension = "bin"
-    
-    /// Default file extension.
-    var defaultExtension: String {
-        preferredExtension(for: mimeType) ?? Self.fallbackExtension
-    }
-    
-    /// Default file name.
-    func defaultFileName(override: String? = nil) -> String {
-        guard let fileName = override ?? fileName else {
-            return "\(id).\(defaultExtension)"
-        }
-        guard fileName.pathExtension != nil else {
-            return "\(fileName).\(defaultExtension)"
-        }
-        return fileName
-    }
-}
-
 // MARK: - From protocol types
 
 extension ByteStreamInfo {
