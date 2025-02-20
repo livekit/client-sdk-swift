@@ -53,7 +53,7 @@ extension ByteStreamReader {
         
         try await Task {
             for try await chunk in self {
-                guard #available(macOS 10.15.4, *) else {
+                guard #available(macOS 10.15.4, iOS 13.4, *) else {
                     handle.write(chunk)
                     return
                 }
