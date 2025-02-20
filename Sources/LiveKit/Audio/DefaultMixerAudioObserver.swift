@@ -66,6 +66,11 @@ public final class DefaultMixerAudioObserver: AudioEngineObserver, Loggable {
         public let micMixerNode = AVAudioMixerNode()
 
         public var isConnected: Bool = false
+
+        var appAudioConverter: AudioConverter?
+        var appAudioConverterBuffer: AVAudioPCMBuffer?
+
+        var isConvertBusy: Bool = false
     }
 
     let _state = StateSync(State())
@@ -104,6 +109,35 @@ public final class DefaultMixerAudioObserver: AudioEngineObserver, Loggable {
         engine.detach(micMixerNode)
     }
 
+    func capture(appAudio inputBuffer: AVAudioPCMBuffer) {
+        guard !_state.isConvertBusy else { return }
+
+        _state.mutate { $0.isConvertBusy = true }
+        defer { _state.mutate { $0.isConvertBusy = false } }
+
+        let (isConnected, appNode, oldConverter, converterBuffer) = _state.read {
+            ($0.isConnected, $0.appNode, $0.appAudioConverter, $0.appAudioConverterBuffer)
+        }
+
+        guard isConnected, let converterBuffer, let engine = appNode.engine, engine.isRunning else { return }
+
+        // Create or update the converter if needed
+        let converter = (oldConverter?.inputFormat == inputBuffer.format && oldConverter?.outputFormat == converterBuffer.format)
+            ? oldConverter
+            : {
+                let newConverter = AudioConverter(from: inputBuffer.format, to: converterBuffer.format)!
+                _state.mutate { $0.appAudioConverter = newConverter }
+                return newConverter
+            }()
+
+        converter?.convert(from: inputBuffer, to: converterBuffer)
+        appNode.scheduleBuffer(converterBuffer)
+
+        if !appNode.isPlaying {
+            appNode.play()
+        }
+    }
+
     public func engineWillConnectInput(_ engine: AVAudioEngine, src: AVAudioNode?, dst: AVAudioNode, format: AVAudioFormat, context: [AnyHashable: Any]) {
         // Get the main mixer
         guard let mainMixerNode = context[kRTCAudioEngineInputMixerNodeKey] as? AVAudioMixerNode else {
@@ -117,16 +151,9 @@ public final class DefaultMixerAudioObserver: AudioEngineObserver, Loggable {
             ($0.appNode, $0.appMixerNode, $0.micNode, $0.micMixerNode)
         }
 
-        // TODO: Investigate if possible to get this format prior to starting screen capture.
-        // <AVAudioFormat 0x600003055180:  2 ch,  48000 Hz, Float32, deinterleaved>
-        let appAudioNodeFormat = AVAudioFormat(commonFormat: .pcmFormatFloat32,
-                                               sampleRate: format.sampleRate, // Assume same sample rate
-                                               channels: 2,
-                                               interleaved: false)
-
         log("Connecting app -> appMixer -> mainMixer")
         // appAudio -> appAudioMixer -> mainMixer
-        engine.connect(appNode, to: appMixerNode, format: appAudioNodeFormat)
+        engine.connect(appNode, to: appMixerNode, format: format)
         engine.connect(appMixerNode, to: mainMixerNode, format: format)
 
         // src is not null if device rendering mode.
@@ -136,19 +163,16 @@ public final class DefaultMixerAudioObserver: AudioEngineObserver, Loggable {
             engine.connect(src, to: micMixerNode, format: format)
         }
 
-        // TODO: Investigate if possible to get this format prior to starting screen capture.
-        let micNodeFormat = AVAudioFormat(commonFormat: .pcmFormatFloat32,
-                                          sampleRate: format.sampleRate, // Assume same sample rate
-                                          channels: 1, // Mono
-                                          interleaved: false)
-
         log("Connecting micAudio (player) to micMixer -> mainMixer")
         // mic (player) -> micMixer -> mainMixer
-        engine.connect(micNode, to: micMixerNode, format: micNodeFormat)
+        engine.connect(micNode, to: micMixerNode, format: format)
         // Always connect micMixer to mainMixer
         engine.connect(micMixerNode, to: mainMixerNode, format: format)
 
-        _state.mutate { $0.isConnected = true }
+        _state.mutate {
+            $0.appAudioConverterBuffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 96000)
+            $0.isConnected = true
+        }
 
         // Invoke next
         next?.engineWillConnectInput(engine, src: src, dst: dst, format: format, context: context)
