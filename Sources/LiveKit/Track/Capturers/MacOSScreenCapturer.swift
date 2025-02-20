@@ -219,15 +219,7 @@ extension MacOSScreenCapturer: SCStreamOutput {
 
         if case .audio = outputType {
             guard let pcm = sampleBuffer.toAVAudioPCMBuffer() else { return }
-            let mixer = AudioManager.shared.mixer
-            let node = mixer.appAudioNode
-            guard mixer.isConnected, let engine = node.engine, engine.isRunning else { return }
-
-            node.scheduleBuffer(pcm)
-            if !node.isPlaying {
-                node.play()
-            }
-
+            AudioManager.shared.mixer.capture(appAudio: pcm)
         } else if case .screen = outputType {
             // Retrieve the array of metadata attachments from the sample buffer.
             guard let attachmentsArray = CMSampleBufferGetSampleAttachmentsArray(sampleBuffer,
