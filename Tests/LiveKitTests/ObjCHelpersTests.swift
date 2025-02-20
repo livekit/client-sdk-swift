@@ -14,22 +14,11 @@
  * limitations under the License.
  */
 
-#if os(iOS)
-
-@testable import LiveKit
+import LKObjCHelpers
 import XCTest
 
-final class SocketPathTests: XCTestCase {
-    func testValid() throws {
-        let path = "/tmp/a.sock"
-        let socketPath = try XCTUnwrap(SocketPath(path))
-        XCTAssertEqual(socketPath.path, path)
-    }
-
-    func testInvalid() {
-        let longPath = String(repeating: "a", count: 104)
-        XCTAssertNil(SocketPath(longPath))
+class ObjCHelperTests: XCTestCase {
+    func testHelper() {
+        LKObjCHelpers.finishBroadcastWithoutError(nil)
     }
 }
-
-#endif

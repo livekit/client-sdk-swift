@@ -27,12 +27,14 @@ internal import Logging
 #endif
 
 import Combine
-import LKObjCHelpers
 import OSLog
+
+#if !COCOAPODS
+import LKObjCHelpers
+#endif
 
 @available(macCatalyst 13.1, *)
 open class LKSampleHandler: RPBroadcastSampleHandler {
-
     private var uploader: BroadcastUploader?
     private var cancellable = Set<AnyCancellable>()
 

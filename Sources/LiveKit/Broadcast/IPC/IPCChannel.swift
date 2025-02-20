@@ -150,7 +150,7 @@ final class IPCChannel: Sendable {
 
 extension Data {
     func partition(bytesInFirst: Int) -> (Data, Data)? {
-        guard (0...count).contains(bytesInFirst) else { return nil }
+        guard (0 ... count).contains(bytesInFirst) else { return nil }
         return (
             subdata(in: 0 ..< bytesInFirst),
             subdata(in: bytesInFirst ..< count)
