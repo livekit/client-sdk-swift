@@ -180,7 +180,10 @@ actor IncomingStreamManager: Loggable {
         descriptor.continuation.finish()
     }
     
+    // MARK: - Clean up
+    
     deinit {
+        guard !openStreams.isEmpty else { return }
         log("Terminating \(openStreams.count) open stream(s)", .debug)
         for descriptor in openStreams.values {
             descriptor.continuation.finish(throwing: StreamError.terminated)
