@@ -18,7 +18,7 @@
 import XCTest
 
 class TextStreamReaderTests: XCTestCase {
-    private var continuation: StreamReader.Source.Continuation!
+    private var continuation: StreamReaderSource.Continuation!
     private var reader: TextStreamReader!
     
     private let testChunks = [
@@ -49,7 +49,7 @@ class TextStreamReaderTests: XCTestCase {
             id: UUID().uuidString,
             mimeType: "text/plain",
             topic: "someTopic",
-            timestamp: Date.now,
+            timestamp: Date(),
             totalLength: nil,
             attributes: [:],
             operationType: .create,

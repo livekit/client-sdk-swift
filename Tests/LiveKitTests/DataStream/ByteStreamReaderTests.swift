@@ -18,7 +18,7 @@
 import XCTest
 
 class ByteStreamReaderTests: XCTestCase {
-    private var continuation: StreamReader.Source.Continuation!
+    private var continuation: StreamReaderSource.Continuation!
     private var reader: ByteStreamReader!
     
     private let testChunks = [
@@ -49,7 +49,7 @@ class ByteStreamReaderTests: XCTestCase {
             id: UUID().uuidString,
             mimeType: "application/octet-stream",
             topic: "someTopic",
-            timestamp: Date.now,
+            timestamp: Date(),
             totalLength: nil,
             attributes: [:],
             fileName: "filename.bin"
