@@ -15,14 +15,14 @@
  */
 
 public enum StreamError: Error, Equatable {
-    /// Unable to open a stream more than once.
+    /// Unable to open a stream with the same ID more than once.
     case alreadyOpened
     
     /// Stream closed abnormally by remote participant.
     case abnormalEnd(reason: String)
     
-    /// Unable to decode valid UTF-8 from text stream.
-    case invalidString
+    /// Incoming chunk data could not be decoded.
+    case decodeFailed
     
     /// Read length exceeded total length specified in stream header.
     case lengthExceeded
