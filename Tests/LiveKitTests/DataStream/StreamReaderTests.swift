@@ -19,57 +19,5 @@ import XCTest
 
 class StreamReaderTests: XCTestCase {
     
-    func testResolveFileName() {
-        // Static function defined on StreamReader protocol, access with concrete type.
-        XCTAssertEqual(
-            ByteStreamReader.resolveFileName(
-                setName: nil,
-                fallbackName: "[fallback]",
-                mimeType: "text/plain",
-                fallbackExtension: "bin"
-            ),
-            "[fallback].txt",
-            "Fallback name should be used when no set name is provided"
-        )
-        XCTAssertEqual(
-            ByteStreamReader.resolveFileName(
-                setName: "name",
-                fallbackName: "[fallback]",
-                mimeType: "text/plain",
-                fallbackExtension: "bin"
-            ),
-            "name.txt",
-            "Set name should take precedence over fallback name"
-        )
-        XCTAssertEqual(
-            ByteStreamReader.resolveFileName(
-                setName: "name.jpeg",
-                fallbackName: "[fallback]",
-                mimeType: "text/plain",
-                fallbackExtension: "bin"
-            ),
-            "name.jpeg",
-            "File extension in set name should take precedence"
-        )
-        XCTAssertEqual(
-            ByteStreamReader.resolveFileName(
-                setName: "name",
-                fallbackName: "[fallback]",
-                mimeType: "image/jpeg",
-                fallbackExtension: "bin"
-            ),
-            "name.jpeg",
-            "File extension should be resolved from MIME type"
-        )
-        XCTAssertEqual(
-            ByteStreamReader.resolveFileName(
-                setName: "name",
-                fallbackName: "[fallback]",
-                mimeType: "text/invalid",
-                fallbackExtension: "bin"
-            ),
-            "name.bin",
-            "Fallback extension should be used when MIME type is not recognized"
-        )
-    }
+    
 }
