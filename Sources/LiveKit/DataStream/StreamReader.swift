@@ -16,27 +16,58 @@
 
 import Foundation
 
-protocol StreamReader: AsyncSequence {
+/// An asynchronous sequence of chunks read from a data stream.
+public struct StreamReader<Element>: AsyncSequence, Sendable where Element: StreamChunk {
+    let source: StreamReaderSource
 
-    typealias Source = AsyncThrowingStream<Data, any Error>
-    associatedtype Info: StreamInfo
-    
-    func readAll() async throws -> Element
-    func readChunks(onChunk: (@escaping (Element) -> Void), onCompletion: ((Error?) -> Void)?)
-    
-    init(info: Info, source: Source)
+    public struct Iterator: AsyncIteratorProtocol {
+        fileprivate var upstream: StreamReaderSource.Iterator
+
+        public mutating func next() async throws -> Element? {
+            guard let chunkData = try await upstream.next() else { return nil }
+            guard let chunk = Element(chunkData) else { throw StreamError.decodeFailed }
+            return chunk
+        }
+    }
+
+    public func makeAsyncIterator() -> Iterator {
+        Iterator(upstream: source.makeAsyncIterator())
+    }
 }
 
-// MARK: - Default implementations
+/// Upstream asynchronous sequence from which raw chunk data is read.
+typealias StreamReaderSource = AsyncThrowingStream<Data, any Error>
+
+public protocol StreamChunk {
+    init?(_ chunkData: Data)
+}
+
+extension Data: StreamChunk {}
+
+extension String: StreamChunk {
+    public init?(_ chunkData: Data) {
+        guard let string = String(data: chunkData, encoding: .utf8) else {
+            return nil
+        }
+        self = string
+    }
+}
 
 extension StreamReader where Element: RangeReplaceableCollection {
     func readAll() async throws -> Element {
         try await reduce(Element()) { $0 + $1 }
     }
+
+    func readAll(onCompletion: @escaping (Element) -> Void, onError: ((Error?) -> Void)?) {
+        Task {
+            do { try onCompletion(await self.readAll()) }
+            catch { onError?(error) }
+        }
+    }
 }
 
 extension StreamReader {
-    func readChunks(onChunk: (@escaping (Element) -> Void), onCompletion: ((Error?) -> Void)? = nil) {
+    func readChunks(onChunk: @escaping (Element) -> Void, onCompletion: ((Error?) -> Void)?) {
         Task {
             do {
                 for try await chunk in self { onChunk(chunk) }
@@ -45,38 +76,5 @@ extension StreamReader {
                 onCompletion?(error)
             }
         }
-    }
-}
-
-// MARK: - Extensions
-
-extension StreamReader {
-    
-    /// Resolves the filename used when writing the stream to disk.
-    ///
-    /// - Parameters:
-    ///   - setName: The name set by the user or in stream metadata.
-    ///   - fallbackName: Name to fallback on when `setName` is `nil`.
-    ///   - mimeType: MIME type used for determining file extension.
-    ///   - fallbackExtension: File extension to fallback on when MIME type cannot be resolved.
-    /// - Returns: The resolved file name.
-    ///
-    static func resolveFileName(
-        setName: String?,
-        fallbackName: String,
-        mimeType: String,
-        fallbackExtension: String
-    ) -> String {
-        
-        var resolvedExtension: String {
-            preferredExtension(for: mimeType) ?? fallbackExtension
-        }
-        guard let setName else {
-            return "\(fallbackName).\(resolvedExtension)"
-        }
-        guard setName.pathExtension != nil else {
-            return "\(setName).\(resolvedExtension)"
-        }
-        return setName
     }
 }

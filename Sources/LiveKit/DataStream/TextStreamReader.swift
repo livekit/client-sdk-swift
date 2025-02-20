@@ -16,36 +16,49 @@
 
 import Foundation
 
+
+/// An asynchronous sequence of chunks read from a text data stream.
 @objc
-public final class TextStreamReader: NSObject, StreamReader, Sendable {
+public final class TextStreamReader: NSObject, AsyncSequence, Sendable {
 
-    public struct AsyncChunks {
-        fileprivate var upstream: Source.Iterator
-    }
-
-    private let source: Source
-
+    /// Information about the incoming text stream.
     @objc
     public let info: TextStreamInfo
+    
+    let source: StreamReader<String>
 
-    init(info: TextStreamInfo, source: Source) {
-        self.source = source
+    init(info: TextStreamInfo, source: StreamReaderSource) {
         self.info = info
+        self.source = StreamReader(source: source)
+    }
+    
+    public func makeAsyncIterator() -> StreamReader<String>.Iterator {
+        source.makeAsyncIterator()
+    }
+    
+    /// Reads incoming chunks from the text stream, concatenating them into a single string which is returned
+    /// once the stream closes normally.
+    ///
+    /// - Returns: The string consisting of all concatenated chunks.
+    /// - Throws: ``StreamError`` if an error occurs while reading the stream.
+    ///
+    public func readAll() async throws -> String {
+        try await source.readAll()
     }
 }
 
-extension TextStreamReader: AsyncSequence {
-    public func makeAsyncIterator() -> AsyncChunks {
-        AsyncChunks(upstream: source.makeAsyncIterator())
-    }
-}
+// MARK: - Objective-C compatibility
 
-extension TextStreamReader.AsyncChunks: AsyncIteratorProtocol {
-    mutating public func next() async throws -> String? {
-        guard let data = try await upstream.next() else { return nil }
-        guard let string = String(data: data, encoding: .utf8) else {
-            throw StreamError.invalidString
-        }
-        return string
+extension TextStreamReader {
+    @objc
+    @available(*, unavailable, message: "Use async readAll() method instead.")
+    public func readAll(onCompletion: (@escaping (String) -> Void), onError: ((Error?) -> ())?) {
+        source.readAll(onCompletion: onCompletion, onError: onError)
+    }
+    
+    @objc
+    @available(*, unavailable, message: "Use for/await on TextStreamReader reader instead.")
+    public func readChunks(onChunk: (@escaping (String) -> Void), onCompletion: ((Error?) -> Void)?) {
+        source.readChunks(onChunk: onChunk, onCompletion: onCompletion)
     }
 }
