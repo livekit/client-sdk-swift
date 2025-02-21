@@ -28,7 +28,6 @@ final class BroadcastUploader: Sendable {
 
     private struct State {
         var isUploadingImage = false
-        var isUploadingAudio = false
         var shouldUploadAudio = false
     }
 
@@ -68,7 +67,7 @@ final class BroadcastUploader: Sendable {
                 return true
             }
             guard canUpload else { return }
-
+            
             let rotation = VideoRotation(sampleBuffer.replayKitOrientation ?? .up)
             do {
                 let (metadata, imageData) = try imageCodec.encode(sampleBuffer)
@@ -82,23 +81,11 @@ final class BroadcastUploader: Sendable {
                 throw error
             }
         case .audioApp:
-            let canUpload = state.mutate {
-                guard !$0.isUploadingAudio, $0.shouldUploadAudio else { return false }
-                $0.isUploadingAudio = true
-                return true
-            }
-            guard canUpload else { return }
-
-            do {
-                let (metadata, audioData) = try audioCodec.encode(sampleBuffer)
-                Task {
-                    let header = BroadcastIPCHeader.audio(metadata)
-                    try await channel.send(header: header, payload: audioData)
-                    state.mutate { $0.isUploadingAudio = false }
-                }
-            } catch {
-                state.mutate { $0.isUploadingAudio = false }
-                throw error
+            guard state.shouldUploadAudio else { return }
+            let (metadata, audioData) = try audioCodec.encode(sampleBuffer)
+            Task {
+                let header = BroadcastIPCHeader.audio(metadata)
+                try await channel.send(header: header, payload: audioData)
             }
         default:
             throw Error.unsupportedSample
