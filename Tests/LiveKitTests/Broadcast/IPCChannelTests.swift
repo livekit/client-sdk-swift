@@ -20,7 +20,7 @@
 import Network
 import XCTest
 
-final class IPCChannelTests: XCTestCase {
+final class IPCChannelTests: LKTestCase {
     private var socketPath: SocketPath!
 
     enum TestSetupError: Error {

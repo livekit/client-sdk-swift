@@ -17,7 +17,7 @@
 import LKObjCHelpers
 import XCTest
 
-class ObjCHelperTests: XCTestCase {
+class ObjCHelperTests: LKTestCase {
     func testHelper() {
         LKObjCHelpers.finishBroadcastWithoutError(nil)
     }
