@@ -31,16 +31,16 @@ struct BroadcastAudioCodec {
     }
 
     func encode(_ audioBuffer: CMSampleBuffer) throws -> (Metadata, Data) {
-        
         guard let formatDescription = audioBuffer.formatDescription,
               let basicDescription = formatDescription.audioStreamBasicDescription,
-              let blockBuffer = audioBuffer.dataBuffer else {
+              let blockBuffer = audioBuffer.dataBuffer
+        else {
             throw Error.encodingFailed
         }
-        
-        var count: Int = 0
+
+        var count = 0
         var dataPointer: UnsafeMutablePointer<Int8>?
-        
+
         guard CMBlockBufferGetDataPointer(
             blockBuffer,
             atOffset: 0,
@@ -50,7 +50,7 @@ struct BroadcastAudioCodec {
         ) == kCMBlockBufferNoErr, let dataPointer else {
             throw Error.encodingFailed
         }
-        
+
         let data = Data(bytes: dataPointer, count: count)
         let metadata = Metadata(
             sampleCount: Int32(audioBuffer.numSamples),
@@ -60,16 +60,15 @@ struct BroadcastAudioCodec {
     }
 
     func decode(_ encodedData: Data, with metadata: Metadata) throws -> AVAudioPCMBuffer {
-        
         guard !encodedData.isEmpty else {
             throw Error.decodingFailed
         }
-        
+
         var description = metadata.description
         guard let format = AVAudioFormat(streamDescription: &description) else {
             throw Error.decodingFailed
         }
-   
+
         let sampleCount = AVAudioFrameCount(metadata.sampleCount)
         guard let pcmBuffer = AVAudioPCMBuffer(
             pcmFormat: format,
@@ -78,11 +77,11 @@ struct BroadcastAudioCodec {
             throw Error.decodingFailed
         }
         pcmBuffer.frameLength = sampleCount
-        
+
         guard format.isInterleaved else {
             throw Error.decodingFailed
         }
-        
+
         guard let mData = pcmBuffer.audioBufferList.pointee.mBuffers.mData else {
             throw Error.decodingFailed
         }
@@ -97,14 +96,14 @@ struct BroadcastAudioCodec {
 extension AudioStreamBasicDescription: Codable {
     public func encode(to encoder: any Encoder) throws {
         var container = encoder.unkeyedContainer()
-        try container.encode(self.mSampleRate)
-        try container.encode(self.mFormatID)
-        try container.encode(self.mFormatFlags)
-        try container.encode(self.mBytesPerPacket)
-        try container.encode(self.mFramesPerPacket)
-        try container.encode(self.mBytesPerFrame)
-        try container.encode(self.mChannelsPerFrame)
-        try container.encode(self.mBitsPerChannel)
+        try container.encode(mSampleRate)
+        try container.encode(mFormatID)
+        try container.encode(mFormatFlags)
+        try container.encode(mBytesPerPacket)
+        try container.encode(mFramesPerPacket)
+        try container.encode(mBytesPerFrame)
+        try container.encode(mChannelsPerFrame)
+        try container.encode(mBitsPerChannel)
     }
 
     public init(from decoder: any Decoder) throws {

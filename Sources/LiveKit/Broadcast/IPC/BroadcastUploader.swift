@@ -67,7 +67,7 @@ final class BroadcastUploader: Sendable {
                 return true
             }
             guard canUpload else { return }
-            
+
             let rotation = VideoRotation(sampleBuffer.replayKitOrientation ?? .up)
             do {
                 let (metadata, imageData) = try imageCodec.encode(sampleBuffer)
@@ -95,7 +95,7 @@ final class BroadcastUploader: Sendable {
     private func handleIncomingMessages() async throws {
         for try await (header, _) in channel.incomingMessages(BroadcastIPCHeader.self) {
             switch header {
-            case .wantsAudio(let wantsAudio):
+            case let .wantsAudio(wantsAudio):
                 state.mutate { $0.shouldUploadAudio = wantsAudio }
             default:
                 logger.debug("Unhandled incoming message: \(header)")
