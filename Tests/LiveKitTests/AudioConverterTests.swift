@@ -47,19 +47,18 @@ class AudioConverterTests: XCTestCase {
         let converter = AudioConverter(from: inputFormat, to: outputFormat)!
 
         let tempOutputUrl = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString).appendingPathExtension("wav")
-        let outputFile = try AVAudioFile(forWriting: tempOutputUrl, settings: outputFormat.settings)
+        var outputFile: AVAudioFile? = try AVAudioFile(forWriting: tempOutputUrl, settings: outputFormat.settings)
 
         while inputFile.framePosition < inputFile.length {
             let framesToRead: UInt32 = min(readFrameCapacity, UInt32(inputFile.length - inputFile.framePosition))
             try inputFile.read(into: inputBuffer, frameCount: framesToRead)
             converter.convert(from: inputBuffer)
             print("Converted \(framesToRead) frames from \(inputFormat.sampleRate) to \(outputFormat.sampleRate), outputFrames: \(converter.outputBuffer.frameLength)")
-            try outputFile.write(from: converter.outputBuffer)
+            try outputFile?.write(from: converter.outputBuffer)
         }
 
-        if #available(iOS 18.0, macOS 15.0, *) {
-            outputFile.close()
-        }
+        // Close file
+        outputFile = nil
 
         print("Write audio file: \(tempOutputUrl)")
 
