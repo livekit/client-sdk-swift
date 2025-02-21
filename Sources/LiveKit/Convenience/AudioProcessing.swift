@@ -15,8 +15,12 @@
  */
 
 import Accelerate
-import AVFoundation
-import Foundation
+import AVFAudio
+
+#if os(iOS) && targetEnvironment(macCatalyst)
+// Required for UnsafeMutableAudioBufferListPointer.
+import CoreAudio
+#endif
 
 public struct AudioLevel {
     /// Linear Scale RMS Value
