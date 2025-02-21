@@ -16,20 +16,19 @@
 
 import Foundation
 
-public typealias ByteStreamHandler = (ByteStreamReader, Participant.Identity) async throws -> Void
-public typealias TextStreamHandler = (TextStreamReader, Participant.Identity) async throws -> Void
-
 /// Manages state of incoming data streams.
 actor IncomingStreamManager: Loggable {
     
-    private struct OpenStream {
+    /// Information about an open data stream.
+    private struct Descriptor {
         let info: StreamInfo
         var readLength: Int = 0
         let openTime: TimeInterval
         let continuation: StreamReaderSource.Continuation
     }
     
-    private var openStreams: [String: OpenStream] = [:]
+    /// Mapping between stream ID and descriptor for open streams.
+    private var openStreams: [String: Descriptor] = [:]
     
     private var byteStreamHandlers: [String: ByteStreamHandler] = [:]
     private var textStreamHandlers: [String: TextStreamHandler] = [:]
@@ -73,7 +72,7 @@ actor IncomingStreamManager: Loggable {
             self.log("Continuation terminated: \(termination)", .debug)
             Task { await self.closeStream(with: info.id) }
         }
-        let descriptor = OpenStream(
+        let descriptor = Descriptor(
             info: info,
             openTime: Date.timeIntervalSinceReferenceDate,
             continuation: continuation
@@ -190,3 +189,11 @@ actor IncomingStreamManager: Loggable {
         }
     }
 }
+
+// MARK: - Type aliases
+
+/// Handler for incoming byte data streams.
+public typealias ByteStreamHandler = (ByteStreamReader, Participant.Identity) async throws -> Void
+
+/// Handler for incoming text data streams.
+public typealias TextStreamHandler = (TextStreamReader, Participant.Identity) async throws -> Void
