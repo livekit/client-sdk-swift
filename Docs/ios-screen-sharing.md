@@ -7,7 +7,7 @@ LiveKit integrates with [ReplayKit](https://developer.apple.com/documentation/re
 
 ## In-app Capture
 
-By default, LiveKit uses the In-app Capture mode, which requires no additional configuration. In this mode, when screen sharing is enabled, the system prompts the user with a screen recording permission dialog. Once granted, a screen share track is published. The user only needs to grant permission once per app execution.
+By default, LiveKit uses the In-app Capture mode, which requires no additional configuration. In this mode, when screen sharing is enabled, the system prompts the user with a screen recording permission dialog. Once granted, a screen share track is published. The user only needs to grant permission once per app execution. Application audio is not supported with the In-App Capture mode.
 
 <center>
     <figure>
@@ -87,6 +87,32 @@ try await room.localParticipant.setScreenShare(enabled: true)
 ```
 
 <small>Note: When using broadcast capture, custom capture options must be set as room defaults rather than passed when enabling screen share with `set(source:enabled:captureOptions:publishOptions:)`.</small>
+
+### Application Audio
+
+When using Broadcast Capture, you can capture app audio even when the user navigates away from your app. When enabled, the captured app audio is mixed with the local participant's microphone track. To enable this feature, set the default screen share capture options when connecting to the room:
+
+
+```swift
+let roomOptions = RoomOptions(
+    defaultScreenShareCaptureOptions: ScreenShareCaptureOptions(
+        appAudio: true // enables capture of app audio
+    )
+)
+
+// Option 1: Using SwiftUI RoomScope component
+RoomScope(url: wsURL, token: token, enableMicrophone: true, roomOptions: roomOptions) {
+    // your components here
+}
+
+// Option 2: Using Room object directly
+try await room.connect(
+    url: wsURL,
+    token: token,
+    roomOptions: roomOptions
+)
+try await room.localParticipant.setMicrophone(enabled: true)
+```
 
 ### Troubleshooting
 
