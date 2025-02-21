@@ -16,6 +16,11 @@
 
 import AVFAudio
 
+#if os(iOS) && targetEnvironment(macCatalyst)
+// Required for UnsafeMutableAudioBufferListPointer.
+import CoreAudio
+#endif
+
 class AVAudioPCMRingBuffer {
     let buffer: AVAudioPCMBuffer
     let capacity: AVAudioFrameCount

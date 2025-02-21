@@ -18,6 +18,11 @@ import AVFAudio
 @testable import LiveKit
 import XCTest
 
+#if os(iOS) && targetEnvironment(macCatalyst)
+// Required for UnsafeMutableAudioBufferListPointer.
+import CoreAudio
+#endif
+
 final class AVAudioPCMRingBufferTests: XCTestCase {
     var format: AVAudioFormat!
 
