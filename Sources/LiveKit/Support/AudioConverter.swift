@@ -20,6 +20,7 @@ final class AudioConverter: Sendable {
     let converter: AVAudioConverter
     let inputFormat: AVAudioFormat
     let outputFormat: AVAudioFormat
+    let outputBuffer: AVAudioPCMBuffer
 
     /// Computes required frame capacity for output buffer.
     static func frameCapacity(from inputFormat: AVAudioFormat, to outputFormat: AVAudioFormat, inputFrameCount: AVAudioFrameCount) -> AVAudioFrameCount {
@@ -29,24 +30,24 @@ final class AudioConverter: Sendable {
         return AVAudioFrameCount(Double(inputFrameCount) * (outputSampleRate / inputSampleRate))
     }
 
-    init?(from inputFormat: AVAudioFormat, to outputFormat: AVAudioFormat) {
-        print("AudioConverter.init inputFormat: \(inputFormat), outputFormat: \(outputFormat)")
-        guard let converter = AVAudioConverter(from: inputFormat, to: outputFormat) else {
+    init?(from inputFormat: AVAudioFormat, to outputFormat: AVAudioFormat, outputBufferCapacity: AVAudioFrameCount = 9600) {
+        guard let converter = AVAudioConverter(from: inputFormat, to: outputFormat),
+              let buffer = AVAudioPCMBuffer(pcmFormat: outputFormat, frameCapacity: outputBufferCapacity)
+        else {
             return nil
         }
 
+        outputBuffer = buffer
+        self.converter = converter
         self.inputFormat = inputFormat
         self.outputFormat = outputFormat
-        self.converter = converter
     }
 
-    func convert(from inputBuffer: AVAudioPCMBuffer, to outputBuffer: AVAudioPCMBuffer) {
-        print("AudioConverter convert frameLength: \(inputBuffer.frameLength)")
+    func convert(from inputBuffer: AVAudioPCMBuffer) {
         var error: NSError?
         var bufferFilled = false
 
-        converter.convert(to: outputBuffer, error: &error) { packetCount, outStatus in
-            print("AudioConverter convert packetCount: \(packetCount)")
+        converter.convert(to: outputBuffer, error: &error) { _, outStatus in
             if bufferFilled {
                 outStatus.pointee = .noDataNow
                 return nil

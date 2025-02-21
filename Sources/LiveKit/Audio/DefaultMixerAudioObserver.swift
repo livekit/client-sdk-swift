@@ -50,10 +50,6 @@ public final class DefaultMixerAudioObserver: AudioEngineObserver, Loggable {
         _state.read { $0.micNode }
     }
 
-    var isConnected: Bool {
-        _state.read { $0.isConnected }
-    }
-
     struct State {
         var next: (any AudioEngineObserver)?
 
@@ -65,12 +61,10 @@ public final class DefaultMixerAudioObserver: AudioEngineObserver, Loggable {
         public let micNode = AVAudioPlayerNode()
         public let micMixerNode = AVAudioMixerNode()
 
-        public var isConnected: Bool = false
-
+        // Internal states
+        var isConnected: Bool = false
         var appAudioConverter: AudioConverter?
-        var appAudioConverterBuffer: AVAudioPCMBuffer?
-
-        var isConvertBusy: Bool = false
+        var engineFormat: AVAudioFormat?
     }
 
     let _state = StateSync(State())
@@ -109,35 +103,6 @@ public final class DefaultMixerAudioObserver: AudioEngineObserver, Loggable {
         engine.detach(micMixerNode)
     }
 
-    func capture(appAudio inputBuffer: AVAudioPCMBuffer) {
-        guard !_state.isConvertBusy else { return }
-
-        _state.mutate { $0.isConvertBusy = true }
-        defer { _state.mutate { $0.isConvertBusy = false } }
-
-        let (isConnected, appNode, oldConverter, converterBuffer) = _state.read {
-            ($0.isConnected, $0.appNode, $0.appAudioConverter, $0.appAudioConverterBuffer)
-        }
-
-        guard isConnected, let converterBuffer, let engine = appNode.engine, engine.isRunning else { return }
-
-        // Create or update the converter if needed
-        let converter = (oldConverter?.inputFormat == inputBuffer.format && oldConverter?.outputFormat == converterBuffer.format)
-            ? oldConverter
-            : {
-                let newConverter = AudioConverter(from: inputBuffer.format, to: converterBuffer.format)!
-                _state.mutate { $0.appAudioConverter = newConverter }
-                return newConverter
-            }()
-
-        converter?.convert(from: inputBuffer, to: converterBuffer)
-        appNode.scheduleBuffer(converterBuffer)
-
-        if !appNode.isPlaying {
-            appNode.play()
-        }
-    }
-
     public func engineWillConnectInput(_ engine: AVAudioEngine, src: AVAudioNode?, dst: AVAudioNode, format: AVAudioFormat, context: [AnyHashable: Any]) {
         // Get the main mixer
         guard let mainMixerNode = context[kRTCAudioEngineInputMixerNodeKey] as? AVAudioMixerNode else {
@@ -170,11 +135,42 @@ public final class DefaultMixerAudioObserver: AudioEngineObserver, Loggable {
         engine.connect(micMixerNode, to: mainMixerNode, format: format)
 
         _state.mutate {
-            $0.appAudioConverterBuffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 96000)
+            $0.engineFormat = format
             $0.isConnected = true
         }
 
         // Invoke next
         next?.engineWillConnectInput(engine, src: src, dst: dst, format: format, context: context)
+    }
+}
+
+extension DefaultMixerAudioObserver {
+    // Capture appAudio and apply conversion automatically suitable for internal audio engine.
+    func capture(appAudio inputBuffer: AVAudioPCMBuffer) {
+        let (isConnected, appNode, oldConverter, engineFormat) = _state.read {
+            ($0.isConnected, $0.appNode, $0.appAudioConverter, $0.engineFormat)
+        }
+
+        guard isConnected, let engineFormat, let engine = appNode.engine, engine.isRunning else { return }
+
+        // Create or update the converter if needed
+        let converter = (oldConverter?.inputFormat == inputBuffer.format)
+            ? oldConverter
+            : {
+                let newConverter = AudioConverter(from: inputBuffer.format, to: engineFormat)!
+                self._state.mutate { $0.appAudioConverter = newConverter }
+                return newConverter
+            }()
+
+        guard let converter else { return }
+
+        converter.convert(from: inputBuffer)
+        // Copy the converted segment from buffer and schedule it.
+        let segment = converter.outputBuffer.copySegment()
+        appNode.scheduleBuffer(segment)
+
+        if !appNode.isPlaying {
+            appNode.play()
+        }
     }
 }
