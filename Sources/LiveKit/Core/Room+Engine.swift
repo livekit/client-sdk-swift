@@ -101,7 +101,7 @@ extension Room {
         if !dataChannelIsOpen {
             log("publisher data channel is not .open", .error)
         }
-        
+
         var packet = packet
         if let identity = localParticipant.identity?.stringValue {
             packet.participantIdentity = identity

@@ -16,6 +16,7 @@
 
 @testable import LiveKit
 import XCTest
+
 class RpcTests: LKTestCase {
     // Test performing RPC calls and verifying outgoing packets
     func testPerformRpc() async throws {

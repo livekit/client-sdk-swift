@@ -22,39 +22,39 @@ class RoomTests: LKTestCase {
         try await withRooms([RoomTestingOptions()]) { rooms in
             // Alias to Room
             let room1 = rooms[0]
-            
+
             // SID
             let sid = try await room1.sid()
             print("Room.sid(): \(String(describing: sid))")
             XCTAssert(sid.stringValue.starts(with: "RM_"))
-            
+
             // creationTime
             XCTAssert(room1.creationTime != nil)
             print("Room.creationTime: \(String(describing: room1.creationTime))")
         }
     }
-    
+
     func testParticipantCleanUp() async throws {
         // Create 2 Rooms
         try await withRooms([RoomTestingOptions(delegate: self), RoomTestingOptions(delegate: self)]) { _ in
             // Nothing to do here
         }
     }
-    
+
     func testSendDataPacket() async throws {
         try await withRooms([RoomTestingOptions()]) { rooms in
             let room = rooms[0]
-            
+
             let expectDataPacket = self.expectation(description: "Should send data packet")
-            
+
             let mockDataChannel = MockDataChannelPair { packet in
                 XCTAssertEqual(packet.participantIdentity, room.localParticipant.identity?.stringValue ?? "")
                 expectDataPacket.fulfill()
             }
             room.publisherDataChannel = mockDataChannel
-            
+
             try await room.send(dataPacket: Livekit_DataPacket())
-            
+
             await self.fulfillment(of: [expectDataPacket], timeout: 5)
         }
     }
