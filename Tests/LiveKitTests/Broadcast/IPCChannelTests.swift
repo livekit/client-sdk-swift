@@ -95,13 +95,13 @@ final class IPCChannelTests: LKTestCase {
 
     func testConnectorCancelDuringInit() async throws {
         try await assertInitCancellationThrows(
-            await IPCChannel(connectingTo: self.socketPath)
+            IPCChannel(connectingTo: socketPath)
         )
     }
 
     func testAcceptorCancelDuringInit() async throws {
         try await assertInitCancellationThrows(
-            await IPCChannel(acceptingOn: self.socketPath)
+            IPCChannel(acceptingOn: socketPath)
         )
     }
 

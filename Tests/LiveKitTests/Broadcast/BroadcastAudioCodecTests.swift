@@ -16,32 +16,31 @@
 
 #if os(iOS)
 
+import AVFAudio
+import CoreMedia
 @testable import LiveKit
 import XCTest
-import CoreMedia
-import AVFAudio
 
 final class BroadcastAudioCodecTests: XCTestCase {
-    
     private var codec: BroadcastAudioCodec!
-     
+
     override func setUpWithError() throws {
         try super.setUpWithError()
         codec = BroadcastAudioCodec()
     }
-    
+
     func testEncodeDecode() throws {
         let testBuffer = try XCTUnwrap(createTestAudioBuffer())
-        
-        let (metadata, audioData) = try XCTUnwrap(try codec.encode(testBuffer))
-        let decodedBuffer = try XCTUnwrap(try codec.decode(audioData, with: metadata))
-        
+
+        let (metadata, audioData) = try XCTUnwrap(codec.encode(testBuffer))
+        let decodedBuffer = try XCTUnwrap(codec.decode(audioData, with: metadata))
+
         XCTAssertEqual(decodedBuffer.frameLength, AVAudioFrameCount(testBuffer.numSamples))
-        
+
         let asbd = try XCTUnwrap(testBuffer.formatDescription?.audioStreamBasicDescription)
         XCTAssertEqual(decodedBuffer.format.streamDescription.pointee, asbd)
     }
-    
+
     func testDecodeEmpty() throws {
         let metadata = BroadcastAudioCodec.Metadata(
             sampleCount: 1,
@@ -51,7 +50,7 @@ final class BroadcastAudioCodecTests: XCTestCase {
             XCTAssertEqual(error as? BroadcastAudioCodec.Error, .decodingFailed)
         }
     }
-    
+
     private func createTestAudioBuffer() -> CMSampleBuffer? {
         let frames = 1024
         let sampleRate: Float64 = 44100.0
@@ -59,7 +58,7 @@ final class BroadcastAudioCodecTests: XCTestCase {
         let bitsPerChannel: UInt32 = 16
         let bytesPerFrame = channels * (bitsPerChannel / 8)
         let totalDataSize = Int(frames) * Int(bytesPerFrame)
-        
+
         var asbd = AudioStreamBasicDescription(
             mSampleRate: sampleRate,
             mFormatID: kAudioFormatLinearPCM,
@@ -71,7 +70,7 @@ final class BroadcastAudioCodecTests: XCTestCase {
             mBitsPerChannel: bitsPerChannel,
             mReserved: 0
         )
-        
+
         var formatDescription: CMAudioFormatDescription?
         guard CMAudioFormatDescriptionCreate(
             allocator: kCFAllocatorDefault,
@@ -83,11 +82,11 @@ final class BroadcastAudioCodecTests: XCTestCase {
             extensions: nil,
             formatDescriptionOut: &formatDescription
         ) == noErr,
-        let audioFormatDesc = formatDescription else { return nil }
-        
+            let audioFormatDesc = formatDescription else { return nil }
+
         let pcmData = UnsafeMutablePointer<UInt8>.allocate(capacity: totalDataSize)
         pcmData.initialize(repeating: 0, count: totalDataSize)
-        
+
         var blockBuffer: CMBlockBuffer?
         guard CMBlockBufferCreateWithMemoryBlock(
             allocator: kCFAllocatorDefault,
@@ -100,17 +99,18 @@ final class BroadcastAudioCodecTests: XCTestCase {
             flags: 0,
             blockBufferOut: &blockBuffer
         ) == kCMBlockBufferNoErr,
-        let cmBlockBuffer = blockBuffer else {
+            let cmBlockBuffer = blockBuffer
+        else {
             pcmData.deallocate()
             return nil
         }
-        
+
         var timingInfo = CMSampleTimingInfo(
             duration: CMTimeMake(value: 1, timescale: Int32(sampleRate)),
             presentationTimeStamp: .zero,
             decodeTimeStamp: CMTime.invalid
         )
-        
+
         var sampleBuffer: CMSampleBuffer?
         guard CMSampleBufferCreate(
             allocator: kCFAllocatorDefault,
@@ -126,22 +126,22 @@ final class BroadcastAudioCodecTests: XCTestCase {
             sampleSizeArray: nil,
             sampleBufferOut: &sampleBuffer
         ) == noErr else { return nil }
-        
+
         return sampleBuffer
     }
 }
 
 extension AudioStreamBasicDescription: @retroactive Equatable {
     public static func == (lhs: Self, rhs: Self) -> Bool {
-        return lhs.mSampleRate == rhs.mSampleRate &&
-               lhs.mFormatID == rhs.mFormatID &&
-               lhs.mFormatFlags == rhs.mFormatFlags &&
-               lhs.mBytesPerPacket == rhs.mBytesPerPacket &&
-               lhs.mFramesPerPacket == rhs.mFramesPerPacket &&
-               lhs.mBytesPerFrame == rhs.mBytesPerFrame &&
-               lhs.mChannelsPerFrame == rhs.mChannelsPerFrame &&
-               lhs.mBitsPerChannel == rhs.mBitsPerChannel &&
-               lhs.mReserved == rhs.mReserved
+        lhs.mSampleRate == rhs.mSampleRate &&
+            lhs.mFormatID == rhs.mFormatID &&
+            lhs.mFormatFlags == rhs.mFormatFlags &&
+            lhs.mBytesPerPacket == rhs.mBytesPerPacket &&
+            lhs.mFramesPerPacket == rhs.mFramesPerPacket &&
+            lhs.mBytesPerFrame == rhs.mBytesPerFrame &&
+            lhs.mChannelsPerFrame == rhs.mChannelsPerFrame &&
+            lhs.mBitsPerChannel == rhs.mBitsPerChannel &&
+            lhs.mReserved == rhs.mReserved
     }
 }
 
