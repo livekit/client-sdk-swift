@@ -50,10 +50,6 @@ public final class DefaultMixerAudioObserver: AudioEngineObserver, Loggable {
         _state.read { $0.micNode }
     }
 
-    var isConnected: Bool {
-        _state.read { $0.isConnected }
-    }
-
     struct State {
         var next: (any AudioEngineObserver)?
 
@@ -65,7 +61,10 @@ public final class DefaultMixerAudioObserver: AudioEngineObserver, Loggable {
         public let micNode = AVAudioPlayerNode()
         public let micMixerNode = AVAudioMixerNode()
 
-        public var isConnected: Bool = false
+        // Internal states
+        var isConnected: Bool = false
+        var appAudioConverter: AudioConverter?
+        var engineFormat: AVAudioFormat?
     }
 
     let _state = StateSync(State())
@@ -117,16 +116,9 @@ public final class DefaultMixerAudioObserver: AudioEngineObserver, Loggable {
             ($0.appNode, $0.appMixerNode, $0.micNode, $0.micMixerNode)
         }
 
-        // TODO: Investigate if possible to get this format prior to starting screen capture.
-        // <AVAudioFormat 0x600003055180:  2 ch,  48000 Hz, Float32, deinterleaved>
-        let appAudioNodeFormat = AVAudioFormat(commonFormat: .pcmFormatFloat32,
-                                               sampleRate: format.sampleRate, // Assume same sample rate
-                                               channels: 2,
-                                               interleaved: false)
-
         log("Connecting app -> appMixer -> mainMixer")
         // appAudio -> appAudioMixer -> mainMixer
-        engine.connect(appNode, to: appMixerNode, format: appAudioNodeFormat)
+        engine.connect(appNode, to: appMixerNode, format: format)
         engine.connect(appMixerNode, to: mainMixerNode, format: format)
 
         // src is not null if device rendering mode.
@@ -136,21 +128,49 @@ public final class DefaultMixerAudioObserver: AudioEngineObserver, Loggable {
             engine.connect(src, to: micMixerNode, format: format)
         }
 
-        // TODO: Investigate if possible to get this format prior to starting screen capture.
-        let micNodeFormat = AVAudioFormat(commonFormat: .pcmFormatFloat32,
-                                          sampleRate: format.sampleRate, // Assume same sample rate
-                                          channels: 1, // Mono
-                                          interleaved: false)
-
         log("Connecting micAudio (player) to micMixer -> mainMixer")
         // mic (player) -> micMixer -> mainMixer
-        engine.connect(micNode, to: micMixerNode, format: micNodeFormat)
+        engine.connect(micNode, to: micMixerNode, format: format)
         // Always connect micMixer to mainMixer
         engine.connect(micMixerNode, to: mainMixerNode, format: format)
 
-        _state.mutate { $0.isConnected = true }
+        _state.mutate {
+            $0.engineFormat = format
+            $0.isConnected = true
+        }
 
         // Invoke next
         next?.engineWillConnectInput(engine, src: src, dst: dst, format: format, context: context)
+    }
+}
+
+extension DefaultMixerAudioObserver {
+    // Capture appAudio and apply conversion automatically suitable for internal audio engine.
+    func capture(appAudio inputBuffer: AVAudioPCMBuffer) {
+        let (isConnected, appNode, oldConverter, engineFormat) = _state.read {
+            ($0.isConnected, $0.appNode, $0.appAudioConverter, $0.engineFormat)
+        }
+
+        guard isConnected, let engineFormat, let engine = appNode.engine, engine.isRunning else { return }
+
+        // Create or update the converter if needed
+        let converter = (oldConverter?.inputFormat == inputBuffer.format)
+            ? oldConverter
+            : {
+                let newConverter = AudioConverter(from: inputBuffer.format, to: engineFormat)!
+                self._state.mutate { $0.appAudioConverter = newConverter }
+                return newConverter
+            }()
+
+        guard let converter else { return }
+
+        converter.convert(from: inputBuffer)
+        // Copy the converted segment from buffer and schedule it.
+        let segment = converter.outputBuffer.copySegment()
+        appNode.scheduleBuffer(segment)
+
+        if !appNode.isPlaying {
+            appNode.play()
+        }
     }
 }

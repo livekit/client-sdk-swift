@@ -17,7 +17,7 @@
 @testable import LiveKit
 import XCTest
 
-class ParticipantTests: XCTestCase {
+class ParticipantTests: LKTestCase {
     func testLocalParticipantIdentity() async throws {
         try await withRooms([RoomTestingOptions()]) { rooms in
             // Alias to Room

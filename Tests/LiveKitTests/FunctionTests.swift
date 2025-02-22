@@ -17,7 +17,7 @@
 @testable import LiveKit
 import XCTest
 
-class FunctionTests: XCTestCase {
+class FunctionTests: LKTestCase {
     func testRangeMerge() async throws {
         let range1 = 10 ... 20
         let range2 = 5 ... 15

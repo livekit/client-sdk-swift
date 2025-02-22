@@ -17,8 +17,7 @@
 @testable import LiveKit
 import XCTest
 
-class RpcTests: XCTestCase {
-
+class RpcTests: LKTestCase {
     // Test performing RPC calls and verifying outgoing packets
     func testPerformRpc() async throws {
         try await withRooms([RoomTestingOptions()]) { rooms in
