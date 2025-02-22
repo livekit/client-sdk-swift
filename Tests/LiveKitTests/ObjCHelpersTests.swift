@@ -14,24 +14,11 @@
  * limitations under the License.
  */
 
-@testable import LiveKit
+import LKObjCHelpers
 import XCTest
 
-class QueueActorTests: LKTestCase {
-    private lazy var queue = QueueActor<String> { print($0) }
-
-    override func setUpWithError() throws {}
-
-    override func tearDown() async throws {}
-
-    func testQueueActor01() async throws {
-        await queue.processIfResumed("Value 0")
-        await queue.suspend()
-        await queue.processIfResumed("Value 1")
-        await queue.processIfResumed("Value 2")
-        await queue.processIfResumed("Value 3")
-        await print("Count: \(queue.count)")
-        await queue.resume()
-        await print("Count: \(queue.count)")
+class ObjCHelperTests: LKTestCase {
+    func testHelper() {
+        LKObjCHelpers.finishBroadcastWithoutError(nil)
     }
 }

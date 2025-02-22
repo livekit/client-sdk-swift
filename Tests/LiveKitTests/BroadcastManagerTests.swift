@@ -20,7 +20,7 @@ import Combine
 @testable import LiveKit
 import XCTest
 
-class BroadcastManagerTests: XCTestCase {
+class BroadcastManagerTests: LKTestCase {
     private var manager: BroadcastManager!
 
     override func setUp() {

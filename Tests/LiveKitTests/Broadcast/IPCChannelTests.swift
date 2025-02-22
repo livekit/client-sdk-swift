@@ -17,43 +17,42 @@
 #if os(iOS)
 
 @testable import LiveKit
-import XCTest
 import Network
+import XCTest
 
-final class IPCChannelTests: XCTestCase {
-    
+final class IPCChannelTests: LKTestCase {
     private var socketPath: SocketPath!
-    
+
     enum TestSetupError: Error {
         case failedToGeneratePath
     }
-    
+
     override func setUpWithError() throws {
         try super.setUpWithError()
-        
+
         // Use relative paths to ensure socket path is not too long
         let temporaryDirectory = FileManager.default.temporaryDirectory
         FileManager.default.changeCurrentDirectoryPath(temporaryDirectory.path)
-        
+
         guard let socketPath = SocketPath(UUID().uuidString + ".sock") else {
             throw TestSetupError.failedToGeneratePath
         }
         self.socketPath = socketPath
     }
-    
+
     func testConnectionAcceptorFirst() async throws {
         let established = XCTestExpectation(description: "Connection established")
 
         Task {
             let channel = try await IPCChannel(acceptingOn: socketPath)
             XCTAssertFalse(channel.isClosed)
-            
+
             established.fulfill()
         }
         Task {
             let channel = try await IPCChannel(connectingTo: socketPath)
             XCTAssertFalse(channel.isClosed)
-            
+
             // Keep alive to give time acceptor to accept
             try await Task.shortSleep()
         }
@@ -62,7 +61,7 @@ final class IPCChannelTests: XCTestCase {
 
     func testConnectionConnectorFirst() async throws {
         let established = XCTestExpectation(description: "Connection established")
-        
+
         Task {
             let channel = try await IPCChannel(connectingTo: socketPath)
             XCTAssertFalse(channel.isClosed)
@@ -74,7 +73,7 @@ final class IPCChannelTests: XCTestCase {
         }
         await fulfillment(of: [established], timeout: 5.0)
     }
-    
+
     private func assertInitCancellationThrows(
         _ initializer: @escaping @autoclosure () async throws -> IPCChannel,
         file: StaticString = #file,
@@ -96,48 +95,46 @@ final class IPCChannelTests: XCTestCase {
 
     func testConnectorCancelDuringInit() async throws {
         try await assertInitCancellationThrows(
-            try await IPCChannel(connectingTo: self.socketPath)
+            await IPCChannel(connectingTo: self.socketPath)
         )
     }
-    
+
     func testAcceptorCancelDuringInit() async throws {
         try await assertInitCancellationThrows(
-            try await IPCChannel(acceptingOn: self.socketPath)
+            await IPCChannel(acceptingOn: self.socketPath)
         )
     }
-    
+
     private struct TestHeader: Codable, Equatable {
         let someField: Int
     }
-    
+
     func testMessageExchange() async throws {
-        
         let initialReceived = XCTestExpectation(description: "Acceptor receives initial message from connector")
         let replyReceived = XCTestExpectation(description: "Connector receives reply from acceptor")
-        
+
         let testHeader = TestHeader(someField: 1)
         let testPayload = Data([1, 2, 3])
-        
+
         Task {
             let channel = try await IPCChannel(acceptingOn: socketPath)
-            
+
             for try await (header, payload) in channel.incomingMessages(TestHeader.self) {
-                
                 // Received initial message
                 XCTAssertEqual(header, testHeader)
                 XCTAssertEqual(payload, testPayload)
                 initialReceived.fulfill()
-                
+
                 // Send reply
                 try await channel.send(header: testHeader, payload: testPayload)
             }
         }
         Task {
             let channel = try await IPCChannel(connectingTo: socketPath)
-            
+
             // Send initial message
             try await channel.send(header: testHeader, payload: testPayload)
-            
+
             for try await (header, payload) in channel.incomingMessages(TestHeader.self) {
                 // Received reply
                 XCTAssertEqual(header, testHeader)
@@ -151,7 +148,7 @@ final class IPCChannelTests: XCTestCase {
             enforceOrder: true
         )
     }
-    
+
     func testMessageSequenceAfterClosure() async throws {
         let sequenceEnds = XCTestExpectation(description: "Message sequence ends after closure")
         Task {
@@ -170,9 +167,9 @@ final class IPCChannelTests: XCTestCase {
     }
 }
 
-private extension Task where  Success == Never, Failure == Never {
+private extension Task where Success == Never, Failure == Never {
     static func shortSleep() async throws {
-        try await Self.sleep(nanoseconds: 1_000_000_000)
+        try await sleep(nanoseconds: 1_000_000_000)
     }
 }
 

@@ -17,7 +17,7 @@
 @testable import LiveKit
 import XCTest
 
-class AsyncRetryTests: XCTestCase {
+class AsyncRetryTests: LKTestCase {
     override func setUpWithError() throws {}
 
     override func tearDown() async throws {}

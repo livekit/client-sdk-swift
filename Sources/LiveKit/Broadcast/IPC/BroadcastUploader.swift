@@ -23,11 +23,11 @@ import ReplayKit
 final class BroadcastUploader: Sendable {
     private let channel: IPCChannel
     private let imageCodec = BroadcastImageCodec()
-    
+
     private struct State {
         var isUploadingImage = false
     }
-    
+
     private let state = StateSync(State())
 
     enum Error: Swift.Error {
@@ -63,7 +63,7 @@ final class BroadcastUploader: Sendable {
                 return true
             }
             guard canUpload else { return }
-            
+
             let rotation = VideoRotation(sampleBuffer.replayKitOrientation ?? .up)
             do {
                 let (metadata, imageData) = try imageCodec.encode(sampleBuffer)

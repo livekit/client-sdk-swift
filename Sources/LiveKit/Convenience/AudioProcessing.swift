@@ -15,8 +15,12 @@
  */
 
 import Accelerate
-import AVFoundation
-import Foundation
+import AVFAudio
+
+#if os(iOS) && targetEnvironment(macCatalyst)
+// Required for UnsafeMutableAudioBufferListPointer.
+import CoreAudio
+#endif
 
 public struct AudioLevel {
     /// Linear Scale RMS Value
@@ -68,6 +72,28 @@ public extension CMSampleBuffer {
 }
 
 public extension AVAudioPCMBuffer {
+    /// Copies a range of an AVAudioPCMBuffer.
+    func copySegment(from startFrame: AVAudioFramePosition, to endFrame: AVAudioFramePosition) -> AVAudioPCMBuffer {
+        let framesToCopy = AVAudioFrameCount(endFrame - startFrame)
+        let segment = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: framesToCopy)!
+
+        let sampleSize = format.streamDescription.pointee.mBytesPerFrame
+
+        let srcPtr = UnsafeMutableAudioBufferListPointer(mutableAudioBufferList)
+        let dstPtr = UnsafeMutableAudioBufferListPointer(segment.mutableAudioBufferList)
+        for (src, dst) in zip(srcPtr, dstPtr) {
+            memcpy(dst.mData, src.mData?.advanced(by: Int(startFrame) * Int(sampleSize)), Int(framesToCopy) * Int(sampleSize))
+        }
+
+        segment.frameLength = framesToCopy
+        return segment
+    }
+
+    /// Copies a full segment from 0 to frameLength. frameCapacity will be equal to frameLength.
+    func copySegment() -> AVAudioPCMBuffer {
+        copySegment(from: 0, to: AVAudioFramePosition(frameLength))
+    }
+
     /// Computes Peak and Linear Scale RMS Value (Average) for all channels.
     func audioLevels() -> [AudioLevel] {
         var result: [AudioLevel] = []

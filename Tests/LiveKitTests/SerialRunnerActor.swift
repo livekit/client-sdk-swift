@@ -17,7 +17,7 @@
 @testable import LiveKit
 import XCTest
 
-class SerialRunnerActorTests: XCTestCase {
+class SerialRunnerActorTests: LKTestCase {
     let serialRunner = SerialRunnerActor<Void>()
     var counterValue: Int = 0
     var resultValues: [String] = []
