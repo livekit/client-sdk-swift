@@ -17,7 +17,7 @@
 @testable import LiveKit
 import XCTest
 
-class PublishDataTests: XCTestCase {
+class PublishDataTests: LKTestCase {
     // Test with canSubscribe: true
     func testPublishDataReceiverCanSubscribe() async throws {
         try await _publishDataTest(receiverRoomOptions: RoomTestingOptions(canSubscribe: true))

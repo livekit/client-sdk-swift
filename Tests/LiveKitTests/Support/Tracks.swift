@@ -18,7 +18,7 @@ import AVFoundation
 @testable import LiveKit
 import XCTest
 
-extension XCTestCase {
+extension LKTestCase {
     // Creates a LocalVideoTrack with BufferCapturer, generates frames for approx 30 seconds
     func createSampleVideoTrack(targetFps: Int = 30, _ onCapture: @escaping (CMSampleBuffer) -> Void) async throws -> (Task<Void, any Error>) {
         // Sample video
@@ -186,10 +186,9 @@ class AudioTrackWatcher: AudioRenderer {
     }
 
     func render(pcmBuffer: AVAudioPCMBuffer) {
-        print("did receive first audio frame: \(String(describing: pcmBuffer))")
-
         _state.mutate {
             if !$0.didRenderFirstFrame {
+                print("did receive first audio frame: \(String(describing: pcmBuffer))")
                 $0.didRenderFirstFrame = true
                 onDidRenderFirstFrame?(id)
             }

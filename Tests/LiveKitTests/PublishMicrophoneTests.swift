@@ -19,7 +19,7 @@ import CoreMedia
 @testable import LiveKit
 import XCTest
 
-class PublishMicrophoneTests: XCTestCase {
+class PublishMicrophoneTests: LKTestCase {
     func testConcurrentMicPublish() async throws {
         try await withRooms([RoomTestingOptions(canPublish: true)]) { rooms in
             // Alias to Room

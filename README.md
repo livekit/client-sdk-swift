@@ -14,6 +14,9 @@
 Use this SDK to add realtime video, audio and data features to your Swift app. By connecting to <a href="https://livekit.io/">LiveKit</a> Cloud or a self-hosted server, you can quickly build applications such as multi-modal AI, live streaming, or video calls with just a few lines of code.
 <!--END_DESCRIPTION-->
 
+[![](https://img.shields.io/endpoint?url=https%3A%2F%2Fswiftpackageindex.com%2Fapi%2Fpackages%2Flivekit%2Fclient-sdk-swift%2Fbadge%3Ftype%3Dswift-versions)](https://swiftpackageindex.com/livekit/client-sdk-swift)
+[![](https://img.shields.io/endpoint?url=https%3A%2F%2Fswiftpackageindex.com%2Fapi%2Fpackages%2Flivekit%2Fclient-sdk-swift%2Fbadge%3Ftype%3Dplatforms)](https://swiftpackageindex.com/livekit/client-sdk-swift)
+
 ## Docs & Example app
 
 > [!NOTE]
@@ -38,7 +41,7 @@ Add the dependency and also to your target
 let package = Package(
   ...
   dependencies: [
-    .package(name: "LiveKit", url: "https://github.com/livekit/client-sdk-swift.git", .upToNextMajor("2.0.20")),
+    .package(name: "LiveKit", url: "https://github.com/livekit/client-sdk-swift.git", .upToNextMajor("2.1.1")),
   ],
   targets: [
     .target(

@@ -202,8 +202,18 @@ public class AudioManager: Loggable {
         set { RTC.audioDeviceModule.duckingLevel = newValue.rawValue }
     }
 
+    /// The main flag that determines whether to enable Voice-Processing I/O of the internal AVAudioEngine. Toggling this requires restarting the AudioEngine.
+    /// Setting this to `false` prevents any voice-processing-related initialization, and muted talker detection will not work.
+    /// Typically, it is recommended to keep this set to `true` and toggle ``isVoiceProcessingBypassed`` when possible.
+    /// Defaults to `true`.
+    public var isVoiceProcessingEnabled: Bool {
+        get { RTC.audioDeviceModule.isVoiceProcessingEnabled }
+        set { RTC.audioDeviceModule.isVoiceProcessingEnabled = newValue }
+    }
+
     /// Bypass Voice-Processing I/O of internal AVAudioEngine.
-    /// It is valid to toggle this at runtime.
+    /// It is valid to toggle this at runtime and AudioEngine doesn't require restart.
+    /// Defaults to `false`.
     public var isVoiceProcessingBypassed: Bool {
         get { RTC.audioDeviceModule.isVoiceProcessingBypassed }
         set { RTC.audioDeviceModule.isVoiceProcessingBypassed = newValue }
@@ -241,7 +251,15 @@ public class AudioManager: Loggable {
     /// Starts mic input to the SDK even without any ``Room`` or a connection.
     /// Audio buffers will flow into ``LocalAudioTrack/add(audioRenderer:)`` and ``capturePostProcessingDelegate``.
     public func startLocalRecording() {
+        // Always unmute APM if muted by last session.
+        RTC.audioProcessingModule.isMuted = false
+        // Start recording on the ADM.
         RTC.audioDeviceModule.initAndStartRecording()
+    }
+
+    /// Stops mic input after it was started with ``startLocalRecording()``
+    public func stopLocalRecording() {
+        RTC.audioDeviceModule.stopRecording()
     }
 
     /// Set a chain of ``AudioEngineObserver``s.
@@ -255,7 +273,34 @@ public class AudioManager: Loggable {
         _state.mutate { $0.engineObservers = engineObservers }
     }
 
+    public let mixer = DefaultMixerAudioObserver()
+
+    /// Set to `true` to enable legacy mic mute mode.
+    ///
+    /// - Default: Uses `AVAudioEngine`'s `isVoiceProcessingInputMuted` internally.
+    ///   This is fast, and muted speaker detection works. However, iOS will play a sound effect.
+    /// - Legacy: Restarts the internal `AVAudioEngine` without mic input when muted.
+    ///   This is slower, and muted speaker detection does not work. No sound effect is played.
+    public var isLegacyMuteMode: Bool {
+        get { RTC.audioDeviceModule.muteMode == .restartEngine }
+        set { RTC.audioDeviceModule.muteMode = newValue ? .restartEngine : .voiceProcessing }
+    }
+
     // MARK: - For testing
+
+    var isEngineRunning: Bool {
+        RTC.audioDeviceModule.isEngineRunning
+    }
+
+    var isMicrophoneMuted: Bool {
+        get { RTC.audioDeviceModule.isMicrophoneMuted }
+        set { RTC.audioDeviceModule.isMicrophoneMuted = newValue }
+    }
+
+    var engineState: RTCAudioEngineState {
+        get { RTC.audioDeviceModule.engineState }
+        set { RTC.audioDeviceModule.engineState = newValue }
+    }
 
     var isPlayoutInitialized: Bool {
         RTC.audioDeviceModule.isPlayoutInitialized
@@ -305,9 +350,9 @@ public class AudioManager: Loggable {
 
     init() {
         #if os(iOS) || os(visionOS) || os(tvOS)
-        let engineObservers: [any AudioEngineObserver] = [DefaultAudioSessionObserver()]
+        let engineObservers: [any AudioEngineObserver] = [DefaultAudioSessionObserver(), mixer]
         #else
-        let engineObservers: [any AudioEngineObserver] = []
+        let engineObservers: [any AudioEngineObserver] = [mixer]
         #endif
         _state = StateSync(State(engineObservers: engineObservers))
         _admDelegateAdapter.audioManager = self
@@ -339,5 +384,18 @@ public extension AudioManager {
 
     func remove(remoteAudioRenderer delegate: AudioRenderer) {
         renderPreProcessingDelegateAdapter.remove(delegate: delegate)
+    }
+}
+
+extension AudioManager {
+    func buildEngineObserverChain() -> (any AudioEngineObserver)? {
+        var objects = _state.engineObservers
+        guard !objects.isEmpty else { return nil }
+
+        for i in 0 ..< objects.count - 1 {
+            objects[i].next = objects[i + 1]
+        }
+
+        return objects.first
     }
 }

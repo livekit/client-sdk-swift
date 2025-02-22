@@ -17,7 +17,7 @@
 @testable import LiveKit
 import XCTest
 
-class RpcTests: XCTestCase {
+class RpcTests: LKTestCase {
     // Mock DataChannelPair to intercept outgoing packets
     class MockDataChannelPair: DataChannelPair {
         var packetHandler: (Livekit_DataPacket) -> Void

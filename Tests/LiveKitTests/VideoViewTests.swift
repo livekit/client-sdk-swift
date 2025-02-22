@@ -17,11 +17,7 @@
 @testable import LiveKit
 import XCTest
 
-class VideoViewTests: XCTestCase {
-    override class func setUp() {
-        LiveKitSDK.setLoggerStandardOutput()
-    }
-
+class VideoViewTests: LKTestCase {
     /// Test if avSampleBufferDisplayLayer is available immediately after creating VideoView.
     @MainActor
     func testAVSampleBufferDisplayLayer() {

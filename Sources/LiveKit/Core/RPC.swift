@@ -22,19 +22,19 @@ import Foundation
 /// serialized and sent across the wire. The sender will receive an equivalent error on the other side.
 ///
 /// Built-in types are included but developers may use any message string, with a max length of 256 bytes.
-struct RpcError: Error {
+public struct RpcError: Error {
     /// The error code of the RPC call. Error codes 1001-1999 are reserved for built-in errors.
     ///
     /// See `RpcError.BuiltInError` for built-in error information.
-    let code: Int
+    public let code: Int
 
     /// A message to include. Strings over 256 bytes will be truncated.
-    let message: String
+    public let message: String
 
     /// An optional data payload. Must be smaller than 15KB in size, or else will be truncated.
-    let data: String
+    public let data: String
 
-    enum BuiltInError {
+    public enum BuiltInError {
         case applicationError
         case connectionTimeout
         case responseTimeout
@@ -47,7 +47,7 @@ struct RpcError: Error {
         case unsupportedServer
         case unsupportedVersion
 
-        var code: Int {
+        public var code: Int {
             switch self {
             case .applicationError: return 1500
             case .connectionTimeout: return 1501
@@ -63,7 +63,7 @@ struct RpcError: Error {
             }
         }
 
-        var message: String {
+        public var message: String {
             switch self {
             case .applicationError: return "Application error in method handler"
             case .connectionTimeout: return "Connection timeout"
@@ -124,16 +124,16 @@ public typealias RpcHandler = (RpcInvocationData) async throws -> String
 
 public struct RpcInvocationData {
     /// A unique identifier for this RPC request
-    let requestId: String
+    public let requestId: String
 
     /// The identity of the RemoteParticipant who initiated the RPC call
-    let callerIdentity: Participant.Identity
+    public let callerIdentity: Participant.Identity
 
     /// The data sent by the caller (as a string)
-    let payload: String
+    public let payload: String
 
     /// The maximum time available to return a response
-    let responseTimeout: TimeInterval
+    public let responseTimeout: TimeInterval
 }
 
 struct PendingRpcResponse {

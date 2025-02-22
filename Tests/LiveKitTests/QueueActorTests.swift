@@ -17,7 +17,7 @@
 @testable import LiveKit
 import XCTest
 
-class QueueActorTests: XCTestCase {
+class QueueActorTests: LKTestCase {
     private lazy var queue = QueueActor<String> { print($0) }
 
     override func setUpWithError() throws {}

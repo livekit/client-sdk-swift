@@ -20,7 +20,7 @@ internal import LiveKitWebRTC
 @_implementationOnly import LiveKitWebRTC
 #endif
 
-public enum VideoRotation: Int, Sendable {
+public enum VideoRotation: Int, Sendable, Codable {
     case _0 = 0
     case _90 = 90
     case _180 = 180
