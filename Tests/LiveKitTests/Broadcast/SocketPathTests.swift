@@ -19,7 +19,7 @@
 @testable import LiveKit
 import XCTest
 
-final class SocketPathTests: XCTestCase {
+final class SocketPathTests: LKTestCase {
     func testValid() throws {
         let path = "/tmp/a.sock"
         let socketPath = try XCTUnwrap(SocketPath(path))

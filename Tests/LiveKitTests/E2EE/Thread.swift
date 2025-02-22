@@ -18,7 +18,7 @@
 import LiveKitWebRTC
 import XCTest
 
-class E2EEThreadTests: XCTestCase {
+class E2EEThreadTests: LKTestCase {
     // Attempt to crash LKRTCFrameCryptor initialization
     func testCreateFrameCryptor() async throws {
         // Create peerConnection

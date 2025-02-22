@@ -41,7 +41,7 @@ public extension URLSession {
 
 // Support for Xcode 14.2
 #if !compiler(>=5.8)
-extension XCTestCase {
+extension LKTestCase {
     func fulfillment(of expectations: [XCTestExpectation], timeout: TimeInterval, enforceOrder: Bool = false) async {
         await withCheckedContinuation { continuation in
             // This function operates by blocking a background thread instead of one owned by libdispatch or by the

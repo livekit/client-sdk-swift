@@ -19,12 +19,7 @@
 import LiveKitWebRTC
 import XCTest
 
-class AudioEngineTests: XCTestCase {
-    override class func setUp() {
-        LiveKitSDK.setLoggerStandardOutput()
-        RTCSetMinDebugLogLevel(.info)
-    }
-
+class AudioEngineTests: LKTestCase {
     override func tearDown() async throws {}
 
     #if !targetEnvironment(simulator)
