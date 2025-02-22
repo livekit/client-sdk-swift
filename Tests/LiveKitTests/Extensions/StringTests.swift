@@ -17,7 +17,7 @@
 @testable import LiveKit
 import XCTest
 
-final class StringTests: XCTestCase {
+final class StringTests: LKTestCase {
     func testByteLength() {
         // ASCII characters (1 byte each)
         XCTAssertEqual("hello".byteLength, 5)

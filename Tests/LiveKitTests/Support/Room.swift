@@ -35,7 +35,7 @@ struct RoomTestingOptions {
     }
 }
 
-extension XCTestCase {
+extension LKTestCase {
     private func readEnvironmentString(for key: String, defaultValue: String) -> String {
         if let string = ProcessInfo.processInfo.environment[key]?.trimmingCharacters(in: .whitespacesAndNewlines), !string.isEmpty {
             return string

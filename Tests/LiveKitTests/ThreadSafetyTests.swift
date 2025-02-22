@@ -17,7 +17,7 @@
 @testable import LiveKit
 import XCTest
 
-class ThreadSafetyTests: XCTestCase {
+class ThreadSafetyTests: LKTestCase {
     struct TestState: Equatable {
         var dictionary = [String: String]()
         var counter = 0

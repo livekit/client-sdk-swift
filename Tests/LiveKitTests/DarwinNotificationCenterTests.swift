@@ -18,7 +18,7 @@ import Combine
 @testable import LiveKit
 import XCTest
 
-class DarwinNotificationCenterTests: XCTestCase {
+class DarwinNotificationCenterTests: LKTestCase {
     func testPublisher() throws {
         let receiveFirst = XCTestExpectation(description: "Receive from 1st subscriber")
         let receiveSecond = XCTestExpectation(description: "Receive from 2nd subscriber")

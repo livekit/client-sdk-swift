@@ -22,7 +22,7 @@ import LiveKitWebRTC
 @testable import LiveKit
 import XCTest
 
-class AudioProcessingTests: XCTestCase, AudioCustomProcessingDelegate {
+class AudioProcessingTests: LKTestCase, AudioCustomProcessingDelegate {
     var _initSampleRate: Double = 0.0
     var _initChannels: Int = 0
 

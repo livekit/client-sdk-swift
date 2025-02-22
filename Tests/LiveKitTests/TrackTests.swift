@@ -36,7 +36,7 @@ class TestTrack: LocalAudioTrack {
     }
 }
 
-class TrackTests: XCTestCase {
+class TrackTests: LKTestCase {
     #if os(iOS) || os(visionOS) || os(tvOS)
     func testConcurrentStartStop() async throws {
         // Set config func to watch state changes.

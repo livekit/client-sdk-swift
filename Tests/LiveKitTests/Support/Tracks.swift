@@ -18,7 +18,7 @@ import AVFoundation
 @testable import LiveKit
 import XCTest
 
-extension XCTestCase {
+extension LKTestCase {
     // Creates a LocalVideoTrack with BufferCapturer, generates frames for approx 30 seconds
     func createSampleVideoTrack(targetFps: Int = 30, _ onCapture: @escaping (CMSampleBuffer) -> Void) async throws -> (Task<Void, any Error>) {
         // Sample video

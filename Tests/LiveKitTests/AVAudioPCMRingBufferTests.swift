@@ -23,7 +23,7 @@ import XCTest
 import CoreAudio
 #endif
 
-final class AVAudioPCMRingBufferTests: XCTestCase {
+final class AVAudioPCMRingBufferTests: LKTestCase {
     var format: AVAudioFormat!
 
     override func setUp() {

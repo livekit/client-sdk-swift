@@ -18,7 +18,7 @@ import AVFAudio
 @testable import LiveKit
 import XCTest
 
-class AudioConverterTests: XCTestCase {
+class AudioConverterTests: LKTestCase {
     func testConvertFormat() async throws {
         // Sample audio
         let audioDownloadUrl = URL(string: "https://github.com/rafaelreis-hotmart/Audio-Sample-files/raw/refs/heads/master/sample.wav")!

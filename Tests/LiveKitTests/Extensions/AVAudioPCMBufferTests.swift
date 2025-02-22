@@ -18,7 +18,7 @@ import AVFoundation
 @testable import LiveKit
 import XCTest
 
-class AVAudioPCMBufferTests: XCTestCase {
+class AVAudioPCMBufferTests: LKTestCase {
     func testResample() {
         // Test case 1: Resample to a higher sample rate
         testResampleHelper(fromSampleRate: 44100, toSampleRate: 48000, expectedSuccess: true)
