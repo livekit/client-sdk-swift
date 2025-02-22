@@ -153,7 +153,7 @@ let muteEngineSteps: [TestEngineStep] = [
     TestEngineStep(transition: .init(outputEnabled: .value(false)), assert: .init(engineRunning: false)),
 ]
 
-class MuteTests: XCTestCase {
+class MuteTests: LKTestCase {
     override func setUp() {
         super.setUp()
         continueAfterFailure = false

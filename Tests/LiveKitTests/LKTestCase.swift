@@ -15,23 +15,19 @@
  */
 
 @testable import LiveKit
+import LiveKitWebRTC
 import XCTest
 
-class QueueActorTests: LKTestCase {
-    private lazy var queue = QueueActor<String> { print($0) }
+/// Subclass of XCTestCase that performs global initialization.
+class LKTestCase: XCTestCase {
+    private static let _globalSetup: Bool = {
+        LiveKitSDK.setLoggerStandardOutput()
+        RTCSetMinDebugLogLevel(.info)
+        return true
+    }()
 
-    override func setUpWithError() throws {}
-
-    override func tearDown() async throws {}
-
-    func testQueueActor01() async throws {
-        await queue.processIfResumed("Value 0")
-        await queue.suspend()
-        await queue.processIfResumed("Value 1")
-        await queue.processIfResumed("Value 2")
-        await queue.processIfResumed("Value 3")
-        await print("Count: \(queue.count)")
-        await queue.resume()
-        await print("Count: \(queue.count)")
+    override func setUp() {
+        assert(Self._globalSetup, "Global initialization failed")
+        super.setUp()
     }
 }

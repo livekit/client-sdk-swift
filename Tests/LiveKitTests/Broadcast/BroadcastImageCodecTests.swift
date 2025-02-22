@@ -19,7 +19,7 @@
 @testable import LiveKit
 import XCTest
 
-final class BroadcastImageCodecTests: XCTestCase {
+final class BroadcastImageCodecTests: LKTestCase {
     private var codec: BroadcastImageCodec!
 
     override func setUpWithError() throws {
