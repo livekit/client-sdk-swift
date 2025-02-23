@@ -93,6 +93,7 @@ final class IPCChannelTests: LKTestCase {
         await fulfillment(of: [cancelThrowsError], timeout: 5.0)
     }
 
+    // swiftformat:disable redundantSelf hoistAwait
     func testConnectorCancelDuringInit() async throws {
         try await assertInitCancellationThrows(
             IPCChannel(connectingTo: socketPath)
@@ -104,6 +105,8 @@ final class IPCChannelTests: LKTestCase {
             IPCChannel(acceptingOn: socketPath)
         )
     }
+
+    // swiftformat:enable all
 
     private struct TestHeader: Codable, Equatable {
         let someField: Int
