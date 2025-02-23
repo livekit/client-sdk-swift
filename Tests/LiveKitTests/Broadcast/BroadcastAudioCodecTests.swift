@@ -131,7 +131,7 @@ final class BroadcastAudioCodecTests: XCTestCase {
     }
 }
 
-extension AudioStreamBasicDescription: @retroactive Equatable {
+extension AudioStreamBasicDescription: Swift.Equatable {
     public static func == (lhs: Self, rhs: Self) -> Bool {
         lhs.mSampleRate == rhs.mSampleRate &&
             lhs.mFormatID == rhs.mFormatID &&
