@@ -18,19 +18,6 @@
 import XCTest
 
 class RpcTests: LKTestCase {
-    // Mock DataChannelPair to intercept outgoing packets
-    class MockDataChannelPair: DataChannelPair {
-        var packetHandler: (Livekit_DataPacket) -> Void
-
-        init(packetHandler: @escaping (Livekit_DataPacket) -> Void) {
-            self.packetHandler = packetHandler
-        }
-
-        override func send(dataPacket packet: Livekit_DataPacket) throws {
-            packetHandler(packet)
-        }
-    }
-
     // Test performing RPC calls and verifying outgoing packets
     func testPerformRpc() async throws {
         try await withRooms([RoomTestingOptions()]) { rooms in
