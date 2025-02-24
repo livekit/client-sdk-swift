@@ -17,22 +17,22 @@
 import Foundation
 
 @objc
-public final class AudioCodec: NSObject, Codec {
-    public static func from(name: String) -> AudioCodec? {
+public final class AudioCodecType: NSObject, Codec {
+    public static func from(name: String) -> AudioCodecType? {
         guard let codec = all.first(where: { $0.name == name.lowercased() }) else { return nil }
         return codec
     }
 
-    public static func from(mimeType: String) -> AudioCodec? {
+    public static func from(mimeType: String) -> AudioCodecType? {
         let parts = mimeType.lowercased().split(separator: "/")
         guard parts.count >= 2, parts[0] == "audio" else { return nil }
         return from(name: String(parts[1]))
     }
 
-    public static let opus = AudioCodec(name: "opus")
-    public static let red = AudioCodec(name: "red")
+    public static let opus = AudioCodecType(name: "opus")
+    public static let red = AudioCodecType(name: "red")
 
-    public static let all: [AudioCodec] = [opus, red]
+    public static let all: [AudioCodecType] = [opus, red]
 
     public let mediaType = "audio"
     public let name: String

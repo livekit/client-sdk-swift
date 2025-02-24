@@ -33,10 +33,10 @@ class CodecTests: LKTestCase {
         XCTAssert(av1 == .av1)
 
         // Audio codecs
-        let opus = AudioCodec.from(mimeType: "audio/opus")
+        let opus = AudioCodecType.from(mimeType: "audio/opus")
         XCTAssert(opus == .opus)
 
-        let red = AudioCodec.from(mimeType: "audio/red")
+        let red = AudioCodecType.from(mimeType: "audio/red")
         XCTAssert(red == .red)
     }
 }
