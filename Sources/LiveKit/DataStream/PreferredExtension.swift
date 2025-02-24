@@ -16,11 +16,9 @@
 
 #if canImport(UniformTypeIdentifiers)
 import UniformTypeIdentifiers
-#elseif canImport(CoreServices)
-import CoreServices
-#else
-import MobileCoreServices
 #endif
+
+import CoreServices
 
 /// Returns the preferred file extension for the given MIME type.
 func preferredExtension(for mimeType: String) -> String? {
