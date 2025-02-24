@@ -22,10 +22,13 @@ import ReplayKit
 /// Uploads broadcast samples to another process.
 final class BroadcastUploader: Sendable {
     private let channel: IPCChannel
+
     private let imageCodec = BroadcastImageCodec()
+    private let audioCodec = BroadcastAudioCodec()
 
     private struct State {
         var isUploadingImage = false
+        var shouldUploadAudio = false
     }
 
     private let state = StateSync(State())
@@ -38,6 +41,7 @@ final class BroadcastUploader: Sendable {
     /// Creates an uploader with an open connection to another process.
     init(socketPath: SocketPath) async throws {
         channel = try await IPCChannel(connectingTo: socketPath)
+        Task { try await handleIncomingMessages() }
     }
 
     /// Whether or not the connection to the receiver has been closed.
@@ -76,8 +80,27 @@ final class BroadcastUploader: Sendable {
                 state.mutate { $0.isUploadingImage = false }
                 throw error
             }
+        case .audioApp:
+            guard state.shouldUploadAudio else { return }
+            let (metadata, audioData) = try audioCodec.encode(sampleBuffer)
+            Task {
+                let header = BroadcastIPCHeader.audio(metadata)
+                try await channel.send(header: header, payload: audioData)
+            }
         default:
             throw Error.unsupportedSample
+        }
+    }
+
+    private func handleIncomingMessages() async throws {
+        for try await (header, _) in channel.incomingMessages(BroadcastIPCHeader.self) {
+            switch header {
+            case let .wantsAudio(wantsAudio):
+                state.mutate { $0.shouldUploadAudio = wantsAudio }
+            default:
+                logger.debug("Unhandled incoming message: \(header)")
+                continue
+            }
         }
     }
 }
