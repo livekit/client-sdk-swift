@@ -22,6 +22,10 @@ import CoreServices
 
 /// Returns the preferred file extension for the given MIME type.
 func preferredExtension(for mimeType: String) -> String? {
+    guard mimeType != "application/octet-stream" else {
+        // Special case not handled by UTType
+        return "bin"
+    }
     guard #available(macOS 11.0, iOS 14.0, *) else {
         guard let uti = UTTypeCreatePreferredIdentifierForTag(
             kUTTagClassMIMEType,

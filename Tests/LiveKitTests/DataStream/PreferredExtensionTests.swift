@@ -18,14 +18,14 @@
 import XCTest
 
 class PreferredExtensionTests: XCTestCase {
- 
     func testCommon() {
         XCTAssertEqual(preferredExtension(for: "text/plain"), "txt")
+        XCTAssertEqual(preferredExtension(for: "application/octet-stream"), "bin")
         XCTAssertEqual(preferredExtension(for: "application/json"), "json")
         XCTAssertEqual(preferredExtension(for: "image/jpeg"), "jpeg")
         XCTAssertEqual(preferredExtension(for: "application/pdf"), "pdf")
     }
-    
+
     func testInvalid() {
         XCTAssertNil(preferredExtension(for: "text/invalid"))
         XCTAssertNil(preferredExtension(for: ""))
