@@ -38,26 +38,9 @@ public struct StreamReader<Element>: AsyncSequence, Sendable where Element: Stre
 /// Upstream asynchronous sequence from which raw chunk data is read.
 typealias StreamReaderSource = AsyncThrowingStream<Data, any Error>
 
-public protocol StreamChunk {
-    init?(_ chunkData: Data)
-}
-
-extension Data: StreamChunk {}
-
-extension String: StreamChunk {
-    public init?(_ chunkData: Data) {
-        guard let string = String(data: chunkData, encoding: .utf8) else {
-            return nil
-        }
-        self = string
-    }
-}
+// MARK: - Objective-C compatibility
 
 extension StreamReader where Element: RangeReplaceableCollection {
-    func readAll() async throws -> Element {
-        try await reduce(Element()) { $0 + $1 }
-    }
-
     func readAll(onCompletion: @escaping (Element) -> Void, onError: ((Error?) -> Void)?) {
         Task {
             do { try onCompletion(await self.readAll()) }
