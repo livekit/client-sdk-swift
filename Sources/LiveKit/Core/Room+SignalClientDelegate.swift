@@ -113,6 +113,7 @@ extension Room: SignalClientDelegate {
                 $0.numPublishers = Int(joinResponse.room.numPublishers)
 
                 localParticipant.set(info: joinResponse.participant, connectionState: $0.connectionState)
+                localParticipant.set(enabledPublishCodecs: joinResponse.enabledPublishCodecs)
 
                 if !joinResponse.otherParticipants.isEmpty {
                     for otherParticipant in joinResponse.otherParticipants {

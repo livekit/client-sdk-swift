@@ -189,7 +189,7 @@ extension Room {
                 $0.isSubscriberPrimary = isSubscriberPrimary
             }
 
-            if !isSubscriberPrimary {
+            if !isSubscriberPrimary || joinResponse.fastPublish {
                 // lazy negotiation for protocol v3+
                 try await publisherShouldNegotiate()
             }
