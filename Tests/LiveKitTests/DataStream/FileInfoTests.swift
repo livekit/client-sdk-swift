@@ -42,11 +42,11 @@ class FileInfoTests: XCTestCase {
             size: contents.count,
             mimeType: mimeType
         )
-        XCTAssertEqual(try FileInfo(for: fileURL), expectedInfo, file: file, line: line)
+        XCTAssertEqual(FileInfo(for: fileURL), expectedInfo, file: file, line: line)
     }
 
-    func testReadInfoUnreadable() throws {
-        XCTAssertNil(try FileInfo(for: URL(string: "/some/unreadable/path")!))
+    func testReadInfoUnreadable() {
+        XCTAssertNil(FileInfo(for: URL(filePath: "/some/unreadable/path")))
     }
 
     func testPreferredExtensionCommon() {

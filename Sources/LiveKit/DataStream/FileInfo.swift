@@ -29,15 +29,15 @@ struct FileInfo: Equatable {
 
 extension FileInfo {
     /// Reads information from the file located at the given URL.
-    init?(for fileURL: URL) throws {
+    init?(for fileURL: URL) {
         
         var resourceKeys: Set<URLResourceKey> = [.nameKey, .fileSizeKey]
         if #available(macOS 11.0, iOS 14.0, *) {
             resourceKeys.insert(.contentTypeKey)
         }
         
-        let resourceValues = try fileURL.resourceValues(forKeys: resourceKeys)
-        guard let name = resourceValues.name,
+        guard let resourceValues = try? fileURL.resourceValues(forKeys: resourceKeys),
+              let name = resourceValues.name,
               let size = resourceValues.fileSize else { return nil }
         
         self.name = name
