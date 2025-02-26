@@ -58,6 +58,12 @@ actor OutgoingStreamManager: Loggable {
         log("Opened stream '\(info.id)'", .debug)
     }
     
+    private func send(_ data: Data, to id: String) async throws {
+        for chunk in data.chunks(of: Self.chunkSize) {
+            try await sendChunk(chunk, to: id)
+        }
+    }
+    
     private func sendChunk(_ data: Data, to id: String) async throws {
         guard let descriptor = openStreams[id] else {
             throw StreamError.unknownStream
@@ -108,7 +114,7 @@ actor OutgoingStreamManager: Loggable {
         
         func write(_ data: Data) async throws {
             guard let manager else { throw StreamError.terminated }
-            try await manager.sendChunk(data, to: streamID)
+            try await manager.send(data, to: streamID)
         }
         
         func close(reason: String?) async throws {
@@ -159,6 +165,9 @@ actor OutgoingStreamManager: Loggable {
             destination: Destination(streamID: info.id, manager: self)
         )
     }
+    
+    /// Maximum number of bytes to send in a single chunk.
+    private static let chunkSize = 15_000
     
     /// Default MIME type to use for text streams.
     private static let textMimeType = "text/plain"
