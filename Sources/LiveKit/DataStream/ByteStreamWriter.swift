@@ -25,14 +25,28 @@ public final class ByteStreamWriter: NSObject, Sendable {
     
     private let destination: StreamWriterDestination
     
+    /// Whether or not the stream is still open.
     public var isOpen: Bool {
         get async { await destination.isOpen }
     }
     
+    /// Write data to the stream.
+    ///
+    /// - Parameter data: Data to be sent.
+    /// - Throws: Throws an error if the stream has been closed or data
+    ///   cannot be sent to remote participants.
+    ///
     public func write(_ data: Data) async throws {
         try await destination.write(data)
     }
     
+    /// Close the stream.
+    ///
+    /// - Parameter reason: A textual description of why the stream is being closed. Absense
+    ///   of a reason indicates a normal closure.
+    /// - Throws: Throws an error if the stream has already been closed or closure
+    ///   cannot be communicated to remote participants.
+    ///
     public func close(reason: String? = nil) async throws {
         try await destination.close(reason: reason)
     }

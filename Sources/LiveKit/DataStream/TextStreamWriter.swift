@@ -25,14 +25,28 @@ public final class TextStreamWriter: NSObject, Sendable {
     
     private let destination: StreamWriterDestination
     
+    /// Whether or not the stream is still open.
     public var isOpen: Bool {
         get async { await destination.isOpen }
     }
     
+    /// Write text to the stream.
+    ///
+    /// - Parameter text: Text to be sent.
+    /// - Throws: Throws an error if the stream has been closed or text
+    ///   cannot be sent to remote participants.
+    ///
     public func write(_ text: String) async throws {
         try await destination.write(Data(text.utf8))
     }
     
+    /// Close the stream.
+    ///
+    /// - Parameter reason: A textual description of why the stream is being closed. Absense
+    ///   of a reason indicates a normal closure.
+    /// - Throws: Throws an error if the stream has already been closed or closure
+    ///   cannot be communicated to remote participants.
+    ///
     public func close(reason: String? = nil) async throws {
         try await destination.close(reason: reason)
     }
