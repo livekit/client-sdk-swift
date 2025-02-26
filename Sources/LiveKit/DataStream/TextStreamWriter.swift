@@ -29,8 +29,8 @@ public final class TextStreamWriter: NSObject, Sendable {
         get async { await destination.isOpen }
     }
     
-    public func sendText(_ text: String) async throws {
-        try await destination.sendChunk(data: Data(text.utf8))
+    public func write(_ text: String) async throws {
+        try await destination.write(Data(text.utf8))
     }
     
     public func close(reason: String? = nil) async throws {
@@ -48,10 +48,10 @@ public final class TextStreamWriter: NSObject, Sendable {
 extension TextStreamWriter {
     
     @objc
-    @available(*, unavailable, message: "Use async sendText(:) method instead.")
-    public func sendText(_ text: String, completion: @escaping (Error?) -> Void) {
+    @available(*, unavailable, message: "Use async write(_:) method instead.")
+    public func write(_ text: String, completion: @escaping (Error?) -> Void) {
         Task {
-            do { try await sendText(text) }
+            do { try await write(text) }
             catch { completion(error) }
         }
     }

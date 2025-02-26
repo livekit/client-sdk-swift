@@ -72,7 +72,7 @@ class OutgoingStreamManagerTests: XCTestCase {
         
         for (index, chunk) in testChunks.enumerated() {
             currentChunk = index
-            try await writer.sendData(chunk)
+            try await writer.write(chunk)
         }
         try await writer.close()
         
@@ -137,7 +137,7 @@ class OutgoingStreamManagerTests: XCTestCase {
         
         for (index, chunk) in testChunks.enumerated() {
             currentChunk = index
-            try await writer.sendText(chunk)
+            try await writer.write(chunk)
         }
         try await writer.close()
         
@@ -166,7 +166,7 @@ class OutgoingStreamManagerTests: XCTestCase {
             options: StreamTextOptions(topic: "some-topic")
         )
         do {
-            try await writer.sendText("Hello, world!")
+            try await writer.write("Hello, world!")
         } catch {
             XCTAssertEqual(error as? LiveKitError, testError)
             errorExpectation.fulfill()

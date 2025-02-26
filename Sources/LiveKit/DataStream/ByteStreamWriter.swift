@@ -29,8 +29,8 @@ public final class ByteStreamWriter: NSObject, Sendable {
         get async { await destination.isOpen }
     }
     
-    public func sendData(_ data: Data) async throws {
-        try await destination.sendChunk(data: data)
+    public func write(_ data: Data) async throws {
+        try await destination.write(data)
     }
     
     public func close(reason: String? = nil) async throws {
@@ -48,10 +48,10 @@ public final class ByteStreamWriter: NSObject, Sendable {
 extension ByteStreamWriter {
     
     @objc
-    @available(*, unavailable, message: "Use async sendData(:) method instead.")
-    public func sendData(_ data: Data, completion: @escaping (Error?) -> Void) {
+    @available(*, unavailable, message: "Use async write(_:) method instead.")
+    public func write(_ data: Data, completion: @escaping (Error?) -> Void) {
         Task {
-            do { try await sendData(data) }
+            do { try await write(data) }
             catch { completion(error) }
         }
     }

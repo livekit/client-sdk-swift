@@ -16,7 +16,7 @@
 
 import Foundation
 
-/// An asynchronous sequence of chunks read from a data stream.
+/// An asynchronous sequence of typed chunks read from a data stream.
 public struct StreamReader<Element>: AsyncSequence, Sendable where Element: StreamChunk {
     let source: StreamReaderSource
 

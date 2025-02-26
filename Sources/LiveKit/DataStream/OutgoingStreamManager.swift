@@ -103,7 +103,7 @@ actor OutgoingStreamManager: Loggable {
             }
         }
         
-        func sendChunk(data: Data) async throws {
+        func write(_ data: Data) async throws {
             guard let manager else { throw StreamError.terminated }
             try await manager.sendChunk(data: data, streamID: streamID)
         }

@@ -29,7 +29,7 @@ public extension LocalParticipant {
         let room = try requireRoom()
         let writer = try await room.outgoingStreamManager.streamText(options: options)
 
-        try await writer.sendText(text)
+        try await writer.write(text)
         try await writer.close()
 
         return writer.info
