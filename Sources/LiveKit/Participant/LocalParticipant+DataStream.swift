@@ -18,49 +18,40 @@ import Foundation
 
 public extension LocalParticipant {
     // MARK: - Send
-    
-    @objc
+
+    @discardableResult
     func sendText(_ text: String, topic: String) async throws -> TextStreamInfo {
-        try await sendText(text, options: SendTextOptions(topic: topic))
+        try await sendText(text, options: StreamTextOptions(topic: topic))
     }
-    
-    @objc
-    func sendText(_ text: String, options: SendTextOptions) async throws -> TextStreamInfo {
-        fatalError("Not implemented")
+
+    @discardableResult
+    func sendText(_ text: String, options: StreamTextOptions) async throws -> TextStreamInfo {
+        let room = try requireRoom()
+        let writer = try await room.outgoingStreamManager.streamText(options: options)
+
+        try await writer.sendText(text)
+        try await writer.close()
+
+        return writer.info
     }
-    
-    @objc
-    func sendFile(_ fileURL: URL, topic: String) async throws -> ByteStreamInfo {
-        try await sendFile(fileURL, options: SendFileOptions(topic: topic))
-    }
-    
-    @objc
-    func sendFile(_ fileURL: URL, options: SendFileOptions) async throws -> ByteStreamInfo {
-        fatalError("Not implemented")
-    }
-    
+
     // MARK: - Stream
-    
-    typealias TextStreamWriter = ()
-    typealias ByteStreamWriter = ()
-    
-    @objc
+
     func streamText(topic: String) async throws -> TextStreamWriter {
         try await streamText(options: StreamTextOptions(topic: topic))
     }
-    
-    @objc
+
     func streamText(options: StreamTextOptions) async throws -> TextStreamWriter {
-        fatalError("Not implemented")
+        let room = try requireRoom()
+        return try await room.outgoingStreamManager.streamText(options: options)
     }
-    
-    @objc
+
     func streamBytes(topic: String) async throws -> ByteStreamWriter {
         try await streamBytes(options: StreamByteOptions(topic: topic))
     }
-    
-    @objc
+
     func streamBytes(options: StreamByteOptions) async throws -> ByteStreamWriter {
-        fatalError("Not implemented")
+        let room = try requireRoom()
+        return try await room.outgoingStreamManager.streamBytes(options: options)
     }
 }
