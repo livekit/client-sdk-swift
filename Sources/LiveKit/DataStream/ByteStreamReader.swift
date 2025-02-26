@@ -107,7 +107,7 @@ extension ByteStreamReader {
         fallbackExtension: String
     ) -> String {
         var resolvedExtension: String {
-            preferredExtension(for: mimeType) ?? fallbackExtension
+            FileInfo.preferredExtension(for: mimeType) ?? fallbackExtension
         }
         guard let setName else {
             return "\(fallbackName).\(resolvedExtension)"
