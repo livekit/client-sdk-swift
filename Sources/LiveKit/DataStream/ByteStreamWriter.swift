@@ -57,6 +57,21 @@ public final class ByteStreamWriter: NSObject, Sendable {
     }
 }
 
+extension ByteStreamWriter {
+    /// Write the contents of the file located at the given URL to the stream.
+    func write(contentsOf fileURL: URL) async throws {
+        try await Task.detached { [weak self] in
+            let contents = try Data(contentsOf: fileURL, options: .mappedIfSafe)
+            for fileChunk in contents.chunks(of: Self.fileReadChunkSize) {
+                guard let self else { break }
+                try await self.write(fileChunk)
+            }
+        }.value
+    }
+    
+    private static let fileReadChunkSize = 4096
+}
+
 // MARK: - Objective-C compatibility
 
 extension ByteStreamWriter {

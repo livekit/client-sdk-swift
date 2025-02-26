@@ -41,4 +41,7 @@ public enum StreamError: Error, Equatable {
 
     /// Given destination URL is not a directory.
     case notDirectory
+    
+    /// Unable to read information about the file to send.
+    case fileInfoUnavailable
 }
