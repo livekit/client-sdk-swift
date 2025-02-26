@@ -18,7 +18,7 @@ import LiveKit
 import XCTest
 
 class DataStreamTests: LKTestCase {
-    func testTextStream() async throws {
+    func testStreamText() async throws {
         let receiveExpectation = expectation(description: "Receives stream chunk")
         let topic = "some-topic"
         let testChunk = "Hello world!"
@@ -41,6 +41,42 @@ class DataStreamTests: LKTestCase {
 
             do {
                 let writer = try await room1.localParticipant.streamText(for: topic)
+                try await writer.write(testChunk)
+                try await writer.close()
+            } catch {
+                XCTFail("Write failed: \(error.localizedDescription)")
+            }
+
+            await self.fulfillment(
+                of: [receiveExpectation],
+                timeout: 5
+            )
+        }
+    }
+    
+    func testStreamBytes() async throws {
+        let receiveExpectation = expectation(description: "Receives stream chunk")
+        let topic = "some-topic"
+        let testChunk = Data(repeating: 0xFF, count: 256)
+
+        try await withRooms([RoomTestingOptions(canSubscribe: true), RoomTestingOptions(canPublishData: true)]) { rooms in
+            let room0 = rooms[0]
+            let room1 = rooms[1]
+
+            try await room0.registerByteStreamHandler(for: topic) { reader, participant in
+                XCTAssertEqual(participant, room1.localParticipant.identity)
+                do {
+                    for try await chunk in reader {
+                        XCTAssertEqual(chunk, testChunk)
+                        receiveExpectation.fulfill()
+                    }
+                } catch {
+                    XCTFail("Read failed: \(error.localizedDescription)")
+                }
+            }
+
+            do {
+                let writer = try await room1.localParticipant.streamBytes(for: topic)
                 try await writer.write(testChunk)
                 try await writer.close()
             } catch {
