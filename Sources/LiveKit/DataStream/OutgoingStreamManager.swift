@@ -40,28 +40,30 @@ actor OutgoingStreamManager: Loggable {
         openStreams[streamID] != nil
     }
     
-    private func open(with streamInfo: StreamInfo) async throws {
-        guard openStreams[streamInfo.id] == nil else {
+    private func openStream(with info: StreamInfo) async throws {
+        guard openStreams[info.id] == nil else {
             throw StreamError.alreadyOpened
         }
         
-        let header = Livekit_DataStream.Header(streamInfo)
+        let header = Livekit_DataStream.Header(info)
         let packet = Livekit_DataPacket.with {
             $0.value = .streamHeader(header)
         }
         
         try await packetHandler(packet)
         
-        let descriptor = Descriptor(info: streamInfo)
-        openStreams[streamInfo.id] = descriptor
+        let descriptor = Descriptor(info: info)
+        openStreams[info.id] = descriptor
+
+        log("Opened stream '\(info.id)'", .debug)
     }
     
-    private func sendChunk(data: Data, streamID: String) async throws {
-        guard let descriptor = openStreams[streamID] else {
+    private func sendChunk(_ data: Data, to id: String) async throws {
+        guard let descriptor = openStreams[id] else {
             throw StreamError.unknownStream
         }
         let chunk = Livekit_DataStream.Chunk.with {
-            $0.streamID = streamID
+            $0.streamID = id
             $0.chunkIndex = descriptor.chunkIndex
             $0.content = data
         }
@@ -70,17 +72,17 @@ actor OutgoingStreamManager: Loggable {
         }
         try await packetHandler(packet)
         
-        openStreams[streamID]!.writtenLength += data.count
-        openStreams[streamID]!.chunkIndex += 1
+        openStreams[id]!.writtenLength += data.count
+        openStreams[id]!.chunkIndex += 1
     }
     
-    private func close(reason: String?, streamID: String) async throws {
-        guard openStreams[streamID] != nil else {
+    private func closeStream(with id: String, reason: String?) async throws {
+        guard openStreams[id] != nil else {
             throw StreamError.unknownStream
         }
         
         let trailer = Livekit_DataStream.Trailer.with {
-            $0.streamID = streamID
+            $0.streamID = id
             $0.reason = reason ?? ""
         }
         let packet = Livekit_DataPacket.with {
@@ -88,8 +90,9 @@ actor OutgoingStreamManager: Loggable {
         }
         
         try await packetHandler(packet)
+        openStreams[id] = nil
         
-        openStreams[streamID] = nil
+        log("Closed stream '\(id)'", .debug)
     }
 
     fileprivate struct Destination: StreamWriterDestination {
@@ -105,12 +108,12 @@ actor OutgoingStreamManager: Loggable {
         
         func write(_ data: Data) async throws {
             guard let manager else { throw StreamError.terminated }
-            try await manager.sendChunk(data: data, streamID: streamID)
+            try await manager.sendChunk(data, to: streamID)
         }
         
-        func close(reason: String? = nil) async throws {
+        func close(reason: String?) async throws {
             guard let manager else { throw StreamError.terminated }
-            try? await manager.close(reason: reason, streamID: streamID)
+            try? await manager.closeStream(with: streamID, reason: reason)
         }
     }
     
@@ -130,7 +133,7 @@ actor OutgoingStreamManager: Loggable {
             generated: false
         )
 
-        try await open(with: info)
+        try await openStream(with: info)
         
         return TextStreamWriter(
             info: info,
@@ -149,7 +152,7 @@ actor OutgoingStreamManager: Loggable {
             attributes: options.attributes ?? [:],
             name: options.name
         )
-        try await open(with: info)
+        try await openStream(with: info)
 
         return ByteStreamWriter(
             info: info,
