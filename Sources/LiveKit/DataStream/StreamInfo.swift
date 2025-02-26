@@ -154,36 +154,7 @@ extension TextStreamInfo {
 
 extension Livekit_DataStream.Header {
     
-    init(_ textStreamInfo: TextStreamInfo) {
-        let textHeader = Livekit_DataStream.TextHeader.with {
-            $0.operationType = Livekit_DataStream.OperationType(textStreamInfo.operationType)
-            $0.version = Int32(textStreamInfo.version)
-            $0.replyToStreamID = textStreamInfo.replyToStreamID ?? ""
-            $0.attachedStreamIds = textStreamInfo.attachedStreamIDs
-            $0.generated = textStreamInfo.generated
-        }
-        var baseHeader = Self(textStreamInfo as StreamInfo)
-        baseHeader.contentHeader = .textHeader(textHeader)
-        self = baseHeader
-    }
-    
-    init(_ byteStreamInfo: ByteStreamInfo) {
-        let byteHeader = Livekit_DataStream.ByteHeader.with {
-            if let fileName = byteStreamInfo.fileName {
-                $0.name = fileName
-            }
-        }
-        var baseHeader = Self(byteStreamInfo as StreamInfo)
-        baseHeader.contentHeader = .byteHeader(byteHeader)
-        self = baseHeader
-    }
-    
-    var timestampDate: Date {
-        get { Date(timeIntervalSince1970: TimeInterval(timestamp)) }
-        set { timestamp = Int64(newValue.timeIntervalSince1970) }
-    }
-    
-    private init(_ streamInfo: StreamInfo) {
+    init(_ streamInfo: StreamInfo) {
         self = Livekit_DataStream.Header.with {
             $0.streamID = streamInfo.id
             $0.mimeType = streamInfo.mimeType
@@ -193,7 +164,34 @@ extension Livekit_DataStream.Header {
                 $0.totalLength = UInt64(totalLength)
             }
             $0.attributes = streamInfo.attributes
+            $0.contentHeader = Livekit_DataStream.Header.OneOf_ContentHeader(streamInfo)
         }
+    }
+    
+    var timestampDate: Date {
+        get { Date(timeIntervalSince1970: TimeInterval(timestamp)) }
+        set { timestamp = Int64(newValue.timeIntervalSince1970) }
+    }
+}
+
+extension Livekit_DataStream.Header.OneOf_ContentHeader {
+    init?(_ streamInfo: StreamInfo) {
+        if let textStreamInfo = streamInfo as? TextStreamInfo {
+            self = .textHeader(Livekit_DataStream.TextHeader.with {
+                $0.operationType = Livekit_DataStream.OperationType(textStreamInfo.operationType)
+                $0.version = Int32(textStreamInfo.version)
+                $0.replyToStreamID = textStreamInfo.replyToStreamID ?? ""
+                $0.attachedStreamIds = textStreamInfo.attachedStreamIDs
+                $0.generated = textStreamInfo.generated
+            })
+            return
+        } else if let byteStreamInfo = streamInfo as? ByteStreamInfo {
+            self = .byteHeader(Livekit_DataStream.ByteHeader.with {
+                if let fileName = byteStreamInfo.fileName { $0.name = fileName }
+            })
+            return
+        }
+        return nil
     }
 }
 
