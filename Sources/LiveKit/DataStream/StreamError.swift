@@ -33,6 +33,9 @@ public enum StreamError: Error, Equatable {
     /// Stream terminated before completion.
     case terminated
     
+    /// Cannot perform operations on an unknown stream.
+    case unknownStream
+    
     /// Unable to register a stream handler more than once.
     case handlerAlreadyRegistered
 
