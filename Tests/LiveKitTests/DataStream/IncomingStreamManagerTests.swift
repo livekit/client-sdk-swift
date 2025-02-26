@@ -27,7 +27,7 @@ class IncomingStreamManagerTests: XCTestCase {
         manager = IncomingStreamManager()
     }
     
-    func testByteStreamHandlerRegistration() async throws {
+    func testRegisterByteHandler() async throws {
         try await manager.registerByteStreamHandler(for: topicName) { _, _ in }
         
         let throwsExpectation = expectation(description: "Throws on duplicate registration")
@@ -43,7 +43,7 @@ class IncomingStreamManagerTests: XCTestCase {
         await fulfillment(of: [throwsExpectation], timeout: 5)
     }
     
-    func testTextStreamHandlerRegistration() async throws {
+    func testRegisterTextHandler() async throws {
         try await manager.registerTextStreamHandler(for: topicName) { _, _ in }
         
         let throwsExpectation = expectation(description: "Throws on duplicate registration")
