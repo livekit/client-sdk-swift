@@ -20,7 +20,7 @@ public extension LocalParticipant {
     // MARK: - Send
 
     @discardableResult
-    func sendText(_ text: String, topic: String) async throws -> TextStreamInfo {
+    func sendText(_ text: String, for topic: String) async throws -> TextStreamInfo {
         try await sendText(text, options: StreamTextOptions(topic: topic))
     }
 
@@ -37,7 +37,7 @@ public extension LocalParticipant {
 
     // MARK: - Stream
 
-    func streamText(topic: String) async throws -> TextStreamWriter {
+    func streamText(for topic: String) async throws -> TextStreamWriter {
         try await streamText(options: StreamTextOptions(topic: topic))
     }
 
@@ -46,7 +46,7 @@ public extension LocalParticipant {
         return try await room.outgoingStreamManager.streamText(options: options)
     }
 
-    func streamBytes(topic: String) async throws -> ByteStreamWriter {
+    func streamBytes(for topic: String) async throws -> ByteStreamWriter {
         try await streamBytes(options: StreamByteOptions(topic: topic))
     }
 
