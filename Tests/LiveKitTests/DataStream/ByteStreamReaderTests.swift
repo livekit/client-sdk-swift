@@ -27,7 +27,7 @@ class ByteStreamReaderTests: XCTestCase {
             timestamp: Date(),
             totalLength: nil,
             attributes: [:],
-            fileName: "filename.bin"
+            name: "filename.bin"
         )
         let source = StreamReaderSource { _ in }
         let reader = ByteStreamReader(info: info, source: source)

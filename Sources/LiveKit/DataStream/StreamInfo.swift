@@ -87,7 +87,7 @@ public final class ByteStreamInfo: NSObject, StreamInfo, Sendable {
     public let totalLength: Int?
     public let attributes: [String: String]
 
-    public let fileName: String?
+    public let name: String?
 
     init(
         id: String,
@@ -96,7 +96,7 @@ public final class ByteStreamInfo: NSObject, StreamInfo, Sendable {
         timestamp: Date,
         totalLength: Int?,
         attributes: [String: String],
-        fileName: String?
+        name: String?
     ) {
         self.id = id
         self.mimeType = mimeType
@@ -104,7 +104,7 @@ public final class ByteStreamInfo: NSObject, StreamInfo, Sendable {
         self.timestamp = timestamp
         self.totalLength = totalLength
         self.attributes = attributes
-        self.fileName = fileName
+        self.name = name
     }
 }
 
@@ -123,7 +123,7 @@ extension ByteStreamInfo {
             totalLength: header.hasTotalLength ? Int(header.totalLength) : nil,
             attributes: header.attributes,
             // ---
-            fileName: byteHeader.name
+            name: byteHeader.name
         )
     }
 }
@@ -187,7 +187,7 @@ extension Livekit_DataStream.Header.OneOf_ContentHeader {
             return
         } else if let byteStreamInfo = streamInfo as? ByteStreamInfo {
             self = .byteHeader(Livekit_DataStream.ByteHeader.with {
-                if let fileName = byteStreamInfo.fileName { $0.name = fileName }
+                if let name = byteStreamInfo.name { $0.name = name }
             })
             return
         }

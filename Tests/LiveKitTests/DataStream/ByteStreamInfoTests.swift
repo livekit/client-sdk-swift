@@ -27,7 +27,7 @@ class ByteStreamInfoTests: XCTestCase {
             timestamp: Date(timeIntervalSince1970: 100),
             totalLength: 128,
             attributes: ["key": "value"],
-            fileName: "filename.bin"
+            name: "filename.bin"
         )
         let header = Livekit_DataStream.Header(info)
         XCTAssertEqual(header.streamID, info.id)
@@ -36,7 +36,7 @@ class ByteStreamInfoTests: XCTestCase {
         XCTAssertEqual(header.timestamp, Int64(info.timestamp.timeIntervalSince1970))
         XCTAssertEqual(header.totalLength, UInt64(info.totalLength ?? -1))
         XCTAssertEqual(header.attributes, info.attributes)
-        XCTAssertEqual(header.byteHeader.name, info.fileName)
+        XCTAssertEqual(header.byteHeader.name, info.name)
         
         let newInfo = ByteStreamInfo(header, header.byteHeader)
         XCTAssertEqual(newInfo.id, info.id)
@@ -45,6 +45,6 @@ class ByteStreamInfoTests: XCTestCase {
         XCTAssertEqual(newInfo.timestamp, info.timestamp)
         XCTAssertEqual(newInfo.totalLength, info.totalLength)
         XCTAssertEqual(newInfo.attributes, info.attributes)
-        XCTAssertEqual(newInfo.fileName, info.fileName)
+        XCTAssertEqual(newInfo.name, info.name)
     }
 }

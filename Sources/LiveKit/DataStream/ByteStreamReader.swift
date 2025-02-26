@@ -84,7 +84,7 @@ extension ByteStreamReader {
     
     private func resolveFileName(override: String?) -> String {
         Self.resolveFileName(
-            setName: override ?? info.fileName,
+            setName: override ?? info.name,
             fallbackName: info.id,
             mimeType: info.mimeType,
             fallbackExtension: "bin"

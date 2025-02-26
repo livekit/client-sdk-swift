@@ -77,7 +77,7 @@ public final class StreamByteOptions: NSObject, StreamOptions {
     public let mimeType: String?
 
     /// The name of the file being sent.
-    public let fileName: String?
+    public let name: String?
 
     /// Total expected size in bytes, if known.
     public let totalSize: Int?
@@ -88,7 +88,7 @@ public final class StreamByteOptions: NSObject, StreamOptions {
         destinationIdentities: [String]? = nil,
         id: String? = nil,
         mimeType: String? = nil,
-        fileName: String? = nil,
+        name: String? = nil,
         totalSize: Int? = nil
     ) {
         self.topic = topic
@@ -96,7 +96,7 @@ public final class StreamByteOptions: NSObject, StreamOptions {
         self.destinationIdentities = destinationIdentities
         self.id = id
         self.mimeType = mimeType
-        self.fileName = fileName
+        self.name = name
         self.totalSize = totalSize
     }
 }
