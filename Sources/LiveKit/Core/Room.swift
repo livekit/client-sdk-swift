@@ -112,6 +112,9 @@ public class Room: NSObject, ObservableObject, Loggable {
     lazy var publisherDataChannel = DataChannelPair(delegate: self)
     
     lazy var incomingStreamManager = IncomingStreamManager()
+    lazy var outgoingStreamManager = OutgoingStreamManager { [weak self] packet in
+        try await self?.publisherDataChannel.send(dataPacket: packet)
+    }
 
     var _blockProcessQueue = DispatchQueue(label: "LiveKitSDK.engine.pendingBlocks",
                                            qos: .default)
