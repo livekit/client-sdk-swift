@@ -51,7 +51,7 @@ public extension Room {
 
 // MARK: - Objective-C Compatibility
 
-extension Room {
+public extension Room {
 
     @objc
     @available(*, unavailable, message: "Use async registerByteStreamHandler(for:onNewStream:) method instead.")

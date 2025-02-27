@@ -86,7 +86,7 @@ public extension LocalParticipant {
 
 // MARK: - Objective-C Compatibility
 
-extension LocalParticipant {
+public extension LocalParticipant {
 
     @objc
     @available(*, unavailable, message: "Use async sendText(_:options:) method instead.")
