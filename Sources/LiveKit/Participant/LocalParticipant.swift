@@ -532,10 +532,8 @@ private extension LocalParticipant {
 
             var publishName: String? = nil
 
-            let populatorFunc: SignalClient.AddTrackRequestPopulator<LKRTCRtpTransceiverInit> = { populator in
-
-                let transInit = DispatchQueue.liveKitWebRTC.sync { LKRTCRtpTransceiverInit() }
-                transInit.direction = .sendOnly
+            let populatorFunc: SignalClient.AddTrackRequestPopulator<[LKRTCRtpEncodingParameters]> = { populator in
+                var sendEncodings: [LKRTCRtpEncodingParameters] = []
 
                 if let track = track as? LocalVideoTrack {
                     guard let dimensions else {
@@ -552,7 +550,7 @@ private extension LocalParticipant {
                                                                 isScreenShare: track.source == .screenShareVideo)
 
                     self.log("[publish] Using encodings: \(encodings.map { $0.toDebugString() }.joined(separator: ", "))")
-                    transInit.sendEncodings = encodings
+                    sendEncodings = encodings
 
                     let videoLayers = dimensions.videoLayers(for: encodings)
 
@@ -595,7 +593,7 @@ private extension LocalParticipant {
 
                     self.log("[publish] maxBitrate: \(encoding.maxBitrate)")
 
-                    transInit.sendEncodings = [
+                    sendEncodings = [
                         RTC.createRtpEncodingParameters(encoding: encoding),
                     ]
                 }
@@ -605,7 +603,7 @@ private extension LocalParticipant {
                     populator.stream = streamName
                 }
 
-                return transInit
+                return sendEncodings
             }
 
             // Request a new track to the server
@@ -618,8 +616,12 @@ private extension LocalParticipant {
 
             log("[Publish] server responded trackInfo: \(addTrackResult.trackInfo)")
 
+            let transInit = DispatchQueue.liveKitWebRTC.sync { LKRTCRtpTransceiverInit() }
+            transInit.direction = .sendOnly
+            transInit.sendEncodings = addTrackResult.result
+
             // Add transceiver to pc
-            let transceiver = try await publisher.addTransceiver(with: track.mediaTrack, transceiverInit: addTrackResult.result)
+            let transceiver = try await publisher.addTransceiver(with: track.mediaTrack, transceiverInit: transInit)
             log("[Publish] Added transceiver: \(addTrackResult.trackInfo)...")
 
             do {
