@@ -146,53 +146,48 @@ class ByteStreamReaderTests: XCTestCase {
     func testResolveFileName() {
         XCTAssertEqual(
             ByteStreamReader.resolveFileName(
-                setName: nil,
+                preferredName: nil,
                 fallbackName: "[fallback]",
-                mimeType: "text/plain",
-                fallbackExtension: "bin"
+                mimeType: "text/plain"
             ),
             "[fallback].txt",
-            "Fallback name should be used when no set name is provided"
+            "Fallback name should be used when no preferred name is provided"
         )
         XCTAssertEqual(
             ByteStreamReader.resolveFileName(
-                setName: "name",
+                preferredName: "name",
                 fallbackName: "[fallback]",
-                mimeType: "text/plain",
-                fallbackExtension: "bin"
+                mimeType: "text/plain"
             ),
             "name.txt",
-            "Set name should take precedence over fallback name"
+            "preferred name should take precedence over fallback name"
         )
         XCTAssertEqual(
             ByteStreamReader.resolveFileName(
-                setName: "name.jpeg",
+                preferredName: "name.jpeg",
                 fallbackName: "[fallback]",
-                mimeType: "text/plain",
-                fallbackExtension: "bin"
+                mimeType: "text/plain"
             ),
             "name.jpeg",
-            "File extension in set name should take precedence"
+            "File extension in preferred name should take precedence"
         )
         XCTAssertEqual(
             ByteStreamReader.resolveFileName(
-                setName: "name",
+                preferredName: "name",
                 fallbackName: "[fallback]",
-                mimeType: "image/jpeg",
-                fallbackExtension: "bin"
+                mimeType: "image/jpeg"
             ),
             "name.jpeg",
             "File extension should be resolved from MIME type"
         )
         XCTAssertEqual(
             ByteStreamReader.resolveFileName(
-                setName: "name",
+                preferredName: "name",
                 fallbackName: "[fallback]",
-                mimeType: "text/invalid",
-                fallbackExtension: "bin"
+                mimeType: "text/invalid"
             ),
             "name.bin",
-            "Fallback extension should be used when MIME type is not recognized"
+            "Default extension should be used when MIME type is not recognized"
         )
     }
 }

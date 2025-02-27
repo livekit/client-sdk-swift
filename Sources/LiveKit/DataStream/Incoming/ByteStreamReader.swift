@@ -72,7 +72,11 @@ extension ByteStreamReader {
         guard directory.hasDirectoryPath else {
             throw StreamError.notDirectory
         }
-        let fileName = resolveFileName(override: nameOverride)
+        let fileName = Self.resolveFileName(
+            preferredName: nameOverride ?? info.name,
+            fallbackName: info.id,
+            mimeType: info.mimeType
+        )
         let fileURL = directory.appendingPathComponent(fileName)
         
         FileManager.default.createFile(atPath: fileURL.path, contents: nil)
@@ -92,41 +96,32 @@ extension ByteStreamReader {
         return fileURL
     }
     
-    private func resolveFileName(override: String?) -> String {
-        Self.resolveFileName(
-            setName: override ?? info.name,
-            fallbackName: info.id,
-            mimeType: info.mimeType,
-            fallbackExtension: "bin"
-        )
-    }
-    
     /// Resolves the filename used when writing the stream to disk.
     ///
     /// - Parameters:
-    ///   - setName: The name set by the user or taken from stream metadata.
+    ///   - preferredName: The name set by the user or taken from stream metadata.
     ///   - fallbackName: Name to fallback on when `setName` is `nil`.
-    ///   - mimeType: MIME type used for determining file extension.
-    ///   - fallbackExtension: File extension to fallback on when MIME type cannot be resolved.
+    ///   - mimeType: MIME type used for determining file extension when unavailable.
     /// - Returns: The resolved file name.
     ///
     static func resolveFileName(
-        setName: String?,
+        preferredName: String?,
         fallbackName: String,
-        mimeType: String,
-        fallbackExtension: String
+        mimeType: String
     ) -> String {
         var resolvedExtension: String {
-            FileInfo.preferredExtension(for: mimeType) ?? fallbackExtension
+            FileInfo.preferredExtension(for: mimeType) ?? Self.defaultFileExtension
         }
-        guard let setName else {
+        guard let preferredName else {
             return "\(fallbackName).\(resolvedExtension)"
         }
-        guard setName.pathExtension != nil else {
-            return "\(setName).\(resolvedExtension)"
+        guard preferredName.pathExtension != nil else {
+            return "\(preferredName).\(resolvedExtension)"
         }
-        return setName
+        return preferredName
     }
+    
+    private static let defaultFileExtension = "bin"
 }
 
 // MARK: - Objective-C compatibility
