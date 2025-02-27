@@ -30,19 +30,18 @@ struct FileInfo: Equatable {
 extension FileInfo {
     /// Reads information from the file located at the given URL.
     init?(for fileURL: URL) {
-        
         var resourceKeys: Set<URLResourceKey> = [.nameKey, .fileSizeKey]
         if #available(macOS 11.0, iOS 14.0, *) {
             resourceKeys.insert(.contentTypeKey)
         }
-        
+
         guard let resourceValues = try? fileURL.resourceValues(forKeys: resourceKeys),
               let name = resourceValues.name,
               let size = resourceValues.fileSize else { return nil }
-        
+
         self.name = name
         self.size = size
-       
+
         guard #available(macOS 11.0, iOS 14.0, *) else {
             guard let uti = UTTypeCreatePreferredIdentifierForTag(
                 kUTTagClassFilenameExtension,
@@ -51,14 +50,14 @@ extension FileInfo {
             )?.takeRetainedValue() else {
                 return nil
             }
-            self.mimeType = UTTypeCopyPreferredTagWithClass(
+            mimeType = UTTypeCopyPreferredTagWithClass(
                 uti,
                 kUTTagClassMIMEType
             )?.takeRetainedValue() as? String
             return
         }
-        
-        self.mimeType = resourceValues.contentType?.preferredMIMEType
+
+        mimeType = resourceValues.contentType?.preferredMIMEType
     }
 }
 

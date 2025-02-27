@@ -110,7 +110,7 @@ public class Room: NSObject, ObservableObject, Loggable {
 
     lazy var subscriberDataChannel = DataChannelPair(delegate: self)
     lazy var publisherDataChannel = DataChannelPair(delegate: self)
-    
+
     lazy var incomingStreamManager = IncomingStreamManager()
     lazy var outgoingStreamManager = OutgoingStreamManager { [weak self] packet in
         try await self?.publisherDataChannel.send(dataPacket: packet)

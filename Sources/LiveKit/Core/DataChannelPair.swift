@@ -85,12 +85,12 @@ class DataChannelPair: NSObject, Loggable {
 
         for await event in events {
             switch event.detail {
-            case .publishData(let request):
+            case let .publishData(request):
                 switch event.channelKind {
                 case .lossy: lossyBuffering.queue.append(request)
                 case .reliable: reliableBuffering.queue.append(request)
                 }
-            case .bufferedAmountChanged(let amount):
+            case let .bufferedAmountChanged(amount):
                 switch event.channelKind {
                 case .lossy: updateBufferingState(state: &lossyBuffering, newAmount: amount)
                 case .reliable: updateBufferingState(state: &reliableBuffering, newAmount: amount)

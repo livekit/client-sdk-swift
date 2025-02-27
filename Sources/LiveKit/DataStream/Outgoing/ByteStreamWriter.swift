@@ -22,14 +22,14 @@ public final class ByteStreamWriter: NSObject, Sendable {
     /// Information about the outgoing byte stream.
     @objc
     public let info: ByteStreamInfo
-    
+
     private let destination: StreamWriterDestination
-    
+
     /// Whether or not the stream is still open.
     public var isOpen: Bool {
         get async { await destination.isOpen }
     }
-    
+
     /// Write data to the stream.
     ///
     /// - Parameter data: Data to be sent.
@@ -39,7 +39,7 @@ public final class ByteStreamWriter: NSObject, Sendable {
     public func write(_ data: Data) async throws {
         try await destination.write(data)
     }
-    
+
     /// Close the stream.
     ///
     /// - Parameter reason: A textual description of why the stream is being closed. Absense
@@ -50,7 +50,7 @@ public final class ByteStreamWriter: NSObject, Sendable {
     public func close(reason: String? = nil) async throws {
         try await destination.close(reason: reason)
     }
-    
+
     init(info: ByteStreamInfo, destination: StreamWriterDestination) {
         self.info = info
         self.destination = destination
@@ -68,26 +68,25 @@ extension ByteStreamWriter {
             }
         }.value
     }
-    
+
     private static let fileReadChunkSize = 4096
 }
 
 // MARK: - Objective-C compatibility
 
-extension ByteStreamWriter {
-    
+public extension ByteStreamWriter {
     @objc
     @available(*, unavailable, message: "Use async write(_:) method instead.")
-    public func write(_ data: Data, completion: @escaping (Error?) -> Void) {
+    func write(_ data: Data, completion: @escaping (Error?) -> Void) {
         Task {
             do { try await write(data) }
             catch { completion(error) }
         }
     }
-    
+
     @objc
     @available(*, unavailable, message: "Use async close(reason:) method instead.")
-    public func close(reason: String?, completion: @escaping (Error?) -> Void) {
+    func close(reason: String?, completion: @escaping (Error?) -> Void) {
         Task {
             do { try await close(reason: reason) }
             catch { completion(error) }

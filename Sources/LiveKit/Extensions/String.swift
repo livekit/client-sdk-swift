@@ -46,7 +46,7 @@ extension String {
 
         return String(prefix(low))
     }
-    
+
     /// The path extension, if any, of the string as interpreted as a path.
     var pathExtension: String? {
         let pathExtension = (self as NSString).pathExtension

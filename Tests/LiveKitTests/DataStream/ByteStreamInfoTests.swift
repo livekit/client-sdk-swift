@@ -18,7 +18,6 @@
 import XCTest
 
 class ByteStreamInfoTests: XCTestCase {
-    
     func testProtocolTypeConversion() {
         let info = ByteStreamInfo(
             id: "id",
@@ -37,7 +36,7 @@ class ByteStreamInfoTests: XCTestCase {
         XCTAssertEqual(header.totalLength, UInt64(info.totalLength ?? -1))
         XCTAssertEqual(header.attributes, info.attributes)
         XCTAssertEqual(header.byteHeader.name, info.name)
-        
+
         let newInfo = ByteStreamInfo(header, header.byteHeader)
         XCTAssertEqual(newInfo.id, info.id)
         XCTAssertEqual(newInfo.mimeType, info.mimeType)

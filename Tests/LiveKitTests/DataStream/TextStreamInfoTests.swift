@@ -18,7 +18,6 @@
 import XCTest
 
 class TextStreamInfoTests: XCTestCase {
-    
     func testProtocolTypeConversion() {
         let info = TextStreamInfo(
             id: "id",
@@ -43,7 +42,7 @@ class TextStreamInfoTests: XCTestCase {
         XCTAssertEqual(header.textHeader.replyToStreamID, info.replyToStreamID)
         XCTAssertEqual(header.textHeader.attachedStreamIds, info.attachedStreamIDs)
         XCTAssertEqual(header.textHeader.generated, info.generated)
-        
+
         let newInfo = TextStreamInfo(header, header.textHeader)
         XCTAssertEqual(newInfo.id, info.id)
         XCTAssertEqual(newInfo.topic, info.topic)

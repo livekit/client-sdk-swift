@@ -42,7 +42,6 @@ public final class ByteStreamReader: NSObject, AsyncSequence, Sendable {
 
     /// An asynchronous iterator of incoming chunks.
     public struct AsyncChunks: AsyncIteratorProtocol {
-
         fileprivate var source: StreamReaderSource.Iterator
 
         public mutating func next() async throws -> Data? {
@@ -78,10 +77,10 @@ extension ByteStreamReader {
             mimeType: info.mimeType
         )
         let fileURL = directory.appendingPathComponent(fileName)
-        
+
         FileManager.default.createFile(atPath: fileURL.path, contents: nil)
         let handle = try FileHandle(forWritingTo: fileURL)
-        
+
         try await Task {
             for try await chunk in self {
                 guard #available(macOS 10.15.4, iOS 13.4, *) else {
@@ -91,11 +90,11 @@ extension ByteStreamReader {
                 try handle.write(contentsOf: chunk)
             }
         }.value
-        
+
         try handle.close()
         return fileURL
     }
-    
+
     /// Resolves the filename used when writing the stream to disk.
     ///
     /// - Parameters:
@@ -120,7 +119,7 @@ extension ByteStreamReader {
         }
         return preferredName
     }
-    
+
     private static let defaultFileExtension = "bin"
 }
 
@@ -131,7 +130,7 @@ public extension ByteStreamReader {
     @available(*, unavailable, message: "Use async readAll() method instead.")
     func readAll(onCompletion: @escaping (Data) -> Void, onError: ((Error?) -> Void)?) {
         Task {
-            do { onCompletion(try await readAll()) }
+            do { try await onCompletion(readAll()) }
             catch { onError?(error) }
         }
     }
@@ -141,7 +140,9 @@ public extension ByteStreamReader {
     func readChunks(onChunk: @escaping (Data) -> Void, onCompletion: ((Error?) -> Void)?) {
         Task {
             do {
-                for try await chunk in self { onChunk(chunk) }
+                for try await chunk in self {
+                    onChunk(chunk)
+                }
                 onCompletion?(nil)
             } catch {
                 onCompletion?(error)
@@ -158,7 +159,7 @@ public extension ByteStreamReader {
         onError: ((Error) -> Void)?
     ) {
         Task {
-            do { try onCompletion(await self.readToFile(in: directory, name: nameOverride)) }
+            do { try await onCompletion(self.readToFile(in: directory, name: nameOverride)) }
             catch { onError?(error) }
         }
     }

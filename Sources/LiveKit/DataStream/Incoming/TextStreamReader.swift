@@ -19,7 +19,6 @@ import Foundation
 /// An asynchronous sequence of chunks read from a text data stream.
 @objc
 public final class TextStreamReader: NSObject, AsyncSequence, Sendable {
-
     /// Information about the incoming text stream.
     @objc
     public let info: TextStreamInfo
@@ -43,7 +42,6 @@ public final class TextStreamReader: NSObject, AsyncSequence, Sendable {
 
     /// An asynchronous iterator of incoming chunks.
     public struct AsyncChunks: AsyncIteratorProtocol {
-
         fileprivate var source: StreamReaderSource.Iterator
 
         public mutating func next() async throws -> String? {
@@ -64,22 +62,24 @@ public final class TextStreamReader: NSObject, AsyncSequence, Sendable {
 
 // MARK: - Objective-C compatibility
 
-extension TextStreamReader {
+public extension TextStreamReader {
     @objc
     @available(*, unavailable, message: "Use async readAll() method instead.")
-    public func readAll(onCompletion: (@escaping (String) -> Void), onError: ((Error?) -> ())?) {
+    func readAll(onCompletion: @escaping (String) -> Void, onError: ((Error?) -> Void)?) {
         Task {
-            do { onCompletion(try await readAll()) }
+            do { try await onCompletion(readAll()) }
             catch { onError?(error) }
         }
     }
 
     @objc
     @available(*, unavailable, message: "Use for/await on TextStreamReader reader instead.")
-    public func readChunks(onChunk: (@escaping (String) -> Void), onCompletion: ((Error?) -> Void)?) {
+    func readChunks(onChunk: @escaping (String) -> Void, onCompletion: ((Error?) -> Void)?) {
         Task {
             do {
-                for try await chunk in self { onChunk(chunk) }
+                for try await chunk in self {
+                    onChunk(chunk)
+                }
                 onCompletion?(nil)
             } catch {
                 onCompletion?(error)

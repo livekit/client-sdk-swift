@@ -116,7 +116,6 @@ public extension LocalParticipant {
 // MARK: - Objective-C Compatibility
 
 public extension LocalParticipant {
-
     @objc
     @available(*, unavailable, message: "Use async sendText(_:options:) method instead.")
     func sendText(
@@ -126,7 +125,7 @@ public extension LocalParticipant {
         onError: ((Error) -> Void)?
     ) {
         Task {
-            do { onCompletion(try await sendText(text, options: options)) }
+            do { try await onCompletion(sendText(text, options: options)) }
             catch { onError?(error) }
         }
     }
@@ -140,7 +139,7 @@ public extension LocalParticipant {
         onError: ((Error) -> Void)?
     ) {
         Task {
-            do { onCompletion(try await sendFile(fileURL, options: options)) }
+            do { try await onCompletion(sendFile(fileURL, options: options)) }
             catch { onError?(error) }
         }
     }
@@ -153,7 +152,7 @@ public extension LocalParticipant {
         onError: ((Error) -> Void)?
     ) {
         Task {
-            do { streamHandler(try await streamText(options: options)) }
+            do { try await streamHandler(streamText(options: options)) }
             catch { onError?(error) }
         }
     }
@@ -166,7 +165,7 @@ public extension LocalParticipant {
         onError: ((Error) -> Void)?
     ) {
         Task {
-            do { streamHandler(try await streamBytes(options: options)) }
+            do { try await streamHandler(streamBytes(options: options)) }
             catch { onError?(error) }
         }
     }

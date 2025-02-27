@@ -18,7 +18,6 @@ import Foundation
 
 /// Manages state of incoming data streams.
 actor IncomingStreamManager: Loggable {
-    
     /// Information about an open data stream.
     private struct Descriptor {
         let info: StreamInfo
@@ -26,39 +25,39 @@ actor IncomingStreamManager: Loggable {
         let openTime: TimeInterval
         let continuation: StreamReaderSource.Continuation
     }
-    
+
     /// Mapping between stream ID and descriptor for open streams.
     private var openStreams: [String: Descriptor] = [:]
-    
+
     private var byteStreamHandlers: [String: ByteStreamHandler] = [:]
     private var textStreamHandlers: [String: TextStreamHandler] = [:]
-    
+
     // MARK: - Handler registration
-    
+
     func registerByteStreamHandler(for topic: String, _ onNewStream: @escaping ByteStreamHandler) throws {
         guard byteStreamHandlers[topic] == nil else {
             throw StreamError.handlerAlreadyRegistered
         }
         byteStreamHandlers[topic] = onNewStream
     }
-    
+
     func registerTextStreamHandler(for topic: String, _ onNewStream: @escaping TextStreamHandler) throws {
         guard textStreamHandlers[topic] == nil else {
             throw StreamError.handlerAlreadyRegistered
         }
         textStreamHandlers[topic] = onNewStream
     }
-    
+
     func unregisterByteStreamHandler(for topic: String) {
         byteStreamHandlers[topic] = nil
     }
-    
+
     func unregisterTextStreamHandler(for topic: String) {
         textStreamHandlers[topic] = nil
     }
-    
+
     // MARK: - State
-    
+
     private func openStream(
         with info: StreamInfo,
         continuation: StreamReaderSource.Continuation
@@ -80,7 +79,7 @@ actor IncomingStreamManager: Loggable {
         log("Opened stream '\(info.id)'", .debug)
         openStreams[info.id] = descriptor
     }
-    
+
     private func closeStream(with id: String) {
         guard let descriptor = openStreams[id] else {
             log("No descriptor for stream '\(id)'", .debug)
@@ -90,15 +89,15 @@ actor IncomingStreamManager: Loggable {
         log("Closed stream '\(id)' (open for \(openDuration))", .debug)
         openStreams[id] = nil
     }
-    
+
     // MARK: - Packet processing
-    
+
     /// Handles a data stream header.
     func handle(header: Livekit_DataStream.Header, from identityString: String) {
         let identity = Participant.Identity(from: identityString)
-        
+
         switch header.contentHeader {
-        case .byteHeader(let byteHeader):
+        case let .byteHeader(byteHeader):
             guard let handler = byteStreamHandlers[header.topic] else {
                 log("No byte handler registered for topic '\(header.topic)'", .info)
                 return
@@ -109,8 +108,8 @@ actor IncomingStreamManager: Loggable {
                 do { try await handler(reader, identity) }
                 catch { log("Unhandled error in byte stream handler: \(error)", .error) }
             }
-            
-        case .textHeader(let textHeader):
+
+        case let .textHeader(textHeader):
             guard let handler = textStreamHandlers[header.topic] else {
                 log("No text handler registered for topic '\(header.topic)'", .info)
                 return
@@ -121,12 +120,12 @@ actor IncomingStreamManager: Loggable {
                 do { try await handler(reader, identity) }
                 catch { log("Unhandled error in text stream handler: \(error)", .error) }
             }
+
         default:
             log("Unknown header type; ignoring stream", .warning)
-            
         }
     }
-    
+
     /// Creates an asynchronous stream whose continuation will be used to send new chunks to the reader.
     private func createSource(with info: StreamInfo) -> StreamReaderSource {
         StreamReaderSource { [weak self] continuation in
@@ -137,13 +136,13 @@ actor IncomingStreamManager: Loggable {
             Task { await self.openStream(with: info, continuation: continuation) }
         }
     }
-    
+
     /// Handles a data stream chunk.
     func handle(chunk: Livekit_DataStream.Chunk) {
         guard !chunk.content.isEmpty, let descriptor = openStreams[chunk.streamID] else { return }
-        
+
         let readLength = descriptor.readLength + chunk.content.count
-        
+
         if let totalLength = descriptor.info.totalLength {
             guard readLength <= totalLength else {
                 descriptor.continuation.finish(throwing: StreamError.lengthExceeded)
@@ -153,23 +152,23 @@ actor IncomingStreamManager: Loggable {
         openStreams[chunk.streamID]!.readLength = readLength
         descriptor.continuation.yield(chunk.content)
     }
-    
+
     /// Handles a data stream trailer.
     func handle(trailer: Livekit_DataStream.Trailer) {
         guard let descriptor = openStreams[trailer.streamID] else {
             log("Received trailer for unknown stream '\(trailer.streamID)'", .warning)
             return
         }
-        
+
         if let totalLength = descriptor.info.totalLength {
             guard descriptor.readLength == totalLength else {
                 descriptor.continuation.finish(throwing: StreamError.incomplete)
                 return
             }
         }
-        
+
         // TODO: do something with trailer attributes
-        
+
         guard trailer.reason.isEmpty else {
             // According to protocol documentation, a non-empty reason string indicates an error
             let error = StreamError.abnormalEnd(reason: trailer.reason)
@@ -178,9 +177,9 @@ actor IncomingStreamManager: Loggable {
         }
         descriptor.continuation.finish()
     }
-    
+
     // MARK: - Clean up
-    
+
     deinit {
         guard !openStreams.isEmpty else { return }
         log("Terminating \(openStreams.count) open stream(s)", .debug)

@@ -17,7 +17,6 @@
 import Foundation
 
 public extension Room {
-
     /// Registers a handler for incoming byte streams matching the given topic.
     ///
     /// - Parameters:
@@ -60,7 +59,6 @@ public extension Room {
 // MARK: - Objective-C Compatibility
 
 public extension Room {
-
     @objc
     @available(*, unavailable, message: "Use async registerByteStreamHandler(for:onNewStream:) method instead.")
     func registerByteStreamHandler(

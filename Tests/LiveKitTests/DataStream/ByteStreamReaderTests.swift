@@ -18,10 +18,9 @@
 import XCTest
 
 class ByteStreamReaderTests: XCTestCase {
-    
     private var continuation: StreamReaderSource.Continuation!
     private var reader: ByteStreamReader!
-    
+
     private let testInfo = ByteStreamInfo(
         id: UUID().uuidString,
         topic: "someTopic",
@@ -31,26 +30,26 @@ class ByteStreamReaderTests: XCTestCase {
         mimeType: "application/octet-stream",
         name: "filename.bin"
     )
-    
+
     let testChunks = [
         Data(repeating: 0xAB, count: 128),
         Data(repeating: 0xCD, count: 128),
         Data(repeating: 0xEF, count: 256),
-        Data(repeating: 0x12, count: 32)
+        Data(repeating: 0x12, count: 32),
     ]
-    
+
     /// All chunks combined.
     private var testPayload: Data {
         testChunks.reduce(Data()) { $0 + $1 }
     }
-    
+
     private func sendPayload(closingError: Error? = nil) {
         for chunk in testChunks {
             continuation.yield(chunk)
         }
         continuation.finish(throwing: closingError)
     }
-    
+
     override func setUp() {
         super.setUp()
         let source = StreamReaderSource {
@@ -58,11 +57,11 @@ class ByteStreamReaderTests: XCTestCase {
         }
         reader = ByteStreamReader(info: testInfo, source: source)
     }
-    
+
     func testChunkRead() async throws {
         let receiveExpectation = expectation(description: "Receive all chunks")
         let closureExpectation = expectation(description: "Normal closure")
-        
+
         Task {
             var chunkIndex = 0
             for try await chunk in reader {
@@ -74,20 +73,20 @@ class ByteStreamReaderTests: XCTestCase {
             }
             closureExpectation.fulfill()
         }
-        
+
         sendPayload()
-        
+
         await fulfillment(
             of: [receiveExpectation, closureExpectation],
             timeout: 5,
             enforceOrder: true
         )
     }
-    
+
     func testChunkReadError() async throws {
         let throwsExpectation = expectation(description: "Read throws error")
         let testError = StreamError.abnormalEnd(reason: "test")
-        
+
         Task {
             do {
                 for try await _ in reader {}
@@ -97,52 +96,52 @@ class ByteStreamReaderTests: XCTestCase {
             }
         }
         sendPayload(closingError: testError)
-        
+
         await fulfillment(
             of: [throwsExpectation],
             timeout: 5
         )
     }
-    
+
     func testReadAll() async throws {
         let readExpectation = expectation(description: "Read full payload")
-        
+
         Task {
             let fullPayload = try await reader.readAll()
             XCTAssertEqual(fullPayload, testPayload)
             readExpectation.fulfill()
         }
         sendPayload()
-        
+
         await fulfillment(
             of: [readExpectation],
             timeout: 5
         )
     }
-    
+
     func testReadToFile() async throws {
         let writtenExpectation = expectation(description: "File properly written")
         Task {
             do {
                 let fileURL = try await reader.readToFile()
                 XCTAssertEqual(fileURL.lastPathComponent, reader.info.name)
-                
+
                 let fileContents = try Data(contentsOf: fileURL)
                 XCTAssertEqual(fileContents, testPayload)
-                
+
                 writtenExpectation.fulfill()
             } catch {
                 print(error)
             }
         }
         sendPayload()
-        
+
         await fulfillment(
             of: [writtenExpectation],
             timeout: 5
         )
     }
-    
+
     func testResolveFileName() {
         XCTAssertEqual(
             ByteStreamReader.resolveFileName(
@@ -191,4 +190,3 @@ class ByteStreamReaderTests: XCTestCase {
         )
     }
 }
-

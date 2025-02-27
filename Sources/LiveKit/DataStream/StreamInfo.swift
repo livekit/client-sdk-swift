@@ -20,16 +20,16 @@ import Foundation
 public protocol StreamInfo: Sendable {
     /// Unique identifier of the stream.
     var id: String { get }
-    
+
     /// Topic name used to route the stream to the appropriate handler.
     var topic: String { get }
-    
+
     /// When the stream was created.
     var timestamp: Date { get }
-    
+
     /// Total expected size in bytes (UTF-8 for text), if known.
     var totalLength: Int? { get }
-    
+
     /// Additional attributes as needed for your application.
     var attributes: [String: String] { get }
 }
@@ -41,7 +41,7 @@ public final class TextStreamInfo: NSObject, StreamInfo {
     public let topic: String
     public let timestamp: Date
     public let totalLength: Int?
-    public let attributes: [String : String]
+    public let attributes: [String: String]
 
     @objc(TextStreamInfoOperationType)
     public enum OperationType: Int, Sendable {
@@ -90,10 +90,10 @@ public final class ByteStreamInfo: NSObject, StreamInfo {
     public let timestamp: Date
     public let totalLength: Int?
     public let attributes: [String: String]
-    
+
     /// The MIME type of the stream data.
     public let mimeType: String
-    
+
     /// The name of the file being sent.
     public let name: String?
 
@@ -160,7 +160,6 @@ extension TextStreamInfo {
 // MARK: - To protocol types
 
 extension Livekit_DataStream.Header {
-    
     init(_ streamInfo: StreamInfo) {
         self = Livekit_DataStream.Header.with {
             $0.streamID = streamInfo.id
@@ -174,7 +173,7 @@ extension Livekit_DataStream.Header {
             $0.contentHeader = Livekit_DataStream.Header.OneOf_ContentHeader(streamInfo)
         }
     }
-    
+
     var timestampDate: Date {
         get { Date(timeIntervalSince1970: TimeInterval(timestamp)) }
         set { timestamp = Int64(newValue.timeIntervalSince1970) }
