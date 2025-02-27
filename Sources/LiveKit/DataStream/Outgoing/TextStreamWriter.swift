@@ -63,19 +63,19 @@ extension TextStreamWriter {
     
     @objc
     @available(*, unavailable, message: "Use async write(_:) method instead.")
-    public func write(_ text: String, completion: @escaping (Error?) -> Void) {
+    public func write(_ text: String, onCompletion: @escaping (Error?) -> Void) {
         Task {
             do { try await write(text) }
-            catch { completion(error) }
+            catch { onCompletion(error) }
         }
     }
     
     @objc
     @available(*, unavailable, message: "Use async close(reason:) method instead.")
-    public func close(reason: String?, completion: @escaping (Error?) -> Void) {
+    public func close(reason: String?, onCompletion: @escaping (Error?) -> Void) {
         Task {
             do { try await close(reason: reason) }
-            catch { completion(error) }
+            catch { onCompletion(error) }
         }
     }
 }

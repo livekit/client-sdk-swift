@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+import Foundation
+
 public extension Room {
 
     /// Registers a handler for new byte streams matching the given topic.
@@ -44,5 +46,52 @@ public extension Room {
     /// Unregisters a text stream handler that was previously registered for the given topic.
     func unregisterTextStreamHandler(for topic: String) async {
         await incomingStreamManager.unregisterTextStreamHandler(for: topic)
+    }
+}
+
+// MARK: - Objective-C Compatibility
+
+extension Room {
+
+    @objc
+    @available(*, unavailable, message: "Use async registerByteStreamHandler(for:_:) method instead.")
+    func registerByteStreamHandler(
+        for topic: String,
+        onNewStream: @escaping (ByteStreamReader, Participant.Identity) -> Void,
+        onError: ((Error) -> Void)?
+    ) {
+        Task {
+            do { try await registerByteStreamHandler(for: topic, onNewStream) }
+            catch { onError?(error) }
+        }
+    }
+
+    @objc
+    @available(*, unavailable, message: "Use async registerTextStreamHandler(for:_:) method instead.")
+    func registerTextStreamHandler(
+        for topic: String,
+        onNewStream: @escaping (TextStreamReader, Participant.Identity) -> Void,
+        onError: ((Error) -> Void)?
+    ) {
+        Task {
+            do { try await registerTextStreamHandler(for: topic, onNewStream) }
+            catch { onError?(error) }
+        }
+    }
+
+    @objc
+    @available(*, unavailable, message: "Use async unregisterByteStreamHandler(for:) method instead.")
+    func unregisterByteStreamHandler(
+        for topic: String
+    ) {
+        Task { await unregisterByteStreamHandler(for: topic) }
+    }
+
+    @objc
+    @available(*, unavailable, message: "Use async unregisterTextStreamHandler(for:) method instead.")
+    func unregisterTextStreamHandler(
+        for topic: String
+    ) {
+        Task { await unregisterTextStreamHandler(for: topic) }
     }
 }

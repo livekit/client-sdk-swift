@@ -83,3 +83,62 @@ public extension LocalParticipant {
         return try await room.outgoingStreamManager.streamBytes(options: options)
     }
 }
+
+// MARK: - Objective-C Compatibility
+
+extension LocalParticipant {
+
+    @objc
+    @available(*, unavailable, message: "Use async sendText(_:options:) method instead.")
+    func sendText(
+        text: String,
+        options: StreamTextOptions,
+        onCompletion: @escaping (TextStreamInfo) -> Void,
+        onError: ((Error) -> Void)?
+    ) {
+        Task {
+            do { onCompletion(try await sendText(text, options: options)) }
+            catch { onError?(error) }
+        }
+    }
+
+    @objc
+    @available(*, unavailable, message: "Use async sendFile(_:options:) method instead.")
+    func sendFile(
+        fileURL: URL,
+        options: StreamByteOptions,
+        onCompletion: @escaping (ByteStreamInfo) -> Void,
+        onError: ((Error) -> Void)?
+    ) {
+        Task {
+            do { onCompletion(try await sendFile(fileURL, options: options)) }
+            catch { onError?(error) }
+        }
+    }
+
+    @objc
+    @available(*, unavailable, message: "Use async streamText(options:) method instead.")
+    func streamText(
+        options: StreamTextOptions,
+        streamHandler: @escaping (TextStreamWriter) -> Void,
+        onError: ((Error) -> Void)?
+    ) {
+        Task {
+            do { streamHandler(try await streamText(options: options)) }
+            catch { onError?(error) }
+        }
+    }
+
+    @objc
+    @available(*, unavailable, message: "Use async streamBytes(options:) method instead.")
+    func streamBytes(
+        options: StreamByteOptions,
+        streamHandler: @escaping (ByteStreamWriter) -> Void,
+        onError: ((Error) -> Void)?
+    ) {
+        Task {
+            do { streamHandler(try await streamBytes(options: options)) }
+            catch { onError?(error) }
+        }
+    }
+}
