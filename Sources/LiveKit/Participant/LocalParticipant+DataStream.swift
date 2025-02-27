@@ -19,22 +19,46 @@ import Foundation
 public extension LocalParticipant {
     // MARK: - Send
 
+    /// Send a complete string to participants in the room.
+    ///
+    /// - Parameters:
+    ///   - text: The string to send.
+    ///   - topic: Topic identifier used to route the stream to appropriate handlers.
+    /// - Returns: Information about the text stream used during the operation.
+    /// - Throws: Throws ``StreamError`` if the operation fails.
+    ///
     @discardableResult
     func sendText(_ text: String, for topic: String) async throws -> TextStreamInfo {
         try await sendText(text, options: StreamTextOptions(topic: topic))
     }
 
+    /// Send a complete string to participants in the room with custom options.
+    ///
+    /// - SeeAlso: ``sendText(_:for:)``
+    ///
     @discardableResult
     func sendText(_ text: String, options: StreamTextOptions) async throws -> TextStreamInfo {
         let room = try requireRoom()
         return try await room.outgoingStreamManager.sendText(text, options: options)
     }
-    
+
+    /// Send a file on disk to participants in the room.
+    ///
+    /// - Parameters:
+    ///   - fileURL: The URL of the file on disk to send.
+    ///   - topic: Topic identifier used to route the stream to appropriate handlers.
+    /// - Returns: Information about the byte stream used during the operation.
+    /// - Throws: Throws ``StreamError`` if the operation fails.
+    ///
     @discardableResult
     func sendFile(_ fileURL: URL, for topic: String) async throws -> ByteStreamInfo {
         try await sendFile(fileURL, options: StreamByteOptions(topic: topic))
     }
-    
+
+    /// Send a file on disk to participants in the room with custom options.
+    ///
+    /// - SeeAlso: ``sendFile(_:for:)``
+    ///
     @discardableResult
     func sendFile(_ fileURL: URL, options: StreamByteOptions) async throws -> ByteStreamInfo {
         let room = try requireRoom()
@@ -43,19 +67,46 @@ public extension LocalParticipant {
 
     // MARK: - Stream
 
+    /// Stream text incrementally to participants in the room.
+    ///
+    /// - Parameters:
+    ///   - topic: Topic identifier used to route the stream to appropriate handlers.
+    /// - Returns: A ``TextStreamWriter`` for sending text.
+    /// - Throws: Throws ``StreamError`` if the operation fails.
+    ///
+    @discardableResult
     func streamText(for topic: String) async throws -> TextStreamWriter {
         try await streamText(options: StreamTextOptions(topic: topic))
     }
 
+    /// Stream text incrementally to participants in the room with custom options.
+    ///
+    /// - SeeAlso: ``streamText(for:)``
+    ///
+    @discardableResult
     func streamText(options: StreamTextOptions) async throws -> TextStreamWriter {
         let room = try requireRoom()
         return try await room.outgoingStreamManager.streamText(options: options)
     }
 
+    /// Stream bytes incrementally to participants in the room.
+    ///
+    /// - Parameters:
+    ///   - topic: Topic identifier used to route the stream to appropriate handlers.
+    /// - Returns: A ``ByteStreamWriter`` for sending data.
+    /// - Throws: Throws ``StreamError`` if the operation fails.
+    ///
+    /// For sending files, use ``sendFile(_:for:)`` instead.
+    ///
+    @discardableResult
     func streamBytes(for topic: String) async throws -> ByteStreamWriter {
         try await streamBytes(options: StreamByteOptions(topic: topic))
     }
 
+    /// Stream bytes incrementally to participants in the room with custom options.
+    ///
+    /// - SeeAlso: ``streamBytes(for:)``
+    ///
     func streamBytes(options: StreamByteOptions) async throws -> ByteStreamWriter {
         let room = try requireRoom()
         return try await room.outgoingStreamManager.streamBytes(options: options)

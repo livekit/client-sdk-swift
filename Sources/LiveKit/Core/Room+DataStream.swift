@@ -18,21 +18,29 @@ import Foundation
 
 public extension Room {
 
-    /// Registers a handler for new byte streams matching the given topic.
+    /// Registers a handler for incoming byte streams matching the given topic.
     ///
     /// - Parameters:
-    ///   - topic: Topic identifier; only streams with this topic will be handled.
-    ///   - onNewStream: Handler closure passed the stream reader (``ByteStreamReader``) and the identity of the remote participant who opened the stream.
+    ///   - topic: Topic identifier that filters which streams will be handled.
+    ///     Only streams with a matching topic will trigger the handler.
+    ///   - onNewStream: Handler that is invoked whenever a remote participant
+    ///     opens a new stream with the matching topic. The handler receives a
+    ///     ``ByteStreamReader`` for consuming the stream data and the identity of
+    ///     the remote participant who initiated the stream.
     ///
     func registerByteStreamHandler(for topic: String, onNewStream: @escaping ByteStreamHandler) async throws {
         try await incomingStreamManager.registerByteStreamHandler(for: topic, onNewStream)
     }
 
-    /// Registers a handler for new text streams matching the given topic.
+    /// Registers a handler for incoming text streams matching the given topic.
     ///
     /// - Parameters:
-    ///   - topic: Topic identifier; only streams with this topic will be handled.
-    ///   - onNewStream: Handler closure passed the stream reader (``TextStreamReader``) and the identity of the remote participant who opened the stream.
+    ///   - topic: Topic identifier that filters which streams will be handled.
+    ///     Only streams with a matching topic will trigger the handler.
+    ///   - onNewStream: Handler that is invoked whenever a remote participant
+    ///     opens a new stream with the matching topic. The handler receives a
+    ///     ``TextStreamReader`` for consuming the stream data and the identity of
+    ///     the remote participant who initiated the stream.
     ///
     func registerTextStreamHandler(for topic: String, onNewStream: @escaping TextStreamHandler) async throws {
         try await incomingStreamManager.registerTextStreamHandler(for: topic, onNewStream)
