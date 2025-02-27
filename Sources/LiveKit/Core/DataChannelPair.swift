@@ -15,6 +15,7 @@
  */
 
 import Foundation
+import DequeModule
 
 #if swift(>=5.9)
 internal import LiveKitWebRTC
@@ -56,7 +57,7 @@ class DataChannelPair: NSObject, Loggable {
     }
 
     private struct BufferingState {
-        var queue: [PublishDataRequest] = []
+        var queue: Deque<PublishDataRequest> = []
         var amount: UInt64 = 0
     }
 
