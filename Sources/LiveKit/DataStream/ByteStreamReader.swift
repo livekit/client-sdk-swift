@@ -22,18 +22,14 @@ public final class ByteStreamReader: NSObject, AsyncSequence, Sendable {
     /// Information about the incoming byte stream.
     @objc
     public let info: ByteStreamInfo
-    
-    let source: StreamReader<Data>
+
+    let source: StreamReaderSource
 
     init(info: ByteStreamInfo, source: StreamReaderSource) {
         self.info = info
-        self.source = StreamReader(source: source)
+        self.source = source
     }
-    
-    public func makeAsyncIterator() -> StreamReader<Data>.Iterator {
-        source.makeAsyncIterator()
-    }
-    
+
     /// Reads incoming chunks from the byte stream, concatenating them into a single data object which is returned
     /// once the stream closes normally.
     ///
@@ -41,7 +37,21 @@ public final class ByteStreamReader: NSObject, AsyncSequence, Sendable {
     /// - Throws: ``StreamError`` if an error occurs while reading the stream.
     ///
     public func readAll() async throws -> Data {
-        try await source.readAll()
+        try await source.collect()
+    }
+
+    /// An asynchronous iterator of incoming chunks.
+    public struct AsyncChunks: AsyncIteratorProtocol {
+
+        fileprivate var source: StreamReaderSource.Iterator
+
+        public mutating func next() async throws -> Data? {
+            try await source.next()
+        }
+    }
+
+    public func makeAsyncIterator() -> AsyncChunks {
+        AsyncChunks(source: source.makeAsyncIterator())
     }
 }
 
@@ -125,15 +135,25 @@ public extension ByteStreamReader {
     @objc
     @available(*, unavailable, message: "Use async readAll() method instead.")
     func readAll(onCompletion: @escaping (Data) -> Void, onError: ((Error?) -> Void)?) {
-        source.readAll(onCompletion: onCompletion, onError: onError)
+        Task {
+            do { onCompletion(try await readAll()) }
+            catch { onError?(error) }
+        }
     }
-    
+
     @objc
     @available(*, unavailable, message: "Use for/await on ByteStreamReader reader instead.")
     func readChunks(onChunk: @escaping (Data) -> Void, onCompletion: ((Error?) -> Void)?) {
-        source.readChunks(onChunk: onChunk, onCompletion: onCompletion)
+        Task {
+            do {
+                for try await chunk in self { onChunk(chunk) }
+                onCompletion?(nil)
+            } catch {
+                onCompletion?(error)
+            }
+        }
     }
-    
+
     @objc
     @available(*, unavailable, message: "Use async readToFile(in:name:) method instead.")
     internal func readToFile(

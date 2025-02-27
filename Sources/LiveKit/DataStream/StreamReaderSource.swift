@@ -16,23 +16,5 @@
 
 import Foundation
 
-public protocol StreamChunk {
-    init?(_ chunkData: Data)
-}
-
-extension Data: StreamChunk {}
-
-extension String: StreamChunk {
-    public init?(_ chunkData: Data) {
-        guard let string = String(data: chunkData, encoding: .utf8) else {
-            return nil
-        }
-        self = string
-    }
-}
-
-extension StreamReader where Element: RangeReplaceableCollection {
-    func readAll() async throws -> Element {
-        try await reduce(Element()) { $0 + $1 }
-    }
-}
+/// Upstream asynchronous sequence from which raw chunk data is read.
+typealias StreamReaderSource = AsyncThrowingStream<Data, any Error>
