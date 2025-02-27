@@ -26,6 +26,98 @@ actor OutgoingStreamManager: Loggable {
         self.packetHandler = packetHandler
     }
     
+    // MARK: - Opening streams
+    
+    func sendText(_ text: String, options: StreamTextOptions) async throws -> TextStreamInfo {
+        let info = TextStreamInfo(
+            id: options.id ?? Self.uniqueID(),
+            mimeType: Self.textMimeType,
+            topic: options.topic,
+            timestamp: Date(),
+            totalLength: text.utf8.count, // Number of bytes in UTF-8 representation
+            attributes: options.attributes ?? [:],
+            operationType: .create,
+            version: options.version ?? 0,
+            replyToStreamID: options.replyToStreamID,
+            attachedStreamIDs: options.attachedStreamIDs ?? [],
+            generated: false
+        )
+        
+        let writer = try await openTextStream(with: info)
+        try await writer.write(text)
+        try await writer.close()
+        
+        return writer.info
+    }
+    
+    func sendFile(_ fileURL: URL, options: StreamByteOptions) async throws -> ByteStreamInfo {
+        guard let fileInfo = FileInfo(for: fileURL) else {
+            throw StreamError.fileInfoUnavailable
+        }
+        let info = ByteStreamInfo(
+            id: options.id ?? Self.uniqueID(),
+            mimeType: options.mimeType ?? fileInfo.mimeType ?? Self.byteMimeType,
+            topic: options.topic,
+            timestamp: Date(),
+            totalLength: fileInfo.size, // Not overridable
+            attributes: options.attributes ?? [:],
+            name: options.name ?? fileInfo.name
+        )
+        let writer = try await openByteStream(with: info)
+        try await writer.write(contentsOf: fileURL)
+        try await writer.close()
+        
+        return writer.info
+    }
+    
+    func streamText(options: StreamTextOptions) async throws -> TextStreamWriter {
+        let info = TextStreamInfo(
+            id: options.id ?? Self.uniqueID(),
+            mimeType: Self.textMimeType,
+            topic: options.topic,
+            timestamp: Date(),
+            totalLength: nil,
+            attributes: options.attributes ?? [:],
+            operationType: .create,
+            version: options.version ?? 0,
+            replyToStreamID: options.replyToStreamID,
+            attachedStreamIDs: options.attachedStreamIDs ?? [],
+            generated: false
+        )
+        return try await openTextStream(with: info)
+    }
+    
+    func streamBytes(options: StreamByteOptions) async throws -> ByteStreamWriter {
+        let info = ByteStreamInfo(
+            id: options.id ?? Self.uniqueID(),
+            mimeType: options.mimeType ?? Self.byteMimeType,
+            topic: options.topic,
+            timestamp: Date(),
+            totalLength: options.totalSize,
+            attributes: options.attributes ?? [:],
+            name: options.name
+        )
+        return try await openByteStream(with: info)
+    }
+    
+    private func openTextStream(with info: TextStreamInfo) async throws -> TextStreamWriter {
+        try await openStream(with: info)
+        return TextStreamWriter(
+            info: info,
+            destination: Destination(streamID: info.id, manager: self)
+        )
+    }
+    
+    private func openByteStream(with info: ByteStreamInfo) async throws -> ByteStreamWriter {
+        try await openStream(with: info)
+        return ByteStreamWriter(
+            info: info,
+            destination: Destination(streamID: info.id, manager: self)
+        )
+    }
+    
+    // MARK: - State
+    
     /// Information about an open data stream.
     private struct Descriptor {
         let info: StreamInfo
@@ -39,6 +131,8 @@ actor OutgoingStreamManager: Loggable {
     private func hasOpenStream(for streamID: String) -> Bool {
         openStreams[streamID] != nil
     }
+    
+    // MARK: - Packet sending
     
     private func openStream(with info: StreamInfo) async throws {
         guard openStreams[info.id] == nil else {
@@ -100,7 +194,9 @@ actor OutgoingStreamManager: Loggable {
         
         log("Closed stream '\(id)'", .debug)
     }
-
+    
+    // MARK: - Destination
+    
     fileprivate struct Destination: StreamWriterDestination {
         let streamID: String
         weak var manager: OutgoingStreamManager?
@@ -123,47 +219,11 @@ actor OutgoingStreamManager: Loggable {
         }
     }
     
-    /// Opens a text stream with the given options, returning a writer.
-    func streamText(options: StreamTextOptions) async throws -> TextStreamWriter {
-        let info = TextStreamInfo(
-            id: options.id ?? UUID().uuidString,
-            mimeType: Self.textMimeType,
-            topic: options.topic,
-            timestamp: Date(),
-            totalLength: nil,
-            attributes: options.attributes ?? [:],
-            operationType: .create,
-            version: options.version ?? 0,
-            replyToStreamID: options.replyToStreamID,
-            attachedStreamIDs: options.attachedStreamIDs ?? [],
-            generated: false
-        )
-
-        try await openStream(with: info)
-        
-        return TextStreamWriter(
-            info: info,
-            destination: Destination(streamID: info.id, manager: self)
-        )
-    }
+    // MARK: - Constants & helpers
     
-    /// Opens a byte stream with the given options, returning a writer.
-    func streamBytes(options: StreamByteOptions) async throws -> ByteStreamWriter {
-        let info = ByteStreamInfo(
-            id: options.id ?? UUID().uuidString,
-            mimeType: options.mimeType ?? Self.byteMimeType,
-            topic: options.topic,
-            timestamp: Date(),
-            totalLength: options.totalSize,
-            attributes: options.attributes ?? [:],
-            name: options.name
-        )
-        try await openStream(with: info)
-
-        return ByteStreamWriter(
-            info: info,
-            destination: Destination(streamID: info.id, manager: self)
-        )
+    /// Generates a unqiue ID for a new stream.
+    private static func uniqueID() -> String {
+        UUID().uuidString
     }
     
     /// Maximum number of bytes to send in a single chunk.
