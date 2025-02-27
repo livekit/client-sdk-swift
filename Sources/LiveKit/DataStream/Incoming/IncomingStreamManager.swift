@@ -196,3 +196,50 @@ public typealias ByteStreamHandler = (ByteStreamReader, Participant.Identity) as
 
 /// Handler for incoming text data streams.
 public typealias TextStreamHandler = (TextStreamReader, Participant.Identity) async throws -> Void
+
+// MARK: - From protocol types
+
+extension ByteStreamInfo {
+    convenience init(
+        _ header: Livekit_DataStream.Header,
+        _ byteHeader: Livekit_DataStream.ByteHeader
+    ) {
+        self.init(
+            id: header.streamID,
+            topic: header.topic,
+            timestamp: header.timestampDate,
+            totalLength: header.hasTotalLength ? Int(header.totalLength) : nil,
+            attributes: header.attributes,
+            // ---
+            mimeType: header.mimeType,
+            name: byteHeader.name
+        )
+    }
+}
+
+extension TextStreamInfo {
+    convenience init(
+        _ header: Livekit_DataStream.Header,
+        _ textHeader: Livekit_DataStream.TextHeader
+    ) {
+        self.init(
+            id: header.streamID,
+            topic: header.topic,
+            timestamp: header.timestampDate,
+            totalLength: header.hasTotalLength ? Int(header.totalLength) : nil,
+            attributes: header.attributes,
+            // ---
+            operationType: TextStreamInfo.OperationType(textHeader.operationType),
+            version: Int(textHeader.version),
+            replyToStreamID: !textHeader.replyToStreamID.isEmpty ? textHeader.replyToStreamID : nil,
+            attachedStreamIDs: textHeader.attachedStreamIds,
+            generated: textHeader.generated
+        )
+    }
+}
+
+extension TextStreamInfo.OperationType {
+    init(_ operationType: Livekit_DataStream.OperationType) {
+        self = Self(rawValue: operationType.rawValue) ?? .create
+    }
+}

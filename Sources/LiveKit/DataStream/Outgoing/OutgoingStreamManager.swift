@@ -249,8 +249,58 @@ actor OutgoingStreamManager: Loggable {
     private static let chunkSize = 15000
 
     /// Default MIME type to use for text streams.
-    private static let textMimeType = "text/plain"
+    fileprivate static let textMimeType = "text/plain"
 
     /// Default MIME type to use for byte streams.
     private static let byteMimeType = "application/octet-stream"
+}
+
+// MARK: - To protocol types
+
+extension Livekit_DataStream.Header {
+    init(_ streamInfo: StreamInfo) {
+        self = Livekit_DataStream.Header.with {
+            $0.streamID = streamInfo.id
+            $0.mimeType = OutgoingStreamManager.textMimeType
+            $0.topic = streamInfo.topic
+            $0.timestampDate = streamInfo.timestamp
+            if let totalLength = streamInfo.totalLength {
+                $0.totalLength = UInt64(totalLength)
+            }
+            $0.attributes = streamInfo.attributes
+            $0.contentHeader = Livekit_DataStream.Header.OneOf_ContentHeader(streamInfo)
+        }
+    }
+
+    var timestampDate: Date {
+        get { Date(timeIntervalSince1970: TimeInterval(timestamp)) }
+        set { timestamp = Int64(newValue.timeIntervalSince1970) }
+    }
+}
+
+extension Livekit_DataStream.Header.OneOf_ContentHeader {
+    init?(_ streamInfo: StreamInfo) {
+        if let textStreamInfo = streamInfo as? TextStreamInfo {
+            self = .textHeader(Livekit_DataStream.TextHeader.with {
+                $0.operationType = Livekit_DataStream.OperationType(textStreamInfo.operationType)
+                $0.version = Int32(textStreamInfo.version)
+                $0.replyToStreamID = textStreamInfo.replyToStreamID ?? ""
+                $0.attachedStreamIds = textStreamInfo.attachedStreamIDs
+                $0.generated = textStreamInfo.generated
+            })
+            return
+        } else if let byteStreamInfo = streamInfo as? ByteStreamInfo {
+            self = .byteHeader(Livekit_DataStream.ByteHeader.with {
+                if let name = byteStreamInfo.name { $0.name = name }
+            })
+            return
+        }
+        return nil
+    }
+}
+
+extension Livekit_DataStream.OperationType {
+    init(_ operationType: TextStreamInfo.OperationType) {
+        self = Livekit_DataStream.OperationType(rawValue: operationType.rawValue) ?? .create
+    }
 }
