@@ -35,18 +35,18 @@ actor IncomingStreamManager: Loggable {
     
     // MARK: - Handler registration
     
-    func registerByteStreamHandler(for topic: String, _ handler: @escaping ByteStreamHandler) throws {
+    func registerByteStreamHandler(for topic: String, _ onNewStream: @escaping ByteStreamHandler) throws {
         guard byteStreamHandlers[topic] == nil else {
             throw StreamError.handlerAlreadyRegistered
         }
-        byteStreamHandlers[topic] = handler
+        byteStreamHandlers[topic] = onNewStream
     }
     
-    func registerTextStreamHandler(for topic: String, _ handler: @escaping TextStreamHandler) throws {
+    func registerTextStreamHandler(for topic: String, _ onNewStream: @escaping TextStreamHandler) throws {
         guard textStreamHandlers[topic] == nil else {
             throw StreamError.handlerAlreadyRegistered
         }
-        textStreamHandlers[topic] = handler
+        textStreamHandlers[topic] = onNewStream
     }
     
     func unregisterByteStreamHandler(for topic: String) {

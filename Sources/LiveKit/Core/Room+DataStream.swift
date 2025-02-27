@@ -22,20 +22,20 @@ public extension Room {
     ///
     /// - Parameters:
     ///   - topic: Topic identifier; only streams with this topic will be handled.
-    ///   - handler: Handler closure passed the stream reader (``ByteStreamReader``) and the identity of the remote participant who opened the stream.
+    ///   - onNewStream: Handler closure passed the stream reader (``ByteStreamReader``) and the identity of the remote participant who opened the stream.
     ///
-    func registerByteStreamHandler(for topic: String, _ handler: @escaping ByteStreamHandler) async throws {
-        try await incomingStreamManager.registerByteStreamHandler(for: topic, handler)
+    func registerByteStreamHandler(for topic: String, onNewStream: @escaping ByteStreamHandler) async throws {
+        try await incomingStreamManager.registerByteStreamHandler(for: topic, onNewStream)
     }
 
     /// Registers a handler for new text streams matching the given topic.
     ///
     /// - Parameters:
     ///   - topic: Topic identifier; only streams with this topic will be handled.
-    ///   - handler: Handler closure passed the stream reader (``TextStreamReader``) and the identity of the remote participant who opened the stream.
+    ///   - onNewStream: Handler closure passed the stream reader (``TextStreamReader``) and the identity of the remote participant who opened the stream.
     ///
-    func registerTextStreamHandler(for topic: String, _ handler: @escaping TextStreamHandler) async throws {
-        try await incomingStreamManager.registerTextStreamHandler(for: topic, handler)
+    func registerTextStreamHandler(for topic: String, onNewStream: @escaping TextStreamHandler) async throws {
+        try await incomingStreamManager.registerTextStreamHandler(for: topic, onNewStream)
     }
 
     /// Unregisters a byte stream handler that was previously registered for the given topic.
@@ -54,27 +54,27 @@ public extension Room {
 extension Room {
 
     @objc
-    @available(*, unavailable, message: "Use async registerByteStreamHandler(for:_:) method instead.")
+    @available(*, unavailable, message: "Use async registerByteStreamHandler(for:onNewStream:) method instead.")
     func registerByteStreamHandler(
         for topic: String,
         onNewStream: @escaping (ByteStreamReader, Participant.Identity) -> Void,
         onError: ((Error) -> Void)?
     ) {
         Task {
-            do { try await registerByteStreamHandler(for: topic, onNewStream) }
+            do { try await registerByteStreamHandler(for: topic, onNewStream: onNewStream) }
             catch { onError?(error) }
         }
     }
 
     @objc
-    @available(*, unavailable, message: "Use async registerTextStreamHandler(for:_:) method instead.")
+    @available(*, unavailable, message: "Use async registerTextStreamHandler(for:onNewStream:) method instead.")
     func registerTextStreamHandler(
         for topic: String,
         onNewStream: @escaping (TextStreamReader, Participant.Identity) -> Void,
         onError: ((Error) -> Void)?
     ) {
         Task {
-            do { try await registerTextStreamHandler(for: topic, onNewStream) }
+            do { try await registerTextStreamHandler(for: topic, onNewStream: onNewStream) }
             catch { onError?(error) }
         }
     }
