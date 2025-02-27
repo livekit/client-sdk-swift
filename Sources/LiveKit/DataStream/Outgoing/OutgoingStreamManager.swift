@@ -35,15 +35,17 @@ actor OutgoingStreamManager: Loggable {
             topic: options.topic,
             timestamp: Date(),
             totalLength: text.utf8.count, // Number of bytes in UTF-8 representation
-            attributes: options.attributes ?? [:],
+            attributes: options.attributes,
             operationType: .create,
-            version: options.version ?? 0,
+            version: options.version,
             replyToStreamID: options.replyToStreamID,
-            attachedStreamIDs: options.attachedStreamIDs ?? [],
+            attachedStreamIDs: options.attachedStreamIDs,
             generated: false
         )
-        
-        let writer = try await openTextStream(with: info)
+        let writer = try await openTextStream(
+            with: info,
+            sendingTo: options.destinationIdentities
+        )
         try await writer.write(text)
         try await writer.close()
         
@@ -60,10 +62,13 @@ actor OutgoingStreamManager: Loggable {
             topic: options.topic,
             timestamp: Date(),
             totalLength: fileInfo.size, // Not overridable
-            attributes: options.attributes ?? [:],
+            attributes: options.attributes,
             name: options.name ?? fileInfo.name
         )
-        let writer = try await openByteStream(with: info)
+        let writer = try await openByteStream(
+            with: info,
+            sendingTo: options.destinationIdentities
+        )
         try await writer.write(contentsOf: fileURL)
         try await writer.close()
         
@@ -77,14 +82,17 @@ actor OutgoingStreamManager: Loggable {
             topic: options.topic,
             timestamp: Date(),
             totalLength: nil,
-            attributes: options.attributes ?? [:],
+            attributes: options.attributes,
             operationType: .create,
-            version: options.version ?? 0,
+            version: options.version,
             replyToStreamID: options.replyToStreamID,
-            attachedStreamIDs: options.attachedStreamIDs ?? [],
+            attachedStreamIDs: options.attachedStreamIDs,
             generated: false
         )
-        return try await openTextStream(with: info)
+        return try await openTextStream(
+            with: info,
+            sendingTo: options.destinationIdentities
+        )
     }
     
     func streamBytes(options: StreamByteOptions) async throws -> ByteStreamWriter {
@@ -94,22 +102,33 @@ actor OutgoingStreamManager: Loggable {
             topic: options.topic,
             timestamp: Date(),
             totalLength: options.totalSize,
-            attributes: options.attributes ?? [:],
+            attributes: options.attributes,
             name: options.name
         )
-        return try await openByteStream(with: info)
+        return try await openByteStream(
+            with: info,
+            sendingTo: options.destinationIdentities
+        )
     }
     
-    private func openTextStream(with info: TextStreamInfo) async throws -> TextStreamWriter {
-        try await openStream(with: info)
+    private func openTextStream(
+        with info: TextStreamInfo,
+        sendingTo recipients: [Participant.Identity]
+    ) async throws -> TextStreamWriter {
+        
+        try await openStream(with: info, sendingTo: recipients)
         return TextStreamWriter(
             info: info,
             destination: Destination(streamID: info.id, manager: self)
         )
     }
     
-    private func openByteStream(with info: ByteStreamInfo) async throws -> ByteStreamWriter {
-        try await openStream(with: info)
+    private func openByteStream(
+        with info: ByteStreamInfo,
+        sendingTo recipients: [Participant.Identity]
+    ) async throws -> ByteStreamWriter {
+        
+        try await openStream(with: info, sendingTo: recipients)
         return ByteStreamWriter(
             info: info,
             destination: Destination(streamID: info.id, manager: self)
@@ -134,7 +153,11 @@ actor OutgoingStreamManager: Loggable {
     
     // MARK: - Packet sending
     
-    private func openStream(with info: StreamInfo) async throws {
+    private func openStream(
+        with info: StreamInfo,
+        sendingTo recipients: [Participant.Identity]
+    ) async throws {
+        
         guard openStreams[info.id] == nil else {
             throw StreamError.alreadyOpened
         }
@@ -142,6 +165,7 @@ actor OutgoingStreamManager: Loggable {
         let header = Livekit_DataStream.Header(info)
         let packet = Livekit_DataPacket.with {
             $0.value = .streamHeader(header)
+            $0.destinationIdentities = recipients.map(\.stringValue)
         }
         
         try await packetHandler(packet)

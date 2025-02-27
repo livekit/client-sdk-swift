@@ -22,10 +22,10 @@ public protocol StreamOptions: Sendable {
     var topic: String { get }
 
     /// Additional attributes as needed for your application.
-    var attributes: [String: String]? { get }
+    var attributes: [String: String] { get }
 
     /// Identities of the participants to send the stream to. If empty, will be sent to all.
-    var destinationIdentities: [String]? { get }
+    var destinationIdentities: [Participant.Identity] { get }
 
     /// Explicitly set unique identifier of the stream.
     var id: String? { get }
@@ -35,23 +35,23 @@ public protocol StreamOptions: Sendable {
 @objcMembers
 public final class StreamTextOptions: NSObject, StreamOptions {
     public let topic: String
-    public let attributes: [String: String]?
-    public let destinationIdentities: [String]?
+    public let attributes: [String: String]
+    public let destinationIdentities: [Participant.Identity]
     public let id: String?
 
-    public let version: Int?
-    public let attachedStreamIDs: [String]?
+    public let version: Int
+    public let attachedStreamIDs: [String]
     public let replyToStreamID: String?
 
     // TODO: Expose additional protocol level fields
 
     public init(
         topic: String,
-        attributes: [String: String]? = nil,
-        destinationIdentities: [String]? = nil,
+        attributes: [String: String] = [:],
+        destinationIdentities: [Participant.Identity] = [],
         id: String? = nil,
-        version: Int? = nil,
-        attachedStreamIDs: [String]? = nil,
+        version: Int = 0,
+        attachedStreamIDs: [String] = [],
         replyToStreamID: String? = nil
     ) {
         self.topic = topic
@@ -68,8 +68,8 @@ public final class StreamTextOptions: NSObject, StreamOptions {
 @objcMembers
 public final class StreamByteOptions: NSObject, StreamOptions {
     public let topic: String
-    public let attributes: [String: String]?
-    public let destinationIdentities: [String]?
+    public let attributes: [String: String]
+    public let destinationIdentities: [Participant.Identity]
     public let id: String?
 
     /// Explicitly set MIME type of the stream data. Auto-detected for files, otherwise
@@ -84,8 +84,8 @@ public final class StreamByteOptions: NSObject, StreamOptions {
 
     public init(
         topic: String,
-        attributes: [String: String]? = nil,
-        destinationIdentities: [String]? = nil,
+        attributes: [String: String] = [:],
+        destinationIdentities: [Participant.Identity] = [],
         id: String? = nil,
         mimeType: String? = nil,
         name: String? = nil,
