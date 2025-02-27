@@ -22,7 +22,6 @@ class TextStreamInfoTests: XCTestCase {
     func testProtocolTypeConversion() {
         let info = TextStreamInfo(
             id: "id",
-            mimeType: "text/plain",
             topic: "topic",
             timestamp: Date(timeIntervalSince1970: 100),
             totalLength: 128,
@@ -35,7 +34,6 @@ class TextStreamInfoTests: XCTestCase {
         )
         let header = Livekit_DataStream.Header(info)
         XCTAssertEqual(header.streamID, info.id)
-        XCTAssertEqual(header.mimeType, info.mimeType)
         XCTAssertEqual(header.topic, info.topic)
         XCTAssertEqual(header.timestamp, Int64(info.timestamp.timeIntervalSince1970))
         XCTAssertEqual(header.totalLength, UInt64(info.totalLength ?? -1))
@@ -48,7 +46,6 @@ class TextStreamInfoTests: XCTestCase {
         
         let newInfo = TextStreamInfo(header, header.textHeader)
         XCTAssertEqual(newInfo.id, info.id)
-        XCTAssertEqual(newInfo.mimeType, info.mimeType)
         XCTAssertEqual(newInfo.topic, info.topic)
         XCTAssertEqual(newInfo.timestamp, info.timestamp)
         XCTAssertEqual(newInfo.totalLength, info.totalLength)

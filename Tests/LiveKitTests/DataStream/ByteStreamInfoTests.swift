@@ -22,11 +22,11 @@ class ByteStreamInfoTests: XCTestCase {
     func testProtocolTypeConversion() {
         let info = ByteStreamInfo(
             id: "id",
-            mimeType: "image/jpeg",
             topic: "topic",
             timestamp: Date(timeIntervalSince1970: 100),
             totalLength: 128,
             attributes: ["key": "value"],
+            mimeType: "image/jpeg",
             name: "filename.bin"
         )
         let header = Livekit_DataStream.Header(info)

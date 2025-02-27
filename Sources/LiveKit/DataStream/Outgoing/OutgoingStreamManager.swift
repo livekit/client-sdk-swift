@@ -31,7 +31,6 @@ actor OutgoingStreamManager: Loggable {
     func sendText(_ text: String, options: StreamTextOptions) async throws -> TextStreamInfo {
         let info = TextStreamInfo(
             id: options.id ?? Self.uniqueID(),
-            mimeType: Self.textMimeType,
             topic: options.topic,
             timestamp: Date(),
             totalLength: text.utf8.count, // Number of bytes in UTF-8 representation
@@ -58,11 +57,11 @@ actor OutgoingStreamManager: Loggable {
         }
         let info = ByteStreamInfo(
             id: options.id ?? Self.uniqueID(),
-            mimeType: options.mimeType ?? fileInfo.mimeType ?? Self.byteMimeType,
             topic: options.topic,
             timestamp: Date(),
             totalLength: fileInfo.size, // Not overridable
             attributes: options.attributes,
+            mimeType: options.mimeType ?? fileInfo.mimeType ?? Self.byteMimeType,
             name: options.name ?? fileInfo.name
         )
         let writer = try await openByteStream(
@@ -78,7 +77,6 @@ actor OutgoingStreamManager: Loggable {
     func streamText(options: StreamTextOptions) async throws -> TextStreamWriter {
         let info = TextStreamInfo(
             id: options.id ?? Self.uniqueID(),
-            mimeType: Self.textMimeType,
             topic: options.topic,
             timestamp: Date(),
             totalLength: nil,
@@ -98,11 +96,11 @@ actor OutgoingStreamManager: Loggable {
     func streamBytes(options: StreamByteOptions) async throws -> ByteStreamWriter {
         let info = ByteStreamInfo(
             id: options.id ?? Self.uniqueID(),
-            mimeType: options.mimeType ?? Self.byteMimeType,
             topic: options.topic,
             timestamp: Date(),
             totalLength: options.totalSize,
             attributes: options.attributes,
+            mimeType: options.mimeType ?? Self.byteMimeType,
             name: options.name
         )
         return try await openByteStream(

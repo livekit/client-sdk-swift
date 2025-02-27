@@ -24,11 +24,11 @@ class ByteStreamReaderTests: XCTestCase {
     
     private let testInfo = ByteStreamInfo(
         id: UUID().uuidString,
-        mimeType: "application/octet-stream",
         topic: "someTopic",
         timestamp: Date(),
         totalLength: nil,
         attributes: [:],
+        mimeType: "application/octet-stream",
         name: "filename.bin"
     )
     

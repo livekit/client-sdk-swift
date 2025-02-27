@@ -17,20 +17,27 @@
 import Foundation
 
 /// Information about a data stream.
-protocol StreamInfo {
+public protocol StreamInfo: Sendable {
+    /// Unique identifier of the stream.
     var id: String { get }
-    var mimeType: String { get }
+    
+    /// Topic name used to route the stream to the appropriate handler.
     var topic: String { get }
+    
+    /// When the stream was created.
     var timestamp: Date { get }
+    
+    /// Total expected size in bytes (UTF-8 for text), if known.
     var totalLength: Int? { get }
+    
+    /// Additional attributes as needed for your application.
     var attributes: [String: String] { get }
 }
 
 /// Information about a text data stream.
 @objcMembers
-public final class TextStreamInfo: NSObject, StreamInfo, Sendable {
+public final class TextStreamInfo: NSObject, StreamInfo {
     public let id: String
-    public let mimeType: String
     public let topic: String
     public let timestamp: Date
     public let totalLength: Int?
@@ -52,7 +59,6 @@ public final class TextStreamInfo: NSObject, StreamInfo, Sendable {
 
     init(
         id: String,
-        mimeType: String,
         topic: String,
         timestamp: Date,
         totalLength: Int?,
@@ -64,7 +70,6 @@ public final class TextStreamInfo: NSObject, StreamInfo, Sendable {
         generated: Bool
     ) {
         self.id = id
-        self.mimeType = mimeType
         self.topic = topic
         self.timestamp = timestamp
         self.totalLength = totalLength
@@ -79,23 +84,26 @@ public final class TextStreamInfo: NSObject, StreamInfo, Sendable {
 
 /// Information about a byte data stream.
 @objcMembers
-public final class ByteStreamInfo: NSObject, StreamInfo, Sendable {
+public final class ByteStreamInfo: NSObject, StreamInfo {
     public let id: String
-    public let mimeType: String
     public let topic: String
     public let timestamp: Date
     public let totalLength: Int?
     public let attributes: [String: String]
-
+    
+    /// The MIME type of the stream data.
+    public let mimeType: String
+    
+    /// The name of the file being sent.
     public let name: String?
 
     init(
         id: String,
-        mimeType: String,
         topic: String,
         timestamp: Date,
         totalLength: Int?,
         attributes: [String: String],
+        mimeType: String,
         name: String?
     ) {
         self.id = id
@@ -117,12 +125,12 @@ extension ByteStreamInfo {
     ) {
         self.init(
             id: header.streamID,
-            mimeType: header.mimeType,
             topic: header.topic,
             timestamp: header.timestampDate,
             totalLength: header.hasTotalLength ? Int(header.totalLength) : nil,
             attributes: header.attributes,
             // ---
+            mimeType: header.mimeType,
             name: byteHeader.name
         )
     }
@@ -135,7 +143,6 @@ extension TextStreamInfo {
     ) {
         self.init(
             id: header.streamID,
-            mimeType: header.mimeType,
             topic: header.topic,
             timestamp: header.timestampDate,
             totalLength: header.hasTotalLength ? Int(header.totalLength) : nil,
@@ -157,7 +164,7 @@ extension Livekit_DataStream.Header {
     init(_ streamInfo: StreamInfo) {
         self = Livekit_DataStream.Header.with {
             $0.streamID = streamInfo.id
-            $0.mimeType = streamInfo.mimeType
+            $0.mimeType = "text/plain"
             $0.topic = streamInfo.topic
             $0.timestampDate = streamInfo.timestamp
             if let totalLength = streamInfo.totalLength {

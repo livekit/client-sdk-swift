@@ -24,7 +24,6 @@ class TextStreamReaderTests: XCTestCase {
     
     private let testInfo = TextStreamInfo(
         id: UUID().uuidString,
-        mimeType: "text/plain",
         topic: "someTopic",
         timestamp: Date(),
         totalLength: nil,
