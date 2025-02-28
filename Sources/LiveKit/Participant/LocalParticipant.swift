@@ -418,7 +418,7 @@ extension LocalParticipant {
     {
         let room = try requireRoom()
 
-        let videoCodec = try subscribedCodec.toVideoCodec()
+        guard let videoCodec = subscribedCodec.toVideoCodec() else { return }
 
         log("[Publish/Backup] Additional video codec: \(videoCodec)...")
 
@@ -468,7 +468,7 @@ extension LocalParticipant {
             $0.simulcastCodecs = [
                 Livekit_SimulcastCodec.with { sc in
                     sc.cid = sender.senderId
-                    sc.codec = videoCodec.id
+                    sc.codec = videoCodec.name
                 },
             ]
 
@@ -563,7 +563,7 @@ private extension LocalParticipant {
                         Livekit_SimulcastCodec.with {
                             $0.cid = track.mediaTrack.trackId
                             if let preferredCodec = publishOptions.preferredCodec {
-                                $0.codec = preferredCodec.id
+                                $0.codec = preferredCodec.name
                             }
                         },
                     ]
@@ -572,7 +572,7 @@ private extension LocalParticipant {
                         // Add backup codec to simulcast codecs...
                         let lkSimulcastCodec = Livekit_SimulcastCodec.with {
                             $0.cid = ""
-                            $0.codec = backupCodec.id
+                            $0.codec = backupCodec.name
                         }
                         simulcastCodecs.append(lkSimulcastCodec)
                     }
@@ -633,7 +633,7 @@ private extension LocalParticipant {
 
                 if track is LocalVideoTrack {
                     if let firstCodecMime = addTrackResult.trackInfo.codecs.first?.mimeType,
-                       let firstVideoCodec = try? VideoCodec.from(mimeType: firstCodecMime)
+                       let firstVideoCodec = VideoCodec.from(mimeType: firstCodecMime)
                     {
                         log("[Publish] First video codec: \(firstVideoCodec)")
                         track._state.mutate { $0.videoCodec = firstVideoCodec }

@@ -29,11 +29,11 @@ extension LKRTCRtpTransceiver: Loggable {
         let allVideoCodecs = RTC.videoSenderCapabilities.codecs
 
         // Get the RTCRtpCodecCapability of the preferred codec
-        let preferredCodecCapability = allVideoCodecs.first { $0.name.lowercased() == codec.id }
+        let preferredCodecCapability = allVideoCodecs.first { $0.name.lowercased() == codec.name }
 
         // Get list of capabilities other than the preferred one
         let otherCapabilities = allVideoCodecs.filter {
-            $0.name.lowercased() != codec.id && $0.name.lowercased() != exceptCodec?.id
+            $0.name.lowercased() != codec.name && $0.name.lowercased() != exceptCodec?.name
         }
 
         // Bring preferredCodecCapability to the front and combine all capabilities
@@ -44,7 +44,7 @@ extension LKRTCRtpTransceiver: Loggable {
 
         log("codecPreferences set: \(codecPreferences.map { String(describing: $0) }.joined(separator: ", "))")
 
-        if codecPreferences.first?.name.lowercased() != codec.id {
+        if codecPreferences.first?.name.lowercased() != codec.name {
             log("Preferred codec is not first of codecPreferences", .error)
         }
     }
