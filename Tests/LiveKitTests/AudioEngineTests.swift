@@ -193,7 +193,7 @@ class AudioEngineTests: LKTestCase {
 
         // Play the recorded file...
         let player = try AVAudioPlayer(contentsOf: recorder.filePath)
-        player.play()
+        XCTAssertTrue(player.play(), "Failed to start audio playback")
         while player.isPlaying {
             try? await Task.sleep(nanoseconds: 1 * 100_000_000) // 10ms
         }
@@ -257,7 +257,7 @@ class AudioEngineTests: LKTestCase {
 
         // Play the recorded file...
         let player = try AVAudioPlayer(contentsOf: recorder.filePath)
-        player.play()
+        XCTAssertTrue(player.play(), "Failed to start audio playback")
         while player.isPlaying {
             try? await Task.sleep(nanoseconds: 1 * 100_000_000) // 10ms
         }
@@ -326,14 +326,14 @@ class AudioEngineTests: LKTestCase {
 
         let tempLocalUrl = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString).appendingPathExtension("aac")
         let recorder = try AVAudioRecorder(url: tempLocalUrl, settings: format16k)
-        recorder.record()
+        XCTAssertTrue(recorder.record(), "Failed to start audio recording")
         // Record for 5 seconds...
         try? await Task.sleep(nanoseconds: 5 * 1_000_000_000)
         recorder.stop()
 
         // Play the recorded file...
         let player = try AVAudioPlayer(contentsOf: tempLocalUrl)
-        player.play()
+        XCTAssertTrue(player.play(), "Failed to start audio playback")
         while player.isPlaying {
             try? await Task.sleep(nanoseconds: 1 * 100_000_000) // 10ms
         }
