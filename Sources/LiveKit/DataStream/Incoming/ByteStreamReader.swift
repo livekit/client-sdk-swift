@@ -52,6 +52,11 @@ public final class ByteStreamReader: NSObject, AsyncSequence, Sendable {
     public func makeAsyncIterator() -> AsyncChunks {
         AsyncChunks(source: source.makeAsyncIterator())
     }
+
+    #if swift(<5.11)
+    public typealias Element = Data
+    public typealias AsyncIterator = AsyncChunks
+    #endif
 }
 
 extension ByteStreamReader {
