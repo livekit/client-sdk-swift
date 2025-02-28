@@ -36,6 +36,7 @@ public final class TextStreamReader: NSObject, AsyncSequence, Sendable {
     /// - Returns: The string consisting of all concatenated chunks.
     /// - Throws: ``StreamError`` if an error occurs while reading the stream.
     ///
+    @objc
     public func readAll() async throws -> String {
         try await collect()
     }
@@ -69,16 +70,7 @@ public final class TextStreamReader: NSObject, AsyncSequence, Sendable {
 
 public extension TextStreamReader {
     @objc
-    @available(*, unavailable, message: "Use async readAll() method instead.")
-    func readAll(onCompletion: @escaping (String) -> Void, onError: ((Error?) -> Void)?) {
-        Task {
-            do { try await onCompletion(readAll()) }
-            catch { onError?(error) }
-        }
-    }
-
-    @objc
-    @available(*, unavailable, message: "Use for/await on TextStreamReader reader instead.")
+    @available(*, deprecated, message: "Use for/await on TextStreamReader reader instead.")
     func readChunks(onChunk: @escaping (String) -> Void, onCompletion: ((Error?) -> Void)?) {
         Task {
             do {

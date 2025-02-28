@@ -46,11 +46,13 @@ public extension Room {
     }
 
     /// Unregisters a byte stream handler that was previously registered for the given topic.
+    @objc
     func unregisterByteStreamHandler(for topic: String) async {
         await incomingStreamManager.unregisterByteStreamHandler(for: topic)
     }
 
     /// Unregisters a text stream handler that was previously registered for the given topic.
+    @objc
     func unregisterTextStreamHandler(for topic: String) async {
         await incomingStreamManager.unregisterTextStreamHandler(for: topic)
     }
@@ -60,7 +62,7 @@ public extension Room {
 
 public extension Room {
     @objc
-    @available(*, unavailable, message: "Use async registerByteStreamHandler(for:onNewStream:) method instead.")
+    @available(*, deprecated, message: "Use async registerByteStreamHandler(for:onNewStream:) method instead.")
     func registerByteStreamHandler(
         for topic: String,
         onNewStream: @escaping (ByteStreamReader, Participant.Identity) -> Void,
@@ -73,7 +75,7 @@ public extension Room {
     }
 
     @objc
-    @available(*, unavailable, message: "Use async registerTextStreamHandler(for:onNewStream:) method instead.")
+    @available(*, deprecated, message: "Use async registerTextStreamHandler(for:onNewStream:) method instead.")
     func registerTextStreamHandler(
         for topic: String,
         onNewStream: @escaping (TextStreamReader, Participant.Identity) -> Void,
@@ -83,21 +85,5 @@ public extension Room {
             do { try await registerTextStreamHandler(for: topic, onNewStream: onNewStream) }
             catch { onError?(error) }
         }
-    }
-
-    @objc
-    @available(*, unavailable, message: "Use async unregisterByteStreamHandler(for:) method instead.")
-    func unregisterByteStreamHandler(
-        for topic: String
-    ) {
-        Task { await unregisterByteStreamHandler(for: topic) }
-    }
-
-    @objc
-    @available(*, unavailable, message: "Use async unregisterTextStreamHandler(for:) method instead.")
-    func unregisterTextStreamHandler(
-        for topic: String
-    ) {
-        Task { await unregisterTextStreamHandler(for: topic) }
     }
 }

@@ -36,6 +36,7 @@ public final class ByteStreamReader: NSObject, AsyncSequence, Sendable {
     /// - Returns: The data consisting of all concatenated chunks.
     /// - Throws: ``StreamError`` if an error occurs while reading the stream.
     ///
+    @objc
     public func readAll() async throws -> Data {
         try await source.collect()
     }
@@ -69,6 +70,7 @@ extension ByteStreamReader {
     /// - Returns: The URL of the written file on disk.
     /// - Throws: ``StreamError`` if an error occurs while reading the stream.
     ///
+    @objc
     public func readToFile(
         in directory: URL = FileManager.default.temporaryDirectory,
         name nameOverride: String? = nil
@@ -132,16 +134,7 @@ extension ByteStreamReader {
 
 public extension ByteStreamReader {
     @objc
-    @available(*, unavailable, message: "Use async readAll() method instead.")
-    func readAll(onCompletion: @escaping (Data) -> Void, onError: ((Error?) -> Void)?) {
-        Task {
-            do { try await onCompletion(readAll()) }
-            catch { onError?(error) }
-        }
-    }
-
-    @objc
-    @available(*, unavailable, message: "Use for/await on ByteStreamReader reader instead.")
+    @available(*, deprecated, message: "Use for/await on ByteStreamReader reader instead.")
     func readChunks(onChunk: @escaping (Data) -> Void, onCompletion: ((Error?) -> Void)?) {
         Task {
             do {
@@ -152,20 +145,6 @@ public extension ByteStreamReader {
             } catch {
                 onCompletion?(error)
             }
-        }
-    }
-
-    @objc
-    @available(*, unavailable, message: "Use async readToFile(in:name:) method instead.")
-    internal func readToFile(
-        in directory: URL,
-        name nameOverride: String?,
-        onCompletion: @escaping (URL) -> Void,
-        onError: ((Error) -> Void)?
-    ) {
-        Task {
-            do { try await onCompletion(self.readToFile(in: directory, name: nameOverride)) }
-            catch { onError?(error) }
         }
     }
 }
