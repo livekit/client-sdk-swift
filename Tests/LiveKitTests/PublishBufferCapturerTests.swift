@@ -94,6 +94,15 @@ class PublishBufferCapturerTests: LKTestCase {
             await self.fulfillment(of: [expectTargetDimensions], timeout: 60)
             print("Did render target dimensions: \(targetDimensions)")
 
+            // Verify codec information
+            print("Waiting for codec information...")
+            if let codec = publishOptions.preferredCodec {
+                let expectCodec = videoTrackWatcher.expect(codec: codec)
+                await self.fulfillment(of: [expectCodec], timeout: 30)
+                print("Detected codecs: \(videoTrackWatcher.detectedCodecs.joined(separator: ", "))")
+                XCTAssertTrue(videoTrackWatcher.isCodecDetected(codec: codec), "Expected codec \(codec) was not detected")
+            }
+
             // Wait for video to complete...
             try await captureTask.value
             // Clean up

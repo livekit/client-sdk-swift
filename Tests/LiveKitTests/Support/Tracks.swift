@@ -84,10 +84,13 @@ class VideoTrackWatcher: TrackDelegate, VideoRenderer {
     // MARK: - Public
 
     public var didRenderFirstFrame: Bool { _state.didRenderFirstFrame }
+    public var detectedCodecs: Set<String> { _state.detectedCodecs }
 
     private struct State {
         var didRenderFirstFrame: Bool = false
         var expectationsForDimensions: [Dimensions: XCTestExpectation] = [:]
+        var expectationsForCodecs: [VideoCodec: XCTestExpectation] = [:]
+        var detectedCodecs: Set<String> = []
     }
 
     public let id: String
@@ -100,7 +103,10 @@ class VideoTrackWatcher: TrackDelegate, VideoRenderer {
     }
 
     public func reset() {
-        _state.mutate { $0.didRenderFirstFrame = false }
+        _state.mutate {
+            $0.didRenderFirstFrame = false
+            $0.detectedCodecs.removeAll()
+        }
     }
 
     public func expect(dimensions: Dimensions) -> XCTestExpectation {
@@ -111,6 +117,20 @@ class VideoTrackWatcher: TrackDelegate, VideoRenderer {
             $0.expectationsForDimensions[dimensions] = expectation
             return expectation
         }
+    }
+
+    public func expect(codec: VideoCodec) -> XCTestExpectation {
+        let expectation = XCTestExpectation(description: "Did receive codec \(codec.id)")
+        expectation.assertForOverFulfill = false
+
+        return _state.mutate {
+            $0.expectationsForCodecs[codec] = expectation
+            return expectation
+        }
+    }
+
+    public func isCodecDetected(codec: VideoCodec) -> Bool {
+        _state.read { $0.detectedCodecs.contains(codec.id) }
     }
 
     // MARK: - VideoRenderer
@@ -145,7 +165,24 @@ class VideoTrackWatcher: TrackDelegate, VideoRenderer {
         var segments: [String] = []
 
         if let codec = statistics.codec.first(where: { $0.id == stream.codecId }), let mimeType = codec.mimeType {
-            segments.append("codec: \(mimeType)")
+            segments.append("codec: \(mimeType.lowercased())")
+
+            // Extract codec id from mimeType (e.g., "video/vp8" -> "vp8")
+            if let codecId = mimeType.split(separator: "/").last?.lowercased() {
+                let codecIdStr = String(codecId)
+
+                _state.mutate {
+                    // Add to detected codecs
+                    $0.detectedCodecs.insert(codecIdStr)
+
+                    // Check if any codec expectations match
+                    for (expectedCodec, expectation) in $0.expectationsForCodecs {
+                        if expectedCodec.id.lowercased() == codecIdStr {
+                            expectation.fulfill()
+                        }
+                    }
+                }
+            }
         }
 
         if let width = stream.frameWidth, let height = stream.frameHeight {
