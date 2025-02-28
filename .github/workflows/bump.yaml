@@ -10,8 +10,6 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v3
-        with:
-          ssh-key: ${{ secrets.NANPA_KEY }}
       - uses: nbsp/ilo@v1
         with:
           packages: ${{ env.PACKAGE_NAME }}
