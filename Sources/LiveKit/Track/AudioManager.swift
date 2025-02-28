@@ -286,16 +286,18 @@ public class AudioManager: Loggable {
         set { RTC.audioDeviceModule.muteMode = newValue ? .restartEngine : .voiceProcessing }
     }
 
-    // MARK: - For testing
-
-    var isEngineRunning: Bool {
+    public var isEngineRunning: Bool {
         RTC.audioDeviceModule.isEngineRunning
     }
 
-    var isMicrophoneMuted: Bool {
+    /// The mute state of internal audio engine which uses Voice Processing I/O mute API ``AVAudioInputNode.isVoiceProcessingInputMuted``.
+    /// Normally, you do not need to set this manually since it will be handled automatically.
+    public var isMicrophoneMuted: Bool {
         get { RTC.audioDeviceModule.isMicrophoneMuted }
         set { RTC.audioDeviceModule.isMicrophoneMuted = newValue }
     }
+
+    // MARK: - For testing
 
     var engineState: RTCAudioEngineState {
         get { RTC.audioDeviceModule.engineState }
