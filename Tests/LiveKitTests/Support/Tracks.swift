@@ -120,7 +120,7 @@ class VideoTrackWatcher: TrackDelegate, VideoRenderer {
     }
 
     public func expect(codec: VideoCodec) -> XCTestExpectation {
-        let expectation = XCTestExpectation(description: "Did receive codec \(codec.id)")
+        let expectation = XCTestExpectation(description: "Did receive codec \(codec.name)")
         expectation.assertForOverFulfill = false
 
         return _state.mutate {
@@ -130,7 +130,7 @@ class VideoTrackWatcher: TrackDelegate, VideoRenderer {
     }
 
     public func isCodecDetected(codec: VideoCodec) -> Bool {
-        _state.read { $0.detectedCodecs.contains(codec.id) }
+        _state.read { $0.detectedCodecs.contains(codec.name) }
     }
 
     // MARK: - VideoRenderer
@@ -168,16 +168,14 @@ class VideoTrackWatcher: TrackDelegate, VideoRenderer {
             segments.append("codec: \(mimeType.lowercased())")
 
             // Extract codec id from mimeType (e.g., "video/vp8" -> "vp8")
-            if let codecId = mimeType.split(separator: "/").last?.lowercased() {
-                let codecIdStr = String(codecId)
-
+            if let codecName = mimeType.split(separator: "/").last?.lowercased() {
                 _state.mutate {
                     // Add to detected codecs
-                    $0.detectedCodecs.insert(codecIdStr)
+                    $0.detectedCodecs.insert(codecName)
 
                     // Check if any codec expectations match
                     for (expectedCodec, expectation) in $0.expectationsForCodecs {
-                        if expectedCodec.id.lowercased() == codecIdStr {
+                        if expectedCodec.name.lowercased() == codecName {
                             expectation.fulfill()
                         }
                     }

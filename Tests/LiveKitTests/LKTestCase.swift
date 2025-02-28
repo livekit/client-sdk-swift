@@ -28,6 +28,7 @@ class LKTestCase: XCTestCase {
 
     override func setUp() {
         assert(Self._globalSetup, "Global initialization failed")
+        continueAfterFailure = false
         super.setUp()
     }
 }
