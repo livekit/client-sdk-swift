@@ -92,7 +92,7 @@ class RpcTests: LKTestCase {
 
             room.publisherDataChannel = mockDataChannel
 
-            await room.localParticipant.registerRpcMethod("greet") { data in
+            try await room.registerRpcMethod("greet") { data in
                 "Hello, \(data.callerIdentity)!"
             }
 
@@ -135,7 +135,7 @@ class RpcTests: LKTestCase {
 
             room.publisherDataChannel = mockDataChannel
 
-            await room.localParticipant.registerRpcMethod("failingMethod") { _ in
+            try await room.registerRpcMethod("failingMethod") { _ in
                 throw RpcError(code: 2000, message: "Custom error", data: "Additional data")
             }
 
@@ -175,11 +175,11 @@ class RpcTests: LKTestCase {
 
             room.publisherDataChannel = mockDataChannel
 
-            await room.localParticipant.registerRpcMethod("test") { _ in
+            try await room.registerRpcMethod("test") { _ in
                 "test response"
             }
 
-            await room.localParticipant.unregisterRpcMethod("test")
+            await room.unregisterRpcMethod("test")
 
             await room.localParticipant.handleIncomingRpcRequest(
                 callerIdentity: Participant.Identity(from: "test-caller"),
