@@ -103,7 +103,7 @@ class DataStreamTests: LKTestCase {
                 case .send:
                     // Only sending files is supported, write chunk to file first
                     let fileURL = FileManager.default.temporaryDirectory
-                        .appending(path: "file-name.pdf")
+                        .appendingPathComponent("file-name.pdf")
                     try testChunk.write(to: fileURL)
 
                     let info = try await room1.localParticipant.sendFile(fileURL, for: topic)

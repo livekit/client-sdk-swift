@@ -17,7 +17,7 @@
 @testable import LiveKit
 import XCTest
 
-class TextStreamInfoTests: XCTestCase {
+class TextStreamInfoTests: LKTestCase {
     func testProtocolTypeConversion() {
         let info = TextStreamInfo(
             id: "id",

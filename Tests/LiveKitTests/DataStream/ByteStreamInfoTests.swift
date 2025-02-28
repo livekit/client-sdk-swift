@@ -17,7 +17,7 @@
 @testable import LiveKit
 import XCTest
 
-class ByteStreamInfoTests: XCTestCase {
+class ByteStreamInfoTests: LKTestCase {
     func testProtocolTypeConversion() {
         let info = ByteStreamInfo(
             id: "id",

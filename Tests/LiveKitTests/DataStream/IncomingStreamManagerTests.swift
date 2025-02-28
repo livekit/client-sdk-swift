@@ -17,7 +17,7 @@
 @testable import LiveKit
 import XCTest
 
-class IncomingStreamManagerTests: XCTestCase {
+class IncomingStreamManagerTests: LKTestCase {
     private var manager: IncomingStreamManager!
 
     private let topicName = "someTopic"

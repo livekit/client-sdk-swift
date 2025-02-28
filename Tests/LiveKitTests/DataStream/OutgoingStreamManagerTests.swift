@@ -17,7 +17,7 @@
 @testable import LiveKit
 import XCTest
 
-class OutgoingStreamManagerTests: XCTestCase {
+class OutgoingStreamManagerTests: LKTestCase {
     func testStreamBytes() async throws {
         let headerExpectation = expectation(description: "Produces header packet")
         let chunkExpectation = expectation(description: "Produces chunk packets")

@@ -17,7 +17,7 @@
 @testable import LiveKit
 import XCTest
 
-class FileInfoTests: XCTestCase {
+class FileInfoTests: LKTestCase {
     func testReadInfo() throws {
         try testReadInfo(mimeType: "text/plain")
         try testReadInfo(mimeType: "application/json")
@@ -31,7 +31,7 @@ class FileInfoTests: XCTestCase {
         line: UInt = #line
     ) throws {
         let fileURL = FileManager.default.temporaryDirectory
-            .appending(path: UUID().uuidString)
+            .appendingPathComponent(UUID().uuidString)
             .appendingPathExtension(FileInfo.preferredExtension(for: mimeType) ?? "")
 
         let contents = Data(repeating: 0xFF, count: 32)
@@ -46,7 +46,7 @@ class FileInfoTests: XCTestCase {
     }
 
     func testReadInfoUnreadable() {
-        XCTAssertNil(FileInfo(for: URL(filePath: "/some/unreadable/path")))
+        XCTAssertNil(FileInfo(for: URL(fileURLWithPath: "/some/unreadable/path")))
     }
 
     func testPreferredExtensionCommon() {
