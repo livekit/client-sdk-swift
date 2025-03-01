@@ -2,27 +2,24 @@ name: Publish Docs
 
 on:
   workflow_dispatch:
-  push:
-    tags:
-      - "*"
+  release:
+    types: [published]
 
 jobs:
   publish:
     runs-on: macos-latest
-
     steps:
       - uses: actions/checkout@v3
 
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: 16.2
+
       - name: Build DocC
-        run: |
-          swift package --allow-writing-to-directory ./docs generate-documentation \
-          --target LiveKit \
-          --output-path ./docs \
-          --transform-for-static-hosting \
-          --hosting-base-path client-sdk-swift/
+        run: ./scripts/build_docs.sh
 
       - name: S3 Upload
-        run: aws s3 cp docs/ s3://livekit-docs/client-sdk-swift --recursive
+        run: aws s3 cp .docs/output/ s3://livekit-docs/client-sdk-swift --recursive
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.DOCS_DEPLOY_AWS_ACCESS_KEY }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.DOCS_DEPLOY_AWS_API_SECRET }}
