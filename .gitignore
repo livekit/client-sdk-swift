@@ -8,7 +8,8 @@ xcshareddata/
 Package.resolved
 Documentation
 # DocC
-/build_docs/
+/.docs
 *.doccarchive
+.docc-build
 # Local WebRTC
 LiveKitWebRTC.xcframework
