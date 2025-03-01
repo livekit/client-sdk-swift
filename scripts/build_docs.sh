@@ -22,7 +22,7 @@ build_for_platform() {
 
     xcodebuild build \
         -scheme "${TARGET}" \
-        -destination "generic/platform=${platform}" \
+        -destination "platform=${platform}" \
         -derivedDataPath "${DERIVED_DATA_DIR}" \
         OTHER_SWIFT_FLAGS="-Xfrontend -emit-symbol-graph\
                            -Xfrontend -emit-symbol-graph-dir\
