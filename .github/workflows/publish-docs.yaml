@@ -2,6 +2,11 @@ name: Publish Docs
 
 on:
   workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Dry run (upload as artifact instead of to S3)
+        default: true
+        type: boolean
   release:
     types: [published]
 
@@ -18,7 +23,15 @@ jobs:
       - name: Build DocC
         run: ./scripts/build_docs.sh
 
-      - name: S3 Upload
+      - name: Upload as artifact
+        if: ${{ inputs.dry_run == true }}
+        uses: actions/upload-artifact@v3
+        with:
+          name: docc-output
+          path: .docs/output/
+
+      - name: S3 upload
+        if: ${{ inputs.dry_run != true }}
         run: aws s3 cp .docs/output/ s3://livekit-docs/client-sdk-swift --recursive
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.DOCS_DEPLOY_AWS_ACCESS_KEY }}
@@ -26,6 +39,7 @@ jobs:
           AWS_DEFAULT_REGION: "us-east-1"
 
       - name: Invalidate cache
+        if: ${{ inputs.dry_run != true }}
         run: aws cloudfront create-invalidation --distribution-id EJJ40KLJ3TRY9 --paths "/*"
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.DOCS_DEPLOY_AWS_ACCESS_KEY }}
