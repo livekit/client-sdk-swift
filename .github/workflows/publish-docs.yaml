@@ -25,7 +25,7 @@ jobs:
 
       - name: Upload as artifact
         if: ${{ inputs.dry_run == true }}
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: docc-output
           path: .docs/output/
