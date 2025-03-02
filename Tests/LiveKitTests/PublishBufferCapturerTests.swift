@@ -20,6 +20,23 @@ import XCTest
 
 class PublishBufferCapturerTests: LKTestCase {
     func testPublishBufferTrack() async throws {
+        let testCodecs: [VideoCodec] = [.vp8, .h264]
+        for codec in testCodecs {
+            print("Testing with codec: \(codec)")
+
+            let publishOptions = VideoPublishOptions(
+                simulcast: false,
+                preferredCodec: codec,
+                preferredBackupCodec: .none,
+                degradationPreference: .maintainResolution
+            )
+            try await testWith(publishOptions: publishOptions)
+        }
+    }
+}
+
+extension PublishBufferCapturerTests {
+    func testWith(publishOptions: VideoPublishOptions) async throws {
         try await withRooms([RoomTestingOptions(canPublish: true), RoomTestingOptions(canSubscribe: true)]) { rooms in
             // Alias to Rooms
             let room1 = rooms[0]
@@ -28,13 +45,6 @@ class PublishBufferCapturerTests: LKTestCase {
             let targetDimensions: Dimensions = .h720_169
 
             let captureOptions = BufferCaptureOptions(dimensions: targetDimensions)
-
-            let publishOptions = VideoPublishOptions(
-                simulcast: false,
-                preferredCodec: .vp8,
-                preferredBackupCodec: .none,
-                degradationPreference: .maintainResolution
-            )
 
             let bufferTrack = LocalVideoTrack.createBufferTrack(
                 options: captureOptions
