@@ -19,17 +19,38 @@ import AVFoundation
 import XCTest
 
 extension LKTestCase {
+    // Static variable to store the downloaded sample video URL
+    private static var cachedSampleVideoURL: URL?
+
     // Creates a LocalVideoTrack with BufferCapturer, generates frames for approx 30 seconds
     func createSampleVideoTrack(targetFps: Int = 30, _ onCapture: @escaping (CMSampleBuffer) -> Void) async throws -> (Task<Void, any Error>) {
         // Sample video
         let url = URL(string: "https://storage.unxpected.co.jp/public/sample-videos/ocean-1080p.mp4")!
+        let tempLocalUrl: URL
 
-        print("Downloading sample video from \(url)...")
-        let (downloadedLocalUrl, _) = try await URLSession.shared.downloadBackport(from: url)
+        // Check if we already have the file downloaded
+        if let cachedURL = LKTestCase.cachedSampleVideoURL, FileManager.default.fileExists(atPath: cachedURL.path) {
+            print("Using cached sample video at \(cachedURL)...")
+            tempLocalUrl = cachedURL
+        } else {
+            // Download if not available
+            print("Downloading sample video from \(url)...")
+            let (downloadedLocalUrl, _) = try await URLSession.shared.downloadBackport(from: url)
 
-        // Move the file to a new temporary location with a more descriptive name, if desired
-        let tempLocalUrl = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString).appendingPathExtension("mp4")
-        try FileManager.default.moveItem(at: downloadedLocalUrl, to: tempLocalUrl)
+            // Move the file to a new temporary location with a more descriptive name
+            tempLocalUrl = FileManager.default.temporaryDirectory.appendingPathComponent("sample-video-cached").appendingPathExtension("mp4")
+
+            // Remove existing file if present
+            if FileManager.default.fileExists(atPath: tempLocalUrl.path) {
+                try FileManager.default.removeItem(at: tempLocalUrl)
+            }
+
+            try FileManager.default.moveItem(at: downloadedLocalUrl, to: tempLocalUrl)
+
+            // Cache the URL for future use
+            LKTestCase.cachedSampleVideoURL = tempLocalUrl
+            print("Cached sample video at \(tempLocalUrl)")
+        }
 
         print("Opening \(tempLocalUrl) with asset reader...")
         let asset = AVAsset(url: tempLocalUrl)
