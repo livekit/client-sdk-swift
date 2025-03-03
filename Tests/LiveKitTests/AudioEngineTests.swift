@@ -68,14 +68,21 @@ class AudioEngineTests: LKTestCase {
 
         // Ensure recording is initialized after set to true.
         adm.isRecordingAlwaysPrepared = true
+
+        #if os(iOS)
+        let session = AVAudioSession.sharedInstance()
+        XCTAssert(session.category == .playAndRecord)
+        XCTAssert(session.mode == .videoChat || session.mode == .voiceChat)
+        #endif
+
+        adm.initRecording()
         XCTAssert(adm.isRecordingInitialized)
 
         adm.startRecording()
         XCTAssert(adm.isRecordingInitialized)
 
-        // Should be still initialized after stopRecording() is called.
         adm.stopRecording()
-        XCTAssert(adm.isRecordingInitialized)
+        XCTAssert(!adm.isRecordingInitialized)
     }
 
     func testConfigureDucking() async {
@@ -186,7 +193,7 @@ class AudioEngineTests: LKTestCase {
 
         // Play the recorded file...
         let player = try AVAudioPlayer(contentsOf: recorder.filePath)
-        player.play()
+        XCTAssertTrue(player.play(), "Failed to start audio playback")
         while player.isPlaying {
             try? await Task.sleep(nanoseconds: 1 * 100_000_000) // 10ms
         }
@@ -250,7 +257,7 @@ class AudioEngineTests: LKTestCase {
 
         // Play the recorded file...
         let player = try AVAudioPlayer(contentsOf: recorder.filePath)
-        player.play()
+        XCTAssertTrue(player.play(), "Failed to start audio playback")
         while player.isPlaying {
             try? await Task.sleep(nanoseconds: 1 * 100_000_000) // 10ms
         }
@@ -297,6 +304,40 @@ class AudioEngineTests: LKTestCase {
         AudioManager.shared.stopPlayout()
     }
     #endif
+
+    func testAudioRecorder() async throws {
+        AudioManager.shared.isRecordingAlwaysPrepared = true
+        XCTAssert(AudioManager.shared.isRecordingAlwaysPrepared)
+
+        print("Connecting to room...")
+        try await withRooms([RoomTestingOptions(canPublish: true)]) { rooms in
+            print("Publishing mic...")
+            try await rooms[0].localParticipant.setMicrophone(enabled: true)
+            // Wait 3 seconds...
+            try? await Task.sleep(nanoseconds: 3 * 1_000_000_000)
+        }
+
+        let format16k: [String: Any] = [
+            AVFormatIDKey: Int(kAudioFormatMPEG4AAC),
+            AVSampleRateKey: 16000,
+            AVNumberOfChannelsKey: 1,
+            AVEncoderAudioQualityKey: AVAudioQuality.high.rawValue,
+        ]
+
+        let tempLocalUrl = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString).appendingPathExtension("aac")
+        let recorder = try AVAudioRecorder(url: tempLocalUrl, settings: format16k)
+        XCTAssertTrue(recorder.record(), "Failed to start audio recording")
+        // Record for 5 seconds...
+        try? await Task.sleep(nanoseconds: 5 * 1_000_000_000)
+        recorder.stop()
+
+        // Play the recorded file...
+        let player = try AVAudioPlayer(contentsOf: tempLocalUrl)
+        XCTAssertTrue(player.play(), "Failed to start audio playback")
+        while player.isPlaying {
+            try? await Task.sleep(nanoseconds: 1 * 100_000_000) // 10ms
+        }
+    }
 }
 
 final class SineWaveNodeHook: AudioEngineObserver {
