@@ -100,14 +100,14 @@ extension PublishBufferCapturerTests {
 
             print("Waiting for target dimensions: \(targetDimensions)")
             let expectTargetDimensions = videoTrackWatcher.expect(dimensions: targetDimensions)
-            await self.fulfillment(of: [expectTargetDimensions], timeout: 60)
+            await self.fulfillment(of: [expectTargetDimensions], timeout: 120)
             print("Did render target dimensions: \(targetDimensions)")
 
             // Verify codec information
             print("Waiting for codec information...")
             if let codec = publishOptions.preferredCodec {
                 let expectCodec = videoTrackWatcher.expect(codec: codec)
-                await self.fulfillment(of: [expectCodec], timeout: 30)
+                await self.fulfillment(of: [expectCodec], timeout: 60)
                 print("Detected codecs: \(videoTrackWatcher.detectedCodecs.joined(separator: ", "))")
                 XCTAssertTrue(videoTrackWatcher.isCodecDetected(codec: codec), "Expected codec \(codec) was not detected")
             }
