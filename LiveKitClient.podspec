@@ -8,8 +8,6 @@ Pod::Spec.new do |spec|
 
   spec.ios.deployment_target = "13.0"
   spec.osx.deployment_target = "10.15"
-  spec.tvos.deployment_target = "17.0"
-  spec.visionos.deployment_target = "1.0"
 
   spec.swift_versions = ["5.7"]
   spec.source = {:git => "https://github.com/livekit/client-sdk-swift.git", :tag => "2.2.1"}
