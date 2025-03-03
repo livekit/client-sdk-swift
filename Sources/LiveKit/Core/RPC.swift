@@ -141,17 +141,26 @@ struct PendingRpcResponse {
     let onResolve: (_ payload: String?, _ error: RpcError?) -> Void
 }
 
-actor RpcStateManager {
+actor RpcStateManager: Loggable {
     private var handlers: [String: RpcHandler] = [:] // methodName to handler
     private var pendingAcks: Set<String> = Set()
     private var pendingResponses: [String: PendingRpcResponse] = [:] // requestId to pending response
 
-    func registerHandler(_ method: String, handler: @escaping RpcHandler) {
+    func registerHandler(_ method: String, handler: @escaping RpcHandler) throws {
+        guard !isRpcMethodRegistered(method) else {
+            throw LiveKitError(.invalidState, message: "RPC method '\(method)' already registered")
+        }
         handlers[method] = handler
     }
 
     func unregisterHandler(_ method: String) {
-        handlers.removeValue(forKey: method)
+        if handlers.removeValue(forKey: method) == nil {
+            log("No handler registered for RPC method '\(method)'", .warning)
+        }
+    }
+    
+    func isRpcMethodRegistered(_ method: String) -> Bool {
+        handlers[method] != nil
     }
 
     func getHandler(for method: String) -> RpcHandler? {

@@ -19,45 +19,6 @@ import Foundation
 // MARK: - Public RPC methods
 
 public extension LocalParticipant {
-    /// Establishes the participant as a receiver for calls of the specified RPC method.
-    /// Will overwrite any existing callback for the same method.
-    ///
-    /// Example:
-    /// ```swift
-    /// try await room.localParticipant.registerRpcMethod("greet") { data in
-    ///     print("Received greeting from \(data.callerIdentity): \(data.payload)")
-    ///     return "Hello, \(data.callerIdentity)!"
-    /// }
-    /// ```
-    ///
-    /// The handler receives an `RpcInvocationData` containing the following parameters:
-    /// - `requestId`: A unique identifier for this RPC request
-    /// - `callerIdentity`: The identity of the RemoteParticipant who initiated the RPC call
-    /// - `payload`: The data sent by the caller (as a string)
-    /// - `responseTimeout`: The maximum time available to return a response
-    ///
-    /// The handler should return a string.
-    /// If unable to respond within responseTimeout, the request will result in an error on the caller's side.
-    ///
-    /// You may throw errors of type RpcError with a string message in the handler,
-    /// and they will be received on the caller's side with the message intact.
-    /// Other errors thrown in your handler will not be transmitted as-is, and will instead arrive to the caller as 1500 ("Application Error").
-    ///
-    /// - Parameters:
-    ///   - method: The name of the indicated RPC method
-    ///   - handler: Will be invoked when an RPC request for this method is received
-    func registerRpcMethod(_ method: String,
-                           handler: @escaping RpcHandler) async
-    {
-        await rpcState.registerHandler(method, handler: handler)
-    }
-
-    /// Unregisters a previously registered RPC method.
-    ///
-    /// - Parameter method: The name of the RPC method to unregister
-    func unregisterRpcMethod(_ method: String) async {
-        await rpcState.unregisterHandler(method)
-    }
 
     /// Initiate an RPC call to a remote participant
     /// - Parameters:
@@ -72,6 +33,8 @@ public extension LocalParticipant {
                     payload: String,
                     responseTimeout: TimeInterval = 10) async throws -> String
     {
+        let room = try requireRoom()
+        
         guard payload.byteLength <= MAX_RPC_PAYLOAD_BYTES else {
             throw RpcError.builtIn(.requestPayloadTooLarge)
         }
@@ -90,14 +53,14 @@ public extension LocalParticipant {
             return try await withThrowingTimeout(timeout: responseTimeout) {
                 try await withCheckedThrowingContinuation { continuation in
                     Task {
-                        await self.rpcState.addPendingAck(requestId)
+                        await room.rpcState.addPendingAck(requestId)
 
-                        await self.rpcState.setPendingResponse(requestId, response: PendingRpcResponse(
+                        await room.rpcState.setPendingResponse(requestId, response: PendingRpcResponse(
                             participantIdentity: destinationIdentity,
                             onResolve: { payload, error in
                                 Task {
-                                    await self.rpcState.removePendingAck(requestId)
-                                    await self.rpcState.removePendingResponse(requestId)
+                                    await room.rpcState.removePendingAck(requestId)
+                                    await room.rpcState.removePendingResponse(requestId)
 
                                     if let error {
                                         continuation.resume(throwing: error)
@@ -112,8 +75,8 @@ public extension LocalParticipant {
                     Task {
                         try await Task.sleep(nanoseconds: UInt64(maxRoundTripLatency * 1_000_000_000))
 
-                        if await self.rpcState.hasPendingAck(requestId) {
-                            await self.rpcState.removeAllPending(requestId)
+                        if await room.rpcState.hasPendingAck(requestId) {
+                            await room.rpcState.removeAllPending(requestId)
                             continuation.resume(throwing: RpcError.builtIn(.connectionTimeout))
                         }
                     }
@@ -127,6 +90,27 @@ public extension LocalParticipant {
             }
             throw error
         }
+    }
+    
+    @available(*, deprecated, message: "registerRpcMethod(_:handler:) has been moved to room.")
+    func registerRpcMethod(_ method: String,
+                           handler: @escaping RpcHandler) async
+    {
+        guard let room = try? requireRoom() else { return }
+        do {
+            try await room.registerRpcMethod(method, handler: handler)
+        } catch {
+            guard let error = error as? LiveKitError,
+                  let message = error.message else { return }
+            log("\(message)", .error)
+        }
+    }
+
+    
+    @available(*, deprecated, message: "unregisterRpcMethod(_:) has been moved to room.")
+    func unregisterRpcMethod(_ method: String) async {
+        guard let room = try? requireRoom() else { return }
+        await room.unregisterRpcMethod(method)
     }
 }
 
@@ -207,6 +191,7 @@ extension LocalParticipant {
                                   responseTimeout: TimeInterval,
                                   version: Int) async
     {
+        guard let room = try? requireRoom() else { return }
         do {
             try await publishRpcAck(destinationIdentity: callerIdentity,
                                     requestId: requestId)
@@ -226,7 +211,7 @@ extension LocalParticipant {
             return
         }
 
-        guard let handler = await rpcState.getHandler(for: method) else {
+        guard let handler = await room.rpcState.getHandler(for: method) else {
             do {
                 try await publishRpcResponse(destinationIdentity: callerIdentity,
                                              requestId: requestId,
@@ -272,7 +257,8 @@ extension LocalParticipant {
 
     func handleIncomingRpcAck(requestId: String) {
         Task {
-            await rpcState.removePendingAck(requestId)
+            guard let room = try? requireRoom() else { return }
+            await room.rpcState.removePendingAck(requestId)
         }
     }
 
@@ -281,7 +267,8 @@ extension LocalParticipant {
                                    error: RpcError?)
     {
         Task {
-            guard let handler = await rpcState.removePendingResponse(requestId) else {
+            guard let room = try? requireRoom() else { return }
+            guard let handler = await room.rpcState.removePendingResponse(requestId) else {
                 log("[Rpc] Response received for unexpected RPC request, id = \(requestId)", .error)
                 return
             }

@@ -35,8 +35,6 @@ public class LocalParticipant: Participant {
 
     private var trackPermissions: [ParticipantTrackPermission] = []
 
-    let rpcState = RpcStateManager()
-
     /// publish a new audio track to the Room
     @objc
     @discardableResult
