@@ -236,6 +236,7 @@ public class Participant: NSObject, ObservableObject, Loggable {
     }
 
     func set(enabledPublishCodecs codecs: [Livekit_Codec]) {
+        log("enabledPublishCodecs: \(codecs.map(\.mime).joined(separator: ", "))")
         _internalState.mutate {
             $0.enabledPublishVideoCodecs = codecs.map { VideoCodec.from(mimeType: $0.mime) }.compactMap { $0 }
         }

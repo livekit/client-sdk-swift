@@ -608,17 +608,18 @@ private extension LocalParticipant {
 
             guard let sendEncodings, let populatorFunc else { throw LiveKitError(.invalidState) }
 
+            let addTrackName = publishName ?? track.name
             // Request a new track to the server
-            @Sendable func addTrackFunc() async throws -> Livekit_TrackInfo {
+            let addTrackFunc: () async throws -> Livekit_TrackInfo = {
                 try await room.signalClient.sendAddTrack(cid: track.mediaTrack.trackId,
-                                                         name: publishName ?? track.name,
+                                                         name: addTrackName,
                                                          type: track.kind.toPBType(),
                                                          source: track.source.toPBType(),
                                                          encryption: room.e2eeManager?.e2eeOptions.encryptionType.toPBType() ?? .none,
                                                          populatorFunc)
             }
 
-            @Sendable func negotiateFunc() async throws {
+            let negotiateFunc: () async throws -> Void = {
                 let transInit = DispatchQueue.liveKitWebRTC.sync { LKRTCRtpTransceiverInit() }
                 transInit.direction = .sendOnly
                 transInit.sendEncodings = sendEncodings
@@ -642,7 +643,7 @@ private extension LocalParticipant {
                     }()
 
                     if let setDegradationPreference {
-                        log("[publish] set degradationPreference to \(setDegradationPreference)")
+                        self.log("[publish] set degradationPreference to \(setDegradationPreference)")
                         let params = transceiver.sender.parameters
                         params.degradationPreference = setDegradationPreference
                         // Changing params directly doesn't work so we need to update params and set it back to sender.parameters
