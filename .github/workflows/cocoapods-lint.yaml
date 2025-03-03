@@ -38,7 +38,12 @@ jobs:
         run: |
           validation_dir=$(mktemp -d)
           echo "validation_dir=${validation_dir}" >> $GITHUB_OUTPUT
-          pod lib lint --validation-dir="${validation_dir}" --no-clean --allow-warnings --verbose
+          pod lib lint \
+            --validation-dir="${validation_dir}" \
+            --no-clean \
+            --allow-warnings \
+            --verbose \
+            --sources=https://github.com/livekit/podspecs.git/,https://cdn.cocoapods.org/
       - name: Upload Validation Directory (Failure Only)
         if: failure()
         uses: actions/upload-artifact@v4
