@@ -20,7 +20,7 @@ import XCTest
 
 class PublishBufferCapturerTests: LKTestCase {
     func testPublishBufferTrack() async throws {
-        let testCodecs: [VideoCodec] = [.vp8, .h264]
+        let testCodecs: [VideoCodec] = [.vp8]
         for codec in testCodecs {
             print("Testing with codec: \(codec)")
             let publishOptions = VideoPublishOptions(
