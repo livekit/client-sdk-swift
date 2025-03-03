@@ -1,0 +1,245 @@
+/*
+ * Copyright 2025 LiveKit
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+import Foundation
+
+/// Manages state of incoming data streams.
+actor IncomingStreamManager: Loggable {
+    /// Information about an open data stream.
+    private struct Descriptor {
+        let info: StreamInfo
+        var readLength: Int = 0
+        let openTime: TimeInterval
+        let continuation: StreamReaderSource.Continuation
+    }
+
+    /// Mapping between stream ID and descriptor for open streams.
+    private var openStreams: [String: Descriptor] = [:]
+
+    private var byteStreamHandlers: [String: ByteStreamHandler] = [:]
+    private var textStreamHandlers: [String: TextStreamHandler] = [:]
+
+    // MARK: - Handler registration
+
+    func registerByteStreamHandler(for topic: String, _ onNewStream: @escaping ByteStreamHandler) throws {
+        guard byteStreamHandlers[topic] == nil else {
+            throw StreamError.handlerAlreadyRegistered
+        }
+        byteStreamHandlers[topic] = onNewStream
+    }
+
+    func registerTextStreamHandler(for topic: String, _ onNewStream: @escaping TextStreamHandler) throws {
+        guard textStreamHandlers[topic] == nil else {
+            throw StreamError.handlerAlreadyRegistered
+        }
+        textStreamHandlers[topic] = onNewStream
+    }
+
+    func unregisterByteStreamHandler(for topic: String) {
+        byteStreamHandlers[topic] = nil
+    }
+
+    func unregisterTextStreamHandler(for topic: String) {
+        textStreamHandlers[topic] = nil
+    }
+
+    // MARK: - State
+
+    private func openStream(
+        with info: StreamInfo,
+        continuation: StreamReaderSource.Continuation
+    ) {
+        guard openStreams[info.id] == nil else {
+            continuation.finish(throwing: StreamError.alreadyOpened)
+            return
+        }
+        continuation.onTermination = { @Sendable [weak self] termination in
+            guard let self else { return }
+            self.log("Continuation terminated: \(termination)", .debug)
+            Task { await self.closeStream(with: info.id) }
+        }
+        let descriptor = Descriptor(
+            info: info,
+            openTime: Date.timeIntervalSinceReferenceDate,
+            continuation: continuation
+        )
+        log("Opened stream '\(info.id)'", .debug)
+        openStreams[info.id] = descriptor
+    }
+
+    private func closeStream(with id: String) {
+        guard let descriptor = openStreams[id] else {
+            log("No descriptor for stream '\(id)'", .debug)
+            return
+        }
+        let openDuration = Date.timeIntervalSinceReferenceDate - descriptor.openTime
+        log("Closed stream '\(id)' (open for \(openDuration))", .debug)
+        openStreams[id] = nil
+    }
+
+    // MARK: - Packet processing
+
+    /// Handles a data stream header.
+    func handle(header: Livekit_DataStream.Header, from identityString: String) {
+        let identity = Participant.Identity(from: identityString)
+
+        switch header.contentHeader {
+        case let .byteHeader(byteHeader):
+            guard let handler = byteStreamHandlers[header.topic] else {
+                log("No byte handler registered for topic '\(header.topic)'", .info)
+                return
+            }
+            let info = ByteStreamInfo(header, byteHeader)
+            let reader = ByteStreamReader(info: info, source: createSource(with: info))
+            Task {
+                do { try await handler(reader, identity) }
+                catch { log("Unhandled error in byte stream handler: \(error)", .error) }
+            }
+
+        case let .textHeader(textHeader):
+            guard let handler = textStreamHandlers[header.topic] else {
+                log("No text handler registered for topic '\(header.topic)'", .info)
+                return
+            }
+            let info = TextStreamInfo(header, textHeader)
+            let reader = TextStreamReader(info: info, source: createSource(with: info))
+            Task {
+                do { try await handler(reader, identity) }
+                catch { log("Unhandled error in text stream handler: \(error)", .error) }
+            }
+
+        default:
+            log("Unknown header type; ignoring stream", .warning)
+        }
+    }
+
+    /// Creates an asynchronous stream whose continuation will be used to send new chunks to the reader.
+    private func createSource(with info: StreamInfo) -> StreamReaderSource {
+        StreamReaderSource { [weak self] continuation in
+            guard let self else {
+                continuation.finish(throwing: StreamError.terminated)
+                return
+            }
+            Task { await self.openStream(with: info, continuation: continuation) }
+        }
+    }
+
+    /// Handles a data stream chunk.
+    func handle(chunk: Livekit_DataStream.Chunk) {
+        guard !chunk.content.isEmpty, let descriptor = openStreams[chunk.streamID] else { return }
+
+        let readLength = descriptor.readLength + chunk.content.count
+
+        if let totalLength = descriptor.info.totalLength {
+            guard readLength <= totalLength else {
+                descriptor.continuation.finish(throwing: StreamError.lengthExceeded)
+                return
+            }
+        }
+        openStreams[chunk.streamID]!.readLength = readLength
+        descriptor.continuation.yield(chunk.content)
+    }
+
+    /// Handles a data stream trailer.
+    func handle(trailer: Livekit_DataStream.Trailer) {
+        guard let descriptor = openStreams[trailer.streamID] else {
+            log("Received trailer for unknown stream '\(trailer.streamID)'", .warning)
+            return
+        }
+
+        if let totalLength = descriptor.info.totalLength {
+            guard descriptor.readLength == totalLength else {
+                descriptor.continuation.finish(throwing: StreamError.incomplete)
+                return
+            }
+        }
+
+        // TODO: do something with trailer attributes
+
+        guard trailer.reason.isEmpty else {
+            // According to protocol documentation, a non-empty reason string indicates an error
+            let error = StreamError.abnormalEnd(reason: trailer.reason)
+            descriptor.continuation.finish(throwing: error)
+            return
+        }
+        descriptor.continuation.finish()
+    }
+
+    // MARK: - Clean up
+
+    deinit {
+        guard !openStreams.isEmpty else { return }
+        log("Terminating \(openStreams.count) open stream(s)", .debug)
+        for descriptor in openStreams.values {
+            descriptor.continuation.finish(throwing: StreamError.terminated)
+        }
+    }
+}
+
+// MARK: - Type aliases
+
+/// Handler for incoming byte data streams.
+public typealias ByteStreamHandler = (ByteStreamReader, Participant.Identity) async throws -> Void
+
+/// Handler for incoming text data streams.
+public typealias TextStreamHandler = (TextStreamReader, Participant.Identity) async throws -> Void
+
+// MARK: - From protocol types
+
+extension ByteStreamInfo {
+    convenience init(
+        _ header: Livekit_DataStream.Header,
+        _ byteHeader: Livekit_DataStream.ByteHeader
+    ) {
+        self.init(
+            id: header.streamID,
+            topic: header.topic,
+            timestamp: header.timestampDate,
+            totalLength: header.hasTotalLength ? Int(header.totalLength) : nil,
+            attributes: header.attributes,
+            // ---
+            mimeType: header.mimeType,
+            name: byteHeader.name
+        )
+    }
+}
+
+extension TextStreamInfo {
+    convenience init(
+        _ header: Livekit_DataStream.Header,
+        _ textHeader: Livekit_DataStream.TextHeader
+    ) {
+        self.init(
+            id: header.streamID,
+            topic: header.topic,
+            timestamp: header.timestampDate,
+            totalLength: header.hasTotalLength ? Int(header.totalLength) : nil,
+            attributes: header.attributes,
+            // ---
+            operationType: TextStreamInfo.OperationType(textHeader.operationType),
+            version: Int(textHeader.version),
+            replyToStreamID: !textHeader.replyToStreamID.isEmpty ? textHeader.replyToStreamID : nil,
+            attachedStreamIDs: textHeader.attachedStreamIds,
+            generated: textHeader.generated
+        )
+    }
+}
+
+extension TextStreamInfo.OperationType {
+    init(_ operationType: Livekit_DataStream.OperationType) {
+        self = Self(rawValue: operationType.rawValue) ?? .create
+    }
+}

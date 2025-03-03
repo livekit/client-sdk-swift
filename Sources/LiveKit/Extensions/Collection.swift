@@ -14,17 +14,11 @@
  * limitations under the License.
  */
 
-@testable import LiveKit
-
-/// Mock ``DataChannelPair`` to intercept outgoing packets.
-class MockDataChannelPair: DataChannelPair {
-    var packetHandler: (Livekit_DataPacket) -> Void
-
-    init(packetHandler: @escaping (Livekit_DataPacket) -> Void) {
-        self.packetHandler = packetHandler
-    }
-
-    override func send(dataPacket packet: Livekit_DataPacket) async throws {
-        packetHandler(packet)
+extension Collection where Index == Int {
+    func chunks(of size: Int) -> [SubSequence] {
+        guard size > 0 else { return [] }
+        return stride(from: 0, to: count, by: size).map {
+            self[$0 ..< Swift.min($0.advanced(by: size), count)]
+        }
     }
 }

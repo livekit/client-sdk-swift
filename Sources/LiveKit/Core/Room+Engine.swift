@@ -107,8 +107,7 @@ extension Room {
             packet.participantIdentity = identity
         }
 
-        // Should return true if successful
-        try publisherDataChannel.send(dataPacket: packet)
+        try await publisherDataChannel.send(dataPacket: packet)
     }
 }
 

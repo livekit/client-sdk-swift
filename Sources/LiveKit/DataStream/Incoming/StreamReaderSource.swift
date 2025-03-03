@@ -14,17 +14,7 @@
  * limitations under the License.
  */
 
-@testable import LiveKit
+import Foundation
 
-/// Mock ``DataChannelPair`` to intercept outgoing packets.
-class MockDataChannelPair: DataChannelPair {
-    var packetHandler: (Livekit_DataPacket) -> Void
-
-    init(packetHandler: @escaping (Livekit_DataPacket) -> Void) {
-        self.packetHandler = packetHandler
-    }
-
-    override func send(dataPacket packet: Livekit_DataPacket) async throws {
-        packetHandler(packet)
-    }
-}
+/// Upstream asynchronous sequence from which raw chunk data is read.
+typealias StreamReaderSource = AsyncThrowingStream<Data, any Error>
