@@ -95,10 +95,10 @@ class RpcTests: LKTestCase {
             try await room.registerRpcMethod("greet") { data in
                 "Hello, \(data.callerIdentity)!"
             }
-            
+
             let isRegistered = await room.isRpcMethodRegistered("greet")
             XCTAssertTrue(isRegistered)
-            
+
             do {
                 try await room.registerRpcMethod("greet") { _ in "" }
                 XCTFail("Duplicate RPC method registration should fail.")
@@ -190,7 +190,7 @@ class RpcTests: LKTestCase {
             }
 
             await room.unregisterRpcMethod("test")
-            
+
             let isRegistered = await room.isRpcMethodRegistered("test")
             XCTAssertFalse(isRegistered)
 

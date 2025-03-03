@@ -158,7 +158,7 @@ actor RpcStateManager: Loggable {
             log("No handler registered for RPC method '\(method)'", .warning)
         }
     }
-    
+
     func isRpcMethodRegistered(_ method: String) -> Bool {
         handlers[method] != nil
     }

@@ -17,7 +17,6 @@
 import Foundation
 
 public extension Room {
- 
     /// Establishes the participant as a receiver for calls of the specified RPC method.
     /// Will overwrite any existing callback for the same method.
     ///
@@ -51,7 +50,7 @@ public extension Room {
     {
         try await rpcState.registerHandler(method, handler: handler)
     }
-    
+
     /// Unregisters a previously registered RPC method.
     ///
     /// - Parameter method: The name of the RPC method to unregister
@@ -59,7 +58,7 @@ public extension Room {
     func unregisterRpcMethod(_ method: String) async {
         await rpcState.unregisterHandler(method)
     }
-    
+
     /// Checks whether or not a handler has been registered for an RPC method.
     ///
     /// - Parameter method: The name of the RPC method to check.

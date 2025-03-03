@@ -115,11 +115,11 @@ public class Room: NSObject, ObservableObject, Loggable {
                                            qos: .default)
 
     var _queuedBlocks = [ConditionalExecutionEntry]()
-    
+
     // MARK: - RPC
-    
+
     let rpcState = RpcStateManager()
-    
+
     // MARK: - State
 
     struct State: Equatable {

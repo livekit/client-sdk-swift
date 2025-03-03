@@ -19,7 +19,6 @@ import Foundation
 // MARK: - Public RPC methods
 
 public extension LocalParticipant {
-
     /// Initiate an RPC call to a remote participant
     /// - Parameters:
     ///   - destinationIdentity: The identity of the destination participant
@@ -34,7 +33,7 @@ public extension LocalParticipant {
                     responseTimeout: TimeInterval = 10) async throws -> String
     {
         let room = try requireRoom()
-        
+
         guard payload.byteLength <= MAX_RPC_PAYLOAD_BYTES else {
             throw RpcError.builtIn(.requestPayloadTooLarge)
         }
@@ -91,7 +90,7 @@ public extension LocalParticipant {
             throw error
         }
     }
-    
+
     @available(*, deprecated, message: "registerRpcMethod(_:handler:) has been moved to room.")
     func registerRpcMethod(_ method: String,
                            handler: @escaping RpcHandler) async
@@ -106,7 +105,6 @@ public extension LocalParticipant {
         }
     }
 
-    
     @available(*, deprecated, message: "unregisterRpcMethod(_:) has been moved to room.")
     func unregisterRpcMethod(_ method: String) async {
         guard let room = try? requireRoom() else { return }
