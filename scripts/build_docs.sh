@@ -4,7 +4,7 @@
 
 TARGET="LiveKit"
 DOCC_SOURCE_PATH="${PWD}/Sources/${TARGET}/${TARGET}.docc"
-SUPPORTED_PLATFORMS=("iOS" "macOS" "tvOS" "xrOS")
+SUPPORTED_PLATFORMS=("macOS" "iOS Simulator" "tvOS Simulator" "visionOS Simulator")
 HOSTING_BASE_PATH="client-sdk-swift/"
 
 BUILD_DIR="${PWD}/.docs"
