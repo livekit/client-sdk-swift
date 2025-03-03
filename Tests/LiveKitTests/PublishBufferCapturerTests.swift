@@ -23,7 +23,6 @@ class PublishBufferCapturerTests: LKTestCase {
         let testCodecs: [VideoCodec] = [.vp8, .h264]
         for codec in testCodecs {
             print("Testing with codec: \(codec)")
-
             let publishOptions = VideoPublishOptions(
                 simulcast: false,
                 preferredCodec: codec,

@@ -185,6 +185,9 @@ class VideoTrackWatcher: TrackDelegate, VideoRenderer {
         guard let stream = statistics.inboundRtpStream.first else { return }
         var segments: [String] = []
 
+        let codecsString = statistics.codec.compactMap(\.mimeType).map { "'\($0)'" }.joined(separator: ", ")
+        print("statistics codecs: \(codecsString), count: \(statistics.codec.count)")
+
         if let codec = statistics.codec.first(where: { $0.id == stream.codecId }), let mimeType = codec.mimeType {
             segments.append("codec: \(mimeType.lowercased())")
 
