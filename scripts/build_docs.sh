@@ -4,7 +4,7 @@
 
 TARGET="LiveKit"
 DOCC_SOURCE_PATH="${PWD}/Sources/${TARGET}/${TARGET}.docc"
-SUPPORTED_PLATFORMS=("macOS" "iOS Simulator" "tvOS Simulator" "visionOS Simulator")
+SUPPORTED_PLATFORMS=("iOS Simulator,name=iPhone 16 Pro,OS=latest")
 HOSTING_BASE_PATH="client-sdk-swift/"
 
 BUILD_DIR="${PWD}/.docs"
@@ -15,19 +15,19 @@ SYMBOLS_DIR="${BUILD_DIR}/symbol-graph"
 OUTPUT_DIR="${BUILD_DIR}/output"
 
 build_for_platform() {
-    local platform=$1
+    local platform="${1}"
     local platform_symbols_dir="${SYMBOLS_DIR}/${platform}"
 
     mkdir -p "${platform_symbols_dir}"
 
-    xcodebuild build \
+    set -o pipefail && xcodebuild build \
         -scheme "${TARGET}" \
         -destination "platform=${platform}" \
         -derivedDataPath "${DERIVED_DATA_DIR}" \
         OTHER_SWIFT_FLAGS="-Xfrontend -emit-symbol-graph\
                            -Xfrontend -emit-symbol-graph-dir\
                            -Xfrontend ${platform_symbols_dir}" \
-        DOCC_EXTRACT_EXTENSION_SYMBOLS=YES
+        DOCC_EXTRACT_EXTENSION_SYMBOLS=YES | xcbeautify
 
     # Ensure symbols were emitted
     if [ -z "$(ls -A "${platform_symbols_dir}")" ]; then
