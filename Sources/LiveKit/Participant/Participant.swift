@@ -103,8 +103,6 @@ public class Participant: NSObject, ObservableObject, Loggable {
         var permissions = ParticipantPermissions()
         var trackPublications = [Track.Sid: TrackPublication]()
         var attributes = [String: String]()
-
-        var enabledPublishVideoCodecs: [VideoCodec] = []
     }
 
     struct InternalState: Equatable, Hashable {

@@ -189,6 +189,7 @@ extension Room {
                 $0.isSubscriberPrimary = isSubscriberPrimary
             }
 
+            log("[Connect] Fast publish enabled: \(joinResponse.fastPublish ? "true" : "false")")
             if !isSubscriberPrimary || joinResponse.fastPublish {
                 // lazy negotiation for protocol v3+
                 try await publisherShouldNegotiate()
