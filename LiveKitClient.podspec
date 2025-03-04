@@ -20,8 +20,11 @@ Pod::Spec.new do |spec|
 
   spec.resource_bundles = {"Privacy" => ["Sources/LiveKit/PrivacyInfo.xcprivacy"]}
 
-  # Add the following lines to enable the experimental feature
+  xcode_output = `xcodebuild -version`.strip
+  major_version = xcode_output =~ /Xcode\s+(\d+)/ ? $1.to_i : 15
+
   spec.pod_target_xcconfig = {
-    'OTHER_SWIFT_FLAGS' => '-enable-experimental-feature AccessLevelOnImport'
+    "OTHER_SWIFT_FLAGS" => major_version >=15  ?
+      "-enable-experimental-feature AccessLevelOnImport" : ""
   }
 end
