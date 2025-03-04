@@ -1,6 +1,11 @@
 name: CocoaPods Push
 on:
   workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Dry run (only lint spec, don't push)
+        default: true
+        type: boolean
   release:
     types: [published]
 env:
@@ -37,6 +42,7 @@ jobs:
           path: ${{ steps.spec-lint.outputs.validation_dir }}
           name: validation
       - name: Push to CocoaPods
+        if: ${{ inputs.dry_run != true && success() }}
         run: pod trunk push ${{ env.PODSPEC_FILE }} --allow-warnings --verbose
         env:
           COCOAPODS_TRUNK_TOKEN: ${{ secrets.COCOAPODS_TRUNK_TOKEN }}
