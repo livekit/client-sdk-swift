@@ -15,20 +15,21 @@
  */
 
 @testable import LiveKit
-import LiveKitWebRTC
 import XCTest
 
-/// Subclass of XCTestCase that performs global initialization.
-class LKTestCase: XCTestCase {
-    private static let _globalSetup: Bool = {
-        LiveKitSDK.setLoggerStandardOutput()
-        RTCSetMinDebugLogLevel(.info)
-        return true
-    }()
+class CodecTests: LKTestCase {
+    func testParseCodec() throws {
+        // Video codecs
+        let vp8 = VideoCodec.from(mimeType: "video/vp8")
+        XCTAssert(vp8 == .vp8)
 
-    override func setUp() {
-        assert(Self._globalSetup, "Global initialization failed")
-        continueAfterFailure = false // Fail early
-        super.setUp()
+        let vp9 = VideoCodec.from(mimeType: "video/vp9")
+        XCTAssert(vp9 == .vp9)
+
+        let h264 = VideoCodec.from(mimeType: "video/h264")
+        XCTAssert(h264 == .h264)
+
+        let av1 = VideoCodec.from(mimeType: "video/av1")
+        XCTAssert(av1 == .av1)
     }
 }

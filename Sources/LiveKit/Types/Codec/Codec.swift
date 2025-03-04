@@ -14,21 +14,20 @@
  * limitations under the License.
  */
 
-@testable import LiveKit
-import LiveKitWebRTC
-import XCTest
+public protocol Codec: Identifiable, Sendable {
+    var name: String { get }
+    var mediaType: String { get }
+    static func from(name: String) -> Self?
+    static func from(mimeType: String) -> Self?
+}
 
-/// Subclass of XCTestCase that performs global initialization.
-class LKTestCase: XCTestCase {
-    private static let _globalSetup: Bool = {
-        LiveKitSDK.setLoggerStandardOutput()
-        RTCSetMinDebugLogLevel(.info)
-        return true
-    }()
+public extension Codec {
+    // Identifiable by mimeString
+    var id: String {
+        mimeType
+    }
 
-    override func setUp() {
-        assert(Self._globalSetup, "Global initialization failed")
-        continueAfterFailure = false // Fail early
-        super.setUp()
+    var mimeType: String {
+        "\(mediaType)/\(name)"
     }
 }
