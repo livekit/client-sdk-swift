@@ -10,7 +10,7 @@ Pod::Spec.new do |spec|
   spec.osx.deployment_target = "10.15"
 
   spec.swift_versions = ["5.7"]
-  spec.source = {:git => "https://github.com/livekit/client-sdk-swift.git", :tag => "2.2.1"}
+  spec.source = {:git => "https://github.com/livekit/client-sdk-swift.git", :tag => spec.version.to_s}
 
   spec.source_files = "Sources/**/*"
 
