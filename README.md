@@ -58,6 +58,10 @@ Go to Project Settings -> Swift Packages.
 
 Add a new package and enter: `https://github.com/livekit/client-sdk-swift`
 
+### CocoaPods
+
+For installation using CocoaPods, please refer to this [guide](./Docs/cocoapods.md).
+
 ## iOS Usage
 
 LiveKit provides an UIKit based `VideoView` class that renders video tracks. Subscribed audio tracks are automatically played.
