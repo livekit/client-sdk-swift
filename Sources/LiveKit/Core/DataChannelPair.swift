@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-import Foundation
 import DequeModule
+import Foundation
 
 #if swift(>=5.9)
 internal import LiveKitWebRTC
