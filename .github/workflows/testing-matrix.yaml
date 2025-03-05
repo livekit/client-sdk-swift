@@ -82,7 +82,10 @@ jobs:
         run: xcrun swift --version
 
       - name: Build
-        run: xcodebuild build-for-testing -scheme LiveKit -destination 'platform=${{ matrix.platform }}' | xcbeautify
+        run: set -o pipefail && xcodebuild \
+          build-for-testing \
+          -scheme LiveKit \
+          -destination 'platform=${{ matrix.platform }}' | xcbeautify --renderer github-actions
 
       # Run all tests in parallel instead of sequentially
       - name: Run Tests
