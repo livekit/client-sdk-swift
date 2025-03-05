@@ -52,6 +52,7 @@ public enum LiveKitErrorType: Int, Sendable {
     case unableToResolveFPSRange = 703
     case capturerDimensionsNotResolved = 704
     case deviceAccessDenied = 705
+    case deviceNotAvailable = 706
 }
 
 extension LiveKitErrorType: CustomStringConvertible {

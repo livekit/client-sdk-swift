@@ -82,12 +82,12 @@ public class LocalAudioTrack: Track, LocalTrack, AudioTrack {
     // MARK: - Internal
 
     override func startCapture() async throws {
-        // AudioDeviceModule's InitRecording() and StartRecording() automatically gets called by WebRTC but
-        // init & start it early to detect failures.
+        // AudioDeviceModule's InitRecording() and StartRecording() automatically get called by WebRTC, but
+        // explicitly init & start it early to detect audio engine failures (mic not accessible for some reason, etc.).
         if !AudioManager.shared.startLocalRecording() {
             // Make sure internal state is updated to stopped state.
             AudioManager.shared.stopLocalRecording()
-            throw LiveKitError(.deviceNotFound, message: "Failed to start local audio capture")
+            throw LiveKitError(.deviceNotAvailable, message: "Failed to start local audio capture")
         }
     }
 }
