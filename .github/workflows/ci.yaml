@@ -1,4 +1,4 @@
-name: Testing Matrix
+name: CI
 
 on:
   workflow_dispatch:
@@ -15,7 +15,8 @@ env:
   TESTS: "FunctionTests SDKTests RoomTests PublishDataTests PublishBufferCapturerTests VideoViewTests TrackTests"
 
 jobs:
-  test:
+  build-and-test:
+    name: Build and Test
     strategy:
       fail-fast: false
       matrix:
@@ -81,7 +82,7 @@ jobs:
       - name: Swift Version
         run: xcrun swift --version
 
-      - name: Build
+      - name: Build for Testing
         run: set -o pipefail && xcodebuild \
           build-for-testing \
           -scheme LiveKit \
