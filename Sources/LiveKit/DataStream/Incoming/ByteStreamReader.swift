@@ -71,7 +71,7 @@ extension ByteStreamReader {
     /// - Throws: ``StreamError`` if an error occurs while reading the stream.
     ///
     @objc
-    public func readToFile(
+    public func writeToFile(
         in directory: URL = FileManager.default.temporaryDirectory,
         name nameOverride: String? = nil
     ) async throws -> URL {

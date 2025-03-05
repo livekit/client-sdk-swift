@@ -123,7 +123,7 @@ class ByteStreamReaderTests: LKTestCase {
         let writtenExpectation = expectation(description: "File properly written")
         Task {
             do {
-                let fileURL = try await reader.readToFile()
+                let fileURL = try await reader.writeToFile()
                 XCTAssertEqual(fileURL.lastPathComponent, reader.info.name)
 
                 let fileContents = try Data(contentsOf: fileURL)
