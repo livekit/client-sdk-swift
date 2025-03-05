@@ -111,7 +111,7 @@ public class DefaultAudioSessionObserver: AudioEngineObserver, Loggable, @unchec
                     log("AudioSession switching category to: \(config.category)")
                     try session.setConfiguration(config.toRTCType())
                 }
-                if !isPlayoutEnabled, !isRecordingEnabled {
+                if !isPlayoutEnabled, !isRecordingEnabled, _state.isSessionActive {
                     log("AudioSession deactivating")
                     try session.setActive(false)
                     _state.mutate { $0.isSessionActive = false }
