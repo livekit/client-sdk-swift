@@ -63,19 +63,25 @@ public class DefaultAudioSessionObserver: AudioEngineObserver, Loggable, @unchec
             session.lockForConfiguration()
             defer { session.unlockForConfiguration() }
 
-            let config: AudioSessionConfiguration = isRecordingEnabled ? .playAndRecordSpeaker : .playback
-            do {
-                if _state.isSessionActive {
+            if _state.isSessionActive {
+                do {
                     log("AudioSession deactivating due to category switch")
                     try session.setActive(false) // Deactivate first
                     _state.mutate { $0.isSessionActive = false }
+                } catch {
+                    log("Failed to deactivate AudioSession with error: \(error)", .error)
                 }
+            }
 
+            let config: AudioSessionConfiguration = isRecordingEnabled ? .playAndRecordSpeaker : .playback
+            do {
                 log("AudioSession activating category to: \(config.category)")
                 try session.setConfiguration(config.toRTCType(), active: true)
                 _state.mutate { $0.isSessionActive = true }
             } catch {
                 log("AudioSession failed to configure with error: \(error)", .error)
+                // Pass error code to audio engine
+                return -4020
             }
 
             log("AudioSession activationCount: \(session.activationCount), webRTCSessionCount: \(session.webRTCSessionCount)")
