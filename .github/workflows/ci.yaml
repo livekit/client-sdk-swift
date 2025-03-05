@@ -53,12 +53,15 @@ jobs:
           - os: macos-15
             xcode: 16.2
             platform: "iOS Simulator,OS=18.1,name=iPhone 16 Pro"
+            include-in-docs: true
           - os: macos-15
             xcode: 16.2
             platform: "macOS"
+            include-in-docs: true
           - os: macos-15
             xcode: 16.2
             platform: "macOS,variant=Mac Catalyst"
+            include-in-docs: true
 
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
@@ -83,8 +86,7 @@ jobs:
         run: xcrun swift --version
 
       - name: Build for Testing
-        run: set -o pipefail && xcodebuild \
-          build-for-testing \
+        run: set -o pipefail && xcodebuild build-for-testing \
           -scheme LiveKit \
           -destination 'platform=${{ matrix.platform }}' | xcbeautify --renderer github-actions
 
@@ -98,3 +100,20 @@ jobs:
             echo "::endgroup::"
           done
         shell: bash
+
+      - name: Build for Release
+        run: set -o pipefail && xcodebuild build \
+          -scheme LiveKit \
+          -configuration Release \
+          -destination 'platform=${{ matrix.platform }}'  \
+          OTHER_SWIFT_FLAGS="-Xfrontend -emit-symbol-graph\
+                             -Xfrontend -emit-symbol-graph-dir\
+                             -Xfrontend "${PWD}/symbol-graph" \
+          DOCC_EXTRACT_EXTENSION_SYMBOLS=YES | xcbeautify --renderer github-actions
+
+      - name: Upload Symbol Graph
+        if: ${{ matrix.include-in-docs }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: symbol-graph-${{ matrix.platform }}
+          path: symbol-graph
