@@ -258,6 +258,7 @@ public class AudioManager: Loggable {
     }
 
     /// Stops mic input after it was started with ``startLocalRecording()``
+    @discardableResult
     public func stopLocalRecording() -> Bool {
         RTC.audioDeviceModule.stopRecording()
     }

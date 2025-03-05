@@ -78,6 +78,18 @@ public class LocalAudioTrack: Track, LocalTrack, AudioTrack {
     public func unmute() async throws {
         try await super._unmute()
     }
+
+    // MARK: - Internal
+
+    override func startCapture() async throws {
+        // AudioDeviceModule's InitRecording() and StartRecording() automatically gets called by WebRTC but
+        // init & start it early to detect failures.
+        if !AudioManager.shared.startLocalRecording() {
+            // Make sure internal state is updated to stopped state.
+            AudioManager.shared.stopLocalRecording()
+            throw LiveKitError(.deviceNotFound, message: "Failed to start local audio capture")
+        }
+    }
 }
 
 public extension LocalAudioTrack {
