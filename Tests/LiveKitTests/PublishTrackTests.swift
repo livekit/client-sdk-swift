@@ -34,4 +34,21 @@ class PublishTrackTests: LKTestCase {
             }
         }
     }
+
+    func testPublishWithDisallowedSource() async throws {
+        try await withRooms([RoomTestingOptions(canPublish: true, canPublishSources: [.camera])]) { rooms in
+            let room = rooms[0]
+            let audioTrack = LocalAudioTrack.createTrack()
+
+            do {
+                try await room.localParticipant.publish(audioTrack: audioTrack)
+                XCTFail("Publishing with disallowed source should throw an error")
+            } catch let error as LiveKitError {
+                XCTAssertEqual(error.type, .insufficientPermissions)
+                XCTAssertEqual(error.message, "Participant does not have permission to publish tracks from this source")
+            } catch {
+                XCTFail("Expected LiveKitError but got \(error)")
+            }
+        }
+    }
 }

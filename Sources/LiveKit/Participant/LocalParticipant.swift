@@ -502,9 +502,7 @@ private extension LocalParticipant {
     private func _publish(track: LocalTrack, options: TrackPublishOptions? = nil) async throws -> LocalTrackPublication {
         log("[publish] \(track) options: \(String(describing: options ?? nil))...", .info)
 
-        guard permissions.canPublish else {
-            throw LiveKitError(.insufficientPermissions, message: "Participant does not have permission to publish")
-        }
+        try checkPermissions(toPublish: track)
 
         let room = try requireRoom()
         let publisher = try room.requirePublisher()
@@ -698,6 +696,17 @@ private extension LocalParticipant {
             try await track.stop()
             // Rethrow
             throw error
+        }
+    }
+
+    private func checkPermissions(toPublish track: LocalTrack) throws {
+        guard permissions.canPublish else {
+            throw LiveKitError(.insufficientPermissions, message: "Participant does not have permission to publish")
+        }
+
+        let sources = permissions.canPublishSources
+        if !sources.isEmpty, !sources.contains(track.source.rawValue) {
+            throw LiveKitError(.insufficientPermissions, message: "Participant does not have permission to publish tracks from this source")
         }
     }
 }

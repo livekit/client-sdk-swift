@@ -21,16 +21,19 @@ struct RoomTestingOptions {
     let delegate: RoomDelegate?
     let canPublish: Bool
     let canPublishData: Bool
+    let canPublishSources: Set<Track.Source>
     let canSubscribe: Bool
 
     init(delegate: RoomDelegate? = nil,
          canPublish: Bool = false,
          canPublishData: Bool = false,
+         canPublishSources: Set<Track.Source> = [],
          canSubscribe: Bool = false)
     {
         self.delegate = delegate
         self.canPublish = canPublish
         self.canPublishData = canPublishData
+        self.canPublishSources = canPublishSources
         self.canSubscribe = canSubscribe
     }
 }
@@ -52,6 +55,7 @@ extension LKTestCase {
                             identity: String,
                             canPublish: Bool,
                             canPublishData: Bool,
+                            canPublishSources: Set<Track.Source>,
                             canSubscribe: Bool) throws -> String
     {
         let apiKey = readEnvironmentString(for: "LIVEKIT_TESTING_API_KEY", defaultValue: "devkey")
@@ -64,6 +68,7 @@ extension LKTestCase {
         tokenGenerator.videoGrant = VideoGrant(room: room,
                                                roomJoin: true,
                                                canPublish: canPublish,
+                                               canPublishSources: canPublishSources.map(String.init),
                                                canSubscribe: canSubscribe,
                                                canPublishData: canPublishData)
         return try tokenGenerator.sign()
@@ -92,6 +97,7 @@ extension LKTestCase {
                                                identity: identity,
                                                canPublish: $0.element.canPublish,
                                                canPublishData: $0.element.canPublishData,
+                                               canPublishSources: $0.element.canPublishSources,
                                                canSubscribe: $0.element.canSubscribe)
             print("Token: \(token) for room: \(roomName)")
 
@@ -114,6 +120,7 @@ extension LKTestCase {
                                                    identity: "observer",
                                                    canPublish: true,
                                                    canPublishData: true,
+                                                   canPublishSources: [],
                                                    canSubscribe: true)
 
         print("Observer token: \(observerToken) for room: \(roomName)")
@@ -179,6 +186,18 @@ extension Room {
         let result = RoomWatcher<T>(id: "Room watcher for \(String(describing: sid))")
         add(delegate: result)
         return result
+    }
+}
+
+extension Track.Source: CustomStringConvertible {
+    public var description: String {
+        switch self {
+        case .unknown: return "unknown"
+        case .camera: return "camera"
+        case .microphone: return "microphone"
+        case .screenShareVideo: return "screenShareVideo"
+        case .screenShareAudio: return "screenShareAudio"
+        }
     }
 }
 
