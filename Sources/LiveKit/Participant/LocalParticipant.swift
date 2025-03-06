@@ -503,7 +503,7 @@ private extension LocalParticipant {
         log("[publish] \(track) options: \(String(describing: options ?? nil))...", .info)
 
         guard permissions.canPublish else {
-            throw LiveKitError(.noPermissions, message: "Participant does not have permission to publish")
+            throw LiveKitError(.insufficientPermissions, message: "Participant does not have permission to publish")
         }
 
         let room = try requireRoom()

@@ -27,7 +27,7 @@ class PublishTrackTests: LKTestCase {
                 try await room.localParticipant.publish(audioTrack: audioTrack)
                 XCTFail("Publishing without permissions should throw an error")
             } catch let error as LiveKitError {
-                XCTAssertEqual(error.type, .noPermissions)
+                XCTAssertEqual(error.type, .insufficientPermissions)
                 XCTAssertEqual(error.message, "Participant does not have permission to publish")
             } catch {
                 XCTFail("Expected LiveKitError but got \(error)")

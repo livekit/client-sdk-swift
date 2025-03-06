@@ -42,7 +42,7 @@ public enum LiveKitErrorType: Int, Sendable {
     case roomDeleted = 503
     case stateMismatch = 504
     case joinFailure = 505
-    case noPermissions = 506
+    case insufficientPermissions = 506
 
     //
     case serverPingTimedOut = 601
