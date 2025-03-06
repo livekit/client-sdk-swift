@@ -85,20 +85,15 @@ extension ByteStreamReader {
         )
         let fileURL = directory.appendingPathComponent(fileName)
 
-        FileManager.default.createFile(atPath: fileURL.path, contents: nil)
-        let handle = try FileHandle(forWritingTo: fileURL)
-
-        try await Task {
+        try await Task.detached {
+            let writer = try AsyncFileStream(writingTo: fileURL)
+            defer { writer.close() }
+            
             for try await chunk in self {
-                guard #available(macOS 10.15.4, iOS 13.4, *) else {
-                    handle.write(chunk)
-                    return
-                }
-                try handle.write(contentsOf: chunk)
+                try await writer.write(chunk)
             }
         }.value
 
-        try handle.close()
         return fileURL
     }
 
