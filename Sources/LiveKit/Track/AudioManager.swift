@@ -250,6 +250,7 @@ public class AudioManager: Loggable {
 
     /// Starts mic input to the SDK even without any ``Room`` or a connection.
     /// Audio buffers will flow into ``LocalAudioTrack/add(audioRenderer:)`` and ``capturePostProcessingDelegate``.
+    @discardableResult
     public func startLocalRecording() -> Bool {
         // Always unmute APM if muted by last session.
         RTC.audioProcessingModule.isMuted = false
@@ -321,26 +322,32 @@ public class AudioManager: Loggable {
         RTC.audioDeviceModule.isRecording
     }
 
+    @discardableResult
     func initPlayout() -> Bool {
         RTC.audioDeviceModule.initPlayout()
     }
 
+    @discardableResult
     func startPlayout() -> Bool {
         RTC.audioDeviceModule.startPlayout()
     }
 
+    @discardableResult
     func stopPlayout() -> Bool {
         RTC.audioDeviceModule.stopPlayout()
     }
 
+    @discardableResult
     func initRecording() -> Bool {
         RTC.audioDeviceModule.initRecording()
     }
 
+    @discardableResult
     func startRecording() -> Bool {
         RTC.audioDeviceModule.startRecording()
     }
 
+    @discardableResult
     func stopRecording() -> Bool {
         RTC.audioDeviceModule.stopRecording()
     }
