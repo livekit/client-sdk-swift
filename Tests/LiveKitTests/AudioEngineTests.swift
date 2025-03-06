@@ -370,19 +370,22 @@ final class PlayerNodeHook: AudioEngineObserver {
         self.playerNodeFormat = playerNodeFormat
     }
 
-    public func engineDidCreate(_ engine: AVAudioEngine) {
+    public func engineDidCreate(_ engine: AVAudioEngine) -> Int {
         engine.attach(playerNode)
         engine.attach(playerMixerNode)
+        return 0
     }
 
-    public func engineWillRelease(_ engine: AVAudioEngine) {
+    public func engineWillRelease(_ engine: AVAudioEngine) -> Int {
         engine.detach(playerNode)
         engine.detach(playerMixerNode)
+        return 0
     }
 
-    func engineWillConnectInput(_ engine: AVAudioEngine, src _: AVAudioNode?, dst: AVAudioNode, format: AVAudioFormat, context _: [AnyHashable: Any]) {
+    func engineWillConnectInput(_ engine: AVAudioEngine, src _: AVAudioNode?, dst: AVAudioNode, format: AVAudioFormat, context _: [AnyHashable: Any]) -> Int {
         print("engineWillConnectInput")
         engine.connect(playerNode, to: playerMixerNode, format: playerNodeFormat)
         engine.connect(playerMixerNode, to: dst, format: format)
+        return 0
     }
 }
