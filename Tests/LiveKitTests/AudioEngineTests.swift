@@ -67,7 +67,8 @@ class AudioEngineTests: LKTestCase {
         XCTAssert(!adm.isRecordingInitialized)
 
         // Ensure recording is initialized after set to true.
-        adm.isRecordingAlwaysPrepared = true
+        let result = adm.setRecordingAlwaysPreparedMode(true)
+        XCTAssert(result == 0)
 
         #if os(iOS)
         let session = AVAudioSession.sharedInstance()
@@ -110,7 +111,8 @@ class AudioEngineTests: LKTestCase {
     // Test start generating local audio buffer without joining to room.
     func testPreconnectAudioBuffer() async throws {
         print("Setting recording always prepared mode...")
-        AudioManager.shared.isRecordingAlwaysPrepared = true
+        let result = AudioManager.shared.setRecordingAlwaysPreparedMode(true)
+        XCTAssert(result == 0)
 
         var counter = 0
         // Executes 10 times by default.
@@ -133,10 +135,9 @@ class AudioEngineTests: LKTestCase {
             // Attach audio frame watcher...
             localMicTrack.add(audioRenderer: audioFrameWatcher)
 
-            Task.detached {
-                print("Starting local recording...")
-                AudioManager.shared.startLocalRecording()
-            }
+            print("Starting local recording...")
+            let r1 = AudioManager.shared.startLocalRecording()
+            XCTAssert(r1 == 0, "Failed to start local recording")
 
             // Wait for audio frame...
             print("Waiting for first audio frame...")
@@ -147,12 +148,17 @@ class AudioEngineTests: LKTestCase {
                 print("Connecting to room...")
                 try await self.withRooms([RoomTestingOptions(canPublish: true)]) { rooms in
                     print("Publishing mic...")
-                    try await rooms[0].localParticipant.setMicrophone(enabled: true)
-                    didConnectToRoom.fulfill()
+                    do {
+                        try await rooms[0].localParticipant.setMicrophone(enabled: true)
+                        didConnectToRoom.fulfill()
+                    } catch {
+                        print("Failed to publish mic: \(error)")
+                    }
                 }
             }
 
             print("Waiting for room to connect & disconnect...")
+            // await fulfillment(of: [didConnectToRoom], timeout: 10)
             wait(for: [didConnectToRoom], timeout: 30)
 
             localMicTrack.remove(audioRenderer: audioFrameWatcher)
@@ -163,7 +169,9 @@ class AudioEngineTests: LKTestCase {
     // In manual rendering, no device access will be initialized such as mic and speaker.
     func testManualRenderingModeSineGenerator() async throws {
         // Set manual rendering mode...
-        AudioManager.shared.isManualRenderingMode = true
+        let result = AudioManager.shared.setManualRenderingMode(true)
+        XCTAssert(result == 0)
+
         // Attach sine wave generator when engine requests input node.
         // inputMixerNode will automatically convert to RTC's internal format (int16).
         AudioManager.shared.set(engineObservers: [SineWaveNodeHook()])
@@ -220,7 +228,8 @@ class AudioEngineTests: LKTestCase {
         print("Interleaved: \(audioFileFormat.isInterleaved)")
 
         // Set manual rendering mode...
-        AudioManager.shared.isManualRenderingMode = true
+        let result = AudioManager.shared.setManualRenderingMode(true)
+        XCTAssert(result == 0)
 
         let playerNodeHook = PlayerNodeHook(playerNodeFormat: audioFileFormat)
         AudioManager.shared.set(engineObservers: [playerNodeHook])
@@ -306,8 +315,8 @@ class AudioEngineTests: LKTestCase {
     #endif
 
     func testAudioRecorder() async throws {
-        AudioManager.shared.isRecordingAlwaysPrepared = true
-        XCTAssert(AudioManager.shared.isRecordingAlwaysPrepared)
+        let result = AudioManager.shared.setRecordingAlwaysPreparedMode(true)
+        XCTAssert(result == 0)
 
         print("Connecting to room...")
         try await withRooms([RoomTestingOptions(canPublish: true)]) { rooms in
@@ -345,17 +354,20 @@ final class SineWaveNodeHook: AudioEngineObserver {
 
     let sineWaveNode = SineWaveSourceNode()
 
-    func engineDidCreate(_ engine: AVAudioEngine) {
+    func engineDidCreate(_ engine: AVAudioEngine) -> Int {
         engine.attach(sineWaveNode)
+        return 0
     }
 
-    func engineWillRelease(_ engine: AVAudioEngine) {
+    func engineWillRelease(_ engine: AVAudioEngine) -> Int {
         engine.detach(sineWaveNode)
+        return 0
     }
 
-    func engineWillConnectInput(_ engine: AVAudioEngine, src _: AVAudioNode?, dst: AVAudioNode, format: AVAudioFormat, context _: [AnyHashable: Any]) {
+    func engineWillConnectInput(_ engine: AVAudioEngine, src _: AVAudioNode?, dst: AVAudioNode, format: AVAudioFormat, context _: [AnyHashable: Any]) -> Int {
         print("engineWillConnectInput")
         engine.connect(sineWaveNode, to: dst, format: format)
+        return 0
     }
 }
 

@@ -206,9 +206,10 @@ public class AudioManager: Loggable {
     /// Setting this to `false` prevents any voice-processing-related initialization, and muted talker detection will not work.
     /// Typically, it is recommended to keep this set to `true` and toggle ``isVoiceProcessingBypassed`` when possible.
     /// Defaults to `true`.
-    public var isVoiceProcessingEnabled: Bool {
-        get { RTC.audioDeviceModule.isVoiceProcessingEnabled }
-        set { RTC.audioDeviceModule.isVoiceProcessingEnabled = newValue }
+    public var isVoiceProcessingEnabled: Bool { RTC.audioDeviceModule.isVoiceProcessingEnabled }
+
+    public func setVoiceProcessingEnabled(_ enabled: Bool) -> Int {
+        RTC.audioDeviceModule.setVoiceProcessingEnabled(enabled)
     }
 
     /// Bypass Voice-Processing I/O of internal AVAudioEngine.
@@ -228,14 +229,10 @@ public class AudioManager: Loggable {
 
     /// Enables manual-rendering (no-device) mode of AVAudioEngine.
     /// Currently experimental.
-    public var isManualRenderingMode: Bool {
-        get { RTC.audioDeviceModule.isManualRenderingMode }
-        set {
-            let result = RTC.audioDeviceModule.setManualRenderingMode(newValue)
-            if !result {
-                log("Failed to set manual rendering mode", .error)
-            }
-        }
+    public var isManualRenderingMode: Bool { RTC.audioDeviceModule.isManualRenderingMode }
+
+    public func setManualRenderingMode(_ enabled: Bool) -> Int {
+        RTC.audioDeviceModule.setManualRenderingMode(enabled)
     }
 
     // MARK: - Recording
@@ -243,15 +240,16 @@ public class AudioManager: Loggable {
     /// Keep recording initialized (mic input) and pre-warm voice processing etc.
     /// Mic permission is required and dialog will appear if not already granted.
     /// This will per persisted accross Rooms and connections.
-    public var isRecordingAlwaysPrepared: Bool {
-        get { RTC.audioDeviceModule.isInitRecordingPersistentMode }
-        set { RTC.audioDeviceModule.isInitRecordingPersistentMode = newValue }
+    public var isRecordingAlwaysPreparedMode: Bool { RTC.audioDeviceModule.isRecordingAlwaysPreparedMode }
+
+    public func setRecordingAlwaysPreparedMode(_ enabled: Bool) -> Int {
+        RTC.audioDeviceModule.setRecordingAlwaysPreparedMode(enabled)
     }
 
     /// Starts mic input to the SDK even without any ``Room`` or a connection.
     /// Audio buffers will flow into ``LocalAudioTrack/add(audioRenderer:)`` and ``capturePostProcessingDelegate``.
     @discardableResult
-    public func startLocalRecording() -> Bool {
+    public func startLocalRecording() -> Int {
         // Always unmute APM if muted by last session.
         RTC.audioProcessingModule.isMuted = false
         // Start recording on the ADM.
@@ -260,7 +258,7 @@ public class AudioManager: Loggable {
 
     /// Stops mic input after it was started with ``startLocalRecording()``
     @discardableResult
-    public func stopLocalRecording() -> Bool {
+    public func stopLocalRecording() -> Int {
         RTC.audioDeviceModule.stopRecording()
     }
 
@@ -283,9 +281,11 @@ public class AudioManager: Loggable {
     ///   This is fast, and muted speaker detection works. However, iOS will play a sound effect.
     /// - Legacy: Restarts the internal `AVAudioEngine` without mic input when muted.
     ///   This is slower, and muted speaker detection does not work. No sound effect is played.
-    public var isLegacyMuteMode: Bool {
-        get { RTC.audioDeviceModule.muteMode == .restartEngine }
-        set { RTC.audioDeviceModule.muteMode = newValue ? .restartEngine : .voiceProcessing }
+    public var isLegacyMuteMode: Bool { RTC.audioDeviceModule.muteMode == .restartEngine }
+
+    public func setLegacyMuteMode(_ enabled: Bool) -> Int {
+        let mode: RTCAudioEngineMuteMode = enabled ? .restartEngine : .voiceProcessing
+        return RTC.audioDeviceModule.setMuteMode(mode)
     }
 
     public var isEngineRunning: Bool {
@@ -323,32 +323,32 @@ public class AudioManager: Loggable {
     }
 
     @discardableResult
-    func initPlayout() -> Bool {
+    func initPlayout() -> Int {
         RTC.audioDeviceModule.initPlayout()
     }
 
     @discardableResult
-    func startPlayout() -> Bool {
+    func startPlayout() -> Int {
         RTC.audioDeviceModule.startPlayout()
     }
 
     @discardableResult
-    func stopPlayout() -> Bool {
+    func stopPlayout() -> Int {
         RTC.audioDeviceModule.stopPlayout()
     }
 
     @discardableResult
-    func initRecording() -> Bool {
+    func initRecording() -> Int {
         RTC.audioDeviceModule.initRecording()
     }
 
     @discardableResult
-    func startRecording() -> Bool {
+    func startRecording() -> Int {
         RTC.audioDeviceModule.startRecording()
     }
 
     @discardableResult
-    func stopRecording() -> Bool {
+    func stopRecording() -> Int {
         RTC.audioDeviceModule.stopRecording()
     }
 
