@@ -502,6 +502,10 @@ private extension LocalParticipant {
     private func _publish(track: LocalTrack, options: TrackPublishOptions? = nil) async throws -> LocalTrackPublication {
         log("[publish] \(track) options: \(String(describing: options ?? nil))...", .info)
 
+        guard permissions.canPublish else {
+            throw LiveKitError(.noPermissions, message: "Participant does not have permission to publish")
+        }
+
         let room = try requireRoom()
         let publisher = try room.requirePublisher()
 
