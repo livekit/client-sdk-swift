@@ -135,6 +135,7 @@ jobs:
   build-docs:
     name: Build Docs
     needs: build-and-test
+    if: always()
     runs-on: macos-15
     steps:
       - name: Checkout Documentation Catalog
