@@ -24,6 +24,9 @@ internal import LiveKitWebRTC
 @_implementationOnly import LiveKitWebRTC
 #endif
 
+// Internal
+let kFailedToConfigureAudioSessionErrorCode = -4100
+
 public class DefaultAudioSessionObserver: AudioEngineObserver, Loggable, @unchecked Sendable {
     struct State {
         var isSessionActive = false
@@ -81,7 +84,7 @@ public class DefaultAudioSessionObserver: AudioEngineObserver, Loggable, @unchec
             } catch {
                 log("AudioSession failed to configure with error: \(error)", .error)
                 // Pass error code to audio engine
-                return -4020
+                return kFailedToConfigureAudioSessionErrorCode
             }
 
             log("AudioSession activationCount: \(session.activationCount), webRTCSessionCount: \(session.webRTCSessionCount)")
