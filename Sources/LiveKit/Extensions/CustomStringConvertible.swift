@@ -105,6 +105,18 @@ public extension Track {
     }
 }
 
+extension Track.Source: CustomStringConvertible {
+    public var description: String {
+        switch self {
+        case .unknown: return "unknown"
+        case .camera: return "camera"
+        case .microphone: return "microphone"
+        case .screenShareVideo: return "screenShareVideo"
+        case .screenShareAudio: return "screenShareAudio"
+        }
+    }
+}
+
 extension RTCPeerConnectionState {
     var description: String {
         switch self {
