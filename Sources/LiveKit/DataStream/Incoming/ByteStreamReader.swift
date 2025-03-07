@@ -85,7 +85,7 @@ extension ByteStreamReader {
         )
         let fileURL = directory.appendingPathComponent(fileName)
 
-        try await Task.detached {
+        try await Task {
             let writer = try AsyncFileStream(writingTo: fileURL)
             defer { writer.close() }
 

@@ -60,10 +60,11 @@ public final class ByteStreamWriter: NSObject, Sendable {
 extension ByteStreamWriter {
     /// Write the contents of the file located at the given URL to the stream.
     func write(contentsOf fileURL: URL) async throws {
-        try await Task.detached { [weak self] in
+        try await Task { [weak self] in
+            guard let self else { return }
             let reader = try AsyncFileStream(readingFrom: fileURL)
             for try await chunk in reader.chunks() {
-                try await self?.write(chunk)
+                try await self.write(chunk)
             }
         }.value
     }
