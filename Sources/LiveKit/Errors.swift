@@ -52,7 +52,10 @@ public enum LiveKitErrorType: Int, Sendable {
     case unableToResolveFPSRange = 703
     case capturerDimensionsNotResolved = 704
     case deviceAccessDenied = 705
-    case deviceNotAvailable = 706
+
+    // Audio
+    case audioEngine = 801
+    case audioSession = 802
 }
 
 extension LiveKitErrorType: CustomStringConvertible {
@@ -96,6 +99,10 @@ extension LiveKitErrorType: CustomStringConvertible {
             return "Unable to resolve FPS range"
         case .capturerDimensionsNotResolved:
             return "Capturer dimensions not resolved"
+        case .audioEngine:
+            return "Audio Engine Error"
+        case .audioSession:
+            return "Audio Session Error"
         default: return "Unknown"
         }
     }

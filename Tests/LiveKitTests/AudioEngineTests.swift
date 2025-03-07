@@ -60,15 +60,14 @@ class AudioEngineTests: LKTestCase {
         XCTAssert(!adm.isPlayoutInitialized)
     }
 
-    func testRecordingAlwaysPreparedMode() async {
+    func testRecordingAlwaysPreparedMode() async throws {
         let adm = AudioManager.shared
 
         // Ensure initially not initialized.
         XCTAssert(!adm.isRecordingInitialized)
 
         // Ensure recording is initialized after set to true.
-        let result = adm.setRecordingAlwaysPreparedMode(true)
-        XCTAssert(result == 0)
+        try adm.setRecordingAlwaysPreparedMode(true)
 
         #if os(iOS)
         let session = AVAudioSession.sharedInstance()
@@ -111,8 +110,7 @@ class AudioEngineTests: LKTestCase {
     // Test start generating local audio buffer without joining to room.
     func testPreconnectAudioBuffer() async throws {
         print("Setting recording always prepared mode...")
-        let result = AudioManager.shared.setRecordingAlwaysPreparedMode(true)
-        XCTAssert(result == 0)
+        try AudioManager.shared.setRecordingAlwaysPreparedMode(true)
 
         var counter = 0
         // Executes 10 times by default.
@@ -135,9 +133,10 @@ class AudioEngineTests: LKTestCase {
             // Attach audio frame watcher...
             localMicTrack.add(audioRenderer: audioFrameWatcher)
 
-            print("Starting local recording...")
-            let r1 = AudioManager.shared.startLocalRecording()
-            XCTAssert(r1 == 0, "Failed to start local recording")
+            Task {
+                print("Starting local recording...")
+                try AudioManager.shared.startLocalRecording()
+            }
 
             // Wait for audio frame...
             print("Waiting for first audio frame...")
@@ -169,8 +168,7 @@ class AudioEngineTests: LKTestCase {
     // In manual rendering, no device access will be initialized such as mic and speaker.
     func testManualRenderingModeSineGenerator() async throws {
         // Set manual rendering mode...
-        let result = AudioManager.shared.setManualRenderingMode(true)
-        XCTAssert(result == 0)
+        try AudioManager.shared.setManualRenderingMode(true)
 
         // Attach sine wave generator when engine requests input node.
         // inputMixerNode will automatically convert to RTC's internal format (int16).
@@ -188,7 +186,7 @@ class AudioEngineTests: LKTestCase {
         track.add(audioRenderer: recorder)
 
         // Start engine...
-        AudioManager.shared.startLocalRecording()
+        try AudioManager.shared.startLocalRecording()
 
         // Render for 5 seconds...
         try? await Task.sleep(nanoseconds: 5 * 1_000_000_000)
@@ -197,7 +195,7 @@ class AudioEngineTests: LKTestCase {
         print("Written to: \(recorder.filePath)")
 
         // Stop engine
-        AudioManager.shared.stopRecording()
+        try AudioManager.shared.stopLocalRecording()
 
         // Play the recorded file...
         let player = try AVAudioPlayer(contentsOf: recorder.filePath)
@@ -228,8 +226,7 @@ class AudioEngineTests: LKTestCase {
         print("Interleaved: \(audioFileFormat.isInterleaved)")
 
         // Set manual rendering mode...
-        let result = AudioManager.shared.setManualRenderingMode(true)
-        XCTAssert(result == 0)
+        try AudioManager.shared.setManualRenderingMode(true)
 
         let playerNodeHook = PlayerNodeHook(playerNodeFormat: audioFileFormat)
         AudioManager.shared.set(engineObservers: [playerNodeHook])
@@ -246,7 +243,7 @@ class AudioEngineTests: LKTestCase {
         track.add(audioRenderer: recorder)
 
         // Start engine...
-        AudioManager.shared.startLocalRecording()
+        try AudioManager.shared.startLocalRecording()
 
         let scheduleAndPlayTask = Task {
             print("Will scheduleFile")
@@ -262,7 +259,7 @@ class AudioEngineTests: LKTestCase {
         print("Processed file: \(recorder.filePath)")
 
         // Stop engine
-        AudioManager.shared.stopRecording()
+        try AudioManager.shared.stopLocalRecording()
 
         // Play the recorded file...
         let player = try AVAudioPlayer(contentsOf: recorder.filePath)
@@ -315,8 +312,7 @@ class AudioEngineTests: LKTestCase {
     #endif
 
     func testAudioRecorder() async throws {
-        let result = AudioManager.shared.setRecordingAlwaysPreparedMode(true)
-        XCTAssert(result == 0)
+        try AudioManager.shared.setRecordingAlwaysPreparedMode(true)
 
         print("Connecting to room...")
         try await withRooms([RoomTestingOptions(canPublish: true)]) { rooms in

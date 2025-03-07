@@ -208,8 +208,9 @@ public class AudioManager: Loggable {
     /// Defaults to `true`.
     public var isVoiceProcessingEnabled: Bool { RTC.audioDeviceModule.isVoiceProcessingEnabled }
 
-    public func setVoiceProcessingEnabled(_ enabled: Bool) -> Int {
-        RTC.audioDeviceModule.setVoiceProcessingEnabled(enabled)
+    public func setVoiceProcessingEnabled(_ enabled: Bool) throws {
+        let result = RTC.audioDeviceModule.setVoiceProcessingEnabled(enabled)
+        try checkAdmResult(code: result)
     }
 
     /// Bypass Voice-Processing I/O of internal AVAudioEngine.
@@ -231,8 +232,9 @@ public class AudioManager: Loggable {
     /// Currently experimental.
     public var isManualRenderingMode: Bool { RTC.audioDeviceModule.isManualRenderingMode }
 
-    public func setManualRenderingMode(_ enabled: Bool) -> Int {
-        RTC.audioDeviceModule.setManualRenderingMode(enabled)
+    public func setManualRenderingMode(_ enabled: Bool) throws {
+        let result = RTC.audioDeviceModule.setManualRenderingMode(enabled)
+        try checkAdmResult(code: result)
     }
 
     // MARK: - Recording
@@ -242,24 +244,25 @@ public class AudioManager: Loggable {
     /// This will per persisted accross Rooms and connections.
     public var isRecordingAlwaysPreparedMode: Bool { RTC.audioDeviceModule.isRecordingAlwaysPreparedMode }
 
-    public func setRecordingAlwaysPreparedMode(_ enabled: Bool) -> Int {
-        RTC.audioDeviceModule.setRecordingAlwaysPreparedMode(enabled)
+    public func setRecordingAlwaysPreparedMode(_ enabled: Bool) throws {
+        let result = RTC.audioDeviceModule.setRecordingAlwaysPreparedMode(enabled)
+        try checkAdmResult(code: result)
     }
 
     /// Starts mic input to the SDK even without any ``Room`` or a connection.
     /// Audio buffers will flow into ``LocalAudioTrack/add(audioRenderer:)`` and ``capturePostProcessingDelegate``.
-    @discardableResult
-    public func startLocalRecording() -> Int {
+    public func startLocalRecording() throws {
         // Always unmute APM if muted by last session.
         RTC.audioProcessingModule.isMuted = false
         // Start recording on the ADM.
-        return RTC.audioDeviceModule.initAndStartRecording()
+        let result = RTC.audioDeviceModule.initAndStartRecording()
+        try checkAdmResult(code: result)
     }
 
     /// Stops mic input after it was started with ``startLocalRecording()``
-    @discardableResult
-    public func stopLocalRecording() -> Int {
-        RTC.audioDeviceModule.stopRecording()
+    public func stopLocalRecording() throws {
+        let result = RTC.audioDeviceModule.stopRecording()
+        try checkAdmResult(code: result)
     }
 
     /// Set a chain of ``AudioEngineObserver``s.
@@ -283,9 +286,10 @@ public class AudioManager: Loggable {
     ///   This is slower, and muted speaker detection does not work. No sound effect is played.
     public var isLegacyMuteMode: Bool { RTC.audioDeviceModule.muteMode == .restartEngine }
 
-    public func setLegacyMuteMode(_ enabled: Bool) -> Int {
+    public func setLegacyMuteMode(_ enabled: Bool) throws {
         let mode: RTCAudioEngineMuteMode = enabled ? .restartEngine : .voiceProcessing
-        return RTC.audioDeviceModule.setMuteMode(mode)
+        let result = RTC.audioDeviceModule.setMuteMode(mode)
+        try checkAdmResult(code: result)
     }
 
     public var isEngineRunning: Bool {
@@ -407,5 +411,15 @@ extension AudioManager {
         }
 
         return objects.first
+    }
+}
+
+private extension AudioManager {
+    func checkAdmResult(code: Int) throws {
+        if code == kFailedToConfigureAudioSessionErrorCode {
+            throw LiveKitError(.audioSession, message: "Failed to configure audio session")
+        } else if code != 0 {
+            throw LiveKitError(.audioEngine, message: "Audio engine returned error code: \(code)")
+        }
     }
 }

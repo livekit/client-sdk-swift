@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+let kFailedToConfigureAudioSessionErrorCode = -4100
+
 #if os(iOS) || os(visionOS) || os(tvOS)
 
 import AVFoundation
@@ -23,9 +25,6 @@ internal import LiveKitWebRTC
 #else
 @_implementationOnly import LiveKitWebRTC
 #endif
-
-// Internal
-let kFailedToConfigureAudioSessionErrorCode = -4100
 
 public class DefaultAudioSessionObserver: AudioEngineObserver, Loggable, @unchecked Sendable {
     struct State {
