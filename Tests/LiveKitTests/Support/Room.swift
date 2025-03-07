@@ -189,18 +189,6 @@ extension Room {
     }
 }
 
-extension Track.Source: CustomStringConvertible {
-    public var description: String {
-        switch self {
-        case .unknown: return "unknown"
-        case .camera: return "camera"
-        case .microphone: return "microphone"
-        case .screenShareVideo: return "screenShareVideo"
-        case .screenShareAudio: return "screenShareAudio"
-        }
-    }
-}
-
 class RoomWatcher<T: Decodable>: RoomDelegate {
     public let id: String
     public let didReceiveDataCompleters = CompleterMapActor<T>(label: "Data receive completer", defaultTimeout: 10)
