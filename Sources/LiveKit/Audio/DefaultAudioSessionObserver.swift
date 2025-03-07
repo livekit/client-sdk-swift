@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+let kFailedToConfigureAudioSessionErrorCode = -4100
+
 #if os(iOS) || os(visionOS) || os(tvOS)
 
 import AVFoundation
@@ -56,26 +58,32 @@ public class DefaultAudioSessionObserver: AudioEngineObserver, Loggable, @unchec
         }
     }
 
-    public func engineWillEnable(_ engine: AVAudioEngine, isPlayoutEnabled: Bool, isRecordingEnabled: Bool) {
+    public func engineWillEnable(_ engine: AVAudioEngine, isPlayoutEnabled: Bool, isRecordingEnabled: Bool) -> Int {
         if AudioManager.shared._state.customConfigureFunc == nil {
             log("Configuring audio session...")
             let session = LKRTCAudioSession.sharedInstance()
             session.lockForConfiguration()
             defer { session.unlockForConfiguration() }
 
-            let config: AudioSessionConfiguration = isRecordingEnabled ? .playAndRecordSpeaker : .playback
-            do {
-                if _state.isSessionActive {
+            if _state.isSessionActive {
+                do {
                     log("AudioSession deactivating due to category switch")
                     try session.setActive(false) // Deactivate first
                     _state.mutate { $0.isSessionActive = false }
+                } catch {
+                    log("Failed to deactivate AudioSession with error: \(error)", .error)
                 }
+            }
 
+            let config: AudioSessionConfiguration = isRecordingEnabled ? .playAndRecordSpeaker : .playback
+            do {
                 log("AudioSession activating category to: \(config.category)")
                 try session.setConfiguration(config.toRTCType(), active: true)
                 _state.mutate { $0.isSessionActive = true }
             } catch {
                 log("AudioSession failed to configure with error: \(error)", .error)
+                // Pass error code to audio engine
+                return kFailedToConfigureAudioSessionErrorCode
             }
 
             log("AudioSession activationCount: \(session.activationCount), webRTCSessionCount: \(session.webRTCSessionCount)")
@@ -87,12 +95,12 @@ public class DefaultAudioSessionObserver: AudioEngineObserver, Loggable, @unchec
         }
 
         // Call next last
-        _state.next?.engineWillEnable(engine, isPlayoutEnabled: isPlayoutEnabled, isRecordingEnabled: isRecordingEnabled)
+        return _state.next?.engineWillEnable(engine, isPlayoutEnabled: isPlayoutEnabled, isRecordingEnabled: isRecordingEnabled) ?? 0
     }
 
-    public func engineDidDisable(_ engine: AVAudioEngine, isPlayoutEnabled: Bool, isRecordingEnabled: Bool) {
+    public func engineDidDisable(_ engine: AVAudioEngine, isPlayoutEnabled: Bool, isRecordingEnabled: Bool) -> Int {
         // Call next first
-        _state.next?.engineDidDisable(engine, isPlayoutEnabled: isPlayoutEnabled, isRecordingEnabled: isRecordingEnabled)
+        let nextResult = _state.next?.engineDidDisable(engine, isPlayoutEnabled: isPlayoutEnabled, isRecordingEnabled: isRecordingEnabled)
 
         _state.mutate {
             $0.isPlayoutEnabled = isPlayoutEnabled
@@ -111,7 +119,7 @@ public class DefaultAudioSessionObserver: AudioEngineObserver, Loggable, @unchec
                     log("AudioSession switching category to: \(config.category)")
                     try session.setConfiguration(config.toRTCType())
                 }
-                if !isPlayoutEnabled, !isRecordingEnabled {
+                if !isPlayoutEnabled, !isRecordingEnabled, _state.isSessionActive {
                     log("AudioSession deactivating")
                     try session.setActive(false)
                     _state.mutate { $0.isSessionActive = false }
@@ -122,6 +130,8 @@ public class DefaultAudioSessionObserver: AudioEngineObserver, Loggable, @unchec
 
             log("AudioSession activationCount: \(session.activationCount), webRTCSessionCount: \(session.webRTCSessionCount)")
         }
+
+        return nextResult ?? 0
     }
 }
 

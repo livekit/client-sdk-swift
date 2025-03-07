@@ -1,0 +1,2 @@
+minor type="fixed" "Publishing tracks now checks participant permissions and throws an error for insufficient permissions"
+minor type="added" "ParticipantPermissions exposes canPublishSources"
