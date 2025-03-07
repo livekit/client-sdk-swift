@@ -42,6 +42,8 @@ public struct VideoGrant: Codable, Equatable {
      * allow participants to publish data, defaults to true if not set
      */
     let canPublishData: Bool?
+    /** allowed sources for publishing */
+    let canPublishSources: [String]? // String as returned in the JWT
     /** participant isn't visible to others */
     let hidden: Bool?
     /** participant is recording the room, when set, allows room to indicate it's being recorded */
@@ -56,6 +58,7 @@ public struct VideoGrant: Codable, Equatable {
          canPublish: Bool? = nil,
          canSubscribe: Bool? = nil,
          canPublishData: Bool? = nil,
+         canPublishSources: [String]? = nil,
          hidden: Bool? = nil,
          recorder: Bool? = nil)
     {
@@ -68,6 +71,7 @@ public struct VideoGrant: Codable, Equatable {
         self.canPublish = canPublish
         self.canSubscribe = canSubscribe
         self.canPublishData = canPublishData
+        self.canPublishSources = canPublishSources
         self.hidden = hidden
         self.recorder = recorder
     }

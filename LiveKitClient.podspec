@@ -19,6 +19,7 @@ Pod::Spec.new do |spec|
   spec.dependency("LiveKitWebRTC", "= 125.6422.22")
   spec.dependency("SwiftProtobuf")
   spec.dependency("Logging")
+  spec.dependency("DequeModule", "= 1.1.4")
 
   spec.resource_bundles = {"Privacy" => ["Sources/LiveKit/PrivacyInfo.xcprivacy"]}
 
