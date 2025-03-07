@@ -171,9 +171,9 @@ actor OutgoingStreamManager: Loggable {
         log("Opened stream '\(info.id)'", .debug)
     }
 
-    private func send(_ data: Data, to id: String) async throws {
+    private func send(_ data: some StreamData, to id: String) async throws {
         for chunk in data.chunks(of: Self.chunkSize) {
-            try await sendChunk(chunk, to: id)
+            try await sendChunk(chunk.dataRepresentation, to: id)
         }
     }
 
@@ -227,7 +227,7 @@ actor OutgoingStreamManager: Loggable {
             }
         }
 
-        func write(_ data: Data) async throws {
+        func write(_ data: some StreamData) async throws {
             guard let manager else { throw StreamError.terminated }
             try await manager.send(data, to: streamID)
         }

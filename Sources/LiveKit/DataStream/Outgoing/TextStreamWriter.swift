@@ -37,7 +37,7 @@ public final class TextStreamWriter: NSObject, Sendable {
     ///   cannot be sent to remote participants.
     ///
     public func write(_ text: String) async throws {
-        try await destination.write(Data(text.utf8))
+        try await destination.write(text)
     }
 
     /// Close the stream.
