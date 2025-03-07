@@ -104,6 +104,11 @@ extension AsyncFileStream where Mode == ReadMode {
         }
 
         func makeAsyncIterator() -> Self { self }
+        
+        #if swift(<5.11)
+        typealias AsyncIterator = Self
+        typealias Element = Data
+        #endif
     }
 
     func chunks(ofSize chunkSize: Int = 4096) -> AsyncChunks {
