@@ -16,40 +16,12 @@
 
 import Foundation
 
-/// Type that can be sent over a data stream.
-protocol StreamData: Chunkable where SubSequence: DataRepresentable {}
-
-/// Type that can be converted to bytes losslessly.
-protocol DataRepresentable {
-    var dataRepresentation: Data { get }
+protocol StreamData {
+    func chunks(of size: Int) -> [Data]
 }
 
-/// Collection that can be divided into equally sized chunks.
-protocol Chunkable: Collection {
-    func chunks(of size: Int) -> [SubSequence]
-}
-
-// MARK: - Data conformance
-
-extension Data: StreamData {}
-
-extension Data: DataRepresentable {
-    var dataRepresentation: Data { self }
-}
-
-// MARK: - String conformance
-
-extension String: StreamData {}
-
-extension Substring: DataRepresentable {
-    var dataRepresentation: Data { Data(utf8) }
-}
-
-// MARK: - Default implementations
-
-/// For collections that are indexed by Int.
-extension Chunkable where Self: Collection, Index == Int {
-    func chunks(of size: Int) -> [SubSequence] {
+extension Data: StreamData {
+    func chunks(of size: Int) -> [Data] {
         guard size > 0, !isEmpty else { return [] }
         return stride(from: startIndex, to: endIndex, by: size).map {
             let end = index($0, offsetBy: size, limitedBy: endIndex) ?? endIndex
@@ -58,19 +30,30 @@ extension Chunkable where Self: Collection, Index == Int {
     }
 }
 
-/// For collections that are not indexed by Int (i.e. String).
-extension Chunkable where Self: Collection {
-    func chunks(of size: Int) -> [SubSequence] {
+extension String: StreamData {
+    /// Chunk along valid UTF-8 bounderies.
+    ///
+    /// Uses the same algorithm as in the LiveKit JS SDK.
+    ///
+    func chunks(of size: Int) -> [Data] {
         guard size > 0, !isEmpty else { return [] }
 
-        var result: [SubSequence] = []
-        var currentIndex = startIndex
+        var chunks: [Data] = []
+        var encoded = Data(utf8)[...]
 
-        while currentIndex < endIndex {
-            let nextIndex = index(currentIndex, offsetBy: size, limitedBy: endIndex) ?? endIndex
-            result.append(self[currentIndex ..< nextIndex])
-            currentIndex = nextIndex
+        while encoded.count > size {
+            var k = size
+            while k > 0 {
+                guard encoded.indices.contains(k),
+                      encoded[k] & 0xC0 == 0x80 else { break }
+                k -= 1
+            }
+            chunks.append(encoded.subdata(in: 0 ..< k))
+            encoded = encoded.subdata(in: k ..< encoded.count)
         }
-        return result
+        if !encoded.isEmpty {
+            chunks.append(encoded)
+        }
+        return chunks
     }
 }

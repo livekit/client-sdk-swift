@@ -25,37 +25,32 @@ class StreamDataTests: LKTestCase {
 
         let chunks = testData.chunks(of: 3)
         XCTAssertEqual(chunks.count, 4)
-        XCTAssertEqual(chunks[0].dataRepresentation, Data([1, 2, 3]))
-        XCTAssertEqual(chunks[1].dataRepresentation, Data([4, 5, 6]))
-        XCTAssertEqual(chunks[2].dataRepresentation, Data([7, 8, 9]))
-        XCTAssertEqual(chunks[3].dataRepresentation, Data([10]))
+        XCTAssertEqual(chunks[0], Data([1, 2, 3]))
+        XCTAssertEqual(chunks[1], Data([4, 5, 6]))
+        XCTAssertEqual(chunks[2], Data([7, 8, 9]))
+        XCTAssertEqual(chunks[3], Data([10]))
 
         let fullChunk = testData.chunks(of: 10)
         XCTAssertEqual(fullChunk.count, 1)
-        XCTAssertEqual(fullChunk[0].dataRepresentation, testData)
+        XCTAssertEqual(fullChunk[0], testData)
 
         let largeChunk = testData.chunks(of: 20)
         XCTAssertEqual(largeChunk.count, 1)
-        XCTAssertEqual(largeChunk[0].dataRepresentation, testData)
+        XCTAssertEqual(largeChunk[0], testData)
     }
 
     func testEmptyDataChunking() {
-        let emptyData = Data()
-        XCTAssertTrue(emptyData.chunks(of: 5).isEmpty)
+        XCTAssertTrue(Data().chunks(of: 5).isEmpty)
     }
 
     func testSingleByteDataChunking() {
         let singleByteData = Data([42])
-
         let chunks = singleByteData.chunks(of: 1)
-        XCTAssertEqual(chunks.count, 1)
-        XCTAssertEqual(chunks[0].dataRepresentation, singleByteData)
+        XCTAssertEqual(chunks, [singleByteData])
     }
 
-    func testInvalidChunkSize() {
+    func testDataInvalidChunkSize() {
         let testData = Data([1, 2, 3, 4, 5])
-
-        // Zero or negative chunk size should return empty array
         XCTAssertTrue(testData.chunks(of: 0).isEmpty)
         XCTAssertTrue(testData.chunks(of: -1).isEmpty)
     }
@@ -65,59 +60,22 @@ class StreamDataTests: LKTestCase {
     func testStringChunking() {
         let testString = "Hello, World!"
         let chunks = testString.chunks(of: 4)
-        XCTAssertEqual(chunks.count, 4)
-        XCTAssertEqual(chunks[0], "Hell")
-        XCTAssertEqual(chunks[1], "o, W")
-        XCTAssertEqual(chunks[2], "orld")
-        XCTAssertEqual(chunks[3], "!")
+            .map { [UInt8]($0) }
+        XCTAssertEqual(chunks, [[72, 101, 108, 108], [111, 44, 32, 87], [111, 114, 108, 100], [33]])
     }
 
     func testEmptyStringChunking() {
-        let emptyString = ""
-        XCTAssertTrue(emptyString.chunks(of: 5).isEmpty)
+        XCTAssertTrue("".chunks(of: 5).isEmpty)
     }
 
     func testSingleCharacterStringChunking() {
-        let singleCharString = "X"
-        let chunks = singleCharString.chunks(of: 1)
-        XCTAssertEqual(chunks.count, 1)
-        XCTAssertEqual(String(chunks[0]), singleCharString)
+        XCTAssertEqual("X".chunks(of: 5).map { [UInt8]($0) }, [[88]])
     }
-
-    // MARK: - UTF-8 edge cases
 
     func testMixedStringChunking() {
-        let mixedString = "Hello 👋 World!"
-        let chunks = mixedString.chunks(of: 6)
-        XCTAssertEqual(chunks.count, 3)
-        XCTAssertEqual(chunks[0], "Hello ")
-        XCTAssertEqual(chunks[1], "👋 Worl")
-        XCTAssertEqual(chunks[2], "d!")
-    }
-
-    func testComplexUnicodeSequenceChunking() {
-        // String with combining characters, which should be considered single grapheme clusters
-        let complexString = "e\u{301}" // é (e + combining acute accent)
-        let chunks = complexString.chunks(of: 1)
-        XCTAssertEqual(chunks.count, 1)
-        XCTAssertEqual(chunks[0], "é")
-    }
-
-    func testSurrogatePairsChunking() {
-        // Test with characters represented by surrogate pairs in UTF-16
-        let surrogatePairString = "𐐷" // U+10437, requires surrogate pair in UTF-16
-        let chunks = surrogatePairString.chunks(of: 1)
-        XCTAssertEqual(chunks.count, 1)
-        XCTAssertEqual(chunks[0], "𐐷")
-    }
-
-    // MARK: - Data representation
-
-    func testDataRepresentation() {
-        let data = Data([1, 2, 3, 4, 5])
-        XCTAssertEqual(data.dataRepresentation, data)
-
-        let string = "Hello, World!"
-        XCTAssertEqual(Substring(string).dataRepresentation, Data(string.utf8))
+        let mixedString = "Hello 👋"
+        let chunks = mixedString.chunks(of: 4)
+            .map { [UInt8]($0) }
+        XCTAssertEqual(chunks, [[0x48, 0x65, 0x6C, 0x6C], [0x6F, 0x20], [0xF0, 0x9F, 0x91, 0x8B]])
     }
 }

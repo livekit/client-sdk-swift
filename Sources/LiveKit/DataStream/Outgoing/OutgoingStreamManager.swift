@@ -173,7 +173,7 @@ actor OutgoingStreamManager: Loggable {
 
     private func send(_ data: some StreamData, to id: String) async throws {
         for chunk in data.chunks(of: Self.chunkSize) {
-            try await sendChunk(chunk.dataRepresentation, to: id)
+            try await sendChunk(chunk, to: id)
         }
     }
 
