@@ -29,54 +29,54 @@ public protocol AudioEngineObserver: NextInvokable, Sendable {
     associatedtype Next = any AudioEngineObserver
     var next: (any AudioEngineObserver)? { get set }
 
-    func engineDidCreate(_ engine: AVAudioEngine)
-    func engineWillEnable(_ engine: AVAudioEngine, isPlayoutEnabled: Bool, isRecordingEnabled: Bool)
-    func engineWillStart(_ engine: AVAudioEngine, isPlayoutEnabled: Bool, isRecordingEnabled: Bool)
-    func engineDidStop(_ engine: AVAudioEngine, isPlayoutEnabled: Bool, isRecordingEnabled: Bool)
-    func engineDidDisable(_ engine: AVAudioEngine, isPlayoutEnabled: Bool, isRecordingEnabled: Bool)
-    func engineWillRelease(_ engine: AVAudioEngine)
+    func engineDidCreate(_ engine: AVAudioEngine) -> Int
+    func engineWillEnable(_ engine: AVAudioEngine, isPlayoutEnabled: Bool, isRecordingEnabled: Bool) -> Int
+    func engineWillStart(_ engine: AVAudioEngine, isPlayoutEnabled: Bool, isRecordingEnabled: Bool) -> Int
+    func engineDidStop(_ engine: AVAudioEngine, isPlayoutEnabled: Bool, isRecordingEnabled: Bool) -> Int
+    func engineDidDisable(_ engine: AVAudioEngine, isPlayoutEnabled: Bool, isRecordingEnabled: Bool) -> Int
+    func engineWillRelease(_ engine: AVAudioEngine) -> Int
 
     /// Provide custom implementation for internal AVAudioEngine's output configuration.
     /// Buffers flow from `src` to `dst`. Preferred format to connect node is provided as `format`.
     /// Return true if custom implementation is provided, otherwise default implementation will be used.
-    func engineWillConnectOutput(_ engine: AVAudioEngine, src: AVAudioNode, dst: AVAudioNode?, format: AVAudioFormat, context: [AnyHashable: Any])
+    func engineWillConnectOutput(_ engine: AVAudioEngine, src: AVAudioNode, dst: AVAudioNode?, format: AVAudioFormat, context: [AnyHashable: Any]) -> Int
     /// Provide custom implementation for internal AVAudioEngine's input configuration.
     /// Buffers flow from `src` to `dst`. Preferred format to connect node is provided as `format`.
     /// Return true if custom implementation is provided, otherwise default implementation will be used.
-    func engineWillConnectInput(_ engine: AVAudioEngine, src: AVAudioNode?, dst: AVAudioNode, format: AVAudioFormat, context: [AnyHashable: Any])
+    func engineWillConnectInput(_ engine: AVAudioEngine, src: AVAudioNode?, dst: AVAudioNode, format: AVAudioFormat, context: [AnyHashable: Any]) -> Int
 }
 
 /// Default implementation to make it optional.
 public extension AudioEngineObserver {
-    func engineDidCreate(_ engine: AVAudioEngine) {
-        next?.engineDidCreate(engine)
+    func engineDidCreate(_ engine: AVAudioEngine) -> Int {
+        next?.engineDidCreate(engine) ?? 0
     }
 
-    func engineWillEnable(_ engine: AVAudioEngine, isPlayoutEnabled: Bool, isRecordingEnabled: Bool) {
-        next?.engineWillEnable(engine, isPlayoutEnabled: isPlayoutEnabled, isRecordingEnabled: isRecordingEnabled)
+    func engineWillEnable(_ engine: AVAudioEngine, isPlayoutEnabled: Bool, isRecordingEnabled: Bool) -> Int {
+        next?.engineWillEnable(engine, isPlayoutEnabled: isPlayoutEnabled, isRecordingEnabled: isRecordingEnabled) ?? 0
     }
 
-    func engineWillStart(_ engine: AVAudioEngine, isPlayoutEnabled: Bool, isRecordingEnabled: Bool) {
-        next?.engineWillStart(engine, isPlayoutEnabled: isPlayoutEnabled, isRecordingEnabled: isRecordingEnabled)
+    func engineWillStart(_ engine: AVAudioEngine, isPlayoutEnabled: Bool, isRecordingEnabled: Bool) -> Int {
+        next?.engineWillStart(engine, isPlayoutEnabled: isPlayoutEnabled, isRecordingEnabled: isRecordingEnabled) ?? 0
     }
 
-    func engineDidStop(_ engine: AVAudioEngine, isPlayoutEnabled: Bool, isRecordingEnabled: Bool) {
-        next?.engineDidStop(engine, isPlayoutEnabled: isPlayoutEnabled, isRecordingEnabled: isRecordingEnabled)
+    func engineDidStop(_ engine: AVAudioEngine, isPlayoutEnabled: Bool, isRecordingEnabled: Bool) -> Int {
+        next?.engineDidStop(engine, isPlayoutEnabled: isPlayoutEnabled, isRecordingEnabled: isRecordingEnabled) ?? 0
     }
 
-    func engineDidDisable(_ engine: AVAudioEngine, isPlayoutEnabled: Bool, isRecordingEnabled: Bool) {
-        next?.engineDidDisable(engine, isPlayoutEnabled: isPlayoutEnabled, isRecordingEnabled: isRecordingEnabled)
+    func engineDidDisable(_ engine: AVAudioEngine, isPlayoutEnabled: Bool, isRecordingEnabled: Bool) -> Int {
+        next?.engineDidDisable(engine, isPlayoutEnabled: isPlayoutEnabled, isRecordingEnabled: isRecordingEnabled) ?? 0
     }
 
-    func engineWillRelease(_ engine: AVAudioEngine) {
-        next?.engineWillRelease(engine)
+    func engineWillRelease(_ engine: AVAudioEngine) -> Int {
+        next?.engineWillRelease(engine) ?? 0
     }
 
-    func engineWillConnectOutput(_ engine: AVAudioEngine, src: AVAudioNode, dst: AVAudioNode?, format: AVAudioFormat, context: [AnyHashable: Any]) {
-        next?.engineWillConnectOutput(engine, src: src, dst: dst, format: format, context: context)
+    func engineWillConnectOutput(_ engine: AVAudioEngine, src: AVAudioNode, dst: AVAudioNode?, format: AVAudioFormat, context: [AnyHashable: Any]) -> Int {
+        next?.engineWillConnectOutput(engine, src: src, dst: dst, format: format, context: context) ?? 0
     }
 
-    func engineWillConnectInput(_ engine: AVAudioEngine, src: AVAudioNode?, dst: AVAudioNode, format: AVAudioFormat, context: [AnyHashable: Any]) {
-        next?.engineWillConnectInput(engine, src: src, dst: dst, format: format, context: context)
+    func engineWillConnectInput(_ engine: AVAudioEngine, src: AVAudioNode?, dst: AVAudioNode, format: AVAudioFormat, context: [AnyHashable: Any]) -> Int {
+        next?.engineWillConnectInput(engine, src: src, dst: dst, format: format, context: context) ?? 0
     }
 }
