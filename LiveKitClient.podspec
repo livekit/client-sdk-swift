@@ -8,23 +8,24 @@ Pod::Spec.new do |spec|
 
   spec.ios.deployment_target = "13.0"
   spec.osx.deployment_target = "10.15"
-  spec.tvos.deployment_target = "17.0"
-  spec.visionos.deployment_target = "1.0"
 
   spec.swift_versions = ["5.7"]
-  spec.source = {:git => "https://github.com/livekit/client-sdk-swift.git", :tag => "2.2.1"}
+  spec.source = {:git => "https://github.com/livekit/client-sdk-swift.git", :tag => spec.version.to_s}
 
   spec.source_files = "Sources/**/*"
 
   spec.dependency("LiveKitWebRTC", "= 125.6422.22")
   spec.dependency("SwiftProtobuf")
-  spec.dependency("Logging")
+  spec.dependency("Logging", "= 1.5.4")
   spec.dependency("DequeModule", "= 1.1.4")
 
   spec.resource_bundles = {"Privacy" => ["Sources/LiveKit/PrivacyInfo.xcprivacy"]}
 
-  # Add the following lines to enable the experimental feature
+  xcode_output = `xcodebuild -version`.strip
+  major_version = xcode_output =~ /Xcode\s+(\d+)/ ? $1.to_i : 15
+
   spec.pod_target_xcconfig = {
-    'OTHER_SWIFT_FLAGS' => '-enable-experimental-feature AccessLevelOnImport'
+    "OTHER_SWIFT_FLAGS" => major_version >=15  ?
+      "-enable-experimental-feature AccessLevelOnImport" : ""
   }
 end
