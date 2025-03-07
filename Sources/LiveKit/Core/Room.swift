@@ -111,15 +111,20 @@ public class Room: NSObject, ObservableObject, Loggable {
     lazy var subscriberDataChannel = DataChannelPair(delegate: self)
     lazy var publisherDataChannel = DataChannelPair(delegate: self)
 
+    lazy var incomingStreamManager = IncomingStreamManager()
+    lazy var outgoingStreamManager = OutgoingStreamManager { [weak self] packet in
+        try await self?.send(dataPacket: packet)
+    }
+
     var _blockProcessQueue = DispatchQueue(label: "LiveKitSDK.engine.pendingBlocks",
                                            qos: .default)
 
     var _queuedBlocks = [ConditionalExecutionEntry]()
-    
+
     // MARK: - RPC
-    
+
     let rpcState = RpcStateManager()
-    
+
     // MARK: - State
 
     struct State: Equatable {
@@ -543,6 +548,9 @@ extension Room: DataChannelDelegate {
         case let .rpcResponse(response): room(didReceiveRpcResponse: response)
         case let .rpcAck(ack): room(didReceiveRpcAck: ack)
         case let .rpcRequest(request): room(didReceiveRpcRequest: request, from: dataPacket.participantIdentity)
+        case let .streamHeader(header): Task { await incomingStreamManager.handle(header: header, from: dataPacket.participantIdentity) }
+        case let .streamChunk(chunk): Task { await incomingStreamManager.handle(chunk: chunk) }
+        case let .streamTrailer(trailer): Task { await incomingStreamManager.handle(trailer: trailer) }
         default: return
         }
     }
