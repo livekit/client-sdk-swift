@@ -88,7 +88,7 @@ extension ByteStreamReader {
         try await Task.detached {
             let writer = try AsyncFileStream(writingTo: fileURL)
             defer { writer.close() }
-            
+
             for try await chunk in self {
                 try await writer.write(chunk)
             }

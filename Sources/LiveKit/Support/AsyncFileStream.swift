@@ -47,7 +47,7 @@ struct AsyncFileStream<Mode>: Loggable {
 
         self.queue = queue
         self.fileDescriptor = fileDescriptor
-        self.io = DispatchIO(
+        io = DispatchIO(
             type: .stream,
             fileDescriptor: fileDescriptor,
             queue: queue,
