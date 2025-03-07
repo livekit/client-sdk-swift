@@ -68,9 +68,9 @@ extension LKTestCase {
         tokenGenerator.videoGrant = VideoGrant(room: room,
                                                roomJoin: true,
                                                canPublish: canPublish,
-                                               canPublishSources: canPublishSources.map(String.init),
                                                canSubscribe: canSubscribe,
-                                               canPublishData: canPublishData)
+                                               canPublishData: canPublishData,
+                                               canPublishSources: canPublishSources.map(String.init))
         return try tokenGenerator.sign()
     }
 
