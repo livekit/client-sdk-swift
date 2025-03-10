@@ -30,6 +30,7 @@ jobs:
           validation_dir=$(mktemp -d)
           echo "validation_dir=${validation_dir}" >> $GITHUB_OUTPUT
           pod spec lint \
+            --platforms=macos \
             --validation-dir="${validation_dir}" \
             --no-clean \
             --allow-warnings \
