@@ -133,4 +133,21 @@ public extension AVAudioPCMBuffer {
 
         return outputBuffer
     }
+
+    func toData() -> Data? {
+        guard let channelData = floatChannelData else { return nil }
+
+        let channels = Int(format.channelCount)
+        let frameLength = Int(frameLength)
+
+        var data = Data(capacity: frameLength * channels * MemoryLayout<Float>.size)
+
+        for channel in 0 ..< channels {
+            let channelPtr = channelData[channel]
+            let channelData = Data(bytes: channelPtr, count: frameLength * stride)
+            data.append(channelData)
+        }
+
+        return data
+    }
 }
