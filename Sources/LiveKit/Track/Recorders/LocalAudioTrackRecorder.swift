@@ -14,11 +14,13 @@
  * limitations under the License.
  */
 
-import AVFoundation
+import AVFAudio
 import Foundation
 
 @objc
 public final class LocalAudioTrackRecorder: NSObject, AudioRenderer {
+    private typealias Stream = AsyncStream<Data>
+
     private let track: LocalAudioTrack
     private let format: AVAudioCommonFormat
 
@@ -33,16 +35,15 @@ public final class LocalAudioTrackRecorder: NSObject, AudioRenderer {
     }
 
     public func start(maxSize: Int = 0) -> AsyncStream<Data> {
-        let buffer: AsyncStream<Data>.Continuation.BufferingPolicy = maxSize > 0 ? .bufferingNewest(maxSize) : .unbounded
-        let (stream, continuation) = AsyncStream<Data>.makeStream(bufferingPolicy: buffer)
-
-        self.continuation = continuation
+        let buffer: Stream.Continuation.BufferingPolicy = maxSize > 0 ? .bufferingNewest(maxSize) : .unbounded
+        let stream = Stream(bufferingPolicy: buffer) { continuation in
+            self.continuation = continuation
+        }
 
         track.add(audioRenderer: self)
         AudioManager.shared.startLocalRecording()
-        continuation.onTermination = { @Sendable [weak self] _ in
+        continuation?.onTermination = { @Sendable (_: Stream.Continuation.Termination) in
             AudioManager.shared.stopLocalRecording()
-            guard let self else { return }
             self.track.remove(audioRenderer: self)
         }
 
