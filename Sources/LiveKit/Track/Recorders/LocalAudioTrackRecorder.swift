@@ -19,12 +19,12 @@ import Foundation
 
 @objc
 public final class LocalAudioTrackRecorder: NSObject, AudioRenderer {
-    private typealias Stream = AsyncStream<Data>
+    public typealias Stream = AsyncStream<Data>
 
     private let track: LocalAudioTrack
     private let format: AVAudioCommonFormat
 
-    private var continuation: AsyncStream<Data>.Continuation?
+    private var continuation: Stream.Continuation?
 
     @objc
     public init(track: LocalAudioTrack, format: AVAudioCommonFormat = .pcmFormatInt16) {
@@ -34,7 +34,7 @@ public final class LocalAudioTrackRecorder: NSObject, AudioRenderer {
         AudioManager.shared.initRecording()
     }
 
-    public func start(maxSize: Int = 0) -> AsyncStream<Data> {
+    public func start(maxSize: Int = 0) -> Stream {
         let buffer: Stream.Continuation.BufferingPolicy = maxSize > 0 ? .bufferingNewest(maxSize) : .unbounded
         let stream = Stream(bufferingPolicy: buffer) { continuation in
             self.continuation = continuation
@@ -48,6 +48,11 @@ public final class LocalAudioTrackRecorder: NSObject, AudioRenderer {
         }
 
         return stream
+    }
+
+    @objc
+    public func stop() {
+        continuation?.finish()
     }
 
     public func render(pcmBuffer: AVAudioPCMBuffer) {
@@ -64,6 +69,7 @@ public final class LocalAudioTrackRecorder: NSObject, AudioRenderer {
 
 public extension LocalAudioTrackRecorder {
     @objc
+    @available(*, deprecated, message: "Use for/await instead.")
     func start(maxSize: Int = 0, onData: @escaping (Data) -> Void, onCompletion: @escaping () -> Void) {
         Task {
             for try await data in start(maxSize: maxSize) {
