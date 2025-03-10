@@ -25,9 +25,11 @@ public final class LocalAudioTrackRecorder: NSObject, AudioRenderer {
     private var continuation: AsyncStream<Data>.Continuation?
 
     @objc
-    public init(track: LocalAudioTrack, format: AVAudioCommonFormat = .pcmFormatFloat32) {
+    public init(track: LocalAudioTrack, format: AVAudioCommonFormat = .pcmFormatInt16) {
         self.track = track
         self.format = format
+
+        AudioManager.shared.initRecording()
     }
 
     public func start(maxSize: Int = 0) -> AsyncStream<Data> {
@@ -37,7 +39,10 @@ public final class LocalAudioTrackRecorder: NSObject, AudioRenderer {
         self.continuation = continuation
 
         track.add(audioRenderer: self)
-        continuation.onTermination = { @Sendable _ in
+        AudioManager.shared.startLocalRecording()
+        continuation.onTermination = { @Sendable [weak self] _ in
+            AudioManager.shared.stopLocalRecording()
+            guard let self else { return }
             self.track.remove(audioRenderer: self)
         }
 
