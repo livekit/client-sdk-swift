@@ -22,11 +22,45 @@ internal import LiveKitWebRTC
 @_implementationOnly import LiveKitWebRTC
 #endif
 
+public class AudioEngineState: CustomDebugStringConvertible {
+    private let rtcState: LKRTCAudioEngineState
+
+    public var isOutputEnabled: Bool { rtcState.isOutputEnabled }
+    public var isOutputRunning: Bool { rtcState.isOutputRunning }
+    public var isInputEnabled: Bool { rtcState.isInputEnabled }
+    public var isInputRunning: Bool { rtcState.isInputRunning }
+    public var isInputMuted: Bool { rtcState.isInputMuted }
+    public var isLegacyMuteMode: Bool { rtcState.muteMode == .restartEngine }
+
+    init(fromRTCType rtcState: LKRTCAudioEngineState) {
+        self.rtcState = rtcState
+    }
+
+    public var debugDescription: String {
+        "AudioEngineState(isOutputEnabled: \(isOutputEnabled), isOutputRunning: \(isOutputRunning), isInputEnabled: \(isInputEnabled), isInputRunning: \(isInputRunning), isInputMuted: \(isInputMuted), isLegacyMuteMode: \(isLegacyMuteMode))"
+    }
+}
+
+public class AudioEngineStateTransition: CustomDebugStringConvertible {
+    private let rtcStateTransition: LKRTCAudioEngineStateTransition
+
+    public var prev: AudioEngineState { AudioEngineState(fromRTCType: rtcStateTransition.prev) }
+    public var next: AudioEngineState { AudioEngineState(fromRTCType: rtcStateTransition.next) }
+
+    init(fromRTCType rtcStateTransition: LKRTCAudioEngineStateTransition) {
+        self.rtcStateTransition = rtcStateTransition
+    }
+
+    public var debugDescription: String {
+        "AudioEngineStateTransition(prev: \(prev), next: \(next))"
+    }
+}
+
 // Invoked on WebRTC's worker thread, do not block.
 class AudioDeviceModuleDelegateAdapter: NSObject, LKRTCAudioDeviceModuleDelegate {
     weak var audioManager: AudioManager?
 
-    func audioDeviceModule(_: LKRTCAudioDeviceModule, didReceiveSpeechActivityEvent speechActivityEvent: RTCSpeechActivityEvent) {
+    func audioDeviceModule(_: LKRTCAudioDeviceModule, didReceiveMutedSpeechActivityEvent speechActivityEvent: RTCSpeechActivityEvent) {
         guard let audioManager else { return }
         audioManager._state.onMutedSpeechActivity?(audioManager, speechActivityEvent.toLKType())
     }
@@ -38,51 +72,61 @@ class AudioDeviceModuleDelegateAdapter: NSObject, LKRTCAudioDeviceModuleDelegate
 
     // Engine events
 
-    func audioDeviceModule(_: LKRTCAudioDeviceModule, didCreateEngine engine: AVAudioEngine) -> Int {
+    func audioDeviceModule(_: LKRTCAudioDeviceModule, didCreateEngine engine: AVAudioEngine, stateTransition: LKRTCAudioEngineStateTransition) -> Int {
         guard let audioManager else { return 0 }
         let entryPoint = audioManager.buildEngineObserverChain()
-        return entryPoint?.engineDidCreate(engine) ?? 0
+        return entryPoint?.engineDidCreate(engine, state: AudioEngineStateTransition(fromRTCType: stateTransition)) ?? 0
     }
 
-    func audioDeviceModule(_: LKRTCAudioDeviceModule, willEnableEngine engine: AVAudioEngine, isPlayoutEnabled: Bool, isRecordingEnabled: Bool) -> Int {
+    func audioDeviceModule(_: LKRTCAudioDeviceModule, willEnableEngine engine: AVAudioEngine, stateTransition: LKRTCAudioEngineStateTransition) -> Int {
         guard let audioManager else { return 0 }
         let entryPoint = audioManager.buildEngineObserverChain()
-        return entryPoint?.engineWillEnable(engine, isPlayoutEnabled: isPlayoutEnabled, isRecordingEnabled: isRecordingEnabled) ?? 0
+        return entryPoint?.engineWillEnable(engine, state: AudioEngineStateTransition(fromRTCType: stateTransition)) ?? 0
     }
 
-    func audioDeviceModule(_: LKRTCAudioDeviceModule, willStartEngine engine: AVAudioEngine, isPlayoutEnabled: Bool, isRecordingEnabled: Bool) -> Int {
+    func audioDeviceModule(_: LKRTCAudioDeviceModule, willStartEngine engine: AVAudioEngine, stateTransition: LKRTCAudioEngineStateTransition) -> Int {
         guard let audioManager else { return 0 }
         let entryPoint = audioManager.buildEngineObserverChain()
-        return entryPoint?.engineWillStart(engine, isPlayoutEnabled: isPlayoutEnabled, isRecordingEnabled: isRecordingEnabled) ?? 0
+        return entryPoint?.engineWillStart(engine, state: AudioEngineStateTransition(fromRTCType: stateTransition)) ?? 0
     }
 
-    func audioDeviceModule(_: LKRTCAudioDeviceModule, didStopEngine engine: AVAudioEngine, isPlayoutEnabled: Bool, isRecordingEnabled: Bool) -> Int {
+    func audioDeviceModule(_: LKRTCAudioDeviceModule, didStopEngine engine: AVAudioEngine, stateTransition: LKRTCAudioEngineStateTransition) -> Int {
         guard let audioManager else { return 0 }
         let entryPoint = audioManager.buildEngineObserverChain()
-        return entryPoint?.engineDidStop(engine, isPlayoutEnabled: isPlayoutEnabled, isRecordingEnabled: isRecordingEnabled) ?? 0
+        return entryPoint?.engineDidStop(engine, state: AudioEngineStateTransition(fromRTCType: stateTransition)) ?? 0
     }
 
-    func audioDeviceModule(_: LKRTCAudioDeviceModule, didDisableEngine engine: AVAudioEngine, isPlayoutEnabled: Bool, isRecordingEnabled: Bool) -> Int {
+    func audioDeviceModule(_: LKRTCAudioDeviceModule, didDisableEngine engine: AVAudioEngine, stateTransition: LKRTCAudioEngineStateTransition) -> Int {
         guard let audioManager else { return 0 }
         let entryPoint = audioManager.buildEngineObserverChain()
-        return entryPoint?.engineDidDisable(engine, isPlayoutEnabled: isPlayoutEnabled, isRecordingEnabled: isRecordingEnabled) ?? 0
+        return entryPoint?.engineDidDisable(engine, state: AudioEngineStateTransition(fromRTCType: stateTransition)) ?? 0
     }
 
-    func audioDeviceModule(_: LKRTCAudioDeviceModule, willReleaseEngine engine: AVAudioEngine) -> Int {
+    func audioDeviceModule(_: LKRTCAudioDeviceModule, willReleaseEngine engine: AVAudioEngine, stateTransition: LKRTCAudioEngineStateTransition) -> Int {
         guard let audioManager else { return 0 }
         let entryPoint = audioManager.buildEngineObserverChain()
-        return entryPoint?.engineWillRelease(engine) ?? 0
+        return entryPoint?.engineWillRelease(engine, state: AudioEngineStateTransition(fromRTCType: stateTransition)) ?? 0
     }
 
-    func audioDeviceModule(_: LKRTCAudioDeviceModule, engine: AVAudioEngine, configureInputFromSource src: AVAudioNode?, toDestination dst: AVAudioNode, format: AVAudioFormat, context: [AnyHashable: Any]) -> Int {
+    func audioDeviceModule(_: LKRTCAudioDeviceModule, engine: AVAudioEngine, configureInputFromSource src: AVAudioNode?, toDestination dst: AVAudioNode, format: AVAudioFormat, stateTransition: LKRTCAudioEngineStateTransition, context: [AnyHashable: Any]) -> Int {
         guard let audioManager else { return 0 }
         let entryPoint = audioManager.buildEngineObserverChain()
-        return entryPoint?.engineWillConnectInput(engine, src: src, dst: dst, format: format, context: context) ?? 0
+        return entryPoint?.engineWillConnectInput(engine,
+                                                  src: src,
+                                                  dst: dst,
+                                                  format: format,
+                                                  state: AudioEngineStateTransition(fromRTCType: stateTransition),
+                                                  context: context) ?? 0
     }
 
-    func audioDeviceModule(_: LKRTCAudioDeviceModule, engine: AVAudioEngine, configureOutputFromSource src: AVAudioNode, toDestination dst: AVAudioNode?, format: AVAudioFormat, context: [AnyHashable: Any]) -> Int {
+    func audioDeviceModule(_: LKRTCAudioDeviceModule, engine: AVAudioEngine, configureOutputFromSource src: AVAudioNode, toDestination dst: AVAudioNode?, format: AVAudioFormat, stateTransition: LKRTCAudioEngineStateTransition, context: [AnyHashable: Any]) -> Int {
         guard let audioManager else { return 0 }
         let entryPoint = audioManager.buildEngineObserverChain()
-        return entryPoint?.engineWillConnectOutput(engine, src: src, dst: dst, format: format, context: context) ?? 0
+        return entryPoint?.engineWillConnectOutput(engine,
+                                                   src: src,
+                                                   dst: dst,
+                                                   format: format,
+                                                   state: AudioEngineStateTransition(fromRTCType: stateTransition),
+                                                   context: context) ?? 0
     }
 }
