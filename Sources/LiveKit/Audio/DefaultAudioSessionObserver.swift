@@ -57,16 +57,16 @@ public class DefaultAudioSessionObserver: AudioEngineObserver, Loggable, @unchec
         }
     }
 
-    public func engineWillEnable(_ engine: AVAudioEngine, isPlayoutEnabled: Bool, isRecordingEnabled: Bool) -> Int {
+    public func engineWillEnable(_ engine: AVAudioEngine, state: AudioEngineStateTransition) -> Int {
         if AudioManager.shared._state.customConfigureFunc == nil {
             let session = LKRTCAudioSession.sharedInstance()
             session.lockForConfiguration()
             defer { session.unlockForConfiguration() }
 
-            let newConfig: AudioSessionConfiguration = isRecordingEnabled ? .playAndRecordSpeaker : .playback
-            if session.category != newConfig.category.rawValue {
+            let newConfig: AudioSessionConfiguration = state.next.isInputEnabled ? .playAndRecordSpeaker : .playback
+            if session.category != newConfig.category.rawValue || session.mode != newConfig.mode.rawValue {
                 do {
-                    log("AudioSession switching category: \(session.category) -> \(newConfig.category.rawValue)")
+                    log("AudioSession switching category: \(session.category) -> \(newConfig.category.rawValue), mode: \(session.mode) -> \(newConfig.mode.rawValue)")
                     try session.setConfiguration(newConfig.toRTCType())
                 } catch {
                     log("AudioSession switch category with error: \(error)", .error)
@@ -88,21 +88,21 @@ public class DefaultAudioSessionObserver: AudioEngineObserver, Loggable, @unchec
         }
 
         _state.mutate {
-            $0.isPlayoutEnabled = isPlayoutEnabled
-            $0.isRecordingEnabled = isRecordingEnabled
+            $0.isPlayoutEnabled = state.next.isOutputEnabled
+            $0.isRecordingEnabled = state.next.isInputEnabled
         }
 
         // Call next last
-        return _state.next?.engineWillEnable(engine, isPlayoutEnabled: isPlayoutEnabled, isRecordingEnabled: isRecordingEnabled) ?? 0
+        return _state.next?.engineWillEnable(engine, state: state) ?? 0
     }
 
-    public func engineDidDisable(_ engine: AVAudioEngine, isPlayoutEnabled: Bool, isRecordingEnabled: Bool) -> Int {
+    public func engineDidDisable(_ engine: AVAudioEngine, state: AudioEngineStateTransition) -> Int {
         // Call next first
-        let nextResult = _state.next?.engineDidDisable(engine, isPlayoutEnabled: isPlayoutEnabled, isRecordingEnabled: isRecordingEnabled)
+        let nextResult = _state.next?.engineDidDisable(engine, state: state)
 
         _state.mutate {
-            $0.isPlayoutEnabled = isPlayoutEnabled
-            $0.isRecordingEnabled = isRecordingEnabled
+            $0.isPlayoutEnabled = state.next.isOutputEnabled
+            $0.isRecordingEnabled = state.next.isInputEnabled
         }
 
         if AudioManager.shared._state.customConfigureFunc == nil {
@@ -110,18 +110,26 @@ public class DefaultAudioSessionObserver: AudioEngineObserver, Loggable, @unchec
             session.lockForConfiguration()
             defer { session.unlockForConfiguration() }
 
-            if isPlayoutEnabled, !isRecordingEnabled {
-                do {
-                    let newConfig: AudioSessionConfiguration = .playback
-                    log("AudioSession switching category: \(session.category) -> \(newConfig.category.rawValue)")
-                    try session.setConfiguration(newConfig.toRTCType())
+            var newConfig: AudioSessionConfiguration? = nil
 
+            // Only when input was disabled
+            if state.prev.isOutputEnabled, state.next.isOutputEnabled, state.prev.isInputEnabled, !state.next.isInputEnabled {
+                let didLegacyMute = (!state.prev.isLegacyMuteMode && state.next.isLegacyMuteMode && state.next.isInputMuted) ||
+                    (!state.prev.isInputMuted && state.next.isInputMuted && state.next.isLegacyMuteMode)
+
+                newConfig = didLegacyMute ? .playAndRecordDefault : .playback
+            }
+
+            if let newConfig, session.category != newConfig.category.rawValue || session.mode != newConfig.mode.rawValue {
+                do {
+                    log("AudioSession switching category: \(session.category) -> \(newConfig.category.rawValue), mode: \(session.mode) -> \(newConfig.mode.rawValue)")
+                    try session.setConfiguration(newConfig.toRTCType())
                 } catch {
                     log("AudioSession failed to switch category with error: \(error)", .error)
                 }
             }
 
-            if !isPlayoutEnabled, !isRecordingEnabled, session.isActive {
+            if !state.next.isOutputEnabled, !state.next.isInputEnabled, session.isActive {
                 do {
                     log("AudioSession deactivating...")
                     try session.setActive(false)

@@ -40,6 +40,10 @@ public extension AudioSessionConfiguration {
                                                                 categoryOptions: [.mixWithOthers, .allowBluetooth, .allowBluetoothA2DP, .allowAirPlay],
                                                                 mode: .videoChat)
 
+    static let playAndRecordDefault = AudioSessionConfiguration(category: .playAndRecord,
+                                                                categoryOptions: [.mixWithOthers, .allowBluetooth, .allowBluetoothA2DP, .allowAirPlay],
+                                                                mode: .default)
+
     static let playAndRecordReceiver = AudioSessionConfiguration(category: .playAndRecord,
                                                                  categoryOptions: [.mixWithOthers, .allowBluetooth, .allowBluetoothA2DP, .allowAirPlay],
                                                                  mode: .voiceChat)

@@ -305,10 +305,7 @@ public class AudioManager: Loggable {
 
     // MARK: - For testing
 
-    var engineState: RTCAudioEngineState {
-        get { RTC.audioDeviceModule.engineState }
-        set { RTC.audioDeviceModule.engineState = newValue }
-    }
+    var engineState: LKRTCAudioEngineState { RTC.audioDeviceModule.engineState }
 
     var isPlayoutInitialized: Bool {
         RTC.audioDeviceModule.isPlayoutInitialized
