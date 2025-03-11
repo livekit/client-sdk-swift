@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.3.1] - 2025-03-11
+
+### Changed
+
+- Update default audio capture options for Simulator
+
+### Fixed
+
+- Audio engine node detach crash
+
 ## [2.3.0] - 2025-03-10
 
 ### Added
