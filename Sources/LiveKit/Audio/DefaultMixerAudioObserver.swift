@@ -75,7 +75,7 @@ public final class DefaultMixerAudioObserver: AudioEngineObserver, Loggable {
         next = handler
     }
 
-    public func engineDidCreate(_ engine: AVAudioEngine) -> Int {
+    public func engineDidCreate(_ engine: AVAudioEngine, state: AudioEngineStateTransition) -> Int {
         let (appNode, appMixerNode, micNode, micMixerNode) = _state.read {
             ($0.appNode, $0.appMixerNode, $0.micNode, $0.micMixerNode)
         }
@@ -86,12 +86,12 @@ public final class DefaultMixerAudioObserver: AudioEngineObserver, Loggable {
         engine.attach(micMixerNode)
 
         // Invoke next
-        return next?.engineDidCreate(engine) ?? 0
+        return next?.engineDidCreate(engine, state: state) ?? 0
     }
 
-    public func engineWillRelease(_ engine: AVAudioEngine) -> Int {
+    public func engineWillRelease(_ engine: AVAudioEngine, state: AudioEngineStateTransition) -> Int {
         // Invoke next
-        let nextResult = next?.engineWillRelease(engine)
+        let nextResult = next?.engineWillRelease(engine, state: state)
 
         let (appNode, appMixerNode, micNode, micMixerNode) = _state.read {
             ($0.appNode, $0.appMixerNode, $0.micNode, $0.micMixerNode)
@@ -105,11 +105,14 @@ public final class DefaultMixerAudioObserver: AudioEngineObserver, Loggable {
         return nextResult ?? 0
     }
 
-    public func engineWillConnectInput(_ engine: AVAudioEngine, src: AVAudioNode?, dst: AVAudioNode, format: AVAudioFormat, context: [AnyHashable: Any]) -> Int {
+    public func engineWillConnectInput(_ engine: AVAudioEngine, src: AVAudioNode?, dst: AVAudioNode, format: AVAudioFormat,
+                                       state: AudioEngineStateTransition,
+                                       context: [AnyHashable: Any]) -> Int
+    {
         // Get the main mixer
         guard let mainMixerNode = context[kRTCAudioEngineInputMixerNodeKey] as? AVAudioMixerNode else {
             // If failed to get main mixer, call next and return.
-            return next?.engineWillConnectInput(engine, src: src, dst: dst, format: format, context: context) ?? 0
+            return next?.engineWillConnectInput(engine, src: src, dst: dst, format: format, state: state, context: context) ?? 0
         }
 
         // Read nodes from state lock.
@@ -141,7 +144,7 @@ public final class DefaultMixerAudioObserver: AudioEngineObserver, Loggable {
         }
 
         // Invoke next
-        return next?.engineWillConnectInput(engine, src: src, dst: dst, format: format, context: context) ?? 0
+        return next?.engineWillConnectInput(engine, src: src, dst: dst, format: format, state: state, context: context) ?? 0
     }
 }
 
