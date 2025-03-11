@@ -347,10 +347,11 @@ class AudioEngineTests: LKTestCase {
     func testFailingPublish() async throws {
         AudioManager.shared.set(engineObservers: [FailingEngineObserver()])
         // Should fail
-        try await withRooms([RoomTestingOptions(canPublish: true)]) { rooms in
+        // swiftformat:disable redundantSelf hoistAwait
+        await XCTAssertThrowsErrorAsync(try await withRooms([RoomTestingOptions(canPublish: true)]) { rooms in
             print("Publishing mic...")
             try await rooms[0].localParticipant.setMicrophone(enabled: true)
-        }
+        })
     }
 }
 
