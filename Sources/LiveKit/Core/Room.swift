@@ -116,6 +116,12 @@ public class Room: NSObject, ObservableObject, Loggable {
         try await self?.send(dataPacket: packet)
     }
 
+    // MARK: - PreConnect
+
+    public lazy var preConnectBuffer = PreConnectAudioBuffer(room: self)
+
+    // MARK: - Queue
+
     var _blockProcessQueue = DispatchQueue(label: "LiveKitSDK.engine.pendingBlocks",
                                            qos: .default)
 
