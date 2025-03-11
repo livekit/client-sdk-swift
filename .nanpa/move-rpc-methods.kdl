@@ -1,3 +1,0 @@
-minor type="changed" "RPC register method is now throwing"
-minor type="changed" "RPC registration methods moved to Room"
-patch type="deprecated" "RPC registration methods on LocalParticipant deprecated"
