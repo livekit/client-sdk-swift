@@ -17,6 +17,15 @@
 import Foundation
 import XCTest
 
+func XCTAssertThrowsErrorAsync(_ expression: @autoclosure () async throws -> some Any) async {
+    do {
+        _ = try await expression()
+        XCTFail("No error was thrown.")
+    } catch {
+        // Pass
+    }
+}
+
 // Support iOS 13
 public extension URLSession {
     func downloadBackport(from url: URL) async throws -> (URL, URLResponse) {

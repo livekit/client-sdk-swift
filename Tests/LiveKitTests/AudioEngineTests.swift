@@ -343,6 +343,25 @@ class AudioEngineTests: LKTestCase {
             try? await Task.sleep(nanoseconds: 1 * 100_000_000) // 10ms
         }
     }
+
+    func testFailingPublish() async throws {
+        AudioManager.shared.set(engineObservers: [FailingEngineObserver()])
+        // Should fail
+        // swiftformat:disable redundantSelf hoistAwait
+        await XCTAssertThrowsErrorAsync(try await withRooms([RoomTestingOptions(canPublish: true)]) { rooms in
+            print("Publishing mic...")
+            try await rooms[0].localParticipant.setMicrophone(enabled: true)
+        })
+    }
+}
+
+final class FailingEngineObserver: AudioEngineObserver {
+    var next: (any LiveKit.AudioEngineObserver)?
+
+    func engineWillEnable(_: AVAudioEngine, isPlayoutEnabled _: Bool, isRecordingEnabled _: Bool) -> Int {
+        // Fail
+        -4101
+    }
 }
 
 final class SineWaveNodeHook: AudioEngineObserver {
