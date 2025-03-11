@@ -8,6 +8,10 @@ jobs:
     name: Publish Docs
     runs-on: ubuntu-latest
     steps:
+      - name: Sanitize Ref Name
+        id: sanitize-ref
+        run: echo "ref_name=$(echo ${{ github.ref_name }} | sed 's/\//-/g')" >> $GITHUB_OUTPUT
+
       - name: Download Archive
         uses: dawidd6/action-download-artifact@v9
         with:
@@ -15,10 +19,10 @@ jobs:
           workflow_search: false
           workflow_conclusion: success
           branch: main
-          name: docs@${{ github.ref_name }}
+          name: docs@${{ steps.sanitize-ref.outputs.ref_name }}
 
       - name: Unzip Archive
-        run: unzip docs@${{ github.ref_name }}.zip
+        run: unzip docs@${{ steps.sanitize-ref.outputs.ref_name }}.zip
 
       - name: S3 Upload
         run: aws s3 cp docs/ s3://livekit-docs/client-sdk-swift --recursive
