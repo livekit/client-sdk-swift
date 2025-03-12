@@ -32,7 +32,10 @@ public final class LocalAudioTrackRecorder: NSObject, AudioRenderer {
     @objc
     public let maxSize: Int
 
-    private var continuation: Stream.Continuation?
+    private let state = StateSync<State>(State())
+    private struct State {
+        var continuation: Stream.Continuation?
+    }
 
     @objc
     public init(track: LocalAudioTrack, format: AVAudioCommonFormat, sampleRate: Int, maxSize: Int = 0) {
@@ -45,20 +48,24 @@ public final class LocalAudioTrackRecorder: NSObject, AudioRenderer {
     }
 
     public func start() -> Stream? {
-        guard continuation == nil else { return nil }
+        guard state.continuation == nil else { return nil }
 
         let buffer: Stream.Continuation.BufferingPolicy = maxSize > 0 ? .bufferingNewest(maxSize) : .unbounded
         let stream = Stream(bufferingPolicy: buffer) { continuation in
-            self.continuation = continuation
+            self.state.mutate {
+                $0.continuation = continuation
+            }
         }
 
         track.add(audioRenderer: self)
         AudioManager.shared.startLocalRecording()
-        continuation?.onTermination = { @Sendable (_: Stream.Continuation.Termination) in
+        state.continuation?.onTermination = { @Sendable (_: Stream.Continuation.Termination) in
             // TODO: parametrize?
 //            AudioManager.shared.stopLocalRecording()
             self.track.remove(audioRenderer: self)
-            self.continuation = nil
+            self.state.mutate {
+                $0.continuation = nil
+            }
         }
 
         return stream
@@ -66,7 +73,7 @@ public final class LocalAudioTrackRecorder: NSObject, AudioRenderer {
 
     @objc
     public func stop() {
-        continuation?.finish()
+        state.continuation?.finish()
     }
 }
 
@@ -79,7 +86,7 @@ public extension LocalAudioTrackRecorder {
             .convert(toCommonFormat: format)?
             .toData()
         {
-            continuation?.yield(data)
+            state.continuation?.yield(data)
         }
     }
 }
