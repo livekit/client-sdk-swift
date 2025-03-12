@@ -1,0 +1,176 @@
+name: CI
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  TESTS: "FunctionTests SDKTests RoomTests PublishDataTests PublishBufferCapturerTests VideoViewTests TrackTests"
+
+jobs:
+  build-and-test:
+    name: Build & Test
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # https://github.com/actions/runner-images/blob/main/images/macos/macos-13-Readme.md
+          - os: macos-13
+            xcode: 14.2
+            platform: "iOS Simulator,OS=17.2,name=iPhone 14 Pro"
+          - os: macos-13
+            xcode: 14.2
+            platform: "macOS"
+          - os: macos-13
+            xcode: 14.2
+            platform: "macOS,variant=Mac Catalyst"
+
+          # https://github.com/actions/runner-images/blob/main/images/macos/macos-14-Readme.md
+          - os: macos-14
+            xcode: 15.4
+            platform: "iOS Simulator,OS=17.5,name=iPhone 15 Pro"
+          - os: macos-14
+            xcode: 15.4
+            platform: "macOS"
+          - os: macos-14
+            xcode: 15.4
+            platform: "macOS,variant=Mac Catalyst"
+          - os: macos-14
+            xcode: 15.4
+            platform: "visionOS Simulator,name=Apple Vision Pro"
+          - os: macos-14
+            xcode: 15.4
+            platform: "tvOS Simulator,name=Apple TV"
+
+          # https://github.com/actions/runner-images/blob/main/images/macos/macos-15-Readme.md
+          - os: macos-15
+            xcode: 16.2
+            platform: "iOS Simulator,OS=18.1,name=iPhone 16 Pro"
+            symbol-graph: true
+          - os: macos-15
+            xcode: 16.2
+            platform: "macOS"
+            symbol-graph: true
+          - os: macos-15
+            xcode: 16.2
+            platform: "macOS,variant=Mac Catalyst"
+
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install LiveKit Server
+        run: brew install livekit
+
+      - name: Run LiveKit Server
+        run: livekit-server --dev &
+
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: ${{ matrix.xcode }}
+
+      - name: Xcode Version
+        run: xcodebuild -version
+
+      - name: Swift Version
+        run: xcrun swift --version
+
+      - name: Build for Testing
+        run: |
+          set -o pipefail && xcodebuild build-for-testing \
+            -scheme LiveKit \
+            -destination 'platform=${{ matrix.platform }}' | xcbeautify --renderer github-actions
+
+      # Run all tests in parallel instead of sequentially
+      - name: Run Tests
+        run: |
+          IFS=' ' read -r -a tests <<< "${{ env.TESTS }}"
+          for test in "${tests[@]}"; do
+            echo "::group::Running test $test"
+            set -o pipefail && xcodebuild test-without-building \
+              -scheme LiveKit \
+              -destination 'platform=${{ matrix.platform }}' \
+              -only-testing:LiveKitTests/$test | xcbeautify --renderer github-actions
+            echo "::endgroup::"
+          done
+
+      - name: Build for Release
+        if: ${{ matrix.symbol-graph }}
+        run: |
+          set -o pipefail && xcodebuild build\
+            -scheme LiveKit \
+            -configuration Release \
+            -destination 'platform=${{ matrix.platform }}'  \
+            OTHER_SWIFT_FLAGS="-Xfrontend -emit-symbol-graph\
+                               -Xfrontend -emit-symbol-graph-dir\
+                               -Xfrontend \"${PWD}/symbol-graph\"" \
+            DOCC_EXTRACT_EXTENSION_SYMBOLS=YES | xcbeautify --renderer github-actions
+
+      - name: Upload Symbol Graph
+        if: ${{ matrix.symbol-graph }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: symbol-graph-${{ matrix.platform }}
+          path: symbol-graph
+          retention-days: 1
+  lint:
+    name: Lint
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: SwiftFormat Lint
+        run: swiftformat --lint . --reporter github-actions-log
+        # Comes pre-installed on macOS runners
+  build-docs:
+    name: Build Docs
+    needs: build-and-test
+    if: always()
+    runs-on: macos-15
+    steps:
+      - name: Checkout Documentation Catalog
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: Sources/LiveKit/LiveKit.docc
+
+      - name: Download Symbol Graphs
+        uses: actions/download-artifact@v4
+        with:
+          pattern: symbol-graph-*
+          path: symbol-graphs
+
+      - name: List Symbol Graphs
+        run: cd symbol-graphs && ls -al
+
+      - name: Build Docs
+        run: |
+          $(xcrun --find docc) convert \
+            Sources/LiveKit/LiveKit.docc \
+            --output-dir docs \
+            --additional-symbol-graph-dir symbol-graphs \
+            --transform-for-static-hosting \
+            --hosting-base-path client-sdk-swift/
+
+      - name: Sanitize Ref Name
+        id: sanitize-ref
+        run: echo "ref_name=$(echo ${{ github.ref_name }} | sed 's/\//-/g')" >> $GITHUB_OUTPUT
+
+      - name: Archive
+        run: zip -r docs@${{ steps.sanitize-ref.outputs.ref_name }}.zip docs
+
+      - name: Upload Archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: docs@${{ steps.sanitize-ref.outputs.ref_name }}
+          path: docs@${{ steps.sanitize-ref.outputs.ref_name }}.zip
+          retention-days: 1
