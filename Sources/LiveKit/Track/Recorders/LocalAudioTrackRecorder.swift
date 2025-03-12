@@ -35,7 +35,7 @@ public final class LocalAudioTrackRecorder: NSObject, AudioRenderer {
     private var continuation: Stream.Continuation?
 
     @objc
-    public init(track: LocalAudioTrack, format: AVAudioCommonFormat, sampleRate: Int, maxSize: Int) {
+    public init(track: LocalAudioTrack, format: AVAudioCommonFormat, sampleRate: Int, maxSize: Int = 0) {
         self.track = track
         self.format = format
         self.sampleRate = sampleRate
@@ -55,7 +55,8 @@ public final class LocalAudioTrackRecorder: NSObject, AudioRenderer {
         track.add(audioRenderer: self)
         AudioManager.shared.startLocalRecording()
         continuation?.onTermination = { @Sendable (_: Stream.Continuation.Termination) in
-            AudioManager.shared.stopLocalRecording()
+            // TODO: parametrize?
+//            AudioManager.shared.stopLocalRecording()
             self.track.remove(audioRenderer: self)
             self.continuation = nil
         }
