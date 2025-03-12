@@ -17,9 +17,7 @@
 import Foundation
 
 public extension Room {
-    func startCapturingBeforeConnecting() {
-        Task(priority: .userInitiated) {
-            await preConnectBuffer.startRecording()
-        }
+    func startCapturingBeforeConnecting() async {
+        await preConnectBuffer.startRecording()
     }
 }
