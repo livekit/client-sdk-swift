@@ -33,7 +33,12 @@ public class PreConnectAudioBuffer: NSObject, Loggable {
 
     @objc
     public init(room: Room?,
-                recorder: LocalAudioTrackRecorder = LocalAudioTrackRecorder(track: LocalAudioTrack.createTrack()))
+                recorder: LocalAudioTrackRecorder = LocalAudioTrackRecorder(
+                    track: LocalAudioTrack.createTrack(),
+                    format: .pcmFormatInt16,
+                    sampleRate: 24000,
+                    maxSize: 10_000_000
+                ))
     {
         self.room = room
         self.recorder = recorder
