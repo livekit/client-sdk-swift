@@ -19,12 +19,16 @@ import Foundation
 
 @objc
 public class PreConnectAudioBuffer: NSObject, Loggable {
+    @objc
     public static let attributeKey = "lk.agent.pre-connect-audio"
+    @objc
     public static let dataTopic = "lk.agent.pre-connect-audio-buffer"
 
-    private let room: Room?
+    @objc
+    public let room: Room?
 
-    private let recorder: LocalAudioTrackRecorder
+    @objc
+    public let recorder: LocalAudioTrackRecorder
     private var audioStream: LocalAudioTrackRecorder.Stream?
 
     @objc

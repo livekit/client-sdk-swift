@@ -21,10 +21,14 @@ import Foundation
 public final class LocalAudioTrackRecorder: NSObject, AudioRenderer {
     public typealias Stream = AsyncStream<Data>
 
-    private let track: LocalAudioTrack
-    private let format: AVAudioCommonFormat
-    let sampleRate: Int
-    let channels: Int = 1
+    @objc
+    public let track: LocalAudioTrack
+    @objc
+    public let format: AVAudioCommonFormat
+    @objc
+    public let sampleRate: Int
+    @objc
+    public let channels: Int = 1
 
     private var continuation: Stream.Continuation?
 
