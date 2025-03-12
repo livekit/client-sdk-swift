@@ -93,6 +93,12 @@ public class VideoView: NativeView, Loggable {
         get { _state.rotationOverride }
         set { _state.mutate { $0.rotationOverride = newValue } }
     }
+    
+    /// Updates internal MTKView to use proper contentScaleFactor
+    public var retinaScaleFactor: CGFloat {
+        get { _state.retinaScaleFactor }
+        set { _state.mutate { $0.retinaScaleFactor = newValue } }
+    }
 
     /// Calls addRenderer and/or removeRenderer internally for convenience.
     @objc
@@ -200,6 +206,7 @@ public class VideoView: NativeView, Loggable {
         var mirrorMode: MirrorMode = .auto
         var renderMode: RenderMode = .auto
         var rotationOverride: VideoRotation?
+        var retinaScaleFactor: CGFloat = 1
 
         var isDebugMode: Bool = false
 
@@ -270,6 +277,7 @@ public class VideoView: NativeView, Loggable {
 
             let shouldRenderDidUpdate = newState.shouldRender != oldState.shouldRender
             let renderModeDidUpdate = newState.renderMode != oldState.renderMode
+            let retinaScaleFactorDidUpdate = newState.retinaScaleFactor != oldState.retinaScaleFactor
             let trackDidUpdate = !Self.track(oldState.track as? VideoTrack, isEqualWith: newState.track as? VideoTrack)
 
             if trackDidUpdate || shouldRenderDidUpdate {
@@ -280,7 +288,7 @@ public class VideoView: NativeView, Loggable {
             }
 
             // Enter .main only if UI updates are required
-            if trackDidUpdate || shouldRenderDidUpdate || renderModeDidUpdate {
+            if trackDidUpdate || shouldRenderDidUpdate || renderModeDidUpdate || retinaScaleFactorDidUpdate {
                 self.mainSyncOrAsync {
                     var didReCreateNativeRenderer = false
 
@@ -298,7 +306,7 @@ public class VideoView: NativeView, Loggable {
 
                         // Set up new renderer if needed
                         if let track = newState.track as? VideoTrack, newState.shouldRender {
-                            let nr = self.recreatePrimaryRenderer(for: newState.renderMode)
+                            let nr = self.recreatePrimaryRenderer(for: newState.renderMode, retinaScaleFactor: newState.retinaScaleFactor)
                             didReCreateNativeRenderer = true
 
                             if let frame = track._state.videoFrame {
@@ -309,8 +317,8 @@ public class VideoView: NativeView, Loggable {
                         }
                     }
 
-                    if renderModeDidUpdate, !didReCreateNativeRenderer {
-                        self.recreatePrimaryRenderer(for: newState.renderMode)
+                    if (renderModeDidUpdate || retinaScaleFactorDidUpdate), !didReCreateNativeRenderer {
+                        self.recreatePrimaryRenderer(for: newState.renderMode, retinaScaleFactor: newState.retinaScaleFactor)
                     }
                 }
             }
@@ -526,11 +534,11 @@ private extension VideoView {
     }
 
     @discardableResult
-    func recreatePrimaryRenderer(for renderMode: VideoView.RenderMode) -> NativeRendererView {
+    func recreatePrimaryRenderer(for renderMode: VideoView.RenderMode, retinaScaleFactor: CGFloat) -> NativeRendererView {
         if !Thread.current.isMainThread { log("Must be called on main thread", .error) }
 
         // create a new rendererView
-        let newView = VideoView.createNativeRendererView(for: renderMode)
+        let newView = VideoView.createNativeRendererView(for: renderMode, retinaScaleFactor: retinaScaleFactor)
         addSubview(newView)
 
         // keep the old rendererView
@@ -561,7 +569,7 @@ private extension VideoView {
         guard let _primaryRenderer else { return nil }
 
         // Create renderer blow primary
-        let newView = VideoView.createNativeRendererView(for: _state.renderMode)
+        let newView = VideoView.createNativeRendererView(for: _state.renderMode, retinaScaleFactor: _state.retinaScaleFactor)
         insertSubview(newView, belowSubview: _primaryRenderer)
 
         // Copy frame from primary renderer
@@ -754,7 +762,7 @@ extension VideoView {
         #endif
     }
 
-    static func createNativeRendererView(for renderMode: VideoView.RenderMode) -> NativeRendererView {
+    static func createNativeRendererView(for renderMode: VideoView.RenderMode, retinaScaleFactor: CGFloat) -> NativeRendererView {
         #if os(iOS) || os(macOS)
         if case .sampleBuffer = renderMode {
             logger.log("Using AVSampleBufferDisplayLayer for VideoView's Renderer", type: VideoView.self)
@@ -779,6 +787,7 @@ extension VideoView {
                 // https://developer.apple.com/documentation/metalkit/mtkview/1536027-preferredframespersecond
                 logger.log("preferredFramesPerSecond = 60", type: VideoView.self)
                 mtkView.preferredFramesPerSecond = 60
+                mtkView.contentScaleFactor = retinaScaleFactor
             }
 
             return result
