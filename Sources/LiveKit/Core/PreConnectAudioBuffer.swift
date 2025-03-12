@@ -109,11 +109,7 @@ extension PreConnectAudioBuffer: RoomDelegate {
             ]
         )
         let writer = try await room.localParticipant.streamBytes(options: streamOptions)
-
-        for await chunk in audioStream {
-            try await writer.write(chunk)
-        }
-
+        try await writer.write(audioStream.collect())
         try await writer.close()
         log("Sent audio data", .info)
     }
