@@ -24,6 +24,7 @@ public final class LocalAudioTrackRecorder: NSObject, AudioRenderer {
     private let track: LocalAudioTrack
     private let format: AVAudioCommonFormat
     let sampleRate: Int
+    let channels: Int = 1
 
     private var continuation: Stream.Continuation?
 
@@ -36,7 +37,9 @@ public final class LocalAudioTrackRecorder: NSObject, AudioRenderer {
         AudioManager.shared.initRecording()
     }
 
-    public func start(maxSize: Int = 0) -> Stream {
+    public func start(maxSize: Int = 0) -> Stream? {
+        guard continuation == nil else { return nil }
+
         let buffer: Stream.Continuation.BufferingPolicy = maxSize > 0 ? .bufferingNewest(maxSize) : .unbounded
         let stream = Stream(bufferingPolicy: buffer) { continuation in
             self.continuation = continuation
@@ -47,6 +50,7 @@ public final class LocalAudioTrackRecorder: NSObject, AudioRenderer {
         continuation?.onTermination = { @Sendable (_: Stream.Continuation.Termination) in
             AudioManager.shared.stopLocalRecording()
             self.track.remove(audioRenderer: self)
+            self.continuation = nil
         }
 
         return stream
@@ -56,10 +60,14 @@ public final class LocalAudioTrackRecorder: NSObject, AudioRenderer {
     public func stop() {
         continuation?.finish()
     }
+}
 
-    public func render(pcmBuffer: AVAudioPCMBuffer) {
+// MARK: - AudioRenderer
+
+public extension LocalAudioTrackRecorder {
+    func render(pcmBuffer: AVAudioPCMBuffer) {
         if let data = pcmBuffer
-            .resample(toSampleRate: 24000)?
+            .resample(toSampleRate: Double(sampleRate))?
             .convert(toCommonFormat: format)?
             .toData()
         {
@@ -74,8 +82,9 @@ public extension LocalAudioTrackRecorder {
     @objc
     @available(*, deprecated, message: "Use for/await instead.")
     func start(maxSize: Int = 0, onData: @escaping (Data) -> Void, onCompletion: @escaping () -> Void) {
+        guard let stream = start(maxSize: maxSize) else { return }
         Task {
-            for try await data in start(maxSize: maxSize) {
+            for try await data in stream {
                 onData(data)
             }
             onCompletion()
