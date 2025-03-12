@@ -20,7 +20,7 @@ import Foundation
 @objc
 public class PreConnectAudioBuffer: NSObject, Loggable {
     public static let attributeKey = "lk.agent.pre-connect-audio"
-    public static let dataTopic = "lk.pre-connect-audio-buffer"
+    public static let dataTopic = "lk.agent.pre-connect-audio-buffer"
 
     private let room: Room
     private let autoSend: Bool
@@ -65,10 +65,20 @@ public class PreConnectAudioBuffer: NSObject, Loggable {
 
     private func sendAudioData() async throws {
         guard let audioStream else { return }
-        let writer = try await room.localParticipant.streamBytes(for: Self.dataTopic)
+
+        let streamOptions = StreamByteOptions(
+            topic: Self.dataTopic,
+            attributes: [
+                "sampleRate": "\(recorder?.sampleRate ?? 0)",
+                "channels": "\(1)",
+            ]
+        )
+        let writer = try await room.localParticipant.streamBytes(options: streamOptions)
+
         for await chunk in audioStream {
             try await writer.write(chunk)
         }
+
         try await writer.close()
         log("Sent audio data", .info)
     }

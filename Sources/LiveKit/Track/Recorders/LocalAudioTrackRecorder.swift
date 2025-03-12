@@ -23,13 +23,15 @@ public final class LocalAudioTrackRecorder: NSObject, AudioRenderer {
 
     private let track: LocalAudioTrack
     private let format: AVAudioCommonFormat
+    let sampleRate: Int
 
     private var continuation: Stream.Continuation?
 
     @objc
-    public init(track: LocalAudioTrack, format: AVAudioCommonFormat = .pcmFormatInt16) {
+    public init(track: LocalAudioTrack, format: AVAudioCommonFormat = .pcmFormatInt16, sampleRate: Int = 24000) {
         self.track = track
         self.format = format
+        self.sampleRate = sampleRate
 
         AudioManager.shared.initRecording()
     }
@@ -57,6 +59,7 @@ public final class LocalAudioTrackRecorder: NSObject, AudioRenderer {
 
     public func render(pcmBuffer: AVAudioPCMBuffer) {
         if let data = pcmBuffer
+            .resample(toSampleRate: 24000)?
             .convert(toCommonFormat: format)?
             .toData()
         {
