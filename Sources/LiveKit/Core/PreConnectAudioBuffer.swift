@@ -22,55 +22,72 @@ public class PreConnectAudioBuffer: NSObject, Loggable {
     public static let attributeKey = "lk.agent.pre-connect-audio"
     public static let dataTopic = "lk.agent.pre-connect-audio-buffer"
 
-    private let room: Room
-    private let autoSend: Bool
+    private let room: Room?
 
-    private var recorder: LocalAudioTrackRecorder?
+    private let recorder: LocalAudioTrackRecorder
     private var audioStream: LocalAudioTrackRecorder.Stream?
 
     @objc
-    public init(room: Room, autoSend: Bool = true) {
+    public init(room: Room?,
+                recorder: LocalAudioTrackRecorder = LocalAudioTrackRecorder(track: LocalAudioTrack.createTrack()))
+    {
         self.room = room
-        self.autoSend = autoSend
+        self.recorder = recorder
         super.init()
-        room.add(delegate: self)
+        room?.add(delegate: self)
     }
 
     deinit {
         stopRecording()
-        room.remove(delegate: self)
+        room?.remove(delegate: self)
     }
 
     @objc
     public func startRecording() {
-        let audioTrack = LocalAudioTrack.createTrack()
-        recorder = LocalAudioTrackRecorder(track: audioTrack)
-        audioStream = recorder?.start()
+        audioStream = recorder.start()
         log("Started capturing audio", .info)
     }
 
     @objc
     public func stopRecording() {
-        recorder?.stop()
+        recorder.stop()
         log("Stopped capturing audio", .info)
+    }
+}
+
+// MARK: - RoomDelegate
+
+extension PreConnectAudioBuffer: RoomDelegate {
+    public func roomDidConnect(_ room: Room) {
+        Task {
+            try? await setParticipantAttribute(room: room)
+        }
+    }
+
+    public func room(_ room: Room, participant _: LocalParticipant, remoteDidSubscribeTrack _: LocalTrackPublication) {
+        stopRecording()
+        Task {
+            try? await sendAudioData(to: room)
+        }
     }
 
     @objc
-    public func setParticipantAttribute() async throws {
+    public func setParticipantAttribute(room: Room) async throws {
         var attributes = room.localParticipant.attributes
-        attributes[PreConnectAudioBuffer.attributeKey] = "true"
+        attributes[Self.attributeKey] = "true"
         try await room.localParticipant.set(attributes: attributes)
         log("Set participant attribute", .info)
     }
 
-    private func sendAudioData() async throws {
+    @objc
+    public func sendAudioData(to room: Room, on topic: String = dataTopic) async throws {
         guard let audioStream else { return }
 
         let streamOptions = StreamByteOptions(
-            topic: Self.dataTopic,
+            topic: topic,
             attributes: [
-                "sampleRate": "\(recorder?.sampleRate ?? 0)",
-                "channels": "\(1)",
+                "sampleRate": "\(recorder.sampleRate)",
+                "channels": "\(recorder.channels)",
             ]
         )
         let writer = try await room.localParticipant.streamBytes(options: streamOptions)
@@ -81,44 +98,5 @@ public class PreConnectAudioBuffer: NSObject, Loggable {
 
         try await writer.close()
         log("Sent audio data", .info)
-    }
-}
-
-// MARK: - RoomDelegate
-
-extension PreConnectAudioBuffer: RoomDelegate {
-    public func roomDidConnect(_: Room) {
-        Task {
-            try? await setParticipantAttribute()
-        }
-    }
-
-    public func room(_: Room, participant _: LocalParticipant, remoteDidSubscribeTrack _: LocalTrackPublication) {
-        Task {
-            stopRecording()
-            if autoSend {
-                try? await sendAudioData()
-            }
-        }
-    }
-}
-
-// MARK: - Convenience
-
-public extension Room {
-    func connectWithPreConnectAudioBuffer(
-        url: String,
-        token: String,
-        connectOptions: ConnectOptions? = nil,
-        roomOptions: RoomOptions? = nil
-    ) async throws {
-//        preConnectBuffer.startRecording()
-
-        do {
-            try await connect(url: url, token: token, connectOptions: connectOptions, roomOptions: roomOptions)
-        } catch {
-            preConnectBuffer.stopRecording()
-            throw error
-        }
     }
 }

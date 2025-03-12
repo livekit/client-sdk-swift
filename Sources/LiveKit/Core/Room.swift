@@ -118,7 +118,7 @@ public class Room: NSObject, ObservableObject, Loggable {
 
     // MARK: - PreConnect
 
-    public lazy var preConnectBuffer = PreConnectAudioBuffer(room: self)
+    lazy var preConnectBuffer = PreConnectAudioBuffer(room: self)
 
     // MARK: - Queue
 
@@ -399,6 +399,10 @@ extension Room {
         // Cleanup for E2EE
         if let e2eeManager {
             e2eeManager.cleanUp()
+        }
+
+        if disconnectError != nil {
+            preConnectBuffer.stopRecording()
         }
 
         // Reset state
