@@ -17,6 +17,15 @@
 import Foundation
 import XCTest
 
+func XCTAssertThrowsErrorAsync(_ expression: @autoclosure () async throws -> some Any) async {
+    do {
+        _ = try await expression()
+        XCTFail("No error was thrown.")
+    } catch {
+        // Pass
+    }
+}
+
 // Support iOS 13
 public extension URLSession {
     func downloadBackport(from url: URL) async throws -> (URL, URLResponse) {
@@ -41,7 +50,7 @@ public extension URLSession {
 
 // Support for Xcode 14.2
 #if !compiler(>=5.8)
-extension LKTestCase {
+extension XCTestCase {
     func fulfillment(of expectations: [XCTestExpectation], timeout: TimeInterval, enforceOrder: Bool = false) async {
         await withCheckedContinuation { continuation in
             // This function operates by blocking a background thread instead of one owned by libdispatch or by the

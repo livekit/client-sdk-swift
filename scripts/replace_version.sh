@@ -19,7 +19,6 @@ replace() {
 # -----------------------------------------
 replace ./LiveKitClient.podspec <<EOF
 ,s/spec.version = "[^"]*"/spec.version = "${VERSION}"/g
-,s/:tag => "[^"]*"/:tag => "${VERSION}"/g
 w
 q
 EOF
