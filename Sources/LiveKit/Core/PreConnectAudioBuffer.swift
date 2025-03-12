@@ -18,7 +18,7 @@ import AVFAudio
 import Foundation
 
 @objc
-public class PreConnectAudioBuffer: NSObject, Loggable {
+public final class PreConnectAudioBuffer: NSObject, Loggable {
     @objc
     public static let attributeKey = "lk.agent.pre-connect-audio"
     @objc
@@ -29,7 +29,11 @@ public class PreConnectAudioBuffer: NSObject, Loggable {
 
     @objc
     public let recorder: LocalAudioTrackRecorder
-    private var audioStream: LocalAudioTrackRecorder.Stream?
+
+    private let state = StateSync<State>(State())
+    private struct State {
+        var audioStream: LocalAudioTrackRecorder.Stream?
+    }
 
     @objc
     public init(room: Room?,
@@ -52,9 +56,12 @@ public class PreConnectAudioBuffer: NSObject, Loggable {
     }
 
     @objc
-    public func startRecording() {
-        audioStream = recorder.start()
+    public func startRecording() async {
+        let stream = recorder.start()
         log("Started capturing audio", .info)
+        state.mutate { state in
+            state.audioStream = stream
+        }
     }
 
     @objc
@@ -90,7 +97,9 @@ extension PreConnectAudioBuffer: RoomDelegate {
 
     @objc
     public func sendAudioData(to room: Room, on topic: String = dataTopic) async throws {
-        guard let audioStream else { return }
+        guard let audioStream = state.audioStream else {
+            throw LiveKitError(.invalidState, message: "Audio stream is nil")
+        }
 
         let streamOptions = StreamByteOptions(
             topic: topic,
