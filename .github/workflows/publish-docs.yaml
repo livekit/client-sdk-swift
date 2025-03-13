@@ -1,25 +1,28 @@
 name: Publish Docs
-
 on:
   workflow_dispatch:
-  push:
-    tags:
-      - "*"
-
+  release:
+    types: [published]
 jobs:
   publish:
-    runs-on: macos-latest
-
+    name: Publish Docs
+    runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - name: Sanitize Ref Name
+        id: sanitize-ref
+        run: echo "ref_name=$(echo ${{ github.ref_name }} | sed 's/\//-/g')" >> $GITHUB_OUTPUT
 
-      - name: Build DocC
-        run: |
-          swift package --allow-writing-to-directory ./docs generate-documentation \
-          --target LiveKit \
-          --output-path ./docs \
-          --transform-for-static-hosting \
-          --hosting-base-path client-sdk-swift/
+      - name: Download Archive
+        uses: dawidd6/action-download-artifact@v9
+        with:
+          workflow: ci.yaml
+          workflow_search: false
+          workflow_conclusion: success
+          branch: main
+          name: docs@${{ steps.sanitize-ref.outputs.ref_name }}
+
+      - name: Unzip Archive
+        run: unzip docs@${{ steps.sanitize-ref.outputs.ref_name }}.zip
 
       - name: S3 Upload
         run: aws s3 cp docs/ s3://livekit-docs/client-sdk-swift --recursive
