@@ -96,12 +96,9 @@ public class CameraCapturer: VideoCapturer {
     // RTCCameraVideoCapturer used internally for now
     private lazy var capturer: LKRTCCameraVideoCapturer = .init(delegate: adapter)
 
-    init(delegate: LKRTCVideoCapturerDelegate,
-         options: CameraCaptureOptions,
-         processor: VideoProcessor? = nil)
-    {
+    init(delegate: LKRTCVideoCapturerDelegate, options: CameraCaptureOptions) {
         _cameraCapturerState = StateSync(State(options: options))
-        super.init(delegate: delegate, processor: processor)
+        super.init(delegate: delegate)
 
         log("isMultitaskingAccessSupported: \(isMultitaskingAccessSupported)", .info)
     }
@@ -296,13 +293,10 @@ public extension LocalVideoTrack {
     @objc
     static func createCameraTrack(name: String? = nil,
                                   options: CameraCaptureOptions? = nil,
-                                  reportStatistics: Bool = false,
-                                  processor: VideoProcessor? = nil) -> LocalVideoTrack
+                                  reportStatistics: Bool = false) -> LocalVideoTrack
     {
         let videoSource = RTC.createVideoSource(forScreenShare: false)
-        let capturer = CameraCapturer(delegate: videoSource,
-                                      options: options ?? CameraCaptureOptions(),
-                                      processor: processor)
+        let capturer = CameraCapturer(delegate: videoSource, options: options ?? CameraCaptureOptions())
         return LocalVideoTrack(name: name ?? Track.cameraName,
                                source: .camera,
                                capturer: capturer,

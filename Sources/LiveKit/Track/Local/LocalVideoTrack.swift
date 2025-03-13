@@ -82,12 +82,6 @@ extension LocalVideoTrack: VideoTrack {
 public extension LocalVideoTrack {
     var publishOptions: TrackPublishOptions? { super._state.lastPublishOptions }
     var publishState: Track.PublishState { super._state.publishState }
-
-    /// Convenience access to ``VideoCapturer/processor``.
-    var processor: VideoProcessor? {
-        get { capturer._state.processor }
-        set { capturer._state.mutate { $0.processor = newValue } }
-    }
 }
 
 public extension LocalVideoTrack {
