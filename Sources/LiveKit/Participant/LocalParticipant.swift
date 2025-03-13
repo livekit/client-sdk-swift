@@ -457,10 +457,10 @@ extension LocalParticipant {
         let sender = transceiver.sender
 
         // Request a new track to the server
-        let addTrackResult = try await room.signalClient.sendAddTrack(cid: sender.senderId,
-                                                                      name: track.name,
-                                                                      type: track.kind.toPBType(),
-                                                                      source: track.source.toPBType())
+        let trackInfo = try await room.signalClient.sendAddTrack(cid: sender.senderId,
+                                                                 name: track.name,
+                                                                 type: track.kind.toPBType(),
+                                                                 source: track.source.toPBType())
         {
             $0.sid = localTrackPublication.sid.stringValue
             $0.simulcastCodecs = [
@@ -473,7 +473,7 @@ extension LocalParticipant {
             $0.layers = dimensions.videoLayers(for: encodings)
         }
 
-        log("[Publish] server responded trackInfo: \(addTrackResult.trackInfo)")
+        log("[Publish] server responded trackInfo: \(trackInfo)")
 
         sender._set(subscribedQualities: subscribedCodec.qualities)
 
@@ -523,37 +523,33 @@ private extension LocalParticipant {
 
         do {
             var dimensions: Dimensions? // Only for Video
+            var publishName: String? = nil
+
+            var sendEncodings: [LKRTCRtpEncodingParameters]?
+            var populatorFunc: SignalClient.AddTrackRequestPopulator?
 
             if let track = track as? LocalVideoTrack {
                 // Wait for Dimensions...
                 log("[Publish] Waiting for dimensions to resolve...")
                 dimensions = try await track.capturer.dimensionsCompleter.wait()
-            }
 
-            var publishName: String? = nil
+                guard let dimensions else {
+                    throw LiveKitError(.capturerDimensionsNotResolved, message: "VideoCapturer dimensions are not resolved")
+                }
 
-            let populatorFunc: SignalClient.AddTrackRequestPopulator<LKRTCRtpTransceiverInit> = { populator in
+                log("[publish] computing encode settings with dimensions: \(dimensions)...")
 
-                let transInit = DispatchQueue.liveKitWebRTC.sync { LKRTCRtpTransceiverInit() }
-                transInit.direction = .sendOnly
+                let videoPublishOptions = (options as? VideoPublishOptions) ?? room._state.roomOptions.defaultVideoPublishOptions
+                publishName = videoPublishOptions.name
 
-                if let track = track as? LocalVideoTrack {
-                    guard let dimensions else {
-                        throw LiveKitError(.capturerDimensionsNotResolved, message: "VideoCapturer dimensions are not resolved")
-                    }
+                let encodings = Utils.computeVideoEncodings(dimensions: dimensions,
+                                                            publishOptions: videoPublishOptions,
+                                                            isScreenShare: track.source == .screenShareVideo)
 
-                    self.log("[publish] computing encode settings with dimensions: \(dimensions)...")
+                log("[publish] Using encodings: \(encodings.map { $0.toDebugString() }.joined(separator: ", "))")
+                sendEncodings = encodings
 
-                    let publishOptions = (options as? VideoPublishOptions) ?? room._state.roomOptions.defaultVideoPublishOptions
-                    publishName = publishOptions.name
-
-                    let encodings = Utils.computeVideoEncodings(dimensions: dimensions,
-                                                                publishOptions: publishOptions,
-                                                                isScreenShare: track.source == .screenShareVideo)
-
-                    self.log("[publish] Using encodings: \(encodings.map { $0.toDebugString() }.joined(separator: ", "))")
-                    transInit.sendEncodings = encodings
-
+                populatorFunc = { populator in
                     let videoLayers = dimensions.videoLayers(for: encodings)
 
                     self.log("[publish] using layers: \(videoLayers.map { String(describing: $0) }.joined(separator: ", "))")
@@ -562,13 +558,13 @@ private extension LocalParticipant {
                         // Always add first codec...
                         Livekit_SimulcastCodec.with {
                             $0.cid = track.mediaTrack.trackId
-                            if let preferredCodec = publishOptions.preferredCodec {
+                            if let preferredCodec = videoPublishOptions.preferredCodec {
                                 $0.codec = preferredCodec.name
                             }
                         },
                     ]
 
-                    if let backupCodec = publishOptions.preferredBackupCodec {
+                    if let backupCodec = videoPublishOptions.preferredBackupCodec {
                         // Add backup codec to simulcast codecs...
                         let lkSimulcastCodec = Livekit_SimulcastCodec.with {
                             $0.cid = ""
@@ -582,63 +578,61 @@ private extension LocalParticipant {
                     populator.layers = videoLayers
                     populator.simulcastCodecs = simulcastCodecs
 
+                    if let streamName = options?.streamName {
+                        // Set stream name if specified in options
+                        populator.stream = streamName
+                    }
+
                     self.log("[publish] requesting add track to server with \(populator)...")
-
-                } else if track is LocalAudioTrack {
-                    // additional params for Audio
-                    let publishOptions = (options as? AudioPublishOptions) ?? room._state.roomOptions.defaultAudioPublishOptions
-                    publishName = publishOptions.name
-
-                    populator.disableDtx = !publishOptions.dtx
-
-                    let encoding = publishOptions.encoding ?? AudioEncoding.presetMusic
-
-                    self.log("[publish] maxBitrate: \(encoding.maxBitrate)")
-
-                    transInit.sendEncodings = [
-                        RTC.createRtpEncodingParameters(encoding: encoding),
-                    ]
                 }
+            } else if track is LocalAudioTrack {
+                // additional params for Audio
+                let audioPublishOptions = (options as? AudioPublishOptions) ?? room._state.roomOptions.defaultAudioPublishOptions
+                publishName = audioPublishOptions.name
 
-                if let streamName = options?.streamName {
-                    // Set stream name if specified in options
-                    populator.stream = streamName
+                let encoding = audioPublishOptions.encoding ?? AudioEncoding.presetMusic
+
+                log("[publish] maxBitrate: \(encoding.maxBitrate)")
+
+                sendEncodings = [
+                    RTC.createRtpEncodingParameters(encoding: encoding),
+                ]
+
+                populatorFunc = { populator in
+                    populator.disableDtx = !audioPublishOptions.dtx
+
+                    if let streamName = options?.streamName {
+                        // Set stream name if specified in options
+                        populator.stream = streamName
+                    }
                 }
-
-                return transInit
             }
 
+            guard let sendEncodings, let populatorFunc else { throw LiveKitError(.invalidState) }
+
+            let addTrackName = publishName ?? track.name
             // Request a new track to the server
-            let addTrackResult = try await room.signalClient.sendAddTrack(cid: track.mediaTrack.trackId,
-                                                                          name: publishName ?? track.name,
-                                                                          type: track.kind.toPBType(),
-                                                                          source: track.source.toPBType(),
-                                                                          encryption: room.e2eeManager?.e2eeOptions.encryptionType.toPBType() ?? .none,
-                                                                          populatorFunc)
+            let addTrackFunc: () async throws -> Livekit_TrackInfo = {
+                try await room.signalClient.sendAddTrack(cid: track.mediaTrack.trackId,
+                                                         name: addTrackName,
+                                                         type: track.kind.toPBType(),
+                                                         source: track.source.toPBType(),
+                                                         encryption: room.e2eeManager?.e2eeOptions.encryptionType.toPBType() ?? .none,
+                                                         populatorFunc)
+            }
 
-            log("[Publish] server responded trackInfo: \(addTrackResult.trackInfo)")
+            let negotiateFunc: () async throws -> Void = {
+                let transInit = DispatchQueue.liveKitWebRTC.sync { LKRTCRtpTransceiverInit() }
+                transInit.direction = .sendOnly
+                transInit.sendEncodings = sendEncodings
 
-            // Add transceiver to pc
-            let transceiver = try await publisher.addTransceiver(with: track.mediaTrack, transceiverInit: addTrackResult.result)
-            log("[Publish] Added transceiver: \(addTrackResult.trackInfo)...")
-
-            do {
-                try await track.onPublish()
-
-                // Store publishOptions used for this track...
-                track._state.mutate { $0.lastPublishOptions = options }
+                // Add transceiver to pc
+                let transceiver = try await publisher.addTransceiver(with: track.mediaTrack, transceiverInit: transInit)
 
                 // Attach sender to track...
                 await track.set(transport: publisher, rtpSender: transceiver.sender)
 
                 if track is LocalVideoTrack {
-                    if let firstCodecMime = addTrackResult.trackInfo.codecs.first?.mimeType,
-                       let firstVideoCodec = VideoCodec.from(mimeType: firstCodecMime)
-                    {
-                        log("[Publish] First video codec: \(firstVideoCodec)")
-                        track._state.mutate { $0.videoCodec = firstVideoCodec }
-                    }
-
                     let publishOptions = (options as? VideoPublishOptions) ?? room._state.roomOptions.defaultVideoPublishOptions
 
                     let setDegradationPreference: NSNumber? = {
@@ -651,7 +645,7 @@ private extension LocalParticipant {
                     }()
 
                     if let setDegradationPreference {
-                        log("[publish] set degradationPreference to \(setDegradationPreference)")
+                        self.log("[publish] set degradationPreference to \(setDegradationPreference)")
                         let params = transceiver.sender.parameters
                         params.degradationPreference = setDegradationPreference
                         // Changing params directly doesn't work so we need to update params and set it back to sender.parameters
@@ -664,20 +658,43 @@ private extension LocalParticipant {
                 }
 
                 try await room.publisherShouldNegotiate()
-                try Task.checkCancellation()
-
-            } catch {
-                // Rollback
-                await track.set(transport: nil, rtpSender: nil)
-                try await publisher.remove(track: transceiver.sender)
-                // Rethrow
-                throw error
             }
 
-            let publication = LocalTrackPublication(info: addTrackResult.trackInfo, participant: self)
+            let fastPublishMode = !_internalState.enabledPublishVideoCodecs.isEmpty
+
+            let trackInfo = try await {
+                log("[publish] Fast publish mode: \(fastPublishMode ? "true" : "false")")
+
+                if fastPublishMode {
+                    // Concurrent
+                    async let trackInfoPromise = addTrackFunc()
+                    async let negotiatePromise: () = negotiateFunc()
+                    let (trackInfo, _) = try await (trackInfoPromise, negotiatePromise)
+                    return trackInfo
+                } else {
+                    // Sequential
+                    let trackInfoPromise = try await addTrackFunc()
+                    try await negotiateFunc()
+                    return trackInfoPromise
+                }
+            }()
+
+            if track is LocalVideoTrack {
+                if let firstCodecMime = trackInfo.codecs.first?.mimeType,
+                   let firstVideoCodec = VideoCodec.from(mimeType: firstCodecMime)
+                {
+                    log("[Publish] First video codec: \(firstVideoCodec)")
+                    track._state.mutate { $0.videoCodec = firstVideoCodec }
+                }
+            }
+
+            let publication = LocalTrackPublication(info: trackInfo, participant: self)
             await publication.set(track: track)
 
             add(publication: publication)
+
+            // Store publishOptions used for this track...
+            track._state.mutate { $0.lastPublishOptions = options }
 
             // Notify didPublish
             delegates.notify(label: { "localParticipant.didPublish \(publication)" }) {
