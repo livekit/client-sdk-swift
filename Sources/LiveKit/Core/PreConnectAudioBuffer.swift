@@ -47,7 +47,6 @@ public final class PreConnectAudioBuffer: NSObject, Loggable {
         self.room = room
         self.recorder = recorder
         super.init()
-        room?.add(delegate: self)
     }
 
     deinit {
@@ -57,6 +56,8 @@ public final class PreConnectAudioBuffer: NSObject, Loggable {
 
     @objc
     public func startRecording() async {
+        room?.add(delegate: self)
+
         let stream = await recorder.start()
         log("Started capturing audio", .info)
         state.mutate { state in
@@ -112,5 +113,7 @@ extension PreConnectAudioBuffer: RoomDelegate {
         try await writer.write(audioStream.collect())
         try await writer.close()
         log("Sent audio data", .info)
+
+        room.remove(delegate: self)
     }
 }
