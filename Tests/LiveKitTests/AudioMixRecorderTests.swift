@@ -58,5 +58,14 @@ final class AudioMixRecorderTests: XCTestCase {
         // Record for 5 seconds...
         try? await Task.sleep(nanoseconds: 5 * 1_000_000_000)
         recorder.stop()
+
+        // Play the recorded file...
+        let player = try AVAudioPlayer(contentsOf: recordFilePath)
+        player.prepareToPlay()
+        print("Playing audio file, duration: \(player.duration) seconds...")
+        XCTAssertTrue(player.play(), "Failed to start audio playback")
+        while player.isPlaying {
+            try? await Task.sleep(nanoseconds: 1 * 100_000_000) // 10ms
+        }
     }
 }
