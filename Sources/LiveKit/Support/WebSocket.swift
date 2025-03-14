@@ -22,8 +22,12 @@ class WebSocket: NSObject, Loggable, AsyncSequence, URLSessionWebSocketDelegate 
     typealias AsyncIterator = WebSocketStream.Iterator
     typealias Element = URLSessionWebSocketTask.Message
 
-    private var streamContinuation: WebSocketStream.Continuation?
-    private var connectContinuation: CheckedContinuation<Void, Error>?
+    private let _state = StateSync(State())
+
+    private struct State {
+        var streamContinuation: WebSocketStream.Continuation?
+        var connectContinuation: CheckedContinuation<Void, Error>?
+    }
 
     private let request: URLRequest
 
@@ -44,7 +48,9 @@ class WebSocket: NSObject, Loggable, AsyncSequence, URLSessionWebSocketDelegate 
     private lazy var task: URLSessionWebSocketTask = urlSession.webSocketTask(with: request)
 
     private lazy var stream: WebSocketStream = WebSocketStream { continuation in
-        streamContinuation = continuation
+        _state.mutate { state in
+            state.streamContinuation = continuation
+        }
         waitForNextValue()
     }
 
@@ -55,7 +61,9 @@ class WebSocket: NSObject, Loggable, AsyncSequence, URLSessionWebSocketDelegate 
         super.init()
         try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { continuation in
-                connectContinuation = continuation
+                _state.mutate { state in
+                    state.connectContinuation = continuation
+                }
                 task.resume()
             }
         } onCancel: {
@@ -70,10 +78,13 @@ class WebSocket: NSObject, Loggable, AsyncSequence, URLSessionWebSocketDelegate 
 
     func close() {
         task.cancel(with: .normalClosure, reason: nil)
-        connectContinuation?.resume(throwing: LiveKitError(.cancelled))
-        connectContinuation = nil
-        streamContinuation?.finish(throwing: LiveKitError(.cancelled))
-        streamContinuation = nil
+
+        _state.mutate { state in
+            state.connectContinuation?.resume(throwing: LiveKitError(.cancelled))
+            state.connectContinuation = nil
+            state.streamContinuation?.finish(throwing: LiveKitError(.cancelled))
+            state.streamContinuation = nil
+        }
     }
 
     // MARK: - AsyncSequence
@@ -84,23 +95,27 @@ class WebSocket: NSObject, Loggable, AsyncSequence, URLSessionWebSocketDelegate 
 
     private func waitForNextValue() {
         guard task.closeCode == .invalid else {
-            streamContinuation?.finish(throwing: LiveKitError(.invalidState))
-            streamContinuation = nil
+            _state.mutate { state in
+                state.streamContinuation?.finish(throwing: LiveKitError(.invalidState))
+                state.streamContinuation = nil
+            }
             return
         }
 
         task.receive(completionHandler: { [weak self] result in
-            guard let continuation = self?.streamContinuation else {
+            guard let self, let continuation = self._state.streamContinuation else {
                 return
             }
 
             do {
                 let message = try result.get()
                 continuation.yield(message)
-                self?.waitForNextValue()
+                self.waitForNextValue()
             } catch {
-                continuation.finish(throwing: LiveKitError.from(error: error))
-                self?.streamContinuation = nil
+                self._state.mutate { state in
+                    state.streamContinuation?.finish(throwing: LiveKitError.from(error: error))
+                    state.streamContinuation = nil
+                }
             }
         })
     }
@@ -115,23 +130,27 @@ class WebSocket: NSObject, Loggable, AsyncSequence, URLSessionWebSocketDelegate 
     // MARK: - URLSessionWebSocketDelegate
 
     func urlSession(_: URLSession, webSocketTask _: URLSessionWebSocketTask, didOpenWithProtocol _: String?) {
-        connectContinuation?.resume()
-        connectContinuation = nil
+        _state.mutate { state in
+            state.connectContinuation?.resume()
+            state.connectContinuation = nil
+        }
     }
 
     func urlSession(_: URLSession, task _: URLSessionTask, didCompleteWithError error: Error?) {
         log("didCompleteWithError: \(String(describing: error))", error != nil ? .error : .debug)
 
-        if let error {
-            let lkError = LiveKitError.from(error: error) ?? LiveKitError(.unknown)
-            connectContinuation?.resume(throwing: lkError)
-            streamContinuation?.finish(throwing: lkError)
-        } else {
-            connectContinuation?.resume()
-            streamContinuation?.finish()
-        }
+        _state.mutate { state in
+            if let error {
+                let lkError = LiveKitError.from(error: error) ?? LiveKitError(.unknown)
+                state.connectContinuation?.resume(throwing: lkError)
+                state.streamContinuation?.finish(throwing: lkError)
+            } else {
+                state.connectContinuation?.resume()
+                state.streamContinuation?.finish()
+            }
 
-        connectContinuation = nil
-        streamContinuation = nil
+            state.connectContinuation = nil
+            state.streamContinuation = nil
+        }
     }
 }
