@@ -590,6 +590,7 @@ private extension LocalParticipant {
                     publishName = publishOptions.name
 
                     populator.disableDtx = !publishOptions.dtx
+                    populator.disableRed = !publishOptions.red
 
                     let encoding = publishOptions.encoding ?? AudioEncoding.presetMusic
 
