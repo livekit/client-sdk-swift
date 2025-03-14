@@ -71,13 +71,19 @@ public class AudioMixingSource: AudioRenderer {
 }
 
 public class AudioMixRecorder: Loggable {
-    // MARK: - Properties
+    // MARK: - Public
+
+    public var isRecording: Bool {
+        audioEngine.isRunning
+    }
+
+    // MARK: - Private
 
     struct State {
         var sources: [AudioMixingSource] = []
     }
 
-    let _state = StateSync(State())
+    private let _state = StateSync(State())
 
     private let maxFrameCount: Int
 
