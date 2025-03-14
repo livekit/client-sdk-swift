@@ -20,6 +20,17 @@ import XCTest
 
 final class AudioMixRecorderTests: XCTestCase {
     func testRecord() async throws {
+        // Cached audio settings for file creation
+        let audioSettings: [String: Any] = [
+            AVFormatIDKey: kAudioFormatMPEG4AAC,
+            AVSampleRateKey: 16000,
+            AVNumberOfChannelsKey: 1,
+            AVLinearPCMBitDepthKey: 32,
+            AVLinearPCMIsFloatKey: true,
+            AVLinearPCMIsNonInterleaved: false,
+            AVLinearPCMIsBigEndianKey: false,
+        ]
+
         // Sample audio 1
         let audio1Url = URL(string: "https://github.com/audio-samples/audio-samples.github.io/raw/refs/heads/master/samples/mp3/music/sample-3.mp3")!
         print("Downloading sample audio from \(audio1Url)...")
@@ -38,22 +49,19 @@ final class AudioMixRecorderTests: XCTestCase {
         let recordFilePath = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent(recordFileName)
         print("Recording to \(recordFilePath)...")
 
-        let format = AVAudioFormat(standardFormatWithSampleRate: 16000, channels: 1)!
-        let recorder = try AudioMixRecorder(format: format)
-
-        try recorder.start(filePath: recordFilePath)
+        let recorder = try AudioMixRecorder(filePath: recordFilePath, audioSettings: audioSettings)
 
         let src1 = recorder.addSource()
         Task {
             await src1.playerNode.scheduleFile(audioFile1, at: nil)
         }
-        src1.playerNode.play()
 
         let src2 = recorder.addSource()
         Task {
             await src2.playerNode.scheduleFile(audioFile2, at: nil)
         }
-        src2.playerNode.play()
+
+        try recorder.start()
 
         // Record for 5 seconds...
         try? await Task.sleep(nanoseconds: 5 * 1_000_000_000)

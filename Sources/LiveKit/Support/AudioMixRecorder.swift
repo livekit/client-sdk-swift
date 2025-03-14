@@ -19,7 +19,7 @@ import Foundation
 
 public class AudioMixingSource: AudioRenderer {
     public let playerNode = AVAudioPlayerNode()
-    public let targetFormat: AVAudioFormat
+    public let engineFormat: AVAudioFormat
 
     struct State {
         var converter: AudioConverter?
@@ -27,31 +27,33 @@ public class AudioMixingSource: AudioRenderer {
 
     let _state = StateSync(State())
 
-    required init(targetFormat: AVAudioFormat) {
-        self.targetFormat = targetFormat
+    required init(engineFormat: AVAudioFormat) {
+        self.engineFormat = engineFormat
     }
 
     public func scheduleBuffer(_ pcmBuffer: AVAudioPCMBuffer) {
-        if pcmBuffer.format == targetFormat {
-            // No conversion needed
+        // Fast path: no conversion needed
+        if pcmBuffer.format == engineFormat {
             playerNode.scheduleBuffer(pcmBuffer, completionHandler: nil)
-        } else {
-            let converter = _state.mutate {
-                // Create converter if it doesn't exist or if the source format has changed
-                if $0.converter == nil || $0.converter?.inputFormat != pcmBuffer.format {
-                    print("Creating converter from \(pcmBuffer.format) to \(targetFormat)")
-                    let r = AudioConverter(from: pcmBuffer.format, to: targetFormat)
-                    $0.converter = r
-                    return r
-                }
+            playerNode.play()
+            return
+        }
 
-                return $0.converter
+        // Conversion path
+        let converter = _state.mutate {
+            // Create converter if it doesn't exist or if the source format has changed
+            if $0.converter == nil || $0.converter?.inputFormat != pcmBuffer.format {
+                let newConverter = AudioConverter(from: pcmBuffer.format, to: engineFormat)
+                $0.converter = newConverter
+                return newConverter
             }
+            return $0.converter
+        }
 
-            if let converter {
-                converter.convert(from: pcmBuffer)
-                playerNode.scheduleBuffer(converter.outputBuffer, completionHandler: nil)
-            }
+        if let converter {
+            converter.convert(from: pcmBuffer)
+            playerNode.scheduleBuffer(converter.outputBuffer, completionHandler: nil)
+            playerNode.play()
         }
     }
 
@@ -71,32 +73,38 @@ public class AudioMixRecorder: Loggable {
 
     let _state = StateSync(State())
 
-    private let processingFormat: AVAudioFormat
-
     private let maxFrameCount: Int
-    private let renderBuffer: AVAudioPCMBuffer
+
     private let audioEngine = AVAudioEngine()
+    private let renderBuffer: AVAudioPCMBuffer
+    private let engineFormat: AVAudioFormat
     private var audioFile: AVAudioFile?
     private let renderBlock: AVAudioEngineManualRenderingBlock
 
+    // Use higher priority for render queue to ensure timely audio processing
     private let renderQueue = DispatchQueue(label: "com.livekit.AudioMixRecorder.render", qos: .userInteractive)
     private let writeQueue = DispatchQueue(label: "com.livekit.AudioMixRecorder.write", qos: .utility)
     private lazy var renderTimer = DispatchSource.makeTimerSource(flags: [.strict], queue: renderQueue)
 
     // MARK: - Lifecycle
 
-    public init(format: AVAudioFormat, frameCount: Int = 1024) throws {
-        processingFormat = format
+    public init(filePath: URL, audioSettings: [String: Any], frameCount: Int = 1024) throws {
+        // Create audio file with cached settings
+        audioFile = try AVAudioFile(forWriting: filePath,
+                                    settings: audioSettings)
+        // Use same processing format for engine's render format
+        engineFormat = audioFile!.processingFormat
         maxFrameCount = frameCount
-
-        guard let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(maxFrameCount)) else {
+        // Create render buffer
+        guard let newBuffer = AVAudioPCMBuffer(pcmFormat: engineFormat, frameCapacity: AVAudioFrameCount(maxFrameCount)) else {
             throw LiveKitError(.invalidState, message: "Failed to create PCM buffer")
         }
-        renderBuffer = buffer
-
-        try audioEngine.enableManualRenderingMode(.realtime, format: format, maximumFrameCount: AVAudioFrameCount(maxFrameCount))
+        renderBuffer = newBuffer
+        // Enable realtime rendering
+        try audioEngine.enableManualRenderingMode(.realtime, format: engineFormat, maximumFrameCount: AVAudioFrameCount(maxFrameCount))
+        // Cache the render block
         renderBlock = audioEngine.manualRenderingBlock
-        // Touch main mixer to initialize
+        // Initialize main mixer
         audioEngine.mainMixerNode.outputVolume = 1.0
     }
 
@@ -106,92 +114,83 @@ public class AudioMixRecorder: Loggable {
 
     // MARK: - Public Methods
 
-    public func start(filePath: URL) throws {
-        // Create settings from the format
-        let settings: [String: Any] = [
-            AVFormatIDKey: kAudioFormatMPEG4AAC,
-            AVSampleRateKey: processingFormat.sampleRate,
-            AVNumberOfChannelsKey: processingFormat.channelCount,
-            AVLinearPCMBitDepthKey: 32,
-            AVLinearPCMIsFloatKey: true,
-            AVLinearPCMIsNonInterleaved: false,
-            AVLinearPCMIsBigEndianKey: false,
-        ]
+    public func start() throws {
+        guard !audioEngine.isRunning else { return }
 
-        audioFile = try AVAudioFile(forWriting: filePath,
-                                    settings: settings,
-                                    commonFormat: .pcmFormatFloat32,
-                                    interleaved: true)
-
-        do {
-            try audioEngine.start()
-        } catch {
-            log("Failed to start audio engine", .error)
-            throw error
-        }
-
+        try audioEngine.start()
         // Calculate interval based on buffer size and sample rate
-        let interval = Double(maxFrameCount) / Double(processingFormat.sampleRate)
+        let interval = Double(maxFrameCount) / Double(engineFormat.sampleRate)
 
-        // Create and start the render timer on the render queue
+        // Configure and start the render timer
         renderTimer.schedule(deadline: .now(), repeating: interval)
         renderTimer.setEventHandler { [weak self] in
-            self?.processAudioBuffer()
+            self?._render()
         }
         renderTimer.resume()
+
+        // Start all nodes if already attached
+        for source in _state.sources {
+            source.playerNode.play()
+        }
     }
 
     public func stop() {
-        log()
-        // Stop and release the timer
         renderTimer.cancel()
-
-        // Stop all nodes
         for source in _state.sources {
             source.playerNode.stop()
         }
-
-        // Stop the audio engine
         audioEngine.stop()
-
         audioFile = nil
     }
 
     // MARK: - Source
 
     public func addSource() -> AudioMixingSource {
-        log()
-        let source = AudioMixingSource(targetFormat: processingFormat)
+        let source = AudioMixingSource(engineFormat: engineFormat)
         audioEngine.attach(source.playerNode)
-        audioEngine.connect(source.playerNode, to: audioEngine.mainMixerNode, format: processingFormat)
+        audioEngine.connect(source.playerNode, to: audioEngine.mainMixerNode, format: engineFormat)
+
         _state.mutate { $0.sources.append(source) }
         return source
     }
 
+    public func removeAllSources() {
+        _state.mutate {
+            for source in $0.sources {
+                source.playerNode.stop()
+                audioEngine.detach(source.playerNode)
+            }
+
+            $0.sources.removeAll()
+        }
+    }
+
     // MARK: - Private Methods
 
-    private func processAudioBuffer() {
+    private func _render() {
         guard audioFile != nil else { return }
 
         // Reset frame length before rendering
         renderBuffer.frameLength = AVAudioFrameCount(maxFrameCount)
 
+        // Render audio
         let status = renderBlock(AVAudioFrameCount(maxFrameCount),
                                  renderBuffer.mutableAudioBufferList,
                                  nil)
 
         guard status == .success else {
-            log("Failed to render")
+            log("Failed to render audio", .error)
             return
         }
 
-        writeQueue.async { [weak self, renderBuffer] in
-            guard let self, let audioFile = self.audioFile else { return }
+        // Capture necessary values to avoid strong reference cycle
+        writeQueue.async { [weak self, renderBuffer, audioFile = self.audioFile] in
+            guard let audioFile else { return }
 
             do {
                 try audioFile.write(from: renderBuffer)
             } catch {
-                log("Failed to write to audio file: \(error)")
+                self?.log("Failed to write to audio file: \(error)", .error)
             }
         }
     }
