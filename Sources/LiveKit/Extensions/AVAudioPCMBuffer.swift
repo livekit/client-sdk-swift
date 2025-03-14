@@ -133,4 +133,37 @@ public extension AVAudioPCMBuffer {
 
         return outputBuffer
     }
+
+    func toData() -> Data? {
+        switch format.commonFormat {
+        case .pcmFormatInt16:
+            guard let channelData = int16ChannelData else { return nil }
+            return interleave(channelData: channelData)
+        case .pcmFormatInt32:
+            guard let channelData = int32ChannelData else { return nil }
+            return interleave(channelData: channelData)
+        case .pcmFormatFloat32:
+            guard let channelData = floatChannelData else { return nil }
+            return interleave(channelData: channelData)
+        default:
+            return nil
+        }
+    }
+
+    private func interleave<T>(channelData: UnsafePointer<UnsafeMutablePointer<T>>) -> Data {
+        let channels = Int(format.channelCount)
+        let frameLength = Int(frameLength)
+        var interleavedBuffer = [T](repeating: channelData[0][0], count: frameLength * channels)
+
+        for frame in 0 ..< frameLength {
+            for channel in 0 ..< channels {
+                let channelPtr = channelData[channel]
+                interleavedBuffer[frame * channels + channel] = channelPtr[frame]
+            }
+        }
+
+        return interleavedBuffer.withUnsafeBytes { bufferPointer in
+            Data(bufferPointer)
+        }
+    }
 }
