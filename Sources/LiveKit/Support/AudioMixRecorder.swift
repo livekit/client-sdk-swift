@@ -35,7 +35,9 @@ public class AudioMixingSource: AudioRenderer {
         // Fast path: no conversion needed
         if pcmBuffer.format == engineFormat {
             playerNode.scheduleBuffer(pcmBuffer, completionHandler: nil)
-            playerNode.play()
+            if !playerNode.isPlaying {
+                playerNode.play()
+            }
             return
         }
 
@@ -52,8 +54,12 @@ public class AudioMixingSource: AudioRenderer {
 
         if let converter {
             converter.convert(from: pcmBuffer)
-            playerNode.scheduleBuffer(converter.outputBuffer, completionHandler: nil)
-            playerNode.play()
+            // Copy the converted segment from buffer and schedule it.
+            let segment = converter.outputBuffer.copySegment()
+            playerNode.scheduleBuffer(segment, completionHandler: nil)
+            if !playerNode.isPlaying {
+                playerNode.play()
+            }
         }
     }
 
