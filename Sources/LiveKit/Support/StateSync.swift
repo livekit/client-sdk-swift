@@ -26,14 +26,14 @@ public final class StateSync<State>: @unchecked Sendable {
     // MARK: - Public
 
     public var onDidMutate: OnDidMutate? {
-        get { _lock.sync { _onDidMutate } }
-        set { _lock.sync { _onDidMutate = newValue } }
+        get { _lock.withLock { _onDidMutate } }
+        set { _lock.withLock { _onDidMutate = newValue } }
     }
 
     // MARK: - Private
 
     private var _state: State
-    private let _lock = UnfairLock()
+    private let _lock = NSRecursiveLock()
     private var _onDidMutate: OnDidMutate?
 
     public init(_ state: State, onDidMutate: OnDidMutate? = nil) {
@@ -44,7 +44,7 @@ public final class StateSync<State>: @unchecked Sendable {
     // mutate sync
     @discardableResult
     public func mutate<Result>(_ block: (inout State) throws -> Result) rethrows -> Result {
-        try _lock.sync {
+        try _lock.withLock {
             let oldState = _state
             let result = try block(&_state)
             let newState = _state
@@ -60,17 +60,17 @@ public final class StateSync<State>: @unchecked Sendable {
 
     // read sync and return copy
     public func copy() -> State {
-        _lock.sync { _state }
+        _lock.withLock { _state }
     }
 
     // read with block
     public func read<Result>(_ block: (State) throws -> Result) rethrows -> Result {
-        try _lock.sync { try block(_state) }
+        try _lock.withLock { try block(_state) }
     }
 
     // property read sync
     public subscript<Property>(dynamicMember keyPath: KeyPath<State, Property>) -> Property {
-        _lock.sync { _state[keyPath: keyPath] }
+        _lock.withLock { _state[keyPath: keyPath] }
     }
 }
 
