@@ -45,8 +45,7 @@ final class AudioMixRecorderTests: LKTestCase {
         let audioFile2 = try AVAudioFile(forReading: downloadedLocalUrl2)
         print("Audio file2 format: \(audioFile2.processingFormat)")
 
-        let recordFileName = UUID().uuidString + ".aac"
-        let recordFilePath = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent(recordFileName)
+        let recordFilePath = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent(UUID().uuidString + ".aac")
         print("Recording to \(recordFilePath)...")
 
         let recorder = try AudioMixRecorder(filePath: recordFilePath, audioSettings: audioSettings)

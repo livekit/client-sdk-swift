@@ -17,7 +17,7 @@
 import AVFAudio
 import Foundation
 
-public class AudioMixingSource: Loggable, AudioRenderer {
+public class AudioMixRecorderSource: Loggable, AudioRenderer {
     public let playerNode = AVAudioPlayerNode()
     public let engineFormat: AVAudioFormat
 
@@ -89,10 +89,14 @@ public class AudioMixRecorder: Loggable {
         audioEngine.isRunning
     }
 
+    public var sources: [AudioMixRecorderSource] {
+        _state.read { $0.sources }
+    }
+
     // MARK: - Private
 
     struct State {
-        var sources: [AudioMixingSource] = []
+        var sources: [AudioMixRecorderSource] = []
     }
 
     private let _state = StateSync(State())
@@ -156,7 +160,9 @@ public class AudioMixRecorder: Loggable {
     }
 
     public func stop() {
+        guard audioEngine.isRunning else { return }
         log()
+
         stopRenderTimer()
         for source in _state.sources {
             source.playerNode.stop()
@@ -167,10 +173,11 @@ public class AudioMixRecorder: Loggable {
 
     // MARK: - Source
 
-    public func addSource() -> AudioMixingSource {
+    @discardableResult
+    public func addSource() -> AudioMixRecorderSource {
         log()
 
-        let source = AudioMixingSource(engineFormat: engineFormat)
+        let source = AudioMixRecorderSource(engineFormat: engineFormat)
         audioEngine.attach(source.playerNode)
         audioEngine.connect(source.playerNode, to: audioEngine.mainMixerNode, format: engineFormat)
 
@@ -184,8 +191,6 @@ public class AudioMixRecorder: Loggable {
         _state.mutate {
             for source in $0.sources {
                 source.cleanup()
-                audioEngine.disconnectNodeInput(source.playerNode)
-                audioEngine.disconnectNodeOutput(source.playerNode)
                 audioEngine.detach(source.playerNode)
             }
 
