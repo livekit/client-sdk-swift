@@ -73,6 +73,8 @@ final class AudioMixRecorderTests: LKTestCase {
 
         recorder.stop()
 
+        recorder.removeAllSources()
+
         do {
             // Play the recorded file...
             let player = try AVAudioPlayer(contentsOf: recordFilePath)
@@ -87,8 +89,6 @@ final class AudioMixRecorderTests: LKTestCase {
         // Record session 2 (Re-use recorder)
 
         print("Record session 1")
-
-        recorder.removeAllSources()
 
         let src3 = recorder.addSource()
         let src4 = recorder.addSource()

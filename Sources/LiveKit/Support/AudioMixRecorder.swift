@@ -35,6 +35,14 @@ public class AudioMixingSource: Loggable, AudioRenderer {
         log()
     }
 
+    public func cleanup() {
+        if playerNode.isPlaying {
+            playerNode.stop()
+        }
+
+        _state.mutate { $0.converter = nil }
+    }
+
     public func scheduleBuffer(_ pcmBuffer: AVAudioPCMBuffer) {
         // Fast path: no conversion needed
         if pcmBuffer.format == engineFormat {
@@ -175,11 +183,11 @@ public class AudioMixRecorder: Loggable {
 
         _state.mutate {
             for source in $0.sources {
-                source.playerNode.stop()
+                source.cleanup()
                 audioEngine.detach(source.playerNode)
             }
 
-            $0.sources.removeAll()
+            $0.sources = []
         }
     }
 
