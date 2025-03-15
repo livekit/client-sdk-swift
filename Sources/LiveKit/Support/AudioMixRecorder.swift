@@ -184,6 +184,8 @@ public class AudioMixRecorder: Loggable {
         _state.mutate {
             for source in $0.sources {
                 source.cleanup()
+                audioEngine.disconnectNodeInput(source.playerNode)
+                audioEngine.disconnectNodeOutput(source.playerNode)
                 audioEngine.detach(source.playerNode)
             }
 
