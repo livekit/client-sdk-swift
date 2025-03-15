@@ -18,7 +18,7 @@ import AVFAudio
 @testable import LiveKit
 import XCTest
 
-final class AudioMixRecorderTests: XCTestCase {
+final class AudioMixRecorderTests: LKTestCase {
     func testRecord() async throws {
         // Cached audio settings for file creation
         let audioSettings: [String: Any] = [
@@ -39,7 +39,7 @@ final class AudioMixRecorderTests: XCTestCase {
         print("Audio file1 format: \(audioFile1.processingFormat)")
 
         // Sample audio 2
-        let audio1Url2 = URL(string: "https://github.com/audio-samples/audio-samples.github.io/raw/refs/heads/master/samples/mp3/ted_speakers/BillGates/sample-6.mp3")!
+        let audio1Url2 = URL(string: "https://github.com/audio-samples/audio-samples.github.io/raw/refs/heads/master/samples/mp3/ted_speakers/BillGates/sample-5.mp3")!
         print("Downloading sample audio from \(audio1Url2)...")
         let (downloadedLocalUrl2, _) = try await URLSession.shared.downloadBackport(from: audio1Url2)
         let audioFile2 = try AVAudioFile(forReading: downloadedLocalUrl2)
@@ -51,12 +51,17 @@ final class AudioMixRecorderTests: XCTestCase {
 
         let recorder = try AudioMixRecorder(filePath: recordFilePath, audioSettings: audioSettings)
 
+        // Record session 1
+
+        print("Record session 1")
+
         let src1 = recorder.addSource()
+        let src2 = recorder.addSource()
+
         Task {
             await src1.playerNode.scheduleFile(audioFile1, at: nil)
         }
 
-        let src2 = recorder.addSource()
         Task {
             await src2.playerNode.scheduleFile(audioFile2, at: nil)
         }
@@ -65,15 +70,53 @@ final class AudioMixRecorderTests: XCTestCase {
 
         // Record for 5 seconds...
         try? await Task.sleep(nanoseconds: 5 * 1_000_000_000)
+
         recorder.stop()
 
-        // Play the recorded file...
-        let player = try AVAudioPlayer(contentsOf: recordFilePath)
-        player.prepareToPlay()
-        print("Playing audio file, duration: \(player.duration) seconds...")
-        XCTAssertTrue(player.play(), "Failed to start audio playback")
-        while player.isPlaying {
-            try? await Task.sleep(nanoseconds: 1 * 100_000_000) // 10ms
+        do {
+            // Play the recorded file...
+            let player = try AVAudioPlayer(contentsOf: recordFilePath)
+            player.prepareToPlay()
+            print("Playing audio file, duration: \(player.duration) seconds...")
+            XCTAssertTrue(player.play(), "Failed to start audio playback")
+            while player.isPlaying {
+                try? await Task.sleep(nanoseconds: 1 * 100_000_000) // 10ms
+            }
+        }
+
+        // Record session 2 (Re-use recorder)
+
+        print("Record session 1")
+
+        recorder.removeAllSources()
+
+        let src3 = recorder.addSource()
+        let src4 = recorder.addSource()
+
+        Task {
+            await src3.playerNode.scheduleFile(audioFile1, at: nil)
+        }
+
+        Task {
+            await src4.playerNode.scheduleFile(audioFile2, at: nil)
+        }
+
+        try recorder.start()
+
+        // Record for 5 seconds...
+        try? await Task.sleep(nanoseconds: 5 * 1_000_000_000)
+
+        recorder.stop()
+
+        do {
+            // Play the recorded file...
+            let player = try AVAudioPlayer(contentsOf: recordFilePath)
+            player.prepareToPlay()
+            print("Playing audio file, duration: \(player.duration) seconds...")
+            XCTAssertTrue(player.play(), "Failed to start audio playback")
+            while player.isPlaying {
+                try? await Task.sleep(nanoseconds: 1 * 100_000_000) // 10ms
+            }
         }
     }
 }

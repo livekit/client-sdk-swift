@@ -17,7 +17,7 @@
 import AVFAudio
 import Foundation
 
-public class AudioMixingSource: AudioRenderer {
+public class AudioMixingSource: Loggable, AudioRenderer {
     public let playerNode = AVAudioPlayerNode()
     public let engineFormat: AVAudioFormat
 
@@ -29,6 +29,10 @@ public class AudioMixingSource: AudioRenderer {
 
     required init(engineFormat: AVAudioFormat) {
         self.engineFormat = engineFormat
+    }
+
+    deinit {
+        log()
     }
 
     public func scheduleBuffer(_ pcmBuffer: AVAudioPCMBuffer) {
@@ -90,13 +94,14 @@ public class AudioMixRecorder: Loggable {
     private let audioEngine = AVAudioEngine()
     private let renderBuffer: AVAudioPCMBuffer
     private let engineFormat: AVAudioFormat
-    private var audioFile: AVAudioFile?
     private let renderBlock: AVAudioEngineManualRenderingBlock
 
     // Use higher priority for render queue to ensure timely audio processing
     private let renderQueue = DispatchQueue(label: "com.livekit.AudioMixRecorder.render", qos: .userInteractive)
     private let writeQueue = DispatchQueue(label: "com.livekit.AudioMixRecorder.write", qos: .utility)
-    private lazy var renderTimer = DispatchSource.makeTimerSource(flags: [.strict], queue: renderQueue)
+
+    private var audioFile: AVAudioFile?
+    private var renderTimer: DispatchSourceTimer?
 
     // MARK: - Lifecycle
 
@@ -121,6 +126,7 @@ public class AudioMixRecorder: Loggable {
     }
 
     deinit {
+        log()
         stop()
     }
 
@@ -128,17 +134,12 @@ public class AudioMixRecorder: Loggable {
 
     public func start() throws {
         guard !audioEngine.isRunning else { return }
+        log()
 
         try audioEngine.start()
         // Calculate interval based on buffer size and sample rate
         let interval = Double(maxFrameCount) / Double(engineFormat.sampleRate)
-
-        // Configure and start the render timer
-        renderTimer.schedule(deadline: .now(), repeating: interval)
-        renderTimer.setEventHandler { [weak self] in
-            self?._render()
-        }
-        renderTimer.resume()
+        startRenderTimer(interval: interval)
 
         // Start all nodes if already attached
         for source in _state.sources {
@@ -147,7 +148,8 @@ public class AudioMixRecorder: Loggable {
     }
 
     public func stop() {
-        renderTimer.cancel()
+        log()
+        stopRenderTimer()
         for source in _state.sources {
             source.playerNode.stop()
         }
@@ -158,6 +160,8 @@ public class AudioMixRecorder: Loggable {
     // MARK: - Source
 
     public func addSource() -> AudioMixingSource {
+        log()
+
         let source = AudioMixingSource(engineFormat: engineFormat)
         audioEngine.attach(source.playerNode)
         audioEngine.connect(source.playerNode, to: audioEngine.mainMixerNode, format: engineFormat)
@@ -167,6 +171,8 @@ public class AudioMixRecorder: Loggable {
     }
 
     public func removeAllSources() {
+        log()
+
         _state.mutate {
             for source in $0.sources {
                 source.playerNode.stop()
@@ -178,6 +184,20 @@ public class AudioMixRecorder: Loggable {
     }
 
     // MARK: - Private Methods
+
+    private func startRenderTimer(interval: Double) {
+        let timer = DispatchSource.makeTimerSource(flags: [.strict], queue: renderQueue)
+        // Configure and start the render timer
+        timer.schedule(deadline: .now(), repeating: interval)
+        timer.setEventHandler { [weak self] in self?._render() }
+        timer.resume()
+        renderTimer = timer
+    }
+
+    private func stopRenderTimer() {
+        renderTimer?.cancel()
+        renderTimer = nil
+    }
 
     private func _render() {
         guard audioFile != nil else { return }
