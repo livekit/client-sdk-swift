@@ -18,38 +18,53 @@ import AVFAudio
 import Foundation
 
 public class AudioMixRecorderSource: Loggable, AudioRenderer {
-    public let playerNode = AVAudioPlayerNode()
-    public let engineFormat: AVAudioFormat
+    public let processingFormat: AVAudioFormat
+    let playerNode = AVAudioPlayerNode()
 
-    struct State {
+    private struct State {
         var converter: AudioConverter?
     }
 
-    let _state = StateSync(State())
+    private let _state = StateSync(State())
 
-    required init(engineFormat: AVAudioFormat) {
-        self.engineFormat = engineFormat
+    required init(processingFormat: AVAudioFormat) {
+        self.processingFormat = processingFormat
     }
 
     deinit {
         log()
+        cleanup()
     }
 
     public func cleanup() {
+        stop()
+        _state.mutate { $0.converter = nil }
+    }
+
+    // MARK: - Internal
+
+    func play() {
+        guard let engine = playerNode.engine, engine.isRunning, !playerNode.isPlaying else { return }
+        playerNode.play()
+    }
+
+    func stop() {
         if playerNode.isPlaying {
             playerNode.stop()
         }
+    }
 
-        _state.mutate { $0.converter = nil }
+    // MARK: - Public
+
+    public func scheduleFile(_ file: AVAudioFile) {
+        playerNode.scheduleFile(file, at: nil)
     }
 
     public func scheduleBuffer(_ pcmBuffer: AVAudioPCMBuffer) {
         // Fast path: no conversion needed
-        if pcmBuffer.format == engineFormat {
+        if pcmBuffer.format == processingFormat {
             playerNode.scheduleBuffer(pcmBuffer, completionHandler: nil)
-            if !playerNode.isPlaying {
-                playerNode.play()
-            }
+            play()
             return
         }
 
@@ -57,7 +72,7 @@ public class AudioMixRecorderSource: Loggable, AudioRenderer {
         let converter = _state.mutate {
             // Create converter if it doesn't exist or if the source format has changed
             if $0.converter == nil || $0.converter?.inputFormat != pcmBuffer.format {
-                let newConverter = AudioConverter(from: pcmBuffer.format, to: engineFormat)
+                let newConverter = AudioConverter(from: pcmBuffer.format, to: processingFormat)
                 $0.converter = newConverter
                 return newConverter
             }
@@ -69,9 +84,7 @@ public class AudioMixRecorderSource: Loggable, AudioRenderer {
             // Copy the converted segment from buffer and schedule it.
             let segment = converter.outputBuffer.copySegment()
             playerNode.scheduleBuffer(segment, completionHandler: nil)
-            if !playerNode.isPlaying {
-                playerNode.play()
-            }
+            play()
         }
     }
 
@@ -84,6 +97,9 @@ public class AudioMixRecorderSource: Loggable, AudioRenderer {
 
 public class AudioMixRecorder: Loggable {
     // MARK: - Public
+
+    /// The format used internally by engine & recorder.
+    public let processingFormat: AVAudioFormat
 
     public var isRecording: Bool {
         audioEngine.isRunning
@@ -105,7 +121,6 @@ public class AudioMixRecorder: Loggable {
 
     private let audioEngine = AVAudioEngine()
     private let renderBuffer: AVAudioPCMBuffer
-    private let engineFormat: AVAudioFormat
     private let renderBlock: AVAudioEngineManualRenderingBlock
 
     // Use higher priority for render queue to ensure timely audio processing
@@ -122,15 +137,15 @@ public class AudioMixRecorder: Loggable {
         audioFile = try AVAudioFile(forWriting: filePath,
                                     settings: audioSettings)
         // Use same processing format for engine's render format
-        engineFormat = audioFile!.processingFormat
+        processingFormat = audioFile!.processingFormat
         maxFrameCount = frameCount
         // Create render buffer
-        guard let newBuffer = AVAudioPCMBuffer(pcmFormat: engineFormat, frameCapacity: AVAudioFrameCount(maxFrameCount)) else {
+        guard let newBuffer = AVAudioPCMBuffer(pcmFormat: processingFormat, frameCapacity: AVAudioFrameCount(maxFrameCount)) else {
             throw LiveKitError(.invalidState, message: "Failed to create PCM buffer")
         }
         renderBuffer = newBuffer
         // Enable realtime rendering
-        try audioEngine.enableManualRenderingMode(.realtime, format: engineFormat, maximumFrameCount: AVAudioFrameCount(maxFrameCount))
+        try audioEngine.enableManualRenderingMode(.realtime, format: processingFormat, maximumFrameCount: AVAudioFrameCount(maxFrameCount))
         // Cache the render block
         renderBlock = audioEngine.manualRenderingBlock
         // Initialize main mixer
@@ -150,12 +165,12 @@ public class AudioMixRecorder: Loggable {
 
         try audioEngine.start()
         // Calculate interval based on buffer size and sample rate
-        let interval = Double(maxFrameCount) / Double(engineFormat.sampleRate)
+        let interval = Double(maxFrameCount) / Double(processingFormat.sampleRate)
         startRenderTimer(interval: interval)
 
         // Start all nodes if already attached
         for source in _state.sources {
-            source.playerNode.play()
+            source.play()
         }
     }
 
@@ -165,7 +180,7 @@ public class AudioMixRecorder: Loggable {
 
         stopRenderTimer()
         for source in _state.sources {
-            source.playerNode.stop()
+            source.stop()
         }
         audioEngine.stop()
         audioFile = nil
@@ -177,9 +192,9 @@ public class AudioMixRecorder: Loggable {
     public func addSource() -> AudioMixRecorderSource {
         log()
 
-        let source = AudioMixRecorderSource(engineFormat: engineFormat)
+        let source = AudioMixRecorderSource(processingFormat: processingFormat)
         audioEngine.attach(source.playerNode)
-        audioEngine.connect(source.playerNode, to: audioEngine.mainMixerNode, format: engineFormat)
+        audioEngine.connect(source.playerNode, to: audioEngine.mainMixerNode, format: processingFormat)
 
         _state.mutate { $0.sources.append(source) }
         return source

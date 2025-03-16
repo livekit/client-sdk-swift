@@ -19,18 +19,17 @@ import AVFAudio
 import XCTest
 
 final class AudioMixRecorderTests: LKTestCase {
-    func testRecord() async throws {
-        // Cached audio settings for file creation
-        let audioSettings: [String: Any] = [
-            AVFormatIDKey: kAudioFormatMPEG4AAC,
-            AVSampleRateKey: 16000,
-            AVNumberOfChannelsKey: 1,
-            AVLinearPCMBitDepthKey: 32,
-            AVLinearPCMIsFloatKey: true,
-            AVLinearPCMIsNonInterleaved: false,
-            AVLinearPCMIsBigEndianKey: false,
-        ]
+    let audioSettings: [String: Any] = [
+        AVFormatIDKey: kAudioFormatMPEG4AAC,
+        AVSampleRateKey: 16000,
+        AVNumberOfChannelsKey: 1,
+        AVLinearPCMBitDepthKey: 32,
+        AVLinearPCMIsFloatKey: true,
+        AVLinearPCMIsNonInterleaved: false,
+        AVLinearPCMIsBigEndianKey: false,
+    ]
 
+    func testRecord() async throws {
         // Sample audio 1
         let audio1Url = URL(string: "https://github.com/audio-samples/audio-samples.github.io/raw/refs/heads/master/samples/mp3/music/sample-3.mp3")!
         print("Downloading sample audio from \(audio1Url)...")
@@ -50,20 +49,22 @@ final class AudioMixRecorderTests: LKTestCase {
 
         let recorder = try AudioMixRecorder(filePath: recordFilePath, audioSettings: audioSettings)
 
+        // Sample buffer 1
+        let sampleBuffer1 = AVAudioPCMBuffer(pcmFormat: recorder.processingFormat,
+                                             frameCapacity: AVAudioFrameCount(100))!
+        sampleBuffer1.frameLength = 100
+
         // Record session 1
 
         print("Record session 1")
 
-        let src1 = recorder.addSource()
-        let src2 = recorder.addSource()
+        let fileSrc1 = recorder.addSource()
+        let fileSrc2 = recorder.addSource()
+        let bufferSrc1 = recorder.addSource()
 
-        Task {
-            await src1.playerNode.scheduleFile(audioFile1, at: nil)
-        }
-
-        Task {
-            await src2.playerNode.scheduleFile(audioFile2, at: nil)
-        }
+        fileSrc1.scheduleFile(audioFile1)
+        fileSrc2.scheduleFile(audioFile2)
+        bufferSrc1.scheduleBuffer(sampleBuffer1)
 
         try recorder.start()
 
@@ -89,16 +90,11 @@ final class AudioMixRecorderTests: LKTestCase {
 
         print("Record session 1")
 
-        let src3 = recorder.addSource()
-        let src4 = recorder.addSource()
+        let fileSrc3 = recorder.addSource()
+        let fileSrc4 = recorder.addSource()
 
-        Task {
-            await src3.playerNode.scheduleFile(audioFile1, at: nil)
-        }
-
-        Task {
-            await src4.playerNode.scheduleFile(audioFile2, at: nil)
-        }
+        fileSrc3.scheduleFile(audioFile1)
+        fileSrc4.scheduleFile(audioFile2)
 
         try recorder.start()
 
@@ -117,5 +113,32 @@ final class AudioMixRecorderTests: LKTestCase {
                 try? await Task.sleep(nanoseconds: 1 * 100_000_000) // 10ms
             }
         }
+    }
+
+    func testScheduleToRemovedSource() async throws {
+        let recordFilePath = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent(UUID().uuidString + ".aac")
+        print("Recording to \(recordFilePath)...")
+
+        let recorder = try AudioMixRecorder(filePath: recordFilePath, audioSettings: audioSettings)
+
+        // Sample buffer 1
+        let sampleBuffer1 = AVAudioPCMBuffer(pcmFormat: recorder.processingFormat,
+                                             frameCapacity: AVAudioFrameCount(100))!
+        sampleBuffer1.frameLength = 100
+
+        let src1 = recorder.addSource()
+        src1.scheduleBuffer(sampleBuffer1)
+        try recorder.start()
+        let src2 = recorder.addSource()
+        // Record for 5 seconds...
+        try? await Task.sleep(nanoseconds: 1 * 1_000_000_000)
+
+        recorder.removeAllSources()
+
+        // Schedule after removed
+        src1.scheduleBuffer(sampleBuffer1)
+        src2.scheduleBuffer(sampleBuffer1)
+
+        recorder.stop()
     }
 }
