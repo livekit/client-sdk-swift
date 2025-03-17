@@ -172,12 +172,10 @@ class LocalAudioTrackRecorderTests: LKTestCase {
             sampleRate: 48000
         )
 
-        _ = try await recorder.start()
-
-        // swift-format-ignore: hoistAwait
-        await XCTAssertThrowsErrorAsync(try recorder.start())
-
-        recorder.stop()
+        for await _ in try await recorder.start().prefix(10) {
+            await XCTAssertThrowsErrorAsync(_ = try recorder.start())
+            recorder.stop()
+        }
 
         _ = try await recorder.start()
 

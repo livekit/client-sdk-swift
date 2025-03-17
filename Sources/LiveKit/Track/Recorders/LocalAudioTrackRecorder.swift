@@ -72,6 +72,7 @@ public final class LocalAudioTrackRecorder: NSObject, AudioRenderer {
         }
 
         try await track.startCapture()
+        track.add(audioRenderer: self)
 
         let buffer: Stream.Continuation.BufferingPolicy = maxSize > 0 ? .bufferingNewest(maxSize) : .unbounded
         let stream = Stream(bufferingPolicy: buffer) { continuation in
@@ -80,7 +81,6 @@ public final class LocalAudioTrackRecorder: NSObject, AudioRenderer {
             }
         }
 
-        track.add(audioRenderer: self)
         _state.continuation?.onTermination = { @Sendable (_: Stream.Continuation.Termination) in
             self.track.remove(audioRenderer: self)
             self._state.mutate {
