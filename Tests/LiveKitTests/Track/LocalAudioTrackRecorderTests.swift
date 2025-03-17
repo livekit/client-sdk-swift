@@ -28,10 +28,7 @@ class LocalAudioTrackRecorderTests: LKTestCase {
             sampleRate: 48000
         )
 
-        guard let stream = try await recorder.start() else {
-            XCTFail("Failed to start recording")
-            return
-        }
+        let stream = try await recorder.start()
 
         let expectation = expectation(description: "Received audio data")
         expectation.assertForOverFulfill = false
@@ -74,10 +71,7 @@ class LocalAudioTrackRecorderTests: LKTestCase {
             maxSize: maxBufferSize
         )
 
-        guard let stream = try await recorder.start() else {
-            XCTFail("Failed to start recording")
-            return
-        }
+        let stream = try await recorder.start()
 
         let expectation = expectation(description: "Received audio data")
         expectation.assertForOverFulfill = false
@@ -121,15 +115,8 @@ class LocalAudioTrackRecorderTests: LKTestCase {
             sampleRate: 16000
         )
 
-        guard let stream1 = try await recorder1.start() else {
-            XCTFail("Failed to start recorder1")
-            return
-        }
-
-        guard let stream2 = try await recorder2.start() else {
-            XCTFail("Failed to start recorder2")
-            return
-        }
+        let stream1 = try await recorder1.start()
+        let stream2 = try await recorder2.start()
 
         let expectation1 = expectation(description: "Received audio data from recorder1")
         let expectation2 = expectation(description: "Received audio data from recorder2")
@@ -185,16 +172,14 @@ class LocalAudioTrackRecorderTests: LKTestCase {
             sampleRate: 48000
         )
 
-        let firstStream = try await recorder.start()
-        XCTAssertNotNil(firstStream, "First start should return a valid stream")
+        _ = try await recorder.start()
 
-        let secondStream = try await recorder.start()
-        XCTAssertNil(secondStream, "Starting recorder twice should return nil")
+        // swift-format-ignore: hoistAwait
+        await XCTAssertThrowsErrorAsync(try recorder.start())
 
         recorder.stop()
 
-        let thirdStream = try await recorder.start()
-        XCTAssertNotNil(thirdStream, "After stopping, start should return a valid stream again")
+        _ = try await recorder.start()
 
         recorder.stop()
     }
@@ -219,7 +204,7 @@ class LocalAudioTrackRecorderTests: LKTestCase {
             if dataCount >= 10 {
                 dataExpectation.fulfill()
             }
-        }, onCompletion: {
+        }, onCompletion: { _ in
             completionExpectation.fulfill()
         })
 
