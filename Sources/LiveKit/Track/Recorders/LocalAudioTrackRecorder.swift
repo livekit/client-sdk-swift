@@ -32,7 +32,7 @@ public final class LocalAudioTrackRecorder: NSObject, AudioRenderer {
     @objc
     public let maxSize: Int
 
-    private let state = StateSync<State>(State())
+    private let _state = StateSync<State>(State())
     private struct State {
         var continuation: Stream.Continuation?
     }
@@ -46,21 +46,21 @@ public final class LocalAudioTrackRecorder: NSObject, AudioRenderer {
     }
 
     public func start() async throws -> Stream? {
-        guard state.continuation == nil else { return nil }
+        guard _state.continuation == nil else { return nil }
 
         try await track.startCapture()
 
         let buffer: Stream.Continuation.BufferingPolicy = maxSize > 0 ? .bufferingNewest(maxSize) : .unbounded
         let stream = Stream(bufferingPolicy: buffer) { continuation in
-            self.state.mutate {
+            self._state.mutate {
                 $0.continuation = continuation
             }
         }
 
         track.add(audioRenderer: self)
-        state.continuation?.onTermination = { @Sendable (_: Stream.Continuation.Termination) in
+        _state.continuation?.onTermination = { @Sendable (_: Stream.Continuation.Termination) in
             self.track.remove(audioRenderer: self)
-            self.state.mutate {
+            self._state.mutate {
                 $0.continuation = nil
             }
         }
@@ -70,7 +70,7 @@ public final class LocalAudioTrackRecorder: NSObject, AudioRenderer {
 
     @objc
     public func stop() {
-        state.continuation?.finish()
+        _state.continuation?.finish()
     }
 }
 
@@ -83,7 +83,7 @@ public extension LocalAudioTrackRecorder {
             .convert(toCommonFormat: format)?
             .toData()
         {
-            state.continuation?.yield(data)
+            _state.continuation?.yield(data)
         }
     }
 }
