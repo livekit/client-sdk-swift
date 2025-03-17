@@ -89,7 +89,7 @@ extension PreConnectAudioBuffer: RoomDelegate {
     }
 
     @objc
-    public func setParticipantAttribute(room: Room) async throws {
+    public func setParticipantAttribute(key _: String = attributeKey, room: Room) async throws {
         var attributes = room.localParticipant.attributes
         attributes[Self.attributeKey] = "true"
         try await room.localParticipant.set(attributes: attributes)
