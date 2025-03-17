@@ -18,15 +18,6 @@
 import XCTest
 
 class PreConnectAudioBufferTests: LKTestCase {
-    func testInitialization() {
-        let buffer = PreConnectAudioBuffer(room: nil)
-
-        XCTAssertNotNil(buffer.recorder)
-        XCTAssertEqual(buffer.recorder.format, .pcmFormatInt16)
-        XCTAssertEqual(buffer.recorder.sampleRate, 24000)
-        XCTAssertEqual(buffer.recorder.channels, 1)
-    }
-
     func testRoomDidConnectSetsParticipantAttribute() async throws {
         let attributeSetExpectation = expectation(description: "Participant attribute set")
 

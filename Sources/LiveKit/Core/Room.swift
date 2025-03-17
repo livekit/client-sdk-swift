@@ -402,7 +402,7 @@ extension Room {
         }
 
         if disconnectError != nil {
-            preConnectBuffer.stopRecording()
+            preConnectBuffer.stopRecording(flush: true)
         }
 
         // Reset state

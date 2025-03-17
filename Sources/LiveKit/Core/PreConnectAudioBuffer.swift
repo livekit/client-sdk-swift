@@ -78,10 +78,17 @@ public final class PreConnectAudioBuffer: NSObject, Loggable {
     }
 
     /// Stop capturing audio.
+    /// - Parameters:
+    ///   - flush: If `true`, the audio stream will be flushed immediately without sending.
     @objc
-    public func stopRecording() {
+    public func stopRecording(flush: Bool = false) {
         recorder.stop()
         log("Stopped capturing audio", .info)
+        if flush, let stream = state.audioStream {
+            Task {
+                for await _ in stream {}
+            }
+        }
     }
 }
 
