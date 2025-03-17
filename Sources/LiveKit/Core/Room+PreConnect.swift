@@ -22,6 +22,7 @@ public extension Room {
     /// It will be automatically sent via data stream to the other participant
     /// using the `PreConnectAudioBuffer.dataTopic` when the local track is subscribed.
     /// - See: ``PreConnectAudioBuffer``
+    /// - Note: Use ``AudioManager/setRecordingAlwaysPreparedMode(_:)`` to request microphone permissions early.
     func startCapturingBeforeConnecting() async throws {
         try await preConnectBuffer.startRecording()
     }
