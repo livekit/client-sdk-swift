@@ -55,10 +55,10 @@ public final class PreConnectAudioBuffer: NSObject, Loggable {
     }
 
     @objc
-    public func startRecording() async {
+    public func startRecording() async throws {
         room?.add(delegate: self)
 
-        let stream = await recorder.start()
+        let stream = try await recorder.start()
         log("Started capturing audio", .info)
         state.mutate { state in
             state.audioStream = stream

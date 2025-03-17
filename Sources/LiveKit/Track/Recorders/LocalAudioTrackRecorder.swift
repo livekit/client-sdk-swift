@@ -45,12 +45,10 @@ public final class LocalAudioTrackRecorder: NSObject, AudioRenderer {
         self.maxSize = maxSize
     }
 
-    public func start() async -> Stream? {
+    public func start() async throws -> Stream? {
         guard state.continuation == nil else { return nil }
 
-        Task.detached {
-            AudioManager.shared.startLocalRecording()
-        }
+        try await track.startCapture()
 
         let buffer: Stream.Continuation.BufferingPolicy = maxSize > 0 ? .bufferingNewest(maxSize) : .unbounded
         let stream = Stream(bufferingPolicy: buffer) { continuation in
@@ -61,8 +59,6 @@ public final class LocalAudioTrackRecorder: NSObject, AudioRenderer {
 
         track.add(audioRenderer: self)
         state.continuation?.onTermination = { @Sendable (_: Stream.Continuation.Termination) in
-            // TODO: parametrize?
-//            AudioManager.shared.stopLocalRecording()
             self.track.remove(audioRenderer: self)
             self.state.mutate {
                 $0.continuation = nil
@@ -99,7 +95,7 @@ public extension LocalAudioTrackRecorder {
     @available(*, deprecated, message: "Use for/await instead.")
     func start(maxSize _: Int = 0, onData: @escaping (Data) -> Void, onCompletion: @escaping () -> Void) {
         Task {
-            guard let stream = await start() else {
+            guard let stream = try await start() else {
                 onCompletion()
                 return
             }
