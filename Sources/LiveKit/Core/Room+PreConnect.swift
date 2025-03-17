@@ -17,6 +17,11 @@
 import Foundation
 
 public extension Room {
+    /// Start capturing audio before connecting to the server,
+    /// so that it's not lost when the connection is established.
+    /// It will be automatically sent via data stream to the other participant
+    /// using the `PreConnectAudioBuffer.dataTopic` when the local track is subscribed.
+    /// - See: ``PreConnectAudioBuffer``
     func startCapturingBeforeConnecting() async throws {
         try await preConnectBuffer.startRecording()
     }

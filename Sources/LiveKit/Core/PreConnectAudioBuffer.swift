@@ -17,16 +17,23 @@
 import AVFAudio
 import Foundation
 
+/// A buffer that captures audio before connecting to the server,
+/// and sends it on certain ``RoomDelegate`` events.
 @objc
 public final class PreConnectAudioBuffer: NSObject, Loggable {
+    /// The default participant attribute key used to indicate that the audio buffer is active.
     @objc
     public static let attributeKey = "lk.agent.pre-connect-audio"
+
+    /// The default data topic used to send the audio buffer.
     @objc
     public static let dataTopic = "lk.agent.pre-connect-audio-buffer"
 
+    /// The room instance to listen for events.
     @objc
     public let room: Room?
 
+    /// The audio recorder instance.
     @objc
     public let recorder: LocalAudioTrackRecorder
 
@@ -35,6 +42,10 @@ public final class PreConnectAudioBuffer: NSObject, Loggable {
         var audioStream: LocalAudioTrackRecorder.Stream?
     }
 
+    /// Initialize the audio buffer with a room instance.
+    /// - Parameters:
+    ///   - room: The room instance to listen for events.
+    ///   - recorder: The audio recorder to use for capturing.
     @objc
     public init(room: Room?,
                 recorder: LocalAudioTrackRecorder = LocalAudioTrackRecorder(
@@ -54,6 +65,7 @@ public final class PreConnectAudioBuffer: NSObject, Loggable {
         room?.remove(delegate: self)
     }
 
+    /// Start capturing audio and listening to ``RoomDelegate`` events.
     @objc
     public func startRecording() async throws {
         room?.add(delegate: self)
@@ -65,6 +77,7 @@ public final class PreConnectAudioBuffer: NSObject, Loggable {
         }
     }
 
+    /// Stop capturing audio.
     @objc
     public func stopRecording() {
         recorder.stop()
@@ -88,6 +101,10 @@ extension PreConnectAudioBuffer: RoomDelegate {
         }
     }
 
+    /// Set the participant attribute to indicate that the audio buffer is active.
+    /// - Parameters:
+    ///   - key: The key to set the attribute.
+    ///   - room: The room instance to set the attribute.
     @objc
     public func setParticipantAttribute(key _: String = attributeKey, room: Room) async throws {
         var attributes = room.localParticipant.attributes
@@ -96,6 +113,10 @@ extension PreConnectAudioBuffer: RoomDelegate {
         log("Set participant attribute", .info)
     }
 
+    /// Send the audio data to the room.
+    /// - Parameters:
+    ///   - room: The room instance to send the audio data.
+    ///   - topic: The topic to send the audio data.
     @objc
     public func sendAudioData(to room: Room, on topic: String = dataTopic) async throws {
         guard let audioStream = state.audioStream else {

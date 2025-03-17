@@ -17,18 +17,29 @@
 import AVFAudio
 import Foundation
 
+/// A class that captures audio from a local track and streams it as a data stream
+/// in a selected format that can be sent to other participants via ``ByteStreamWriter``.
 @objc
 public final class LocalAudioTrackRecorder: NSObject, AudioRenderer {
     public typealias Stream = AsyncStream<Data>
 
+    /// The local audio track to capture audio from.
     @objc
     public let track: LocalAudioTrack
+
+    /// The format of the audio data to stream.
     @objc
     public let format: AVAudioCommonFormat
+
+    /// The sample rate of the audio data to stream.
     @objc
     public let sampleRate: Int
+
+    /// The number of channels of the audio data to stream.
     @objc
     public let channels: Int = 1
+
+    /// The maximum size of the audio data to buffer.
     @objc
     public let maxSize: Int
 
@@ -37,6 +48,13 @@ public final class LocalAudioTrackRecorder: NSObject, AudioRenderer {
         var continuation: Stream.Continuation?
     }
 
+    /// Initialize the audio recorder with a local audio track.
+    /// - Parameters:
+    ///   - track: The local audio track to capture audio from.
+    ///   - format: The format of the audio data to stream.
+    ///   - sampleRate: The sample rate of the audio data to stream.
+    ///   - maxSize: The maximum size of the audio data to buffer.
+    /// - Note: The default maximum size is 0, which means that the audio data will be buffered indefinitely.
     @objc
     public init(track: LocalAudioTrack, format: AVAudioCommonFormat, sampleRate: Int, maxSize: Int = 0) {
         self.track = track
@@ -45,8 +63,13 @@ public final class LocalAudioTrackRecorder: NSObject, AudioRenderer {
         self.maxSize = maxSize
     }
 
-    public func start() async throws -> Stream? {
-        guard _state.continuation == nil else { return nil }
+    /// Starts capturing audio from the local track and returns a stream of audio data.
+    /// - Returns: A stream of audio data.
+    /// - Throws: An error if the audio track cannot be started.
+    public func start() async throws -> Stream {
+        guard _state.continuation == nil else {
+            throw LiveKitError(.invalidState, message: "Cannot start the recorder multiple times.")
+        }
 
         try await track.startCapture()
 
@@ -68,6 +91,7 @@ public final class LocalAudioTrackRecorder: NSObject, AudioRenderer {
         return stream
     }
 
+    /// Stops capturing audio from the local track.
     @objc
     public func stop() {
         _state.continuation?.finish()
@@ -91,18 +115,24 @@ public extension LocalAudioTrackRecorder {
 // MARK: - Objective-C compatibility
 
 public extension LocalAudioTrackRecorder {
+    /// Starts capturing audio from the local track and calls the provided closure with the audio data.
+    /// - Parameters:
+    ///   - maxSize: The maximum size of the audio data to buffer.
+    ///   - onData: A closure that is called with the audio data.
+    ///   - onCompletion: A closure that is called when the audio recording is completed.
     @objc
     @available(*, deprecated, message: "Use for/await instead.")
-    func start(maxSize _: Int = 0, onData: @escaping (Data) -> Void, onCompletion: @escaping () -> Void) {
+    func start(maxSize _: Int = 0, onData: @escaping (Data) -> Void, onCompletion: @escaping (Error?) -> Void) {
         Task {
-            guard let stream = try await start() else {
-                onCompletion()
-                return
+            do {
+                let stream = try await start()
+                for try await data in stream {
+                    onData(data)
+                }
+                onCompletion(nil)
+            } catch {
+                onCompletion(error)
             }
-            for try await data in stream {
-                onData(data)
-            }
-            onCompletion()
         }
     }
 }
