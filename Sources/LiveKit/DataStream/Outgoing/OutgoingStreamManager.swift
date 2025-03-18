@@ -246,7 +246,7 @@ actor OutgoingStreamManager: Loggable {
     }
 
     /// Maximum number of bytes to send in a single chunk.
-    private static let chunkSize = 15000
+    private static let chunkSize = 15 * 1024
 
     /// Default MIME type to use for text streams.
     fileprivate static let textMimeType = "text/plain"

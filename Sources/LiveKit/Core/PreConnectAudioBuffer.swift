@@ -50,9 +50,9 @@ public final class PreConnectAudioBuffer: NSObject, Loggable {
     public init(room: Room?,
                 recorder: LocalAudioTrackRecorder = LocalAudioTrackRecorder(
                     track: LocalAudioTrack.createTrack(),
-                    format: .pcmFormatInt16,
-                    sampleRate: 24000,
-                    maxSize: 10_000_000
+                    format: .pcmFormatInt16, // supported by agent plugins
+                    sampleRate: 24000, // supported by agent plugins
+                    maxSize: 10 * 1024 * 1024 // arbitrary max recording size of 10MB
                 ))
     {
         self.room = room
