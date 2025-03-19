@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-import Dispatch
 import Foundation
 
 /// Manages state of outgoing data streams.

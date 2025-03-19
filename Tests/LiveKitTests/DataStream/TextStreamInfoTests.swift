@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-import Dispatch
 @testable import LiveKit
 import XCTest
 
