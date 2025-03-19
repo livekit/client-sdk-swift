@@ -32,7 +32,7 @@ class ByteStreamInfoTests: LKTestCase {
         XCTAssertEqual(header.streamID, info.id)
         XCTAssertEqual(header.mimeType, info.mimeType)
         XCTAssertEqual(header.topic, info.topic)
-        XCTAssertEqual(header.timestamp, Int64(info.timestamp.timeIntervalSince1970))
+        XCTAssertEqual(header.timestamp, Int64(info.timestamp.timeIntervalSince1970 * TimeInterval(1000)))
         XCTAssertEqual(header.totalLength, UInt64(info.totalLength ?? -1))
         XCTAssertEqual(header.attributes, info.attributes)
         XCTAssertEqual(header.byteHeader.name, info.name)
