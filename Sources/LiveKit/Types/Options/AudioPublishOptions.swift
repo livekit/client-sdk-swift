@@ -29,16 +29,21 @@ public final class AudioPublishOptions: NSObject, TrackPublishOptions, Sendable 
     public let dtx: Bool
 
     @objc
+    public let red: Bool
+
+    @objc
     public let streamName: String?
 
     public init(name: String? = nil,
                 encoding: AudioEncoding? = nil,
                 dtx: Bool = true,
+                red: Bool = true,
                 streamName: String? = nil)
     {
         self.name = name
         self.encoding = encoding
         self.dtx = dtx
+        self.red = red
         self.streamName = streamName
     }
 
@@ -49,6 +54,7 @@ public final class AudioPublishOptions: NSObject, TrackPublishOptions, Sendable 
         return name == other.name &&
             encoding == other.encoding &&
             dtx == other.dtx &&
+            red == other.red &&
             streamName == other.streamName
     }
 
@@ -57,6 +63,7 @@ public final class AudioPublishOptions: NSObject, TrackPublishOptions, Sendable 
         hasher.combine(name)
         hasher.combine(encoding)
         hasher.combine(dtx)
+        hasher.combine(red)
         hasher.combine(streamName)
         return hasher.finalize()
     }
