@@ -274,8 +274,8 @@ extension Livekit_DataStream.Header {
 
     // Stream timestamps are in ms (13 digits)
     var timestampDate: Date {
-        get { Date(timeIntervalSince1970: TimeInterval(timestamp) / TimeInterval(MSEC_PER_SEC)) }
-        set { timestamp = Int64(newValue.timeIntervalSince1970 * TimeInterval(MSEC_PER_SEC)) }
+        get { Date(timeIntervalSince1970: TimeInterval(timestamp) / TimeInterval(1000)) }
+        set { timestamp = Int64(newValue.timeIntervalSince1970 * TimeInterval(1000)) }
     }
 }
 
