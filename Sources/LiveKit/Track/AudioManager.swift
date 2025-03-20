@@ -303,15 +303,12 @@ public class AudioManager: Loggable {
     /// Normally, you do not need to set this manually since it will be handled automatically.
     public var isMicrophoneMuted: Bool {
         get { RTC.audioDeviceModule.isMicrophoneMuted }
-        set { RTC.audioDeviceModule.isMicrophoneMuted = newValue }
+        set { RTC.audioDeviceModule.setMicrophoneMuted(newValue) }
     }
 
     // MARK: - For testing
 
-    var engineState: RTCAudioEngineState {
-        get { RTC.audioDeviceModule.engineState }
-        set { RTC.audioDeviceModule.engineState = newValue }
-    }
+    var engineState: LKRTCAudioEngineState { RTC.audioDeviceModule.engineState }
 
     var isPlayoutInitialized: Bool {
         RTC.audioDeviceModule.isPlayoutInitialized
