@@ -34,6 +34,11 @@ public class AudioManager: Loggable {
     public static let shared = AudioManager()
     #endif
 
+    public static func prepare() {
+        // Instantiate shared instance
+        _ = shared
+    }
+
     public typealias OnDevicesDidUpdate = (_ audioManager: AudioManager) -> Void
 
     public typealias OnSpeechActivity = (_ audioManager: AudioManager, _ event: SpeechActivityEvent) -> Void
