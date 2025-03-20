@@ -207,7 +207,9 @@ public class Room: NSObject, ObservableObject, Loggable {
                 connectOptions: ConnectOptions? = nil,
                 roomOptions: RoomOptions? = nil)
     {
+        // Ensure manager shared objects are instantiated
         DeviceManager.prepare()
+        AudioManager.prepare()
 
         _state = StateSync(State(connectOptions: connectOptions ?? ConnectOptions(),
                                  roomOptions: roomOptions ?? RoomOptions()))
