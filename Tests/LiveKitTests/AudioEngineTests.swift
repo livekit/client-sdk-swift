@@ -343,6 +343,65 @@ class AudioEngineTests: LKTestCase {
             try? await Task.sleep(nanoseconds: 1 * 100_000_000) // 10ms
         }
     }
+
+    func testFailingPublish() async throws {
+        AudioManager.shared.set(engineObservers: [FailingEngineObserver()])
+        // Should fail
+        // swiftformat:disable redundantSelf hoistAwait
+        await XCTAssertThrowsErrorAsync(try await withRooms([RoomTestingOptions(canPublish: true)]) { rooms in
+            print("Publishing mic...")
+            try await rooms[0].localParticipant.setMicrophone(enabled: true)
+        })
+    }
+
+    func testRandomCalls() async throws {
+        struct EngineCallTest {
+            let title: String
+            let call: () -> Int
+            let expected: (RTCAudioEngineState) -> [Int]
+        }
+
+        let adm = RTC.audioDeviceModule
+
+        let tests: [EngineCallTest] = [
+            EngineCallTest(title: "Init Playout", call: adm.initPlayout, expected: { _ in [0] }),
+            EngineCallTest(title: "Start Playout", call: adm.startPlayout, expected: { $0.outputEnabled ? [0] : [-1] }),
+            EngineCallTest(title: "Stop Playout", call: adm.stopPlayout, expected: { _ in [0] }),
+            EngineCallTest(title: "Init Recording", call: adm.initRecording, expected: { _ in [0] }),
+            EngineCallTest(title: "Start Recording", call: adm.startRecording, expected: { $0.inputEnabled ? [0] : [-1] }),
+            EngineCallTest(title: "Stop Recording", call: adm.stopRecording, expected: { _ in [0] }),
+        ]
+
+//        let engineCalls: [String: EngineCall] = [
+//            "Init Playout": mngr.initPlayout,
+//            "Start Playout": mngr.startPlayout,
+//            "Stop Playout": mngr.stopPlayout,
+//            "Init Recording": mngr.initRecording,
+//            "Start Recording": mngr.startRecording,
+//            "Stop Recording": mngr.stopRecording,
+//            "Mute mode legacy" : { RTC.audioDeviceModule.setMuteMode(.restartEngine) },
+//            "Mute mode default" : { RTC.audioDeviceModule.setMuteMode(.voiceProcessing) },
+//            "Set Mute" : { RTC.audioDeviceModule.setMicrophoneMuted(true) },
+//            "Set Un-muted" : { RTC.audioDeviceModule.setMicrophoneMuted(false) }
+//        ]
+
+        for i in 0 ..< 1000 {
+            let test = tests.randomElement()!
+            print("Calling test #\(i) \(test.title)")
+            let r = test.call()
+            let s = RTC.audioDeviceModule.engineState
+            XCTAssert(test.expected(s).contains(r), "Call #\(i) \(test.title) Failed with result: \(r), state: \(s)")
+        }
+    }
+}
+
+final class FailingEngineObserver: AudioEngineObserver {
+    var next: (any LiveKit.AudioEngineObserver)?
+
+    func engineWillEnable(_: AVAudioEngine, isPlayoutEnabled _: Bool, isRecordingEnabled _: Bool) -> Int {
+        // Fail
+        -4101
+    }
 }
 
 final class SineWaveNodeHook: AudioEngineObserver {

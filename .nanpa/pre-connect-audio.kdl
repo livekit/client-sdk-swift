@@ -1,0 +1,2 @@
+minor type="added" "Added LocalAudioTrackRecorder"
+minor type="added" "Added the possibility to capture pre-connect audio and send it to agents via data streams"
