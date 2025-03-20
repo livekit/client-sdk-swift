@@ -46,13 +46,7 @@ class AVAudioPCMBufferTests: LKTestCase {
             return
         }
 
-        // Fill the buffer with some test data
-        for frame in 0 ..< frameCount {
-            let value = sin(Double(frame) * 2 * .pi / 100.0) // Simple sine wave
-            buffer.floatChannelData?[0][frame] = Float(value)
-            buffer.floatChannelData?[1][frame] = Float(value)
-        }
-        buffer.frameLength = AVAudioFrameCount(frameCount)
+        fillBufferWithSineWave(buffer: buffer, frameCount: frameCount)
 
         // Perform resampling
         let resampledBuffer = buffer.resample(toSampleRate: toSampleRate)
@@ -75,5 +69,161 @@ class AVAudioPCMBufferTests: LKTestCase {
         } else {
             XCTAssertNil(resampledBuffer, "Resampling should fail")
         }
+    }
+
+    func testToData() {
+        let sampleRates: [Double] = [8000, 16000, 22050, 24000, 32000, 44100, 48000]
+        let formats: [AVAudioCommonFormat] = [.pcmFormatFloat32, .pcmFormatInt16, .pcmFormatInt32]
+
+        for sampleRate in sampleRates {
+            for audioFormat in formats {
+                testToDataHelper(sampleRate: sampleRate, format: audioFormat)
+            }
+        }
+    }
+
+    private func testToDataHelper(sampleRate: Double, format: AVAudioCommonFormat) {
+        guard let audioFormat = AVAudioFormat(commonFormat: format,
+                                              sampleRate: sampleRate,
+                                              channels: 2,
+                                              interleaved: false)
+        else {
+            XCTFail("Failed to create audio format with sample rate \(sampleRate) and format \(format)")
+            return
+        }
+
+        let frameCount = 1000
+        guard let buffer = AVAudioPCMBuffer(pcmFormat: audioFormat, frameCapacity: AVAudioFrameCount(frameCount)) else {
+            XCTFail("Failed to create audio buffer")
+            return
+        }
+
+        fillBufferWithSineWave(buffer: buffer, frameCount: frameCount)
+
+        guard let data = buffer.toData() else {
+            XCTFail("toData() returned nil for format \(format) at sample rate \(sampleRate)")
+            return
+        }
+
+        let channels = Int(audioFormat.channelCount)
+
+        let bytesPerSample: Int
+        switch format {
+        case .pcmFormatFloat32:
+            bytesPerSample = 4
+        case .pcmFormatInt16:
+            bytesPerSample = 2
+        case .pcmFormatInt32:
+            bytesPerSample = 4
+        default:
+            bytesPerSample = Int(audioFormat.streamDescription.pointee.mBytesPerFrame) / channels
+        }
+
+        let expectedSize = frameCount * channels * bytesPerSample
+
+        XCTAssertEqual(data.count, expectedSize, "Data size mismatch for format \(format) at sample rate \(sampleRate)")
+
+        guard let newBuffer = AVAudioPCMBuffer(pcmFormat: audioFormat, frameCapacity: AVAudioFrameCount(frameCount)) else {
+            XCTFail("Failed to create new buffer")
+            return
+        }
+        newBuffer.frameLength = AVAudioFrameCount(frameCount)
+
+        fillBufferFromData(buffer: newBuffer, data: data)
+
+        XCTAssertTrue(compareBuffers(buffer1: buffer, buffer2: newBuffer),
+                      "Buffer data mismatch after conversion for format \(format) at sample rate \(sampleRate)")
+    }
+
+    private func fillBufferWithSineWave(buffer: AVAudioPCMBuffer, frameCount: Int) {
+        let format = buffer.format
+        let channels = Int(format.channelCount)
+
+        let sineWaveValues = (0 ..< frameCount).map { frame in
+            sin(Double(frame) * 2 * .pi / 100.0)
+        }
+
+        for frame in 0 ..< frameCount {
+            let value = sineWaveValues[frame]
+            for channel in 0 ..< channels {
+                switch format.commonFormat {
+                case .pcmFormatFloat32:
+                    buffer.floatChannelData?[channel][frame] = Float(value)
+                case .pcmFormatInt16:
+                    buffer.int16ChannelData?[channel][frame] = Int16(value * Double(Int16.max))
+                case .pcmFormatInt32:
+                    buffer.int32ChannelData?[channel][frame] = Int32(value * Double(Int32.max))
+                default:
+                    break
+                }
+            }
+        }
+
+        buffer.frameLength = AVAudioFrameCount(frameCount)
+    }
+
+    private func fillBufferFromData(buffer: AVAudioPCMBuffer, data: Data) {
+        let format = buffer.format
+        let channels = Int(format.channelCount)
+        let frameCount = Int(buffer.frameLength)
+
+        data.withUnsafeBytes { (bufferPointer: UnsafeRawBufferPointer) in
+            guard let baseAddress = bufferPointer.baseAddress else { return }
+
+            for frame in 0 ..< frameCount {
+                for channel in 0 ..< channels {
+                    let index = frame * channels + channel
+
+                    switch format.commonFormat {
+                    case .pcmFormatFloat32:
+                        let floatArray = baseAddress.assumingMemoryBound(to: Float.self)
+                        buffer.floatChannelData?[channel][frame] = floatArray[index]
+                    case .pcmFormatInt16:
+                        let int16Array = baseAddress.assumingMemoryBound(to: Int16.self)
+                        buffer.int16ChannelData?[channel][frame] = int16Array[index]
+                    case .pcmFormatInt32:
+                        let int32Array = baseAddress.assumingMemoryBound(to: Int32.self)
+                        buffer.int32ChannelData?[channel][frame] = int32Array[index]
+                    default:
+                        break
+                    }
+                }
+            }
+        }
+    }
+
+    private func compareBuffers(buffer1: AVAudioPCMBuffer, buffer2: AVAudioPCMBuffer) -> Bool {
+        guard buffer1.frameLength == buffer2.frameLength,
+              buffer1.format.commonFormat == buffer2.format.commonFormat
+        else {
+            return false
+        }
+
+        let channels = Int(buffer1.format.channelCount)
+        let frameCount = Int(buffer1.frameLength)
+        let format = buffer1.format
+
+        for channel in 0 ..< channels {
+            for frame in 0 ..< frameCount {
+                let valuesMatch: Bool
+
+                switch format.commonFormat {
+                case .pcmFormatFloat32:
+                    valuesMatch = buffer1.floatChannelData?[channel][frame] == buffer2.floatChannelData?[channel][frame]
+                case .pcmFormatInt16:
+                    valuesMatch = buffer1.int16ChannelData?[channel][frame] == buffer2.int16ChannelData?[channel][frame]
+                case .pcmFormatInt32:
+                    valuesMatch = buffer1.int32ChannelData?[channel][frame] == buffer2.int32ChannelData?[channel][frame]
+                default:
+                    return false
+                }
+
+                if !valuesMatch {
+                    return false
+                }
+            }
+        }
+
+        return true
     }
 }

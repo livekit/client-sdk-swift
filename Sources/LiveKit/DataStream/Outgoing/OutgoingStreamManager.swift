@@ -246,7 +246,7 @@ actor OutgoingStreamManager: Loggable {
     }
 
     /// Maximum number of bytes to send in a single chunk.
-    private static let chunkSize = 15000
+    private static let chunkSize = 15 * 1024
 
     /// Default MIME type to use for text streams.
     fileprivate static let textMimeType = "text/plain"
@@ -272,9 +272,10 @@ extension Livekit_DataStream.Header {
         }
     }
 
+    // Stream timestamps are in ms (13 digits)
     var timestampDate: Date {
-        get { Date(timeIntervalSince1970: TimeInterval(timestamp)) }
-        set { timestamp = Int64(newValue.timeIntervalSince1970) }
+        get { Date(timeIntervalSince1970: TimeInterval(timestamp) / TimeInterval(1000)) }
+        set { timestamp = Int64(newValue.timeIntervalSince1970 * TimeInterval(1000)) }
     }
 }
 

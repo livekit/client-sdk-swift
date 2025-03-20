@@ -116,6 +116,12 @@ public class Room: NSObject, ObservableObject, Loggable {
         try await self?.send(dataPacket: packet)
     }
 
+    // MARK: - PreConnect
+
+    lazy var preConnectBuffer = PreConnectAudioBuffer(room: self)
+
+    // MARK: - Queue
+
     var _blockProcessQueue = DispatchQueue(label: "LiveKitSDK.engine.pendingBlocks",
                                            qos: .default)
 
@@ -393,6 +399,10 @@ extension Room {
         // Cleanup for E2EE
         if let e2eeManager {
             e2eeManager.cleanUp()
+        }
+
+        if disconnectError != nil {
+            preConnectBuffer.stopRecording(flush: true)
         }
 
         // Reset state
