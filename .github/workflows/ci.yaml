@@ -161,16 +161,12 @@ jobs:
             --transform-for-static-hosting \
             --hosting-base-path client-sdk-swift/
 
-      - name: Sanitize Ref Name
-        id: sanitize-ref
-        run: echo "ref_name=$(echo ${{ github.ref_name }} | sed 's/\//-/g')" >> $GITHUB_OUTPUT
-
       - name: Archive
-        run: zip -r docs@${{ steps.sanitize-ref.outputs.ref_name }}.zip docs
+        run: zip -r docs.zip docs
 
       - name: Upload Archive
         uses: actions/upload-artifact@v4
         with:
-          name: docs@${{ steps.sanitize-ref.outputs.ref_name }}
-          path: docs@${{ steps.sanitize-ref.outputs.ref_name }}.zip
+          name: docs
+          path: docs.zip
           retention-days: 1
