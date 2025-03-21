@@ -18,6 +18,7 @@ jobs:
         with:
           workflow: ci.yaml
           workflow_search: false
+          workflow_conclusion: completed
           branch: main
           name: docs
 
