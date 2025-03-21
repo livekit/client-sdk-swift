@@ -73,7 +73,7 @@ actor IncomingStreamManager: Loggable {
             return
         }
         guard let handler = handler(for: info) else {
-            log("Unable to find handler for stream '\(info.id)'", .warning)
+            logger.warning("Unable to find handler for stream '\(info.id)' from '\(identity)'")
             return
         }
 
