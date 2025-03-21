@@ -28,6 +28,8 @@ actor IncomingStreamManager: Loggable {
 
     /// Mapping between stream ID and descriptor for open streams.
     private var openStreams: [String: Descriptor] = [:]
+    /// Stream topics without a registered handler.
+    private var failedToOpenStreams: Set<String> = []
 
     private var byteStreamHandlers: [String: ByteStreamHandler] = [:]
     private var textStreamHandlers: [String: TextStreamHandler] = [:]
@@ -73,7 +75,11 @@ actor IncomingStreamManager: Loggable {
             return
         }
         guard let handler = handler(for: info) else {
-            logger.warning("Unable to find handler for stream '\(info.id)' from '\(identity)'")
+            let topic = info.topic
+            if !failedToOpenStreams.contains(topic) {
+                logger.warning("Unable to find handler for incoming stream: \(info.id), topic: \(topic), opened by: \(identity)")
+                failedToOpenStreams.insert(topic)
+            }
             return
         }
 
