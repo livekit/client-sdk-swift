@@ -22,7 +22,6 @@ jobs:
         with:
           workflow: ci.yaml
           workflow_search: false
-          workflow_conclusion: success
           branch: main
           name: docs@${{ steps.sanitize-ref.outputs.ref_name }}
 
