@@ -1,6 +1,11 @@
 name: Publish Docs
 on:
   workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Dry run (only list files, don't upload)
+        default: true
+        type: boolean
   release:
     types: [published]
 jobs:
@@ -24,7 +29,11 @@ jobs:
       - name: Unzip Archive
         run: unzip docs@${{ steps.sanitize-ref.outputs.ref_name }}.zip
 
+      - name: List Files
+        run: ls -la docs
+
       - name: S3 Upload
+        if: inputs.dry_run != true
         run: aws s3 cp docs/ s3://livekit-docs/client-sdk-swift --recursive
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.DOCS_DEPLOY_AWS_ACCESS_KEY }}
@@ -32,6 +41,7 @@ jobs:
           AWS_DEFAULT_REGION: "us-east-1"
 
       - name: Invalidate cache
+        if: inputs.dry_run != true
         run: aws cloudfront create-invalidation --distribution-id EJJ40KLJ3TRY9 --paths "/*"
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.DOCS_DEPLOY_AWS_ACCESS_KEY }}
