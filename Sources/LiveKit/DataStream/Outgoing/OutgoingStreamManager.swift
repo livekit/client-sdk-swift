@@ -167,8 +167,6 @@ actor OutgoingStreamManager: Loggable {
 
         let descriptor = Descriptor(info: info)
         openStreams[info.id] = descriptor
-
-        log("Opened stream '\(info.id)'", .debug)
     }
 
     private func send(_ data: some StreamData, to id: String) async throws {
@@ -210,8 +208,6 @@ actor OutgoingStreamManager: Loggable {
 
         try await packetHandler(packet)
         openStreams[id] = nil
-
-        log("Closed stream '\(id)'", .debug)
     }
 
     // MARK: - Destination
