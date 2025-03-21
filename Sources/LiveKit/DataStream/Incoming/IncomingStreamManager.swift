@@ -63,7 +63,6 @@ actor IncomingStreamManager: Loggable {
         let identity = Participant.Identity(from: identityString)
 
         guard let streamInfo = Self.streamInfo(from: header) else {
-            log("Invalid header for stream '\(header.streamID)'", .error)
             return
         }
         openStream(with: streamInfo, from: identity)
@@ -71,7 +70,6 @@ actor IncomingStreamManager: Loggable {
 
     private func openStream(with info: StreamInfo, from identity: Participant.Identity) {
         guard openStreams[info.id] == nil else {
-            log("Stream '\(info.id)' already open", .error)
             return
         }
         guard let handler = handler(for: info) else {
@@ -81,9 +79,8 @@ actor IncomingStreamManager: Loggable {
 
         var continuation: StreamReaderSource.Continuation!
         let source = StreamReaderSource {
-            $0.onTermination = { @Sendable [weak self] termination in
+            $0.onTermination = { @Sendable [weak self] _ in
                 guard let self else { return }
-                self.log("Continuation terminated: \(termination)", .debug)
                 Task { await self.closeStream(with: info.id) }
             }
             continuation = $0
@@ -94,23 +91,18 @@ actor IncomingStreamManager: Loggable {
             openTime: Date.timeIntervalSinceReferenceDate,
             continuation: continuation
         )
-        log("Opened stream '\(info.id)'", .debug)
         openStreams[info.id] = descriptor
 
         Task.detached {
-            do { try await handler(source, identity) }
-            catch { logger.error("Unhandled error in stream handler") }
+            try await handler(source, identity)
         }
     }
 
     /// Close the stream with the given id.
     private func closeStream(with id: String) {
         guard let descriptor = openStreams[id] else {
-            log("No descriptor for stream '\(id)'", .debug)
             return
         }
-        let openDuration = Date.timeIntervalSinceReferenceDate - descriptor.openTime
-        log("Closed stream '\(id)' (open for \(openDuration))", .debug)
         openStreams[id] = nil
     }
 
@@ -133,7 +125,6 @@ actor IncomingStreamManager: Loggable {
     /// Handles a data stream trailer.
     func handle(trailer: Livekit_DataStream.Trailer) {
         guard let descriptor = openStreams[trailer.streamID] else {
-            log("Received trailer for unknown stream '\(trailer.streamID)'", .warning)
             return
         }
         if let totalLength = descriptor.info.totalLength {
@@ -175,7 +166,6 @@ actor IncomingStreamManager: Loggable {
 
     deinit {
         guard !openStreams.isEmpty else { return }
-        log("Terminating \(openStreams.count) open stream(s)", .debug)
         for descriptor in openStreams.values {
             descriptor.continuation.finish(throwing: StreamError.terminated)
         }
