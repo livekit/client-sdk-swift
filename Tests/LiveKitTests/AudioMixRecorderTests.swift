@@ -15,7 +15,7 @@
  */
 
 import AVFAudio
-@testable import LiveKit
+import LiveKit
 import XCTest
 
 final class AudioMixRecorderTests: LKTestCase {
