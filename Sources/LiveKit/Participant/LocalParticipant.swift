@@ -600,7 +600,7 @@ private extension LocalParticipant {
 
                 populatorFunc = { populator in
                     populator.disableDtx = !audioPublishOptions.dtx
-                    populator.disableRed = !publishOptions.red
+                    populator.disableRed = !audioPublishOptions.red
 
                     if let streamName = options?.streamName {
                         // Set stream name if specified in options
