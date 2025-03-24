@@ -529,6 +529,16 @@ private extension LocalParticipant {
             var populatorFunc: SignalClient.AddTrackRequestPopulator?
 
             if let track = track as? LocalVideoTrack {
+                let videoPublishOptions = (options as? VideoPublishOptions) ?? room._state.roomOptions.defaultVideoPublishOptions
+
+                if isFastPublishMode {
+                    if let preferredCodec = videoPublishOptions.preferredCodec {
+                        if !_internalState.enabledPublishVideoCodecs.contains(preferredCodec) {
+                            throw LiveKitError(.invalidState, message: "Preferred video codec is not enabled on server")
+                        }
+                    }
+                }
+
                 // Wait for Dimensions...
                 log("[Publish] Waiting for dimensions to resolve...")
                 dimensions = try await track.capturer.dimensionsCompleter.wait()
@@ -539,7 +549,6 @@ private extension LocalParticipant {
 
                 log("[publish] computing encode settings with dimensions: \(dimensions)...")
 
-                let videoPublishOptions = (options as? VideoPublishOptions) ?? room._state.roomOptions.defaultVideoPublishOptions
                 publishName = videoPublishOptions.name
 
                 let encodings = Utils.computeVideoEncodings(dimensions: dimensions,
@@ -661,12 +670,10 @@ private extension LocalParticipant {
                 try await room.publisherShouldNegotiate()
             }
 
-            let fastPublishMode = !_internalState.enabledPublishVideoCodecs.isEmpty
-
             let trackInfo = try await {
-                log("[publish] Fast publish mode: \(fastPublishMode ? "true" : "false")")
+                log("[publish] Fast publish mode: \(isFastPublishMode ? "true" : "false")")
 
-                if fastPublishMode {
+                if isFastPublishMode {
                     // Concurrent
                     async let trackInfoPromise = addTrackFunc()
                     async let negotiatePromise: () = negotiateFunc()
@@ -726,5 +733,11 @@ private extension LocalParticipant {
         if !sources.isEmpty, !sources.contains(track.source.rawValue) {
             throw LiveKitError(.insufficientPermissions, message: "Participant does not have permission to publish tracks from this source")
         }
+    }
+}
+
+extension LocalParticipant {
+    var isFastPublishMode: Bool {
+        !_internalState.enabledPublishVideoCodecs.isEmpty
     }
 }
