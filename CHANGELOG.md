@@ -1,5 +1,24 @@
 # Changelog
 
+## [2.4.0] - 2025-03-21
+
+### Added
+
+- Added missing RED option to AudioPublishOptions
+- Added LocalAudioTrackRecorder
+- Added the possibility to capture pre-connect audio and send it to agents via data streams
+
+### Removed
+
+- Removed unnecessary logs from stream handlers
+
+### Fixed
+
+- Explicit AudioManager initialization
+- Metal renderer scale factor
+- Wrong stream timestamp conversion
+- Race condition in WebSocket impl
+
 ## [2.3.1] - 2025-03-11
 
 ### Changed
