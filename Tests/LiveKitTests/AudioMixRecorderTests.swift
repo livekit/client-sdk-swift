@@ -19,9 +19,19 @@ import LiveKit
 import XCTest
 
 final class AudioMixRecorderTests: LKTestCase {
-    let audioSettings: [String: Any] = [
+    let audioSettings16k: [String: Any] = [
         AVFormatIDKey: kAudioFormatMPEG4AAC,
         AVSampleRateKey: 16000,
+        AVNumberOfChannelsKey: 1,
+        AVLinearPCMBitDepthKey: 32,
+        AVLinearPCMIsFloatKey: true,
+        AVLinearPCMIsNonInterleaved: false,
+        AVLinearPCMIsBigEndianKey: false,
+    ]
+
+    let audioSettings8k: [String: Any] = [
+        AVFormatIDKey: kAudioFormatMPEG4AAC,
+        AVSampleRateKey: 8000,
         AVNumberOfChannelsKey: 1,
         AVLinearPCMBitDepthKey: 32,
         AVLinearPCMIsFloatKey: true,
@@ -47,7 +57,7 @@ final class AudioMixRecorderTests: LKTestCase {
         let recordFilePath = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent(UUID().uuidString + ".aac")
         print("Recording to \(recordFilePath)...")
 
-        let recorder = try AudioMixRecorder(filePath: recordFilePath, audioSettings: audioSettings)
+        var recorder = try AudioMixRecorder(filePath: recordFilePath, audioSettings: audioSettings16k)
 
         // Sample buffer 1
         let sampleBuffer1 = AVAudioPCMBuffer(pcmFormat: recorder.processingFormat,
@@ -73,8 +83,6 @@ final class AudioMixRecorderTests: LKTestCase {
 
         recorder.stop()
 
-        recorder.removeAllSources()
-
         do {
             // Play the recorded file...
             let player = try AVAudioPlayer(contentsOf: recordFilePath)
@@ -89,6 +97,9 @@ final class AudioMixRecorderTests: LKTestCase {
         // Record session 2 (Re-use recorder)
 
         print("Record session 1")
+
+        // Create new recorder (8k)
+        recorder = try AudioMixRecorder(filePath: recordFilePath, audioSettings: audioSettings8k)
 
         let fileSrc3 = recorder.addSource()
         let fileSrc4 = recorder.addSource()
@@ -119,7 +130,7 @@ final class AudioMixRecorderTests: LKTestCase {
         let recordFilePath = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent(UUID().uuidString + ".aac")
         print("Recording to \(recordFilePath)...")
 
-        let recorder = try AudioMixRecorder(filePath: recordFilePath, audioSettings: audioSettings)
+        let recorder = try AudioMixRecorder(filePath: recordFilePath, audioSettings: audioSettings16k)
 
         // Sample buffer 1
         let sampleBuffer1 = AVAudioPCMBuffer(pcmFormat: recorder.processingFormat,

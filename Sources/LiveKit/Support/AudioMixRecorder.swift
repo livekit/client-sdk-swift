@@ -17,6 +17,54 @@
 import AVFAudio
 import Foundation
 
+/// `AudioMixRecorder` provides real-time audio recording capabilities using AVAudioEngine.
+///
+/// This class allows recording audio from multiple sources to a file in real-time. If no audio
+/// buffer is provided during recording, it will record silence. The recorder maintains a list
+/// of audio sources that can be added or removed dynamically, even while recording is in progress.
+///
+/// Audio settings must be compatible with the settings for `AVAudioRecorder`.
+///
+/// Each audio source implements the `AudioRenderer` protocol, making it compatible with both
+/// `RemoteAudioTrack` and `LocalAudioTrack` through their `add(audioRenderer:)` methods.
+///
+/// It is currently not possible to re-use the instance after calling ``AudioMixRecorder/stop()``.
+///
+/// ## Usage
+///
+/// ```swift
+/// // Create recorder with output file path and audio settings
+/// let recordFilePath = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("recording.aac")
+/// let audioSettings: [String: Any] = [
+///     AVFormatIDKey: kAudioFormatMPEG4AAC,
+///     AVSampleRateKey: 16000,
+///     AVNumberOfChannelsKey: 1,
+///     AVLinearPCMBitDepthKey: 32,
+///     AVLinearPCMIsFloatKey: true,
+///     AVLinearPCMIsNonInterleaved: false,
+///     AVLinearPCMIsBigEndianKey: false,
+/// ]
+///
+/// let recorder = try AudioMixRecorder(filePath: recordFilePath, audioSettings: audioSettings)
+///
+/// // Start recording
+/// try recorder.start()
+///
+/// // Add a remote audio source
+/// remoteAudioTrack.add(audioRenderer: recorder.addSource())
+///
+/// // Add a local audio source
+/// localAudioTrack.add(audioRenderer: recorder.addSource())
+///
+/// // Record for some time...
+///
+/// // Stop recording
+/// recorder.stop()
+/// ```
+///
+/// Audio sources can be added or removed at any time, including while recording is active.
+/// When no audio is being provided by any source, the recorder will capture silence.
+
 public class AudioMixRecorder: Loggable {
     // MARK: - Public
 
@@ -76,13 +124,18 @@ public class AudioMixRecorder: Loggable {
 
     deinit {
         log()
-        stop()
+        if audioEngine.isRunning {
+            stop()
+        }
     }
 
     // MARK: - Public Methods
 
     public func start() throws {
-        guard !audioEngine.isRunning else { return }
+        guard !audioEngine.isRunning else {
+            log("Already running", .warning)
+            return
+        }
         log()
 
         try audioEngine.start()
@@ -97,7 +150,10 @@ public class AudioMixRecorder: Loggable {
     }
 
     public func stop() {
-        guard audioEngine.isRunning else { return }
+        guard audioEngine.isRunning else {
+            log("Already stopped", .warning)
+            return
+        }
         log()
 
         stopRenderTimer()
@@ -152,7 +208,10 @@ public class AudioMixRecorder: Loggable {
     }
 
     private func _render() {
-        guard audioFile != nil else { return }
+        guard audioFile != nil else {
+            log("Audio file is already closed", .error)
+            return
+        }
 
         // Reset frame length before rendering
         renderBuffer.frameLength = AVAudioFrameCount(maxFrameCount)
@@ -169,12 +228,16 @@ public class AudioMixRecorder: Loggable {
 
         // Capture necessary values to avoid strong reference cycle
         writeQueue.async { [weak self, renderBuffer, audioFile = self.audioFile] in
-            guard let audioFile else { return }
+            guard let self else { return }
+            guard let audioFile else {
+                self.log("Audio file is already closed", .error)
+                return
+            }
 
             do {
                 try audioFile.write(from: renderBuffer)
             } catch {
-                self?.log("Failed to write to audio file: \(error)", .error)
+                self.log("Failed to write to audio file: \(error)", .error)
             }
         }
     }
