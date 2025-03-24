@@ -57,6 +57,8 @@ public enum LiveKitErrorType: Int, Sendable {
     // Audio
     case audioEngine = 801
     case audioSession = 802
+
+    case codecNotSupported = 901
 }
 
 extension LiveKitErrorType: CustomStringConvertible {

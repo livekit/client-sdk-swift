@@ -531,11 +531,9 @@ private extension LocalParticipant {
             if let track = track as? LocalVideoTrack {
                 let videoPublishOptions = (options as? VideoPublishOptions) ?? room._state.roomOptions.defaultVideoPublishOptions
 
-                if isFastPublishMode {
-                    if let preferredCodec = videoPublishOptions.preferredCodec {
-                        if !_internalState.enabledPublishVideoCodecs.contains(preferredCodec) {
-                            throw LiveKitError(.invalidState, message: "Preferred video codec is not enabled on server")
-                        }
+                if isFastPublishMode, let preferredCodec = videoPublishOptions.preferredCodec {
+                    if !_internalState.enabledPublishVideoCodecs.contains(preferredCodec) {
+                        throw LiveKitError(.codecNotSupported, message: "Preferred video codec is not enabled on server")
                     }
                 }
 
