@@ -17,84 +17,6 @@
 import AVFAudio
 import Foundation
 
-public class AudioMixRecorderSource: Loggable, AudioRenderer {
-    public let processingFormat: AVAudioFormat
-    let playerNode = AVAudioPlayerNode()
-
-    private struct State {
-        var converter: AudioConverter?
-    }
-
-    private let _state = StateSync(State())
-
-    required init(processingFormat: AVAudioFormat) {
-        self.processingFormat = processingFormat
-    }
-
-    deinit {
-        log()
-        cleanup()
-    }
-
-    public func cleanup() {
-        stop()
-        _state.mutate { $0.converter = nil }
-    }
-
-    // MARK: - Internal
-
-    func play() {
-        guard let engine = playerNode.engine, engine.isRunning, !playerNode.isPlaying else { return }
-        playerNode.play()
-    }
-
-    func stop() {
-        if playerNode.isPlaying {
-            playerNode.stop()
-        }
-    }
-
-    // MARK: - Public
-
-    public func scheduleFile(_ file: AVAudioFile) {
-        playerNode.scheduleFile(file, at: nil)
-    }
-
-    public func scheduleBuffer(_ pcmBuffer: AVAudioPCMBuffer) {
-        // Fast path: no conversion needed
-        if pcmBuffer.format == processingFormat {
-            playerNode.scheduleBuffer(pcmBuffer, completionHandler: nil)
-            play()
-            return
-        }
-
-        // Conversion path
-        let converter = _state.mutate {
-            // Create converter if it doesn't exist or if the source format has changed
-            if $0.converter == nil || $0.converter?.inputFormat != pcmBuffer.format {
-                let newConverter = AudioConverter(from: pcmBuffer.format, to: processingFormat)
-                $0.converter = newConverter
-                return newConverter
-            }
-            return $0.converter
-        }
-
-        if let converter {
-            converter.convert(from: pcmBuffer)
-            // Copy the converted segment from buffer and schedule it.
-            let segment = converter.outputBuffer.copySegment()
-            playerNode.scheduleBuffer(segment, completionHandler: nil)
-            play()
-        }
-    }
-
-    // MARK: - AudioRenderer
-
-    public func render(pcmBuffer: AVAudioPCMBuffer) {
-        scheduleBuffer(pcmBuffer)
-    }
-}
-
 public class AudioMixRecorder: Loggable {
     // MARK: - Public
 
@@ -255,5 +177,84 @@ public class AudioMixRecorder: Loggable {
                 self?.log("Failed to write to audio file: \(error)", .error)
             }
         }
+    }
+}
+
+public class AudioMixRecorderSource: Loggable, AudioRenderer {
+    public let processingFormat: AVAudioFormat
+    let playerNode = AVAudioPlayerNode()
+
+    private struct State {
+        var converter: AudioConverter?
+    }
+
+    private let _state = StateSync(State())
+
+    init(processingFormat: AVAudioFormat) {
+        self.processingFormat = processingFormat
+    }
+
+    deinit {
+        log()
+        cleanup()
+    }
+
+    public func cleanup() {
+        stop()
+        _state.mutate { $0.converter = nil }
+    }
+
+    // MARK: - Internal
+
+    func play() {
+        guard let engine = playerNode.engine, engine.isRunning, !playerNode.isPlaying else { return }
+        playerNode.play()
+    }
+
+    func stop() {
+        if playerNode.isPlaying {
+            playerNode.stop()
+        }
+    }
+
+    // MARK: - Public
+
+    public func scheduleFile(_ file: AVAudioFile) {
+        playerNode.scheduleFile(file, at: nil)
+        play()
+    }
+
+    public func scheduleBuffer(_ pcmBuffer: AVAudioPCMBuffer) {
+        // Fast path: no conversion needed
+        if pcmBuffer.format == processingFormat {
+            playerNode.scheduleBuffer(pcmBuffer, completionHandler: nil)
+            play()
+            return
+        }
+
+        // Conversion path
+        let converter = _state.mutate {
+            // Create converter if it doesn't exist or if the source format has changed
+            if $0.converter == nil || $0.converter?.inputFormat != pcmBuffer.format {
+                let newConverter = AudioConverter(from: pcmBuffer.format, to: processingFormat)
+                $0.converter = newConverter
+                return newConverter
+            }
+            return $0.converter
+        }
+
+        if let converter {
+            converter.convert(from: pcmBuffer)
+            // Copy the converted segment from buffer and schedule it.
+            let segment = converter.outputBuffer.copySegment()
+            playerNode.scheduleBuffer(segment, completionHandler: nil)
+            play()
+        }
+    }
+
+    // MARK: - AudioRenderer
+
+    public func render(pcmBuffer: AVAudioPCMBuffer) {
+        scheduleBuffer(pcmBuffer)
     }
 }
