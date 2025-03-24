@@ -18,17 +18,17 @@ import Foundation
 
 extension VideoView: MulticastDelegateProtocol {
     @objc(addDelegate:)
-    public func add(delegate: VideoViewDelegate) {
+    public nonisolated func add(delegate: VideoViewDelegate) {
         delegates.add(delegate: delegate)
     }
 
     @objc(removeDelegate:)
-    public func remove(delegate: VideoViewDelegate) {
+    public nonisolated func remove(delegate: VideoViewDelegate) {
         delegates.remove(delegate: delegate)
     }
 
     @objc
-    public func removeAllDelegates() {
+    public nonisolated func removeAllDelegates() {
         delegates.removeAllDelegates()
     }
 }

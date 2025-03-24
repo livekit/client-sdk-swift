@@ -23,7 +23,7 @@ internal import LiveKitWebRTC
 #endif
 
 @objc
-public protocol VideoRenderer {
+public protocol VideoRenderer: Sendable {
     /// Whether this ``VideoRenderer`` should be considered visible or not for AdaptiveStream.
     /// This will be invoked on the .main thread.
     @objc

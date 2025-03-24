@@ -35,7 +35,7 @@ extension VideoCapturerProtocol {
 }
 
 @objc
-public protocol VideoCapturerDelegate: AnyObject {
+public protocol VideoCapturerDelegate: AnyObject, Sendable {
     @objc(capturer:didUpdateDimensions:) optional
     func capturer(_ capturer: VideoCapturer, didUpdate dimensions: Dimensions?)
 

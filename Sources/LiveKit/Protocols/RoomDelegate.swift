@@ -32,7 +32,7 @@ import Foundation
 /// ```
 /// See the source code of [Swift Example App](https://github.com/livekit/client-example-swift) for more examples.
 @objc
-public protocol RoomDelegate: AnyObject {
+public protocol RoomDelegate: AnyObject, Sendable {
     // MARK: - Connection Events
 
     /// ``Room/connectionState`` has updated.

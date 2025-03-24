@@ -25,7 +25,7 @@ import AppKit
 #endif
 
 @objc
-protocol AppStateDelegate: AnyObject {
+protocol AppStateDelegate: AnyObject, Sendable {
     func appDidEnterBackground()
     func appWillEnterForeground()
     func appWillTerminate()
