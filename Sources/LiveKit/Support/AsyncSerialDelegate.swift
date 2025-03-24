@@ -16,26 +16,22 @@
 
 import Foundation
 
-class AsyncSerialDelegate<T> {
-    private struct State {
-        weak var delegate: AnyObject?
-    }
-
-    private let _state = StateSync(State())
-    private let _serialRunner = SerialRunnerActor<Void>()
+actor AsyncSerialDelegate<T: Sendable> {
+    private weak var delegate: AnyObject?
+    private lazy var serialRunner = SerialRunnerActor<Void>()
 
     public func set(delegate: T) {
-        _state.mutate { $0.delegate = delegate as AnyObject }
+        self.delegate = delegate as AnyObject
     }
 
-    public func notifyAsync(_ fnc: @escaping (T) async -> Void) async throws {
-        guard let delegate = _state.read({ $0.delegate }) as? T else { return }
-        try await _serialRunner.run {
+    public func notifyAsync(_ fnc: @Sendable @escaping (T) async -> Void) async throws {
+        guard let delegate = delegate as? T else { return }
+        try await serialRunner.run {
             await fnc(delegate)
         }
     }
 
-    public func notifyDetached(_ fnc: @escaping (T) async -> Void) {
+    public nonisolated func notifyDetached(_ fnc: @Sendable @escaping (T) async -> Void) {
         Task.detached {
             try await self.notifyAsync(fnc)
         }
