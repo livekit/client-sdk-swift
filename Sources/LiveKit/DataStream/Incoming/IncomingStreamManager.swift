@@ -106,9 +106,6 @@ actor IncomingStreamManager: Loggable {
 
     /// Close the stream with the given id.
     private func closeStream(with id: String) {
-        guard let descriptor = openStreams[id] else {
-            return
-        }
         openStreams[id] = nil
     }
 
