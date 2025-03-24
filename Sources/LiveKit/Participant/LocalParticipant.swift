@@ -502,6 +502,8 @@ private extension LocalParticipant {
     private func _publish(track: LocalTrack, options: TrackPublishOptions? = nil) async throws -> LocalTrackPublication {
         log("[publish] \(track) options: \(String(describing: options ?? nil))...", .info)
 
+        try checkPermissions(toPublish: track)
+
         let room = try requireRoom()
         let publisher = try room.requirePublisher()
 
@@ -598,6 +600,7 @@ private extension LocalParticipant {
 
                 populatorFunc = { populator in
                     populator.disableDtx = !audioPublishOptions.dtx
+                    populator.disableRed = !publishOptions.red
 
                     if let streamName = options?.streamName {
                         // Set stream name if specified in options
@@ -711,6 +714,17 @@ private extension LocalParticipant {
             try await track.stop()
             // Rethrow
             throw error
+        }
+    }
+
+    private func checkPermissions(toPublish track: LocalTrack) throws {
+        guard permissions.canPublish else {
+            throw LiveKitError(.insufficientPermissions, message: "Participant does not have permission to publish")
+        }
+
+        let sources = permissions.canPublishSources
+        if !sources.isEmpty, !sources.contains(track.source.rawValue) {
+            throw LiveKitError(.insufficientPermissions, message: "Participant does not have permission to publish tracks from this source")
         }
     }
 }

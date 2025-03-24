@@ -111,6 +111,17 @@ public class Room: NSObject, ObservableObject, Loggable {
     lazy var subscriberDataChannel = DataChannelPair(delegate: self)
     lazy var publisherDataChannel = DataChannelPair(delegate: self)
 
+    lazy var incomingStreamManager = IncomingStreamManager()
+    lazy var outgoingStreamManager = OutgoingStreamManager { [weak self] packet in
+        try await self?.send(dataPacket: packet)
+    }
+
+    // MARK: - PreConnect
+
+    lazy var preConnectBuffer = PreConnectAudioBuffer(room: self)
+
+    // MARK: - Queue
+
     var _blockProcessQueue = DispatchQueue(label: "LiveKitSDK.engine.pendingBlocks",
                                            qos: .default)
 
@@ -196,7 +207,9 @@ public class Room: NSObject, ObservableObject, Loggable {
                 connectOptions: ConnectOptions? = nil,
                 roomOptions: RoomOptions? = nil)
     {
+        // Ensure manager shared objects are instantiated
         DeviceManager.prepare()
+        AudioManager.prepare()
 
         _state = StateSync(State(connectOptions: connectOptions ?? ConnectOptions(),
                                  roomOptions: roomOptions ?? RoomOptions()))
@@ -390,6 +403,10 @@ extension Room {
             e2eeManager.cleanUp()
         }
 
+        if disconnectError != nil {
+            preConnectBuffer.stopRecording(flush: true)
+        }
+
         // Reset state
         _state.mutate {
             // if isFullReconnect, keep connection related states
@@ -543,6 +560,9 @@ extension Room: DataChannelDelegate {
         case let .rpcResponse(response): room(didReceiveRpcResponse: response)
         case let .rpcAck(ack): room(didReceiveRpcAck: ack)
         case let .rpcRequest(request): room(didReceiveRpcRequest: request, from: dataPacket.participantIdentity)
+        case let .streamHeader(header): Task { await incomingStreamManager.handle(header: header, from: dataPacket.participantIdentity) }
+        case let .streamChunk(chunk): Task { await incomingStreamManager.handle(chunk: chunk) }
+        case let .streamTrailer(trailer): Task { await incomingStreamManager.handle(trailer: trailer) }
         default: return
         }
     }
