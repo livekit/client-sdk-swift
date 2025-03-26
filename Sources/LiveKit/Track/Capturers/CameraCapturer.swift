@@ -311,7 +311,7 @@ public extension LocalVideoTrack {
     }
 }
 
-extension AVCaptureDevice.Position: @retroactive CustomStringConvertible {
+extension AVCaptureDevice.Position: Swift.CustomStringConvertible {
     public var description: String {
         switch self {
         case .front: return ".front"
