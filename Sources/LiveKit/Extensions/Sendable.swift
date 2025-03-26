@@ -23,5 +23,13 @@ internal import LiveKitWebRTC
 #endif
 
 // Immutable classes.
-extension LKRTCMediaConstraints: @unchecked Sendable {}
-extension LKRTCSessionDescription: @unchecked Sendable {}
+extension LKRTCMediaConstraints: @unchecked @retroactive Sendable {}
+extension LKRTCSessionDescription: @unchecked @retroactive Sendable {}
+extension LKRTCVideoFrame: @unchecked @retroactive Sendable {}
+extension LKRTCStatisticsReport: @unchecked @retroactive Sendable {}
+extension LKRTCIceCandidate: @unchecked @retroactive Sendable {}
+extension LKRTCVideoCodecInfo: @unchecked @retroactive Sendable {}
+extension LKRTCFrameCryptorKeyProvider: @unchecked @retroactive Sendable {}
+extension LKRTCRtpTransceiver: @unchecked @retroactive Sendable {}
+extension LKRTCRtpTransceiverInit: @unchecked @retroactive Sendable {}
+extension LKRTCPeerConnectionFactory: @unchecked @retroactive Sendable {}
