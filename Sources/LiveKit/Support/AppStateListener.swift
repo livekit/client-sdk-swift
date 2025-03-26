@@ -35,8 +35,8 @@ protocol AppStateDelegate: AnyObject, Sendable {
     func appDidWake()
 }
 
-@globalActor
-actor AppStateListener: Loggable {
+@MainActor
+class AppStateListener: Loggable {
     static let shared = AppStateListener()
 
     private let _queue = OperationQueue()
