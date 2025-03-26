@@ -17,7 +17,7 @@
 @testable import LiveKit
 import XCTest
 
-class RoomTests: LKTestCase {
+class RoomTests: LKTestCase, @unchecked Sendable {
     func testRoomProperties() async throws {
         try await withRooms([RoomTestingOptions()]) { rooms in
             // Alias to Room
