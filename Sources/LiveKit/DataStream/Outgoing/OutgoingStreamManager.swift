@@ -18,7 +18,7 @@ import Foundation
 
 /// Manages state of outgoing data streams.
 actor OutgoingStreamManager: Loggable {
-    typealias PacketHandler = (Livekit_DataPacket) async throws -> Void
+    typealias PacketHandler = @Sendable (Livekit_DataPacket) async throws -> Void
 
     private nonisolated let packetHandler: PacketHandler
 
