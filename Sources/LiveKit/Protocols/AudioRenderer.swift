@@ -31,7 +31,7 @@ public protocol AudioRenderer: Sendable {
     func render(pcmBuffer: AVAudioPCMBuffer)
 }
 
-class AudioRendererAdapter: MulticastDelegate<AudioRenderer>, LKRTCAudioRenderer {
+class AudioRendererAdapter: MulticastDelegate<AudioRenderer>, @unchecked Sendable, LKRTCAudioRenderer {
     //
     typealias Delegate = AudioRenderer
 

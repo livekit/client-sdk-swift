@@ -46,7 +46,7 @@ public protocol AudioCustomProcessingDelegate: Sendable {
     func audioProcessingRelease()
 }
 
-class AudioCustomProcessingDelegateAdapter: MulticastDelegate<AudioRenderer>, LKRTCAudioCustomProcessingDelegate {
+class AudioCustomProcessingDelegateAdapter: MulticastDelegate<AudioRenderer>, @unchecked Sendable, LKRTCAudioCustomProcessingDelegate {
     // MARK: - Public
 
     public var target: AudioCustomProcessingDelegate? { _state.target }
