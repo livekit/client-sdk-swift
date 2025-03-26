@@ -23,7 +23,7 @@ internal import LiveKitWebRTC
 #endif
 
 @objc
-public class Participant: NSObject, ObservableObject, Loggable {
+public class Participant: NSObject, @unchecked Sendable, ObservableObject, Loggable {
     // MARK: - MulticastDelegate
 
     public let delegates = MulticastDelegate<ParticipantDelegate>(label: "ParticipantDelegate")

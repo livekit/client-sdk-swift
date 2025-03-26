@@ -21,7 +21,7 @@ internal import LiveKitWebRTC
 #endif
 
 @objc
-public class RemoteParticipant: Participant {
+public class RemoteParticipant: Participant, @unchecked Sendable {
     init(info: Livekit_ParticipantInfo, room: Room, connectionState: ConnectionState) {
         super.init(room: room, sid: Participant.Sid(from: info.sid), identity: Participant.Identity(from: info.identity))
         set(info: info, connectionState: connectionState)
