@@ -130,7 +130,7 @@ extension ByteStreamReader {
 public extension ByteStreamReader {
     @objc
     @available(*, deprecated, message: "Use for/await on ByteStreamReader reader instead.")
-    func readChunks(onChunk: @escaping (Data) -> Void, onCompletion: ((Error?) -> Void)?) {
+    func readChunks(onChunk: @Sendable @escaping (Data) -> Void, onCompletion: (@Sendable (Error?) -> Void)?) {
         Task {
             do {
                 for try await chunk in self {

@@ -65,8 +65,8 @@ public extension Room {
     @available(*, deprecated, message: "Use async registerByteStreamHandler(for:onNewStream:) method instead.")
     func registerByteStreamHandler(
         for topic: String,
-        onNewStream: @escaping (ByteStreamReader, Participant.Identity) -> Void,
-        onError: ((Error) -> Void)?
+        onNewStream: @Sendable @escaping (ByteStreamReader, Participant.Identity) -> Void,
+        onError: (@Sendable (Error) -> Void)?
     ) {
         Task {
             do { try await registerByteStreamHandler(for: topic, onNewStream: onNewStream) }
@@ -78,8 +78,8 @@ public extension Room {
     @available(*, deprecated, message: "Use async registerTextStreamHandler(for:onNewStream:) method instead.")
     func registerTextStreamHandler(
         for topic: String,
-        onNewStream: @escaping (TextStreamReader, Participant.Identity) -> Void,
-        onError: ((Error) -> Void)?
+        onNewStream: @Sendable @escaping (TextStreamReader, Participant.Identity) -> Void,
+        onError: (@Sendable (Error) -> Void)?
     ) {
         Task {
             do { try await registerTextStreamHandler(for: topic, onNewStream: onNewStream) }

@@ -179,7 +179,7 @@ public class Participant: NSObject, @unchecked Sendable, ObservableObject, Logga
             }
 
             // Notify when state mutates
-            Task.detached { @MainActor in
+            Task { @MainActor in
                 // Notify Participant
                 self.objectWillChange.send()
                 if let room = self._room {

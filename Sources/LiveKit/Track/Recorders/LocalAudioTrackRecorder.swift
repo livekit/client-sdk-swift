@@ -122,7 +122,7 @@ public extension LocalAudioTrackRecorder {
     ///   - onCompletion: A closure that is called when the audio recording is completed.
     @objc
     @available(*, deprecated, message: "Use for/await instead.")
-    func start(maxSize _: Int = 0, onData: @escaping (Data) -> Void, onCompletion: @escaping (Error?) -> Void) {
+    func start(maxSize _: Int = 0, onData: @Sendable @escaping (Data) -> Void, onCompletion: @Sendable @escaping (Error?) -> Void) {
         Task {
             do {
                 let stream = try await start()
