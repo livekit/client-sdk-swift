@@ -218,9 +218,7 @@ public class Room: NSObject, ObservableObject, Loggable {
         // log sdk & os versions
         log("sdk: \(LiveKitSDK.version), os: \(String(describing: Utils.os()))(\(Utils.osVersionString())), modelId: \(String(describing: Utils.modelIdentifier() ?? "unknown"))")
 
-        Task {
-            await signalClient._delegate.set(delegate: self)
-        }
+        signalClient._delegate.set(delegate: self)
 
         log()
 
