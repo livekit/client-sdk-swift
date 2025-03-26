@@ -49,7 +49,7 @@ private class VideoEncoderFactorySimulcast: LKRTCVideoEncoderFactorySimulcast {
     }
 }
 
-class RTC {
+actor RTC {
     static let h264BaselineLevel5CodecInfo: LKRTCVideoCodecInfo = {
         // this should never happen
         guard let profileLevelId = LKRTCH264ProfileLevelId(profile: .constrainedBaseline, level: .level5) else {
