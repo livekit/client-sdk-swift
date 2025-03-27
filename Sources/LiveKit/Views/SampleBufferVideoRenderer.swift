@@ -62,9 +62,9 @@ class SampleBufferVideoRenderer: NativeView, Loggable {
 }
 
 extension SampleBufferVideoRenderer: LKRTCVideoRenderer {
-    func setSize(_: CGSize) {}
+    nonisolated func setSize(_: CGSize) {}
 
-    func renderFrame(_ frame: LKRTCVideoFrame?) {
+    nonisolated func renderFrame(_ frame: LKRTCVideoFrame?) {
         guard let frame else { return }
 
         var pixelBuffer: CVPixelBuffer?
@@ -92,7 +92,7 @@ extension SampleBufferVideoRenderer: LKRTCVideoRenderer {
             return result
         }
 
-        Task.detached { @MainActor in
+        Task { @MainActor in
             self.sampleBufferDisplayLayer.enqueue(sampleBuffer)
             if didUpdateRotation {
                 self.setNeedsLayout()
@@ -131,7 +131,8 @@ private extension CATransform3D {
         }
 
         if isMirrored {
-            transform = CATransform3DConcat(transform, VideoView.mirrorTransform)
+            let mirror = CATransform3DMakeScale(-1.0, 1.0, 1.0)
+            transform = CATransform3DConcat(transform, mirror)
         }
 
         return transform
