@@ -20,6 +20,54 @@ internal import LiveKitWebRTC
 @_implementationOnly import LiveKitWebRTC
 #endif
 
+@objc
+public enum MicrophoneMuteMode: Int {
+    /// Uses `AVAudioEngine`'s `isVoiceProcessingInputMuted` internally.
+    /// This is fast, and muted speaker detection works. However, iOS will play a sound effect.
+    case voiceProcessing
+    /// Restarts the internal `AVAudioEngine` without mic input when muted.
+    /// This is slower, and muted speaker detection does not work. No sound effect is played.
+    case restartEngine
+    case unknown
+}
+
+extension RTCAudioEngineMuteMode {
+    func toLKType() -> MicrophoneMuteMode {
+        switch self {
+        case .voiceProcessing: return .voiceProcessing
+        case .restartEngine: return .restartEngine
+        case .unknown: return .unknown
+        @unknown default: return .unknown
+        }
+    }
+}
+
+extension MicrophoneMuteMode {
+    func toRTCType() -> RTCAudioEngineMuteMode {
+        switch self {
+        case .unknown: return .unknown
+        case .voiceProcessing: return .voiceProcessing
+        case .restartEngine: return .restartEngine
+        }
+    }
+}
+
+public extension AudioManager {
+    var muteMode: MicrophoneMuteMode {
+        RTC.audioDeviceModule.muteMode.toLKType()
+    }
+
+    func set(muteMode: MicrophoneMuteMode) throws {
+        guard muteMode != .unknown else {
+            throw LiveKitError(.invalidState, message: "Unsupported mute mode specified")
+        }
+        let result = RTC.audioDeviceModule.setMuteMode(muteMode.toRTCType())
+        try checkAdmResult(code: result)
+    }
+}
+
+// MARK: - Deprecated
+
 public extension AudioManager {
     /// Set to `true` to enable legacy mic mute mode.
     ///
@@ -27,8 +75,10 @@ public extension AudioManager {
     ///   This is fast, and muted speaker detection works. However, iOS will play a sound effect.
     /// - Legacy: Restarts the internal `AVAudioEngine` without mic input when muted.
     ///   This is slower, and muted speaker detection does not work. No sound effect is played.
+    @available(*, deprecated, message: "Use `muteMode` instead")
     var isLegacyMuteMode: Bool { RTC.audioDeviceModule.muteMode == .restartEngine }
 
+    @available(*, deprecated, message: "Use `set(muteMode:)` instead")
     func setLegacyMuteMode(_ enabled: Bool) throws {
         let mode: RTCAudioEngineMuteMode = enabled ? .restartEngine : .voiceProcessing
         let result = RTC.audioDeviceModule.setMuteMode(mode)
