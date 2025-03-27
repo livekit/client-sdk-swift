@@ -24,8 +24,8 @@ func merge<T>(range range1: ClosedRange<T>, with range2: ClosedRange<T>) -> Clos
 }
 
 // throws a timeout if the operation takes longer than the given timeout
-func withThrowingTimeout<T>(timeout: TimeInterval,
-                            operation: @escaping () async throws -> T) async throws -> T
+func withThrowingTimeout<T: Sendable>(timeout: TimeInterval,
+                                      operation: @Sendable @escaping () async throws -> T) async throws -> T
 {
     try await withThrowingTaskGroup(of: T.self) { group in
         group.addTask {

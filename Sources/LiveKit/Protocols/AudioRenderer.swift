@@ -26,12 +26,12 @@ internal import LiveKitWebRTC
 /// Used to observe audio buffers before playback, e.g. for visualization, recording, etc
 /// - Note: AudioRenderer is not suitable for buffer modification. If you need to modify the buffer, use `AudioCustomProcessingDelegate` instead.
 @objc
-public protocol AudioRenderer {
+public protocol AudioRenderer: Sendable {
     @objc
     func render(pcmBuffer: AVAudioPCMBuffer)
 }
 
-class AudioRendererAdapter: MulticastDelegate<AudioRenderer>, LKRTCAudioRenderer {
+class AudioRendererAdapter: MulticastDelegate<AudioRenderer>, @unchecked Sendable, LKRTCAudioRenderer {
     //
     typealias Delegate = AudioRenderer
 

@@ -35,7 +35,7 @@ extension VideoCapturerProtocol {
 }
 
 @objc
-public protocol VideoCapturerDelegate: AnyObject {
+public protocol VideoCapturerDelegate: AnyObject, Sendable {
     @objc(capturer:didUpdateDimensions:) optional
     func capturer(_ capturer: VideoCapturer, didUpdate dimensions: Dimensions?)
 
@@ -333,7 +333,7 @@ extension VideoCapturer {
             self.delegate?.capturer(capturer, didCapture: rtcFrame)
 
             if self.rendererDelegates.isDelegatesNotEmpty {
-                self.rendererDelegates.notify { renderer in
+                self.rendererDelegates.notify { [lkFrame] renderer in
                     renderer.render?(frame: lkFrame)
                     renderer.render?(frame: lkFrame, captureDevice: device, captureOptions: options)
                 }
