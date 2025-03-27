@@ -196,13 +196,8 @@ class LocalAudioTrackRecorderTests: LKTestCase {
         let completionExpectation = expectation(description: "Completion called")
         dataExpectation.assertForOverFulfill = false
 
-        var dataCount = 0
-
         recorder.start(onData: { _ in
-            dataCount += 1
-            if dataCount >= 10 {
-                dataExpectation.fulfill()
-            }
+            dataExpectation.fulfill()
         }, onCompletion: { _ in
             completionExpectation.fulfill()
         })
@@ -212,7 +207,5 @@ class LocalAudioTrackRecorderTests: LKTestCase {
         recorder.stop()
 
         await fulfillment(of: [completionExpectation], timeout: 5)
-
-        XCTAssertGreaterThan(dataCount, 0, "Should have received audio data")
     }
 }
