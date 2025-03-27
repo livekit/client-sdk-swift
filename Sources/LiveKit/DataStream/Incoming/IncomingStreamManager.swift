@@ -151,7 +151,7 @@ actor IncomingStreamManager: Loggable {
     // MARK: - Handler resolution
 
     /// Type-erased stream handler.
-    private typealias AnyStreamHandler = (StreamReaderSource, Participant.Identity) async throws -> Void
+    private typealias AnyStreamHandler = @Sendable (StreamReaderSource, Participant.Identity) async throws -> Void
 
     /// Finds a registered handler suitable for handling the stream with the given info.
     private func handler(for info: StreamInfo) -> AnyStreamHandler? {
@@ -181,10 +181,10 @@ actor IncomingStreamManager: Loggable {
 // MARK: - Type aliases
 
 /// Handler for incoming byte data streams.
-public typealias ByteStreamHandler = (ByteStreamReader, Participant.Identity) async throws -> Void
+public typealias ByteStreamHandler = @Sendable (ByteStreamReader, Participant.Identity) async throws -> Void
 
 /// Handler for incoming text data streams.
-public typealias TextStreamHandler = (TextStreamReader, Participant.Identity) async throws -> Void
+public typealias TextStreamHandler = @Sendable (TextStreamReader, Participant.Identity) async throws -> Void
 
 // MARK: - From protocol types
 

@@ -23,7 +23,7 @@ internal import LiveKitWebRTC
 #endif
 
 @objc
-public class Participant: NSObject, ObservableObject, Loggable {
+public class Participant: NSObject, @unchecked Sendable, ObservableObject, Loggable {
     // MARK: - MulticastDelegate
 
     public let delegates = MulticastDelegate<ParticipantDelegate>(label: "ParticipantDelegate")
@@ -179,7 +179,7 @@ public class Participant: NSObject, ObservableObject, Loggable {
             }
 
             // Notify when state mutates
-            Task.detached { @MainActor in
+            Task { @MainActor in
                 // Notify Participant
                 self.objectWillChange.send()
                 if let room = self._room {
