@@ -163,21 +163,49 @@ public class AudioManager: Loggable {
     public let defaultInputDevice = AudioDevice(ioDevice: LKRTCIODevice.defaultDevice(with: .input))
 
     public var outputDevices: [AudioDevice] {
+        #if os(macOS)
         RTC.audioDeviceModule.outputDevices.map { AudioDevice(ioDevice: $0) }
+        #else
+        []
+        #endif
     }
 
     public var inputDevices: [AudioDevice] {
+        #if os(macOS)
         RTC.audioDeviceModule.inputDevices.map { AudioDevice(ioDevice: $0) }
+        #else
+        []
+        #endif
     }
 
     public var outputDevice: AudioDevice {
-        get { AudioDevice(ioDevice: RTC.audioDeviceModule.outputDevice) }
-        set { RTC.audioDeviceModule.outputDevice = newValue._ioDevice }
+        get {
+            #if os(macOS)
+            AudioDevice(ioDevice: RTC.audioDeviceModule.outputDevice)
+            #else
+            AudioDevice(ioDevice: LKRTCIODevice.defaultDevice(with: .output))
+            #endif
+        }
+        set {
+            #if os(macOS)
+            RTC.audioDeviceModule.outputDevice = newValue._ioDevice
+            #endif
+        }
     }
 
     public var inputDevice: AudioDevice {
-        get { AudioDevice(ioDevice: RTC.audioDeviceModule.inputDevice) }
-        set { RTC.audioDeviceModule.inputDevice = newValue._ioDevice }
+        get {
+            #if os(macOS)
+            AudioDevice(ioDevice: RTC.audioDeviceModule.inputDevice)
+            #else
+            AudioDevice(ioDevice: LKRTCIODevice.defaultDevice(with: .input))
+            #endif
+        }
+        set {
+            #if os(macOS)
+            RTC.audioDeviceModule.inputDevice = newValue._ioDevice
+            #endif
+        }
     }
 
     public var onDeviceUpdate: OnDevicesDidUpdate? {

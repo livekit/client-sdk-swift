@@ -87,7 +87,8 @@ class RTC {
 
         logger.log("Initializing PeerConnectionFactory...", type: Room.self)
 
-        return LKRTCPeerConnectionFactory(bypassVoiceProcessing: false,
+        return LKRTCPeerConnectionFactory(audioDeviceModuleType: .audioEngine,
+                                          bypassVoiceProcessing: false,
                                           encoderFactory: encoderFactory,
                                           decoderFactory: decoderFactory,
                                           audioProcessingModule: audioProcessingModule)
