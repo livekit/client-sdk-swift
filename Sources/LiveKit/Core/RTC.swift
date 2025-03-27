@@ -81,13 +81,19 @@ actor RTC {
     static let audioSenderCapabilities = peerConnectionFactory.rtpSenderCapabilities(forKind: kRTCMediaStreamTrackKindAudio)
 
     static let peerConnectionFactory: LKRTCPeerConnectionFactory = {
+        // Update pc init lock
+        let admType = _pcState.mutate {
+            $0.isInitialized = true
+            return $0.admType
+        }
+
         logger.log("Initializing SSL...", type: Room.self)
 
         RTCInitializeSSL()
 
         logger.log("Initializing PeerConnectionFactory...", type: Room.self)
 
-        return LKRTCPeerConnectionFactory(audioDeviceModuleType: .audioEngine,
+        return LKRTCPeerConnectionFactory(audioDeviceModuleType: admType.toRTCType(),
                                           bypassVoiceProcessing: false,
                                           encoderFactory: encoderFactory,
                                           decoderFactory: decoderFactory,
