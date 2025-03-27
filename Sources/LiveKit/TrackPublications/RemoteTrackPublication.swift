@@ -28,7 +28,7 @@ public enum SubscriptionState: Int, Codable {
 }
 
 @objc
-public class RemoteTrackPublication: TrackPublication {
+public class RemoteTrackPublication: TrackPublication, @unchecked Sendable {
     // MARK: - Public
 
     @objc
