@@ -109,7 +109,7 @@ public final class BroadcastManager: Sendable {
 
 /// A delegate protocol for receiving updates about the broadcast state.
 @objc
-public protocol BroadcastManagerDelegate {
+public protocol BroadcastManagerDelegate: Sendable {
     /// Invoked when the broadcast state changes.
     /// - Parameter isBroadcasting: A Boolean value indicating whether a broadcast is currently in progress.
     func broadcastManager(didChangeState isBroadcasting: Bool)

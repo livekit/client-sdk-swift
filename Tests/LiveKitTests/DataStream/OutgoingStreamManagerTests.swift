@@ -32,10 +32,9 @@ class OutgoingStreamManagerTests: LKTestCase {
         let streamID = UUID().uuidString
         let topic = "some-topic"
 
-        var currentChunk = 0
+        let counter = ConcurrentCounter()
 
         let manager = OutgoingStreamManager { packet in
-
             // Simulate data channel send
             try await Task.sleep(nanoseconds: 10_000_000)
 
@@ -48,11 +47,12 @@ class OutgoingStreamManagerTests: LKTestCase {
                 headerExpectation.fulfill()
 
             case let .streamChunk(chunk):
+                let currentChunk = await counter.increment()
                 XCTAssertEqual(chunk.streamID, streamID)
                 XCTAssertEqual(chunk.chunkIndex, UInt64(currentChunk))
                 XCTAssertEqual(chunk.content, testChunks[currentChunk])
 
-                if currentChunk == testChunks.count - 1 {
+                if await counter.getCount() == testChunks.count {
                     chunkExpectation.fulfill()
                 }
 
@@ -70,8 +70,7 @@ class OutgoingStreamManagerTests: LKTestCase {
             options: StreamByteOptions(topic: topic, id: streamID)
         )
 
-        for (index, chunk) in testChunks.enumerated() {
-            currentChunk = index
+        for chunk in testChunks {
             try await writer.write(chunk)
         }
         try await writer.close()
@@ -97,10 +96,9 @@ class OutgoingStreamManagerTests: LKTestCase {
         let streamID = UUID().uuidString
         let topic = "some-topic"
 
-        var currentChunk = 0
+        let counter = ConcurrentCounter()
 
         let manager = OutgoingStreamManager { packet in
-
             // Simulate data channel send
             try await Task.sleep(nanoseconds: 10_000_000)
 
@@ -113,11 +111,12 @@ class OutgoingStreamManagerTests: LKTestCase {
                 headerExpectation.fulfill()
 
             case let .streamChunk(chunk):
+                let currentChunk = await counter.increment()
                 XCTAssertEqual(chunk.streamID, streamID)
                 XCTAssertEqual(chunk.chunkIndex, UInt64(currentChunk))
                 XCTAssertEqual(chunk.content, Data(testChunks[currentChunk].utf8))
 
-                if currentChunk == testChunks.count - 1 {
+                if await counter.getCount() == testChunks.count {
                     chunkExpectation.fulfill()
                 }
 
@@ -135,8 +134,7 @@ class OutgoingStreamManagerTests: LKTestCase {
             options: StreamTextOptions(topic: topic, id: streamID)
         )
 
-        for (index, chunk) in testChunks.enumerated() {
-            currentChunk = index
+        for chunk in testChunks {
             try await writer.write(chunk)
         }
         try await writer.close()

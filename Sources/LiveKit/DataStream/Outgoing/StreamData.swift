@@ -16,7 +16,7 @@
 
 import Foundation
 
-protocol StreamData {
+protocol StreamData: Sendable {
     func chunks(of size: Int) -> [Data]
 }
 

@@ -17,7 +17,7 @@
 import Foundation
 import Network
 
-protocol ConnectivityListenerDelegate: AnyObject {
+protocol ConnectivityListenerDelegate: AnyObject, Sendable {
     func connectivityListener(_: ConnectivityListener, didUpdate hasConnectivity: Bool)
     // network remains to have connectivity but path changed
     func connectivityListener(_: ConnectivityListener, didSwitch path: NWPath)
@@ -28,7 +28,7 @@ extension ConnectivityListenerDelegate {
     func connectivityListener(_: ConnectivityListener, didSwitch _: NWPath) {}
 }
 
-class ConnectivityListener: MulticastDelegate<ConnectivityListenerDelegate> {
+class ConnectivityListener: MulticastDelegate<ConnectivityListenerDelegate>, @unchecked Sendable {
     static let shared = ConnectivityListener()
 
     public private(set) var hasConnectivity: Bool? {

@@ -16,18 +16,15 @@
 
 import Foundation
 
-#if swift(>=5.9)
-internal import LiveKitWebRTC
-#else
-@_implementationOnly import LiveKitWebRTC
-#endif
+actor ConcurrentCounter {
+    private var count: Int = 0
 
-@objc
-public protocol VideoViewDelegate: AnyObject, Sendable {
-    /// Dimensions of the VideoView itself has updated
-    @objc(videoView:didUpdateSize:) optional
-    func videoView(_ videoView: VideoView, didUpdate size: CGSize)
-    /// VideoView updated the isRendering property
-    @objc(videoView:didUpdateIsRendering:) optional
-    func videoView(_ videoView: VideoView, didUpdate isRendering: Bool)
+    func increment() -> Int {
+        count += 1
+        return count - 1
+    }
+
+    func getCount() -> Int {
+        count
+    }
 }

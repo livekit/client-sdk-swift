@@ -121,8 +121,8 @@ public extension LocalParticipant {
     func sendText(
         text: String,
         options: StreamTextOptions,
-        onCompletion: @escaping (TextStreamInfo) -> Void,
-        onError: ((Error) -> Void)?
+        onCompletion: @Sendable @escaping (TextStreamInfo) -> Void,
+        onError: (@Sendable (Error) -> Void)?
     ) {
         Task {
             do { try await onCompletion(sendText(text, options: options)) }
@@ -135,8 +135,8 @@ public extension LocalParticipant {
     func sendFile(
         fileURL: URL,
         options: StreamByteOptions,
-        onCompletion: @escaping (ByteStreamInfo) -> Void,
-        onError: ((Error) -> Void)?
+        onCompletion: @Sendable @escaping (ByteStreamInfo) -> Void,
+        onError: (@Sendable (Error) -> Void)?
     ) {
         Task {
             do { try await onCompletion(sendFile(fileURL, options: options)) }
@@ -148,8 +148,8 @@ public extension LocalParticipant {
     @available(*, unavailable, message: "Use async streamText(options:) method instead.")
     func streamText(
         options: StreamTextOptions,
-        streamHandler: @escaping (TextStreamWriter) -> Void,
-        onError: ((Error) -> Void)?
+        streamHandler: @Sendable @escaping (TextStreamWriter) -> Void,
+        onError: (@Sendable (Error) -> Void)?
     ) {
         Task {
             do { try await streamHandler(streamText(options: options)) }
@@ -161,8 +161,8 @@ public extension LocalParticipant {
     @available(*, unavailable, message: "Use async streamBytes(options:) method instead.")
     func streamBytes(
         options: StreamByteOptions,
-        streamHandler: @escaping (ByteStreamWriter) -> Void,
-        onError: ((Error) -> Void)?
+        streamHandler: @Sendable @escaping (ByteStreamWriter) -> Void,
+        onError: (@Sendable (Error) -> Void)?
     ) {
         Task {
             do { try await streamHandler(streamBytes(options: options)) }

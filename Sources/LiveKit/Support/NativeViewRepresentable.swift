@@ -30,6 +30,7 @@ public typealias NativeViewRepresentableType = NSViewRepresentable
 #endif
 
 // multiplatform version of UI/NSViewRepresentable
+@MainActor
 public protocol NativeViewRepresentable: NativeViewRepresentableType {
     /// The type of view to present.
     associatedtype ViewType: NativeViewType
