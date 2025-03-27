@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import AVFoundation
+@preconcurrency import AVFoundation
 import MetalKit
 
 #if swift(>=5.9)
@@ -96,7 +96,7 @@ public class VideoView: NativeView, Loggable {
 
     /// Calls addRenderer and/or removeRenderer internally for convenience.
     @objc
-    public weak var track: VideoTrack? {
+    public nonisolated weak var track: VideoTrack? {
         get { _state.track as? VideoTrack }
         set {
             _state.mutate {
@@ -124,9 +124,7 @@ public class VideoView: NativeView, Loggable {
         get { _state.isHidden }
         set {
             _state.mutate { $0.isHidden = newValue }
-            Task.detached { @MainActor in
-                super.isHidden = newValue
-            }
+            super.isHidden = newValue
         }
     }
 
@@ -187,7 +185,7 @@ public class VideoView: NativeView, Loggable {
         case secondary
     }
 
-    struct State {
+    struct State: Sendable {
         weak var track: Track?
         var isEnabled: Bool = true
         var isHidden: Bool = false
@@ -227,12 +225,12 @@ public class VideoView: NativeView, Loggable {
         }
     }
 
-    var _state: StateSync<State>
+    let _state: StateSync<State>
 
     // MARK: - Private
 
-    private var _primaryRenderer: NativeRendererView?
-    private var _secondaryRenderer: NativeRendererView?
+    private nonisolated(unsafe) var _primaryRenderer: NativeRendererView?
+    private nonisolated(unsafe) var _secondaryRenderer: NativeRendererView?
     private var _debugTextView: TextView?
 
     // used for stats timer
@@ -353,14 +351,14 @@ public class VideoView: NativeView, Loggable {
                 shouldRenderDidUpdate || trackDidUpdate
             {
                 // must be on main
-                Task.detached { @MainActor in
+                Task { @MainActor in
                     self.setNeedsLayout()
                 }
             }
 
             #if os(iOS)
             if newState.pinchToZoomOptions != oldState.pinchToZoomOptions {
-                Task.detached { @MainActor in
+                Task { @MainActor in
                     self._pinchGestureRecognizer.isEnabled = newState.pinchToZoomOptions.isEnabled
                     self._rampZoomFactorToAllowedBounds(options: newState.pinchToZoomOptions)
                 }
@@ -584,22 +582,22 @@ private extension VideoView {
 // MARK: - RTCVideoRenderer
 
 extension VideoView: VideoRenderer {
-    public var isAdaptiveStreamEnabled: Bool {
+    public nonisolated var isAdaptiveStreamEnabled: Bool {
         _state.read { $0.didLayout && !$0.isHidden && $0.isEnabled }
     }
 
-    public var adaptiveStreamSize: CGSize {
+    public nonisolated var adaptiveStreamSize: CGSize {
         _state.rendererSize ?? .zero
     }
 
-    public func set(size: CGSize) {
+    public nonisolated func set(size: CGSize) {
         DispatchQueue.main.async { [weak self] in
             guard let self, let nr = self._primaryRenderer else { return }
             nr.setSize(size)
         }
     }
 
-    public func render(frame: VideoFrame, captureDevice: AVCaptureDevice?, captureOptions: VideoCaptureOptions?) {
+    public nonisolated func render(frame: VideoFrame, captureDevice: AVCaptureDevice?, captureOptions: VideoCaptureOptions?) {
         let state = _state.copy()
 
         // prevent any extra rendering if already !isEnabled etc.
@@ -661,7 +659,7 @@ extension VideoView: VideoRenderer {
                 }
 
                 if shouldSwap {
-                    Task.detached { @MainActor in
+                    Task { @MainActor in
                         // Swap views
                         self._swapRendererViews()
                         // Swap completed, back to primary rendering
@@ -672,17 +670,18 @@ extension VideoView: VideoRenderer {
                     }
                 }
             } else {
-                Task.detached { @MainActor in
+                let frame = frame.toRTCType()
+                Task { @MainActor in
                     // Create secondary renderer and render first frame
                     if let sr = self.ensureSecondaryRenderer() {
-                        sr.renderFrame(frame.toRTCType())
+                        sr.renderFrame(frame)
                     }
                 }
             }
         }
 
         if _state.isDebugMode {
-            Task.detached { @MainActor in
+            Task { @MainActor in
                 self._frameCount += 1
             }
         }
@@ -730,7 +729,7 @@ extension VideoView: VideoRenderer {
 // MARK: - Internal
 
 extension VideoView {
-    static func track(_ track1: VideoTrack?, isEqualWith track2: VideoTrack?) -> Bool {
+    nonisolated static func track(_ track1: VideoTrack?, isEqualWith track2: VideoTrack?) -> Bool {
         // equal if both tracks are nil
         if track1 == nil, track2 == nil { return true }
         // not equal if a single track is nil
@@ -858,7 +857,7 @@ private extension VideoView {
         if Thread.current.isMainThread {
             operation()
         } else {
-            Task.detached { @MainActor in
+            Task { @MainActor in
                 operation()
             }
         }
