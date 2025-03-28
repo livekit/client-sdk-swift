@@ -28,7 +28,7 @@ public enum SubscriptionState: Int, Codable {
 }
 
 @objc
-public class RemoteTrackPublication: TrackPublication {
+public class RemoteTrackPublication: TrackPublication, @unchecked Sendable {
     // MARK: - Public
 
     @objc
@@ -305,6 +305,7 @@ extension RemoteTrackPublication {
 
 // MARK: - Adaptive Stream
 
+@MainActor
 extension Collection<VideoRenderer> {
     func containsOneOrMoreAdaptiveStreamEnabledRenderers() -> Bool {
         // not visible if no entry

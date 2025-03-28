@@ -27,23 +27,23 @@ public protocol VideoRenderer: Sendable {
     /// Whether this ``VideoRenderer`` should be considered visible or not for AdaptiveStream.
     /// This will be invoked on the .main thread.
     @objc
-    var isAdaptiveStreamEnabled: Bool { get }
+    @MainActor var isAdaptiveStreamEnabled: Bool { get }
     /// The size used for AdaptiveStream computation. Return .zero if size is unknown yet.
     /// This will be invoked on the .main thread.
     @objc
-    var adaptiveStreamSize: CGSize { get }
+    @MainActor var adaptiveStreamSize: CGSize { get }
 
     /// Size of the frame.
     @objc optional
-    func set(size: CGSize)
+    nonisolated func set(size: CGSize)
 
     /// A ``VideoFrame`` is ready and should be processed.
     @objc optional
-    func render(frame: VideoFrame)
+    nonisolated func render(frame: VideoFrame)
 
     /// In addition to ``VideoFrame``, provide capture-time information if available.
     @objc optional
-    func render(frame: VideoFrame, captureDevice: AVCaptureDevice?, captureOptions: VideoCaptureOptions?)
+    nonisolated func render(frame: VideoFrame, captureDevice: AVCaptureDevice?, captureOptions: VideoCaptureOptions?)
 }
 
 class VideoRendererAdapter: NSObject, LKRTCVideoRenderer {

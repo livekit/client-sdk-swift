@@ -24,7 +24,7 @@ internal import LiveKitWebRTC
 #endif
 
 @objc
-public class RemoteAudioTrack: Track, RemoteTrack, AudioTrack {
+public class RemoteAudioTrack: Track, RemoteTrack, AudioTrack, @unchecked Sendable {
     /// Volume with range 0.0 - 1.0
     public var volume: Double {
         get {

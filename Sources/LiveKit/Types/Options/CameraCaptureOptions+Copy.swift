@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import AVFoundation
+@preconcurrency import AVFoundation
 
 public extension CameraCaptureOptions {
     func copyWith(device: ValueOrAbsent<AVCaptureDevice?> = .absent,
