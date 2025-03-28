@@ -36,6 +36,7 @@ extension LKRTCRtpTransceiverInit: @unchecked Swift.Sendable {}
 extension LKRTCPeerConnectionFactory: @unchecked Swift.Sendable {}
 extension LKRTCRtpSender: @unchecked Swift.Sendable {}
 extension LKRTCRtpReceiver: @unchecked Swift.Sendable {}
+extension LKRTCVideoCapturer: @unchecked Swift.Sendable {}
 
 // MARK: Foundation classes
 

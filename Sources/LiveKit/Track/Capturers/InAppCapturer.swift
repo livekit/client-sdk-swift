@@ -27,7 +27,7 @@ internal import LiveKitWebRTC
 #endif
 
 @available(macOS 11.0, iOS 11.0, *)
-public class InAppScreenCapturer: VideoCapturer {
+public class InAppScreenCapturer: VideoCapturer, @unchecked Sendable {
     private let capturer = RTC.createVideoCapturer()
     private let options: ScreenShareCaptureOptions
 
