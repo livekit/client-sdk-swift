@@ -41,6 +41,9 @@ let package = Package(
                 .product(name: "Logging", package: "swift-log"),
                 "LKObjCHelpers",
             ],
+            exclude: [
+                "Broadcast/NOTICE",
+            ],
             resources: [
                 .process("PrivacyInfo.xcprivacy"),
             ]
@@ -60,7 +63,7 @@ let package = Package(
             ]
         ),
     ],
-    swiftLanguageVersions: [
+    swiftLanguageModes: [
         .v5,
     ]
 )
