@@ -16,14 +16,14 @@
 
 import Foundation
 
-class AsyncTimer: Loggable {
+final class AsyncTimer: Sendable, Loggable {
     // MARK: - Public types
 
-    typealias TimerBlock = () async throws -> Void
+    typealias TimerBlock = @Sendable () async throws -> Void
 
     // MARK: - Private
 
-    struct State {
+    struct State: Sendable {
         var isStarted: Bool = false
         var interval: TimeInterval
         var task: Task<Void, Never>?
