@@ -644,16 +644,18 @@ extension VideoView: VideoRenderer {
             return $0
         }
 
+        let rtcFrame = frame.toRTCType()
+
         switch newState.renderTarget {
         case .primary:
-            pr.renderFrame(frame.toRTCType())
+            pr.renderFrame(rtcFrame)
             // Cache last rendered frame
             track?.set(videoFrame: frame)
 
         case .secondary:
             if let sr = _secondaryRenderer {
                 // Unfortunately there is not way to know if rendering has completed before initiating the swap.
-                sr.renderFrame(frame.toRTCType())
+                sr.renderFrame(rtcFrame)
 
                 let shouldSwap = _state.mutate {
                     let oldIsSwapping = $0.isSwapping
@@ -677,11 +679,10 @@ extension VideoView: VideoRenderer {
                     }
                 }
             } else {
-                let frame = frame.toRTCType()
                 Task { @MainActor in
                     // Create secondary renderer and render first frame
                     if let sr = self.ensureSecondaryRenderer() {
-                        sr.renderFrame(frame)
+                        sr.renderFrame(rtcFrame)
                     }
                 }
             }
