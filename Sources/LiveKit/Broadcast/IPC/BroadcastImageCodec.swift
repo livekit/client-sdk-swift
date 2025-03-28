@@ -17,10 +17,10 @@
 #if os(iOS)
 
 import AVFoundation
-import CoreImage
+@preconcurrency import CoreImage
 
 /// Encode and decode image samples for transport.
-struct BroadcastImageCodec {
+struct BroadcastImageCodec: Sendable {
     struct Metadata: Codable {
         let width: Int
         let height: Int

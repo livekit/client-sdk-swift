@@ -120,7 +120,7 @@ let MAX_RPC_PAYLOAD_BYTES = 15360 // 15 KB
 /// Throwing an `RpcError` will send the error back to the requester.
 ///
 /// - SeeAlso: `LocalParticipant.registerRpcMethod`
-public typealias RpcHandler = (RpcInvocationData) async throws -> String
+public typealias RpcHandler = @Sendable (RpcInvocationData) async throws -> String
 
 public struct RpcInvocationData {
     /// A unique identifier for this RPC request
@@ -136,9 +136,9 @@ public struct RpcInvocationData {
     public let responseTimeout: TimeInterval
 }
 
-struct PendingRpcResponse {
+struct PendingRpcResponse: Sendable {
     let participantIdentity: Participant.Identity
-    let onResolve: (_ payload: String?, _ error: RpcError?) -> Void
+    let onResolve: @Sendable (_ payload: String?, _ error: RpcError?) -> Void
 }
 
 actor RpcStateManager: Loggable {

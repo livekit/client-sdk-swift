@@ -32,7 +32,7 @@ actor Debounce {
         _task?.cancel()
     }
 
-    func schedule(_ action: @escaping () async throws -> Void) {
+    func schedule(_ action: @Sendable @escaping () async throws -> Void) {
         _task?.cancel()
         _task = Task.detached(priority: .utility) {
             try? await Task.sleep(nanoseconds: UInt64(self._delay * 1_000_000_000))

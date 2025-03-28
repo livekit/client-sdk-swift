@@ -18,7 +18,7 @@
 
 public extension Participant {
     @objc
-    enum Kind: Int {
+    enum Kind: Int, Sendable {
         case unknown
         /// Standard participants, e.g. web clients.
         case standard

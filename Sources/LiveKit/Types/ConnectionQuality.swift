@@ -17,7 +17,7 @@
 import Foundation
 
 @objc
-public enum ConnectionQuality: Int {
+public enum ConnectionQuality: Int, Sendable {
     case unknown
     /// Indicates that a participant has temporarily (or permanently) lost connection to LiveKit.
     /// For permanent disconnection, ``RoomDelegate/room(_:participantDidLeave:)`` will be invoked after a timeout.

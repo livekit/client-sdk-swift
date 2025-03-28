@@ -29,7 +29,7 @@ protocol DataChannelDelegate: Sendable {
     func dataChannel(_ dataChannelPair: DataChannelPair, didReceiveDataPacket dataPacket: Livekit_DataPacket)
 }
 
-class DataChannelPair: NSObject, Loggable {
+class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
     // MARK: - Public
 
     public let delegates = MulticastDelegate<DataChannelDelegate>(label: "DataChannelDelegate")
@@ -61,16 +61,16 @@ class DataChannelPair: NSObject, Loggable {
         var amount: UInt64 = 0
     }
 
-    private struct PublishDataRequest {
+    private struct PublishDataRequest: Sendable {
         let data: LKRTCDataBuffer
         let continuation: CheckedContinuation<Void, any Error>?
     }
 
-    private struct ChannelEvent {
+    private struct ChannelEvent: Sendable {
         let channelKind: ChannelKind
         let detail: Detail
 
-        enum Detail {
+        enum Detail: Sendable {
             case publishData(PublishDataRequest)
             case bufferedAmountChanged(UInt64)
         }
@@ -78,7 +78,7 @@ class DataChannelPair: NSObject, Loggable {
 
     private var eventContinuation: AsyncStream<ChannelEvent>.Continuation?
 
-    @Sendable private func handleEvents(
+    private func handleEvents(
         events: AsyncStream<ChannelEvent>
     ) async {
         var lossyBuffering = BufferingState()

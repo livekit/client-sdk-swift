@@ -17,4 +17,4 @@
 import Foundation
 
 @objc
-public protocol CaptureOptions {}
+public protocol CaptureOptions: Sendable {}

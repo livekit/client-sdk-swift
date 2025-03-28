@@ -395,7 +395,7 @@ public class VideoView: NativeView, Loggable {
 
             if self._state.isRendering, let renderDate = self._state.renderDate {
                 let diff = Date().timeIntervalSince(renderDate)
-                if diff >= Self._freezeDetectThreshold {
+                if await diff >= Self._freezeDetectThreshold {
                     self._state.mutate { $0.isRendering = false }
                 }
             }

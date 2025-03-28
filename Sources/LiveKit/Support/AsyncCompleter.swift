@@ -17,7 +17,7 @@
 import Foundation
 
 /// Manages a map of AsyncCompleters
-actor CompleterMapActor<T> {
+actor CompleterMapActor<T: Sendable> {
     // MARK: - Public
 
     public nonisolated let label: String
@@ -63,7 +63,7 @@ actor CompleterMapActor<T> {
     }
 }
 
-class AsyncCompleter<T>: Loggable {
+class AsyncCompleter<T: Sendable>: @unchecked Sendable, Loggable {
     //
     struct WaitEntry {
         let continuation: UnsafeContinuation<T, Error>

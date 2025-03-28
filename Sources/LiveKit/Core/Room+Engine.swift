@@ -30,7 +30,7 @@ internal import LiveKitWebRTC
 extension Room {
     // MARK: - Public
 
-    typealias ConditionEvalFunc = (_ newState: State, _ oldState: State?) -> Bool
+    typealias ConditionEvalFunc = @Sendable (_ newState: State, _ oldState: State?) -> Bool
 
     // MARK: - Private
 
@@ -207,7 +207,7 @@ extension Room {
 extension Room {
     func execute(when condition: @escaping ConditionEvalFunc,
                  removeWhen removeCondition: @escaping ConditionEvalFunc,
-                 _ block: @escaping () -> Void)
+                 _ block: @Sendable @escaping () -> Void)
     {
         // already matches condition, execute immediately
         if _state.read({ condition($0, nil) }) {

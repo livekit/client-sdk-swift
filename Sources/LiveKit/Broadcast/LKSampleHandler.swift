@@ -34,7 +34,7 @@ import LKObjCHelpers
 #endif
 
 @available(macCatalyst 13.1, *)
-open class LKSampleHandler: RPBroadcastSampleHandler {
+open class LKSampleHandler: RPBroadcastSampleHandler, @unchecked Sendable {
     private var uploader: BroadcastUploader?
     private var cancellable = Set<AnyCancellable>()
 
@@ -120,7 +120,7 @@ open class LKSampleHandler: RPBroadcastSampleHandler {
             logger.error("Bundle settings improperly configured for screen capture")
             return
         }
-        Task {
+        Task { @Sendable in
             do {
                 uploader = try await BroadcastUploader(socketPath: socketPath)
                 logger.info("Uploader connected")

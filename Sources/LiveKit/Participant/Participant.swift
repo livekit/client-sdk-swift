@@ -90,7 +90,7 @@ public class Participant: NSObject, @unchecked Sendable, ObservableObject, Logga
 
     // MARK: - Internal
 
-    struct State: Equatable, Hashable {
+    struct State: Equatable, Hashable, Sendable {
         var sid: Sid?
         var identity: Identity?
         var name: String?

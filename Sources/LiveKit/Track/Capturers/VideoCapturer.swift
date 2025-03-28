@@ -45,7 +45,7 @@ public protocol VideoCapturerDelegate: AnyObject, Sendable {
 }
 
 // Intended to be a base class for video capturers
-public class VideoCapturer: NSObject, Loggable, VideoCapturerProtocol {
+public class VideoCapturer: NSObject, @unchecked Sendable, Loggable, VideoCapturerProtocol {
     // MARK: - MulticastDelegate
 
     public let delegates = MulticastDelegate<VideoCapturerDelegate>(label: "VideoCapturerDelegate")

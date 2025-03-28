@@ -18,7 +18,7 @@ import Foundation
 
 public extension Room {
     @objc(RoomSid)
-    class Sid: NSObject, Codable {
+    class Sid: NSObject, @unchecked Sendable, Codable {
         @objc
         public let stringValue: String
 
