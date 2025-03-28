@@ -520,6 +520,7 @@ public class VideoView: NativeView, Loggable {
 
 // MARK: - Private
 
+@MainActor
 private extension VideoView {
     private func ensureDebugTextView() -> TextView {
         if let view = _debugTextView { return view }
@@ -588,22 +589,22 @@ private extension VideoView {
 // MARK: - RTCVideoRenderer
 
 extension VideoView: VideoRenderer {
-    public nonisolated var isAdaptiveStreamEnabled: Bool {
+    public var isAdaptiveStreamEnabled: Bool {
         _state.read { $0.didLayout && !$0.isHidden && $0.isEnabled }
     }
 
-    public nonisolated var adaptiveStreamSize: CGSize {
+    public var adaptiveStreamSize: CGSize {
         _state.rendererSize ?? .zero
     }
 
-    public nonisolated func set(size: CGSize) {
+    public func set(size: CGSize) {
         DispatchQueue.main.async { [weak self] in
             guard let self, let nr = self._primaryRenderer else { return }
             nr.setSize(size)
         }
     }
 
-    public nonisolated func render(frame: VideoFrame, captureDevice: AVCaptureDevice?, captureOptions: VideoCaptureOptions?) {
+    public func render(frame: VideoFrame, captureDevice: AVCaptureDevice?, captureOptions: VideoCaptureOptions?) {
         let state = _state.copy()
 
         // prevent any extra rendering if already !isEnabled etc.
@@ -693,6 +694,7 @@ extension VideoView: VideoRenderer {
         }
     }
 
+    @MainActor
     private func _swapRendererViews() {
         if !Thread.current.isMainThread { log("Must be called on main thread", .error) }
 
