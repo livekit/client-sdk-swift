@@ -55,7 +55,7 @@ actor Transport: NSObject, Loggable {
     // MARK: - Private
 
     private let _delegate = MulticastDelegate<TransportDelegate>(label: "TransportDelegate")
-    private let _debounce = Debounce(delay: 0.1)
+    private let _debounce = Debounce(delay: 0.02) // 20ms
 
     private var _reNegotiate: Bool = false
     private var _onOffer: OnOfferBlock?
