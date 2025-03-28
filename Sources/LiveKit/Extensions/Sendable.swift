@@ -46,4 +46,6 @@ extension LKRTCDataBuffer: @unchecked Swift.Sendable {}
 
 // MARK: Foundation classes
 
+extension KeyPath: @unchecked Swift.Sendable where Root: Sendable, Value: Sendable {}
 extension NSHashTable: @unchecked Swift.Sendable {} // cannot specify Obj-C generics
+extension Dictionary: Swift.Sendable where Key: Sendable, Value: Sendable {}
