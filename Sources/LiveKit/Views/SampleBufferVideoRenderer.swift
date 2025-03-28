@@ -115,7 +115,9 @@ extension SampleBufferVideoRenderer: Mirrorable {
     }
 }
 
-private extension CATransform3D {
+extension CATransform3D {
+    static let mirror = CATransform3DMakeScale(-1.0, 1.0, 1.0)
+
     static func from(rotation: VideoRotation, isMirrored: Bool) -> CATransform3D {
         var transform: CATransform3D
 
@@ -131,7 +133,6 @@ private extension CATransform3D {
         }
 
         if isMirrored {
-            let mirror = CATransform3DMakeScale(-1.0, 1.0, 1.0)
             transform = CATransform3DConcat(transform, mirror)
         }
 

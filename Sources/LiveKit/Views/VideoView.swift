@@ -34,7 +34,7 @@ public class VideoView: NativeView, Loggable {
 
     // MARK: - Static
 
-    static let mirrorTransform = CATransform3DMakeScale(-1.0, 1.0, 1.0)
+    static let mirrorTransform = CATransform3D.mirror
     private static let _freezeDetectThreshold = 2.0
 
     /// Specifies how to render the video withing the ``VideoView``'s bounds.
