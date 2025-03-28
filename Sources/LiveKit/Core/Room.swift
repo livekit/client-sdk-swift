@@ -21,7 +21,7 @@ import Network
 #endif
 
 @objc
-public class Room: NSObject, ObservableObject, Loggable {
+public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
     // MARK: - MulticastDelegate
 
     public let delegates = MulticastDelegate<RoomDelegate>(label: "RoomDelegate")
@@ -133,7 +133,7 @@ public class Room: NSObject, ObservableObject, Loggable {
 
     // MARK: - State
 
-    struct State: Equatable {
+    struct State: Equatable, Sendable {
         // Options
         var connectOptions: ConnectOptions
         var roomOptions: RoomOptions
@@ -228,7 +228,9 @@ public class Room: NSObject, ObservableObject, Loggable {
         }
 
         // listen to app states
-        AppStateListener.shared.delegates.add(delegate: self)
+        Task { @MainActor in
+            AppStateListener.shared.delegates.add(delegate: self)
+        }
 
         // trigger events when state mutates
         _state.onDidMutate = { [weak self] newState, oldState in
@@ -290,7 +292,7 @@ public class Room: NSObject, ObservableObject, Loggable {
             }
 
             // Notify Room when state mutates
-            Task.detached { @MainActor in
+            Task { @MainActor in
                 self.objectWillChange.send()
             }
         }

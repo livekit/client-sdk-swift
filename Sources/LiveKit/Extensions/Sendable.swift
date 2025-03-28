@@ -22,7 +22,8 @@ internal import LiveKitWebRTC
 @_implementationOnly import LiveKitWebRTC
 #endif
 
-// Immutable classes.
+// MARK: Immutable classes
+
 extension LKRTCMediaConstraints: @unchecked Swift.Sendable {}
 extension LKRTCSessionDescription: @unchecked Swift.Sendable {}
 extension LKRTCVideoFrame: @unchecked Swift.Sendable {}
@@ -33,3 +34,9 @@ extension LKRTCFrameCryptorKeyProvider: @unchecked Swift.Sendable {}
 extension LKRTCRtpTransceiver: @unchecked Swift.Sendable {}
 extension LKRTCRtpTransceiverInit: @unchecked Swift.Sendable {}
 extension LKRTCPeerConnectionFactory: @unchecked Swift.Sendable {}
+extension LKRTCRtpSender: @unchecked Swift.Sendable {}
+extension LKRTCRtpReceiver: @unchecked Swift.Sendable {}
+
+// MARK: Foundation classes
+
+extension NSHashTable: @unchecked Swift.Sendable {} // cannot specify Obj-C generics
