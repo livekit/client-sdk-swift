@@ -17,14 +17,10 @@
 import AVFoundation
 
 // Internal-only for now
-class DeviceManager: Loggable {
+class DeviceManager: @unchecked Sendable, Loggable {
     // MARK: - Public
 
-    #if compiler(>=6.0)
-    public nonisolated(unsafe) static let shared = DeviceManager()
-    #else
     public static let shared = DeviceManager()
-    #endif
 
     public static func prepare() {
         // Instantiate shared instance
