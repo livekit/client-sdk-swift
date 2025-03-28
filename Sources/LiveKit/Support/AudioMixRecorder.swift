@@ -243,7 +243,7 @@ public class AudioMixRecorder: Loggable {
     }
 }
 
-public class AudioMixRecorderSource: Loggable, AudioRenderer {
+public class AudioMixRecorderSource: Loggable, AudioRenderer, @unchecked Sendable {
     public let processingFormat: AVAudioFormat
     let playerNode = AVAudioPlayerNode()
 
