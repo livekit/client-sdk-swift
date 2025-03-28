@@ -235,6 +235,8 @@ public class VideoView: NativeView, Loggable {
     #else
     private var _primaryRenderer: NativeRendererView?
     private var _secondaryRenderer: NativeRendererView?
+    private nonisolated func _getPrimaryRenderer() -> NativeRendererView? { _primaryRenderer }
+    private nonisolated func _getSecondaryRenderer() -> NativeRendererView? { _secondaryRenderer }
     #endif
 
     private var _debugTextView: TextView?
@@ -607,7 +609,12 @@ extension VideoView: VideoRenderer {
         let state = _state.copy()
 
         // prevent any extra rendering if already !isEnabled etc.
-        guard state.shouldRender, let pr = _primaryRenderer else {
+        #if compiler(>=6.0)
+        let pr = _primaryRenderer
+        #else
+        let pr = _getPrimaryRenderer()
+        #endif
+        guard state.shouldRender, let pr else {
             log("canRender is false, skipping render...")
             return
         }
@@ -650,7 +657,12 @@ extension VideoView: VideoRenderer {
             track?.set(videoFrame: frame)
 
         case .secondary:
-            if let sr = _secondaryRenderer {
+            #if compiler(>=6.0)
+            let sr = _primaryRenderer
+            #else
+            let sr = _getSecondaryRenderer()
+            #endif
+            if let sr {
                 // Unfortunately there is not way to know if rendering has completed before initiating the swap.
                 sr.renderFrame(frame.toRTCType())
 
