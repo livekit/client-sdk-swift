@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+@preconcurrency import AVFoundation
 import Foundation
 
 #if canImport(ReplayKit)

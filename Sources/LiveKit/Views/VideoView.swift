@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import AVFoundation
+@preconcurrency import AVFoundation
 import MetalKit
 
 #if swift(>=5.9)
@@ -34,7 +34,7 @@ public class VideoView: NativeView, Loggable {
 
     // MARK: - Static
 
-    static let mirrorTransform = CATransform3DMakeScale(-1.0, 1.0, 1.0)
+    static let mirrorTransform = CATransform3D.mirror
     private static let _freezeDetectThreshold = 2.0
 
     /// Specifies how to render the video withing the ``VideoView``'s bounds.
@@ -96,7 +96,7 @@ public class VideoView: NativeView, Loggable {
 
     /// Calls addRenderer and/or removeRenderer internally for convenience.
     @objc
-    public weak var track: VideoTrack? {
+    public nonisolated weak var track: VideoTrack? {
         get { _state.track as? VideoTrack }
         set {
             _state.mutate {
@@ -124,9 +124,7 @@ public class VideoView: NativeView, Loggable {
         get { _state.isHidden }
         set {
             _state.mutate { $0.isHidden = newValue }
-            Task.detached { @MainActor in
-                super.isHidden = newValue
-            }
+            super.isHidden = newValue
         }
     }
 
@@ -187,7 +185,7 @@ public class VideoView: NativeView, Loggable {
         case secondary
     }
 
-    struct State {
+    struct State: Sendable {
         weak var track: Track?
         var isEnabled: Bool = true
         var isHidden: Bool = false
@@ -227,12 +225,18 @@ public class VideoView: NativeView, Loggable {
         }
     }
 
-    var _state: StateSync<State>
+    let _state: StateSync<State>
 
     // MARK: - Private
 
+    #if compiler(>=6.0)
+    private nonisolated(unsafe) var _primaryRenderer: NativeRendererView?
+    private nonisolated(unsafe) var _secondaryRenderer: NativeRendererView?
+    #else
     private var _primaryRenderer: NativeRendererView?
     private var _secondaryRenderer: NativeRendererView?
+    #endif
+
     private var _debugTextView: TextView?
 
     // used for stats timer
@@ -353,14 +357,14 @@ public class VideoView: NativeView, Loggable {
                 shouldRenderDidUpdate || trackDidUpdate
             {
                 // must be on main
-                Task.detached { @MainActor in
+                Task { @MainActor in
                     self.setNeedsLayout()
                 }
             }
 
             #if os(iOS)
             if newState.pinchToZoomOptions != oldState.pinchToZoomOptions {
-                Task.detached { @MainActor in
+                Task { @MainActor in
                     self._pinchGestureRecognizer.isEnabled = newState.pinchToZoomOptions.isEnabled
                     self._rampZoomFactorToAllowedBounds(options: newState.pinchToZoomOptions)
                 }
@@ -516,6 +520,7 @@ public class VideoView: NativeView, Loggable {
 
 // MARK: - Private
 
+@MainActor
 private extension VideoView {
     private func ensureDebugTextView() -> TextView {
         if let view = _debugTextView { return view }
@@ -639,16 +644,18 @@ extension VideoView: VideoRenderer {
             return $0
         }
 
+        let rtcFrame = frame.toRTCType()
+
         switch newState.renderTarget {
         case .primary:
-            pr.renderFrame(frame.toRTCType())
+            pr.renderFrame(rtcFrame)
             // Cache last rendered frame
             track?.set(videoFrame: frame)
 
         case .secondary:
             if let sr = _secondaryRenderer {
                 // Unfortunately there is not way to know if rendering has completed before initiating the swap.
-                sr.renderFrame(frame.toRTCType())
+                sr.renderFrame(rtcFrame)
 
                 let shouldSwap = _state.mutate {
                     let oldIsSwapping = $0.isSwapping
@@ -661,7 +668,7 @@ extension VideoView: VideoRenderer {
                 }
 
                 if shouldSwap {
-                    Task.detached { @MainActor in
+                    Task { @MainActor in
                         // Swap views
                         self._swapRendererViews()
                         // Swap completed, back to primary rendering
@@ -672,22 +679,23 @@ extension VideoView: VideoRenderer {
                     }
                 }
             } else {
-                Task.detached { @MainActor in
+                Task { @MainActor in
                     // Create secondary renderer and render first frame
                     if let sr = self.ensureSecondaryRenderer() {
-                        sr.renderFrame(frame.toRTCType())
+                        sr.renderFrame(rtcFrame)
                     }
                 }
             }
         }
 
         if _state.isDebugMode {
-            Task.detached { @MainActor in
+            Task { @MainActor in
                 self._frameCount += 1
             }
         }
     }
 
+    @MainActor
     private func _swapRendererViews() {
         if !Thread.current.isMainThread { log("Must be called on main thread", .error) }
 
@@ -730,7 +738,7 @@ extension VideoView: VideoRenderer {
 // MARK: - Internal
 
 extension VideoView {
-    static func track(_ track1: VideoTrack?, isEqualWith track2: VideoTrack?) -> Bool {
+    nonisolated static func track(_ track1: VideoTrack?, isEqualWith track2: VideoTrack?) -> Bool {
         // equal if both tracks are nil
         if track1 == nil, track2 == nil { return true }
         // not equal if a single track is nil
@@ -858,7 +866,7 @@ private extension VideoView {
         if Thread.current.isMainThread {
             operation()
         } else {
-            Task.detached { @MainActor in
+            Task { @MainActor in
                 operation()
             }
         }
