@@ -229,8 +229,14 @@ public class VideoView: NativeView, Loggable {
 
     // MARK: - Private
 
+    #if compiler(>=6.0)
     private nonisolated(unsafe) var _primaryRenderer: NativeRendererView?
     private nonisolated(unsafe) var _secondaryRenderer: NativeRendererView?
+    #else
+    private var _primaryRenderer: NativeRendererView?
+    private var _secondaryRenderer: NativeRendererView?
+    #endif
+
     private var _debugTextView: TextView?
 
     // used for stats timer
