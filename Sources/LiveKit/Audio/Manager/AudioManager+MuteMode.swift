@@ -20,8 +20,7 @@ internal import LiveKitWebRTC
 @_implementationOnly import LiveKitWebRTC
 #endif
 
-@objc
-public enum MicrophoneMuteMode: Int {
+public enum MicrophoneMuteMode {
     /// Uses `AVAudioEngine`'s `isVoiceProcessingInputMuted` internally.
     /// This is fast, and muted speaker detection works. However, iOS will play a sound effect.
     case voiceProcessing
@@ -53,15 +52,15 @@ extension MicrophoneMuteMode {
 }
 
 public extension AudioManager {
-    var muteMode: MicrophoneMuteMode {
+    var microphoneMuteMode: MicrophoneMuteMode {
         RTC.audioDeviceModule.muteMode.toLKType()
     }
 
-    func set(muteMode: MicrophoneMuteMode) throws {
-        guard muteMode != .unknown else {
+    func set(microphoneMuteMode mode: MicrophoneMuteMode) throws {
+        guard mode != .unknown else {
             throw LiveKitError(.invalidState, message: "Unsupported mute mode specified")
         }
-        let result = RTC.audioDeviceModule.setMuteMode(muteMode.toRTCType())
+        let result = RTC.audioDeviceModule.setMuteMode(mode.toRTCType())
         try checkAdmResult(code: result)
     }
 }
