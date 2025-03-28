@@ -27,7 +27,7 @@ public enum MicrophoneMuteMode: Int {
     case voiceProcessing
     /// Restarts the internal `AVAudioEngine` without mic input when muted.
     /// This is slower, and muted speaker detection does not work. No sound effect is played.
-    case restartEngine
+    case restart
     case unknown
 }
 
@@ -35,7 +35,7 @@ extension RTCAudioEngineMuteMode {
     func toLKType() -> MicrophoneMuteMode {
         switch self {
         case .voiceProcessing: return .voiceProcessing
-        case .restartEngine: return .restartEngine
+        case .restartEngine: return .restart
         case .unknown: return .unknown
         @unknown default: return .unknown
         }
@@ -47,7 +47,7 @@ extension MicrophoneMuteMode {
         switch self {
         case .unknown: return .unknown
         case .voiceProcessing: return .voiceProcessing
-        case .restartEngine: return .restartEngine
+        case .restart: return .restartEngine
         }
     }
 }
