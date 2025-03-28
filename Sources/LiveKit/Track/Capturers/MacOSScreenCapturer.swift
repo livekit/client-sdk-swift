@@ -30,7 +30,7 @@ internal import LiveKitWebRTC
 #if os(macOS)
 
 @available(macOS 12.3, *)
-public class MacOSScreenCapturer: VideoCapturer {
+public class MacOSScreenCapturer: VideoCapturer, @unchecked Sendable {
     private let capturer = RTC.createVideoCapturer()
 
     // TODO: Make it possible to change dynamically

@@ -61,16 +61,16 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
         var amount: UInt64 = 0
     }
 
-    private struct PublishDataRequest {
+    private struct PublishDataRequest: Sendable {
         let data: LKRTCDataBuffer
         let continuation: CheckedContinuation<Void, any Error>?
     }
 
-    private struct ChannelEvent {
+    private struct ChannelEvent: Sendable {
         let channelKind: ChannelKind
         let detail: Detail
 
-        enum Detail {
+        enum Detail: Sendable {
             case publishData(PublishDataRequest)
             case bufferedAmountChanged(UInt64)
         }

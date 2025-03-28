@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import AVFoundation
+@preconcurrency import AVFoundation
 
 // Internal-only for now
 class DeviceManager: @unchecked Sendable, Loggable {
