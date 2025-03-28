@@ -41,6 +41,7 @@ extension LKRTCMediaStream: @unchecked Swift.Sendable {}
 extension LKRTCMediaStreamTrack: @unchecked Swift.Sendable {}
 extension LKRTCDataChannel: @unchecked Swift.Sendable {}
 extension LKRTCPeerConnection: @unchecked Swift.Sendable {}
+extension LKRTCConfiguration: @unchecked Swift.Sendable {}
 
 // MARK: Foundation classes
 
