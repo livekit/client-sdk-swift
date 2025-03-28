@@ -82,9 +82,9 @@ actor RTC {
 
     static let peerConnectionFactory: LKRTCPeerConnectionFactory = {
         // Update pc init lock
-        let admType = _pcState.mutate {
+        let (admType, bypassVoiceProcessing) = _pcState.mutate {
             $0.isInitialized = true
-            return $0.admType
+            return ($0.admType, $0.bypassVoiceProcessing)
         }
 
         logger.log("Initializing SSL...", type: Room.self)
@@ -94,7 +94,7 @@ actor RTC {
         logger.log("Initializing PeerConnectionFactory...", type: Room.self)
 
         return LKRTCPeerConnectionFactory(audioDeviceModuleType: admType.toRTCType(),
-                                          bypassVoiceProcessing: false,
+                                          bypassVoiceProcessing: bypassVoiceProcessing,
                                           encoderFactory: encoderFactory,
                                           decoderFactory: decoderFactory,
                                           audioProcessingModule: audioProcessingModule)

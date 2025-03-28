@@ -55,6 +55,7 @@ public extension AudioManager {
 struct PeerConnectionFactoryState {
     var isInitialized: Bool = false
     var admType: AudioDeviceModuleType = .audioEngine
+    var bypassVoiceProcessing: Bool = false
 }
 
 let _pcState = StateSync(PeerConnectionFactoryState())

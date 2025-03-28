@@ -250,8 +250,21 @@ public class AudioManager: Loggable {
     /// It is valid to toggle this at runtime and AudioEngine doesn't require restart.
     /// Defaults to `false`.
     public var isVoiceProcessingBypassed: Bool {
-        get { RTC.audioDeviceModule.isVoiceProcessingBypassed }
-        set { RTC.audioDeviceModule.isVoiceProcessingBypassed = newValue }
+        get {
+            if _pcState.admType == .platformDefault {
+                return _pcState.bypassVoiceProcessing
+            }
+
+            return RTC.audioDeviceModule.isVoiceProcessingBypassed
+        }
+        set {
+            guard !(_pcState.read { $0.isInitialized && _pcState.admType == .platformDefault }) else {
+                log("Cannot set this property after the peer connection has been initialized when using non-AVAudioEngine audio device module", .error)
+                return
+            }
+
+            RTC.audioDeviceModule.isVoiceProcessingBypassed = newValue
+        }
     }
 
     /// Bypass the Auto Gain Control of internal AVAudioEngine.
