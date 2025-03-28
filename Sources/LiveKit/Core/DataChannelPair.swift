@@ -78,7 +78,7 @@ class DataChannelPair: NSObject, Loggable {
 
     private var eventContinuation: AsyncStream<ChannelEvent>.Continuation?
 
-    @Sendable private func handleEvents(
+    private func handleEvents(
         events: AsyncStream<ChannelEvent>
     ) async {
         var lossyBuffering = BufferingState()
