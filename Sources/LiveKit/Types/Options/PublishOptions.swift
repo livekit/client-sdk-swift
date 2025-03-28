@@ -22,7 +22,7 @@ public protocol PublishOptions {}
 
 /// Base protocol for both ``VideoPublishOptions`` and ``AudioPublishOptions``.
 @objc
-public protocol TrackPublishOptions: PublishOptions {
+public protocol TrackPublishOptions: PublishOptions, Sendable {
     var name: String? { get }
     /// Set stream name for the track. Audio and video tracks with the same stream name
     /// will be placed in the same `MediaStream` and offer better synchronization.

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import AVFAudio
+@preconcurrency import AVFAudio
 import Foundation
 
 /// `AudioMixRecorder` provides real-time audio recording capabilities using AVAudioEngine.
