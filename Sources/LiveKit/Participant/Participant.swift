@@ -219,9 +219,15 @@ public class Participant: NSObject, @unchecked Sendable, ObservableObject, Logga
             $0.identity = Identity(from: info.identity)
             $0.name = info.name
             $0.metadata = info.metadata
-            $0.joinedAt = Date(timeIntervalSince1970: TimeInterval(info.joinedAt))
             $0.kind = info.kind.toLKType()
             $0.attributes = info.attributes
+
+            // Attempt to get millisecond precision.
+            if info.joinedAtMs != 0 {
+                $0.joinedAt = Date(timeIntervalSince1970: TimeInterval(Double(info.joinedAtMs) / 1000))
+            } else if info.joinedAt != 0 {
+                $0.joinedAt = Date(timeIntervalSince1970: TimeInterval(info.joinedAt))
+            }
         }
 
         self.info = info
