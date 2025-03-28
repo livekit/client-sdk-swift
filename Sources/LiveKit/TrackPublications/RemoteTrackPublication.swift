@@ -305,6 +305,7 @@ extension RemoteTrackPublication {
 
 // MARK: - Adaptive Stream
 
+@MainActor
 extension Collection<VideoRenderer> {
     func containsOneOrMoreAdaptiveStreamEnabledRenderers() -> Bool {
         // not visible if no entry
