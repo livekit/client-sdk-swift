@@ -258,7 +258,7 @@ public class AudioManager: Loggable {
             return RTC.audioDeviceModule.isVoiceProcessingBypassed
         }
         set {
-            guard !(_pcState.read { $0.isInitialized && _pcState.admType == .platformDefault }) else {
+            guard !(_pcState.read { $0.isInitialized && $0.admType == .platformDefault }) else {
                 log("Cannot set this property after the peer connection has been initialized when using non-AVAudioEngine audio device module", .error)
                 return
             }
