@@ -120,7 +120,7 @@ open class LKSampleHandler: RPBroadcastSampleHandler, @unchecked Sendable {
             logger.error("Bundle settings improperly configured for screen capture")
             return
         }
-        Task { @Sendable in
+        Task {
             do {
                 uploader = try await BroadcastUploader(socketPath: socketPath)
                 logger.info("Uploader connected")
