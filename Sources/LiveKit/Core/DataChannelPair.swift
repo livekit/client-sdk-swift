@@ -29,7 +29,7 @@ protocol DataChannelDelegate: Sendable {
     func dataChannel(_ dataChannelPair: DataChannelPair, didReceiveDataPacket dataPacket: Livekit_DataPacket)
 }
 
-final class DataChannelPair: NSObject, Sendable, Loggable {
+class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
     // MARK: - Public
 
     public let delegates = MulticastDelegate<DataChannelDelegate>(label: "DataChannelDelegate")
