@@ -63,7 +63,7 @@ actor CompleterMapActor<T: Sendable> {
     }
 }
 
-class AsyncCompleter<T: Sendable>: @unchecked Sendable, Loggable {
+final class AsyncCompleter<T: Sendable>: @unchecked Sendable, Loggable {
     //
     struct WaitEntry {
         let continuation: UnsafeContinuation<T, Error>

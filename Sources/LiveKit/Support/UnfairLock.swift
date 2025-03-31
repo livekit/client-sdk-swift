@@ -19,7 +19,7 @@ import Foundation
 //
 // Read http://www.russbishop.net/the-law for more information on why this is necessary
 //
-class UnfairLock {
+final class UnfairLock {
     private var _lock: UnsafeMutablePointer<os_unfair_lock>
 
     init() {
