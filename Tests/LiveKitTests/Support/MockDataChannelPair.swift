@@ -17,7 +17,7 @@
 @testable import LiveKit
 
 /// Mock ``DataChannelPair`` to intercept outgoing packets.
-class MockDataChannelPair: DataChannelPair {
+class MockDataChannelPair: DataChannelPair, @unchecked Sendable {
     var packetHandler: (Livekit_DataPacket) -> Void
 
     init(packetHandler: @escaping (Livekit_DataPacket) -> Void) {
