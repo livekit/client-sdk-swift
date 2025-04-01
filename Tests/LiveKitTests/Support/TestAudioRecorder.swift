@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-import AVFAudio
+@preconcurrency import AVFAudio
 @testable import LiveKit
 
 // Used to save audio data for inspecting the correct format, etc.
-class AudioRecorder {
+final class TestAudioRecorder {
     public let sampleRate: Double
     public let filePath: URL
     private var audioFile: AVAudioFile?
@@ -27,7 +27,7 @@ class AudioRecorder {
         self.sampleRate = sampleRate
 
         let settings: [String: Any] = [
-            AVFormatIDKey: kAudioFormatLinearPCM,
+            AVFormatIDKey: kAudioFormatMPEG4AAC,
             AVSampleRateKey: sampleRate,
             AVNumberOfChannelsKey: channels,
             AVLinearPCMBitDepthKey: 16,
@@ -36,7 +36,7 @@ class AudioRecorder {
             AVLinearPCMIsBigEndianKey: false,
         ]
 
-        let fileName = UUID().uuidString + ".wav"
+        let fileName = UUID().uuidString + ".aac"
         let filePath = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent(fileName)
         self.filePath = filePath
 
@@ -56,7 +56,7 @@ class AudioRecorder {
     }
 }
 
-extension AudioRecorder: AudioRenderer {
+extension TestAudioRecorder: AudioRenderer {
     func render(pcmBuffer: AVAudioPCMBuffer) {
         try? write(pcmBuffer: pcmBuffer)
     }

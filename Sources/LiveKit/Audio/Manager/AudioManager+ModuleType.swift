@@ -41,21 +41,11 @@ public extension AudioManager {
     ///
     /// This method must be called before the peer connection is initialized. Changing the module type after
     /// initialization is not supported and will result in an error.
-    func set(audioDeviceModuleType: AudioDeviceModuleType) throws {
+    static func set(audioDeviceModuleType: AudioDeviceModuleType) throws {
         // Throw if pc factory is already initialized.
-        guard !_pcState.isInitialized else {
+        guard !RTC.pcFactoryState.isInitialized else {
             throw LiveKitError(.invalidState, message: "Cannot set this property after the peer connection has been initialized")
         }
-        _pcState.mutate { $0.admType = audioDeviceModuleType }
+        RTC.pcFactoryState.mutate { $0.admType = audioDeviceModuleType }
     }
 }
-
-// MARK: - Internal
-
-struct PeerConnectionFactoryState {
-    var isInitialized: Bool = false
-    var admType: AudioDeviceModuleType = .audioEngine
-    var bypassVoiceProcessing: Bool = false
-}
-
-let _pcState = StateSync(PeerConnectionFactoryState())

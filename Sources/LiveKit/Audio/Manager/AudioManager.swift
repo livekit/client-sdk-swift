@@ -251,14 +251,14 @@ public class AudioManager: Loggable {
     /// Defaults to `false`.
     public var isVoiceProcessingBypassed: Bool {
         get {
-            if _pcState.admType == .platformDefault {
-                return _pcState.bypassVoiceProcessing
+            if RTC.pcFactoryState.admType == .platformDefault {
+                return RTC.pcFactoryState.bypassVoiceProcessing
             }
 
             return RTC.audioDeviceModule.isVoiceProcessingBypassed
         }
         set {
-            guard !(_pcState.read { $0.isInitialized && $0.admType == .platformDefault }) else {
+            guard !(RTC.pcFactoryState.read { $0.isInitialized && $0.admType == .platformDefault }) else {
                 log("Cannot set this property after the peer connection has been initialized when using non-AVAudioEngine audio device module", .error)
                 return
             }
@@ -302,7 +302,7 @@ public class AudioManager: Loggable {
     /// Audio buffers will flow into ``LocalAudioTrack/add(audioRenderer:)`` and ``capturePostProcessingDelegate``.
     public func startLocalRecording() throws {
         // Always unmute APM if muted by last session.
-        RTC.audioProcessingModule.isMuted = false
+        RTC.audioProcessingModule.isMuted = false // TODO: Possibly not required anymore with new libs
         // Start recording on the ADM.
         let result = RTC.audioDeviceModule.initAndStartRecording()
         try checkAdmResult(code: result)

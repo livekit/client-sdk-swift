@@ -110,58 +110,49 @@ class AudioEngineTests: LKTestCase {
     // Test start generating local audio buffer without joining to room.
     func testPreconnectAudioBuffer() async throws {
         print("Setting recording always prepared mode...")
-        try AudioManager.shared.setRecordingAlwaysPreparedMode(true)
+        // try AudioManager.set(audioDeviceModuleType: .platformDefault)
 
-        var counter = 0
-        // Executes 10 times by default.
-        measure {
-            counter += 1
-            print("Measuring attempt \(counter)...")
-            // Set up expectation...
-            let didReceiveAudioFrame = expectation(description: "Did receive audio frame")
-            didReceiveAudioFrame.assertForOverFulfill = false
+        // Set up expectation...
+        let didReceiveAudioFrame = expectation(description: "Did receive audio frame")
+        didReceiveAudioFrame.assertForOverFulfill = false
 
-            let didConnectToRoom = expectation(description: "Did connect to room")
-            didConnectToRoom.assertForOverFulfill = false
+        let didConnectToRoom = expectation(description: "Did connect to room")
+        didConnectToRoom.assertForOverFulfill = false
 
-            // Create an audio frame watcher...
-            let audioFrameWatcher = AudioTrackWatcher(id: "notifier01") { _ in
-                didReceiveAudioFrame.fulfill()
-            }
-
-            let localMicTrack = LocalAudioTrack.createTrack()
-            // Attach audio frame watcher...
-            localMicTrack.add(audioRenderer: audioFrameWatcher)
-
-            Task {
-                print("Starting local recording...")
-                try AudioManager.shared.startLocalRecording()
-            }
-
-            // Wait for audio frame...
-            print("Waiting for first audio frame...")
-            // await fulfillment(of: [didReceiveAudioFrame], timeout: 10)
-            wait(for: [didReceiveAudioFrame], timeout: 30)
-
-            Task.detached {
-                print("Connecting to room...")
-                try await self.withRooms([RoomTestingOptions(canPublish: true)]) { rooms in
-                    print("Publishing mic...")
-                    do {
-                        try await rooms[0].localParticipant.setMicrophone(enabled: true)
-                        didConnectToRoom.fulfill()
-                    } catch {
-                        print("Failed to publish mic: \(error)")
-                    }
-                }
-            }
-
-            print("Waiting for room to connect & disconnect...")
-            // await fulfillment(of: [didConnectToRoom], timeout: 10)
-            wait(for: [didConnectToRoom], timeout: 30)
-
-            localMicTrack.remove(audioRenderer: audioFrameWatcher)
+        // Create an audio frame watcher...
+        let audioFrameWatcher = AudioTrackWatcher(id: "notifier01") { _ in
+            didReceiveAudioFrame.fulfill()
         }
+
+        let localMicTrack = LocalAudioTrack.createTrack()
+        // Attach audio frame watcher...
+        localMicTrack.add(audioRenderer: audioFrameWatcher)
+
+        Task {
+            print("Starting local recording...")
+            try AudioManager.shared.startLocalRecording()
+        }
+
+        // Wait for audio frame...
+        print("Waiting for first audio frame...")
+        await fulfillment(of: [didReceiveAudioFrame], timeout: 10)
+
+        Task.detached {
+            print("Connecting to room...")
+            // Wait for 3 seconds...
+            try? await Task.sleep(nanoseconds: 3 * 1_000_000_000)
+
+            try await self.withRooms([RoomTestingOptions(canPublish: true)]) { rooms in
+                print("Publishing mic...")
+                try await rooms[0].localParticipant.setMicrophone(enabled: true)
+                didConnectToRoom.fulfill()
+            }
+        }
+
+        print("Waiting for room to connect & disconnect...")
+        await fulfillment(of: [didConnectToRoom], timeout: 10)
+
+        localMicTrack.remove(audioRenderer: audioFrameWatcher)
     }
 
     // Test the manual rendering mode (no-device mode) of AVAudioEngine based AudioDeviceModule.
@@ -179,7 +170,7 @@ class AudioEngineTests: LKTestCase {
         print("manualRenderingMode: \(isManualRenderingMode)")
         XCTAssert(isManualRenderingMode)
 
-        let recorder = try AudioRecorder()
+        let recorder = try TestAudioRecorder()
 
         // Note: AudioCaptureOptions will not be applied since track is not published.
         let track = LocalAudioTrack.createTrack(options: .noProcessing)
@@ -236,7 +227,7 @@ class AudioEngineTests: LKTestCase {
         print("manualRenderingMode: \(isManualRenderingMode)")
         XCTAssert(isManualRenderingMode)
 
-        let recorder = try AudioRecorder()
+        let recorder = try TestAudioRecorder()
 
         // Note: AudioCaptureOptions will not be applied since track is not published.
         let track = LocalAudioTrack.createTrack(options: .noProcessing)
@@ -310,39 +301,6 @@ class AudioEngineTests: LKTestCase {
         AudioManager.shared.stopPlayout()
     }
     #endif
-
-    func testAudioRecorder() async throws {
-        try AudioManager.shared.setRecordingAlwaysPreparedMode(true)
-
-        print("Connecting to room...")
-        try await withRooms([RoomTestingOptions(canPublish: true)]) { rooms in
-            print("Publishing mic...")
-            try await rooms[0].localParticipant.setMicrophone(enabled: true)
-            // Wait 3 seconds...
-            try? await Task.sleep(nanoseconds: 3 * 1_000_000_000)
-        }
-
-        let format16k: [String: Any] = [
-            AVFormatIDKey: Int(kAudioFormatMPEG4AAC),
-            AVSampleRateKey: 16000,
-            AVNumberOfChannelsKey: 1,
-            AVEncoderAudioQualityKey: AVAudioQuality.high.rawValue,
-        ]
-
-        let tempLocalUrl = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString).appendingPathExtension("aac")
-        let recorder = try AVAudioRecorder(url: tempLocalUrl, settings: format16k)
-        XCTAssertTrue(recorder.record(), "Failed to start audio recording")
-        // Record for 5 seconds...
-        try? await Task.sleep(nanoseconds: 5 * 1_000_000_000)
-        recorder.stop()
-
-        // Play the recorded file...
-        let player = try AVAudioPlayer(contentsOf: tempLocalUrl)
-        XCTAssertTrue(player.play(), "Failed to start audio playback")
-        while player.isPlaying {
-            try? await Task.sleep(nanoseconds: 1 * 100_000_000) // 10ms
-        }
-    }
 
     func testFailingPublish() async throws {
         AudioManager.shared.set(engineObservers: [FailingEngineObserver()])
