@@ -30,8 +30,8 @@ public enum AudioDeviceModuleType {
 extension AudioDeviceModuleType {
     func toRTCType() -> RTCAudioDeviceModuleType {
         switch self {
-        case .audioEngine: RTCAudioDeviceModuleType.audioEngine
-        case .platformDefault: RTCAudioDeviceModuleType.platformDefault
+        case .audioEngine: return RTCAudioDeviceModuleType.audioEngine
+        case .platformDefault: return RTCAudioDeviceModuleType.platformDefault
         }
     }
 }
