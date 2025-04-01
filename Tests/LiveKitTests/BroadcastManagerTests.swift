@@ -20,7 +20,7 @@ import Combine
 @testable import LiveKit
 import XCTest
 
-class BroadcastManagerTests: LKTestCase {
+class BroadcastManagerTests: LKTestCase, @unchecked Sendable {
     private var manager: BroadcastManager!
 
     override func setUp() {
@@ -80,7 +80,7 @@ class BroadcastManagerTests: LKTestCase {
         )
     }
 
-    private class MockDelegate: BroadcastManagerDelegate {
+    private class MockDelegate: BroadcastManagerDelegate, @unchecked Sendable {
         var didChangeStateCalled: ((Bool) -> Void)?
 
         func broadcastManager(didChangeState isBroadcasting: Bool) {

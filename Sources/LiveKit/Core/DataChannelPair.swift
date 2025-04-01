@@ -29,7 +29,7 @@ protocol DataChannelDelegate: Sendable {
     func dataChannel(_ dataChannelPair: DataChannelPair, didReceiveDataPacket dataPacket: Livekit_DataPacket)
 }
 
-class DataChannelPair: NSObject, Loggable {
+class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
     // MARK: - Public
 
     public let delegates = MulticastDelegate<DataChannelDelegate>(label: "DataChannelDelegate")
@@ -48,6 +48,8 @@ class DataChannelPair: NSObject, Loggable {
             guard let lossy, let reliable else { return false }
             return reliable.readyState == .open && lossy.readyState == .open
         }
+
+        var eventContinuation: AsyncStream<ChannelEvent>.Continuation?
     }
 
     private let _state: StateSync<State>
@@ -61,24 +63,22 @@ class DataChannelPair: NSObject, Loggable {
         var amount: UInt64 = 0
     }
 
-    private struct PublishDataRequest {
+    private struct PublishDataRequest: Sendable {
         let data: LKRTCDataBuffer
         let continuation: CheckedContinuation<Void, any Error>?
     }
 
-    private struct ChannelEvent {
+    private struct ChannelEvent: Sendable {
         let channelKind: ChannelKind
         let detail: Detail
 
-        enum Detail {
+        enum Detail: Sendable {
             case publishData(PublishDataRequest)
             case bufferedAmountChanged(UInt64)
         }
     }
 
-    private var eventContinuation: AsyncStream<ChannelEvent>.Continuation?
-
-    @Sendable private func handleEvents(
+    private func handleEvents(
         events: AsyncStream<ChannelEvent>
     ) async {
         var lossyBuffering = BufferingState()
@@ -175,7 +175,7 @@ class DataChannelPair: NSObject, Loggable {
 
         Task {
             let eventStream = AsyncStream<ChannelEvent> { continuation in
-                self.eventContinuation = continuation
+                _state.mutate { $0.eventContinuation = continuation }
             }
             await handleEvents(events: eventStream)
         }
@@ -241,7 +241,7 @@ class DataChannelPair: NSObject, Loggable {
                 channelKind: ChannelKind(packet.kind), // TODO: field is deprecated
                 detail: .publishData(request)
             )
-            eventContinuation?.yield(event)
+            _state.eventContinuation?.yield(event)
         }
     }
 
@@ -255,7 +255,7 @@ class DataChannelPair: NSObject, Loggable {
     private static let lossyLowThreshold: UInt64 = reliableLowThreshold
 
     deinit {
-        eventContinuation?.finish()
+        _state.eventContinuation?.finish()
     }
 }
 
@@ -267,7 +267,7 @@ extension DataChannelPair: LKRTCDataChannelDelegate {
             channelKind: dataChannel.kind,
             detail: .bufferedAmountChanged(amount)
         )
-        eventContinuation?.yield(event)
+        _state.eventContinuation?.yield(event)
     }
 
     func dataChannelDidChangeState(_: LKRTCDataChannel) {

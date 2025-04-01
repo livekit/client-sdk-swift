@@ -27,7 +27,7 @@ internal import LiveKitWebRTC
 @_implementationOnly import LiveKitWebRTC
 #endif
 
-public class CameraCapturer: VideoCapturer {
+public class CameraCapturer: VideoCapturer, @unchecked Sendable {
     /// Current device used for capturing
     @objc
     public var device: AVCaptureDevice? { _cameraCapturerState.device }

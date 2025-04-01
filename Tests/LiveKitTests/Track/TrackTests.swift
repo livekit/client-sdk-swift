@@ -20,7 +20,7 @@ import Foundation
 @testable import LiveKit
 import XCTest
 
-class TestTrack: LocalAudioTrack {
+class TestTrack: LocalAudioTrack, @unchecked Sendable {
     init() {
         let source = RTC.createAudioSource(nil)
         let _track = RTC.createAudioTrack(source: source)

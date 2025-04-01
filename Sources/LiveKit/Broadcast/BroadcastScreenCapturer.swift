@@ -28,7 +28,7 @@ internal import LiveKitWebRTC
 @_implementationOnly import LiveKitWebRTC
 #endif
 
-class BroadcastScreenCapturer: BufferCapturer {
+class BroadcastScreenCapturer: BufferCapturer, @unchecked Sendable {
     private let appAudio: Bool
     private var receiver: BroadcastReceiver?
 

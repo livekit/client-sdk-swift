@@ -16,8 +16,8 @@
 
 import Foundation
 
-actor QueueActor<T>: Loggable {
-    typealias OnProcess = (T) async -> Void
+actor QueueActor<T: Sendable>: Loggable {
+    typealias OnProcess = @Sendable (T) async -> Void
 
     // MARK: - Public
 

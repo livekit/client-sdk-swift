@@ -17,7 +17,7 @@
 import Foundation
 
 /// Helper class to observer ``TrackDelegate`` from Swift UI.
-public class TrackDelegateObserver: ObservableObject, TrackDelegate {
+public class TrackDelegateObserver: ObservableObject, TrackDelegate, @unchecked Sendable {
     private let track: Track
 
     @Published public var dimensions: Dimensions?
@@ -46,13 +46,13 @@ public class TrackDelegateObserver: ObservableObject, TrackDelegate {
     // MARK: - TrackDelegate
 
     public func track(_: VideoTrack, didUpdateDimensions dimensions: Dimensions?) {
-        Task.detached { @MainActor in
+        Task { @MainActor in
             self.dimensions = dimensions
         }
     }
 
     public func track(_: Track, didUpdateStatistics statistics: TrackStatistics, simulcastStatistics: [VideoCodec: TrackStatistics]) {
-        Task.detached { @MainActor in
+        Task { @MainActor in
             self.statistics = statistics
             self.simulcastStatistics = simulcastStatistics
         }

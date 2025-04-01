@@ -14,16 +14,20 @@
  * limitations under the License.
  */
 
-import AVFoundation
+@preconcurrency import AVFoundation
 @testable import LiveKit
 import XCTest
 
 extension LKTestCase {
     // Static variable to store the downloaded sample video URL
+    #if compiler(>=6.0)
+    private nonisolated(unsafe) static var cachedSampleVideoURL: URL?
+    #else
     private static var cachedSampleVideoURL: URL?
+    #endif
 
     // Creates a LocalVideoTrack with BufferCapturer, generates frames for approx 30 seconds
-    func createSampleVideoTrack(targetFps: Int = 30, _ onCapture: @escaping (CMSampleBuffer) -> Void) async throws -> (Task<Void, any Error>) {
+    func createSampleVideoTrack(targetFps: Int = 30, _ onCapture: @Sendable @escaping (CMSampleBuffer) -> Void) async throws -> (Task<Void, any Error>) {
         // Sample video
         let url = URL(string: "https://storage.unxpected.co.jp/public/sample-videos/ocean-1080p.mp4")!
         let tempLocalUrl: URL
@@ -101,7 +105,7 @@ extension LKTestCase {
 
 typealias OnDidRenderFirstFrame = (_ id: String) -> Void
 
-class VideoTrackWatcher: TrackDelegate, VideoRenderer {
+class VideoTrackWatcher: TrackDelegate, VideoRenderer, @unchecked Sendable {
     // MARK: - Public
 
     public var didRenderFirstFrame: Bool { _state.didRenderFirstFrame }
@@ -219,7 +223,7 @@ class VideoTrackWatcher: TrackDelegate, VideoRenderer {
     }
 }
 
-class AudioTrackWatcher: AudioRenderer {
+class AudioTrackWatcher: AudioRenderer, @unchecked Sendable {
     public let id: String
     public var didRenderFirstFrame: Bool { _state.didRenderFirstFrame }
 
