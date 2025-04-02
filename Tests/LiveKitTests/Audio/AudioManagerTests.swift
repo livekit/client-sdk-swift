@@ -27,7 +27,7 @@ class AudioManagerTests: LKTestCase {
 
         // Ensure category
         #if os(iOS) || os(tvOS)
-        try AVAudioSession.sharedInstance().setCategory(.playAndRecord, mode: .default, options: [])
+        try AVAudioSession.sharedInstance().setCategory(.playAndRecord, mode: .videoChat, options: [])
         #endif
 
         let recorder = try TestAudioRecorder()
