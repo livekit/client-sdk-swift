@@ -24,7 +24,7 @@ internal import LiveKitWebRTC
 #endif
 
 @objc
-public final class ARCameraCaptureOptions: NSObject, VideoCaptureOptions {
+public final class ARCameraCaptureOptions: NSObject, VideoCaptureOptions, Sendable {
     @objc
     public let dimensions: Dimensions
 
