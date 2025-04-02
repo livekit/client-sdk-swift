@@ -19,7 +19,7 @@
 import LiveKitWebRTC
 import XCTest
 
-class AudioEngineTests: LKTestCase {
+class AudioEngineTests: LKTestCase, @unchecked Sendable {
     override func tearDown() async throws {}
 
     #if !targetEnvironment(simulator)
@@ -313,7 +313,7 @@ class AudioEngineTests: LKTestCase {
     }
 }
 
-final class FailingEngineObserver: AudioEngineObserver {
+final class FailingEngineObserver: AudioEngineObserver, @unchecked Sendable {
     var next: (any LiveKit.AudioEngineObserver)?
 
     func engineWillEnable(_: AVAudioEngine, isPlayoutEnabled _: Bool, isRecordingEnabled _: Bool) -> Int {
@@ -322,7 +322,7 @@ final class FailingEngineObserver: AudioEngineObserver {
     }
 }
 
-final class SineWaveNodeHook: AudioEngineObserver {
+final class SineWaveNodeHook: AudioEngineObserver, @unchecked Sendable {
     var next: (any LiveKit.AudioEngineObserver)?
 
     let sineWaveNode = SineWaveSourceNode()
@@ -344,7 +344,7 @@ final class SineWaveNodeHook: AudioEngineObserver {
     }
 }
 
-final class PlayerNodeHook: AudioEngineObserver {
+final class PlayerNodeHook: AudioEngineObserver, @unchecked Sendable {
     var next: (any LiveKit.AudioEngineObserver)?
 
     public let playerNode = AVAudioPlayerNode()

@@ -18,7 +18,7 @@
 
 import Foundation
 
-enum BroadcastBundleInfo {
+actor BroadcastBundleInfo {
     /// Identifier of the app group shared by the primary app and broadcast extension.
     static var groupIdentifier: String? {
         if let override = groupIdentifierOverride { return override }

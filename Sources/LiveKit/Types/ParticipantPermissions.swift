@@ -17,7 +17,7 @@
 import Foundation
 
 @objc
-public class ParticipantPermissions: NSObject {
+public class ParticipantPermissions: NSObject, @unchecked Sendable {
     /// ``Participant`` can subscribe to tracks in the room
     @objc
     public let canSubscribe: Bool

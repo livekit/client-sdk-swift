@@ -17,7 +17,7 @@
 @testable import LiveKit
 import XCTest
 
-class ByteStreamReaderTests: LKTestCase {
+class ByteStreamReaderTests: LKTestCase, @unchecked Sendable {
     private var continuation: StreamReaderSource.Continuation!
     private var reader: ByteStreamReader!
 

@@ -96,7 +96,7 @@ extension Room {
         }
 
         // Notify change when engine's state mutates
-        Task.detached { @MainActor in
+        Task { @MainActor in
             self.objectWillChange.send()
         }
     }

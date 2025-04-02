@@ -78,7 +78,7 @@ public struct I420VideoBuffer: VideoBuffer, RTCCompatibleVideoBuffer {
     public var strideV: Int32 { _rtcType.strideV }
 }
 
-public class VideoFrame: NSObject {
+public class VideoFrame: NSObject, @unchecked Sendable {
     public let dimensions: Dimensions
     public let rotation: VideoRotation
     public let timeStampNs: Int64

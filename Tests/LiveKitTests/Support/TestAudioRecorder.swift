@@ -18,7 +18,7 @@
 @testable import LiveKit
 
 // Used to save audio data for inspecting the correct format, etc.
-final class TestAudioRecorder {
+class TestAudioRecorder: @unchecked Sendable {
     public let sampleRate: Double
     public let filePath: URL
     private var audioFile: AVAudioFile?

@@ -65,7 +65,7 @@ import Foundation
 /// Audio sources can be added or removed at any time, including while recording is active.
 /// When no audio is being provided by any source, the recorder will capture silence.
 
-public class AudioMixRecorder: Loggable {
+public class AudioMixRecorder: Loggable, @unchecked Sendable {
     // MARK: - Public
 
     /// The format used internally by engine & recorder.
@@ -243,7 +243,7 @@ public class AudioMixRecorder: Loggable {
     }
 }
 
-public class AudioMixRecorderSource: Loggable, AudioRenderer {
+public class AudioMixRecorderSource: Loggable, AudioRenderer, @unchecked Sendable {
     public let processingFormat: AVAudioFormat
     let playerNode = AVAudioPlayerNode()
 

@@ -51,7 +51,7 @@ struct TestEngineStep {
     let assert: TestEngineAssert
 }
 
-extension RTCAudioEngineState: CustomStringConvertible {
+extension RTCAudioEngineState: Swift.CustomStringConvertible {
     public var description: String {
         "EngineState(" +
             "outputEnabled: \(outputEnabled), " +

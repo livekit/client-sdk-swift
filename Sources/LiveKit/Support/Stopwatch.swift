@@ -16,8 +16,8 @@
 
 import Foundation
 
-public struct Stopwatch {
-    public struct Entry: Equatable {
+public struct Stopwatch: Sendable {
+    public struct Entry: Equatable, Sendable {
         let label: String
         let time: TimeInterval
     }
