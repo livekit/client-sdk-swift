@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		7B7356972D9CB629003BB6F4 /* LiveKit in Frameworks */ = {isa = PBXBuildFile; productRef = 7B7356962D9CB629003BB6F4 /* LiveKit */; };
 		7B73570F2D9CB6B9003BB6F4 /* JWTKit in Frameworks */ = {isa = PBXBuildFile; productRef = 7B73570E2D9CB6B9003BB6F4 /* JWTKit */; };
+		7BEF53122D9CD13100214147 /* TestPlan.xctestplan in Resources */ = {isa = PBXBuildFile; fileRef = 7BEF53112D9CD13100214147 /* TestPlan.xctestplan */; };
 		7BF642E72D9CC1FE0058A1F7 /* LiveKit in Frameworks */ = {isa = PBXBuildFile; productRef = 7BF642E62D9CC1FE0058A1F7 /* LiveKit */; };
 /* End PBXBuildFile section */
 
@@ -25,6 +26,7 @@
 /* Begin PBXFileReference section */
 		7B73566A2D9CB603003BB6F4 /* LKTestHost.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = LKTestHost.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		7B7356782D9CB604003BB6F4 /* LiveKitTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = LiveKitTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		7BEF53112D9CD13100214147 /* TestPlan.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = TestPlan.xctestplan; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -78,6 +80,7 @@
 		7B7356612D9CB603003BB6F4 = {
 			isa = PBXGroup;
 			children = (
+				7BEF53112D9CD13100214147 /* TestPlan.xctestplan */,
 				7B73566C2D9CB603003BB6F4 /* LKTestHost */,
 				7B73567B2D9CB604003BB6F4 /* LiveKitTests */,
 				7B73566B2D9CB603003BB6F4 /* Products */,
@@ -192,6 +195,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				7BEF53122D9CD13100214147 /* TestPlan.xctestplan in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

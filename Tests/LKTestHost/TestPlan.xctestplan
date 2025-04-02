@@ -1,0 +1,24 @@
+{
+  "configurations" : [
+    {
+      "id" : "4083664C-CBD4-4DC9-A23B-AD78C697A794",
+      "name" : "Configuration 1",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "testTimeoutsEnabled" : true
+  },
+  "testTargets" : [
+    {
+      "target" : {
+        "containerPath" : "container:LKTestHost.xcodeproj",
+        "identifier" : "7B7356772D9CB604003BB6F4",
+        "name" : "LiveKitTests"
+      }
+    }
+  ],
+  "version" : 1
+}
