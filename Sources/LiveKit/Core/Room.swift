@@ -232,6 +232,8 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
             AppStateListener.shared.delegates.add(delegate: self)
         }
 
+        ConnectivityListener.shared.add(delegate: self)
+
         // trigger events when state mutates
         _state.onDidMutate = { [weak self] newState, oldState in
 
