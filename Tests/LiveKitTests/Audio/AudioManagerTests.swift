@@ -26,7 +26,7 @@ class AudioManagerTests: LKTestCase {
         try AudioManager.set(audioDeviceModuleType: .platformDefault)
 
         // Ensure category
-        #if os(iOS) || os(tvOS)
+        #if os(iOS) || os(tvOS) || os(visionOS)
         try AVAudioSession.sharedInstance().setCategory(.playAndRecord, mode: .videoChat, options: [])
         #endif
 
