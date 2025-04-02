@@ -86,8 +86,17 @@ extension Room {
             }
         }
 
+        // Notify when reconnection mode changes
+        if state.isReconnectingWithMode != oldState.isReconnectingWithMode,
+           let mode = state.isReconnectingWithMode
+        {
+            delegates.notify(label: { "room.didUpdate reconnectionMode: \(String(describing: state.isReconnectingWithMode)) oldValue: \(String(describing: oldState.isReconnectingWithMode))" }) {
+                $0.room?(self, didUpdateReconnectMode: mode)
+            }
+        }
+
         // Notify change when engine's state mutates
-        Task.detached { @MainActor in
+        Task { @MainActor in
             self.objectWillChange.send()
         }
     }

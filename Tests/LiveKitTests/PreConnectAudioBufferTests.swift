@@ -21,7 +21,7 @@ class PreConnectAudioBufferTests: LKTestCase {
     func testRoomDidConnectSetsParticipantAttribute() async throws {
         let attributeSetExpectation = expectation(description: "Participant attribute set")
 
-        class AttributeDelegate: RoomDelegate {
+        class AttributeDelegate: RoomDelegate, @unchecked Sendable {
             let expectation: XCTestExpectation
             var attributeValue: String?
 

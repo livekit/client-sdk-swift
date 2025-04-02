@@ -32,10 +32,11 @@ import Foundation
 /// ```
 /// See the source code of [Swift Example App](https://github.com/livekit/client-example-swift) for more examples.
 @objc
-public protocol RoomDelegate: AnyObject {
+public protocol RoomDelegate: AnyObject, Sendable {
     // MARK: - Connection Events
 
     /// ``Room/connectionState`` has updated.
+    /// - Note: This method is not called for ``ReconnectMode/quick``, use ``RoomDelegate/room(_:didUpdateReconnectMode:)`` instead.
     @objc optional
     func room(_ room: Room, didUpdateConnectionState connectionState: ConnectionState, from oldConnectionState: ConnectionState)
 
@@ -44,12 +45,17 @@ public protocol RoomDelegate: AnyObject {
     func roomDidConnect(_ room: Room)
 
     /// Previously connected to room but re-attempting to connect due to network issues.
+    /// - Note: This method is not called for ``ReconnectMode/quick``, use ``RoomDelegate/room(_:didUpdateReconnectMode:)`` instead.
     @objc optional
     func roomIsReconnecting(_ room: Room)
 
     /// Successfully re-connected to the room.
     @objc optional
     func roomDidReconnect(_ room: Room)
+
+    /// ``Room`` reconnect mode has updated.
+    @objc optional
+    func room(_ room: Room, didUpdateReconnectMode reconnectMode: ReconnectMode)
 
     /// Could not connect to the room. Only triggered when the initial connect attempt fails.
     @objc optional

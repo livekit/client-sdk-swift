@@ -23,7 +23,7 @@ internal import LiveKitWebRTC
 #endif
 
 @objc
-public class LocalVideoTrack: Track, LocalTrack {
+public class LocalVideoTrack: Track, LocalTrack, @unchecked Sendable {
     @objc
     public internal(set) var capturer: VideoCapturer
 

@@ -20,7 +20,7 @@
 import Network
 import XCTest
 
-final class IPCChannelTests: LKTestCase {
+final class IPCChannelTests: LKTestCase, @unchecked Sendable {
     private var socketPath: SocketPath!
 
     enum TestSetupError: Error {
@@ -75,7 +75,7 @@ final class IPCChannelTests: LKTestCase {
     }
 
     private func assertInitCancellationThrows(
-        _ initializer: @escaping @autoclosure () async throws -> IPCChannel,
+        _ initializer: @Sendable @escaping @autoclosure () async throws -> IPCChannel,
         file: StaticString = #file,
         line: UInt = #line
     ) async throws {

@@ -20,7 +20,7 @@ internal import LiveKitWebRTC
 @_implementationOnly import LiveKitWebRTC
 #endif
 
-protocol TransportDelegate: AnyObject {
+protocol TransportDelegate: AnyObject, Sendable {
     func transport(_ transport: Transport, didUpdateState state: RTCPeerConnectionState)
     func transport(_ transport: Transport, didGenerateIceCandidate iceCandidate: IceCandidate)
     func transport(_ transport: Transport, didOpenDataChannel dataChannel: LKRTCDataChannel)

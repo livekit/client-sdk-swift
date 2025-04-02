@@ -32,7 +32,7 @@ internal import LiveKitWebRTC
 /// > Note: At least one frame must be captured before publishing the track or the publish will timeout,
 /// since dimensions must be resolved at the time of publishing (to compute video parameters).
 ///
-public class BufferCapturer: VideoCapturer {
+public class BufferCapturer: VideoCapturer, @unchecked Sendable {
     private let capturer = RTC.createVideoCapturer()
 
     /// The ``BufferCaptureOptions`` used for this capturer.

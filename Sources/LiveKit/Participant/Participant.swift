@@ -23,7 +23,7 @@ internal import LiveKitWebRTC
 #endif
 
 @objc
-public class Participant: NSObject, ObservableObject, Loggable {
+public class Participant: NSObject, @unchecked Sendable, ObservableObject, Loggable {
     // MARK: - MulticastDelegate
 
     public let delegates = MulticastDelegate<ParticipantDelegate>(label: "ParticipantDelegate")
@@ -90,7 +90,7 @@ public class Participant: NSObject, ObservableObject, Loggable {
 
     // MARK: - Internal
 
-    struct State: Equatable, Hashable {
+    struct State: Equatable, Hashable, Sendable {
         var sid: Sid?
         var identity: Identity?
         var name: String?
@@ -186,7 +186,7 @@ public class Participant: NSObject, ObservableObject, Loggable {
             }
 
             // Notify when state mutates
-            Task.detached { @MainActor in
+            Task { @MainActor in
                 // Notify Participant
                 self.objectWillChange.send()
                 if let room = self._room {
@@ -226,9 +226,15 @@ public class Participant: NSObject, ObservableObject, Loggable {
             $0.identity = Identity(from: info.identity)
             $0.name = info.name
             $0.metadata = info.metadata
-            $0.joinedAt = Date(timeIntervalSince1970: TimeInterval(info.joinedAt))
             $0.kind = info.kind.toLKType()
             $0.attributes = info.attributes
+
+            // Attempt to get millisecond precision.
+            if info.joinedAtMs != 0 {
+                $0.joinedAt = Date(timeIntervalSince1970: TimeInterval(Double(info.joinedAtMs) / 1000))
+            } else if info.joinedAt != 0 {
+                $0.joinedAt = Date(timeIntervalSince1970: TimeInterval(info.joinedAt))
+            }
         }
 
         self.info = info

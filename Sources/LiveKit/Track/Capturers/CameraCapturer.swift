@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+@preconcurrency import AVFoundation
 import Foundation
 
 #if canImport(ReplayKit)
@@ -26,7 +27,7 @@ internal import LiveKitWebRTC
 @_implementationOnly import LiveKitWebRTC
 #endif
 
-public class CameraCapturer: VideoCapturer {
+public class CameraCapturer: VideoCapturer, @unchecked Sendable {
     /// Current device used for capturing
     @objc
     public var device: AVCaptureDevice? { _cameraCapturerState.device }
@@ -311,7 +312,7 @@ public extension LocalVideoTrack {
     }
 }
 
-extension AVCaptureDevice.Position: CustomStringConvertible {
+extension AVCaptureDevice.Position: Swift.CustomStringConvertible {
     public var description: String {
         switch self {
         case .front: return ".front"

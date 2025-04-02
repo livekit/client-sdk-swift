@@ -143,6 +143,10 @@ Other core classes can be accessed from any thread.
 Delegates will be called on the SDK's internal thread.
 Make sure any access to your app's UI elements are from the main thread, for example by using `@MainActor` or `DispatchQueue.main.async`.
 
+### Swift 6
+
+LiveKit is currently compiled using Swift 6.0 with full support for strict concurrency. Apps compiled in Swift 6 language mode will not need to use `@preconcurrency` or `@unchecked Sendable` to access LiveKit classes.
+
 ### Memory management
 
 It is recommended to use **weak var** when storing references to objects created and managed by the SDK, such as `Participant`, `TrackPublication` etc. These objects are invalid when the `Room` disconnects, and will be released by the SDK. Holding strong reference to these objects will prevent releasing `Room` and other internal objects.

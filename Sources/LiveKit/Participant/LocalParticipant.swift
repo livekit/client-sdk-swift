@@ -24,7 +24,7 @@ internal import LiveKitWebRTC
 #endif
 
 @objc
-public class LocalParticipant: Participant {
+public class LocalParticipant: Participant, @unchecked Sendable {
     @objc
     public var localAudioTracks: [LocalTrackPublication] { audioTracks.compactMap { $0 as? LocalTrackPublication } }
 

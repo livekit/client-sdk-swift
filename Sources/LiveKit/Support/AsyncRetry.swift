@@ -21,7 +21,7 @@ extension Task where Failure == Error {
         priority: TaskPriority? = nil,
         totalAttempts: Int = 3,
         retryDelay: TimeInterval = 1,
-        @_implicitSelfCapture operation: @escaping (_ currentAttempt: Int, _ totalAttempts: Int) async throws -> Success
+        @_implicitSelfCapture operation: @Sendable @escaping (_ currentAttempt: Int, _ totalAttempts: Int) async throws -> Success
     ) -> Task {
         Task(priority: priority) {
             for currentAttempt in 1 ..< max(1, totalAttempts) {

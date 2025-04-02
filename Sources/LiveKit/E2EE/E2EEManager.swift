@@ -23,7 +23,7 @@ internal import LiveKitWebRTC
 #endif
 
 @objc
-public class E2EEManager: NSObject, ObservableObject, Loggable {
+public class E2EEManager: NSObject, @unchecked Sendable, ObservableObject, Loggable {
     // Private delegate adapter to hide RTCFrameCryptorDelegate symbol
     private class DelegateAdapter: NSObject, LKRTCFrameCryptorDelegate {
         weak var target: E2EEManager?

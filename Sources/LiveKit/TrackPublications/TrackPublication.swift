@@ -17,7 +17,7 @@
 import Foundation
 
 @objc
-public class TrackPublication: NSObject, ObservableObject, Loggable {
+public class TrackPublication: NSObject, @unchecked Sendable, ObservableObject, Loggable {
     // MARK: - Public properties
 
     @objc
@@ -141,7 +141,7 @@ public class TrackPublication: NSObject, ObservableObject, Loggable {
 
     func notifyObjectWillChange() {
         // Notify UI that the object has changed
-        Task.detached { @MainActor in
+        Task { @MainActor in
             // Notify TrackPublication
             self.objectWillChange.send()
 
@@ -219,7 +219,7 @@ extension TrackPublication: TrackDelegateInternal {
 
             // TrackPublication.isMuted is a computed property depending on Track.isMuted
             // so emit event on TrackPublication when Track.isMuted updates
-            Task.detached { @MainActor in
+            Task { @MainActor in
                 self.objectWillChange.send()
             }
         }

@@ -23,7 +23,7 @@ internal import LiveKitWebRTC
 #endif
 
 @objc
-public class Track: NSObject, Loggable {
+public class Track: NSObject, @unchecked Sendable, Loggable {
     // MARK: - Static constants
 
     @objc
@@ -107,7 +107,7 @@ public class Track: NSObject, Loggable {
 
     let mediaTrack: LKRTCMediaStreamTrack
 
-    struct State {
+    struct State: Sendable {
         let name: String
         let kind: Kind
         let source: Source

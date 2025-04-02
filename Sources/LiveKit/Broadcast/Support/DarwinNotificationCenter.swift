@@ -71,7 +71,7 @@ extension DarwinNotificationCenter {
             self.center = center
         }
 
-        static var callback: CFNotificationCallback = { _, observer, _, _, _ in
+        static let callback: CFNotificationCallback = { _, observer, _, _, _ in
             guard let observer else { return }
             Unmanaged<SubscriptionBase>
                 .fromOpaque(observer)

@@ -23,7 +23,7 @@ internal import LiveKitWebRTC
 #endif
 
 @objc
-public class TrackStatistics: NSObject, Loggable {
+public class TrackStatistics: NSObject, @unchecked Sendable, Loggable {
     public let codec: [CodecStatistics]
     public let transportStats: TransportStatistics?
     public let videoSource: [VideoSourceStatistics]

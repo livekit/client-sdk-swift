@@ -23,7 +23,7 @@ internal import LiveKitWebRTC
 #endif
 
 @objc
-public protocol VideoViewDelegate: AnyObject {
+public protocol VideoViewDelegate: AnyObject, Sendable {
     /// Dimensions of the VideoView itself has updated
     @objc(videoView:didUpdateSize:) optional
     func videoView(_ videoView: VideoView, didUpdate size: CGSize)

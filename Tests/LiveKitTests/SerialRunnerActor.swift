@@ -17,7 +17,7 @@
 @testable import LiveKit
 import XCTest
 
-class SerialRunnerActorTests: LKTestCase {
+class SerialRunnerActorTests: LKTestCase, @unchecked Sendable {
     let serialRunner = SerialRunnerActor<Void>()
     var counterValue: Int = 0
     var resultValues: [String] = []

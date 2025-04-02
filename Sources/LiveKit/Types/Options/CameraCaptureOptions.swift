@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import AVFoundation
+@preconcurrency import AVFoundation
 import Foundation
 
 @objc

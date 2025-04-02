@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+@preconcurrency import AVFoundation
 import Foundation
 
 #if swift(>=5.9)
@@ -26,7 +27,7 @@ public let kLiveKitKrispAudioProcessorName = "livekit_krisp_noise_cancellation"
 
 /// Used to modify audio buffers before they are sent to the network or played to the user
 @objc
-public protocol AudioCustomProcessingDelegate {
+public protocol AudioCustomProcessingDelegate: Sendable {
     /// An optional identifier for the audio processor implementation.
     /// This can be used to identify different types of audio processing (e.g. noise cancellation).
     /// Generally you can leave this as the default value.
@@ -46,7 +47,7 @@ public protocol AudioCustomProcessingDelegate {
     func audioProcessingRelease()
 }
 
-class AudioCustomProcessingDelegateAdapter: MulticastDelegate<AudioRenderer>, LKRTCAudioCustomProcessingDelegate {
+class AudioCustomProcessingDelegateAdapter: MulticastDelegate<AudioRenderer>, @unchecked Sendable, LKRTCAudioCustomProcessingDelegate {
     // MARK: - Public
 
     public var target: AudioCustomProcessingDelegate? { _state.target }

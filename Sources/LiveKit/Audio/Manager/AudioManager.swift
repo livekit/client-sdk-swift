@@ -286,20 +286,6 @@ public class AudioManager: Loggable {
 
     public let mixer = DefaultMixerAudioObserver()
 
-    /// Set to `true` to enable legacy mic mute mode.
-    ///
-    /// - Default: Uses `AVAudioEngine`'s `isVoiceProcessingInputMuted` internally.
-    ///   This is fast, and muted speaker detection works. However, iOS will play a sound effect.
-    /// - Legacy: Restarts the internal `AVAudioEngine` without mic input when muted.
-    ///   This is slower, and muted speaker detection does not work. No sound effect is played.
-    public var isLegacyMuteMode: Bool { RTC.audioDeviceModule.muteMode == .restartEngine }
-
-    public func setLegacyMuteMode(_ enabled: Bool) throws {
-        let mode: RTCAudioEngineMuteMode = enabled ? .restartEngine : .voiceProcessing
-        let result = RTC.audioDeviceModule.setMuteMode(mode)
-        try checkAdmResult(code: result)
-    }
-
     public var isEngineRunning: Bool {
         RTC.audioDeviceModule.isEngineRunning
     }
@@ -314,59 +300,6 @@ public class AudioManager: Loggable {
                 log("Failed to set microphone muted: \(result)", .error)
             }
         }
-    }
-
-    // MARK: - For testing
-
-    var engineState: RTCAudioEngineState {
-        get { RTC.audioDeviceModule.engineState }
-        set { RTC.audioDeviceModule.engineState = newValue }
-    }
-
-    var isPlayoutInitialized: Bool {
-        RTC.audioDeviceModule.isPlayoutInitialized
-    }
-
-    var isPlaying: Bool {
-        RTC.audioDeviceModule.isPlaying
-    }
-
-    var isRecordingInitialized: Bool {
-        RTC.audioDeviceModule.isRecordingInitialized
-    }
-
-    var isRecording: Bool {
-        RTC.audioDeviceModule.isRecording
-    }
-
-    @discardableResult
-    func initPlayout() -> Int {
-        RTC.audioDeviceModule.initPlayout()
-    }
-
-    @discardableResult
-    func startPlayout() -> Int {
-        RTC.audioDeviceModule.startPlayout()
-    }
-
-    @discardableResult
-    func stopPlayout() -> Int {
-        RTC.audioDeviceModule.stopPlayout()
-    }
-
-    @discardableResult
-    func initRecording() -> Int {
-        RTC.audioDeviceModule.initRecording()
-    }
-
-    @discardableResult
-    func startRecording() -> Int {
-        RTC.audioDeviceModule.startRecording()
-    }
-
-    @discardableResult
-    func stopRecording() -> Int {
-        RTC.audioDeviceModule.stopRecording()
     }
 
     // MARK: - Internal
@@ -427,7 +360,7 @@ extension AudioManager {
     }
 }
 
-private extension AudioManager {
+extension AudioManager {
     func checkAdmResult(code: Int) throws {
         if code == kFailedToConfigureAudioSessionErrorCode {
             throw LiveKitError(.audioSession, message: "Failed to configure audio session")

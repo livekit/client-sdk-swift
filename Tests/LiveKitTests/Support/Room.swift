@@ -189,7 +189,7 @@ extension Room {
     }
 }
 
-class RoomWatcher<T: Decodable>: RoomDelegate {
+final class RoomWatcher<T: Decodable & Sendable>: RoomDelegate, Sendable {
     public let id: String
     public let didReceiveDataCompleters = CompleterMapActor<T>(label: "Data receive completer", defaultTimeout: 10)
 

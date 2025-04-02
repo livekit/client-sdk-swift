@@ -25,7 +25,7 @@ import AppKit
 #endif
 
 @objc
-protocol AppStateDelegate: AnyObject {
+protocol AppStateDelegate: AnyObject, Sendable {
     func appDidEnterBackground()
     func appWillEnterForeground()
     func appWillTerminate()
@@ -35,6 +35,7 @@ protocol AppStateDelegate: AnyObject {
     func appDidWake()
 }
 
+@MainActor
 class AppStateListener: Loggable {
     static let shared = AppStateListener()
 
