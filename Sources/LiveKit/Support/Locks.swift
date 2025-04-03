@@ -16,7 +16,10 @@
 
 import Foundation
 import os
+
+#if canImport(Synchronization)
 import Synchronization
+#endif
 
 public protocol LockType { // ~Copyable {
     func sync<Result>(_ fnc: () throws -> Result) rethrows -> Result
