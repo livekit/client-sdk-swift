@@ -15,14 +15,30 @@
  */
 
 import Foundation
+import os
+import Synchronization
+
+public protocol LockType { // ~Copyable {
+    func sync<Result>(_ fnc: () throws -> Result) rethrows -> Result
+}
+
+func createLock() -> some LockType {
+    if #available(iOS 16.0, macOS 13.0, tvOS 16.0, visionOS 1.0, *) {
+        return OSAllocatedUnfairLock()
+    } else {
+        return UnfairLock()
+    }
+}
+
+// MARK: - Unfair lock
 
 //
 // Read http://www.russbishop.net/the-law for more information on why this is necessary
 //
-final class UnfairLock {
+final class UnfairLock: LockType {
     private var _lock: UnsafeMutablePointer<os_unfair_lock>
 
-    init() {
+    fileprivate init() {
         _lock = UnsafeMutablePointer<os_unfair_lock>.allocate(capacity: 1)
         _lock.initialize(to: os_unfair_lock())
     }
@@ -32,9 +48,32 @@ final class UnfairLock {
         _lock.deallocate()
     }
 
+    @inline(__always)
     func sync<Result>(_ fnc: () throws -> Result) rethrows -> Result {
         os_unfair_lock_lock(_lock)
         defer { os_unfair_lock_unlock(_lock) }
         return try fnc()
     }
 }
+
+// MARK: - OSAllocatedUnfairLock
+
+@available(iOS 16.0, macOS 13.0, tvOS 16.0, visionOS 1.0, *)
+extension OSAllocatedUnfairLock: LockType where State == Void {
+    @inline(__always)
+    public func sync<Result>(_ fnc: () throws -> Result) rethrows -> Result {
+        try withLockUnchecked(fnc)
+    }
+}
+
+// MARK: - Mutex
+
+// @available(iOS 18.0, macOS 15.0, tvOS 18.0, visionOS 2.0, *)
+// extension Mutex: LockType where Value == () {
+//    @inlinable
+//    public func sync<Result>(_ fnc: () throws -> Result) rethrows -> Result {
+//        try withLock { _ in
+//            try fnc()
+//        }
+//    }
+// }

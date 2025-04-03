@@ -94,7 +94,7 @@ final class AsyncCompleter<T: Sendable>: @unchecked Sendable, Loggable {
     private var _entries: [UUID: WaitEntry] = [:]
     private var _result: Result<T, Error>?
 
-    private let _lock = UnfairLock()
+    private let _lock: some LockType = createLock()
 
     public init(label: String, defaultTimeout: TimeInterval) {
         self.label = label
