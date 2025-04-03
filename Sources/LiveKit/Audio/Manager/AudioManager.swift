@@ -163,21 +163,49 @@ public class AudioManager: Loggable {
     public let defaultInputDevice = AudioDevice(ioDevice: LKRTCIODevice.defaultDevice(with: .input))
 
     public var outputDevices: [AudioDevice] {
+        #if os(macOS)
         RTC.audioDeviceModule.outputDevices.map { AudioDevice(ioDevice: $0) }
+        #else
+        []
+        #endif
     }
 
     public var inputDevices: [AudioDevice] {
+        #if os(macOS)
         RTC.audioDeviceModule.inputDevices.map { AudioDevice(ioDevice: $0) }
+        #else
+        []
+        #endif
     }
 
     public var outputDevice: AudioDevice {
-        get { AudioDevice(ioDevice: RTC.audioDeviceModule.outputDevice) }
-        set { RTC.audioDeviceModule.outputDevice = newValue._ioDevice }
+        get {
+            #if os(macOS)
+            AudioDevice(ioDevice: RTC.audioDeviceModule.outputDevice)
+            #else
+            AudioDevice(ioDevice: LKRTCIODevice.defaultDevice(with: .output))
+            #endif
+        }
+        set {
+            #if os(macOS)
+            RTC.audioDeviceModule.outputDevice = newValue._ioDevice
+            #endif
+        }
     }
 
     public var inputDevice: AudioDevice {
-        get { AudioDevice(ioDevice: RTC.audioDeviceModule.inputDevice) }
-        set { RTC.audioDeviceModule.inputDevice = newValue._ioDevice }
+        get {
+            #if os(macOS)
+            AudioDevice(ioDevice: RTC.audioDeviceModule.inputDevice)
+            #else
+            AudioDevice(ioDevice: LKRTCIODevice.defaultDevice(with: .input))
+            #endif
+        }
+        set {
+            #if os(macOS)
+            RTC.audioDeviceModule.inputDevice = newValue._ioDevice
+            #endif
+        }
     }
 
     public var onDeviceUpdate: OnDevicesDidUpdate? {
@@ -222,8 +250,21 @@ public class AudioManager: Loggable {
     /// It is valid to toggle this at runtime and AudioEngine doesn't require restart.
     /// Defaults to `false`.
     public var isVoiceProcessingBypassed: Bool {
-        get { RTC.audioDeviceModule.isVoiceProcessingBypassed }
-        set { RTC.audioDeviceModule.isVoiceProcessingBypassed = newValue }
+        get {
+            if RTC.pcFactoryState.admType == .platformDefault {
+                return RTC.pcFactoryState.bypassVoiceProcessing
+            }
+
+            return RTC.audioDeviceModule.isVoiceProcessingBypassed
+        }
+        set {
+            guard !(RTC.pcFactoryState.read { $0.isInitialized && $0.admType == .platformDefault }) else {
+                log("Cannot set this property after the peer connection has been initialized when using non-AVAudioEngine audio device module", .error)
+                return
+            }
+
+            RTC.audioDeviceModule.isVoiceProcessingBypassed = newValue
+        }
     }
 
     /// Bypass the Auto Gain Control of internal AVAudioEngine.
@@ -261,7 +302,7 @@ public class AudioManager: Loggable {
     /// Audio buffers will flow into ``LocalAudioTrack/add(audioRenderer:)`` and ``capturePostProcessingDelegate``.
     public func startLocalRecording() throws {
         // Always unmute APM if muted by last session.
-        RTC.audioProcessingModule.isMuted = false
+        RTC.audioProcessingModule.isMuted = false // TODO: Possibly not required anymore with new libs
         // Start recording on the ADM.
         let result = RTC.audioDeviceModule.initAndStartRecording()
         try checkAdmResult(code: result)
