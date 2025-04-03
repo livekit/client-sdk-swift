@@ -21,16 +21,18 @@ import os
 import Synchronization
 #endif
 
-public protocol LockType { // ~Copyable {
+public protocol LockType {
     func sync<Result>(_ fnc: () throws -> Result) rethrows -> Result
 }
 
 func createLock() -> some LockType {
+    if #available(iOS 18.0, macOS 15.0, tvOS 18.0, visionOS 2.0, *) {
+        return MutexWrapper()
+    }
     if #available(iOS 16.0, macOS 13.0, tvOS 16.0, visionOS 1.0, *) {
         return OSAllocatedUnfairLock()
-    } else {
-        return UnfairLock()
     }
+    return UnfairLock()
 }
 
 // MARK: - Unfair lock
@@ -71,12 +73,14 @@ extension OSAllocatedUnfairLock: LockType where State == Void {
 
 // MARK: - Mutex
 
-// @available(iOS 18.0, macOS 15.0, tvOS 18.0, visionOS 2.0, *)
-// extension Mutex: LockType where Value == () {
-//    @inlinable
-//    public func sync<Result>(_ fnc: () throws -> Result) rethrows -> Result {
-//        try withLock { _ in
-//            try fnc()
-//        }
-//    }
-// }
+@available(iOS 18.0, macOS 15.0, tvOS 18.0, visionOS 2.0, *)
+private final class MutexWrapper: LockType {
+    private let mutex = Mutex(())
+
+    @inline(__always)
+    func sync<Result>(_ fnc: () throws -> Result) rethrows -> Result {
+        try mutex.withLock { _ in
+            try fnc()
+        }
+    }
+}
