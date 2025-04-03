@@ -35,15 +35,39 @@ func createLock() -> some LockType {
     return UnfairLock()
 }
 
+// MARK: - Mutex
+
+@available(iOS 18.0, macOS 15.0, tvOS 18.0, visionOS 2.0, *)
+private final class MutexWrapper: LockType {
+    private let mutex = Mutex(())
+
+    @inline(__always)
+    func sync<Result>(_ fnc: () throws -> Result) rethrows -> Result {
+        try mutex.withLock { _ in
+            try fnc()
+        }
+    }
+}
+
+// MARK: - OSAllocatedUnfairLock
+
+@available(iOS 16.0, macOS 13.0, tvOS 16.0, visionOS 1.0, *)
+extension OSAllocatedUnfairLock: LockType where State == Void {
+    @inline(__always)
+    public func sync<Result>(_ fnc: () throws -> Result) rethrows -> Result {
+        try withLockUnchecked(fnc)
+    }
+}
+
 // MARK: - Unfair lock
 
 //
 // Read http://www.russbishop.net/the-law for more information on why this is necessary
 //
-final class UnfairLock: LockType {
-    private var _lock: UnsafeMutablePointer<os_unfair_lock>
+private final class UnfairLock: LockType {
+    private let _lock: UnsafeMutablePointer<os_unfair_lock>
 
-    fileprivate init() {
+    init() {
         _lock = UnsafeMutablePointer<os_unfair_lock>.allocate(capacity: 1)
         _lock.initialize(to: os_unfair_lock())
     }
@@ -58,29 +82,5 @@ final class UnfairLock: LockType {
         os_unfair_lock_lock(_lock)
         defer { os_unfair_lock_unlock(_lock) }
         return try fnc()
-    }
-}
-
-// MARK: - OSAllocatedUnfairLock
-
-@available(iOS 16.0, macOS 13.0, tvOS 16.0, visionOS 1.0, *)
-extension OSAllocatedUnfairLock: LockType where State == Void {
-    @inline(__always)
-    public func sync<Result>(_ fnc: () throws -> Result) rethrows -> Result {
-        try withLockUnchecked(fnc)
-    }
-}
-
-// MARK: - Mutex
-
-@available(iOS 18.0, macOS 15.0, tvOS 18.0, visionOS 2.0, *)
-private final class MutexWrapper: LockType {
-    private let mutex = Mutex(())
-
-    @inline(__always)
-    func sync<Result>(_ fnc: () throws -> Result) rethrows -> Result {
-        try mutex.withLock { _ in
-            try fnc()
-        }
     }
 }
