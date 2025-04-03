@@ -159,7 +159,7 @@ jobs:
             --output-dir docs \
             --additional-symbol-graph-dir symbol-graphs \
             --transform-for-static-hosting \
-            --hosting-base-path client-sdk-swift/
+            --hosting-base-path /reference/client-sdk-swift/
 
       - name: Archive
         run: zip -r docs.zip docs
