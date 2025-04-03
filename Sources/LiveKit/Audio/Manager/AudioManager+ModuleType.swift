@@ -41,6 +41,10 @@ public extension AudioManager {
     ///
     /// This method must be called before the peer connection is initialized. Changing the module type after
     /// initialization is not supported and will result in an error.
+    ///
+    /// Note: When using .platformDefault, AVAudioSession will not be automatically managed.
+    /// Ensure to set session category when accessing the mic:
+    /// `try AVAudioSession.sharedInstance().setCategory(.playAndRecord, mode: .videoChat, options: [])`
     static func set(audioDeviceModuleType: AudioDeviceModuleType) throws {
         // Throw if pc factory is already initialized.
         guard !RTC.pcFactoryState.isInitialized else {
