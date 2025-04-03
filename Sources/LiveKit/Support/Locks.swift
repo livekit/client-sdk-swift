@@ -26,9 +26,11 @@ public protocol LockType {
 }
 
 func createLock() -> some LockType {
+    #if canImport(Synchronization)
     if #available(iOS 18.0, macOS 15.0, tvOS 18.0, visionOS 2.0, *) {
         return MutexWrapper()
     }
+    #endif
     if #available(iOS 16.0, macOS 13.0, tvOS 16.0, visionOS 1.0, *) {
         return OSAllocatedUnfairLock()
     }
@@ -37,6 +39,7 @@ func createLock() -> some LockType {
 
 // MARK: - Mutex
 
+#if canImport(Synchronization)
 @available(iOS 18.0, macOS 15.0, tvOS 18.0, visionOS 2.0, *)
 private final class MutexWrapper: LockType {
     private let mutex = Mutex(())
@@ -48,6 +51,7 @@ private final class MutexWrapper: LockType {
         }
     }
 }
+#endif
 
 // MARK: - OSAllocatedUnfairLock
 
