@@ -25,7 +25,7 @@ class AudioManagerTests: LKTestCase {
         // Use legacy ADM
         try AudioManager.set(audioDeviceModuleType: .platformDefault)
 
-        // Ensure category
+        // Ensure audio session category is `.playAndRecord`.
         #if os(iOS) || os(tvOS) || os(visionOS)
         try AVAudioSession.sharedInstance().setCategory(.playAndRecord, mode: .videoChat, options: [])
         #endif
@@ -49,6 +49,100 @@ class AudioManagerTests: LKTestCase {
         XCTAssertTrue(player.play(), "Failed to start audio playback")
         while player.isPlaying {
             try? await Task.sleep(nanoseconds: 1 * 100_000_000) // 10ms
+        }
+    }
+
+    // Confirm different behavior of Voice-Processing-Mute between macOS and other platforms.
+    func testConfirmGlobalVpMuteStateOniOS() async throws {
+        // Ensure audio session category is `.playAndRecord`.
+        #if !os(macOS)
+        try AVAudioSession.sharedInstance().setCategory(.playAndRecord, mode: .videoChat, options: [])
+        #endif
+
+        let e1 = AVAudioEngine()
+        try e1.inputNode.setVoiceProcessingEnabled(true)
+
+        let e2 = AVAudioEngine()
+        try e2.inputNode.setVoiceProcessingEnabled(true)
+
+        // e1, e2 both un-muted
+        XCTAssert(!e1.inputNode.isVoiceProcessingInputMuted)
+        XCTAssert(!e2.inputNode.isVoiceProcessingInputMuted)
+
+        // Mute e1, but e2 should be unaffected.
+        e1.inputNode.isVoiceProcessingInputMuted = true
+        XCTAssert(e1.inputNode.isVoiceProcessingInputMuted)
+
+        #if os(macOS)
+        // On macOS, e2 isn't affected by e1's muted state.
+        XCTAssert(!e2.inputNode.isVoiceProcessingInputMuted)
+        #else
+        // On Other platforms, e2 is affected by e1's muted state.
+        XCTAssert(e2.inputNode.isVoiceProcessingInputMuted)
+        #endif
+    }
+
+    // The Voice-Processing-Input-Muted state appears to be a global state within the app.
+    // We make sure that after the Room gets cleaned up, this state is back to un-muted since
+    // it will interfere with audio recording later in the app.
+    //
+    // Previous RTC libs would fail this test since, RTC was always invoking AudioDeviceModule::SetMicrophoneMuted(true)
+    func testVoiceProcessingInputMuted() async throws {
+        // Set VP muted state.
+        func setVoiceProcessingInputMuted(_ muted: Bool) throws {
+            let e = AVAudioEngine()
+            // VP always needs to be enabled to read / write the vp muted state
+            try e.inputNode.setVoiceProcessingEnabled(true)
+            e.inputNode.isVoiceProcessingInputMuted = muted
+            XCTAssert(e.inputNode.isVoiceProcessingInputMuted == muted)
+            print("Set vp muted to \(muted), and verified it is \(e.inputNode.isVoiceProcessingInputMuted)")
+        }
+
+        // Confirm if is VP muted.
+        func isVoiceProcessingInputMuted() throws -> Bool {
+            let e = AVAudioEngine()
+            // VP always needs to be enabled to read / write the vp muted state
+            try e.inputNode.setVoiceProcessingEnabled(true)
+            return e.inputNode.isVoiceProcessingInputMuted
+        }
+
+        // Ensure audio session category is `.playAndRecord`.
+        #if os(iOS) || os(tvOS) || os(visionOS)
+        try AVAudioSession.sharedInstance().setCategory(.playAndRecord, mode: .videoChat, options: [])
+        #endif
+
+        do {
+            // Should *not* be VP-muted at this point.
+            let isVpMuted = try isVoiceProcessingInputMuted()
+            print("isVpMuted: \(isVpMuted)")
+            XCTAssert(!isVpMuted)
+        }
+
+        let adm = AudioManager.shared
+
+        // Start recording, mic indicator should turn on.
+        print("Starting local recording...")
+        try adm.startLocalRecording()
+
+        // Wait for 3 seconds...
+        try? await Task.sleep(nanoseconds: 3 * 1_000_000_000)
+
+        // Set mute, mic indicator should turn off.
+        adm.isMicrophoneMuted = true
+
+        // Wait for 3 seconds...
+        try? await Task.sleep(nanoseconds: 3 * 1_000_000_000)
+
+        try adm.stopLocalRecording()
+
+        // Wait for 1 second...
+        try? await Task.sleep(nanoseconds: 1 * 1_000_000_000)
+
+        do {
+            // Should *not* be VP-muted at this point.
+            let isVpMuted = try isVoiceProcessingInputMuted()
+            print("isVpMuted: \(isVpMuted)")
+            XCTAssert(!isVpMuted)
         }
     }
 }
