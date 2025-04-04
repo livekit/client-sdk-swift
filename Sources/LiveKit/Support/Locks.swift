@@ -21,19 +21,26 @@ import os
 import Synchronization
 #endif
 
-public protocol LockType {
+/// Protocol for synchronization primitives that can execute code within a critical section.
+public protocol Lock {
+    /// Executes the provided closure within a critical section.
+    /// - Parameter fnc: The closure to execute within the lock.
+    /// - Returns: The value returned by the closure.
     func sync<Result>(_ fnc: () throws -> Result) rethrows -> Result
 }
 
-func createLock() -> some LockType {
+/// Creates the safest/most efficient lock available for the current platform.
+func createLock() -> some Lock {
     #if canImport(Synchronization)
     if #available(iOS 18.0, macOS 15.0, tvOS 18.0, visionOS 2.0, *) {
         return MutexWrapper()
     }
     #endif
+
     if #available(iOS 16.0, macOS 13.0, tvOS 16.0, visionOS 1.0, *) {
         return OSAllocatedUnfairLock()
     }
+
     return UnfairLock()
 }
 
@@ -41,13 +48,13 @@ func createLock() -> some LockType {
 
 #if canImport(Synchronization)
 @available(iOS 18.0, macOS 15.0, tvOS 18.0, visionOS 2.0, *)
-private final class MutexWrapper: LockType {
-    private let mutex = Mutex(())
+private final class MutexWrapper: Lock {
+    private let _mutex = Mutex(())
 
     @inline(__always)
     func sync<Result>(_ fnc: () throws -> Result) rethrows -> Result {
-        try mutex.withLock { _ in
-            try fnc()
+        try _mutex.withLock { _ in
+            try fnc() // skip inout sending () parameter
         }
     }
 }
@@ -56,10 +63,10 @@ private final class MutexWrapper: LockType {
 // MARK: - OSAllocatedUnfairLock
 
 @available(iOS 16.0, macOS 13.0, tvOS 16.0, visionOS 1.0, *)
-extension OSAllocatedUnfairLock: LockType where State == Void {
+extension OSAllocatedUnfairLock: Lock where State == () {
     @inline(__always)
     public func sync<Result>(_ fnc: () throws -> Result) rethrows -> Result {
-        try withLockUnchecked(fnc)
+        try withLockUnchecked(fnc) // do not check for Sendable fnc
     }
 }
 
@@ -68,7 +75,7 @@ extension OSAllocatedUnfairLock: LockType where State == Void {
 //
 // Read http://www.russbishop.net/the-law for more information on why this is necessary
 //
-private final class UnfairLock: LockType {
+private final class UnfairLock: Lock {
     private let _lock: UnsafeMutablePointer<os_unfair_lock>
 
     init() {
