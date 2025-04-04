@@ -285,7 +285,7 @@ public class VideoView: NativeView, Loggable {
 
             // Enter .main only if UI updates are required
             if trackDidUpdate || shouldRenderDidUpdate || renderModeDidUpdate {
-                self.mainSyncOrAsync {
+                self.mainSyncOrAsync { @MainActor in
                     var didReCreateNativeRenderer = false
 
                     if trackDidUpdate || shouldRenderDidUpdate {
@@ -862,7 +862,18 @@ extension LKRTCMTLVideoView: Mirrorable {
 #endif
 
 private extension VideoView {
-    func mainSyncOrAsync(operation: @escaping () -> Void) {
+    #if compiler(>=5.9)
+    nonisolated func mainSyncOrAsync(operation: @MainActor @escaping () -> Void) {
+        if Thread.current.isMainThread {
+            MainActor.assumeIsolated(operation)
+        } else {
+            Task { @MainActor in
+                operation()
+            }
+        }
+    }
+    #else
+    nonisolated func mainSyncOrAsync(operation: @escaping () -> Void) {
         if Thread.current.isMainThread {
             operation()
         } else {
@@ -871,6 +882,7 @@ private extension VideoView {
             }
         }
     }
+    #endif
 }
 
 #if os(iOS)
