@@ -50,6 +50,14 @@ private class VideoEncoderFactorySimulcast: LKRTCVideoEncoderFactorySimulcast {
 }
 
 actor RTC {
+    struct PeerConnectionFactoryState {
+        var isInitialized: Bool = false
+        var admType: AudioDeviceModuleType = .audioEngine
+        var bypassVoiceProcessing: Bool = false
+    }
+
+    static let pcFactoryState = StateSync(PeerConnectionFactoryState())
+
     static let h264BaselineLevel5CodecInfo: LKRTCVideoCodecInfo = {
         // this should never happen
         guard let profileLevelId = LKRTCH264ProfileLevelId(profile: .constrainedBaseline, level: .level5) else {
@@ -81,13 +89,20 @@ actor RTC {
     static let audioSenderCapabilities = peerConnectionFactory.rtpSenderCapabilities(forKind: kRTCMediaStreamTrackKindAudio)
 
     static let peerConnectionFactory: LKRTCPeerConnectionFactory = {
+        // Update pc init lock
+        let (admType, bypassVoiceProcessing) = pcFactoryState.mutate {
+            $0.isInitialized = true
+            return ($0.admType, $0.bypassVoiceProcessing)
+        }
+
         logger.log("Initializing SSL...", type: Room.self)
 
         RTCInitializeSSL()
 
         logger.log("Initializing PeerConnectionFactory...", type: Room.self)
 
-        return LKRTCPeerConnectionFactory(bypassVoiceProcessing: false,
+        return LKRTCPeerConnectionFactory(audioDeviceModuleType: admType.toRTCType(),
+                                          bypassVoiceProcessing: bypassVoiceProcessing,
                                           encoderFactory: encoderFactory,
                                           decoderFactory: decoderFactory,
                                           audioProcessingModule: audioProcessingModule)
