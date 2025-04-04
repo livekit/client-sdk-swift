@@ -21,7 +21,7 @@ import Foundation
 public final class StateSync<State>: @unchecked Sendable {
     // MARK: - Types
 
-    public typealias OnDidMutate = (_ newState: State, _ oldState: State) -> Void
+    public typealias OnDidMutate = @Sendable (_ newState: State, _ oldState: State) -> Void
 
     // MARK: - Public
 
