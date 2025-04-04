@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-import Combine
 import Foundation
 
 @dynamicMemberLookup
@@ -33,7 +32,7 @@ public final class StateSync<State>: @unchecked Sendable {
     // MARK: - Private
 
     private var _state: State
-    private let _lock = UnfairLock()
+    private let _lock: some Lock = createLock()
     private var _onDidMutate: OnDidMutate?
 
     public init(_ state: State, onDidMutate: OnDidMutate? = nil) {
