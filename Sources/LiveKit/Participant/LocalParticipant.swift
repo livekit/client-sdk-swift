@@ -447,6 +447,8 @@ extension LocalParticipant {
         transInit.direction = .sendOnly
         transInit.sendEncodings = encodings
 
+        let layers = dimensions.videoLayers(for: encodings)
+
         // Add transceiver to publisher pc...
         let transceiver = try await publisher.addTransceiver(with: track.mediaTrack, transceiverInit: transInit)
         log("[Publish] Added transceiver...")
@@ -470,7 +472,7 @@ extension LocalParticipant {
                 },
             ]
 
-            $0.layers = dimensions.videoLayers(for: encodings)
+            $0.layers = layers
         }
 
         log("[Publish] server responded trackInfo: \(trackInfo)")
@@ -555,9 +557,9 @@ private extension LocalParticipant {
 
                 log("[publish] Using encodings: \(encodings.map { $0.toDebugString() }.joined(separator: ", "))")
                 sendEncodings = encodings
+                let videoLayers = dimensions.videoLayers(for: encodings)
 
                 populatorFunc = { populator in
-                    let videoLayers = dimensions.videoLayers(for: encodings)
 
                     self.log("[publish] using layers: \(videoLayers.map { String(describing: $0) }.joined(separator: ", "))")
 
@@ -618,9 +620,13 @@ private extension LocalParticipant {
 
             guard let sendEncodings, let populatorFunc else { throw LiveKitError(.invalidState) }
 
+            let transInit = DispatchQueue.liveKitWebRTC.sync { LKRTCRtpTransceiverInit() }
+            transInit.direction = .sendOnly
+            transInit.sendEncodings = sendEncodings
+
             let addTrackName = publishName ?? track.name
             // Request a new track to the server
-            let addTrackFunc: () async throws -> Livekit_TrackInfo = {
+            let addTrackFunc: @Sendable () async throws -> Livekit_TrackInfo = {
                 try await room.signalClient.sendAddTrack(cid: track.mediaTrack.trackId,
                                                          name: addTrackName,
                                                          type: track.kind.toPBType(),
@@ -629,11 +635,7 @@ private extension LocalParticipant {
                                                          populatorFunc)
             }
 
-            let negotiateFunc: () async throws -> Void = {
-                let transInit = DispatchQueue.liveKitWebRTC.sync { LKRTCRtpTransceiverInit() }
-                transInit.direction = .sendOnly
-                transInit.sendEncodings = sendEncodings
-
+            let negotiateFunc: @Sendable () async throws -> Void = {
                 // Add transceiver to pc
                 let transceiver = try await publisher.addTransceiver(with: track.mediaTrack, transceiverInit: transInit)
 

@@ -25,7 +25,7 @@ internal import LiveKitWebRTC
 actor SignalClient: Loggable {
     // MARK: - Types
 
-    typealias AddTrackRequestPopulator = (inout Livekit_AddTrackRequest) throws -> Void
+    typealias AddTrackRequestPopulator = @Sendable (inout Livekit_AddTrackRequest) throws -> Void
 
     public enum ConnectResponse: Sendable {
         case join(Livekit_JoinResponse)
