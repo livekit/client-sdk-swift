@@ -285,7 +285,7 @@ public class VideoView: NativeView, Loggable {
 
             // Enter .main only if UI updates are required
             if trackDidUpdate || shouldRenderDidUpdate || renderModeDidUpdate {
-                self.mainSyncOrAsync {
+                self.mainSyncOrAsync { @MainActor in
                     var didReCreateNativeRenderer = false
 
                     if trackDidUpdate || shouldRenderDidUpdate {
