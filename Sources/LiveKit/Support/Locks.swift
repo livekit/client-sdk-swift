@@ -22,7 +22,7 @@ import Synchronization
 #endif
 
 /// Protocol for synchronization primitives that can execute code within a critical section.
-public protocol Lock {
+protocol Lock {
     /// Executes the provided closure within a critical section.
     /// - Parameter fnc: The closure to execute within the lock.
     /// - Returns: The value returned by the closure.
@@ -65,7 +65,7 @@ private final class MutexWrapper: Lock {
 @available(iOS 16.0, macOS 13.0, tvOS 16.0, visionOS 1.0, *)
 extension OSAllocatedUnfairLock: Lock where State == () {
     @inline(__always)
-    public func sync<Result>(_ fnc: () throws -> Result) rethrows -> Result {
+    func sync<Result>(_ fnc: () throws -> Result) rethrows -> Result {
         try withLockUnchecked(fnc) // do not check for Sendable fnc
     }
 }
