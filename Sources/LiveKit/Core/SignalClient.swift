@@ -25,8 +25,7 @@ internal import LiveKitWebRTC
 actor SignalClient: Loggable {
     // MARK: - Types
 
-    typealias AddTrackRequestPopulator<R> = (inout Livekit_AddTrackRequest) throws -> R
-    typealias AddTrackResult<R> = (result: R, trackInfo: Livekit_TrackInfo)
+    typealias AddTrackRequestPopulator = @Sendable (inout Livekit_AddTrackRequest) throws -> Void
 
     public enum ConnectResponse: Sendable {
         case join(Livekit_JoinResponse)
@@ -399,12 +398,12 @@ extension SignalClient {
         try await _sendRequest(r)
     }
 
-    func sendAddTrack<R>(cid: String,
-                         name: String,
-                         type: Livekit_TrackType,
-                         source: Livekit_TrackSource = .unknown,
-                         encryption: Livekit_Encryption.TypeEnum = .none,
-                         _ populator: AddTrackRequestPopulator<R>) async throws -> AddTrackResult<R>
+    func sendAddTrack(cid: String,
+                      name: String,
+                      type: Livekit_TrackType,
+                      source: Livekit_TrackSource = .unknown,
+                      encryption: Livekit_Encryption.TypeEnum = .none,
+                      _ populator: AddTrackRequestPopulator) async throws -> Livekit_TrackInfo
     {
         var addTrackRequest = Livekit_AddTrackRequest.with {
             $0.cid = cid
@@ -414,7 +413,7 @@ extension SignalClient {
             $0.encryption = encryption
         }
 
-        let populateResult = try populator(&addTrackRequest)
+        try populator(&addTrackRequest)
 
         let request = Livekit_SignalRequest.with {
             $0.addTrack = addTrackRequest
@@ -429,7 +428,7 @@ extension SignalClient {
         // Wait for the trackInfo...
         let trackInfo = try await completer.wait()
 
-        return AddTrackResult(result: populateResult, trackInfo: trackInfo)
+        return trackInfo
     }
 
     func sendUpdateTrackSettings(trackSid: Track.Sid, settings: TrackSettings) async throws {

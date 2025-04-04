@@ -105,7 +105,14 @@ public class Participant: NSObject, @unchecked Sendable, ObservableObject, Logga
         var attributes = [String: String]()
     }
 
+    struct InternalState: Equatable, Hashable {
+        var enabledPublishVideoCodecs: [VideoCodec] = []
+    }
+
     let _state: StateSync<State>
+
+    // States that do not require `objectWillChange` for Swift UI.
+    let _internalState = StateSync(InternalState())
 
     let _publishSerialRunner = SerialRunnerActor<LocalTrackPublication?>()
 
@@ -232,6 +239,13 @@ public class Participant: NSObject, @unchecked Sendable, ObservableObject, Logga
 
         self.info = info
         set(permissions: info.permission.toLKType())
+    }
+
+    func set(enabledPublishCodecs codecs: [Livekit_Codec]) {
+        log("enabledPublishCodecs: \(codecs.map(\.mime).joined(separator: ", "))")
+        _internalState.mutate {
+            $0.enabledPublishVideoCodecs = codecs.map { VideoCodec.from(mimeType: $0.mime) }.compactMap { $0 }
+        }
     }
 
     @discardableResult
