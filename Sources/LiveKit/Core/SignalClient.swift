@@ -100,6 +100,8 @@ actor SignalClient: Loggable {
     private var _pingIntervalTimer = AsyncTimer(interval: 1)
     private var _pingTimeoutTimer = AsyncTimer(interval: 1)
 
+    private var rtt: Int64 = 0
+
     init() {
         log()
     }
@@ -334,8 +336,8 @@ private extension SignalClient {
         case let .pong(r):
             await _onReceivedPong(r)
 
-        case .pongResp:
-            log("Received pongResp message")
+        case let .pongResp(pongResp):
+            await _onReceivedPongResp(pongResp)
 
         case .subscriptionResponse:
             log("Received subscriptionResponse message")
@@ -584,11 +586,27 @@ extension SignalClient {
     }
 
     private func _sendPing() async throws {
-        let r = Livekit_SignalRequest.with {
-            $0.ping = Int64(Date().timeIntervalSince1970)
+        let timestamp = Int64(Date().timeIntervalSince1970 * 1000) // Convert to milliseconds
+
+        // Send both ping and pingReq for compatibility with older and newer servers
+        let pingRequest = Livekit_SignalRequest.with {
+            $0.ping = timestamp
         }
 
-        try await _sendRequest(r)
+        // Include the current RTT value in pingReq to report back to server
+        let pingReqRequest = Livekit_SignalRequest.with {
+            $0.pingReq = Livekit_Ping.with {
+                $0.timestamp = timestamp
+                $0.rtt = rtt // Send current RTT back to server
+            }
+        }
+
+        // Log timestamp and RTT for debugging
+        log("Sending ping with timestamp: \(timestamp)ms, reporting RTT: \(rtt)ms", .trace)
+
+        // Send both requests
+        try await _sendRequest(pingRequest)
+        try await _sendRequest(pingReqRequest)
     }
 }
 
@@ -612,6 +630,14 @@ private extension SignalClient {
 
     func _onReceivedPong(_: Int64) async {
         log("ping/pong received pong from server", .trace)
+        // Clear timeout timer
+        _pingTimeoutTimer.cancel()
+    }
+
+    func _onReceivedPongResp(_ pongResp: Livekit_Pong) async {
+        let currentTimeMs = Int64(Date().timeIntervalSince1970 * 1000)
+        rtt = currentTimeMs - pongResp.lastPingTimestamp
+        log("ping/pong received pongResp from server with RTT: \(rtt)ms", .trace)
         // Clear timeout timer
         _pingTimeoutTimer.cancel()
     }
