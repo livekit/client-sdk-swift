@@ -105,7 +105,7 @@ actor SignalClient: Loggable {
             // ConnectionState
             if oldState.connectionState != newState.connectionState {
                 self.log("\(oldState.connectionState) -> \(newState.connectionState)")
-                _delegate.notifyDetached { await $0.signalClient(self, didUpdateConnectionState: newState.connectionState, oldState: oldState.connectionState, disconnectError: self.disconnectError) }
+                self._delegate.notifyDetached { await $0.signalClient(self, didUpdateConnectionState: newState.connectionState, oldState: oldState.connectionState, disconnectError: self.disconnectError) }
             }
         }
     }
