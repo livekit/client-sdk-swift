@@ -231,7 +231,7 @@ private extension SignalClient {
     func _onWebSocketMessage(message: URLSessionWebSocketTask.Message) async {
         let response: Livekit_SignalResponse? = {
             switch message {
-            case let .data(data): return try? Livekit_SignalResponse(serializedData: data)
+            case let .data(data): return try? Livekit_SignalResponse(serializedBytes: data)
             case let .string(string): return try? Livekit_SignalResponse(jsonString: string)
             default: return nil
             }
