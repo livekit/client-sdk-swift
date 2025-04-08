@@ -87,7 +87,7 @@ public final class ConnectOptions: NSObject, Sendable {
         self.autoSubscribe = autoSubscribe
         self.reconnectAttempts = reconnectAttempts
         self.reconnectAttemptDelay = reconnectAttemptDelay
-        self.reconnectMaxDelay = min(reconnectMaxDelay, reconnectAttemptDelay)
+        self.reconnectMaxDelay = max(reconnectMaxDelay, reconnectAttemptDelay)
         self.socketConnectTimeoutInterval = socketConnectTimeoutInterval
         self.primaryTransportConnectTimeout = primaryTransportConnectTimeout
         self.publisherTransportConnectTimeout = publisherTransportConnectTimeout
