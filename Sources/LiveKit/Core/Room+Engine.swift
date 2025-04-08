@@ -360,7 +360,8 @@ extension Room {
             try await Task.retrying(totalAttempts: _state.connectOptions.reconnectAttempts,
                                     retryDelay: { @Sendable attempt in
                                         TimeInterval.computeReconnectDelay(forAttempt: attempt,
-                                                                           baseDelay: self._state.connectOptions.reconnectAttemptDelay)
+                                                                           baseDelay: self._state.connectOptions.reconnectAttemptDelay,
+                                                                           addJitter: true)
                                     }) { currentAttempt, totalAttempts in
 
                 // Not reconnecting state anymore
