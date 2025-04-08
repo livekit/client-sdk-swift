@@ -362,6 +362,7 @@ extension Room {
                                         let delay = TimeInterval.computeReconnectDelay(forAttempt: attempt,
                                                                                        baseDelay: self._state.connectOptions.reconnectAttemptDelay,
                                                                                        maxDelay: self._state.connectOptions.reconnectMaxDelay,
+                                                                                       totalAttempts: self._state.connectOptions.reconnectAttempts,
                                                                                        addJitter: true)
                                         self.log("[Connect] Retry cycle waiting for \(String(format: "%.2f", delay)) seconds before attempt \(attempt + 1)")
                                         return delay
