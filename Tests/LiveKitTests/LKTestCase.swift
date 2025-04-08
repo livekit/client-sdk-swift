@@ -15,7 +15,7 @@
  */
 
 @testable import LiveKit
-import LiveKitWebRTC
+internal import LiveKitWebRTC
 import XCTest
 
 /// Subclass of XCTestCase that performs global initialization.

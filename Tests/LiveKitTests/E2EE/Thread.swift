@@ -15,7 +15,7 @@
  */
 
 @testable import LiveKit
-@preconcurrency import LiveKitWebRTC
+@preconcurrency internal import LiveKitWebRTC
 import XCTest
 
 class E2EEThreadTests: LKTestCase {
