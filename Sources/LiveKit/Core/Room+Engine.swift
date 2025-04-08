@@ -358,8 +358,15 @@ extension Room {
 
         do {
             try await Task.retrying(totalAttempts: _state.connectOptions.reconnectAttempts,
-                                    retryDelay: _state.connectOptions.reconnectAttemptDelay)
-            { currentAttempt, totalAttempts in
+                                    retryDelay: { @Sendable attempt in
+                                        let delay = TimeInterval.computeReconnectDelay(forAttempt: attempt,
+                                                                                       baseDelay: self._state.connectOptions.reconnectAttemptDelay,
+                                                                                       maxDelay: self._state.connectOptions.reconnectMaxDelay,
+                                                                                       totalAttempts: self._state.connectOptions.reconnectAttempts,
+                                                                                       addJitter: true)
+                                        self.log("[Connect] Retry cycle waiting for \(String(format: "%.2f", delay)) seconds before attempt \(attempt + 1)")
+                                        return delay
+                                    }) { currentAttempt, totalAttempts in
 
                 // Not reconnecting state anymore
                 guard let currentMode = self._state.isReconnectingWithMode else {
@@ -370,7 +377,7 @@ extension Room {
                 // Full reconnect failed, give up
                 guard currentMode != .full else { return }
 
-                self.log("[Connect] Retry in \(self._state.connectOptions.reconnectAttemptDelay) seconds, \(currentAttempt)/\(totalAttempts) tries left.")
+                self.log("[Connect] Starting retry attempt \(currentAttempt)/\(totalAttempts) with mode: \(currentMode)")
 
                 // Try full reconnect for the final attempt
                 if totalAttempts == currentAttempt, self._state.nextReconnectMode == nil {
@@ -387,8 +394,10 @@ extension Room {
                 do {
                     if case .quick = mode {
                         try await quickReconnectSequence()
+                        self.log("[Connect] Quick reconnect succeeded for attempt \(currentAttempt)")
                     } else if case .full = mode {
                         try await fullReconnectSequence()
+                        self.log("[Connect] Full reconnect succeeded for attempt \(currentAttempt)")
                     }
                 } catch {
                     self.log("[Connect] Reconnect mode: \(mode) failed with error: \(error)", .error)
