@@ -15,7 +15,7 @@
  */
 
 @testable import LiveKit
-import LiveKitWebRTC
+internal import LiveKitWebRTC
 import XCTest
 
 struct TestEngineTransition {
@@ -52,7 +52,7 @@ struct TestEngineStep {
 }
 
 extension RTCAudioEngineState: Swift.CustomStringConvertible {
-    public var description: String {
+    var description: String {
         "EngineState(" +
             "outputEnabled: \(outputEnabled), " +
             "outputRunning: \(outputRunning), " +

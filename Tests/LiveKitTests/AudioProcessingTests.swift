@@ -17,7 +17,7 @@
 import Accelerate
 import AVFoundation
 import Foundation
-import LiveKitWebRTC
+internal import LiveKitWebRTC
 
 @testable import LiveKit
 import XCTest

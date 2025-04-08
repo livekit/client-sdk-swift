@@ -64,6 +64,7 @@ extension Room {
         log()
 
         let publisher = try requirePublisher()
+        // Use non-throwing version
         await publisher.negotiate()
         _state.mutate { $0.hasPublished = true }
     }
@@ -316,22 +317,37 @@ extension Room {
             // Resume after configuring transports...
             await signalClient.resumeQueues()
 
-            log("[Connect] Waiting for subscriber to connect...")
-            // Wait for primary transport to connect (if not already)
-            try await primaryTransportConnectedCompleter.wait(timeout: _state.connectOptions.primaryTransportConnectTimeout)
-            try Task.checkCancellation()
+            // Create a single sequential reconnection process
+            try await Task.detached { [weak self] in
+                guard let self else { return }
 
-            // send SyncState before offer
-            try await sendSyncState()
+                // Make sure to mark ice restart properly before attempting reconnection
+                if let subscriber = self._state.subscriber {
+                    await subscriber.setIsRestartingIce()
+                }
 
-            await _state.subscriber?.setIsRestartingIce()
+                // Process for primary transport (subscriber)
+                self.log("[Connect] Waiting for subscriber to connect...")
+                try await self.primaryTransportConnectedCompleter.wait(
+                    timeout: self._state.connectOptions.primaryTransportConnectTimeout
+                )
+                try Task.checkCancellation()
 
-            if let publisher = _state.publisher, _state.hasPublished {
-                // Only if published, wait for publisher to connect...
-                log("[Connect] Waiting for publisher to connect...")
-                try await publisher.createAndSendOffer(iceRestart: true)
-                try await publisherTransportConnectedCompleter.wait(timeout: _state.connectOptions.publisherTransportConnectTimeout)
-            }
+                // Send sync state only after subscriber is connected
+                try await self.sendSyncState()
+
+                // Only then proceed with publisher reconnection if needed
+                if let publisher = self._state.publisher, self._state.hasPublished {
+                    // Only if published, wait for publisher to connect...
+                    self.log("[Connect] Waiting for publisher to connect...")
+                    await publisher.setIsRestartingIce()
+                    // Use non-throwing version
+                    await publisher.negotiate(iceRestart: true)
+                    try await self.publisherTransportConnectedCompleter.wait(
+                        timeout: self._state.connectOptions.publisherTransportConnectTimeout
+                    )
+                }
+            }.value
         }
 
         // "full" re-connection sequence
