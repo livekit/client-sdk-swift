@@ -42,9 +42,10 @@ public extension TimeInterval {
     /// - Parameter addJitter: Whether to add random jitter to delay for later attempts (default: true)
     /// - Returns: The delay in seconds to wait before the next retry attempt
     @Sendable
-    static func computeReconnectDelay(forAttempt attempt: Int, 
+    static func computeReconnectDelay(forAttempt attempt: Int,
                                       baseDelay: TimeInterval = defaultReconnectAttemptDelay,
-                                      addJitter: Bool = true) -> TimeInterval {
+                                      addJitter: Bool = true) -> TimeInterval
+    {
         if attempt < 2 {
             // First two attempts use fixed delay (0ms, 300ms)
             return attempt == 0 ? 0 : baseDelay
