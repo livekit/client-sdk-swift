@@ -39,7 +39,7 @@ public extension TimeInterval {
     /// Computes a retry delay based on the JS SDK-compatible reconnection algorithm
     /// - Parameter attempt: The current retry attempt (0-based index)
     /// - Parameter baseDelay: The base delay for calculations (default: 0.3s)
-    /// - Parameter addJitter: Whether to add random jitter to delay for later attempts (default: true)
+    /// - Parameter addJitter: Whether to add random jitter to delay for attempts #2+ (default: true)
     /// - Returns: The delay in seconds to wait before the next retry attempt
     @Sendable
     static func computeReconnectDelay(forAttempt attempt: Int,
@@ -50,9 +50,15 @@ public extension TimeInterval {
             // First two attempts use fixed delay (0ms, 300ms)
             return attempt == 0 ? 0 : baseDelay
         } else if attempt < 5 {
-            // Next 3 attempts use exponential backoff
+            // Next 3 attempts use exponential backoff with optional jitter
             let exponent = Double(attempt)
-            return min(exponent * exponent * baseDelay, reconnectDelayMaxRetry)
+            let calculatedDelay = min(exponent * exponent * baseDelay, reconnectDelayMaxRetry)
+
+            // Add jitter for attempts #2+ to match JS SDK
+            if addJitter {
+                return calculatedDelay + (Double.random(in: 0 ..< 1.0) * reconnectDelayJitter)
+            }
+            return calculatedDelay
         } else {
             // Remaining attempts use max delay with optional jitter
             if addJitter {

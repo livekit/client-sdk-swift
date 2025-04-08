@@ -51,9 +51,18 @@ class TimeIntervalTests: LKTestCase {
         XCTAssertEqual(TimeInterval.computeReconnectDelay(forAttempt: 2, baseDelay: customBaseDelay, addJitter: false), 2.0, "Third attempt should use custom base delay for calculation")
     }
 
-    /// Tests that jitter is properly applied to later retry attempts
+    /// Tests that jitter is properly applied to attempts #2 and beyond
     func testReconnectDelayJitter() {
-        // Run multiple times to verify randomness is applied
+        // Test jitter is applied for attempts 2-4 (after our update)
+        for attempt in 2 ... 4 {
+            let withoutJitter = TimeInterval.computeReconnectDelay(forAttempt: attempt, addJitter: false)
+            let withJitter = TimeInterval.computeReconnectDelay(forAttempt: attempt, addJitter: true)
+
+            XCTAssertGreaterThan(withJitter, withoutJitter, "Attempt \(attempt) should have jitter applied")
+            XCTAssertLessThanOrEqual(withJitter, withoutJitter + 1.0, "Jitter should not exceed 1.0s")
+        }
+
+        // Run multiple times to verify randomness is applied for later attempts
         var attempts: [TimeInterval] = []
 
         // Create multiple samples with random seeds
