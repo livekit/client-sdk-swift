@@ -89,9 +89,4 @@ final class AsyncTimer: Sendable, Loggable {
 
         Task { await scheduleNextInvocation() }
     }
-
-    func startIfStopped() {
-        if _state.isStarted { return }
-        restart()
-    }
 }
