@@ -18,7 +18,12 @@ import Foundation
 
 /// Default timeout `TimeInterval`s used throughout the SDK.
 public extension TimeInterval {
-    static let defaultReconnectAttemptDelay: Self = 2
+    // reconnection settings
+    static let defaultReconnectAttemptDelay: Self = 0.3 // 300ms to match JS SDK
+    // reconnect delays for the first few attempts, followed by maxRetryDelay
+    static let reconnectDelayMaxRetry: Self = 7 // maximum retry delay in seconds
+    static let reconnectDelayJitter: Self = 1.0 // 1 second jitter for later retries
+
     // the following 3 timeouts are used for a typical connect sequence
     static let defaultSocketConnect: Self = 10
     // used for validation mode
@@ -30,6 +35,25 @@ public extension TimeInterval {
     static let resolveSid: Self = 7 + 5 // Join response + 5
     static let defaultPublish: Self = 10
     static let defaultCaptureStart: Self = 10
+
+    /// Computes a retry delay based on the JS SDK-compatible reconnection algorithm
+    /// - Parameter attempt: The current retry attempt (0-based index)
+    /// - Parameter baseDelay: The base delay for calculations (default: 0.3s)
+    /// - Returns: The delay in seconds to wait before the next retry attempt
+    @Sendable
+    static func computeReconnectDelay(forAttempt attempt: Int, baseDelay: TimeInterval = defaultReconnectAttemptDelay) -> TimeInterval {
+        if attempt < 2 {
+            // First two attempts use fixed delay (0ms, 300ms)
+            return attempt == 0 ? 0 : baseDelay
+        } else if attempt < 5 {
+            // Next 3 attempts use exponential backoff
+            let exponent = Double(attempt)
+            return min(exponent * exponent * baseDelay, reconnectDelayMaxRetry)
+        } else {
+            // Remaining attempts use max delay with jitter
+            return reconnectDelayMaxRetry + (Double.random(in: 0 ..< 1.0) * reconnectDelayJitter)
+        }
+    }
 }
 
 extension TimeInterval {

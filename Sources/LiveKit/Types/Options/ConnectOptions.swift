@@ -56,7 +56,7 @@ public final class ConnectOptions: NSObject, Sendable {
     @objc
     override public init() {
         autoSubscribe = true
-        reconnectAttempts = 3
+        reconnectAttempts = 10
         reconnectAttemptDelay = .defaultReconnectAttemptDelay
         socketConnectTimeoutInterval = .defaultSocketConnect
         primaryTransportConnectTimeout = .defaultTransportState
@@ -68,7 +68,7 @@ public final class ConnectOptions: NSObject, Sendable {
 
     @objc
     public init(autoSubscribe: Bool = true,
-                reconnectAttempts: Int = 3,
+                reconnectAttempts: Int = 10,
                 reconnectAttemptDelay: TimeInterval = .defaultReconnectAttemptDelay,
                 socketConnectTimeoutInterval: TimeInterval = .defaultSocketConnect,
                 primaryTransportConnectTimeout: TimeInterval = .defaultTransportState,

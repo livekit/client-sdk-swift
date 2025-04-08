@@ -358,8 +358,10 @@ extension Room {
 
         do {
             try await Task.retrying(totalAttempts: _state.connectOptions.reconnectAttempts,
-                                    retryDelay: _state.connectOptions.reconnectAttemptDelay)
-            { currentAttempt, totalAttempts in
+                                    retryDelay: { @Sendable attempt in
+                                        TimeInterval.computeReconnectDelay(forAttempt: attempt,
+                                                                           baseDelay: self._state.connectOptions.reconnectAttemptDelay)
+                                    }) { currentAttempt, totalAttempts in
 
                 // Not reconnecting state anymore
                 guard let currentMode = self._state.isReconnectingWithMode else {
@@ -370,7 +372,7 @@ extension Room {
                 // Full reconnect failed, give up
                 guard currentMode != .full else { return }
 
-                self.log("[Connect] Retry in \(self._state.connectOptions.reconnectAttemptDelay) seconds, \(currentAttempt)/\(totalAttempts) tries left.")
+                self.log("[Connect] Retry attempt \(currentAttempt)/\(totalAttempts)")
 
                 // Try full reconnect for the final attempt
                 if totalAttempts == currentAttempt, self._state.nextReconnectMode == nil {
