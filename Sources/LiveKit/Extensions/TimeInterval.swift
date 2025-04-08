@@ -36,10 +36,20 @@ public extension TimeInterval {
     static let defaultPublish: Self = 10
     static let defaultCaptureStart: Self = 10
 
-    /// Computes a retry delay based on an "easeOutCirc" curve between baseDelay and maxDelay,
-    /// which provides a dramatic early acceleration followed by a gentler approach to the maximum.
+    /// Computes a retry delay based on an "easeOutCirc" curve between baseDelay and maxDelay.
+    ///
+    /// The easeOutCirc curve provides a dramatic early acceleration followed by a gentler approach to the maximum,
+    /// resulting in larger delays early in the reconnection sequence to reduce unnecessary network traffic.
+    ///
+    /// Example values for 10 reconnection attempts with baseDelay=0.3s and maxDelay=7s:
+    /// - Attempt 0: ~0.85s (already 12% of the way to max)
+    /// - Attempt 1: ~2.2s (30% of the way to max)
+    /// - Attempt 2: ~3.4s (45% of the way to max)
+    /// - Attempt 5: ~5.9s (82% of the way to max)
+    /// - Attempt 9: 7.0s (exactly maxDelay)
+    ///
     /// - Parameter attempt: The current retry attempt (0-based index)
-    /// - Parameter baseDelay: The minimum delay for the first retry (default: 0.3s)
+    /// - Parameter baseDelay: The minimum delay for the curve's starting point (default: 0.3s)
     /// - Parameter maxDelay: The maximum delay for the last retry attempt (default: 7s)
     /// - Parameter totalAttempts: The total number of attempts that will be made (default: 10)
     /// - Parameter addJitter: Whether to add random jitter to the delay (default: true)
