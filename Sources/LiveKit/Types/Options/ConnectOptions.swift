@@ -32,6 +32,11 @@ public final class ConnectOptions: NSObject, Sendable {
     @objc
     public let reconnectAttemptDelay: TimeInterval
 
+    /// The maximum delay between reconnect attempts.
+    /// Default is 7 seconds (TimeInterval.reconnectDelayMaxRetry).
+    @objc
+    public let reconnectMaxDelay: TimeInterval
+
     /// The timeout interval for the initial websocket connection.
     @objc
     public let socketConnectTimeoutInterval: TimeInterval
@@ -57,7 +62,8 @@ public final class ConnectOptions: NSObject, Sendable {
     override public init() {
         autoSubscribe = true
         reconnectAttempts = 10
-        reconnectAttemptDelay = .defaultReconnectAttemptDelay
+        reconnectAttemptDelay = .defaultReconnectDelay
+        reconnectMaxDelay = .defaultReconnectMaxDelay
         socketConnectTimeoutInterval = .defaultSocketConnect
         primaryTransportConnectTimeout = .defaultTransportState
         publisherTransportConnectTimeout = .defaultTransportState
@@ -69,7 +75,8 @@ public final class ConnectOptions: NSObject, Sendable {
     @objc
     public init(autoSubscribe: Bool = true,
                 reconnectAttempts: Int = 10,
-                reconnectAttemptDelay: TimeInterval = .defaultReconnectAttemptDelay,
+                reconnectAttemptDelay: TimeInterval = .defaultReconnectDelay,
+                reconnectMaxDelay: TimeInterval = .defaultReconnectMaxDelay,
                 socketConnectTimeoutInterval: TimeInterval = .defaultSocketConnect,
                 primaryTransportConnectTimeout: TimeInterval = .defaultTransportState,
                 publisherTransportConnectTimeout: TimeInterval = .defaultTransportState,
@@ -80,6 +87,7 @@ public final class ConnectOptions: NSObject, Sendable {
         self.autoSubscribe = autoSubscribe
         self.reconnectAttempts = reconnectAttempts
         self.reconnectAttemptDelay = reconnectAttemptDelay
+        self.reconnectMaxDelay = min(reconnectMaxDelay, reconnectAttemptDelay)
         self.socketConnectTimeoutInterval = socketConnectTimeoutInterval
         self.primaryTransportConnectTimeout = primaryTransportConnectTimeout
         self.publisherTransportConnectTimeout = publisherTransportConnectTimeout
@@ -95,6 +103,7 @@ public final class ConnectOptions: NSObject, Sendable {
         return autoSubscribe == other.autoSubscribe &&
             reconnectAttempts == other.reconnectAttempts &&
             reconnectAttemptDelay == other.reconnectAttemptDelay &&
+            reconnectMaxDelay == other.reconnectMaxDelay &&
             socketConnectTimeoutInterval == other.socketConnectTimeoutInterval &&
             primaryTransportConnectTimeout == other.primaryTransportConnectTimeout &&
             publisherTransportConnectTimeout == other.publisherTransportConnectTimeout &&
@@ -108,6 +117,7 @@ public final class ConnectOptions: NSObject, Sendable {
         hasher.combine(autoSubscribe)
         hasher.combine(reconnectAttempts)
         hasher.combine(reconnectAttemptDelay)
+        hasher.combine(reconnectMaxDelay)
         hasher.combine(socketConnectTimeoutInterval)
         hasher.combine(primaryTransportConnectTimeout)
         hasher.combine(publisherTransportConnectTimeout)

@@ -19,10 +19,10 @@ import Foundation
 /// Default timeout `TimeInterval`s used throughout the SDK.
 public extension TimeInterval {
     // reconnection settings
-    static let defaultReconnectAttemptDelay: Self = 0.3 // 300ms to match JS SDK
+    static let defaultReconnectDelay: Self = 0.3 // 300ms to match JS SDK
     // reconnect delays for the first few attempts, followed by maxRetryDelay
-    static let reconnectDelayMaxRetry: Self = 7 // maximum retry delay in seconds
-    static let reconnectDelayJitter: Self = 1.0 // 1 second jitter for later retries
+    static let defaultReconnectMaxDelay: Self = 7 // maximum retry delay in seconds
+    static let defaultReconnectDelayJitter: Self = 1.0 // 1 second jitter for later retries
 
     // the following 3 timeouts are used for a typical connect sequence
     static let defaultSocketConnect: Self = 10
@@ -39,11 +39,13 @@ public extension TimeInterval {
     /// Computes a retry delay based on the JS SDK-compatible reconnection algorithm
     /// - Parameter attempt: The current retry attempt (0-based index)
     /// - Parameter baseDelay: The base delay for calculations (default: 0.3s)
+    /// - Parameter maxDelay: The maximum delay between retry attempts (default: 7s)
     /// - Parameter addJitter: Whether to add random jitter to delay for attempts #2+ (default: true)
     /// - Returns: The delay in seconds to wait before the next retry attempt
     @Sendable
     static func computeReconnectDelay(forAttempt attempt: Int,
-                                      baseDelay: TimeInterval = defaultReconnectAttemptDelay,
+                                      baseDelay: TimeInterval = defaultReconnectDelay,
+                                      maxDelay: TimeInterval = defaultReconnectMaxDelay,
                                       addJitter: Bool = true) -> TimeInterval
     {
         if attempt < 2 {
@@ -52,19 +54,19 @@ public extension TimeInterval {
         } else if attempt < 5 {
             // Next 3 attempts use exponential backoff with optional jitter
             let exponent = Double(attempt)
-            let calculatedDelay = min(exponent * exponent * baseDelay, reconnectDelayMaxRetry)
+            let calculatedDelay = min(exponent * exponent * baseDelay, maxDelay)
 
             // Add jitter for attempts #2+ to match JS SDK
             if addJitter {
-                return calculatedDelay + (Double.random(in: 0 ..< 1.0) * reconnectDelayJitter)
+                return calculatedDelay + (Double.random(in: 0 ..< 1.0) * defaultReconnectDelayJitter)
             }
             return calculatedDelay
         } else {
             // Remaining attempts use max delay with optional jitter
             if addJitter {
-                return reconnectDelayMaxRetry + (Double.random(in: 0 ..< 1.0) * reconnectDelayJitter)
+                return maxDelay + (Double.random(in: 0 ..< 1.0) * defaultReconnectDelayJitter)
             } else {
-                return reconnectDelayMaxRetry
+                return maxDelay
             }
         }
     }

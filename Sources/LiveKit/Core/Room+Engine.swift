@@ -361,6 +361,7 @@ extension Room {
                                     retryDelay: { @Sendable attempt in
                                         TimeInterval.computeReconnectDelay(forAttempt: attempt,
                                                                            baseDelay: self._state.connectOptions.reconnectAttemptDelay,
+                                                                           maxDelay: self._state.connectOptions.reconnectMaxDelay,
                                                                            addJitter: true)
                                     }) { currentAttempt, totalAttempts in
 
