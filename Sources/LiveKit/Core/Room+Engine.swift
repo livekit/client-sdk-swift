@@ -360,10 +360,10 @@ extension Room {
             try await Task.retrying(totalAttempts: _state.connectOptions.reconnectAttempts,
                                     retryDelay: { @Sendable attempt in
                                         let delay = TimeInterval.computeReconnectDelay(forAttempt: attempt,
-                                                                           baseDelay: self._state.connectOptions.reconnectAttemptDelay,
-                                                                           maxDelay: self._state.connectOptions.reconnectMaxDelay,
-                                                                           addJitter: true)
-                                        self.log("[Connect] Retry cycle waiting for \(String(format: "%.2f", delay)) seconds before attempt \(attempt+1)")
+                                                                                       baseDelay: self._state.connectOptions.reconnectAttemptDelay,
+                                                                                       maxDelay: self._state.connectOptions.reconnectMaxDelay,
+                                                                                       addJitter: true)
+                                        self.log("[Connect] Retry cycle waiting for \(String(format: "%.2f", delay)) seconds before attempt \(attempt + 1)")
                                         return delay
                                     }) { currentAttempt, totalAttempts in
 
