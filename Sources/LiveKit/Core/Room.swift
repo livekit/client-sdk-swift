@@ -297,7 +297,7 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
 
             switch newState.connectionState {
             case .connected where enableMetrics:
-                Task { await MetricsManager.shared.sendUsing { try await self.send(dataPacket: $0) } }
+                Task { await MetricsManager.shared.sendUsing { [weak self] in try await self?.send(dataPacket: $0) } }
             default:
                 Task { await MetricsManager.shared.sendUsing(nil) }
             }
