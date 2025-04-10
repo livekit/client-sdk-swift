@@ -181,6 +181,8 @@ public class Track: NSObject, @unchecked Sendable, Loggable {
                 self.delegates.notify { $0.track?(self, didUpdateStatistics: statistics, simulcastStatistics: newState.simulcastStatistics) }
             }
         }
+
+        delegates.add(delegate: MetricsManager.shared)
     }
 
     func set(transport: Transport?, rtpSender: LKRTCRtpSender?) async {

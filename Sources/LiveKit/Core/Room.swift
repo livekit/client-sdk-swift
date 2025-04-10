@@ -22,6 +22,10 @@ import Network
 
 @objc
 public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
+    // MARK: - Metrics
+
+    private let enableMetrics = true
+
     // MARK: - MulticastDelegate
 
     public let delegates = MulticastDelegate<RoomDelegate>(label: "RoomDelegate")
@@ -289,6 +293,13 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
                     // remove this entry
                     return true
                 }
+            }
+
+            switch newState.connectionState {
+            case .connected where enableMetrics:
+                Task { await MetricsManager.shared.sendUsing { try await self.send(dataPacket: $0) } }
+            default:
+                Task { await MetricsManager.shared.sendUsing(nil) }
             }
 
             // Notify Room when state mutates
