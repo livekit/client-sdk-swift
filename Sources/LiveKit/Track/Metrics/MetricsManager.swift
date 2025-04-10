@@ -72,9 +72,9 @@ private extension Livekit_MetricsBatch {
             guard stat.kind == "video" else { continue }
 
             if let durations = stat.qualityLimitationDurations {
-                addMetricIfPresent(value: durations.cpu, label: .clientVideoPublisherQualityLimitationDurationCpu, stat: stat, strings: &strings)
-                addMetricIfPresent(value: durations.bandwidth, label: .clientVideoPublisherQualityLimitationDurationBandwidth, stat: stat, strings: &strings)
-                addMetricIfPresent(value: durations.other, label: .clientVideoPublisherQualityLimitationDurationOther, stat: stat, strings: &strings)
+                addMetricIfPresent(durations.cpu, at: stat.timestamp, label: .clientVideoPublisherQualityLimitationDurationCpu, strings: &strings)
+                addMetricIfPresent(durations.bandwidth, at: stat.timestamp, label: .clientVideoPublisherQualityLimitationDurationBandwidth, strings: &strings)
+                addMetricIfPresent(durations.other, at: stat.timestamp, label: .clientVideoPublisherQualityLimitationDurationOther, strings: &strings)
             }
         }
     }
@@ -82,36 +82,35 @@ private extension Livekit_MetricsBatch {
     mutating func addInboundMetrics(from statistics: [InboundRtpStreamStatistics], strings: inout [String]) {
         for stat in statistics {
             if stat.kind == "audio" {
-                addMetricIfPresent(value: stat.concealedSamples, label: .clientAudioSubscriberConcealedSamples, stat: stat, strings: &strings)
-                addMetricIfPresent(value: stat.concealmentEvents, label: .clientAudioSubscriberConcealmentEvents, stat: stat, strings: &strings)
-                addMetricIfPresent(value: stat.silentConcealedSamples, label: .clientAudioSubscriberSilentConcealedSamples, stat: stat, strings: &strings)
+                addMetricIfPresent(stat.concealedSamples, at: stat.timestamp, label: .clientAudioSubscriberConcealedSamples, strings: &strings)
+                addMetricIfPresent(stat.concealmentEvents, at: stat.timestamp, label: .clientAudioSubscriberConcealmentEvents, strings: &strings)
+                addMetricIfPresent(stat.silentConcealedSamples, at: stat.timestamp, label: .clientAudioSubscriberSilentConcealedSamples, strings: &strings)
             } else if stat.kind == "video" {
-                addMetricIfPresent(value: stat.freezeCount, label: .clientVideoSubscriberFreezeCount, stat: stat, strings: &strings)
-                addMetricIfPresent(value: stat.totalFreezesDuration, label: .clientVideoSubscriberTotalFreezeDuration, stat: stat, strings: &strings)
-                addMetricIfPresent(value: stat.pauseCount, label: .clientVideoSubscriberPauseCount, stat: stat, strings: &strings)
-                addMetricIfPresent(value: stat.totalPausesDuration, label: .clientVideoSubscriberTotalPausesDuration, stat: stat, strings: &strings)
+                addMetricIfPresent(stat.freezeCount, at: stat.timestamp, label: .clientVideoSubscriberFreezeCount, strings: &strings)
+                addMetricIfPresent(stat.totalFreezesDuration, at: stat.timestamp, label: .clientVideoSubscriberTotalFreezeDuration, strings: &strings)
+                addMetricIfPresent(stat.pauseCount, at: stat.timestamp, label: .clientVideoSubscriberPauseCount, strings: &strings)
+                addMetricIfPresent(stat.totalPausesDuration, at: stat.timestamp, label: .clientVideoSubscriberTotalPausesDuration, strings: &strings)
             }
 
             // Common metrics
-            addMetricIfPresent(value: stat.jitterBufferDelay, label: .clientSubscriberJitterBufferDelay, stat: stat, strings: &strings)
-            addMetricIfPresent(value: stat.jitterBufferEmittedCount, label: .clientSubscriberJitterBufferEmittedCount, stat: stat, strings: &strings)
+            addMetricIfPresent(stat.jitterBufferDelay, at: stat.timestamp, label: .clientSubscriberJitterBufferDelay, strings: &strings)
+            addMetricIfPresent(stat.jitterBufferEmittedCount, at: stat.timestamp, label: .clientSubscriberJitterBufferEmittedCount, strings: &strings)
         }
     }
 
     mutating func addMetricIfPresent(
-        value: (some Numeric)?,
+        _ value: (some Numeric)?,
+        at timestamp: TimeInterval,
         label: Livekit_MetricLabel,
-        stat: RtpStreamStatistics,
         strings: inout [String]
     ) {
         guard let floatValue = value?.floatValue else { return }
 
-        let sample = createMetricSample(timestamp: stat.timestamp, value: floatValue)
+        let sample = createMetricSample(timestamp: timestamp, value: floatValue)
         let timeSeries = createTimeSeries(
             label: label,
             strings: &strings,
-            samples: [sample],
-            trackSid: stat.id
+            samples: [sample]
         )
         self.timeSeries.append(timeSeries)
     }
@@ -125,22 +124,11 @@ private extension Livekit_MetricsBatch {
 
     func createTimeSeries(
         label: Livekit_MetricLabel,
-        strings: inout [String],
-        samples: [Livekit_MetricSample],
-        trackSid: String? = nil,
-        rid: String? = nil
+        strings _: inout [String],
+        samples: [Livekit_MetricSample]
     ) -> Livekit_TimeSeriesMetric {
         var timeSeries = Livekit_TimeSeriesMetric()
         timeSeries.label = UInt32(label.rawValue)
-
-        if let trackSid {
-            timeSeries.trackSid = UInt32(getOrCreateIndex(in: &strings, string: trackSid))
-        }
-
-        if let rid {
-            timeSeries.rid = UInt32(getOrCreateIndex(in: &strings, string: rid))
-        }
-
         timeSeries.samples = samples
         return timeSeries
     }
