@@ -33,7 +33,9 @@ actor MetricsManager: Loggable {
     static let shared = MetricsManager()
 
     typealias Transport = @Sendable (Livekit_DataPacket) async throws -> Void
-    var transport: Transport?
+    private var transport: Transport?
+
+    private var lastSentHash: Int?
 
     private init() {}
 
@@ -43,6 +45,8 @@ actor MetricsManager: Loggable {
 
     private func sendMetrics(from statistics: TrackStatistics) async {
         guard let transport else { return }
+        let hash = statistics.hashValue
+        guard hash != lastSentHash else { return }
 
         var dataPacket = Livekit_DataPacket()
         dataPacket.kind = .reliable
@@ -50,6 +54,7 @@ actor MetricsManager: Loggable {
         do {
             log("Sending track metrics...", .trace)
             try await transport(dataPacket)
+            lastSentHash = hash
         } catch {
             log("Failed to send metrics: \(error)", .warning)
         }
@@ -68,9 +73,7 @@ private extension Livekit_MetricsBatch {
     }
 
     mutating func addOutboundMetrics(from statistics: [OutboundRtpStreamStatistics], strings: inout [String]) {
-        for stat in statistics {
-            guard stat.kind == "video" else { continue }
-
+        for stat in statistics where stat.kind == "video" {
             if let durations = stat.qualityLimitationDurations {
                 addMetricIfPresent(durations.cpu, at: stat.timestamp, label: .clientVideoPublisherQualityLimitationDurationCpu, strings: &strings)
                 addMetricIfPresent(durations.bandwidth, at: stat.timestamp, label: .clientVideoPublisherQualityLimitationDurationBandwidth, strings: &strings)
@@ -105,6 +108,7 @@ private extension Livekit_MetricsBatch {
         strings: inout [String]
     ) {
         guard let floatValue = value?.floatValue else { return }
+        guard floatValue != .zero else { return }
 
         let sample = createMetricSample(timestamp: timestamp, value: floatValue)
         let timeSeries = createTimeSeries(
@@ -147,14 +151,10 @@ private extension Livekit_MetricsBatch {
 
 private extension Numeric {
     var floatValue: Float? {
-        if let floatValue = self as? Float {
-            return floatValue
-        } else if let doubleValue = self as? Double {
-            return Float(doubleValue)
-        } else if let uint64Value = self as? UInt64 {
-            return Float(uint64Value)
-        } else if let uintValue = self as? UInt {
-            return Float(uintValue)
+        if let integer = self as? any BinaryInteger {
+            return Float(integer)
+        } else if let floatingPoint = self as? any BinaryFloatingPoint {
+            return Float(floatingPoint)
         } else {
             assertionFailure("Cannot convert Numeric \(Self.self)")
             return nil
