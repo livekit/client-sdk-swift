@@ -119,17 +119,14 @@ private extension Livekit_MetricsBatch {
 
     mutating func addMetric(
         _ value: (some Numeric)?,
-        at timestamp: TimeInterval,
+        at timestampUs: Double,
         label: Livekit_MetricLabel,
         strings: inout [String],
         identity: Participant.Identity? = nil,
         sid: String? = nil,
         rid: String? = nil
     ) {
-        guard let floatValue = value?.floatValue else { return }
-        guard floatValue != .zero else { return }
-
-        let sample = createMetricSample(timestamp: timestamp, value: floatValue)
+        guard let sample = createSample(timestampUs: timestampUs, value: value) else { return }
         let timeSeries = createTimeSeries(
             label: label,
             strings: &strings,
@@ -141,10 +138,13 @@ private extension Livekit_MetricsBatch {
         self.timeSeries.append(timeSeries)
     }
 
-    func createMetricSample(timestamp: TimeInterval, value: Float) -> Livekit_MetricSample {
+    func createSample(timestampUs: Double, value: (some Numeric)?) -> Livekit_MetricSample? {
+        guard let floatValue = value?.floatValue else { return nil }
+        guard floatValue != .zero else { return nil }
+
         var sample = Livekit_MetricSample()
-        sample.timestampMs = Int64(timestamp * 1000)
-        sample.value = value
+        sample.timestampMs = Int64(timestampUs / 1000)
+        sample.value = floatValue
         return sample
     }
 
