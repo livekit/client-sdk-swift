@@ -297,9 +297,9 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
 
             switch newState.connectionState {
             case .connected where enableMetrics:
-                Task { await MetricsManager.shared.sendUsing { [weak self] in try await self?.send(dataPacket: $0) } }
+                Task { await MetricsManager.shared.sendUsing(identity: localParticipant.identity) { [weak self] in try await self?.send(dataPacket: $0) } }
             default:
-                Task { await MetricsManager.shared.sendUsing(nil) }
+                Task { await MetricsManager.shared.sendUsing(identity: nil, transport: nil) }
             }
 
             // Notify Room when state mutates

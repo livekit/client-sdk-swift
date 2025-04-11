@@ -34,13 +34,15 @@ actor MetricsManager: Loggable {
 
     typealias Transport = @Sendable (Livekit_DataPacket) async throws -> Void
     private var transport: Transport?
+    private var identity: Participant.Identity?
 
     private var lastSentHash: Int?
 
     private init() {}
 
-    func sendUsing(_ transport: Transport?) {
+    func sendUsing(identity: Participant.Identity?, transport: Transport?) {
         self.transport = transport
+        self.identity = identity
     }
 
     private func sendMetrics(from statistics: TrackStatistics) async {
@@ -70,14 +72,16 @@ private extension Livekit_MetricsBatch {
 
         addOutboundMetrics(from: statistics.outboundRtpStream, strings: &strings)
         addInboundMetrics(from: statistics.inboundRtpStream, strings: &strings)
+        addRemoteInboundMetrics(from: statistics.remoteInboundRtpStream, strings: &strings)
+        addRemoteOutboundMetrics(from: statistics.remoteOutboundRtpStream, strings: &strings)
     }
 
     mutating func addOutboundMetrics(from statistics: [OutboundRtpStreamStatistics], strings: inout [String]) {
         for stat in statistics where stat.kind == "video" {
             if let durations = stat.qualityLimitationDurations {
-                addMetricIfPresent(durations.cpu, at: stat.timestamp, label: .clientVideoPublisherQualityLimitationDurationCpu, strings: &strings)
-                addMetricIfPresent(durations.bandwidth, at: stat.timestamp, label: .clientVideoPublisherQualityLimitationDurationBandwidth, strings: &strings)
-                addMetricIfPresent(durations.other, at: stat.timestamp, label: .clientVideoPublisherQualityLimitationDurationOther, strings: &strings)
+                addMetric(durations.cpu, at: stat.timestamp, label: .clientVideoPublisherQualityLimitationDurationCpu, strings: &strings)
+                addMetric(durations.bandwidth, at: stat.timestamp, label: .clientVideoPublisherQualityLimitationDurationBandwidth, strings: &strings)
+                addMetric(durations.other, at: stat.timestamp, label: .clientVideoPublisherQualityLimitationDurationOther, strings: &strings)
             }
         }
     }
@@ -85,23 +89,35 @@ private extension Livekit_MetricsBatch {
     mutating func addInboundMetrics(from statistics: [InboundRtpStreamStatistics], strings: inout [String]) {
         for stat in statistics {
             if stat.kind == "audio" {
-                addMetricIfPresent(stat.concealedSamples, at: stat.timestamp, label: .clientAudioSubscriberConcealedSamples, strings: &strings)
-                addMetricIfPresent(stat.concealmentEvents, at: stat.timestamp, label: .clientAudioSubscriberConcealmentEvents, strings: &strings)
-                addMetricIfPresent(stat.silentConcealedSamples, at: stat.timestamp, label: .clientAudioSubscriberSilentConcealedSamples, strings: &strings)
+                addMetric(stat.concealedSamples, at: stat.timestamp, label: .clientAudioSubscriberConcealedSamples, strings: &strings)
+                addMetric(stat.concealmentEvents, at: stat.timestamp, label: .clientAudioSubscriberConcealmentEvents, strings: &strings)
+                addMetric(stat.silentConcealedSamples, at: stat.timestamp, label: .clientAudioSubscriberSilentConcealedSamples, strings: &strings)
             } else if stat.kind == "video" {
-                addMetricIfPresent(stat.freezeCount, at: stat.timestamp, label: .clientVideoSubscriberFreezeCount, strings: &strings)
-                addMetricIfPresent(stat.totalFreezesDuration, at: stat.timestamp, label: .clientVideoSubscriberTotalFreezeDuration, strings: &strings)
-                addMetricIfPresent(stat.pauseCount, at: stat.timestamp, label: .clientVideoSubscriberPauseCount, strings: &strings)
-                addMetricIfPresent(stat.totalPausesDuration, at: stat.timestamp, label: .clientVideoSubscriberTotalPausesDuration, strings: &strings)
+                addMetric(stat.freezeCount, at: stat.timestamp, label: .clientVideoSubscriberFreezeCount, strings: &strings)
+                addMetric(stat.totalFreezesDuration, at: stat.timestamp, label: .clientVideoSubscriberTotalFreezeDuration, strings: &strings)
+                addMetric(stat.pauseCount, at: stat.timestamp, label: .clientVideoSubscriberPauseCount, strings: &strings)
+                addMetric(stat.totalPausesDuration, at: stat.timestamp, label: .clientVideoSubscriberTotalPausesDuration, strings: &strings)
             }
 
             // Common metrics
-            addMetricIfPresent(stat.jitterBufferDelay, at: stat.timestamp, label: .clientSubscriberJitterBufferDelay, strings: &strings)
-            addMetricIfPresent(stat.jitterBufferEmittedCount, at: stat.timestamp, label: .clientSubscriberJitterBufferEmittedCount, strings: &strings)
+            addMetric(stat.jitterBufferDelay, at: stat.timestamp, label: .clientSubscriberJitterBufferDelay, strings: &strings)
+            addMetric(stat.jitterBufferEmittedCount, at: stat.timestamp, label: .clientSubscriberJitterBufferEmittedCount, strings: &strings)
         }
     }
 
-    mutating func addMetricIfPresent(
+    mutating func addRemoteInboundMetrics(from statistics: [RemoteInboundRtpStreamStatistics], strings: inout [String]) {
+        for stat in statistics {
+            addMetric(stat.roundTripTime, at: stat.timestamp, label: .subscriberRtt, strings: &strings)
+        }
+    }
+
+    mutating func addRemoteOutboundMetrics(from statistics: [RemoteOutboundRtpStreamStatistics], strings: inout [String]) {
+        for stat in statistics {
+            addMetric(stat.roundTripTime, at: stat.timestamp, label: .publisherRtt, strings: &strings)
+        }
+    }
+
+    mutating func addMetric(
         _ value: (some Numeric)?,
         at timestamp: TimeInterval,
         label: Livekit_MetricLabel,
@@ -137,13 +153,13 @@ private extension Livekit_MetricsBatch {
         return timeSeries
     }
 
-    func getOrCreateIndex(in array: inout [String], string: String) -> Int {
+    func getOrCreateIndex(in array: inout [String], string: String) -> UInt32 {
         let offset = Livekit_MetricLabel.predefinedMaxValue.rawValue
         if let index = array.firstIndex(of: string) {
-            return index + offset
+            return UInt32(index + offset)
         }
         array.append(string)
-        return array.count - 1 + offset
+        return UInt32(array.count - 1 + offset)
     }
 }
 
