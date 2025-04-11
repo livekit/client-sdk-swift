@@ -15,6 +15,7 @@
  */
 
 import Foundation
+import OrderedCollections
 
 // MARK: - Trigger
 
@@ -67,8 +68,8 @@ actor MetricsManager: Loggable {
 
 private extension Livekit_MetricsBatch {
     init(statistics: TrackStatistics, identity: Participant.Identity?) {
-        var strings = [String]()
-        defer { strData = strings }
+        var strings = OrderedSet<String>()
+        defer { strData = strings.elements }
 
         addOutboundMetrics(from: statistics.outboundRtpStream, strings: &strings, identity: identity)
         addInboundMetrics(from: statistics.inboundRtpStream, strings: &strings, identity: identity)
@@ -76,7 +77,7 @@ private extension Livekit_MetricsBatch {
         addRemoteOutboundMetrics(from: statistics.remoteOutboundRtpStream, strings: &strings, identity: identity)
     }
 
-    mutating func addOutboundMetrics(from statistics: [OutboundRtpStreamStatistics], strings: inout [String], identity: Participant.Identity?) {
+    mutating func addOutboundMetrics(from statistics: [OutboundRtpStreamStatistics], strings: inout OrderedSet<String>, identity: Participant.Identity?) {
         for stat in statistics where stat.kind == "video" {
             if let durations = stat.qualityLimitationDurations {
                 addMetric(durations.cpu, at: stat.timestamp, label: .clientVideoPublisherQualityLimitationDurationCpu, strings: &strings, identity: identity, rid: stat.rid)
@@ -86,7 +87,7 @@ private extension Livekit_MetricsBatch {
         }
     }
 
-    mutating func addInboundMetrics(from statistics: [InboundRtpStreamStatistics], strings: inout [String], identity: Participant.Identity?) {
+    mutating func addInboundMetrics(from statistics: [InboundRtpStreamStatistics], strings: inout OrderedSet<String>, identity: Participant.Identity?) {
         for stat in statistics {
             if stat.kind == "audio" {
                 addMetric(stat.concealedSamples, at: stat.timestamp, label: .clientAudioSubscriberConcealedSamples, strings: &strings, identity: identity, sid: stat.trackIdentifier)
@@ -105,13 +106,13 @@ private extension Livekit_MetricsBatch {
         }
     }
 
-    mutating func addRemoteInboundMetrics(from statistics: [RemoteInboundRtpStreamStatistics], strings: inout [String], identity: Participant.Identity?) {
+    mutating func addRemoteInboundMetrics(from statistics: [RemoteInboundRtpStreamStatistics], strings: inout OrderedSet<String>, identity: Participant.Identity?) {
         for stat in statistics {
             addMetric(stat.roundTripTime, at: stat.timestamp, label: .subscriberRtt, strings: &strings, identity: identity)
         }
     }
 
-    mutating func addRemoteOutboundMetrics(from statistics: [RemoteOutboundRtpStreamStatistics], strings: inout [String], identity: Participant.Identity?) {
+    mutating func addRemoteOutboundMetrics(from statistics: [RemoteOutboundRtpStreamStatistics], strings: inout OrderedSet<String>, identity: Participant.Identity?) {
         for stat in statistics {
             addMetric(stat.roundTripTime, at: stat.timestamp, label: .publisherRtt, strings: &strings, identity: identity)
         }
@@ -121,7 +122,7 @@ private extension Livekit_MetricsBatch {
         _ value: (some Numeric)?,
         at timestampUs: Double,
         label: Livekit_MetricLabel,
-        strings: inout [String],
+        strings: inout OrderedSet<String>,
         identity: Participant.Identity? = nil,
         sid: String? = nil,
         rid: String? = nil
@@ -150,7 +151,7 @@ private extension Livekit_MetricsBatch {
 
     func createTimeSeries(
         label: Livekit_MetricLabel,
-        strings: inout [String],
+        strings: inout OrderedSet<String>,
         samples: [Livekit_MetricSample],
         identity: Participant.Identity? = nil,
         sid: String? = nil,
@@ -161,25 +162,22 @@ private extension Livekit_MetricsBatch {
         timeSeries.samples = samples
 
         if let identity {
-            timeSeries.participantIdentity = getOrCreateIndex(in: &strings, string: identity.stringValue)
+            timeSeries.participantIdentity = getOrCreateIndex(in: &strings, inserting: identity.stringValue)
         }
         if let sid {
-            timeSeries.trackSid = getOrCreateIndex(in: &strings, string: sid)
+            timeSeries.trackSid = getOrCreateIndex(in: &strings, inserting: sid)
         }
         if let rid {
-            timeSeries.rid = getOrCreateIndex(in: &strings, string: rid)
+            timeSeries.rid = getOrCreateIndex(in: &strings, inserting: rid)
         }
 
         return timeSeries
     }
 
-    func getOrCreateIndex(in array: inout [String], string: String) -> UInt32 {
-        let offset = Livekit_MetricLabel.predefinedMaxValue.rawValue
-        if let index = array.firstIndex(of: string) {
-            return UInt32(index + offset)
-        }
-        array.append(string)
-        return UInt32(array.count - 1 + offset)
+    func getOrCreateIndex(in set: inout OrderedSet<String>, inserting string: String) -> UInt32 {
+        let offset = Livekit_MetricLabel.predefinedMaxValue.rawValue // custom indices start at 4096
+        let index = set.append(string).index
+        return UInt32(index + offset)
     }
 }
 
