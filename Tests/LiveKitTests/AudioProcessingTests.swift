@@ -123,4 +123,66 @@ class AudioProcessingTests: LKTestCase, AudioCustomProcessingDelegate, @unchecke
             try await room1.localParticipant.unpublish(publication: pub2)
         }
     }
+
+    func testRuntimeAudioConfigUpdate() async throws {
+        // Disable Apple VPIO.
+        AudioManager.shared.isVoiceProcessingBypassed = true
+
+        try await withRooms([RoomTestingOptions(canPublish: true)]) { rooms in
+            // Alias to Room1
+            let room1 = rooms[0]
+
+            let allOnOptions = AudioCaptureOptions(
+                echoCancellation: true,
+                autoGainControl: true,
+                noiseSuppression: true,
+                highpassFilter: true
+            )
+
+            let pub1 = try await room1.localParticipant.setMicrophone(enabled: true, captureOptions: allOnOptions)
+            guard let pub1 else {
+                XCTFail("Publication is nil")
+                return
+            }
+
+            let ns = UInt64(3 * 1_000_000_000)
+            try await Task.sleep(nanoseconds: ns)
+
+            // Directly read config from the apm
+            let allOnConfigResult = RTC.audioProcessingModule.config
+            print("Config result for all on: \(allOnConfigResult.toDebugString()))")
+            XCTAssert(allOnConfigResult.isEchoCancellationEnabled)
+            XCTAssert(allOnConfigResult.isNoiseSuppressionEnabled)
+            XCTAssert(allOnConfigResult.isAutoGainControl1Enabled)
+            XCTAssert(allOnConfigResult.isHighpassFilterEnabled)
+
+            // Update the config at runtime
+            let newConfig = LKRTCAudioProcessingConfig()
+            newConfig.isEchoCancellationEnabled = false
+            newConfig.isAutoGainControl1Enabled = false
+            newConfig.isNoiseSuppressionEnabled = false
+            newConfig.isHighpassFilterEnabled = false
+            RTC.audioProcessingModule.config = newConfig
+
+            // Wait 3 seconds...
+            try await Task.sleep(nanoseconds: ns)
+
+            // Try muting & unmuting...
+            try await pub1.mute()
+            try await pub1.unmute()
+
+            // Wait 3 seconds...
+            try await Task.sleep(nanoseconds: ns)
+
+            // Directly read config from the apm
+            let allOffConfigResult = RTC.audioProcessingModule.config
+            print("Config result for all off: \(allOffConfigResult.toDebugString())")
+            XCTAssert(!allOffConfigResult.isEchoCancellationEnabled)
+            XCTAssert(!allOffConfigResult.isNoiseSuppressionEnabled)
+            XCTAssert(!allOffConfigResult.isAutoGainControl1Enabled)
+            XCTAssert(!allOffConfigResult.isHighpassFilterEnabled)
+
+            try await room1.localParticipant.unpublish(publication: pub1)
+        }
+    }
 }
