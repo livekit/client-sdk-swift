@@ -21,7 +21,7 @@ import Foundation
 extension MetricsManager: TrackDelegate {
     nonisolated func track(_: Track, didUpdateStatistics: TrackStatistics, simulcastStatistics _: [VideoCodec: TrackStatistics]) {
         Task(priority: .low) {
-            await sendMetrics(from: didUpdateStatistics)
+            await sendMetrics(statistics: didUpdateStatistics)
         }
     }
 }
@@ -45,14 +45,14 @@ actor MetricsManager: Loggable {
         self.identity = identity
     }
 
-    private func sendMetrics(from statistics: TrackStatistics) async {
+    private func sendMetrics(statistics: TrackStatistics) async {
         guard let transport else { return }
         let hash = statistics.hashValue
         guard hash != lastSentHash else { return }
 
         var dataPacket = Livekit_DataPacket()
         dataPacket.kind = .reliable
-        dataPacket.metrics = Livekit_MetricsBatch(statistics: statistics)
+        dataPacket.metrics = Livekit_MetricsBatch(statistics: statistics, identity: identity)
         do {
             log("Sending track metrics...", .trace)
             try await transport(dataPacket)
@@ -66,54 +66,54 @@ actor MetricsManager: Loggable {
 // MARK: - Statistics -> protobufs
 
 private extension Livekit_MetricsBatch {
-    init(statistics: TrackStatistics) {
+    init(statistics: TrackStatistics, identity: Participant.Identity?) {
         var strings = [String]()
         defer { strData = strings }
 
-        addOutboundMetrics(from: statistics.outboundRtpStream, strings: &strings)
-        addInboundMetrics(from: statistics.inboundRtpStream, strings: &strings)
-        addRemoteInboundMetrics(from: statistics.remoteInboundRtpStream, strings: &strings)
-        addRemoteOutboundMetrics(from: statistics.remoteOutboundRtpStream, strings: &strings)
+        addOutboundMetrics(from: statistics.outboundRtpStream, strings: &strings, identity: identity)
+        addInboundMetrics(from: statistics.inboundRtpStream, strings: &strings, identity: identity)
+        addRemoteInboundMetrics(from: statistics.remoteInboundRtpStream, strings: &strings, identity: identity)
+        addRemoteOutboundMetrics(from: statistics.remoteOutboundRtpStream, strings: &strings, identity: identity)
     }
 
-    mutating func addOutboundMetrics(from statistics: [OutboundRtpStreamStatistics], strings: inout [String]) {
+    mutating func addOutboundMetrics(from statistics: [OutboundRtpStreamStatistics], strings: inout [String], identity: Participant.Identity?) {
         for stat in statistics where stat.kind == "video" {
             if let durations = stat.qualityLimitationDurations {
-                addMetric(durations.cpu, at: stat.timestamp, label: .clientVideoPublisherQualityLimitationDurationCpu, strings: &strings)
-                addMetric(durations.bandwidth, at: stat.timestamp, label: .clientVideoPublisherQualityLimitationDurationBandwidth, strings: &strings)
-                addMetric(durations.other, at: stat.timestamp, label: .clientVideoPublisherQualityLimitationDurationOther, strings: &strings)
+                addMetric(durations.cpu, at: stat.timestamp, label: .clientVideoPublisherQualityLimitationDurationCpu, strings: &strings, identity: identity, rid: stat.rid)
+                addMetric(durations.bandwidth, at: stat.timestamp, label: .clientVideoPublisherQualityLimitationDurationBandwidth, strings: &strings, identity: identity, rid: stat.rid)
+                addMetric(durations.other, at: stat.timestamp, label: .clientVideoPublisherQualityLimitationDurationOther, strings: &strings, identity: identity, rid: stat.rid)
             }
         }
     }
 
-    mutating func addInboundMetrics(from statistics: [InboundRtpStreamStatistics], strings: inout [String]) {
+    mutating func addInboundMetrics(from statistics: [InboundRtpStreamStatistics], strings: inout [String], identity: Participant.Identity?) {
         for stat in statistics {
             if stat.kind == "audio" {
-                addMetric(stat.concealedSamples, at: stat.timestamp, label: .clientAudioSubscriberConcealedSamples, strings: &strings)
-                addMetric(stat.concealmentEvents, at: stat.timestamp, label: .clientAudioSubscriberConcealmentEvents, strings: &strings)
-                addMetric(stat.silentConcealedSamples, at: stat.timestamp, label: .clientAudioSubscriberSilentConcealedSamples, strings: &strings)
+                addMetric(stat.concealedSamples, at: stat.timestamp, label: .clientAudioSubscriberConcealedSamples, strings: &strings, identity: identity, sid: stat.trackIdentifier)
+                addMetric(stat.concealmentEvents, at: stat.timestamp, label: .clientAudioSubscriberConcealmentEvents, strings: &strings, identity: identity, sid: stat.trackIdentifier)
+                addMetric(stat.silentConcealedSamples, at: stat.timestamp, label: .clientAudioSubscriberSilentConcealedSamples, strings: &strings, identity: identity, sid: stat.trackIdentifier)
             } else if stat.kind == "video" {
-                addMetric(stat.freezeCount, at: stat.timestamp, label: .clientVideoSubscriberFreezeCount, strings: &strings)
-                addMetric(stat.totalFreezesDuration, at: stat.timestamp, label: .clientVideoSubscriberTotalFreezeDuration, strings: &strings)
-                addMetric(stat.pauseCount, at: stat.timestamp, label: .clientVideoSubscriberPauseCount, strings: &strings)
-                addMetric(stat.totalPausesDuration, at: stat.timestamp, label: .clientVideoSubscriberTotalPausesDuration, strings: &strings)
+                addMetric(stat.freezeCount, at: stat.timestamp, label: .clientVideoSubscriberFreezeCount, strings: &strings, identity: identity, sid: stat.trackIdentifier)
+                addMetric(stat.totalFreezesDuration, at: stat.timestamp, label: .clientVideoSubscriberTotalFreezeDuration, strings: &strings, identity: identity, sid: stat.trackIdentifier)
+                addMetric(stat.pauseCount, at: stat.timestamp, label: .clientVideoSubscriberPauseCount, strings: &strings, identity: identity, sid: stat.trackIdentifier)
+                addMetric(stat.totalPausesDuration, at: stat.timestamp, label: .clientVideoSubscriberTotalPausesDuration, strings: &strings, identity: identity, sid: stat.trackIdentifier)
             }
 
             // Common metrics
-            addMetric(stat.jitterBufferDelay, at: stat.timestamp, label: .clientSubscriberJitterBufferDelay, strings: &strings)
-            addMetric(stat.jitterBufferEmittedCount, at: stat.timestamp, label: .clientSubscriberJitterBufferEmittedCount, strings: &strings)
+            addMetric(stat.jitterBufferDelay, at: stat.timestamp, label: .clientSubscriberJitterBufferDelay, strings: &strings, identity: identity, sid: stat.trackIdentifier)
+            addMetric(stat.jitterBufferEmittedCount, at: stat.timestamp, label: .clientSubscriberJitterBufferEmittedCount, strings: &strings, identity: identity, sid: stat.trackIdentifier)
         }
     }
 
-    mutating func addRemoteInboundMetrics(from statistics: [RemoteInboundRtpStreamStatistics], strings: inout [String]) {
+    mutating func addRemoteInboundMetrics(from statistics: [RemoteInboundRtpStreamStatistics], strings: inout [String], identity: Participant.Identity?) {
         for stat in statistics {
-            addMetric(stat.roundTripTime, at: stat.timestamp, label: .subscriberRtt, strings: &strings)
+            addMetric(stat.roundTripTime, at: stat.timestamp, label: .subscriberRtt, strings: &strings, identity: identity)
         }
     }
 
-    mutating func addRemoteOutboundMetrics(from statistics: [RemoteOutboundRtpStreamStatistics], strings: inout [String]) {
+    mutating func addRemoteOutboundMetrics(from statistics: [RemoteOutboundRtpStreamStatistics], strings: inout [String], identity: Participant.Identity?) {
         for stat in statistics {
-            addMetric(stat.roundTripTime, at: stat.timestamp, label: .publisherRtt, strings: &strings)
+            addMetric(stat.roundTripTime, at: stat.timestamp, label: .publisherRtt, strings: &strings, identity: identity)
         }
     }
 
@@ -121,7 +121,10 @@ private extension Livekit_MetricsBatch {
         _ value: (some Numeric)?,
         at timestamp: TimeInterval,
         label: Livekit_MetricLabel,
-        strings: inout [String]
+        strings: inout [String],
+        identity: Participant.Identity? = nil,
+        sid: String? = nil,
+        rid: String? = nil
     ) {
         guard let floatValue = value?.floatValue else { return }
         guard floatValue != .zero else { return }
@@ -130,7 +133,10 @@ private extension Livekit_MetricsBatch {
         let timeSeries = createTimeSeries(
             label: label,
             strings: &strings,
-            samples: [sample]
+            samples: [sample],
+            identity: identity,
+            sid: sid,
+            rid: rid
         )
         self.timeSeries.append(timeSeries)
     }
@@ -144,12 +150,26 @@ private extension Livekit_MetricsBatch {
 
     func createTimeSeries(
         label: Livekit_MetricLabel,
-        strings _: inout [String],
-        samples: [Livekit_MetricSample]
+        strings: inout [String],
+        samples: [Livekit_MetricSample],
+        identity: Participant.Identity? = nil,
+        sid: String? = nil,
+        rid: String? = nil
     ) -> Livekit_TimeSeriesMetric {
         var timeSeries = Livekit_TimeSeriesMetric()
         timeSeries.label = UInt32(label.rawValue)
         timeSeries.samples = samples
+
+        if let identity {
+            timeSeries.participantIdentity = getOrCreateIndex(in: &strings, string: identity.stringValue)
+        }
+        if let sid {
+            timeSeries.trackSid = getOrCreateIndex(in: &strings, string: sid)
+        }
+        if let rid {
+            timeSeries.rid = getOrCreateIndex(in: &strings, string: rid)
+        }
+
         return timeSeries
     }
 
