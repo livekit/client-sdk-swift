@@ -29,6 +29,7 @@ extension MetricsManager: TrackDelegate {
 
 // MARK: - Actor
 
+/// An actor that converts track statistics into metrics and sends them to the server as data packets.
 @globalActor
 actor MetricsManager: Loggable {
     static let shared = MetricsManager()
@@ -73,8 +74,9 @@ private extension Livekit_MetricsBatch {
 
         addOutboundMetrics(from: statistics.outboundRtpStream, strings: &strings, identity: identity)
         addInboundMetrics(from: statistics.inboundRtpStream, strings: &strings, identity: identity)
-        addRemoteInboundMetrics(from: statistics.remoteInboundRtpStream, strings: &strings, identity: identity)
+
         addRemoteOutboundMetrics(from: statistics.remoteOutboundRtpStream, strings: &strings, identity: identity)
+        addRemoteInboundMetrics(from: statistics.remoteInboundRtpStream, strings: &strings, identity: identity)
     }
 
     mutating func addOutboundMetrics(from statistics: [OutboundRtpStreamStatistics], strings: inout OrderedSet<String>, identity: Participant.Identity?) {
@@ -106,15 +108,15 @@ private extension Livekit_MetricsBatch {
         }
     }
 
-    mutating func addRemoteInboundMetrics(from statistics: [RemoteInboundRtpStreamStatistics], strings: inout OrderedSet<String>, identity: Participant.Identity?) {
-        for stat in statistics {
-            addMetric(stat.roundTripTime, at: stat.timestamp, label: .subscriberRtt, strings: &strings, identity: identity)
-        }
-    }
-
     mutating func addRemoteOutboundMetrics(from statistics: [RemoteOutboundRtpStreamStatistics], strings: inout OrderedSet<String>, identity: Participant.Identity?) {
         for stat in statistics {
             addMetric(stat.roundTripTime, at: stat.timestamp, label: .publisherRtt, strings: &strings, identity: identity)
+        }
+    }
+
+    mutating func addRemoteInboundMetrics(from statistics: [RemoteInboundRtpStreamStatistics], strings: inout OrderedSet<String>, identity: Participant.Identity?) {
+        for stat in statistics {
+            addMetric(stat.roundTripTime, at: stat.timestamp, label: .subscriberRtt, strings: &strings, identity: identity)
         }
     }
 
@@ -174,8 +176,19 @@ private extension Livekit_MetricsBatch {
         return timeSeries
     }
 
+    /// Gets or creates an index for a custom string in the protobuf message
+    /// starting from a predefined reserved value.
+    ///
+    /// Receivers should interpret index values as follows:
+    /// ```
+    /// if index < predefinedMaxValue {
+    ///    MetricLabel(rawValue: index)
+    /// } else {
+    ///    str_data[index - 4096]
+    /// }
+    /// ```
     func getOrCreateIndex(in set: inout OrderedSet<String>, inserting string: String) -> UInt32 {
-        let offset = Livekit_MetricLabel.predefinedMaxValue.rawValue // custom indices start at 4096
+        let offset = Livekit_MetricLabel.predefinedMaxValue.rawValue
         let index = set.append(string).index
         return UInt32(index + offset)
     }
