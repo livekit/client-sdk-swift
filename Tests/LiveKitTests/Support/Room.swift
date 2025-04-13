@@ -19,18 +19,23 @@ import XCTest
 
 struct RoomTestingOptions {
     let delegate: RoomDelegate?
+    let enableMicrophone: Bool
+
+    // Perms
     let canPublish: Bool
     let canPublishData: Bool
     let canPublishSources: Set<Track.Source>
     let canSubscribe: Bool
 
     init(delegate: RoomDelegate? = nil,
+         enableMicrophone: Bool = false,
          canPublish: Bool = false,
          canPublishData: Bool = false,
          canPublishSources: Set<Track.Source> = [],
          canSubscribe: Bool = false)
     {
         self.delegate = delegate
+        self.enableMicrophone = enableMicrophone
         self.canPublish = canPublish
         self.canPublishData = canPublishData
         self.canPublishSources = canPublishSources
@@ -90,8 +95,11 @@ extension LKTestCase {
         let roomName = UUID().uuidString
 
         let rooms = try options.enumerated().map {
+            // Connect options
+            let connectOptions = ConnectOptions(enableMicrophone: $0.element.enableMicrophone)
+
             // Use shared RoomOptions
-            let room = Room(delegate: $0.element.delegate, roomOptions: roomOptions)
+            let room = Room(delegate: $0.element.delegate, connectOptions: connectOptions, roomOptions: roomOptions)
             let identity = "identity-\($0.offset)"
             let token = try liveKitServerToken(for: roomName,
                                                identity: identity,
