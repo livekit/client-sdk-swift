@@ -19,7 +19,7 @@ import Foundation
 actor SerialRunnerActor<Value: Sendable> {
     private var previousTask: Task<Value, Error>?
 
-    func run(block: @Sendable @escaping () async throws -> Value) async throws -> Value {
+    func run(block: @Sendable @escaping () async throws -> Value) async rethrows -> Value {
         let task = Task { [previousTask] in
             // Wait for the previous task to complete, but cancel it if needed
             if let previousTask, !Task.isCancelled {
