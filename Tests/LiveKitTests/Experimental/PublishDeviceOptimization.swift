@@ -88,4 +88,23 @@ class PublishDeviceOptimizationTests: LKTestCase {
 
         print("Total time: \(swAll.total())")
     }
+
+    // Concurrent device acquisition publish flow (New)
+    func testConcurrentMicPublish2() async throws {
+        var swAll = Stopwatch(label: "Test: Concurrent publish sequence")
+
+        let testRoom = try createRoomForTesting(options: RoomTestingOptions(canPublish: true))
+
+        swAll.split(label: "Create async connect")
+        async let connectAsync: () = testRoom.room.connect(url: testRoom.url, token: testRoom.token)
+        async let enableMicAsync = testRoom.room.localParticipant.setMicrophone(enabled: true)
+
+        swAll.split(label: "Start connecting")
+        try await _ = (connectAsync, enableMicAsync)
+
+        swAll.split(label: "Connect complete")
+        print(swAll)
+
+        print("Total time: \(swAll.total())")
+    }
 }
