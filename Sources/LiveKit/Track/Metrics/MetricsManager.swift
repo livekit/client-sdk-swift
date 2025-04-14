@@ -42,9 +42,14 @@ actor MetricsManager: Loggable {
 
     private init() {}
 
-    func sendUsing(identity: Participant.Identity?, transport: Transport?) {
+    func startSending(identity: Participant.Identity?, transport: @escaping Transport) {
         self.transport = transport
         self.identity = identity
+    }
+
+    func stopSending() {
+        transport = nil
+        identity = nil
     }
 
     private func sendMetrics(statistics: TrackStatistics) async {
